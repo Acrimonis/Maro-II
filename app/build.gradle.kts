@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "nico.android.maro2"
+    namespace = "ykws.android.maro"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "nico.android.maro"
+        applicationId = "ykws.android.maro"
         minSdk = 26
         targetSdk = 34
         versionCode = 1
