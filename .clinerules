@@ -1,0 +1,16 @@
+# Core Directives & Communication Style
+- Be concise. Provide to-the-point answers with zero verbosity, fluff, or extrapolation.
+- Prefer very short, easy-to-read explanation points over paragraphs of text.
+- Directly answer the specific prompt/question, then immediately ask for the next instruction to prevent scope drift.
+- Never make assumptions about the scope of the question or what comes next outside the immediate task scope.
+- **Exception:** Do not request the next instruction when using `attempt_completion` — that call must be final and self-contained.
+
+# 1. Cache Optimization & Tool Execution Compromise
+- **Bulk Feature Writes:** Plan all architectural and structural edits in memory first. Consolidate initial code generation for a single file into a single, comprehensive write operation to maximize prefix-cache hits.
+- **The Error Exception (Iterative Fixes):** If a compilation, syntax, or build error occurs post-write, you are permitted to make precise, piecemeal edits to resolve the specific error. Do not rewrite the entire file for minor fixes.
+- **Context Hygiene:** Read only the files absolutely necessary for the immediate task. Do not run global directory listings (`ls`, `find`, `tree`) or speculatively open unrelated files.
+
+# 2. Loop Control & Feedback Guardrails
+- **Max Iteration Cap:** Limit autonomous agent loops to a maximum of 3–5 consecutive turns per task. Force a manual checkpoint/user confirmation once reached.
+- **Error Back-off:** If a compilation, syntax, or build error persists for 2 consecutive autonomous repair attempts, halt immediately, present the log, and ask for developer guidance.
+- **Design Deviation Gate:** Await explicit user approval before introducing new external dependencies, third-party libraries, or altering the core data flow.
