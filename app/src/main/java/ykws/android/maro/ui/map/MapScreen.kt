@@ -8,8 +8,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -57,6 +60,11 @@ import ykws.android.maro.data.model.LatLng
 
 /**
  * Compose screen rendering the coastline on an OSMdroid map.
+ *
+ * Landscape: dashboard panel anchored to the left edge
+ * (width = screen height ÷ 2, full height), map fills the right area.
+ *
+ * Portrait: map on top, dashboard bar at the bottom.
  */
 @Composable
 fun MapScreen(
@@ -70,133 +78,234 @@ fun MapScreen(
     var mapView by mutableStateOf<MapView?>(null)
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        val dashboardHeight = maxWidth / 3
+        val isLandscape = maxWidth > maxHeight
+        val landscapeDashboardWidth = maxHeight * 2 / 3 // dashboard width = ⅔ screen height
+        val portraitDashboardHeight = maxWidth / 3
 
-        Column(modifier = Modifier.fillMaxSize()) {
-            // ── Map area (fills remaining space) ────────────────────────────
-            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                val polylines = when (state) {
-                    is CoastlineState.Ready -> (state as CoastlineState.Ready).polylines.map { it.points }
-                    else -> emptyList()
-                }
-                CoastlineMapView(
-                    polylines = polylines,
-                    center = mapCenter,
-                    onCenterChanged = viewModel::updateMapCenter,
-                    onMapViewReady = { mapView = it },
-                    modifier = Modifier.fillMaxSize()
+        if (isLandscape) {
+            // ── LANDSCAPE: Dashboard (left) + Map (right) ──────────────────
+            Row(modifier = Modifier.fillMaxSize()) {
+                DashboardPanel(
+                    state = state,
+                    isWater = isWater,
+                    onGenerate = { viewModel.loadCoastline() },
+                    modifier = Modifier
+                        .width(landscapeDashboardWidth)
+                        .fillMaxHeight()
                 )
 
-                // ── Zoom buttons (bottom-right of map) ───────────────────────
-                if (mapView != null) {
-                    Column(
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(end = 12.dp, bottom = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        ZoomButton(icon = Icons.Default.Add, desc = "Zoom avant", onClick = { mapView?.controller?.zoomIn() })
-                        ZoomButton(icon = null, desc = "Zoom arrière", label = "−", onClick = { mapView?.controller?.zoomOut() })
-                    }
-                }
-
-                // ── Center position marker ──────────────────────────────────
-                CenterMarkerOverlay(modifier = Modifier.align(Alignment.Center))
-
-                // ── Loading progress overlay ────────────────────────────────
-                if (state is CoastlineState.Loading) {
-                    LoadingOverlay(
-                        progress = progress,
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(bottom = 56.dp)
-                    )
-                }
-
-                // ── Error overlay ───────────────────────────────────────────
-                if (state is CoastlineState.Error) {
-                    ErrorOverlay(
-                        message = (state as CoastlineState.Error).message,
-                        onRetry = { viewModel.loadCoastline() },
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(bottom = 56.dp)
-                    )
-                }
+                // Map fills the remaining horizontal space
+                MapContent(
+                    state = state,
+                    progress = progress,
+                    mapCenter = mapCenter,
+                    mapView = mapView,
+                    onCenterChanged = viewModel::updateMapCenter,
+                    onMapViewReady = { mapView = it },
+                    onRetry = { viewModel.loadCoastline() },
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                )
             }
+        } else {
+            // ── PORTRAIT: Map (top) + Dashboard (bottom) ───────────────────
+            Column(modifier = Modifier.fillMaxSize()) {
+                MapContent(
+                    state = state,
+                    progress = progress,
+                    mapCenter = mapCenter,
+                    mapView = mapView,
+                    onCenterChanged = viewModel::updateMapCenter,
+                    onMapViewReady = { mapView = it },
+                    onRetry = { viewModel.loadCoastline() },
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                )
 
-            // ── Dashboard panel ─────────────────────────────────────────────
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(dashboardHeight)
-                    .background(ComposeColor(0xFF1A1A2E))
-                    .padding(horizontal = 16.dp, vertical = 12.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Button(
-                        onClick = { viewModel.loadCoastline() },
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(end = 12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = ComposeColor(0xFF1565C0),
-                            disabledContainerColor = ComposeColor(0x401565C0),
-                            disabledContentColor = ComposeColor(0x99B0BEC5)
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        enabled = state !is CoastlineState.Loading
-                    ) {
-                        Text(
-                            text = when (state) {
-                                is CoastlineState.Idle -> "Générer la côte"
-                                is CoastlineState.Loading -> "Génération en cours…"
-                                else -> "Régénérer la côte"
-                            },
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-
-                    WaterShoreIndicator(
-                        isWater = isWater,
-                        modifier = Modifier.size(width = 72.dp, height = 56.dp)
-                    )
-                }
+                DashboardPanel(
+                    state = state,
+                    isWater = isWater,
+                    onGenerate = { viewModel.loadCoastline() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(portraitDashboardHeight)
+                )
             }
         }
     }
 }
 
-// ── Water / Shore indicator ─────────────────────────────────────────────────
+// ── Dashboard panel ──────────────────────────────────────────────────────────
 
+/**
+ * Dashboard panel containing the generate button and earth/water toggle.
+ *
+ * Uses a [FlowRow] anchored to the bottom of the panel so the button and
+ * icon sit side-by-side when horizontal space allows, wrapping to a second
+ * line without clipping when the dashboard is too narrow.
+ */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun WaterShoreIndicator(
+private fun DashboardPanel(
+    state: CoastlineState,
     isWater: Boolean,
+    onGenerate: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
+    Box(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(ComposeColor(0xEEFFFFFF))
-            .padding(8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .background(ComposeColor(0xFF1A1A2E))
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        FlowRow(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
+            verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)
+        ) {
+            // ── Generate button ───────────────────────────────────────────
+            Button(
+                onClick = onGenerate,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ComposeColor(0xFF1565C0),
+                    disabledContainerColor = ComposeColor(0x401565C0),
+                    disabledContentColor = ComposeColor(0x99B0BEC5)
+                ),
+                shape = RoundedCornerShape(12.dp),
+                enabled = state !is CoastlineState.Loading
+            ) {
+                Text(
+                    text = when (state) {
+                        is CoastlineState.Idle -> "G\u00E9n\u00E9rer la c\u00F4te"
+                        is CoastlineState.Loading -> "G\u00E9n\u00E9ration en cours\u2026"
+                        else -> "R\u00E9g\u00E9n\u00E9rer la c\u00F4te"
+                    },
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            // ── Earth / Water toggle ──────────────────────────────────────
+            EarthWaterIcon(
+                emoji = if (isWater) "\uD83C\uDF0A" else "\uD83C\uDFD4\uFE0F",
+                isActive = true,
+                activeColor = if (isWater) ComposeColor(0xFF1565C0) else ComposeColor(0xFF2E7D32),
+                contentDescription = if (isWater) "Eau" else "Terre"
+            )
+        }
+    }
+}
+
+// ── Earth / Water icon control ───────────────────────────────────────────────
+
+/**
+ * A 44×44 dp icon square representing either water (🌊) or earth (🏔️).
+ *
+ * No text caption — icon only. The background tint indicates whether this
+ * side is currently active based on the map center position.
+ */
+@Composable
+private fun EarthWaterIcon(
+    emoji: String,
+    isActive: Boolean,
+    activeColor: ComposeColor,
+    contentDescription: String,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .size(44.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(
+                if (isActive) activeColor.copy(alpha = 0.30f)
+                else ComposeColor(0xEEFFFFFF)
+            ),
+        contentAlignment = Alignment.Center
     ) {
         Text(
-            text = if (isWater) "🌊" else "🏔️",
-            fontSize = 20.sp
+            text = emoji,
+            fontSize = 22.sp
         )
-        Text(
-            text = if (isWater) "EAU" else "TERRE",
-            fontSize = 11.sp,
-            fontWeight = FontWeight.Bold,
-            color = if (isWater) ComposeColor(0xFF1565C0) else ComposeColor(0xFF2E7D32)
+    }
+}
+
+// ── Map content area (shared by landscape & portrait) ────────────────────────
+
+/**
+ * Map view with overlays: zoom buttons, center marker, loading & error states.
+ */
+@Composable
+private fun MapContent(
+    state: CoastlineState,
+    progress: GenerationProgress,
+    mapCenter: LatLng,
+    mapView: MapView?,
+    onCenterChanged: (Double, Double) -> Unit,
+    onMapViewReady: (MapView) -> Unit,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(modifier = modifier) {
+        val polylines = when (state) {
+            is CoastlineState.Ready -> (state as CoastlineState.Ready).polylines.map { it.points }
+            else -> emptyList()
+        }
+        CoastlineMapView(
+            polylines = polylines,
+            center = mapCenter,
+            onCenterChanged = onCenterChanged,
+            onMapViewReady = onMapViewReady,
+            modifier = Modifier.fillMaxSize()
         )
+
+        // ── Zoom buttons (bottom-right of map) ────────────────────────────
+        if (mapView != null) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 12.dp, bottom = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                ZoomButton(
+                    icon = Icons.Default.Add,
+                    desc = "Zoom avant",
+                    onClick = { mapView?.controller?.zoomIn() }
+                )
+                ZoomButton(
+                    icon = null,
+                    desc = "Zoom arri\u00E8re",
+                    label = "\u2212",
+                    onClick = { mapView?.controller?.zoomOut() }
+                )
+            }
+        }
+
+        // ── Center position marker ────────────────────────────────────────
+        CenterMarkerOverlay(modifier = Modifier.align(Alignment.Center))
+
+        // ── Loading progress overlay ──────────────────────────────────────
+        if (state is CoastlineState.Loading) {
+            LoadingOverlay(
+                progress = progress,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 56.dp)
+            )
+        }
+
+        // ── Error overlay ─────────────────────────────────────────────────
+        if (state is CoastlineState.Error) {
+            ErrorOverlay(
+                message = (state as CoastlineState.Error).message,
+                onRetry = onRetry,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 56.dp)
+            )
+        }
     }
 }
 
@@ -220,7 +329,7 @@ private fun LoadingOverlay(
         )
 
         Text(
-            text = "Chargement de la côte…",
+            text = "Chargement de la c\u00F4te\u2026",
             color = ComposeColor(0xFF1565C0),
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold
@@ -290,7 +399,7 @@ private fun ErrorOverlay(
             )
         ) {
             Text(
-                text = "Réessayer",
+                text = "R\u00E9essayer",
                 color = ComposeColor(0xFFC62828),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold
