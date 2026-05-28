@@ -39,6 +39,7 @@ import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Polyline
 import ykws.android.maro.data.model.CoastlineState
+import ykws.android.maro.data.model.GenerationProgress
 import ykws.android.maro.data.model.LatLng
 
 /**
@@ -56,6 +57,14 @@ fun MapScreen(
 
     Box(modifier = modifier.fillMaxSize()) {
         when (val s = state) {
+            is CoastlineState.Idle -> {
+                // Show empty map — generation not started yet
+                CoastlineMapView(
+                    polylines = emptyList(),
+                    center = mapCenter,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
             is CoastlineState.Loading -> {
                 // Show map background even while loading
                 CoastlineMapView(
@@ -117,8 +126,11 @@ fun MapScreen(
             enabled = state !is CoastlineState.Loading
         ) {
             Text(
-                text = if (state is CoastlineState.Loading) "Génération en cours…"
-                       else "Régénérer la côte",
+                text = when (state) {
+                    is CoastlineState.Idle -> "Générer la côte"
+                    is CoastlineState.Loading -> "Génération en cours…"
+                    else -> "Régénérer la côte"
+                },
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -131,10 +143,11 @@ fun MapScreen(
 @Composable
 private fun StatusBar(
     state: CoastlineState,
-    progress: Int,
+    progress: GenerationProgress,
     modifier: Modifier = Modifier
 ) {
     val bgColor = when (state) {
+        is CoastlineState.Idle -> ComposeColor(0xCC757575)    // Grey
         is CoastlineState.Loading -> ComposeColor(0xCC1565C0) // Blue
         is CoastlineState.Ready -> ComposeColor(0xCC2E7D32)   // Green
         is CoastlineState.Error -> ComposeColor(0xCCC62828)   // Red
@@ -157,7 +170,11 @@ private fun StatusBar(
             }
 
             val statusText = when (state) {
-                is CoastlineState.Loading -> "Génération de la côte…"
+                is CoastlineState.Idle -> "Prêt — appuyez sur Générer"
+                is CoastlineState.Loading -> {
+                    val phase = progress.phase
+                    if (phase.isNotEmpty()) phase else "Génération de la côte…"
+                }
                 is CoastlineState.Ready -> {
                     val totalPoints = state.metadata.pointCount
                     val polyCount = state.polylines.size
@@ -175,15 +192,27 @@ private fun StatusBar(
 
         if (state is CoastlineState.Loading) {
             Spacer(modifier = Modifier.height(6.dp))
+
+            // ── Sub-task phase line ─────────────────────────────────────────
+            if (progress.phase.isNotEmpty()) {
+                Text(
+                    text = progress.phase,
+                    color = ComposeColor(0xCCFFFFFF),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Light
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+            }
+
             LinearProgressIndicator(
-                progress = { progress / 100f },
+                progress = { progress.progress / 100f },
                 modifier = Modifier.fillMaxWidth(),
                 color = ComposeColor.White,
                 trackColor = ComposeColor(0x60FFFFFF)
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "$progress%",
+                text = "${progress.progress}%",
                 color = ComposeColor(0xCCFFFFFF),
                 fontSize = 11.sp
             )
@@ -228,7 +257,7 @@ private fun WaterShoreIndicator(
 // ── Loading overlay ─────────────────────────────────────────────────────────
 
 @Composable
-private fun LoadingOverlay(progress: Int) {
+private fun LoadingOverlay(progress: GenerationProgress) {
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center
@@ -240,16 +269,27 @@ private fun LoadingOverlay(progress: Int) {
                 text = "Chargement de la côte…",
                 style = MaterialTheme.typography.bodyLarge
             )
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // ── Sub-task phase ──────────────────────────────────────────────
+            if (progress.phase.isNotEmpty()) {
+                Text(
+                    text = progress.phase,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
             LinearProgressIndicator(
-                progress = { progress / 100f },
+                progress = { progress.progress / 100f },
                 modifier = Modifier
                     .fillMaxWidth(0.6f)
                     .padding(horizontal = 32.dp)
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "$progress%",
+                text = "${progress.progress}%",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -333,7 +373,7 @@ private fun CoastlineMapView(
  * Draws the coastline polylines on the OSMdroid [MapView].
  *
  * Mainland: solid blue (#1565C0), 7px width
- * Islands: lighter blue (#42A5F5), 5px width
+ * Islands:  purple (#9C27B0), 7px width (same thickness)
  */
 private fun drawCoastline(
     mapView: MapView,
@@ -352,9 +392,9 @@ private fun drawCoastline(
             setPoints(osmPoints)
             outlinePaint.apply {
                 color = if (isMainland) Color.parseColor("#FF1565C0")
-                        else Color.parseColor("#FF42A5F5")
-                strokeWidth = if (isMainland) 7f else 5f
-                alpha = if (isMainland) 200 else 160
+                        else Color.parseColor("#FF9C27B0") // Purple
+                strokeWidth = 7f  // same width for mainland and islands
+                alpha = 200       // same opacity for both
                 isAntiAlias = true
             }
         }
