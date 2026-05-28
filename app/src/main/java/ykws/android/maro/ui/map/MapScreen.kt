@@ -153,88 +153,6 @@ fun MapScreen(
     }
 }
 
-// ── Status bar ──────────────────────────────────────────────────────────────
-
-@Composable
-private fun StatusBar(
-    state: CoastlineState,
-    progress: GenerationProgress,
-    modifier: Modifier = Modifier
-) {
-    val bgColor = when (state) {
-        is CoastlineState.Idle -> ComposeColor(0xCC757575)    // Grey
-        is CoastlineState.Loading -> ComposeColor(0xCC1565C0) // Blue
-        is CoastlineState.Ready -> ComposeColor(0xCC2E7D32)   // Green
-        is CoastlineState.Error -> ComposeColor(0xCCC62828)   // Red
-    }
-
-    Column(
-        modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(bgColor)
-            .padding(horizontal = 16.dp, vertical = 10.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (state is CoastlineState.Loading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(16.dp),
-                    strokeWidth = 2.dp,
-                    color = ComposeColor.White
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-            }
-
-            val statusText = when (state) {
-                is CoastlineState.Idle -> "Prêt — appuyez sur Générer"
-                is CoastlineState.Loading -> {
-                    val phase = progress.phase
-                    if (phase.isNotEmpty()) phase else "Génération de la côte…"
-                }
-                is CoastlineState.Ready -> {
-                    val totalPoints = state.metadata.pointCount
-                    val polyCount = state.polylines.size
-                    "$polyCount polylignes, $totalPoints points"
-                }
-                is CoastlineState.Error -> "Erreur : ${state.message}"
-            }
-            Text(
-                text = statusText,
-                color = ComposeColor.White,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium
-            )
-        }
-
-        if (state is CoastlineState.Loading) {
-            Spacer(modifier = Modifier.height(6.dp))
-
-            // ── Sub-task phase line ─────────────────────────────────────────
-            if (progress.phase.isNotEmpty()) {
-                Text(
-                    text = progress.phase,
-                    color = ComposeColor(0xCCFFFFFF),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Light
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-            }
-
-            LinearProgressIndicator(
-                progress = { progress.progress / 100f },
-                modifier = Modifier.fillMaxWidth(),
-                color = ComposeColor.White,
-                trackColor = ComposeColor(0x60FFFFFF)
-            )
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                text = "${progress.progress}%",
-                color = ComposeColor(0xCCFFFFFF),
-                fontSize = 11.sp
-            )
-        }
-    }
-}
-
 // ── Water / Shore indicator ─────────────────────────────────────────────────
 
 @Composable
@@ -277,28 +195,30 @@ private fun LoadingOverlay(
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier.padding(horizontal = 8.dp, vertical = 0.dp),
+        modifier = modifier
+            .fillMaxWidth(0.66f)
+            .padding(horizontal = 8.dp, vertical = 0.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         CircularProgressIndicator(
-            modifier = Modifier.size(10.dp),
-            strokeWidth = 1.5.dp,
+            modifier = Modifier.size(18.dp),
+            strokeWidth = 2.5.dp,
             color = ComposeColor(0xFF1565C0)
         )
 
         Text(
             text = "Chargement de la côte…",
             color = ComposeColor(0xFF1565C0),
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Medium
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold
         )
 
         if (progress.phase.isNotEmpty()) {
             Text(
                 text = progress.phase,
                 color = ComposeColor(0xFF1565C0),
-                fontSize = 8.sp,
-                fontWeight = FontWeight.Medium
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
             )
         }
 
@@ -315,8 +235,8 @@ private fun LoadingOverlay(
             Text(
                 text = "${progress.progress}%",
                 color = ComposeColor(0xFF1565C0),
-                fontSize = 8.sp,
-                fontWeight = FontWeight.Medium
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
             )
         }
     }
