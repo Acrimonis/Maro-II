@@ -1,4 +1,4 @@
-package com.example.newapp
+package ykws.android.maro
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
