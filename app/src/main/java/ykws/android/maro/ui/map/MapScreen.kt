@@ -1,6 +1,8 @@
 package ykws.android.maro.ui.map
 
 import android.graphics.Color
+import ykws.android.maro.R
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,16 +26,23 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color as ComposeColor
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import org.osmdroid.config.Configuration
+import org.osmdroid.events.MapListener
+import org.osmdroid.events.ScrollEvent
+import org.osmdroid.events.ZoomEvent
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
@@ -54,63 +63,66 @@ fun MapScreen(
     val progress by viewModel.progress.collectAsState()
     val mapCenter by viewModel.mapCenter.collectAsState()
     val isWater by viewModel.isWater.collectAsState()
+    var mapView by mutableStateOf<MapView?>(null)
 
     Box(modifier = modifier.fillMaxSize()) {
-        when (val s = state) {
-            is CoastlineState.Idle -> {
-                // Show empty map — generation not started yet
-                CoastlineMapView(
-                    polylines = emptyList(),
-                    center = mapCenter,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-            is CoastlineState.Loading -> {
-                // Show map background even while loading
-                CoastlineMapView(
-                    polylines = emptyList(),
-                    center = mapCenter,
-                    modifier = Modifier.fillMaxSize()
-                )
-                LoadingOverlay(progress = progress)
-            }
-            is CoastlineState.Ready -> {
-                CoastlineMapView(
-                    polylines = s.polylines.map { segment -> segment.points },
-                    center = mapCenter,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
-            is CoastlineState.Error -> {
-                CoastlineMapView(
-                    polylines = emptyList(),
-                    center = mapCenter,
-                    modifier = Modifier.fillMaxSize()
-                )
-                ErrorOverlay(
-                    message = s.message,
-                    onRetry = { viewModel.loadCoastline() },
-                    modifier = Modifier.fillMaxSize()
-                )
+        // ── Single map view – polylines derived from state ──────────────────
+        val polylines = when (state) {
+            is CoastlineState.Ready -> (state as CoastlineState.Ready).polylines.map { it.points }
+            else -> emptyList()
+        }
+        CoastlineMapView(
+            polylines = polylines,
+            center = mapCenter,
+            onCenterChanged = viewModel::updateMapCenter,
+            onMapViewReady = { mapView = it },
+            modifier = Modifier.fillMaxSize()
+        )
+
+        // ── Zoom buttons (right edge, vertically centered) ──────────────────
+        if (mapView != null) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                ZoomButton(text = "+") { mapView?.controller?.zoomIn() }
+                ZoomButton(text = "−") { mapView?.controller?.zoomOut() }
             }
         }
 
-        // ── Top status bar ─────────────────────────────────────────────────
-        StatusBar(
-            state = state,
-            progress = progress,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 8.dp, start = 8.dp, end = 8.dp)
-        )
+        // ── Center position marker (fixed overlay on screen center) ────────
+        CenterMarkerOverlay(modifier = Modifier.align(Alignment.Center))
 
-        // ── Water/Shore indicator ──────────────────────────────────────────
+        // ── Water/Shore indicator (top right, equal spacing) ───────────────
         WaterShoreIndicator(
             isWater = isWater,
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(top = 64.dp, end = 8.dp)
+                .padding(8.dp)
         )
+
+        // ── Loading progress overlay (above the regenerate button) ─────────
+        if (state is CoastlineState.Loading) {
+            LoadingOverlay(
+                progress = progress,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 120.dp)
+            )
+        }
+
+        // ── Error overlay (above the regenerate button) ────────────────────
+        if (state is CoastlineState.Error) {
+            ErrorOverlay(
+                message = (state as CoastlineState.Error).message,
+                onRetry = { viewModel.loadCoastline() },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 120.dp)
+            )
+        }
 
         // ── Regenerate button ──────────────────────────────────────────────
         Button(
@@ -257,43 +269,48 @@ private fun WaterShoreIndicator(
 // ── Loading overlay ─────────────────────────────────────────────────────────
 
 @Composable
-private fun LoadingOverlay(progress: GenerationProgress) {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
+private fun LoadingOverlay(
+    progress: GenerationProgress,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier.padding(horizontal = 8.dp, vertical = 0.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            CircularProgressIndicator()
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "Chargement de la côte…",
-                style = MaterialTheme.typography.bodyLarge
-            )
-            Spacer(modifier = Modifier.height(4.dp))
+        CircularProgressIndicator(
+            modifier = Modifier.size(12.dp),
+            strokeWidth = 2.dp,
+            color = ComposeColor(0xFF1565C0)
+        )
 
-            // ── Sub-task phase ──────────────────────────────────────────────
-            if (progress.phase.isNotEmpty()) {
-                Text(
-                    text = progress.phase,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-            }
+        Text(
+            text = "Chargement de la côte…",
+            color = ComposeColor(0xFF1565C0),
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium
+        )
 
-            LinearProgressIndicator(
-                progress = { progress.progress / 100f },
-                modifier = Modifier
-                    .fillMaxWidth(0.6f)
-                    .padding(horizontal = 32.dp)
-            )
-            Spacer(modifier = Modifier.height(4.dp))
+        if (progress.phase.isNotEmpty()) {
             Text(
-                text = "${progress.progress}%",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                text = progress.phase,
+                color = ComposeColor(0xFF1565C0),
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Medium
             )
         }
+
+        LinearProgressIndicator(
+            progress = { progress.progress / 100f },
+            modifier = Modifier.fillMaxWidth(0.5f),
+            color = ComposeColor(0xFF1565C0),
+            trackColor = ComposeColor(0x401565C0)
+        )
+        Text(
+            text = "${progress.progress}%",
+            color = ComposeColor(0xFF1565C0),
+            fontSize = 9.sp,
+            fontWeight = FontWeight.Medium
+        )
     }
 }
 
@@ -305,26 +322,38 @@ private fun ErrorOverlay(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(
-        modifier = modifier,
-        contentAlignment = Alignment.Center
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(ComposeColor(0xCCC62828))
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(
-                text = "Erreur",
-                style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.error
+        Text(
+            text = "Erreur",
+            color = ComposeColor.White,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(
+            text = message,
+            color = ComposeColor(0xEEFFFFFF),
+            fontSize = 12.sp
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Button(
+            onClick = onRetry,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = ComposeColor.White
             )
-            Spacer(modifier = Modifier.height(8.dp))
+        ) {
             Text(
-                text = message,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.padding(horizontal = 32.dp)
+                text = "Réessayer",
+                color = ComposeColor(0xFFC62828),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold
             )
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(onClick = onRetry) {
-                Text("Réessayer")
-            }
         }
     }
 }
@@ -335,6 +364,8 @@ private fun ErrorOverlay(
 private fun CoastlineMapView(
     polylines: List<List<LatLng>>,
     center: LatLng,
+    onCenterChanged: (Double, Double) -> Unit = { _, _ -> },
+    onMapViewReady: (MapView) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -355,25 +386,79 @@ private fun CoastlineMapView(
                 controller.setZoom(11.0)
                 controller.setCenter(GeoPoint(center.latitude, center.longitude))
                 drawCoastline(this, polylines)
-            }
+
+                // Listen for map pan/zoom to report new center in real time
+                addMapListener(object : MapListener {
+                    override fun onScroll(event: ScrollEvent): Boolean {
+                        val geo = mapCenter
+                        onCenterChanged(geo.latitude, geo.longitude)
+                        return false
+                    }
+
+                    override fun onZoom(event: ZoomEvent): Boolean {
+                        val geo = mapCenter
+                        onCenterChanged(geo.latitude, geo.longitude)
+                        return false
+                    }
+                })
+            }.also { onMapViewReady(it) }
         },
         update = { mapView ->
             mapView.overlays.removeAll { it is Polyline }
             drawCoastline(mapView, polylines)
-            // Re-center if coastline data loaded
-            if (polylines.isNotEmpty()) {
-                mapView.controller.setCenter(GeoPoint(center.latitude, center.longitude))
-            }
             mapView.invalidate()
         }
     )
+}
+
+// ── Center marker overlay ────────────────────────────────────────────────────
+
+/**
+ * A fixed Maro icon drawn at the center of the screen, simulating the
+ * current GPS position. Stays in place while the map moves beneath it.
+ *
+ * Uses [R.drawable.maro_marker] — the Maro logo with transparent background.
+ * Swap the PNG file to update the marker appearance.
+ */
+@Composable
+private fun CenterMarkerOverlay(modifier: Modifier = Modifier) {
+    Image(
+        painter = painterResource(id = R.drawable.maro_marker),
+        contentDescription = "Position actuelle",
+        modifier = modifier.size(48.dp),
+        contentScale = ContentScale.Fit
+    )
+}
+
+// ── Zoom button (used for map +/- controls) ─────────────────────────────────
+
+@Composable
+private fun ZoomButton(
+    text: String,
+    onClick: () -> Unit
+) {
+    Button(
+        onClick = onClick,
+        modifier = Modifier.size(40.dp),
+        shape = RoundedCornerShape(8.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = ComposeColor(0xEEFFFFFF)
+        )
+    ) {
+        Text(
+            text = text,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = ComposeColor(0xFF1565C0)
+        )
+    }
 }
 
 /**
  * Draws the coastline polylines on the OSMdroid [MapView].
  *
  * Mainland: solid blue (#1565C0), 7px width
- * Islands:  purple (#9C27B0), 7px width (same thickness)
+ * Islands:  blue-leaning purple (#4A70B0), 7px width — slightly distinct from mainland
  */
 private fun drawCoastline(
     mapView: MapView,
@@ -392,7 +477,7 @@ private fun drawCoastline(
             setPoints(osmPoints)
             outlinePaint.apply {
                 color = if (isMainland) Color.parseColor("#FF1565C0")
-                        else Color.parseColor("#FF9C27B0") // Purple
+                        else Color.parseColor("#FF4A70B0") // Blue-leaning purple (more blue than purple)
                 strokeWidth = 7f  // same width for mainland and islands
                 alpha = 200       // same opacity for both
                 isAntiAlias = true
