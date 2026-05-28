@@ -1,4 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Maro II</string>
+    <string name="marker_position">Ma position</string>
+    <string name="loading_coastline">Chargement de la côte…</string>
+    <string name="error_title">Erreur</string>
+    <string name="retry">Réessayer</string>
+    <string name="regenerate">Régénérer la côte</string>
+    <string name="status_loading">Génération de la côte…</string>
+    <string name="status_ready">Côte chargée (%d points)</string>
+    <string name="status_error">Erreur : %s</string>
+    <string name="water_side">Eau</string>
+    <string name="shore_side">Terre</string>
+    <string name="outside_area">Hors zone</string>
 </resources>

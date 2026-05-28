@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Allow cleartext traffic for OSMdroid tile servers and Overpass API -->
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">tile.openstreetmap.org</domain>
+        <domain includeSubdomains="true">overpass-api.de</domain>
+        <domain includeSubdomains="true">overpass.openstreetmap.ru</domain>
+        <domain includeSubdomains="true">overpass.kumi.systems</domain>
+    </domain-config>
+</network-security-config>
