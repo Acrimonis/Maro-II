@@ -26,13 +26,13 @@ Each development machine needs its own SSH key pair added to the
 
 ```bash
 # 1. Generate a dedicated key for this project
-ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519_acrimonis -C "acrimonis@gmail.com"
+ssh-keygen -t ed25519 -f ~/.ssh/id_github_acrimonis -C "acrimonis@gmail.com"
 
 # 2. Print the public key, then add it at https://github.com/settings/ssh/new
-type ~/.ssh/id_ed25519_acrimonis.pub
+type ~/.ssh/id_github_acrimonis.pub
 
 # 3. In the cloned repo, tell Git to use this key
-git config core.sshCommand "ssh -i ~/.ssh/id_ed25519_acrimonis"
+git config core.sshCommand "ssh -i ~/.ssh/id_github_acrimonis"
 ```
 
 > The **private** key (`id_ed25519_acrimonis`) stays on the machine — never commit it.
