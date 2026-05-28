@@ -35,3 +35,9 @@ local.properties
 .cxx/
 *.crc
 *.hprof
+apk-build.bat
+apk-deploy.bat
+Maro_II_app_h2o.png
+app/src/main/java/ykws/android/maro/data/model/CoastlineCache.kt
+app/src/main/java/ykws/android/maro/data/model/GenerationProgress.kt
+app/src/main/res/drawable/maro_marker.png

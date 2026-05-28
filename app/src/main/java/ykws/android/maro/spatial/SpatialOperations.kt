@@ -204,8 +204,9 @@ object SpatialOperations {
      *
      * **Open polylines (mainland):**
      * We pick a reference point 0.1° south of the polyline (which should be sea
-     * for the Mediterranean coast) and check the cross-product against the longest
-     * segment. If the reference is NOT on the right side, we reverse.
+     * for the Mediterranean coast) and check the CUMULATIVE cross-product
+     * across ALL segments. This is more robust than using only the longest
+     * segment, which may have an anomalous angle near bays or boundaries.
      */
     fun ensureWaterOnRight(points: List<LatLng>): List<LatLng> {
         if (points.size < 2) return points
@@ -223,19 +224,17 @@ object SpatialOperations {
         val refLon = (points.first().longitude + points.last().longitude) / 2.0
         val reference = LatLng(refLat, refLon)
 
-        // Find the longest segment; check which side the reference falls on
-        var maxLen = 0.0
-        var refOnRight = false
+        // Aggregate cross-product across ALL segments (not just longest).
+        // If the cumulative cross is negative, the reference (south = sea) is
+        // predominantly on the RIGHT → polyline orientation is correct.
+        var totalCross = 0.0
         for (i in 0 until points.size - 1) {
-            val len = haversine(points[i], points[i + 1])
-            if (len > maxLen) {
-                maxLen = len
-                refOnRight = isRightSide(points[i], points[i + 1], reference)
-            }
+            totalCross += crossProductZ(points[i], points[i + 1], reference)
         }
 
-        // If south=sea is NOT on the right side, the polyline is reversed
-        return if (refOnRight) points else points.reversed()
+        // totalCross < 0 → reference on right → water on right ✓
+        // totalCross > 0 → reference on left  → water on left ✗ → reverse
+        return if (totalCross < 0.0) points else points.reversed()
     }
 
     // ─────────────────────────────────────────────────────────────────────────

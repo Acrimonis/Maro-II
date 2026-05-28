@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ykws.android.maro.ui.map.CoastlineViewModel
@@ -21,6 +22,12 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     val viewModel: CoastlineViewModel = viewModel()
+
+                    // Restore persisted coastline cache on first composition
+                    LaunchedEffect(Unit) {
+                        viewModel.initCache(this@MainActivity)
+                    }
+
                     MapScreen(
                         viewModel = viewModel,
                         modifier = Modifier.fillMaxSize()

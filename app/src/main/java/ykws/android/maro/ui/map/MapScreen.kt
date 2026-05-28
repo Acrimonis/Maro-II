@@ -17,9 +17,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -79,16 +82,16 @@ fun MapScreen(
             modifier = Modifier.fillMaxSize()
         )
 
-        // ── Zoom buttons (right edge, vertically centered) ──────────────────
+        // ── Zoom buttons (right edge, above regenerate button) ──────────────
         if (mapView != null) {
             Column(
                 modifier = Modifier
-                    .align(Alignment.CenterEnd)
-                    .padding(end = 8.dp),
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 8.dp, bottom = 80.dp),
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                ZoomButton(text = "+") { mapView?.controller?.zoomIn() }
-                ZoomButton(text = "−") { mapView?.controller?.zoomOut() }
+                ZoomButton(icon = Icons.Default.Add, desc = "Zoom avant", onClick = { mapView?.controller?.zoomIn() })
+                ZoomButton(icon = null, desc = "Zoom arrière", label = "−", onClick = { mapView?.controller?.zoomOut() })
             }
         }
 
@@ -278,15 +281,15 @@ private fun LoadingOverlay(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         CircularProgressIndicator(
-            modifier = Modifier.size(12.dp),
-            strokeWidth = 2.dp,
+            modifier = Modifier.size(10.dp),
+            strokeWidth = 1.5.dp,
             color = ComposeColor(0xFF1565C0)
         )
 
         Text(
             text = "Chargement de la côte…",
             color = ComposeColor(0xFF1565C0),
-            fontSize = 11.sp,
+            fontSize = 10.sp,
             fontWeight = FontWeight.Medium
         )
 
@@ -294,23 +297,28 @@ private fun LoadingOverlay(
             Text(
                 text = progress.phase,
                 color = ComposeColor(0xFF1565C0),
-                fontSize = 9.sp,
+                fontSize = 8.sp,
                 fontWeight = FontWeight.Medium
             )
         }
 
-        LinearProgressIndicator(
-            progress = { progress.progress / 100f },
-            modifier = Modifier.fillMaxWidth(0.5f),
-            color = ComposeColor(0xFF1565C0),
-            trackColor = ComposeColor(0x401565C0)
-        )
-        Text(
-            text = "${progress.progress}%",
-            color = ComposeColor(0xFF1565C0),
-            fontSize = 9.sp,
-            fontWeight = FontWeight.Medium
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            LinearProgressIndicator(
+                progress = { progress.progress / 100f },
+                modifier = Modifier
+                    .weight(1f)
+                    .height(4.dp),
+                color = ComposeColor(0xFF1565C0),
+                trackColor = ComposeColor(0x401565C0)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = "${progress.progress}%",
+                color = ComposeColor(0xFF1565C0),
+                fontSize = 8.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
     }
 }
 
@@ -434,23 +442,35 @@ private fun CenterMarkerOverlay(modifier: Modifier = Modifier) {
 
 @Composable
 private fun ZoomButton(
-    text: String,
-    onClick: () -> Unit
+    icon: androidx.compose.ui.graphics.vector.ImageVector?,
+    desc: String,
+    onClick: () -> Unit,
+    label: String? = null
 ) {
     Button(
         onClick = onClick,
-        modifier = Modifier.size(40.dp),
-        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier.size(36.dp),
+        shape = CircleShape,
         colors = ButtonDefaults.buttonColors(
-            containerColor = ComposeColor(0xEEFFFFFF)
-        )
+            containerColor = ComposeColor(0xCCFFFFFF)
+        ),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
     ) {
-        Text(
-            text = text,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.Bold,
-            color = ComposeColor(0xFF1565C0)
-        )
+        if (icon != null) {
+            Icon(
+                imageVector = icon,
+                contentDescription = desc,
+                tint = ComposeColor(0xFF1565C0),
+                modifier = Modifier.size(20.dp)
+            )
+        } else if (label != null) {
+            Text(
+                text = label,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                color = ComposeColor(0xFF1565C0)
+            )
+        }
     }
 }
 
