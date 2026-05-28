@@ -87,13 +87,13 @@ fun MapScreen(
                     modifier = Modifier.fillMaxSize()
                 )
 
-                // ── Zoom buttons (centered at bottom of map) ────────────────
+                // ── Zoom buttons (bottom-right of map) ───────────────────────
                 if (mapView != null) {
                     Column(
                         modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(bottom = 8.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                            .align(Alignment.BottomEnd)
+                            .padding(end = 12.dp, bottom = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         ZoomButton(icon = Icons.Default.Add, desc = "Zoom avant", onClick = { mapView?.controller?.zoomIn() })
@@ -322,6 +322,7 @@ private fun CoastlineMapView(
             MapView(ctx).apply {
                 setTileSource(TileSourceFactory.MAPNIK)
                 setMultiTouchControls(true)
+                setBuiltInZoomControls(false)
                 minZoomLevel = 8.0
                 maxZoomLevel = 18.0
                 controller.setZoom(11.0)
@@ -382,7 +383,7 @@ private fun ZoomButton(
 ) {
     Button(
         onClick = onClick,
-        modifier = Modifier.size(36.dp),
+        modifier = Modifier.size(64.dp),
         shape = CircleShape,
         colors = ButtonDefaults.buttonColors(
             containerColor = ComposeColor(0xCCFFFFFF)
@@ -394,12 +395,12 @@ private fun ZoomButton(
                 imageVector = icon,
                 contentDescription = desc,
                 tint = ComposeColor(0xFF1565C0),
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(32.dp)
             )
         } else if (label != null) {
             Text(
                 text = label,
-                fontSize = 20.sp,
+                fontSize = 40.sp,
                 fontWeight = FontWeight.Bold,
                 color = ComposeColor(0xFF1565C0)
             )
