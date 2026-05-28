@@ -35,8 +35,8 @@ type ~/.ssh/id_github_acrimonis.pub
 git config core.sshCommand "ssh -i ~/.ssh/id_github_acrimonis"
 ```
 
-> The **private** key (`id_ed25519_acrimonis`) stays on the machine — never commit it.
-> The **public** key (`id_ed25519_acrimonis.pub`) is uploaded to GitHub only.
+> The **private** key (`id_github_acrimonis`) stays on the machine — **never commit it**.
+> The **public** key (`id_github_acrimonis.pub`) is uploaded to GitHub only.
 
 ---
 
@@ -137,6 +137,56 @@ git push --tags
 │           └── MainActivity.kt
 └── README.md
 ```
+
+---
+
+## FAQ
+
+### Why isn't the SSH key stored in the repository?
+
+The **private key** (`id_github_acrimonis`) authenticates you on GitHub. Committing it would let anyone impersonate you — **never do this**.
+
+The **public key** (`id_github_acrimonis.pub`) is safe to share, but it's already registered on your GitHub account. Storing it in the repo is redundant.
+
+### I cloned on a new machine and `git push` asks for a password — why?
+
+The Git config (user name, SSH command, remote URL) lives in `.git/config`, which is **not version-controlled**. On each new machine you need to re-run:
+
+```bash
+git config user.name "Acrimonis"
+git config user.email "acrimonis@gmail.com"
+git config core.sshCommand "ssh -i ~/.ssh/id_github_acrimonis"
+```
+
+See the [SSH Setup](#ssh-setup-per-machine) section above.
+
+### Why can't I just use my global GitHub account?
+
+You can — this project uses a dedicated `Acrimonis` account for separation. Your global account (`nbadino-doca`) stays untouched and works as before for all other repositories.
+
+### I use TortoiseGit — will the SSH key work?
+
+Yes. TortoiseGit uses the same SSH client as the command line. Point it to the key at:
+
+```
+C:\Users\<you>\.ssh\id_github_acrimonis
+```
+
+Or set it globally in your `%USERPROFILE%\.ssh\config`:
+
+```
+Host github.com
+    IdentityFile ~/.ssh/id_github_acrimonis
+```
+
+### The build failed — what should I check?
+
+| Symptom | Likely cause |
+|---------|-------------|
+| `android.useAndroidX` error | Missing `gradle.properties` with `android.useAndroidX=true` |
+| Compose BOM not found | Check the BOM version exists in `gradle/libs.versions.toml` |
+| SDK platform missing | Run `sdkmanager "platforms;android-34"` |
+| `JAVA_HOME` not set | `set JAVA_HOME=C:\Path\To\JDK` |
 
 ---
 
