@@ -38,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -247,7 +248,7 @@ private fun MapContent(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(modifier = modifier) {
+    Box(modifier = modifier.clipToBounds()) {
         val polylines = when (state) {
             is CoastlineState.Ready -> (state as CoastlineState.Ready).polylines.map { it.points }
             else -> emptyList()
@@ -428,6 +429,7 @@ private fun CoastlineMapView(
                 osmdroidTileCache = java.io.File(ctx.cacheDir, "tiles").also { it.mkdirs() }
             }
 
+            @Suppress("DEPRECATION")
             MapView(ctx).apply {
                 setTileSource(TileSourceFactory.MAPNIK)
                 setMultiTouchControls(true)
