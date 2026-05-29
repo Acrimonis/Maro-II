@@ -104,6 +104,7 @@ fun MapScreen(
                     state = state,
                     progress = progress,
                     mapCenter = mapCenter,
+                    isWater = isWater,
                     mapView = mapView,
                     onCenterChanged = viewModel::updateMapCenter,
                     onMapViewReady = { mapView = it },
@@ -120,6 +121,7 @@ fun MapScreen(
                     state = state,
                     progress = progress,
                     mapCenter = mapCenter,
+                    isWater = isWater,
                     mapView = mapView,
                     onCenterChanged = viewModel::updateMapCenter,
                     onMapViewReady = { mapView = it },
@@ -271,6 +273,7 @@ private fun MapContent(
     state: CoastlineState,
     progress: GenerationProgress,
     mapCenter: LatLng,
+    isWater: Boolean,
     mapView: MapView?,
     onCenterChanged: (Double, Double) -> Unit,
     onMapViewReady: (MapView) -> Unit,
@@ -314,7 +317,10 @@ private fun MapContent(
         }
 
         // ── Center position marker ────────────────────────────────────────
-        CenterMarkerOverlay(modifier = Modifier.align(Alignment.Center))
+        CenterMarkerOverlay(
+            isWater = isWater,
+            modifier = Modifier.align(Alignment.Center)
+        )
 
         // ── Loading progress overlay ──────────────────────────────────────
         if (state is CoastlineState.Loading) {
@@ -496,18 +502,25 @@ private fun CoastlineMapView(
 // ── Center marker overlay ────────────────────────────────────────────────────
 
 /**
- * A fixed Maro icon drawn at the center of the screen, simulating the
- * current GPS position. Stays in place while the map moves beneath it.
+ * A fixed icon drawn at the center of the screen, indicating the current
+ * GPS position. Stays in place while the map moves beneath it.
  *
- * Uses [R.drawable.maro_marker] — the Maro logo with transparent background.
- * Swap the PNG file to update the marker appearance.
+ * - On water: displays the Maro boat logo ([R.drawable.maro_marker]).
+ * - On land:  displays a blue dot ([R.drawable.maro_dot_marker]).
  */
 @Composable
-private fun CenterMarkerOverlay(modifier: Modifier = Modifier) {
+private fun CenterMarkerOverlay(
+    isWater: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val drawableId = if (isWater) R.drawable.maro_marker else R.drawable.maro_dot_marker
+    val description = if (isWater) "Position (eau)" else "Position (terre)"
+    val size = if (isWater) 96.dp else 48.dp
+
     Image(
-        painter = painterResource(id = R.drawable.maro_marker),
-        contentDescription = "Position actuelle",
-        modifier = modifier.size(48.dp),
+        painter = painterResource(id = drawableId),
+        contentDescription = description,
+        modifier = modifier.size(size),
         contentScale = ContentScale.Fit
     )
 }

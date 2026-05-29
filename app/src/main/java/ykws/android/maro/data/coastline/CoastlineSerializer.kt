@@ -1,0 +1,154 @@
+package ykws.android.maro.data.coastline
+
+import ykws.android.maro.data.model.BoundingBox
+import ykws.android.maro.data.model.CoastlineData
+import ykws.android.maro.data.model.CoastlineMetadata
+import ykws.android.maro.data.model.CoastlinePoint
+import ykws.android.maro.data.model.CoastlineSegment
+import kotlin.math.sqrt
+
+/**
+ * Serialises [CoastlineData] to/from Protocol Buffers binary format.
+ *
+ * The Protobuf schema is defined in [app/src/main/proto/coastline.proto].
+ * Each coastline point is encoded as 6 packed float32 values:
+ *   lat, lon, xM, yM, edgeDxM, edgeDyM  (= 24 bytes per point)
+ *
+ * Usage:
+ *   val bytes = CoastlineSerializer.serialize(data)
+ *   val restored = CoastlineSerializer.deserialize(bytes)
+ */
+object CoastlineSerializer {
+
+    /**
+     * Converts [CoastlineData] to a Protobuf byte array for disk caching.
+     */
+    fun serialize(data: CoastlineData): ByteArray {
+        val builder = CoastlineProtos.CoastlineCache.newBuilder()
+            .setRegionId(data.regionId)
+            .setLonWest(data.boundingBox.lonWest)
+            .setLonEast(data.boundingBox.lonEast)
+            .setLatSouth(data.boundingBox.latSouth)
+            .setLatNorth(data.boundingBox.latNorth)
+            .setFetchTimestampMs(data.metadata.fetchTimestampMs)
+            .setProjectionRefLat(data.metadata.projectionRefLat)
+            .setEpsilonM(data.metadata.epsilonM ?: 0.0)
+            .setSource(data.metadata.source)
+            .setMainland(segmentToProto(data.mainland))
+
+        for (island in data.islands) {
+            builder.addIslands(segmentToProto(island))
+        }
+
+        return builder.build().toByteArray()
+    }
+
+    /**
+     * Restores [CoastlineData] from a Protobuf byte array read from disk.
+     *
+     * Computes [CoastlineMetadata.meanSpacingM] and [totalLengthKm] from the
+     * edge vectors stored in the packed data rather than storing them redundantly.
+     */
+    fun deserialize(bytes: ByteArray): CoastlineData {
+        val proto = CoastlineProtos.CoastlineCache.parseFrom(bytes)
+
+        val mainland = segmentFromProto(proto.mainland, isMainland = true)
+        val islands = proto.islandsList.map { segmentFromProto(it, isMainland = false) }
+        val allSegments = listOf(mainland) + islands
+
+        val totalPoints = allSegments.sumOf { it.points.size }
+        val totalLength = computeTotalLength(allSegments)
+        val meanSpacing = if (totalPoints > allSegments.size) {
+            totalLength / (totalPoints - allSegments.size)
+        } else 0.0
+
+        return CoastlineData(
+            mainland = mainland,
+            islands = islands,
+            metadata = CoastlineMetadata(
+                source = proto.source,
+                pointCount = totalPoints,
+                meanSpacingM = meanSpacing,
+                totalLengthKm = totalLength / 1000.0,
+                epsilonM = if (proto.epsilonM != 0.0) proto.epsilonM else null,
+                fetchTimestampMs = proto.fetchTimestampMs,
+                projectionRefLat = proto.projectionRefLat
+            ),
+            regionId = proto.regionId,
+            boundingBox = BoundingBox(
+                latSouth = proto.latSouth,
+                latNorth = proto.latNorth,
+                lonWest = proto.lonWest,
+                lonEast = proto.lonEast
+            )
+        )
+    }
+
+    // ── Internal helpers ──────────────────────────────────────────────────────
+
+    /**
+     * Encodes a single [CoastlineSegment] into a Protobuf [Polyline].
+     * Each point is serialised as 6 consecutive floats in the packed data array.
+     */
+    private fun segmentToProto(segment: CoastlineSegment): CoastlineProtos.Polyline {
+        val floats = mutableListOf<Float>()
+        for (pt in segment.points) {
+            floats.add(pt.lat)
+            floats.add(pt.lon)
+            floats.add(pt.xM)
+            floats.add(pt.yM)
+            floats.add(pt.edgeDxM)
+            floats.add(pt.edgeDyM)
+        }
+        return CoastlineProtos.Polyline.newBuilder()
+            .setOsmWayId(segment.osmWayId)
+            .setIsClosed(segment.isClosed)
+            .addAllData(floats)
+            .build()
+    }
+
+    /**
+     * Decodes a Protobuf [Polyline] back into a [CoastlineSegment].
+     * The packed data array is consumed in chunks of 6 floats per point.
+     */
+    private fun segmentFromProto(
+        proto: CoastlineProtos.Polyline,
+        isMainland: Boolean
+    ): CoastlineSegment {
+        val data = proto.dataList  // List<Float>
+        val chunkSize = 6
+        val points = (data.indices step chunkSize).map { i ->
+            CoastlinePoint(
+                lat = data[i],
+                lon = data[i + 1],
+                xM = data[i + 2],
+                yM = data[i + 3],
+                edgeDxM = data[i + 4],
+                edgeDyM = data[i + 5]
+            )
+        }
+        return CoastlineSegment(
+            osmWayId = proto.osmWayId,
+            points = points,
+            isMainland = isMainland,
+            isClosed = proto.isClosed
+        )
+    }
+
+    /**
+     * Sums all edge vector lengths across all segments.
+     * Each point (except the last in a polyline) stores its outgoing edge.
+     */
+    private fun computeTotalLength(segments: List<CoastlineSegment>): Double {
+        var total = 0.0
+        for (seg in segments) {
+            for (pt in seg.points) {
+                total += sqrt(
+                    pt.edgeDxM.toDouble() * pt.edgeDxM.toDouble() +
+                    pt.edgeDyM.toDouble() * pt.edgeDyM.toDouble()
+                )
+            }
+        }
+        return total
+    }
+}
