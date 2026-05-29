@@ -182,8 +182,9 @@ private fun DashboardPanel(
                 } else {
                     "%.0f m".format(distM)
                 }
+                val label = if (isWater) "de la c\u00F4te" else "de la mer"
                 Text(
-                    text = "\u00C0 $displayText de la c\u00F4te",
+                    text = "\u00C0 $displayText $label",
                     color = ComposeColor(0xFFB0BEC5),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium
