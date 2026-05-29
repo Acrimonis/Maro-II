@@ -516,7 +516,7 @@ private fun CenterMarkerOverlay(
 ) {
     val drawableId = if (isWater) R.drawable.maro_marker else R.drawable.maro_dot_marker
     val description = if (isWater) "Position (eau)" else "Position (terre)"
-    val size = if (isWater) 96.dp else 48.dp
+    val size = if (isWater) 64.dp else 32.dp
 
     Image(
         painter = painterResource(id = drawableId),
