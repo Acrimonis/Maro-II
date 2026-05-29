@@ -32,7 +32,7 @@ import kotlin.math.PI
  */
 class CoastlineGenerator(
     private val islandMaxDistanceNm: Double = 6.0,
-    private val simplifyEpsilonM: Double = 3.0
+    private val simplifyEpsilonM: Double = 8.0
 ) {
     // ── Constants ───────────────────────────────────────────────────────────
 
@@ -121,7 +121,7 @@ class CoastlineGenerator(
 
         // Explicit islands: keep if within range
         for (island in islandPolylines) {
-            if (SpatialOperations.polylinesMinDistance(mainCoastline.points, island.points) <= islandMaxDistM) {
+            if (SpatialOperations.polylinesMinDistance(mainCoastline.points, island.points, islandMaxDistM) <= islandMaxDistM) {
                 allIslands.add(island)
             }
         }
@@ -129,7 +129,7 @@ class CoastlineGenerator(
         // Mainland fragments that aren't the main coast: check if they're islands
         val otherFragments = mainlandPolylines.filter { it !== mainCoastline }
         for (fragment in otherFragments) {
-            if (SpatialOperations.polylinesMinDistance(mainCoastline.points, fragment.points) <= islandMaxDistM) {
+            if (SpatialOperations.polylinesMinDistance(mainCoastline.points, fragment.points, islandMaxDistM) <= islandMaxDistM) {
                 allIslands.add(fragment)
             }
         }
