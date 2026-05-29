@@ -11,7 +11,10 @@ import kotlin.math.*
  */
 object SpatialOperations {
 
-    private const val EARTH_RADIUS_M = 6_371_000.0
+    /**
+     * Earth radius in meters (WGS84 mean radius).
+     */
+    const val EARTH_RADIUS_M = 6_371_000.0
 
     // ─────────────────────────────────────────────────────────────────────────
     // Distance helpers

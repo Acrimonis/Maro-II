@@ -58,8 +58,8 @@ class CoastlineViewModel(
             if (currentState is CoastlineState.Ready && currentState.polylines.isNotEmpty()) {
                 val allPoints = currentState.polylines.flatMap { seg -> seg.points }
                 if (allPoints.isNotEmpty()) {
-                    val avgLat = allPoints.sumOf { it.latitude } / allPoints.size
-                    val avgLon = allPoints.sumOf { it.longitude } / allPoints.size
+                    val avgLat = allPoints.sumOf { it.lat.toDouble() } / allPoints.size
+                    val avgLon = allPoints.sumOf { it.lon.toDouble() } / allPoints.size
                     _mapCenter.value = LatLng(avgLat, avgLon)
 
                     // Set the water test point ~5 km south of center

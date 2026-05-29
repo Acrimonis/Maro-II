@@ -38,6 +38,8 @@ import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Polyline
+import ykws.android.maro.data.model.CoastlinePoint
+import ykws.android.maro.data.model.CoastlineSegment
 import ykws.android.maro.data.model.CoastlineState
 import ykws.android.maro.data.model.LatLng
 
@@ -59,7 +61,7 @@ fun MapScreen(
             is CoastlineState.Loading -> {
                 // Show map background even while loading
                 CoastlineMapView(
-                    polylines = emptyList(),
+                    segments = emptyList(),
                     center = mapCenter,
                     modifier = Modifier.fillMaxSize()
                 )
@@ -67,14 +69,14 @@ fun MapScreen(
             }
             is CoastlineState.Ready -> {
                 CoastlineMapView(
-                    polylines = s.polylines.map { segment -> segment.points },
+                    segments = s.data.allSegments,
                     center = mapCenter,
                     modifier = Modifier.fillMaxSize()
                 )
             }
             is CoastlineState.Error -> {
                 CoastlineMapView(
-                    polylines = emptyList(),
+                    segments = emptyList(),
                     center = mapCenter,
                     modifier = Modifier.fillMaxSize()
                 )
@@ -160,7 +162,7 @@ private fun StatusBar(
                 is CoastlineState.Loading -> "Génération de la côte…"
                 is CoastlineState.Ready -> {
                     val totalPoints = state.metadata.pointCount
-                    val polyCount = state.polylines.size
+                    val polyCount = state.data.allSegments.size
                     "$polyCount polylignes, $totalPoints points"
                 }
                 is CoastlineState.Error -> "Erreur : ${state.message}"
@@ -293,7 +295,7 @@ private fun ErrorOverlay(
 
 @Composable
 private fun CoastlineMapView(
-    polylines: List<List<LatLng>>,
+    segments: List<CoastlineSegment>,
     center: LatLng,
     modifier: Modifier = Modifier
 ) {
@@ -314,14 +316,14 @@ private fun CoastlineMapView(
                 maxZoomLevel = 18.0
                 controller.setZoom(11.0)
                 controller.setCenter(GeoPoint(center.latitude, center.longitude))
-                drawCoastline(this, polylines)
+                drawCoastline(this, segments)
             }
         },
         update = { mapView ->
             mapView.overlays.removeAll { it is Polyline }
-            drawCoastline(mapView, polylines)
+            drawCoastline(mapView, segments)
             // Re-center if coastline data loaded
-            if (polylines.isNotEmpty()) {
+            if (segments.isNotEmpty()) {
                 mapView.controller.setCenter(GeoPoint(center.latitude, center.longitude))
             }
             mapView.invalidate()
@@ -330,31 +332,28 @@ private fun CoastlineMapView(
 }
 
 /**
- * Draws the coastline polylines on the OSMdroid [MapView].
+ * Draws the coastline segments on the OSMdroid [MapView].
  *
  * Mainland: solid blue (#1565C0), 7px width
  * Islands: lighter blue (#42A5F5), 5px width
  */
 private fun drawCoastline(
     mapView: MapView,
-    polylines: List<List<LatLng>>
+    segments: List<CoastlineSegment>
 ) {
-    val mainlandIdx = if (polylines.size > 1) {
-        polylines.indices.maxByOrNull { polylines[it].size }
-    } else null
-
-    for ((idx, points) in polylines.withIndex()) {
+    for (segment in segments) {
+        val points = segment.points
         if (points.size < 2) continue
-        val isMainland = idx == mainlandIdx
-        val osmPoints = points.map { GeoPoint(it.latitude, it.longitude) }
+
+        val osmPoints = points.map { GeoPoint(it.lat.toDouble(), it.lon.toDouble()) }
 
         val polyline = Polyline().apply {
             setPoints(osmPoints)
             outlinePaint.apply {
-                color = if (isMainland) Color.parseColor("#FF1565C0")
+                color = if (segment.isMainland) Color.parseColor("#FF1565C0")
                         else Color.parseColor("#FF42A5F5")
-                strokeWidth = if (isMainland) 7f else 5f
-                alpha = if (isMainland) 200 else 160
+                strokeWidth = if (segment.isMainland) 7f else 5f
+                alpha = if (segment.isMainland) 200 else 160
                 isAntiAlias = true
             }
         }
