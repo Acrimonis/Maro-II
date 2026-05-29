@@ -11,7 +11,7 @@ import kotlin.math.*
  */
 object SpatialOperations {
 
-    private const val EARTH_RADIUS_M = 6_371_000.0
+    internal const val EARTH_RADIUS_M = 6_371_000.0
 
     // ─────────────────────────────────────────────────────────────────────────
     // Distance helpers
@@ -62,6 +62,44 @@ object SpatialOperations {
         val cx = ax + t * abx
         val cy = ay + t * aby
         return sqrt((px - cx).pow(2) + (py - cy).pow(2))
+    }
+
+    /**
+     * Projects point [p] onto line segment [a]→[b] and returns the closest
+     * point *on the segment* in geographic coordinates.
+     *
+     * Uses the same local planar projection as [pointToSegmentDistance].
+     * When a==b (degenerate segment), returns [a].
+     *
+     * This is the companion to [pointToSegmentDistance] — use this when
+     * you need the *where* in addition to the *how far*.
+     */
+    fun projectPointOntoSegment(p: LatLng, a: LatLng, b: LatLng): LatLng {
+        val midLat = (p.latitude + a.latitude + b.latitude) / 3.0
+        val mPerDegLat = EARTH_RADIUS_M * PI / 180.0
+        val mPerDegLon = mPerDegLat * cos(Math.toRadians(midLat))
+
+        val px = p.longitude * mPerDegLon
+        val py = p.latitude * mPerDegLat
+        val ax = a.longitude * mPerDegLon
+        val ay = a.latitude * mPerDegLat
+        val bx = b.longitude * mPerDegLon
+        val by = b.latitude * mPerDegLat
+
+        val abx = bx - ax
+        val aby = by - ay
+        val abLenSq = abx * abx + aby * aby
+
+        if (abLenSq == 0.0) return a
+
+        val t = (((px - ax) * abx + (py - ay) * aby) / abLenSq).coerceIn(0.0, 1.0)
+        val cx = ax + t * abx
+        val cy = ay + t * aby
+
+        return LatLng(
+            latitude = cy / mPerDegLat,
+            longitude = cx / mPerDegLon
+        )
     }
 
     /**

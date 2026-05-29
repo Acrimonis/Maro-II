@@ -61,6 +61,11 @@ class CoastlineViewModel(
     private val _isWater = MutableStateFlow(true)
     val isWater: StateFlow<Boolean> = _isWater.asStateFlow()
 
+    /** Distance (meters) from the current map center to the nearest coastline point.
+     * `null` when no coastline is loaded or distance cannot be computed. */
+    private val _distanceToShore = MutableStateFlow<Double?>(null)
+    val distanceToShore: StateFlow<Double?> = _distanceToShore.asStateFlow()
+
     /**
      * (Re)load the coastline data from the Overpass API.
      * Clears the local cache first so the next launch fetches fresh data.
@@ -91,6 +96,9 @@ class CoastlineViewModel(
     fun updateMapCenter(latitude: Double, longitude: Double) {
         _mapCenter.value = LatLng(latitude, longitude)
         _isWater.value = repository.isOnWater(latitude, longitude)
+        val result = repository.distanceToCoast(latitude, longitude)
+        _distanceToShore.value = if (result.distanceMeters == Double.MAX_VALUE) null
+                                else result.distanceMeters
     }
 
     /**
@@ -98,6 +106,12 @@ class CoastlineViewModel(
      */
     fun isOnWater(latitude: Double, longitude: Double): Boolean =
         repository.isOnWater(latitude, longitude)
+
+    /**
+     * Distance and closest point from a GPS position to the coastline.
+     */
+    fun distanceToCoast(latitude: Double, longitude: Double) =
+        repository.distanceToCoast(latitude, longitude)
 
     /**
      * Distance from a GPS position to the nearest coastline point (meters).

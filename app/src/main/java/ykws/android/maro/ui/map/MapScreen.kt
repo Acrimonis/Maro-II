@@ -76,6 +76,7 @@ fun MapScreen(
     val progress by viewModel.progress.collectAsState()
     val mapCenter by viewModel.mapCenter.collectAsState()
     val isWater by viewModel.isWater.collectAsState()
+    val distanceToShore by viewModel.distanceToShore.collectAsState()
     var mapView by mutableStateOf<MapView?>(null)
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
@@ -89,6 +90,7 @@ fun MapScreen(
                 DashboardPanel(
                     state = state,
                     isWater = isWater,
+                    distanceToShore = distanceToShore,
                     onGenerate = { viewModel.loadCoastline() },
                     modifier = Modifier
                         .width(landscapeDashboardWidth)
@@ -128,6 +130,7 @@ fun MapScreen(
                 DashboardPanel(
                     state = state,
                     isWater = isWater,
+                    distanceToShore = distanceToShore,
                     onGenerate = { viewModel.loadCoastline() },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -152,6 +155,7 @@ fun MapScreen(
 private fun DashboardPanel(
     state: CoastlineState,
     isWater: Boolean,
+    distanceToShore: Double?,
     onGenerate: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -161,40 +165,63 @@ private fun DashboardPanel(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
-        FlowRow(
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
-            verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // ── Generate button ───────────────────────────────────────────
-            Button(
-                onClick = onGenerate,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = ComposeColor(0xFF1565C0),
-                    disabledContainerColor = ComposeColor(0x401565C0),
-                    disabledContentColor = ComposeColor(0x99B0BEC5)
-                ),
-                shape = RoundedCornerShape(12.dp),
-                enabled = state !is CoastlineState.Loading
-            ) {
+            // ── Distance to shore ────────────────────────────────────────
+            if (state is CoastlineState.Ready && distanceToShore != null) {
+                val distM = distanceToShore
+                val distKm = distM / 1000.0
+                val displayText = if (distM >= 1000.0) {
+                    "%.1f km".format(distKm)
+                } else {
+                    "%.0f m".format(distM)
+                }
                 Text(
-                    text = when (state) {
-                        is CoastlineState.Idle -> "G\u00E9n\u00E9rer la c\u00F4te"
-                        is CoastlineState.Loading -> "G\u00E9n\u00E9ration en cours\u2026"
-                        else -> "R\u00E9g\u00E9n\u00E9rer la c\u00F4te"
-                    },
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
+                    text = "\u00C0 $displayText de la c\u00F4te",
+                    color = ComposeColor(0xFFB0BEC5),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
                 )
+                Spacer(modifier = Modifier.height(8.dp))
             }
 
-            // ── Earth / Water toggle ──────────────────────────────────────
-            EarthWaterIcon(
-                emoji = if (isWater) "\uD83C\uDF0A" else "\uD83C\uDFD4\uFE0F",
-                isActive = true,
-                activeColor = if (isWater) ComposeColor(0xFF1565C0) else ComposeColor(0xFF2E7D32),
-                contentDescription = if (isWater) "Eau" else "Terre"
-            )
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
+                verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)
+            ) {
+                // ── Generate button ───────────────────────────────────────
+                Button(
+                    onClick = onGenerate,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = ComposeColor(0xFF1565C0),
+                        disabledContainerColor = ComposeColor(0x401565C0),
+                        disabledContentColor = ComposeColor(0x99B0BEC5)
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    enabled = state !is CoastlineState.Loading
+                ) {
+                    Text(
+                        text = when (state) {
+                            is CoastlineState.Idle -> "G\u00E9n\u00E9rer la c\u00F4te"
+                            is CoastlineState.Loading -> "G\u00E9n\u00E9ration en cours\u2026"
+                            else -> "R\u00E9g\u00E9n\u00E9rer la c\u00F4te"
+                        },
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                // ── Earth / Water toggle ──────────────────────────────────
+                EarthWaterIcon(
+                    emoji = if (isWater) "\uD83C\uDF0A" else "\uD83C\uDFD4\uFE0F",
+                    isActive = true,
+                    activeColor = if (isWater) ComposeColor(0xFF1565C0) else ComposeColor(0xFF2E7D32),
+                    contentDescription = if (isWater) "Eau" else "Terre"
+                )
+            }
         }
     }
 }
