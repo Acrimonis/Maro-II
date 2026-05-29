@@ -540,7 +540,7 @@ private const val DOT_BASE_DP  = 32.0
  * 1.0 = resize exactly like the map (doubles every zoom level).
  * 0.3 = gentler curve (~23 % growth per zoom, ~8× over the full 8–18 range).
  */
-private const val ZOOM_EXPONENT = 0.3
+private const val ZOOM_EXPONENT = 0.5
 
 // ── Distance-to-coast shrink ramp ─────────────────────────────────────────────
 // When the map center is close to the coastline, the marker shrinks so it
