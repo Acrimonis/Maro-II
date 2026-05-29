@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import ykws.android.maro.data.model.CoastlineCache
+import ykws.android.maro.data.model.CoastlineData
 import ykws.android.maro.data.model.CoastlineDistanceResult
 import ykws.android.maro.data.model.CoastlineSegment
 import ykws.android.maro.data.model.CoastlineState
@@ -17,6 +18,7 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.spatial.CoastlineSpatialIndex
 import ykws.android.maro.spatial.SpatialOperations
 import java.io.File
+import kotlin.math.*
 
 /**
  * Single source of truth for coastline data.
@@ -40,9 +42,9 @@ class CoastlineRepository(
     val state: StateFlow<CoastlineState> = _state.asStateFlow()
 
     /**
-     * The raw coastline polylines as flat lists. Used by [isOnWater].
+     * The raw coastline data. Used by query methods.
      */
-    private var rawPolylines: List<List<LatLng>> = emptyList()
+    private var coastlineData: CoastlineData? = null
 
     /**
      * Spatial index for fast nearest-coastline queries.
@@ -85,12 +87,12 @@ class CoastlineRepository(
     /**
      * Persists coastline data to local storage.
      */
-    private fun saveCache(result: CoastlineGenerationResult) {
+    private fun saveCache(data: CoastlineData) {
         val file = cacheFile ?: return
         try {
             val cache = CoastlineCache(
-                segments = result.segments,
-                metadata = result.metadata
+                segments = data.allSegments,
+                metadata = data.metadata
             )
             file.writeText(json.encodeToString(CoastlineCache.serializer(), cache))
         } catch (_: Exception) {
@@ -114,44 +116,44 @@ class CoastlineRepository(
         segments: List<CoastlineSegment>,
         metadata: ykws.android.maro.data.model.CoastlineMetadata
     ) {
-        rawPolylines = segments.map { it.points }
         spatialIndex = CoastlineSpatialIndex(segments)
         _state.value = CoastlineState.Ready(
-            polylines = segments,
-            metadata = metadata
+            data = CoastlineData(
+                mainland = segments.firstOrNull() ?: return,
+                islands = segments.drop(1),
+                metadata = metadata,
+                regionId = "nice-frejus",
+                boundingBox = ykws.android.maro.data.model.BoundingBox.EMPTY
+            )
         )
     }
 
     // ── Generation pipeline ──────────────────────────────────────────────────
 
     /**
-     * Launches the full generation pipeline.
+     * Launches the full generation pipeline for the given region.
      * Safe to call multiple times — will replace previous state.
      */
-    suspend fun generate() {
+    suspend fun generate(regionId: String = CoastlineGenerator.REGION_ID) {
         _state.value = CoastlineState.Loading
         _progress.value = GenerationProgress("", 0)
 
         try {
             val result = withContext(ioDispatcher) {
-                generator.generate { phase, pct ->
+                generator.generate(regionId = regionId) { phase, pct ->
                     _progress.value = GenerationProgress(phase, pct)
                 }
             }
 
-            // Store raw polylines for query methods
-            rawPolylines = result.segments.map { it.points }
+            coastlineData = result
 
             // Build spatial index for fast distance queries
-            spatialIndex = CoastlineSpatialIndex(result.segments)
+            spatialIndex = CoastlineSpatialIndex(result.allSegments)
 
             // Persist to local cache for next launch
             saveCache(result)
 
-            _state.value = CoastlineState.Ready(
-                polylines = result.segments,
-                metadata = result.metadata
-            )
+            _state.value = CoastlineState.Ready(data = result)
             _progress.value = GenerationProgress("Terminé", 100)
         } catch (e: Exception) {
             _state.value = CoastlineState.Error(
@@ -160,16 +162,68 @@ class CoastlineRepository(
         }
     }
 
-    // ── Query methods (for future use) ─────────────────────────────────────
+    // ── Query methods (optimized with pre-projected XY) ────────────────────
 
     /**
      * Returns true if the given GPS position is on the water side of the coastline.
-     * Uses the cross-product against the nearest coastline segment.
+     *
+     * Uses pre-projected XY coordinates and edge vectors — no lat/lon to meter
+     * conversion during the per-edge loop. The GPS query point is projected once
+     * using the coastline's reference latitude, then all math is simple 2D Cartesian.
      */
     fun isOnWater(latitude: Double, longitude: Double): Boolean {
-        val polylines = rawPolylines
-        if (polylines.isEmpty()) return true // No data → assume water (safe default)
-        return SpatialOperations.isOnWater(latitude, longitude, polylines)
+        val data = coastlineData ?: return true
+        val refLat = data.metadata.projectionRefLat
+        if (refLat == 0.0) return true
+
+        // Project the GPS query point once using the stored reference latitude
+        val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
+        val mPerDegLon = mPerDegLat * cos(Math.toRadians(refLat))
+        val px = longitude * mPerDegLon
+        val py = latitude * mPerDegLat
+
+        var bestCross = 0.0
+        var bestDist = Double.MAX_VALUE
+        var found = false
+
+        for (segment in data.allSegments) {
+            val pts = segment.points
+            for (i in 0 until pts.size - 1) {
+                val a = pts[i]
+                // Edge start = (a.xM, a.yM), end = (a.xM + a.edgeDxM, a.yM + a.edgeDyM)
+                val ax = a.xM.toDouble()
+                val ay = a.yM.toDouble()
+                val bx = ax + a.edgeDxM
+                val by = ay + a.edgeDyM
+
+                // Fast point-to-segment distance using pre-projected coordinates
+                val abx = bx - ax
+                val aby = by - ay
+                val apx = px - ax
+                val apy = py - ay
+                val abLenSq = abx * abx + aby * aby
+
+                val d = if (abLenSq == 0.0) {
+                    sqrt((px - ax).pow(2) + (py - ay).pow(2))
+                } else {
+                    val t = ((apx * abx + apy * aby) / abLenSq).coerceIn(0.0, 1.0)
+                    val cx = ax + t * abx
+                    val cy = ay + t * aby
+                    sqrt((px - cx).pow(2) + (py - cy).pow(2))
+                }
+
+                if (d < bestDist) {
+                    bestDist = d
+                    // Cross product: (B-A) × (P-A)
+                    bestCross = abx * apy - aby * apx
+                    found = true
+                }
+            }
+        }
+
+        if (!found) return true
+        // z < 0 → right side → water (by orientation convention)
+        return bestCross < 0.0
     }
 
     /**
@@ -196,6 +250,11 @@ class CoastlineRepository(
      */
     fun distanceToCoastMeters(latitude: Double, longitude: Double): Double =
         distanceToCoast(latitude, longitude).distanceMeters
+
+    /**
+     * Returns the cached [CoastlineData] if loaded, null otherwise.
+     */
+    fun getCoastlineData(): CoastlineData? = coastlineData
 
     /**
      * Returns true if the repository has loaded coastline data.

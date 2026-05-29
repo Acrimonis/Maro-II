@@ -110,10 +110,12 @@ class CoastlineSpatialIndex(
 
             for (seg in segments) {
                 for (pt in seg.points) {
-                    if (pt.latitude  < bMinLat) bMinLat = pt.latitude
-                    if (pt.latitude  > bMaxLat) bMaxLat = pt.latitude
-                    if (pt.longitude < bMinLon) bMinLon = pt.longitude
-                    if (pt.longitude > bMaxLon) bMaxLon = pt.longitude
+                    val lat = pt.lat.toDouble()
+                    val lon = pt.lon.toDouble()
+                    if (lat < bMinLat) bMinLat = lat
+                    if (lat > bMaxLat) bMaxLat = lat
+                    if (lon < bMinLon) bMinLon = lon
+                    if (lon > bMaxLon) bMaxLon = lon
                 }
             }
 
@@ -140,8 +142,8 @@ class CoastlineSpatialIndex(
             for ((polyIdx, seg) in segments.withIndex()) {
                 val pts = seg.points
                 for (i in 0 until pts.size - 1) {
-                    val a = pts[i]
-                    val b = pts[i + 1]
+                    val a = LatLng(pts[i].lat.toDouble(), pts[i].lon.toDouble())
+                    val b = LatLng(pts[i + 1].lat.toDouble(), pts[i + 1].lon.toDouble())
                     refs.add(
                         SegmentRef(
                             polylineIdx = polyIdx,

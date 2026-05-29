@@ -36,8 +36,8 @@ class CoastlineViewModel(
                 // Compute initial map center from cached data
                 val allPoints = segments.flatMap { it.points }
                 if (allPoints.isNotEmpty()) {
-                    val avgLat = allPoints.sumOf { it.latitude } / allPoints.size
-                    val avgLon = allPoints.sumOf { it.longitude } / allPoints.size
+                    val avgLat = allPoints.sumOf { it.lat.toDouble() } / allPoints.size
+                    val avgLon = allPoints.sumOf { it.lon.toDouble() } / allPoints.size
                     _mapCenter.value = LatLng(avgLat, avgLon)
                     _isWater.value = repository.isOnWater(avgLat, avgLon)
                 }
@@ -80,8 +80,8 @@ class CoastlineViewModel(
             if (currentState is CoastlineState.Ready && currentState.polylines.isNotEmpty()) {
                 val allPoints = currentState.polylines.flatMap { seg -> seg.points }
                 if (allPoints.isNotEmpty()) {
-                    val avgLat = allPoints.sumOf { it.latitude } / allPoints.size
-                    val avgLon = allPoints.sumOf { it.longitude } / allPoints.size
+                    val avgLat = allPoints.sumOf { it.lat.toDouble() } / allPoints.size
+                    val avgLon = allPoints.sumOf { it.lon.toDouble() } / allPoints.size
                     _mapCenter.value = LatLng(avgLat, avgLon)
                     _isWater.value = repository.isOnWater(avgLat, avgLon)
                 }
