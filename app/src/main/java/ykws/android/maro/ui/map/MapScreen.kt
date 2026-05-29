@@ -55,6 +55,7 @@ import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Polyline
+import kotlin.math.pow
 import ykws.android.maro.data.model.CoastlinePoint
 import ykws.android.maro.data.model.CoastlineSegment
 import ykws.android.maro.data.model.CoastlineState
@@ -518,26 +519,28 @@ private fun CoastlineMapView(
 // ── Center marker overlay ────────────────────────────────────────────────────
 
 // ── Tuning constants for dynamic marker sizing ────────────────────────────────
-// Zoom→dp anchors: piecewise-linear interpolation across [minZoom..maxZoom].
-// The marker grows as you zoom in so it represents a roughly constant ground
-// footprint rather than shrinking into insignificance at street level.
+// The marker resizes like the map itself — exponentially with zoom — but with
+// a mitigating factor so it doesn't grow/shrink as aggressively as ground coverage.
+//
+// Formula:  dp = baseDp × 2^(ZOOM_EXPONENT × (zoomLevel − REF_ZOOM))
+//
+// Map ground coverage doubles every +1 zoom level (exponent = 1.0).
+// At [ZOOM_EXPONENT] = 0.3 the marker grows ~23 % per zoom level instead of 100 %.
 
-/** Map's minimum zoom (must match [MapView.minZoomLevel]). */
-private const val MIN_ZOOM = 8.0
-/** Map's maximum zoom (must match [MapView.maxZoomLevel]). */
-private const val MAX_ZOOM = 18.0
-/** Reference zoom used as the "normal" sizing baseline. */
+/** Reference zoom where the marker is at its [BOAT_BASE_DP] / [DOT_BASE_DP]. */
 private const val REF_ZOOM = 11.0
 
-// Water (boat) marker dp at [MIN_ZOOM], [REF_ZOOM], [MAX_ZOOM]
-private const val BOAT_DP_AT_MIN_ZOOM  = 24.0
-private const val BOAT_DP_AT_REF_ZOOM  = 48.0
-private const val BOAT_DP_AT_MAX_ZOOM  = 96.0
+/** Base dp for the boat marker at [REF_ZOOM]. */
+private const val BOAT_BASE_DP = 48.0
+/** Base dp for the land-dot marker at [REF_ZOOM]. */
+private const val DOT_BASE_DP  = 32.0
 
-// Land (dot) marker dp at [MIN_ZOOM], [REF_ZOOM], [MAX_ZOOM]
-private const val DOT_DP_AT_MIN_ZOOM   = 16.0
-private const val DOT_DP_AT_REF_ZOOM   = 32.0
-private const val DOT_DP_AT_MAX_ZOOM   = 64.0
+/**
+ * Mitigating exponent applied to the zoom delta.
+ * 1.0 = resize exactly like the map (doubles every zoom level).
+ * 0.3 = gentler curve (~23 % growth per zoom, ~8× over the full 8–18 range).
+ */
+private const val ZOOM_EXPONENT = 0.3
 
 // ── Distance-to-coast shrink ramp ─────────────────────────────────────────────
 // When the map center is close to the coastline, the marker shrinks so it
@@ -556,8 +559,8 @@ private const val DIST_SHRINK_RAMP_M   = 2000.0
  * GPS position. Stays in place while the map moves beneath it.
  *
  * Sizing is dynamic:
- * - Follows the map zoom level: bigger when zoomed in (representing constant
- *   ground distance), smaller when zoomed out.
+ * - Follows the map zoom level exponentially with mitigating factor
+ *   [ZOOM_EXPONENT]: bigger when zoomed in, smaller when zoomed out.
  * - Shrinks near the coast (≤ [DIST_SHRINK_RAMP_M] m) to avoid visual
  *   "running aground".
  *
@@ -578,18 +581,11 @@ private fun CenterMarkerOverlay(
     val drawableId = if (isWater) R.drawable.maro_marker else R.drawable.maro_dot_marker
     val description = if (isWater) "Position (eau)" else "Position (terre)"
 
-    // ── Base size: scales with zoom (grows when zoomed in) ────────────────
-    val sizeByZoom = if (isWater) {
-        lerpDp(zoomLevel,
-            MIN_ZOOM to BOAT_DP_AT_MIN_ZOOM,
-            REF_ZOOM to BOAT_DP_AT_REF_ZOOM,
-            MAX_ZOOM to BOAT_DP_AT_MAX_ZOOM)
-    } else {
-        lerpDp(zoomLevel,
-            MIN_ZOOM to DOT_DP_AT_MIN_ZOOM,
-            REF_ZOOM to DOT_DP_AT_REF_ZOOM,
-            MAX_ZOOM to DOT_DP_AT_MAX_ZOOM)
-    }
+    // ── Base size: exponential zoom scaling ───────────────────────────────
+    // dp = baseDp × 2^(ZOOM_EXPONENT × (zoom − REF_ZOOM))
+    val baseDp = if (isWater) BOAT_BASE_DP else DOT_BASE_DP
+    val scaleFactor = 2.0.pow(ZOOM_EXPONENT * (zoomLevel - REF_ZOOM))
+    val sizeByZoomDp = (baseDp * scaleFactor).dp
 
     // ── Distance-to-coast multiplier: [DIST_SHRINK_MIN_MULT] on the coast
     //    → 1.0 at [DIST_SHRINK_RAMP_M] m ───────────────────────────────────
@@ -601,8 +597,7 @@ private fun CenterMarkerOverlay(
         1.0f  // no coastline data → full size
     }
 
-    // Apply the distance multiplier directly to the dp value.
-    val finalSizeDp = (sizeByZoom.value * distMultiplier).dp
+    val finalSizeDp = (sizeByZoomDp.value * distMultiplier).dp
 
     Image(
         painter = painterResource(id = drawableId),
@@ -610,31 +605,6 @@ private fun CenterMarkerOverlay(
         modifier = modifier.size(finalSizeDp),
         contentScale = ContentScale.Fit
     )
-}
-
-/**
- * Linear interpolation in dp-space across a piecewise [zoom]→dp mapping.
- *
- * Clamps [zoom] to the range defined by the first and last key pairs,
- * then interpolates between the nearest two anchors.
- */
-private fun lerpDp(
-    zoom: Double,
-    vararg anchors: Pair<Double, Double>
-): androidx.compose.ui.unit.Dp {
-    val z = zoom.coerceIn(anchors.first().first, anchors.last().first)
-
-    for (i in 0 until anchors.size - 1) {
-        val (z1, s1) = anchors[i]
-        val (z2, s2) = anchors[i + 1]
-        if (z in z1..z2) {
-            val t = ((z - z1) / (z2 - z1)).toFloat()
-            val dp = s1 + (s2 - s1) * t
-            return dp.dp
-        }
-    }
-    // fallback (shouldn't reach here with clamping)
-    return anchors.last().second.dp
 }
 
 // ── Zoom button (used for map +/- controls) ─────────────────────────────────

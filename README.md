@@ -153,19 +153,33 @@ The center-position marker (boat / dot) resizes in real time based on two inputs
 
 All knobs are `private const val` at the top of [`CenterMarkerOverlay`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:526). Change them there and rebuild.
 
-#### Zoom → dp Anchors (piecewise-linear interpolation)
+#### Zoom → dp (exponential, map-like)
+
+```
+dp = baseDp × 2^(ZOOM_EXPONENT × (zoom − REF_ZOOM))
+```
+
+The map ground coverage doubles every +1 zoom level (exponent = 1.0).
+[`ZOOM_EXPONENT`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:543) = 0.3 mitigates this so the marker grows ~23 % per zoom
+instead of 100 %, spanning ~8× over the full 8–18 range.
 
 | Constant | Value | Description |
 |----------|-------|-------------|
-| `MIN_ZOOM` | 8.0 | Map min zoom (must match `MapView.minZoomLevel`) |
-| `MAX_ZOOM` | 18.0 | Map max zoom (must match `MapView.maxZoomLevel`) |
-| `REF_ZOOM` | 11.0 | "Normal" baseline zoom |
-| `BOAT_DP_AT_MIN_ZOOM` | 24.0 | Boat size (dp) at zoom 8 |
-| `BOAT_DP_AT_REF_ZOOM` | 48.0 | Boat size (dp) at zoom 11 |
-| `BOAT_DP_AT_MAX_ZOOM` | 96.0 | Boat size (dp) at zoom 18 |
-| `DOT_DP_AT_MIN_ZOOM` | 16.0 | Land dot size (dp) at zoom 8 |
-| `DOT_DP_AT_REF_ZOOM` | 32.0 | Land dot size (dp) at zoom 11 |
-| `DOT_DP_AT_MAX_ZOOM` | 64.0 | Land dot size (dp) at zoom 18 |
+| `REF_ZOOM` | 11.0 | Zoom where marker is at base dp |
+| `BOAT_BASE_DP` | 48.0 | Boat size (dp) at zoom 11 |
+| `DOT_BASE_DP` | 32.0 | Land dot size (dp) at zoom 11 |
+| `ZOOM_EXPONENT` | 0.3 | Mitigating factor (1.0 = resize exactly like the map) |
+
+| Zoom | Boat dp |
+|------|---------|
+| 8 | ≈ 26 |
+| 9 | ≈ 32 |
+| 10 | ≈ 39 |
+| 11 | 48 |
+| 12 | ≈ 59 |
+| 14 | ≈ 89 |
+| 16 | ≈ 136 |
+| 18 | ≈ 206 |
 
 #### Distance-to-Coast Shrink Ramp
 
