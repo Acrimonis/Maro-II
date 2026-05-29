@@ -9,3 +9,8 @@ You are executing a 100% Greenfield rewrite in a fresh workspace, using the lega
   1. **Domain Extraction:** Isolate processing logic, strip Android framework dependencies, and map to pure Kotlin structures or clean data repositories.
   2. **Reactive State Bridge:** Encapsulate business logic within a Jetpack ViewModel, exposing immutable UI states via Kotlin `StateFlow`. Use Coroutines/Flow for async execution.
   3. **Stateless UI Composition:** Construct pure, stateless Jetpack Compose views that bind directly to the ViewModel's state.
+
+# 2. Token & DeepSeek Cache Optimization (Strict Operational Enforcement)
+- **Zero-Piecemeal Writes:** CRITICAL: Plan all edits in memory first. You are FORBIDDEN from saving a file, checking compilation, and then writing to that same file again in the next turn. Consolidate ALL structural code generation for a single file into exactly ONE write operation.
+- **Cache-Prefix Preservation:** Every small, sequential modification completely invalidates DeepSeek's prefix-cache, multiplying token costs. Group changes across multiple files into bulk write commands whenever possible.
+- **Strict Context Isolation:** DO NOT run global directory listings (`ls`, `find`, `tree`) or view files speculatively. Open ONLY the precise files specified by the user or directly importing the target class. If you require context from a class, read only its interface/public methods, not the entire implementation.

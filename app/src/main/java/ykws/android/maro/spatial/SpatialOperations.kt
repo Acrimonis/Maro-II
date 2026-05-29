@@ -11,7 +11,7 @@ import kotlin.math.*
  */
 object SpatialOperations {
 
-    private const val EARTH_RADIUS_M = 6_371_000.0
+    internal const val EARTH_RADIUS_M = 6_371_000.0
 
     // ─────────────────────────────────────────────────────────────────────────
     // Distance helpers
@@ -62,6 +62,44 @@ object SpatialOperations {
         val cx = ax + t * abx
         val cy = ay + t * aby
         return sqrt((px - cx).pow(2) + (py - cy).pow(2))
+    }
+
+    /**
+     * Projects point [p] onto line segment [a]→[b] and returns the closest
+     * point *on the segment* in geographic coordinates.
+     *
+     * Uses the same local planar projection as [pointToSegmentDistance].
+     * When a==b (degenerate segment), returns [a].
+     *
+     * This is the companion to [pointToSegmentDistance] — use this when
+     * you need the *where* in addition to the *how far*.
+     */
+    fun projectPointOntoSegment(p: LatLng, a: LatLng, b: LatLng): LatLng {
+        val midLat = (p.latitude + a.latitude + b.latitude) / 3.0
+        val mPerDegLat = EARTH_RADIUS_M * PI / 180.0
+        val mPerDegLon = mPerDegLat * cos(Math.toRadians(midLat))
+
+        val px = p.longitude * mPerDegLon
+        val py = p.latitude * mPerDegLat
+        val ax = a.longitude * mPerDegLon
+        val ay = a.latitude * mPerDegLat
+        val bx = b.longitude * mPerDegLon
+        val by = b.latitude * mPerDegLat
+
+        val abx = bx - ax
+        val aby = by - ay
+        val abLenSq = abx * abx + aby * aby
+
+        if (abLenSq == 0.0) return a
+
+        val t = (((px - ax) * abx + (py - ay) * aby) / abLenSq).coerceIn(0.0, 1.0)
+        val cx = ax + t * abx
+        val cy = ay + t * aby
+
+        return LatLng(
+            latitude = cy / mPerDegLat,
+            longitude = cx / mPerDegLon
+        )
     }
 
     /**
@@ -204,8 +242,9 @@ object SpatialOperations {
      *
      * **Open polylines (mainland):**
      * We pick a reference point 0.1° south of the polyline (which should be sea
-     * for the Mediterranean coast) and check the cross-product against the longest
-     * segment. If the reference is NOT on the right side, we reverse.
+     * for the Mediterranean coast) and check the CUMULATIVE cross-product
+     * across ALL segments. This is more robust than using only the longest
+     * segment, which may have an anomalous angle near bays or boundaries.
      */
     fun ensureWaterOnRight(points: List<LatLng>): List<LatLng> {
         if (points.size < 2) return points
@@ -223,19 +262,17 @@ object SpatialOperations {
         val refLon = (points.first().longitude + points.last().longitude) / 2.0
         val reference = LatLng(refLat, refLon)
 
-        // Find the longest segment; check which side the reference falls on
-        var maxLen = 0.0
-        var refOnRight = false
+        // Aggregate cross-product across ALL segments (not just longest).
+        // If the cumulative cross is negative, the reference (south = sea) is
+        // predominantly on the RIGHT → polyline orientation is correct.
+        var totalCross = 0.0
         for (i in 0 until points.size - 1) {
-            val len = haversine(points[i], points[i + 1])
-            if (len > maxLen) {
-                maxLen = len
-                refOnRight = isRightSide(points[i], points[i + 1], reference)
-            }
+            totalCross += crossProductZ(points[i], points[i + 1], reference)
         }
 
-        // If south=sea is NOT on the right side, the polyline is reversed
-        return if (refOnRight) points else points.reversed()
+        // totalCross < 0 → reference on right → water on right ✓
+        // totalCross > 0 → reference on left  → water on left ✗ → reverse
+        return if (totalCross < 0.0) points else points.reversed()
     }
 
     // ─────────────────────────────────────────────────────────────────────────

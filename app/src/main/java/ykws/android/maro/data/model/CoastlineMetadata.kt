@@ -1,5 +1,7 @@
 package ykws.android.maro.data.model
 
+import kotlinx.serialization.Serializable
+
 /**
  * Source metadata describing how the coastline was generated.
  *
@@ -8,9 +10,10 @@ package ykws.android.maro.data.model
  * @property meanSpacingM Average distance between consecutive vertices (meters).
  * @property epsilonM Douglas-Peucker simplification tolerance used, if any.
  */
+@Serializable
 data class CoastlineMetadata(
     val source: String,
     val pointCount: Int,
     val meanSpacingM: Double,
-    val epsilonM: Double?
+    val epsilonM: Double? = null
 )
