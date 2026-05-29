@@ -392,15 +392,16 @@ class CoastlineGenerator(
     private fun assembleWithNodeIds(segments: List<RawSegment>): List<RawSegment> {
         if (segments.isEmpty()) return emptyList()
 
-        // Build node-ID-to-segment map for fast lookup
-        val headNodeMap = mutableMapOf<Long, MutableList<Int>>()
-        val tailNodeMap = mutableMapOf<Long, MutableList<Int>>()
+        // Build node-ID-to-osmWayId maps (NOT index-based — immune to list mutations).
+        // Key = OSM node ID, Value = list of osmWayIds sharing that node as head/tail.
+        val headNodeMap = mutableMapOf<Long, MutableList<Long>>()
+        val tailNodeMap = mutableMapOf<Long, MutableList<Long>>()
         val remaining = segments.toMutableList()
 
-        for ((idx, seg) in remaining.withIndex()) {
+        for (seg in remaining) {
             if (seg.nodeIds.isNotEmpty()) {
-                headNodeMap.getOrPut(seg.nodeIds.first()) { mutableListOf() }.add(idx)
-                tailNodeMap.getOrPut(seg.nodeIds.last()) { mutableListOf() }.add(idx)
+                headNodeMap.getOrPut(seg.nodeIds.first()) { mutableListOf() }.add(seg.osmWayId)
+                tailNodeMap.getOrPut(seg.nodeIds.last()) { mutableListOf() }.add(seg.osmWayId)
             }
         }
 
@@ -410,6 +411,8 @@ class CoastlineGenerator(
             val chain = buildSingleChain(remaining, headNodeMap, tailNodeMap)
             if (chain != null) {
                 polylines.add(chain)
+            } else {
+                break
             }
         }
 
@@ -419,15 +422,22 @@ class CoastlineGenerator(
     /**
      * Builds one continuous polyline by matching endpoints via node IDs
      * (preferred) or distance (fallback).
+     *
+     * Node-ID matching uses osmWayId-based maps — no stale indices,
+     * because maps store osmWayIds and [findAndRemoveByOsmId] searches
+     * the mutable [remaining] list by value each time.
      */
     private fun buildSingleChain(
         remaining: MutableList<RawSegment>,
-        headNodeMap: MutableMap<Long, MutableList<Int>>,
-        tailNodeMap: MutableMap<Long, MutableList<Int>>
+        headNodeMap: MutableMap<Long, MutableList<Long>>,
+        tailNodeMap: MutableMap<Long, MutableList<Long>>
     ): RawSegment? {
         if (remaining.isEmpty()) return null
 
         val seed = remaining.removeAt(0)
+        // Remove seed from maps so it won't be matched again
+        removeOsmIdFromMaps(seed.osmWayId, headNodeMap, tailNodeMap)
+
         val chainPoints = seed.points.toMutableList()
         val chainNodeIds = seed.nodeIds.toMutableList()
         var chainOsmId = seed.osmWayId
@@ -436,27 +446,23 @@ class CoastlineGenerator(
         while (remaining.isNotEmpty() && changed) {
             changed = false
 
-            // Try to append: chain.tail → segment.head
+            // ── Try to append: chain.tail → segment.head (node-ID match) ──
             val tailNode = if (chainNodeIds.isNotEmpty()) chainNodeIds.last() else null
             if (tailNode != null) {
                 val candidates = headNodeMap[tailNode]?.toList() ?: emptyList()
-                for (idx in candidates.sortedDescending()) {
-                    if (idx < remaining.size) {
-                        val seg = remaining[idx]
-                        val match = findAndRemove(remaining, seg) ?: continue
-                        // Append all points except the first (duplicate endpoint)
-                        chainPoints.addAll(match.points.drop(1))
-                        chainNodeIds.addAll(match.nodeIds.drop(1))
-                        chainOsmId = mergeOsmIds(chainOsmId, match.osmWayId)
-                        removeFromNodeMaps(match, headNodeMap, tailNodeMap)
-                        changed = true
-                        break
-                    }
+                for (osmId in candidates) {
+                    val match = findAndRemoveByOsmId(remaining, osmId) ?: continue
+                    removeOsmIdFromMaps(match.osmWayId, headNodeMap, tailNodeMap)
+                    chainPoints.addAll(match.points.drop(1))
+                    chainNodeIds.addAll(match.nodeIds.drop(1))
+                    chainOsmId = mergeOsmIds(chainOsmId, match.osmWayId)
+                    changed = true
+                    break
                 }
                 if (changed) continue
             }
 
-            // Fallback: distance-based matching for append
+            // ── Fallback: distance-based append ────────────────────────────
             val tail = chainPoints.last()
             var bestIdx: Int? = null
             var bestDist = MATCH_THRESHOLD_M
@@ -469,35 +475,31 @@ class CoastlineGenerator(
             }
             if (bestIdx != null) {
                 val seg = remaining.removeAt(bestIdx)
+                removeOsmIdFromMaps(seg.osmWayId, headNodeMap, tailNodeMap)
                 chainPoints.addAll(seg.points.drop(1))
                 chainNodeIds.addAll(seg.nodeIds.drop(1))
                 chainOsmId = mergeOsmIds(chainOsmId, seg.osmWayId)
-                removeFromNodeMaps(seg, headNodeMap, tailNodeMap)
                 changed = true
                 continue
             }
 
-            // Try to prepend: segment.tail → chain.head
+            // ── Try to prepend: segment.tail → chain.head (node-ID match) ──
             val headNode = if (chainNodeIds.isNotEmpty()) chainNodeIds.first() else null
             if (headNode != null) {
                 val candidates = tailNodeMap[headNode]?.toList() ?: emptyList()
-                for (idx in candidates.sortedDescending()) {
-                    if (idx < remaining.size) {
-                        val seg = remaining[idx]
-                        val match = findAndRemove(remaining, seg) ?: continue
-                        // Prepend all points except the last (duplicate endpoint)
-                        chainPoints.addAll(0, match.points.dropLast(1))
-                        chainNodeIds.addAll(0, match.nodeIds.dropLast(1))
-                        chainOsmId = mergeOsmIds(chainOsmId, match.osmWayId)
-                        removeFromNodeMaps(match, headNodeMap, tailNodeMap)
-                        changed = true
-                        break
-                    }
+                for (osmId in candidates) {
+                    val match = findAndRemoveByOsmId(remaining, osmId) ?: continue
+                    removeOsmIdFromMaps(match.osmWayId, headNodeMap, tailNodeMap)
+                    chainPoints.addAll(0, match.points.dropLast(1))
+                    chainNodeIds.addAll(0, match.nodeIds.dropLast(1))
+                    chainOsmId = mergeOsmIds(chainOsmId, match.osmWayId)
+                    changed = true
+                    break
                 }
                 if (changed) continue
             }
 
-            // Fallback: distance-based matching for prepend
+            // ── Fallback: distance-based prepend ───────────────────────────
             val head = chainPoints.first()
             bestIdx = null
             bestDist = MATCH_THRESHOLD_M
@@ -510,10 +512,10 @@ class CoastlineGenerator(
             }
             if (bestIdx != null) {
                 val seg = remaining.removeAt(bestIdx)
+                removeOsmIdFromMaps(seg.osmWayId, headNodeMap, tailNodeMap)
                 chainPoints.addAll(0, seg.points.dropLast(1))
                 chainNodeIds.addAll(0, seg.nodeIds.dropLast(1))
                 chainOsmId = mergeOsmIds(chainOsmId, seg.osmWayId)
-                removeFromNodeMaps(seg, headNodeMap, tailNodeMap)
                 changed = true
             }
         }
@@ -527,29 +529,37 @@ class CoastlineGenerator(
         )
     }
 
+    // ── Assembly helpers ─────────────────────────────────────────────────
+
     private fun mergeOsmIds(a: Long, b: Long): Long {
-        // If both are 0 or equal, return either
         if (a == 0L) return b
         if (b == 0L || a == b) return a
-        // Concatenation isn't meaningful for IDs; keep the first
         return a
     }
 
-    private fun findAndRemove(
+    /** Finds and removes a segment by its [osmWayId]. Returns null if not found. */
+    private fun findAndRemoveByOsmId(
         list: MutableList<RawSegment>,
-        target: RawSegment
+        osmWayId: Long
     ): RawSegment? {
-        val idx = list.indexOfFirst { it.osmWayId == target.osmWayId }
+        val idx = list.indexOfFirst { it.osmWayId == osmWayId }
         return if (idx >= 0) list.removeAt(idx) else null
     }
 
-    private fun removeFromNodeMaps(
-        seg: RawSegment,
-        headNodeMap: MutableMap<Long, MutableList<Int>>,
-        tailNodeMap: MutableMap<Long, MutableList<Int>>
+    /** Removes all entries of [osmWayId] from both node→osmWayId maps. */
+    private fun removeOsmIdFromMaps(
+        osmWayId: Long,
+        headNodeMap: MutableMap<Long, MutableList<Long>>,
+        tailNodeMap: MutableMap<Long, MutableList<Long>>
     ) {
-        // Note: since we rebuild maps per assembly cycle,
-        // stale entries are harmless. This is a no-op for now.
+        for (map in listOf(headNodeMap, tailNodeMap)) {
+            val iter = map.entries.iterator()
+            while (iter.hasNext()) {
+                val (_, osmIds) = iter.next()
+                osmIds.remove(osmWayId)
+                if (osmIds.isEmpty()) iter.remove()
+            }
+        }
     }
 
     // ── Overpass fetch (coroutines, true race) ──────────────────────────────
