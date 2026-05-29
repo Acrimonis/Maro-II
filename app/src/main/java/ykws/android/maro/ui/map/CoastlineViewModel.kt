@@ -65,6 +65,10 @@ class CoastlineViewModel(
     private val _distanceToShore = MutableStateFlow<Double?>(null)
     val distanceToShore: StateFlow<Double?> = _distanceToShore.asStateFlow()
 
+    /** Current map zoom level (8.0–18.0). Used for dynamic marker sizing. */
+    private val _zoomLevel = MutableStateFlow(11.0) // matches initial controller.setZoom(11.0)
+    val zoomLevel: StateFlow<Double> = _zoomLevel.asStateFlow()
+
     /**
      * "Régénérer" button handler.
      * Forces a fresh OSM fetch by deleting the cache file first, then loading.
@@ -97,6 +101,11 @@ class CoastlineViewModel(
         val result = repository.distanceToCoast(latitude, longitude)
         _distanceToShore.value = if (result.distanceMeters == Double.MAX_VALUE) null
                                 else result.distanceMeters
+    }
+
+    /** Captures the current map zoom level for dynamic marker sizing. */
+    fun updateZoomLevel(zoom: Double) {
+        _zoomLevel.value = zoom
     }
 
     /**

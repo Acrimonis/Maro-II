@@ -140,6 +140,79 @@ git push --tags
 
 ---
 
+## Marker Sizing (Dynamic)
+
+The center-position marker (boat / dot) resizes in real time based on two inputs:
+
+| Input | Source | Effect |
+|-------|--------|--------|
+| **Zoom level** (8.0–18.0) | [`MapListener.onZoom`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:507) → [`CoastlineViewModel.updateZoomLevel()`](app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt:107) | Marker grows as you zoom in (represents constant ground footprint) |
+| **Distance to coast** (meters) | [`CoastlineViewModel.updateMapCenter()`](app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt:98) → `_distanceToShore` | Marker shrinks near the coast to avoid visually overlapping land |
+
+### Tuning Constants
+
+All knobs are `private const val` at the top of [`CenterMarkerOverlay`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:526). Change them there and rebuild.
+
+#### Zoom → dp Anchors (piecewise-linear interpolation)
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `MIN_ZOOM` | 8.0 | Map min zoom (must match `MapView.minZoomLevel`) |
+| `MAX_ZOOM` | 18.0 | Map max zoom (must match `MapView.maxZoomLevel`) |
+| `REF_ZOOM` | 11.0 | "Normal" baseline zoom |
+| `BOAT_DP_AT_MIN_ZOOM` | 24.0 | Boat size (dp) at zoom 8 |
+| `BOAT_DP_AT_REF_ZOOM` | 48.0 | Boat size (dp) at zoom 11 |
+| `BOAT_DP_AT_MAX_ZOOM` | 96.0 | Boat size (dp) at zoom 18 |
+| `DOT_DP_AT_MIN_ZOOM` | 16.0 | Land dot size (dp) at zoom 8 |
+| `DOT_DP_AT_REF_ZOOM` | 32.0 | Land dot size (dp) at zoom 11 |
+| `DOT_DP_AT_MAX_ZOOM` | 64.0 | Land dot size (dp) at zoom 18 |
+
+#### Distance-to-Coast Shrink Ramp
+
+```
+multiplier = DIST_SHRINK_MIN_MULT + (1.0 - DIST_SHRINK_MIN_MULT) × clamp(dist / DIST_SHRINK_RAMP_M, 0, 1)
+```
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `DIST_SHRINK_MIN_MULT` | 0.5 | Multiplier at 0 m (on the coastline) |
+| `DIST_SHRINK_RAMP_M` | 2000.0 | Distance (m) at which marker reaches full 1.0× size |
+
+**Example:** At zoom 18, the boat is `96dp × multiplier`. On the coastline → 48dp. At 1000 m → 72dp. At ≥2000 m → 96dp.
+
+### Data Flow Diagram
+
+```
+MapListener.onZoom()                    MapListener.onScroll() / onZoom()
+  │                                        │
+  ├─ onZoomChanged(zoomLevelDouble)        ├─ onCenterChanged(lat, lon)
+  │    │                                   │    │
+  │    ▼                                   │    ▼
+  │  CoastlineViewModel                    │  CoastlineViewModel
+  │  .updateZoomLevel(zoom)                │  .updateMapCenter(lat, lon)
+  │    │                                   │    │
+  │    ▼                                   │    ├─ _mapCenter ← LatLng
+  │  _zoomLevel ← zoom                     │    ├─ _isWater ← repo.isOnWater()
+  │    │                                   │    └─ _distanceToShore ← repo.distanceToCoast()
+  │    │                                   │
+  └────┼───────────────────────────────────┘
+       │
+       ▼
+  MapScreen.collectAsState()
+       │
+       ├─ zoomLevel: Double
+       └─ distanceToShore: Double?
+              │
+              ▼
+       CenterMarkerOverlay(zoomLevel, distanceToShore)
+              │
+              ├─ sizeByZoom = lerpDp(zoomLevel, anchors)
+              ├─ distMultiplier = ramp(distanceToShore)
+              └─ finalSizeDp = sizeByZoom × distMultiplier
+```
+
+---
+
 ## FAQ
 
 ### Why isn't the SSH key stored in the repository?
