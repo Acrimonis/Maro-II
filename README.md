@@ -142,59 +142,82 @@ git push --tags
 
 ## Marker Sizing (Dynamic)
 
-The center-position marker (boat / dot) resizes in real time based on two inputs:
+The center-position marker (boat 🚤 on water, blue dot 🔵 on land) changes size in
+real time as you move around the map. Two things control its size:
 
-| Input | Source | Effect |
-|-------|--------|--------|
-| **Zoom level** (8.0–18.0) | [`MapListener.onZoom`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:507) → [`CoastlineViewModel.updateZoomLevel()`](app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt:107) | Marker grows as you zoom in (represents constant ground footprint) |
-| **Distance to coast** (meters) | [`CoastlineViewModel.updateMapCenter()`](app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt:98) → `_distanceToShore` | Marker shrinks near the coast to avoid visually overlapping land |
+### 1. Zoom Level — "How close am I looking?"
 
-### Tuning Constants
+Think of zoom like a camera lens. At **zoom 8** you're looking at the whole French
+Riviera from space — cities are specks, the boat marker is tiny (~17 dp) so it
+doesn't cover half of Nice. At **zoom 18** you're practically standing on the dock
+— you can see individual streets, so the boat grows huge (~543 dp) to match the
+level of detail.
 
-All knobs are `private const val` at the top of [`CenterMarkerOverlay`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:526). Change them there and rebuild.
+| Zoom | What you see on screen | Boat size |
+|------|------------------------|-----------|
+| **8** | Whole region (Marseille → Italy) | ≈ 17 dp — a small icon |
+| **11** | City scale (Cannes → Antibes) | 48 dp — the "normal" size |
+| **14** | Neighborhood scale (a few km across) | ≈ 136 dp — clearly visible |
+| **16** | Street level (hundreds of meters) | ≈ 271 dp — big and bold |
+| **18** | Dock level (a single marina) | ≈ 543 dp — fills the crosshair area |
 
-#### Zoom → dp (exponential, map-like)
+The boat doesn't grow randomly — it follows the same exponential rule the map
+itself uses (every +1 zoom doubles the ground detail). A **mitigating factor of
+0.5×** slows it down so it doesn't get out of control.
 
+> **Example:** You open the app at zoom 11 — the boat is a comfortable 48 dp.
+> You pinch-zoom into the Port of Cannes at zoom 16 — the boat has grown to
+> ~271 dp, proportional to how much more detail you now see on the map.
+
+### 2. Distance to Coast — "Am I about to run aground?"
+
+When you're far out at sea, the boat marker can be big and proud. But as you
+approach the coastline, it shrinks — otherwise it would visually overlap the
+land and look like you've already crashed into the beach.
+
+| Distance from shore | Boat size multiplier | Feels like… |
+|---------------------|---------------------|-------------|
+| **0 m** (on the coastline) | 0.5× (half size) | "I'm right at the edge — tiny boat, careful!" |
+| **500 m** | 0.625× | "Approaching the bay…" |
+| **1000 m** | 0.75× | "A few minutes from shore…" |
+| **2000 m+** | 1.0× (full size) | "Open water — full throttle!" |
+
+> **Example:** You're zoomed in at level 14 offshore (~136 dp boat). You pan
+> toward the Cannes shoreline. At 500 m the boat is ~85 dp. Right on the
+> beach it's ~68 dp — half the offshore size. No pretending you're still at sea.
+
+---
+
+### Under the Hood (for the curious)
+
+The two effects combine: **`finalSize = zoomSize × distanceMultiplier`**.
+
+**Zoom formula** — exponential, matching how the map itself scales:
 ```
 dp = baseDp × 2^(ZOOM_EXPONENT × (zoom − REF_ZOOM))
 ```
 
-The map ground coverage doubles every +1 zoom level (exponent = 1.0).
-[`ZOOM_EXPONENT`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:543) = 0.5 mitigates this so the marker grows ~41 % per zoom
-instead of 100 %, spanning ~32× over the full 8–18 range.
-
-| Constant | Value | Description |
-|----------|-------|-------------|
-| `REF_ZOOM` | 11.0 | Zoom where marker is at base dp |
-| `BOAT_BASE_DP` | 48.0 | Boat size (dp) at zoom 11 |
-| `DOT_BASE_DP` | 32.0 | Land dot size (dp) at zoom 11 |
-| `ZOOM_EXPONENT` | 0.5 | Mitigating factor (1.0 = resize exactly like the map) |
-
-| Zoom | Boat dp |
-|------|---------|
-| 8 | ≈ 17 |
-| 9 | ≈ 24 |
-| 10 | ≈ 34 |
-| 11 | 48 |
-| 12 | ≈ 68 |
-| 14 | ≈ 136 |
-| 16 | ≈ 271 |
-| 18 | ≈ 543 |
-
-#### Distance-to-Coast Shrink Ramp
-
+**Distance ramp** — linear shrink near the coast:
 ```
-multiplier = DIST_SHRINK_MIN_MULT + (1.0 - DIST_SHRINK_MIN_MULT) × clamp(dist / DIST_SHRINK_RAMP_M, 0, 1)
+multiplier = 0.5 + 0.5 × clamp(distance / 2000, 0, 1)
 ```
 
-| Constant | Value | Description |
+All tuning knobs live as `private const val` at the top of
+[`CenterMarkerOverlay`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:526):
+
+| Constant | Value | What it does |
 |----------|-------|-------------|
-| `DIST_SHRINK_MIN_MULT` | 0.5 | Multiplier at 0 m (on the coastline) |
-| `DIST_SHRINK_RAMP_M` | 2000.0 | Distance (m) at which marker reaches full 1.0× size |
+| `REF_ZOOM` | 11.0 | Zoom where the marker is at its "normal" base size |
+| `BOAT_BASE_DP` | 48.0 | Boat size at zoom 11 (dp) |
+| `DOT_BASE_DP` | 32.0 | Land dot size at zoom 11 (dp) |
+| `ZOOM_EXPONENT` | 0.5 | How aggressively zoom changes the size (1.0 = exactly like the map) |
+| `DIST_SHRINK_MIN_MULT` | 0.5 | Smallest the marker gets on the coastline |
+| `DIST_SHRINK_RAMP_M` | 2000.0 | How far from shore until the marker reaches full size (meters) |
 
-**Example:** At zoom 18, the boat is `96dp × multiplier`. On the coastline → 48dp. At 1000 m → 72dp. At ≥2000 m → 96dp.
+Change a value, rebuild — the marker behavior changes instantly. No hunting
+through code.
 
-### Data Flow Diagram
+### Data Flow
 
 ```
 MapListener.onZoom()                    MapListener.onScroll() / onZoom()
@@ -220,7 +243,7 @@ MapListener.onZoom()                    MapListener.onScroll() / onZoom()
               ▼
        CenterMarkerOverlay(zoomLevel, distanceToShore)
               │
-              ├─ sizeByZoom = lerpDp(zoomLevel, anchors)
+              ├─ sizeByZoom = baseDp × 2^(ZOOM_EXPONENT × (zoom − REF_ZOOM))
               ├─ distMultiplier = ramp(distanceToShore)
               └─ finalSizeDp = sizeByZoom × distMultiplier
 ```
