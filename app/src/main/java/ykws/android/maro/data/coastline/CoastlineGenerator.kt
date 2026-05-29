@@ -135,8 +135,21 @@ class CoastlineGenerator(
         }
         onProgress(65)
 
-        // ── 5. Clip + Simplify + Orient (65 → 90) ───────────────────────────
-        val processedMainland = processPolyline(mainCoastline.points, isMainland = true)
+        // ── 4b. Orientation detection using island positions (65 → 68) ──────
+        // Islands are surrounded by water. If we have at least one island,
+        // count how many islands fall on each side of the mainland coastline.
+        // The side with more islands is the water side.
+        // If no islands exist, the current orientation (from ensureWaterOnRight
+        // with south=sea heuristic) is kept.
+        val mainCoastlineOriented = if (allIslands.isNotEmpty()) {
+            orientByIslandPositions(mainCoastline, allIslands)
+        } else {
+            mainCoastline
+        }
+        onProgress(68)
+
+        // ── 5. Clip + Simplify + Orient (68 → 90) ───────────────────────────
+        val processedMainland = processPolyline(mainCoastlineOriented.points, isMainland = true)
         val processedIslands = allIslands.mapNotNull { island ->
             val processed = processPolyline(island.points, isMainland = false)
             if (processed != null) processed to island.osmWayId else null
@@ -147,10 +160,16 @@ class CoastlineGenerator(
             throw IllegalStateException("Aucune polyline après clipping + simplification.")
         }
 
-        // ── 6. Compute edge vectors + build CoastlinePoint lists (90 → 95) ──
-        val mainlandPoints = computeEdgeVectors(processedMainland)
+        // Compute bounding box from processed LatLng BEFORE projecting to meters
+        val rawBbox = computeBoundingBoxFromLatLng(
+            listOf(processedMainland) + processedIslands.map { it.first }
+        )
+        val projectionRefLat = rawBbox.centerLat
+
+        // ── 6. Compute edge vectors + projected XY + build CoastlinePoint (90 → 95) ──
+        val mainlandPoints = computeEdgeVectors(processedMainland, projectionRefLat)
         val islandPoints = processedIslands.map { (polyline, _) ->
-            computeEdgeVectors(polyline)
+            computeEdgeVectors(polyline, projectionRefLat)
         }
         onProgress(95)
 
@@ -186,7 +205,8 @@ class CoastlineGenerator(
             meanSpacingM = meanSpacing,
             totalLengthKm = totalLength / 1000.0,
             epsilonM = simplifyEpsilonM,
-            fetchTimestampMs = System.currentTimeMillis()
+            fetchTimestampMs = System.currentTimeMillis(),
+            projectionRefLat = projectionRefLat
         )
 
         onProgress(100)
@@ -202,37 +222,57 @@ class CoastlineGenerator(
     // ── Edge vector computation ────────────────────────────────────────────
 
     /**
-     * Computes edge vectors (dx_m, dy_m) for each consecutive point pair
-     * and returns a list of [CoastlinePoint].
+     * Computes edge vectors (dx_m, dy_m) and projected coordinates (xM, yM)
+     * for each consecutive point pair, using a fixed reference latitude for
+     * consistent projection.
+     *
+     * @param points The processed (clipped, simplified, oriented) polyline.
+     * @param refLat Reference latitude for the local Cartesian projection.
+     * @return List of [CoastlinePoint] with pre-computed edge vectors and XY.
      */
-    private fun computeEdgeVectors(points: List<LatLng>): List<CoastlinePoint> {
+    private fun computeEdgeVectors(
+        points: List<LatLng>,
+        refLat: Double
+    ): List<CoastlinePoint> {
         if (points.isEmpty()) return emptyList()
+
+        val mPerDegLat = EARTH_RADIUS_M * PI / 180.0
+        val mPerDegLon = mPerDegLat * cos(Math.toRadians(refLat))
 
         val result = mutableListOf<CoastlinePoint>()
         for (i in points.indices) {
-            val lat = points[i].latitude.toFloat()
-            val lon = points[i].longitude.toFloat()
+            val lat = points[i].latitude
+            val lon = points[i].longitude
+
+            // Project this point to local Cartesian using FIXED reference latitude
+            val xM = lon * mPerDegLon
+            val yM = lat * mPerDegLat
 
             if (i < points.size - 1) {
-                // Compute Cartesian offset to next point
-                val midLat = (points[i].latitude + points[i + 1].latitude) / 2.0
-                val mPerDegLat = EARTH_RADIUS_M * PI / 180.0
-                val mPerDegLon = mPerDegLat * cos(Math.toRadians(midLat))
+                // Edge vector: offset to next point (computed at each edge's midpoint
+                // for accuracy, while XY uses fixed refLat for consistency)
+                val edgeMidLat = (lat + points[i + 1].latitude) / 2.0
+                val edgeMPLon = mPerDegLat * cos(Math.toRadians(edgeMidLat))
+                val edgeMPLat = mPerDegLat
 
-                val dx = (points[i + 1].longitude - points[i].longitude) * mPerDegLon
-                val dy = (points[i + 1].latitude - points[i].latitude) * mPerDegLat
+                val dx = (points[i + 1].longitude - lon) * edgeMPLon
+                val dy = (points[i + 1].latitude - lat) * edgeMPLat
 
                 result.add(CoastlinePoint(
-                    lat = lat,
-                    lon = lon,
+                    lat = lat.toFloat(),
+                    lon = lon.toFloat(),
+                    xM = xM.toFloat(),
+                    yM = yM.toFloat(),
                     edgeDxM = dx.toFloat(),
                     edgeDyM = dy.toFloat()
                 ))
             } else {
                 // Last point: no outgoing edge
                 result.add(CoastlinePoint(
-                    lat = lat,
-                    lon = lon,
+                    lat = lat.toFloat(),
+                    lon = lon.toFloat(),
+                    xM = xM.toFloat(),
+                    yM = yM.toFloat(),
                     edgeDxM = 0f,
                     edgeDyM = 0f
                 ))
@@ -586,6 +626,34 @@ class CoastlineGenerator(
         return total
     }
 
+    /**
+     * Compute bounding box from raw LatLng polylines (before projection to meters).
+     */
+    private fun computeBoundingBoxFromLatLng(
+        polylines: List<List<LatLng>>
+    ): BoundingBox {
+        var latMin = Double.MAX_VALUE
+        var latMax = -Double.MAX_VALUE
+        var lonMin = Double.MAX_VALUE
+        var lonMax = -Double.MAX_VALUE
+
+        for (poly in polylines) {
+            for (pt in poly) {
+                if (pt.latitude < latMin) latMin = pt.latitude
+                if (pt.latitude > latMax) latMax = pt.latitude
+                if (pt.longitude < lonMin) lonMin = pt.longitude
+                if (pt.longitude > lonMax) lonMax = pt.longitude
+            }
+        }
+
+        return BoundingBox(
+            latSouth = latMin,
+            latNorth = latMax,
+            lonWest = lonMin,
+            lonEast = lonMax
+        )
+    }
+
     private fun computeBoundingBox(
         mainlandPoints: List<CoastlinePoint>,
         islandPoints: List<List<CoastlinePoint>>
@@ -612,4 +680,52 @@ class CoastlineGenerator(
         )
     }
 
+    /**
+     * Determines coastline orientation by checking which side of the mainland
+     * the islands fall on. Islands are surrounded by water, so the side with
+     * more island centers is the water side.
+     *
+     * If islands are mostly on the LEFT, water is on the LEFT → reverse so
+     * water ends up on the RIGHT.
+     */
+    private fun orientByIslandPositions(
+        mainland: RawSegment,
+        islands: List<RawSegment>
+    ): RawSegment {
+        val mainPoints = mainland.points
+        if (mainPoints.size < 2 || islands.isEmpty()) return mainland
+
+        var rightCount = 0
+        var leftCount = 0
+
+        for (island in islands) {
+            if (island.points.isEmpty()) continue
+
+            val centerLat = island.points.sumOf { it.latitude } / island.points.size
+            val centerLon = island.points.sumOf { it.longitude } / island.points.size
+            val center = LatLng(centerLat, centerLon)
+
+            var minDist = Double.MAX_VALUE
+            var bestCross = 0.0
+            for (i in 0 until mainPoints.size - 1) {
+                val d = SpatialOperations.pointToSegmentDistance(
+                    center, mainPoints[i], mainPoints[i + 1]
+                )
+                if (d < minDist) {
+                    minDist = d
+                    bestCross = SpatialOperations.crossProductZ(
+                        mainPoints[i], mainPoints[i + 1], center
+                    )
+                }
+            }
+
+            if (bestCross < 0) rightCount++ else leftCount++
+        }
+
+        return if (leftCount > rightCount) {
+            mainland.copy(points = mainland.points.reversed())
+        } else {
+            mainland
+        }
+    }
 }

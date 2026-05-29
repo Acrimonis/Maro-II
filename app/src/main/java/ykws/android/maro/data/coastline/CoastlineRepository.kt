@@ -64,55 +64,100 @@ class CoastlineRepository(
         }
     }
 
-    // ── Query methods ──────────────────────────────────────────────────────
+    // ── Query methods (optimized with pre-projected XY) ────────────────────
 
     /**
      * Returns true if the given GPS position is on the water side of the coastline.
-     * Uses the cross-product against the nearest coastline segment.
+     *
+     * Uses pre-projected XY coordinates and edge vectors — no lat/lon to meter
+     * conversion during the per-edge loop. The GPS query point is projected once
+     * using the coastline's reference latitude, then all math is simple 2D Cartesian.
      */
     fun isOnWater(latitude: Double, longitude: Double): Boolean {
-        val data = coastlineData ?: return true // No data → assume water (safe default)
-        val polylines = data.allSegments.map { segment ->
-            segment.points.map { LatLng(it.lat.toDouble(), it.lon.toDouble()) }
+        val data = coastlineData ?: return true
+        val refLat = data.metadata.projectionRefLat
+        if (refLat == 0.0) return true
+
+        // Project the GPS query point once using the stored reference latitude
+        val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
+        val mPerDegLon = mPerDegLat * cos(Math.toRadians(refLat))
+        val px = longitude * mPerDegLon
+        val py = latitude * mPerDegLat
+
+        var bestCross = 0.0
+        var bestDist = Double.MAX_VALUE
+        var found = false
+
+        for (segment in data.allSegments) {
+            val pts = segment.points
+            for (i in 0 until pts.size - 1) {
+                val a = pts[i]
+                // Edge start = (a.xM, a.yM), end = (a.xM + a.edgeDxM, a.yM + a.edgeDyM)
+                val ax = a.xM.toDouble()
+                val ay = a.yM.toDouble()
+                val bx = ax + a.edgeDxM
+                val by = ay + a.edgeDyM
+
+                // Fast point-to-segment distance using pre-projected coordinates
+                val abx = bx - ax
+                val aby = by - ay
+                val apx = px - ax
+                val apy = py - ay
+                val abLenSq = abx * abx + aby * aby
+
+                val d = if (abLenSq == 0.0) {
+                    sqrt((px - ax).pow(2) + (py - ay).pow(2))
+                } else {
+                    val t = ((apx * abx + apy * aby) / abLenSq).coerceIn(0.0, 1.0)
+                    val cx = ax + t * abx
+                    val cy = ay + t * aby
+                    sqrt((px - cx).pow(2) + (py - cy).pow(2))
+                }
+
+                if (d < bestDist) {
+                    bestDist = d
+                    // Cross product: (B-A) × (P-A)
+                    bestCross = abx * apy - aby * apx
+                    found = true
+                }
+            }
         }
-        if (polylines.isEmpty()) return true
-        return SpatialOperations.isOnWater(latitude, longitude, polylines)
+
+        if (!found) return true
+        // z < 0 → right side → water (by orientation convention)
+        return bestCross < 0.0
     }
 
     /**
      * Returns the minimum distance (meters) from a GPS position to the coastline.
-     * For future use when the 300m zone check is implemented.
      *
-     * Uses pre-computed edge vectors for efficient distance computation.
+     * Uses pre-projected XY + edge vectors for zero-projection per-edge checks.
+     * The GPS point is projected once, then all 6,000+ edges are checked with
+     * simple 2D math — no trig operations in the loop.
      */
     fun distanceToCoastMeters(latitude: Double, longitude: Double): Double {
         val data = coastlineData ?: return Double.MAX_VALUE
+        val refLat = data.metadata.projectionRefLat
+        if (refLat == 0.0) return Double.MAX_VALUE
 
-        val queryPoint = LatLng(latitude, longitude)
+        // Project query point once using stored reference latitude
+        val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
+        val mPerDegLon = mPerDegLat * cos(Math.toRadians(refLat))
+        val px = longitude * mPerDegLon
+        val py = latitude * mPerDegLat
 
-        // Project query point to local Cartesian for edge-vector-based distance
         var minDist = Double.MAX_VALUE
 
         for (segment in data.allSegments) {
-            val points = segment.points
-            for (i in 0 until points.size - 1) {
-                val a = points[i]
-                val b = points[i + 1]
-
-                // Convert endpoints to Cartesian
-                val midLat = (a.lat + b.lat) / 2.0
-                val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
-                val mPerDegLon = mPerDegLat * cos(Math.toRadians(midLat))
-
-                val ax = a.lon * mPerDegLon
-                val ay = a.lat * mPerDegLat
-                val bx = ax + a.edgeDxM  // Use pre-computed edge vector instead of re-projecting b
+            val pts = segment.points
+            for (i in 0 until pts.size - 1) {
+                val a = pts[i]
+                val ax = a.xM.toDouble()
+                val ay = a.yM.toDouble()
+                val bx = ax + a.edgeDxM
                 val by = ay + a.edgeDyM
 
-                val px = longitude * mPerDegLon
-                val py = latitude * mPerDegLat
-
-                // Point-to-segment distance using Cartesian coordinates
+                // 2D point-to-segment distance
                 val abx = bx - ax
                 val aby = by - ay
                 val apx = px - ax

@@ -9,6 +9,8 @@ package ykws.android.maro.data.model
  * @property totalLengthKm Total length of all coastline polylines combined (kilometers).
  * @property epsilonM Douglas-Peucker simplification tolerance used, if any.
  * @property fetchTimestampMs Time when the coastline was fetched from OSM (epoch millis).
+ * @property projectionRefLat Reference latitude used for local Cartesian projection (degrees).
+ *                   Points' xM/yM coordinates are projected using this latitude.
  */
 data class CoastlineMetadata(
     val source: String,
@@ -16,5 +18,6 @@ data class CoastlineMetadata(
     val meanSpacingM: Double,
     val totalLengthKm: Double = 0.0,
     val epsilonM: Double? = null,
-    val fetchTimestampMs: Long = System.currentTimeMillis()
+    val fetchTimestampMs: Long = System.currentTimeMillis(),
+    val projectionRefLat: Double = 0.0
 )
