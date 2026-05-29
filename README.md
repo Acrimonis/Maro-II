@@ -209,7 +209,7 @@ All tuning knobs live as `private const val` at the top of
 |----------|-------|-------------|
 | `REF_ZOOM` | 11.0 | Zoom where the marker is at its "normal" base size |
 | `BOAT_BASE_DP` | 48.0 | Boat size at zoom 11 (dp) |
-| `DOT_BASE_DP` | 32.0 | Land dot size at zoom 11 (dp) |
+| `DOT_BASE_DP` | 16.0 | Land dot size at zoom 11 (dp) |
 | `ZOOM_EXPONENT` | 0.5 | How aggressively zoom changes the size (1.0 = exactly like the map) |
 | `DIST_SHRINK_MIN_MULT` | 0.5 | Smallest the marker gets on the coastline |
 | `DIST_SHRINK_RAMP_M` | 2000.0 | How far from shore until the marker reaches full size (meters) |

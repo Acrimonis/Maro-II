@@ -533,7 +533,7 @@ private const val REF_ZOOM = 11.0
 /** Base dp for the boat marker at [REF_ZOOM]. */
 private const val BOAT_BASE_DP = 48.0
 /** Base dp for the land-dot marker at [REF_ZOOM]. */
-private const val DOT_BASE_DP  = 32.0
+private const val DOT_BASE_DP  = 16.0
 
 /**
  * Mitigating exponent applied to the zoom delta.
