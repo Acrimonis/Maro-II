@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.protobuf)
 }
 
 android {
@@ -31,6 +32,23 @@ android {
     }
 }
 
+protobuf {
+    protoc {
+        // Protoc compiler artifact — hardcoded version to avoid DSL access issues
+        // inside the protobuf extension block. Keep in sync with libs.versions.toml.
+        artifact = "com.google.protobuf:protoc:3.25.3"
+    }
+    generateProtoTasks {
+        all().forEach { task ->
+            task.builtins {
+                create("java") {
+                    option("lite")
+                }
+            }
+        }
+    }
+}
+
 dependencies {
     implementation(libs.core.ktx)
     implementation(libs.lifecycle.runtime.ktx)
@@ -44,6 +62,7 @@ dependencies {
     implementation(libs.okhttp)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.osmdroid.android)
+    implementation(libs.protobuf.javalite)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)

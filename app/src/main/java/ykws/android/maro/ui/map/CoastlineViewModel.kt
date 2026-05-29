@@ -18,23 +18,22 @@ import ykws.android.maro.data.model.LatLng
  * ViewModel for the coastline map screen.
  *
  * Bridges [CoastlineRepository] to the Compose UI layer.
- * Call [initCache] once at startup to restore persisted coastline data.
+ * Call [initCache] once at startup to load coastline (from cache or OSM).
  */
 class CoastlineViewModel(
     private val repository: CoastlineRepository = CoastlineRepository()
 ) : ViewModel() {
 
-    /** Initialise the cache directory and try restoring persisted coastline. */
+    /** Initialise the cache directory and load coastline via cache-aside pattern. */
     fun initCache(context: Context) {
         repository.setCacheDir(context)
         viewModelScope.launch {
-            val cache = repository.loadCache()
-            if (cache != null) {
-                val segments = cache.segments
-                repository.restoreFromCache(segments, cache.metadata)
+            repository.loadCoastline()
 
-                // Compute initial map center from cached data
-                val allPoints = segments.flatMap { it.points }
+            // Compute initial map center from loaded data
+            val data = repository.getCoastlineData()
+            if (data != null) {
+                val allPoints = data.allSegments.flatMap { it.points }
                 if (allPoints.isNotEmpty()) {
                     val avgLat = allPoints.sumOf { it.lat.toDouble() } / allPoints.size
                     val avgLon = allPoints.sumOf { it.lon.toDouble() } / allPoints.size
@@ -67,18 +66,17 @@ class CoastlineViewModel(
     val distanceToShore: StateFlow<Double?> = _distanceToShore.asStateFlow()
 
     /**
-     * (Re)load the coastline data from the Overpass API.
-     * Clears the local cache first so the next launch fetches fresh data.
+     * "Régénérer" button handler.
+     * Forces a fresh OSM fetch by deleting the cache file first, then loading.
      */
     fun loadCoastline() {
         viewModelScope.launch {
-            repository.clearCache()
-            repository.generate()
+            repository.refreshCoastline()
 
             // After loading, recompute water/land for the current map center
-            val currentState = repository.state.value
-            if (currentState is CoastlineState.Ready && currentState.polylines.isNotEmpty()) {
-                val allPoints = currentState.polylines.flatMap { seg -> seg.points }
+            val data = repository.getCoastlineData()
+            if (data != null) {
+                val allPoints = data.allSegments.flatMap { it.points }
                 if (allPoints.isNotEmpty()) {
                     val avgLat = allPoints.sumOf { it.lat.toDouble() } / allPoints.size
                     val avgLon = allPoints.sumOf { it.lon.toDouble() } / allPoints.size

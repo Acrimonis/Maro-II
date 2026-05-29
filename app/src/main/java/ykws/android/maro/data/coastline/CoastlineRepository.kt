@@ -7,11 +7,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
-import kotlinx.serialization.json.Json
-import ykws.android.maro.data.model.CoastlineCache
 import ykws.android.maro.data.model.CoastlineData
 import ykws.android.maro.data.model.CoastlineDistanceResult
-import ykws.android.maro.data.model.CoastlineSegment
 import ykws.android.maro.data.model.CoastlineState
 import ykws.android.maro.data.model.GenerationProgress
 import ykws.android.maro.data.model.LatLng
@@ -35,8 +32,6 @@ class CoastlineRepository(
     /** Directory for caching coastline data (set via [setCacheDir]). */
     private var cacheDir: File? = null
 
-    private val json = Json { ignoreUnknownKeys = true }
-
     /** Start in [Idle] so generation does not auto-start on init. */
     private val _state = MutableStateFlow<CoastlineState>(CoastlineState.Idle)
     val state: StateFlow<CoastlineState> = _state.asStateFlow()
@@ -58,26 +53,28 @@ class CoastlineRepository(
     private val _progress = MutableStateFlow(GenerationProgress("", 0))
     val progress: StateFlow<GenerationProgress> = _progress.asStateFlow()
 
-    // ── Cache management ────────────────────────────────────────────────────
+    // ── Cache management (Protobuf binary) ───────────────────────────────────
 
     /** Initialise the cache directory from an Android [Context]. */
     fun setCacheDir(context: Context) {
-        cacheDir = File(context.filesDir, "coastline_cache")
+        cacheDir = File(context.filesDir, "coastlines")
         cacheDir?.mkdirs()
     }
 
-    /** Full path to the cached JSON file. */
-    private val cacheFile: File?
-        get() = cacheDir?.resolve("coastline.json")
+    /** Full path to the Protobuf cache file for the given region. */
+    private fun cacheFile(regionId: String): File? =
+        cacheDir?.resolve("$regionId.bin")
 
     /**
-     * Returns the cached coastline data, or `null` if no cache exists.
+     * Reads and deserialises cached coastline data for the given region.
+     * Returns `null` on cache miss, corrupt data, or I/O error (cache miss treated
+     * the same as corrupt — fresh fetch is the fallback).
      */
-    fun loadCache(): CoastlineCache? {
-        val file = cacheFile ?: return null
+    private fun readFromCache(regionId: String): CoastlineData? {
+        val file = cacheFile(regionId) ?: return null
         if (!file.exists()) return null
         return try {
-            json.decodeFromString<CoastlineCache>(file.readText())
+            CoastlineSerializer.deserialize(file.readBytes())
         } catch (_: Exception) {
             file.delete()
             null
@@ -85,81 +82,77 @@ class CoastlineRepository(
     }
 
     /**
-     * Persists coastline data to local storage.
+     * Serialises and persists coastline data to a Protobuf binary file.
+     * Failures are silently ignored — cache is a convenience, not a requirement.
      */
-    private fun saveCache(data: CoastlineData) {
-        val file = cacheFile ?: return
+    private fun writeToCache(regionId: String, data: CoastlineData) {
+        val file = cacheFile(regionId) ?: return
         try {
-            val cache = CoastlineCache(
-                segments = data.allSegments,
-                metadata = data.metadata
-            )
-            file.writeText(json.encodeToString(CoastlineCache.serializer(), cache))
+            file.writeBytes(CoastlineSerializer.serialize(data))
         } catch (_: Exception) {
-            // Non-critical — cache is a convenience, not a requirement
+            // Non-critical
         }
     }
 
     /**
-     * Removes the cached coastline file.
+     * Deletes the cached Protobuf file for the given region.
      */
-    fun clearCache() {
-        cacheFile?.delete()
+    private fun deleteCacheFile(regionId: String) {
+        cacheFile(regionId)?.delete()
     }
 
-    /**
-     * Restores coastline state from cached data (e.g. on app start).
-     * Sets the repository state to [CoastlineState.Ready] without
-     * fetching from the Overpass API.
-     */
-    fun restoreFromCache(
-        segments: List<CoastlineSegment>,
-        metadata: ykws.android.maro.data.model.CoastlineMetadata
-    ) {
-        spatialIndex = CoastlineSpatialIndex(segments)
-        _state.value = CoastlineState.Ready(
-            data = CoastlineData(
-                mainland = segments.firstOrNull() ?: return,
-                islands = segments.drop(1),
-                metadata = metadata,
-                regionId = "nice-frejus",
-                boundingBox = ykws.android.maro.data.model.BoundingBox.EMPTY
-            )
-        )
-    }
-
-    // ── Generation pipeline ──────────────────────────────────────────────────
+    // ── Load / Refresh (cache-aside pattern) ─────────────────────────────────
 
     /**
-     * Launches the full generation pipeline for the given region.
-     * Safe to call multiple times — will replace previous state.
+     * Loads coastline data for the given region using a cache-aside pattern:
+     *   1. Check Protobuf cache on disk → return immediately if found
+     *   2. On cache miss: fetch from OSM, run the generation pipeline,
+     *      persist to Protobuf cache, then return
+     *
+     * @param regionId Region identifier (e.g. "nice-frejus").
      */
-    suspend fun generate(regionId: String = CoastlineGenerator.REGION_ID) {
+    suspend fun loadCoastline(regionId: String = CoastlineGenerator.REGION_ID) {
         _state.value = CoastlineState.Loading
         _progress.value = GenerationProgress("", 0)
 
+        // 1. Check Protobuf cache first
+        val cached = withContext(ioDispatcher) { readFromCache(regionId) }
+        if (cached != null) {
+            coastlineData = cached
+            spatialIndex = CoastlineSpatialIndex(cached.allSegments)
+            _state.value = CoastlineState.Ready(data = cached)
+            _progress.value = GenerationProgress("Terminé (cache)", 100)
+            return
+        }
+
+        // 2. Cache miss → full OSM generation
         try {
             val result = withContext(ioDispatcher) {
                 generator.generate(regionId = regionId) { phase, pct ->
                     _progress.value = GenerationProgress(phase, pct)
                 }
             }
-
             coastlineData = result
-
-            // Build spatial index for fast distance queries
             spatialIndex = CoastlineSpatialIndex(result.allSegments)
-
-            // Persist to local cache for next launch
-            saveCache(result)
-
+            withContext(ioDispatcher) { writeToCache(regionId, result) }
             _state.value = CoastlineState.Ready(data = result)
             _progress.value = GenerationProgress("Terminé", 100)
         } catch (e: Exception) {
             _state.value = CoastlineState.Error(
-                message = e.message ?: "Erreur inconnue lors de la génération de la côte."
+                message = e.message ?: "Erreur lors du chargement de la côte."
             )
         }
+    }
+
+    /**
+     * Forces a fresh OSM fetch by deleting the region's cache file first,
+     * then delegating to [loadCoastline] (which will treat it as a cache miss).
+     *
+     * This is called by the "Régénérer" button.
+     */
+    suspend fun refreshCoastline(regionId: String = CoastlineGenerator.REGION_ID) {
+        withContext(ioDispatcher) { deleteCacheFile(regionId) }
+        loadCoastline(regionId)
     }
 
     // ── Query methods (optimized with pre-projected XY) ────────────────────

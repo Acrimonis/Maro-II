@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package coastline;
+
+option java_package = "ykws.android.maro.data.coastline";
+option java_outer_classname = "CoastlineProtos";
+
+// Top-level cache entry for one coastline region.
+// Serialised to app internal storage as coastlines/{regionId}.bin.
+message CoastlineCache {
+    string region_id = 1;
+
+    // Bounding box (WGS84 decimal degrees)
+    double lon_west = 2;
+    double lon_east = 3;
+    double lat_south = 4;
+    double lat_north = 5;
+
+    // Metadata
+    int64 fetch_timestamp_ms = 6;
+    double projection_ref_lat = 7;
+
+    // Douglas-Peucker epsilon in metres.
+    // 0.0 means "not simplified" / equivalent to null.
+    double epsilon_m = 8;
+
+    // Attribution / source string, e.g. "OpenStreetMap contributors, ODbL"
+    string source = 9;
+
+    // Mainland continuous coastline polyline.
+    Polyline mainland = 10;
+
+    // Zero or more island polylines (closed rings).
+    repeated Polyline islands = 11;
+}
+
+// A single oriented coastline polyline.
+message Polyline {
+    int64 osm_way_id = 1;
+
+    // True for a closed ring (island), false for an open polyline (mainland).
+    bool is_closed = 2;
+
+    // Packed float32 array, 6 values per point:
+    //   lat, lon, xM, yM, edgeDxM, edgeDyM
+    // = 24 bytes per point.
+    // See CoastlinePoint in the Kotlin data model for field semantics.
+    repeated float data = 3 [packed = true];
+}
