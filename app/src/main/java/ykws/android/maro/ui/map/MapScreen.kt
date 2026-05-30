@@ -528,10 +528,10 @@ private fun CoastlineMapView(
 // At [ZOOM_EXPONENT] = 0.3 the marker grows ~23 % per zoom level instead of 100 %.
 
 /** Reference zoom where the marker is at its [BOAT_BASE_DP] / [DOT_BASE_DP]. */
-private const val REF_ZOOM = 11.0
-
+private const val REF_ZOOM = 12.0 // 11.0 -to 18.0  
+ 
 /** Base dp for the boat marker at [REF_ZOOM]. */
-private const val BOAT_BASE_DP = 30.0
+private const val BOAT_BASE_DP = 40.0
 /** Base dp for the land-dot marker at [REF_ZOOM]. */
 private const val DOT_BASE_DP  = 8.0
 

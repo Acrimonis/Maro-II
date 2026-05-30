@@ -51,7 +51,7 @@ REM --- Step 5: Launch the app (optional) ---
 call :launch_app
 
 :end
-echo.
+echo/
 echo ======================================
 if !EXIT_CODE! EQU 0 (
     echo  !APP_NAME! — Deploy completed successfully!
@@ -59,7 +59,7 @@ if !EXIT_CODE! EQU 0 (
     echo  !APP_NAME! — Deploy FAILED ^(exit code: !EXIT_CODE!^)
 )
 echo ======================================
-echo.
+echo/
 exit /b !EXIT_CODE!
 
 REM ===================================================
@@ -67,12 +67,11 @@ REM  FUNCTIONS
 REM ===================================================
 
 :print_banner
-cls
-echo.
+echo/
 echo  /====================================================\
 echo  ^|           !APP_NAME! — APK Deploy Tool              ^|
 echo  \====================================================/
-echo.
+echo/
 exit /b 0
 
 :check_adb

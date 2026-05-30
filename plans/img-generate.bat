@@ -6,9 +6,9 @@ echo ====================================================================
 
 :: 1. Configuration Constants
 set "FFMPEG=C:\Users\Alexandra\Downloads\ffmpeg-2026-05-28-git-7b46c6a2a3-essentials_build\bin\ffmpeg.exe"
-set "SRC_APP=c:\Users\Alexandra\Desktop\nICo StuFF\.src\Maro II\Maro_II_app.png"
-set "SRC_FG=c:\Users\Alexandra\Desktop\nICo StuFF\.src\Maro II\Maro_II.png"
-set "TARGET_DIR=c:\Users\Alexandra\Desktop\nICo StuFF\.src\Maro II\app\src\main\res"
+set "SRC_APP=C:\.src\Maro_II\Maro_II_app.png"
+set "SRC_FG=C:\.src\Maro_II\Maro_II.png"
+set "TARGET_DIR=C:\.src\Maro_II\app\src\main\res"
 
 :: 2. Ensure Resource Hierarchy Exists
 echo [1/4] Checking target layout directory structures...
