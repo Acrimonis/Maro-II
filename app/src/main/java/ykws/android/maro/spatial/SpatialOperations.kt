@@ -238,158 +238,75 @@ object SpatialOperations {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Orientation / side-of-line
+    // Ray casting (water / land classification)
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Cross-product z-component of vectors (B - A) × (P - A) in local planar
-     * projection centered at [a].
+     * Tests whether a vertical ray going SOUTH crosses the segment A→B.
      *
-     * Interpreting the result:
-     * - z > 0  → P is to the LEFT of the directed segment A→B
-     * - z < 0  → P is to the RIGHT of the directed segment A→B
-     * - z == 0 → P is collinear with A→B
-     */
-    fun crossProductZ(a: LatLng, b: LatLng, p: LatLng): Double {
-        val midLat = (a.latitude + b.latitude + p.latitude) / 3.0
-        val mPerDegLat = EARTH_RADIUS_M * PI / 180.0
-        val mPerDegLon = mPerDegLat * cos(Math.toRadians(midLat))
-
-        val ax = a.longitude * mPerDegLon
-        val ay = a.latitude * mPerDegLat
-        val bx = b.longitude * mPerDegLon
-        val by = b.latitude * mPerDegLat
-        val px = p.longitude * mPerDegLon
-        val py = p.latitude * mPerDegLat
-
-        return (bx - ax) * (py - ay) - (by - ay) * (px - ax)
-    }
-
-    /**
-     * Returns true if [point] is on the RIGHT side of the directed segment [a]→[b].
+     * The ray starts at (rayLon, rayLatStart) and extends southward to
+     * (rayLon, rayLatEnd). rayLatEnd must be < rayLatStart (south = smaller latitude).
      *
-     * With the water-on-right convention, this indicates WATER.
-     */
-    fun isRightSide(a: LatLng, b: LatLng, point: LatLng): Boolean =
-        crossProductZ(a, b, point) < 0.0
-
-    /**
-     * Determines if a geographic point is on the water side of a coastline.
+     * ## Usage
      *
-     * Finds the nearest coastline segment, then checks the cross-product.
-     * Falls back to `true` (assume water) if no coastline data is available.
+     * Called by [CoastlineRepository.isOnWater] for every candidate segment
+     * returned by the spatial index's column query. The crossing count (mod 2)
+     * determines water (even) vs. land (odd).
+     *
+     * ## Vertex de-duplication
+     *
+     * A ray passing exactly through a vertex shared by two adjacent coastline
+     * segments would be double-counted — once by each incident segment — unless
+     * we assign each vertex to exactly one of its two segments. The standard
+     * fix is **strict inequality on the upper longitude bound**:
+     *
+     * ```
+     * (aLon <= rayLon && rayLon < bLon) || (bLon <= rayLon && rayLon < aLon)
+     * ```
+     *
+     * A vertex at longitude L is counted by the segment where it is the
+     * **lower-longitude** endpoint (aLon <= rayLon) and skipped by the
+     * segment where it is the **higher-longitude** endpoint (rayLon < aLon).
+     * This guarantees every shared vertex contributes exactly 1 crossing.
+     *
+     * @param rayLon       Longitude of the vertical ray (query point's longitude).
+     * @param rayLatStart  Latitude the ray starts at (query point's latitude).
+     * @param rayLatEnd    Latitude the ray ends at (typically 6 NM south).
+     * @param a            Coastline segment start point.
+     * @param b            Coastline segment end point.
+     * @return true if the ray crosses this segment within the latitude band.
      */
-    fun isOnWater(
-        latitude: Double,
-        longitude: Double,
-        polylines: List<List<LatLng>>
+    fun rayCrossesSegmentSouth(
+        rayLon: Double,
+        rayLatStart: Double,
+        rayLatEnd: Double,
+        a: LatLng,
+        b: LatLng
     ): Boolean {
-        val point = LatLng(latitude, longitude)
-        var bestCross = 0.0
-        var bestDist = Double.MAX_VALUE
-        var found = false
+        val aLon = a.longitude
+        val bLon = b.longitude
+        val aLat = a.latitude
+        val bLat = b.latitude
 
-        for (polyline in polylines) {
-            if (polyline.size < 2) continue
-            for (i in 0 until polyline.size - 1) {
-                val a = polyline[i]
-                val b = polyline[i + 1]
-                val d = pointToSegmentDistance(point, a, b)
-                if (d < bestDist) {
-                    bestDist = d
-                    bestCross = crossProductZ(a, b, point)
-                    found = true
-                }
-            }
+        // 1. Segment must span the ray's longitude.
+        //    Strict '<' on the upper bound de-duplicates shared vertices.
+        val crossesLon = (aLon <= rayLon && rayLon < bLon) ||
+                         (bLon <= rayLon && rayLon < aLon)
+        if (!crossesLon) return false
+
+        // 2. Compute the latitude where the ray intersects the segment's line.
+        val dLon = bLon - aLon
+        val intersectLat: Double = if (dLon == 0.0) {
+            // Vertical segment, collinear with the ray.
+            // Count as crossed if the segment extends south of the ray start.
+            minOf(aLat, bLat)
+        } else {
+            aLat + (rayLon - aLon) * (bLat - aLat) / dLon
         }
 
-        if (!found) return true // No coastline → assume water (safe default)
-        // z < 0 → right side → water
-        return bestCross < 0.0
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Orientation validation (signed area)
-    // ─────────────────────────────────────────────────────────────────────────
-
-    /**
-     * Computes the signed area of a polyline treated as a polygon (Shoelace formula).
-     *
-     * The polyline is closed automatically (last point → first point).
-     *
-     * @return Positive for counter-clockwise winding, negative for clockwise.
-     */
-    fun signedArea(points: List<LatLng>): Double {
-        if (points.size < 3) return 0.0
-
-        // Use planar projection centered on the bounding box midpoint
-        val midLat = (points.minOf { it.latitude } + points.maxOf { it.latitude }) / 2.0
-        val mPerDegLat = EARTH_RADIUS_M * PI / 180.0
-        val mPerDegLon = mPerDegLat * cos(Math.toRadians(midLat))
-
-        var area = 0.0
-        for (i in points.indices) {
-            val j = (i + 1) % points.size
-            val xi = points[i].longitude * mPerDegLon
-            val yi = points[i].latitude * mPerDegLat
-            val xj = points[j].longitude * mPerDegLon
-            val yj = points[j].latitude * mPerDegLat
-            area += xi * yj - xj * yi
-        }
-        return area / 2.0
-    }
-
-    /**
-     * Auto-detects if a polyline is closed (start ↔ end within 25m).
-     */
-    private fun isClosedPolyline(points: List<LatLng>): Boolean {
-        if (points.size < 3) return false
-        return haversine(points.first(), points.last()) <= MATCH_THRESHOLD_M
-    }
-
-    /**
-     * Ensures a polyline has water on the RIGHT side of the direction of travel.
-     *
-     * **Closed polylines (islands):**
-     * For a CCW-wound closed polygon, the interior (land) is on the LEFT of every
-     * directed edge, and the exterior (water) is consistently on the RIGHT.
-     * We use the signed area (shoelace formula) to check the winding:
-     *   - `signedArea > 0` → CCW → water on RIGHT ✓ → keep
-     *   - `signedArea < 0` → CW  → water on LEFT  ✗ → reverse
-     *
-     * **Open polylines (mainland):**
-     * We pick a reference point 0.1° south of the polyline (which should be sea
-     * for the Mediterranean coast) and check the CUMULATIVE cross-product
-     * across ALL segments. This is more robust than using only the longest
-     * segment, which may have an anomalous angle near bays or boundaries.
-     */
-    fun ensureWaterOnRight(points: List<LatLng>): List<LatLng> {
-        if (points.size < 2) return points
-
-        // Auto-detect closed polylines (islands)
-        if (isClosedPolyline(points)) {
-            val area = signedArea(points)
-            // CCW (area > 0) → interior on left → water on right ✓
-            // CW  (area < 0) → interior on right → water on left ✗ → reverse
-            return if (area < 0) points.reversed() else points
-        }
-
-        // Open polyline (mainland) — reference point ~11 km south of the coastline
-        val refLat = points.minOf { it.latitude } - 0.1
-        val refLon = (points.first().longitude + points.last().longitude) / 2.0
-        val reference = LatLng(refLat, refLon)
-
-        // Aggregate cross-product across ALL segments (not just longest).
-        // If the cumulative cross is negative, the reference (south = sea) is
-        // predominantly on the RIGHT → polyline orientation is correct.
-        var totalCross = 0.0
-        for (i in 0 until points.size - 1) {
-            totalCross += crossProductZ(points[i], points[i + 1], reference)
-        }
-
-        // totalCross < 0 → reference on right → water on right ✓
-        // totalCross > 0 → reference on left  → water on left ✗ → reverse
-        return if (totalCross < 0.0) points else points.reversed()
+        // 3. Crossing counts only if the intersection is strictly south of the
+        //    query point and at-or-south of the 6 NM limit.
+        return intersectLat < rayLatStart && intersectLat >= rayLatEnd
     }
 
     // ─────────────────────────────────────────────────────────────────────────

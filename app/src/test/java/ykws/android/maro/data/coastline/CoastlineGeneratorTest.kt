@@ -63,22 +63,6 @@ class CoastlineGeneratorTest {
     }
 
     @Test
-    fun `orientation is correct after ensureWaterOnRight`() {
-        val polylines = SpatialOperations.assemblePolylines(syntheticSegments)
-        val oriented = SpatialOperations.ensureWaterOnRight(polylines[0])
-
-        // The oriented polyline should have water on the right (south)
-        // A test point south of the coast should be on the right side
-        val seaCheck = LatLng(43.40, 7.00) // ~15 km south
-        val isSeaOnRight = SpatialOperations.isRightSide(
-            oriented[oriented.size / 3],
-            oriented[oriented.size / 2],
-            seaCheck
-        )
-        assertTrue("Sea (south) should be on the right side of the oriented coastline", isSeaOnRight)
-    }
-
-    @Test
     fun `clipping removes points outside Nice-Frejus zone`() {
         val polylines = SpatialOperations.assemblePolylines(syntheticSegments)
         val clipped = polylines[0].filter { (_, lon) ->
@@ -127,21 +111,6 @@ class CoastlineGeneratorTest {
         }
         assertTrue("Total coastline length should be > 10 km", totalLength > 10_000.0)
         assertTrue("Total coastline length should be < 100 km", totalLength < 100_000.0)
-    }
-
-    @Test
-    fun `isOnWater correctly identifies side for Villefranche-La Napoule coast`() {
-        val polylines = SpatialOperations.assemblePolylines(syntheticSegments)
-        // Ensure orientation is water-on-right (west→east)
-        val orientedPolylines = polylines.map { SpatialOperations.ensureWaterOnRight(it) }
-
-        // Point known to be at sea (south of the coastline, in the Mediterranean)
-        val atSea = SpatialOperations.isOnWater(43.30, 7.10, orientedPolylines)
-        assertTrue("Point at 43.30, 7.10 should be water (sea)", atSea)
-
-        // Point known to be on land (north of the coastline, in the hills)
-        val onLand = SpatialOperations.isOnWater(43.75, 7.10, orientedPolylines)
-        assertFalse("Point at 43.75, 7.10 should be land", onLand)
     }
 
     @Test

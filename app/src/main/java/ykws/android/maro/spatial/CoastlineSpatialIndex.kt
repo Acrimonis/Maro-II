@@ -258,6 +258,64 @@ class CoastlineSpatialIndex(
         )
     }
 
+    /**
+     * Collects candidate coastline segments along a vertical column from the
+     * query point down to [maxDistM] metres south, for ray-cast water/land
+     * classification.
+     *
+     * Only cells whose longitude column overlaps the query longitude are checked.
+     * This is far cheaper than a full ring-expansion query because a vertical
+     * ray intersects an (approximately) horizontal coastline only 1–3 times.
+     *
+     * @param latitude   WGS84 latitude of the query point.
+     * @param longitude  WGS84 longitude of the query point (the ray's column).
+     * @param maxDistM   Maximum distance south to search (6 NM = 11,112 m).
+     * @return List of candidates, each containing the segment's endpoints and
+     *         polyline index (0 = mainland, >0 = island).
+     */
+    fun queryColumn(
+        latitude: Double,
+        longitude: Double,
+        maxDistM: Double
+    ): List<ColumnCandidate> {
+        if (!hasData) return emptyList()
+
+        val startRow = ((latitude - minLat) / cellSizeLat).toInt().coerceIn(0, rowCount - 1)
+        val endLat = latitude - (maxDistM / (SpatialOperations.EARTH_RADIUS_M * PI / 180.0))
+        val endRow = ((endLat - minLat) / cellSizeLat).toInt().coerceIn(0, rowCount - 1)
+        val col = ((longitude - minLon) / cellSizeLon).toInt().coerceIn(0, colCount - 1)
+
+        val seen = mutableSetOf<Int>()
+        val result = mutableListOf<ColumnCandidate>()
+
+        val rowRange = if (startRow <= endRow) startRow..endRow else endRow..startRow
+        for (r in rowRange) {
+            grid[GridCell(r, col)]?.let { indices ->
+                for (idx in indices) {
+                    if (seen.add(idx)) {
+                        val ref = segmentRefs[idx]
+                        result.add(ColumnCandidate(ref.a, ref.b, ref.polylineIdx))
+                    }
+                }
+            }
+        }
+
+        return result
+    }
+
+    /**
+     * A coastline segment candidate for ray-cast intersection testing.
+     *
+     * @property a            Segment start point in WGS84.
+     * @property b            Segment end point in WGS84.
+     * @property polylineIdx  0 = mainland coastline, >0 = island.
+     */
+    data class ColumnCandidate(
+        val a: LatLng,
+        val b: LatLng,
+        val polylineIdx: Int
+    )
+
     // ── Grid helpers ─────────────────────────────────────────────────────────
 
     /**

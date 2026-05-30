@@ -151,21 +151,10 @@ class CoastlineGenerator(
         }
         onProgress("Découpage & simplification", 65)
 
-        // ── 4b. Orientation detection using island positions (65 → 68) ──────
-        // Islands are surrounded by water. If we have at least one island,
-        // count how many islands fall on each side of the mainland coastline.
-        // The side with more islands is the water side.
-        // If no islands exist, the current orientation (from ensureWaterOnRight
-        // with south=sea heuristic) is kept.
-        val mainCoastlineOriented = if (allIslands.isNotEmpty()) {
-            orientByIslandPositions(mainCoastline, allIslands)
-        } else {
-            mainCoastline
-        }
-        onProgress("Orientation îles", 68)
-
-        // ── 5. Clip + Simplify + Orient (68 → 90) ───────────────────────────
-        val processedMainland = processPolyline(mainCoastlineOriented.points, isMainland = true)
+        // ── 5. Clip + Simplify (65 → 90) ──────────────────────────────────
+        // Note: orientation (water-on-right) is no longer needed — the new
+        // ray-cast isOnWater algorithm does not depend on polyline direction.
+        val processedMainland = processPolyline(mainCoastline.points, isMainland = true)
         val processedIslands = allIslands.mapNotNull { island ->
             val processed = processPolyline(island.points, isMainland = false)
             if (processed != null) processed to island.osmWayId else null
@@ -313,8 +302,7 @@ class CoastlineGenerator(
         val simplified = SpatialOperations.douglasPeucker(clipped, simplifyEpsilonM)
         if (simplified.size < 2) return null
 
-        // Orientation: water on right
-        return SpatialOperations.ensureWaterOnRight(simplified)
+        return simplified
     }
 
     // ── OSM Way parsing ────────────────────────────────────────────────────
@@ -738,54 +726,5 @@ class CoastlineGenerator(
             lonWest = lonMin,
             lonEast = lonMax
         )
-    }
-
-    /**
-     * Determines coastline orientation by checking which side of the mainland
-     * the islands fall on. Islands are surrounded by water, so the side with
-     * more island centers is the water side.
-     *
-     * If islands are mostly on the LEFT, water is on the LEFT → reverse so
-     * water ends up on the RIGHT.
-     */
-    private fun orientByIslandPositions(
-        mainland: RawSegment,
-        islands: List<RawSegment>
-    ): RawSegment {
-        val mainPoints = mainland.points
-        if (mainPoints.size < 2 || islands.isEmpty()) return mainland
-
-        var rightCount = 0
-        var leftCount = 0
-
-        for (island in islands) {
-            if (island.points.isEmpty()) continue
-
-            val centerLat = island.points.sumOf { it.latitude } / island.points.size
-            val centerLon = island.points.sumOf { it.longitude } / island.points.size
-            val center = LatLng(centerLat, centerLon)
-
-            var minDist = Double.MAX_VALUE
-            var bestCross = 0.0
-            for (i in 0 until mainPoints.size - 1) {
-                val d = SpatialOperations.pointToSegmentDistance(
-                    center, mainPoints[i], mainPoints[i + 1]
-                )
-                if (d < minDist) {
-                    minDist = d
-                    bestCross = SpatialOperations.crossProductZ(
-                        mainPoints[i], mainPoints[i + 1], center
-                    )
-                }
-            }
-
-            if (bestCross < 0) rightCount++ else leftCount++
-        }
-
-        return if (leftCount > rightCount) {
-            mainland.copy(points = mainland.points.reversed())
-        } else {
-            mainland
-        }
     }
 }

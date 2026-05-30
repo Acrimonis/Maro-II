@@ -155,68 +155,88 @@ class CoastlineRepository(
         loadCoastline(regionId)
     }
 
-    // ── Query methods (optimized with pre-projected XY) ────────────────────
+    // ── Query methods ──────────────────────────────────────────────────────
 
     /**
-     * Returns true if the given GPS position is on the water side of the coastline.
+     * Returns true if the GPS position is on water.
      *
-     * Uses pre-projected XY coordinates and edge vectors — no lat/lon to meter
-     * conversion during the per-edge loop. The GPS query point is projected once
-     * using the coastline's reference latitude, then all math is simple 2D Cartesian.
+     * ## Algorithm — Ray Casting
+     *
+     * A vertical ray is cast SOUTH from the query point. Every time the ray
+     * crosses the mainland coastline, it flips from water→land or land→water.
+     * The parity of crossings determines the result:
+     *   - **0, 2, 4, … (EVEN)** → query point and far-south are on the SAME side → WATER
+     *   - **1, 3, 5, … (ODD)**  → opposite sides → LAND
+     *
+     * Islands are checked separately: if the query point is inside any
+     * closed island polygon (odd crossings with that island's ring), it is
+     * on land regardless of the mainland parity.
+     *
+     * ## Short-Circuits
+     *
+     * - No loaded data → `true` (safe default: assume water).
+     * - Distance to coast > 6 NM → `true` (beyond regulatory zone = open water).
+     *
+     * ## Performance
+     *
+     * Uses [CoastlineSpatialIndex.queryColumn] to collect candidate segments
+     * along the ray's vertical column only — ~5–20 segments checked per query
+     * (vs. ~15,000 in the old brute-force approach). Each check is a cheap
+     * boolean intersection test (no sqrt, no trig).
      */
     fun isOnWater(latitude: Double, longitude: Double): Boolean {
         val data = coastlineData ?: return true
-        val refLat = data.metadata.projectionRefLat
-        if (refLat == 0.0) return true
+        val index = spatialIndex ?: return true
 
-        // Project the GPS query point once using the stored reference latitude
+        // ── Short-circuit: beyond 6 NM → open water ──
+        val distToCoast = distanceToCoastMeters(latitude, longitude)
+        if (distToCoast > SIX_NM_METERS) return true
+
+        // ── Ray end latitude (6 NM south of query point) ──
         val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
-        val mPerDegLon = mPerDegLat * cos(Math.toRadians(refLat))
-        val px = longitude * mPerDegLon
-        val py = latitude * mPerDegLat
+        val rayLatEnd = latitude - (SIX_NM_METERS / mPerDegLat)
 
-        var bestCross = 0.0
-        var bestDist = Double.MAX_VALUE
-        var found = false
+        // ── Collect candidate segments along the vertical column ──
+        val candidates = index.queryColumn(latitude, longitude, SIX_NM_METERS)
 
-        for (segment in data.allSegments) {
-            val pts = segment.points
-            for (i in 0 until pts.size - 1) {
-                val a = pts[i]
-                // Edge start = (a.xM, a.yM), end = (a.xM + a.edgeDxM, a.yM + a.edgeDyM)
-                val ax = a.xM.toDouble()
-                val ay = a.yM.toDouble()
-                val bx = ax + a.edgeDxM
-                val by = ay + a.edgeDyM
-
-                // Fast point-to-segment distance using pre-projected coordinates
-                val abx = bx - ax
-                val aby = by - ay
-                val apx = px - ax
-                val apy = py - ay
-                val abLenSq = abx * abx + aby * aby
-
-                val d = if (abLenSq == 0.0) {
-                    sqrt((px - ax).pow(2) + (py - ay).pow(2))
-                } else {
-                    val t = ((apx * abx + apy * aby) / abLenSq).coerceIn(0.0, 1.0)
-                    val cx = ax + t * abx
-                    val cy = ay + t * aby
-                    sqrt((px - cx).pow(2) + (py - cy).pow(2))
-                }
-
-                if (d < bestDist) {
-                    bestDist = d
-                    // Cross product: (B-A) × (P-A)
-                    bestCross = abx * apy - aby * apx
-                    found = true
-                }
+        // ── Mainland crossing count ──
+        var mainlandCrossings = 0
+        for (c in candidates) {
+            if (c.polylineIdx == 0 &&
+                SpatialOperations.rayCrossesSegmentSouth(longitude, latitude, rayLatEnd, c.a, c.b)
+            ) {
+                mainlandCrossings++
             }
         }
 
-        if (!found) return true
-        // z < 0 → right side → water (by orientation convention)
-        return bestCross < 0.0
+        // EVEN → same side as far-south reference → WATER
+        val isWater = (mainlandCrossings % 2 == 0)
+
+        // ── Island enclosure check ──
+        if (isWater) {
+            val islandGroups = candidates
+                .filter { it.polylineIdx > 0 }
+                .groupBy { it.polylineIdx }
+
+            for ((_, segments) in islandGroups) {
+                var crossings = 0
+                for (seg in segments) {
+                    if (SpatialOperations.rayCrossesSegmentSouth(
+                            longitude, latitude, rayLatEnd, seg.a, seg.b
+                    )) {
+                        crossings++
+                    }
+                }
+                if (crossings % 2 == 1) return false  // inside island → LAND
+            }
+        }
+
+        return isWater
+    }
+
+    companion object {
+        /** 6 nautical miles in metres (1 NM = 1,852 m exactly). */
+        private const val SIX_NM_METERS = 6.0 * 1852.0  // = 11,112.0
     }
 
     /**

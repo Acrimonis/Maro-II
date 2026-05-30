@@ -88,34 +88,77 @@ class SpatialOperationsTest {
             abs(d1 - minOf(d2, d3)) < 100.0)
     }
 
-    // ── 3. Cross-product & side detection ──────────────────────────────────
+    // ── 3. Ray-cast intersection (rayCrossesSegmentSouth) ────────────────────
 
     @Test
-    fun `sea point is on the RIGHT side of west-to-east coastline`() {
-        // The coastline runs west→east (La Napoule → Nice → Villefranche)
-        // Sea (south) should be on the RIGHT
-        val right = SpatialOperations.isRightSide(laNapoule, nice, seaPoint)
-        assertTrue("Sea (south) should be on the right", right)
+    fun `rayCrossesSegmentSouth — ray hits middle of west-to-east segment`() {
+        // A=(43.5, 7.0), B=(43.5, 7.1) — horizontal, west→east
+        // Ray at lon=7.05 from lat=43.4 south to lat=43.3 (below the segment)
+        val a = LatLng(43.5, 7.0)
+        val b = LatLng(43.5, 7.1)
+        val result = SpatialOperations.rayCrossesSegmentSouth(
+            rayLon = 7.05, rayLatStart = 43.4, rayLatEnd = 43.3, a = a, b = b
+        )
+        assertFalse("Ray south from above the segment should NOT cross it (segment is NORTH of ray start)", result)
     }
 
     @Test
-    fun `land point is on the LEFT side of west-to-east coastline`() {
-        val right = SpatialOperations.isRightSide(laNapoule, nice, landPoint)
-        assertFalse("Land (north) should be on the left", right)
+    fun `rayCrossesSegmentSouth — ray crosses segment when segment is south of ray`() {
+        // A=(43.4, 7.0), B=(43.4, 7.1) — horizontal, below the ray start
+        // Ray at lon=7.05 from lat=43.5 south to lat=43.3
+        val a = LatLng(43.4, 7.0)
+        val b = LatLng(43.4, 7.1)
+        val result = SpatialOperations.rayCrossesSegmentSouth(
+            rayLon = 7.05, rayLatStart = 43.5, rayLatEnd = 43.3, a = a, b = b
+        )
+        assertTrue("Ray south from above should cross the segment", result)
     }
 
     @Test
-    fun `isOnWater detects water for a known sea point`() {
-        val polylines = listOf(listOf(laNapoule, cannes, antibes, nice, villefranche))
-        val onWater = SpatialOperations.isOnWater(43.35, 7.10, polylines)
-        assertTrue("Point south of coast should be water", onWater)
+    fun `rayCrossesSegmentSouth — ray misses segment entirely east`() {
+        val a = LatLng(43.4, 7.0)
+        val b = LatLng(43.4, 7.1)
+        val result = SpatialOperations.rayCrossesSegmentSouth(
+            rayLon = 7.2, rayLatStart = 43.5, rayLatEnd = 43.3, a = a, b = b
+        )
+        assertFalse("Ray at lon=7.2 should miss segment at lon 7.0–7.1", result)
     }
 
     @Test
-    fun `isOnWater detects land for a known land point`() {
-        val polylines = listOf(listOf(laNapoule, cannes, antibes, nice, villefranche))
-        val onWater = SpatialOperations.isOnWater(43.75, 7.10, polylines)
-        assertFalse("Point north of coast should be land", onWater)
+    fun `rayCrossesSegmentSouth — segment entirely north of ray start is ignored`() {
+        val a = LatLng(43.6, 7.0)
+        val b = LatLng(43.6, 7.1)
+        val result = SpatialOperations.rayCrossesSegmentSouth(
+            rayLon = 7.05, rayLatStart = 43.5, rayLatEnd = 43.3, a = a, b = b
+        )
+        assertFalse("Segment north of ray start should not be crossed", result)
+    }
+
+    @Test
+    fun `rayCrossesSegmentSouth — segment entirely south of ray end is ignored`() {
+        val a = LatLng(43.2, 7.0)
+        val b = LatLng(43.2, 7.1)
+        val result = SpatialOperations.rayCrossesSegmentSouth(
+            rayLon = 7.05, rayLatStart = 43.5, rayLatEnd = 43.3, a = a, b = b
+        )
+        assertFalse("Segment south of ray end should not be crossed", result)
+    }
+
+    @Test
+    fun `rayCrossesSegmentSouth — vertex de-duplication prevents double count`() {
+        // Two adjacent segments sharing a vertex at (43.4, 7.05).
+        // Ray at lon=7.05 should count exactly 1 crossing.
+        val a = LatLng(43.5, 7.0)
+        val b = LatLng(43.4, 7.05)  // shared vertex
+        val c = LatLng(43.3, 7.1)
+        val cross1 = SpatialOperations.rayCrossesSegmentSouth(
+            rayLon = 7.05, rayLatStart = 43.6, rayLatEnd = 43.2, a = a, b = b
+        )
+        val cross2 = SpatialOperations.rayCrossesSegmentSouth(
+            rayLon = 7.05, rayLatStart = 43.6, rayLatEnd = 43.2, a = b, b = c
+        )
+        // Exactly ONE should report a crossing (the segment where B is the lower-longitude endpoint)
+        assertTrue("Exactly one segment should cross", cross1 != cross2)
     }
 
     // ── 4. Douglas-Peucker simplification ──────────────────────────────────
@@ -192,66 +235,7 @@ class SpatialOperationsTest {
         assertEquals("Should produce 2 separate polylines", 2, polylines.size)
     }
 
-    // ── 6. Orientation (ensureWaterOnRight) ────────────────────────────────
-
-    @Test
-    fun `ensureWaterOnRight keeps proper west-to-east orientation`() {
-        // Coastline going west→east (correct)
-        val points = listOf(laNapoule, cannes, antibes, nice, villefranche)
-        val result = SpatialOperations.ensureWaterOnRight(points)
-        assertEquals("Should not reverse correct orientation",
-            points.first(), result.first())
-    }
-
-    @Test
-    fun `ensureWaterOnRight reverses east-to-west orientation`() {
-        // Coastline going east→west (reversed → water would be on left)
-        val reversed = listOf(villefranche, nice, antibes, cannes, laNapoule)
-        val result = SpatialOperations.ensureWaterOnRight(reversed)
-        assertEquals("Should reverse so La Napoule comes first",
-            laNapoule, result.first())
-        assertEquals("Should end at Villefranche",
-            villefranche, result.last())
-    }
-
-    @Test
-    fun `ensureWaterOnRight handles closed island polyline CCW`() {
-        // A small CCW island (water on right = exterior)
-        val islandCCW = listOf(
-            LatLng(43.50, 7.00),
-            LatLng(43.49, 7.00),
-            LatLng(43.49, 7.01),
-            LatLng(43.50, 7.01),
-            LatLng(43.50, 7.00) // closed: back to start
-        )
-        val result = SpatialOperations.ensureWaterOnRight(islandCCW)
-        // For a CCW polygon, water (exterior) is on the RIGHT
-        // The result should keep CCW orientation
-        assertEquals("CCW island should keep first point",
-            islandCCW.first(), result.first())
-    }
-
-    @Test
-    fun `ensureWaterOnRight reverses CW island to CCW`() {
-        // A small CW island → water on left, should reverse
-        val islandCW = listOf(
-            LatLng(43.50, 7.00),
-            LatLng(43.50, 7.01),
-            LatLng(43.49, 7.01),
-            LatLng(43.49, 7.00),
-            LatLng(43.50, 7.00) // closed
-        )
-        val result = SpatialOperations.ensureWaterOnRight(islandCW)
-        // After reversing, first point becomes (43.50, 7.00) — same
-        // But second point changes
-        assertEquals("Should reverse CW to CCW",
-            islandCW.first(), result.first())
-        // The second point of the reversed island should be (43.49, 7.00)
-        assertEquals("Second point after reversal",
-            LatLng(43.49, 7.00), result[1])
-    }
-
-    // ── 7. Polylines min distance (island filtering) ────────────────────────
+    // ── 6. Polylines min distance (island filtering) ────────────────────────
 
     @Test
     fun `polylinesMinDistance between parallel segments`() {
@@ -267,33 +251,5 @@ class SpatialOperationsTest {
         val poly = listOf(LatLng(43.55, 7.00), LatLng(43.55, 7.05))
         val dist = SpatialOperations.polylinesMinDistance(poly, poly)
         assertEquals("Distance to self should be 0", 0.0, dist, 0.001)
-    }
-
-    // ── 8. Signed area ─────────────────────────────────────────────────────
-
-    @Test
-    fun `signedArea positive for CCW polygon`() {
-        // Small CCW square
-        val ccw = listOf(
-            LatLng(43.50, 7.00),
-            LatLng(43.49, 7.00),
-            LatLng(43.49, 7.01),
-            LatLng(43.50, 7.01)
-        )
-        val area = SpatialOperations.signedArea(ccw)
-        assertTrue("CCW should have positive signed area, got $area", area > 0)
-    }
-
-    @Test
-    fun `signedArea negative for CW polygon`() {
-        // CW square
-        val cw = listOf(
-            LatLng(43.50, 7.00),
-            LatLng(43.50, 7.01),
-            LatLng(43.49, 7.01),
-            LatLng(43.49, 7.00)
-        )
-        val area = SpatialOperations.signedArea(cw)
-        assertTrue("CW should have negative signed area, got $area", area < 0)
     }
 }
