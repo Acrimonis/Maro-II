@@ -404,7 +404,7 @@ private fun LoadingOverlay(
                 color = ComposeColor(0xFF1565C0),
                 trackColor = ComposeColor(0x401565C0)
             )
-            Spacer(modifier = Modifier.width(4.dp))
+            Spacer(modifier = Modifier.width(4.dp)) 
             Text(
                 text = "${progress.progress}%",
                 color = ComposeColor(0xFF1565C0),
@@ -531,7 +531,7 @@ private fun CoastlineMapView(
 private const val REF_ZOOM = 11.0
 
 /** Base dp for the boat marker at [REF_ZOOM]. */
-private const val BOAT_BASE_DP = 32.0
+private const val BOAT_BASE_DP = 30.0
 /** Base dp for the land-dot marker at [REF_ZOOM]. */
 private const val DOT_BASE_DP  = 8.0
 
@@ -540,7 +540,7 @@ private const val DOT_BASE_DP  = 8.0
  * 1.0 = resize exactly like the map (doubles every zoom level).
  * 0.3 = gentler curve (~23 % growth per zoom, ~8× over the full 8–18 range).
  */
-private const val ZOOM_EXPONENT = 0.5
+private const val ZOOM_EXPONENT = 0.35
 
 // ── Distance-to-coast shrink ramp ─────────────────────────────────────────────
 // When the map center is close to the coastline, the marker shrinks so it
@@ -585,7 +585,6 @@ private fun CenterMarkerOverlay(
     // dp = baseDp × 2^(ZOOM_EXPONENT × (zoom − REF_ZOOM))
     val baseDp = if (isWater) BOAT_BASE_DP else DOT_BASE_DP
     val scaleFactor = 2.0.pow(ZOOM_EXPONENT * (zoomLevel - REF_ZOOM))
-    val sizeByZoomDp = (baseDp * scaleFactor).dp
 
     // ── Distance-to-coast multiplier: [DIST_SHRINK_MIN_MULT] on the coast
     //    → 1.0 at [DIST_SHRINK_RAMP_M] m ───────────────────────────────────
@@ -597,7 +596,7 @@ private fun CenterMarkerOverlay(
         1.0f  // no coastline data → full size
     }
 
-    val finalSizeDp = (sizeByZoomDp.value * distMultiplier).dp
+    val finalSizeDp = ((baseDp * scaleFactor) * distMultiplier).dp
 
     Image(
         painter = painterResource(id = drawableId),
@@ -662,10 +661,10 @@ private fun drawCoastline(
         val polyline = Polyline().apply {
             setPoints(osmPoints)
             outlinePaint.apply {
-                color = if (segment.isMainland) Color.parseColor("#FF1565C0")
-                        else Color.parseColor("#FF42A5F5")
-                strokeWidth = if (segment.isMainland) 7f else 5f
-                alpha = if (segment.isMainland) 200 else 160
+                color = if (segment.isMainland) Color.parseColor("#1545c0")
+                        else Color.parseColor("#08805c")
+                strokeWidth = 10f // if (segment.isMainland) 7f else 5f
+                alpha = 128 // if (segment.isMainland) 200 else 160
                 isAntiAlias = true
             }
         }
