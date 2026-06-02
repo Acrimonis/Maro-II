@@ -306,29 +306,6 @@ private fun MapContent(
             modifier = Modifier.fillMaxSize()
         )
 
-        // ── Zoom buttons (bottom-right of map) ────────────────────────────
-        if (mapView != null) {
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(end = 12.dp, bottom = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                ZoomButton(
-                    icon = Icons.Default.Add,
-                    desc = "Zoom avant",
-                    onClick = { mapView?.controller?.zoomIn() }
-                )
-                ZoomButton(
-                    icon = null,
-                    desc = "Zoom arri\u00E8re",
-                    label = "\u2212",
-                    onClick = { mapView?.controller?.zoomOut() }
-                )
-            }
-        }
-
         // ── Center position marker ────────────────────────────────────────
         CenterMarkerOverlay(
             isWater = isWater,
@@ -337,25 +314,49 @@ private fun MapContent(
             modifier = Modifier.align(Alignment.Center)
         )
 
-        // ── Loading progress overlay ──────────────────────────────────────
-        if (state is CoastlineState.Loading) {
-            LoadingOverlay(
-                progress = progress,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 56.dp)
-            )
-        }
+        // ── Bottom bar: overlay centered in leftover space + zoom btns ────
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.Bottom
+        ) {
+            // Overlay centered in the space left of the zoom buttons
+            Box(
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.Center
+            ) {
+                if (state is CoastlineState.Loading) {
+                    LoadingOverlay(progress = progress)
+                }
+                if (state is CoastlineState.Error) {
+                    ErrorOverlay(
+                        message = (state as CoastlineState.Error).message,
+                        onRetry = onRetry
+                    )
+                }
+            }
 
-        // ── Error overlay ─────────────────────────────────────────────────
-        if (state is CoastlineState.Error) {
-            ErrorOverlay(
-                message = (state as CoastlineState.Error).message,
-                onRetry = onRetry,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 56.dp)
-            )
+            // Zoom buttons fixed on the right (only when mapView is ready)
+            if (mapView != null) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    ZoomButton(
+                        icon = Icons.Default.Add,
+                        desc = "Zoom avant",
+                        onClick = { mapView?.controller?.zoomIn() }
+                    )
+                    ZoomButton(
+                        icon = null,
+                        desc = "Zoom arri\u00E8re",
+                        label = "\u2212",
+                        onClick = { mapView?.controller?.zoomOut() }
+                    )
+                }
+            }
         }
     }
 }
@@ -531,7 +532,7 @@ private fun CoastlineMapView(
 private const val REF_ZOOM = 12.0 // 11.0 -to 18.0  
  
 /** Base dp for the boat marker at [REF_ZOOM]. */
-private const val BOAT_BASE_DP = 40.0
+private const val BOAT_BASE_DP = 32.0
 /** Base dp for the land-dot marker at [REF_ZOOM]. */
 private const val DOT_BASE_DP  = 8.0
 
@@ -540,7 +541,7 @@ private const val DOT_BASE_DP  = 8.0
  * 1.0 = resize exactly like the map (doubles every zoom level).
  * 0.3 = gentler curve (~23 % growth per zoom, ~8× over the full 8–18 range).
  */
-private const val ZOOM_EXPONENT = 0.35
+private const val ZOOM_EXPONENT = 0.45
 
 // ── Distance-to-coast shrink ramp ─────────────────────────────────────────────
 // When the map center is close to the coastline, the marker shrinks so it
@@ -548,7 +549,7 @@ private const val ZOOM_EXPONENT = 0.35
 // linearly from [DIST_SHRINK_MIN_MULT] at 0 m up to 1.0 at [DIST_SHRINK_RAMP_M].
 
 /** Minimum size multiplier when exactly on the coastline. */
-private const val DIST_SHRINK_MIN_MULT = 0.5
+private const val DIST_SHRINK_MIN_MULT = 0.3
 /** Distance in meters at which the marker reaches full (1.0×) size. */
 private const val DIST_SHRINK_RAMP_M   = 2000.0
 
