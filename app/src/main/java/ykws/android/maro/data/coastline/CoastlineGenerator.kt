@@ -220,7 +220,7 @@ class CoastlineGenerator(
             islands = islandSegments,
             metadata = metadata,
             regionId = regionId,
-            boundingBox = boundingBox
+            boundingBox = boundingBox 
         )
     }
 
