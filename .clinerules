@@ -4,7 +4,7 @@
 - Never make assumptions about the broader architecture outside the immediate task scope. 
 - Do not extrapolate and implement anything unless specifically instructed to. If some new features are needed to implment the reuirement, engage, discus and communicate with me. 
 - You are allowed to challenge what I say; push back on bad ideas being clear on why, but in fine deffer to my judgement.
-- At the end of task, provide me with a very consise bullet point summary of what was done. 
+- At the end of task, provide me with a very consise bullet point summary of what was done. Including also a ELI16 small summary. 
 
 # Developer Profile & Architectural Translation
 - The user is a Senior Java Backend Developer new to Android/Kotlin. Explainations could relate to Spring or Quarkus like minded concepts.
