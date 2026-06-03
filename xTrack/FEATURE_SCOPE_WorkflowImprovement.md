@@ -1,6 +1,7 @@
 # WorkflowImprovement
 **Status:** active
 **Created:** 2026-06-03
+**Last Modified:** 2026-06-03
 **Description:** Improving the .clinerules Section 7 xTrack workflow and command system — trigger syntax, templates, lifecycle protocols, and bootstrap logic.
 **One-liner:** xTrack #command system, trigger syntax, fuzzy matching, bootstrap, and memory bake lifecycle
 
@@ -27,7 +28,9 @@
 <!-- #todo items go here -->
 
 ## Rules
-<!-- #rule items go here -->
+- Keep `docs/cmd_help.md` up to date whenever xTrack commands are added, renamed, or removed.
+- Do not prompt to edit/save `.clinerules`; you have direct access to it.
+
 
 ## Key Files
 - `.clinerules` — Section 7 rules being improved
