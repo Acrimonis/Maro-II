@@ -4,7 +4,7 @@
 
 Marine navigation app for the Nice-to-Fréjus corridor. Modern Android Development (MAD) greenfield — Jetpack Compose, Material3, Kotlin DSL.
 
-> **Status:** Active development on `develop` branch.
+> **Status:** Active development.
 
 ---
 
@@ -27,6 +27,13 @@ Marine navigation app for the Nice-to-Fréjus corridor. Modern Android Developme
 ./gradlew assembleDebug
 ```
 
+Or use the convenience scripts:
+
+```bash
+apk-build.bat      # Build debug APK
+apk-deploy.bat     # Build + install to connected device via ADB
+```
+
 APK output: `app/build/outputs/apk/debug/app-debug.apk`
 
 ---
@@ -34,7 +41,8 @@ APK output: `app/build/outputs/apk/debug/app-debug.apk`
 ## Project Structure
 
 ```
-├── build.gradle.kts              # Root build (plugin aliases, apply false)
+├── apk-build.bat                 # Build debug APK
+├── apk-deploy.bat                # Build + install to device with ADB
 ├── settings.gradle.kts           # Module includes, repository config
 ├── gradle.properties             # AndroidX, JVM args
 ├── gradle/

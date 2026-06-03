@@ -1,8 +1,8 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** WorkflowImprovement
-- **Last Updated:** 2026-06-03
+- **Active Feature:** ProjectDocumentation
+- **Last Updated:** 2026-06-03T12:31:20.775Z
 
 ## Routing Map
 | Keyword | Feature File |
@@ -12,3 +12,4 @@
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).
+- Auto-refine rule wording for clarity and conciseness on `#rule` add.
