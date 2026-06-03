@@ -1,24 +1,16 @@
-# Session Hydration — 2026-06-03
+# Context Hydration — Micro-State Snapshot
+**Baked:** 2026-06-03T09:57Z
+**Active Feature:** WorkflowImprovement
 
-## Active State
-- **Feature:** WorkflowImprovement (clinerules refactoring)
-- **Mode:** Code — applying approved .clinerules improvements point by point
-- **Last Action:** Points 1–4 of 9 applied to .clinerules
+## Session Summary
+WorkflowImprovement is fully complete (16/16 subfeatures). All #-prefixed xTrack commands implemented: #list, #status, #track, #focus, #sub, #todo, #rule, #bake, #help. Bare #todo/#rule list mode, smart subfeature nesting, cross-feature mention intercept. #doc command system (create/list/read/attach/detach) fully designed and rules in .clinerules Section 7 item 11. Bare #doc shows active feature Key Files; bare attach/detach prompt interactively. ProjectDocumentation also complete (6/6). Global rule added: prefer Windows CMD over PowerShell.
 
-## What Changed
-- Point 1: Merged contradictory directives (lines 2+8) into single "answer directly, wait for user" rule
-- Point 2: Fixed stale tool references (`search_grep` → `search_files`, Unix commands → `list_files`)
-- Point 3: Defined Fuzzy Resolution Protocol (cascade: exact → substring → Levenshtein best-score with 50% confidence gating); replaced 3 inline repetitions with "fuzzy-resolve"
-- Point 4: CONTEXT_HYDRATION.md now created lazily on first #bake (not on bootstrap); #bake says "create or overwrite"
-
-## Pending
-- Points 5–9 not yet discussed: split Section 7, compress #doc, bare #focus behavior, trim Section 3, reorder sections
-- User to direct next point when session resumes
-
-## Files Touched
-- `.clinerules` — 4 diffs applied
-- `xTrack/FEATURE_SCOPE_WorkflowImprovement.md` — Last Modified bumped, rule added
-- `xTrack/CONTEXT_HYDRATION.md` — created (this file)
+## State
+- `.clinerules`: Explain/Discuss gate (line 6), #doc commands (Section 7 item 11), full # command system
+- `docs/cmd_help.md`: updated with #doc section
+- `xTrack/GLOBAL_CONTEXT.md`: 2 features, global rules section
+- `xTrack/FEATURE_SCOPE_WorkflowImprovement.md`: 16/16 done
+- `xTrack/FEATURE_SCOPE_ProjectDocumentation.md`: 6/6 done
 
 ## Next Step
-Await user direction on Points 5–9 or other priorities.
+All tracked features complete. Ready for new feature work or project development.
