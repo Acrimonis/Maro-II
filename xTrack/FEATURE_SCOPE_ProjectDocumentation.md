@@ -10,11 +10,11 @@
 - [x] README as documentation index with scope legend
 - [x] Corrected project structure tree in README
 - [x] Delete root-level GitHub and SSH.md (contents folded into docs/SETUP.md)
-- [ ] #doc commands (list, read, attach, detach) — queued as follow-up #track
+- [x] #doc commands (list, read, attach, detach) — queued as follow-up #track
 
 ## Todos
 - [x] Delete GitHub and SSH.md (needs code mode — architect can't delete)
-- [ ] #track DocCommands for #doc list/read/attach/detach
+- [x] #track DocCommands for #doc list/read/attach/detach
 - [x] Add a gate to not implement anything when a prompt ends with "explain" or "discuss"
 
 ## Rules

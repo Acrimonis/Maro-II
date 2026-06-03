@@ -1,21 +1,16 @@
-# Context Hydration — 2026-06-03
+# Context Hydration — Micro-State Snapshot
+**Baked:** 2026-06-03T09:57Z
+**Active Feature:** WorkflowImprovement
 
-**Active Feature:** ProjectDocumentation
-**Status:** xTrack command system fully overhauled. #instruction renamed to #rule. #help moved to external docs/cmd_help.md.
+## Session Summary
+WorkflowImprovement is fully complete (16/16 subfeatures). All #-prefixed xTrack commands implemented: #list, #status, #track, #focus, #sub, #todo, #rule, #bake, #help. Bare #todo/#rule list mode, smart subfeature nesting, cross-feature mention intercept. #doc command system (create/list/read/attach/detach) fully designed and rules in .clinerules Section 7 item 11. Bare #doc shows active feature Key Files; bare attach/detach prompt interactively. ProjectDocumentation also complete (6/6). Global rule added: prefer Windows CMD over PowerShell.
 
-**Completed this session:**
-- `GitHub and SSH.md` deleted
-- `#help` format: plain-text code block in docs/cmd_help.md, tab-aligned columns, 4 groups (View/Manage/Track/Session)
-- `#list` renders `**One-liner:**` per feature
-- `#status` command: compact active-feature dashboard
-- `#todo` / `#rule` split into 3 tiers each: bare list, add to active, add to target (feature|global)
-- `xTrack/GLOBAL_TODOS.md` for cross-cutting todos (easy purge)
-- Global rules stored in GLOBAL_CONTEXT.md `## Global Rules`
-- `#instruction` renamed to `#rule` everywhere (.clinerules, feature files)
-- `#extend` removed
-- `docs/cmd_help.md` created with sync rule in ProjectDocumentation
+## State
+- `.clinerules`: Explain/Discuss gate (line 6), #doc commands (Section 7 item 11), full # command system
+- `docs/cmd_help.md`: updated with #doc section
+- `xTrack/GLOBAL_CONTEXT.md`: 2 features, global rules section
+- `xTrack/FEATURE_SCOPE_WorkflowImprovement.md`: 16/16 done
+- `xTrack/FEATURE_SCOPE_ProjectDocumentation.md`: 6/6 done
 
-**Pending:**
-- `#track DocCommands` — #doc list, #doc read, #doc attach, #doc detach
-
-**Key files modified:** `.clinerules`, `docs/cmd_help.md`, `xTrack/GLOBAL_TODOS.md`, both feature scope files
+## Next Step
+All tracked features complete. Ready for new feature work or project development.

@@ -16,6 +16,12 @@
 - [x] #instruction command for context attachments
 - [x] Bare #todo/#instruction list mode
 - [x] Smart subfeature nesting for #todo
+- [x] Bare `#doc` — show active feature's Key Files (scoped, not global)
+- [x] #doc create [name] — create doc in docs/, prompt for scope tag
+- [x] #doc list — scan docs/*.md, display filename + scope tag + heading
+- [x] #doc read [name] — hydrate doc into AI context
+- [x] #doc attach [name] — add doc; bare = prompt pick-list
+- [x] #doc detach [name] — remove doc; bare = prompt pick-list
 
 ## Todos
 <!-- #todo items go here -->
