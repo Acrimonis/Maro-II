@@ -1,5 +1,6 @@
-View:     #list            	    view all features
-          #status          	    active feature dashboard
+View:     #list            	    compact feature table (by last modified)
+          #status          	    feature details (active)
+          #status [name]   	    feature details (named)
 Manage:   #track [name]    	    create feature
           #focus [name]    	    switch to feature
           #sub [name]      	    add subfeature (active)
@@ -9,12 +10,12 @@ Track:    #todo            	    list todos
           #rule            	    list rules
           #rule [desc]        	add rule (active)
           #rule [tgt]:[desc]  	add rule (tgt: feature|global)
-Docs:     #doc              	feature docs (active context)
-          #doc create [name]	create doc + scope prompt
+Docs:     #doc                  feature docs (active context)
           #doc list         	list docs with scope tags
+          #doc create [name]	create doc + scope prompt
           #doc read [name]  	load doc into context
           #doc attach [name]	link doc (bare = prompt)
-          #doc detach [name]	unlink doc (bare = prompt)
+          #doc detach [name]    unlink doc (bare = prompt)
 Session:  #bake            	    snapshot session
           #help            	    this list
 ```
