@@ -1,7 +1,7 @@
 # WorkflowImprovement
 **Status:** active
 **Created:** 2026-06-03
-**Last Modified:** 2026-06-03
+**Last Modified:** 2026-06-03T11:02:43.929Z
 **Description:** Improving the .clinerules Section 7 xTrack workflow and command system — trigger syntax, templates, lifecycle protocols, and bootstrap logic.
 **One-liner:** xTrack #command system, trigger syntax, fuzzy matching, bootstrap, and memory bake lifecycle
 
@@ -25,7 +25,10 @@
 - [x] #doc detach [name] — remove doc; bare = prompt pick-list
 
 ## Todos
-<!-- #todo items go here -->
+- [ ] Point 6: Compress #doc sub-commands to compact reference table (deferred)
+- [x] Point 7: Define bare `#focus` behavior (prompt pick-list)
+- [x] Point 8: Trim Section 3 provider-specific cache details
+- [x] Point 9: Reorder .clinerules sections by session frequency + extract spatial to docs/
 
 ## Rules
 - Keep `docs/cmd_help.md` up to date whenever xTrack commands are added, renamed, or removed.
