@@ -34,6 +34,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -81,7 +82,7 @@ fun MapScreen(
     val isWater by viewModel.isWater.collectAsState()
     val distanceToShore by viewModel.distanceToShore.collectAsState()
     val zoomLevel by viewModel.zoomLevel.collectAsState()
-    var mapView by mutableStateOf<MapView?>(null)
+    var mapView by remember { mutableStateOf<MapView?>(null) }
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val isLandscape = maxWidth > maxHeight

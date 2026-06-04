@@ -414,6 +414,18 @@ class CoastlineGenerator(
      * Node-ID matching uses osmWayId-based maps — no stale indices,
      * because maps store osmWayIds and [findAndRemoveByOsmId] searches
      * the mutable [remaining] list by value each time.
+     *
+     * ## Matching order (authoritative-first)
+     *
+     * Each iteration exhausts the authoritative node-ID match on **both** ends
+     * — append (tail→head) then prepend (head→tail) — before falling back to
+     * distance-based matching on either end. OSM coastline ways share exact node
+     * IDs at their joins, so a node-ID match is always correct; the 25 m distance
+     * fallback is a heuristic that can mis-join unrelated ways which merely happen
+     * to be close. Trying distance before the node-ID prepend (the previous order)
+     * could glue the wrong way onto the head even when an exact shared-node match
+     * existed there. Keeping both exact passes ahead of both fuzzy passes removes
+     * that failure mode.
      */
     private fun buildSingleChain(
         remaining: MutableList<RawSegment>,
@@ -434,7 +446,7 @@ class CoastlineGenerator(
         while (remaining.isNotEmpty() && changed) {
             changed = false
 
-            // ── Try to append: chain.tail → segment.head (node-ID match) ──
+            // ── 1. Authoritative append: chain.tail → segment.head (node-ID) ──
             val tailNode = if (chainNodeIds.isNotEmpty()) chainNodeIds.last() else null
             if (tailNode != null) {
                 val candidates = headNodeMap[tailNode]?.toList() ?: emptyList()
@@ -450,7 +462,26 @@ class CoastlineGenerator(
                 if (changed) continue
             }
 
-            // ── Fallback: distance-based append ────────────────────────────
+            // ── 2. Authoritative prepend: segment.tail → chain.head (node-ID) ──
+            // Both exact (node-ID) passes run before either distance fallback so
+            // a shared-node match at the head is never lost to a coincidental
+            // 25 m neighbour. See the method KDoc for the rationale.
+            val headNode = if (chainNodeIds.isNotEmpty()) chainNodeIds.first() else null
+            if (headNode != null) {
+                val candidates = tailNodeMap[headNode]?.toList() ?: emptyList()
+                for (osmId in candidates) {
+                    val match = findAndRemoveByOsmId(remaining, osmId) ?: continue
+                    removeOsmIdFromMaps(match.osmWayId, headNodeMap, tailNodeMap)
+                    chainPoints.addAll(0, match.points.dropLast(1))
+                    chainNodeIds.addAll(0, match.nodeIds.dropLast(1))
+                    chainOsmId = mergeOsmIds(chainOsmId, match.osmWayId)
+                    changed = true
+                    break
+                }
+                if (changed) continue
+            }
+
+            // ── 3. Fallback append: distance-based (chain.tail → segment.head) ──
             val tail = chainPoints.last()
             var bestIdx: Int? = null
             var bestDist = MATCH_THRESHOLD_M
@@ -471,23 +502,7 @@ class CoastlineGenerator(
                 continue
             }
 
-            // ── Try to prepend: segment.tail → chain.head (node-ID match) ──
-            val headNode = if (chainNodeIds.isNotEmpty()) chainNodeIds.first() else null
-            if (headNode != null) {
-                val candidates = tailNodeMap[headNode]?.toList() ?: emptyList()
-                for (osmId in candidates) {
-                    val match = findAndRemoveByOsmId(remaining, osmId) ?: continue
-                    removeOsmIdFromMaps(match.osmWayId, headNodeMap, tailNodeMap)
-                    chainPoints.addAll(0, match.points.dropLast(1))
-                    chainNodeIds.addAll(0, match.nodeIds.dropLast(1))
-                    chainOsmId = mergeOsmIds(chainOsmId, match.osmWayId)
-                    changed = true
-                    break
-                }
-                if (changed) continue
-            }
-
-            // ── Fallback: distance-based prepend ───────────────────────────
+            // ── 4. Fallback prepend: distance-based (segment.tail → chain.head) ──
             val head = chainPoints.first()
             bestIdx = null
             bestDist = MATCH_THRESHOLD_M
