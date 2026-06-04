@@ -184,13 +184,21 @@ class CoastlineRepository(
      * (vs. ~15,000 in the old brute-force approach). Each check is a cheap
      * boolean intersection test (no sqrt, no trig).
      */
-    fun isOnWater(latitude: Double, longitude: Double): Boolean {
+    fun isOnWater(latitude: Double, longitude: Double): Boolean =
+        isOnWater(latitude, longitude, distanceToCoastMeters(latitude, longitude))
+
+    /**
+     * Variant of [isOnWater] that reuses a distance-to-coast value the caller
+     * already computed, avoiding a second spatial query. Used by the throttled
+     * map-center pipeline, which derives both the distance and the water flag
+     * from a single [distanceToCoast] call.
+     */
+    fun isOnWater(latitude: Double, longitude: Double, distToCoastMeters: Double): Boolean {
         val data = coastlineData ?: return true
         val index = spatialIndex ?: return true
 
         // ── Short-circuit: beyond 6 NM → open water ──
-        val distToCoast = distanceToCoastMeters(latitude, longitude)
-        if (distToCoast > SIX_NM_METERS) return true
+        if (distToCoastMeters > SIX_NM_METERS) return true
 
         // ── Ray end latitude (6 NM south of query point) ──
         val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0

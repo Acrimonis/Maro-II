@@ -3,10 +3,18 @@ package ykws.android.maro.ui.map
 import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import ykws.android.maro.data.coastline.CoastlineRepository
@@ -20,6 +28,7 @@ import ykws.android.maro.data.model.LatLng
  * Bridges [CoastlineRepository] to the Compose UI layer.
  * Call [initCache] once at startup to load coastline (from cache or OSM).
  */
+@OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
 class CoastlineViewModel(
     private val repository: CoastlineRepository = CoastlineRepository()
 ) : ViewModel() {
@@ -69,6 +78,34 @@ class CoastlineViewModel(
     private val _zoomLevel = MutableStateFlow(11.0) // matches initial controller.setZoom(11.0)
     val zoomLevel: StateFlow<Double> = _zoomLevel.asStateFlow()
 
+    init {
+        // Throttle the expensive water/distance recompute. osmdroid fires a
+        // scroll event on every frame of a pan/fling (30–60/s); recomputing and
+        // emitting on each one floods Compose with recompositions and runs CPU
+        // work on the UI thread, causing visible map jank. sample() collapses
+        // the stream to ~6–7 updates/s — imperceptible for on-screen text —
+        // flowOn moves the work off the main thread, and mapLatest cancels a
+        // stale computation when the center moves again before it finishes.
+        _mapCenter
+            .sample(SHORE_SAMPLE_INTERVAL_MS)
+            .mapLatest { center ->
+                val result = repository.distanceToCoast(center.latitude, center.longitude)
+                val distance = if (result.distanceMeters == Double.MAX_VALUE) null
+                               else result.distanceMeters
+                // Reuse the distance just computed instead of querying again.
+                val water = repository.isOnWater(
+                    center.latitude, center.longitude, result.distanceMeters
+                )
+                ShoreState(distance, water)
+            }
+            .flowOn(Dispatchers.Default)
+            .onEach { shore ->
+                _distanceToShore.value = shore.distanceMeters
+                _isWater.value = shore.isWater
+            }
+            .launchIn(viewModelScope)
+    }
+
     /**
      * "Régénérer" button handler.
      * Forces a fresh OSM fetch by deleting the cache file first, then loading.
@@ -93,14 +130,12 @@ class CoastlineViewModel(
 
     /**
      * Called whenever the user pans/zooms the map.
-     * Updates the map center and recomputes water/land in real time.
+     * Records the new center cheaply on the UI thread; the water/distance
+     * recompute is driven by the throttled pipeline in [init] to keep heavy
+     * work off the high-frequency scroll path.
      */
     fun updateMapCenter(latitude: Double, longitude: Double) {
         _mapCenter.value = LatLng(latitude, longitude)
-        _isWater.value = repository.isOnWater(latitude, longitude)
-        val result = repository.distanceToCoast(latitude, longitude)
-        _distanceToShore.value = if (result.distanceMeters == Double.MAX_VALUE) null
-                                else result.distanceMeters
     }
 
     /** Captures the current map zoom level for dynamic marker sizing. */
@@ -125,4 +160,12 @@ class CoastlineViewModel(
      */
     fun distanceToCoastMeters(latitude: Double, longitude: Double): Double =
         repository.distanceToCoastMeters(latitude, longitude)
+
+    /** Result of one throttled recompute: distance to shore (m, null if none) + water flag. */
+    private data class ShoreState(val distanceMeters: Double?, val isWater: Boolean)
+
+    private companion object {
+        /** Sampling interval for the map-center recompute pipeline (~6–7 Hz). */
+        private const val SHORE_SAMPLE_INTERVAL_MS = 150L
+    }
 }
