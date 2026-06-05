@@ -34,10 +34,7 @@ class Zone300BuilderTest {
         val seg = seg(coast, mainland = true, closed = false)
         val index = indexOf(listOf(seg))
         val isWater: (Double, Double, Double) -> Boolean = { lat, _, _ -> lat < 43.5 }
-
-        val zone = Zone300Builder(
-            index, listOf(seg), refLat, isWater, cellM = 30.0
-        ).build()
+        val zone = Zone300Builder(index, listOf(seg), refLat, isWater, cellM = 30.0).build()
 
         assertTrue("expected a fill polygon", zone.fillPolygons.isNotEmpty())
         assertTrue("expected a seaward line", zone.seawardLines.isNotEmpty())
@@ -70,10 +67,7 @@ class Zone300BuilderTest {
         val isWater: (Double, Double, Double) -> Boolean = { lat, lon, _ ->
             !(lat in s..n && lon in w..e)   // inside the square = land
         }
-
-        val zone = Zone300Builder(
-            index, listOf(seg), refLat, isWater, cellM = 30.0
-        ).build()
+        val zone = Zone300Builder(index, listOf(seg), refLat, isWater, cellM = 30.0).build()
 
         assertTrue("expected fill polygons", zone.fillPolygons.isNotEmpty())
         assertTrue(
@@ -91,5 +85,57 @@ class Zone300BuilderTest {
         val zone = Zone300Builder(index, emptyList(), refLat, { _, _, _ -> true }).build()
         assertTrue(zone.fillPolygons.isEmpty())
         assertTrue(zone.seawardLines.isEmpty())
+    }
+
+    // ── Flood-fill recovers ray-cast (isOnWater) misclassification ────────────
+
+    @Test
+    fun `flood-fill covers water that the ray-cast wrongly calls land`() {
+        val coast = (0..40).map { LatLng(43.5, 7.00 + it * 0.0008) }   // ~2.3 km straight E–W
+        val seg = seg(coast, mainland = true, closed = false)
+        val index = indexOf(listOf(seg))
+        val pLatS = 43.4982; val pLatN = 43.4988
+        val pLonW = 7.012; val pLonE = 7.020
+        val isWater: (Double, Double, Double) -> Boolean = { lat, lon, _ ->
+            if (lat in pLatS..pLatN && lon in pLonW..pLonE) false   // injected bug
+            else lat < 43.5                                          // truth: south = water
+        }
+        val zone = Zone300Builder(index, listOf(seg), refLat, isWater, cellM = 20.0).build()
+
+        val py = 43.4985; val px = 7.016
+        assertTrue("patch is genuine water within 300 m", index.query(py, px).distanceMeters <= 300.0)
+        val covered = zone.fillPolygons.any { pointInRing(py, px, it.outer) && it.holes.none { h -> pointInRing(py, px, h) } }
+        assertTrue("flood-fill should cover the misclassified water patch (no gap)", covered)
+    }
+
+    @Test
+    fun `band stays on the water side only (no wrap-around to land)`() {
+        val coast = (0..40).map { LatLng(43.5, 7.00 + it * 0.0008) }
+        val seg = seg(coast, mainland = true, closed = false)
+        val index = indexOf(listOf(seg))
+        val isWater: (Double, Double, Double) -> Boolean = { lat, _, _ -> lat < 43.5 }
+        val zone = Zone300Builder(index, listOf(seg), refLat, isWater, cellM = 20.0).build()
+
+        val lon = 7.016
+        fun covered(lat: Double) = zone.fillPolygons.any {
+            pointInRing(lat, lon, it.outer) && it.holes.none { h -> pointInRing(lat, lon, h) }
+        }
+        // ~150 m NORTH = land side, within 300 m: must NOT be banded (no wrap-around).
+        val landLat = 43.5 + 150.0 / mPerDegLat
+        assertTrue("land point is within 300 m", index.query(landLat, lon).distanceMeters <= 300.0)
+        assertFalse("band must not cover the land side", covered(landLat))
+        // ~150 m SOUTH = water side: must be banded.
+        assertTrue("band must cover the water side", covered(43.5 - 150.0 / mPerDegLat))
+    }
+
+    private fun pointInRing(lat: Double, lon: Double, ring: List<LatLng>): Boolean {
+        var inside = false; var j = ring.size - 1
+        for (i in ring.indices) {
+            val xi = ring[i].longitude; val yi = ring[i].latitude
+            val xj = ring[j].longitude; val yj = ring[j].latitude
+            if (((yi > lat) != (yj > lat)) && (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi)) inside = !inside
+            j = i
+        }
+        return inside
     }
 }

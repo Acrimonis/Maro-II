@@ -2,8 +2,8 @@
 
 **Status:** Active
 **Created:** 2026-06-03T13:00:00.000Z
-**Last Modified:** 2026-06-05T00:00:00.000Z
-**Active Subfeature:** distancetocoast
+**Last Modified:** 2026-06-06
+**Active Subfeature:** drawZone
 **Description:**
 Identify and render a regulatory band 300 m from the coastline (all coasts,
 islands included) within which a 5-knot speed limit applies. The app already
@@ -13,18 +13,25 @@ and makes the zone visually identifiable on the map.
 **One-liner:** Render the 300 m regulatory 5-knot speed-limit band along all coastlines.
 
 ## Subfeatures
-### trace  [ ]
+### drawZone  [x]
+Derive, draw, and query the 300 m band — geometry, APIs, rendering. (Consolidates
+the former empty `trace` stub, the `drawZone` design notes, and the `300mDesign`
+implementation plan.)
 
 #### Todos
-
-#### Rules
-
-#### Key Files
-
-### drawZone  [ ]
-How to draw/derive the 300 m line and zone so it is identifiable on the map.
-
-#### Todos
+- [x] chaikin() smoothing + marchingSquares() contour (+ tests)
+- [x] Coastal-strip mask sampler (0–500 m ribbon, 15 m grid) + Zone300Data model
+- [x] groupRings() fill holes (+ small-hole drop for noise)
+- [x] Band cache (protobuf, cache-aside in loadCoastline)
+- [x] isIn300mZone() / distanceTo300mZone() repo APIs (+ tests)
+- [x] ViewModel: zone300 + zone-status flows
+- [x] drawZone300() + overlay lifecycle + zoom gate (11)
+- [x] Dashboard label + "Bande 300 m" fast-rebuild button (with progress)
+- [x] Fix red-line breaks — out-cell seaward classification (robust in narrow bands)
+- [x] Fix fill chords / dark overlaps — simple per-vertex polygon (no sub-path stitch)
+- [x] Fix harbour/bay holes — **flood-fill water mask + end-caps (current approach)**
+- [x] Tried signed-distance band → **REVERTED**: mainland orientation unreliable (OSM stitching reverses segments) → band inverted onto land. Orientation methods need a generator orientation fix first. Cleanup (signedDistance/audit) deleted.
+- [x] Final on-device visual pass — **validated on device**: water-side only, islands donut, no land-side mirror. Fixed by keeping only the open-sea flood component anchored at the deepest-water cell (`Zone300Builder.markSeaComponent`) — inland pockets fed by ray-cast misclassification are separate components and get dropped. Zone300 band done.
 
 #### Rules
 - Merge overlapping/intersecting 300 m zones into a single union (opposite shores, clustered islands).
@@ -39,33 +46,13 @@ How to draw/derive the 300 m line and zone so it is identifiable on the map.
 - Readout in metres, switch to km above 1000 m; metric is analytic/grid-independent, valid at any range.
 - Every closed coastline ring (mainland or islet) gets a band — no minimum-size filter.
 - Cache/rebuild via the same logic as coastline generation.
+- Band water/land via **signed distance to coast** (orientation: water on right of travel; pseudonormal at vertices) — sd>0 water, sd<0 land, band = 0<sd≤300. (Superseded the ray-cast and the flood-fill mask.)
 
 #### Key Files
-- `docs/300MLineDesign.md` — design notes: distance-field isoline method, line+fill rendering, DP→Chaikin smoothing, single-source distance metric.
-
-### 300mDesign  [ ]
-Detailed implementation plan for the 300 m line/zone (geometry, APIs, rendering).
-
-#### Todos
-- [x] chaikin() smoothing helper + unit tests
-- [x] MarchingSquares.contour() + tests  (SpatialOperations.marchingSquares)
-- [x] Coastal-strip mask sampler (0–500 m ribbon, 15 m grid) + Zone300Data model  (Zone300Builder)
-- [x] groupRings() for fill holes  (uniform water-only fill; land=!isOnWater=hole)
-- [x] Band cache (in CoastlineSerializer protobuf, cache-aside in loadCoastline)
-- [x] isIn300mZone() / distanceTo300mZone() repo APIs + tests
-- [x] ViewModel: expose zone300 + fold zone status into throttled pipeline
-- [x] drawZone300() + fix overlay refresh + z-order + zoom gate
-- [x] Dashboard text/label wiring
-- [ ] Visual pass on device; tune DP_EPSILON_M / CHAIKIN_ITERATIONS (MASK_RES fixed at 15 m)
-      ↳ band renders on device; fixed red-line breaks (now classify seaward by
-        out-cell deep-water vs land, robust in narrow bands) + denoise/mergeLines/
-        small-hole-drop; added "Bande 300 m" fast-rebuild button. Awaiting device
-        re-check of the narrow-band fix.
-
-#### Rules
-
-#### Key Files
-- `docs/300MLinePlan.md` — detailed implementation plan (build order, signatures, file anchors).
+- `docs/300MLineDesign.md` — design notes: distance-field isoline, line+fill rendering, smoothing, single-source metric.
+- `docs/300MLinePlan.md` — implementation plan (build order, signatures, file anchors).
+- `spatial/Zone300Builder.kt` — band builder (signed-distance mask → marching squares → classify → fill/line).
+- `spatial/CoastlineSpatialIndex.kt` — `signedDistanceToCoast` (orientation + pseudonormal); `auditWaterClassification` in repo.
 
 ### distancetocoast  [x]
 Validate/fix the core nearest-coast distance query (`CoastlineSpatialIndex.query`).

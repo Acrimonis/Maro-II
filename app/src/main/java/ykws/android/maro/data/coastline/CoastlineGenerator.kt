@@ -30,10 +30,15 @@ import kotlin.math.PI
  *
  * @property islandMaxDistanceNm Maximum distance in nautical miles for island inclusion.
  * @property simplifyEpsilonM Douglas-Peucker simplification tolerance in meters.
+ * @property atonClient Optional Shom AtoN client for isolated offshore point
+ *                      hazards (Fourmigue, etc.). `null` disables hazard
+ *                      ingestion (e.g. in tests / offline). Failures are
+ *                      swallowed — the coastline always loads.
  */
 class CoastlineGenerator(
     private val islandMaxDistanceNm: Double = 6.0,
-    private val simplifyEpsilonM: Double = 8.0
+    private val simplifyEpsilonM: Double = 8.0,
+    private val atonClient: ShomAtonClient? = ShomAtonClient()
 ) {
     // ── Constants ───────────────────────────────────────────────────────────
 
@@ -54,6 +59,29 @@ class CoastlineGenerator(
         const val REGION_ID = "nice-frejus"
 
         private const val MATCH_THRESHOLD_M = 25.0
+
+        /** WFS hazards within this distance (m) of a hard-coded seed are dropped as duplicates. */
+        private const val HAZARD_DEDUP_DIST_M = 80.0
+
+        /**
+         * Merges the always-on hard-coded [seeds] with best-effort WFS [fetched]
+         * hazards, dropping any fetched hit within [HAZARD_DEDUP_DIST_M] of a seed
+         * (seeds win). Pure & null-safe: an empty [fetched] — the `atonClient = null`
+         * or offline-failure case — yields exactly the seeds, the guaranteed offline
+         * baseline. Extracted so the dedup contract is unit-testable without network.
+         */
+        internal fun mergeHazards(
+            seeds: List<PointHazard>,
+            fetched: List<PointHazard>
+        ): List<PointHazard> {
+            if (fetched.isEmpty()) return seeds
+            val extra = fetched.filter { f ->
+                seeds.none { s ->
+                    SpatialOperations.haversine(LatLng(s.lat, s.lon), LatLng(f.lat, f.lon)) < HAZARD_DEDUP_DIST_M
+                }
+            }
+            return seeds + extra
+        }
 
         /**
          * Overpass API endpoints ordered roughly by reliability.
@@ -186,7 +214,7 @@ class CoastlineGenerator(
             isClosed = false
         )
 
-        val islandSegments = processedIslands.zip(islandPoints) { (_, osmWayId), points ->
+        val osmIslandSegments = processedIslands.zip(islandPoints) { (_, osmWayId), points ->
             CoastlineSegment(
                 osmWayId = osmWayId,
                 points = points,
@@ -195,17 +223,29 @@ class CoastlineGenerator(
             )
         }
 
-        // Compute metadata
-        val totalPoints = mainlandPoints.size + islandPoints.sumOf { it.size }
-        val totalLength = computeTotalLength(mainlandPoints, islandPoints)
-        val meanSpacing = if (totalPoints > 1 + islandPoints.size) {
-            totalLength / (totalPoints - 1 - islandPoints.size)
+        // ── 7b. Offshore point hazards → micro-circle rings (Shom AtoN) ─────
+        // Isolated features (Phare de la Fourmigue, etc.) are not in the
+        // coastline vectors; fetch them as points and union them into the island
+        // set as tiny closed rings. Best-effort: any failure → no hazards.
+        val hazardSegments = fetchAndBuildHazardRings(projectionRefLat)
+        val islandSegments = osmIslandSegments + hazardSegments
+        val hazardPoints = hazardSegments.map { it.points }
+
+        // Compute metadata (islands incl. hazard rings)
+        val allIslandPoints = islandPoints + hazardPoints
+        val totalPoints = mainlandPoints.size + allIslandPoints.sumOf { it.size }
+        val totalLength = computeTotalLength(mainlandPoints, allIslandPoints)
+        val meanSpacing = if (totalPoints > 1 + allIslandPoints.size) {
+            totalLength / (totalPoints - 1 - allIslandPoints.size)
         } else 0.0
 
-        val boundingBox = computeBoundingBox(mainlandPoints, islandPoints)
+        val boundingBox = computeBoundingBox(mainlandPoints, allIslandPoints)
+
+        val sourceLabel = "OpenStreetMap contributors, ODbL (généré sur appareil)" +
+            if (hazardSegments.isNotEmpty()) " + Shom AtoN" else ""
 
         val metadata = CoastlineMetadata(
-            source = "OpenStreetMap contributors, ODbL (généré sur appareil)",
+            source = sourceLabel,
             pointCount = totalPoints,
             meanSpacingM = meanSpacing,
             totalLengthKm = totalLength / 1000.0,
@@ -284,6 +324,35 @@ class CoastlineGenerator(
             }
         }
         return result
+    }
+
+    // ── Offshore point hazards (Shom AtoN) ─────────────────────────────────
+
+    /**
+     * Assembles offshore point hazards into closed micro-circle [CoastlineSegment]s
+     * (island-equivalent). Combines the always-on hard-coded [HazardSeeds] with the
+     * best-effort Shom WFS feed, deduplicated by proximity (seeds win).
+     *
+     * Best-effort: a missing/failing WFS client just yields the seeds; the coastline
+     * always loads. Rings use the **same** [refLat] as the coastline so their xM/yM
+     * and edge vectors are consistent with the rest of the dataset.
+     */
+    private suspend fun fetchAndBuildHazardRings(refLat: Double): List<CoastlineSegment> {
+        val seeds = HazardSeeds.NICE_FREJUS
+
+        val fetched = atonClient?.let { client ->
+            runCatching {
+                client.fetchHazards(
+                    latMin = BBOX_LAT_MIN,
+                    lonMin = LON_WEST,
+                    latMax = BBOX_LAT_MAX,
+                    lonMax = LON_EAST
+                )
+            }.getOrDefault(emptyList())
+        } ?: emptyList()
+
+        // Seeds win over coincident WFS hits; an empty/failed fetch → seeds only.
+        return mergeHazards(seeds, fetched).map { HazardRings.toSegment(it, refLat) }
     }
 
     // ── Polyline processing pipeline ───────────────────────────────────────

@@ -1,52 +1,63 @@
-# Context Hydration — 2026-06-05
+# Context Hydration — 2026-06-06
 
-**Active Feature:** Zone300 — Render the 300 m regulatory 5-knot band along all coasts.
-**Active Subfeature:** distancetocoast
+**Active Feature:** Zone300
+**Active Subfeature:** drawZone (now complete)
 
-## distancetocoast (current focus — FIXED + tested)
-Bug found in `CoastlineSpatialIndex.query`: it stopped at the **first non-empty
-grid ring** and returned the nearest among only those, so a closer segment one ring
-further out was missed → over-estimates and **discontinuous "jumps"** in the value
-as the boat moves across cell boundaries. Fix: keep expanding, accumulate the running
-nearest, and stop only when **provably safe** (`bestDist ≤ ring·cellSize·0.95`, since
-the nearest point in any unexplored cell is ≥ ring·cellSize away). Added
-`CoastlineSpatialIndexTest`: a dense grid sweep comparing `query` to brute-force
-nearest (tol 0.5 m) — would have failed on the old code. 73 tests green, APK builds.
+## State
+Fixed the user-reported defect: the 300 m band was painted on **both sides** of the
+mainland (mirrored onto land). Root cause = the per-cell ray-cast (`isOnWater`, south
+ray) calls cells **behind headlands** water (even crossing count) → false inland flood
+**seeds** → the whole inland ribbon floods → mirror band. `capOpenEnds` was verified
+sound (8-connected barrier reaching past the ribbon), so this was a seed problem, not a
+cap leak.
 
-## State (Zone300 band — done/working)
-**Band is implemented and renders on device** (confirmed by screenshot). 9/10
-`300mDesign` todos done; 38 unit tests green; APK builds. The line + translucent
-fill follow the crenellated coast correctly.
-
-**Device-confirmed rendering**; readout validated (366−300=66, 434−300=134).
-
-**Root-cause fix for red-line breaks (the big one):** seaward/landward
-classification was by absolute distance (≥150 m), which breaks in NARROW bands
-(marinas/inlets) where the water-facing edge is <150 m from the opposite shore.
-Now classified by **what's OUTSIDE each contour edge** — deep water → seaward
-(red), land → landward (snap, no red) — robust at any band width, and faster (no
-per-vertex query). Implemented via a per-cell `landArr` (set in `sampleMask`) +
-`classifySeaward`/`outCellOf` over the grid rings; `processRing` now takes the
-flags.
-
-Secondary cleanup still on top: `denoiseLabels` (run<3), `mergeLines`
-(BRIDGE_M=45 m), `groupRings` drops holes <`minHoleAreaM2` (6000 m²),
-`ZONE_MIN_ZOOM`=11, `Zone300` logcat.
-
-**UI:** two buttons — *Régénérer la côte* (blue, OSM refetch + band) and
-*Bande 300 m* (red, rebuilds band only from cached coastline, fast). The band is
-cached, so after installing a build, tap **Bande 300 m** to apply algorithm changes.
-
-If a break ever remains, it's a real band whose mouth is wider than BRIDGE_M.
-Fallback for any LARGE fill gap: flood-fill water mask from open sea (not needed yet).
+Fix in `Zone300Builder.sampleMask`: after the flood, keep **only the flood component
+connected to the deepest-water cell** (max distance-to-coast = unambiguous open sea →
+the new `markSeaComponent` BFS). Inland pockets are separate components (divided by the
+coast barrier) and are dropped. Backward-compatible: simple single-sea geometry is one
+component → identical output; `Zone300BuilderTest` green. **Validated on device**:
+water-side only, islands donut, no land mirror.
 
 ## Target Files
-- `spatial/Zone300Builder.kt` — mask → marching squares → classify/denoise → snap/smooth → groupRings.
-- `ui/map/MapScreen.kt` — `drawZone300` + `ZONE_MIN_ZOOM` (11) + overlay lifecycle.
-- `data/coastline/CoastlineRepository.kt` — `buildBandInBackground` (progressive + Zone300 logging), `isIn300mZone`/`distanceTo300mZone`.
-- Docs: `docs/300MLineDesign.md`, `docs/300MLinePlan.md`.
+- `spatial/Zone300Builder.kt` — `dist[]` capture, deepest-water **anchor** pick,
+  `markSeaComponent()` (keep only open-sea component), assembly prefers `seaComp`.
 
 ## Next Step
-Reinstall APK; verify the breaks/gaps are reduced. If large gaps remain, capture a
-zoomed screenshot of one → implement flood-fill water classification. Then tune
-`minHoleAreaM2` / `DP_EPSILON_M` / `CHAIKIN_ITERATIONS` and re-verify.
+drawZone done → Zone300 **band is complete**. Optional: set `FEATURE_SCOPE_Zone300.md`
+Status → Done; reconcile the stale drawZone rule (~line 49 claims signed-distance
+supersedes flood-fill, but shipped = flood-fill **+ component filter**). Nothing
+committed; branch `feature/300M-Claude`.
+
+## Still open
+- Trim/reconcile Zone300 drawZone rules to match the shipped flood-fill + component approach.
+- GLOBAL_CONTEXT active pointer reads **DepthMapping** (parallel session) — left as-is, not reverted.
+- Coordination: parallel sessions edit this tree (Coastline/Hazard, DepthMapping) — use per-feature git worktrees to avoid file races.
+
+---
+_Prior bake (Coastline / Batéguier) archived below for reference._
+
+## (archived) Coastline — Batéguier hazard seed — 2026-06-05
+Fixed the user-reported bug: the isolated danger **NW of Île Sainte-Marguerite** was
+missing on the build (La Fourmigue showed, this did not). Root cause: never seeded.
+Identified via OSM as the **West-cardinal Plateau du Batéguier / Jonquière shoal**
+(`seamark:type=beacon_cardinal`, cat west) at **43.52655, 7.03046**; added as
+`HazardSeeds.BATEGUIER` (ISOLATED_DANGER, 25 m) in `NICE_FREJUS`. Extracted pure
+`CoastlineGenerator.mergeHazards(seeds, fetched)` (companion, `internal`): seeds win,
+80 m dedup; empty fetch ⇒ seeds-only = the `atonClient = null`/offline baseline.
+`HazardSeedIntegrationTest` extended. UI: map buttons → **"Côte"** / **"Bande"**
+(`MapScreen.kt`). `assembleDebug` green.
+- Target: `data/coastline/HazardSeeds.kt`, `CoastlineGenerator.kt`,
+  `test/.../HazardSeedIntegrationTest.kt`, `ui/map/MapScreen.kt`.
+- Next (Coastline): tap **"Côte"** (full delete-cache + OSM refetch re-merges seeds;
+  **"Bande"** only rebuilds the band, won't pull new seeds). Verify Batéguier renders
+  ~43.5266 N / 7.0305 E. Still open: Shom WFS `GetCapabilities` placeholders.
+
+## (archived) Zone300 — drawZone [pre-component-filter, flood-fill baseline]
+Flood-fill + end-caps `Zone300Builder`. Signed-distance was tried and **REVERTED**
+(band inverted onto land — mainland polyline orientation unreliable, OSM stitching
+reverses segments; orientation methods need a generator orientation fix first).
+Flood-fill pipeline: ribbon mask (`isOnWater` guess) → rasterize coast barrier → seed
+open water 180–300 m → 4-conn flood → end-caps seal clipped mainland ends → marching
+squares → out-cell seaward classify → DP/Chaikin smooth → per-vertex landward snap fill
+→ groupRings holes → mergeLines red line. (Superseded 2026-06-06 by the deepest-water
+component filter above.)

@@ -255,9 +255,8 @@ private fun DashboardPanel(
                 ) {
                     Text(
                         text = when (state) {
-                            is CoastlineState.Idle -> "G\u00E9n\u00E9rer la c\u00F4te"
-                            is CoastlineState.Loading -> "G\u00E9n\u00E9ration en cours\u2026"
-                            else -> "R\u00E9g\u00E9n\u00E9rer la c\u00F4te"
+                            is CoastlineState.Loading -> "C\u00F4te\u2026"
+                            else -> "C\u00F4te"
                         },
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
@@ -276,7 +275,7 @@ private fun DashboardPanel(
                     enabled = state is CoastlineState.Ready
                 ) {
                     Text(
-                        text = "Bande 300 m",
+                        text = "Bande",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )
