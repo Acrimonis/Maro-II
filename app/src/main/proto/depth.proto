@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package depth;
+
+option java_package = "ykws.android.maro.data.depth";
+option java_outer_classname = "DepthProtos";
+
+// Top-level cache entry for one bathymetry region.
+// Serialised to app internal storage as depth/{regionId}.bin.
+message DepthCache {
+    string region_id = 1;
+
+    // Bounding box (WGS84 decimal degrees)
+    double lon_west = 2;
+    double lon_east = 3;
+    double lat_south = 4;
+    double lat_north = 5;
+
+    // Grid geometry
+    int32 rows = 6;
+    int32 cols = 7;
+    double cell_size_deg_lat = 8;
+    double cell_size_deg_lon = 9;
+
+    // Datum & provenance
+    int32 datum = 10;             // DepthDatum ordinal (0=LAT,1=MSL,2=IGN69,3=UNKNOWN)
+    string source = 11;           // attribution string
+    int64 fetch_timestamp_ms = 12;
+    double grid_res_m = 13;
+
+    // Raster payload — all length rows*cols, row-major, row 0 = south.
+    // depths in metres below datum (positive-down); NaN bit-pattern = NoData.
+    repeated float depths = 14 [packed = true];       // 4 B/cell
+    repeated int32 source_ids = 15 [packed = true];   // DepthSource.id, varint-packed
+    repeated int32 confidence = 16 [packed = true];   // 0..100, varint-packed
+
+    // Optional embedded validation summary (also a runtime confidence indicator).
+    ValidationReport validation = 17;
+}
+
+message ValidationReport {
+    double mean_bias_m = 1;            // signed; large constant bias ⇒ datum mismatch
+    double rmse_m = 2;
+    double max_abs_err_m = 3;
+    int32 control_point_count = 4;
+    int32 uncovered_count = 5;
+    bool passed = 6;
+    bool datum_mismatch_suspected = 7;
+    int64 validated_at_ms = 8;
+    repeated TierResidual tiers = 9;   // per depth-tier breakdown
+}
+
+message TierResidual {
+    double min_depth_m = 1;
+    double max_depth_m = 2;
+    double mean_bias_m = 3;
+    double rmse_m = 4;
+    double max_abs_err_m = 5;
+    int32 count = 6;
+}

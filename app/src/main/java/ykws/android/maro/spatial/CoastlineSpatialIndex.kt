@@ -50,6 +50,7 @@ class CoastlineSpatialIndex(
     /** Flat descriptor for a single segment a→b. */
     private data class SegmentRef(
         val polylineIdx: Int,
+        val vertexIdx: Int,
         val a: LatLng,
         val b: LatLng,
         val minLat: Double,
@@ -147,6 +148,7 @@ class CoastlineSpatialIndex(
                     refs.add(
                         SegmentRef(
                             polylineIdx = polyIdx,
+                            vertexIdx = i,
                             a = a, b = b,
                             minLat = min(a.latitude,  b.latitude),
                             maxLat = max(a.latitude,  b.latitude),
@@ -254,7 +256,9 @@ class CoastlineSpatialIndex(
             distanceMeters = bestDist,
             closestPoint = bestClosestPoint,
             segmentId = polyline.id,
-            isMainland = ref.polylineIdx == 0
+            isMainland = ref.polylineIdx == 0,
+            polylineIdx = ref.polylineIdx,
+            vertexIndex = ref.vertexIdx
         )
     }
 

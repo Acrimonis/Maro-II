@@ -345,6 +345,154 @@ object SpatialOperations {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // Chaikin corner-cutting (smoothing)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Chaikin's corner-cutting smoothing.
+     *
+     * Each pass replaces every edge p→q with two points Q = ¾p+¼q and R = ¼p+¾q,
+     * rounding sharp corners into a fair curve. Interpolation is done directly in
+     * lat/lon (adequate at these scales).
+     *
+     * @param closed `false` for an **open** polyline (endpoints are preserved — e.g.
+     *        a seaward run); `true` for a **closed** ring (vertices wrap cyclically,
+     *        ring stays closed). A closed ring must be passed as distinct vertices
+     *        with no duplicated closing point.
+     */
+    fun chaikin(points: List<LatLng>, iterations: Int = 1, closed: Boolean = false): List<LatLng> {
+        if (iterations <= 0 || points.size < 3) return points
+        var current = points
+        repeat(iterations) { current = chaikinPass(current, closed) }
+        return current
+    }
+
+    private fun chaikinPass(points: List<LatLng>, closed: Boolean): List<LatLng> {
+        val n = points.size
+        if (n < 3) return points
+        val out = ArrayList<LatLng>(n * 2)
+        if (!closed) out.add(points.first())
+        val edges = if (closed) n else n - 1
+        for (i in 0 until edges) {
+            val p = points[i]
+            val q = points[(i + 1) % n]
+            out.add(LatLng(0.75 * p.latitude + 0.25 * q.latitude, 0.75 * p.longitude + 0.25 * q.longitude))
+            out.add(LatLng(0.25 * p.latitude + 0.75 * q.latitude, 0.25 * p.longitude + 0.75 * q.longitude))
+        }
+        if (!closed) out.add(points.last())
+        return out
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Marching squares (binary-mask contour extraction)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /** A point on the marching-squares grid (coordinates are multiples of 0.5). */
+    data class GridPt(val col: Double, val row: Double)
+
+    /**
+     * Extracts iso-contours from a binary mask via marching squares.
+     *
+     * The mask is a `rows × cols` grid of sample points, row-major
+     * (`mask[r*cols + c]`). Contour vertices are placed at the **midpoints** of grid
+     * edges where the mask flips (sufficient for a binary field). Returns closed rings
+     * as ordered lists of distinct [GridPt] vertices (implicit closure — first vertex
+     * is **not** duplicated at the end). Ring orientation is unspecified; normalize
+     * downstream via signed area.
+     *
+     * For all contours to be closed, the caller should guarantee a `false` border
+     * (the mask's outer ring must be `false`); otherwise contours touching the grid
+     * boundary are returned as open polylines.
+     *
+     * Saddle cases (5, 10) are resolved with a fixed pairing, so every contour node
+     * has degree ≤ 2 → clean, non-crossing loops.
+     */
+    fun marchingSquares(mask: BooleanArray, cols: Int, rows: Int): List<List<GridPt>> {
+        if (cols < 2 || rows < 2 || mask.size < cols * rows) return emptyList()
+
+        val stride = rows * 2 + 4
+        fun keyOf(c: Double, r: Double): Int =
+            Math.round(c * 2).toInt() * stride + Math.round(r * 2).toInt()
+        fun ptOf(k: Int): GridPt = GridPt((k / stride) / 2.0, (k % stride) / 2.0)
+
+        val adj = HashMap<Int, MutableList<Int>>()
+        fun connect(a: Int, b: Int) {
+            adj.getOrPut(a) { ArrayList(2) }.add(b)
+            adj.getOrPut(b) { ArrayList(2) }.add(a)
+        }
+
+        for (r in 0 until rows - 1) {
+            for (c in 0 until cols - 1) {
+                var caseIdx = 0
+                if (mask[r * cols + c]) caseIdx = caseIdx or 1          // top-left
+                if (mask[r * cols + c + 1]) caseIdx = caseIdx or 2      // top-right
+                if (mask[(r + 1) * cols + c + 1]) caseIdx = caseIdx or 4 // bottom-right
+                if (mask[(r + 1) * cols + c]) caseIdx = caseIdx or 8    // bottom-left
+                if (caseIdx == 0 || caseIdx == 15) continue
+
+                val t = keyOf(c + 0.5, r.toDouble())
+                val rr = keyOf((c + 1).toDouble(), r + 0.5)
+                val b = keyOf(c + 0.5, (r + 1).toDouble())
+                val l = keyOf(c.toDouble(), r + 0.5)
+
+                when (caseIdx) {
+                    1 -> connect(t, l)
+                    2 -> connect(t, rr)
+                    3 -> connect(l, rr)
+                    4 -> connect(rr, b)
+                    5 -> { connect(t, l); connect(rr, b) }   // saddle
+                    6 -> connect(t, b)
+                    7 -> connect(b, l)
+                    8 -> connect(b, l)
+                    9 -> connect(t, b)
+                    10 -> { connect(t, rr); connect(b, l) }  // saddle
+                    11 -> connect(rr, b)
+                    12 -> connect(l, rr)
+                    13 -> connect(t, rr)
+                    14 -> connect(t, l)
+                }
+            }
+        }
+
+        val loops = ArrayList<List<GridPt>>()
+        val usedEdges = HashSet<Long>()
+        fun edgeId(a: Int, b: Int): Long {
+            val lo = minOf(a, b).toLong()
+            val hi = maxOf(a, b).toLong()
+            return lo * 2_000_000_000L + hi
+        }
+
+        for (startNode in adj.keys) {
+            val starts = adj[startNode] ?: continue
+            for (firstNb in starts) {
+                if (!usedEdges.add(edgeId(startNode, firstNb))) continue
+                val loopKeys = ArrayList<Int>()
+                loopKeys.add(startNode)
+                var prev = startNode
+                var cur = firstNb
+                while (cur != startNode) {
+                    loopKeys.add(cur)
+                    val nbrs = adj[cur] ?: break
+                    var next = -1
+                    for (cand in nbrs) {
+                        if (cand == prev) continue
+                        if (!usedEdges.contains(edgeId(cur, cand))) { next = cand; break }
+                    }
+                    if (next == -1) {
+                        for (cand in nbrs) if (cand != prev) { next = cand; break }
+                    }
+                    if (next == -1) break
+                    usedEdges.add(edgeId(cur, next))
+                    prev = cur
+                    cur = next
+                }
+                if (loopKeys.size >= 3) loops.add(loopKeys.map { ptOf(it) })
+            }
+        }
+        return loops
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Polyline assembly (segment stitching)
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -430,5 +578,150 @@ object SpatialOperations {
         }
 
         return chain
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Scalar marching squares (depth isobath extraction)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Extracts the iso-contour where a **scalar** field crosses [level], with linear
+     * edge interpolation (so contours are smooth even on a coarse grid).
+     *
+     * The field is a `rows × cols` grid, row-major (`field[r*cols + c]`). A grid node is
+     * "inside" when `field >= level`. Crossings are placed at the interpolated point on
+     * each grid edge and **keyed by edge identity** (not quantized position), so a crossing
+     * shared by two adjacent cells is the same node → contours connect across cells.
+     *
+     * **NaN suppression:** any cell touching a `NaN` corner emits no edges, so contours stop
+     * cleanly at data gaps (and grid boundaries) — those contours are returned as open
+     * polylines; fully-enclosed contours are closed rings (first vertex not duplicated).
+     *
+     * Returned vertices are in continuous grid coordinates `GridPt(col, row)`; convert to
+     * geographic with [gridLineToLatLng].
+     */
+    fun marchingSquaresScalar(
+        field: FloatArray,
+        cols: Int,
+        rows: Int,
+        level: Double
+    ): List<List<GridPt>> {
+        if (cols < 2 || rows < 2 || field.size < cols * rows) return emptyList()
+
+        fun f(r: Int, c: Int): Float = field[r * cols + c]
+        fun frac(v0: Float, v1: Float): Double {
+            val d = (v1 - v0).toDouble()
+            if (d == 0.0) return 0.5
+            return ((level - v0) / d).coerceIn(0.0, 1.0)
+        }
+
+        val pos = HashMap<Int, GridPt>()
+        val adj = HashMap<Int, MutableList<Int>>()
+        fun connect(a: Int, b: Int) {
+            adj.getOrPut(a) { ArrayList(2) }.add(b)
+            adj.getOrPut(b) { ArrayList(2) }.add(a)
+        }
+        // Horizontal edge between (r,c) and (r,c+1): even id.
+        fun hNode(r: Int, c: Int): Int {
+            val id = (r * cols + c) * 2
+            if (id !in pos) pos[id] = GridPt(c + frac(f(r, c), f(r, c + 1)), r.toDouble())
+            return id
+        }
+        // Vertical edge between (r,c) and (r+1,c): odd id.
+        fun vNode(r: Int, c: Int): Int {
+            val id = (r * cols + c) * 2 + 1
+            if (id !in pos) pos[id] = GridPt(c.toDouble(), r + frac(f(r, c), f(r + 1, c)))
+            return id
+        }
+
+        for (r in 0 until rows - 1) {
+            for (c in 0 until cols - 1) {
+                val tl = f(r, c); val tr = f(r, c + 1)
+                val br = f(r + 1, c + 1); val bl = f(r + 1, c)
+                if (tl.isNaN() || tr.isNaN() || br.isNaN() || bl.isNaN()) continue
+                var caseIdx = 0
+                if (tl >= level) caseIdx = caseIdx or 1   // top-left
+                if (tr >= level) caseIdx = caseIdx or 2   // top-right
+                if (br >= level) caseIdx = caseIdx or 4   // bottom-right
+                if (bl >= level) caseIdx = caseIdx or 8   // bottom-left
+                if (caseIdx == 0 || caseIdx == 15) continue
+
+                val top = hNode(r, c)
+                val right = vNode(r, c + 1)
+                val bottom = hNode(r + 1, c)
+                val left = vNode(r, c)
+
+                when (caseIdx) {
+                    1 -> connect(top, left)
+                    2 -> connect(top, right)
+                    3 -> connect(left, right)
+                    4 -> connect(right, bottom)
+                    5 -> { connect(top, left); connect(right, bottom) }   // saddle
+                    6 -> connect(top, bottom)
+                    7 -> connect(left, bottom)
+                    8 -> connect(left, bottom)
+                    9 -> connect(top, bottom)
+                    10 -> { connect(top, right); connect(left, bottom) } // saddle
+                    11 -> connect(top, right)
+                    12 -> connect(left, right)
+                    13 -> connect(right, bottom)
+                    14 -> connect(top, left)
+                }
+            }
+        }
+        if (adj.isEmpty()) return emptyList()
+
+        val lines = ArrayList<List<GridPt>>()
+        val usedEdges = HashSet<Long>()
+        fun edgeId(a: Int, b: Int): Long {
+            val lo = minOf(a, b).toLong()
+            val hi = maxOf(a, b).toLong()
+            return lo * 4_000_000_000L + hi
+        }
+        // Endpoints (degree 1) first → open chains start at an end; then closed loops.
+        val starts = adj.keys.sortedBy { adj[it]!!.size }
+        for (startNode in starts) {
+            val nbrs0 = adj[startNode] ?: continue
+            for (firstNb in nbrs0) {
+                if (!usedEdges.add(edgeId(startNode, firstNb))) continue
+                val keys = ArrayList<Int>()
+                keys.add(startNode)
+                var prev = startNode
+                var cur = firstNb
+                while (cur != startNode) {
+                    keys.add(cur)
+                    val nbrs = adj[cur] ?: break
+                    var next = -1
+                    for (cand in nbrs) {
+                        if (cand == prev) continue
+                        if (!usedEdges.contains(edgeId(cur, cand))) { next = cand; break }
+                    }
+                    if (next == -1) break
+                    usedEdges.add(edgeId(cur, next))
+                    prev = cur
+                    cur = next
+                }
+                if (keys.size >= 2) lines.add(keys.map { pos[it]!! })
+            }
+        }
+        return lines
+    }
+
+    /**
+     * Converts a contour in continuous grid coordinates (`GridPt(col, row)`) to geographic
+     * coordinates, given the grid's south-west origin and cell sizes. Node (col,row)
+     * corresponds to cell-centre geometry: lat = latSouth + (row+0.5)·cellLat.
+     */
+    fun gridLineToLatLng(
+        line: List<GridPt>,
+        latSouth: Double,
+        lonWest: Double,
+        cellSizeDegLat: Double,
+        cellSizeDegLon: Double
+    ): List<LatLng> = line.map { p ->
+        LatLng(
+            latitude = latSouth + (p.row + 0.5) * cellSizeDegLat,
+            longitude = lonWest + (p.col + 0.5) * cellSizeDegLon
+        )
     }
 }

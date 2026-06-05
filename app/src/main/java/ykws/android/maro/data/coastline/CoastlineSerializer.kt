@@ -1,10 +1,13 @@
 package ykws.android.maro.data.coastline
 
+import ykws.android.maro.data.model.BandPolygon
 import ykws.android.maro.data.model.BoundingBox
 import ykws.android.maro.data.model.CoastlineData
 import ykws.android.maro.data.model.CoastlineMetadata
 import ykws.android.maro.data.model.CoastlinePoint
 import ykws.android.maro.data.model.CoastlineSegment
+import ykws.android.maro.data.model.LatLng
+import ykws.android.maro.data.model.Zone300Data
 import kotlin.math.sqrt
 
 /**
@@ -39,6 +42,8 @@ object CoastlineSerializer {
         for (island in data.islands) {
             builder.addIslands(segmentToProto(island))
         }
+
+        data.zone300?.let { builder.setZone300(zone300ToProto(it)) }
 
         return builder.build().toByteArray()
     }
@@ -80,7 +85,8 @@ object CoastlineSerializer {
                 latNorth = proto.latNorth,
                 lonWest = proto.lonWest,
                 lonEast = proto.lonEast
-            )
+            ),
+            zone300 = if (proto.hasZone300()) zone300FromProto(proto.zone300) else null
         )
     }
 
@@ -133,6 +139,51 @@ object CoastlineSerializer {
             isMainland = isMainland,
             isClosed = proto.isClosed
         )
+    }
+
+    // ── Zone300 band ──────────────────────────────────────────────────────────
+
+    private fun zone300ToProto(z: Zone300Data): CoastlineProtos.Zone300 {
+        val b = CoastlineProtos.Zone300.newBuilder()
+            .setGridCellM(z.gridCellM)
+            .setBandM(z.bandM)
+        for (poly in z.fillPolygons) {
+            val pb = CoastlineProtos.BandPolygon.newBuilder().setOuter(lineToProto(poly.outer))
+            for (hole in poly.holes) pb.addHoles(lineToProto(hole))
+            b.addFill(pb.build())
+        }
+        for (line in z.seawardLines) b.addSeaward(lineToProto(line))
+        return b.build()
+    }
+
+    private fun zone300FromProto(proto: CoastlineProtos.Zone300): Zone300Data =
+        Zone300Data(
+            fillPolygons = proto.fillList.map { p ->
+                BandPolygon(
+                    outer = lineFromProto(p.outer),
+                    holes = p.holesList.map { lineFromProto(it) }
+                )
+            },
+            seawardLines = proto.seawardList.map { lineFromProto(it) },
+            gridCellM = proto.gridCellM,
+            bandM = proto.bandM
+        )
+
+    /** Encodes a polyline/ring as packed lat/lon float pairs. */
+    private fun lineToProto(points: List<LatLng>): CoastlineProtos.LatLngLine {
+        val floats = ArrayList<Float>(points.size * 2)
+        for (p in points) {
+            floats.add(p.latitude.toFloat())
+            floats.add(p.longitude.toFloat())
+        }
+        return CoastlineProtos.LatLngLine.newBuilder().addAllData(floats).build()
+    }
+
+    private fun lineFromProto(proto: CoastlineProtos.LatLngLine): List<LatLng> {
+        val data = proto.dataList
+        return (data.indices step 2).map { i ->
+            LatLng(data[i].toDouble(), data[i + 1].toDouble())
+        }
     }
 
     /**

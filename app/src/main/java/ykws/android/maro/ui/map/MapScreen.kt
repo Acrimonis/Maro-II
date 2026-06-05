@@ -55,13 +55,16 @@ import org.osmdroid.events.ZoomEvent
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.Polygon
 import org.osmdroid.views.overlay.Polyline
+import kotlin.math.abs
 import kotlin.math.pow
 import ykws.android.maro.data.model.CoastlinePoint
 import ykws.android.maro.data.model.CoastlineSegment
 import ykws.android.maro.data.model.CoastlineState
 import ykws.android.maro.data.model.GenerationProgress
 import ykws.android.maro.data.model.LatLng
+import ykws.android.maro.data.model.Zone300Data
 
 /**
  * Compose screen rendering the coastline on an OSMdroid map.
@@ -82,6 +85,9 @@ fun MapScreen(
     val isWater by viewModel.isWater.collectAsState()
     val distanceToShore by viewModel.distanceToShore.collectAsState()
     val zoomLevel by viewModel.zoomLevel.collectAsState()
+    val zone300 by viewModel.zone300.collectAsState()
+    val inZone300 by viewModel.inZone300.collectAsState()
+    val distanceToZone by viewModel.distanceToZone.collectAsState()
     var mapView by remember { mutableStateOf<MapView?>(null) }
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
@@ -96,6 +102,8 @@ fun MapScreen(
                     state = state,
                     isWater = isWater,
                     distanceToShore = distanceToShore,
+                    inZone300 = inZone300,
+                    distanceToZone = distanceToZone,
                     onGenerate = { viewModel.loadCoastline() },
                     modifier = Modifier
                         .width(landscapeDashboardWidth)
@@ -110,6 +118,7 @@ fun MapScreen(
                     isWater = isWater,
                     zoomLevel = zoomLevel,
                     distanceToShore = distanceToShore,
+                    zone300 = zone300,
                     mapView = mapView,
                     onCenterChanged = viewModel::updateMapCenter,
                     onZoomChanged = viewModel::updateZoomLevel,
@@ -130,6 +139,7 @@ fun MapScreen(
                     isWater = isWater,
                     zoomLevel = zoomLevel,
                     distanceToShore = distanceToShore,
+                    zone300 = zone300,
                     mapView = mapView,
                     onCenterChanged = viewModel::updateMapCenter,
                     onZoomChanged = viewModel::updateZoomLevel,
@@ -144,6 +154,8 @@ fun MapScreen(
                     state = state,
                     isWater = isWater,
                     distanceToShore = distanceToShore,
+                    inZone300 = inZone300,
+                    distanceToZone = distanceToZone,
                     onGenerate = { viewModel.loadCoastline() },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -169,6 +181,8 @@ private fun DashboardPanel(
     state: CoastlineState,
     isWater: Boolean,
     distanceToShore: Double?,
+    inZone300: Boolean,
+    distanceToZone: Double?,
     onGenerate: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -197,6 +211,25 @@ private fun DashboardPanel(
                     color = ComposeColor(0xFFB0BEC5),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            // \u2500\u2500 300 m zone status \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+            if (state is CoastlineState.Ready && distanceToZone != null) {
+                val zoneM = abs(distanceToZone)
+                val zoneText = if (zoneM >= 1000.0) "%.1f km".format(zoneM / 1000.0)
+                               else "%.0f m".format(zoneM)
+                val (msg, tint) = if (inZone300) {
+                    "\u26A0 Zone des 300 m \u2014 5 n\u0153uds ($zoneText avant la sortie)" to 0xFFEF5350
+                } else {
+                    "\u00C0 $zoneText de la zone des 300 m" to 0xFF90A4AE
+                }
+                Text(
+                    text = msg,
+                    color = ComposeColor(tint),
+                    fontSize = 13.sp,
+                    fontWeight = if (inZone300) FontWeight.Bold else FontWeight.Medium
                 )
                 Spacer(modifier = Modifier.height(8.dp))
             }
@@ -286,6 +319,7 @@ private fun MapContent(
     isWater: Boolean,
     zoomLevel: Double,
     distanceToShore: Double?,
+    zone300: Zone300Data?,
     mapView: MapView?,
     onCenterChanged: (Double, Double) -> Unit,
     onZoomChanged: (Double) -> Unit,
@@ -294,12 +328,18 @@ private fun MapContent(
     modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier.clipToBounds()) {
-        val segments = when (state) {
-            is CoastlineState.Ready -> (state as CoastlineState.Ready).polylines
-            else -> emptyList()
+        // Memoize per state instance so panning (which does not change state) keeps a
+        // stable list identity → no spurious overlay rebuilds.
+        val segments = remember(state) {
+            when (state) {
+                is CoastlineState.Ready -> (state as CoastlineState.Ready).polylines
+                else -> emptyList()
+            }
         }
         CoastlineMapView(
             segments = segments,
+            zone300 = zone300,
+            zoomLevel = zoomLevel,
             center = mapCenter,
             onCenterChanged = onCenterChanged,
             onZoomChanged = onZoomChanged,
@@ -466,6 +506,8 @@ private fun ErrorOverlay(
 @Composable
 private fun CoastlineMapView(
     segments: List<CoastlineSegment>,
+    zone300: Zone300Data?,
+    zoomLevel: Double,
     center: LatLng,
     onCenterChanged: (Double, Double) -> Unit = { _, _ -> },
     onZoomChanged: (Double) -> Unit = {},
@@ -473,6 +515,11 @@ private fun CoastlineMapView(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    // Rebuild overlays only when the data or zone visibility changes — never on a
+    // center pan (osmdroid pans internally; a per-frame removeAll+redraw would jank).
+    val zoneVisible = zoomLevel >= ZONE_MIN_ZOOM
+    val overlayKey = remember(segments, zone300, zoneVisible) { Any() }
+    val lastOverlayKey = remember { mutableStateOf<Any?>(null) }
 
     AndroidView(
         modifier = modifier,
@@ -491,6 +538,7 @@ private fun CoastlineMapView(
                 maxZoomLevel = 18.0
                 controller.setZoom(11.0)
                 controller.setCenter(GeoPoint(center.latitude, center.longitude))
+                drawZone300(this, zone300, zoomLevel)
                 drawCoastline(this, segments)
 
                 // Listen for map pan/zoom to report new center & zoom in real time
@@ -511,9 +559,16 @@ private fun CoastlineMapView(
             }.also { onMapViewReady(it) }
         },
         update = { mapView ->
-            mapView.overlays.removeAll { it is Polyline }
-            drawCoastline(mapView, segments)
-            mapView.invalidate()
+            // Only when data/visibility changed — not on every pan recomposition.
+            if (lastOverlayKey.value !== overlayKey) {
+                lastOverlayKey.value = overlayKey
+                // Band overlays are Polygons + Polylines; remove both so the band's
+                // red line is not orphaned and stale polygons don't accumulate.
+                mapView.overlays.removeAll { it is Polyline || it is Polygon }
+                drawZone300(mapView, zone300, zoomLevel)   // fill (bottom)
+                drawCoastline(mapView, segments)            // coastline
+                mapView.invalidate()
+            }
         }
     )
 }
@@ -553,6 +608,10 @@ private const val ZOOM_EXPONENT = 0.45
 private const val DIST_SHRINK_MIN_MULT = 0.3
 /** Distance in meters at which the marker reaches full (1.0×) size. */
 private const val DIST_SHRINK_RAMP_M   = 2000.0
+
+/** Below this zoom the 300 m band is sub-pixel and meaningless; skip drawing it.
+ *  Matches the map's default zoom (11) so the band is visible on launch. */
+private const val ZONE_MIN_ZOOM = 11.0
 
 // ───────────────────────────────────────────────────────────────────────────────
 
@@ -671,5 +730,48 @@ private fun drawCoastline(
             }
         }
         mapView.overlays.add(polyline)
+    }
+}
+
+/**
+ * Draws the precomputed 300 m band: translucent red fill (water only, island land
+ * cut out as holes) plus the red seaward boundary line. Zoom-gated — nothing is
+ * drawn below [ZONE_MIN_ZOOM] (the band would be sub-pixel) or before the band has
+ * been built ([zone] == null).
+ *
+ * Must be drawn **before** [drawCoastline] so the coastline reads on top of the fill.
+ */
+private fun drawZone300(mapView: MapView, zone: Zone300Data?, zoomLevel: Double) {
+    if (zone == null || zoomLevel < ZONE_MIN_ZOOM) return
+
+    // Fill (water only) — translucent red, no outline on the polygon itself.
+    for (poly in zone.fillPolygons) {
+        if (poly.outer.size < 3) continue
+        val fill = Polygon().apply {
+            setPoints(poly.outer.map { GeoPoint(it.latitude, it.longitude) })
+            val validHoles = poly.holes.filter { it.size >= 3 }
+            if (validHoles.isNotEmpty()) {
+                setHoles(validHoles.map { hole -> hole.map { GeoPoint(it.latitude, it.longitude) } })
+            }
+            fillPaint.color = Color.argb(48, 229, 57, 53)   // ~19% red
+            outlinePaint.color = Color.TRANSPARENT
+            outlinePaint.strokeWidth = 0f
+        }
+        mapView.overlays.add(fill)
+    }
+
+    // Red seaward boundary line (above the fill).
+    for (line in zone.seawardLines) {
+        if (line.size < 2) continue
+        val redLine = Polyline().apply {
+            setPoints(line.map { GeoPoint(it.latitude, it.longitude) })
+            outlinePaint.apply {
+                color = Color.parseColor("#E53935")
+                strokeWidth = 6f
+                alpha = 220
+                isAntiAlias = true
+            }
+        }
+        mapView.overlays.add(redLine)
     }
 }

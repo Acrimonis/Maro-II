@@ -21,6 +21,9 @@ sealed interface CoastlineState {
 
         /** Convenience access to metadata. */
         val metadata: CoastlineMetadata get() = data.metadata
+
+        /** Convenience access to the 300 m band geometry (null until built). */
+        val zone300: Zone300Data? get() = data.zone300
     }
 
     /** Pipeline failed. */

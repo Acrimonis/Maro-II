@@ -12,13 +12,16 @@ package ykws.android.maro.data.model
  * @property metadata Generation metadata.
  * @property regionId Identifier for this coastline region (e.g. "nice-frejus").
  * @property boundingBox Geographic extent of this coastline dataset.
+ * @property zone300 Precomputed 300 m regulatory band geometry, or `null` if not
+ *                   yet built (progressive load) or absent from a pre-feature cache.
  */
 data class CoastlineData(
     val mainland: CoastlineSegment,
     val islands: List<CoastlineSegment> = emptyList(),
     val metadata: CoastlineMetadata,
     val regionId: String,
-    val boundingBox: BoundingBox
+    val boundingBox: BoundingBox,
+    val zone300: Zone300Data? = null
 ) {
     /** All segments (mainland + islands) as a flat list. Convenience for rendering. */
     val allSegments: List<CoastlineSegment> get() = listOf(mainland) + islands

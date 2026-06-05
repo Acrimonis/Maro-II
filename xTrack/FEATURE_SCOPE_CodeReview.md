@@ -1,6 +1,6 @@
 # Feature: CodeReview
 
-**Status:** Active
+**Status:** Done
 **Created:** 2026-06-04T00:00:00.000Z
 **Last Modified:** 2026-06-04T00:00:00.000Z
 **Active Subfeature:** frequency
