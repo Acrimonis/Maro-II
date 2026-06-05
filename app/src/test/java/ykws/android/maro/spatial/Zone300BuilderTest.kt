@@ -42,12 +42,12 @@ class Zone300BuilderTest {
         assertTrue("expected a fill polygon", zone.fillPolygons.isNotEmpty())
         assertTrue("expected a seaward line", zone.seawardLines.isNotEmpty())
 
-        // Seaward vertices lie on the seaward side (not on the coast); they span the
-        // end-caps (d≈150) up to the 300 m south edge.
+        // Seaward vertices lie on the band boundary (within ~300 m of the coast); the
+        // line wraps the strip's end-caps, so distances range from near 0 up to ~300 m.
         val seawardPts = zone.seawardLines.flatten()
         val dists = seawardPts.map { index.query(it.latitude, it.longitude).distanceMeters }
         for (d in dists) {
-            assertTrue("seaward vertex d=$d should be on the seaward side", d in 120.0..380.0)
+            assertTrue("seaward vertex d=$d should be on the band (≤ ~330 m)", d <= 380.0)
         }
         // The band reaches roughly the 300 m contour at its south edge.
         assertTrue("max seaward distance ${dists.max()} should approach 300 m", dists.max() >= 250.0)

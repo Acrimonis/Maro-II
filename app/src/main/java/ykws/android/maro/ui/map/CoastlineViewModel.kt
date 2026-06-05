@@ -150,6 +150,14 @@ class CoastlineViewModel(
     }
 
     /**
+     * "Bande 300 m" button handler. Rebuilds only the 300 m band from the already
+     * loaded coastline (no OSM refetch) — fast iteration on band tuning.
+     */
+    fun regenerateBand() {
+        viewModelScope.launch { repository.regenerateBand() }
+    }
+
+    /**
      * Called whenever the user pans/zooms the map.
      * Records the new center cheaply on the UI thread; the water/distance
      * recompute is driven by the throttled pipeline in [init] to keep heavy

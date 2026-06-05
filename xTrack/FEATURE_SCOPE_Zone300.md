@@ -3,7 +3,7 @@
 **Status:** Active
 **Created:** 2026-06-03T13:00:00.000Z
 **Last Modified:** 2026-06-05T00:00:00.000Z
-**Active Subfeature:** none
+**Active Subfeature:** distancetocoast
 **Description:**
 Identify and render a regulatory band 300 m from the coastline (all coasts,
 islands included) within which a 5-knot speed limit applies. The app already
@@ -57,12 +57,36 @@ Detailed implementation plan for the 300 m line/zone (geometry, APIs, rendering)
 - [x] drawZone300() + fix overlay refresh + z-order + zoom gate
 - [x] Dashboard text/label wiring
 - [ ] Visual pass on device; tune DP_EPSILON_M / CHAIKIN_ITERATIONS (MASK_RES fixed at 15 m)
-      ↳ in progress: band not visible on device — lowered ZONE_MIN_ZOOM 13→11, added Zone300 logging; awaiting logcat/device check
+      ↳ band renders on device; fixed red-line breaks (now classify seaward by
+        out-cell deep-water vs land, robust in narrow bands) + denoise/mergeLines/
+        small-hole-drop; added "Bande 300 m" fast-rebuild button. Awaiting device
+        re-check of the narrow-band fix.
 
 #### Rules
 
 #### Key Files
 - `docs/300MLinePlan.md` — detailed implementation plan (build order, signatures, file anchors).
+
+### distancetocoast  [x]
+Validate/fix the core nearest-coast distance query (`CoastlineSpatialIndex.query`).
+Symptom: occasional invalid jumps in the distance value along curves.
+
+**Root cause + fix:** query stopped at the first non-empty grid ring → could miss a
+closer segment one ring out → over-estimates / discontinuous jumps at cell
+boundaries. Now expands with a provably-safe stop (`bestDist ≤ ring·cellSize·0.95`)
+so it always returns the true nearest. Validated by a brute-force grid-sweep test.
+
+#### Todos
+- [x] Analyse + fix early-stop nearest-neighbour bug in `query`
+- [x] Add `CoastlineSpatialIndexTest` (brute-force grid sweep + edge cases)
+
+#### Rules
+- Nearest-segment search must expand until provably safe, never stop at the first
+  non-empty ring.
+
+#### Key Files
+- `spatial/CoastlineSpatialIndex.kt` — uniform-grid nearest-segment query.
+- `app/src/test/.../spatial/CoastlineSpatialIndexTest.kt` — correctness sweep.
 
 ## Todos
 

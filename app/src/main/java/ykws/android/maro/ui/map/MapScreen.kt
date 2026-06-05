@@ -105,6 +105,7 @@ fun MapScreen(
                     inZone300 = inZone300,
                     distanceToZone = distanceToZone,
                     onGenerate = { viewModel.loadCoastline() },
+                    onRegenerateBand = { viewModel.regenerateBand() },
                     modifier = Modifier
                         .width(landscapeDashboardWidth)
                         .fillMaxHeight()
@@ -157,6 +158,7 @@ fun MapScreen(
                     inZone300 = inZone300,
                     distanceToZone = distanceToZone,
                     onGenerate = { viewModel.loadCoastline() },
+                    onRegenerateBand = { viewModel.regenerateBand() },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(portraitDashboardHeight)
@@ -184,6 +186,7 @@ private fun DashboardPanel(
     inZone300: Boolean,
     distanceToZone: Double?,
     onGenerate: () -> Unit,
+    onRegenerateBand: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -256,6 +259,24 @@ private fun DashboardPanel(
                             is CoastlineState.Loading -> "G\u00E9n\u00E9ration en cours\u2026"
                             else -> "R\u00E9g\u00E9n\u00E9rer la c\u00F4te"
                         },
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                // ── Regenerate 300 m band only (no OSM refetch) ───────────
+                Button(
+                    onClick = onRegenerateBand,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = ComposeColor(0xFFC62828),
+                        disabledContainerColor = ComposeColor(0x40C62828),
+                        disabledContentColor = ComposeColor(0x99B0BEC5)
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    enabled = state is CoastlineState.Ready
+                ) {
+                    Text(
+                        text = "Bande 300 m",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Bold
                     )

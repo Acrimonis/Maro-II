@@ -197,6 +197,39 @@ class CoastlineRepository(
     }
 
     /**
+     * Rebuilds ONLY the 300 m band from the already-loaded coastline (no OSM
+     * refetch), driven through the [CoastlineState.Loading] + [progress] path so the
+     * UI disables its buttons and shows the progress overlay (like coastline gen).
+     * Used by the "Bande 300 m" button.
+     */
+    suspend fun regenerateBand() {
+        val data = coastlineData ?: return
+        val index = spatialIndex ?: return
+        _state.value = CoastlineState.Loading
+        _progress.value = GenerationProgress("Bande des 300 m", 0)
+        try {
+            val cell = data.metadata.meanSpacingM.coerceIn(5.0, 15.0)
+            val band = withContext(Dispatchers.Default) {
+                Zone300Builder(
+                    index = index,
+                    segments = data.allSegments,
+                    refLat = data.metadata.projectionRefLat,
+                    isWater = { lat, lon, d -> isOnWater(lat, lon, d) },
+                    cellM = cell
+                ).build { phase, pct -> _progress.value = GenerationProgress(phase, pct) }
+            }
+            val withZone = data.copy(zone300 = band)
+            coastlineData = withZone
+            withContext(ioDispatcher) { writeToCache(data.regionId, withZone) }
+            _progress.value = GenerationProgress("Terminé", 100)
+            _state.value = CoastlineState.Ready(data = withZone)
+        } catch (e: Throwable) {
+            android.util.Log.e("Zone300", "Band regeneration failed", e)
+            _state.value = CoastlineState.Ready(data = data)   // restore the coastline
+        }
+    }
+
+    /**
      * Forces a fresh OSM fetch by deleting the region's cache file first,
      * then delegating to [loadCoastline] (which will treat it as a cache miss).
      *

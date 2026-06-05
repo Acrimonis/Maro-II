@@ -62,27 +62,37 @@ class Zone300Builder(
     private var cols = 0
     private var rows = 0
 
-    fun build(): Zone300Data {
+    /** Per-cell land flag (candidate cell that is `!isWater`). Used to tell a
+     *  seaward (deep-water-facing) contour edge from a landward (coast) edge. */
+    private var landArr = BooleanArray(0)
+
+    fun build(onProgress: (phase: String, pct: Int) -> Unit = { _, _ -> }): Zone300Data {
         val empty = Zone300Data(emptyList(), emptyList(), cellM, bandM)
         if (!index.hasData || segments.isEmpty()) return empty
+        onProgress("Préparation de la zone", 3)
         setupGrid()
         if (cols < 2 || rows < 2) return empty
 
-        val mask = sampleMask()
-        val rings = SpatialOperations.marchingSquares(mask, cols, rows)
-            .map { ring -> ring.map { gridToLatLng(it) } }
+        val mask = sampleMask(onProgress)                 // reports 5..70
+        onProgress("Tracé du contour", 75)
+        val gridRings = SpatialOperations.marchingSquares(mask, cols, rows)
             .filter { it.size >= 3 }
-        if (rings.isEmpty()) return empty
+        if (gridRings.isEmpty()) return empty
 
         val cleaned = ArrayList<List<LatLng>>()
         val seaward = ArrayList<List<LatLng>>()
-        for (ring in rings) {
-            val (cleanedRing, seawardRuns) = processRing(ring)
+        for (gridRing in gridRings) {
+            val flags = classifySeaward(gridRing, mask)
+            val ringLL = gridRing.map { gridToLatLng(it) }
+            val (cleanedRing, seawardRuns) = processRing(ringLL, flags)
             if (cleanedRing.size >= 3) cleaned.add(cleanedRing)
             seaward.addAll(seawardRuns)
         }
+        onProgress("Finalisation de la zone", 95)
         // Bridge red-line fragments split by noise / ring boundaries into continuous lines.
-        return Zone300Data(groupRings(cleaned), mergeLines(seaward), cellM, bandM)
+        val result = Zone300Data(groupRings(cleaned), mergeLines(seaward), cellM, bandM)
+        onProgress("Terminé", 100)
+        return result
     }
 
     // ── Grid setup ───────────────────────────────────────────────────────────
@@ -109,8 +119,10 @@ class Zone300Builder(
 
     // ── Mask sampling (parallel) ──────────────────────────────────────────────
 
-    private fun sampleMask(): BooleanArray {
+    private fun sampleMask(onProgress: (String, Int) -> Unit = { _, _ -> }): BooleanArray {
         val mask = BooleanArray(cols * rows)
+        val land = BooleanArray(cols * rows)
+        landArr = land
         val candidate = BooleanArray(cols * rows)
         val pad = ribbonM + cellM
         for (seg in segments) {
@@ -127,25 +139,68 @@ class Zone300Builder(
         }
         val idx = ArrayList<Int>()
         for (i in candidate.indices) if (candidate[i]) idx.add(i)
+        val total = idx.size
+        val done = java.util.concurrent.atomic.AtomicInteger(0)
+        val step = maxOf(1, total / 20)
         // Parallel: distinct-index writes are safe; index/isWater are read-only.
         java.util.Arrays.stream(idx.toIntArray()).parallel().forEach { i ->
             val lat = cellLat(i / cols); val lon = cellLon(i % cols)
             val d = index.query(lat, lon).distanceMeters
-            if (d <= bandM && isWater(lat, lon, d)) mask[i] = true
+            val water = isWater(lat, lon, d)
+            if (d <= bandM && water) mask[i] = true
+            if (!water) land[i] = true
+            val c = done.incrementAndGet()
+            if (c % step == 0 && total > 0) onProgress("Échantillonnage de la zone", 5 + c * 65 / total)
         }
         return mask
     }
 
+    // ── Seaward/landward classification (by what's OUTSIDE each contour edge) ──
+
+    /**
+     * For each ring vertex, classify *seaward* (the out-of-zone cell it borders is
+     * deep water / open sea) vs *landward* (the out cell is land). This is robust for
+     * narrow bands where absolute distance-to-coast would misclassify.
+     */
+    private fun classifySeaward(ring: List<SpatialOperations.GridPt>, mask: BooleanArray): BooleanArray =
+        BooleanArray(ring.size) { k ->
+            val out = outCellOf(ring[k], mask)
+            out < 0 || !landArr[out]      // off-grid or non-land out cell → deep water → seaward
+        }
+
+    /** Index of the out-of-zone (mask == false) cell adjacent to a contour vertex,
+     *  or -1 if that cell is off the grid (treated as open sea). */
+    private fun outCellOf(gp: SpatialOperations.GridPt, mask: BooleanArray): Int {
+        val col2 = Math.round(gp.col * 2).toInt()
+        val row2 = Math.round(gp.row * 2).toInt()
+        return if (col2 % 2 != 0) {                       // horizontal edge → cells left/right
+            val r = row2 / 2
+            pickOut(idxOrNeg(r, (col2 - 1) / 2), idxOrNeg(r, (col2 + 1) / 2), mask)
+        } else {                                          // vertical edge → cells above/below
+            val c = col2 / 2
+            pickOut(idxOrNeg((row2 - 1) / 2, c), idxOrNeg((row2 + 1) / 2, c), mask)
+        }
+    }
+
+    private fun idxOrNeg(r: Int, c: Int): Int =
+        if (r in 0 until rows && c in 0 until cols) r * cols + c else -1
+
+    /** Of two adjacent cells (one in-zone, one out), return the out one. */
+    private fun pickOut(a: Int, b: Int, mask: BooleanArray): Int {
+        val aIn = a >= 0 && mask[a]
+        return if (aIn) b else a
+    }
+
     // ── Ring processing ───────────────────────────────────────────────────────
 
-    /** Returns the cleaned closed fill ring + the seaward (red-line) runs it yields. */
-    private fun processRing(ring: List<LatLng>): Pair<List<LatLng>, List<List<LatLng>>> {
+    /** Returns the cleaned closed fill ring + the seaward (red-line) runs it yields.
+     *  [rawSeaward] is the per-vertex seaward/landward classification (by out-cell). */
+    private fun processRing(
+        ring: List<LatLng>,
+        rawSeaward: BooleanArray
+    ): Pair<List<LatLng>, List<List<LatLng>>> {
         val n = ring.size
-        val rawSeaward = BooleanArray(n) {
-            index.query(ring[it].latitude, ring[it].longitude).distanceMeters >= bandM * 0.5
-        }
-        // De-noise: a lone vertex dipping across the 150 m threshold must not split a
-        // run (which would break the red line). Flip runs shorter than MIN_LABEL_RUN.
+        // De-noise: a lone misclassified vertex must not split a run (red-line break).
         val seaward = denoiseLabels(rawSeaward, MIN_LABEL_RUN)
         if (seaward.all { it }) {
             val smooth = smoothSeaward(ring, closed = true)
@@ -207,6 +262,57 @@ class Zone300Builder(
             }
         }
         return out
+    }
+
+    /**
+     * Greedily joins red-line fragments whose endpoints are within [BRIDGE_M] into
+     * continuous polylines, so the seaward line reads unbroken across small noise
+     * gaps and marching-squares ring boundaries. Genuinely separate bands stay
+     * separate (their endpoints are far apart).
+     */
+    private fun mergeLines(lines: List<List<LatLng>>): List<List<LatLng>> {
+        val remaining = lines.filter { it.size >= 2 }.map { ArrayList(it) }.toMutableList()
+        val result = ArrayList<List<LatLng>>()
+        fun d(a: LatLng, b: LatLng) = SpatialOperations.haversine(a, b)
+
+        while (remaining.isNotEmpty()) {
+            val chain = remaining.removeAt(remaining.size - 1)
+            var extended = true
+            while (extended) {
+                extended = false
+                // Extend at the tail.
+                run {
+                    val tail = chain.last()
+                    var bi = -1; var rev = false; var best = BRIDGE_M
+                    for (i in remaining.indices) {
+                        val ln = remaining[i]
+                        val ds = d(tail, ln.first()); if (ds < best) { best = ds; bi = i; rev = false }
+                        val de = d(tail, ln.last());  if (de < best) { best = de; bi = i; rev = true }
+                    }
+                    if (bi >= 0) {
+                        val ln = remaining.removeAt(bi)
+                        chain.addAll(if (rev) ln.asReversed() else ln)
+                        extended = true
+                    }
+                }
+                if (extended) continue
+                // Extend at the head.
+                val head = chain.first()
+                var bi = -1; var rev = false; var best = BRIDGE_M
+                for (i in remaining.indices) {
+                    val ln = remaining[i]
+                    val ds = d(head, ln.first()); if (ds < best) { best = ds; bi = i; rev = true }
+                    val de = d(head, ln.last());  if (de < best) { best = de; bi = i; rev = false }
+                }
+                if (bi >= 0) {
+                    val ln = remaining.removeAt(bi)
+                    chain.addAll(0, if (rev) ln.asReversed() else ln)
+                    extended = true
+                }
+            }
+            result.add(chain)
+        }
+        return result
     }
 
     private fun smoothSeaward(run: List<LatLng>, closed: Boolean): List<LatLng> {
@@ -302,5 +408,8 @@ class Zone300Builder(
     private companion object {
         /** Minimum classification run length; shorter runs are de-noised away. */
         const val MIN_LABEL_RUN = 3
+
+        /** Max endpoint gap (m) to bridge two red-line fragments into one line. */
+        const val BRIDGE_M = 45.0
     }
 }

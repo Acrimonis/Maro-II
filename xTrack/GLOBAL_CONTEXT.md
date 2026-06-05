@@ -2,7 +2,7 @@
 
 ## Active Session Pointers
 - **Active Feature:** Zone300
-- **Active Subfeature:** none
+- **Active Subfeature:** distancetocoast
 - **Last Updated:** 2026-06-05T00:00:00.000Z
 - **Last Bake:** 2026-06-05
 

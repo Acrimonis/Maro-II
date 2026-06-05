@@ -183,72 +183,53 @@ class CoastlineSpatialIndex(
     /**
      * Finds the closest coastline point to `(latitude, longitude)`.
      *
-     * Searches the grid cell containing the query point and its 8 Moore
-     * neighbours. If no candidates are found (e.g. point is far offshore),
-     * expands the search radius one cell ring at a time.
+     * Expands the search box outward ring by ring, accumulating the running nearest
+     * segment, and **stops only when it is provably safe**: once a candidate is found
+     * AND `bestDistance ≤ ring × cellSize`, no segment in any still-unexplored cell
+     * can be closer (the nearest point of a cell beyond `ring` is at least
+     * `ring × cellSize` away). Stopping at merely the first non-empty ring — as an
+     * earlier version did — could miss a closer segment one ring further out, causing
+     * over-estimates and discontinuous "jumps" in the value as the query point moves.
      *
-     * @return [CoastlineDistanceResult] with distance, closest point,
-     *         segment ID, and whether it's on the mainland.
-     *         `distanceMeters = Double.MAX_VALUE` when no coastline is loaded.
+     * @return [CoastlineDistanceResult] with distance, closest point, segment ID, and
+     *         whether it's on the mainland. `distanceMeters = Double.MAX_VALUE` when
+     *         no coastline is loaded.
      */
     fun query(latitude: Double, longitude: Double): CoastlineDistanceResult {
-        if (!hasData) {
-            return CoastlineDistanceResult(
-                distanceMeters = Double.MAX_VALUE,
-                closestPoint = LatLng(latitude, longitude),
-                segmentId = "",
-                isMainland = true
-            )
-        }
+        if (!hasData) return noResult(latitude, longitude)
 
         val point = LatLng(latitude, longitude)
         val row = ((latitude  - minLat) / cellSizeLat).toInt()
         val col = ((longitude - minLon) / cellSizeLon).toInt()
-
-        // Expand rings outward until we find candidates or exhaust the grid
         val maxRing = max(rowCount, colCount)
-        var candidates: Set<Int>? = null
 
-        for (ring in 0..maxRing) {
-            val cands = collectRing(row, col, ring)
-            if (cands.isNotEmpty()) {
-                candidates = cands
-                break
-            }
-        }
-
-        if (candidates == null || candidates.isEmpty()) {
-            return CoastlineDistanceResult(
-                distanceMeters = Double.MAX_VALUE,
-                closestPoint = LatLng(latitude, longitude),
-                segmentId = "",
-                isMainland = true
-            )
-        }
-
-        // Compute precise distance for every candidate, tracking the minimum
+        val processed = HashSet<Int>()
         var bestDist = Double.MAX_VALUE
         var bestClosestPoint = point
         var bestSegIdx = -1
 
-        for (segIdx in candidates) {
-            val ref = segmentRefs[segIdx]
-            val d = SpatialOperations.pointToSegmentDistance(point, ref.a, ref.b)
-            if (d < bestDist) {
-                bestDist = d
-                bestSegIdx = segIdx
-                bestClosestPoint = SpatialOperations.projectPointOntoSegment(point, ref.a, ref.b)
+        for (ring in 0..maxRing) {
+            for (segIdx in collectRing(row, col, ring)) {
+                if (!processed.add(segIdx)) continue   // already evaluated in an inner box
+                val ref = segmentRefs[segIdx]
+                val d = SpatialOperations.pointToSegmentDistance(point, ref.a, ref.b)
+                if (d < bestDist) {
+                    bestDist = d
+                    bestSegIdx = segIdx
+                    bestClosestPoint = SpatialOperations.projectPointOntoSegment(point, ref.a, ref.b)
+                }
             }
+
+            // Provably safe to stop: nothing unexplored can be closer than bestDist.
+            if (bestSegIdx >= 0 && bestDist <= ring * cellSizeM * SAFE_STOP_FACTOR) break
+
+            // The box already spans the whole grid — nothing left to explore.
+            if (row - ring <= 0 && row + ring >= rowCount - 1 &&
+                col - ring <= 0 && col + ring >= colCount - 1
+            ) break
         }
 
-        if (bestSegIdx < 0) {
-            return CoastlineDistanceResult(
-                distanceMeters = Double.MAX_VALUE,
-                closestPoint = LatLng(latitude, longitude),
-                segmentId = "",
-                isMainland = true
-            )
-        }
+        if (bestSegIdx < 0) return noResult(latitude, longitude)
 
         val ref = segmentRefs[bestSegIdx]
         val polyline = segmentsById[ref.polylineIdx]
@@ -261,6 +242,13 @@ class CoastlineSpatialIndex(
             vertexIndex = ref.vertexIdx
         )
     }
+
+    private fun noResult(latitude: Double, longitude: Double) = CoastlineDistanceResult(
+        distanceMeters = Double.MAX_VALUE,
+        closestPoint = LatLng(latitude, longitude),
+        segmentId = "",
+        isMainland = true
+    )
 
     /**
      * Collects candidate coastline segments along a vertical column from the
@@ -342,5 +330,15 @@ class CoastlineSpatialIndex(
             }
         }
         return result
+    }
+
+    private companion object {
+        /**
+         * Safety margin on the ring-distance stop bound. The grid's longitude cell
+         * width in metres varies slightly with latitude (projected at mid-latitude),
+         * so we require `bestDist ≤ ring·cellSize·0.95` before stopping to be sure no
+         * closer segment hides just outside the searched box.
+         */
+        const val SAFE_STOP_FACTOR = 0.95
     }
 }
