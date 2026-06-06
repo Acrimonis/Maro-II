@@ -11,20 +11,22 @@ import java.io.File
 /**
  * MANUAL, ONLINE build-time **baker** for the Nice–Fréjus coastline + 300 m band.
  *
- * Generates the dataset offline (on a networked build machine) and writes it as the bundled
- * asset `app/src/main/assets/coastlines/<region>.bin`. The shipped app then loads a correct,
+ * Generates the dataset offline (on a networked build machine) and writes it into the
+ * **gitignored** `data/app-assets/coastlines/<region>.bin` (NOT committed to git).
+ * `app/build.gradle.kts` adds `data/app-assets` as an assets source root, so the build packages
+ * it into the APK at `assets/coastlines/<region>.bin`. The shipped app then loads a correct,
  * ready-to-use band with **no on-device fetch and no "Bande 300 m" regeneration** —
- * [CoastlineRepository.loadCoastline] reads this asset on a cache miss.
+ * [CoastlineRepository.loadCoastline] reads it (cache miss → bundled asset).
  *
  * It mirrors the production band build exactly (same containment `isWater` + the >6 NM
  * open-water short-circuit + the same cell size), so the baked band equals what a correct
  * on-device regen would produce.
  *
- * **Opt-in:** it needs network (Overpass) and writes a source asset, so it SELF-SKIPS in
- * normal/CI runs and only executes when explicitly enabled with `-Dmaro.bake=true` (forwarded
- * to the test JVM by `app/build.gradle.kts`). Run it whenever the bundled data must be
- * refreshed (e.g. after a classifier/builder fix), then commit the regenerated `.bin` and
- * rebuild/ship the APK:
+ * **Opt-in:** it needs network (Overpass) and writes into data/, so it SELF-SKIPS in normal/CI
+ * runs and only executes when explicitly enabled with `-Dmaro.bake=true` (forwarded to the test
+ * JVM by `app/build.gradle.kts`). Run it whenever the bundled data must be refreshed (e.g. after
+ * a classifier/builder fix), then just rebuild/ship the APK — the band is gitignored and
+ * incorporated at build time, so there is nothing to commit:
  *
  *   gradlew.bat :app:testDebugUnitTest --tests "*Zone300AssetBaker*" -Dmaro.bake=true
  */
@@ -59,8 +61,10 @@ class Zone300AssetBaker {
             ).build()
             val baked = data.copy(zone300 = band)
 
-            // testDebugUnitTest runs with the module dir (app/) as the working directory.
-            val outDir = File("src/main/assets/coastlines").apply { mkdirs() }
+            // Bake into the GITIGNORED data/ tree (not committed). app/build.gradle.kts adds
+            // data/app-assets as an assets source root, so the build packages it into the APK.
+            val repoDir = System.getProperty("maro.repoDir")?.let { File(it) } ?: File("..")
+            val outDir = File(repoDir, "data/app-assets/coastlines").apply { mkdirs() }
             val outFile = File(outDir, "$regionId.bin")
             outFile.writeBytes(CoastlineSerializer.serialize(baked))
 
@@ -68,7 +72,7 @@ class Zone300AssetBaker {
                 "Baked ${baked.allSegments.size} segments + band " +
                     "(${band.fillPolygons.size} fills, ${band.seawardLines.size} lines) → " +
                     "${outFile.absolutePath} (${outFile.length()} bytes). " +
-                    "Commit the .bin, then rebuild + ship the APK."
+                    "Now apk-build.bat + apk-deploy.bat — incorporated from gitignored data/, nothing to commit."
             )
             assertTrue("baked asset should be non-empty", outFile.length() > 0)
         }
