@@ -21,7 +21,11 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    val viewModel: CoastlineViewModel = viewModel()
+                    // Use a factory because CoastlineViewModel now extends AndroidViewModel
+                    // with a multi-param constructor that AndroidViewModelFactory can't match.
+                    val viewModel: CoastlineViewModel = viewModel(
+                        factory = CoastlineViewModel.Factory
+                    )
 
                     // Restore persisted coastline cache on first composition
                     LaunchedEffect(Unit) {
