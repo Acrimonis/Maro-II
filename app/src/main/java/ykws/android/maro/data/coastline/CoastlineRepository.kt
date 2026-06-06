@@ -14,10 +14,8 @@ import ykws.android.maro.data.model.GenerationProgress
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.Zone300Data
 import ykws.android.maro.spatial.CoastlineSpatialIndex
-import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Zone300Builder
 import java.io.File
-import kotlin.math.*
 
 /**
  * Single source of truth for coastline data.
@@ -34,8 +32,8 @@ class CoastlineRepository(
     /** Directory for caching coastline data (set via [setCacheDir]). */
     private var cacheDir: File? = null
 
-    /** Asset manager for loading the bundled, prebaked coastline. */
-    private var assets: android.content.res.AssetManager? = null
+    /** Application context, kept for reading the **bundled prebaked** coastline asset. */
+    private var appContext: Context? = null
 
     /** Start in [Idle] so generation does not auto-start on init. */
     private val _state = MutableStateFlow<CoastlineState>(CoastlineState.Idle)
@@ -60,11 +58,29 @@ class CoastlineRepository(
 
     // ── Cache management (Protobuf binary) ───────────────────────────────────
 
-    /** Initialise the cache directory from an Android [Context]. */
+    /** Initialise the cache directory + asset access from an Android [Context]. */
     fun setCacheDir(context: Context) {
+        appContext = context.applicationContext
         cacheDir = File(context.filesDir, "coastlines")
         cacheDir?.mkdirs()
-        assets = context.assets
+    }
+
+    /** Full asset path for the bundled, prebaked coastline of a region. */
+    private fun assetPath(regionId: String) = "coastlines/$regionId.bin"
+
+    /**
+     * Reads the **bundled prebaked** coastline asset (`assets/coastlines/<region>.bin`),
+     * generated offline at build time by `Zone300AssetBaker`. Returns `null` if there is no
+     * bundled asset (or it can't be read) — the caller then falls back to a live OSM fetch.
+     * This lets the app ship a correct, ready-to-use 300 m band with no on-device generation.
+     */
+    private fun readFromAsset(regionId: String): CoastlineData? {
+        val ctx = appContext ?: return null
+        return try {
+            ctx.assets.open(assetPath(regionId)).use { CoastlineSerializer.deserialize(it.readBytes()) }
+        } catch (_: Exception) {
+            null  // no bundled asset for this region, or unreadable
+        }
     }
 
     /** Full path to the Protobuf cache file for the given region. */
@@ -110,33 +126,61 @@ class CoastlineRepository(
     // ── Load / Refresh (cache-aside pattern) ─────────────────────────────────
 
     /**
-     * Loads the bundled, **prebaked** coastline (incl. the Zone300 band) from assets. The app is a
-     * pure consumer — no OSM fetch or on-device generation (see docs/MARO_ARCHITECTURE.md
-     * § Data Gathering & Processing Lifecycle). The asset is produced on the computer by
-     * `CoastlinePrebakeTest`.
+     * Loads coastline data for the given region using a cache-aside pattern:
+     *   1. Check Protobuf cache on disk → return immediately if found
+     *   2. On cache miss: fetch from OSM, run the generation pipeline,
+     *      persist to Protobuf cache, then return
+     *
+     * @param regionId Region identifier (e.g. "nice-frejus").
      */
     suspend fun loadCoastline(regionId: String = CoastlineGenerator.REGION_ID) {
         _state.value = CoastlineState.Loading
         _progress.value = GenerationProgress("", 0)
 
-        val data = withContext(ioDispatcher) { readBundled(regionId) }
-        if (data != null) {
-            coastlineData = data
-            spatialIndex = CoastlineSpatialIndex(data.allSegments)
-            _state.value = CoastlineState.Ready(data = data)
+        // 1. Load from disk cache and/or the BUNDLED PREBAKED asset, preferring whichever is
+        //    NEWER (by generation timestamp). A freshly-baked bundled band thus supersedes a
+        //    stale on-device cache after an app update — no data wipe needed — while a later
+        //    on-device "Régénérer" (newer cache) still wins. No network, no on-device gen.
+        val cached = withContext(ioDispatcher) { readFromCache(regionId) }
+        val bundled = withContext(ioDispatcher) { readFromAsset(regionId) }
+        val preferBundled = bundled != null &&
+            (cached == null || bundled.metadata.fetchTimestampMs > cached.metadata.fetchTimestampMs)
+        val preloaded = if (preferBundled) bundled else cached
+        if (preloaded != null) {
+            coastlineData = preloaded
+            val index = CoastlineSpatialIndex(preloaded.allSegments)
+            spatialIndex = index
+            if (preferBundled) withContext(ioDispatcher) { writeToCache(regionId, preloaded) }
+            _state.value = CoastlineState.Ready(data = preloaded)
+            _progress.value = GenerationProgress(
+                if (preferBundled) "Terminé (intégré)" else "Terminé (cache)", 100
+            )
+            // Pre-feature data may lack the band — build it lazily so users get it without a regen.
+            if (preloaded.zone300 == null) buildBandInBackground(preloaded, index, regionId)
+            return
+        }
+
+        // 2. No cache and no bundled asset → full OSM generation
+        try {
+            val result = withContext(ioDispatcher) {
+                generator.generate(regionId = regionId) { phase, pct ->
+                    _progress.value = GenerationProgress(phase, pct)
+                }
+            }
+            coastlineData = result
+            val index = CoastlineSpatialIndex(result.allSegments)
+            spatialIndex = index
+            // Progressive: cache + show the map immediately (no band yet)...
+            withContext(ioDispatcher) { writeToCache(regionId, result) }
+            _state.value = CoastlineState.Ready(data = result)
             _progress.value = GenerationProgress("Terminé", 100)
-        } else {
+            // ...then build the 300 m band in the background and re-emit.
+            buildBandInBackground(result, index, regionId)
+        } catch (e: Exception) {
             _state.value = CoastlineState.Error(
-                message = "Aucune donnée côtière préchargée (lancer le prebake)."
+                message = e.message ?: "Erreur lors du chargement de la côte."
             )
         }
-    }
-
-    /** Reads the bundled prebaked coastline (with band) from `assets/coastline/<regionId>.bin`. */
-    private fun readBundled(regionId: String): CoastlineData? = try {
-        assets?.open("coastline/$regionId.bin")?.use { CoastlineSerializer.deserialize(it.readBytes()) }
-    } catch (_: Exception) {
-        null
     }
 
     /**
@@ -158,6 +202,7 @@ class CoastlineRepository(
                     "Zone300",
                     "Building band: segments=${base.allSegments.size}, cellM=$cell, refLat=${base.metadata.projectionRefLat}"
                 )
+                logCoastlineTopology(base)
                 val band = Zone300Builder(
                     index = index,
                     segments = base.allSegments,
@@ -182,13 +227,69 @@ class CoastlineRepository(
     }
 
     /**
+     * Logs coastline topology relevant to the Zone300 land-mirror: how many coast pieces
+     * are OPEN (geometrically) vs closed rings, and whether the mainland ([CoastlineData.allSegments]
+     * index 0) spans the full regulatory longitude band. **> 1 open piece ⇒ the mainland
+     * fragmented** — the prime suspect if a land-side band persists after the closed-polygon
+     * containment fix. Surfaced here so the on-device validation run is conclusive without a
+     * debugger (see the Zone300 'land-mirror' validation todo).
+     */
+    private fun logCoastlineTopology(data: CoastlineData) {
+        val segs = data.allSegments
+        var open = 0
+        var rings = 0
+        for (s in segs) {
+            val p = s.points
+            val closed = p.size >= 3 &&
+                kotlin.math.abs(p.first().lat - p.last().lat) < 1e-5f &&
+                kotlin.math.abs(p.first().lon - p.last().lon) < 1e-5f
+            if (closed) rings++ else open++
+        }
+        val main = segs.firstOrNull()?.points
+        val lonMin = main?.minByOrNull { it.lon }?.lon
+        val lonMax = main?.maxByOrNull { it.lon }?.lon
+        val spansClip = lonMin != null && lonMax != null &&
+            lonMin <= CoastlineGenerator.LON_WEST + 0.02 &&
+            lonMax >= CoastlineGenerator.LON_EAST - 0.02
+        android.util.Log.i(
+            "Zone300",
+            "Coastline topology: ${segs.size} segs ($open open / $rings rings); " +
+                "mainland lon=[$lonMin,$lonMax] spansClip=$spansClip — " +
+                "open>1 ⇒ mainland fragmentation (prime land-mirror suspect)"
+        )
+    }
+
+    /**
      * Rebuilds ONLY the 300 m band from the already-loaded coastline (no OSM
      * refetch), driven through the [CoastlineState.Loading] + [progress] path so the
      * UI disables its buttons and shows the progress overlay (like coastline gen).
      * Used by the "Bande 300 m" button.
      */
     suspend fun regenerateBand() {
-        loadCoastline()  // the band is prebaked into the bundled data; just reload it
+        val data = coastlineData ?: return
+        val index = spatialIndex ?: return
+        _state.value = CoastlineState.Loading
+        _progress.value = GenerationProgress("Bande des 300 m", 0)
+        try {
+            val cell = data.metadata.meanSpacingM.coerceIn(5.0, 15.0)
+            val band = withContext(Dispatchers.Default) {
+                Zone300Builder(
+                    index = index,
+                    segments = data.allSegments,
+                    refLat = data.metadata.projectionRefLat,
+                    isWater = { lat, lon, d -> isOnWater(lat, lon, d) },
+                    cellM = cell
+                ).build { phase, pct -> _progress.value = GenerationProgress(phase, pct) }
+            }
+            val withZone = data.copy(zone300 = band)
+            coastlineData = withZone
+            withContext(ioDispatcher) { writeToCache(data.regionId, withZone) }
+            _progress.value = GenerationProgress("Terminé", 100)
+            _state.value = CoastlineState.Ready(data = withZone)
+        } catch (e: Throwable) {
+            android.util.Log.e("Zone300", "Band regeneration failed", e)
+            _state.value = CoastlineState.Ready(data = data)   // restore the coastline
+        }
     }
 
     /**
@@ -198,7 +299,8 @@ class CoastlineRepository(
      * This is called by the "Régénérer" button.
      */
     suspend fun refreshCoastline(regionId: String = CoastlineGenerator.REGION_ID) {
-        loadCoastline(regionId)  // reload the bundled prebaked data (no on-device generation)
+        withContext(ioDispatcher) { deleteCacheFile(regionId) }
+        loadCoastline(regionId)
     }
 
     // ── Query methods ──────────────────────────────────────────────────────
@@ -206,29 +308,19 @@ class CoastlineRepository(
     /**
      * Returns true if the GPS position is on water.
      *
-     * ## Algorithm — Ray Casting
+     * ## Algorithm — Closed-polygon containment
      *
-     * A vertical ray is cast SOUTH from the query point. Every time the ray
-     * crosses the mainland coastline, it flips from water→land or land→water.
-     * The parity of crossings determines the result:
-     *   - **0, 2, 4, … (EVEN)** → query point and far-south are on the SAME side → WATER
-     *   - **1, 3, 5, … (ODD)**  → opposite sides → LAND
+     * Delegates the geometry to [CoastlineSpatialIndex.isWater], which tests whether the
+     * point lies inside the **land polygon** (the open mainland coastline closed by a
+     * virtual cap along the inland edge) or inside any island ring, via an even-odd
+     * north-ray cast. This is winding-independent and — unlike the previous open-polyline
+     * south-ray — does not mislabel land beside ~north–south coast stretches or harbours.
      *
-     * Islands are checked separately: if the query point is inside any
-     * closed island polygon (odd crossings with that island's ring), it is
-     * on land regardless of the mainland parity.
+     * ## Short-circuit
      *
-     * ## Short-Circuits
-     *
-     * - No loaded data → `true` (safe default: assume water).
-     * - Distance to coast > 6 NM → `true` (beyond regulatory zone = open water).
-     *
-     * ## Performance
-     *
-     * Uses [CoastlineSpatialIndex.queryColumn] to collect candidate segments
-     * along the ray's vertical column only — ~5–20 segments checked per query
-     * (vs. ~15,000 in the old brute-force approach). Each check is a cheap
-     * boolean intersection test (no sqrt, no trig).
+     * - No loaded data → `true` (safe default for a boat app: assume water).
+     * - Distance to coast > 6 NM → `true` (beyond the regulatory zone = open water; also
+     *   avoids treating deep-inland points, which are never queried in practice, as land).
      */
     fun isOnWater(latitude: Double, longitude: Double): Boolean =
         isOnWater(latitude, longitude, distanceToCoastMeters(latitude, longitude))
@@ -240,52 +332,11 @@ class CoastlineRepository(
      * from a single [distanceToCoast] call.
      */
     fun isOnWater(latitude: Double, longitude: Double, distToCoastMeters: Double): Boolean {
-        val data = coastlineData ?: return true
         val index = spatialIndex ?: return true
-
-        // ── Short-circuit: beyond 6 NM → open water ──
+        // Beyond the regulatory zone → open water (and keeps the containment test, which
+        // assumes near-coast queries, from ever classifying far-inland points as land).
         if (distToCoastMeters > SIX_NM_METERS) return true
-
-        // ── Ray end latitude (6 NM south of query point) ──
-        val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
-        val rayLatEnd = latitude - (SIX_NM_METERS / mPerDegLat)
-
-        // ── Collect candidate segments along the vertical column ──
-        val candidates = index.queryColumn(latitude, longitude, SIX_NM_METERS)
-
-        // ── Mainland crossing count ──
-        var mainlandCrossings = 0
-        for (c in candidates) {
-            if (c.polylineIdx == 0 &&
-                SpatialOperations.rayCrossesSegmentSouth(longitude, latitude, rayLatEnd, c.a, c.b)
-            ) {
-                mainlandCrossings++
-            }
-        }
-
-        // EVEN → same side as far-south reference → WATER
-        val isWater = (mainlandCrossings % 2 == 0)
-
-        // ── Island enclosure check ──
-        if (isWater) {
-            val islandGroups = candidates
-                .filter { it.polylineIdx > 0 }
-                .groupBy { it.polylineIdx }
-
-            for ((_, segments) in islandGroups) {
-                var crossings = 0
-                for (seg in segments) {
-                    if (SpatialOperations.rayCrossesSegmentSouth(
-                            longitude, latitude, rayLatEnd, seg.a, seg.b
-                    )) {
-                        crossings++
-                    }
-                }
-                if (crossings % 2 == 1) return false  // inside island → LAND
-            }
-        }
-
-        return isWater
+        return index.isWater(latitude, longitude)
     }
 
     companion object {

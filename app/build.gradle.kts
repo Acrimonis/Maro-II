@@ -30,6 +30,18 @@ android {
     buildFeatures {
         compose = true
     }
+
+    sourceSets {
+        getByName("main") {
+            // Incorporate the prebaked 300 m band into the APK assets at build time WITHOUT
+            // committing the binary: apk-bake.bat writes it under the gitignored data/ tree
+            // (data/app-assets/coastlines/nice-frejus.bin); this adds that folder as an assets
+            // source root, so it is packaged at assets/coastlines/nice-frejus.bin. When the
+            // folder is absent (never baked), it's simply ignored and the app falls back to a
+            // live fetch at runtime.
+            assets.srcDir(rootProject.file("data/app-assets"))
+        }
+    }
 }
 
 protobuf {
@@ -75,4 +87,15 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+}
+
+// Forward the opt-in flag for on-demand, network-dependent test "tools" (the
+// Zone300AssetBaker coastline/band baker, and the Zone300WaterOracleHarness EMODnet check)
+// from the Gradle invocation to the forked test JVM. They self-skip unless run with the flag,
+// e.g.  gradlew :app:testDebugUnitTest --tests "*Zone300AssetBaker*" -Dmaro.bake=true
+tasks.withType<Test>().configureEach {
+    systemProperty("maro.bake", System.getProperty("maro.bake", "false"))
+    systemProperty("maro.validate", System.getProperty("maro.validate", "false"))
+    // Repo root, so the baker can resolve <repo>/data/app-assets regardless of the test CWD.
+    systemProperty("maro.repoDir", rootProject.projectDir.absolutePath)
 }

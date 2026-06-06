@@ -87,6 +87,25 @@ class CoastlineSpatialIndex(
     private val rowCount: Int
     private val colCount: Int
 
+    /**
+     * Per-polyline closed-ring flag, indexed by `polylineIdx`. A polyline is a **ring**
+     * (island) when it is geometrically closed (first vertex ≈ last vertex); otherwise
+     * it is **open mainland coast**. This is derived from geometry rather than the
+     * [CoastlineSegment.isClosed] flag on purpose: the generator currently marks
+     * reclassified open mainland fragments as `isClosed = true`, and treating such a
+     * fragment as a ring is exactly what leaves a land-side band ("land-mirror"). The
+     * geometric test classifies every genuinely-open coast piece as mainland.
+     */
+    private val isRingPoly: BooleanArray
+
+    /**
+     * Longitude span of the **open mainland coast** (all non-ring polylines combined) —
+     * the extent of the virtual inland "cap" edge that closes the open coast into a land
+     * polygon for [isWater]. `min > max` (empty range) ⇒ no mainland present.
+     */
+    private val mainlandLonMin: Double
+    private val mainlandLonMax: Double
+
     /** `true` when the index has coastline data to query. */
     val hasData: Boolean get() = segmentRefs.isNotEmpty()
 
@@ -102,6 +121,8 @@ class CoastlineSpatialIndex(
             minLat = 0.0; maxLat = 0.0; minLon = 0.0; maxLon = 0.0
             cellSizeLat = 1.0; cellSizeLon = 1.0
             rowCount = 0; colCount = 0
+            mainlandLonMin = 1.0; mainlandLonMax = -1.0   // empty range ⇒ no cap
+            isRingPoly = BooleanArray(0)
         } else {
             // — 1. Global bounding box —
             var bMinLat = Double.MAX_VALUE
@@ -160,6 +181,21 @@ class CoastlineSpatialIndex(
             }
             segmentRefs = refs
 
+            // Per-polyline ring detection (island = geometrically closed) + the cap's
+            // longitude extent (the combined span of all OPEN mainland-coast polylines).
+            isRingPoly = BooleanArray(segments.size) { polyIdx ->
+                val pts = segments[polyIdx].points
+                pts.size >= 3 &&
+                    abs(pts.first().lat - pts.last().lat) < RING_CLOSE_EPS_DEG &&
+                    abs(pts.first().lon - pts.last().lon) < RING_CLOSE_EPS_DEG
+            }
+            var mlMin = Double.MAX_VALUE; var mlMax = -Double.MAX_VALUE
+            for (r in refs) if (!isRingPoly[r.polylineIdx]) {
+                if (r.minLon < mlMin) mlMin = r.minLon
+                if (r.maxLon > mlMax) mlMax = r.maxLon
+            }
+            mainlandLonMin = mlMin; mainlandLonMax = mlMax
+
             // — 4. Build sparse grid —
             val gridBuilder = HashMap<GridCell, MutableList<Int>>()
             for ((segIdx, ref) in refs.withIndex()) {
@@ -196,46 +232,12 @@ class CoastlineSpatialIndex(
      *         no coastline is loaded.
      */
     fun query(latitude: Double, longitude: Double): CoastlineDistanceResult {
-        if (!hasData) return noResult(latitude, longitude)
-
+        val ref = nearestRef(latitude, longitude) ?: return noResult(latitude, longitude)
         val point = LatLng(latitude, longitude)
-        val row = ((latitude  - minLat) / cellSizeLat).toInt()
-        val col = ((longitude - minLon) / cellSizeLon).toInt()
-        val maxRing = max(rowCount, colCount)
-
-        val processed = HashSet<Int>()
-        var bestDist = Double.MAX_VALUE
-        var bestClosestPoint = point
-        var bestSegIdx = -1
-
-        for (ring in 0..maxRing) {
-            for (segIdx in collectRing(row, col, ring)) {
-                if (!processed.add(segIdx)) continue   // already evaluated in an inner box
-                val ref = segmentRefs[segIdx]
-                val d = SpatialOperations.pointToSegmentDistance(point, ref.a, ref.b)
-                if (d < bestDist) {
-                    bestDist = d
-                    bestSegIdx = segIdx
-                    bestClosestPoint = SpatialOperations.projectPointOntoSegment(point, ref.a, ref.b)
-                }
-            }
-
-            // Provably safe to stop: nothing unexplored can be closer than bestDist.
-            if (bestSegIdx >= 0 && bestDist <= ring * cellSizeM * SAFE_STOP_FACTOR) break
-
-            // The box already spans the whole grid — nothing left to explore.
-            if (row - ring <= 0 && row + ring >= rowCount - 1 &&
-                col - ring <= 0 && col + ring >= colCount - 1
-            ) break
-        }
-
-        if (bestSegIdx < 0) return noResult(latitude, longitude)
-
-        val ref = segmentRefs[bestSegIdx]
         val polyline = segmentsById[ref.polylineIdx]
         return CoastlineDistanceResult(
-            distanceMeters = bestDist,
-            closestPoint = bestClosestPoint,
+            distanceMeters = SpatialOperations.pointToSegmentDistance(point, ref.a, ref.b),
+            closestPoint = SpatialOperations.projectPointOntoSegment(point, ref.a, ref.b),
             segmentId = polyline.id,
             isMainland = ref.polylineIdx == 0,
             polylineIdx = ref.polylineIdx,
@@ -243,27 +245,21 @@ class CoastlineSpatialIndex(
         )
     }
 
-    private fun noResult(latitude: Double, longitude: Double) = CoastlineDistanceResult(
-        distanceMeters = Double.MAX_VALUE,
-        closestPoint = LatLng(latitude, longitude),
-        segmentId = "",
-        isMainland = true
-    )
-
     /**
-     * Collects candidate coastline segments along a vertical column from the
-     * query point down to [maxDistM] metres south, for ray-cast water/land
-     * classification.
+     * Collects every coastline segment in the query point's longitude **column**, from the
+     * point down to [maxDistM] metres south — the candidate set for a southward ray-cast
+     * water/land classification (used by the off-device Zone300 prebake, which mirrors the
+     * runtime south-ray parity).
      *
-     * Only cells whose longitude column overlaps the query longitude are checked.
-     * This is far cheaper than a full ring-expansion query because a vertical
-     * ray intersects an (approximately) horizontal coastline only 1–3 times.
+     * Only cells in the query longitude's column are scanned, so this is far cheaper than a
+     * full ring-expansion query: a vertical ray meets an (approximately) horizontal coastline
+     * only 1–3 times.
      *
      * @param latitude   WGS84 latitude of the query point.
      * @param longitude  WGS84 longitude of the query point (the ray's column).
-     * @param maxDistM   Maximum distance south to search (6 NM = 11,112 m).
-     * @return List of candidates, each containing the segment's endpoints and
-     *         polyline index (0 = mainland, >0 = island).
+     * @param maxDistM   Maximum distance south to search (e.g. 6 NM = 11 112 m).
+     * @return Candidates, each carrying the segment endpoints and polyline index
+     *         (0 = mainland, >0 = island). Empty when no coastline is loaded.
      */
     fun queryColumn(
         latitude: Double,
@@ -308,6 +304,109 @@ class CoastlineSpatialIndex(
         val polylineIdx: Int
     )
 
+    /**
+     * Water/land by **closed-polygon containment** — winding-independent and corner-safe.
+     *
+     * The mainland arrives as an OPEN polyline (clipped at the region's east/west
+     * longitudes). We model the **land** as the polygon bounded by that coastline plus a
+     * virtual **cap** edge along the inland (north) side of the data — an edge that lies
+     * entirely on land for this region, so the closure is geometrically valid. A point is
+     * on **land** iff it lies inside that polygon, or inside any island ring.
+     *
+     * Containment is decided by an even-odd ray cast going **north** (toward the cap):
+     *  1. count crossings of every **open mainland-coast** polyline (`!isRingPoly`) in the
+     *     point's longitude column, north of the point ([SpatialOperations.rayCrossesSegmentNorth]);
+     *  2. add **+1** for the cap edge — a northward ray always crosses it once when the
+     *     point's longitude lies within the mainland span ([mainlandLonMin]..[mainlandLonMax]);
+     *  3. **odd** total ⇒ inside the land polygon ⇒ **land**.
+     * Each island (closed ring) is then tested separately: an odd crossing count ⇒ the
+     * point is inside that island ⇒ **land**.
+     *
+     * Counting **all** open polylines (not just `polylineIdx == 0`) means a mainland that
+     * assembled into several pieces is still closed into one land polygon by the shared
+     * cap — so a fragment running ~north–south can no longer leave a land-side band.
+     *
+     * Unlike the previous open-polyline **south**-ray (which it replaces), this cannot
+     * mislabel land beside ~north–south coast stretches or harbours: the cap closes the
+     * polygon, so even-odd parity is a true topological invariant (Jordan curve theorem),
+     * independent of coastline winding/orientation. `true` = water (default: no data).
+     */
+    fun isWater(latitude: Double, longitude: Double): Boolean {
+        if (!hasData) return true
+
+        val rayLatEnd = maxLat                       // north of all coastline (padded bbox top)
+        val col = ((longitude - minLon) / cellSizeLon).toInt().coerceIn(0, colCount - 1)
+        val startRow = ((latitude - minLat) / cellSizeLat).toInt().coerceIn(0, rowCount - 1)
+
+        var mainlandCrossings = 0
+        val islandCrossings = HashMap<Int, Int>()    // ring polylineIdx → crossing count
+        val seen = HashSet<Int>()
+        for (r in startRow until rowCount) {          // scan the column northward
+            val cell = grid[GridCell(r, col)] ?: continue
+            for (segIdx in cell) {
+                if (!seen.add(segIdx)) continue
+                val ref = segmentRefs[segIdx]
+                if (!SpatialOperations.rayCrossesSegmentNorth(longitude, latitude, rayLatEnd, ref.a, ref.b)) continue
+                if (isRingPoly[ref.polylineIdx]) {
+                    islandCrossings[ref.polylineIdx] = (islandCrossings[ref.polylineIdx] ?: 0) + 1
+                } else {
+                    mainlandCrossings++              // any open coast piece (incl. fragments)
+                }
+            }
+        }
+
+        // Mainland land = coastline crossings + the inland cap edge (+1 within the span).
+        val capCrossing = if (longitude in mainlandLonMin..mainlandLonMax) 1 else 0
+        if ((mainlandCrossings + capCrossing) % 2 == 1) return false   // inside the mainland
+
+        // Inside any island ring ⇒ land.
+        for (c in islandCrossings.values) if (c % 2 == 1) return false
+        return true
+    }
+
+    /** Ring-expanding nearest-segment search used by [query]. */
+    private fun nearestRef(latitude: Double, longitude: Double): SegmentRef? {
+        if (!hasData) return null
+
+        val point = LatLng(latitude, longitude)
+        val row = ((latitude  - minLat) / cellSizeLat).toInt()
+        val col = ((longitude - minLon) / cellSizeLon).toInt()
+        val maxRing = max(rowCount, colCount)
+
+        val processed = HashSet<Int>()
+        var bestDist = Double.MAX_VALUE
+        var bestSegIdx = -1
+
+        for (ring in 0..maxRing) {
+            for (segIdx in collectRing(row, col, ring)) {
+                if (!processed.add(segIdx)) continue   // already evaluated in an inner box
+                val ref = segmentRefs[segIdx]
+                val d = SpatialOperations.pointToSegmentDistance(point, ref.a, ref.b)
+                if (d < bestDist) {
+                    bestDist = d
+                    bestSegIdx = segIdx
+                }
+            }
+
+            // Provably safe to stop: nothing unexplored can be closer than bestDist.
+            if (bestSegIdx >= 0 && bestDist <= ring * cellSizeM * SAFE_STOP_FACTOR) break
+
+            // The box already spans the whole grid — nothing left to explore.
+            if (row - ring <= 0 && row + ring >= rowCount - 1 &&
+                col - ring <= 0 && col + ring >= colCount - 1
+            ) break
+        }
+
+        return if (bestSegIdx >= 0) segmentRefs[bestSegIdx] else null
+    }
+
+    private fun noResult(latitude: Double, longitude: Double) = CoastlineDistanceResult(
+        distanceMeters = Double.MAX_VALUE,
+        closestPoint = LatLng(latitude, longitude),
+        segmentId = "",
+        isMainland = true
+    )
+
     // ── Grid helpers ─────────────────────────────────────────────────────────
 
     /**
@@ -340,5 +439,12 @@ class CoastlineSpatialIndex(
          * closer segment hides just outside the searched box.
          */
         const val SAFE_STOP_FACTOR = 0.95
+
+        /**
+         * A polyline is treated as a closed ring (island) when its first and last vertex
+         * coincide within this tolerance (degrees, ≈ a few metres). Used by [isWater] to
+         * tell genuine island rings from open mainland coast — see [isRingPoly].
+         */
+        const val RING_CLOSE_EPS_DEG = 1e-5
     }
 }

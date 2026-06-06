@@ -213,8 +213,10 @@ class CoastlineViewModel(
 
     /**
      * Called whenever the user pans the map.
-     * Records the new center cheaply on the UI thread and persists it
-     * so the position survives rotation / app restart.
+     * Records the new center cheaply on the UI thread and persists it so the
+     * position survives rotation / app restart; the water/distance recompute is
+     * driven by the throttled pipeline in [init] to keep heavy work off the
+     * high-frequency scroll path.
      */
     fun updateMapCenter(latitude: Double, longitude: Double) {
         _mapCenter.value = LatLng(latitude, longitude)
