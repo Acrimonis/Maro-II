@@ -1,9 +1,16 @@
+---
+name: DepthMapping
+status: active
+created: 2026-06-04
+modified: 2026-06-06
+active_subfeature: none
+subs_total: 5
+subs_done: 2
+one_liner: Map 0–60 m seafloor depth in the scoped zone for collision avoidance and dive profiling.
+---
+
 # Feature: DepthMapping
 
-**Status:** Active
-**Created:** 2026-06-04T00:00:00.000Z
-**Last Modified:** 2026-06-06T00:00:00.000Z
-**Active Subfeature:** none
 **Description:**
 Map seafloor depth within the scoped zone across the 0–60 m range at the best
 practical precision, for two purposes: high-precision **collision avoidance** in
@@ -12,8 +19,6 @@ pinnacles) for scuba diving in the 5–60 m band. Source data is heterogeneous
 (SHOM, Litto3D, EMODnet, …); normalization for our use cases is a separate
 concern, out of scope here. Output feeds depth contour curves and/or color
 (hypsometric) depth maps.
-
-**One-liner:** Map 0–60 m seafloor depth in the scoped zone for collision avoidance and dive profiling.
 
 > **DepthMapping ≡ BARO** (prior research codename). Source-of-truth for data
 > sourcing: `docs/oZer/BARO - *.md`. Consolidated, API-validated design+plan:

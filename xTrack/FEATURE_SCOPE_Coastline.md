@@ -1,10 +1,15 @@
-# Feature: Coastline
+---
+name: Coastline
+status: active
+created: 2026-06-05
+modified: 2026-06-05
+active_subfeature: none
+subs_total: 0
+subs_done: 0
+one_liner: Extend the coastline dataset to include isolated offshore point hazards (e.g. Phare de la Fourmigue) so the spatial engine no longer misses standalone rocks/turrets that lie off the continuous trait de côte.
+---
 
-**Status:** Active
-**Created:** 2026-06-05
-**Last Modified:** 2026-06-05
-**One-liner:** Extend the coastline dataset to include isolated offshore point hazards (e.g. Phare de la Fourmigue) so the spatial engine no longer misses standalone rocks/turrets that lie off the continuous trait de côte.
-**Active Subfeature:** none
+# Feature: Coastline
 
 **Description:**
 The current coastline pipeline ingests only continuous land polygons (OSM
