@@ -14,13 +14,17 @@ REM  Requires internet (Overpass). Run this only when the OSM coastline or the
 REM  band algorithm changed; then just rebuild + deploy (nothing to commit).
 REM ======================================================================
 
+REM Run from this script's own directory so gradlew.bat and project paths
+REM resolve regardless of the caller's working directory.
+cd /d "%~dp0"
+
 echo ======================================
 echo  Baking Maro II coastline + 300 m band...
 echo ======================================
 
 REM --rerun-tasks: the baker's output (.bin) is not a declared Gradle task
 REM output, so force the test task to run even if it looks up-to-date.
-call gradlew :app:testDebugUnitTest --tests "*Zone300AssetBaker*" -Dmaro.bake=true --rerun-tasks
+call gradlew.bat :app:testDebugUnitTest --tests "*Zone300AssetBaker*" -Dmaro.bake=true --rerun-tasks
 
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] Bake failed with error code %ERRORLEVEL%
