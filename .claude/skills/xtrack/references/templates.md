@@ -1,10 +1,11 @@
 # xTrack File Templates
 
 Templates for the xTrack memory stack. Fill placeholders in `[brackets]`. Use
-ISO 8601 UTC dates from the environment — never invent a date. On bootstrap
-(first tracking/focus command when `xTrack/` is absent), create the directory
-and initialize `GLOBAL_CONTEXT.md`, the first feature file, and `GLOBAL_TODOS.md`.
-`CONTEXT_HYDRATION.md` is created lazily on first `#bake`.
+ISO 8601 UTC dates (`YYYY-MM-DD`, no timestamps) from the environment — never
+invent a date. On bootstrap (first tracking/focus command when `xTrack/` is
+absent), create the directory and initialize `GLOBAL_CONTEXT.md`, the first
+feature file, and `GLOBAL_TODOS.md`. Per-feature hydration files under
+`xTrack/hydration/` are created lazily on first `#bake` of a feature.
 
 ---
 
@@ -25,6 +26,7 @@ Root routing table and global state for this project's feature tracking.
 
 - **Active Feature:** [Name | none]
 - **Active Subfeature:** [name | none]
+- **Last Updated:** [YYYY-MM-DD]
 - **Last Bake:** [YYYY-MM-DD | never]
 
 ## Global Rules
@@ -40,14 +42,22 @@ Root routing table and global state for this project's feature tracking.
 
 ## `xTrack/FEATURE_SCOPE_[Name].md`
 
-```markdown
-# Feature: [Name]
+A YAML front-matter header (machine-readable: status, dates, counts) followed by
+the prose body. `#features` reads only the front-matter; `#status` reads both.
 
-**Status:** [Active | Paused | Done]
-**Created:** [YYYY-MM-DD]
-**Last Modified:** [YYYY-MM-DD]
-**One-liner:** [single concise sentence capturing the feature's purpose]
-**Active Subfeature:** [name | none]
+```markdown
+---
+name: [Name]
+status: active        # active | paused | done
+created: [YYYY-MM-DD]
+modified: [YYYY-MM-DD]   # equals created on #track; bumped by #bake when modified
+active_subfeature: none
+subs_total: 0
+subs_done: 0
+one_liner: [single concise sentence capturing the feature's purpose]
+---
+
+# Feature: [Name]
 
 **Description:**
 [Fuller description of the feature epic.]
@@ -63,7 +73,10 @@ Root routing table and global state for this project's feature tracking.
 - [rule]
 
 #### Key Files
-- `path/to/file` — [brief description]
+- `path/to/source` — [brief description]
+
+#### Docs
+- `docs/[name].md` — [brief description]
 
 ## Todos
 - [ ] [parent-level todo]
@@ -72,10 +85,15 @@ Root routing table and global state for this project's feature tracking.
 - [parent-level rule]
 
 ## Key Files
-- `path/to/file` — [brief description]
+- `path/to/source` — [brief description]
+
+## Docs
+- `docs/[name].md` — [brief description]
 ```
 
-Subfeature checkbox: `[ ]` open, `[x]` done. Toggle on `#bake` when complete.
+Subfeature checkbox: `[ ]` open, `[x]` done. `#bake` recomputes `subs_total` /
+`subs_done` in the front-matter from these checkboxes. `## Docs` holds attached
+documentation (managed by `#doc attach`/`detach`); `## Key Files` holds source.
 
 ---
 
@@ -92,15 +110,16 @@ Cross-cutting todos not tied to a single feature. Easy to purge.
 
 ---
 
-## `xTrack/CONTEXT_HYDRATION.md`
+## `xTrack/hydration/CONTEXT_HYDRATION_[Feature].md`
 
-Created/overwritten on `#bake`. A ~200-word micro-state summary so the next
-session can resume cold. Keep it tight and transactional — not a changelog.
+**One file per feature** (created/overwritten on `#bake` of that feature), so a
+bake on one feature never clobbers another's resume state — safe under parallel
+sessions. A ~200-word micro-state summary so the next session can resume cold.
+Keep it tight and transactional — not a changelog.
 
 ```markdown
-# Context Hydration — [YYYY-MM-DD]
+# Context Hydration — [Feature] — [YYYY-MM-DD]
 
-**Active Feature:** [Name]
 **Active Subfeature:** [name | none]
 
 ## State

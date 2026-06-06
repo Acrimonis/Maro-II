@@ -1,13 +1,18 @@
+---
+name: CodeReview
+status: done
+created: 2026-06-04
+modified: 2026-06-04
+active_subfeature: none
+subs_total: 1
+subs_done: 1
+one_liner: Code-review findings for the Maro coastline app and their fixes.
+---
+
 # Feature: CodeReview
 
-**Status:** Done
-**Created:** 2026-06-04T00:00:00.000Z
-**Last Modified:** 2026-06-04T00:00:00.000Z
-**Active Subfeature:** frequency
 **Description:**
 Code-review findings for the Maro coastline app and their fixes.
-
-**One-liner:** CodeReview feature epic.
 
 ## Subfeatures
 

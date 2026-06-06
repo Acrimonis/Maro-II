@@ -1,9 +1,18 @@
-# WorkflowImprovement
-**Status:** active
-**Created:** 2026-06-03
-**Last Modified:** 2026-06-03T12:30:52.881Z
-**Description:** Improving the .clinerules Section 7 xTrack workflow and command system — trigger syntax, templates, lifecycle protocols, and bootstrap logic.
-**One-liner:** xTrack #command system, trigger syntax, fuzzy matching, bootstrap, and memory bake lifecycle
+---
+name: WorkflowImprovement
+status: active
+created: 2026-06-03
+modified: 2026-06-06
+active_subfeature: none
+subs_total: 18
+subs_done: 18
+one_liner: xTrack #command system, trigger syntax, fuzzy matching, bootstrap, and memory bake lifecycle
+---
+
+# Feature: WorkflowImprovement
+
+**Description:**
+Improving the xTrack workflow and command system (canonicalized in AGENTS.md) — trigger syntax, templates, lifecycle protocols, and bootstrap logic.
 
 ## Subfeatures
 ### Trigger phrase syntax redesign (colon-delimited commands)  [x]
@@ -24,16 +33,32 @@
 ### #doc attach [name] — add doc; bare = prompt pick-list  [x]
 ### #doc detach [name] — remove doc; bare = prompt pick-list  [x]
 
+### AGENTSmdNormalization  [x]
+Vendor-neutral consolidation onto the AGENTS.md standard + xTrack hardening (this branch). All 6 fixes implemented + committed.
+
+#### Todos
+- [x] Fix 1 — AGENTS.md canonical rulebook + adapters (CLAUDE.md @import, .clinerules pointer, skill defers); fuzzy reconciled. Committed `288563a`.
+- [x] Fix 2 — YAML front-matter on feature files + date normalize. Committed `e806c22`.
+- [x] Fix 3 — `#doctor` lint command. Committed `e806c22`.
+- [x] Fix 4 — per-feature hydration under `xTrack/hydration/`. Committed `e806c22`.
+- [x] Fix 5 — docs: recursive `#doc list`, `## Docs` section, tolerant scope scan, `archived` scope. Committed `e806c22`.
+- [x] Fix 6 — `#feature` orientation command (active feature/sub + working path) + rename `#list` → `#features` (alias kept). Committed `e806c22`.
+
+#### Rules
+- Edit canonical rules in `AGENTS.md` only; `.clinerules`/`CLAUDE.md` are pointers.
+
+#### Key Files
+- `AGENTS.md`, `CLAUDE.md`, `.clinerules`
+- `.claude/skills/xtrack/{SKILL.md, references/commands.md, references/templates.md}`
+- `docs/cmd_help.md`
+
 ## Todos
-
-## Rules
-- Keep `docs/cmd_help.md` up to date whenever xTrack commands are added, renamed, or removed.
-- `.clinerules` is directly writable; edit without prompting.
-
+- [ ] **Post-merge reconcile xTrack/ across branches.** After `feature/ai-tooling` lands on `develop`, other branches with their own `xTrack/` evolutions (e.g. `feature/300M-Claude-II` carrying Coastline/DepthMapping) will conflict on merge. Procedure: (1) **tooling-system files** (`AGENTS.md`, `CLAUDE.md`, `.clinerules`, `.claude/skills/xtrack/**`, `docs/cmd_help.md`) — accept ai-tooling's version on conflict; (2) **`FEATURE_SCOPE_*.md`** added or edited on spatial — add YAML front-matter (`name`/`status`/`created`/`modified`/`active_subfeature`/`subs_total`/`subs_done`/`one_liner`), normalize all dates to `YYYY-MM-DD`, remove duplicated prose header lines, and split any attached docs out of `## Key Files` into a new `## Docs` section; (3) **`xTrack/CONTEXT_HYDRATION.md`** — resolve the delete/modify conflict in favor of the deletion and split its content into per-feature `xTrack/hydration/CONTEXT_HYDRATION_[Feature].md` files (one per active feature); (4) **`GLOBAL_CONTEXT.md`** — merge Routing Map rows (dedupe), normalize the Active Session Pointers block (add `Last Bake` if missing), normalize dates; (5) run `#doctor fix` to sweep residual drift, then `#doctor` to confirm clean.
+- `AGENTS.md` is the canonical rulebook and directly writable; edit without prompting (`.clinerules`/`CLAUDE.md` are pointers).
 
 ## Key Files
-- `.clinerules` — Section 7 rules being improved
+- `AGENTS.md` — canonical rules incl. § 7a/7b xTrack; `.clinerules`/`CLAUDE.md` are adapters
 
 ## Notes
 <!-- blockers, design decisions, context for next session -->
-Items 1-4 applied to .clinerules. Items 5-6 remain to be discussed. Hash-prefix dispatcher and #bake command now active.
+Original items 1–17 complete. Tooling spec canonicalized in AGENTS.md (Fix 1). Follow-on normalization (front-matter, #doctor, per-feature hydration, docs) is the AGENTSmdNormalization workstream on branch feature/ai-tooling.
