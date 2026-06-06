@@ -10,19 +10,19 @@ description: >-
   todos / rules / documentation. Trigger even on a bare "#focus" or "#todo",
   and when the user mentions a feature name in passing that may match a tracked
   feature. The skill reads and writes the existing xTrack/ and docs/ files
-  defined in .clinerules — it does not relocate or rename anything.
+  defined in AGENTS.md — it does not relocate or rename anything.
 ---
 
 # xTrack — Feature Tracking Command System
 
 This skill executes the `#`-prefixed command system defined in the project's
-`.clinerules`. It is the operational engine for the **xTrack memory stack**:
+**`AGENTS.md`** (§ 7b). It is the operational engine for the **xTrack memory stack**:
 a set of markdown files under `xTrack/` (and `docs/`) that hold feature epics,
 todos, rules, and transactional session state.
 
-`.clinerules` remains the source of truth. This skill mirrors its behavior — it
+`AGENTS.md` (§ 7a/7b) is the source of truth. This skill mirrors its behavior — it
 never relocates, renames, or restructures files. If anything here conflicts with
-`.clinerules`, `.clinerules` wins; flag the discrepancy to the user.
+`AGENTS.md`, `AGENTS.md` wins; flag the discrepancy to the user.
 
 ## When this fires
 
@@ -93,7 +93,7 @@ Use ISO 8601 UTC dates (`YYYY-MM-DD`). Get the real current date from the
 environment context — never invent one. Update a feature's `**Last Modified:**`
 only when that feature was actually modified during the session.
 
-## Operating discipline (from .clinerules)
+## Operating discipline (from AGENTS.md)
 
 - Be concise; answer the command directly, no unrequested expansion.
 - Consolidate file edits — plan all changes to a file, then write once. Avoid
