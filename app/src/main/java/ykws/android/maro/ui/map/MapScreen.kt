@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -29,7 +27,6 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -60,7 +57,6 @@ import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.GroundOverlay
 import org.osmdroid.views.overlay.Polygon
 import org.osmdroid.views.overlay.Polyline
-import kotlin.math.abs
 import kotlin.math.pow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -70,7 +66,6 @@ import ykws.android.maro.data.model.CoastlinePoint
 import ykws.android.maro.data.model.CoastlineSegment
 import ykws.android.maro.data.model.CoastlineState
 import ykws.android.maro.data.model.DepthSample
-import ykws.android.maro.data.model.DepthSource
 import ykws.android.maro.data.model.DepthState
 import ykws.android.maro.data.model.GenerationProgress
 import ykws.android.maro.data.model.Isobath
@@ -212,197 +207,6 @@ fun MapScreen(
     }
 }
 
-// ── Dashboard panel ──────────────────────────────────────────────────────────
-
-/**
- * Dashboard panel containing the generate button and earth/water toggle.
- *
- * Uses a [FlowRow] anchored to the bottom of the panel so the button and
- * icon sit side-by-side when horizontal space allows, wrapping to a second
- * line without clipping when the dashboard is too narrow.
- */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun DashboardPanel(
-    state: CoastlineState,
-    isWater: Boolean,
-    distanceToShore: Double?,
-    inZone300: Boolean,
-    distanceToZone: Double?,
-    depthSample: DepthSample?,
-    validation: ValidationReport?,
-    onGenerate: () -> Unit,
-    onRegenerateBand: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .background(ComposeColor(0xFF1A1A2E))
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        contentAlignment = Alignment.BottomCenter
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // ── Distance to shore ────────────────────────────────────────
-            if (state is CoastlineState.Ready && distanceToShore != null) {
-                val distM = distanceToShore
-                val distKm = distM / 1000.0
-                val displayText = if (distM >= 1000.0) {
-                    "%.1f km".format(distKm)
-                } else {
-                    "%.0f m".format(distM)
-                }
-                val label = if (isWater) "de la c\u00F4te" else "de la mer"
-                Text(
-                    text = "\u00C0 $displayText $label",
-                    color = ComposeColor(0xFFB0BEC5),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            // \u2500\u2500 300 m zone status \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-            if (state is CoastlineState.Ready && distanceToZone != null) {
-                val zoneM = abs(distanceToZone)
-                val zoneText = if (zoneM >= 1000.0) "%.1f km".format(zoneM / 1000.0)
-                               else "%.0f m".format(zoneM)
-                val (msg, tint) = if (inZone300) {
-                    "\u26A0 Zone des 300 m \u2014 5 n\u0153uds ($zoneText avant la sortie)" to 0xFFEF5350
-                } else {
-                    "\u00C0 $zoneText de la zone des 300 m" to 0xFF90A4AE
-                }
-                Text(
-                    text = msg,
-                    color = ComposeColor(tint),
-                    fontSize = 13.sp,
-                    fontWeight = if (inZone300) FontWeight.Bold else FontWeight.Medium
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            // ── Depth under the map centre ───────────────────────────────
-            if (depthSample != null && depthSample.hasData) {
-                Text(
-                    text = "🌊 Fond : %.1f m".format(depthSample.depthM),
-                    color = ComposeColor(depthReadoutColor(depthSample.depthM)),
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "${depthSourceLabel(depthSample.source)} · confiance ${depthSample.confidence} %",
-                    color = ComposeColor(0xFF90A4AE),
-                    fontSize = 11.sp
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            // ── Validation confidence badge ──────────────────────────────
-            if (validation != null) {
-                val (badge, badgeTint) = if (validation.passed) {
-                    "✓ Données validées (RMSE %.1f m)".format(validation.rmseM) to 0xFF66BB6A
-                } else {
-                    "⚠ Validation incomplète (RMSE %.1f m)".format(validation.rmseM) to 0xFFFFA726
-                }
-                Text(
-                    text = badge,
-                    color = ComposeColor(badgeTint),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
-                verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)
-            ) {
-                // ── Generate button ───────────────────────────────────────
-                Button(
-                    onClick = onGenerate,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = ComposeColor(0xFF1565C0),
-                        disabledContainerColor = ComposeColor(0x401565C0),
-                        disabledContentColor = ComposeColor(0x99B0BEC5)
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    enabled = state !is CoastlineState.Loading
-                ) {
-                    Text(
-                        text = when (state) {
-                            is CoastlineState.Loading -> "C\u00F4te\u2026"
-                            else -> "C\u00F4te"
-                        },
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                // ── Regenerate 300 m band only (no OSM refetch) ───────────
-                Button(
-                    onClick = onRegenerateBand,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = ComposeColor(0xFFC62828),
-                        disabledContainerColor = ComposeColor(0x40C62828),
-                        disabledContentColor = ComposeColor(0x99B0BEC5)
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    enabled = state is CoastlineState.Ready
-                ) {
-                    Text(
-                        text = "Bande",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                // ── Earth / Water toggle ──────────────────────────────────
-                EarthWaterIcon(
-                    emoji = if (isWater) "\uD83C\uDF0A" else "\uD83C\uDFD4\uFE0F",
-                    isActive = true,
-                    activeColor = if (isWater) ComposeColor(0xFF1565C0) else ComposeColor(0xFF2E7D32),
-                    contentDescription = if (isWater) "Eau" else "Terre"
-                )
-            }
-        }
-    }
-}
-
-// ── Earth / Water icon control ───────────────────────────────────────────────
-
-/**
- * A 44×44 dp icon square representing either water (🌊) or earth (🏔️).
- *
- * No text caption — icon only. The background tint indicates whether this
- * side is currently active based on the map center position.
- */
-@Composable
-private fun EarthWaterIcon(
-    emoji: String,
-    isActive: Boolean,
-    activeColor: ComposeColor,
-    contentDescription: String,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .size(44.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(
-                if (isActive) activeColor.copy(alpha = 0.30f)
-                else ComposeColor(0xEEFFFFFF)
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = emoji,
-            fontSize = 22.sp
-        )
-    }
-}
 
 // ── Map content area (shared by landscape & portrait) ────────────────────────
 
@@ -944,20 +748,3 @@ private fun drawIsobaths(mapView: MapView, isobaths: List<Isobath>, zoomLevel: D
     }
 }
 
-/** Friendly source label for the depth-at-centre readout. */
-private fun depthSourceLabel(source: DepthSource): String = when (source) {
-    DepthSource.LITTO3D -> "Litto3D"
-    DepthSource.SHOM -> "SHOM"
-    DepthSource.EMODNET -> "EMODnet"
-    DepthSource.SDB -> "Satellite"
-    DepthSource.GEBCO -> "GEBCO"
-    DepthSource.INTERPOLATED -> "Interpolé"
-    DepthSource.NONE -> "—"
-}
-
-/** Readout tint by band: collision (≤5 m) red, shallow (≤10 m) amber, profiling cyan. */
-private fun depthReadoutColor(depthM: Float): Long = when {
-    depthM <= DepthConstants.COLLISION_MAX_DEPTH_M.toFloat() -> 0xFFEF5350
-    depthM <= DepthConstants.SHALLOW_TIER_MAX_M.toFloat() -> 0xFFFFB74D
-    else -> 0xFF4FC3F7
-}
