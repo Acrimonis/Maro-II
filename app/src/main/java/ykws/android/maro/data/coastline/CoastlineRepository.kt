@@ -12,8 +12,10 @@ import ykws.android.maro.data.model.CoastlineDistanceResult
 import ykws.android.maro.data.model.CoastlineState
 import ykws.android.maro.data.model.GenerationProgress
 import ykws.android.maro.data.model.LatLng
+import ykws.android.maro.data.model.Zone300Data
 import ykws.android.maro.spatial.CoastlineSpatialIndex
 import ykws.android.maro.spatial.SpatialOperations
+import ykws.android.maro.spatial.Zone300Builder
 import java.io.File
 import kotlin.math.*
 
@@ -31,6 +33,9 @@ class CoastlineRepository(
 
     /** Directory for caching coastline data (set via [setCacheDir]). */
     private var cacheDir: File? = null
+
+    /** Asset manager for loading the bundled, prebaked coastline. */
+    private var assets: android.content.res.AssetManager? = null
 
     /** Start in [Idle] so generation does not auto-start on init. */
     private val _state = MutableStateFlow<CoastlineState>(CoastlineState.Idle)
@@ -59,6 +64,7 @@ class CoastlineRepository(
     fun setCacheDir(context: Context) {
         cacheDir = File(context.filesDir, "coastlines")
         cacheDir?.mkdirs()
+        assets = context.assets
     }
 
     /** Full path to the Protobuf cache file for the given region. */
@@ -104,44 +110,85 @@ class CoastlineRepository(
     // ── Load / Refresh (cache-aside pattern) ─────────────────────────────────
 
     /**
-     * Loads coastline data for the given region using a cache-aside pattern:
-     *   1. Check Protobuf cache on disk → return immediately if found
-     *   2. On cache miss: fetch from OSM, run the generation pipeline,
-     *      persist to Protobuf cache, then return
-     *
-     * @param regionId Region identifier (e.g. "nice-frejus").
+     * Loads the bundled, **prebaked** coastline (incl. the Zone300 band) from assets. The app is a
+     * pure consumer — no OSM fetch or on-device generation (see docs/MARO_ARCHITECTURE.md
+     * § Data Gathering & Processing Lifecycle). The asset is produced on the computer by
+     * `CoastlinePrebakeTest`.
      */
     suspend fun loadCoastline(regionId: String = CoastlineGenerator.REGION_ID) {
         _state.value = CoastlineState.Loading
         _progress.value = GenerationProgress("", 0)
 
-        // 1. Check Protobuf cache first
-        val cached = withContext(ioDispatcher) { readFromCache(regionId) }
-        if (cached != null) {
-            coastlineData = cached
-            spatialIndex = CoastlineSpatialIndex(cached.allSegments)
-            _state.value = CoastlineState.Ready(data = cached)
-            _progress.value = GenerationProgress("Terminé (cache)", 100)
-            return
-        }
-
-        // 2. Cache miss → full OSM generation
-        try {
-            val result = withContext(ioDispatcher) {
-                generator.generate(regionId = regionId) { phase, pct ->
-                    _progress.value = GenerationProgress(phase, pct)
-                }
-            }
-            coastlineData = result
-            spatialIndex = CoastlineSpatialIndex(result.allSegments)
-            withContext(ioDispatcher) { writeToCache(regionId, result) }
-            _state.value = CoastlineState.Ready(data = result)
+        val data = withContext(ioDispatcher) { readBundled(regionId) }
+        if (data != null) {
+            coastlineData = data
+            spatialIndex = CoastlineSpatialIndex(data.allSegments)
+            _state.value = CoastlineState.Ready(data = data)
             _progress.value = GenerationProgress("Terminé", 100)
-        } catch (e: Exception) {
+        } else {
             _state.value = CoastlineState.Error(
-                message = e.message ?: "Erreur lors du chargement de la côte."
+                message = "Aucune donnée côtière préchargée (lancer le prebake)."
             )
         }
+    }
+
+    /** Reads the bundled prebaked coastline (with band) from `assets/coastline/<regionId>.bin`. */
+    private fun readBundled(regionId: String): CoastlineData? = try {
+        assets?.open("coastline/$regionId.bin")?.use { CoastlineSerializer.deserialize(it.readBytes()) }
+    } catch (_: Exception) {
+        null
+    }
+
+    /**
+     * Builds the 300 m band off the main thread, attaches it to the in-memory and
+     * cached [CoastlineData], and re-emits [CoastlineState.Ready]. Tolerant: if the
+     * build fails the coastline stays usable (band simply absent).
+     */
+    private suspend fun buildBandInBackground(
+        base: CoastlineData,
+        index: CoastlineSpatialIndex,
+        regionId: String
+    ) {
+        val withZone = try {
+            withContext(Dispatchers.Default) {
+                // Grid spacing = min(coastline resolution, 15 m), floored to avoid a
+                // pathologically fine (slow) grid.
+                val cell = base.metadata.meanSpacingM.coerceIn(5.0, 15.0)
+                android.util.Log.i(
+                    "Zone300",
+                    "Building band: segments=${base.allSegments.size}, cellM=$cell, refLat=${base.metadata.projectionRefLat}"
+                )
+                val band = Zone300Builder(
+                    index = index,
+                    segments = base.allSegments,
+                    refLat = base.metadata.projectionRefLat,
+                    isWater = { lat, lon, d -> isOnWater(lat, lon, d) },
+                    cellM = cell
+                ).build()
+                android.util.Log.i(
+                    "Zone300",
+                    "Band built: fillPolygons=${band.fillPolygons.size}, seawardLines=${band.seawardLines.size}"
+                )
+                base.copy(zone300 = band)
+            }
+        } catch (e: Throwable) {
+            // Band is optional; coastline stays usable. Surface the failure for diagnosis.
+            android.util.Log.e("Zone300", "Band build failed", e)
+            return
+        }
+        coastlineData = withZone
+        withContext(ioDispatcher) { writeToCache(regionId, withZone) }
+        _state.value = CoastlineState.Ready(data = withZone)
+    }
+
+    /**
+     * Rebuilds ONLY the 300 m band from the already-loaded coastline (no OSM
+     * refetch), driven through the [CoastlineState.Loading] + [progress] path so the
+     * UI disables its buttons and shows the progress overlay (like coastline gen).
+     * Used by the "Bande 300 m" button.
+     */
+    suspend fun regenerateBand() {
+        loadCoastline()  // the band is prebaked into the bundled data; just reload it
     }
 
     /**
@@ -151,8 +198,7 @@ class CoastlineRepository(
      * This is called by the "Régénérer" button.
      */
     suspend fun refreshCoastline(regionId: String = CoastlineGenerator.REGION_ID) {
-        withContext(ioDispatcher) { deleteCacheFile(regionId) }
-        loadCoastline(regionId)
+        loadCoastline(regionId)  // reload the bundled prebaked data (no on-device generation)
     }
 
     // ── Query methods ──────────────────────────────────────────────────────
@@ -245,6 +291,9 @@ class CoastlineRepository(
     companion object {
         /** 6 nautical miles in metres (1 NM = 1,852 m exactly). */
         private const val SIX_NM_METERS = 6.0 * 1852.0  // = 11,112.0
+
+        /** Half-width of the regulatory 300 m band (5-knot speed limit). */
+        const val ZONE_DISTANCE_M = 300.0
     }
 
     /**
@@ -271,6 +320,29 @@ class CoastlineRepository(
      */
     fun distanceToCoastMeters(latitude: Double, longitude: Double): Double =
         distanceToCoast(latitude, longitude).distanceMeters
+
+    // ── 300 m regulatory band ────────────────────────────────────────────────
+
+    /**
+     * `true` when the position is inside the 300 m band: **on water** and within
+     * 300 m of any coast. Analytic — derived from the same distance metric the band
+     * is drawn from, so it always agrees with the rendered line.
+     */
+    fun isIn300mZone(latitude: Double, longitude: Double): Boolean {
+        val d = distanceToCoastMeters(latitude, longitude)
+        return d <= ZONE_DISTANCE_M && isOnWater(latitude, longitude, d)
+    }
+
+    /**
+     * Signed distance (m) to the 300 m boundary: **positive** outside the band
+     * ("distance to the zone"), **negative** inside ("distance before end of zone").
+     * Grid-independent, valid at any range.
+     */
+    fun distanceTo300mZone(latitude: Double, longitude: Double): Double =
+        distanceToCoastMeters(latitude, longitude) - ZONE_DISTANCE_M
+
+    /** Precomputed band geometry for rendering, or `null` until built. */
+    fun getZone300(): Zone300Data? = coastlineData?.zone300
 
     /**
      * Returns the cached [CoastlineData] if loaded, null otherwise.

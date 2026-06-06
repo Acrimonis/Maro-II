@@ -32,6 +32,29 @@ message CoastlineCache {
 
     // Zero or more island polylines (closed rings).
     repeated Polyline islands = 11;
+
+    // Precomputed 300 m regulatory band geometry (optional; absent in
+    // pre-feature caches → deserialises to null).
+    Zone300 zone300 = 12;
+}
+
+// Precomputed 300 m band: translucent fill polygons + the red seaward boundary.
+message Zone300 {
+    double grid_cell_m = 1;   // mask grid spacing used to build it (provenance)
+    double band_m = 2;        // band half-width (300)
+    repeated BandPolygon fill = 3;   // water-only fill areas (land = holes)
+    repeated LatLngLine seaward = 4; // red 300 m boundary, seaward runs only
+}
+
+// One filled band area: an outer ring with zero or more island-land holes.
+message BandPolygon {
+    LatLngLine outer = 1;
+    repeated LatLngLine holes = 2;
+}
+
+// A polyline/ring as packed float32 lat/lon pairs (2 values per point).
+message LatLngLine {
+    repeated float data = 1 [packed = true];
 }
 
 // A single oriented coastline polyline.

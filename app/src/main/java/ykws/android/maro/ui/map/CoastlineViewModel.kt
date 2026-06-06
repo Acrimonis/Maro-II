@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.sample
@@ -21,6 +22,7 @@ import ykws.android.maro.data.coastline.CoastlineRepository
 import ykws.android.maro.data.model.CoastlineState
 import ykws.android.maro.data.model.GenerationProgress
 import ykws.android.maro.data.model.LatLng
+import ykws.android.maro.data.model.Zone300Data
 
 /**
  * ViewModel for the coastline map screen.
@@ -78,6 +80,19 @@ class CoastlineViewModel(
     private val _zoomLevel = MutableStateFlow(11.0) // matches initial controller.setZoom(11.0)
     val zoomLevel: StateFlow<Double> = _zoomLevel.asStateFlow()
 
+    /** True when the current map center is inside the 300 m regulatory band. */
+    private val _inZone300 = MutableStateFlow(false)
+    val inZone300: StateFlow<Boolean> = _inZone300.asStateFlow()
+
+    /** Signed distance (m) to the 300 m boundary (+ outside, − inside); null if unknown. */
+    private val _distanceToZone = MutableStateFlow<Double?>(null)
+    val distanceToZone: StateFlow<Double?> = _distanceToZone.asStateFlow()
+
+    /** Precomputed 300 m band geometry for the overlay (null until built). */
+    val zone300: StateFlow<Zone300Data?> = repository.state
+        .map { (it as? CoastlineState.Ready)?.data?.zone300 }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
     init {
         // Throttle the expensive water/distance recompute. osmdroid fires a
         // scroll event on every frame of a pan/fling (30–60/s); recomputing and
@@ -90,18 +105,24 @@ class CoastlineViewModel(
             .sample(SHORE_SAMPLE_INTERVAL_MS)
             .mapLatest { center ->
                 val result = repository.distanceToCoast(center.latitude, center.longitude)
-                val distance = if (result.distanceMeters == Double.MAX_VALUE) null
-                               else result.distanceMeters
+                val hasDist = result.distanceMeters != Double.MAX_VALUE
+                val distance = if (hasDist) result.distanceMeters else null
                 // Reuse the distance just computed instead of querying again.
                 val water = repository.isOnWater(
                     center.latitude, center.longitude, result.distanceMeters
                 )
-                ShoreState(distance, water)
+                // Zone status derives from the SAME distance — no extra spatial query.
+                val inZone = water && hasDist &&
+                    result.distanceMeters <= CoastlineRepository.ZONE_DISTANCE_M
+                val distToZone = if (hasDist) result.distanceMeters - CoastlineRepository.ZONE_DISTANCE_M else null
+                ShoreState(distance, water, inZone, distToZone)
             }
             .flowOn(Dispatchers.Default)
             .onEach { shore ->
                 _distanceToShore.value = shore.distanceMeters
                 _isWater.value = shore.isWater
+                _inZone300.value = shore.inZone
+                _distanceToZone.value = shore.distToZone
             }
             .launchIn(viewModelScope)
     }
@@ -126,6 +147,14 @@ class CoastlineViewModel(
                 }
             }
         }
+    }
+
+    /**
+     * "Bande 300 m" button handler. Rebuilds only the 300 m band from the already
+     * loaded coastline (no OSM refetch) — fast iteration on band tuning.
+     */
+    fun regenerateBand() {
+        viewModelScope.launch { repository.regenerateBand() }
     }
 
     /**
@@ -161,8 +190,13 @@ class CoastlineViewModel(
     fun distanceToCoastMeters(latitude: Double, longitude: Double): Double =
         repository.distanceToCoastMeters(latitude, longitude)
 
-    /** Result of one throttled recompute: distance to shore (m, null if none) + water flag. */
-    private data class ShoreState(val distanceMeters: Double?, val isWater: Boolean)
+    /** Result of one throttled recompute: shore distance + water flag + 300 m zone status. */
+    private data class ShoreState(
+        val distanceMeters: Double?,
+        val isWater: Boolean,
+        val inZone: Boolean,
+        val distToZone: Double?
+    )
 
     private companion object {
         /** Sampling interval for the map-center recompute pipeline (~6–7 Hz). */

@@ -1,7 +1,7 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** CodeReview
+- **Active Feature:** DepthMapping
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-06
 - **Last Bake:** 2026-06-06
@@ -13,6 +13,8 @@
 | documentation, docs, readme, project | FEATURE_SCOPE_ProjectDocumentation.md |
 | zone300, zone, 300 | FEATURE_SCOPE_Zone300.md |
 | codereview, code review, review, quality, lint | FEATURE_SCOPE_CodeReview.md |
+| depth, bathymetry, depthmapping, baro, seafloor, soundings, litto3d, shom, emodnet | FEATURE_SCOPE_DepthMapping.md |
+| coastline, trait de côte, fourmigue, hazard, obstruction, balisage, danger_isole, aton, seamark, lighthouse, reef | FEATURE_SCOPE_Coastline.md |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).

@@ -38,6 +38,33 @@ APK output: `app/build/outputs/apk/debug/app-debug.apk`
 
 ---
 
+## Prebaking map data (optional — requires GDAL)
+
+Map datasets (coastline, depth) are **prebaked on the computer** and shipped as bundled assets; the
+app only loads them. Re-baking is **opt-in** via `apk-build.bat` (answer **Y** at the prompts) and
+requires **GDAL ≥ 3.x (which includes PROJ)** on `PATH` — used by `tools\bake_*.bat` to
+clip / reproject / convert the raw source downloads. **The app itself never needs GDAL**; it's only
+needed when regenerating the data.
+
+Install GDAL (Windows — pick one):
+- **Portable (minimal):** from <https://gisinternals.com/release.php> download the **x64 · MSVC 2022 ·
+  latest stable GDAL** "Compiled binaries" zip, extract it, and run `SDKShell.bat` (sets `PATH` +
+  `PROJ_LIB` + `GDAL_DATA`); launch the build from that shell.
+- **conda:** `conda install -c conda-forge gdal`.
+
+**Simplest — one variable:** set **`GDAL_HOME`** = your extracted GDAL root (e.g. `D:\…\GDal`).
+The bake scripts (`tools\gdal_env.bat`) derive `PATH` + `GDAL_DATA` + `PROJ_LIB`/`PROJ_DATA` from it
+automatically (GISInternals layout) — nothing else to configure. (GDAL is wired up only *during* the
+bake, not on your global PATH.)
+
+Or put GDAL on `PATH` globally (`<GDAL>` = root): PATH += `<GDAL>\bin` and `<GDAL>\bin\gdal\apps`;
+`GDAL_DATA` = `<GDAL>\bin\gdal-data`; `PROJ_DATA` = `<GDAL>\bin\proj9\SHARE`.
+
+Verify: `gdalwarp --version` and `projinfo EPSG:2154` (confirms PROJ). Bake steps:
+[docs/DepthMappingBake.md](docs/DepthMappingBake.md).
+
+---
+
 ## Project Structure
 
 ```
