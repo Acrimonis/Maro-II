@@ -166,8 +166,9 @@ class Zone300Builder(
         }
 
         // 3) Flood water inward from the seaward seeds through candidate cells, blocked
-        //    by the coast barrier (4-connectivity). Topology — not the per-cell ray
-        //    cast — decides water vs land, so harbours/bays classify correctly.
+        //    by the coast barrier (4-connectivity). Topology gives connectivity to the open
+        //    sea (harbours/bays included); the per-cell water test still gates the final band
+        //    (step 4) so a flood that bleeds past a barrier gap can't paint the land side.
         floodWater(flags)
 
         // 3b) Open-sea anchor = the deepest cell the ray cast still calls water. The real
@@ -180,7 +181,11 @@ class Zone300Builder(
             if (flags[i].toInt() and WATER == 0) continue
             if (dist[i] > anchorD) { anchorD = dist[i]; anchor = i }
         }
-        val seaComp = markSeaComponent(flags, anchor)
+        // Keep the open-sea anchor's component, plus each ISOLATED islet's own sea
+        // component (so far-offshore dangers like La Fourmigue get a band). The
+        // surround-guard inside markSeaComponents stops this from re-seeding the
+        // land-side mirror — read its INVARIANT note before touching it.
+        val seaComp = markSeaComponents(flags, anchor)
 
         // 4) Assemble. Prefer the anchored sea component; else the raw flood; else (no seed
         //    at all → degenerate) fall back to the per-cell ray-cast guess.
@@ -192,13 +197,18 @@ class Zone300Builder(
         for (i in 0 until nCells) {
             val f = flags[i].toInt()
             if (f and CAND == 0) continue
-            val water = when {
+            val seaConnected = when {
                 seaComp != null -> seaComp[i]
                 anySeed -> f and FLOOD != 0
                 else -> f and WATER != 0
             }
-            if (water && (f and NEAR != 0)) mask[i] = true
-            if (!water) land[i] = true
+            // Gate the band by the per-cell water test (the rigorous CoastlineSpatialIndex.isWater
+            // containment, exposed here as the WATER bit): a cell is banded only if it is BOTH
+            // connected to the open sea AND genuinely water. The flood alone can bleed past a
+            // barrier gap onto land — which showed up on-device as a full mirrored land-side band;
+            // this guard removes exactly that mirror while leaving the water band unchanged.
+            if (seaConnected && (f and WATER != 0) && (f and NEAR != 0)) mask[i] = true
+            if (!seaConnected) land[i] = true
         }
         return mask
     }
@@ -284,18 +294,59 @@ class Zone300Builder(
     }
 
     /**
-     * Marks the connected flood component of the open-sea [anchor] (the deepest cell the
-     * ray cast still calls water — unambiguous open sea). Inland pockets reached by a
-     * misclassified seed are separate components (the coast barrier divides the flood),
-     * so they are left out and never produce a mirrored land-side band. Returns `null`
-     * when the anchor is unusable (no water cell, or it was not reached by the flood), so
-     * the caller falls back to the raw flood.
+     * Marks the open-sea flood region to keep: the [anchor]'s connected component (the
+     * deepest cell the ray cast still calls water — unambiguous open sea) plus, for any
+     * **isolated** closed ring, that islet's own sea component.
+     *
+     * ## INVARIANT — never paint the band on the land side
+     *
+     * The band must appear on the **water side only**. The ray cast ([isWater]) wrongly
+     * calls cells *behind headlands* water, which floods inland pockets; keeping only the
+     * anchor's component drops them (the coast barrier divides sea from those pockets).
+     * That land-mirror has regressed **twice** — most recently when re-including isolated
+     * islands re-seeded an inland pocket from a near-shore ring's landward side. Guard: a
+     * non-anchor component is re-included **only when it SURROUNDS a closed ring**
+     * ([RING_SURROUND_MIN] of 8 compass probes land in fresh, non-anchor sea). An isolated
+     * islet is surrounded on every side → kept; an inland pocket touches a near-shore ring
+     * on the landward side ONLY (its seaward sides are the anchor sea) → never reaches the
+     * threshold → never re-included.
+     *
+     * ⚠️ Any change here MUST keep the `no land-side band` regression tests green —
+     * including the ones WITH islands/hazards present (`Zone300BuilderTest`). The earlier
+     * mirror tests had no closed rings and so did not catch the re-seeding regression.
+     *
+     * ⚠️ NOTE (2026-06-06): this guards only RING re-inclusion. A separate, CORE land-mirror
+     * persists (EMODnet-validated) from the south-ray [isWater] mislabelling land beside
+     * ~north-south coast / harbours as water — that is NOT fixed here. See the Zone300
+     * feature file's open "land-mirror" todo.
+     *
+     * Returns `null` when nothing is kept, so the caller falls back to the raw flood.
      */
-    private fun markSeaComponent(flags: ByteArray, anchor: Int): BooleanArray? {
-        if (anchor < 0 || flags[anchor].toInt() and FLOOD == 0) return null
+    private fun markSeaComponents(flags: ByteArray, anchor: Int): BooleanArray? {
         val keep = BooleanArray(flags.size)
+        var kept = false
+        if (anchor >= 0 && flags[anchor].toInt() and FLOOD != 0) { bfsFlood(flags, keep, anchor); kept = true }
+
+        for (seg in segments) {
+            if (!seg.isClosed) continue
+            // Fresh (non-anchor) flooded cells around the ring. Require they SURROUND it,
+            // so a one-sided inland pocket beside a near-shore ring can never qualify.
+            val fresh = ringSurroundCells(seg).filter {
+                it >= 0 && (flags[it].toInt() and FLOOD != 0) && !keep[it]
+            }
+            if (fresh.size >= RING_SURROUND_MIN) {
+                for (s in fresh) bfsFlood(flags, keep, s)
+                kept = true
+            }
+        }
+        return if (kept) keep else null
+    }
+
+    /** 4-connected BFS marking the [start] cell's FLOOD component into [keep]. */
+    private fun bfsFlood(flags: ByteArray, keep: BooleanArray, start: Int) {
+        if (keep[start] || flags[start].toInt() and FLOOD == 0) return
         val queue = ArrayDeque<Int>()
-        keep[anchor] = true; queue.addLast(anchor)
+        keep[start] = true; queue.addLast(start)
         while (queue.isNotEmpty()) {
             val cur = queue.removeFirst()
             val r = cur / cols; val c = cur % cols
@@ -308,7 +359,32 @@ class Zone300Builder(
                 keep[ni] = true; queue.addLast(ni)
             }
         }
-        return keep
+    }
+
+    /**
+     * Eight compass cells ~one band-half outside a closed ring (centroid + (maxRadius +
+     * 0.5·[bandM]) in 8 directions). Used to test whether a fresh sea component *surrounds*
+     * an islet (→ keep its band) vs merely touches it on one side (→ inland pocket, drop).
+     * Off-grid probes are -1.
+     */
+    private fun ringSurroundCells(seg: CoastlineSegment): IntArray {
+        val pts = seg.points
+        if (pts.size < 3) return IntArray(0)
+        var cx = 0.0; var cy = 0.0
+        for (p in pts) { cx += lon2x(p.lon.toDouble()); cy += lat2y(p.lat.toDouble()) }
+        cx /= pts.size; cy /= pts.size
+        var rr = 0.0
+        for (p in pts) {
+            val d = kotlin.math.hypot(lon2x(p.lon.toDouble()) - cx, lat2y(p.lat.toDouble()) - cy)
+            if (d > rr) rr = d
+        }
+        val probe = rr + bandM * 0.5
+        return IntArray(8) { dir ->
+            val a = 2.0 * PI * dir / 8.0
+            val c = ((cx + kotlin.math.cos(a) * probe - x0) / cellM).toInt()
+            val r = ((cy + kotlin.math.sin(a) * probe - y0) / cellM).toInt()
+            if (r in 0 until rows && c in 0 until cols) r * cols + c else -1
+        }
     }
 
     // ── Seaward/landward classification (by what's OUTSIDE each contour edge) ──
@@ -544,6 +620,11 @@ class Zone300Builder(
     private companion object {
         /** Minimum classification run length; shorter runs are de-noised away. */
         const val MIN_LABEL_RUN = 3
+
+        /** A non-anchor flood component is re-included only when ≥ this many of 8 compass
+         *  probes around a closed ring land in it (i.e. it SURROUNDS the islet) — the guard
+         *  that stops a one-sided inland pocket from re-seeding the land-side mirror. */
+        const val RING_SURROUND_MIN = 6
 
         /** Max endpoint gap (m) to bridge two red-line fragments into one line. */
         const val BRIDGE_M = 45.0

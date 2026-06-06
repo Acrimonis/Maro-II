@@ -37,3 +37,7 @@ local.properties
 *.hprof
 tmp/
 app/preloaded/
+
+# Data — top-level offline datasets only (anchored: must NOT match the
+# ykws.android.maro.data source package, which an unanchored `data/` would).
+/data/

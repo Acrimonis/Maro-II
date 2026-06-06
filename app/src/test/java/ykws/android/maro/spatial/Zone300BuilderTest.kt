@@ -87,25 +87,35 @@ class Zone300BuilderTest {
         assertTrue(zone.seawardLines.isEmpty())
     }
 
-    // ── Flood-fill recovers ray-cast (isOnWater) misclassification ────────────
+    // ── Band trusts the per-cell water test (anti-mirror) ─────────────────────
 
     @Test
-    fun `flood-fill covers water that the ray-cast wrongly calls land`() {
+    fun `band never covers a cell the water test calls land, even when the flood reaches it`() {
+        // Regression for the on-device land-mirror: the flood-fill alone painted BOTH sides of
+        // the coast (a flood bleeding past a barrier gap fills the inland ribbon too). The final
+        // band MUST be gated by the per-cell water test. Here a patch of genuine water is
+        // deliberately labelled LAND by isWater — the flood still reaches it, but it must NOT be
+        // banded, because the band now trusts the water test. (The old "flood recovers a
+        // misclassified-water gap" behaviour is intentionally gone: isWater is now rigorous.)
         val coast = (0..40).map { LatLng(43.5, 7.00 + it * 0.0008) }   // ~2.3 km straight E–W
         val seg = seg(coast, mainland = true, closed = false)
         val index = indexOf(listOf(seg))
         val pLatS = 43.4982; val pLatN = 43.4988
         val pLonW = 7.012; val pLonE = 7.020
         val isWater: (Double, Double, Double) -> Boolean = { lat, lon, _ ->
-            if (lat in pLatS..pLatN && lon in pLonW..pLonE) false   // injected bug
+            if (lat in pLatS..pLatN && lon in pLonW..pLonE) false   // genuine water, called LAND
             else lat < 43.5                                          // truth: south = water
         }
         val zone = Zone300Builder(index, listOf(seg), refLat, isWater, cellM = 20.0).build()
 
-        val py = 43.4985; val px = 7.016
-        assertTrue("patch is genuine water within 300 m", index.query(py, px).distanceMeters <= 300.0)
-        val covered = zone.fillPolygons.any { pointInRing(py, px, it.outer) && it.holes.none { h -> pointInRing(py, px, h) } }
-        assertTrue("flood-fill should cover the misclassified water patch (no gap)", covered)
+        fun covered(lat: Double, lon: Double) = zone.fillPolygons.any {
+            pointInRing(lat, lon, it.outer) && it.holes.none { h -> pointInRing(lat, lon, h) }
+        }
+        // Inside the patch (within 300 m, flood-reachable) but isWater says land → NOT banded.
+        assertTrue("patch is within 300 m", index.query(43.4985, 7.016).distanceMeters <= 300.0)
+        assertFalse("a cell the water test calls land must never be banded", covered(43.4985, 7.016))
+        // Genuine water just west of the patch is still banded — the water band is intact.
+        assertTrue("genuine water is still banded", covered(43.4985, 7.008))
     }
 
     @Test
@@ -126,6 +136,87 @@ class Zone300BuilderTest {
         assertFalse("band must not cover the land side", covered(landLat))
         // ~150 m SOUTH = water side: must be banded.
         assertTrue("band must cover the water side", covered(43.5 - 150.0 / mPerDegLat))
+    }
+
+    // ── Far-offshore isolated ring keeps its band (regression) ────────────────
+
+    @Test
+    fun `far-offshore isolated ring still gets a band (disconnected from the anchor)`() {
+        // A big island (which holds the open-sea anchor — the globally deepest water cell)
+        // plus a small isolated ring ~3.3 km away, far enough that its 500 m ribbon is a
+        // DISCONNECTED flood component. Regression for the bug where La Fourmigue rendered
+        // but had no 300 m band: keeping only the anchor's component dropped any isolated
+        // offshore danger. markSeaComponents must also keep each closed ring's own band.
+        val bigCenter = LatLng(43.500, 7.050)
+        val smallCenter = LatLng(43.530, 7.050)
+        val big = seg(circleRing(bigCenter.latitude, bigCenter.longitude, 600.0), mainland = false, closed = true)
+        val small = seg(circleRing(smallCenter.latitude, smallCenter.longitude, 25.0), mainland = false, closed = true)
+        val segs = listOf(big, small)
+        val index = indexOf(segs)
+        val isWater: (Double, Double, Double) -> Boolean = { lat, lon, _ ->
+            val p = LatLng(lat, lon)
+            SpatialOperations.haversine(p, bigCenter) > 600.0 &&
+                SpatialOperations.haversine(p, smallCenter) > 25.0
+        }
+        val zone = Zone300Builder(index, segs, refLat, isWater, cellM = 30.0).build()
+
+        // The small ring's band must exist: a fill vertex within ~(25 + 300 + slack) m.
+        val smallBanded = zone.fillPolygons.any { poly ->
+            poly.outer.any { SpatialOperations.haversine(it, smallCenter) <= 360.0 }
+        }
+        assertTrue("isolated far-offshore ring must still get a 300 m band", smallBanded)
+
+        // Sanity: the big island (the anchor's component) is still banded too.
+        val bigBanded = zone.fillPolygons.any { poly ->
+            poly.outer.any { SpatialOperations.haversine(it, bigCenter) <= 950.0 }
+        }
+        assertTrue("the big island band must remain", bigBanded)
+    }
+
+    @Test
+    fun `land-side pocket beside a hazard ring is not banded (no mirror with islands)`() {
+        // Regression GUARD (2nd land-mirror occurrence): re-including isolated islands must
+        // not bring back the land-side band. A near-shore hazard ring sits just off a
+        // straight coast; the ray cast wrongly calls a patch BEHIND the coast (land side)
+        // water, flooding an inland pocket. Re-seeding from the ring's landward side would
+        // keep that pocket (the mirror) — the surround-guard must reject it. The original
+        // mirror test had no closed rings, so it never exercised this path.
+        val coast = (0..30).map { LatLng(43.5, 7.000 + it * 0.001) }   // straight E–W, water south
+        val land = seg(coast, mainland = true, closed = false)
+        val hz = LatLng(43.4994, 7.015)                                // ~65 m south of coast
+        val ring = seg(circleRing(hz.latitude, hz.longitude, 30.0), mainland = false, closed = true)
+        val segs = listOf(land, ring)
+        val index = indexOf(segs)
+
+        // Injected land-side misclassification: a patch NORTH of the coast called "water".
+        val pkS = 43.5008; val pkN = 43.5035; val pkW = 7.012; val pkE = 7.018
+        val isWater: (Double, Double, Double) -> Boolean = { lat, lon, _ ->
+            when {
+                SpatialOperations.haversine(LatLng(lat, lon), hz) <= 30.0 -> false  // inside hazard = land
+                lat in pkS..pkN && lon in pkW..pkE -> true                          // injected inland pocket
+                else -> lat < 43.5                                                  // truth: south = water
+            }
+        }
+        val zone = Zone300Builder(index, segs, refLat, isWater, cellM = 20.0).build()
+
+        fun covered(lat: Double, lon: Double) = zone.fillPolygons.any {
+            pointInRing(lat, lon, it.outer) && it.holes.none { h -> pointInRing(lat, lon, h) }
+        }
+        assertFalse("land-side pocket must NOT be banded (mirror regression)", covered(43.5021, 7.015))
+        assertTrue("water side by the hazard must be banded", covered(43.4990, 7.015))
+    }
+
+    /** Closed [n]-gon ring of radius [radiusM] (m) around a centre, first vertex repeated. */
+    private fun circleRing(centerLat: Double, centerLon: Double, radiusM: Double, n: Int = 24): List<LatLng> {
+        val dLat = radiusM / mPerDegLat
+        val dLon = radiusM / (mPerDegLat * Math.cos(Math.toRadians(centerLat)))
+        val ring = ArrayList<LatLng>(n + 1)
+        for (k in 0 until n) {
+            val a = 2.0 * Math.PI * k / n
+            ring.add(LatLng(centerLat + dLat * Math.sin(a), centerLon + dLon * Math.cos(a)))
+        }
+        ring.add(ring.first())
+        return ring
     }
 
     private fun pointInRing(lat: Double, lon: Double, ring: List<LatLng>): Boolean {

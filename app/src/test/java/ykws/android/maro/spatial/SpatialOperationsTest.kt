@@ -161,6 +161,64 @@ class SpatialOperationsTest {
         assertTrue("Exactly one segment should cross", cross1 != cross2)
     }
 
+    // ── 3b. Ray-cast intersection NORTH (rayCrossesSegmentNorth) ─────────────
+
+    @Test
+    fun `rayCrossesSegmentNorth — ray crosses segment when segment is north of ray`() {
+        // A=(43.6, 7.0), B=(43.6, 7.1) — horizontal, north of the ray start.
+        val a = LatLng(43.6, 7.0)
+        val b = LatLng(43.6, 7.1)
+        val result = SpatialOperations.rayCrossesSegmentNorth(
+            rayLon = 7.05, rayLatStart = 43.5, rayLatEnd = 43.7, a = a, b = b
+        )
+        assertTrue("Ray north from below should cross a segment to its north", result)
+    }
+
+    @Test
+    fun `rayCrossesSegmentNorth — segment south of ray start is ignored`() {
+        val a = LatLng(43.4, 7.0)
+        val b = LatLng(43.4, 7.1)
+        val result = SpatialOperations.rayCrossesSegmentNorth(
+            rayLon = 7.05, rayLatStart = 43.5, rayLatEnd = 43.7, a = a, b = b
+        )
+        assertFalse("Ray north should NOT cross a segment that is SOUTH of the start", result)
+    }
+
+    @Test
+    fun `rayCrossesSegmentNorth — ray misses segment entirely east`() {
+        val a = LatLng(43.6, 7.0)
+        val b = LatLng(43.6, 7.1)
+        val result = SpatialOperations.rayCrossesSegmentNorth(
+            rayLon = 7.2, rayLatStart = 43.5, rayLatEnd = 43.7, a = a, b = b
+        )
+        assertFalse("Ray at lon=7.2 should miss segment at lon 7.0–7.1", result)
+    }
+
+    @Test
+    fun `rayCrossesSegmentNorth — segment north of ray end is ignored`() {
+        val a = LatLng(43.8, 7.0)
+        val b = LatLng(43.8, 7.1)
+        val result = SpatialOperations.rayCrossesSegmentNorth(
+            rayLon = 7.05, rayLatStart = 43.5, rayLatEnd = 43.7, a = a, b = b
+        )
+        assertFalse("Segment north of the ray end should not be crossed", result)
+    }
+
+    @Test
+    fun `rayCrossesSegmentNorth — vertex de-duplication prevents double count`() {
+        // Two adjacent segments sharing a vertex at (43.6, 7.05); count exactly 1.
+        val a = LatLng(43.5, 7.0)
+        val b = LatLng(43.6, 7.05)  // shared vertex
+        val c = LatLng(43.7, 7.1)
+        val cross1 = SpatialOperations.rayCrossesSegmentNorth(
+            rayLon = 7.05, rayLatStart = 43.4, rayLatEnd = 43.8, a = a, b = b
+        )
+        val cross2 = SpatialOperations.rayCrossesSegmentNorth(
+            rayLon = 7.05, rayLatStart = 43.4, rayLatEnd = 43.8, a = b, b = c
+        )
+        assertTrue("Exactly one segment should cross the shared vertex", cross1 != cross2)
+    }
+
     // ── 4. Douglas-Peucker simplification ──────────────────────────────────
 
     @Test

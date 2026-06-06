@@ -30,15 +30,14 @@ import kotlin.math.PI
  *
  * @property islandMaxDistanceNm Maximum distance in nautical miles for island inclusion.
  * @property simplifyEpsilonM Douglas-Peucker simplification tolerance in meters.
- * @property atonClient Optional Shom AtoN client for isolated offshore point
- *                      hazards (Fourmigue, etc.). `null` disables hazard
- *                      ingestion (e.g. in tests / offline). Failures are
- *                      swallowed — the coastline always loads.
+ *
+ * Isolated offshore point dangers (La Fourmigue, the cardinal-marked shoals, wrecks)
+ * are pulled from **OSM seamarks** in the same Overpass call as the coastline and
+ * ringed into the island set (see [SeamarkParser] + [buildHazardSegments]).
  */
 class CoastlineGenerator(
     private val islandMaxDistanceNm: Double = 6.0,
-    private val simplifyEpsilonM: Double = 8.0,
-    private val atonClient: ShomAtonClient? = ShomAtonClient()
+    private val simplifyEpsilonM: Double = 8.0
 ) {
     // ── Constants ───────────────────────────────────────────────────────────
 
@@ -60,28 +59,8 @@ class CoastlineGenerator(
 
         private const val MATCH_THRESHOLD_M = 25.0
 
-        /** WFS hazards within this distance (m) of a hard-coded seed are dropped as duplicates. */
-        private const val HAZARD_DEDUP_DIST_M = 80.0
-
-        /**
-         * Merges the always-on hard-coded [seeds] with best-effort WFS [fetched]
-         * hazards, dropping any fetched hit within [HAZARD_DEDUP_DIST_M] of a seed
-         * (seeds win). Pure & null-safe: an empty [fetched] — the `atonClient = null`
-         * or offline-failure case — yields exactly the seeds, the guaranteed offline
-         * baseline. Extracted so the dedup contract is unit-testable without network.
-         */
-        internal fun mergeHazards(
-            seeds: List<PointHazard>,
-            fetched: List<PointHazard>
-        ): List<PointHazard> {
-            if (fetched.isEmpty()) return seeds
-            val extra = fetched.filter { f ->
-                seeds.none { s ->
-                    SpatialOperations.haversine(LatLng(s.lat, s.lon), LatLng(f.lat, f.lon)) < HAZARD_DEDUP_DIST_M
-                }
-            }
-            return seeds + extra
-        }
+        /** Two seamark dangers closer than this (m) are treated as one (proximity dedup). */
+        private const val HAZARD_DEDUP_DIST_M = 25.0
 
         /**
          * Overpass API endpoints ordered roughly by reliability.
@@ -127,10 +106,25 @@ class CoastlineGenerator(
     ): CoastlineData = withContext(Dispatchers.IO) {
         onProgress("Démarrage", 0)
 
-        // ── 1. Fetch OSM with tags (0 → 25) ────────────────────────────────
-        val rawWays = fetchOverpass { pct ->
+        // ── 1. Fetch OSM (coastline ways + seamark danger nodes), 0 → 25 ──
+        val overpass = fetchOverpass { pct ->
             onProgress("Téléchargement OSM", (pct * 25 / 100).coerceAtMost(25))
         }
+        // 2 → 100: pure assembly/clip/simplify/rings — extracted for offline testing.
+        buildFromElements(overpass.ways, overpass.seamarkNodes, regionId, onProgress)
+    }
+
+    /**
+     * Pure (no-network) tail of [generate]: raw Overpass [rawWays] + [seamarkNodes] →
+     * processed [CoastlineData]. Extracted so the pipeline can be diagnosed/tested
+     * against a captured Overpass response without hitting the network.
+     */
+    internal fun buildFromElements(
+        rawWays: List<JsonObject>,
+        seamarkNodes: List<JsonObject>,
+        regionId: String = REGION_ID,
+        onProgress: (phase: String, progress: Int) -> Unit = { _, _ -> }
+    ): CoastlineData {
         onProgress("Assemblage", 25)
 
         // ── 2. Parse ways → segments with metadata (25 → 40) ───────────────
@@ -223,11 +217,11 @@ class CoastlineGenerator(
             )
         }
 
-        // ── 7b. Offshore point hazards → micro-circle rings (Shom AtoN) ─────
-        // Isolated features (Phare de la Fourmigue, etc.) are not in the
-        // coastline vectors; fetch them as points and union them into the island
-        // set as tiny closed rings. Best-effort: any failure → no hazards.
-        val hazardSegments = fetchAndBuildHazardRings(projectionRefLat)
+        // ── 7b. Offshore point dangers → micro-circle rings (OSM seamarks) ──
+        // Isolated features (La Fourmigue, cardinal-marked shoals, wrecks) are not
+        // in the coastline vectors; they arrived as seamark nodes in the same
+        // Overpass response. Parse, clip, dedupe and union them into the islands.
+        val hazardSegments = buildHazardSegments(seamarkNodes, projectionRefLat)
         val islandSegments = osmIslandSegments + hazardSegments
         val hazardPoints = hazardSegments.map { it.points }
 
@@ -242,7 +236,7 @@ class CoastlineGenerator(
         val boundingBox = computeBoundingBox(mainlandPoints, allIslandPoints)
 
         val sourceLabel = "OpenStreetMap contributors, ODbL (généré sur appareil)" +
-            if (hazardSegments.isNotEmpty()) " + Shom AtoN" else ""
+            if (hazardSegments.isNotEmpty()) " + OpenSeaMap seamarks" else ""
 
         val metadata = CoastlineMetadata(
             source = sourceLabel,
@@ -255,12 +249,12 @@ class CoastlineGenerator(
         )
 
         onProgress("Terminé", 100)
-        CoastlineData(
+        return CoastlineData(
             mainland = mainlandSegment,
             islands = islandSegments,
             metadata = metadata,
             regionId = regionId,
-            boundingBox = boundingBox 
+            boundingBox = boundingBox
         )
     }
 
@@ -326,33 +320,37 @@ class CoastlineGenerator(
         return result
     }
 
-    // ── Offshore point hazards (Shom AtoN) ─────────────────────────────────
+    // ── Offshore point dangers (OSM seamarks) ──────────────────────────────
 
     /**
-     * Assembles offshore point hazards into closed micro-circle [CoastlineSegment]s
-     * (island-equivalent). Combines the always-on hard-coded [HazardSeeds] with the
-     * best-effort Shom WFS feed, deduplicated by proximity (seeds win).
+     * Builds island-equivalent micro-circle rings for the isolated point dangers
+     * carried as OSM seamark nodes in the Overpass response ([SeamarkParser]).
+     * Clips to the regulatory longitude band and drops near-duplicate marks. Rings
+     * reuse the coastline's [refLat] so their projected XY / edge vectors stay
+     * consistent with the rest of the dataset.
      *
-     * Best-effort: a missing/failing WFS client just yields the seeds; the coastline
-     * always loads. Rings use the **same** [refLat] as the coastline so their xM/yM
-     * and edge vectors are consistent with the rest of the dataset.
+     * Pure post-processing (no network) — the fetch already happened in [fetchOverpass].
      */
-    private suspend fun fetchAndBuildHazardRings(refLat: Double): List<CoastlineSegment> {
-        val seeds = HazardSeeds.NICE_FREJUS
+    private fun buildHazardSegments(
+        seamarkNodes: List<JsonObject>,
+        refLat: Double
+    ): List<CoastlineSegment> {
+        val hazards = SeamarkParser.parse(seamarkNodes)
+            .filter { it.lon in LON_WEST..LON_EAST }
+        return dedupeByProximity(hazards, HAZARD_DEDUP_DIST_M)
+            .map { HazardRings.toSegment(it, refLat) }
+    }
 
-        val fetched = atonClient?.let { client ->
-            runCatching {
-                client.fetchHazards(
-                    latMin = BBOX_LAT_MIN,
-                    lonMin = LON_WEST,
-                    latMax = BBOX_LAT_MAX,
-                    lonMax = LON_EAST
-                )
-            }.getOrDefault(emptyList())
-        } ?: emptyList()
-
-        // Seeds win over coincident WFS hits; an empty/failed fetch → seeds only.
-        return mergeHazards(seeds, fetched).map { HazardRings.toSegment(it, refLat) }
+    /** Greedily drops any hazard within [minSepM] of one already kept (distinct dangers only). */
+    private fun dedupeByProximity(hazards: List<PointHazard>, minSepM: Double): List<PointHazard> {
+        val kept = ArrayList<PointHazard>(hazards.size)
+        for (h in hazards) {
+            val isDup = kept.any {
+                SpatialOperations.haversine(LatLng(it.lat, it.lon), LatLng(h.lat, h.lon)) < minSepM
+            }
+            if (!isDup) kept.add(h)
+        }
+        return kept
     }
 
     // ── Polyline processing pipeline ───────────────────────────────────────
@@ -375,6 +373,12 @@ class CoastlineGenerator(
     }
 
     // ── OSM Way parsing ────────────────────────────────────────────────────
+
+    /** One Overpass response, split into coastline ways and isolated-danger seamark nodes. */
+    private data class OverpassData(
+        val ways: List<JsonObject>,
+        val seamarkNodes: List<JsonObject>
+    )
 
     /**
      * Parsed OSM way with metadata.
@@ -643,11 +647,16 @@ class CoastlineGenerator(
      */
     private suspend fun fetchOverpass(
         onProgress: (Int) -> Unit
-    ): List<JsonObject> = coroutineScope {
+    ): OverpassData = coroutineScope {
+        // One request fetches the coastline ways AND the isolated-danger seamark
+        // nodes (La Fourmigue, cardinal-marked shoals, wrecks) in a single round-trip.
+        val seamarkTypes = SeamarkParser.DANGER_TYPES.joinToString("|")
         val query = buildString {
             append("[out:json]")
             append("[bbox:$BBOX_LAT_MIN,$BBOX_LON_MIN,$BBOX_LAT_MAX,$BBOX_LON_MAX];")
-            append("way[natural=coastline];out body geom;")  // ← body includes tags & nodes
+            append("(way[natural=coastline];")
+            append("node[\"seamark:type\"~\"^($seamarkTypes)\$\"];);")
+            append("out body geom;")  // body → tags + node lat/lon; geom → way geometry
         }
         val requestBody = "data=$query".toByteArray(Charsets.UTF_8)
             .toRequestBody(FORM_URLENCODED)
@@ -674,7 +683,7 @@ class CoastlineGenerator(
         val remaining = deferreds.toMutableList()
 
         while (remaining.isNotEmpty()) {
-            val (index, result) = select<Pair<Int, Result<List<JsonObject>>>> {
+            val (index, result) = select<Pair<Int, Result<OverpassData>>> {
                 remaining.forEachIndexed { i, deferred ->
                     deferred.onAwait { value -> i to value }
                 }
@@ -699,7 +708,7 @@ class CoastlineGenerator(
 
     /**
      * Exécute une requête Overpass POST sur un endpoint et extrait les
-     * ways[natural=coastline] avec géométrie.
+     * ways[natural=coastline] (avec géométrie) + les nœuds seamark (dangers isolés).
      *
      * @throws IllegalStateException si la réponse est vide, non-OK,
      *         ou ne contient aucun way valide.
@@ -707,7 +716,7 @@ class CoastlineGenerator(
     private fun fetchFromEndpoint(
         endpoint: String,
         requestBody: okhttp3.RequestBody
-    ): List<JsonObject> {
+    ): OverpassData {
         val request = Request.Builder()
             .url(endpoint)
             .post(requestBody)
@@ -727,10 +736,12 @@ class CoastlineGenerator(
         val elements = root["elements"]?.jsonArray ?: JsonArray(emptyList())
 
         val ways = mutableListOf<JsonObject>()
+        val seamarkNodes = mutableListOf<JsonObject>()
         for (el in elements) {
             val obj = el.jsonObject
-            if (obj["type"]?.jsonPrimitive?.content == "way" && obj.containsKey("geometry")) {
-                ways.add(obj)
+            when (obj["type"]?.jsonPrimitive?.content) {
+                "way" -> if (obj.containsKey("geometry")) ways.add(obj)
+                "node" -> seamarkNodes.add(obj)  // pre-filtered to danger seamark types by the query
             }
         }
 
@@ -738,7 +749,7 @@ class CoastlineGenerator(
             throw IllegalStateException("Aucun way[natural=coastline] trouvé.")
         }
 
-        return ways
+        return OverpassData(ways, seamarkNodes)
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────

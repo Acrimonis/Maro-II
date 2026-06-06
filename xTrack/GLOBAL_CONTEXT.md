@@ -1,10 +1,10 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** DepthMapping
-- **Active Subfeature:** (none)
-- **Last Updated:** 2026-06-05T00:00:00.000Z
-- **Last Bake:** 2026-06-05
+- **Active Feature:** Zone300
+- **Active Subfeature:** drawZone
+- **Last Updated:** 2026-06-06
+- **Last Bake:** 2026-06-06
 
 ## Routing Map
 | Keyword | Feature File |
@@ -23,3 +23,4 @@
 - Use apk-build.bat to build APK (runs gradlew assembleDebug).
 - Personal-use app, not for distribution — data fetched at runtime / baked offline, not redistributed.
 - Personal-use app, not for distribution — data is fetched at runtime, not bundled/redistributed.
+- Long-response ELI16 recap: after any consequential action, if the response exceeds ~500 words, end it with a short ELI16 bullet summary of the key points and their impact.

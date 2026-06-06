@@ -249,9 +249,11 @@ object SpatialOperations {
      *
      * ## Usage
      *
-     * Called by [CoastlineRepository.isOnWater] for every candidate segment
-     * returned by the spatial index's column query. The crossing count (mod 2)
-     * determines water (even) vs. land (odd).
+     * The south sibling of [rayCrossesSegmentNorth]. Used for ray-cast enclosure
+     * counting against coastline segments (the crossing count mod 2 gives the
+     * inside/outside parity). The production water/land test in
+     * [CoastlineSpatialIndex.isWater] casts NORTH (toward the inland-closed edge);
+     * this south variant remains for closed-ring enclosure checks and tests.
      *
      * ## Vertex de-duplication
      *
@@ -307,6 +309,64 @@ object SpatialOperations {
         // 3. Crossing counts only if the intersection is strictly south of the
         //    query point and at-or-south of the 6 NM limit.
         return intersectLat < rayLatStart && intersectLat >= rayLatEnd
+    }
+
+    /**
+     * Tests whether a vertical ray going NORTH crosses the segment A→B.
+     *
+     * Mirror of [rayCrossesSegmentSouth] for the inland direction: the ray starts at
+     * (rayLon, rayLatStart) and extends northward to (rayLon, rayLatEnd), where
+     * `rayLatEnd > rayLatStart` (north = larger latitude).
+     *
+     * ## Usage
+     *
+     * Called by the **closed-polygon** water/land containment test
+     * ([CoastlineSpatialIndex.isWater]). The mainland is an OPEN polyline; closing it
+     * with a virtual cap along the inland (north) edge makes the even-odd parity a true
+     * topological invariant. Casting the counting ray **north** (toward the cap) lets
+     * that cap contribute a single, constant crossing — see [CoastlineSpatialIndex.isWater].
+     *
+     * ## Vertex de-duplication
+     *
+     * Identical to [rayCrossesSegmentSouth]: strict `<` on the upper longitude bound so
+     * a ray through a shared vertex is counted by exactly one incident segment. The
+     * longitude rule is independent of ray direction; only the latitude test flips.
+     *
+     * @param rayLon       Longitude of the vertical ray (query point's longitude).
+     * @param rayLatStart  Latitude the ray starts at (query point's latitude).
+     * @param rayLatEnd    Latitude the ray ends at (north of all coastline).
+     * @param a            Coastline segment start point.
+     * @param b            Coastline segment end point.
+     * @return true if the ray crosses this segment within the latitude band.
+     */
+    fun rayCrossesSegmentNorth(
+        rayLon: Double,
+        rayLatStart: Double,
+        rayLatEnd: Double,
+        a: LatLng,
+        b: LatLng
+    ): Boolean {
+        val aLon = a.longitude
+        val bLon = b.longitude
+        val aLat = a.latitude
+        val bLat = b.latitude
+
+        // 1. Segment must span the ray's longitude (strict '<' upper bound de-dups vertices).
+        val crossesLon = (aLon <= rayLon && rayLon < bLon) ||
+                         (bLon <= rayLon && rayLon < aLon)
+        if (!crossesLon) return false
+
+        // 2. Latitude where the ray's line meets the segment.
+        val dLon = bLon - aLon
+        val intersectLat: Double = if (dLon == 0.0) {
+            // Vertical segment collinear with the ray: count if it reaches north of the start.
+            maxOf(aLat, bLat)
+        } else {
+            aLat + (rayLon - aLon) * (bLat - aLat) / dLon
+        }
+
+        // 3. Crossing counts only strictly north of the query point, at-or-south of the limit.
+        return intersectLat > rayLatStart && intersectLat <= rayLatEnd
     }
 
     // ─────────────────────────────────────────────────────────────────────────
