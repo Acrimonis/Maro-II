@@ -1,12 +1,18 @@
+---
+name: Zone300
+status: active
+created: 2026-06-03
+modified: 2026-06-03
+active_subfeature: none
+subs_total: 1
+subs_done: 0
+one_liner: Zone300 feature epic.
+---
+
 # Feature: Zone300
 
-**Status:** Active
-**Created:** 2026-06-03T13:00:00.000Z
-**Last Modified:** 2026-06-03T13:00:00.000Z
 **Description:**
 [TBD — describe the Zone300 feature]
-
-**One-liner:** Zone300 feature epic.
 
 ## Subfeatures
 ### trace  [ ]

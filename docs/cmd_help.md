@@ -1,7 +1,8 @@
-View:     #list                compact feature table (by last modified)
+View:     #features            compact feature table (front-matter, by modified) [alias #list]
+          #feature             current context: active feature/sub + working path
           #status              feature details (active)
           #status [name]       feature details (named)
-Manage:   #track [name]        create feature
+Manage:   #track [name]        create feature (with YAML front-matter)
           #focus [name]        switch to feature
           #sub [name]          add subfeature (active)
           #sub                 list subfeatures (active←focused)
@@ -13,12 +14,12 @@ Track:    #todo                list todos (scope-aware)
           #rule                list rules (scope-aware)
           #rule [desc]         add rule (scope-aware)
           #rule [tgt]:[desc]   add rule (tgt: feature|parent|global)
-Docs:     #doc                 key files (scope-aware)
-          #doc list            list docs with scope tags
-          #doc create [name]   create doc + scope prompt
+Docs:     #doc                 feature docs (scope-aware)
+          #doc list            list docs with scope tags (recursive docs/**)
+          #doc create [name]   create doc + scope prompt (core|onboarding|feature|reference|archived)
           #doc read [name]     load doc into context
-          #doc attach [name]   link doc (scope-aware)
+          #doc attach [name]   link doc → feature ## Docs (bare = prompt)
           #doc detach [name]   unlink doc (bare = prompt)
-Session:  #bake                snapshot session
+Session:  #bake                snapshot session (per-feature hydration)
           #help                this list
-```
+Health:   #doctor              lint xTrack for drift (#doctor fix = auto-repair)
