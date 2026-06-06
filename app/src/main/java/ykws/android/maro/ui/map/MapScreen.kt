@@ -2,6 +2,7 @@ package ykws.android.maro.ui.map
 
 import android.graphics.Bitmap
 import android.graphics.Color
+import androidx.activity.compose.BackHandler
 import ykws.android.maro.R
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -9,8 +10,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -20,24 +19,32 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -60,7 +67,6 @@ import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.GroundOverlay
 import org.osmdroid.views.overlay.Polygon
 import org.osmdroid.views.overlay.Polyline
-import kotlin.math.abs
 import kotlin.math.pow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -70,13 +76,13 @@ import ykws.android.maro.data.model.CoastlinePoint
 import ykws.android.maro.data.model.CoastlineSegment
 import ykws.android.maro.data.model.CoastlineState
 import ykws.android.maro.data.model.DepthSample
-import ykws.android.maro.data.model.DepthSource
 import ykws.android.maro.data.model.DepthState
 import ykws.android.maro.data.model.GenerationProgress
 import ykws.android.maro.data.model.Isobath
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.ValidationReport
 import ykws.android.maro.data.model.Zone300Data
+import ykws.android.maro.data.settings.AppSettings
 
 /**
  * Compose screen rendering the coastline on an OSMdroid map.
@@ -101,7 +107,19 @@ fun MapScreen(
     val zone300 by viewModel.zone300.collectAsState()
     val inZone300 by viewModel.inZone300.collectAsState()
     val distanceToZone by viewModel.distanceToZone.collectAsState()
+    val appSettings by viewModel.settings.collectAsState()
     var mapView by remember { mutableStateOf<MapView?>(null) }
+    var showSettings by remember { mutableStateOf(false) }
+
+    // ── Force marker to match MapView zoom once the view is ready ────────
+    // Even though _zoomLevel is seeded from persisted settings, there can be
+    // a frame where collectAsState() captures the initial default before the
+    // seeded value propagates.  This LaunchedEffect re-applies the real zoom
+    // from the MapView after it's created, guaranteeing the marker is correct.
+    LaunchedEffect(mapView) {
+        val mv = mapView ?: return@LaunchedEffect
+        viewModel.updateZoomLevel(mv.zoomLevelDouble)
+    }
 
     // ── Depth layer ─────────────────────────────────────────────────────────────
     val depthState by depthViewModel.state.collectAsState()
@@ -124,283 +142,124 @@ fun MapScreen(
         }
     }
 
-    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
-        val isLandscape = maxWidth > maxHeight
-        val landscapeDashboardWidth = maxHeight * 2 / 3 // dashboard width = ⅔ screen height
-        val portraitDashboardHeight = maxWidth / 3
-
-        if (isLandscape) {
-            // ── LANDSCAPE: Dashboard (left) + Map (right) ──────────────────
-            Row(modifier = Modifier.fillMaxSize()) {
-                DashboardPanel(
-                    state = state,
-                    isWater = isWater,
-                    distanceToShore = distanceToShore,
-                    inZone300 = inZone300,
-                    distanceToZone = distanceToZone,
-                    depthSample = depthAtCenter,
-                    validation = depthValidation,
-                    onGenerate = { viewModel.loadCoastline() },
-                    onRegenerateBand = { viewModel.regenerateBand() },
-                    modifier = Modifier
-                        .width(landscapeDashboardWidth)
-                        .fillMaxHeight()
-                )
-
-                // Map fills the remaining horizontal space
-                MapContent(
-                    state = state,
-                    progress = progress,
-                    mapCenter = mapCenter,
-                    isWater = isWater,
-                    zoomLevel = zoomLevel,
-                    distanceToShore = distanceToShore,
-                    zone300 = zone300,
-                    depthBitmap = depthBitmap,
-                    depthBox = depthGrid?.boundingBox,
-                    isobaths = isobaths,
-                    mapView = mapView,
-                    onCenterChanged = onCenterChanged,
-                    onZoomChanged = viewModel::updateZoomLevel,
-                    onMapViewReady = { mapView = it },
-                    onRetry = { viewModel.loadCoastline() },
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxHeight()
-                )
-            }
-        } else {
-            // ── PORTRAIT: Map (top) + Dashboard (bottom) ───────────────────
-            Column(modifier = Modifier.fillMaxSize()) {
-                MapContent(
-                    state = state,
-                    progress = progress,
-                    mapCenter = mapCenter,
-                    isWater = isWater,
-                    zoomLevel = zoomLevel,
-                    distanceToShore = distanceToShore,
-                    zone300 = zone300,
-                    depthBitmap = depthBitmap,
-                    depthBox = depthGrid?.boundingBox,
-                    isobaths = isobaths,
-                    mapView = mapView,
-                    onCenterChanged = onCenterChanged,
-                    onZoomChanged = viewModel::updateZoomLevel,
-                    onMapViewReady = { mapView = it },
-                    onRetry = { viewModel.loadCoastline() },
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                )
-
-                DashboardPanel(
-                    state = state,
-                    isWater = isWater,
-                    distanceToShore = distanceToShore,
-                    inZone300 = inZone300,
-                    distanceToZone = distanceToZone,
-                    depthSample = depthAtCenter,
-                    validation = depthValidation,
-                    onGenerate = { viewModel.loadCoastline() },
-                    onRegenerateBand = { viewModel.regenerateBand() },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(portraitDashboardHeight)
-                )
+    // ── Save map position on pause (covers kill, background, minimize) ────
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_PAUSE) {
+                viewModel.savePosition()
             }
         }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-}
 
-// ── Dashboard panel ──────────────────────────────────────────────────────────
+    Box(modifier = modifier.fillMaxSize()) {
+        // ── Intercept system back when settings are open ──────────────────
+        if (showSettings) {
+            BackHandler { showSettings = false }
+        }
 
-/**
- * Dashboard panel containing the generate button and earth/water toggle.
- *
- * Uses a [FlowRow] anchored to the bottom of the panel so the button and
- * icon sit side-by-side when horizontal space allows, wrapping to a second
- * line without clipping when the dashboard is too narrow.
- */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-private fun DashboardPanel(
-    state: CoastlineState,
-    isWater: Boolean,
-    distanceToShore: Double?,
-    inZone300: Boolean,
-    distanceToZone: Double?,
-    depthSample: DepthSample?,
-    validation: ValidationReport?,
-    onGenerate: () -> Unit,
-    onRegenerateBand: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .background(ComposeColor(0xFF1A1A2E))
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        contentAlignment = Alignment.BottomCenter
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // ── Distance to shore ────────────────────────────────────────
-            if (state is CoastlineState.Ready && distanceToShore != null) {
-                val distM = distanceToShore
-                val distKm = distM / 1000.0
-                val displayText = if (distM >= 1000.0) {
-                    "%.1f km".format(distKm)
-                } else {
-                    "%.0f m".format(distM)
-                }
-                val label = if (isWater) "de la c\u00F4te" else "de la mer"
-                Text(
-                    text = "\u00C0 $displayText $label",
-                    color = ComposeColor(0xFFB0BEC5),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-            }
+        // ── Main content (map + dashboard) ────────────────────────────────
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val isLandscape = maxWidth > maxHeight
+            val landscapeDashboardWidth = maxHeight * 2 / 3 // dashboard width = ⅔ screen height
+            val portraitDashboardHeight = maxWidth / 3
 
-            // \u2500\u2500 300 m zone status \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-            if (state is CoastlineState.Ready && distanceToZone != null) {
-                val zoneM = abs(distanceToZone)
-                val zoneText = if (zoneM >= 1000.0) "%.1f km".format(zoneM / 1000.0)
-                               else "%.0f m".format(zoneM)
-                val (msg, tint) = if (inZone300) {
-                    "\u26A0 Zone des 300 m \u2014 5 n\u0153uds ($zoneText avant la sortie)" to 0xFFEF5350
-                } else {
-                    "\u00C0 $zoneText de la zone des 300 m" to 0xFF90A4AE
-                }
-                Text(
-                    text = msg,
-                    color = ComposeColor(tint),
-                    fontSize = 13.sp,
-                    fontWeight = if (inZone300) FontWeight.Bold else FontWeight.Medium
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-            }
+            if (isLandscape) {
+                // ── LANDSCAPE: Dashboard (left) + Map (right) ──────────────────
+                Row(modifier = Modifier.fillMaxSize()) {
+                    DashboardPanel(
+                        state = state,
+                        isWater = isWater,
+                        distanceToShore = distanceToShore,
+                        inZone300 = inZone300,
+                        distanceToZone = distanceToZone,
+                        depthSample = depthAtCenter,
+                        validation = depthValidation,
+                        onGenerate = { viewModel.loadCoastline() },
+                        onRegenerateBand = { viewModel.regenerateBand() },
+                        modifier = Modifier
+                            .width(landscapeDashboardWidth)
+                            .fillMaxHeight()
+                    )
 
-            // ── Depth under the map centre ───────────────────────────────
-            if (depthSample != null && depthSample.hasData) {
-                Text(
-                    text = "🌊 Fond : %.1f m".format(depthSample.depthM),
-                    color = ComposeColor(depthReadoutColor(depthSample.depthM)),
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "${depthSourceLabel(depthSample.source)} · confiance ${depthSample.confidence} %",
-                    color = ComposeColor(0xFF90A4AE),
-                    fontSize = 11.sp
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            // ── Validation confidence badge ──────────────────────────────
-            if (validation != null) {
-                val (badge, badgeTint) = if (validation.passed) {
-                    "✓ Données validées (RMSE %.1f m)".format(validation.rmseM) to 0xFF66BB6A
-                } else {
-                    "⚠ Validation incomplète (RMSE %.1f m)".format(validation.rmseM) to 0xFFFFA726
-                }
-                Text(
-                    text = badge,
-                    color = ComposeColor(badgeTint),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterHorizontally),
-                verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically)
-            ) {
-                // ── Generate button ───────────────────────────────────────
-                Button(
-                    onClick = onGenerate,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = ComposeColor(0xFF1565C0),
-                        disabledContainerColor = ComposeColor(0x401565C0),
-                        disabledContentColor = ComposeColor(0x99B0BEC5)
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    enabled = state !is CoastlineState.Loading
-                ) {
-                    Text(
-                        text = when (state) {
-                            is CoastlineState.Loading -> "C\u00F4te\u2026"
-                            else -> "C\u00F4te"
-                        },
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
+                    // Map fills the remaining horizontal space
+                    MapContent(
+                        state = state,
+                        progress = progress,
+                        mapCenter = mapCenter,
+                        isWater = isWater,
+                        zoomLevel = zoomLevel,
+                        distanceToShore = distanceToShore,
+                        zone300 = zone300,
+                        depthBitmap = depthBitmap,
+                        depthBox = depthGrid?.boundingBox,
+                        isobaths = isobaths,
+                        appSettings = appSettings,
+                        mapView = mapView,
+                        onCenterChanged = onCenterChanged,
+                        onZoomChanged = viewModel::updateZoomLevel,
+                        onMapViewReady = { mapView = it },
+                        onRetry = { viewModel.loadCoastline() },
+                        onOpenSettings = { showSettings = true },
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
                     )
                 }
+            } else {
+                // ── PORTRAIT: Map (top) + Dashboard (bottom) ───────────────────
+                Column(modifier = Modifier.fillMaxSize()) {
+                    MapContent(
+                        state = state,
+                        progress = progress,
+                        mapCenter = mapCenter,
+                        isWater = isWater,
+                        zoomLevel = zoomLevel,
+                        distanceToShore = distanceToShore,
+                        zone300 = zone300,
+                        depthBitmap = depthBitmap,
+                        depthBox = depthGrid?.boundingBox,
+                        isobaths = isobaths,
+                        appSettings = appSettings,
+                        mapView = mapView,
+                        onCenterChanged = onCenterChanged,
+                        onZoomChanged = viewModel::updateZoomLevel,
+                        onMapViewReady = { mapView = it },
+                        onRetry = { viewModel.loadCoastline() },
+                        onOpenSettings = { showSettings = true },
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                    )
 
-                // ── Regenerate 300 m band only (no OSM refetch) ───────────
-                Button(
-                    onClick = onRegenerateBand,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = ComposeColor(0xFFC62828),
-                        disabledContainerColor = ComposeColor(0x40C62828),
-                        disabledContentColor = ComposeColor(0x99B0BEC5)
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    enabled = state is CoastlineState.Ready
-                ) {
-                    Text(
-                        text = "Bande",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
+                    DashboardPanel(
+                        state = state,
+                        isWater = isWater,
+                        distanceToShore = distanceToShore,
+                        inZone300 = inZone300,
+                        distanceToZone = distanceToZone,
+                        depthSample = depthAtCenter,
+                        validation = depthValidation,
+                        onGenerate = { viewModel.loadCoastline() },
+                        onRegenerateBand = { viewModel.regenerateBand() },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(portraitDashboardHeight)
                     )
                 }
-
-                // ── Earth / Water toggle ──────────────────────────────────
-                EarthWaterIcon(
-                    emoji = if (isWater) "\uD83C\uDF0A" else "\uD83C\uDFD4\uFE0F",
-                    isActive = true,
-                    activeColor = if (isWater) ComposeColor(0xFF1565C0) else ComposeColor(0xFF2E7D32),
-                    contentDescription = if (isWater) "Eau" else "Terre"
-                )
             }
         }
-    }
-}
 
-// ── Earth / Water icon control ───────────────────────────────────────────────
-
-/**
- * A 44×44 dp icon square representing either water (🌊) or earth (🏔️).
- *
- * No text caption — icon only. The background tint indicates whether this
- * side is currently active based on the map center position.
- */
-@Composable
-private fun EarthWaterIcon(
-    emoji: String,
-    isActive: Boolean,
-    activeColor: ComposeColor,
-    contentDescription: String,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .size(44.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(
-                if (isActive) activeColor.copy(alpha = 0.30f)
-                else ComposeColor(0xEEFFFFFF)
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = emoji,
-            fontSize = 22.sp
-        )
+        // ── Settings overlay (full-screen, covers dashboard too) ──────────
+        if (showSettings) {
+            SettingsOverlay(
+                settings = appSettings,
+                onUpdateSettings = viewModel::updateSettings,
+                onDismiss = { showSettings = false }
+            )
+        }
     }
 }
 
@@ -421,22 +280,26 @@ private fun MapContent(
     depthBitmap: Bitmap?,
     depthBox: BoundingBox?,
     isobaths: List<Isobath>,
+    appSettings: AppSettings,
     mapView: MapView?,
     onCenterChanged: (Double, Double) -> Unit,
     onZoomChanged: (Double) -> Unit,
     onMapViewReady: (MapView) -> Unit,
     onRetry: () -> Unit,
+    onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier.clipToBounds()) {
         // Memoize per state instance so panning (which does not change state) keeps a
         // stable list identity → no spurious overlay rebuilds.
-        val segments = remember(state) {
+        val allSegments = remember(state) {
             when (state) {
                 is CoastlineState.Ready -> (state as CoastlineState.Ready).polylines
                 else -> emptyList()
             }
         }
+        // Apply coastline visibility toggle
+        val segments = if (appSettings.coastlineVisible) allSegments else emptyList()
         CoastlineMapView(
             segments = segments,
             zone300 = zone300,
@@ -445,10 +308,30 @@ private fun MapContent(
             isobaths = isobaths,
             zoomLevel = zoomLevel,
             center = mapCenter,
+            initialZoom = zoomLevel,
             onCenterChanged = onCenterChanged,
             onZoomChanged = onZoomChanged,
             onMapViewReady = onMapViewReady,
             modifier = Modifier.fillMaxSize()
+        )
+
+        // ── Earth / Water toggle (top-left) ───────────────────────────────
+        EarthWaterIcon(
+            emoji = if (isWater) "\uD83C\uDF0A" else "\uD83C\uDFD4\uFE0F",
+            isActive = true,
+            activeColor = if (isWater) ComposeColor(0xFF1565C0) else ComposeColor(0xFF2E7D32),
+            contentDescription = if (isWater) "Eau" else "Terre",
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(12.dp)
+        )
+
+        // ── Settings button (top-right) ───────────────────────────────────
+        SettingsButton(
+            onClick = onOpenSettings,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(12.dp)
         )
 
         // ── Center position marker ────────────────────────────────────────
@@ -492,13 +375,23 @@ private fun MapContent(
                     ZoomButton(
                         icon = Icons.Default.Add,
                         desc = "Zoom avant",
-                        onClick = { mapView?.controller?.zoomIn() }
+                        onClick = {
+                            val mv = mapView ?: return@ZoomButton
+                            mv.controller.zoomIn()
+                            // Push the new zoom to the ViewModel immediately so the
+                            // boat marker resizes on the same frame as the map zoom.
+                            onZoomChanged(mv.zoomLevelDouble)
+                        }
                     )
                     ZoomButton(
                         icon = null,
                         desc = "Zoom arri\u00E8re",
                         label = "\u2212",
-                        onClick = { mapView?.controller?.zoomOut() }
+                        onClick = {
+                            val mv = mapView ?: return@ZoomButton
+                            mv.controller.zoomOut()
+                            onZoomChanged(mv.zoomLevelDouble)
+                        }
                     )
                 }
             }
@@ -550,7 +443,7 @@ private fun LoadingOverlay(
                 color = ComposeColor(0xFF1565C0),
                 trackColor = ComposeColor(0x401565C0)
             )
-            Spacer(modifier = Modifier.width(4.dp)) 
+            Spacer(modifier = Modifier.width(4.dp))
             Text(
                 text = "${progress.progress}%",
                 color = ComposeColor(0xFF1565C0),
@@ -616,6 +509,7 @@ private fun CoastlineMapView(
     isobaths: List<Isobath>,
     zoomLevel: Double,
     center: LatLng,
+    initialZoom: Double,
     onCenterChanged: (Double, Double) -> Unit = { _, _ -> },
     onZoomChanged: (Double) -> Unit = {},
     onMapViewReady: (MapView) -> Unit = {},
@@ -649,12 +543,17 @@ private fun CoastlineMapView(
                 setBuiltInZoomControls(false)
                 minZoomLevel = 8.0
                 maxZoomLevel = 18.0
-                controller.setZoom(11.0)
+                controller.setZoom(initialZoom)
                 controller.setCenter(GeoPoint(center.latitude, center.longitude))
                 drawDepthMap(this, depthBitmap, depthBox, zoomLevel)   // bottom: colour raster
                 drawIsobaths(this, isobaths, zoomLevel)                // contours above raster
                 drawZone300(this, zone300, zoomLevel)                  // 300 m band fill + line
                 drawCoastline(this, segments)                          // coastline on top
+
+                // Force-sync the ViewModel zoom level to match the actual MapView
+                // zoom right after construction, so the boat marker immediately
+                // renders at the correct size — no matter what the StateFlow held.
+                onZoomChanged(this@apply.zoomLevelDouble)
 
                 // Listen for map pan/zoom to report new center & zoom in real time
                 addMapListener(object : MapListener {
@@ -703,8 +602,8 @@ private fun CoastlineMapView(
 // At [ZOOM_EXPONENT] = 0.3 the marker grows ~23 % per zoom level instead of 100 %.
 
 /** Reference zoom where the marker is at its [BOAT_BASE_DP] / [DOT_BASE_DP]. */
-private const val REF_ZOOM = 12.0 // 11.0 -to 18.0  
- 
+private const val REF_ZOOM = 12.0 // 11.0 -to 18.0
+
 /** Base dp for the boat marker at [REF_ZOOM]. */
 private const val BOAT_BASE_DP = 32.0
 /** Base dp for the land-dot marker at [REF_ZOOM]. */
@@ -783,6 +682,276 @@ private fun CenterMarkerOverlay(
         modifier = modifier.size(finalSizeDp),
         contentScale = ContentScale.Fit
     )
+}
+
+// ── Earth / Water icon control ───────────────────────────────────────────────
+
+/**
+ * A 44×44 dp icon square representing either water (🌊) or earth (🏔️).
+ *
+ * No text caption — icon only. The background tint indicates whether this
+ * side is currently active based on the map center position.
+ */
+@Composable
+private fun EarthWaterIcon(
+    emoji: String,
+    isActive: Boolean,
+    activeColor: ComposeColor,
+    contentDescription: String,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .size(44.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(
+                if (isActive) activeColor.copy(alpha = 0.30f)
+                else ComposeColor(0xEEFFFFFF)
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = emoji,
+            fontSize = 22.sp
+        )
+    }
+}
+
+// ── Settings button (top-right of map, matching zoom button style) ──────────
+
+@Composable
+private fun SettingsButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.size(64.dp),
+        shape = CircleShape,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = ComposeColor(0xCCFFFFFF)
+        ),
+        contentPadding = PaddingValues(0.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Default.Settings,
+            contentDescription = "Param\u00E8tres",
+            tint = ComposeColor(0xFF1565C0),
+            modifier = Modifier.size(32.dp)
+        )
+    }
+}
+
+// ── Settings overlay (full-screen page) ─────────────────────────────────────
+
+@Composable
+private fun SettingsOverlay(
+    settings: AppSettings,
+    onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
+    onDismiss: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(ComposeColor(0xFF1A1A2E))
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp)
+        ) {
+            // ── Header row: title + close (back) button ───────────────────
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Back arrow button (returns to map)
+                    Button(
+                        onClick = onDismiss,
+                        modifier = Modifier.size(48.dp),
+                        shape = CircleShape,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = ComposeColor(0x33FFFFFF)
+                        ),
+                        contentPadding = PaddingValues(0.dp)
+                    ) {
+                        Text(
+                            text = "\u2190",  // ←
+                            fontSize = 22.sp,
+                            color = ComposeColor.White
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text(
+                        text = "Param\u00E8tres",
+                        color = ComposeColor.White,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(32.dp))
+
+            // ── Affichage (Display) section ──────────────────────────────
+            SectionHeader(title = "Affichage")
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // ── Coastline overlay toggle ──────────────────────────────────
+            SettingsToggleRow(
+                label = "Trait de c\u00F4te",
+                description = "Afficher la ligne de c\u00F4te sur la carte",
+                checked = settings.coastlineVisible,
+                onCheckedChange = { visible ->
+                    onUpdateSettings { it.copy(coastlineVisible = visible) }
+                }
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // ── Position par d\u00E9faut (Default position) section ──────
+            SectionHeader(title = "Position par d\u00E9faut")
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // ── Latitude ──────────────────────────────────────────────────
+            SettingsTextFieldRow(
+                label = "Latitude",
+                value = settings.defaultLatitude,
+                onValueChange = { lat ->
+                    onUpdateSettings { it.copy(defaultLatitude = lat) }
+                }
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // ── Longitude ─────────────────────────────────────────────────
+            SettingsTextFieldRow(
+                label = "Longitude",
+                value = settings.defaultLongitude,
+                onValueChange = { lon ->
+                    onUpdateSettings { it.copy(defaultLongitude = lon) }
+                }
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // ── Footer ────────────────────────────────────────────────────
+            Spacer(modifier = Modifier.weight(1f))
+            Text(
+                text = "Maro II \u2014 v1.0",
+                color = ComposeColor(0xFF546E7A),
+                fontSize = 12.sp,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
+        }
+    }
+}
+
+// ── Settings sub-components ─────────────────────────────────────────────────
+
+@Composable
+private fun SectionHeader(title: String) {
+    Text(
+        text = title.uppercase(),
+        color = ComposeColor(0xFF1565C0),
+        fontSize = 13.sp,
+        fontWeight = FontWeight.Bold,
+        letterSpacing = 1.sp
+    )
+}
+
+@Composable
+private fun SettingsToggleRow(
+    label: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(ComposeColor(0x1AFFFFFF))
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                color = ComposeColor.White,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = description,
+                color = ComposeColor(0xFFB0BEC5),
+                fontSize = 13.sp
+            )
+        }
+        Spacer(modifier = Modifier.width(16.dp))
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = ComposeColor(0xFF1565C0),
+                checkedTrackColor = ComposeColor(0xFF1565C0).copy(alpha = 0.4f),
+                uncheckedThumbColor = ComposeColor(0xFFB0BEC5),
+                uncheckedTrackColor = ComposeColor(0x33FFFFFF)
+            )
+        )
+    }
+}
+
+@Composable
+private fun SettingsTextFieldRow(
+    label: String,
+    value: Double,
+    onValueChange: (Double) -> Unit
+) {
+    var textValue by remember { mutableStateOf(value.toString()) }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(ComposeColor(0x1AFFFFFF))
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            color = ComposeColor.White,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.width(100.dp)
+        )
+        androidx.compose.material3.OutlinedTextField(
+            value = textValue,
+            onValueChange = { newText ->
+                textValue = newText
+                newText.toDoubleOrNull()?.let { onValueChange(it) }
+            },
+            singleLine = true,
+            modifier = Modifier
+                .width(160.dp)
+                .height(48.dp),
+            textStyle = androidx.compose.ui.text.TextStyle(
+                color = ComposeColor.White,
+                fontSize = 14.sp
+            ),
+            colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                focusedBorderColor = ComposeColor(0xFF1565C0),
+                unfocusedBorderColor = ComposeColor(0x66FFFFFF),
+                cursorColor = ComposeColor.White
+            )
+        )
+    }
 }
 
 // ── Zoom button (used for map +/- controls) ─────────────────────────────────
@@ -942,22 +1111,4 @@ private fun drawIsobaths(mapView: MapView, isobaths: List<Isobath>, zoomLevel: D
             mapView.overlays.add(poly)
         }
     }
-}
-
-/** Friendly source label for the depth-at-centre readout. */
-private fun depthSourceLabel(source: DepthSource): String = when (source) {
-    DepthSource.LITTO3D -> "Litto3D"
-    DepthSource.SHOM -> "SHOM"
-    DepthSource.EMODNET -> "EMODnet"
-    DepthSource.SDB -> "Satellite"
-    DepthSource.GEBCO -> "GEBCO"
-    DepthSource.INTERPOLATED -> "Interpolé"
-    DepthSource.NONE -> "—"
-}
-
-/** Readout tint by band: collision (≤5 m) red, shallow (≤10 m) amber, profiling cyan. */
-private fun depthReadoutColor(depthM: Float): Long = when {
-    depthM <= DepthConstants.COLLISION_MAX_DEPTH_M.toFloat() -> 0xFFEF5350
-    depthM <= DepthConstants.SHALLOW_TIER_MAX_M.toFloat() -> 0xFFFFB74D
-    else -> 0xFF4FC3F7
 }
