@@ -1,10 +1,10 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** Dashboard
-- **Active Subfeature:** Display
+- **Active Feature:** UiThingies
+- **Active Subfeature:** none
 - **Last Updated:** 2026-06-06
-- **Last Bake:** 2026-06-06
+- **Last Bake:** 2026-06-06 (settings cleanup — removed lat/lon fields, added zone300 toggle)
 
 ## Routing Map
 | Keyword | Feature File |

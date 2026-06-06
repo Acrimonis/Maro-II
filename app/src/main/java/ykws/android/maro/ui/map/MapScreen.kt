@@ -300,9 +300,11 @@ private fun MapContent(
         }
         // Apply coastline visibility toggle
         val segments = if (appSettings.coastlineVisible) allSegments else emptyList()
+        // Apply zone300 visibility toggle
+        val visibleZone300 = if (appSettings.zone300Visible) zone300 else null
         CoastlineMapView(
             segments = segments,
-            zone300 = zone300,
+            zone300 = visibleZone300,
             depthBitmap = depthBitmap,
             depthBox = depthBox,
             isobaths = isobaths,
@@ -810,30 +812,15 @@ private fun SettingsOverlay(
                 }
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // ── Position par d\u00E9faut (Default position) section ──────
-            SectionHeader(title = "Position par d\u00E9faut")
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // ── Latitude ──────────────────────────────────────────────────
-            SettingsTextFieldRow(
-                label = "Latitude",
-                value = settings.defaultLatitude,
-                onValueChange = { lat ->
-                    onUpdateSettings { it.copy(defaultLatitude = lat) }
-                }
-            )
-
             Spacer(modifier = Modifier.height(12.dp))
 
-            // ── Longitude ─────────────────────────────────────────────────
-            SettingsTextFieldRow(
-                label = "Longitude",
-                value = settings.defaultLongitude,
-                onValueChange = { lon ->
-                    onUpdateSettings { it.copy(defaultLongitude = lon) }
+            // ── Zone 300 m overlay toggle ─────────────────────────────────
+            SettingsToggleRow(
+                label = "Zone 300 m",
+                description = "Afficher la zone des 300 m sur la carte",
+                checked = settings.zone300Visible,
+                onCheckedChange = { visible ->
+                    onUpdateSettings { it.copy(zone300Visible = visible) }
                 }
             )
 
