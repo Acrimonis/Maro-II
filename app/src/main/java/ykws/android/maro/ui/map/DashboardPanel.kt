@@ -83,25 +83,24 @@ fun DashboardPanel(
     distanceToZone: Double?,
     depthSample: DepthSample?,
     validation: ValidationReport?,
-    onGenerate: () -> Unit,
-    onRegenerateBand: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(
         modifier = modifier
             .background(DashboardColors.background)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .padding(horizontal = 8.dp, vertical = 6.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
         Column(
             modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.SpaceBetween
+            verticalArrangement = Arrangement.SpaceBetween,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // ── Indicator cards area ───────────────────────────────────────
             BoxWithConstraints(modifier = Modifier.weight(1f, fill = false)) {
                 val availableWidth = maxWidth
-                // 240dp breakpoint: if each card gets at least 240dp, use row layout
-                val wideEnough = availableWidth >= 240.dp * 3
+                // 180dp breakpoint: if each card gets at least 180dp, use row layout
+                val wideEnough = availableWidth >= 180.dp * 3
 
                 if (wideEnough) {
                     // Wide layout: 3 cards in a row
@@ -123,10 +122,11 @@ fun DashboardPanel(
                         )
                         DepthCard(
                             depthSample = depthSample,
+                            validation = validation,
                             modifier = Modifier.weight(1f)
                         )
                     }
-                } else if (availableWidth >= 240.dp) {
+                } else if (availableWidth >= 180.dp) {
                     // Medium layout: 2 per row, third wraps
                     FlowRow(
                         modifier = Modifier.fillMaxWidth(),
@@ -147,6 +147,7 @@ fun DashboardPanel(
                         )
                         DepthCard(
                             depthSample = depthSample,
+                            validation = validation,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
@@ -170,67 +171,13 @@ fun DashboardPanel(
                         )
                         DepthCard(
                             depthSample = depthSample,
+                            validation = validation,
                             modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
             }
 
-            // ── Validation badge ───────────────────────────────────────────
-            if (validation != null) {
-                ValidationBadge(validation = validation)
-                Spacer(modifier = Modifier.height(6.dp))
-            }
-
-            // ── Action buttons row ─────────────────────────────────────────
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
-                verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically)
-            ) {
-                Button(
-                    onClick = onGenerate,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = DashboardColors.btnBlue,
-                        disabledContainerColor = DashboardColors.btnBlue.copy(alpha = 0.25f),
-                        disabledContentColor = DashboardColors.textMuted.copy(alpha = 0.6f)
-                    ),
-                    shape = RoundedCornerShape(10.dp),
-                    enabled = state !is CoastlineState.Loading
-                ) {
-                    Text(
-                        text = when (state) {
-                            is CoastlineState.Loading -> "Côte…"
-                            else -> "Côte"
-                        },
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Button(
-                    onClick = onRegenerateBand,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = DashboardColors.btnRed,
-                        disabledContainerColor = DashboardColors.btnRed.copy(alpha = 0.25f),
-                        disabledContentColor = DashboardColors.textMuted.copy(alpha = 0.6f)
-                    ),
-                    shape = RoundedCornerShape(10.dp),
-                    enabled = state is CoastlineState.Ready
-                ) {
-                    Text(
-                        text = "Bande",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                EarthWaterIcon(
-                    emoji = if (isWater) "\uD83C\uDF0A" else "\uD83C\uDFD4\uFE0F",
-                    isActive = true,
-                    activeColor = if (isWater) DashboardColors.btnBlue else DashboardColors.green
-                )
-            }
         }
     }
 }
@@ -238,7 +185,8 @@ fun DashboardPanel(
 // ── Reusable dashboard card ──────────────────────────────────────────────────
 
 /**
- * A rounded card with a coloured background, a large value, and optional title/subtitle.
+ * A compact rounded card with coloured background, a value, and optional subtitle.
+ * Title is shown inline as a prefix to save vertical space.
  */
 @Composable
 private fun DashboardCard(
@@ -252,41 +200,31 @@ private fun DashboardCard(
 ) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(8.dp))
             .background(cardColor)
             .then(
                 if (borderWidth > 0.dp && borderColor != Color.Transparent) {
-                    Modifier.border(width = borderWidth, color = borderColor, shape = RoundedCornerShape(10.dp))
+                    Modifier.border(width = borderWidth, color = borderColor, shape = RoundedCornerShape(8.dp))
                 } else Modifier
             )
-            .padding(horizontal = 8.dp, vertical = 6.dp),
+            .padding(horizontal = 6.dp, vertical = 3.dp),
         contentAlignment = Alignment.Center
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text = title,
-                color = DashboardColors.textMuted,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = value,
+                text = "$title $value",
                 color = DashboardColors.textPrimary,
-                fontSize = 18.sp,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center
             )
             if (subtitle != null) {
-                Spacer(modifier = Modifier.height(1.dp))
                 Text(
                     text = subtitle,
                     color = DashboardColors.textMuted,
-                    fontSize = 9.sp,
+                    fontSize = 8.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center
@@ -387,11 +325,12 @@ private fun Zone300Card(
 @Composable
 private fun DepthCard(
     depthSample: DepthSample?,
+    validation: ValidationReport?,
     modifier: Modifier = Modifier
 ) {
     if (depthSample == null || !depthSample.hasData) {
         DashboardCard(
-            title = "🌊 Profondeur",
+            title = "🌊",
             value = "—",
             modifier = modifier
         )
@@ -403,40 +342,23 @@ private fun DepthCard(
     val sourceLabel = depthSourceLabel(depthSample.source)
     val confidencePct = depthSample.confidence.toInt()
 
+    val validationSuffix = if (validation != null) {
+        if (validation.passed) "✓ %.1fm".format(validation.rmseM)
+        else "⚠ %.1fm".format(validation.rmseM)
+    } else null
+
     DashboardCard(
-        title = "🌊 Profondeur",
+        title = "🌊",
         value = "%.1f m".format(depthM),
-        subtitle = "$sourceLabel · ${confidencePct}%",
+        subtitle = listOfNotNull(
+            "$sourceLabel · ${confidencePct}%",
+            validationSuffix
+        ).joinToString(" · "),
         cardColor = depthColor.copy(alpha = 0.25f),
         modifier = modifier
     )
 }
 
-// ── Validation badge ─────────────────────────────────────────────────────────
-
-@Composable
-private fun ValidationBadge(
-    validation: ValidationReport,
-    modifier: Modifier = Modifier
-) {
-    val (badge, badgeColor) = if (validation.passed) {
-        "✓ Données validées (RMSE %.1f m)".format(validation.rmseM) to DashboardColors.validationOk
-    } else {
-        "⚠ Validation incomplète (RMSE %.1f m)".format(validation.rmseM) to DashboardColors.validationWarn
-    }
-
-    Box(
-        modifier = modifier.fillMaxWidth(),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = badge,
-            color = badgeColor,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Medium
-        )
-    }
-}
 
 // ── Earth / Water icon control ───────────────────────────────────────────────
 
