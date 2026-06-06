@@ -67,3 +67,12 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
 }
+
+// Forward the opt-in flag for on-demand, network-dependent test "tools" (the
+// Zone300AssetBaker coastline/band baker, and the Zone300WaterOracleHarness EMODnet check)
+// from the Gradle invocation to the forked test JVM. They self-skip unless run with the flag,
+// e.g.  gradlew :app:testDebugUnitTest --tests "*Zone300AssetBaker*" -Dmaro.bake=true
+tasks.withType<Test>().configureEach {
+    systemProperty("maro.bake", System.getProperty("maro.bake", "false"))
+    systemProperty("maro.validate", System.getProperty("maro.validate", "false"))
+}
