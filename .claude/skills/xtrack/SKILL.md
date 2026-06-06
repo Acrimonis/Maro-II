@@ -3,7 +3,7 @@ name: xtrack
 description: >-
   xTrack feature-tracking command system for this project. Use this skill
   WHENEVER the user types any "#"-prefixed command — #track, #focus, #bake,
-  #todo, #rule, #doc, #list, #status, #help, #sub, and their variants (#sub
+  #todo, #rule, #doc, #features, #feature, #status, #help, #sub, and their variants (#sub
   focus, #sub out, #doc create/list/read/attach/detach, #todo global:/parent:,
   #rule global:/parent:) — or asks to track a feature, switch active focus,
   snapshot/bake session state, hydrate context from a prior session, or manage
@@ -35,14 +35,15 @@ Match the command, then follow the detailed spec.
 | File | Role |
 |------|------|
 | `xTrack/GLOBAL_CONTEXT.md` | Root routing table, global instructions, active session pointers, global rules |
-| `xTrack/FEATURE_SCOPE_[name].md` | One feature epic (status, dates, description, subfeatures, todos, rules, key files) |
-| `xTrack/CONTEXT_HYDRATION.md` | Micro session transactional state (created lazily on first `#bake`) |
+| `xTrack/FEATURE_SCOPE_[name].md` | One feature epic — YAML front-matter (status, dates, counts, one_liner) + body (description, subfeatures, todos, rules, key files, docs) |
+| `xTrack/hydration/CONTEXT_HYDRATION_[Feature].md` | Per-feature micro session transactional state (created lazily on first `#bake` of a feature) |
 | `xTrack/GLOBAL_TODOS.md` | Cross-cutting todos, easy to purge |
-| `docs/*.md` | Documentation, each tagged `<!-- scope: ... -->` on line 1 |
+| `docs/**/*.md` | Documentation (recursive), each tagged `<!-- scope: ... -->` near the top; attached to a feature's `## Docs` |
 
 **Bootstrap:** If `xTrack/` does not exist when any tracking or focus command is
 issued, auto-create it and initialize `GLOBAL_CONTEXT.md`, the feature file, and
-`GLOBAL_TODOS.md`. `CONTEXT_HYDRATION.md` is created lazily on first `#bake`.
+`GLOBAL_TODOS.md`. Per-feature hydration files under `xTrack/hydration/` are
+created lazily on first `#bake` of a feature.
 Templates live in [references/templates.md](references/templates.md).
 
 ## Command dispatch
@@ -53,18 +54,20 @@ Quick map:
 
 | Command | Action |
 |---------|--------|
-| `#list` | Status dashboard: compact table of all features, sorted by Last Modified desc |
+| `#features` | (alias `#list`) Status dashboard from feature front-matter: compact table of all features, sorted by `modified` desc |
+| `#feature` | Current context: active feature/sub + working path (cwd, branch, worktree, last bake) |
 | `#focus [name]` | Pivot active feature; update pointers in GLOBAL_CONTEXT.md |
 | `#track [name]` | Create a new feature epic + routing-map row |
 | `#sub [name]` | Add a subfeature to the active feature |
 | `#sub focus [name]` | Set active subfeature; bare `#todo/#rule/#doc` now target it |
 | `#sub out` | Clear active subfeature pointer |
-| `#bake` | Snapshot: update checkmarks + Last Modified, write CONTEXT_HYDRATION.md |
+| `#bake` | Snapshot: update checkmarks, refresh front-matter (modified + counts), write per-feature hydration |
 | `#todo [...]` | Three tiers (bare list / append / `target:` routing) |
 | `#rule [...]` | Three tiers (bare list / append / `target:` routing) |
 | `#status [name]` | Detailed single-feature dashboard |
-| `#doc [...]` | Documentation subsystem (create/list/read/attach/detach) |
+| `#doc [...]` | Documentation subsystem (create/list/read/attach/detach) → feature `## Docs`, recursive `docs/**` |
 | `#help` | Print `docs/cmd_help.md` as a code block |
+| `#doctor` | Lint the xTrack stack for drift; `#doctor fix` auto-repairs the safe classes |
 
 Cross-feature mentions (a non-active feature named in conversation) are
 intercepted per the rules in commands.md.
