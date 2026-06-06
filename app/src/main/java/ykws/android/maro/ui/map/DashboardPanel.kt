@@ -21,11 +21,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -61,8 +58,6 @@ private object DashboardColors {
     val zoneNormal = Color(0xFF37474F)
     val validationOk = Color(0xFF66BB6A)
     val validationWarn = Color(0xFFFFA726)
-    val btnBlue = Color(0xFF1565C0)
-    val btnRed = Color(0xFFC62828)
 }
 
 // ── Dashboard panel (public, called from MapScreen) ──────────────────────────
@@ -359,29 +354,6 @@ private fun DepthCard(
     )
 }
 
-
-// ── Earth / Water icon control ───────────────────────────────────────────────
-
-@Composable
-fun EarthWaterIcon(
-    emoji: String,
-    isActive: Boolean,
-    activeColor: Color,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .size(40.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(
-                if (isActive) activeColor.copy(alpha = 0.30f)
-                else Color.White.copy(alpha = 0.93f)
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(text = emoji, fontSize = 20.sp)
-    }
-}
 
 // ── Utility functions ────────────────────────────────────────────────────────
 
