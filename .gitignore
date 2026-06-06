@@ -44,3 +44,6 @@ tools/litto3d_tiles/
 app/src/main/assets/depth/*.asc
 app/src/main/assets/depth/*.asc.aux.xml
 app/src/main/assets/depth/*.prj
+
+# Off-tree bake staging (Zone300/coastline asset bakers write here); the cooked .bin ships from app/src/main/assets/.
+/data/
