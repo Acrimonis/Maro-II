@@ -1,6 +1,9 @@
 # xTrack Command Reference
 
-Full per-command spec, ported from `.clinerules` section 7b. Every name lookup
+> **Canonical:** `AGENTS.md` § 7b. This file elaborates with examples and edge
+> cases; it must never contradict `AGENTS.md`.
+
+Full per-command spec, mirroring `AGENTS.md` § 7b. Every name lookup
 uses the fuzzy cascade — see [fuzzy-resolve.md](fuzzy-resolve.md). Templates for
 new files are in [templates.md](templates.md).
 
