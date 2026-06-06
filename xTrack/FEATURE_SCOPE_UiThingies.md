@@ -4,8 +4,8 @@ status: active
 created: 2026-06-06
 modified: 2026-06-06
 active_subfeature: none
-subs_total: 3
-subs_done: 3
+subs_total: 4
+subs_done: 4
 one_liner: UI layout refinements for the Maro map — onwater toggle, settings, map position persistence, ergonomics
 ---
 
@@ -55,6 +55,20 @@ UI layout refinements for the Maro map — reorganizing on-screen elements for b
 #### Key Files
 - `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt`
 - `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
+
+#### Docs
+
+### hideLAyers  [x]
+
+#### Todos
+- [x] Remove initial positions (lat/lon fields) from settings UI
+- [x] Add hide/show 300m Zone toggle to settings (second position in first section)
+
+#### Rules
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt`
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
 
 #### Docs
