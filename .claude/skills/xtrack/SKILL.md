@@ -2,9 +2,9 @@
 name: xtrack
 description: >-
   xTrack feature-tracking command system for this project. Use this skill
-  WHENEVER the user types any "#"-prefixed command — #track, #focus, #bake,
-  #todo, #rule, #doc, #list, #status, #help, #sub, and their variants (#sub
-  focus, #sub out, #doc create/list/read/attach/detach, #todo global:/parent:,
+  WHENEVER the user types any "#"-prefixed command — #track, #focus, #feature,
+  #bake, #todo, #rule, #doc, #features, #status, #help, #sub, and their variants
+  (#sub focus, #sub out, #doc create/list/read/attach/detach, #todo global:/parent:,
   #rule global:/parent:) — or asks to track a feature, switch active focus,
   snapshot/bake session state, hydrate context from a prior session, or manage
   todos / rules / documentation. Trigger even on a bare "#focus" or "#todo",
@@ -53,8 +53,9 @@ Quick map:
 
 | Command | Action |
 |---------|--------|
-| `#list` | Status dashboard: compact table of all features, sorted by Last Modified desc |
+| `#features` | Status dashboard: compact table of all features, sorted by Last Modified desc |
 | `#focus [name]` | Pivot active feature; update pointers in GLOBAL_CONTEXT.md |
+| `#feature` | Show currently active feature and subfeature (if any) |
 | `#track [name]` | Create a new feature epic + routing-map row |
 | `#sub [name]` | Add a subfeature to the active feature |
 | `#sub focus [name]` | Set active subfeature; bare `#todo/#rule/#doc` now target it |

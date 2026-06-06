@@ -11,14 +11,15 @@ feature's `##` section.
 
 ---
 
-## `#list` — Status Dashboard
+## `#features` — Status Dashboard
 
 Parse `xTrack/GLOBAL_CONTEXT.md` for all registered features. Read each feature
 file to extract `**One-liner:**`, `**Created:**`, `**Last Modified:**`, and the
 subfeature completion count (X/Y done). Print a compact table: feature name,
 one-liner, created, last modified, subfeature ratio. Sort by `**Last Modified:**`
 descending (newest first). Do **not** expand subfeature checklists (that is
-`#status`). Highlight the active feature row (bold name + `← active`).
+`#status`). Highlight the active feature row (bold name + `← active`). Display
+the current working folder at the top of the output.
 
 ## `#focus [name]` — Active Focus Pivot
 
@@ -107,6 +108,14 @@ todos/rules/key-files if one is focused), all parent-level todos, all
 parent-level rules. **`#status [name]`** — fuzzy-resolve `[name]` and print the
 same dashboard for that feature. If all subfeatures, todos, and rules are
 complete, append `All clear. #bake to snapshot.`
+
+## `#feature` — Show Current Focus
+
+Display the currently active feature and subfeature (if any). Reads `GLOBAL_CONTEXT.md`
+to get the active feature, then reads that feature file to check for an active
+subfeature pointer. Output: current working folder, feature name + one-liner,
+and subfeature name if focused. Useful for quick context confirmation without
+opening files.
 
 ## `#help` — Command Reference
 

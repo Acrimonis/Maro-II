@@ -12,20 +12,20 @@ import ykws.android.maro.data.model.DepthRenderModel
 import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.DepthState
 import ykws.android.maro.data.model.GenerationProgress
-import java.io.File
 
 /**
- * Single source of truth for depth data. Mirrors `CoastlineRepository`: cache-aside load
- * (Protobuf binary in `filesDir/depth/{regionId}.bin`), reactive [StateFlow] state +
- * progress, and a derived [DepthRenderModel] (isobaths) built off the main thread.
+ * Single source of truth for depth data. The app is a **pure consumer**: it loads the prebaked,
+ * fully-cooked depth grid (gathered + merged + validated on the computer by `DepthPrebakeTest`)
+ * from bundled assets. No on-device gathering or processing — see
+ * docs/MARO_ARCHITECTURE.md § Data Gathering & Processing Lifecycle.
  *
- * The shallow (Litto3D) tier is injected as [preloadedShallow] (task: preloaded lane).
+ * Render geometry (isobaths) is derived from the loaded grid at load time on `Dispatchers.Default`
+ * (a draw step, not data generation).
  */
 class DepthRepository(
-    private val generator: DepthGenerator = DepthGenerator(),
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) {
-    private var cacheDir: File? = null
+    private var assets: android.content.res.AssetManager? = null
 
     private val _state = MutableStateFlow<DepthState>(DepthState.Idle)
     val state: StateFlow<DepthState> = _state.asStateFlow()
@@ -36,79 +36,31 @@ class DepthRepository(
     private var grid: DepthGrid? = null
     private var renderModel: DepthRenderModel? = null
 
-    // ── Cache management ──────────────────────────────────────────────────────
-
+    /** Capture the asset manager for loading the bundled prebaked grid. (Name kept for callers.) */
     fun setCacheDir(context: Context) {
-        cacheDir = File(context.filesDir, "depth")
-        cacheDir?.mkdirs()
+        assets = context.assets
     }
 
-    private fun cacheFile(regionId: String): File? = cacheDir?.resolve("$regionId.bin")
-
-    private fun readFromCache(regionId: String): DepthGrid? {
-        val file = cacheFile(regionId) ?: return null
-        if (!file.exists()) return null
-        return try {
-            DepthSerializer.deserialize(file.readBytes())
-        } catch (_: Exception) {
-            file.delete()
-            null
-        }
-    }
-
-    private fun writeToCache(regionId: String, data: DepthGrid) {
-        val file = cacheFile(regionId) ?: return
-        try {
-            file.writeBytes(DepthSerializer.serialize(data))
-        } catch (_: Exception) {
-            // Non-critical — cache is a convenience.
-        }
-    }
-
-    private fun deleteCacheFile(regionId: String) {
-        cacheFile(regionId)?.delete()
-    }
-
-    // ── Load / Refresh (cache-aside) ──────────────────────────────────────────
-
-    /**
-     * Loads depth for a region: cache hit → ready immediately; miss → fetch + merge +
-     * validate (one-time lazy, on first map init), persist, then ready.
-     */
-    suspend fun loadDepth(
-        regionId: String = DepthConstants.REGION_ID,
-        preloadedShallow: DepthGrid? = null
-    ) {
+    /** Loads the bundled prebaked depth grid from `assets/depth/<regionId>.bin`. */
+    suspend fun loadDepth(regionId: String = DepthConstants.REGION_ID) {
         _state.value = DepthState.Loading
         _progress.value = GenerationProgress("", 0)
-
-        val cached = withContext(ioDispatcher) { readFromCache(regionId) }
-        if (cached != null) {
-            setReady(cached)
-            _progress.value = GenerationProgress("Terminé (cache)", 100)
-            return
-        }
-
-        try {
-            val result = generator.generate(
-                regionId = regionId,
-                preloadedShallow = preloadedShallow
-            ) { phase, pct -> _progress.value = GenerationProgress(phase, pct) }
-            withContext(ioDispatcher) { writeToCache(regionId, result) }
-            setReady(result)
+        val loaded = withContext(ioDispatcher) { readBundled(regionId) }
+        if (loaded != null) {
+            setReady(loaded)
             _progress.value = GenerationProgress("Terminé", 100)
-        } catch (e: Exception) {
-            _state.value = DepthState.Error(e.message ?: "Erreur lors du chargement des profondeurs.")
+        } else {
+            _state.value = DepthState.Error("Aucune donnée de profondeur préchargée (lancer le prebake).")
         }
     }
 
-    /** Force a fresh fetch (deletes the cache first). */
-    suspend fun refreshDepth(
-        regionId: String = DepthConstants.REGION_ID,
-        preloadedShallow: DepthGrid? = null
-    ) {
-        withContext(ioDispatcher) { deleteCacheFile(regionId) }
-        loadDepth(regionId, preloadedShallow)
+    /** Re-reads the bundled prebaked grid (no on-device generation). */
+    suspend fun refreshDepth(regionId: String = DepthConstants.REGION_ID) = loadDepth(regionId)
+
+    private fun readBundled(regionId: String): DepthGrid? = try {
+        assets?.open("depth/$regionId.bin")?.use { DepthSerializer.deserialize(it.readBytes()) }
+    } catch (_: Exception) {
+        null
     }
 
     private suspend fun setReady(g: DepthGrid) {

@@ -19,9 +19,11 @@ import ykws.android.maro.data.model.DepthSource
  * ```
  *
  * ESRI rows run north→south, so we flip vertically to the project convention (row 0 = south).
- * Values equal to NODATA become `Float.NaN`. If [negate] is true (e.g. EMODnet stores
+ * Values equal to NODATA become `Float.NaN`. If [negate] is true (e.g. EMODnet/Litto3D store
  * **elevation**, negative below sea level), each value is negated so the raster holds
- * **depth positive-down**.
+ * **depth positive-down**. [latOffsetM] is the height of the source's vertical datum above LAT
+ * (e.g. IGN69 ≈ 0.40 m here); it is subtracted so the output is **depth below LAT** (chart datum)
+ * — the conservative reference. Final = (negate ? −raw : raw) − latOffsetM.
  */
 object AsciiGridParser {
 
@@ -29,7 +31,8 @@ object AsciiGridParser {
         text: String,
         source: DepthSource,
         resM: Double,
-        negate: Boolean = false
+        negate: Boolean = false,
+        latOffsetM: Double = 0.0
     ): SourceRaster {
         var ncols = -1
         var nrows = -1
@@ -54,7 +57,7 @@ object AsciiGridParser {
                 "yllcorner" -> { yll = parts[1].toDouble(); yCenter = false }
                 "yllcenter" -> { yll = parts[1].toDouble(); yCenter = true }
                 "cellsize" -> cellSize = parts[1].toDouble()
-                "nodata_value" -> noData = parts[1].toDouble()
+                "nodata_value" -> noData = parts[1].toDoubleOrNull() ?: Double.NaN
                 else -> tokens.addAll(parts)  // data row
             }
         }
@@ -82,9 +85,10 @@ object AsciiGridParser {
         for (er in 0 until nrows) {
             val gridRow = nrows - 1 - er
             for (c in 0 until ncols) {
-                val raw = tokens[t++].toDouble()
-                val v = if (raw == noData) Float.NaN
-                        else (if (negate) -raw else raw).toFloat()
+                // Tolerant: NoData written as "nan"/"NaN"/non-numeric → NaN (Kotlin toDouble rejects "nan").
+                val raw = tokens[t++].toDoubleOrNull()
+                val v = if (raw == null || raw == noData) Float.NaN
+                        else ((if (negate) -raw else raw) - latOffsetM).toFloat()
                 values[gridRow * ncols + c] = v
             }
         }

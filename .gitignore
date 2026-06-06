@@ -37,3 +37,10 @@ local.properties
 *.hprof
 tmp/
 app/preloaded/
+
+# Depth-mapping bake intermediates — reproducible via tools/fetch_litto3d_paca.ps1 + tools/bake_*.bat.
+# The app ships the cooked .bin (committed); the raw/GDAL intermediates are not.
+tools/litto3d_tiles/
+app/src/main/assets/depth/*.asc
+app/src/main/assets/depth/*.asc.aux.xml
+app/src/main/assets/depth/*.prj

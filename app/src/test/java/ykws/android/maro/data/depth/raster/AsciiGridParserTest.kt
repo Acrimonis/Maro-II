@@ -52,6 +52,16 @@ class AsciiGridParserTest {
     }
 
     @Test
+    fun `latOffsetM converts the source datum to LAT (subtracted after negate)`() {
+        // Litto3D: elevation rel. IGN69, negate→depth, then −0.40 → depth below LAT.
+        val r = AsciiGridParser.parse(grid, DepthSource.LITTO3D, resM = 1.0, negate = true, latOffsetM = 0.40)
+        // South row "-30..": depth below IGN69 = 30 → below LAT = 30 − 0.40 = 29.60.
+        assertEquals(29.60f, r.values[r.idx(0, 0)], 1e-3f)
+        // North row "-10..": 10 − 0.40 = 9.60.
+        assertEquals(9.60f, r.values[r.idx(2, 0)], 1e-3f)
+    }
+
+    @Test
     fun `xllcenter shifts origin by half a cell`() {
         val centered = grid.replace("xllcorner 7.00", "xllcenter 7.005")
             .replace("yllcorner 43.50", "yllcenter 43.505")

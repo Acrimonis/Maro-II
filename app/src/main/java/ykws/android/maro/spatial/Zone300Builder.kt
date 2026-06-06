@@ -165,9 +165,10 @@ class Zone300Builder(
             if (c % step == 0 && total > 0) onProgress("Échantillonnage de la zone", 5 + c * 65 / total)
         }
 
-        // 3) Flood water inward from the seaward seeds through candidate cells, blocked
-        //    by the coast barrier (4-connectivity). Topology — not the per-cell ray
-        //    cast — decides water vs land, so harbours/bays classify correctly.
+        // 3) Flood water from the seaward seeds through all open water (not just the
+        //    ribbon), blocked by the coast barrier (4-connectivity). Topology — not the
+        //    per-cell ray cast — decides water vs land, so harbours/bays classify
+        //    correctly and isolated offshore features stay joined to the main sea.
         floodWater(flags)
 
         // 3b) Open-sea anchor = the deepest cell the ray cast still calls water. The real
@@ -258,7 +259,17 @@ class Zone300Builder(
         }
     }
 
-    /** 4-connected flood of [FLOOD] from [SEED] cells through candidate, non-barrier cells. */
+    /**
+     * 4-connected flood of [FLOOD] from [SEED] cells through every non-barrier cell —
+     * **not** restricted to the candidate ribbon. Flooding the open sea between coasts
+     * (the non-candidate water beyond 500 m) keeps the whole sea a single connected
+     * component, so an isolated feature far offshore (e.g. the Phare de la Fourmigue,
+     * whose 500 m ribbon does not touch any other coast's ribbon) stays joined to the
+     * main sea instead of forming a separate component the anchor filter would discard.
+     * Land is still walled off by the [COAST] barrier + [capOpenEnds], so inland pockets
+     * never connect to the sea. The expensive distance sampling stays ribbon-only; this
+     * BFS over flags is cheap, so widening it costs effectively nothing.
+     */
     private fun floodWater(flags: ByteArray) {
         val queue = ArrayDeque<Int>()
         for (i in flags.indices) {
@@ -276,7 +287,7 @@ class Zone300Builder(
                 if (nr < 0 || nr >= rows || nc < 0 || nc >= cols) continue
                 val ni = nr * cols + nc
                 val nf = flags[ni].toInt()
-                if (nf and CAND == 0 || nf and COAST != 0 || nf and FLOOD != 0) continue
+                if (nf and COAST != 0 || nf and FLOOD != 0) continue
                 flags[ni] = (nf or FLOOD).toByte()
                 queue.addLast(ni)
             }

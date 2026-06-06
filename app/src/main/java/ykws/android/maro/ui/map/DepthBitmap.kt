@@ -10,17 +10,23 @@ import ykws.android.maro.data.model.DepthGrid
  *
  * The grid is south-up (row 0 = south); bitmaps are top-down, so rows are flipped vertically.
  * Position the overlay using [DepthGrid.boundingBox] (the actual covered extent).
+ *
+ * Fills an `IntArray` and builds the bitmap in a single [Bitmap.createBitmap] call rather than
+ * millions of `setPixel` calls — the full-zone grid is ~3 M cells, where per-pixel writes are
+ * prohibitively slow. Call off the main thread.
  */
 object DepthBitmap {
 
     fun build(grid: DepthGrid): Bitmap {
-        val bmp = Bitmap.createBitmap(grid.cols, grid.rows, Bitmap.Config.ARGB_8888)
-        for (r in 0 until grid.rows) {
-            val y = grid.rows - 1 - r  // flip south-up grid → top-down bitmap
-            for (c in 0 until grid.cols) {
-                bmp.setPixel(c, y, DepthColorRamp.argb(grid.depthRaw(r, c)))
+        val w = grid.cols
+        val h = grid.rows
+        val colors = IntArray(w * h)
+        for (r in 0 until h) {
+            val outRow = (h - 1 - r) * w   // flip south-up grid → top-down bitmap
+            for (c in 0 until w) {
+                colors[outRow + c] = DepthColorRamp.argb(grid.depthRaw(r, c))
             }
         }
-        return bmp
+        return Bitmap.createBitmap(colors, w, h, Bitmap.Config.ARGB_8888)
     }
 }

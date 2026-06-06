@@ -65,6 +65,37 @@ object DepthMerge {
         }
     }
 
+    /**
+     * Shallow shoalest-wins merge from a **raster** source (e.g. a baked Litto3D `.asc`). Iterates
+     * the source cells; each cell with depth ≤ [shallowTierMaxM] maps to the target cell containing
+     * its centre and keeps the **shoalest** value. Iterating source (not target) cells means a fine
+     * source is aggregated by *min* into each coarse target cell — conservative (a 1 m rock is never
+     * averaged away), unlike a centre bilinear sample.
+     */
+    fun mergeShallowShoalest(
+        target: MutableDepthGrid,
+        src: SourceRaster,
+        shallowTierMaxM: Double,
+        tag: DepthSource = DepthSource.LITTO3D
+    ) {
+        for (sr in 0 until src.rows) {
+            for (sc in 0 until src.cols) {
+                val v = src.values[src.idx(sr, sc)]
+                // Drop NaN, above-datum land (v<0), and anything past the ceiling.
+                if (v.isNaN() || v < 0f || v > shallowTierMaxM) continue
+                val lat = src.bbox.latSouth + (sr + 0.5) * src.cellSizeDegLat
+                val lon = src.bbox.lonWest + (sc + 0.5) * src.cellSizeDegLon
+                val tr = ((lat - target.boundingBox.latSouth) / target.cellSizeDegLat).toInt()
+                val tc = ((lon - target.boundingBox.lonWest) / target.cellSizeDegLon).toInt()
+                if (tr < 0 || tr >= target.rows || tc < 0 || tc >= target.cols) continue
+                val cur = target.get(tr, tc)
+                if (cur.isNaN() || v < cur) {
+                    target.set(tr, tc, v, tag, tag.seedConfidence)
+                }
+            }
+        }
+    }
+
     /** Fill only NoData cells from [src] (e.g. GEBCO fallback). Reduced confidence. */
     fun fillGaps(target: MutableDepthGrid, src: SourceRaster) {
         for (r in 0 until target.rows) {

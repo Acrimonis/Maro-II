@@ -3,7 +3,7 @@ package ykws.android.maro.data.depth
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import ykws.android.maro.data.depth.raster.EmodnetWcsClient
+import ykws.android.maro.data.depth.raster.SourceRaster
 import ykws.android.maro.data.depth.validation.ControlPoint
 import ykws.android.maro.data.depth.validation.ControlPoints
 import ykws.android.maro.data.depth.validation.DepthValidator
@@ -13,23 +13,29 @@ import ykws.android.maro.data.model.DepthGrid
 import ykws.android.maro.data.model.MutableDepthGrid
 
 /**
- * Builds the depth grid for a region by fetching + merging open sources, then validating.
+ * Builds the depth grid for a region by merging pre-parsed open-source rasters, then validating.
  *
- * Sequenced tiers (not a race — sources are complementary):
- *   empty grid → EMODnet WCS (best-resolution deep merge) → preloaded Litto3D (shoalest ≤10 m)
- *   → validate against control points → immutable grid (with embedded report).
+ * Sources are **baked offline** for this fixed zone (see docs/depthMappingSources.md +
+ * DepthMappingBake.md) and supplied already parsed — the repository reads them from assets. The
+ * generator itself is **pure**: no network, no IO, so it is deterministic and unit-testable.
  *
- * GEBCO gap-fill and the Sentinel-2 SDB tier are deferred (see DepthMappingPlan.md § 12).
+ * Sequenced tiers (complementary, not a race):
+ *   empty grid → deep sources (EMODnet E5, best-resolution merge) → shallow source (Litto3D,
+ *   shoalest ≤ ceiling) → validate against control points → immutable grid (with embedded report).
+ *
+ * With no sources supplied the result is a valid (empty) grid rather than an error — the layer
+ * stays inert until the data is baked in. GEBCO gap-fill and the dive-detail tiers (SHOM survey
+ * lots, Sentinel-2 SDB) are added later (see DepthMappingPlan.md § 12).
  */
 class DepthGenerator(
     private val gridResM: Double = DepthConstants.GRID_RES_M,
-    private val wcsClient: EmodnetWcsClient = EmodnetWcsClient(),
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) {
     suspend fun generate(
         regionId: String = DepthConstants.REGION_ID,
         bbox: BoundingBox = DepthConstants.WATER_BBOX,
-        preloadedShallow: DepthGrid? = null,
+        deepSources: List<SourceRaster> = emptyList(),
+        shallowSource: SourceRaster? = null,
         controlPoints: List<ControlPoint> = ControlPoints.NICE_FREJUS,
         nowMs: Long = System.currentTimeMillis(),
         onProgress: (phase: String, pct: Int) -> Unit = { _, _ -> }
@@ -37,20 +43,21 @@ class DepthGenerator(
         onProgress("Préparation grille", 2)
         val grid = MutableDepthGrid.empty(regionId, bbox, gridResM, DepthDatum.LAT)
 
-        // 1. Deep backbone — EMODnet DTM (best-resolution merge).
-        onProgress("EMODnet", 5)
-        val emodnet = wcsClient.fetchCoverage(bbox) { p -> onProgress("EMODnet", 5 + p * 45 / 100) }
-        DepthMerge.mergeDeep(grid, emodnet)
-        onProgress("Fusion profonde", 55)
+        // 1. Deep backbone — best-resolution-wins across all deep sources (EMODnet E5, …).
+        val deepSpan = deepSources.size.coerceAtLeast(1)
+        deepSources.forEachIndexed { i, src ->
+            onProgress("Fusion profonde", 10 + i * 50 / deepSpan)
+            DepthMerge.mergeDeep(grid, src)
+        }
 
-        // 2. Shallow precision — preloaded Litto3D (shoalest-wins, ≤ ceiling).
-        if (preloadedShallow != null) {
-            DepthMerge.mergeShallowShoalest(grid, preloadedShallow, DepthConstants.SHALLOW_TIER_MAX_M)
-            onProgress("Fusion littorale", 75)
+        // 2. Shallow precision — Litto3D, shoalest-wins ≤ ceiling (collision-safe).
+        if (shallowSource != null) {
+            onProgress("Fusion littorale", 70)
+            DepthMerge.mergeShallowShoalest(grid, shallowSource, DepthConstants.SHALLOW_TIER_MAX_M)
         }
 
         // 3. Validate (provisional immutable shares arrays with `grid`, unchanged by validate).
-        val label = if (preloadedShallow != null) "EMODnet + Litto3D" else "EMODnet Bathymetry DTM 2024"
+        val label = buildLabel(deepSources, shallowSource)
         val provisional = grid.toImmutable(null, nowMs, label)
         val report = DepthValidator.validate(provisional, controlPoints, nowMs = nowMs)
         onProgress("Validation", 95)
@@ -58,5 +65,10 @@ class DepthGenerator(
         val finalGrid = grid.toImmutable(report, nowMs, label)
         onProgress("Terminé", 100)
         finalGrid
+    }
+
+    private fun buildLabel(deep: List<SourceRaster>, shallow: SourceRaster?): String {
+        val parts = (deep.map { it.source } + listOfNotNull(shallow?.source)).distinct()
+        return if (parts.isEmpty()) "Aucune source" else parts.joinToString(" + ") { it.name }
     }
 }

@@ -19,7 +19,6 @@ import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import ykws.android.maro.data.depth.DepthRepository
-import ykws.android.maro.data.model.DepthGrid
 import ykws.android.maro.data.model.DepthRenderModel
 import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.DepthState
@@ -39,10 +38,10 @@ class DepthViewModel(
     private val repository: DepthRepository = DepthRepository()
 ) : ViewModel() {
 
-    /** Initialise the cache dir and start the one-time lazy load (cache → else fetch). */
-    fun initCache(context: Context, preloadedShallow: DepthGrid? = null) {
+    /** Initialise the cache dir and start the one-time lazy load (cache → else bake from assets). */
+    fun initCache(context: Context) {
         repository.setCacheDir(context)
-        viewModelScope.launch { repository.loadDepth(preloadedShallow = preloadedShallow) }
+        viewModelScope.launch { repository.loadDepth() }
     }
 
     val state: StateFlow<DepthState> = repository.state
@@ -76,9 +75,9 @@ class DepthViewModel(
         _mapCenter.value = LatLng(latitude, longitude)
     }
 
-    /** Force a fresh fetch (deletes cache first). */
-    fun refresh(preloadedShallow: DepthGrid? = null) {
-        viewModelScope.launch { repository.refreshDepth(preloadedShallow = preloadedShallow) }
+    /** Force a fresh bake (deletes cache first). */
+    fun refresh() {
+        viewModelScope.launch { repository.refreshDepth() }
     }
 
     private companion object {

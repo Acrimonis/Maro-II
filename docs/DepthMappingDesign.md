@@ -12,6 +12,19 @@ Upstream source-of-truth for data sourcing is the prior research under
 document is the consolidated, API-validated design; the build order and signatures
 live in [DepthMappingPlan.md](DepthMappingPlan.md).
 
+> **Update 2026-06-06 (supersedes parts below; plan not yet accepted).** Source decisions are
+> now recorded authoritatively in [depthMappingSources.md](depthMappingSources.md). Deltas:
+> - **No on-device decoder.** EMODnet DTM 2024 tile **`E5`** downloads directly as ESRI `.asc`/
+>   GeoTIFF (no auth, CC-BY) → existing `AsciiGridParser`. WCS is **off the data path**
+>   (`EmodnetWcsClient` demoted); REST `/depth_sample` kept for runtime point cross-checks.
+> - **Bake-everything offline** for this fixed zone: base bake = Litto3D (0–10 m) + EMODnet E5
+>   (10–60 m+ backbone, ~115 m). **EMODnet ≠ dive detail** (no HRSM/SDB here — verified empty).
+> - **Dive detail = SHOM survey lots** (free CC BY-SA multibeam, patchy) and/or **DIY Sentinel-2
+>   SDB** (10 m; **Posidonia seagrass degrades it here**) — added later, data-availability-driven.
+> - **Merge = per-cell arbitration:** datum-align→LAT → shoalest (collision) / finest (dive) →
+>   disagreement down-weights confidence → SDB cross-calibrate + seagrass-mask; wire validator→confidence.
+> - **Grid = 25 m single grid now** (~20 MB, perf-safe); two-resolution (10 m nearshore) later.
+
 ## Summary (ELI16)
 
 **The functional case (the "why")**
@@ -53,20 +66,21 @@ distance metric.)
 
 | Tier | Depth | Source | How (validated) | Datum/CRS |
 |------|-------|--------|------------------|-----------|
-| Deep backbone | 5–60 m+ | **EMODnet Bathymetry DTM 2024** | **Open WCS, no auth** `ows.emodnet-bathymetry.eu/wcs` (coverage **`emodnet__mean`**; GetCoverage formats are **GeoTIFF / GML / PNG / text-plain — NOT ESRI ASCII**, so the grid fetch needs a GeoTIFF/GML decoder). **Open REST, no auth** `rest.emodnet-bathymetry.eu/depth_sample?geom=POINT(lon lat)` → `{avg:−elev,...}` (validated live). ~115 m. | MSL/LAT, WGS84 |
-| Shallow precision | 0–10 m | **SHOM Litto3D PACA** (Etalab open) | Raw `.asc`/GeoTIFF via diffusion.shom.fr portal. SHOM **WMTS gives rendered tiles only — not values.** 1 m grid, 0.5 m vertical accuracy. | **IGN69, Lambert-93** → reproject + datum-shift |
-| Mid (deferred) | 10–25 m | **Sentinel-2 SDB** (Copernicus) | OIDC (no static key) → STAC → OData → DIY Stumpf ratio. Free, ~10 GB/mo. 10 m. | UTM → WGS84 |
+| Deep backbone | 5–60 m+ | **EMODnet Bathymetry DTM 2024** | **Direct tile download, no auth** `downloads.emodnet-bathymetry.eu/v12/E5_2024.asc.zip` (ESRI ASCII, LAT) or `.tif` (GeoTIFF) → `AsciiGridParser`; clip with `gdalwarp`. WCS off the data path (emits no ESRI-ASCII). **Open REST, no auth** `rest.emodnet-bathymetry.eu/depth_sample?geom=POINT(lon lat)` (validated live) for point cross-checks. ~115 m N-S / ~84 m E-W. | LAT (+MSL variant), WGS84 |
+| Shallow precision | 0–10 m | **SHOM Litto3D PACA** (Etalab open) | Raw `.asc` via the **public SHOM INSPIRE pre-package API, no auth** (`tools/fetch_litto3d_paca.ps1`; the diffusion.shom.fr cart is just an optional UI). SHOM **WMTS gives rendered tiles only — not values.** 1 m grid, 0.5 m vertical accuracy. Marine extent guaranteed only to −10 m isobath. | **IGN69, Lambert-93** → reproject + datum-shift |
+| Dive detail | 10–60 m | **SHOM survey "lots"** (CC BY-SA) | Free XYZ multibeam soundings (data.shom.fr); dense where modern (EM710/EM2040) → grid to ≤25 m. Coverage survey-by-survey (patchy). | LAT, WGS84 |
+| Mid (deferred) | 10–25 m | **Sentinel-2 SDB** (Copernicus) | OIDC (no static key) → STAC → OData → DIY Stumpf ratio, ICESat-2 calib. Free. 10 m. ⚠ **Posidonia seagrass degrades retrieval in our dive areas.** | UTM → WGS84 |
 | Fallback (deferred) | any | GEBCO 2024 | WCS/NetCDF, 450 m | MSL |
 
 `HOMONIM` (100 m) was evaluated and **dropped** in BARO (too coarse for diving);
 EMODnet DTM 2024 supersedes it as the open backbone.
 
 **Decisive consequences:**
-- EMODnet is the open, no-auth backbone. Requesting **text formats (CSV / ESRI
-  ASCII)** from WCS means **no on-device binary-raster parser is needed in v1.**
+- EMODnet is the open, no-auth backbone, **baked offline** from the direct `.asc` tile
+  download — no WCS and no on-device raster decoder needed (see the 2026-06-06 update above).
 - The EMODnet **REST `/depth_sample`** (JSON, no auth) powers both the validation
   harness and the live depth-at-point readout with **zero raster handling**.
-- **Litto3D = preloaded baked grid**: licence-gated bulk + Lambert-93 reprojection
+- **Litto3D = preloaded baked grid**: open-licence bulk (public pre-package API) + Lambert-93 reprojection
   make it impractical on-device, so it is prepared offline and shipped via the
   same `app/preloaded/…` lane the coastline already uses. Personal-use only
   (constraint), so no redistribution concern.
@@ -107,6 +121,13 @@ The merge rule switches on the depth being written, not on a fixed region:
 - **Per-cell provenance:** every cell records its `source` and a `confidence`
   (0–100), seeded from the source's nominal accuracy and **down-weighted by the
   validation residuals** for that tier. The live readout shows it.
+- **Conflict resolution (multi-source):** datum-align all sources to LAT first (most
+  "disagreements" are datum offsets); apply the band rule; where trusted sources still differ
+  by more than their combined uncertainty, **down-weight that cell's confidence** and resolve
+  conservatively (collision → shoalest, dive → measured over inferred). Downsampling a fine
+  source into a collision cell aggregates by **min (shoalest)**, not mean.
+- **SDB is systematically biased, not noisy:** cross-calibrate it to the overlapping measured
+  grid, and **mask it over Posidonia / dark bottom** — it is a clear-water gap-filler only.
 
 ## Datum — lowest tide (LAT)
 
@@ -155,13 +176,13 @@ The priority deliverable. A harness usable both **dev-time (JUnit)** and **runti
 
 1. **Cache = coastline scheme** (Protobuf-javalite, cache-aside,
    `filesDir/depth/{regionId}.bin`, `app/preloaded/depth/`).
-2. **On-device, on-demand, one-time lazy** fetch on first map init — never at sea;
-   all preprocessing on-device.
+2. **All gathering + preprocessing on the computer (prebake)** — the app loads the bundled cooked
+   grid; nothing is fetched or processed on device (offline-first; rolled back 2026-06-06).
 3. **LAT / lowest-tide** datum (conservative).
 4. **Litto3D < 10 m only** (`SHALLOW_TIER_MAX_M`).
 5. Normalization is the single resample-onto-grid step; **validation is the
    centerpiece**.
-6. **Personal-use, not distributed** → runtime fetch *and* offline baking allowed.
+6. **Personal-use, not distributed** → all data prebaked offline on the computer & bundled; no runtime fetch.
 
 ## Key files
 

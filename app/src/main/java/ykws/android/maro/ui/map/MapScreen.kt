@@ -1,5 +1,6 @@
 package ykws.android.maro.ui.map
 
+import android.graphics.Bitmap
 import android.graphics.Color
 import ykws.android.maro.R
 import androidx.compose.foundation.Image
@@ -34,6 +35,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -55,15 +57,25 @@ import org.osmdroid.events.ZoomEvent
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.GroundOverlay
 import org.osmdroid.views.overlay.Polygon
 import org.osmdroid.views.overlay.Polyline
 import kotlin.math.abs
 import kotlin.math.pow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import ykws.android.maro.data.depth.DepthConstants
+import ykws.android.maro.data.model.BoundingBox
 import ykws.android.maro.data.model.CoastlinePoint
 import ykws.android.maro.data.model.CoastlineSegment
 import ykws.android.maro.data.model.CoastlineState
+import ykws.android.maro.data.model.DepthSample
+import ykws.android.maro.data.model.DepthSource
+import ykws.android.maro.data.model.DepthState
 import ykws.android.maro.data.model.GenerationProgress
+import ykws.android.maro.data.model.Isobath
 import ykws.android.maro.data.model.LatLng
+import ykws.android.maro.data.model.ValidationReport
 import ykws.android.maro.data.model.Zone300Data
 
 /**
@@ -77,6 +89,7 @@ import ykws.android.maro.data.model.Zone300Data
 @Composable
 fun MapScreen(
     viewModel: CoastlineViewModel,
+    depthViewModel: DepthViewModel,
     modifier: Modifier = Modifier
 ) {
     val state by viewModel.state.collectAsState()
@@ -89,6 +102,27 @@ fun MapScreen(
     val inZone300 by viewModel.inZone300.collectAsState()
     val distanceToZone by viewModel.distanceToZone.collectAsState()
     var mapView by remember { mutableStateOf<MapView?>(null) }
+
+    // ── Depth layer ─────────────────────────────────────────────────────────────
+    val depthState by depthViewModel.state.collectAsState()
+    val depthRender by depthViewModel.renderModel.collectAsState()
+    val depthAtCenter by depthViewModel.depthAtCenter.collectAsState()
+    val depthGrid = (depthState as? DepthState.Ready)?.grid
+    val depthValidation = depthGrid?.metadata?.validation
+    val isobaths = depthRender?.isobaths ?: emptyList()
+
+    // Rasterise the colour map once per grid, off the main thread (~3 M cells).
+    val depthBitmap by produceState<Bitmap?>(initialValue = null, depthGrid) {
+        value = depthGrid?.let { g -> withContext(Dispatchers.Default) { DepthBitmap.build(g) } }
+    }
+
+    // The map centre drives BOTH layers: coastline (distance/zone) and depth-at-centre.
+    val onCenterChanged: (Double, Double) -> Unit = remember(viewModel, depthViewModel) {
+        { lat, lon ->
+            viewModel.updateMapCenter(lat, lon)
+            depthViewModel.updateMapCenter(lat, lon)
+        }
+    }
 
     BoxWithConstraints(modifier = modifier.fillMaxSize()) {
         val isLandscape = maxWidth > maxHeight
@@ -104,6 +138,8 @@ fun MapScreen(
                     distanceToShore = distanceToShore,
                     inZone300 = inZone300,
                     distanceToZone = distanceToZone,
+                    depthSample = depthAtCenter,
+                    validation = depthValidation,
                     onGenerate = { viewModel.loadCoastline() },
                     onRegenerateBand = { viewModel.regenerateBand() },
                     modifier = Modifier
@@ -120,8 +156,11 @@ fun MapScreen(
                     zoomLevel = zoomLevel,
                     distanceToShore = distanceToShore,
                     zone300 = zone300,
+                    depthBitmap = depthBitmap,
+                    depthBox = depthGrid?.boundingBox,
+                    isobaths = isobaths,
                     mapView = mapView,
-                    onCenterChanged = viewModel::updateMapCenter,
+                    onCenterChanged = onCenterChanged,
                     onZoomChanged = viewModel::updateZoomLevel,
                     onMapViewReady = { mapView = it },
                     onRetry = { viewModel.loadCoastline() },
@@ -141,8 +180,11 @@ fun MapScreen(
                     zoomLevel = zoomLevel,
                     distanceToShore = distanceToShore,
                     zone300 = zone300,
+                    depthBitmap = depthBitmap,
+                    depthBox = depthGrid?.boundingBox,
+                    isobaths = isobaths,
                     mapView = mapView,
-                    onCenterChanged = viewModel::updateMapCenter,
+                    onCenterChanged = onCenterChanged,
                     onZoomChanged = viewModel::updateZoomLevel,
                     onMapViewReady = { mapView = it },
                     onRetry = { viewModel.loadCoastline() },
@@ -157,6 +199,8 @@ fun MapScreen(
                     distanceToShore = distanceToShore,
                     inZone300 = inZone300,
                     distanceToZone = distanceToZone,
+                    depthSample = depthAtCenter,
+                    validation = depthValidation,
                     onGenerate = { viewModel.loadCoastline() },
                     onRegenerateBand = { viewModel.regenerateBand() },
                     modifier = Modifier
@@ -185,6 +229,8 @@ private fun DashboardPanel(
     distanceToShore: Double?,
     inZone300: Boolean,
     distanceToZone: Double?,
+    depthSample: DepthSample?,
+    validation: ValidationReport?,
     onGenerate: () -> Unit,
     onRegenerateBand: () -> Unit,
     modifier: Modifier = Modifier
@@ -233,6 +279,38 @@ private fun DashboardPanel(
                     color = ComposeColor(tint),
                     fontSize = 13.sp,
                     fontWeight = if (inZone300) FontWeight.Bold else FontWeight.Medium
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            // ── Depth under the map centre ───────────────────────────────
+            if (depthSample != null && depthSample.hasData) {
+                Text(
+                    text = "🌊 Fond : %.1f m".format(depthSample.depthM),
+                    color = ComposeColor(depthReadoutColor(depthSample.depthM)),
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = "${depthSourceLabel(depthSample.source)} · confiance ${depthSample.confidence} %",
+                    color = ComposeColor(0xFF90A4AE),
+                    fontSize = 11.sp
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            // ── Validation confidence badge ──────────────────────────────
+            if (validation != null) {
+                val (badge, badgeTint) = if (validation.passed) {
+                    "✓ Données validées (RMSE %.1f m)".format(validation.rmseM) to 0xFF66BB6A
+                } else {
+                    "⚠ Validation incomplète (RMSE %.1f m)".format(validation.rmseM) to 0xFFFFA726
+                }
+                Text(
+                    text = badge,
+                    color = ComposeColor(badgeTint),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium
                 )
                 Spacer(modifier = Modifier.height(8.dp))
             }
@@ -340,6 +418,9 @@ private fun MapContent(
     zoomLevel: Double,
     distanceToShore: Double?,
     zone300: Zone300Data?,
+    depthBitmap: Bitmap?,
+    depthBox: BoundingBox?,
+    isobaths: List<Isobath>,
     mapView: MapView?,
     onCenterChanged: (Double, Double) -> Unit,
     onZoomChanged: (Double) -> Unit,
@@ -359,6 +440,9 @@ private fun MapContent(
         CoastlineMapView(
             segments = segments,
             zone300 = zone300,
+            depthBitmap = depthBitmap,
+            depthBox = depthBox,
+            isobaths = isobaths,
             zoomLevel = zoomLevel,
             center = mapCenter,
             onCenterChanged = onCenterChanged,
@@ -527,6 +611,9 @@ private fun ErrorOverlay(
 private fun CoastlineMapView(
     segments: List<CoastlineSegment>,
     zone300: Zone300Data?,
+    depthBitmap: Bitmap?,
+    depthBox: BoundingBox?,
+    isobaths: List<Isobath>,
     zoomLevel: Double,
     center: LatLng,
     onCenterChanged: (Double, Double) -> Unit = { _, _ -> },
@@ -535,10 +622,16 @@ private fun CoastlineMapView(
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
-    // Rebuild overlays only when the data or zone visibility changes — never on a
+    // Rebuild overlays only when the data or a zoom-gate crossing changes — never on a
     // center pan (osmdroid pans internally; a per-frame removeAll+redraw would jank).
     val zoneVisible = zoomLevel >= ZONE_MIN_ZOOM
-    val overlayKey = remember(segments, zone300, zoneVisible) { Any() }
+    val depthVisible = zoomLevel >= DepthConstants.DEPTH_MAP_MIN_DRAW_ZOOM
+    val isobathVisible = zoomLevel >= DepthConstants.ISOBATH_MIN_DRAW_ZOOM
+    val shallowIsobathVisible = zoomLevel >= DepthConstants.SHALLOW_ISOBATH_MIN_ZOOM
+    val overlayKey = remember(
+        segments, zone300, zoneVisible,
+        depthBitmap, isobaths, depthVisible, isobathVisible, shallowIsobathVisible
+    ) { Any() }
     val lastOverlayKey = remember { mutableStateOf<Any?>(null) }
 
     AndroidView(
@@ -558,8 +651,10 @@ private fun CoastlineMapView(
                 maxZoomLevel = 18.0
                 controller.setZoom(11.0)
                 controller.setCenter(GeoPoint(center.latitude, center.longitude))
-                drawZone300(this, zone300, zoomLevel)
-                drawCoastline(this, segments)
+                drawDepthMap(this, depthBitmap, depthBox, zoomLevel)   // bottom: colour raster
+                drawIsobaths(this, isobaths, zoomLevel)                // contours above raster
+                drawZone300(this, zone300, zoomLevel)                  // 300 m band fill + line
+                drawCoastline(this, segments)                          // coastline on top
 
                 // Listen for map pan/zoom to report new center & zoom in real time
                 addMapListener(object : MapListener {
@@ -582,11 +677,14 @@ private fun CoastlineMapView(
             // Only when data/visibility changed — not on every pan recomposition.
             if (lastOverlayKey.value !== overlayKey) {
                 lastOverlayKey.value = overlayKey
-                // Band overlays are Polygons + Polylines; remove both so the band's
-                // red line is not orphaned and stale polygons don't accumulate.
-                mapView.overlays.removeAll { it is Polyline || it is Polygon }
-                drawZone300(mapView, zone300, zoomLevel)   // fill (bottom)
-                drawCoastline(mapView, segments)            // coastline
+                // Remove every data overlay (depth raster GroundOverlay, isobath/zone/coast
+                // Polylines, zone fill Polygons) so nothing is orphaned or accumulates, then
+                // rebuild bottom-to-top in z-order.
+                mapView.overlays.removeAll { it is Polyline || it is Polygon || it is GroundOverlay }
+                drawDepthMap(mapView, depthBitmap, depthBox, zoomLevel)
+                drawIsobaths(mapView, isobaths, zoomLevel)
+                drawZone300(mapView, zone300, zoomLevel)
+                drawCoastline(mapView, segments)
                 mapView.invalidate()
             }
         }
@@ -794,4 +892,72 @@ private fun drawZone300(mapView: MapView, zone: Zone300Data?, zoomLevel: Double)
         }
         mapView.overlays.add(redLine)
     }
+}
+
+// ── Depth overlays ────────────────────────────────────────────────────────────
+
+/**
+ * Draws the hypsometric depth colour map as a single bottom-most [GroundOverlay].
+ * Zoom-gated below [DepthConstants.DEPTH_MAP_MIN_DRAW_ZOOM] and skipped until the bitmap has
+ * been built ([bitmap] == null). The bitmap already carries per-pixel alpha (NaN cells
+ * transparent, water semi-opaque), so it is added at full overlay opacity.
+ *
+ * Added FIRST so the isobaths, 300 m band and coastline read on top.
+ */
+private fun drawDepthMap(mapView: MapView, bitmap: Bitmap?, box: BoundingBox?, zoomLevel: Double) {
+    if (bitmap == null || box == null || zoomLevel < DepthConstants.DEPTH_MAP_MIN_DRAW_ZOOM) return
+    val overlay = GroundOverlay().apply {
+        setImage(bitmap)
+        // Axis-aligned placement: top-left = NW corner, bottom-right = SE corner.
+        setPosition(
+            GeoPoint(box.latNorth, box.lonWest),
+            GeoPoint(box.latSouth, box.lonEast)
+        )
+    }
+    mapView.overlays.add(overlay)
+}
+
+/**
+ * Draws depth contour [isobaths] as polylines, above the colour map but below the 300 m band
+ * and coastline. Zoom-gated: nothing below [DepthConstants.ISOBATH_MIN_DRAW_ZOOM]; the dense
+ * 2 m contour appears only at [DepthConstants.SHALLOW_ISOBATH_MIN_ZOOM]+. "Round" contours
+ * (10/20/30…m) read slightly bolder than the in-between lines.
+ */
+private fun drawIsobaths(mapView: MapView, isobaths: List<Isobath>, zoomLevel: Double) {
+    if (zoomLevel < DepthConstants.ISOBATH_MIN_DRAW_ZOOM) return
+    for (iso in isobaths) {
+        if (iso.depthM <= 2f && zoomLevel < DepthConstants.SHALLOW_ISOBATH_MIN_ZOOM) continue
+        val isMajor = iso.depthM.toInt() % 10 == 0
+        for (line in iso.lines) {
+            if (line.size < 2) continue
+            val poly = Polyline().apply {
+                setPoints(line.map { GeoPoint(it.latitude, it.longitude) })
+                outlinePaint.apply {
+                    color = Color.parseColor("#37474F")   // muted blue-grey
+                    strokeWidth = if (isMajor) 3f else 2f
+                    alpha = if (isMajor) 180 else 120
+                    isAntiAlias = true
+                }
+            }
+            mapView.overlays.add(poly)
+        }
+    }
+}
+
+/** Friendly source label for the depth-at-centre readout. */
+private fun depthSourceLabel(source: DepthSource): String = when (source) {
+    DepthSource.LITTO3D -> "Litto3D"
+    DepthSource.SHOM -> "SHOM"
+    DepthSource.EMODNET -> "EMODnet"
+    DepthSource.SDB -> "Satellite"
+    DepthSource.GEBCO -> "GEBCO"
+    DepthSource.INTERPOLATED -> "Interpolé"
+    DepthSource.NONE -> "—"
+}
+
+/** Readout tint by band: collision (≤5 m) red, shallow (≤10 m) amber, profiling cyan. */
+private fun depthReadoutColor(depthM: Float): Long = when {
+    depthM <= DepthConstants.COLLISION_MAX_DEPTH_M.toFloat() -> 0xFFEF5350
+    depthM <= DepthConstants.SHALLOW_TIER_MAX_M.toFloat() -> 0xFFFFB74D
+    else -> 0xFF4FC3F7
 }

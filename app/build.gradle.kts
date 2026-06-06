@@ -49,6 +49,15 @@ protobuf {
     }
 }
 
+tasks.withType<Test> {
+    // Propagate the prebake gate to the test JVM so the @prebake build-tools (CoastlinePrebakeTest,
+    // DepthPrebakeTest) run only with -Dmaro.prebake=true; normal runs skip them (Assume).
+    systemProperty("maro.prebake", System.getProperty("maro.prebake") ?: "false")
+    // The depth prebake parses large GDAL-baked .asc grids (millions of cells) in-memory; give the
+    // forked test JVM generous headroom so it doesn't OOM. Harmless for normal (small) unit tests.
+    maxHeapSize = "4g"
+}
+
 dependencies {
     implementation(libs.core.ktx)
     implementation(libs.lifecycle.runtime.ktx)

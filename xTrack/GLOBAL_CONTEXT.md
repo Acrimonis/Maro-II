@@ -3,8 +3,8 @@
 ## Active Session Pointers
 - **Active Feature:** DepthMapping
 - **Active Subfeature:** (none)
-- **Last Updated:** 2026-06-05T00:00:00.000Z
-- **Last Bake:** 2026-06-05
+- **Last Updated:** 2026-06-06T00:00:00.000Z
+- **Last Bake:** 2026-06-06T00:00:00.000Z
 
 ## Routing Map
 | Keyword | Feature File |
@@ -21,5 +21,5 @@
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).
 - Auto-refine rule wording for clarity and conciseness on `#rule` add.
 - Use apk-build.bat to build APK (runs gradlew assembleDebug).
-- Personal-use app, not for distribution — data fetched at runtime / baked offline, not redistributed.
-- Personal-use app, not for distribution — data is fetched at runtime, not bundled/redistributed.
+- Save and restore the current working folder in CONTEXT_HYDRATION.md on `#bake` and hydration.
+- Personal-use app, not for distribution — all data is prebaked offline on the computer and bundled in the app; nothing is fetched or processed at runtime.

@@ -6,6 +6,18 @@ Build order, signatures, file anchors, and tuning constants for **DepthMapping**
 Rationale is in [DepthMappingDesign.md](DepthMappingDesign.md). Mirrors the coastline
 machinery and the [300MLinePlan.md](300MLinePlan.md) style.
 
+> **Update 2026-06-06 (supersedes parts below; plan not yet accepted).** Source decisions →
+> [depthMappingSources.md](depthMappingSources.md). Deltas vs. the build steps below:
+> - **§5/§6 deep tier:** drop the WCS fetch. Deep backbone = **bake EMODnet DTM 2024 tile `E5`**
+>   (`downloads.emodnet-bathymetry.eu/v12/E5_2024.asc.zip`, no auth, CC-BY) → `gdalwarp` clip →
+>   `AsciiGridParser` → `mergeDeep`. `EmodnetWcsClient` demoted; **no GeoTIFF/GML decoder**. Keep
+>   `EmodnetRestClient` for runtime point cross-checks / validation.
+> - **§9 constants:** widen `WATER_BBOX` to full Cannes→Menton (lon 6.70–7.31). `GRID_RES_M`
+>   stays 25 m now; two-resolution (10 m nearshore) deferred until a fine dive source lands.
+> - **§11 build order:** bake E5 + Litto3D first (both via `AsciiGridParser`); then SHOM survey
+>   **lots** (XYZ→grid, dive band); then DIY **Sentinel-2 SDB** (Posidonia-masked) last.
+> - **Merge:** per-cell arbitration + wire validator→confidence loop (see Design update / synthesis).
+
 ## 0. Where things are today (anchors to reuse)
 
 | Concern | File | Reuse |
@@ -89,6 +101,9 @@ deserialize` mirror `CoastlineSerializer` (manual builder; NaN survives float32)
 
 ## 5. Open-API clients (`data/depth/raster/`)
 
+> **2026-06-06:** `EmodnetWcsClient` is **demoted** — the deep tier is baked from the direct
+> `E5` `.asc` download (`AsciiGridParser`), not WCS. `EmodnetRestClient` stays for runtime points.
+
 ```kotlin
 class EmodnetWcsClient(http: OkHttpClient) {
     // GET ows.emodnet-bathymetry.eu/wcs?service=WCS&version=2.0.1&request=GetCoverage
@@ -118,8 +133,9 @@ class DepthRepository {
 }
 class DepthGenerator(gridResM = GRID_RES_M) {
     suspend fun generate(regionId, preloadedShallow: DepthGrid?, onProgress): DepthGrid
-    // empty grid → EMODnet WCS (mergeDeep) → preloaded Litto3D (mergeShallowShoalest)
-    // → optional GEBCO fillGaps → DepthValidator.validate → immutable grid
+    // empty grid → preloaded EMODnet E5 .asc (mergeDeep) → preloaded Litto3D (mergeShallowShoalest)
+    // → [later: SHOM lots / Sentinel-2 SDB dive detail] → optional GEBCO fillGaps
+    // → DepthValidator.validate → immutable grid
 }
 ```
 

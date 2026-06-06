@@ -10,6 +10,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ykws.android.maro.ui.map.CoastlineViewModel
+import ykws.android.maro.ui.map.DepthViewModel
 import ykws.android.maro.ui.map.MapScreen
 
 class MainActivity : ComponentActivity() {
@@ -22,14 +23,17 @@ class MainActivity : ComponentActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     val viewModel: CoastlineViewModel = viewModel()
+                    val depthViewModel: DepthViewModel = viewModel()
 
-                    // Restore persisted coastline cache on first composition
+                    // Restore persisted coastline + depth caches on first composition
                     LaunchedEffect(Unit) {
                         viewModel.initCache(this@MainActivity)
+                        depthViewModel.initCache(this@MainActivity)
                     }
 
                     MapScreen(
                         viewModel = viewModel,
+                        depthViewModel = depthViewModel,
                         modifier = Modifier.fillMaxSize()
                     )
                 }

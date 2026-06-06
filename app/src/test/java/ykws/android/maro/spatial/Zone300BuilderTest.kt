@@ -77,6 +77,37 @@ class Zone300BuilderTest {
         assertTrue("expected a seaward line around the island", zone.seawardLines.isNotEmpty())
     }
 
+    // ── Isolated feature far offshore (Fourmigue) keeps its own band ───────────
+
+    @Test
+    fun `isolated feature far offshore still gets its own band`() {
+        // Mainland straight coast at 43.5, water to the south.
+        val coast = (0..40).map { LatLng(43.5, 7.00 + it * 0.0008) }
+        val main = seg(coast, mainland = true, closed = false)
+        // Tiny island ~1.7 km south: its 500 m candidate ribbon does NOT touch the
+        // mainland ribbon, so it is a separate candidate component — the scenario where
+        // a single-anchor sea filter would wrongly discard it (the Phare de la Fourmigue).
+        val s = 43.4850; val n = 43.4856; val w = 7.015; val e = 7.016
+        val ring = listOf(LatLng(s, w), LatLng(s, e), LatLng(n, e), LatLng(n, w), LatLng(s, w))
+        val isl = seg(ring, mainland = false, closed = true)
+        val index = indexOf(listOf(main, isl))
+        val isWater: (Double, Double, Double) -> Boolean = { lat, lon, _ ->
+            lat < 43.5 && !(lat in s..n && lon in w..e)
+        }
+        val zone = Zone300Builder(index, listOf(main, isl), refLat, isWater, cellM = 25.0).build()
+
+        fun covered(lat: Double, lon: Double) = zone.fillPolygons.any {
+            pointInRing(lat, lon, it.outer) && it.holes.none { h -> pointInRing(lat, lon, h) }
+        }
+        // Mainland band still present (~150 m south of the coast).
+        assertTrue("mainland band present", covered(43.5 - 150.0 / mPerDegLat, 7.016))
+        // Isolated island band present (~150 m south of it) — must not be discarded.
+        val islBandLat = s - 150.0 / mPerDegLat
+        assertTrue("point is genuine water within 300 m of the island",
+            index.query(islBandLat, 7.0155).distanceMeters <= 300.0)
+        assertTrue("isolated feature must keep its own band", covered(islBandLat, 7.0155))
+    }
+
     // ── No coastline → empty band ─────────────────────────────────────────────
 
     @Test

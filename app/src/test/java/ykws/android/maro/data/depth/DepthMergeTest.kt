@@ -41,6 +41,16 @@ class DepthMergeTest {
         )
     }
 
+    /** A raster fine enough that every coarse target cell contains several source-cell centres. */
+    private fun fineRaster(value: Float, source: DepthSource, n: Int = 20): SourceRaster =
+        SourceRaster(
+            bbox = bbox, rows = n, cols = n,
+            cellSizeDegLat = bbox.heightDeg / n,
+            cellSizeDegLon = bbox.widthDeg / n,
+            values = FloatArray(n * n) { value },
+            resM = source.nominalResM, source = source
+        )
+
     private fun uniformGrid(value: Float, source: DepthSource): DepthGrid {
         val m = MutableDepthGrid.empty("shallow", bbox, gridResM, DepthDatum.LAT)
         for (r in 0 until m.rows) for (c in 0 until m.cols) m.set(r, c, value, source, source.seedConfidence)
@@ -107,6 +117,37 @@ class DepthMergeTest {
         DepthMerge.mergeShallowShoalest(t, uniformGrid(15f, DepthSource.LITTO3D), shallowTierMaxM = 10.0)
         assertEquals(3f, t.get(r, c), 1e-3f)
         assertEquals(DepthSource.LITTO3D, t.sourceAt(r, c))
+    }
+
+    @Test
+    fun `raster shoalest merge — shallower wins, deeper ignored, beyond ceiling ignored`() {
+        val t = target()
+        val r = t.rows / 2; val c = t.cols / 2
+        DepthMerge.mergeDeep(t, uniformRaster(8f, DepthSource.EMODNET.nominalResM, DepthSource.EMODNET))
+
+        // Litto3D raster 3 m (shallower) wins.
+        DepthMerge.mergeShallowShoalest(t, fineRaster(3f, DepthSource.LITTO3D), shallowTierMaxM = 10.0)
+        assertEquals(3f, t.get(r, c), 1e-3f)
+        assertEquals(DepthSource.LITTO3D, t.sourceAt(r, c))
+
+        // 9 m (deeper than current 3) does NOT overwrite.
+        DepthMerge.mergeShallowShoalest(t, fineRaster(9f, DepthSource.LITTO3D), shallowTierMaxM = 10.0)
+        assertEquals(3f, t.get(r, c), 1e-3f)
+
+        // 15 m beyond the 10 m ceiling → ignored.
+        DepthMerge.mergeShallowShoalest(t, fineRaster(15f, DepthSource.LITTO3D), shallowTierMaxM = 10.0)
+        assertEquals(3f, t.get(r, c), 1e-3f)
+    }
+
+    @Test
+    fun `raster shoalest merge ignores above-datum land (negative depth)`() {
+        val t = target()
+        val r = t.rows / 2; val c = t.cols / 2
+        DepthMerge.mergeDeep(t, uniformRaster(8f, DepthSource.EMODNET.nominalResM, DepthSource.EMODNET))
+        // A Litto3D land cell at −2 m (above datum) must NOT win despite being "shoalest".
+        DepthMerge.mergeShallowShoalest(t, fineRaster(-2f, DepthSource.LITTO3D), shallowTierMaxM = 10.0)
+        assertEquals(8f, t.get(r, c), 1e-3f)
+        assertEquals(DepthSource.EMODNET, t.sourceAt(r, c))
     }
 
     // ── fillGaps ──────────────────────────────────────────────────────────────

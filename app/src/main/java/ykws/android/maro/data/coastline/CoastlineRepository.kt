@@ -34,6 +34,9 @@ class CoastlineRepository(
     /** Directory for caching coastline data (set via [setCacheDir]). */
     private var cacheDir: File? = null
 
+    /** Asset manager for loading the bundled, prebaked coastline. */
+    private var assets: android.content.res.AssetManager? = null
+
     /** Start in [Idle] so generation does not auto-start on init. */
     private val _state = MutableStateFlow<CoastlineState>(CoastlineState.Idle)
     val state: StateFlow<CoastlineState> = _state.asStateFlow()
@@ -61,6 +64,7 @@ class CoastlineRepository(
     fun setCacheDir(context: Context) {
         cacheDir = File(context.filesDir, "coastlines")
         cacheDir?.mkdirs()
+        assets = context.assets
     }
 
     /** Full path to the Protobuf cache file for the given region. */
@@ -106,52 +110,33 @@ class CoastlineRepository(
     // ── Load / Refresh (cache-aside pattern) ─────────────────────────────────
 
     /**
-     * Loads coastline data for the given region using a cache-aside pattern:
-     *   1. Check Protobuf cache on disk → return immediately if found
-     *   2. On cache miss: fetch from OSM, run the generation pipeline,
-     *      persist to Protobuf cache, then return
-     *
-     * @param regionId Region identifier (e.g. "nice-frejus").
+     * Loads the bundled, **prebaked** coastline (incl. the Zone300 band) from assets. The app is a
+     * pure consumer — no OSM fetch or on-device generation (see docs/MARO_ARCHITECTURE.md
+     * § Data Gathering & Processing Lifecycle). The asset is produced on the computer by
+     * `CoastlinePrebakeTest`.
      */
     suspend fun loadCoastline(regionId: String = CoastlineGenerator.REGION_ID) {
         _state.value = CoastlineState.Loading
         _progress.value = GenerationProgress("", 0)
 
-        // 1. Check Protobuf cache first
-        val cached = withContext(ioDispatcher) { readFromCache(regionId) }
-        if (cached != null) {
-            coastlineData = cached
-            val index = CoastlineSpatialIndex(cached.allSegments)
-            spatialIndex = index
-            _state.value = CoastlineState.Ready(data = cached)
-            _progress.value = GenerationProgress("Terminé (cache)", 100)
-            // Pre-feature caches lack the band — build it lazily so existing users
-            // get it without a manual "Régénérer".
-            if (cached.zone300 == null) buildBandInBackground(cached, index, regionId)
-            return
-        }
-
-        // 2. Cache miss → full OSM generation
-        try {
-            val result = withContext(ioDispatcher) {
-                generator.generate(regionId = regionId) { phase, pct ->
-                    _progress.value = GenerationProgress(phase, pct)
-                }
-            }
-            coastlineData = result
-            val index = CoastlineSpatialIndex(result.allSegments)
-            spatialIndex = index
-            // Progressive: cache + show the map immediately (no band yet)...
-            withContext(ioDispatcher) { writeToCache(regionId, result) }
-            _state.value = CoastlineState.Ready(data = result)
+        val data = withContext(ioDispatcher) { readBundled(regionId) }
+        if (data != null) {
+            coastlineData = data
+            spatialIndex = CoastlineSpatialIndex(data.allSegments)
+            _state.value = CoastlineState.Ready(data = data)
             _progress.value = GenerationProgress("Terminé", 100)
-            // ...then build the 300 m band in the background and re-emit.
-            buildBandInBackground(result, index, regionId)
-        } catch (e: Exception) {
+        } else {
             _state.value = CoastlineState.Error(
-                message = e.message ?: "Erreur lors du chargement de la côte."
+                message = "Aucune donnée côtière préchargée (lancer le prebake)."
             )
         }
+    }
+
+    /** Reads the bundled prebaked coastline (with band) from `assets/coastline/<regionId>.bin`. */
+    private fun readBundled(regionId: String): CoastlineData? = try {
+        assets?.open("coastline/$regionId.bin")?.use { CoastlineSerializer.deserialize(it.readBytes()) }
+    } catch (_: Exception) {
+        null
     }
 
     /**
@@ -203,30 +188,7 @@ class CoastlineRepository(
      * Used by the "Bande 300 m" button.
      */
     suspend fun regenerateBand() {
-        val data = coastlineData ?: return
-        val index = spatialIndex ?: return
-        _state.value = CoastlineState.Loading
-        _progress.value = GenerationProgress("Bande des 300 m", 0)
-        try {
-            val cell = data.metadata.meanSpacingM.coerceIn(5.0, 15.0)
-            val band = withContext(Dispatchers.Default) {
-                Zone300Builder(
-                    index = index,
-                    segments = data.allSegments,
-                    refLat = data.metadata.projectionRefLat,
-                    isWater = { lat, lon, d -> isOnWater(lat, lon, d) },
-                    cellM = cell
-                ).build { phase, pct -> _progress.value = GenerationProgress(phase, pct) }
-            }
-            val withZone = data.copy(zone300 = band)
-            coastlineData = withZone
-            withContext(ioDispatcher) { writeToCache(data.regionId, withZone) }
-            _progress.value = GenerationProgress("Terminé", 100)
-            _state.value = CoastlineState.Ready(data = withZone)
-        } catch (e: Throwable) {
-            android.util.Log.e("Zone300", "Band regeneration failed", e)
-            _state.value = CoastlineState.Ready(data = data)   // restore the coastline
-        }
+        loadCoastline()  // the band is prebaked into the bundled data; just reload it
     }
 
     /**
@@ -236,8 +198,7 @@ class CoastlineRepository(
      * This is called by the "Régénérer" button.
      */
     suspend fun refreshCoastline(regionId: String = CoastlineGenerator.REGION_ID) {
-        withContext(ioDispatcher) { deleteCacheFile(regionId) }
-        loadCoastline(regionId)
+        loadCoastline(regionId)  // reload the bundled prebaked data (no on-device generation)
     }
 
     // ── Query methods ──────────────────────────────────────────────────────
