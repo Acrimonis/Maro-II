@@ -4,7 +4,7 @@
 - **Active Feature:** MapDisplay
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-07
-- **Last Bake:** 2026-06-07 (MapDisplay — layer toggle button, demo pan speed extrapolation, zone proximity auto-reveal state machine)
+- **Last Bake:** 2026-06-07 (MapDisplay — emoji removal from dashboard tiles, last tweaks before push)
 
 ## Routing Map
 | Keyword | Feature File |
