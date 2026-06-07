@@ -92,7 +92,8 @@ fun DashboardPanel(
     ) {
         Column(
             modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.SpaceBetween
+            verticalArrangement = Arrangement.SpaceBetween,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // ── 2×2 indicator grid ─────────────────────────────────────────
             Column(
