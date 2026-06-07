@@ -54,6 +54,9 @@ private object DashboardColors {
     val red = Color(0xFFF44336)
     val zoneDanger = Color(0xFFB71C1C)
     val zoneNormal = Color(0xFF37474F)
+    val speedSafe = Color(0xFF2E7D32)     // green — compliant (<5 kn) inside the 300 m zone
+    val speedCaution = Color(0xFFEF6C00)  // orange — 5–10 kn inside the zone
+    val speedDanger = Color(0xFFC62828)   // red — >10 kn inside the zone
     val validationOk = Color(0xFF66BB6A)
     val validationWarn = Color(0xFFFFA726)
 }
@@ -61,10 +64,10 @@ private object DashboardColors {
 // ── Dashboard panel (public, called from MapScreen) ──────────────────────────
 
 /**
- * Dashboard panel with visual gauge cards for quick reading of indicators.
+ * Dashboard panel: a 2×2 grid of indicator cards — Distance, Zone 300 m, Depth, Speed.
  *
- * Landscape: 3 cards stacked vertically, full panel width.
- * Portrait:  3 cards in a horizontal row; collapses to vertical stack below 240dp per card.
+ * Each card shows its value as large as the cell allows; the label and context are small and
+ * subdued. The validation badge (when present) sits below the grid.
  *
  * Read-only — no action buttons or toggles. See global rule: action controls live in the
  * map overlay area, never in the dashboard.
@@ -78,6 +81,7 @@ fun DashboardPanel(
     distanceToZone: Double?,
     depthSample: DepthSample?,
     validation: ValidationReport?,
+    speedKnots: Float?,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -90,82 +94,53 @@ fun DashboardPanel(
             modifier = Modifier.fillMaxSize(),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // ── Indicator cards area ───────────────────────────────────────
-            BoxWithConstraints(modifier = Modifier.weight(1f, fill = false)) {
-                val availableWidth = maxWidth
-                // 240dp breakpoint: if each card gets at least 240dp, use row layout
-                val wideEnough = availableWidth >= 240.dp * 3
-
-                if (wideEnough) {
-                    // Wide layout: 3 cards in a row
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        DistanceCard(
-                            distanceToShore = distanceToShore,
-                            isWater = isWater,
-                            state = state,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Zone300Card(
-                            inZone300 = inZone300,
-                            distanceToZone = distanceToZone,
-                            state = state,
-                            modifier = Modifier.weight(1f)
-                        )
-                        DepthCard(
-                            depthSample = depthSample,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                } else if (availableWidth >= 240.dp) {
-                    // Medium layout: 2 per row, third wraps
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        DistanceCard(
-                            distanceToShore = distanceToShore,
-                            isWater = isWater,
-                            state = state,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Zone300Card(
-                            inZone300 = inZone300,
-                            distanceToZone = distanceToZone,
-                            state = state,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
+            // ── 2×2 indicator grid ─────────────────────────────────────────
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    DistanceCard(
+                        distanceToShore = distanceToShore,
+                        isWater = isWater,
+                        state = state,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                    )
+                    Zone300Card(
+                        inZone300 = inZone300,
+                        distanceToZone = distanceToZone,
+                        state = state,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                    )
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     DepthCard(
                         depthSample = depthSample,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
                     )
-                } else {
-                    // Narrow layout: all cards stacked
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        DistanceCard(
-                            distanceToShore = distanceToShore,
-                            isWater = isWater,
-                            state = state,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Zone300Card(
-                            inZone300 = inZone300,
-                            distanceToZone = distanceToZone,
-                            state = state,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        DepthCard(
-                            depthSample = depthSample,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
+                    SpeedCard(
+                        speedKnots = speedKnots,
+                        inZone300 = inZone300,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                    )
                 }
             }
 
@@ -181,7 +156,8 @@ fun DashboardPanel(
 // ── Reusable dashboard card ──────────────────────────────────────────────────
 
 /**
- * A rounded card with a coloured background, a large value, and optional title/subtitle.
+ * A rounded card: a small, subdued title on top, the value as large as the cell allows in the
+ * middle, and small subdued context at the bottom. Designed to fill a 2×2 grid cell.
  */
 @Composable
 private fun DashboardCard(
@@ -189,6 +165,7 @@ private fun DashboardCard(
     value: String,
     subtitle: String? = null,
     cardColor: Color = DashboardColors.cardBg,
+    valueColor: Color = DashboardColors.textPrimary,
     borderColor: Color = Color.Transparent,
     borderWidth: Dp = 0.dp,
     modifier: Modifier = Modifier
@@ -202,10 +179,13 @@ private fun DashboardCard(
                     Modifier.border(width = borderWidth, color = borderColor, shape = RoundedCornerShape(10.dp))
                 } else Modifier
             )
-            .padding(horizontal = 8.dp, vertical = 6.dp),
-        contentAlignment = Alignment.Center
+            .padding(horizontal = 8.dp, vertical = 6.dp)
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Secondary: small, subdued label.
             Text(
                 text = title,
                 color = DashboardColors.textMuted,
@@ -214,28 +194,51 @@ private fun DashboardCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
+            // Primary: the value, as large as the cell allows.
+            AutoSizeValue(
                 text = value,
-                color = DashboardColors.textPrimary,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
+                color = valueColor,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            )
+            // Secondary: small, subdued context (empty string keeps cell baselines aligned).
+            Text(
+                text = subtitle ?: "",
+                color = DashboardColors.textMuted,
+                fontSize = 9.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center
             )
-            if (subtitle != null) {
-                Spacer(modifier = Modifier.height(1.dp))
-                Text(
-                    text = subtitle,
-                    color = DashboardColors.textMuted,
-                    fontSize = 9.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center
-                )
-            }
         }
+    }
+}
+
+/**
+ * Renders [text] centered at the largest font that fits the cell — sized from the cell height
+ * (line height) and capped by width (≈ bold glyph width × length). No external auto-size API.
+ */
+@Composable
+private fun AutoSizeValue(
+    text: String,
+    modifier: Modifier = Modifier,
+    color: Color = DashboardColors.textPrimary
+) {
+    BoxWithConstraints(modifier = modifier, contentAlignment = Alignment.Center) {
+        val byHeight = maxHeight.value * 0.82f
+        val byWidth = maxWidth.value * 1.5f / text.length.coerceAtLeast(1)
+        val fontSize = minOf(byHeight, byWidth).coerceIn(14f, 64f)
+        Text(
+            text = text,
+            color = color,
+            fontSize = fontSize.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Clip,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
@@ -351,6 +354,43 @@ private fun DepthCard(
         value = "%.1f m".format(depthM),
         subtitle = "$sourceLabel · ${confidencePct}%",
         cardColor = depthColor.copy(alpha = 0.25f),
+        modifier = modifier
+    )
+}
+
+// ── Speed card (GPS) ──────────────────────────────────────────────────────────
+
+@Composable
+private fun SpeedCard(
+    speedKnots: Float?,
+    inZone300: Boolean,
+    modifier: Modifier = Modifier
+) {
+    // Null = demo mode (or no fix yet) → show a dash, default background.
+    if (speedKnots == null) {
+        DashboardCard(
+            title = "🚤 Vitesse",
+            value = "—",
+            subtitle = "mode démo",
+            modifier = modifier
+        )
+        return
+    }
+    // The 300 m zone limit is 5 kn — colour-code compliance there; default background elsewhere.
+    val cardColor = if (inZone300) {
+        when {
+            speedKnots < 5f -> DashboardColors.speedSafe
+            speedKnots <= 10f -> DashboardColors.speedCaution
+            else -> DashboardColors.speedDanger
+        }
+    } else {
+        DashboardColors.cardBg
+    }
+    DashboardCard(
+        title = "🚤 Vitesse",
+        value = "%.1f kn".format(speedKnots),
+        subtitle = if (inZone300) "5 kn max en zone" else null,
+        cardColor = cardColor,
         modifier = modifier
     )
 }

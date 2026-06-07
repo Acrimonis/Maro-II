@@ -3,8 +3,8 @@ name: GpsPlugin
 status: active
 created: 2026-06-07
 modified: 2026-06-07
-active_subfeature: settings
-subs_total: 1
+active_subfeature: dashboard
+subs_total: 2
 subs_done: 0
 one_liner: Démo↔GPS toggle that drives the boat marker from the device GPS with a heading-up rotating map.
 ---
@@ -41,6 +41,27 @@ ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 - `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — gpsPosition/mapBearing StateFlows + enabled collectors
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — toggle UI, permission launcher, recenter/rotation effects
 - `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — gpsMode persistence
+
+#### Docs
+
+### dashboard  [ ]
+
+#### Todos
+- [x] 2×2 grid layout (Distance, Zone 300 m, Profondeur, Vitesse)
+- [x] Auto-size each value to fill its cell; labels/context small + subdued
+- [x] GPS speed card in knots ("—" in demo); speed plumbed GpsFix → ViewModel → UI
+- [x] Speed colour coding in the 300 m zone: <5 kn green, 5–10 orange, >10 red; default outside
+- [x] Portrait dashboard height = ⅔ of the short side (mirrors landscape width)
+- [ ] Build (apk-build.bat) + on-device verification (portrait sizing, auto-fit, colour thresholds)
+
+#### Rules
+- Dashboard is read-only — indicators only, no action controls (global rule).
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt` — 2×2 grid, AutoSizeValue, SpeedCard + colour coding
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — panel sizing (portrait ⅔), passes speedKnots/inZone300
+- `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — speedKnots StateFlow
+- `app/src/main/java/ykws/android/maro/data/location/GpsLocationSource.kt` — GpsFix.speedMps
 
 #### Docs
 

@@ -123,6 +123,7 @@ fun MapScreen(
     val gpsPosition by viewModel.gpsPosition.collectAsState()
     val mapBearing by viewModel.mapBearing.collectAsState()
     val autoFollowSuppressed by viewModel.autoFollowSuppressed.collectAsState()
+    val speedKnots by viewModel.speedKnots.collectAsState()
 
     // GPS permission launcher: on grant, enable GPS mode; on deny, stay in demo mode.
     val gpsPermissionLauncher = rememberLauncherForActivityResult(
@@ -233,7 +234,7 @@ fun MapScreen(
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val isLandscape = maxWidth > maxHeight
             val landscapeDashboardWidth = maxHeight * 2 / 3 // dashboard width = ⅔ screen height
-            val portraitDashboardHeight = maxWidth / 3
+            val portraitDashboardHeight = maxWidth * 2 / 3  // mirror landscape: ⅔ of the short side
 
             if (isLandscape) {
                 // ── LANDSCAPE: Dashboard (left) + Map (right) ──────────────────
@@ -246,6 +247,7 @@ fun MapScreen(
                         distanceToZone = distanceToZone,
                         depthSample = depthAtCenter,
                         validation = depthValidation,
+                        speedKnots = speedKnots,
                         modifier = Modifier
                             .width(landscapeDashboardWidth)
                             .fillMaxHeight()
@@ -309,6 +311,7 @@ fun MapScreen(
                         distanceToZone = distanceToZone,
                         depthSample = depthAtCenter,
                         validation = depthValidation,
+                        speedKnots = speedKnots,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(portraitDashboardHeight)

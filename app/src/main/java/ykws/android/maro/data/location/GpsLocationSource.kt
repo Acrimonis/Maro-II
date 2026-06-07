@@ -17,11 +17,13 @@ import ykws.android.maro.data.model.LatLng
  * @property bearingDeg Course over ground in degrees (0–360, clockwise from north), or `null`
  *                      when stationary / the provider could not determine a heading.
  * @property hasCourse  True when [bearingDeg] is a usable heading (device moving fast enough).
+ * @property speedMps   Speed over ground in m/s, or `null` when the provider supplies no speed.
  */
 data class GpsFix(
     val position: LatLng,
     val bearingDeg: Float?,
-    val hasCourse: Boolean
+    val hasCourse: Boolean,
+    val speedMps: Float?
 )
 
 /**
@@ -57,7 +59,8 @@ class GpsLocationSource(private val context: Context) {
                     GpsFix(
                         position = LatLng(loc.latitude, loc.longitude),
                         bearingDeg = if (moving) loc.bearing else null,
-                        hasCourse = moving
+                        hasCourse = moving,
+                        speedMps = if (loc.hasSpeed()) loc.speed else null
                     )
                 )
             }

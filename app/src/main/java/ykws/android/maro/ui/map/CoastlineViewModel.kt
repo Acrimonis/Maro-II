@@ -166,6 +166,10 @@ class CoastlineViewModel(
     private val _mapBearing = MutableStateFlow(0f)
     val mapBearing: StateFlow<Float> = _mapBearing.asStateFlow()
 
+    /** Speed over ground in knots while in GPS mode; null in demo / before the first fix. */
+    private val _speedKnots = MutableStateFlow<Float?>(null)
+    val speedKnots: StateFlow<Float?> = _speedKnots.asStateFlow()
+
     /** Foreground gate: GPS/compass collectors run only while true (set by the screen lifecycle). */
     private val _gpsActive = MutableStateFlow(false)
 
@@ -252,6 +256,7 @@ class CoastlineViewModel(
             .onEach { fix ->
                 _gpsPosition.value = fix.position
                 updateMapCenter(fix.position.latitude, fix.position.longitude)
+                _speedKnots.value = fix.speedMps?.let { it * MPS_TO_KNOTS }
                 if (fix.hasCourse && fix.bearingDeg != null) {
                     setMapBearing(fix.bearingDeg)
                     lastGpsBearingMs = SystemClock.elapsedRealtime()
@@ -279,6 +284,7 @@ class CoastlineViewModel(
                 if (!on) {
                     _gpsPosition.value = null
                     _mapBearing.value = 0f
+                    _speedKnots.value = null
                     lastGpsBearingMs = 0L
                 }
             }
@@ -405,6 +411,9 @@ class CoastlineViewModel(
 
         /** Idle time after the last user pan before GPS auto-follow/-orient resumes. */
         private const val USER_CONTROL_TIMEOUT_MS = 5_000L
+
+        /** Metres-per-second → knots. */
+        private const val MPS_TO_KNOTS = 1.943844f
 
         /**
          * Factory for [CoastlineViewModel] — required because the primary constructor

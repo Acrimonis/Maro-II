@@ -2,7 +2,7 @@
 
 ## Active Session Pointers
 - **Active Feature:** GpsPlugin
-- **Active Subfeature:** settings
+- **Active Subfeature:** dashboard
 - **Last Updated:** 2026-06-07
 - **Last Bake:** 2026-06-07 (GPS — Démo/GPS toggle + heading-up rotating map)
 
