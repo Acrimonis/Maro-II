@@ -5,7 +5,7 @@ created: 2026-06-06
 modified: 2026-06-07
 active_subfeature: none
 subs_total: 2
-subs_done: 2
+subs_done: 1
 one_liner: Redesign the bottom dashboard panel into visual gauge cards for quick reading of key indicators.
 ---
 
