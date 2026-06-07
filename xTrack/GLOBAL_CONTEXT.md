@@ -4,7 +4,7 @@
 - **Active Feature:** Performance
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-07
-- **Last Bake:** 2026-06-07 (Performance — tunable + adaptive GPS, capped map render, compass gating; settings restructured; docs attached)
+- **Last Bake:** 2026-06-07 (Performance — merged origin/develop into feature/performance, resolved GLOBAL_CONTEXT routing conflict; PR now mergeable)
 
 ## Routing Map
 | Keyword | Feature File |
