@@ -173,15 +173,25 @@ fun MapScreen(
     // One throttled stream (≤ appSettings.mapRefreshFps) drives BOTH position and
     // orientation via a single setCenter + mapOrientation per tick — replacing the
     // per-fix animateTo, whose scroll animation repainted the whole map at ~60 fps.
-    // Keyed on gpsMode/suppression/mapView so the latest target re-applies the instant
-    // a manual pan releases (auto-follow snaps back). Manual pinch/pan/fling keep
-    // osmdroid's own full-rate path — the cap governs only this GPS-follow flow.
+    // The effect is keyed on gpsMode/suppression/mapView, so it restarts each time
+    // auto-follow re-engages (GPS on, or the recenter delay expiring after a pan):
+    // the FIRST target then animates (smooth scroll back), and every subsequent fix
+    // uses the cheap capped setCenter. Manual pinch/pan/fling keep osmdroid's own
+    // full-rate path — the cap governs only this GPS-follow flow.
     LaunchedEffect(appSettings.gpsMode, autoFollowSuppressed, mapView) {
         val mv = mapView ?: return@LaunchedEffect
         if (!appSettings.gpsMode) { mv.mapOrientation = 0f; mv.invalidate(); return@LaunchedEffect }
         if (autoFollowSuppressed) return@LaunchedEffect
+        var reengage = true
         viewModel.cameraUpdates.collect { target ->
-            mv.controller.setCenter(GeoPoint(target.position.latitude, target.position.longitude))
+            val point = GeoPoint(target.position.latitude, target.position.longitude)
+            if (reengage) {
+                // Scroll smoothly back to the GPS position when follow resumes (no snap).
+                mv.controller.animateTo(point)
+                reengage = false
+            } else {
+                mv.controller.setCenter(point)
+            }
             mv.mapOrientation = -target.bearingDeg
             mv.invalidate()
             // Keep depth-at-center following the GPS fix at the same capped cadence.
