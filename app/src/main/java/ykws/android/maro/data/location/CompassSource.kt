@@ -19,7 +19,15 @@ import kotlinx.coroutines.flow.callbackFlow
  */
 class CompassSource(private val context: Context) {
 
-    fun azimuthUpdates(): Flow<Float> = callbackFlow {
+    /**
+     * @param samplingPeriodUs sensor delivery rate. Defaults to [SensorManager.SENSOR_DELAY_NORMAL]
+     *        (~5 Hz) rather than `SENSOR_DELAY_UI` (~16 Hz): the heading flow is `sample()`-throttled
+     *        to ~5 Hz downstream anyway, so a faster sensor rate only burns power producing events
+     *        that are discarded.
+     */
+    fun azimuthUpdates(
+        samplingPeriodUs: Int = SensorManager.SENSOR_DELAY_NORMAL
+    ): Flow<Float> = callbackFlow {
         val sm = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
         val sensor = sm.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
 
@@ -39,7 +47,7 @@ class CompassSource(private val context: Context) {
         }
 
         if (sensor != null) {
-            sm.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_UI)
+            sm.registerListener(listener, sensor, samplingPeriodUs)
         }
 
         awaitClose { sm.unregisterListener(listener) }
