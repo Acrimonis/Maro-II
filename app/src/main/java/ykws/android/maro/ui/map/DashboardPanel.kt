@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -56,6 +54,9 @@ private object DashboardColors {
     val red = Color(0xFFF44336)
     val zoneDanger = Color(0xFFB71C1C)
     val zoneNormal = Color(0xFF37474F)
+    val speedSafe = Color(0xFF2E7D32)     // green — compliant (<5 kn) inside the 300 m zone
+    val speedCaution = Color(0xFFEF6C00)  // orange — 5–10 kn inside the zone
+    val speedDanger = Color(0xFFC62828)   // red — >10 kn inside the zone
     val validationOk = Color(0xFF66BB6A)
     val validationWarn = Color(0xFFFFA726)
 }
@@ -63,12 +64,14 @@ private object DashboardColors {
 // ── Dashboard panel (public, called from MapScreen) ──────────────────────────
 
 /**
- * Dashboard panel redesigned as visual gauge cards for quick reading of indicators.
+ * Dashboard panel: a 2×2 grid of indicator cards — Distance, Zone 300 m, Depth, Speed.
  *
- * Landscape: 3 cards stacked vertically, full panel width.
- * Portrait:  3 cards in a horizontal row; collapses to vertical stack below 240dp per card.
+ * Each card shows its value as large as the cell allows; the label and context are small and
+ * subdued. The validation badge (when present) sits below the grid.
+ *
+ * Read-only — no action buttons or toggles. See global rule: action controls live in the
+ * map overlay area, never in the dashboard.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DashboardPanel(
     state: CoastlineState,
@@ -78,12 +81,13 @@ fun DashboardPanel(
     distanceToZone: Double?,
     depthSample: DepthSample?,
     validation: ValidationReport?,
+    speedKnots: Float?,
     modifier: Modifier = Modifier
 ) {
     Box(
         modifier = modifier
             .background(DashboardColors.background)
-            .padding(horizontal = 8.dp, vertical = 6.dp),
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
         Column(
@@ -91,88 +95,61 @@ fun DashboardPanel(
             verticalArrangement = Arrangement.SpaceBetween,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // ── Indicator cards area ───────────────────────────────────────
-            BoxWithConstraints(modifier = Modifier.weight(1f, fill = false)) {
-                val availableWidth = maxWidth
-                // 180dp breakpoint: if each card gets at least 180dp, use row layout
-                val wideEnough = availableWidth >= 180.dp * 3
-
-                if (wideEnough) {
-                    // Wide layout: 3 cards in a row
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        DistanceCard(
-                            distanceToShore = distanceToShore,
-                            isWater = isWater,
-                            state = state,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Zone300Card(
-                            inZone300 = inZone300,
-                            distanceToZone = distanceToZone,
-                            state = state,
-                            modifier = Modifier.weight(1f)
-                        )
-                        DepthCard(
-                            depthSample = depthSample,
-                            validation = validation,
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                } else if (availableWidth >= 180.dp) {
-                    // Medium layout: 2 per row, third wraps
-                    FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        DistanceCard(
-                            distanceToShore = distanceToShore,
-                            isWater = isWater,
-                            state = state,
-                            modifier = Modifier.weight(1f)
-                        )
-                        Zone300Card(
-                            inZone300 = inZone300,
-                            distanceToZone = distanceToZone,
-                            state = state,
-                            modifier = Modifier.weight(1f)
-                        )
-                        DepthCard(
-                            depthSample = depthSample,
-                            validation = validation,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
-                } else {
-                    // Narrow layout: all cards stacked
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        DistanceCard(
-                            distanceToShore = distanceToShore,
-                            isWater = isWater,
-                            state = state,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Zone300Card(
-                            inZone300 = inZone300,
-                            distanceToZone = distanceToZone,
-                            state = state,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        DepthCard(
-                            depthSample = depthSample,
-                            validation = validation,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    }
+            // ── 2×2 indicator grid ─────────────────────────────────────────
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    DistanceCard(
+                        distanceToShore = distanceToShore,
+                        isWater = isWater,
+                        state = state,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                    )
+                    Zone300Card(
+                        inZone300 = inZone300,
+                        distanceToZone = distanceToZone,
+                        state = state,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                    )
+                }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    DepthCard(
+                        depthSample = depthSample,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                    )
+                    SpeedCard(
+                        speedKnots = speedKnots,
+                        inZone300 = inZone300,
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                    )
                 }
             }
 
+            // ── Validation badge ───────────────────────────────────────────
+            if (validation != null) {
+                ValidationBadge(validation = validation)
+                Spacer(modifier = Modifier.height(6.dp))
+            }
         }
     }
 }
@@ -180,8 +157,8 @@ fun DashboardPanel(
 // ── Reusable dashboard card ──────────────────────────────────────────────────
 
 /**
- * A compact rounded card with coloured background, a value, and optional subtitle.
- * Title is shown inline as a prefix to save vertical space.
+ * A rounded card: a small, subdued title on top, the value as large as the cell allows in the
+ * middle, and small subdued context at the bottom. Designed to fill a 2×2 grid cell.
  */
 @Composable
 private fun DashboardCard(
@@ -189,43 +166,80 @@ private fun DashboardCard(
     value: String,
     subtitle: String? = null,
     cardColor: Color = DashboardColors.cardBg,
+    valueColor: Color = DashboardColors.textPrimary,
     borderColor: Color = Color.Transparent,
     borderWidth: Dp = 0.dp,
     modifier: Modifier = Modifier
 ) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(10.dp))
             .background(cardColor)
             .then(
                 if (borderWidth > 0.dp && borderColor != Color.Transparent) {
-                    Modifier.border(width = borderWidth, color = borderColor, shape = RoundedCornerShape(8.dp))
+                    Modifier.border(width = borderWidth, color = borderColor, shape = RoundedCornerShape(10.dp))
                 } else Modifier
             )
-            .padding(horizontal = 6.dp, vertical = 3.dp),
-        contentAlignment = Alignment.Center
+            .padding(horizontal = 8.dp, vertical = 6.dp)
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Column(
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Secondary: small, subdued label.
             Text(
-                text = "$title $value",
-                color = DashboardColors.textPrimary,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
+                text = title,
+                color = DashboardColors.textMuted,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            // Primary: the value, as large as the cell allows.
+            AutoSizeValue(
+                text = value,
+                color = valueColor,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+            )
+            // Secondary: small, subdued context (empty string keeps cell baselines aligned).
+            Text(
+                text = subtitle ?: "",
+                color = DashboardColors.textMuted,
+                fontSize = 9.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center
             )
-            if (subtitle != null) {
-                Text(
-                    text = subtitle,
-                    color = DashboardColors.textMuted,
-                    fontSize = 8.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center
-                )
-            }
         }
+    }
+}
+
+/**
+ * Renders [text] centered at the largest font that fits the cell — sized from the cell height
+ * (line height) and capped by width (≈ bold glyph width × length). No external auto-size API.
+ */
+@Composable
+private fun AutoSizeValue(
+    text: String,
+    modifier: Modifier = Modifier,
+    color: Color = DashboardColors.textPrimary
+) {
+    BoxWithConstraints(modifier = modifier, contentAlignment = Alignment.Center) {
+        val byHeight = maxHeight.value * 0.82f
+        val byWidth = maxWidth.value * 1.5f / text.length.coerceAtLeast(1)
+        val fontSize = minOf(byHeight, byWidth).coerceIn(14f, 64f)
+        Text(
+            text = text,
+            color = color,
+            fontSize = fontSize.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Clip,
+            textAlign = TextAlign.Center
+        )
     }
 }
 
@@ -320,12 +334,11 @@ private fun Zone300Card(
 @Composable
 private fun DepthCard(
     depthSample: DepthSample?,
-    validation: ValidationReport?,
     modifier: Modifier = Modifier
 ) {
     if (depthSample == null || !depthSample.hasData) {
         DashboardCard(
-            title = "🌊",
+            title = "🌊 Profondeur",
             value = "—",
             modifier = modifier
         )
@@ -337,23 +350,77 @@ private fun DepthCard(
     val sourceLabel = depthSourceLabel(depthSample.source)
     val confidencePct = depthSample.confidence.toInt()
 
-    val validationSuffix = if (validation != null) {
-        if (validation.passed) "✓ %.1fm".format(validation.rmseM)
-        else "⚠ %.1fm".format(validation.rmseM)
-    } else null
-
     DashboardCard(
-        title = "🌊",
+        title = "🌊 Profondeur",
         value = "%.1f m".format(depthM),
-        subtitle = listOfNotNull(
-            "$sourceLabel · ${confidencePct}%",
-            validationSuffix
-        ).joinToString(" · "),
+        subtitle = "$sourceLabel · ${confidencePct}%",
         cardColor = depthColor.copy(alpha = 0.25f),
         modifier = modifier
     )
 }
 
+// ── Speed card (GPS) ──────────────────────────────────────────────────────────
+
+@Composable
+private fun SpeedCard(
+    speedKnots: Float?,
+    inZone300: Boolean,
+    modifier: Modifier = Modifier
+) {
+    // Null = demo mode (or no fix yet) → show a dash, default background.
+    if (speedKnots == null) {
+        DashboardCard(
+            title = "🚤 Vitesse",
+            value = "—",
+            subtitle = "mode démo",
+            modifier = modifier
+        )
+        return
+    }
+    // The 300 m zone limit is 5 kn — colour-code compliance there; default background elsewhere.
+    val cardColor = if (inZone300) {
+        when {
+            speedKnots < 5f -> DashboardColors.speedSafe
+            speedKnots <= 10f -> DashboardColors.speedCaution
+            else -> DashboardColors.speedDanger
+        }
+    } else {
+        DashboardColors.cardBg
+    }
+    DashboardCard(
+        title = "🚤 Vitesse",
+        value = "%.1f kn".format(speedKnots),
+        subtitle = if (inZone300) "5 kn max en zone" else null,
+        cardColor = cardColor,
+        modifier = modifier
+    )
+}
+
+// ── Validation badge ─────────────────────────────────────────────────────────
+
+@Composable
+private fun ValidationBadge(
+    validation: ValidationReport,
+    modifier: Modifier = Modifier
+) {
+    val (badge, badgeColor) = if (validation.passed) {
+        "✓ Données validées (RMSE %.1f m)".format(validation.rmseM) to DashboardColors.validationOk
+    } else {
+        "⚠ Validation incomplète (RMSE %.1f m)".format(validation.rmseM) to DashboardColors.validationWarn
+    }
+
+    Box(
+        modifier = modifier.fillMaxWidth(),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = badge,
+            color = badgeColor,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Medium
+        )
+    }
+}
 
 // ── Utility functions ────────────────────────────────────────────────────────
 

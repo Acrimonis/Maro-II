@@ -1,8 +1,14 @@
 package ykws.android.maro.ui.map
 
+import android.Manifest
+import android.annotation.SuppressLint
+import android.content.pm.PackageManager
+import android.view.MotionEvent
 import android.graphics.Bitmap
 import android.graphics.Color
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import ykws.android.maro.R
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -30,6 +36,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -53,6 +61,7 @@ import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.core.content.ContextCompat
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -68,6 +77,7 @@ import org.osmdroid.views.overlay.GroundOverlay
 import org.osmdroid.views.overlay.Polygon
 import org.osmdroid.views.overlay.Polyline
 import kotlin.math.pow
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import ykws.android.maro.data.depth.DepthConstants
@@ -92,6 +102,7 @@ import ykws.android.maro.data.settings.AppSettings
  *
  * Portrait: map on top, dashboard bar at the bottom.
  */
+@SuppressLint("ClickableViewAccessibility")
 @Composable
 fun MapScreen(
     viewModel: CoastlineViewModel,
@@ -111,6 +122,31 @@ fun MapScreen(
     var mapView by remember { mutableStateOf<MapView?>(null) }
     var showSettings by remember { mutableStateOf(false) }
 
+    val context = LocalContext.current
+    val gpsPosition by viewModel.gpsPosition.collectAsState()
+    val mapBearing by viewModel.mapBearing.collectAsState()
+    val autoFollowSuppressed by viewModel.autoFollowSuppressed.collectAsState()
+    val speedKnots by viewModel.speedKnots.collectAsState()
+
+    // GPS permission launcher: on grant, enable GPS mode; on deny, stay in demo mode.
+    val gpsPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) viewModel.updateSettings { it.copy(gpsMode = true) }
+    }
+    // Permission-aware handler wired to the GPS settings switch.
+    val onGpsModeChange: (Boolean) -> Unit = { enable ->
+        if (enable) {
+            val granted = ContextCompat.checkSelfPermission(
+                context, Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PackageManager.PERMISSION_GRANTED
+            if (granted) viewModel.updateSettings { it.copy(gpsMode = true) }
+            else gpsPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+        } else {
+            viewModel.updateSettings { it.copy(gpsMode = false) }
+        }
+    }
+
     // ── Force marker to match MapView zoom once the view is ready ────────
     // Even though _zoomLevel is seeded from persisted settings, there can be
     // a frame where collectAsState() captures the initial default before the
@@ -119,6 +155,38 @@ fun MapScreen(
     LaunchedEffect(mapView) {
         val mv = mapView ?: return@LaunchedEffect
         viewModel.updateZoomLevel(mv.zoomLevelDouble)
+        // Detect user pan/zoom touches so GPS mode can pause auto-follow while the user explores.
+        mv.setOnTouchListener { _, ev ->
+            when (ev.actionMasked) {
+                MotionEvent.ACTION_DOWN, MotionEvent.ACTION_MOVE -> viewModel.notifyUserInteraction()
+            }
+            false // don't consume — the map still pans/zooms normally
+        }
+    }
+
+    // ── GPS mode: recenter on each fix (rule 1), unless the user is panning ──
+    // Gated on gpsMode (demo never auto-recenters) AND !autoFollowSuppressed
+    // (a recent user pan pauses follow for the configured recenter delay, then it resumes).
+    LaunchedEffect(gpsPosition, appSettings.gpsMode, autoFollowSuppressed, mapView) {
+        val mv = mapView ?: return@LaunchedEffect
+        if (appSettings.gpsMode && !autoFollowSuppressed) {
+            gpsPosition?.let {
+                mv.controller.animateTo(GeoPoint(it.latitude, it.longitude))
+                // Keep depth-at-center following the GPS fix (independent of scroll events).
+                depthViewModel.updateMapCenter(it.latitude, it.longitude)
+            }
+        }
+    }
+
+    // ── GPS mode: rotate heading-up (rules 2/3); north-up in demo ─────────
+    // While the user pans in GPS mode, orientation is left as-is; it snaps back
+    // to heading-up when auto-follow resumes.
+    LaunchedEffect(mapBearing, appSettings.gpsMode, autoFollowSuppressed, mapView) {
+        val mv = mapView ?: return@LaunchedEffect
+        when {
+            !appSettings.gpsMode -> { mv.mapOrientation = 0f; mv.invalidate() }
+            !autoFollowSuppressed -> { mv.mapOrientation = -mapBearing; mv.invalidate() }
+        }
     }
 
     // ── Depth layer ─────────────────────────────────────────────────────────────
@@ -146,8 +214,13 @@ fun MapScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_PAUSE) {
-                viewModel.savePosition()
+            when (event) {
+                Lifecycle.Event.ON_PAUSE -> {
+                    viewModel.savePosition()
+                    viewModel.setGpsActive(false)
+                }
+                Lifecycle.Event.ON_RESUME -> viewModel.setGpsActive(true)
+                else -> {}
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -164,7 +237,7 @@ fun MapScreen(
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val isLandscape = maxWidth > maxHeight
             val landscapeDashboardWidth = maxHeight * 2 / 3 // dashboard width = ⅔ screen height
-            val portraitDashboardHeight = maxWidth / 3
+            val portraitDashboardHeight = maxWidth * 2 / 3  // mirror landscape: ⅔ of the short side
 
             if (isLandscape) {
                 // ── LANDSCAPE: Dashboard (left) + Map (right) ──────────────────
@@ -177,6 +250,7 @@ fun MapScreen(
                         distanceToZone = distanceToZone,
                         depthSample = depthAtCenter,
                         validation = depthValidation,
+                        speedKnots = speedKnots,
                         modifier = Modifier
                             .width(landscapeDashboardWidth)
                             .fillMaxHeight()
@@ -240,6 +314,7 @@ fun MapScreen(
                         distanceToZone = distanceToZone,
                         depthSample = depthAtCenter,
                         validation = depthValidation,
+                        speedKnots = speedKnots,
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(portraitDashboardHeight)
@@ -253,6 +328,7 @@ fun MapScreen(
             SettingsOverlay(
                 settings = appSettings,
                 onUpdateSettings = viewModel::updateSettings,
+                onGpsModeChange = onGpsModeChange,
                 onDismiss = { showSettings = false }
             )
         }
@@ -376,8 +452,6 @@ private fun MapContent(
                         onClick = {
                             val mv = mapView ?: return@ZoomButton
                             mv.controller.zoomIn()
-                            // Push the new zoom to the ViewModel immediately so the
-                            // boat marker resizes on the same frame as the map zoom.
                             onZoomChanged(mv.zoomLevelDouble)
                         }
                     )
@@ -746,6 +820,7 @@ private fun SettingsButton(
 private fun SettingsOverlay(
     settings: AppSettings,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
+    onGpsModeChange: (Boolean) -> Unit,
     onDismiss: () -> Unit
 ) {
     Box(
@@ -792,6 +867,32 @@ private fun SettingsOverlay(
             }
 
             Spacer(modifier = Modifier.height(32.dp))
+
+            // -- Source de position (Demo <-> GPS) section --
+            SectionHeader(title = "Source de position")
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            SettingsToggleRow(
+                label = "Mode GPS",
+                description = "Suivre votre position GPS et orienter la carte (sinon mode démo)",
+                checked = settings.gpsMode,
+                onCheckedChange = onGpsModeChange
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            SettingsSliderRow(
+                label = "Délai de recentrage",
+                description = "Temps avant recentrage GPS après un déplacement manuel",
+                valueLabel = "${settings.recenterDelaySeconds} s",
+                value = settings.recenterDelaySeconds.toFloat(),
+                valueRange = 1f..10f,
+                steps = 8,
+                onValueChange = { v -> onUpdateSettings { it.copy(recenterDelaySeconds = v.roundToInt()) } }
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
 
             // ── Affichage (Display) section ──────────────────────────────
             SectionHeader(title = "Affichage")
@@ -885,6 +986,63 @@ private fun SettingsToggleRow(
                 checkedTrackColor = ComposeColor(0xFF1565C0).copy(alpha = 0.4f),
                 uncheckedThumbColor = ComposeColor(0xFFB0BEC5),
                 uncheckedTrackColor = ComposeColor(0x33FFFFFF)
+            )
+        )
+    }
+}
+
+@Composable
+private fun SettingsSliderRow(
+    label: String,
+    description: String,
+    valueLabel: String,
+    value: Float,
+    valueRange: ClosedFloatingPointRange<Float>,
+    steps: Int,
+    onValueChange: (Float) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(ComposeColor(0x1AFFFFFF))
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = label,
+                    color = ComposeColor.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = description,
+                    color = ComposeColor(0xFFB0BEC5),
+                    fontSize = 13.sp
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(
+                text = valueLabel,
+                color = ComposeColor(0xFF1565C0),
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        Slider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = valueRange,
+            steps = steps,
+            colors = SliderDefaults.colors(
+                thumbColor = ComposeColor(0xFF1565C0),
+                activeTrackColor = ComposeColor(0xFF1565C0),
+                inactiveTrackColor = ComposeColor(0x33FFFFFF)
             )
         )
     }
