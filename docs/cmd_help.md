@@ -1,5 +1,5 @@
 View:     #features            compact feature table (front-matter, by modified) [alias #list]
-          #feature             current context: active feature/sub + working path
+          #feature             current context: active feature + subs list + working path
           #status              feature details (active)
           #status [name]       feature details (named)
 Manage:   #track [name]        create feature (with YAML front-matter)
