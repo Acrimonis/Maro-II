@@ -313,18 +313,19 @@ private fun Zone300Card(
     if (inZone300) {
         val zoneM = abs(distanceToZone)
         val exitText = if (zoneM >= 1000.0) "%.1f km".format(zoneM / 1000.0) else "%.0f m".format(zoneM)
-        val compliant = speedKnots != null && speedKnots < 5f
+        // Null speed (demo mode, stationary) = 0 kn → compliant
+        val compliant = speedKnots == null || speedKnots < 5f
 
         if (compliant) {
+            val speedDisplay = if (speedKnots != null) " · ✅ %.1f kn".format(speedKnots) else ""
             DashboardCard(
                 title = "Zone 300m",
                 value = "EN ZONE !",
-                subtitle = "5 nœuds max — $exitText · ✅ %.1f kn".format(speedKnots),
+                subtitle = "5 nœuds max — $exitText$speedDisplay",
                 cardColor = DashboardColors.zoneCompliant,
                 modifier = modifier
             )
         } else {
-            // Pulsing border when inside the danger zone (non-compliant or unknown speed)
             val infiniteTransition = rememberInfiniteTransition(label = "zonePulse")
             val pulseAlpha by infiniteTransition.animateFloat(
                 initialValue = 0.3f,
@@ -339,8 +340,7 @@ private fun Zone300Card(
             DashboardCard(
                 title = "Zone 300m",
                 value = "EN ZONE !",
-                subtitle = "5 nœuds max — $exitText" +
-                    if (speedKnots != null) " · ⚠ %.1f kn".format(speedKnots) else "",
+                subtitle = "5 nœuds max — $exitText · ⚠ %.1f kn".format(speedKnots),
                 cardColor = DashboardColors.zoneDanger,
                 borderColor = DashboardColors.red.copy(alpha = pulseAlpha),
                 borderWidth = 2.dp,
