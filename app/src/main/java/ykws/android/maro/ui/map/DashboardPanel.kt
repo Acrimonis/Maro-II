@@ -378,7 +378,7 @@ private fun DepthCard(
     }
 
     val depthM = depthSample.depthM
-    val depthColor = depthGradientColor(depthM)
+    val depthColor = depthRampColor(depthM)
     val sourceLabel = depthSourceLabel(depthSample.source)
     val confidencePct = depthSample.confidence.toInt()
 
@@ -466,29 +466,24 @@ private fun formatDistance(distanceM: Double): String {
 }
 
 /**
- * Interpolate depth colour: green (safe, 0m) → yellow (~20m) → red (danger, 60m+).
- * Uses a two-stop gradient: 0–20m green→yellow, 20–60m yellow→red.
+ * Depth colour matching the map's hypsometric colour ramp ([DepthColorRamp]).
+ *
+ * Delegates to [DepthColorRamp.argb] so the dashboard tile colour is always
+ * consistent with the depth colour overlay on the map. Extracts RGB (ignoring
+ * the ramp's semi-transparent alpha) and returns a full-opacity [Color] so the
+ * card's own alpha [copy(alpha = 0.25f)] is applied uniformly.
+ *
+ * - 0 m (surface): pale cyan with red-orange collision warning tint
+ * - 5 m+: pale cyan → navy gradient
+ * - 60 m+: deep navy
  */
-private fun depthGradientColor(depthM: Float): Color {
-    val t = (depthM / 60f).coerceIn(0f, 1f)
-    return if (t <= 1f / 3f) {
-        // Green → Yellow (0–20m)
-        val tt = t * 3f
-        lerpColor(DashboardColors.green, DashboardColors.yellow, tt)
-    } else {
-        // Yellow → Red (20–60m)
-        val tt = (t - 1f / 3f) * 1.5f
-        lerpColor(DashboardColors.yellow, DashboardColors.red, tt)
-    }
-}
-
-/** Linear interpolation between two colours. */
-private fun lerpColor(from: Color, to: Color, fraction: Float): Color {
-    val f = fraction.coerceIn(0f, 1f)
+private fun depthRampColor(depthM: Float): Color {
+    val argb = DepthColorRamp.argb(depthM)
+    if (argb == 0) return DashboardColors.cardBg  // NoData → fallback to card background
     return Color(
-        red = from.red + (to.red - from.red) * f,
-        green = from.green + (to.green - from.green) * f,
-        blue = from.blue + (to.blue - from.blue) * f,
+        red   = ((argb shr 16) and 0xFF) / 255f,
+        green = ((argb shr  8) and 0xFF) / 255f,
+        blue  = (argb and 0xFF) / 255f,
         alpha = 1f
     )
 }
