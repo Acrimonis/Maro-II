@@ -386,7 +386,7 @@ private fun DepthCard(
         title = "🌊 Profondeur",
         value = "%.1f m".format(depthM),
         subtitle = "$sourceLabel · ${confidencePct}%",
-        cardColor = depthColor.copy(alpha = 0.25f),
+        cardColor = depthColor,
         modifier = modifier
     )
 }
@@ -466,26 +466,55 @@ private fun formatDistance(distanceM: Double): String {
 }
 
 /**
- * Depth colour matching the map's hypsometric colour ramp ([DepthColorRamp]).
+ * Depth card colour derived from [DepthColorRamp]'s hue, with custom saturation
+ * and lightness curves tuned for a subtle, readable card background.
  *
- * Delegates to [DepthColorRamp.argb] so the dashboard tile colour is always
- * consistent with the depth colour overlay on the map. Extracts RGB (ignoring
- * the ramp's semi-transparent alpha) and returns a full-opacity [Color] so the
- * card's own alpha [copy(alpha = 0.25f)] is applied uniformly.
+ * Extracts the hue angle from the ramp's ARGB output (preserving the ramp's
+ * colour direction: warm red-orange in the collision band → blue progression
+ * at depth), then applies reduced saturation and moderate darkness so the
+ * card stays distinguishable without competing with white text.
  *
- * - 0 m (surface): pale cyan with red-orange collision warning tint
- * - 5 m+: pale cyan → navy gradient
- * - 60 m+: deep navy
+ * At full depth (~55 m+) the card reverts to [DashboardColors.cardBg], the
+ * same plain dark tile used by other uncoloured dashboard cards.
+ *
+ * - 0 m (collision band):  warm reddish   (hue ~5°)
+ * - 5–30 m:                muted blue     (hue ~207–217°)
+ * - 55 m+:                 plain tile     (cardBg)
  */
 private fun depthRampColor(depthM: Float): Color {
     val argb = DepthColorRamp.argb(depthM)
-    if (argb == 0) return DashboardColors.cardBg  // NoData → fallback to card background
-    return Color(
-        red   = ((argb shr 16) and 0xFF) / 255f,
-        green = ((argb shr  8) and 0xFF) / 255f,
-        blue  = (argb and 0xFF) / 255f,
-        alpha = 1f
-    )
+    if (argb == 0) return DashboardColors.cardBg  // NoData
+
+    val d = depthM.coerceIn(0f, DepthColorRamp.MAX_DEPTH_M)
+
+    // At full depth, match the default uncoloured card background.
+    if (d >= DepthColorRamp.MAX_DEPTH_M - 5f) return DashboardColors.cardBg
+
+    // Extract hue from the ramp's RGB.
+    val rampR = ((argb shr 16) and 0xFF) / 255f
+    val rampG = ((argb shr  8) and 0xFF) / 255f
+    val rampB = (argb and 0xFF) / 255f
+    val max = maxOf(rampR, rampG, rampB)
+    val min = minOf(rampR, rampG, rampB)
+
+    var hue = 0f
+    if (max - min > 1e-6f) {
+        hue = when (max) {
+            rampR -> 60f * (((rampG - rampB) / (max - min)).let { if (it < 0f) it + 6f else it })
+            rampG -> 60f * ((rampB - rampR) / (max - min) + 2f)
+            else  -> 60f * ((rampR - rampG) / (max - min) + 4f)
+        }
+    }
+    if (hue < 0f) hue += 360f
+
+    val t = d / DepthColorRamp.MAX_DEPTH_M  // 0 shallow .. 1 deep
+
+    // Reduced saturation: 55% at surface → 40% at depth.
+    val saturation = 0.55f - 0.15f * t
+    // Moderate darkness: 35% at surface → 25% at depth.
+    val lightness = 0.35f - 0.10f * t
+
+    return Color.hsl(hue, saturation, lightness)
 }
 
 /** Friendly source label for the depth-at-centre readout. */
