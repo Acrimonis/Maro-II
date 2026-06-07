@@ -92,7 +92,6 @@ fun DashboardPanel(
     ) {
         Column(
             modifier = Modifier.fillMaxSize(),
-            verticalArrangement = Arrangement.SpaceBetween,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // ── 2×2 indicator grid ─────────────────────────────────────────
@@ -118,6 +117,7 @@ fun DashboardPanel(
                         inZone300 = inZone300,
                         distanceToZone = distanceToZone,
                         state = state,
+                        isWater = isWater,
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
@@ -131,6 +131,7 @@ fun DashboardPanel(
                 ) {
                     DepthCard(
                         depthSample = depthSample,
+                        isWater = isWater,
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
@@ -167,6 +168,7 @@ private fun DashboardCard(
     subtitle: String? = null,
     cardColor: Color = DashboardColors.cardBg,
     valueColor: Color = DashboardColors.textPrimary,
+    subtitleColor: Color = DashboardColors.textMuted,
     borderColor: Color = Color.Transparent,
     borderWidth: Dp = 0.dp,
     modifier: Modifier = Modifier
@@ -206,7 +208,7 @@ private fun DashboardCard(
             // Secondary: small, subdued context (empty string keeps cell baselines aligned).
             Text(
                 text = subtitle ?: "",
-                color = DashboardColors.textMuted,
+                color = subtitleColor,
                 fontSize = 9.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
@@ -279,12 +281,27 @@ private fun Zone300Card(
     inZone300: Boolean,
     distanceToZone: Double?,
     state: CoastlineState,
+    isWater: Boolean,
     modifier: Modifier = Modifier
 ) {
     if (state !is CoastlineState.Ready || distanceToZone == null) {
         DashboardCard(
             title = "⚠️ Zone 300m",
             value = "—",
+            modifier = modifier
+        )
+        return
+    }
+
+    if (!isWater) {
+        val dimAlpha = 0.38f
+        DashboardCard(
+            title = "⚠️ Zone 300m",
+            value = "Not at sea",
+            subtitle = "Hors zone",
+            cardColor = DashboardColors.zoneNormal,
+            valueColor = DashboardColors.textPrimary.copy(alpha = dimAlpha),
+            subtitleColor = DashboardColors.textMuted.copy(alpha = dimAlpha),
             modifier = modifier
         )
         return
@@ -334,8 +351,23 @@ private fun Zone300Card(
 @Composable
 private fun DepthCard(
     depthSample: DepthSample?,
+    isWater: Boolean,
     modifier: Modifier = Modifier
 ) {
+    if (!isWater) {
+        val dimAlpha = 0.38f
+        DashboardCard(
+            title = "🌊 Profondeur",
+            value = "Not at sea",
+            subtitle = "Hors zone",
+            cardColor = DashboardColors.zoneNormal,
+            valueColor = DashboardColors.textPrimary.copy(alpha = dimAlpha),
+            subtitleColor = DashboardColors.textMuted.copy(alpha = dimAlpha),
+            modifier = modifier
+        )
+        return
+    }
+
     if (depthSample == null || !depthSample.hasData) {
         DashboardCard(
             title = "🌊 Profondeur",
