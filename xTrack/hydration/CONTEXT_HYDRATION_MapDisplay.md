@@ -1,18 +1,16 @@
-# Hydration — MapDisplay
+# Context Hydration — MapDisplay
 
-**Baked:** 2026-06-07
+**Last Bake:** 2026-06-07
+**Feature Status:** active (3/4 subfeatures done)
+**Active Subfeature:** zone proximity auto-reveal (done ✅)
 
-**Status:** 2/3 subfeatures complete. `layer refresh` and `zonetile` fully delivered. `depth color` has its core work done (DepthCard background aligned with DepthColorRamp palette, depth→ARGB mapped) but subfeature not yet checked off.
+## State Summary
+Layer toggle button (stacked-layers icon) added to map right edge, equidistant between settings and zoom buttons. Toggles `appSettings.zone300Visible` via `viewModel.toggleZone300Visibility()`. Demo pan speed extrapolation implemented: Haversine distance ÷ elapsed time × MPS→knots, throttled to ~10Hz, 500ms stop-detection timeout, divided by 10 for realistic values. Zone proximity auto-reveal state machine: direction-aware (getting closer vs moving away), 400m buffer, auto-reveals on approach, auto-re-hides on exit, no GPS gating.
 
-**Completed this session:**
-- Implemented Zone300Card distance+speed color rules in `DashboardPanel.kt`
-- Extracted 3 gradient tunables to `zone.properties` (gradientText=600m, gradientColor=300m, gradientTransp=33%)
-- Created `ZoneConfig.kt` as runtime loader with graceful fallback defaults
-- Wired `ZoneConfig.init(this)` in `MainActivity.kt`
+## Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — LayerButton composable + demoSpeedKnots wiring
+- `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — demoSpeedKnots, computeDemoSpeed(), toggleZone300Visibility(), zone auto-reveal state machine
+- `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt` — SpeedCard (unchanged, merge happens upstream)
 
-**Key files involved:**
-- `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt` — Zone300Card speed-aware color `when` block + gradient lerp
-- `app/src/main/java/ykws/android/maro/ui/map/ZoneConfig.kt` — properties loader
-- `app/src/main/assets/zone.properties` — gradient tunables
-
-**Next:** Confirm `depth color` subfeature status — the two todos are done but the checkbox is still `[ ]`.
+## Next Steps
+- Subfeature "depth color" still pending: align DepthCard color with DepthColorRamp palette

@@ -3,8 +3,8 @@ name: Dashboard
 status: active
 created: 2026-06-06
 modified: 2026-06-07
-active_subfeature: none
-subs_total: 2
+active_subfeature: tweak
+subs_total: 3
 subs_done: 2
 one_liner: Redesign the bottom dashboard panel into visual gauge cards for quick reading of key indicators.
 ---
@@ -56,6 +56,13 @@ Redesign the bottom panel into a proper dashboard for quick reading of indicator
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt` — remove action row, simplify params
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — relocate action buttons to MapContent
+
+### tweak  [ ]
+
+#### Todos
+- [ ] Dashboard must not resize when "données validées (RMSE...)" info is displayed — make layout ready for it
+- [ ] When !isOnWater, Zone tile must display neutral background with "Not at sea" caption instead of a value
+#### Key Files
 
 ## Todos
 
