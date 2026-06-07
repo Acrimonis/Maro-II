@@ -12,10 +12,15 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import ykws.android.maro.ui.map.CoastlineViewModel
 import ykws.android.maro.ui.map.DepthViewModel
 import ykws.android.maro.ui.map.MapScreen
+import ykws.android.maro.ui.map.ZoneConfig
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Load zone gradient tunables from zone.properties before the UI composes.
+        ZoneConfig.init(this)
+
         setContent {
             MaterialTheme {
                 Surface(

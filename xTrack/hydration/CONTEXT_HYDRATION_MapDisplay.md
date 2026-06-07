@@ -1,17 +1,18 @@
-# Context Hydration — MapDisplay
+# Hydration — MapDisplay
 
-**Last Bake:** 2026-06-07
+**Baked:** 2026-06-07
 
-**State:** Active — layer refresh subfeature in progress.
+**Status:** 2/3 subfeatures complete. `layer refresh` and `zonetile` fully delivered. `depth color` has its core work done (DepthCard background aligned with DepthColorRamp palette, depth→ARGB mapped) but subfeature not yet checked off.
 
-**What was done:**
-- Analyzed root cause of depth layer redraw on orientation switch: missing `android:configChanges` in manifest caused Activity destruction/recreation, tearing down `MapView` and all overlays.
-- Fixed Compose layout: refactored `MapScreen.kt` from `if/else` + `Row`/`Column` to a single `Box` parent with stable `MapContent` slot and overlaid `DashboardPanel` via `Modifier.align()`.
-- Fixed manifest: added `android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize"` to `<activity>`.
+**Completed this session:**
+- Implemented Zone300Card distance+speed color rules in `DashboardPanel.kt`
+- Extracted 3 gradient tunables to `zone.properties` (gradientText=600m, gradientColor=300m, gradientTransp=33%)
+- Created `ZoneConfig.kt` as runtime loader with graceful fallback defaults
+- Wired `ZoneConfig.init(this)` in `MainActivity.kt`
 
-**Key files:**
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
-- `app/src/main/AndroidManifest.xml`
-- `xTrack/FEATURE_SCOPE_MapDisplay.md`
+**Key files involved:**
+- `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt` — Zone300Card speed-aware color `when` block + gradient lerp
+- `app/src/main/java/ykws/android/maro/ui/map/ZoneConfig.kt` — properties loader
+- `app/src/main/assets/zone.properties` — gradient tunables
 
-**Next step:** Build APK (`apk-build.bat`), deploy, and test that overlays survive rotation without redrawing.
+**Next:** Confirm `depth color` subfeature status — the two todos are done but the checkbox is still `[ ]`.
