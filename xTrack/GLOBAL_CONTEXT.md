@@ -1,10 +1,10 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** GpsPlugin
-- **Active Subfeature:** settings
+- **Active Feature:** MapDisplay
+- **Active Subfeature:** none
 - **Last Updated:** 2026-06-07
-- **Last Bake:** 2026-06-07 (GPS — dashboard 2×2 + speed/zone colour, recenter-delay setting, docs attached)
+- **Last Bake:** 2026-06-07 (MapDisplay — single Box layout fix + android:configChanges to prevent Activity recreation on rotation)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -18,6 +18,7 @@
 | dashboard, ui, layout, hud, display, screen | FEATURE_SCOPE_Dashboard.md |
 | ui, ui-thingies, layout, onwater, button | FEATURE_SCOPE_UiThingies.md |
 | gps, gpsplugin, gps mode, demo mode, heading, course, compass, location, geolocation | FEATURE_SCOPE_GpsPlugin.md |
+| mapdisplay, map display, map, layer, depth layer, color depth, orientation | FEATURE_SCOPE_MapDisplay.md |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).
