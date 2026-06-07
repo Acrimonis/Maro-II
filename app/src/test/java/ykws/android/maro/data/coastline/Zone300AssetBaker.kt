@@ -42,7 +42,14 @@ class Zone300AssetBaker {
         )
         runBlocking {
             val regionId = CoastlineGenerator.REGION_ID
-            val data = CoastlineGenerator().generate(regionId)
+            // Robust online bake: a generous per-endpoint timeout (a slow Overpass server can take
+            // far longer than the 10 s runtime default) AND several retry attempts with back-off, so
+            // a transient disruption is recovered from instead of failing the whole bake. The
+            // on-device path keeps the fail-fast defaults (1 attempt, 10 s) → bundled-asset fallback.
+            val data = CoastlineGenerator(
+                httpTimeoutSeconds = 180,
+                maxFetchAttempts = 4
+            ).generate(regionId)
 
             // Build the band with the SAME classifier the app uses: containment isWater, with the
             // >6 NM open-water short-circuit (mirrors CoastlineRepository.isOnWater).

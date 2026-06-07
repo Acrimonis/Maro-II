@@ -1,9 +1,7 @@
 package ykws.android.maro.data.coastline
 
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.selects.select
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.*
 import okhttp3.MediaType.Companion.toMediaType
@@ -15,6 +13,7 @@ import ykws.android.maro.spatial.SpatialOperations
 import java.util.concurrent.TimeUnit
 import kotlin.math.cos
 import kotlin.math.PI
+import kotlin.random.Random
 
 /**
  * Pipeline OSM pour la côte Nice–Fréjus.
@@ -37,7 +36,23 @@ import kotlin.math.PI
  */
 class CoastlineGenerator(
     private val islandMaxDistanceNm: Double = 6.0,
-    private val simplifyEpsilonM: Double = 8.0
+    private val simplifyEpsilonM: Double = 8.0,
+    /**
+     * Connect/read/write timeout (seconds) per Overpass request. Defaults to a
+     * fail-fast 10 s for the interactive on-device path (the endpoint race picks the
+     * fastest responder; total failure falls back to the bundled asset). The offline
+     * [Zone300AssetBaker] passes a far larger value because a loaded Overpass server
+     * routinely needs well over 10 s to compute a full coastline + seamark bbox
+     * response — which is what made every raced endpoint time out during the bake.
+     */
+    private val httpTimeoutSeconds: Long = 10,
+    /**
+     * How many times the whole endpoint race is attempted before giving up. Defaults to 1
+     * (single race, no retry) so the interactive on-device path keeps failing fast to the
+     * bundled-asset fallback; the offline [Zone300AssetBaker] raises it to ride out transient
+     * Overpass disruptions (timeouts, 5xx, 429, dropped connections) via back-off + recovery.
+     */
+    private val maxFetchAttempts: Int = 1
 ) {
     // ── Constants ───────────────────────────────────────────────────────────
 
@@ -62,6 +77,10 @@ class CoastlineGenerator(
         /** Two seamark dangers closer than this (m) are treated as one (proximity dedup). */
         private const val HAZARD_DEDUP_DIST_M = 25.0
 
+        /** Retry back-off (ms): base doubles each attempt, full-jittered, capped at max. */
+        private const val RETRY_BASE_BACKOFF_MS = 2_000L
+        private const val RETRY_MAX_BACKOFF_MS = 30_000L
+
         /**
          * Overpass API endpoints ordered roughly by reliability.
          *
@@ -83,10 +102,15 @@ class CoastlineGenerator(
         private val FORM_URLENCODED = "application/x-www-form-urlencoded".toMediaType()
     }
 
-    /** Shared HTTP client with aggressive 10-second timeouts — fail fast, race wins. */
+    /**
+     * Shared HTTP client. Connect/read/write timeouts come from [httpTimeoutSeconds]
+     * (default 10 s = fail fast, race wins). The baker raises it so a slow Overpass
+     * server can finish instead of tripping a [java.net.SocketTimeoutException].
+     */
     private val httpClient = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(10, TimeUnit.SECONDS)
+        .connectTimeout(httpTimeoutSeconds, TimeUnit.SECONDS)
+        .readTimeout(httpTimeoutSeconds, TimeUnit.SECONDS)
+        .writeTimeout(httpTimeoutSeconds, TimeUnit.SECONDS)
         .build()
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -641,13 +665,15 @@ class CoastlineGenerator(
     // ── Overpass fetch (coroutines, true race) ──────────────────────────────
 
     /**
-     * Lance N requêtes Overpass en parallèle et retourne la première réponse
-     * valide. Tous les autres endpoints en cours sont immédiatement annulés
-     * dès qu'un succès est obtenu (race-to-first-success via [select]).
+     * Builds the single Overpass query (coastline ways + isolated-danger seamark nodes in one
+     * round-trip) and fetches it resiliently: every mirror is raced in parallel and the whole race
+     * is retried up to [maxFetchAttempts] times with jittered exponential back-off, so a transient
+     * disruption (socket timeout, 5xx, 429, dropped connection) is recovered from rather than
+     * aborting. See [fetchWithRetry] / [raceEndpoints] for the network-agnostic, unit-tested policy.
      */
     private suspend fun fetchOverpass(
         onProgress: (Int) -> Unit
-    ): OverpassData = coroutineScope {
+    ): OverpassData {
         // One request fetches the coastline ways AND the isolated-danger seamark
         // nodes (La Fourmigue, cardinal-marked shoals, wrecks) in a single round-trip.
         val seamarkTypes = SeamarkParser.DANGER_TYPES.joinToString("|")
@@ -663,55 +689,29 @@ class CoastlineGenerator(
 
         onProgress(10)
 
-        // ── 1. Lancer tous les endpoints en parallèle ─────────────────────────
-        // Chaque async est enveloppé dans runCatching pour que le Deferred
-        // ne lance jamais d'exception — select.onAwait peut ainsi inspecter
-        // le Result sans bloc try-catch.
-        val deferreds = OVERPASS_ENDPOINTS.map { endpoint ->
-            async {
-                runCatching {
-                    fetchFromEndpoint(endpoint, requestBody)
-                }
-            }
-        }
-
-        // ── 2. Race-to-first-success via select ──────────────────────────────
-        // select retourne le premier deferred qui se complète (succès ou échec).
-        //   - Succès → on cancel() les autres et on retourne immédiatement.
-        //   - Échec  → on enregistre l'exception et on attend le suivant.
-        var lastException: Throwable? = null
-        val remaining = deferreds.toMutableList()
-
-        while (remaining.isNotEmpty()) {
-            val (index, result) = select<Pair<Int, Result<OverpassData>>> {
-                remaining.forEachIndexed { i, deferred ->
-                    deferred.onAwait { value -> i to value }
-                }
-            }
-
-            if (result.isSuccess) {
-                // 🏆 Premier succès ! Annuler tous les autres appels en vol.
-                remaining.forEach { it.cancel() }
-                onProgress(100)
-                return@coroutineScope result.getOrThrow()
-            }
-
-            // ❌ Cet endpoint a échoué — essayer le suivant.
-            lastException = result.exceptionOrNull()
-            remaining.removeAt(index)
-        }
-
-        // 💀 Tous les endpoints ont échoué.
-        throw lastException
-            ?: IllegalStateException("Tous les endpoints Overpass ont échoué.")
+        return fetchWithRetry(
+            endpoints = OVERPASS_ENDPOINTS,
+            maxAttempts = maxFetchAttempts,
+            delay = { ms -> delay(ms) },
+            backoffMs = { attempt, retryAfterMs ->
+                exponentialBackoffMs(
+                    attempt = attempt,
+                    baseMs = RETRY_BASE_BACKOFF_MS,
+                    maxMs = RETRY_MAX_BACKOFF_MS,
+                    retryAfterMs = retryAfterMs,
+                    randomFraction = Random.nextDouble()
+                )
+            },
+            onProgress = onProgress
+        ) { endpoint -> fetchFromEndpoint(endpoint, requestBody) }
     }
 
     /**
      * Exécute une requête Overpass POST sur un endpoint et extrait les
      * ways[natural=coastline] (avec géométrie) + les nœuds seamark (dangers isolés).
      *
-     * @throws IllegalStateException si la réponse est vide, non-OK,
-     *         ou ne contient aucun way valide.
+     * @throws OverpassHttpException si la réponse HTTP est non-OK (porte le code + Retry-After).
+     * @throws IllegalStateException si la réponse est vide ou ne contient aucun way valide.
      */
     private fun fetchFromEndpoint(
         endpoint: String,
@@ -725,12 +725,16 @@ class CoastlineGenerator(
             .build()
 
         val response = httpClient.newCall(request).execute()
+        if (!response.isSuccessful) {
+            // Capture status + Retry-After before closing so the retry layer can classify this
+            // failure (5xx/429/408 → retry with back-off; other 4xx → fatal) without the body.
+            val code = response.code
+            val retryAfterMs = parseRetryAfterMs(response.header("Retry-After"))
+            response.close()
+            throw OverpassHttpException(code, retryAfterMs, "HTTP $code depuis $endpoint")
+        }
         val body = response.body?.string()
             ?: throw IllegalStateException("Réponse vide de $endpoint")
-
-        if (!response.isSuccessful) {
-            throw IllegalStateException("HTTP ${response.code} depuis $endpoint")
-        }
 
         val root = json.parseToJsonElement(body).jsonObject
         val elements = root["elements"]?.jsonArray ?: JsonArray(emptyList())

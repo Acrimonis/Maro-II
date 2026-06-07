@@ -1,10 +1,10 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** UiThingies
+- **Active Feature:** Coastline
 - **Active Subfeature:** none
-- **Last Updated:** 2026-06-06
-- **Last Bake:** 2026-06-06 (settings cleanup — removed lat/lon fields, added zone300 toggle)
+- **Last Updated:** 2026-06-07
+- **Last Bake:** 2026-06-07 (Overpass SocketTimeout resolved — injectable timeout + OverpassRetry; bake ran green 229KB asset; remaining: on-device verify + band-donut winding check)
 
 ## Routing Map
 | Keyword | Feature File |
