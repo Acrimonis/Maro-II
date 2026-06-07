@@ -187,14 +187,15 @@ class CoastlineViewModel(
     private var resumeJob: Job? = null
 
     /**
-     * Called on each user map touch. Pauses GPS auto-follow + auto-orientation, then resumes
-     * [USER_CONTROL_TIMEOUT_MS] after the last touch (snaps back to the GPS position, heading-up).
+     * Called on each user map touch. Pauses GPS auto-follow + auto-orientation, then resumes the
+     * user-configured recenter delay (settings.recenterDelaySeconds, 1–10 s) after the last touch
+     * (snaps back to the GPS position, heading-up).
      */
     fun notifyUserInteraction() {
         _autoFollowSuppressed.value = true
         resumeJob?.cancel()
         resumeJob = viewModelScope.launch {
-            delay(USER_CONTROL_TIMEOUT_MS)
+            delay(settings.value.recenterDelaySeconds.coerceIn(1, 10).toLong() * 1_000L)
             _autoFollowSuppressed.value = false
         }
     }
@@ -408,9 +409,6 @@ class CoastlineViewModel(
 
         /** Rate-limit for the compass heading (~5 Hz) so turning doesn't churn the map. */
         private const val HEADING_SAMPLE_MS = 200L
-
-        /** Idle time after the last user pan before GPS auto-follow/-orient resumes. */
-        private const val USER_CONTROL_TIMEOUT_MS = 5_000L
 
         /** Metres-per-second → knots. */
         private const val MPS_TO_KNOTS = 1.943844f

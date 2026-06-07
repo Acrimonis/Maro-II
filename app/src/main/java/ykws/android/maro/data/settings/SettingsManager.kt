@@ -27,6 +27,8 @@ import kotlinx.coroutines.flow.asStateFlow
  *                             size on restart without waiting for the shore pipeline.
  * @property gpsMode           When true, the device GPS drives the map center and the map
  *                             rotates heading-up; when false, free-pan "demo" mode.
+ * @property recenterDelaySeconds  GPS mode: seconds of no user pan before auto-follow/-orient
+ *                             resumes (1–10). Default 5.
  */
 data class AppSettings(
     val defaultLatitude: Double = 43.55,
@@ -34,6 +36,7 @@ data class AppSettings(
     val coastlineVisible: Boolean = true,
     val zone300Visible: Boolean = true,
     val gpsMode: Boolean = false,
+    val recenterDelaySeconds: Int = 5,
     val mapCenterLat: Double = Double.NaN,
     val mapCenterLon: Double = Double.NaN,
     val zoomLevel: Double = 0.0,
@@ -55,6 +58,7 @@ class SettingsManager(context: Context) {
         coastlineVisible = prefs.getBoolean(KEY_COASTLINE_VISIBLE, true),
         zone300Visible   = prefs.getBoolean(KEY_ZONE300_VISIBLE, true),
         gpsMode          = prefs.getBoolean(KEY_GPS_MODE, false),
+        recenterDelaySeconds = prefs.getInt(KEY_RECENTER_DELAY_S, 5),
         mapCenterLat     = prefs.getFloat(KEY_MAP_CENTER_LAT, Float.NaN).toDouble(),
         mapCenterLon     = prefs.getFloat(KEY_MAP_CENTER_LON, Float.NaN).toDouble(),
         zoomLevel        = prefs.getFloat(KEY_ZOOM_LEVEL, 0f).toDouble(),
@@ -81,6 +85,7 @@ class SettingsManager(context: Context) {
             .putBoolean(KEY_COASTLINE_VISIBLE, updated.coastlineVisible)
             .putBoolean(KEY_ZONE300_VISIBLE, updated.zone300Visible)
             .putBoolean(KEY_GPS_MODE, updated.gpsMode)
+            .putInt(KEY_RECENTER_DELAY_S, updated.recenterDelaySeconds)
             .putFloat(KEY_MAP_CENTER_LAT, updated.mapCenterLat.toFloat())
             .putFloat(KEY_MAP_CENTER_LON, updated.mapCenterLon.toFloat())
             .putFloat(KEY_ZOOM_LEVEL, updated.zoomLevel.toFloat())
@@ -96,6 +101,7 @@ class SettingsManager(context: Context) {
         private const val KEY_COASTLINE_VISIBLE = "coastline_visible"
         private const val KEY_ZONE300_VISIBLE = "zone300_visible"
         private const val KEY_GPS_MODE = "gps_mode"
+        private const val KEY_RECENTER_DELAY_S = "recenter_delay_s"
         private const val KEY_MAP_CENTER_LAT = "map_center_lat"
         private const val KEY_MAP_CENTER_LON = "map_center_lon"
         private const val KEY_ZOOM_LEVEL = "zoom_level"

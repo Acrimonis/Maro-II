@@ -3,7 +3,7 @@ name: GpsPlugin
 status: active
 created: 2026-06-07
 modified: 2026-06-07
-active_subfeature: dashboard
+active_subfeature: settings
 subs_total: 2
 subs_done: 0
 one_liner: Démo↔GPS toggle that drives the boat marker from the device GPS with a heading-up rotating map.
@@ -31,6 +31,7 @@ ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 - [x] Runtime ACCESS_FINE_LOCATION request on enable; foreground gate via lifecycle
 - [x] Compass rate-limit (sample 200 ms) + 1° jitter threshold
 - [x] Reset GPS state on disable so demo free-pans and re-enable recenters
+- [x] Adjustable GPS recenter delay setting (1–10 s) via a slider
 - [ ] Build (apk-build.bat) + on-device verification of all four flows
 
 #### Rules
@@ -75,3 +76,6 @@ ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 ## Key Files
 
 ## Docs
+- `docs/MARKER_SIZING.md` — sizing/behaviour of the centred boat marker that GPS positions on the map.
+- `docs/MARO_ARCHITECTURE.md` — spatial-engine constraints (Nice–Fréjus bounding box, async/map rules) GPS positions operate within.
+- `docs/300MLineDesign.md` — the 300 m regulatory band + 5-knot rule the dashboard speed colour-coding enforces.

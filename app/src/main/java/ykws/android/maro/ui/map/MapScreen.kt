@@ -36,6 +36,8 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -75,6 +77,7 @@ import org.osmdroid.views.overlay.GroundOverlay
 import org.osmdroid.views.overlay.Polygon
 import org.osmdroid.views.overlay.Polyline
 import kotlin.math.pow
+import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import ykws.android.maro.data.depth.DepthConstants
@@ -163,7 +166,7 @@ fun MapScreen(
 
     // ── GPS mode: recenter on each fix (rule 1), unless the user is panning ──
     // Gated on gpsMode (demo never auto-recenters) AND !autoFollowSuppressed
-    // (a recent user pan pauses follow for USER_CONTROL_TIMEOUT_MS, then it resumes).
+    // (a recent user pan pauses follow for the configured recenter delay, then it resumes).
     LaunchedEffect(gpsPosition, appSettings.gpsMode, autoFollowSuppressed, mapView) {
         val mv = mapView ?: return@LaunchedEffect
         if (appSettings.gpsMode && !autoFollowSuppressed) {
@@ -877,6 +880,18 @@ private fun SettingsOverlay(
                 onCheckedChange = onGpsModeChange
             )
 
+            Spacer(modifier = Modifier.height(12.dp))
+
+            SettingsSliderRow(
+                label = "Délai de recentrage",
+                description = "Temps avant recentrage GPS après un déplacement manuel",
+                valueLabel = "${settings.recenterDelaySeconds} s",
+                value = settings.recenterDelaySeconds.toFloat(),
+                valueRange = 1f..10f,
+                steps = 8,
+                onValueChange = { v -> onUpdateSettings { it.copy(recenterDelaySeconds = v.roundToInt()) } }
+            )
+
             Spacer(modifier = Modifier.height(24.dp))
 
             // ── Affichage (Display) section ──────────────────────────────
@@ -971,6 +986,63 @@ private fun SettingsToggleRow(
                 checkedTrackColor = ComposeColor(0xFF1565C0).copy(alpha = 0.4f),
                 uncheckedThumbColor = ComposeColor(0xFFB0BEC5),
                 uncheckedTrackColor = ComposeColor(0x33FFFFFF)
+            )
+        )
+    }
+}
+
+@Composable
+private fun SettingsSliderRow(
+    label: String,
+    description: String,
+    valueLabel: String,
+    value: Float,
+    valueRange: ClosedFloatingPointRange<Float>,
+    steps: Int,
+    onValueChange: (Float) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(ComposeColor(0x1AFFFFFF))
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = label,
+                    color = ComposeColor.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = description,
+                    color = ComposeColor(0xFFB0BEC5),
+                    fontSize = 13.sp
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(
+                text = valueLabel,
+                color = ComposeColor(0xFF1565C0),
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        Slider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = valueRange,
+            steps = steps,
+            colors = SliderDefaults.colors(
+                thumbColor = ComposeColor(0xFF1565C0),
+                activeTrackColor = ComposeColor(0xFF1565C0),
+                inactiveTrackColor = ComposeColor(0x33FFFFFF)
             )
         )
     }

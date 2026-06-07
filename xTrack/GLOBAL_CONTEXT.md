@@ -2,9 +2,9 @@
 
 ## Active Session Pointers
 - **Active Feature:** GpsPlugin
-- **Active Subfeature:** dashboard
+- **Active Subfeature:** settings
 - **Last Updated:** 2026-06-07
-- **Last Bake:** 2026-06-07 (GPS — Démo/GPS toggle + heading-up rotating map)
+- **Last Bake:** 2026-06-07 (GPS — dashboard 2×2 + speed/zone colour, recenter-delay setting, docs attached)
 
 ## Routing Map
 | Keyword | Feature File |
