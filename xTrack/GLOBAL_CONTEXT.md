@@ -1,10 +1,10 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** Performance
+- **Active Feature:** MapDisplay
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-07
-- **Last Bake:** 2026-06-07 (Performance — merged origin/develop into feature/performance, resolved GLOBAL_CONTEXT routing conflict; PR now mergeable)
+- **Last Bake:** 2026-06-07 (MapDisplay — single Box layout fix + android:configChanges to prevent Activity recreation on rotation)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -18,7 +18,6 @@
 | dashboard, ui, layout, hud, display, screen | FEATURE_SCOPE_Dashboard.md |
 | ui, ui-thingies, layout, onwater, button | FEATURE_SCOPE_UiThingies.md |
 | gps, gpsplugin, gps mode, demo mode, heading, course, compass, location, geolocation | FEATURE_SCOPE_GpsPlugin.md |
-| performance, battery, power, frequency, acquisition, refresh, adaptive, fps | FEATURE_SCOPE_Performance.md |
 | mapdisplay, map display, map, layer, depth layer, color depth, orientation | FEATURE_SCOPE_MapDisplay.md |
 
 ## Global Rules
