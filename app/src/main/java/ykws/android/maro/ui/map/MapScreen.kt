@@ -234,92 +234,73 @@ fun MapScreen(
         }
 
         // ── Main content (map + dashboard) ────────────────────────────────
+        // Note: MapContent is kept at a STABLE composition slot (always a direct child of Box)
+        // so the underlying MapView (AndroidView) is never recreated on orientation switch.
+        // The dashboard panel is overlaid via Modifier.align() in the orientation branch.
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val isLandscape = maxWidth > maxHeight
             val landscapeDashboardWidth = maxHeight * 2 / 3 // dashboard width = ⅔ screen height
             val portraitDashboardHeight = maxWidth * 2 / 3  // mirror landscape: ⅔ of the short side
 
+            // Map fills the box, padded to leave room for the dashboard overlay.
+            // Stable composition slot — never inside an if/else branch.
+            MapContent(
+                state = state,
+                progress = progress,
+                mapCenter = mapCenter,
+                isWater = isWater,
+                zoomLevel = zoomLevel,
+                distanceToShore = distanceToShore,
+                zone300 = zone300,
+                depthBitmap = depthBitmap,
+                depthBox = depthGrid?.boundingBox,
+                isobaths = isobaths,
+                appSettings = appSettings,
+                mapView = mapView,
+                onCenterChanged = onCenterChanged,
+                onZoomChanged = viewModel::updateZoomLevel,
+                onMapViewReady = { mapView = it },
+                onRetry = { viewModel.loadCoastline() },
+                onOpenSettings = { showSettings = true },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(
+                        if (isLandscape) PaddingValues(start = landscapeDashboardWidth, top = 0.dp, end = 0.dp, bottom = 0.dp)
+                        else PaddingValues(start = 0.dp, top = 0.dp, end = 0.dp, bottom = portraitDashboardHeight)
+                    )
+            )
+
+            // Dashboard overlaid on top, positioned via alignment.
             if (isLandscape) {
-                // ── LANDSCAPE: Dashboard (left) + Map (right) ──────────────────
-                Row(modifier = Modifier.fillMaxSize()) {
-                    DashboardPanel(
-                        state = state,
-                        isWater = isWater,
-                        distanceToShore = distanceToShore,
-                        inZone300 = inZone300,
-                        distanceToZone = distanceToZone,
-                        depthSample = depthAtCenter,
-                        validation = depthValidation,
-                        speedKnots = speedKnots,
-                        modifier = Modifier
-                            .width(landscapeDashboardWidth)
-                            .fillMaxHeight()
-                    )
-
-                    // Map fills the remaining horizontal space
-                    MapContent(
-                        state = state,
-                        progress = progress,
-                        mapCenter = mapCenter,
-                        isWater = isWater,
-                        zoomLevel = zoomLevel,
-                        distanceToShore = distanceToShore,
-                        zone300 = zone300,
-                        depthBitmap = depthBitmap,
-                        depthBox = depthGrid?.boundingBox,
-                        isobaths = isobaths,
-                        appSettings = appSettings,
-                        mapView = mapView,
-                        onCenterChanged = onCenterChanged,
-                        onZoomChanged = viewModel::updateZoomLevel,
-                        onMapViewReady = { mapView = it },
-                        onRetry = { viewModel.loadCoastline() },
-                        onOpenSettings = { showSettings = true },
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxHeight()
-                    )
-                }
+                DashboardPanel(
+                    state = state,
+                    isWater = isWater,
+                    distanceToShore = distanceToShore,
+                    inZone300 = inZone300,
+                    distanceToZone = distanceToZone,
+                    depthSample = depthAtCenter,
+                    validation = depthValidation,
+                    speedKnots = speedKnots,
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .width(landscapeDashboardWidth)
+                        .fillMaxHeight()
+                )
             } else {
-                // ── PORTRAIT: Map (top) + Dashboard (bottom) ───────────────────
-                Column(modifier = Modifier.fillMaxSize()) {
-                    MapContent(
-                        state = state,
-                        progress = progress,
-                        mapCenter = mapCenter,
-                        isWater = isWater,
-                        zoomLevel = zoomLevel,
-                        distanceToShore = distanceToShore,
-                        zone300 = zone300,
-                        depthBitmap = depthBitmap,
-                        depthBox = depthGrid?.boundingBox,
-                        isobaths = isobaths,
-                        appSettings = appSettings,
-                        mapView = mapView,
-                        onCenterChanged = onCenterChanged,
-                        onZoomChanged = viewModel::updateZoomLevel,
-                        onMapViewReady = { mapView = it },
-                        onRetry = { viewModel.loadCoastline() },
-                        onOpenSettings = { showSettings = true },
-                        modifier = Modifier
-                            .weight(1f)
-                            .fillMaxWidth()
-                    )
-
-                    DashboardPanel(
-                        state = state,
-                        isWater = isWater,
-                        distanceToShore = distanceToShore,
-                        inZone300 = inZone300,
-                        distanceToZone = distanceToZone,
-                        depthSample = depthAtCenter,
-                        validation = depthValidation,
-                        speedKnots = speedKnots,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(portraitDashboardHeight)
-                    )
-                }
+                DashboardPanel(
+                    state = state,
+                    isWater = isWater,
+                    distanceToShore = distanceToShore,
+                    inZone300 = inZone300,
+                    distanceToZone = distanceToZone,
+                    depthSample = depthAtCenter,
+                    validation = depthValidation,
+                    speedKnots = speedKnots,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .height(portraitDashboardHeight)
+                )
             }
         }
 
