@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -21,11 +19,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -61,19 +56,19 @@ private object DashboardColors {
     val zoneNormal = Color(0xFF37474F)
     val validationOk = Color(0xFF66BB6A)
     val validationWarn = Color(0xFFFFA726)
-    val btnBlue = Color(0xFF1565C0)
-    val btnRed = Color(0xFFC62828)
 }
 
 // ── Dashboard panel (public, called from MapScreen) ──────────────────────────
 
 /**
- * Dashboard panel redesigned as visual gauge cards for quick reading of indicators.
+ * Dashboard panel with visual gauge cards for quick reading of indicators.
  *
  * Landscape: 3 cards stacked vertically, full panel width.
  * Portrait:  3 cards in a horizontal row; collapses to vertical stack below 240dp per card.
+ *
+ * Read-only — no action buttons or toggles. See global rule: action controls live in the
+ * map overlay area, never in the dashboard.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DashboardPanel(
     state: CoastlineState,
@@ -83,8 +78,6 @@ fun DashboardPanel(
     distanceToZone: Double?,
     depthSample: DepthSample?,
     validation: ValidationReport?,
-    onGenerate: () -> Unit,
-    onRegenerateBand: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -128,10 +121,9 @@ fun DashboardPanel(
                     }
                 } else if (availableWidth >= 240.dp) {
                     // Medium layout: 2 per row, third wraps
-                    FlowRow(
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         DistanceCard(
                             distanceToShore = distanceToShore,
@@ -145,11 +137,12 @@ fun DashboardPanel(
                             state = state,
                             modifier = Modifier.weight(1f)
                         )
-                        DepthCard(
-                            depthSample = depthSample,
-                            modifier = Modifier.fillMaxWidth()
-                        )
                     }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    DepthCard(
+                        depthSample = depthSample,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 } else {
                     // Narrow layout: all cards stacked
                     Column(
@@ -180,56 +173,6 @@ fun DashboardPanel(
             if (validation != null) {
                 ValidationBadge(validation = validation)
                 Spacer(modifier = Modifier.height(6.dp))
-            }
-
-            // ── Action buttons row ─────────────────────────────────────────
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
-                verticalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterVertically)
-            ) {
-                Button(
-                    onClick = onGenerate,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = DashboardColors.btnBlue,
-                        disabledContainerColor = DashboardColors.btnBlue.copy(alpha = 0.25f),
-                        disabledContentColor = DashboardColors.textMuted.copy(alpha = 0.6f)
-                    ),
-                    shape = RoundedCornerShape(10.dp),
-                    enabled = state !is CoastlineState.Loading
-                ) {
-                    Text(
-                        text = when (state) {
-                            is CoastlineState.Loading -> "Côte…"
-                            else -> "Côte"
-                        },
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Button(
-                    onClick = onRegenerateBand,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = DashboardColors.btnRed,
-                        disabledContainerColor = DashboardColors.btnRed.copy(alpha = 0.25f),
-                        disabledContentColor = DashboardColors.textMuted.copy(alpha = 0.6f)
-                    ),
-                    shape = RoundedCornerShape(10.dp),
-                    enabled = state is CoastlineState.Ready
-                ) {
-                    Text(
-                        text = "Bande",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                EarthWaterIcon(
-                    emoji = if (isWater) "\uD83C\uDF0A" else "\uD83C\uDFD4\uFE0F",
-                    isActive = true,
-                    activeColor = if (isWater) DashboardColors.btnBlue else DashboardColors.green
-                )
             }
         }
     }
@@ -435,29 +378,6 @@ private fun ValidationBadge(
             fontSize = 10.sp,
             fontWeight = FontWeight.Medium
         )
-    }
-}
-
-// ── Earth / Water icon control ───────────────────────────────────────────────
-
-@Composable
-fun EarthWaterIcon(
-    emoji: String,
-    isActive: Boolean,
-    activeColor: Color,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .size(40.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(
-                if (isActive) activeColor.copy(alpha = 0.30f)
-                else Color.White.copy(alpha = 0.93f)
-            ),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(text = emoji, fontSize = 20.sp)
     }
 }
 

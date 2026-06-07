@@ -2,18 +2,26 @@ package ykws.android.maro.ui.map
 
 import android.app.Application
 import android.content.Context
+import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
@@ -23,6 +31,8 @@ import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import ykws.android.maro.data.coastline.CoastlineRepository
+import ykws.android.maro.data.location.CompassSource
+import ykws.android.maro.data.location.GpsLocationSource
 import ykws.android.maro.data.model.CoastlineState
 import ykws.android.maro.data.model.GenerationProgress
 import ykws.android.maro.data.model.LatLng
@@ -48,6 +58,10 @@ class CoastlineViewModel(
 
     /** Persisted settings — initialised eagerly so StateFlows are seeded directly. */
     private val settingsManager: SettingsManager = SettingsManager(application)
+
+    /** Device GPS + compass sources (framework-only, no Google Play Services) for GPS mode. */
+    private val gpsSource: GpsLocationSource = GpsLocationSource(application)
+    private val compass: CompassSource = CompassSource(application)
 
     /** Initial settings snapshot — used to seed StateFlow initial values. */
     private val initialAppSettings: AppSettings = settingsManager.settings.value
@@ -143,6 +157,50 @@ class CoastlineViewModel(
         .map { (it as? CoastlineState.Ready)?.data?.zone300 }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    // ── GPS mode state ──────────────────────────────────────────────────────
+    /** Latest GPS fix position (null until first fix). Drives the MapView recenter in GPS mode. */
+    private val _gpsPosition = MutableStateFlow<LatLng?>(null)
+    val gpsPosition: StateFlow<LatLng?> = _gpsPosition.asStateFlow()
+
+    /** Heading (deg) the map should orient to — GPS course, else compass. Map rotates −mapBearing. */
+    private val _mapBearing = MutableStateFlow(0f)
+    val mapBearing: StateFlow<Float> = _mapBearing.asStateFlow()
+
+    /** Foreground gate: GPS/compass collectors run only while true (set by the screen lifecycle). */
+    private val _gpsActive = MutableStateFlow(false)
+
+    /** elapsedRealtime() of the last valid GPS course — seeds the 3 s compass fallback. */
+    private var lastGpsBearingMs = 0L
+
+    /** Called from the screen lifecycle: enable GPS/compass on resume, disable on pause. */
+    fun setGpsActive(active: Boolean) {
+        _gpsActive.value = active
+    }
+
+    /** True while the user is manually panning in GPS mode → auto-follow/-orient paused. */
+    private val _autoFollowSuppressed = MutableStateFlow(false)
+    val autoFollowSuppressed: StateFlow<Boolean> = _autoFollowSuppressed.asStateFlow()
+    private var resumeJob: Job? = null
+
+    /**
+     * Called on each user map touch. Pauses GPS auto-follow + auto-orientation, then resumes
+     * [USER_CONTROL_TIMEOUT_MS] after the last touch (snaps back to the GPS position, heading-up).
+     */
+    fun notifyUserInteraction() {
+        _autoFollowSuppressed.value = true
+        resumeJob?.cancel()
+        resumeJob = viewModelScope.launch {
+            delay(USER_CONTROL_TIMEOUT_MS)
+            _autoFollowSuppressed.value = false
+        }
+    }
+
+    /** Update heading only past a small threshold so sensor jitter doesn't churn the map. */
+    private fun setMapBearing(deg: Float) {
+        val delta = kotlin.math.abs(((deg - _mapBearing.value + 540f) % 360f) - 180f)
+        if (delta >= MIN_BEARING_DELTA_DEG) _mapBearing.value = deg
+    }
+
     init {
         // ── Shore recompute pipeline (throttled) ───────────────────────────
         // osmdroid fires a scroll event on every frame of a pan/fling (30–60/s);
@@ -177,6 +235,52 @@ class CoastlineViewModel(
                 }
                 _inZone300.value = shore.inZone
                 _distanceToZone.value = shore.distToZone
+            }
+            .launchIn(viewModelScope)
+
+        // ── GPS mode collectors (rules 1–3) ─────────────────────────────────
+        // enabled = GPS toggle AND app foreground. flatMapLatest tears down the
+        // location/compass listeners the instant either turns off.
+        val enabled = combine(
+            settings.map { it.gpsMode }.distinctUntilChanged(),
+            _gpsActive
+        ) { mode, active -> mode && active }.distinctUntilChanged()
+
+        // GPS: keep the fix centered (rule 1) + course-up heading while moving (rule 2).
+        enabled
+            .flatMapLatest { on -> if (on) gpsSource.locationUpdates() else emptyFlow() }
+            .onEach { fix ->
+                _gpsPosition.value = fix.position
+                updateMapCenter(fix.position.latitude, fix.position.longitude)
+                if (fix.hasCourse && fix.bearingDeg != null) {
+                    setMapBearing(fix.bearingDeg)
+                    lastGpsBearingMs = SystemClock.elapsedRealtime()
+                }
+            }
+            .catch { /* permission revoked mid-stream → stop silently */ }
+            .launchIn(viewModelScope)
+
+        // Compass: orient the boat only after HEADING_FALLBACK_MS without a GPS course (rule 3).
+        // sample() rate-limits the ~16 Hz sensor to ~5 Hz so turning doesn't churn the map.
+        enabled
+            .flatMapLatest { on -> if (on) compass.azimuthUpdates().sample(HEADING_SAMPLE_MS) else emptyFlow() }
+            .onEach { azimuth ->
+                if (SystemClock.elapsedRealtime() - lastGpsBearingMs > HEADING_FALLBACK_MS) {
+                    setMapBearing(azimuth)
+                }
+            }
+            .launchIn(viewModelScope)
+
+        // Leaving GPS mode → clear GPS-derived state so demo pans freely (north-up) and a
+        // later re-enable recenters even if the first fix repeats the last coordinates.
+        settings.map { it.gpsMode }
+            .distinctUntilChanged()
+            .onEach { on ->
+                if (!on) {
+                    _gpsPosition.value = null
+                    _mapBearing.value = 0f
+                    lastGpsBearingMs = 0L
+                }
             }
             .launchIn(viewModelScope)
     }
@@ -220,8 +324,12 @@ class CoastlineViewModel(
      */
     fun updateMapCenter(latitude: Double, longitude: Double) {
         _mapCenter.value = LatLng(latitude, longitude)
-        // Persist position immediately (no throttling needed for disk writes)
-        settingsManager.update { it.copy(mapCenterLat = latitude, mapCenterLon = longitude) }
+        // Persist only for user-driven moves. GPS auto-follow would write ~1×/s, so it relies on
+        // savePosition() at ON_PAUSE (exit) instead. Demo (no gpsMode) persists per pan, as before.
+        val userDriven = !settings.value.gpsMode || _autoFollowSuppressed.value
+        if (userDriven) {
+            settingsManager.update { it.copy(mapCenterLat = latitude, mapCenterLon = longitude) }
+        }
     }
 
     /**
@@ -285,6 +393,18 @@ class CoastlineViewModel(
     companion object {
         /** Sampling interval for the map-center recompute pipeline (~6–7 Hz). */
         private const val SHORE_SAMPLE_INTERVAL_MS = 150L
+
+        /** Time without a GPS course before the compass takes over heading-up (rule 3). */
+        private const val HEADING_FALLBACK_MS = 3_000L
+
+        /** Minimum heading change (deg) before the map re-orients — suppresses sensor jitter. */
+        private const val MIN_BEARING_DELTA_DEG = 1.0f
+
+        /** Rate-limit for the compass heading (~5 Hz) so turning doesn't churn the map. */
+        private const val HEADING_SAMPLE_MS = 200L
+
+        /** Idle time after the last user pan before GPS auto-follow/-orient resumes. */
+        private const val USER_CONTROL_TIMEOUT_MS = 5_000L
 
         /**
          * Factory for [CoastlineViewModel] — required because the primary constructor
