@@ -1,7 +1,7 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** MapDisplay
+- **Active Feature:** WorkflowImprovement
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-07
 - **Last Bake:** 2026-06-07 (MapDisplay — single Box layout fix + android:configChanges to prevent Activity recreation on rotation)
