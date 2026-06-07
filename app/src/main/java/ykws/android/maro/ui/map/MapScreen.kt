@@ -10,8 +10,13 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import ykws.android.maro.R
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -30,6 +35,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -57,6 +63,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -123,8 +130,6 @@ fun MapScreen(
     var showSettings by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
-    val gpsPosition by viewModel.gpsPosition.collectAsState()
-    val mapBearing by viewModel.mapBearing.collectAsState()
     val autoFollowSuppressed by viewModel.autoFollowSuppressed.collectAsState()
     val speedKnots by viewModel.speedKnots.collectAsState()
 
@@ -164,28 +169,33 @@ fun MapScreen(
         }
     }
 
-    // ── GPS mode: recenter on each fix (rule 1), unless the user is panning ──
-    // Gated on gpsMode (demo never auto-recenters) AND !autoFollowSuppressed
-    // (a recent user pan pauses follow for the configured recenter delay, then it resumes).
-    LaunchedEffect(gpsPosition, appSettings.gpsMode, autoFollowSuppressed, mapView) {
+    // ── GPS auto-follow: capped recenter + heading-up (rules 1–3) ─────────
+    // One throttled stream (≤ appSettings.mapRefreshFps) drives BOTH position and
+    // orientation via a single setCenter + mapOrientation per tick — replacing the
+    // per-fix animateTo, whose scroll animation repainted the whole map at ~60 fps.
+    // The effect is keyed on gpsMode/suppression/mapView, so it restarts each time
+    // auto-follow re-engages (GPS on, or the recenter delay expiring after a pan):
+    // the FIRST target then animates (smooth scroll back), and every subsequent fix
+    // uses the cheap capped setCenter. Manual pinch/pan/fling keep osmdroid's own
+    // full-rate path — the cap governs only this GPS-follow flow.
+    LaunchedEffect(appSettings.gpsMode, autoFollowSuppressed, mapView) {
         val mv = mapView ?: return@LaunchedEffect
-        if (appSettings.gpsMode && !autoFollowSuppressed) {
-            gpsPosition?.let {
-                mv.controller.animateTo(GeoPoint(it.latitude, it.longitude))
-                // Keep depth-at-center following the GPS fix (independent of scroll events).
-                depthViewModel.updateMapCenter(it.latitude, it.longitude)
+        if (!appSettings.gpsMode) { mv.mapOrientation = 0f; mv.invalidate(); return@LaunchedEffect }
+        if (autoFollowSuppressed) return@LaunchedEffect
+        var reengage = true
+        viewModel.cameraUpdates.collect { target ->
+            val point = GeoPoint(target.position.latitude, target.position.longitude)
+            if (reengage) {
+                // Scroll smoothly back to the GPS position when follow resumes (no snap).
+                mv.controller.animateTo(point)
+                reengage = false
+            } else {
+                mv.controller.setCenter(point)
             }
-        }
-    }
-
-    // ── GPS mode: rotate heading-up (rules 2/3); north-up in demo ─────────
-    // While the user pans in GPS mode, orientation is left as-is; it snaps back
-    // to heading-up when auto-follow resumes.
-    LaunchedEffect(mapBearing, appSettings.gpsMode, autoFollowSuppressed, mapView) {
-        val mv = mapView ?: return@LaunchedEffect
-        when {
-            !appSettings.gpsMode -> { mv.mapOrientation = 0f; mv.invalidate() }
-            !autoFollowSuppressed -> { mv.mapOrientation = -mapBearing; mv.invalidate() }
+            mv.mapOrientation = -target.bearingDeg
+            mv.invalidate()
+            // Keep depth-at-center following the GPS fix at the same capped cadence.
+            depthViewModel.updateMapCenter(target.position.latitude, target.position.longitude)
         }
     }
 
@@ -849,6 +859,15 @@ private fun SettingsOverlay(
 
             Spacer(modifier = Modifier.height(32.dp))
 
+            // Scrollable settings body — the header above stays pinned so the back
+            // button is always reachable. weight(1f) bounds the height so verticalScroll works.
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+            ) {
+
             // -- Source de position (Demo <-> GPS) section --
             SectionHeader(title = "Source de position")
 
@@ -904,14 +923,105 @@ private fun SettingsOverlay(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // ── Économie d'énergie section (battery) — grouped by function ──
+            SectionHeader(title = "Économie d'énergie")
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Group 1: GPS acquisition cadence while moving.
+            SubSectionHeader(
+                title = "Acquisition GPS",
+                description = "Mise à jour de votre position pendant la navigation"
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            SettingsFrequencyRow(
+                intervalSec = settings.gpsActiveIntervalSec,
+                onSelect = { ivl, dist ->
+                    onUpdateSettings { it.copy(gpsActiveIntervalSec = ivl, gpsActiveMinDistanceM = dist) }
+                }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Group 2: map re-render ceiling.
+            SubSectionHeader(
+                title = "Rendu carte",
+                description = "Nombre de redessins de la carte par seconde en suivi GPS"
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            SettingsSliderRow(
+                label = "Fréquence de rafraîchissement",
+                description = "Plus bas = moins de batterie, animation moins fluide",
+                valueLabel = "${settings.mapRefreshFps} fps",
+                value = settings.mapRefreshFps.toFloat(),
+                valueRange = 5f..50f,
+                steps = 8,
+                onValueChange = { v -> onUpdateSettings { it.copy(mapRefreshFps = (v / 5f).roundToInt() * 5) } }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Group 3: movement-adaptive idle behaviour.
+            SubSectionHeader(
+                title = "Économie à l'arrêt",
+                description = "Quand le bateau ne bouge plus, les positions GPS s'espacent pour économiser la batterie ; tout revient à la normale dès que vous repartez"
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            // Primary lever (always visible): how slow GPS goes once stopped.
+            SettingsSliderRow(
+                label = "Intervalle au repos",
+                description = "Délai entre deux positions GPS à l'arrêt · plus long = moins de batterie",
+                valueLabel = "${settings.adaptiveIdleIntervalSec} s",
+                value = settings.adaptiveIdleIntervalSec.toFloat(),
+                valueRange = 4f..15f,
+                steps = 10,
+                onValueChange = { v -> onUpdateSettings { it.copy(adaptiveIdleIntervalSec = v.roundToInt()) } }
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Advanced stop-detection thresholds, collapsed by default (progressive disclosure).
+            var adaptiveAdvanced by remember { mutableStateOf(false) }
+            SettingsExpander(
+                label = "Avancé — détection de l'arrêt",
+                expanded = adaptiveAdvanced,
+                onToggle = { adaptiveAdvanced = !adaptiveAdvanced }
+            ) {
+                Spacer(modifier = Modifier.height(8.dp))
+                SettingsSliderRow(
+                    label = "Fenêtre adaptative",
+                    description = "Temps sans bouger avant de réduire la fréquence GPS",
+                    valueLabel = "${settings.adaptiveWindowSec} s",
+                    value = settings.adaptiveWindowSec.toFloat(),
+                    valueRange = 15f..60f,
+                    steps = 8,
+                    onValueChange = { v -> onUpdateSettings { it.copy(adaptiveWindowSec = (v / 5f).roundToInt() * 5) } }
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                SettingsSliderRow(
+                    label = "Distance adaptative",
+                    description = "En dessous de ce déplacement, vous êtes considéré « à l'arrêt »",
+                    valueLabel = "${settings.adaptiveDistanceM} m",
+                    value = settings.adaptiveDistanceM.toFloat(),
+                    valueRange = 10f..30f,
+                    steps = 3,
+                    onValueChange = { v -> onUpdateSettings { it.copy(adaptiveDistanceM = (v / 5f).roundToInt() * 5) } }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
             // ── Footer ────────────────────────────────────────────────────
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.height(32.dp))
             Text(
                 text = "Maro II \u2014 v1.0",
                 color = ComposeColor(0xFF546E7A),
                 fontSize = 12.sp,
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             )
+            } // end scrollable settings body
         }
     }
 }
@@ -923,7 +1033,7 @@ private fun SectionHeader(title: String) {
     Text(
         text = title.uppercase(),
         color = ComposeColor(0xFF1565C0),
-        fontSize = 13.sp,
+        fontSize = 17.sp,
         fontWeight = FontWeight.Bold,
         letterSpacing = 1.sp
     )
@@ -1026,6 +1136,154 @@ private fun SettingsSliderRow(
                 inactiveTrackColor = ComposeColor(0x33FFFFFF)
             )
         )
+    }
+}
+
+/** Dimmer sub-heading with an optional one-line description, for grouping settings in a section. */
+@Composable
+private fun SubSectionHeader(title: String, description: String? = null) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = title,
+            color = ComposeColor(0xFF90A4AE),
+            fontSize = 16.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+        if (description != null) {
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = description,
+                color = ComposeColor(0xFF78909C),
+                fontSize = 13.sp
+            )
+        }
+    }
+}
+
+/**
+ * Tappable "Avancé" disclosure row that reveals [content] with a chevron + slide animation.
+ * Progressive disclosure — keeps advanced/fiddly controls out of the way until asked for.
+ */
+@Composable
+private fun SettingsExpander(
+    label: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    val rotation by animateFloatAsState(
+        targetValue = if (expanded) 180f else 0f,
+        label = "expanderChevron"
+    )
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .clickable { onToggle() }
+                .padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = label,
+                color = ComposeColor(0xFF90A4AE),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.weight(1f)
+            )
+            Icon(
+                imageVector = Icons.Default.KeyboardArrowDown,
+                contentDescription = if (expanded) "Réduire" else "Développer",
+                tint = ComposeColor(0xFF90A4AE),
+                modifier = Modifier.rotate(rotation)
+            )
+        }
+        AnimatedVisibility(visible = expanded) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                content()
+            }
+        }
+    }
+}
+
+/**
+ * GPS frequency as a 3-stop labelled slider. Each stop writes the matching (interval, min-distance)
+ * pair — Haute 1 s/1 m · Équilibrée 2 s/5 m · Économie 4 s/10 m. Équilibrée's label is bold to mark
+ * it as the default; the active stop is highlighted in blue.
+ */
+@Composable
+private fun SettingsFrequencyRow(
+    intervalSec: Int,
+    onSelect: (intervalSec: Int, minDistanceM: Float) -> Unit
+) {
+    // (label, intervalSec, minDistanceM) at slider index 0, 1, 2
+    val stops = listOf(
+        Triple("Haute", 1, 1f),
+        Triple("Équilibrée", 2, 5f),
+        Triple("Économie", 4, 10f)
+    )
+    val currentIdx = stops.indexOfFirst { it.second == intervalSec }.let { if (it < 0) 1 else it }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(ComposeColor(0x1AFFFFFF))
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        Text(
+            text = "Fréquence GPS",
+            color = ComposeColor.White,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium
+        )
+        Text(
+            text = "Intervalle entre les positions GPS en mouvement · plus lent = moins de batterie",
+            color = ComposeColor(0xFFB0BEC5),
+            fontSize = 13.sp
+        )
+        Spacer(modifier = Modifier.height(4.dp))
+        Slider(
+            value = currentIdx.toFloat(),
+            onValueChange = { v ->
+                val idx = v.roundToInt().coerceIn(0, stops.lastIndex)
+                onSelect(stops[idx].second, stops[idx].third)
+            },
+            valueRange = 0f..2f,
+            steps = 1,
+            colors = SliderDefaults.colors(
+                thumbColor = ComposeColor(0xFF1565C0),
+                activeTrackColor = ComposeColor(0xFF1565C0),
+                inactiveTrackColor = ComposeColor(0x33FFFFFF)
+            )
+        )
+        Row(modifier = Modifier.fillMaxWidth()) {
+            stops.forEachIndexed { idx, stop ->
+                val selected = idx == currentIdx
+                val accent = if (selected) ComposeColor(0xFF1565C0) else ComposeColor(0xFFB0BEC5)
+                Column(
+                    modifier = Modifier.weight(1f),
+                    horizontalAlignment = when (idx) {
+                        0 -> Alignment.Start
+                        stops.lastIndex -> Alignment.End
+                        else -> Alignment.CenterHorizontally
+                    }
+                ) {
+                    Text(
+                        text = stop.first,
+                        color = accent,
+                        fontSize = 13.sp,
+                        // Default (Équilibrée) stays bold to flag the recommended setting.
+                        fontWeight = if (idx == 1) FontWeight.Bold else FontWeight.Normal
+                    )
+                    Text(
+                        text = "${stop.second}s/${stop.third.roundToInt()}m",
+                        color = accent,
+                        fontSize = 12.sp
+                    )
+                }
+            }
+        }
     }
 }
 

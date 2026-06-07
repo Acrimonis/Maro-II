@@ -29,6 +29,18 @@ import kotlinx.coroutines.flow.asStateFlow
  *                             rotates heading-up; when false, free-pan "demo" mode.
  * @property recenterDelaySeconds  GPS mode: seconds of no user pan before auto-follow/-orient
  *                             resumes (1–10). Default 5.
+ * @property gpsActiveIntervalSec   GPS mode (moving): minimum seconds between fixes (1–10). The
+ *                             acquisition presets write this + [gpsActiveMinDistanceM]. Default 2.
+ * @property gpsActiveMinDistanceM  GPS mode (moving): minimum metres of movement between fixes
+ *                             (1–25). Default 5.
+ * @property adaptiveWindowSec      Adaptive idle detector: seconds of sub-threshold movement before
+ *                             dropping to the idle fix rate (15–60). Default 30.
+ * @property adaptiveDistanceM      Adaptive idle detector: max displacement (m) still counted as
+ *                             "stationary" (10–30). Default 20.
+ * @property adaptiveIdleIntervalSec  Adaptive idle: seconds between fixes once stationary (4–15).
+ *                             Default 6.
+ * @property mapRefreshFps     GPS auto-follow re-render ceiling in frames/s (5–50). Lower = fewer
+ *                             whole-map repaints = less battery. Default 25.
  */
 data class AppSettings(
     val defaultLatitude: Double = 43.55,
@@ -37,6 +49,12 @@ data class AppSettings(
     val zone300Visible: Boolean = true,
     val gpsMode: Boolean = false,
     val recenterDelaySeconds: Int = 5,
+    val gpsActiveIntervalSec: Int = 2,
+    val gpsActiveMinDistanceM: Float = 5f,
+    val adaptiveWindowSec: Int = 30,
+    val adaptiveDistanceM: Int = 20,
+    val adaptiveIdleIntervalSec: Int = 6,
+    val mapRefreshFps: Int = 25,
     val mapCenterLat: Double = Double.NaN,
     val mapCenterLon: Double = Double.NaN,
     val zoomLevel: Double = 0.0,
@@ -59,6 +77,12 @@ class SettingsManager(context: Context) {
         zone300Visible   = prefs.getBoolean(KEY_ZONE300_VISIBLE, true),
         gpsMode          = prefs.getBoolean(KEY_GPS_MODE, false),
         recenterDelaySeconds = prefs.getInt(KEY_RECENTER_DELAY_S, 5),
+        gpsActiveIntervalSec = prefs.getInt(KEY_GPS_INTERVAL_S, 2),
+        gpsActiveMinDistanceM = prefs.getFloat(KEY_GPS_MIN_DISTANCE_M, 5f),
+        adaptiveWindowSec     = prefs.getInt(KEY_ADAPTIVE_WINDOW_S, 30),
+        adaptiveDistanceM     = prefs.getInt(KEY_ADAPTIVE_DISTANCE_M, 20),
+        adaptiveIdleIntervalSec = prefs.getInt(KEY_ADAPTIVE_IDLE_S, 6),
+        mapRefreshFps    = prefs.getInt(KEY_MAP_REFRESH_FPS, 25),
         mapCenterLat     = prefs.getFloat(KEY_MAP_CENTER_LAT, Float.NaN).toDouble(),
         mapCenterLon     = prefs.getFloat(KEY_MAP_CENTER_LON, Float.NaN).toDouble(),
         zoomLevel        = prefs.getFloat(KEY_ZOOM_LEVEL, 0f).toDouble(),
@@ -86,6 +110,12 @@ class SettingsManager(context: Context) {
             .putBoolean(KEY_ZONE300_VISIBLE, updated.zone300Visible)
             .putBoolean(KEY_GPS_MODE, updated.gpsMode)
             .putInt(KEY_RECENTER_DELAY_S, updated.recenterDelaySeconds)
+            .putInt(KEY_GPS_INTERVAL_S, updated.gpsActiveIntervalSec)
+            .putFloat(KEY_GPS_MIN_DISTANCE_M, updated.gpsActiveMinDistanceM)
+            .putInt(KEY_ADAPTIVE_WINDOW_S, updated.adaptiveWindowSec)
+            .putInt(KEY_ADAPTIVE_DISTANCE_M, updated.adaptiveDistanceM)
+            .putInt(KEY_ADAPTIVE_IDLE_S, updated.adaptiveIdleIntervalSec)
+            .putInt(KEY_MAP_REFRESH_FPS, updated.mapRefreshFps)
             .putFloat(KEY_MAP_CENTER_LAT, updated.mapCenterLat.toFloat())
             .putFloat(KEY_MAP_CENTER_LON, updated.mapCenterLon.toFloat())
             .putFloat(KEY_ZOOM_LEVEL, updated.zoomLevel.toFloat())
@@ -102,6 +132,12 @@ class SettingsManager(context: Context) {
         private const val KEY_ZONE300_VISIBLE = "zone300_visible"
         private const val KEY_GPS_MODE = "gps_mode"
         private const val KEY_RECENTER_DELAY_S = "recenter_delay_s"
+        private const val KEY_GPS_INTERVAL_S = "gps_interval_s"
+        private const val KEY_GPS_MIN_DISTANCE_M = "gps_min_distance_m"
+        private const val KEY_ADAPTIVE_WINDOW_S = "adaptive_window_s"
+        private const val KEY_ADAPTIVE_DISTANCE_M = "adaptive_distance_m"
+        private const val KEY_ADAPTIVE_IDLE_S = "adaptive_idle_s"
+        private const val KEY_MAP_REFRESH_FPS = "map_refresh_fps"
         private const val KEY_MAP_CENTER_LAT = "map_center_lat"
         private const val KEY_MAP_CENTER_LON = "map_center_lon"
         private const val KEY_ZOOM_LEVEL = "zoom_level"
