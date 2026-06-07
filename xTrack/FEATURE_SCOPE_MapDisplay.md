@@ -3,9 +3,9 @@ name: MapDisplay
 status: active
 created: 2026-06-07
 modified: 2026-06-07
-active_subfeature: depth color
-subs_total: 2
-subs_done: 1
+active_subfeature: zone proximity auto-reveal
+subs_total: 4
+subs_done: 3
 one_liner: Map display layer management — depth layer, color depth layer, and orientation-aware rendering.
 ---
 
@@ -43,6 +43,45 @@ one_liner: Map display layer management — depth layer, color depth layer, and 
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt`
 - `app/src/main/java/ykws/android/maro/ui/map/DepthColorRamp.kt`
+
+### zone proximity auto-reveal  [x]
+
+#### Todos
+- [x] Track `zone300ManuallyHidden` state in CoastlineViewModel (session-only, not persisted)
+- [x] Inject auto-re-enable logic in the shore pipeline onEach block, watching `_distanceToZone` threshold
+- [x] Single-shot: once auto-re-enabled, normal toggle behavior resumes
+- [x] Extract toggle into `viewModel.toggleZone300Visibility()` to manage the manual-hide flag
+
+#### Rules
+- Single-shot only — the system should not harass the user by re-enabling repeatedly
+- Works in both GPS and demo modes (no GPS gating) — distance-based trigger only
+- Uses a ~400m buffer (100m before the 300m boundary) as the activation threshold
+- The auto-re-enable IS the alert — no separate toast/sound needed
+- Design note: `distanceToZone = distanceToCoast - 300.0` already computed every 150ms
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt`
+
+### speed in demo  [x]
+
+#### Todos
+- [x] Compute simulated speed in knots from map pan velocity during demo mode
+- [x] Display in SpeedCard instead of "—" when in demo mode
+- [x] Throttle computation to the existing 150ms shore pipeline cadence
+- [x] Handle pan start/stop transitions gracefully (zero speed when map settles)
+
+#### Rules
+- Only active in demo mode (gpsMode == false) — GPS mode uses actual GPS speed
+- Use Haversine distance between successive map center samples ÷ elapsed time
+- The speed should settle to zero shortly after the user stops dragging (no persistent phantom speed)
+- Surface via a new StateFlow (e.g., `demoSpeedKnots`) in CoastlineViewModel
+- Dashboard SpeedCard merges: GPS speed (non-null) → demo speed (non-null) → "—"
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
 
 ## Todos
 

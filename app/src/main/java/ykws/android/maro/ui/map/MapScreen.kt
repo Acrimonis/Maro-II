@@ -14,6 +14,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -128,6 +129,7 @@ fun MapScreen(
     val appSettings by viewModel.settings.collectAsState()
     var mapView by remember { mutableStateOf<MapView?>(null) }
     var showSettings by remember { mutableStateOf(false) }
+    val demoSpeedKnots by viewModel.demoSpeedKnots.collectAsState()
 
     val context = LocalContext.current
     val autoFollowSuppressed by viewModel.autoFollowSuppressed.collectAsState()
@@ -272,6 +274,7 @@ fun MapScreen(
                 onMapViewReady = { mapView = it },
                 onRetry = { viewModel.loadCoastline() },
                 onOpenSettings = { showSettings = true },
+                onToggleZone300 = viewModel::toggleZone300Visibility,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(
@@ -290,7 +293,7 @@ fun MapScreen(
                     distanceToZone = distanceToZone,
                     depthSample = depthAtCenter,
                     validation = depthValidation,
-                    speedKnots = speedKnots,
+                    speedKnots = speedKnots ?: demoSpeedKnots,
                     modifier = Modifier
                         .align(Alignment.CenterStart)
                         .width(landscapeDashboardWidth)
@@ -305,7 +308,7 @@ fun MapScreen(
                     distanceToZone = distanceToZone,
                     depthSample = depthAtCenter,
                     validation = depthValidation,
-                    speedKnots = speedKnots,
+                    speedKnots = speedKnots ?: demoSpeedKnots,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
@@ -350,6 +353,7 @@ private fun MapContent(
     onMapViewReady: (MapView) -> Unit,
     onRetry: () -> Unit,
     onOpenSettings: () -> Unit,
+    onToggleZone300: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier.clipToBounds()) {
@@ -397,6 +401,15 @@ private fun MapContent(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(12.dp)
+        )
+
+        // ── Layer toggle button (right edge, between settings and zoom) ───
+        LayerButton(
+            isZoneVisible = appSettings.zone300Visible,
+            onClick = onToggleZone300,
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .padding(end = 12.dp)
         )
 
         // ── Center position marker ────────────────────────────────────────
@@ -802,6 +815,50 @@ private fun SettingsButton(
             tint = ComposeColor(0xFF1565C0),
             modifier = Modifier.size(32.dp)
         )
+    }
+}
+
+// ── Layer toggle button (right edge, between settings and zoom) ──────────
+
+@Composable
+private fun LayerButton(
+    isZoneVisible: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val themeBlue = ComposeColor(0xFF1565C0)
+    Button(
+        onClick = onClick,
+        modifier = modifier.size(64.dp),
+        shape = CircleShape,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = ComposeColor(0xCCFFFFFF)  // solid white bg always
+        ),
+        contentPadding = PaddingValues(0.dp)
+    ) {
+        // Custom two-stacked-layers icon (no dependency on material-icons-extended)
+        Canvas(modifier = Modifier.size(28.dp)) {
+            val w = size.width
+            val h = size.height
+            val cr = androidx.compose.ui.geometry.CornerRadius(4f, 4f)
+            val iconAlpha = if (isZoneVisible) 1.0f else 0.25f
+            // Bottom layer (offset right and down)
+            drawRoundRect(
+                color = themeBlue,
+                topLeft = androidx.compose.ui.geometry.Offset(w * 0.18f, h * 0.25f),
+                size = androidx.compose.ui.geometry.Size(w * 0.72f, h * 0.60f),
+                cornerRadius = cr,
+                alpha = iconAlpha * 0.55f
+            )
+            // Top layer (stacked above and to the left)
+            drawRoundRect(
+                color = themeBlue,
+                topLeft = androidx.compose.ui.geometry.Offset(w * 0.10f, h * 0.10f),
+                size = androidx.compose.ui.geometry.Size(w * 0.72f, h * 0.60f),
+                cornerRadius = cr,
+                alpha = iconAlpha * 0.90f
+            )
+        }
     }
 }
 
