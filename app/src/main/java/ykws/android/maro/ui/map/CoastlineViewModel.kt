@@ -19,8 +19,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.launchIn
@@ -31,6 +34,8 @@ import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import ykws.android.maro.data.coastline.CoastlineRepository
+import ykws.android.maro.data.location.AcquisitionMode
+import ykws.android.maro.data.location.AdaptiveGpsPolicy
 import ykws.android.maro.data.location.CompassSource
 import ykws.android.maro.data.location.GpsLocationSource
 import ykws.android.maro.data.model.CoastlineState
@@ -39,6 +44,9 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.Zone300Data
 import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.settings.SettingsManager
+
+/** One throttled camera target for GPS auto-follow: where to centre + which way to face. */
+data class CameraTarget(val position: LatLng, val bearingDeg: Float)
 
 /**
  * ViewModel for the coastline map screen.
@@ -186,6 +194,33 @@ class CoastlineViewModel(
     val autoFollowSuppressed: StateFlow<Boolean> = _autoFollowSuppressed.asStateFlow()
     private var resumeJob: Job? = null
 
+    // ── Adaptive acquisition + compass gating ───────────────────────────────
+    /** Stationary detector (always on): decides ACTIVE vs IDLE fix cadence from movement. */
+    private val adaptivePolicy = AdaptiveGpsPolicy()
+
+    /** Current GPS acquisition cadence — folded into the subscription params (rebuilds on change). */
+    private val _acquisitionMode = MutableStateFlow(AcquisitionMode.ACTIVE)
+
+    /** True when the compass is needed for heading (no valid GPS course) — gates its registration. */
+    private val _needsCompass = MutableStateFlow(true)
+
+    /**
+     * Throttled camera stream for GPS auto-follow: latest (position, heading) coalesced to at most
+     * [AppSettings.mapRefreshFps] updates/s. Replaces the per-fix `animateTo` (~60 fps burst) — the
+     * screen collector applies each tick with one `setCenter` + `mapOrientation` (a single repaint).
+     * `sample()` emits nothing while neither position nor heading changes (steady boat ⇒ zero
+     * repaints). Gating to GPS mode / pan-suppression stays in the screen collector so manual
+     * gestures keep osmdroid's full native rate.
+     */
+    val cameraUpdates: Flow<CameraTarget> =
+        settings
+            .map { (1_000L / it.mapRefreshFps.coerceIn(5, 50)).coerceAtLeast(1L) }
+            .distinctUntilChanged()
+            .flatMapLatest { periodMs ->
+                combine(_gpsPosition.filterNotNull(), _mapBearing) { p, b -> CameraTarget(p, b) }
+                    .sample(periodMs)
+            }
+
     /**
      * Called on each user map touch. Pauses GPS auto-follow + auto-orientation, then resumes the
      * user-configured recenter delay (settings.recenterDelaySeconds, 1–10 s) after the last touch
@@ -252,23 +287,54 @@ class CoastlineViewModel(
         ) { mode, active -> mode && active }.distinctUntilChanged()
 
         // GPS: keep the fix centered (rule 1) + course-up heading while moving (rule 2).
-        enabled
-            .flatMapLatest { on -> if (on) gpsSource.locationUpdates() else emptyFlow() }
+        // Acquisition cadence = the active preset/sliders, or the idle interval once the adaptive
+        // policy reports we're effectively stationary. flatMapLatest re-subscribes the listener
+        // (removeUpdates + requestLocationUpdates) whenever on/interval/distance changes.
+        val gpsParams = combine(
+            enabled,
+            settings.distinctUntilChangedBy {
+                Triple(it.gpsActiveIntervalSec, it.gpsActiveMinDistanceM, it.adaptiveIdleIntervalSec)
+            },
+            _acquisitionMode
+        ) { on, s, mode ->
+            val intervalMs =
+                if (mode == AcquisitionMode.IDLE) s.adaptiveIdleIntervalSec * 1_000L
+                else s.gpsActiveIntervalSec * 1_000L
+            GpsParams(on, intervalMs, s.gpsActiveMinDistanceM)
+        }.distinctUntilChanged()
+
+        gpsParams
+            .flatMapLatest { p ->
+                if (p.on) gpsSource.locationUpdates(p.intervalMs, p.minDistanceM) else emptyFlow()
+            }
             .onEach { fix ->
+                val now = SystemClock.elapsedRealtime()
                 _gpsPosition.value = fix.position
                 updateMapCenter(fix.position.latitude, fix.position.longitude)
                 _speedKnots.value = fix.speedMps?.let { it * MPS_TO_KNOTS }
                 if (fix.hasCourse && fix.bearingDeg != null) {
                     setMapBearing(fix.bearingDeg)
-                    lastGpsBearingMs = SystemClock.elapsedRealtime()
+                    lastGpsBearingMs = now
+                    _needsCompass.value = false                 // GPS course present → compass off
+                } else if (now - lastGpsBearingMs > HEADING_FALLBACK_MS) {
+                    _needsCompass.value = true                  // no course for 3 s → need compass
                 }
+                // Always-on adaptive cadence: drop to idle when effectively stationary.
+                val s = settings.value
+                _acquisitionMode.value = adaptivePolicy.onFix(
+                    now, fix.position, fix.speedMps,
+                    s.adaptiveWindowSec * 1_000L, s.adaptiveDistanceM.toDouble()
+                )
             }
             .catch { /* permission revoked mid-stream → stop silently */ }
             .launchIn(viewModelScope)
 
         // Compass: orient the boat only after HEADING_FALLBACK_MS without a GPS course (rule 3).
-        // sample() rate-limits the ~16 Hz sensor to ~5 Hz so turning doesn't churn the map.
-        enabled
+        // Registered ONLY while actually needed (_needsCompass) so the magnetometer path is
+        // unpowered whenever GPS course is good; the 3 s fallback gives the on→off hysteresis.
+        // azimuthUpdates() now samples at SENSOR_DELAY_NORMAL; sample() further caps it to ~5 Hz.
+        combine(enabled, _needsCompass) { on, needs -> on && needs }
+            .distinctUntilChanged()
             .flatMapLatest { on -> if (on) compass.azimuthUpdates().sample(HEADING_SAMPLE_MS) else emptyFlow() }
             .onEach { azimuth ->
                 if (SystemClock.elapsedRealtime() - lastGpsBearingMs > HEADING_FALLBACK_MS) {
@@ -287,6 +353,9 @@ class CoastlineViewModel(
                     _mapBearing.value = 0f
                     _speedKnots.value = null
                     lastGpsBearingMs = 0L
+                    adaptivePolicy.reset()
+                    _acquisitionMode.value = AcquisitionMode.ACTIVE
+                    _needsCompass.value = true
                 }
             }
             .launchIn(viewModelScope)
@@ -388,6 +457,9 @@ class CoastlineViewModel(
      */
     fun distanceToCoastMeters(latitude: Double, longitude: Double): Double =
         repository.distanceToCoastMeters(latitude, longitude)
+
+    /** GPS subscription parameters — flatMapLatest re-subscribes the listener when any field changes. */
+    private data class GpsParams(val on: Boolean, val intervalMs: Long, val minDistanceM: Float)
 
     /** Result of one throttled recompute: shore distance + water flag + 300 m zone status. */
     private data class ShoreState(
