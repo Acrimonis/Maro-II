@@ -4,8 +4,8 @@ status: active
 created: 2026-06-06
 modified: 2026-06-06
 active_subfeature: none
-subs_total: 4
-subs_done: 4
+subs_total: 6
+subs_done: 6
 one_liner: UI layout refinements for the Maro map — onwater toggle, settings, map position persistence, ergonomics
 ---
 
@@ -73,10 +73,34 @@ UI layout refinements for the Maro map — reorganizing on-screen elements for b
 
 #### Docs
 
+### remove-actions  [x]
+
+#### Todos
+- [x] Remove all buttons from the dashboard panel (cote, Bande, water/ground)
+
+#### Rules
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt`
+
+#### Docs
+
 ## Todos
 
 ## Rules
 
 ## Key Files
+
+### compact-dash  [x]
+
+#### Todos
+- [x] Cherry-pick dashboard card compaction commit (fb4af4b) into branch
+
+#### Rules
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt`
+
+#### Docs
 
 ## Docs

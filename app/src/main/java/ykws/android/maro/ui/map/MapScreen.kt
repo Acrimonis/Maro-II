@@ -177,8 +177,6 @@ fun MapScreen(
                         distanceToZone = distanceToZone,
                         depthSample = depthAtCenter,
                         validation = depthValidation,
-                        onGenerate = { viewModel.loadCoastline() },
-                        onRegenerateBand = { viewModel.regenerateBand() },
                         modifier = Modifier
                             .width(landscapeDashboardWidth)
                             .fillMaxHeight()
@@ -242,8 +240,6 @@ fun MapScreen(
                         distanceToZone = distanceToZone,
                         depthSample = depthAtCenter,
                         validation = depthValidation,
-                        onGenerate = { viewModel.loadCoastline() },
-                        onRegenerateBand = { viewModel.regenerateBand() },
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(portraitDashboardHeight)
