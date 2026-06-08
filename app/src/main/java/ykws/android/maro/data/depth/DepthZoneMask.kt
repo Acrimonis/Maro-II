@@ -11,10 +11,11 @@ import kotlin.math.PI
 import kotlin.math.cos
 
 /**
- * Clips a baked depth grid to the **navigable zone**: every populated cell whose centre lies
- * farther than [maxDistM] from the coastline is reset to NoData (`NaN` / [DepthSource.NONE]).
- * With the default 6 NM this is exactly the licence navigation limit, so depth is drawn only
- * where the user may actually go.
+ * Clips a baked depth grid to the **navigable water zone**: a populated cell whose centre lies
+ * farther than [maxDistM] from the coastline, OR on the **land** side of it, is reset to NoData
+ * (`NaN` / [DepthSource.NONE]). With the default 6 NM this is exactly the licence navigation
+ * limit, and the land test keeps the overlay off the shore, so depth is drawn only on the water
+ * the user may actually reach.
  *
  * **Why a mask, not a re-shaped grid:** the runtime keeps its axis-aligned grid + `GroundOverlay`
  * untouched — masked cells render fully transparent through the existing ramp, so the
@@ -49,8 +50,11 @@ object DepthZoneMask {
     }
 
     /**
-     * Erases (→ NoData) every non-NaN cell of [grid] farther than [maxDistM] from the nearest of
-     * [segments] (typically `CoastlineData.allSegments`). Returns the number of cells erased.
+     * Erases (→ NoData) every non-NaN cell of [grid] that is EITHER farther than [maxDistM] from the
+     * nearest of [segments] (typically `CoastlineData.allSegments`) OR on the **land** side of the
+     * coastline ([CoastlineSpatialIndex.isWater] == false). The land test removes the coastal fringe
+     * of depth≥0 cells that coarse sources (≈115 m EMODnet) bleed a cell or two past the true
+     * shoreline, so the depth overlay + isobaths render on water only. Returns the cells erased.
      * No-op (returns 0) when [segments] is empty or carries no usable geometry.
      */
     fun apply(
@@ -68,7 +72,9 @@ object DepthZoneMask {
             for (c in 0 until cols) {
                 if (grid.get(r, c).isNaN()) continue           // already NoData — skip
                 val lon = grid.cellCenterLon(c)
-                if (index.query(lat, lon).distanceMeters > maxDistM) {
+                // Erase if beyond the 6 NM navigable radius OR on the land side of the coast
+                // (coarse sources bleed depth≥0 cells a cell or two past the true shoreline).
+                if (index.query(lat, lon).distanceMeters > maxDistM || !index.isWater(lat, lon)) {
                     grid.set(r, c, Float.NaN, DepthSource.NONE, 0)
                     erased.incrementAndGet()
                 }
