@@ -28,12 +28,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ykws.android.maro.R
 import ykws.android.maro.data.depth.DepthConstants
 import ykws.android.maro.data.model.CoastlineState
 import ykws.android.maro.data.model.DepthSample
@@ -249,6 +251,12 @@ private fun AutoSizeValue(
     }
 }
 
+/** Distance in metres rendered as a localised "x.x km" / "x m" string (decimal separator follows locale). */
+@Composable
+private fun distanceText(distanceM: Double): String =
+    if (distanceM >= 1000.0) stringResource(R.string.dash_value_km, distanceM / 1000.0)
+    else stringResource(R.string.dash_value_m, distanceM)
+
 // ── Distance card ────────────────────────────────────────────────────────────
 
 @Composable
@@ -260,18 +268,19 @@ private fun DistanceCard(
 ) {
     if (state !is CoastlineState.Ready || distanceToShore == null) {
         DashboardCard(
-            title = "Distance",
-            value = "—",
+            title = stringResource(R.string.dash_distance_title),
+            value = stringResource(R.string.dash_empty),
             modifier = modifier
         )
         return
     }
 
-    val displayText = formatDistance(distanceToShore)
-    val label = if (isWater) "de la côte" else "de la mer"
+    val displayText = distanceText(distanceToShore)
+    val label = if (isWater) stringResource(R.string.dash_distance_from_shore)
+                else stringResource(R.string.dash_distance_from_sea)
 
     DashboardCard(
-        title = "Distance",
+        title = stringResource(R.string.dash_distance_title),
         value = displayText,
         subtitle = label,
         modifier = modifier
@@ -291,8 +300,8 @@ private fun Zone300Card(
 ) {
     if (state !is CoastlineState.Ready || distanceToZone == null) {
         DashboardCard(
-            title = "Zone 300m",
-            value = "—",
+            title = stringResource(R.string.dash_zone_title),
+            value = stringResource(R.string.dash_empty),
             modifier = modifier
         )
         return
@@ -301,9 +310,9 @@ private fun Zone300Card(
     if (!isWater) {
         val dimAlpha = 0.38f
         DashboardCard(
-            title = "Zone 300m",
-            value = "Not at sea",
-            subtitle = "Hors zone",
+            title = stringResource(R.string.dash_zone_title),
+            value = stringResource(R.string.dash_not_at_sea),
+            subtitle = stringResource(R.string.dash_out_of_zone),
             cardColor = DashboardColors.zoneNormal,
             valueColor = DashboardColors.textPrimary.copy(alpha = dimAlpha),
             subtitleColor = DashboardColors.textMuted.copy(alpha = dimAlpha),
@@ -314,20 +323,25 @@ private fun Zone300Card(
 
     if (inZone300) {
         val zoneM = abs(distanceToZone)
-        val exitText = if (zoneM >= 1000.0) "%.1f km".format(zoneM / 1000.0) else "%.0f m".format(zoneM)
+        val exitText = distanceText(zoneM)
         // Null speed (demo mode, stationary) = 0 kn → compliant
         val compliant = speedKnots == null || speedKnots < 5f
+        val limitText = stringResource(R.string.dash_zone_speed_limit, exitText)
 
         if (compliant) {
-            val speedDisplay = if (speedKnots != null) " · ✅ %.1f kn".format(speedKnots) else ""
+            val subtitle = if (speedKnots != null)
+                limitText + stringResource(R.string.dash_speed_suffix_ok, speedKnots)
+            else limitText
             DashboardCard(
-                title = "Zone 300m",
-                value = "EN ZONE !",
-                subtitle = "5 nœuds max — $exitText$speedDisplay",
+                title = stringResource(R.string.dash_zone_title),
+                value = stringResource(R.string.dash_in_zone),
+                subtitle = subtitle,
                 cardColor = DashboardColors.zoneCompliant,
                 modifier = modifier
             )
         } else {
+            // not compliant ⟹ speedKnots != null (and ≥ 5 kn)
+            val speed = speedKnots ?: 0f
             val infiniteTransition = rememberInfiniteTransition(label = "zonePulse")
             val pulseAlpha by infiniteTransition.animateFloat(
                 initialValue = 0.3f,
@@ -340,9 +354,9 @@ private fun Zone300Card(
             )
 
             DashboardCard(
-                title = "Zone 300m",
-                value = "EN ZONE !",
-                subtitle = "5 nœuds max — $exitText · ⚠ %.1f kn".format(speedKnots),
+                title = stringResource(R.string.dash_zone_title),
+                value = stringResource(R.string.dash_in_zone),
+                subtitle = limitText + stringResource(R.string.dash_speed_suffix_warn, speed),
                 cardColor = DashboardColors.zoneDanger,
                 borderColor = DashboardColors.red.copy(alpha = pulseAlpha),
                 borderWidth = 2.dp,
@@ -351,12 +365,12 @@ private fun Zone300Card(
         }
     } else {
         val zoneM = abs(distanceToZone)
-        val zoneText = if (zoneM >= 1000.0) "%.1f km".format(zoneM / 1000.0) else "%.0f m".format(zoneM)
+        val zoneText = distanceText(zoneM)
 
         DashboardCard(
-            title = "Zone 300m",
+            title = stringResource(R.string.dash_zone_title),
             value = zoneText,
-            subtitle = "de la zone 300m",
+            subtitle = stringResource(R.string.dash_to_zone),
             cardColor = DashboardColors.zoneNormal,
             modifier = modifier
         )
@@ -374,9 +388,9 @@ private fun DepthCard(
     if (!isWater) {
         val dimAlpha = 0.38f
         DashboardCard(
-            title = "Profondeur",
-            value = "Not at sea",
-            subtitle = "Hors zone",
+            title = stringResource(R.string.dash_depth_title),
+            value = stringResource(R.string.dash_not_at_sea),
+            subtitle = stringResource(R.string.dash_out_of_zone),
             cardColor = DashboardColors.zoneNormal,
             valueColor = DashboardColors.textPrimary.copy(alpha = dimAlpha),
             subtitleColor = DashboardColors.textMuted.copy(alpha = dimAlpha),
@@ -387,8 +401,8 @@ private fun DepthCard(
 
     if (depthSample == null || !depthSample.hasData) {
         DashboardCard(
-            title = "Profondeur",
-            value = "—",
+            title = stringResource(R.string.dash_depth_title),
+            value = stringResource(R.string.dash_empty),
             modifier = modifier
         )
         return
@@ -402,9 +416,9 @@ private fun DepthCard(
     val confColor = Color.hsv(120f * (confidencePct / 100f).coerceIn(0f, 1f), 0.90f, 0.72f)
 
     DashboardCard(
-        title = "Profondeur",
-        value = "%.1f m".format(depthM),
-        subtitle = "$sourceLabel · ${confidencePct}%",
+        title = stringResource(R.string.dash_depth_title),
+        value = stringResource(R.string.dash_value_depth_m, depthM),
+        subtitle = stringResource(R.string.dash_depth_source_conf, sourceLabel, confidencePct),
         subtitleColor = confColor,
         subtitleWeight = FontWeight.Bold,
         cardColor = depthColor.copy(alpha = 0.25f),
@@ -423,9 +437,9 @@ private fun SpeedCard(
     // Null = demo mode (or no fix yet) → show a dash, default background.
     if (speedKnots == null) {
         DashboardCard(
-            title = "Vitesse",
-            value = "—",
-            subtitle = "mode démo",
+            title = stringResource(R.string.dash_speed_title),
+            value = stringResource(R.string.dash_empty),
+            subtitle = stringResource(R.string.dash_demo_mode),
             modifier = modifier
         )
         return
@@ -441,9 +455,9 @@ private fun SpeedCard(
         DashboardColors.cardBg
     }
     DashboardCard(
-        title = "Vitesse",
-        value = "%.1f kn".format(speedKnots),
-        subtitle = if (inZone300) "5 kn max en zone" else null,
+        title = stringResource(R.string.dash_speed_title),
+        value = stringResource(R.string.dash_value_kn, speedKnots),
+        subtitle = if (inZone300) stringResource(R.string.dash_5kn_in_zone) else null,
         cardColor = cardColor,
         modifier = modifier
     )
@@ -457,9 +471,9 @@ private fun ValidationBadge(
     modifier: Modifier = Modifier
 ) {
     val (badge, badgeColor) = if (validation.passed) {
-        "✓ Données validées (RMSE %.1f m)".format(validation.rmseM) to DashboardColors.validationOk
+        stringResource(R.string.dash_valid_ok, validation.rmseM) to DashboardColors.validationOk
     } else {
-        "⚠ Validation incomplète (RMSE %.1f m)".format(validation.rmseM) to DashboardColors.validationWarn
+        stringResource(R.string.dash_valid_incomplete, validation.rmseM) to DashboardColors.validationWarn
     }
 
     Box(
@@ -477,15 +491,6 @@ private fun ValidationBadge(
 
 // ── Utility functions ────────────────────────────────────────────────────────
 
-/** Format a distance in meters to a human-readable string (m or km). */
-private fun formatDistance(distanceM: Double): String {
-    return if (distanceM >= 1000.0) {
-        "%.1f km".format(distanceM / 1000.0)
-    } else {
-        "%.0f m".format(distanceM)
-    }
-}
-
 /**
  * Depth colour matching the map's hypsometric colour ramp ([DepthColorRamp]).
  *
@@ -494,9 +499,9 @@ private fun formatDistance(distanceM: Double): String {
  * the ramp's semi-transparent alpha) and returns a full-opacity [Color] so the
  * card's own alpha [copy(alpha = 0.25f)] is applied uniformly.
  *
- * - 0 m (surface): pale cyan with red-orange collision warning tint
- * - 5 m+: pale cyan → navy gradient
- * - 60 m+: deep navy
+ * - 0 m (surface): pale cyan with red-orange collision warning tint
+ * - 5 m+: pale cyan → navy gradient
+ * - 60 m+: deep navy
  */
 private fun depthRampColor(depthM: Float): Color {
     val argb = DepthColorRamp.argb(depthM)
@@ -509,14 +514,15 @@ private fun depthRampColor(depthM: Float): Color {
     )
 }
 
-/** Friendly source label for the depth-at-centre readout. */
+/** Friendly source label for the depth-at-centre readout. Proper nouns stay verbatim. */
+@Composable
 fun depthSourceLabel(source: DepthSource): String = when (source) {
     DepthSource.LITTO3D -> "Litto3D"
     DepthSource.SHOM -> "SHOM"
     DepthSource.EMODNET -> "EMODnet"
-    DepthSource.SDB -> "Satellite"
+    DepthSource.SDB -> stringResource(R.string.src_satellite)
     DepthSource.GEBCO -> "GEBCO"
-    DepthSource.INTERPOLATED -> "Interpolé"
+    DepthSource.INTERPOLATED -> stringResource(R.string.src_interpolated)
     DepthSource.NONE -> "—"
 }
 

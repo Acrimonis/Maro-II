@@ -61,7 +61,11 @@ data class AppSettings(
     val mapCenterLon: Double = Double.NaN,
     val zoomLevel: Double = 0.0,
     val isWater: Boolean = true,
-    val distanceToShore: Double = Double.NaN
+    val distanceToShore: Double = Double.NaN,
+    /** App language: "system" (device locale, English fallback), "en", or "fr". */
+    val languageCode: String = "system",
+    /** Keep the device screen awake while the app is in the foreground. */
+    val keepScreenOn: Boolean = false
 )
 
 class SettingsManager(
@@ -95,7 +99,9 @@ class SettingsManager(
         mapCenterLon     = prefs.getFloat(KEY_MAP_CENTER_LON, Float.NaN).toDouble(),
         zoomLevel        = prefs.getFloat(KEY_ZOOM_LEVEL, 0f).toDouble(),
         isWater          = prefs.getBoolean(KEY_IS_WATER, true),
-        distanceToShore  = prefs.getFloat(KEY_DISTANCE_TO_SHORE, Float.NaN).toDouble()
+        distanceToShore  = prefs.getFloat(KEY_DISTANCE_TO_SHORE, Float.NaN).toDouble(),
+        languageCode     = prefs.getString(KEY_LANGUAGE_CODE, "system") ?: "system",
+        keepScreenOn     = prefs.getBoolean(KEY_KEEP_SCREEN_ON, false)
     )
 
     /**
@@ -131,6 +137,8 @@ class SettingsManager(
             .putFloat(KEY_ZOOM_LEVEL, updated.zoomLevel.toFloat())
             .putBoolean(KEY_IS_WATER, updated.isWater)
             .putFloat(KEY_DISTANCE_TO_SHORE, updated.distanceToShore.toFloat())
+            .putString(KEY_LANGUAGE_CODE, updated.languageCode)
+            .putBoolean(KEY_KEEP_SCREEN_ON, updated.keepScreenOn)
             .apply()
     }
 
@@ -155,5 +163,7 @@ class SettingsManager(
         private const val KEY_ZOOM_LEVEL = "zoom_level"
         private const val KEY_IS_WATER = "is_water"
         private const val KEY_DISTANCE_TO_SHORE = "distance_to_shore"
+        private const val KEY_LANGUAGE_CODE = "language_code"
+        private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
     }
 }

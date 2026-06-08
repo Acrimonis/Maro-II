@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- French overrides. Resolved when the effective locale is fr (device or in-app choice). -->
+<resources>
+    <!-- App -->
+    <string name="app_name">Maro II</string>
+
+    <!-- Map overlays & controls -->
+    <string name="map_loading_coastline">Chargement de la côte…</string>
+    <string name="error_title">Erreur</string>
+    <string name="retry">Réessayer</string>
+    <string name="map_zoom_in">Zoom avant</string>
+    <string name="map_zoom_out">Zoom arrière</string>
+    <string name="map_settings">Paramètres</string>
+    <string name="side_water">Eau</string>
+    <string name="side_land">Terre</string>
+    <string name="marker_position_water">Position (eau)</string>
+    <string name="marker_position_land">Position (terre)</string>
+    <string name="exit_press_back_again">Appuyez à nouveau pour quitter</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Paramètres</string>
+    <string name="settings_back">Retour</string>
+    <string name="settings_section_language">Langue</string>
+    <string name="settings_language_system">Système</string>
+    <string name="settings_section_position">Source de position</string>
+    <string name="settings_gps_mode_label">Mode GPS</string>
+    <string name="settings_gps_mode_desc">Suivre votre position GPS et orienter la carte (sinon mode démo)</string>
+    <string name="settings_recenter_label">Délai de recentrage</string>
+    <string name="settings_recenter_desc">Temps avant recentrage GPS après un déplacement manuel</string>
+    <string name="settings_section_display">Affichage</string>
+    <string name="settings_coastline_label">Trait de côte</string>
+    <string name="settings_coastline_desc">Afficher la ligne de côte sur la carte</string>
+    <string name="settings_zone300_label">Zone 300 m</string>
+    <string name="settings_zone300_desc">Afficher la zone des 300 m sur la carte</string>
+    <string name="settings_section_power">Économie d\'énergie</string>
+    <string name="settings_keep_screen_on_label">Garder le téléphone allumé</string>
+    <string name="settings_keep_screen_on_desc">Garder l\'écran allumé pendant que l\'app fonctionne</string>
+    <string name="settings_sub_gps_label">Acquisition GPS</string>
+    <string name="settings_sub_gps_desc">Mise à jour de votre position pendant la navigation</string>
+    <string name="settings_sub_render_label">Rendu carte</string>
+    <string name="settings_sub_render_desc">Nombre de redessins de la carte par seconde en suivi GPS</string>
+    <string name="settings_fps_label">Fréquence de rafraîchissement</string>
+    <string name="settings_fps_desc">Plus bas = moins de batterie, animation moins fluide</string>
+    <string name="settings_idle_section_label">Économie à l\'arrêt</string>
+    <string name="settings_idle_section_desc">Quand le bateau ne bouge plus, les positions GPS s\'espacent pour économiser la batterie ; tout revient à la normale dès que vous repartez</string>
+    <string name="settings_idle_interval_label">Intervalle au repos</string>
+    <string name="settings_idle_interval_desc">Délai entre deux positions GPS à l\'arrêt · plus long = moins de batterie</string>
+    <string name="settings_advanced_stop_label">Avancé — détection de l\'arrêt</string>
+    <string name="settings_window_label">Fenêtre adaptative</string>
+    <string name="settings_window_desc">Temps sans bouger avant de réduire la fréquence GPS</string>
+    <string name="settings_adaptive_dist_label">Distance adaptative</string>
+    <string name="settings_adaptive_dist_desc">En dessous de ce déplacement, vous êtes considéré « à l\'arrêt »</string>
+    <string name="settings_section_advanced">Avancé</string>
+    <string name="settings_alert_label">Alerte zone 300 m</string>
+    <string name="settings_alert_desc">Réaffiche automatiquement la zone des 300 m masquée à l\'approche de la côte (GPS)</string>
+    <string name="settings_alert_dist_label">Distance d\'alerte</string>
+    <string name="settings_alert_dist_desc">Distance avant la limite des 300 m à laquelle la zone réapparaît</string>
+    <string name="settings_alert_time_label">Délai d\'alerte</string>
+    <string name="settings_alert_time_desc">Temps avant d\'atteindre la limite (à la vitesse actuelle) déclenchant le réaffichage</string>
+    <string name="settings_freq_label">Fréquence GPS</string>
+    <string name="settings_freq_desc">Intervalle entre les positions GPS en mouvement · plus lent = moins de batterie</string>
+    <string name="settings_freq_high">Haute</string>
+    <string name="settings_freq_balanced">Équilibrée</string>
+    <string name="settings_freq_eco">Économie</string>
+    <string name="settings_freq_stop_fmt">%1$ds/%2$dm</string>
+    <string name="expand">Développer</string>
+    <string name="collapse">Réduire</string>
+    <string name="app_version_footer">Maro II — v1.0</string>
+
+    <!-- Settings value formats -->
+    <string name="settings_value_seconds">%d s</string>
+    <string name="settings_value_fps">%d fps</string>
+    <string name="settings_value_meters">%d m</string>
+
+    <!-- Dashboard -->
+    <string name="dash_distance_title">Distance</string>
+    <string name="dash_distance_from_shore">de la côte</string>
+    <string name="dash_distance_from_sea">de la mer</string>
+    <string name="dash_empty">—</string>
+    <string name="dash_zone_title">Zone 300m</string>
+    <string name="dash_not_at_sea">À terre</string>
+    <string name="dash_out_of_zone">Hors zone</string>
+    <string name="dash_in_zone">EN ZONE !</string>
+    <string name="dash_zone_speed_limit">5 nœuds max — %1$s</string>
+    <string name="dash_speed_suffix_ok">" · ✅ %.1f kn"</string>
+    <string name="dash_speed_suffix_warn">" · ⚠ %.1f kn"</string>
+    <string name="dash_to_zone">de la zone 300m</string>
+    <string name="dash_depth_title">Profondeur</string>
+    <string name="dash_value_km">%.1f km</string>
+    <string name="dash_value_m">%.0f m</string>
+    <string name="dash_value_depth_m">%.1f m</string>
+    <string name="dash_value_kn">%.1f kn</string>
+    <string name="dash_depth_source_conf">%1$s · %2$d%%</string>
+    <string name="dash_speed_title">Vitesse</string>
+    <string name="dash_demo_mode">mode démo</string>
+    <string name="dash_5kn_in_zone">5 kn max en zone</string>
+    <string name="dash_valid_ok">✓ Données validées (RMSE %.1f m)</string>
+    <string name="dash_valid_incomplete">⚠ Validation incomplète (RMSE %.1f m)</string>
+    <string name="src_satellite">Satellite</string>
+    <string name="src_interpolated">Interpolé</string>
+</resources>

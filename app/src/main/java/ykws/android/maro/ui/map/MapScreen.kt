@@ -2,7 +2,11 @@ package ykws.android.maro.ui.map
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.pm.PackageManager
+import android.os.SystemClock
 import android.view.MotionEvent
 import android.graphics.Bitmap
 import android.graphics.Color
@@ -35,6 +39,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
@@ -44,6 +49,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -67,9 +73,12 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -86,6 +95,7 @@ import org.osmdroid.views.overlay.Polyline
 import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import ykws.android.maro.data.depth.DepthConstants
 import ykws.android.maro.data.model.BoundingBox
@@ -238,10 +248,38 @@ fun MapScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    // ── Keep the screen awake while the app runs, when the user enabled it ──
+    val view = LocalView.current
+    DisposableEffect(appSettings.keepScreenOn) {
+        view.keepScreenOn = appSettings.keepScreenOn
+        onDispose { view.keepScreenOn = false }
+    }
+
+    // ── Double-back-to-exit state ─────────────────────────────────────────
+    var lastBackAt by remember { mutableStateOf(0L) }
+    var showExitBanner by remember { mutableStateOf(false) }
+
     Box(modifier = modifier.fillMaxSize()) {
         // ── Intercept system back when settings are open ──────────────────
         if (showSettings) {
             BackHandler { showSettings = false }
+        }
+
+        // ── Otherwise require a second back press within 2 s to exit ───────
+        BackHandler(enabled = !showSettings) {
+            val now = SystemClock.elapsedRealtime()
+            if (now - lastBackAt <= 2_000L) {
+                context.findActivity()?.finishAffinity()
+            } else {
+                lastBackAt = now
+                showExitBanner = true
+            }
+        }
+        if (showExitBanner) {
+            LaunchedEffect(lastBackAt) {
+                delay(2_000L)
+                showExitBanner = false
+            }
         }
 
         // ── Main content (map + dashboard) ────────────────────────────────
@@ -274,6 +312,7 @@ fun MapScreen(
                 onRetry = { viewModel.loadCoastline() },
                 onOpenSettings = { showSettings = true },
                 onToggleZone300 = viewModel::toggleZone300Visibility,
+                showExitBanner = showExitBanner,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(
@@ -328,6 +367,13 @@ fun MapScreen(
     }
 }
 
+/** Unwraps the (possibly localisation-wrapped) [Context] chain to the host [Activity]. */
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
+
 // ── Map content area (shared by landscape & portrait) ────────────────────────
 
 /**
@@ -353,6 +399,7 @@ private fun MapContent(
     onRetry: () -> Unit,
     onOpenSettings: () -> Unit,
     onToggleZone300: () -> Unit,
+    showExitBanner: Boolean,
     modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier.clipToBounds()) {
@@ -385,10 +432,10 @@ private fun MapContent(
 
         // ── Earth / Water toggle (top-left) ───────────────────────────────
         EarthWaterIcon(
-            emoji = if (isWater) "\uD83C\uDF0A" else "\uD83C\uDFD4\uFE0F",
+            emoji = if (isWater) "🌊" else "🏔️",
             isActive = true,
             activeColor = if (isWater) ComposeColor(0xFF1565C0) else ComposeColor(0xFF2E7D32),
-            contentDescription = if (isWater) "Eau" else "Terre",
+            contentDescription = if (isWater) stringResource(R.string.side_water) else stringResource(R.string.side_land),
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .padding(12.dp)
@@ -420,6 +467,34 @@ private fun MapContent(
                     message = (state as CoastlineState.Error).message,
                     onRetry = onRetry
                 )
+            }
+        }
+
+        // ── "Press back again to exit" toast ──────────────────────────────
+        //   Shares the loading/error slot: bottom-centred in the space left
+        //   of the right-edge control stack (reserve ~76dp), pinned to bottom.
+        if (showExitBanner) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, end = 76.dp, bottom = 12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(28.dp),
+                    color = ComposeColor(0xFF16213E), // sampled from the dashboard tile background (DashboardColors.cardBg)
+                    shadowElevation = 8.dp
+                ) {
+                    Text(
+                        text = stringResource(R.string.exit_press_back_again),
+                        color = ComposeColor.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 28.dp, vertical = 16.dp)
+                    )
+                }
             }
         }
 
@@ -455,7 +530,7 @@ private fun MapContent(
                 ) {
                     ZoomButton(
                         isPlus = true,
-                        desc = "Zoom avant",
+                        desc = stringResource(R.string.map_zoom_in),
                         onClick = {
                             val mv = mapView ?: return@ZoomButton
                             mv.controller.zoomIn()
@@ -464,7 +539,7 @@ private fun MapContent(
                     )
                     ZoomButton(
                         isPlus = false,
-                        desc = "Zoom arrière",
+                        desc = stringResource(R.string.map_zoom_out),
                         onClick = {
                             val mv = mapView ?: return@ZoomButton
                             mv.controller.zoomOut()
@@ -500,12 +575,16 @@ private fun LoadingOverlay(
         )
 
         Text(
-            text = "Chargement de la c\u00F4te\u2026",
+            text = stringResource(R.string.map_loading_coastline),
             color = ComposeColor(0xFF1565C0),
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold
         )
 
+        // NOTE: the per-phase label below is still emitted as French literals by the
+        // data/spatial generators (CoastlineGenerator/DepthGenerator/Zone300Builder).
+        // Localising it requires threading a phase enum through onProgress — tracked as
+        // a follow-up; it only shows during first-run generation.
         if (progress.phase.isNotEmpty()) {
             Text(
                 text = progress.phase,
@@ -551,7 +630,7 @@ private fun ErrorOverlay(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text(
-            text = "Erreur",
+            text = stringResource(R.string.error_title),
             color = ComposeColor.White,
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold
@@ -570,7 +649,7 @@ private fun ErrorOverlay(
             )
         ) {
             Text(
-                text = "R\u00E9essayer",
+                text = stringResource(R.string.retry),
                 color = ComposeColor(0xFFC62828),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold
@@ -738,7 +817,8 @@ private fun CenterMarkerOverlay(
     modifier: Modifier = Modifier
 ) {
     val drawableId = if (isWater) R.drawable.maro_marker else R.drawable.maro_dot_marker
-    val description = if (isWater) "Position (eau)" else "Position (terre)"
+    val description = if (isWater) stringResource(R.string.marker_position_water)
+                      else stringResource(R.string.marker_position_land)
 
     // ── Base size: exponential zoom scaling ───────────────────────────────
     // dp = baseDp × 2^(ZOOM_EXPONENT × (zoom − REF_ZOOM))
@@ -816,7 +896,7 @@ private fun SettingsButton(
     ) {
         Icon(
             imageVector = Icons.Default.Settings,
-            contentDescription = "Param\u00E8tres",
+            contentDescription = stringResource(R.string.map_settings),
             tint = ComposeColor(0xFF1565C0),
             modifier = Modifier.size(32.dp)
         )
@@ -903,15 +983,16 @@ private fun SettingsOverlay(
                         ),
                         contentPadding = PaddingValues(0.dp)
                     ) {
-                        Text(
-                            text = "\u2190",  // ←
-                            fontSize = 22.sp,
-                            color = ComposeColor.White
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.settings_back),
+                            tint = ComposeColor.White,
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                     Spacer(modifier = Modifier.width(16.dp))
                     Text(
-                        text = "Param\u00E8tres",
+                        text = stringResource(R.string.settings_title),
                         color = ComposeColor.White,
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Bold
@@ -930,14 +1011,26 @@ private fun SettingsOverlay(
                     .verticalScroll(rememberScrollState())
             ) {
 
+            // ── Langue / Language section (global app setting — kept first) ──
+            SectionHeader(title = stringResource(R.string.settings_section_language))
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            SettingsLanguageRow(
+                languageCode = settings.languageCode,
+                onSelect = { code -> onUpdateSettings { it.copy(languageCode = code) } }
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
             // -- Source de position (Demo <-> GPS) section --
-            SectionHeader(title = "Source de position")
+            SectionHeader(title = stringResource(R.string.settings_section_position))
 
             Spacer(modifier = Modifier.height(8.dp))
 
             SettingsToggleRow(
-                label = "Mode GPS",
-                description = "Suivre votre position GPS et orienter la carte (sinon mode démo)",
+                label = stringResource(R.string.settings_gps_mode_label),
+                description = stringResource(R.string.settings_gps_mode_desc),
                 checked = settings.gpsMode,
                 onCheckedChange = onGpsModeChange
             )
@@ -945,9 +1038,9 @@ private fun SettingsOverlay(
             Spacer(modifier = Modifier.height(12.dp))
 
             SettingsSliderRow(
-                label = "Délai de recentrage",
-                description = "Temps avant recentrage GPS après un déplacement manuel",
-                valueLabel = "${settings.recenterDelaySeconds} s",
+                label = stringResource(R.string.settings_recenter_label),
+                description = stringResource(R.string.settings_recenter_desc),
+                valueLabel = stringResource(R.string.settings_value_seconds, settings.recenterDelaySeconds),
                 value = settings.recenterDelaySeconds.toFloat(),
                 valueRange = 1f..10f,
                 steps = 8,
@@ -957,14 +1050,14 @@ private fun SettingsOverlay(
             Spacer(modifier = Modifier.height(24.dp))
 
             // ── Affichage (Display) section ──────────────────────────────
-            SectionHeader(title = "Affichage")
+            SectionHeader(title = stringResource(R.string.settings_section_display))
 
             Spacer(modifier = Modifier.height(8.dp))
 
             // ── Coastline overlay toggle ──────────────────────────────────
             SettingsToggleRow(
-                label = "Trait de c\u00F4te",
-                description = "Afficher la ligne de c\u00F4te sur la carte",
+                label = stringResource(R.string.settings_coastline_label),
+                description = stringResource(R.string.settings_coastline_desc),
                 checked = settings.coastlineVisible,
                 onCheckedChange = { visible ->
                     onUpdateSettings { it.copy(coastlineVisible = visible) }
@@ -975,25 +1068,35 @@ private fun SettingsOverlay(
 
             // ── Zone 300 m overlay toggle ─────────────────────────────────
             SettingsToggleRow(
-                label = "Zone 300 m",
-                description = "Afficher la zone des 300 m sur la carte",
+                label = stringResource(R.string.settings_zone300_label),
+                description = stringResource(R.string.settings_zone300_desc),
                 checked = settings.zone300Visible,
                 onCheckedChange = { visible ->
                     onUpdateSettings { it.copy(zone300Visible = visible) }
                 }
             )
 
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // ── Keep the screen awake while the app is running ─────────────
+            SettingsToggleRow(
+                label = stringResource(R.string.settings_keep_screen_on_label),
+                description = stringResource(R.string.settings_keep_screen_on_desc),
+                checked = settings.keepScreenOn,
+                onCheckedChange = { on -> onUpdateSettings { it.copy(keepScreenOn = on) } }
+            )
+
             Spacer(modifier = Modifier.height(24.dp))
 
             // ── Économie d'énergie section (battery) — grouped by function ──
-            SectionHeader(title = "Économie d'énergie")
+            SectionHeader(title = stringResource(R.string.settings_section_power))
 
             Spacer(modifier = Modifier.height(12.dp))
 
             // Group 1: GPS acquisition cadence while moving.
             SubSectionHeader(
-                title = "Acquisition GPS",
-                description = "Mise à jour de votre position pendant la navigation"
+                title = stringResource(R.string.settings_sub_gps_label),
+                description = stringResource(R.string.settings_sub_gps_desc)
             )
             Spacer(modifier = Modifier.height(8.dp))
             SettingsFrequencyRow(
@@ -1007,14 +1110,14 @@ private fun SettingsOverlay(
 
             // Group 2: map re-render ceiling.
             SubSectionHeader(
-                title = "Rendu carte",
-                description = "Nombre de redessins de la carte par seconde en suivi GPS"
+                title = stringResource(R.string.settings_sub_render_label),
+                description = stringResource(R.string.settings_sub_render_desc)
             )
             Spacer(modifier = Modifier.height(8.dp))
             SettingsSliderRow(
-                label = "Fréquence de rafraîchissement",
-                description = "Plus bas = moins de batterie, animation moins fluide",
-                valueLabel = "${settings.mapRefreshFps} fps",
+                label = stringResource(R.string.settings_fps_label),
+                description = stringResource(R.string.settings_fps_desc),
+                valueLabel = stringResource(R.string.settings_value_fps, settings.mapRefreshFps),
                 value = settings.mapRefreshFps.toFloat(),
                 valueRange = 5f..50f,
                 steps = 8,
@@ -1025,15 +1128,15 @@ private fun SettingsOverlay(
 
             // Group 3: movement-adaptive idle behaviour.
             SubSectionHeader(
-                title = "Économie à l'arrêt",
-                description = "Quand le bateau ne bouge plus, les positions GPS s'espacent pour économiser la batterie ; tout revient à la normale dès que vous repartez"
+                title = stringResource(R.string.settings_idle_section_label),
+                description = stringResource(R.string.settings_idle_section_desc)
             )
             Spacer(modifier = Modifier.height(8.dp))
             // Primary lever (always visible): how slow GPS goes once stopped.
             SettingsSliderRow(
-                label = "Intervalle au repos",
-                description = "Délai entre deux positions GPS à l'arrêt · plus long = moins de batterie",
-                valueLabel = "${settings.adaptiveIdleIntervalSec} s",
+                label = stringResource(R.string.settings_idle_interval_label),
+                description = stringResource(R.string.settings_idle_interval_desc),
+                valueLabel = stringResource(R.string.settings_value_seconds, settings.adaptiveIdleIntervalSec),
                 value = settings.adaptiveIdleIntervalSec.toFloat(),
                 valueRange = 4f..15f,
                 steps = 10,
@@ -1045,15 +1148,15 @@ private fun SettingsOverlay(
             // Advanced stop-detection thresholds, collapsed by default (progressive disclosure).
             var adaptiveAdvanced by remember { mutableStateOf(false) }
             SettingsExpander(
-                label = "Avancé — détection de l'arrêt",
+                label = stringResource(R.string.settings_advanced_stop_label),
                 expanded = adaptiveAdvanced,
                 onToggle = { adaptiveAdvanced = !adaptiveAdvanced }
             ) {
                 Spacer(modifier = Modifier.height(8.dp))
                 SettingsSliderRow(
-                    label = "Fenêtre adaptative",
-                    description = "Temps sans bouger avant de réduire la fréquence GPS",
-                    valueLabel = "${settings.adaptiveWindowSec} s",
+                    label = stringResource(R.string.settings_window_label),
+                    description = stringResource(R.string.settings_window_desc),
+                    valueLabel = stringResource(R.string.settings_value_seconds, settings.adaptiveWindowSec),
                     value = settings.adaptiveWindowSec.toFloat(),
                     valueRange = 15f..60f,
                     steps = 8,
@@ -1063,9 +1166,9 @@ private fun SettingsOverlay(
                 Spacer(modifier = Modifier.height(12.dp))
 
                 SettingsSliderRow(
-                    label = "Distance adaptative",
-                    description = "En dessous de ce déplacement, vous êtes considéré « à l'arrêt »",
-                    valueLabel = "${settings.adaptiveDistanceM} m",
+                    label = stringResource(R.string.settings_adaptive_dist_label),
+                    description = stringResource(R.string.settings_adaptive_dist_desc),
+                    valueLabel = stringResource(R.string.settings_value_meters, settings.adaptiveDistanceM),
                     value = settings.adaptiveDistanceM.toFloat(),
                     valueRange = 10f..30f,
                     steps = 3,
@@ -1076,19 +1179,19 @@ private fun SettingsOverlay(
             Spacer(modifier = Modifier.height(24.dp))
 
             // ── Avancé : alerte zone 300 m (auto-affichage) ───────────────
-            SectionHeader(title = "Avancé")
+            SectionHeader(title = stringResource(R.string.settings_section_advanced))
 
             Spacer(modifier = Modifier.height(8.dp))
 
             SubSectionHeader(
-                title = "Alerte zone 300 m",
-                description = "Réaffiche automatiquement la zone des 300 m masquée à l'approche de la côte (GPS)"
+                title = stringResource(R.string.settings_alert_label),
+                description = stringResource(R.string.settings_alert_desc)
             )
             Spacer(modifier = Modifier.height(8.dp))
             SettingsSliderRow(
-                label = "Distance d'alerte",
-                description = "Distance avant la limite des 300 m à laquelle la zone réapparaît",
-                valueLabel = "${settings.zoneAutoRevealDistanceM.roundToInt()} m",
+                label = stringResource(R.string.settings_alert_dist_label),
+                description = stringResource(R.string.settings_alert_dist_desc),
+                valueLabel = stringResource(R.string.settings_value_meters, settings.zoneAutoRevealDistanceM.roundToInt()),
                 value = settings.zoneAutoRevealDistanceM,
                 valueRange = 50f..500f,
                 steps = 17,
@@ -1098,9 +1201,9 @@ private fun SettingsOverlay(
             Spacer(modifier = Modifier.height(12.dp))
 
             SettingsSliderRow(
-                label = "Délai d'alerte",
-                description = "Temps avant d'atteindre la limite (à la vitesse actuelle) déclenchant le réaffichage",
-                valueLabel = "${settings.zoneAutoRevealTimeS} s",
+                label = stringResource(R.string.settings_alert_time_label),
+                description = stringResource(R.string.settings_alert_time_desc),
+                valueLabel = stringResource(R.string.settings_value_seconds, settings.zoneAutoRevealTimeS),
                 value = settings.zoneAutoRevealTimeS.toFloat(),
                 valueRange = 5f..120f,
                 steps = 22,
@@ -1112,7 +1215,7 @@ private fun SettingsOverlay(
             // ── Footer ────────────────────────────────────────────────────
             Spacer(modifier = Modifier.height(32.dp))
             Text(
-                text = "Maro II \u2014 v1.0",
+                text = stringResource(R.string.app_version_footer),
                 color = ComposeColor(0xFF546E7A),
                 fontSize = 12.sp,
                 modifier = Modifier.align(Alignment.CenterHorizontally)
@@ -1133,6 +1236,52 @@ private fun SectionHeader(title: String) {
         fontWeight = FontWeight.Bold,
         letterSpacing = 1.sp
     )
+}
+
+/**
+ * Language picker as a 3-segment selector: System / English / Français.
+ * The active segment is highlighted in blue. "System" follows the device locale
+ * (English default, French on a fr device); the other two force the app language.
+ */
+@Composable
+private fun SettingsLanguageRow(
+    languageCode: String,
+    onSelect: (String) -> Unit
+) {
+    // (code, label) — endonyms (English/Français) are shown the same in every locale.
+    val options = listOf(
+        "system" to stringResource(R.string.settings_language_system),
+        "en" to "English",
+        "fr" to "Français"
+    )
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(ComposeColor(0x1AFFFFFF))
+            .padding(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        options.forEach { (code, label) ->
+            val selected = code == languageCode
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (selected) ComposeColor(0xFF1565C0) else ComposeColor(0x14FFFFFF))
+                    .clickable { onSelect(code) }
+                    .padding(vertical = 10.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = label,
+                    color = if (selected) ComposeColor.White else ComposeColor(0xFFB0BEC5),
+                    fontSize = 14.sp,
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -1289,7 +1438,7 @@ private fun SettingsExpander(
             )
             Icon(
                 imageVector = Icons.Default.KeyboardArrowDown,
-                contentDescription = if (expanded) "Réduire" else "Développer",
+                contentDescription = if (expanded) stringResource(R.string.collapse) else stringResource(R.string.expand),
                 tint = ComposeColor(0xFF90A4AE),
                 modifier = Modifier.rotate(rotation)
             )
@@ -1314,9 +1463,9 @@ private fun SettingsFrequencyRow(
 ) {
     // (label, intervalSec, minDistanceM) at slider index 0, 1, 2
     val stops = listOf(
-        Triple("Haute", 1, 1f),
-        Triple("Équilibrée", 2, 5f),
-        Triple("Économie", 4, 10f)
+        Triple(stringResource(R.string.settings_freq_high), 1, 1f),
+        Triple(stringResource(R.string.settings_freq_balanced), 2, 5f),
+        Triple(stringResource(R.string.settings_freq_eco), 4, 10f)
     )
     val currentIdx = stops.indexOfFirst { it.second == intervalSec }.let { if (it < 0) 1 else it }
 
@@ -1328,13 +1477,13 @@ private fun SettingsFrequencyRow(
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         Text(
-            text = "Fréquence GPS",
+            text = stringResource(R.string.settings_freq_label),
             color = ComposeColor.White,
             fontSize = 16.sp,
             fontWeight = FontWeight.Medium
         )
         Text(
-            text = "Intervalle entre les positions GPS en mouvement · plus lent = moins de batterie",
+            text = stringResource(R.string.settings_freq_desc),
             color = ComposeColor(0xFFB0BEC5),
             fontSize = 13.sp
         )
@@ -1373,7 +1522,7 @@ private fun SettingsFrequencyRow(
                         fontWeight = if (idx == 1) FontWeight.Bold else FontWeight.Normal
                     )
                     Text(
-                        text = "${stop.second}s/${stop.third.roundToInt()}m",
+                        text = stringResource(R.string.settings_freq_stop_fmt, stop.second, stop.third.roundToInt()),
                         color = accent,
                         fontSize = 12.sp
                     )

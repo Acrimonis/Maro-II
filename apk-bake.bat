@@ -38,9 +38,9 @@ call :do_%~3
 exit /b 0
 
 :status
-set "MARK=MISSING"
-if exist "%~2" set "MARK=present"
-echo   [%MARK%] %~1
+set "MARK=[MISSING]"
+if exist "%~2" set "MARK=[present]"
+echo   !MARK! %~1
 exit /b 0
 :do_all
 call :do_coastline & call :do_emodnet & call :do_litto3d & call :do_depth
