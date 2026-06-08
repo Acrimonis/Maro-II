@@ -28,7 +28,9 @@ if /i "!A:~0,1!"=="y" call :do_depth
 goto done
 
 :status
-if exist "%~2" (echo   [present] %~1) else (echo   [MISSING] %~1)
+set "MARK=[MISSING]"
+if exist "%~2" set "MARK=[present]"
+echo   !MARK! %~1
 exit /b 0
 :do_all
 call :do_coastline & call :do_emodnet & call :do_litto3d & call :do_depth
