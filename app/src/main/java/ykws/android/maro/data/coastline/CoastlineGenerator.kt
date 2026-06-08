@@ -88,10 +88,13 @@ class CoastlineGenerator(
         private val FORM_URLENCODED = "application/x-www-form-urlencoded".toMediaType()
     }
 
-    /** Shared HTTP client with aggressive 10-second timeouts — fail fast, race wins. */
+    /** Shared HTTP client. The 6 endpoints race (first success wins), so a generous read timeout only
+     *  bounds the wait when ALL mirrors are busy — give heavy/busy Overpass coastline queries room
+     *  (they can take 30 s+ server-side) instead of failing the whole bake at 10 s. The healthy case
+     *  still returns as fast as the quickest mirror. */
     private val httpClient = OkHttpClient.Builder()
-        .connectTimeout(10, TimeUnit.SECONDS)
-        .readTimeout(10, TimeUnit.SECONDS)
+        .connectTimeout(15, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)
         .build()
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -652,7 +655,7 @@ class CoastlineGenerator(
      */
     private suspend fun fetchOverpass(
         onProgress: (Int) -> Unit
-    ): OverpassData = coroutineScope {
+    ): OverpassData {
         // One request fetches the coastline ways AND the isolated-danger seamark
         // nodes (La Fourmigue, cardinal-marked shoals, wrecks) in a single round-trip.
         val seamarkTypes = SeamarkParser.DANGER_TYPES.joinToString("|")
@@ -666,49 +669,57 @@ class CoastlineGenerator(
         val requestBody = "data=$query".toByteArray(Charsets.UTF_8)
             .toRequestBody(FORM_URLENCODED)
 
-        onProgress(10)
-
-        // ── 1. Lancer tous les endpoints en parallèle ─────────────────────────
-        // Chaque async est enveloppé dans runCatching pour que le Deferred
-        // ne lance jamais d'exception — select.onAwait peut ainsi inspecter
-        // le Result sans bloc try-catch.
-        val deferreds = OVERPASS_ENDPOINTS.map { endpoint ->
-            async {
-                runCatching {
-                    fetchFromEndpoint(endpoint, requestBody)
+        // The 6-mirror race already survives ONE busy server; this retry survives ALL of Overpass
+        // being momentarily overloaded (the failure that aborts a bake). Up to 3 attempts with
+        // 3 s / 6 s backoff — the healthy case still returns on the first race in seconds.
+        var lastException: Throwable? = null
+        repeat(3) { attempt ->
+            try {
+                return raceOverpass(requestBody, onProgress)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e                                              // never swallow cancellation
+            } catch (e: Exception) {
+                lastException = e
+                if (attempt < 2) {
+                    onProgress(5)
+                    kotlinx.coroutines.delay(3_000L * (attempt + 1))
                 }
             }
         }
+        throw lastException ?: IllegalStateException("Tous les endpoints Overpass ont échoué.")
+    }
 
-        // ── 2. Race-to-first-success via select ──────────────────────────────
-        // select retourne le premier deferred qui se complète (succès ou échec).
-        //   - Succès → on cancel() les autres et on retourne immédiatement.
-        //   - Échec  → on enregistre l'exception et on attend le suivant.
+    /** One race over all [OVERPASS_ENDPOINTS] — first valid response wins, the rest are cancelled. */
+    private suspend fun raceOverpass(
+        requestBody: okhttp3.RequestBody,
+        onProgress: (Int) -> Unit
+    ): OverpassData = coroutineScope {
+        onProgress(10)
+
+        // Each async is wrapped in runCatching so its Deferred never throws — select.onAwait can
+        // inspect the Result without a try/catch.
+        val deferreds = OVERPASS_ENDPOINTS.map { endpoint ->
+            async { runCatching { fetchFromEndpoint(endpoint, requestBody) } }
+        }
+
+        // Race-to-first-success: select returns the first deferred to complete (success or failure).
         var lastException: Throwable? = null
         val remaining = deferreds.toMutableList()
-
         while (remaining.isNotEmpty()) {
             val (index, result) = select<Pair<Int, Result<OverpassData>>> {
                 remaining.forEachIndexed { i, deferred ->
                     deferred.onAwait { value -> i to value }
                 }
             }
-
             if (result.isSuccess) {
-                // 🏆 Premier succès ! Annuler tous les autres appels en vol.
-                remaining.forEach { it.cancel() }
+                remaining.forEach { it.cancel() }            // first success → cancel the rest
                 onProgress(100)
                 return@coroutineScope result.getOrThrow()
             }
-
-            // ❌ Cet endpoint a échoué — essayer le suivant.
             lastException = result.exceptionOrNull()
             remaining.removeAt(index)
         }
-
-        // 💀 Tous les endpoints ont échoué.
-        throw lastException
-            ?: IllegalStateException("Tous les endpoints Overpass ont échoué.")
+        throw lastException ?: IllegalStateException("Tous les endpoints Overpass ont échoué.")
     }
 
     /**

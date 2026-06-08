@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** AppBakFlow
-- **Active Subfeature:** none
+- **Active Feature:** DepthSafety
+- **Active Subfeature:** water-only
 - **Last Updated:** 2026-06-08
-- **Last Bake:** 2026-06-08 16:43 (AppBakFlow — back-to-exit double-press (2 s) showing a bottom-centre "Press back again to exit" toast styled like the dashboard tile (#16213E), kept clear of the right-edge zoom stack, exit via finishAffinity; + "Keep phone on" settings toggle (bottom of Display) driving LocalView.keepScreenOn, persisted in SettingsManager; EN+FR strings; assembleDebug green, on-device verification pending; committed+pushed feature/app-bak-flow)
-- **Prev Bake:** 2026-06-08 15:43 (Localisation — EN default + FR (values-fr) ~70 strings; instant Compose locale override via a ContextWrapper-around-Activity; Settings System/English/Français selector; on-device verified, committed+pushed feature/localisation)
+- **Last Bake:** 2026-06-08 19:16 (DepthSafety — planned 4 branches off feature/litto3d-shallow; B1 per-cell runtime guard found INFEASIBLE (~7 M cells × isWater = tens of s on-device) → bake-mask is the guard (re-bake+verify); Mercator overlay approx ~35 m mid-band noted as optional B5. NEXT: merge feature/litto3d-shallow → develop, then branch B1-B4 from develop)
+- **Prev Bake:** 2026-06-08 18:25 (BakeNormalization — feature/litto3d-shallow finalized: depth land-mask (water-only) committed 3c6ee3d, APK built 16 MB; spun off new DepthSafety feature — 4 branches: water-only, isobar-precision, danger-display, danger-alert)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -23,6 +23,7 @@
 | performance, battery, gps-tune, adaptive, compass-gate, map-refresh, battery-drain | FEATURE_SCOPE_Performance.md |
 | isonwater, isonwateragain, iswater, waterland, raycast, crossing, point-in-polygon | FEATURE_SCOPE_isOnWaterAgain.md |
 | bake, baking, bake-script, bake-bat, apk-bake, apk-build, apk-deploy, deploy, prebake-pipeline, bake-env | FEATURE_SCOPE_BakeNormalization.md |
+| depthsafety, depth-safety, danger-depth, shallow, grounding, isobar precision, isobath precision, depth alert, depth overlay, water-only | FEATURE_SCOPE_DepthSafety.md |
 | localisation, localization, i18n, locale, language, translation, strings, values-fr, stringresource | FEATURE_SCOPE_Localisation.md |
 | app-bak-flow, app-back-flow, back, back button, back handler, exit, double-back, press back, keep screen on, keep awake, screen-on, wakelock | FEATURE_SCOPE_AppBakFlow.md |
 

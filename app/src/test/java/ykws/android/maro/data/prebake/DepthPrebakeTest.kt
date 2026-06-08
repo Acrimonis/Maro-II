@@ -30,7 +30,9 @@ class DepthPrebakeTest {
         val repoDir = System.getProperty("maro.repoDir")?.let { File(it) } ?: File("..")
         val depthDir = File(repoDir, "data/app-assets/depth")
         val emodnetAsc = File(depthDir, "emodnet-$region.asc")
-        val litto3dAsc = File(depthDir, "litto3d-$region.asc")
+        // Prefer the gzipped Litto3D grid (the bake ships it gzipped — mostly-nodata text compresses ~50-100x).
+        val litto3dGz = File(depthDir, "litto3d-$region.asc.gz")
+        val litto3dAsc = if (litto3dGz.exists()) litto3dGz else File(depthDir, "litto3d-$region.asc")
         Assume.assumeTrue("EMODnet .asc missing — run tools\\bake_emodnet.bat first", emodnetAsc.exists())
 
         // The depth zone DERIVES from the shipped coastline: envelope = coastline bbox + 6 NM, then
