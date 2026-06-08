@@ -1,8 +1,8 @@
 ---
 name: DepthMapping
 status: active
-created: 2026-06-04
-modified: 2026-06-06
+created: 2026-06-04 00:00
+modified: 2026-06-06 00:00
 active_subfeature: none
 subs_total: 5
 subs_done: 2
