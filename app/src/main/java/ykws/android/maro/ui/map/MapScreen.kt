@@ -328,6 +328,7 @@ fun MapScreen(
                 onRetry = { viewModel.loadCoastline() },
                 onOpenSettings = { showSettings = true },
                 onToggleZone300 = viewModel::toggleZone300Visibility,
+                onToggleLowDepthWarning = viewModel::toggleLowDepthWarningVisibility,
                 showExitBanner = showExitBanner,
                 modifier = Modifier
                     .fillMaxSize()
@@ -416,6 +417,7 @@ private fun MapContent(
     onRetry: () -> Unit,
     onOpenSettings: () -> Unit,
     onToggleZone300: () -> Unit,
+    onToggleLowDepthWarning: () -> Unit,
     showExitBanner: Boolean,
     modifier: Modifier = Modifier
 ) {
@@ -528,18 +530,29 @@ private fun MapContent(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .fillMaxHeight()
-                .padding(horizontal = 12.dp, vertical = 12.dp),
+                .padding(start = 12.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
             verticalArrangement = Arrangement.SpaceBetween,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Top — settings
             SettingsButton(onClick = onOpenSettings)
 
-            // Middle — layer toggle (centred in leftover space by SpaceBetween)
-            LayerButton(
-                isZoneVisible = appSettings.zone300Visible,
-                onClick = onToggleZone300
-            )
+            // Middle — layer toggles, grouped & centred in the leftover space by the
+            // parent SpaceBetween. The danger (low-depth) toggle sits just above the 300 m
+            // toggle, kept close together (8.dp) like the zoom cluster below.
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                DangerLayerButton(
+                    isWarningVisible = appSettings.lowDepthWarningVisible,
+                    onClick = onToggleLowDepthWarning
+                )
+                LayerButton(
+                    isZoneVisible = appSettings.zone300Visible,
+                    onClick = onToggleZone300
+                )
+            }
 
             // Bottom — zoom +/-. A placeholder holds the slot before the map
             // is ready so the middle toggle stays centred (no load-time jump).
@@ -944,27 +957,69 @@ private fun LayerButton(
         ),
         contentPadding = PaddingValues(0.dp)
     ) {
-        // Custom two-stacked-layers icon (no dependency on material-icons-extended)
+        // Custom circular outline (no dependency on material-icons-extended)
         Canvas(modifier = Modifier.size(28.dp)) {
             val w = size.width
             val h = size.height
-            val cr = androidx.compose.ui.geometry.CornerRadius(4f, 4f)
             val iconAlpha = if (isZoneVisible) 1.0f else 0.25f
-            // Bottom layer (offset right and down)
-            drawRoundRect(
+            // Circular outline — the 300 m zone is a circle around the boat.
+            drawCircle(
                 color = themeBlue,
-                topLeft = androidx.compose.ui.geometry.Offset(w * 0.18f, h * 0.25f),
-                size = androidx.compose.ui.geometry.Size(w * 0.72f, h * 0.60f),
-                cornerRadius = cr,
-                alpha = iconAlpha * 0.55f
+                radius = w * 0.38f,
+                center = androidx.compose.ui.geometry.Offset(w * 0.5f, h * 0.5f),
+                alpha = iconAlpha,
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = w * 0.12f)
             )
-            // Top layer (stacked above and to the left)
+        }
+    }
+}
+
+// ── Danger (low-depth) layer toggle — pink grounding-hazard overlay ─────────
+
+@Composable
+private fun DangerLayerButton(
+    isWarningVisible: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // Themed blue to match the other control buttons (LayerButton + zoom).
+    val themeBlue = ComposeColor(0xFF1565C0)
+    Button(
+        onClick = onClick,
+        modifier = modifier.size(64.dp),
+        shape = CircleShape,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = ComposeColor(0xCCFFFFFF)  // solid white bg always (matches LayerButton)
+        ),
+        contentPadding = PaddingValues(0.dp)
+    ) {
+        // Custom warning-triangle icon (no material-icons-extended dependency, like LayerButton).
+        Canvas(modifier = Modifier.size(28.dp)) {
+            val w = size.width
+            val h = size.height
+            val iconAlpha = if (isWarningVisible) 1.0f else 0.25f
+            // Filled hazard triangle
+            val triangle = androidx.compose.ui.graphics.Path().apply {
+                moveTo(w * 0.50f, h * 0.06f)
+                lineTo(w * 0.96f, h * 0.88f)
+                lineTo(w * 0.04f, h * 0.88f)
+                close()
+            }
+            drawPath(path = triangle, color = themeBlue, alpha = iconAlpha)
+            // Exclamation bar
             drawRoundRect(
-                color = themeBlue,
-                topLeft = androidx.compose.ui.geometry.Offset(w * 0.10f, h * 0.10f),
-                size = androidx.compose.ui.geometry.Size(w * 0.72f, h * 0.60f),
-                cornerRadius = cr,
-                alpha = iconAlpha * 0.90f
+                color = ComposeColor.White,
+                topLeft = androidx.compose.ui.geometry.Offset(w * 0.455f, h * 0.34f),
+                size = androidx.compose.ui.geometry.Size(w * 0.09f, h * 0.28f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(3f, 3f),
+                alpha = iconAlpha
+            )
+            // Exclamation dot
+            drawCircle(
+                color = ComposeColor.White,
+                radius = w * 0.055f,
+                center = androidx.compose.ui.geometry.Offset(w * 0.50f, h * 0.74f),
+                alpha = iconAlpha
             )
         }
     }

@@ -1,28 +1,24 @@
 # Context Hydration — MapDisplay
 
-**Last Bake:** 2026-06-08 20:43
-**Feature Status:** active (3/7 subfeatures done)
-**Active Subfeature:** none (config 300m auto display impl done, build/verify pending)
+**Last Bake:** 2026-06-08 21:36
+**Feature Status:** active (3/8 subfeatures done)
+**Active Subfeature:** none (toggle-danger-layer registered, not focused; impl done, build pending)
 
 ## State Summary
-Added per-mode control over the 300 m zone auto-show. Two persisted booleans `zone300AutoShowGps`
-+ `zone300AutoShowDemo` (`AppSettings`, default **ON** to preserve the prior always-on behaviour).
-Settings → Avancé → "300 m zone alert" now renders two toggles (GPS / Demo); the shared distance +
-time sliders render only when at least one toggle is on. The shore pipeline (`CoastlineViewModel`)
-gates auto-reveal on the active mode's toggle — when off it leaves `zone300Visible` under manual
-control and resets `zone300AutoRevealed` / `bandEnteredSinceReveal`. Pure `zone300Decision()`
-unchanged (`Zone300DecisionTest` untouched). EN + FR strings added. Branch `feature/300-auto-show`.
+Added a map control button for the pink low-depth/danger overlay. New `DangerLayerButton`
+(blue warning-triangle, mirrors `LayerButton`) sits just above the 300 m `LayerButton` in the
+right-edge control stack, wrapped in an inner `Column(spacedBy 8.dp)` so the pair stays close and
+centred by the parent `SpaceBetween`. Wired `onToggleLowDepthWarning` through `MapContent` →
+new `CoastlineViewModel.toggleLowDepthWarningVisibility()` (plain flip of `lowDepthWarningVisible`,
+no auto-reveal state). Visual polish this session: 300 m zone icon → circular ring (was the
+two-stacked-layers glyph); all control-stack icons themed blue (`0xFF1565C0`); control-stack padding
+tightened (top/bottom/right 12→6 dp, left unchanged). Branch `feature/toggle-danger-layer`, off
+develop (which already carries the auto-show feature via PR #40).
 
-## Merged from develop (now in this branch)
-- **layer-lowdepth** subfeature: bright low-depth-warning `GroundOverlay` above the depth raster
-  (threshold slider 0.5–5.0 m, default 1.5, persisted; own toggle). Mercator offset fixed via
-  latitude-banding. Bake-time land mask (`DepthZoneMask` nulls `!isWater`). KNOWN: pink warning laps
-  ~½ cell onto land at 25 m granularity — open todo (sub-cell test / vector clip).
-- New settings auto-merged into `AppSettings`/`SettingsManager`: `keepScreenOn`,
-  `lowDepthWarningVisible`, `lowDepthWarningMaxM` (+ `DepthConstants` import).
+## Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `DangerLayerButton`, `LayerButton` ring icon, control-stack grouping + padding
+- `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — `toggleLowDepthWarningVisibility()`
 
 ## Next Steps
-- Build (`apk-build.bat`) FIRST — confirm the auto-merged `SettingsManager` / `MapScreen` compile,
-  then on-device verify both the auto-show toggles and the low-depth overlay.
-- Open decision: should Demo auto-show default **off** (currently on)?
-- Pending: "depth color" + "layer-zone" re-bake; low-depth pink-bleed fix.
+- Build (`apk-build.bat`) + on-device verify: danger button toggles the pink layer; pair stays centred; ring/blue icons render; tighter padding looks right.
+- Inherited from develop: low-depth pink-bleed fix (laps ~½ cell onto land at 25 m); "depth color" + "layer-zone" re-bake still pending.
