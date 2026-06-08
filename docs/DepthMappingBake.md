@@ -44,8 +44,9 @@ Three separated stages — **bake** (data prep) → **build** (package) → **de
   non-interactively: `apk-bake.bat all | coastline | emodnet | litto3d | depth | band`. It writes the
   gitignored `data\app-assets\` tree. Each target is a directly-runnable script under `tools\`:
   `bake-coastline` (OSM + 300 m band), `bake-emodnet`, `bake-litto3d`, `bake-depth` (merge + 6 NM clip),
-  `bake-zone300` (network-free band refresh). All share the corridor via **`tools\bake-env.bat`**
-  (reads the `maro.region.*` props).
+  `bake-zone300` (network-free band refresh). All share the clip box via **`tools\bake-env.bat`**, which
+  reads the coastline-envelope sidecar (`…/coastlines/<region>.bbox`) that `bake-coastline` emits — nothing
+  hardcoded; the box follows the real coast (coastline bbox + 6 NM).
 - **`apk-build.bat`** — only `gradlew assembleDebug`; it does NOT bake. It packages whatever is in
   `data\app-assets\` (+ app assets); unbaked tiers are simply absent.
 - **`apk-deploy.bat`** — installs the debug APK and relaunches the app on the connected device.
@@ -95,8 +96,9 @@ Litto3D PACA 2015 is **open data** and downloads from the **SHOM INSPIRE pre-pac
    ```
    tools\bake-litto3d.bat
    ```
-   Mosaics the tiles, reprojects Lambert-93→WGS84, clips, downsamples shoalest (`-r min`), and
-   writes `data/app-assets/depth/litto3d-nice-frejus.asc`.
+   Mosaics the tiles, reprojects Lambert-93→WGS84, clips to the envelope, downsamples shoalest (`-r min`),
+   and writes **gzipped** `data/app-assets/depth/litto3d-nice-frejus.asc.gz` (the mostly-nodata ASCII
+   compresses ~50–100×; the parser reads `.gz` transparently).
 
 > ⚠ Litto3D's guaranteed marine extent is only to the −10 m isobath, and open-coast coverage is
 > patchy beyond it — expect the collision band (0–10 m) well-covered, deeper gaps filled by EMODnet.

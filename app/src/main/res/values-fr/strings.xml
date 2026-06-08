@@ -15,6 +15,7 @@
     <string name="side_land">Terre</string>
     <string name="marker_position_water">Position (eau)</string>
     <string name="marker_position_land">Position (terre)</string>
+    <string name="exit_press_back_again">Appuyez à nouveau pour quitter</string>
 
     <!-- Settings -->
     <string name="settings_title">Paramètres</string>
@@ -31,7 +32,13 @@
     <string name="settings_coastline_desc">Afficher la ligne de côte sur la carte</string>
     <string name="settings_zone300_label">Zone 300 m</string>
     <string name="settings_zone300_desc">Afficher la zone des 300 m sur la carte</string>
+    <string name="settings_low_depth_warning_label">Alerte faible profondeur</string>
+    <string name="settings_low_depth_warning_desc">Surligner les hauts-fonds dangereux</string>
+    <string name="settings_low_depth_threshold_label">Profondeur d\'alerte</string>
+    <string name="settings_low_depth_threshold_desc">Surligner l\'eau moins profonde que ce seuil</string>
     <string name="settings_section_power">Économie d\'énergie</string>
+    <string name="settings_keep_screen_on_label">Garder le téléphone allumé</string>
+    <string name="settings_keep_screen_on_desc">Garder l\'écran allumé pendant que l\'app fonctionne</string>
     <string name="settings_sub_gps_label">Acquisition GPS</string>
     <string name="settings_sub_gps_desc">Mise à jour de votre position pendant la navigation</string>
     <string name="settings_sub_render_label">Rendu carte</string>
@@ -72,6 +79,7 @@
     <string name="settings_value_seconds">%d s</string>
     <string name="settings_value_fps">%d fps</string>
     <string name="settings_value_meters">%d m</string>
+    <string name="settings_value_depth">%.1f m</string>
 
     <!-- Dashboard -->
     <string name="dash_distance_title">Distance</string>

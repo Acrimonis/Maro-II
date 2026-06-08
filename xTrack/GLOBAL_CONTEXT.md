@@ -5,7 +5,7 @@
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-08
 - **Last Bake:** 2026-06-08 20:43 (MapDisplay — per-mode 300 m auto-show: two persisted toggles (GPS / Demo) in Settings → Avancé; shared distance/time sliders shown only when one is on; shore pipeline gates auto-reveal on the active mode's toggle; `zone300Decision()` unchanged; EN/FR strings)
-- **Prev Bake:** 2026-06-08 14:31 (BakeNormalization — Phases 1–3: region single-sourced from props→BuildConfig, depth envelope derived (WATER_BBOX removed), no baked data in git, bake-*/apk-bake/build/deploy split; fixes: streaming .asc parser (OOM), APK .asc-exclude, CRLF .gitattributes; on-device verified)
+- **Prev Bake:** 2026-06-08 20:23 (MapDisplay — low-depth warning overlay (configurable threshold slider 0.5–5.0 m, default 1.5, persisted) above the depth raster; "Keep phone on" → top of Power saving; Mercator offset fixed by latitude-banding BOTH depth + warning (addBandedOverlay, 8 strips); bake-time land mask resolved to develop's DepthZoneMask. KNOWN: pink warning laps ~½ cell onto land at 25 m granularity)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -23,6 +23,9 @@
 | performance, battery, gps-tune, adaptive, compass-gate, map-refresh, battery-drain | FEATURE_SCOPE_Performance.md |
 | isonwater, isonwateragain, iswater, waterland, raycast, crossing, point-in-polygon | FEATURE_SCOPE_isOnWaterAgain.md |
 | bake, baking, bake-script, bake-bat, apk-bake, apk-build, apk-deploy, deploy, prebake-pipeline, bake-env | FEATURE_SCOPE_BakeNormalization.md |
+| depthsafety, depth-safety, danger-depth, shallow, grounding, isobar precision, isobath precision, depth alert, depth overlay, water-only | FEATURE_SCOPE_DepthSafety.md |
+| localisation, localization, i18n, locale, language, translation, strings, values-fr, stringresource | FEATURE_SCOPE_Localisation.md |
+| app-bak-flow, app-back-flow, back, back button, back handler, exit, double-back, press back, keep screen on, keep awake, screen-on, wakelock | FEATURE_SCOPE_AppBakFlow.md |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).

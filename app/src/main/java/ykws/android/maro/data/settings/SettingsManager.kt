@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import ykws.android.maro.data.depth.DepthConstants
 
 /**
  * User-facing settings persisted via SharedPreferences.
@@ -68,7 +69,13 @@ data class AppSettings(
     val isWater: Boolean = true,
     val distanceToShore: Double = Double.NaN,
     /** App language: "system" (device locale, English fallback), "en", or "fr". */
-    val languageCode: String = "system"
+    val languageCode: String = "system",
+    /** Keep the device screen awake while the app is in the foreground. */
+    val keepScreenOn: Boolean = false,
+    /** Highlight charted shallow water as a bright grounding-hazard overlay. */
+    val lowDepthWarningVisible: Boolean = true,
+    /** Depth threshold (m) for the low-depth warning: cells shallower than this are painted. */
+    val lowDepthWarningMaxM: Float = DepthConstants.LOW_DEPTH_WARNING_MAX_M.toFloat()
 )
 
 class SettingsManager(
@@ -105,7 +112,10 @@ class SettingsManager(
         zoomLevel        = prefs.getFloat(KEY_ZOOM_LEVEL, 0f).toDouble(),
         isWater          = prefs.getBoolean(KEY_IS_WATER, true),
         distanceToShore  = prefs.getFloat(KEY_DISTANCE_TO_SHORE, Float.NaN).toDouble(),
-        languageCode     = prefs.getString(KEY_LANGUAGE_CODE, "system") ?: "system"
+        languageCode     = prefs.getString(KEY_LANGUAGE_CODE, "system") ?: "system",
+        keepScreenOn     = prefs.getBoolean(KEY_KEEP_SCREEN_ON, false),
+        lowDepthWarningVisible = prefs.getBoolean(KEY_LOW_DEPTH_WARNING_VISIBLE, true),
+        lowDepthWarningMaxM = prefs.getFloat(KEY_LOW_DEPTH_WARNING_MAX_M, DepthConstants.LOW_DEPTH_WARNING_MAX_M.toFloat())
     )
 
     /**
@@ -144,6 +154,9 @@ class SettingsManager(
             .putBoolean(KEY_IS_WATER, updated.isWater)
             .putFloat(KEY_DISTANCE_TO_SHORE, updated.distanceToShore.toFloat())
             .putString(KEY_LANGUAGE_CODE, updated.languageCode)
+            .putBoolean(KEY_KEEP_SCREEN_ON, updated.keepScreenOn)
+            .putBoolean(KEY_LOW_DEPTH_WARNING_VISIBLE, updated.lowDepthWarningVisible)
+            .putFloat(KEY_LOW_DEPTH_WARNING_MAX_M, updated.lowDepthWarningMaxM)
             .apply()
     }
 
@@ -171,5 +184,8 @@ class SettingsManager(
         private const val KEY_IS_WATER = "is_water"
         private const val KEY_DISTANCE_TO_SHORE = "distance_to_shore"
         private const val KEY_LANGUAGE_CODE = "language_code"
+        private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
+        private const val KEY_LOW_DEPTH_WARNING_VISIBLE = "low_depth_warning_visible"
+        private const val KEY_LOW_DEPTH_WARNING_MAX_M = "low_depth_warning_max_m"
     }
 }
