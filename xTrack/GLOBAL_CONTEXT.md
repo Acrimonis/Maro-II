@@ -28,6 +28,7 @@
 - Use apk-build.bat to build APK (runs gradlew assembleDebug).
 - **No Côte/Bande or Earth/Water controls anywhere in the UI.** The "Côte" (generate coastline) and "Bande" (regenerate 300m band) buttons are completely removed from the app interface. The Earth/Water icon display in the dashboard is also removed. These exist as ViewModel methods only for programmatic/internal use.
 - **Do not commit or push unless explicitly instructed.** Stage only when directed.
+- **Do not commit or push directly to develop.** Always work through feature branches and merge via PR or explicit user instruction.
 
 ## Always-Loaded Context
 These files are loaded into context at the start of every session to maximize the AI prefix-cache hit rate:
