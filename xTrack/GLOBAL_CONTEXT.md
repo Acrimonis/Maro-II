@@ -26,3 +26,4 @@
 - Auto-refine rule wording for clarity and conciseness on `#rule` add.
 - Use apk-build.bat to build APK (runs gradlew assembleDebug).
 - **No Côte/Bande or Earth/Water controls anywhere in the UI.** The "Côte" (generate coastline) and "Bande" (regenerate 300m band) buttons are completely removed from the app interface. The Earth/Water icon display in the dashboard is also removed. These exist as ViewModel methods only for programmatic/internal use.
+- **Do not commit or push unless explicitly instructed.** Stage only when directed.

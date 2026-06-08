@@ -1,17 +1,16 @@
 # Context Hydration — MapDisplay
 
 **Last Bake:** 2026-06-07
+**Feature Status:** active (3/4 subfeatures done)
+**Active Subfeature:** zone proximity auto-reveal (done ✅)
 
-**State:** Active — layer refresh subfeature in progress.
+## State Summary
+Layer toggle button (stacked-layers icon) on map right edge — theme blue, 25% icon alpha when hidden. Demo pan speed extrapolation: Haversine ÷ elapsed time, /10 divisor, 500ms stop timeout. Zone auto-reveal state machine: direction-aware, 400m buffer, auto-reveals on approach, auto-re-hides on exit (no GPS gating). Zone300Card now shows speed compliance colors (green/red) using GPS or demo speed. All dashboard tile emoji icons removed from titles.
 
-**What was done:**
-- Analyzed root cause of depth layer redraw on orientation switch: missing `android:configChanges` in manifest caused Activity destruction/recreation, tearing down `MapView` and all overlays.
-- Fixed Compose layout: refactored `MapScreen.kt` from `if/else` + `Row`/`Column` to a single `Box` parent with stable `MapContent` slot and overlaid `DashboardPanel` via `Modifier.align()`.
-- Fixed manifest: added `android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize"` to `<activity>`.
+## Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — LayerButton composable + demoSpeedKnots wiring
+- `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — demoSpeedKnots, computeDemoSpeed(), toggleZone300Visibility(), zone auto-reveal state machine
+- `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt` — SpeedCard merge, Zone300Card speed compliance colors, no emoji in titles
 
-**Key files:**
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
-- `app/src/main/AndroidManifest.xml`
-- `xTrack/FEATURE_SCOPE_MapDisplay.md`
-
-**Next step:** Build APK (`apk-build.bat`), deploy, and test that overlays survive rotation without redrawing.
+## Next Steps
+- Subfeature "depth color" still pending: align DepthCard color with DepthColorRamp palette

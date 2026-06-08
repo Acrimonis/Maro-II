@@ -54,6 +54,7 @@ private object DashboardColors {
     val red = Color(0xFFF44336)
     val zoneDanger = Color(0xFFB71C1C)
     val zoneNormal = Color(0xFF37474F)
+    val zoneCompliant = Color(0xFF1B5E20)  // dark green — inside zone, speed-compliant
     val speedSafe = Color(0xFF2E7D32)     // green — compliant (<5 kn) inside the 300 m zone
     val speedCaution = Color(0xFFEF6C00)  // orange — 5–10 kn inside the zone
     val speedDanger = Color(0xFFC62828)   // red — >10 kn inside the zone
@@ -116,6 +117,7 @@ fun DashboardPanel(
                     Zone300Card(
                         inZone300 = inZone300,
                         distanceToZone = distanceToZone,
+                        speedKnots = speedKnots,
                         state = state,
                         isWater = isWater,
                         modifier = Modifier
@@ -256,7 +258,7 @@ private fun DistanceCard(
 ) {
     if (state !is CoastlineState.Ready || distanceToShore == null) {
         DashboardCard(
-            title = "📏 Distance",
+            title = "Distance",
             value = "—",
             modifier = modifier
         )
@@ -267,7 +269,7 @@ private fun DistanceCard(
     val label = if (isWater) "de la côte" else "de la mer"
 
     DashboardCard(
-        title = "📏 Distance",
+        title = "Distance",
         value = displayText,
         subtitle = label,
         modifier = modifier
@@ -280,13 +282,14 @@ private fun DistanceCard(
 private fun Zone300Card(
     inZone300: Boolean,
     distanceToZone: Double?,
+    speedKnots: Float?,
     state: CoastlineState,
     isWater: Boolean,
     modifier: Modifier = Modifier
 ) {
     if (state !is CoastlineState.Ready || distanceToZone == null) {
         DashboardCard(
-            title = "⚠️ Zone 300m",
+            title = "Zone 300m",
             value = "—",
             modifier = modifier
         )
@@ -296,7 +299,7 @@ private fun Zone300Card(
     if (!isWater) {
         val dimAlpha = 0.38f
         DashboardCard(
-            title = "⚠️ Zone 300m",
+            title = "Zone 300m",
             value = "Not at sea",
             subtitle = "Hors zone",
             cardColor = DashboardColors.zoneNormal,
@@ -308,36 +311,48 @@ private fun Zone300Card(
     }
 
     if (inZone300) {
-        // Pulsing border when inside the danger zone
-        val infiniteTransition = rememberInfiniteTransition(label = "zonePulse")
-        val pulseAlpha by infiniteTransition.animateFloat(
-            initialValue = 0.3f,
-            targetValue = 1.0f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = 800, easing = LinearEasing),
-                repeatMode = RepeatMode.Reverse
-            ),
-            label = "pulseAlpha"
-        )
-
         val zoneM = abs(distanceToZone)
         val exitText = if (zoneM >= 1000.0) "%.1f km".format(zoneM / 1000.0) else "%.0f m".format(zoneM)
+        // Null speed (demo mode, stationary) = 0 kn → compliant
+        val compliant = speedKnots == null || speedKnots < 5f
 
-        DashboardCard(
-            title = "⚠️ Zone 300m",
-            value = "EN ZONE !",
-            subtitle = "5 nœuds max — $exitText",
-            cardColor = DashboardColors.zoneDanger,
-            borderColor = DashboardColors.red.copy(alpha = pulseAlpha),
-            borderWidth = 2.dp,
-            modifier = modifier
-        )
+        if (compliant) {
+            val speedDisplay = if (speedKnots != null) " · ✅ %.1f kn".format(speedKnots) else ""
+            DashboardCard(
+                title = "Zone 300m",
+                value = "EN ZONE !",
+                subtitle = "5 nœuds max — $exitText$speedDisplay",
+                cardColor = DashboardColors.zoneCompliant,
+                modifier = modifier
+            )
+        } else {
+            val infiniteTransition = rememberInfiniteTransition(label = "zonePulse")
+            val pulseAlpha by infiniteTransition.animateFloat(
+                initialValue = 0.3f,
+                targetValue = 1.0f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(durationMillis = 800, easing = LinearEasing),
+                    repeatMode = RepeatMode.Reverse
+                ),
+                label = "pulseAlpha"
+            )
+
+            DashboardCard(
+                title = "Zone 300m",
+                value = "EN ZONE !",
+                subtitle = "5 nœuds max — $exitText · ⚠ %.1f kn".format(speedKnots),
+                cardColor = DashboardColors.zoneDanger,
+                borderColor = DashboardColors.red.copy(alpha = pulseAlpha),
+                borderWidth = 2.dp,
+                modifier = modifier
+            )
+        }
     } else {
         val zoneM = abs(distanceToZone)
         val zoneText = if (zoneM >= 1000.0) "%.1f km".format(zoneM / 1000.0) else "%.0f m".format(zoneM)
 
         DashboardCard(
-            title = "⚠️ Zone 300m",
+            title = "Zone 300m",
             value = zoneText,
             subtitle = "de la zone 300m",
             cardColor = DashboardColors.zoneNormal,
@@ -357,7 +372,7 @@ private fun DepthCard(
     if (!isWater) {
         val dimAlpha = 0.38f
         DashboardCard(
-            title = "🌊 Profondeur",
+            title = "Profondeur",
             value = "Not at sea",
             subtitle = "Hors zone",
             cardColor = DashboardColors.zoneNormal,
@@ -370,7 +385,7 @@ private fun DepthCard(
 
     if (depthSample == null || !depthSample.hasData) {
         DashboardCard(
-            title = "🌊 Profondeur",
+            title = "Profondeur",
             value = "—",
             modifier = modifier
         )
@@ -378,12 +393,12 @@ private fun DepthCard(
     }
 
     val depthM = depthSample.depthM
-    val depthColor = depthGradientColor(depthM)
+    val depthColor = depthRampColor(depthM)
     val sourceLabel = depthSourceLabel(depthSample.source)
     val confidencePct = depthSample.confidence.toInt()
 
     DashboardCard(
-        title = "🌊 Profondeur",
+        title = "Profondeur",
         value = "%.1f m".format(depthM),
         subtitle = "$sourceLabel · ${confidencePct}%",
         cardColor = depthColor.copy(alpha = 0.25f),
@@ -402,7 +417,7 @@ private fun SpeedCard(
     // Null = demo mode (or no fix yet) → show a dash, default background.
     if (speedKnots == null) {
         DashboardCard(
-            title = "🚤 Vitesse",
+            title = "Vitesse",
             value = "—",
             subtitle = "mode démo",
             modifier = modifier
@@ -420,7 +435,7 @@ private fun SpeedCard(
         DashboardColors.cardBg
     }
     DashboardCard(
-        title = "🚤 Vitesse",
+        title = "Vitesse",
         value = "%.1f kn".format(speedKnots),
         subtitle = if (inZone300) "5 kn max en zone" else null,
         cardColor = cardColor,
@@ -466,29 +481,24 @@ private fun formatDistance(distanceM: Double): String {
 }
 
 /**
- * Interpolate depth colour: green (safe, 0m) → yellow (~20m) → red (danger, 60m+).
- * Uses a two-stop gradient: 0–20m green→yellow, 20–60m yellow→red.
+ * Depth colour matching the map's hypsometric colour ramp ([DepthColorRamp]).
+ *
+ * Delegates to [DepthColorRamp.argb] so the dashboard tile colour is always
+ * consistent with the depth colour overlay on the map. Extracts RGB (ignoring
+ * the ramp's semi-transparent alpha) and returns a full-opacity [Color] so the
+ * card's own alpha [copy(alpha = 0.25f)] is applied uniformly.
+ *
+ * - 0 m (surface): pale cyan with red-orange collision warning tint
+ * - 5 m+: pale cyan → navy gradient
+ * - 60 m+: deep navy
  */
-private fun depthGradientColor(depthM: Float): Color {
-    val t = (depthM / 60f).coerceIn(0f, 1f)
-    return if (t <= 1f / 3f) {
-        // Green → Yellow (0–20m)
-        val tt = t * 3f
-        lerpColor(DashboardColors.green, DashboardColors.yellow, tt)
-    } else {
-        // Yellow → Red (20–60m)
-        val tt = (t - 1f / 3f) * 1.5f
-        lerpColor(DashboardColors.yellow, DashboardColors.red, tt)
-    }
-}
-
-/** Linear interpolation between two colours. */
-private fun lerpColor(from: Color, to: Color, fraction: Float): Color {
-    val f = fraction.coerceIn(0f, 1f)
+private fun depthRampColor(depthM: Float): Color {
+    val argb = DepthColorRamp.argb(depthM)
+    if (argb == 0) return DashboardColors.cardBg  // NoData → fallback to card background
     return Color(
-        red = from.red + (to.red - from.red) * f,
-        green = from.green + (to.green - from.green) * f,
-        blue = from.blue + (to.blue - from.blue) * f,
+        red   = ((argb shr 16) and 0xFF) / 255f,
+        green = ((argb shr  8) and 0xFF) / 255f,
+        blue  = (argb and 0xFF) / 255f,
         alpha = 1f
     )
 }

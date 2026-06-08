@@ -11,6 +11,7 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,8 +20,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.launchIn
@@ -31,6 +35,8 @@ import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import ykws.android.maro.data.coastline.CoastlineRepository
+import ykws.android.maro.data.location.AcquisitionMode
+import ykws.android.maro.data.location.AdaptiveGpsPolicy
 import ykws.android.maro.data.location.CompassSource
 import ykws.android.maro.data.location.GpsLocationSource
 import ykws.android.maro.data.model.CoastlineState
@@ -39,6 +45,10 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.Zone300Data
 import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.settings.SettingsManager
+import ykws.android.maro.spatial.SpatialOperations
+
+/** One throttled camera target for GPS auto-follow: where to centre + which way to face. */
+data class CameraTarget(val position: LatLng, val bearingDeg: Float)
 
 /**
  * ViewModel for the coastline map screen.
@@ -170,11 +180,29 @@ class CoastlineViewModel(
     private val _speedKnots = MutableStateFlow<Float?>(null)
     val speedKnots: StateFlow<Float?> = _speedKnots.asStateFlow()
 
+    /** Demo-mode pan speed in knots; null when not panning or in GPS mode. */
+    private val _demoSpeedKnots = MutableStateFlow<Float?>(null)
+    val demoSpeedKnots: StateFlow<Float?> = _demoSpeedKnots.asStateFlow()
+
     /** Foreground gate: GPS/compass collectors run only while true (set by the screen lifecycle). */
     private val _gpsActive = MutableStateFlow(false)
 
     /** elapsedRealtime() of the last valid GPS course — seeds the 3 s compass fallback. */
     private var lastGpsBearingMs = 0L
+
+    // ── Demo-mode pan speed tracking ──────────────────────────────────────────
+    private var lastPanLat = 0.0
+    private var lastPanLon = 0.0
+    private var lastPanMs = 0L
+    private var panStopJob: Job? = null
+
+    // ── Zone 300 m proximity auto-reveal state machine ─────────────────────────
+    /** True when the user manually hid the 300m zone. */
+    private var zone300ManuallyHidden = false
+    /** True when the system auto-revealed the zone — tracks whether to re-hide later. */
+    private var zone300AutoRevealed = false
+    /** Previous [distanceToZone] sample — used to detect "getting closer" vs "moving away". */
+    private var lastDistToZone: Double? = null
 
     /** Called from the screen lifecycle: enable GPS/compass on resume, disable on pause. */
     fun setGpsActive(active: Boolean) {
@@ -185,6 +213,33 @@ class CoastlineViewModel(
     private val _autoFollowSuppressed = MutableStateFlow(false)
     val autoFollowSuppressed: StateFlow<Boolean> = _autoFollowSuppressed.asStateFlow()
     private var resumeJob: Job? = null
+
+    // ── Adaptive acquisition + compass gating ───────────────────────────────
+    /** Stationary detector (always on): decides ACTIVE vs IDLE fix cadence from movement. */
+    private val adaptivePolicy = AdaptiveGpsPolicy()
+
+    /** Current GPS acquisition cadence — folded into the subscription params (rebuilds on change). */
+    private val _acquisitionMode = MutableStateFlow(AcquisitionMode.ACTIVE)
+
+    /** True when the compass is needed for heading (no valid GPS course) — gates its registration. */
+    private val _needsCompass = MutableStateFlow(true)
+
+    /**
+     * Throttled camera stream for GPS auto-follow: latest (position, heading) coalesced to at most
+     * [AppSettings.mapRefreshFps] updates/s. Replaces the per-fix `animateTo` (~60 fps burst) — the
+     * screen collector applies each tick with one `setCenter` + `mapOrientation` (a single repaint).
+     * `sample()` emits nothing while neither position nor heading changes (steady boat ⇒ zero
+     * repaints). Gating to GPS mode / pan-suppression stays in the screen collector so manual
+     * gestures keep osmdroid's full native rate.
+     */
+    val cameraUpdates: Flow<CameraTarget> =
+        settings
+            .map { (1_000L / it.mapRefreshFps.coerceIn(5, 50)).coerceAtLeast(1L) }
+            .distinctUntilChanged()
+            .flatMapLatest { periodMs ->
+                combine(_gpsPosition.filterNotNull(), _mapBearing) { p, b -> CameraTarget(p, b) }
+                    .sample(periodMs)
+            }
 
     /**
      * Called on each user map touch. Pauses GPS auto-follow + auto-orientation, then resumes the
@@ -240,6 +295,25 @@ class CoastlineViewModel(
                 }
                 _inZone300.value = shore.inZone
                 _distanceToZone.value = shore.distToZone
+                // Proximity auto-reveal state machine — direction-aware.
+                val dist = shore.distToZone
+                val prevDist = lastDistToZone  // local snapshot for smart cast
+                val gettingCloser = dist != null && prevDist != null && dist < prevDist
+                val movingAway = dist != null && prevDist != null && dist > prevDist
+
+                // Rule 1: auto-reveal only when getting closer AND about to be delinquent.
+                if (zone300ManuallyHidden && !zone300AutoRevealed &&
+                    dist != null && dist <= ZONE_AUTO_REVEAL_M && gettingCloser) {
+                    zone300AutoRevealed = true
+                    settingsManager.update { it.copy(zone300Visible = true) }
+                }
+                // Rule 2: once auto-revealed, re-hide when no longer delinquent and moving away.
+                if (zone300AutoRevealed &&
+                    dist != null && dist > ZONE_AUTO_REVEAL_M && movingAway) {
+                    zone300AutoRevealed = false
+                    settingsManager.update { it.copy(zone300Visible = false) }
+                }
+                lastDistToZone = dist
             }
             .launchIn(viewModelScope)
 
@@ -252,23 +326,54 @@ class CoastlineViewModel(
         ) { mode, active -> mode && active }.distinctUntilChanged()
 
         // GPS: keep the fix centered (rule 1) + course-up heading while moving (rule 2).
-        enabled
-            .flatMapLatest { on -> if (on) gpsSource.locationUpdates() else emptyFlow() }
+        // Acquisition cadence = the active preset/sliders, or the idle interval once the adaptive
+        // policy reports we're effectively stationary. flatMapLatest re-subscribes the listener
+        // (removeUpdates + requestLocationUpdates) whenever on/interval/distance changes.
+        val gpsParams = combine(
+            enabled,
+            settings.distinctUntilChangedBy {
+                Triple(it.gpsActiveIntervalSec, it.gpsActiveMinDistanceM, it.adaptiveIdleIntervalSec)
+            },
+            _acquisitionMode
+        ) { on, s, mode ->
+            val intervalMs =
+                if (mode == AcquisitionMode.IDLE) s.adaptiveIdleIntervalSec * 1_000L
+                else s.gpsActiveIntervalSec * 1_000L
+            GpsParams(on, intervalMs, s.gpsActiveMinDistanceM)
+        }.distinctUntilChanged()
+
+        gpsParams
+            .flatMapLatest { p ->
+                if (p.on) gpsSource.locationUpdates(p.intervalMs, p.minDistanceM) else emptyFlow()
+            }
             .onEach { fix ->
+                val now = SystemClock.elapsedRealtime()
                 _gpsPosition.value = fix.position
                 updateMapCenter(fix.position.latitude, fix.position.longitude)
                 _speedKnots.value = fix.speedMps?.let { it * MPS_TO_KNOTS }
                 if (fix.hasCourse && fix.bearingDeg != null) {
                     setMapBearing(fix.bearingDeg)
-                    lastGpsBearingMs = SystemClock.elapsedRealtime()
+                    lastGpsBearingMs = now
+                    _needsCompass.value = false                 // GPS course present → compass off
+                } else if (now - lastGpsBearingMs > HEADING_FALLBACK_MS) {
+                    _needsCompass.value = true                  // no course for 3 s → need compass
                 }
+                // Always-on adaptive cadence: drop to idle when effectively stationary.
+                val s = settings.value
+                _acquisitionMode.value = adaptivePolicy.onFix(
+                    now, fix.position, fix.speedMps,
+                    s.adaptiveWindowSec * 1_000L, s.adaptiveDistanceM.toDouble()
+                )
             }
             .catch { /* permission revoked mid-stream → stop silently */ }
             .launchIn(viewModelScope)
 
         // Compass: orient the boat only after HEADING_FALLBACK_MS without a GPS course (rule 3).
-        // sample() rate-limits the ~16 Hz sensor to ~5 Hz so turning doesn't churn the map.
-        enabled
+        // Registered ONLY while actually needed (_needsCompass) so the magnetometer path is
+        // unpowered whenever GPS course is good; the 3 s fallback gives the on→off hysteresis.
+        // azimuthUpdates() now samples at SENSOR_DELAY_NORMAL; sample() further caps it to ~5 Hz.
+        combine(enabled, _needsCompass) { on, needs -> on && needs }
+            .distinctUntilChanged()
             .flatMapLatest { on -> if (on) compass.azimuthUpdates().sample(HEADING_SAMPLE_MS) else emptyFlow() }
             .onEach { azimuth ->
                 if (SystemClock.elapsedRealtime() - lastGpsBearingMs > HEADING_FALLBACK_MS) {
@@ -287,6 +392,9 @@ class CoastlineViewModel(
                     _mapBearing.value = 0f
                     _speedKnots.value = null
                     lastGpsBearingMs = 0L
+                    adaptivePolicy.reset()
+                    _acquisitionMode.value = AcquisitionMode.ACTIVE
+                    _needsCompass.value = true
                 }
             }
             .launchIn(viewModelScope)
@@ -323,11 +431,30 @@ class CoastlineViewModel(
     }
 
     /**
-     * Called whenever the user pans the map.
+     * Toggles the 300m zone overlay visibility. Manages both the manual-hide flag
+     * and the auto-reveal flag so the state machine stays consistent.
+     */
+    fun toggleZone300Visibility() {
+        val current = settings.value.zone300Visible
+        settingsManager.update { it.copy(zone300Visible = !current) }
+        if (current) { // was visible → now hiding (user manually hid it)
+            zone300ManuallyHidden = true
+            zone300AutoRevealed = false  // fresh manual hide, reset auto state
+        } else { // was hidden → now showing (user manually toggled back on)
+            zone300ManuallyHidden = false
+            zone300AutoRevealed = false
+        }
+    }
+
+    /**
+     * Called whenever the user pans the map or GPS delivers a fix.
+     *
      * Records the new center cheaply on the UI thread and persists it so the
      * position survives rotation / app restart; the water/distance recompute is
      * driven by the throttled pipeline in [init] to keep heavy work off the
      * high-frequency scroll path.
+     *
+     * In demo mode (!gpsMode), also extrapolates pan velocity → simulated speed in knots.
      */
     fun updateMapCenter(latitude: Double, longitude: Double) {
         _mapCenter.value = LatLng(latitude, longitude)
@@ -336,6 +463,47 @@ class CoastlineViewModel(
         val userDriven = !settings.value.gpsMode || _autoFollowSuppressed.value
         if (userDriven) {
             settingsManager.update { it.copy(mapCenterLat = latitude, mapCenterLon = longitude) }
+        }
+        // Demo mode: extrapolate pan velocity → simulated speed in knots.
+        if (!settings.value.gpsMode) {
+            computeDemoSpeed(latitude, longitude)
+        } else {
+            _demoSpeedKnots.value = null
+        }
+    }
+
+    /**
+     * Computes simulated speed in knots from map pan velocity in demo mode.
+     * Uses Haversine distance ÷ elapsed wall-clock time between successive
+     * [updateMapCenter] calls. A stop-detection timer clears the speed 500 ms
+     * after the last pan event.
+     */
+    private fun computeDemoSpeed(lat: Double, lon: Double) {
+        val now = SystemClock.elapsedRealtime()
+        if (lastPanMs != 0L) {
+            val elapsed = now - lastPanMs
+            // Throttle computation to ~10 Hz to avoid churn from 60 fps scroll events.
+            if (elapsed >= MIN_DEMO_SPEED_INTERVAL_MS) {
+                val dist = SpatialOperations.haversine(
+                    LatLng(lastPanLat, lastPanLon), LatLng(lat, lon)
+                )
+                // Divide by 10 to compensate for exaggerated pan-to-ground distance ratio
+                val speedMps = dist / (elapsed / 1_000.0) / 10.0
+                _demoSpeedKnots.value = (speedMps * MPS_TO_KNOTS).toFloat()
+                lastPanLat = lat
+                lastPanLon = lon
+                lastPanMs = now
+            }
+        } else {
+            lastPanLat = lat
+            lastPanLon = lon
+            lastPanMs = now
+        }
+        // Restart stop-detection: clear speed 500 ms after the last pan event.
+        panStopJob?.cancel()
+        panStopJob = viewModelScope.launch {
+            delay(PAN_STOP_DELAY_MS)
+            if (isActive) _demoSpeedKnots.value = null
         }
     }
 
@@ -389,6 +557,9 @@ class CoastlineViewModel(
     fun distanceToCoastMeters(latitude: Double, longitude: Double): Double =
         repository.distanceToCoastMeters(latitude, longitude)
 
+    /** GPS subscription parameters — flatMapLatest re-subscribes the listener when any field changes. */
+    private data class GpsParams(val on: Boolean, val intervalMs: Long, val minDistanceM: Float)
+
     /** Result of one throttled recompute: shore distance + water flag + 300 m zone status. */
     private data class ShoreState(
         val distanceMeters: Double?,
@@ -409,6 +580,18 @@ class CoastlineViewModel(
 
         /** Rate-limit for the compass heading (~5 Hz) so turning doesn't churn the map. */
         private const val HEADING_SAMPLE_MS = 200L
+
+        /** Minimum interval (ms) between demo speed computations — throttles the 60 fps scroll stream. */
+        private const val MIN_DEMO_SPEED_INTERVAL_MS = 100L
+
+        /** Inactivity timeout (ms) before demo pan speed resets to null. */
+        private const val PAN_STOP_DELAY_MS = 500L
+
+        /**
+         * Distance (m) from the 300m zone boundary at which the overlay auto-reveals
+         * if the user manually hid it. 100 m buffer before the actual 300 m line.
+         */
+        private const val ZONE_AUTO_REVEAL_M = 400.0
 
         /** Metres-per-second → knots. */
         private const val MPS_TO_KNOTS = 1.943844f
