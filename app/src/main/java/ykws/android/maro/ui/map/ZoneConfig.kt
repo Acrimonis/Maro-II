@@ -21,6 +21,7 @@ import java.util.Properties
  * zoneAutoRevealDistanceM=200       # Auto-reveal distance outside band (m)
  * zoneAutoRevealTimeS=20            # Auto-reveal time-to-band at SOG (s)
  * zoneRegulatorySpeedKn=5           # Regulatory speed inside band (kn)
+ * lowDepthWarningMinOpacityPct=25   # Pink warning opacity at threshold (0–100)
  * ```
  */
 object ZoneConfig {
@@ -47,6 +48,10 @@ object ZoneConfig {
 
     /** Regulatory speed limit (kn) inside the 300 m band — at/below this, an auto-revealed band re-hides. */
     var zoneRegulatorySpeedKn = 5f
+        private set
+
+    /** Minimum opacity (%, 0–100) of the low-depth warning at the threshold depth; 100 % at the shoreline fades to this. */
+    var lowDepthWarningMinOpacityPct = 25
         private set
 
     /**
@@ -78,6 +83,9 @@ object ZoneConfig {
             }
             props.getProperty("zoneRegulatorySpeedKn")?.toFloatOrNull()?.let {
                 zoneRegulatorySpeedKn = it.coerceIn(1f, 20f)
+            }
+            props.getProperty("lowDepthWarningMinOpacityPct")?.toIntOrNull()?.let {
+                lowDepthWarningMinOpacityPct = it.coerceIn(0, 100)
             }
         } catch (_: Exception) {
             // Keep defaults — properties file missing or corrupt.

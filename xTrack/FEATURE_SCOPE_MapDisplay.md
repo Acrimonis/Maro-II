@@ -160,7 +160,7 @@ depth so the shallowest water reads loudest.
 
 #### Todos
 - [x] Sub-cell water test — paint a <threshold cell only if all 4 cell-corners are water (erodes the band off the coast; reuses the `isWater` predicate)
-- [x] Depth-graded opacity — alpha ~100 % at the shoreline (depth→0) down to ~50 % at the threshold (depth→max); hue stays magenta, only alpha varies
+- [x] Depth-graded opacity — alpha 100 % at the shoreline (depth→0) down to a configurable floor (default 25 %) at the threshold; floor in `zone.properties` (`lowDepthWarningMinOpacityPct`) via `ZoneConfig`; hue stays magenta
 - [ ] assembleDebug green + on-device verify (no land bleed; gradient reads shallow = loudest)
 
 #### Rules
@@ -170,6 +170,7 @@ depth so the shallowest water reads loudest.
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/LowDepthWarningBitmap.kt`
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/ZoneConfig.kt`, `app/src/main/assets/zone.properties`
 
 ## Todos
 

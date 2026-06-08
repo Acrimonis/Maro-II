@@ -36,6 +36,8 @@
     <string name="settings_low_depth_warning_desc">Surligner les hauts-fonds dangereux</string>
     <string name="settings_low_depth_threshold_label">Profondeur d\'alerte</string>
     <string name="settings_low_depth_threshold_desc">Surligner l\'eau moins profonde que ce seuil</string>
+    <string name="settings_low_depth_opacity_label">Opacité de l\'alerte</string>
+    <string name="settings_low_depth_opacity_desc">Intensité au seuil de profondeur (100 % au rivage)</string>
     <string name="settings_section_power">Économie d\'énergie</string>
     <string name="settings_keep_screen_on_label">Garder le téléphone allumé</string>
     <string name="settings_keep_screen_on_desc">Garder l\'écran allumé pendant que l\'app fonctionne</string>
@@ -76,6 +78,7 @@
     <string name="settings_value_fps">%d fps</string>
     <string name="settings_value_meters">%d m</string>
     <string name="settings_value_depth">%.1f m</string>
+    <string name="settings_value_percent">%d %%</string>
 
     <!-- Dashboard -->
     <string name="dash_distance_title">Distance</string>
