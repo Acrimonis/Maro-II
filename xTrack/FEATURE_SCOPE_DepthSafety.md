@@ -3,7 +3,7 @@ name: DepthSafety
 status: active
 created: 2026-06-08 18:25
 modified: 2026-06-08 19:16
-active_subfeature: water-only
+active_subfeature: isobar-precision
 subs_total: 4
 subs_done: 0
 one_liner: Make the depth layer navigation-safe — water-only colour, precision-aware isobaths, a very-visible sub-danger-depth overlay, and a configurable shallow-water alarm.
@@ -34,10 +34,13 @@ B2 · `feature/depth-warning-2` — isobaths reflect data precision (suppress fi
 #### Todos
 - [ ] `Isobath.lines` → `List<IsobathLine(points, source, confidence)>`
 - [ ] `DepthIsobaths.build`: sample per-line source/confidence; drop fine levels over coarse source
-- [ ] `drawIsobaths`: dashed/dim for low confidence, solid/full for high
-- [ ] Constants: `ISOBATH_FINE_LEVEL_MAX_M=10f`, `ISOBATH_FINE_MAX_RES_M=10.0`, `ISOBATH_LOWCONF_MAX=65`
+- [ ] `drawIsobaths`: stroke **colour by source** (EMODnet dark blue, Litto3D forest green); reserve dashing for genuinely low-confidence fill (GEBCO/interpolated)
+- [ ] Source→colour map in a **properties file** (ZoneConfig/zone.properties style): `isobar.color.litto3d=#228B22`, `isobar.color.emodnet=#00008B`; unmapped source → default muted grey `#37474F`
+- [ ] Constants: `ISOBATH_FINE_LEVEL_MAX_M=10f`, `ISOBATH_FINE_MAX_RES_M=10.0`
 #### Rules
 - Fine shallow contours (≤10 m levels) only where source res ≤10 m (Litto3D/SDB); never fake a 2 m line from 115 m EMODnet.
+- **Isobath line colour = data source.** Now (2 sources): EMODnet → dark blue, Litto3D → forest green. Colours live in a **properties file**, one entry per source; adding a source = add a colour line there; unmapped source → muted grey. Colour is the primary precision cue (dashing reserved for low-confidence fill).
+- Verify both hues read over the deep-navy fill + magenta danger band on-device (EMODnet dark-blue over deep navy is the contrast risk).
 #### Key Files
 - `data/model/Isobath.kt`, `data/depth/DepthIsobaths.kt`, `ui/map/MapScreen.kt`, `data/depth/DepthConstants.kt`
 
@@ -65,6 +68,7 @@ B4 · `feature/depth-warning-4` (**from B3**) — configurable ALERT danger dept
 - `data/model/DepthGrid.kt`, `ui/map/DashboardPanel.kt`, `ui/map/MapScreen.kt`, `ZoneConfig.kt`, `data/settings/SettingsManager.kt`
 
 ## Todos
+- [ ] **NEXT:** implement **B2 · isobar-precision** — cut `feature/depth-warning-2` from develop; colour-by-source (EMODnet dark blue `#00008B` / Litto3D forest green `#228B22`, from a properties file) + fine-over-coarse suppression. Decisions captured in the subfeature above.
 
 ## Rules
 - Branch-per-feature off `feature/litto3d-shallow`: B1, B2, B3 from the base; **B4 from B3**. Commit only on explicit instruction.

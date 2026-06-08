@@ -2,7 +2,7 @@
 
 ## Active Session Pointers
 - **Active Feature:** DepthSafety
-- **Active Subfeature:** water-only
+- **Active Subfeature:** isobar-precision
 - **Last Updated:** 2026-06-08
 - **Last Bake:** 2026-06-08 19:16 (DepthSafety — planned 4 branches off feature/litto3d-shallow; B1 per-cell runtime guard found INFEASIBLE (~7 M cells × isWater = tens of s on-device) → bake-mask is the guard (re-bake+verify); Mercator overlay approx ~35 m mid-band noted as optional B5. NEXT: merge feature/litto3d-shallow → develop, then branch B1-B4 from develop)
 - **Prev Bake:** 2026-06-08 18:25 (BakeNormalization — feature/litto3d-shallow finalized: depth land-mask (water-only) committed 3c6ee3d, APK built 16 MB; spun off new DepthSafety feature — 4 branches: water-only, isobar-precision, danger-display, danger-alert)
