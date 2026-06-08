@@ -16,6 +16,7 @@
     <string name="side_land">Land</string>
     <string name="marker_position_water">Position (water)</string>
     <string name="marker_position_land">Position (land)</string>
+    <string name="exit_press_back_again">Press back again to exit</string>
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
@@ -33,6 +34,8 @@
     <string name="settings_zone300_label">300 m zone</string>
     <string name="settings_zone300_desc">Show the 300 m zone on the map</string>
     <string name="settings_section_power">Power saving</string>
+    <string name="settings_keep_screen_on_label">Keep phone on</string>
+    <string name="settings_keep_screen_on_desc">Keep the screen on while the app is running</string>
     <string name="settings_sub_gps_label">GPS acquisition</string>
     <string name="settings_sub_gps_desc">Updating your position while under way</string>
     <string name="settings_sub_render_label">Map rendering</string>

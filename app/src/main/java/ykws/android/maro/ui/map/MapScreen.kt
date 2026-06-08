@@ -2,7 +2,11 @@ package ykws.android.maro.ui.map
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.pm.PackageManager
+import android.os.SystemClock
 import android.view.MotionEvent
 import android.graphics.Bitmap
 import android.graphics.Color
@@ -45,6 +49,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -68,10 +73,12 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -88,6 +95,7 @@ import org.osmdroid.views.overlay.Polyline
 import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import ykws.android.maro.data.depth.DepthConstants
 import ykws.android.maro.data.model.BoundingBox
@@ -240,10 +248,38 @@ fun MapScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    // ── Keep the screen awake while the app runs, when the user enabled it ──
+    val view = LocalView.current
+    DisposableEffect(appSettings.keepScreenOn) {
+        view.keepScreenOn = appSettings.keepScreenOn
+        onDispose { view.keepScreenOn = false }
+    }
+
+    // ── Double-back-to-exit state ─────────────────────────────────────────
+    var lastBackAt by remember { mutableStateOf(0L) }
+    var showExitBanner by remember { mutableStateOf(false) }
+
     Box(modifier = modifier.fillMaxSize()) {
         // ── Intercept system back when settings are open ──────────────────
         if (showSettings) {
             BackHandler { showSettings = false }
+        }
+
+        // ── Otherwise require a second back press within 2 s to exit ───────
+        BackHandler(enabled = !showSettings) {
+            val now = SystemClock.elapsedRealtime()
+            if (now - lastBackAt <= 2_000L) {
+                context.findActivity()?.finishAffinity()
+            } else {
+                lastBackAt = now
+                showExitBanner = true
+            }
+        }
+        if (showExitBanner) {
+            LaunchedEffect(lastBackAt) {
+                delay(2_000L)
+                showExitBanner = false
+            }
         }
 
         // ── Main content (map + dashboard) ────────────────────────────────
@@ -276,6 +312,7 @@ fun MapScreen(
                 onRetry = { viewModel.loadCoastline() },
                 onOpenSettings = { showSettings = true },
                 onToggleZone300 = viewModel::toggleZone300Visibility,
+                showExitBanner = showExitBanner,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(
@@ -330,6 +367,13 @@ fun MapScreen(
     }
 }
 
+/** Unwraps the (possibly localisation-wrapped) [Context] chain to the host [Activity]. */
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
+}
+
 // ── Map content area (shared by landscape & portrait) ────────────────────────
 
 /**
@@ -355,6 +399,7 @@ private fun MapContent(
     onRetry: () -> Unit,
     onOpenSettings: () -> Unit,
     onToggleZone300: () -> Unit,
+    showExitBanner: Boolean,
     modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier.clipToBounds()) {
@@ -422,6 +467,34 @@ private fun MapContent(
                     message = (state as CoastlineState.Error).message,
                     onRetry = onRetry
                 )
+            }
+        }
+
+        // ── "Press back again to exit" toast ──────────────────────────────
+        //   Shares the loading/error slot: bottom-centred in the space left
+        //   of the right-edge control stack (reserve ~76dp), pinned to bottom.
+        if (showExitBanner) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(start = 12.dp, end = 76.dp, bottom = 12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(28.dp),
+                    color = ComposeColor(0xFF16213E), // sampled from the dashboard tile background (DashboardColors.cardBg)
+                    shadowElevation = 8.dp
+                ) {
+                    Text(
+                        text = stringResource(R.string.exit_press_back_again),
+                        color = ComposeColor.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 28.dp, vertical = 16.dp)
+                    )
+                }
             }
         }
 
@@ -1001,6 +1074,16 @@ private fun SettingsOverlay(
                 onCheckedChange = { visible ->
                     onUpdateSettings { it.copy(zone300Visible = visible) }
                 }
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // ── Keep the screen awake while the app is running ─────────────
+            SettingsToggleRow(
+                label = stringResource(R.string.settings_keep_screen_on_label),
+                description = stringResource(R.string.settings_keep_screen_on_desc),
+                checked = settings.keepScreenOn,
+                onCheckedChange = { on -> onUpdateSettings { it.copy(keepScreenOn = on) } }
             )
 
             Spacer(modifier = Modifier.height(24.dp))
