@@ -1810,8 +1810,16 @@ private fun ZoomButton(
 /**
  * Draws the coastline segments on the OSMdroid [MapView].
  *
- * Mainland: solid blue (#1565C0), 7px width
- * Islands:  blue (#42A5F5), 5px width — slightly distinct from mainland
+ * Mainland: solid blue (#1545C0), 10 px
+ * Islands:  green (#08805C), 10 px
+ * Hazards:  vivid yellow disc + black outline + outer black ring + black cross — isolated offshore point dangers
+ *
+ * A segment is treated as a hazard primarily via its explicit [CoastlineSegment.isHazard] flag
+ * (set by [HazardRings.toSegment], persisted in the proto cache). As a fallback for pre-feature
+ * cached/bundled data that predates the flag, a closed island with no real OSM way id
+ * (`!isMainland && isClosed && osmWayId == 0L`) is also treated as a hazard — hazard rings always
+ * carry `osmWayId = 0L`, genuine OSM islands have positive ids — so hazards still render correctly
+ * without re-baking the bundled asset.
  */
 private fun drawCoastline(
     mapView: MapView,
@@ -1823,13 +1831,53 @@ private fun drawCoastline(
 
         val osmPoints = points.map { GeoPoint(it.lat.toDouble(), it.lon.toDouble()) }
 
+        // Explicit flag first (robust, incl. unnamed dangers); heuristic fallback for
+        // pre-feature cached/bundled data that lacks the flag.
+        val isHazard = segment.isHazard ||
+            (!segment.isMainland && segment.isClosed && segment.osmWayId == 0L)
+
+        if (isHazard) {
+            // Isolated offshore danger → vivid filled yellow disc with a black outline,
+            // plus a black cross spreading a little past the circle. Distinct from green
+            // islands / blue mainland and the magenta low-depth overlay.
+            mapView.overlays.add(Polygon().apply {
+                setPoints(osmPoints)
+                fillPaint.color = Color.argb(235, 255, 232, 0)   // vivid yellow (#FFE800) — full circle
+                fillPaint.isAntiAlias = true
+                outlinePaint.color = Color.BLACK                  // black circle around it
+                outlinePaint.strokeWidth = 6f
+                outlinePaint.isAntiAlias = true
+            })
+            val cLat = (osmPoints.minOf { it.latitude } + osmPoints.maxOf { it.latitude }) / 2.0
+            val cLon = (osmPoints.minOf { it.longitude } + osmPoints.maxOf { it.longitude }) / 2.0
+            // Outer black ring, concentric with the disc (~1.6× radius).
+            mapView.overlays.add(Polyline().apply {
+                setPoints(osmPoints.map {
+                    GeoPoint(cLat + (it.latitude - cLat) * 1.6, cLon + (it.longitude - cLon) * 1.6)
+                })
+                outlinePaint.apply { color = Color.BLACK; strokeWidth = 5f; isAntiAlias = true }
+            })
+            // Black cross centred on the marker, arms ~80% past the radius (just past the outer ring).
+            val hLat = (osmPoints.maxOf { it.latitude } - osmPoints.minOf { it.latitude }) / 2.0 * 1.8
+            val hLon = (osmPoints.maxOf { it.longitude } - osmPoints.minOf { it.longitude }) / 2.0 * 1.8
+            mapView.overlays.add(Polyline().apply {
+                setPoints(listOf(GeoPoint(cLat, cLon - hLon), GeoPoint(cLat, cLon + hLon)))
+                outlinePaint.apply { color = Color.BLACK; strokeWidth = 5f; isAntiAlias = true }
+            })
+            mapView.overlays.add(Polyline().apply {
+                setPoints(listOf(GeoPoint(cLat - hLat, cLon), GeoPoint(cLat + hLat, cLon)))
+                outlinePaint.apply { color = Color.BLACK; strokeWidth = 5f; isAntiAlias = true }
+            })
+            continue
+        }
+
         val polyline = Polyline().apply {
             setPoints(osmPoints)
             outlinePaint.apply {
                 color = if (segment.isMainland) Color.parseColor("#1545c0")
                         else Color.parseColor("#08805c")
-                strokeWidth = 10f // if (segment.isMainland) 7f else 5f
-                alpha = 128 // if (segment.isMainland) 200 else 160
+                strokeWidth = 10f
+                alpha = 128
                 isAntiAlias = true
             }
         }

@@ -35,7 +35,9 @@ object HazardRings {
         osmWayId = 0L,
         points = buildRing(hazard.lat, hazard.lon, hazard.bufferRadiusM, refLat, vertices),
         isMainland = false,
-        isClosed = true
+        isClosed = true,
+        isHazard = true,
+        hazardName = hazard.name.ifBlank { null }
     )
 
     /**

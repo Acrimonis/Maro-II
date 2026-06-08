@@ -12,13 +12,20 @@ import kotlinx.serialization.Serializable
  * @property points Ordered list of vertices forming the polyline. Size >= 2.
  * @property isMainland True if this is part of the mainland coastline.
  * @property isClosed True if this is a closed ring (island). False for open polylines (mainland).
+ * @property isHazard True if this ring is an isolated offshore point-danger (seamark) micro-circle,
+ *                    not an ordinary island. The discriminator that drives distinct hazard rendering.
+ * @property hazardName Optional human-readable hazard label (e.g. "Phare de la Fourmigue"); null when
+ *                    unknown. Label only — NEVER used to detect a hazard (use [isHazard]); many dangers
+ *                    are unnamed.
  */
 @Serializable
 data class CoastlineSegment(
     val osmWayId: Long = 0L,
     val points: List<CoastlinePoint>,
     val isMainland: Boolean = false,
-    val isClosed: Boolean = false
+    val isClosed: Boolean = false,
+    val isHazard: Boolean = false,
+    val hazardName: String? = null
 ) {
     /** Human-readable segment ID derived from OSM way ID. */
     val id: String get() = if (osmWayId != 0L) "osm:$osmWayId" else "coast-unknown"
