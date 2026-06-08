@@ -232,7 +232,6 @@ if not "!PACKAGE_NAME!"=="" goto :launch_now
 
 REM 3) Use the hardcoded fallback from build.gradle.kts (ykws.android.maro)
 set "PACKAGE_NAME=!PKG_FALLBACK!"
-echo  [WARN] Could not run aapt/aapt2 — using fallback package: !PACKAGE_NAME!
 
 :launch_now
 echo  [INFO] Starting package: !PACKAGE_NAME!
