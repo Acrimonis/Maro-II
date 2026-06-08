@@ -35,7 +35,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
@@ -395,23 +394,6 @@ private fun MapContent(
                 .padding(12.dp)
         )
 
-        // ── Settings button (top-right) ───────────────────────────────────
-        SettingsButton(
-            onClick = onOpenSettings,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(12.dp)
-        )
-
-        // ── Layer toggle button (right edge, between settings and zoom) ───
-        LayerButton(
-            isZoneVisible = appSettings.zone300Visible,
-            onClick = onToggleZone300,
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .padding(end = 12.dp)
-        )
-
         // ── Center position marker ────────────────────────────────────────
         CenterMarkerOverlay(
             isWater = isWater,
@@ -420,38 +402,59 @@ private fun MapContent(
             modifier = Modifier.align(Alignment.Center)
         )
 
-        // ── Bottom bar: overlay centered in leftover space + zoom btns ────
-        Row(
+        // ── Bottom overlay: loading / error ───────────────────────────────
+        //   Centred horizontally but kept clear of the right-edge control
+        //   stack (reserve ~76dp = 64dp button + 12dp right margin).
+        Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.Bottom
+                .padding(start = 12.dp, end = 76.dp, bottom = 12.dp),
+            contentAlignment = Alignment.Center
         ) {
-            // Overlay centered in the space left of the zoom buttons
-            Box(
-                modifier = Modifier.weight(1f),
-                contentAlignment = Alignment.Center
-            ) {
-                if (state is CoastlineState.Loading) {
-                    LoadingOverlay(progress = progress)
-                }
-                if (state is CoastlineState.Error) {
-                    ErrorOverlay(
-                        message = (state as CoastlineState.Error).message,
-                        onRetry = onRetry
-                    )
-                }
+            if (state is CoastlineState.Loading) {
+                LoadingOverlay(progress = progress)
             }
+            if (state is CoastlineState.Error) {
+                ErrorOverlay(
+                    message = (state as CoastlineState.Error).message,
+                    onRetry = onRetry
+                )
+            }
+        }
 
-            // Zoom buttons fixed on the right (only when mapView is ready)
+        // ── Right-edge control stack ──────────────────────────────────────
+        //   Settings pinned to the top, zoom (+/-) pinned to the bottom, the
+        //   layer toggle centred in the leftover space. A full-height Column
+        //   with SpaceBetween keeps the centring exact regardless of the
+        //   differing top/bottom cluster heights, holds in both portrait and
+        //   landscape, and stops the three controls ever overlapping.
+        Column(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxHeight()
+                .padding(horizontal = 12.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // Top — settings
+            SettingsButton(onClick = onOpenSettings)
+
+            // Middle — layer toggle (centred in leftover space by SpaceBetween)
+            LayerButton(
+                isZoneVisible = appSettings.zone300Visible,
+                onClick = onToggleZone300
+            )
+
+            // Bottom — zoom +/-. A placeholder holds the slot before the map
+            // is ready so the middle toggle stays centred (no load-time jump).
             if (mapView != null) {
                 Column(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     ZoomButton(
-                        icon = Icons.Default.Add,
+                        isPlus = true,
                         desc = "Zoom avant",
                         onClick = {
                             val mv = mapView ?: return@ZoomButton
@@ -460,9 +463,8 @@ private fun MapContent(
                         }
                     )
                     ZoomButton(
-                        icon = null,
-                        desc = "Zoom arri\u00E8re",
-                        label = "\u2212",
+                        isPlus = false,
+                        desc = "Zoom arrière",
                         onClick = {
                             val mv = mapView ?: return@ZoomButton
                             mv.controller.zoomOut()
@@ -470,6 +472,9 @@ private fun MapContent(
                         }
                     )
                 }
+            } else {
+                // Reserve the zoom cluster's footprint: two 64dp buttons + 8dp.
+                Spacer(modifier = Modifier.height(136.dp))
             }
         }
     }
@@ -1429,11 +1434,11 @@ private fun SettingsTextFieldRow(
 
 @Composable
 private fun ZoomButton(
-    icon: androidx.compose.ui.graphics.vector.ImageVector?,
+    isPlus: Boolean,
     desc: String,
-    onClick: () -> Unit,
-    label: String? = null
+    onClick: () -> Unit
 ) {
+    val themeBlue = ComposeColor(0xFF1565C0)
     Button(
         onClick = onClick,
         modifier = Modifier.size(64.dp),
@@ -1443,20 +1448,34 @@ private fun ZoomButton(
         ),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
     ) {
-        if (icon != null) {
-            Icon(
-                imageVector = icon,
-                contentDescription = desc,
-                tint = ComposeColor(0xFF1565C0),
-                modifier = Modifier.size(32.dp)
+        // "+" and "−" drawn from one shared strokeWidth so both glyphs carry
+        // identical (thick) line weight — independent of any font rendering.
+        Canvas(
+            modifier = Modifier.size(32.dp),
+            contentDescription = desc
+        ) {
+            val stroke = size.width * 0.16f
+            val inset = size.width * 0.20f
+            val cx = size.width / 2f
+            val cy = size.height / 2f
+            // Horizontal bar — the "−", and the cross-bar of "+"
+            drawLine(
+                color = themeBlue,
+                start = androidx.compose.ui.geometry.Offset(inset, cy),
+                end = androidx.compose.ui.geometry.Offset(size.width - inset, cy),
+                strokeWidth = stroke,
+                cap = androidx.compose.ui.graphics.StrokeCap.Round
             )
-        } else if (label != null) {
-            Text(
-                text = label,
-                fontSize = 40.sp,
-                fontWeight = FontWeight.Bold,
-                color = ComposeColor(0xFF1565C0)
-            )
+            if (isPlus) {
+                // Vertical bar — completes the "+"
+                drawLine(
+                    color = themeBlue,
+                    start = androidx.compose.ui.geometry.Offset(cx, inset),
+                    end = androidx.compose.ui.geometry.Offset(cx, size.height - inset),
+                    strokeWidth = stroke,
+                    cap = androidx.compose.ui.graphics.StrokeCap.Round
+                )
+            }
         }
     }
 }
