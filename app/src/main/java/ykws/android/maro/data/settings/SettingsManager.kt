@@ -75,13 +75,16 @@ data class AppSettings(
     /** Highlight charted shallow water as a bright grounding-hazard overlay. */
     val lowDepthWarningVisible: Boolean = true,
     /** Depth threshold (m) for the low-depth warning: cells shallower than this are painted. */
-    val lowDepthWarningMaxM: Float = DepthConstants.LOW_DEPTH_WARNING_MAX_M.toFloat()
+    val lowDepthWarningMaxM: Float = DepthConstants.LOW_DEPTH_WARNING_MAX_M.toFloat(),
+    /** Min opacity (%, 0–100) of the low-depth warning at the threshold; 100 % at the shoreline fades to this. */
+    val lowDepthWarningMinOpacityPct: Int = 25
 )
 
 class SettingsManager(
     context: Context,
     private val defaultAutoRevealDistM: Float = 200f,
-    private val defaultAutoRevealTimeS: Int = 20
+    private val defaultAutoRevealTimeS: Int = 20,
+    private val defaultLowDepthMinOpacityPct: Int = 25
 ) {
 
     private val prefs: SharedPreferences =
@@ -115,7 +118,8 @@ class SettingsManager(
         languageCode     = prefs.getString(KEY_LANGUAGE_CODE, "system") ?: "system",
         keepScreenOn     = prefs.getBoolean(KEY_KEEP_SCREEN_ON, false),
         lowDepthWarningVisible = prefs.getBoolean(KEY_LOW_DEPTH_WARNING_VISIBLE, true),
-        lowDepthWarningMaxM = prefs.getFloat(KEY_LOW_DEPTH_WARNING_MAX_M, DepthConstants.LOW_DEPTH_WARNING_MAX_M.toFloat())
+        lowDepthWarningMaxM = prefs.getFloat(KEY_LOW_DEPTH_WARNING_MAX_M, DepthConstants.LOW_DEPTH_WARNING_MAX_M.toFloat()),
+        lowDepthWarningMinOpacityPct = prefs.getInt(KEY_LOW_DEPTH_MIN_OPACITY_PCT, defaultLowDepthMinOpacityPct)
     )
 
     /**
@@ -157,6 +161,7 @@ class SettingsManager(
             .putBoolean(KEY_KEEP_SCREEN_ON, updated.keepScreenOn)
             .putBoolean(KEY_LOW_DEPTH_WARNING_VISIBLE, updated.lowDepthWarningVisible)
             .putFloat(KEY_LOW_DEPTH_WARNING_MAX_M, updated.lowDepthWarningMaxM)
+            .putInt(KEY_LOW_DEPTH_MIN_OPACITY_PCT, updated.lowDepthWarningMinOpacityPct)
             .apply()
     }
 
@@ -187,5 +192,6 @@ class SettingsManager(
         private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
         private const val KEY_LOW_DEPTH_WARNING_VISIBLE = "low_depth_warning_visible"
         private const val KEY_LOW_DEPTH_WARNING_MAX_M = "low_depth_warning_max_m"
+        private const val KEY_LOW_DEPTH_MIN_OPACITY_PCT = "low_depth_min_opacity_pct"
     }
 }

@@ -37,6 +37,8 @@
     <string name="settings_low_depth_warning_desc">Highlight dangerously shallow water</string>
     <string name="settings_low_depth_threshold_label">Warning depth</string>
     <string name="settings_low_depth_threshold_desc">Highlight water shallower than this</string>
+    <string name="settings_low_depth_opacity_label">Warning opacity</string>
+    <string name="settings_low_depth_opacity_desc">Faintness at the threshold depth (100 % at the shoreline)</string>
     <string name="settings_section_power">Power saving</string>
     <string name="settings_keep_screen_on_label">Keep phone on</string>
     <string name="settings_keep_screen_on_desc">Keep the screen on while the app is running</string>
@@ -81,6 +83,7 @@
     <string name="settings_value_fps">%d fps</string>
     <string name="settings_value_meters">%d m</string>
     <string name="settings_value_depth">%.1f m</string>
+    <string name="settings_value_percent">%d %%</string>
 
     <!-- Dashboard -->
     <string name="dash_distance_title">Distance</string>
