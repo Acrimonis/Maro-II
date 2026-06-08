@@ -227,14 +227,14 @@ fun MapScreen(
     // Re-rasterises when the grid, the threshold, or coastline readiness changes.
     val coastlineReady = state is CoastlineState.Ready
     val lowDepthWarningBitmap by produceState<Bitmap?>(
-        initialValue = null, depthGrid, appSettings.lowDepthWarningMaxM, coastlineReady
+        initialValue = null, depthGrid, appSettings.lowDepthWarningMaxM, appSettings.lowDepthWarningMinOpacityPct, coastlineReady
     ) {
         val maxM = appSettings.lowDepthWarningMaxM
         // Skip land/island cells via the coastline classifier; until it loads, treat all as water.
         val waterTest: (Double, Double) -> Boolean =
             if (coastlineReady) viewModel::isOnWater else { _, _ -> true }
         value = depthGrid?.let { g ->
-            withContext(Dispatchers.Default) { LowDepthWarningBitmap.build(g, maxM, waterTest) }
+            withContext(Dispatchers.Default) { LowDepthWarningBitmap.build(g, maxM, waterTest, appSettings.lowDepthWarningMinOpacityPct / 100f) }
         }
     }
 
@@ -1169,17 +1169,31 @@ private fun SettingsOverlay(
             // Warning depth threshold — lives inside the warning's box, shown only when it is on.
             if (settings.lowDepthWarningVisible) {
                 Spacer(modifier = Modifier.height(12.dp))
-                SettingsSliderRow(
-                    label = stringResource(R.string.settings_low_depth_threshold_label),
-                    description = stringResource(R.string.settings_low_depth_threshold_desc),
-                    valueLabel = stringResource(R.string.settings_value_depth, settings.lowDepthWarningMaxM),
-                    value = settings.lowDepthWarningMaxM,
-                    valueRange = 0.5f..5f,
-                    steps = 8,
-                    onValueChange = { v ->
-                        onUpdateSettings { it.copy(lowDepthWarningMaxM = (v * 2f).roundToInt() / 2f) }
-                    }
-                )
+                SettingsSliderGroup {
+                    SliderRowContent(
+                        label = stringResource(R.string.settings_low_depth_threshold_label),
+                        description = stringResource(R.string.settings_low_depth_threshold_desc),
+                        valueLabel = stringResource(R.string.settings_value_depth, settings.lowDepthWarningMaxM),
+                        value = settings.lowDepthWarningMaxM,
+                        valueRange = 0.5f..5f,
+                        steps = 8,
+                        onValueChange = { v ->
+                            onUpdateSettings { it.copy(lowDepthWarningMaxM = (v * 2f).roundToInt() / 2f) }
+                        }
+                    )
+                    SliderRowDivider()
+                    SliderRowContent(
+                        label = stringResource(R.string.settings_low_depth_opacity_label),
+                        description = stringResource(R.string.settings_low_depth_opacity_desc),
+                        valueLabel = stringResource(R.string.settings_value_percent, settings.lowDepthWarningMinOpacityPct),
+                        value = settings.lowDepthWarningMinOpacityPct.toFloat(),
+                        valueRange = 0f..100f,
+                        steps = 19,
+                        onValueChange = { v ->
+                            onUpdateSettings { it.copy(lowDepthWarningMinOpacityPct = (v / 5f).roundToInt() * 5) }
+                        }
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -1259,27 +1273,27 @@ private fun SettingsOverlay(
                 onToggle = { adaptiveAdvanced = !adaptiveAdvanced }
             ) {
                 Spacer(modifier = Modifier.height(8.dp))
-                SettingsSliderRow(
-                    label = stringResource(R.string.settings_window_label),
-                    description = stringResource(R.string.settings_window_desc),
-                    valueLabel = stringResource(R.string.settings_value_seconds, settings.adaptiveWindowSec),
-                    value = settings.adaptiveWindowSec.toFloat(),
-                    valueRange = 15f..60f,
-                    steps = 8,
-                    onValueChange = { v -> onUpdateSettings { it.copy(adaptiveWindowSec = (v / 5f).roundToInt() * 5) } }
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                SettingsSliderRow(
-                    label = stringResource(R.string.settings_adaptive_dist_label),
-                    description = stringResource(R.string.settings_adaptive_dist_desc),
-                    valueLabel = stringResource(R.string.settings_value_meters, settings.adaptiveDistanceM),
-                    value = settings.adaptiveDistanceM.toFloat(),
-                    valueRange = 10f..30f,
-                    steps = 3,
-                    onValueChange = { v -> onUpdateSettings { it.copy(adaptiveDistanceM = (v / 5f).roundToInt() * 5) } }
-                )
+                SettingsSliderGroup {
+                    SliderRowContent(
+                        label = stringResource(R.string.settings_window_label),
+                        description = stringResource(R.string.settings_window_desc),
+                        valueLabel = stringResource(R.string.settings_value_seconds, settings.adaptiveWindowSec),
+                        value = settings.adaptiveWindowSec.toFloat(),
+                        valueRange = 15f..60f,
+                        steps = 8,
+                        onValueChange = { v -> onUpdateSettings { it.copy(adaptiveWindowSec = (v / 5f).roundToInt() * 5) } }
+                    )
+                    SliderRowDivider()
+                    SliderRowContent(
+                        label = stringResource(R.string.settings_adaptive_dist_label),
+                        description = stringResource(R.string.settings_adaptive_dist_desc),
+                        valueLabel = stringResource(R.string.settings_value_meters, settings.adaptiveDistanceM),
+                        value = settings.adaptiveDistanceM.toFloat(),
+                        valueRange = 10f..30f,
+                        steps = 3,
+                        onValueChange = { v -> onUpdateSettings { it.copy(adaptiveDistanceM = (v / 5f).roundToInt() * 5) } }
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -1316,27 +1330,27 @@ private fun SettingsOverlay(
 
             if (settings.zone300AutoShowGps || settings.zone300AutoShowDemo) {
                 Spacer(modifier = Modifier.height(12.dp))
-                SettingsSliderRow(
-                    label = stringResource(R.string.settings_alert_dist_label),
-                    description = stringResource(R.string.settings_alert_dist_desc),
-                    valueLabel = stringResource(R.string.settings_value_meters, settings.zoneAutoRevealDistanceM.roundToInt()),
-                    value = settings.zoneAutoRevealDistanceM,
-                    valueRange = 50f..500f,
-                    steps = 17,
-                    onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealDistanceM = (v / 25f).roundToInt() * 25f) } }
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                SettingsSliderRow(
-                    label = stringResource(R.string.settings_alert_time_label),
-                    description = stringResource(R.string.settings_alert_time_desc),
-                    valueLabel = stringResource(R.string.settings_value_seconds, settings.zoneAutoRevealTimeS),
-                    value = settings.zoneAutoRevealTimeS.toFloat(),
-                    valueRange = 5f..120f,
-                    steps = 22,
-                    onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealTimeS = (v / 5f).roundToInt() * 5) } }
-                )
+                SettingsSliderGroup {
+                    SliderRowContent(
+                        label = stringResource(R.string.settings_alert_dist_label),
+                        description = stringResource(R.string.settings_alert_dist_desc),
+                        valueLabel = stringResource(R.string.settings_value_meters, settings.zoneAutoRevealDistanceM.roundToInt()),
+                        value = settings.zoneAutoRevealDistanceM,
+                        valueRange = 50f..500f,
+                        steps = 17,
+                        onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealDistanceM = (v / 25f).roundToInt() * 25f) } }
+                    )
+                    SliderRowDivider()
+                    SliderRowContent(
+                        label = stringResource(R.string.settings_alert_time_label),
+                        description = stringResource(R.string.settings_alert_time_desc),
+                        valueLabel = stringResource(R.string.settings_value_seconds, settings.zoneAutoRevealTimeS),
+                        value = settings.zoneAutoRevealTimeS.toFloat(),
+                        valueRange = 5f..120f,
+                        steps = 22,
+                        onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealTimeS = (v / 5f).roundToInt() * 5) } }
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -1466,6 +1480,14 @@ private fun SettingsSliderRow(
     steps: Int,
     onValueChange: (Float) -> Unit
 ) {
+    SettingsSliderGroup {
+        SliderRowContent(label, description, valueLabel, value, valueRange, steps, onValueChange)
+    }
+}
+
+/** Rounded settings "box" hosting one or more [SliderRowContent]s — groups related sliders together. */
+@Composable
+private fun SettingsSliderGroup(content: @Composable () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1473,44 +1495,71 @@ private fun SettingsSliderRow(
             .background(ComposeColor(0x1AFFFFFF))
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = label,
-                    color = ComposeColor.White,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    text = description,
-                    color = ComposeColor(0xFFB0BEC5),
-                    fontSize = 13.sp
-                )
-            }
-            Spacer(modifier = Modifier.width(16.dp))
+        content()
+    }
+}
+
+/** A label + value + slider WITHOUT its own box — placed inside a [SettingsSliderGroup]. */
+@Composable
+private fun SliderRowContent(
+    label: String,
+    description: String,
+    valueLabel: String,
+    value: Float,
+    valueRange: ClosedFloatingPointRange<Float>,
+    steps: Int,
+    onValueChange: (Float) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = valueLabel,
-                color = ComposeColor(0xFF1565C0),
+                text = label,
+                color = ComposeColor.White,
                 fontSize = 16.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = description,
+                color = ComposeColor(0xFFB0BEC5),
+                fontSize = 13.sp
             )
         }
-        Slider(
-            value = value,
-            onValueChange = onValueChange,
-            valueRange = valueRange,
-            steps = steps,
-            colors = SliderDefaults.colors(
-                thumbColor = ComposeColor(0xFF1565C0),
-                activeTrackColor = ComposeColor(0xFF1565C0),
-                inactiveTrackColor = ComposeColor(0x33FFFFFF)
-            )
+        Spacer(modifier = Modifier.width(16.dp))
+        Text(
+            text = valueLabel,
+            color = ComposeColor(0xFF1565C0),
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold
         )
     }
+    Slider(
+        value = value,
+        onValueChange = onValueChange,
+        valueRange = valueRange,
+        steps = steps,
+        colors = SliderDefaults.colors(
+            thumbColor = ComposeColor(0xFF1565C0),
+            activeTrackColor = ComposeColor(0xFF1565C0),
+            inactiveTrackColor = ComposeColor(0x33FFFFFF)
+        )
+    )
+}
+
+/** Thin divider between sliders that share a [SettingsSliderGroup]. */
+@Composable
+private fun SliderRowDivider() {
+    Spacer(modifier = Modifier.height(10.dp))
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(ComposeColor(0x14FFFFFF))
+    )
+    Spacer(modifier = Modifier.height(2.dp))
 }
 
 /** Dimmer sub-heading with an optional one-line description, for grouping settings in a section. */
