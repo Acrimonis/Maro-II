@@ -2,7 +2,7 @@
 
 ## Active Session Pointers
 - **Active Feature:** MapDisplay
-- **Active Subfeature:** layer-lowdepth
+- **Active Subfeature:** pink-bleed
 - **Last Updated:** 2026-06-08
 - **Last Bake:** 2026-06-08 20:23 (MapDisplay — low-depth warning overlay (configurable threshold slider 0.5–5.0 m, default 1.5, persisted) above the depth raster; "Keep phone on" → top of Power saving; Mercator offset fixed by latitude-banding BOTH depth + warning (addBandedOverlay, 8 strips). Merged feature/layout-lowdepth → develop: my bake land-mask was CONVERGENT with develop's DepthSafety/litto3d-shallow land-mask → resolved DepthZoneMask to develop's. KNOWN: pink warning laps ~½ cell onto land at 25 m granularity (todo: sub-cell test / vector clip). NEXT: decide bleed fix + on-device verify; reconcile MapDisplay/layer-lowdepth vs DepthSafety overlap)
 - **Prev Bake:** 2026-06-08 19:16 (DepthSafety — bake-mask chosen as the water-only guard (per-cell runtime infeasible ~7 M cells); merged feature/litto3d-shallow → develop; planned branches: water-only, isobar-precision, danger-display, danger-alert)

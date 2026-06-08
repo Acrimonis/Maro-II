@@ -3,8 +3,8 @@ name: MapDisplay
 status: active
 created: 2026-06-07 00:00
 modified: 2026-06-08 20:23
-active_subfeature: layer-lowdepth
-subs_total: 6
+active_subfeature: pink-bleed
+subs_total: 7
 subs_done: 3
 one_liner: Map display layer management — depth layer, color depth layer, and orientation-aware rendering.
 ---
@@ -151,6 +151,25 @@ overlay, drawn as a second `GroundOverlay` above the depth colour raster. Pure r
 - `app/src/main/java/ykws/android/maro/data/depth/DepthConstants.kt`
 - `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt`
 - `app/src/main/res/values/strings.xml`, `app/src/main/res/values-fr/strings.xml`
+
+### pink-bleed  [ ]
+
+Polish the low-depth warning's coastline edge on `feature/pink-bleed` (off develop): stop the
+~½-cell (~12 m) overhang onto land (25 m cells were classified by centre), and fade the pink by
+depth so the shallowest water reads loudest.
+
+#### Todos
+- [x] Sub-cell water test — paint a <threshold cell only if all 4 cell-corners are water (erodes the band off the coast; reuses the `isWater` predicate)
+- [x] Depth-graded opacity — alpha ~100 % at the shoreline (depth→0) down to ~50 % at the threshold (depth→max); hue stays magenta, only alpha varies
+- [ ] assembleDebug green + on-device verify (no land bleed; gradient reads shallow = loudest)
+
+#### Rules
+- Sub-cell test samples the 4 cell corners (centre ± half-cell); require ALL water (drop straddling cells)
+- Opacity is linear in depth/threshold (255→~127); only alpha changes, hue fixed bright magenta
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/LowDepthWarningBitmap.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
 
 ## Todos
 
