@@ -58,3 +58,5 @@ small WFS GetFeature client; reuse Overpass HTTP plumbing from CoastlineGenerato
 - `app/src/main/java/ykws/android/maro/spatial/CoastlineSpatialIndex.kt` — grid index over all segments; auto-includes micro-circles (polylineIdx > 0 → island).
 - `app/src/main/java/ykws/android/maro/spatial/Zone300Builder.kt` — 300 m band builder; treats hazard rings as island barriers automatically.
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — map controls: "Côte" button → `viewModel.loadCoastline()` → `refreshCoastline()` (delete cache + OSM refetch, re-merges hazards); "Bande" → `regenerateBand()` (band only, no refetch).
+
+## Docs

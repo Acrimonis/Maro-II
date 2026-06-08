@@ -237,3 +237,14 @@ is the **W/E map extent**. *(Cross-cutting — also touches Coastline; tracked h
 - `docs/DepthMappingBake.md` + `tools/bake_{emodnet,litto3d}.bat` — offline bake guide + scripts (produce `assets/depth/*.asc`).
 - `docs/oZer/BARO - *.md` (×5) — prior research (data sources, Litto3D vs HOMONIM, SDB, concepts).
 - `C:\Users\Nicolas\.claude\plans\2-well-lido-is-typed-bonbon.md` — approved implementation plan.
+
+## Docs
+- `docs/DepthMappingDesign.md` — design document
+- `docs/DepthMappingPlan.md` — implementation plan
+- `docs/DepthMappingBake.md` — offline bake guide
+- `docs/depthMappingSources.md` — recoverable source synthesis
+- `docs/oZer/BARO - alternative sources finer than HOMONIM.md` — prior research
+- `docs/oZer/BARO - Fetch Sentinel.md` — prior research
+- `docs/oZer/BARO - general concepts.md` — prior research
+- `docs/oZer/BARO - Sentinel-2 SDB guide.md` — prior research
+- `docs/oZer/BARO - Step 01 - Data sources discussion.md` — prior research

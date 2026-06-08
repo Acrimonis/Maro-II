@@ -1,11 +1,14 @@
 # Fuzzy Resolution Cascade
 
 Every name-based lookup in xTrack (`#focus`, `#track`, `#sub`, `#sub focus`,
-`#status [name]`, `#doc` subcommands, and cross-feature mention interception)
-runs through this cascade. Apply it with judgment — most lookups resolve at the
-exact or substring stage, which needs no computation. The typo stage is a
-"did you mean?" convenience, not a precision instrument; when unsure, confirm
-rather than guess.
+`#status [name]`, `#doc` subcommands, `#diff`, and cross-feature mention
+interception) runs through this cascade. Apply it with judgment — most lookups
+resolve at the exact or substring stage, which needs no computation. The typo
+stage is a "did you mean?" convenience, not a precision instrument; when unsure,
+confirm rather than guess.
+
+> **Canonical spec:** `AGENTS.md` (§ 7b). The `#`-command specs, file templates,
+> and fuzzy resolution are all defined there.
 
 ## The cascade
 

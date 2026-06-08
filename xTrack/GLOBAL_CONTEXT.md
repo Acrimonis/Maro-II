@@ -1,10 +1,10 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** isOnWaterAgain
+- **Active Feature:** WorkflowImprovement
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-08
-- **Last Bake:** 2026-06-08 (isOnWaterAgain/300m-pinch — marina band PINCH fixed by a seaward-line distance filter in Zone300Builder; deployed + confirmed on device; apk-build.bat footgun fixed; feature done, merged develop → branch)
+- **Last Bake:** 2026-06-08 09:22 (WorkflowImprovement — xTrack system review: #doc sync, #doc audit, #diff, spec consolidation, Always-Loaded Context, ## Docs on 5 feature files, commands.md deprecated)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -28,3 +28,17 @@
 - Use apk-build.bat to build APK (runs gradlew assembleDebug).
 - **No Côte/Bande or Earth/Water controls anywhere in the UI.** The "Côte" (generate coastline) and "Bande" (regenerate 300m band) buttons are completely removed from the app interface. The Earth/Water icon display in the dashboard is also removed. These exist as ViewModel methods only for programmatic/internal use.
 - **Do not commit or push unless explicitly instructed.** Stage only when directed.
+
+## Always-Loaded Context
+These files are loaded into context at the start of every session to maximize the AI prefix-cache hit rate:
+- `AGENTS.md` — canonical rulebook (all project rules + xTrack §7a/7b command spec)
+- `.claude/skills/xtrack/SKILL.md` — skill dispatch map
+- `.claude/skills/xtrack/references/fuzzy-resolve.md` — fuzzy lookup cascade
+- `.claude/skills/xtrack/references/templates.md` — file templates
+- `docs/cmd_help.md` — command reference summary
+- `xTrack/GLOBAL_CONTEXT.md` — this file (routing table, active pointers, global rules)
+
+## Global Instructions
+- The xTrack `#`-command system is the canonical workflow. Use it for all feature tracking, todo/rule management, doc management, and session snapshots.
+- On Turn 1 of any session: read GLOBAL_CONTEXT.md, match user intent against the Routing Map, open the corresponding feature file and its hydration file.
+- Route docs, key files, and todos to the correct feature scope. Keep feature files lean — use ## Docs for references, ## Key Files for source paths.

@@ -12,26 +12,35 @@ feature file, and `GLOBAL_TODOS.md`. Per-feature hydration files under
 ## `xTrack/GLOBAL_CONTEXT.md`
 
 ```markdown
-# xTrack — Global Context
+# Global Context — Routing Table
 
 Root routing table and global state for this project's feature tracking.
-
-## Routing Map
-
-| Keyword(s) | Feature File |
-|------------|--------------|
-| [keyword], [keyword] | FEATURE_SCOPE_[Name].md |
 
 ## Active Session Pointers
 
 - **Active Feature:** [Name | none]
 - **Active Subfeature:** [name | none]
 - **Last Updated:** [YYYY-MM-DD]
-- **Last Bake:** [YYYY-MM-DD | never]
+- **Last Bake:** [YYYY-MM-DD HH:mm | never]
+
+## Routing Map
+
+| Keyword | Feature File |
+|---------|--------------|
+| [keyword], [keyword] | FEATURE_SCOPE_[Name].md |
 
 ## Global Rules
 
 - [global rule]
+
+## Always-Loaded Context
+These files are loaded into context at the start of every session to maximize the AI prefix-cache hit rate:
+- `AGENTS.md` — canonical rulebook (all project rules + xTrack §7a/7b command spec)
+- `.claude/skills/xtrack/SKILL.md` — skill dispatch map
+- `.claude/skills/xtrack/references/fuzzy-resolve.md` — fuzzy lookup cascade
+- `.claude/skills/xtrack/references/templates.md` — file templates
+- `docs/cmd_help.md` — command reference summary
+- `xTrack/GLOBAL_CONTEXT.md` — this file (routing table, active pointers, global rules)
 
 ## Global Instructions
 
