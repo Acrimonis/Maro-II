@@ -1,14 +1,14 @@
-View:     #features            compact feature table (front-matter, by modified) [alias #list]
-          #feature             current context: active feature + subs list + working path
+View:     #context             current context: active feature + subs list + working path
+          #context list        compact feature table (front-matter, by modified) [alias #features]
           #status              feature details (active)
           #status [name]       feature details (named)
-          #diff [name]         changes since last #bake (active/named)
+          #status diff [name]  changes since last #bake (active/named)
 Manage:   #track [name]        create feature (with YAML front-matter)
           #focus [name]        switch to feature
+          #focus sub [name]    drill into subfeature
+          #focus out           exit subfeature → parent
           #sub [name]          add subfeature (active)
           #sub                 list subfeatures (active←focused)
-          #sub focus [name]    drill into subfeature
-          #sub out             exit subfeature → parent
 Track:    #todo                list todos (scope-aware)
           #todo [desc]         add todo (scope-aware)
           #todo [tgt]:[desc]   add todo (tgt: feature|parent|global)
@@ -25,33 +25,28 @@ Docs:     #doc                 feature docs (scope-aware)
           #doc audit           check docs for missing scope tags, orphans, invalid scopes
 Session:  #bake                snapshot session (per-feature hydration)
           #help                this list
-Health:   #doctor              lint xTrack for drift (#doctor fix = auto-repair)
+Health:   #doctor              lint xTrack for drift
+          #doctor fix          auto-repair
 
-## #features
+## #context
 
-Show a compact dashboard of all tracked features, reading only the YAML front-matter
-from each FEATURE_SCOPE_*.md.
+Display lightweight orientation or a compact feature dashboard.
 
-  [no param]  Print a table: feature name, one-liner, created, modified (with time),
-              subfeature ratio, status. Sorted by modified descending (newest first).
-              Active feature row is highlighted (bold + ← active marker).
-              Does NOT expand subfeature checklists — use #status for that.
+  [no param]         Show: active feature name + status + one-liner, active subfeature
+                     (or "none"), current working directory, Last Bake timestamp.
+                     Then list all subfeatures of the active feature, marking the focused
+                     subfeature with ← focused.
+                     Does NOT fetch git branch or worktree info.
 
-  Alias: #list
-
-## #feature
-
-Print a lightweight orientation block for the active feature.
-
-  [no param]  Show: active feature name + status + one-liner, active subfeature
-              (or "none"), current working directory, Last Bake timestamp.
-              Then list all subfeatures of the active feature, marking the focused
-              subfeature with ← focused.
-              Does NOT fetch git branch or worktree info.
+  list               Print a table of all features: name, one-liner, created, modified
+                     (with time), subfeature ratio, status. Sorted by modified descending
+                     (newest first). Active feature row highlighted (bold + ← active).
+                     Does NOT expand subfeature checklists — use #status for that.
+                     Alias: #features
 
 ## #status
 
-Show a detailed single-feature dashboard.
+Show a detailed single-feature dashboard, or diff since last bake.
 
   [no param]      Full dashboard of the active feature: front-matter, all subfeature
                   checklists with completion status, parent-level todos, rules, and
@@ -62,6 +57,14 @@ Show a detailed single-feature dashboard.
 
   [name]          Fuzzy-resolve name against existing features and show the same
                   detailed dashboard for the named feature.
+
+  diff [name]     Show what changed since the last `#bake` of a feature. Read the
+                  feature's hydration file as baseline, compare with current file and
+                  report: subfeatures toggled (`[ ]` ↔ `[x]`), new/removed
+                  todos/rules/key-files/docs, changed front-matter fields (status,
+                  one_liner, dates).
+                  If [name] is omitted, diff the active feature.
+                  If never baked: "No hydration snapshot found — run #bake first."
 
 ## #track
 
@@ -79,7 +82,7 @@ Create a new tracked feature.
 
 ## #focus
 
-Switch the active feature for the current session.
+Switch the active feature/subfeature for the current session.
 
   [no param]      List all existing features and prompt to pick one.
 
@@ -87,9 +90,16 @@ Switch the active feature for the current session.
                   Session Pointers section in GLOBAL_CONTEXT.md. Constrain all
                   subsequent operational context to that feature.
 
+  sub [name]      Fuzzy-resolve [name] against subfeatures in the active feature.
+                  Set the Active Subfeature pointer. All subsequent bare #todo,
+                  #rule, #doc, and #doc attach target that subfeature's subsection.
+
+  out             Clear the Active Subfeature pointer. Subsequent commands target
+                  the parent feature level again.
+
 ## #sub
 
-Manage subfeatures within the active feature.
+Add or list subfeatures within the active feature.
 
   [no param]          List all subfeatures of the active feature with completion
                       status. Mark the focused subfeature with ← focused.
@@ -98,13 +108,6 @@ Manage subfeatures within the active feature.
                       insert a new H3 subfeature subsection (### name [ ]) under
                       ## Subfeatures with nested #### Todos, #### Rules, and
                       #### Key Files.
-
-  focus [name]        Fuzzy-resolve name against existing subfeatures. Set the
-                      Active Subfeature pointer. All subsequent bare #todo, #rule,
-                      #doc, and #doc attach target this subfeature's subsection.
-
-  out                 Clear the Active Subfeature pointer. Subsequent commands
-                      target the parent feature level again.
 
 ## #todo
 
@@ -197,8 +200,9 @@ Display command reference.
 
   [no param]  Print the full reference table from docs/cmd_help.md.
 
-  [cmd]       Fuzzy-resolve cmd against known commands (features, feature, status,
-              track, focus, sub, todo, rule, doc, bake, help, doctor + alias list).
+  [cmd]       Fuzzy-resolve cmd against known commands (context, status, track,
+              focus, sub, todo, rule, doc, bake, help, doctor + alias features for
+              context list, sub-commands status diff / doc sync / doc audit).
               Find the matching ## <cmd> section in docs/cmd_help.md and print only
               that section as a code block.
               If no match, print the full table and suggest the closest match.
@@ -218,17 +222,6 @@ Lint the xTrack stack for structural drift.
               judgment calls) are printed but not auto-fixed.
               #bake runs the auto-fix subset first.
 
-## #diff
-
-Show changes since the last `#bake` for a feature.
-
-  [no param]      Diff the active feature against its last hydration snapshot.
-                  Report: subfeatures toggled, new/removed todos/rules/key-files/docs,
-                  changed front-matter fields (status, one_liner, dates).
-                  If never baked: "No hydration snapshot found — run #bake first."
-
-  [name]          Fuzzy-resolve name against existing features and diff that feature
-                  instead of the active one.
 
 ## #doc sync
 

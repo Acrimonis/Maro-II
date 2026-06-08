@@ -4,8 +4,8 @@ status: active
 created: 2026-06-03 00:00
 modified: 2026-06-08 09:22
 active_subfeature: none
-subs_total: 20
-subs_done: 20
+subs_total: 22
+subs_done: 22
 one_liner: xTrack #command system, trigger syntax, fuzzy matching, bootstrap, and memory bake lifecycle
 ---
 
@@ -84,6 +84,38 @@ Vendor-neutral consolidation onto the AGENTS.md standard + xTrack hardening (thi
 - `.claude/skills/xtrack/{SKILL.md, references/commands.md, references/templates.md}`
 - `docs/cmd_help.md`
 
+### normalize commands  [x]
+Rationalize the xTrack command set per Option C: merge `#features` into `#context list`, rename `#feature` to `#context`, merge `#diff` into `#status diff`, move `#sub focus`/`#sub out` to `#focus sub`/`#focus out`, keep `#doc` singular, no flag syntax.
+
+#### Todos
+- [x] Update AGENTS.md §7b — rename `#feature`→`#context`, merge `#features`/`#list` into `#context list`, merge `#diff` into `#status diff`, move `#sub focus`→`#focus sub` and `#sub out`→`#focus out`, update `#help` command list, remove `#list` alias from item 8
+- [x] Update docs/cmd_help.md — rewrite reference table, add `## #context` section, add `#status diff` sub-command, remove `## #diff` section, update `## #sub` (remove focus/out), add `## #focus` section (add sub/out), remove `#list` from help
+- [ ] Update templates.md to reflect new command set if template references exist
+
+#### Rules
+- §7b in AGENTS.md and docs/cmd_help.md must be updated atomically — both describe the same command surface.
+- `#sub` bare (list) and `#sub [name]` (create) stay as-is; only `focus`/`out` move to `#focus`.
+
+#### Key Files
+- `AGENTS.md` — §7b items 1,2,8,9,13,14
+- `docs/cmd_help.md` — reference table + sections
+- `.claude/skills/xtrack/references/templates.md` — if applicable
+
+### planning  [x]
+Define the Zero-Piecemeal Writes discussion exception: allow one plan file per discussion, auto-attach to feature ## Docs, permit context-changing commands during discussion.
+
+#### Todos
+- [x] Update AGENTS.md §3 Zero-Piecemeal Writes with discussion exception
+- [x] Update AGENTS.md Explain/Discuss Gate with plan-file + context-commands exceptions
+- [x] Create plans/planning.md and attach to WorkflowImprovement ## Docs
+
+#### Rules
+- Exception applies only during Explain/Discuss gate. Outside discussion, normal Zero-Piecemeal Writes enforcement is in full effect.
+- Context-changing commands (#focus, #sub, #sub out) are permitted during discussion and must be auto-followed.
+
+#### Key Files
+- `AGENTS.md` — Core Directives + §3
+
 ## Todos
 - [ ] **Post-merge reconcile xTrack/ across branches.** After `feature/ai-tooling` lands on `develop`, other branches with their own `xTrack/` evolutions (e.g. `feature/300M-Claude-II` carrying Coastline/DepthMapping) will conflict on merge. Procedure: (1) **tooling-system files** (`AGENTS.md`, `CLAUDE.md`, `.clinerules`, `.claude/skills/xtrack/**`, `docs/cmd_help.md`) — accept ai-tooling's version on conflict; (2) **`FEATURE_SCOPE_*.md`** added or edited on spatial — add YAML front-matter (`name`/`status`/`created`/`modified`/`active_subfeature`/`subs_total`/`subs_done`/`one_liner`), normalize all dates to `YYYY-MM-DD`, remove duplicated prose header lines, and split any attached docs out of `## Key Files` into a new `## Docs` section; (3) **`xTrack/CONTEXT_HYDRATION.md`** — resolve the delete/modify conflict in favor of the deletion and split its content into per-feature `xTrack/hydration/CONTEXT_HYDRATION_[Feature].md` files (one per active feature); (4) **`GLOBAL_CONTEXT.md`** — merge Routing Map rows (dedupe), normalize the Active Session Pointers block (add `Last Bake` if missing), normalize dates; (5) run `#doctor fix` to sweep residual drift, then `#doctor` to confirm clean.
 - `AGENTS.md` is the canonical rulebook and directly writable; edit without prompting (`.clinerules`/`CLAUDE.md` are pointers).
@@ -93,6 +125,7 @@ Vendor-neutral consolidation onto the AGENTS.md standard + xTrack hardening (thi
 
 ## Docs
 - `docs/cmd_help.md` — command reference (—help output)
+- `plans/planning.md` — Zero-Piecemeal Writes discussion exception design
 
 ## Notes
 <!-- blockers, design decisions, context for next session -->
