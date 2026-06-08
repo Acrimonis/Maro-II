@@ -1,29 +1,28 @@
 # Hydration — DepthSafety
 
-**Last Bake:** 2026-06-08 21:44
+**Last Bake:** 2026-06-08 21:53
 
-## State (B2 done; on `feature/depth-warning-2`, committed+pushed)
-4 depth-safety branches off the litto3d-shallow base (B1–B3 from base, **B4 from B3**):
-- **B2 isobar-precision — IMPLEMENTED + unit-tested + builds (this branch):**
-  - `Isobath.lines` → `List<IsobathLine(points, source, confidence)>`.
-  - `DepthIsobaths.build`: **fine-over-coarse suppression** (fine levels ≤10 m trace on a copy with
-    coarse-source cells masked to NaN) + per-line source/confidence sampling + **Chaikin smoothing of
-    fine-source (Litto3D) lines** (`SpatialOperations.chaikin`, 2 passes; EMODnet stays angular).
-  - **Colour + width by source** from `zone.properties` via `ZoneConfig` (litto3d `#1B5E20` dark green
-    **+1 px**; emodnet `#00008B` blue **−1 px**, floored 1 px; dash if confidence ≤35). Unmapped → grey.
-  - `DepthConstants`: `ISOBATH_FINE_LEVEL_MAX_M/FINE_MAX_RES_M/LOWCONF_DASH_MAX/SMOOTH_ITERATIONS`.
-  - `DepthIsobathsTest` passes (suppression + tagging).
-  - Open: on-device verify the hues read over the fill; smoothing is cosmetic only.
-- **B1 water-only** — bake-mask is the guard (re-bake + verify); runtime guard infeasible.
-- **B3 danger-display** — configurable `dangerDisplayDepthM` (1.5 m) → magenta overlay; rebuild bitmap on change.
-- **B4 danger-alert** (from B3) — `dangerAlertDepthM` (2 m); `DepthSample.isBelow`; pulse + banner; sound stubbed.
-- **Parked:** option-3 `gdal_contour` on full-res Litto3D `.asc` at bake = REAL contour fidelity (own subfeature); optional B5 overlay-reproject (~35 m Mercator).
+## State (on `feature/depth-warning-2`; develop merged in, compile green)
+Subs **1/4** done. Branch contains all of develop (merge `a83cd12`).
+- **B2 isobar-precision — DONE (committed `1819487`, pushed):** `IsobathLine(points, source, confidence)`;
+  fine-over-coarse suppression (mask coarse cells for fine levels); colour + width by source from
+  `zone.properties`/`ZoneConfig` (litto3d `#1B5E20` +1 px, emodnet `#00008B` −1 px, dash conf≤35);
+  Chaikin smoothing of Litto3D lines (`SpatialOperations.chaikin`). Unit-tested. **On-device colour verify pending.**
+- **B3 danger-display — SUPERSEDED/done by develop's low-depth overlay** (merged): `LowDepthWarningBitmap`
+  (magenta, water-only via **depth-gated isWater** — cheap), **configurable+persisted** `lowDepthWarningMaxM`
+  (Settings slider + map toggle), rebuilds on change. Don't re-implement; extend it. Optional leftover:
+  move the default to `zone.properties`.
+- **B4 danger-alert — STILL NEEDED:** develop has only the *display*, not an at-the-boat alarm. Add
+  `DepthSample.isBelow`, derived `shallowAlert` (isWater && isBelow + 0.3 m hysteresis) → pulsing `DepthCard`
+  + grounding banner; reuse `lowDepthWarningMaxM` (or a separate `dangerAlertMaxM`); stub `onShallowAlert()` for sound.
+- **B1 water-only** — bake-mask is the guard; re-bake + on-device verify pending.
+- **Parked:** option-3 `gdal_contour` on full-res Litto3D = real contour fidelity (own subfeature); optional B5 overlay-reproject.
 
 ## Next
-1. On-device verify B2 colours; tune `zone.properties` if needed.
-2. Merge `feature/depth-warning-2` → develop (PR).
-3. B3 · danger-display from develop.
+1. On-device verify B2 colours; PR `feature/depth-warning-2` → develop when ready.
+2. **B4 · danger-alert** (the alarm) — the main remaining DepthSafety work.
+3. B1 water-only re-bake/verify.
 
 ## Key files
-`data/model/Isobath.kt`, `data/depth/DepthIsobaths.kt` + `DepthConstants.kt`, `ui/map/ZoneConfig.kt` +
-`assets/zone.properties`, `ui/map/MapScreen.kt` (drawIsobaths), `spatial/SpatialOperations.kt` (chaikin).
+B2: `data/model/Isobath.kt`, `data/depth/DepthIsobaths.kt`+`DepthConstants.kt`, `ui/map/ZoneConfig.kt`+`assets/zone.properties`, `ui/map/MapScreen.kt`, `spatial/SpatialOperations.kt`.
+B3 (develop): `ui/map/LowDepthWarningBitmap.kt`, `data/settings/SettingsManager.kt`. B4: `data/model/DepthGrid.kt`, `ui/map/DashboardPanel.kt`.

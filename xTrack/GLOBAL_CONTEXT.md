@@ -4,8 +4,8 @@
 - **Active Feature:** DepthSafety
 - **Active Subfeature:** isobar-precision
 - **Last Updated:** 2026-06-08
-- **Last Bake:** 2026-06-08 21:44 (DepthSafety — B2 isobar-precision implemented on feature/depth-warning-2: IsobathLine model, fine-over-coarse suppression, colour+width by source from zone.properties (litto3d #1B5E20 dark green +1px; emodnet #00008B blue -1px; dash conf≤35), Chaikin smoothing of Litto3D lines; unit-tested + assembleDebug green. On-device colour verify pending; option-3 gdal_contour parked)
-- **Prev Bake:** 2026-06-08 21:36 (MapDisplay [develop] — toggle-danger-layer: blue warning-triangle button toggling the pink low-depth overlay, above the 300 m toggle; 300 m icon → ring; control-stack icons blue; tighter padding; toggleLowDepthWarningVisibility() wired through MapContent)
+- **Last Bake:** 2026-06-08 21:53 (DepthSafety — merged develop into feature/depth-warning-2; re-scoped B3: develop's low-depth warning overlay (magenta, configurable lowDepthWarningMaxM slider, toggle, water-only via depth-gated isWater, rebuild-on-change) SUPERSEDES B3 danger-display → done (subs 1/4). Remaining: B4 danger-alert (alarm) + B1 water-only re-bake. compileDebugKotlin green)
+- **Prev Bake:** 2026-06-08 21:44 (DepthSafety — B2 isobar-precision implemented: IsobathLine model, fine-over-coarse suppression, colour+width by source, Chaikin smoothing of Litto3D lines; unit-tested + assembleDebug green)
 
 ## Routing Map
 | Keyword | Feature File |

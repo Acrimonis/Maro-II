@@ -2,10 +2,10 @@
 name: DepthSafety
 status: active
 created: 2026-06-08 18:25
-modified: 2026-06-08 21:44
+modified: 2026-06-08 21:53
 active_subfeature: isobar-precision
 subs_total: 4
-subs_done: 0
+subs_done: 1
 one_liner: Make the depth layer navigation-safe — water-only colour, precision-aware isobaths, a very-visible sub-danger-depth overlay, and a configurable shallow-water alarm.
 ---
 
@@ -46,31 +46,34 @@ B2 · `feature/depth-warning-2` — isobaths reflect data precision (suppress fi
 #### Key Files
 - `data/model/Isobath.kt`, `data/depth/DepthIsobaths.kt`, `ui/map/MapScreen.kt`, `data/depth/DepthConstants.kt`
 
-### danger-display  [ ]
-B3 · `feature/depth-warning-3` — configurable DISPLAY danger depth + very-visible magenta overlay in the colour layer.
+### danger-display  [x]
+B3 · **SUPERSEDED by develop's low-depth warning overlay** (merged into this branch 2026-06-08) — a *more complete* version than our plan:
+- `LowDepthWarningBitmap.build(grid, maxDepthM, isWater)` — bright magenta GroundOverlay (~78% magenta) for water `0 ≤ depth < threshold`, stacked above the depth raster. **Water-only** via a cheap **depth-gated** `isWater` test — only the few shallow cells are checked, sidestepping the 7 M-cell cost that killed B1's runtime guard.
+- **Configurable + persisted threshold** `AppSettings.lowDepthWarningMaxM` (default `DepthConstants.LOW_DEPTH_WARNING_MAX_M = 1.5`; 0.5 m-step Settings slider) + a **visibility toggle** (map warning-triangle button + settings switch).
+- Bitmap **rebuilds on threshold change** (`produceState` keyed on `lowDepthWarningMaxM`).
+So B3 (magenta + configurable + rebuild-on-change + water-only) is **done** — via a *separate overlay*, cleaner than editing `DepthColorRamp`.
 #### Todos
-- [ ] `dangerDisplayDepthM` in `zone.properties`/`ZoneConfig` (default 1.5 m) + `AppSettings`/`SettingsManager` + settings UI control
-- [ ] `DepthColorRamp.argb`: near-opaque, maximally-visible magenta for `0 ≤ depth ≤ threshold`
-- [ ] Thread the threshold settings → `DepthBitmap.build`; rebuild the bitmap when the setting changes
+- [x] (develop) magenta low-depth overlay: configurable+persisted threshold, toggle, water-only (depth-gated isWater), rebuild-on-change
+- [ ] (optional) source the default threshold from `zone.properties`/`ZoneConfig` for consistency with the isobar tunables — low value (already settings-configurable)
 #### Rules
-- Display threshold is independent of the alert threshold.
+- **Do not re-implement** — extend develop's `LowDepthWarningBitmap` / `lowDepthWarningMaxM`; no parallel ramp-magenta path.
 #### Key Files
-- `ui/map/DepthColorRamp.kt`, `ui/map/DepthBitmap.kt`, `ui/map/MapScreen.kt`, `ZoneConfig.kt`, `data/settings/SettingsManager.kt`
+- `ui/map/LowDepthWarningBitmap.kt`, `ui/map/MapScreen.kt`, `data/settings/SettingsManager.kt`, `data/depth/DepthConstants.kt` (`LOW_DEPTH_WARNING_MAX_M`)
 
 ### danger-alert  [ ]
-B4 · `feature/depth-warning-4` (**from B3**) — configurable ALERT danger depth + alarm (visual now, sound later).
+B4 · `feature/depth-warning-4` — the **ALARM** (pulse + banner; sound later). **Still needed** — develop shipped only the *display* overlay, not an at-the-boat alert. The display threshold (`lowDepthWarningMaxM`) already exists, so B4 adds only the alarm on top.
 #### Todos
-- [ ] `dangerAlertDepthM` in `zone.properties`/`ZoneConfig` (default 2 m) + `AppSettings`/`SettingsManager` + settings UI control
 - [ ] `DepthSample.isBelow(minDepthM)`
-- [ ] Derived `shallowAlert` (isWater && isBelow, +0.3 m hysteresis) → pulsing `DepthCard` + grounding banner (reuse the Zone300Card pulse)
-- [ ] Stub `onShallowAlert()` hook where sound/vibration will later go
+- [ ] Derived `shallowAlert` = `isWater && depthAtCenter.isBelow(threshold)` (+0.3 m hysteresis) → pulsing `DepthCard` + grounding banner (reuse the Zone300Card pulse)
+- [ ] Threshold: **reuse `AppSettings.lowDepthWarningMaxM`** (display = alert), OR add a separate `dangerAlertMaxM` if the alarm should trip before the visual — decide
+- [ ] Stub `onShallowAlert()` hook where sound/vibration will later go (no audio in app yet)
 #### Rules
-- Visual-only now; audio is a separate follow-up (new capability — design-deviation gate).
+- Display overlay exists (develop); B4 adds only the ALARM. Reuse `lowDepthWarningMaxM` unless a distinct alert threshold is wanted.
 #### Key Files
 - `data/model/DepthGrid.kt`, `ui/map/DashboardPanel.kt`, `ui/map/MapScreen.kt`, `ZoneConfig.kt`, `data/settings/SettingsManager.kt`
 
 ## Todos
-- [ ] **NEXT:** B2 · isobar-precision is **implemented + unit-tested + builds** on `feature/depth-warning-2` — on-device verify the colours, then commit. After that: B3 · danger-display.
+- [ ] **NEXT:** B2 committed+pushed; develop merged in. **B3 superseded** by develop's low-depth overlay (done). Remaining DepthSafety work: **B4 · danger-alert** (alarm: `isBelow` + pulsing card/banner + sound stub) and **B1 · water-only** re-bake/verify. On-device verify B2 colours. Option-3 gdal_contour parked.
 
 ## Rules
 - Branch-per-feature off `feature/litto3d-shallow`: B1, B2, B3 from the base; **B4 from B3**. Commit only on explicit instruction.
