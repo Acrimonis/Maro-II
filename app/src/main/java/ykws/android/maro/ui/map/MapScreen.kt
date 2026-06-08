@@ -1905,14 +1905,17 @@ private fun drawIsobaths(mapView: MapView, isobaths: List<Isobath>, zoomLevel: D
         if (iso.depthM <= 2f && zoomLevel < DepthConstants.SHALLOW_ISOBATH_MIN_ZOOM) continue
         val isMajor = iso.depthM.toInt() % 10 == 0
         for (line in iso.lines) {
-            if (line.size < 2) continue
+            if (line.points.size < 2) continue
             val poly = Polyline().apply {
-                setPoints(line.map { GeoPoint(it.latitude, it.longitude) })
+                setPoints(line.points.map { GeoPoint(it.latitude, it.longitude) })
                 outlinePaint.apply {
-                    color = Color.parseColor("#37474F")   // muted blue-grey
-                    strokeWidth = if (isMajor) 3f else 2f
+                    color = ZoneConfig.isobarColor(line.source)   // colour by data source
+                    strokeWidth = ((if (isMajor) 3f else 2f) + ZoneConfig.isobarWidthBonus(line.source)).coerceAtLeast(1f)
                     alpha = if (isMajor) 180 else 120
                     isAntiAlias = true
+                    // Dash genuinely low-confidence fill (GEBCO/interpolated) → reads as "approximate".
+                    pathEffect = if (line.confidence <= DepthConstants.ISOBATH_LOWCONF_DASH_MAX)
+                        android.graphics.DashPathEffect(floatArrayOf(8f, 6f), 0f) else null
                 }
             }
             mapView.overlays.add(poly)

@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** MapDisplay
-- **Active Subfeature:** none
+- **Active Feature:** DepthSafety
+- **Active Subfeature:** isobar-precision
 - **Last Updated:** 2026-06-08
-- **Last Bake:** 2026-06-08 21:36 (MapDisplay — toggle-danger-layer: blue warning-triangle map button toggling the pink low-depth overlay, grouped just above the 300 m toggle (centred pair, 8 dp); 300 m icon → circular ring; all control-stack icons blue; tighter stack padding (top/bottom/right 12→6 dp); `toggleLowDepthWarningVisibility()` wired through MapContent)
-- **Prev Bake:** 2026-06-08 20:43 (MapDisplay — per-mode 300 m auto-show: two persisted toggles (GPS / Demo) in Settings → Avancé; shared distance/time sliders shown only when one is on; shore pipeline gates auto-reveal on the active mode's toggle; `zone300Decision()` unchanged; EN/FR strings)
+- **Last Bake:** 2026-06-08 21:53 (DepthSafety — merged develop into feature/depth-warning-2; re-scoped B3: develop's low-depth warning overlay (magenta, configurable lowDepthWarningMaxM slider, toggle, water-only via depth-gated isWater, rebuild-on-change) SUPERSEDES B3 danger-display → done (subs 1/4). Remaining: B4 danger-alert (alarm) + B1 water-only re-bake. compileDebugKotlin green)
+- **Prev Bake:** 2026-06-08 21:44 (DepthSafety — B2 isobar-precision implemented: IsobathLine model, fine-over-coarse suppression, colour+width by source, Chaikin smoothing of Litto3D lines; unit-tested + assembleDebug green)
 
 ## Routing Map
 | Keyword | Feature File |

@@ -1,6 +1,8 @@
 package ykws.android.maro.ui.map
 
 import android.content.Context
+import android.graphics.Color
+import ykws.android.maro.data.model.DepthSource
 import java.util.Properties
 
 /**
@@ -49,6 +51,22 @@ object ZoneConfig {
     var zoneRegulatorySpeedKn = 5f
         private set
 
+    /** Isobath line colour per data source (ARGB int); a source with no entry falls back to [isobarColorDefault]. */
+    private val isobarColors = hashMapOf(
+        DepthSource.LITTO3D to 0xFF1B5E20.toInt(), // dark green (Material 900)
+        DepthSource.EMODNET to 0xFF00008B.toInt(), // dark blue
+    )
+
+    /** Fallback isobath colour for any source without an explicit entry. */
+    var isobarColorDefault = 0xFF37474F.toInt() // muted blue-grey
+        private set
+
+    /** Per-source extra stroke width (px) added on top of the major/minor base; default 0. */
+    private val isobarWidthBonuses = hashMapOf(
+        DepthSource.LITTO3D to 1f,  // Litto3D (precise nearshore) reads a touch bolder
+        DepthSource.EMODNET to -1f, // EMODnet (coarse deep) reads thinner
+    )
+
     /**
      * Load tunables from [zone.properties](app/src/main/assets/zone.properties).
      * Must be called once (e.g. from [MainActivity.onCreate]) before the UI
@@ -79,8 +97,25 @@ object ZoneConfig {
             props.getProperty("zoneRegulatorySpeedKn")?.toFloatOrNull()?.let {
                 zoneRegulatorySpeedKn = it.coerceIn(1f, 20f)
             }
+            for (src in DepthSource.entries) {
+                val key = src.name.lowercase()
+                props.getProperty("isobar.color.$key")?.let { parseColorOrNull(it) }?.let { isobarColors[src] = it }
+                props.getProperty("isobar.width.$key")?.toFloatOrNull()?.let { isobarWidthBonuses[src] = it.coerceIn(-4f, 6f) }
+            }
+            props.getProperty("isobar.color.default")?.let { parseColorOrNull(it) }?.let {
+                isobarColorDefault = it
+            }
         } catch (_: Exception) {
             // Keep defaults — properties file missing or corrupt.
         }
     }
+
+    /** Isobath stroke colour (ARGB) for a data source, from zone.properties (defaults baked in). */
+    fun isobarColor(source: DepthSource): Int = isobarColors[source] ?: isobarColorDefault
+
+    /** Extra isobath stroke width (px) for a data source (0 if unset). */
+    fun isobarWidthBonus(source: DepthSource): Float = isobarWidthBonuses[source] ?: 0f
+
+    private fun parseColorOrNull(s: String): Int? =
+        try { Color.parseColor(s.trim()) } catch (_: Exception) { null }
 }
