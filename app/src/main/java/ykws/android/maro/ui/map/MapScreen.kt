@@ -227,16 +227,14 @@ fun MapScreen(
     // Re-rasterises when the grid, the threshold, or coastline readiness changes.
     val coastlineReady = state is CoastlineState.Ready
     val lowDepthWarningBitmap by produceState<Bitmap?>(
-        initialValue = null, depthGrid, appSettings.lowDepthWarningMaxM, appSettings.lowDepthWarningMinOpacityPct, coastlineReady
+        initialValue = null, depthGrid, appSettings.lowDepthWarningMaxM, coastlineReady
     ) {
         val maxM = appSettings.lowDepthWarningMaxM
         // Skip land/island cells via the coastline classifier; until it loads, treat all as water.
         val waterTest: (Double, Double) -> Boolean =
             if (coastlineReady) viewModel::isOnWater else { _, _ -> true }
         value = depthGrid?.let { g ->
-            withContext(Dispatchers.Default) {
-                LowDepthWarningBitmap.build(g, maxM, waterTest, appSettings.lowDepthWarningMinOpacityPct / 100f)
-            }
+            withContext(Dispatchers.Default) { LowDepthWarningBitmap.build(g, maxM, waterTest) }
         }
     }
 
@@ -330,6 +328,7 @@ fun MapScreen(
                 onRetry = { viewModel.loadCoastline() },
                 onOpenSettings = { showSettings = true },
                 onToggleZone300 = viewModel::toggleZone300Visibility,
+                onToggleLowDepthWarning = viewModel::toggleLowDepthWarningVisibility,
                 showExitBanner = showExitBanner,
                 modifier = Modifier
                     .fillMaxSize()
@@ -418,6 +417,7 @@ private fun MapContent(
     onRetry: () -> Unit,
     onOpenSettings: () -> Unit,
     onToggleZone300: () -> Unit,
+    onToggleLowDepthWarning: () -> Unit,
     showExitBanner: Boolean,
     modifier: Modifier = Modifier
 ) {
@@ -530,18 +530,29 @@ private fun MapContent(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .fillMaxHeight()
-                .padding(horizontal = 12.dp, vertical = 12.dp),
+                .padding(start = 12.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
             verticalArrangement = Arrangement.SpaceBetween,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Top — settings
             SettingsButton(onClick = onOpenSettings)
 
-            // Middle — layer toggle (centred in leftover space by SpaceBetween)
-            LayerButton(
-                isZoneVisible = appSettings.zone300Visible,
-                onClick = onToggleZone300
-            )
+            // Middle — layer toggles, grouped & centred in the leftover space by the
+            // parent SpaceBetween. The danger (low-depth) toggle sits just above the 300 m
+            // toggle, kept close together (8.dp) like the zoom cluster below.
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                DangerLayerButton(
+                    isWarningVisible = appSettings.lowDepthWarningVisible,
+                    onClick = onToggleLowDepthWarning
+                )
+                LayerButton(
+                    isZoneVisible = appSettings.zone300Visible,
+                    onClick = onToggleZone300
+                )
+            }
 
             // Bottom — zoom +/-. A placeholder holds the slot before the map
             // is ready so the middle toggle stays centred (no load-time jump).
@@ -946,27 +957,69 @@ private fun LayerButton(
         ),
         contentPadding = PaddingValues(0.dp)
     ) {
-        // Custom two-stacked-layers icon (no dependency on material-icons-extended)
+        // Custom circular outline (no dependency on material-icons-extended)
         Canvas(modifier = Modifier.size(28.dp)) {
             val w = size.width
             val h = size.height
-            val cr = androidx.compose.ui.geometry.CornerRadius(4f, 4f)
             val iconAlpha = if (isZoneVisible) 1.0f else 0.25f
-            // Bottom layer (offset right and down)
-            drawRoundRect(
+            // Circular outline — the 300 m zone is a circle around the boat.
+            drawCircle(
                 color = themeBlue,
-                topLeft = androidx.compose.ui.geometry.Offset(w * 0.18f, h * 0.25f),
-                size = androidx.compose.ui.geometry.Size(w * 0.72f, h * 0.60f),
-                cornerRadius = cr,
-                alpha = iconAlpha * 0.55f
+                radius = w * 0.38f,
+                center = androidx.compose.ui.geometry.Offset(w * 0.5f, h * 0.5f),
+                alpha = iconAlpha,
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = w * 0.12f)
             )
-            // Top layer (stacked above and to the left)
+        }
+    }
+}
+
+// ── Danger (low-depth) layer toggle — pink grounding-hazard overlay ─────────
+
+@Composable
+private fun DangerLayerButton(
+    isWarningVisible: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // Themed blue to match the other control buttons (LayerButton + zoom).
+    val themeBlue = ComposeColor(0xFF1565C0)
+    Button(
+        onClick = onClick,
+        modifier = modifier.size(64.dp),
+        shape = CircleShape,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = ComposeColor(0xCCFFFFFF)  // solid white bg always (matches LayerButton)
+        ),
+        contentPadding = PaddingValues(0.dp)
+    ) {
+        // Custom warning-triangle icon (no material-icons-extended dependency, like LayerButton).
+        Canvas(modifier = Modifier.size(28.dp)) {
+            val w = size.width
+            val h = size.height
+            val iconAlpha = if (isWarningVisible) 1.0f else 0.25f
+            // Filled hazard triangle
+            val triangle = androidx.compose.ui.graphics.Path().apply {
+                moveTo(w * 0.50f, h * 0.06f)
+                lineTo(w * 0.96f, h * 0.88f)
+                lineTo(w * 0.04f, h * 0.88f)
+                close()
+            }
+            drawPath(path = triangle, color = themeBlue, alpha = iconAlpha)
+            // Exclamation bar
             drawRoundRect(
-                color = themeBlue,
-                topLeft = androidx.compose.ui.geometry.Offset(w * 0.10f, h * 0.10f),
-                size = androidx.compose.ui.geometry.Size(w * 0.72f, h * 0.60f),
-                cornerRadius = cr,
-                alpha = iconAlpha * 0.90f
+                color = ComposeColor.White,
+                topLeft = androidx.compose.ui.geometry.Offset(w * 0.455f, h * 0.34f),
+                size = androidx.compose.ui.geometry.Size(w * 0.09f, h * 0.28f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(3f, 3f),
+                alpha = iconAlpha
+            )
+            // Exclamation dot
+            drawCircle(
+                color = ComposeColor.White,
+                radius = w * 0.055f,
+                center = androidx.compose.ui.geometry.Offset(w * 0.50f, h * 0.74f),
+                alpha = iconAlpha
             )
         }
     }
@@ -1113,34 +1166,20 @@ private fun SettingsOverlay(
                 }
             )
 
-            // Warning depth + opacity — grouped in one box, shown only when the warning is on.
+            // Warning depth threshold — lives inside the warning's box, shown only when it is on.
             if (settings.lowDepthWarningVisible) {
                 Spacer(modifier = Modifier.height(12.dp))
-                SettingsSliderGroup {
-                    SliderRowContent(
-                        label = stringResource(R.string.settings_low_depth_threshold_label),
-                        description = stringResource(R.string.settings_low_depth_threshold_desc),
-                        valueLabel = stringResource(R.string.settings_value_depth, settings.lowDepthWarningMaxM),
-                        value = settings.lowDepthWarningMaxM,
-                        valueRange = 0.5f..5f,
-                        steps = 8,
-                        onValueChange = { v ->
-                            onUpdateSettings { it.copy(lowDepthWarningMaxM = (v * 2f).roundToInt() / 2f) }
-                        }
-                    )
-                    SliderRowDivider()
-                    SliderRowContent(
-                        label = stringResource(R.string.settings_low_depth_opacity_label),
-                        description = stringResource(R.string.settings_low_depth_opacity_desc),
-                        valueLabel = stringResource(R.string.settings_value_percent, settings.lowDepthWarningMinOpacityPct),
-                        value = settings.lowDepthWarningMinOpacityPct.toFloat(),
-                        valueRange = 0f..100f,
-                        steps = 19,
-                        onValueChange = { v ->
-                            onUpdateSettings { it.copy(lowDepthWarningMinOpacityPct = (v / 5f).roundToInt() * 5) }
-                        }
-                    )
-                }
+                SettingsSliderRow(
+                    label = stringResource(R.string.settings_low_depth_threshold_label),
+                    description = stringResource(R.string.settings_low_depth_threshold_desc),
+                    valueLabel = stringResource(R.string.settings_value_depth, settings.lowDepthWarningMaxM),
+                    value = settings.lowDepthWarningMaxM,
+                    valueRange = 0.5f..5f,
+                    steps = 8,
+                    onValueChange = { v ->
+                        onUpdateSettings { it.copy(lowDepthWarningMaxM = (v * 2f).roundToInt() / 2f) }
+                    }
+                )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -1220,27 +1259,27 @@ private fun SettingsOverlay(
                 onToggle = { adaptiveAdvanced = !adaptiveAdvanced }
             ) {
                 Spacer(modifier = Modifier.height(8.dp))
-                SettingsSliderGroup {
-                    SliderRowContent(
-                        label = stringResource(R.string.settings_window_label),
-                        description = stringResource(R.string.settings_window_desc),
-                        valueLabel = stringResource(R.string.settings_value_seconds, settings.adaptiveWindowSec),
-                        value = settings.adaptiveWindowSec.toFloat(),
-                        valueRange = 15f..60f,
-                        steps = 8,
-                        onValueChange = { v -> onUpdateSettings { it.copy(adaptiveWindowSec = (v / 5f).roundToInt() * 5) } }
-                    )
-                    SliderRowDivider()
-                    SliderRowContent(
-                        label = stringResource(R.string.settings_adaptive_dist_label),
-                        description = stringResource(R.string.settings_adaptive_dist_desc),
-                        valueLabel = stringResource(R.string.settings_value_meters, settings.adaptiveDistanceM),
-                        value = settings.adaptiveDistanceM.toFloat(),
-                        valueRange = 10f..30f,
-                        steps = 3,
-                        onValueChange = { v -> onUpdateSettings { it.copy(adaptiveDistanceM = (v / 5f).roundToInt() * 5) } }
-                    )
-                }
+                SettingsSliderRow(
+                    label = stringResource(R.string.settings_window_label),
+                    description = stringResource(R.string.settings_window_desc),
+                    valueLabel = stringResource(R.string.settings_value_seconds, settings.adaptiveWindowSec),
+                    value = settings.adaptiveWindowSec.toFloat(),
+                    valueRange = 15f..60f,
+                    steps = 8,
+                    onValueChange = { v -> onUpdateSettings { it.copy(adaptiveWindowSec = (v / 5f).roundToInt() * 5) } }
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                SettingsSliderRow(
+                    label = stringResource(R.string.settings_adaptive_dist_label),
+                    description = stringResource(R.string.settings_adaptive_dist_desc),
+                    valueLabel = stringResource(R.string.settings_value_meters, settings.adaptiveDistanceM),
+                    value = settings.adaptiveDistanceM.toFloat(),
+                    valueRange = 10f..30f,
+                    steps = 3,
+                    onValueChange = { v -> onUpdateSettings { it.copy(adaptiveDistanceM = (v / 5f).roundToInt() * 5) } }
+                )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -1254,9 +1293,30 @@ private fun SettingsOverlay(
                 title = stringResource(R.string.settings_alert_label),
                 description = stringResource(R.string.settings_alert_desc)
             )
+
             Spacer(modifier = Modifier.height(8.dp))
-            SettingsSliderGroup {
-                SliderRowContent(
+
+            // Per-mode auto-show toggles. The shared distance/time thresholds below only
+            // apply — and are only shown — when at least one mode has auto-show enabled.
+            SettingsToggleRow(
+                label = stringResource(R.string.settings_alert_gps_label),
+                description = stringResource(R.string.settings_alert_gps_desc),
+                checked = settings.zone300AutoShowGps,
+                onCheckedChange = { on -> onUpdateSettings { it.copy(zone300AutoShowGps = on) } }
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            SettingsToggleRow(
+                label = stringResource(R.string.settings_alert_demo_label),
+                description = stringResource(R.string.settings_alert_demo_desc),
+                checked = settings.zone300AutoShowDemo,
+                onCheckedChange = { on -> onUpdateSettings { it.copy(zone300AutoShowDemo = on) } }
+            )
+
+            if (settings.zone300AutoShowGps || settings.zone300AutoShowDemo) {
+                Spacer(modifier = Modifier.height(12.dp))
+                SettingsSliderRow(
                     label = stringResource(R.string.settings_alert_dist_label),
                     description = stringResource(R.string.settings_alert_dist_desc),
                     valueLabel = stringResource(R.string.settings_value_meters, settings.zoneAutoRevealDistanceM.roundToInt()),
@@ -1265,8 +1325,10 @@ private fun SettingsOverlay(
                     steps = 17,
                     onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealDistanceM = (v / 25f).roundToInt() * 25f) } }
                 )
-                SliderRowDivider()
-                SliderRowContent(
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                SettingsSliderRow(
                     label = stringResource(R.string.settings_alert_time_label),
                     description = stringResource(R.string.settings_alert_time_desc),
                     valueLabel = stringResource(R.string.settings_value_seconds, settings.zoneAutoRevealTimeS),
@@ -1404,14 +1466,6 @@ private fun SettingsSliderRow(
     steps: Int,
     onValueChange: (Float) -> Unit
 ) {
-    SettingsSliderGroup {
-        SliderRowContent(label, description, valueLabel, value, valueRange, steps, onValueChange)
-    }
-}
-
-/** Rounded settings "box" hosting one or more [SliderRowContent]s — groups related sliders together. */
-@Composable
-private fun SettingsSliderGroup(content: @Composable () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1419,71 +1473,44 @@ private fun SettingsSliderGroup(content: @Composable () -> Unit) {
             .background(ComposeColor(0x1AFFFFFF))
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
-        content()
-    }
-}
-
-/** A label + value + slider WITHOUT its own box — placed inside a [SettingsSliderGroup]. */
-@Composable
-private fun SliderRowContent(
-    label: String,
-    description: String,
-    valueLabel: String,
-    value: Float,
-    valueRange: ClosedFloatingPointRange<Float>,
-    steps: Int,
-    onValueChange: (Float) -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = label,
+                    color = ComposeColor.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = description,
+                    color = ComposeColor(0xFFB0BEC5),
+                    fontSize = 13.sp
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
             Text(
-                text = label,
-                color = ComposeColor.White,
+                text = valueLabel,
+                color = ComposeColor(0xFF1565C0),
                 fontSize = 16.sp,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = description,
-                color = ComposeColor(0xFFB0BEC5),
-                fontSize = 13.sp
+                fontWeight = FontWeight.Bold
             )
         }
-        Spacer(modifier = Modifier.width(16.dp))
-        Text(
-            text = valueLabel,
-            color = ComposeColor(0xFF1565C0),
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold
+        Slider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = valueRange,
+            steps = steps,
+            colors = SliderDefaults.colors(
+                thumbColor = ComposeColor(0xFF1565C0),
+                activeTrackColor = ComposeColor(0xFF1565C0),
+                inactiveTrackColor = ComposeColor(0x33FFFFFF)
+            )
         )
     }
-    Slider(
-        value = value,
-        onValueChange = onValueChange,
-        valueRange = valueRange,
-        steps = steps,
-        colors = SliderDefaults.colors(
-            thumbColor = ComposeColor(0xFF1565C0),
-            activeTrackColor = ComposeColor(0xFF1565C0),
-            inactiveTrackColor = ComposeColor(0x33FFFFFF)
-        )
-    )
-}
-
-/** Thin divider between sliders that share a [SettingsSliderGroup]. */
-@Composable
-private fun SliderRowDivider() {
-    Spacer(modifier = Modifier.height(10.dp))
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(1.dp)
-            .background(ComposeColor(0x14FFFFFF))
-    )
-    Spacer(modifier = Modifier.height(2.dp))
 }
 
 /** Dimmer sub-heading with an optional one-line description, for grouping settings in a section. */

@@ -1,30 +1,24 @@
 # Context Hydration — MapDisplay
 
-**Last Bake:** 2026-06-08 20:23 (UTC)
-**Branch:** feature/layout-lowdepth (off origin/develop)
-**Active Subfeature:** layer-lowdepth
+**Last Bake:** 2026-06-08 21:36
+**Feature Status:** active (3/8 subfeatures done)
+**Active Subfeature:** none (toggle-danger-layer registered, not focused; impl done, build pending)
 
-## State
-Low-depth warning overlay complete: bright-magenta `GroundOverlay` above the depth raster for all
-water shallower than a configurable threshold (Settings → Display slider 0.5–5.0 m, default 1.5,
-persisted); own toggle. "Keep phone on" moved to top of Power saving. Mercator offset fixed by
-latitude-banding BOTH depth + warning rasters (`addBandedOverlay`, 8 strips). **Land kept off all
-depth layers at the DATA level:** `DepthZoneMask.apply` now also nulls `!isWater` cells; the
-re-baked `nice-frejus.bin` is land-free, so the colour map (NaN→transparent) and isobaths (marching
-squares skip NaN) avoid land for free, and the warning's `!isNaN` gate does too. Re-bake validation
-`passed=true`, `datumMismatch=false`. assembleDebug green. Committed: DepthZoneMask + prebake-batch.md
-(the `.bin` is gitignored — regenerate locally via `tools\bake-depth.bat`).
+## State Summary
+Added a map control button for the pink low-depth/danger overlay. New `DangerLayerButton`
+(blue warning-triangle, mirrors `LayerButton`) sits just above the 300 m `LayerButton` in the
+right-edge control stack, wrapped in an inner `Column(spacedBy 8.dp)` so the pair stays close and
+centred by the parent `SpaceBetween`. Wired `onToggleLowDepthWarning` through `MapContent` →
+new `CoastlineViewModel.toggleLowDepthWarningVisibility()` (plain flip of `lowDepthWarningVisible`,
+no auto-reveal state). Visual polish this session: 300 m zone icon → circular ring (was the
+two-stacked-layers glyph); all control-stack icons themed blue (`0xFF1565C0`); control-stack padding
+tightened (top/bottom/right 12→6 dp, left unchanged). Branch `feature/toggle-danger-layer`, off
+develop (which already carries the auto-show feature via PR #40).
 
-## Known issue (tracked todo)
-Pink warning still laps ~½ cell (~12 m) onto land at the waterline — 25 m cells classified by
-CENTRE, amplified by the warning's opaque paint (the colour map has the same residual but faint).
-Fix: sub-cell water test (sample cell corners) OR vector-clip the warning bitmap to the coastline
-polygon. Low-priority polish.
+## Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `DangerLayerButton`, `LayerButton` ring icon, control-stack grouping + padding
+- `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — `toggleLowDepthWarningVisibility()`
 
-## Next
-Decide + implement the bleed fix; on-device verify (offset gone, layers land-free, toggle/threshold persist).
-
-## Target files
-- `data/depth/DepthZoneMask.kt` (land mask, done); `ui/map/LowDepthWarningBitmap.kt` + `MapScreen.kt` (bleed fix)
-- `spatial/CoastlineSpatialIndex.kt:403` `isWater`; re-bake via `DepthPrebakeTest` / `tools\bake-depth.bat`
-- Doc: `docs/prebake-batch.md`
+## Next Steps
+- Build (`apk-build.bat`) + on-device verify: danger button toggles the pink layer; pair stays centred; ring/blue icons render; tighter padding looks right.
+- Inherited from develop: low-depth pink-bleed fix (laps ~½ cell onto land at 25 m); "depth color" + "layer-zone" re-bake still pending.

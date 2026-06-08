@@ -2,9 +2,9 @@
 name: MapDisplay
 status: active
 created: 2026-06-07 00:00
-modified: 2026-06-08 20:23
+modified: 2026-06-08 21:36
 active_subfeature: pink-bleed
-subs_total: 7
+subs_total: 8
 subs_done: 3
 one_liner: Map display layer management — depth layer, color depth layer, and orientation-aware rendering.
 ---
@@ -121,6 +121,30 @@ itself so bays and capes alike get a uniform 6 NM (no cape under-coverage).
 - `app/src/test/java/ykws/android/maro/data/prebake/DepthPrebakeTest.kt`
 - `tools/bake_emodnet.bat`, `tools/bake_litto3d.bat`
 
+### config 300m auto display  [ ]
+
+Two per-mode toggles to activate the 300 m zone auto-show independently for GPS and Demo;
+the shared distance/time thresholds are only shown when at least one toggle is on.
+
+#### Todos
+- [x] Add `zone300AutoShowGps` + `zone300AutoShowDemo` to `AppSettings` (persisted, default on)
+- [x] Two toggles in Settings → Avancé → 300 m zone alert (one GPS, one Demo)
+- [x] Show the shared distance/time sliders only when GPS or Demo auto-show is on
+- [x] Gate the shore-pipeline auto-reveal on the active mode's toggle (reset decision state when off)
+- [x] FR + EN strings for both toggles
+- [ ] Build (`apk-build.bat`) + on-device verify (toggle off per mode suppresses auto-show; sliders hide)
+
+#### Rules
+- One boolean per mode (`gpsMode` true→GPS, false→Demo); both default **on** to preserve the existing always-on auto-reveal
+- The distance/time sliders are shared across modes and only rendered when GPS or Demo auto-show is enabled
+- When the active mode's toggle is off, the shore pipeline leaves `zone300Visible` under manual control and resets `zone300AutoRevealed` / `bandEnteredSinceReveal`
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — the 2 persisted booleans
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — toggles + conditional thresholds
+- `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — per-mode gate in the shore pipeline
+- `app/src/main/res/values/strings.xml`, `app/src/main/res/values-fr/strings.xml` — toggle labels
+
 ### layer-lowdepth  [ ]
 
 Highlight all charted water shallower than 1.5 m as a bright, near-opaque grounding-hazard
@@ -171,6 +195,28 @@ depth so the shallowest water reads loudest.
 - `app/src/main/java/ykws/android/maro/ui/map/LowDepthWarningBitmap.kt`
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
 - `app/src/main/java/ykws/android/maro/ui/map/ZoneConfig.kt`, `app/src/main/assets/zone.properties`
+
+### toggle-danger-layer  [ ]
+
+Map control button to toggle the pink low-depth/danger overlay (`lowDepthWarningVisible`), placed
+just above the 300 m zone toggle in the right-edge control stack — the two grouped and centred
+together (as the 300 m toggle was on its own).
+
+#### Todos
+- [x] `DangerLayerButton` composable — warning-triangle icon (themed blue, mirrors `LayerButton`)
+- [x] Group it above `LayerButton` in an inner Column (8 dp gap), centred by the parent SpaceBetween
+- [x] Thread `onToggleLowDepthWarning` through `MapContent` → `CoastlineViewModel.toggleLowDepthWarningVisibility()`
+- [x] Polish: 300 m zone icon → circular ring; danger icon → blue; tighter control-stack padding (top/bottom/right 12→6 dp)
+- [ ] Build (`apk-build.bat`) + on-device verify (button toggles the pink layer; pair stays centred)
+
+#### Rules
+- All control-stack button icons are themed blue (`0xFF1565C0`) for consistency (not the overlay magenta)
+- Danger button sits ABOVE the 300 m toggle; the two stay close (8 dp) and centred as a group
+- Toggles `AppSettings.lowDepthWarningVisible` only — no rebake, no depth-data change
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `DangerLayerButton` + control-stack grouping
+- `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — `toggleLowDepthWarningVisibility()`
 
 ## Todos
 
