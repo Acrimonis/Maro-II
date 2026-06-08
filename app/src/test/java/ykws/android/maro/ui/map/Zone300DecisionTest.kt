@@ -73,8 +73,21 @@ class Zone300DecisionTest {
     }
 
     @Test
-    fun `a stopped boat does not reveal even when closing within the margin`() {
-        assertEquals(Zone300Action.NONE, decide(dist = 180.0, prevDist = 190.0, sogKn = 0f).action)
+    fun `a not-closing boat does not reveal (speed does not gate the distance arm)`() {
+        // Steady distance → not approaching → no reveal, regardless of speed.
+        assertEquals(Zone300Action.NONE, decide(dist = 180.0, prevDist = 180.0, sogKn = 0f).action)
+    }
+
+    @Test
+    fun `a slow but genuinely closing boat still reveals`() {
+        // Below the stopped threshold yet distance is shrinking → distance arm reveals (no flap).
+        assertEquals(Zone300Action.REVEAL, decide(dist = 180.0, prevDist = 190.0, sogKn = 0.5f).action)
+    }
+
+    @Test
+    fun `does not reveal when already inside the band (manually hidden)`() {
+        // Inside the band (dist < 0) and closing deeper → respect the manual hide, no auto-show.
+        assertEquals(Zone300Action.NONE, decide(dist = -50.0, prevDist = -40.0, sogKn = 5f).action)
     }
 
     // ── Re-hide arm ─────────────────────────────────────────────────────────
@@ -109,10 +122,18 @@ class Zone300DecisionTest {
     }
 
     @Test
-    fun `a stopped boat auto-hides even outside the zone`() {
-        // Stopped (≤ 1 kn) anywhere clears the alert, even seaward of the band.
+    fun `a stopped boat that is no longer closing auto-hides, even outside the zone`() {
+        // Stopped (≤ 1 kn) and not closing → clear the alert, even seaward of the band.
         val d = decide(dist = 120.0, prevDist = 120.0, sogKn = 0f, autoRevealed = true)
         assertEquals(Zone300Action.HIDE, d.action)
+    }
+
+    @Test
+    fun `a low-speed reading while still closing does not hide (no flap)`() {
+        // <= stopped threshold but distance still shrinking → keep the alert, don't flap.
+        val d = decide(dist = 150.0, prevDist = 160.0, sogKn = 0.5f, autoRevealed = true)
+        assertEquals(Zone300Action.NONE, d.action)
+        assertTrue(d.autoRevealed)
     }
 
     @Test
