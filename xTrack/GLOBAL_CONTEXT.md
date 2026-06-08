@@ -5,7 +5,7 @@
 - **Active Subfeature:** isobar-precision
 - **Last Updated:** 2026-06-08
 - **Last Bake:** 2026-06-08 21:44 (DepthSafety — B2 isobar-precision implemented on feature/depth-warning-2: IsobathLine model, fine-over-coarse suppression, colour+width by source from zone.properties (litto3d #1B5E20 dark green +1px; emodnet #00008B blue -1px; dash conf≤35), Chaikin smoothing of Litto3D lines; unit-tested + assembleDebug green. On-device colour verify pending; option-3 gdal_contour parked)
-- **Prev Bake:** 2026-06-08 19:16 (DepthSafety — planned 4 branches; B1 per-cell runtime guard INFEASIBLE → bake-mask is the guard; Mercator overlay ~35 m parked as optional B5)
+- **Prev Bake:** 2026-06-08 21:36 (MapDisplay [develop] — toggle-danger-layer: blue warning-triangle button toggling the pink low-depth overlay, above the 300 m toggle; 300 m icon → ring; control-stack icons blue; tighter padding; toggleLowDepthWarningVisibility() wired through MapContent)
 
 ## Routing Map
 | Keyword | Feature File |

@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import ykws.android.maro.data.depth.DepthConstants
 
 /**
  * User-facing settings persisted via SharedPreferences.
@@ -17,6 +18,9 @@ import kotlinx.coroutines.flow.asStateFlow
  * @property defaultLongitude  Initial map center longitude (WGS84, °E).
  * @property coastlineVisible  Whether the coastline polyline overlay is drawn.
  * @property zone300Visible    Whether the 300 m regulatory band overlay is drawn.
+ * @property zone300AutoShowGps   GPS mode: auto-reveal the hidden 300 m band on approach.
+ *                             When off, the band stays under manual control in GPS mode.
+ * @property zone300AutoShowDemo  Demo mode: same approach auto-reveal, driven by pan speed.
  * @property mapCenterLat      Persisted map center latitude  (NaN = not yet saved).
  * @property mapCenterLon      Persisted map center longitude (NaN = not yet saved).
  * @property zoomLevel         Persisted map zoom level (0.0 = not yet saved).
@@ -49,6 +53,8 @@ data class AppSettings(
     val zone300Visible: Boolean = true,
     val zoneAutoRevealDistanceM: Float = 200f,
     val zoneAutoRevealTimeS: Int = 20,
+    val zone300AutoShowGps: Boolean = true,
+    val zone300AutoShowDemo: Boolean = true,
     val gpsMode: Boolean = false,
     val recenterDelaySeconds: Int = 5,
     val gpsActiveIntervalSec: Int = 2,
@@ -65,7 +71,11 @@ data class AppSettings(
     /** App language: "system" (device locale, English fallback), "en", or "fr". */
     val languageCode: String = "system",
     /** Keep the device screen awake while the app is in the foreground. */
-    val keepScreenOn: Boolean = false
+    val keepScreenOn: Boolean = false,
+    /** Highlight charted shallow water as a bright grounding-hazard overlay. */
+    val lowDepthWarningVisible: Boolean = true,
+    /** Depth threshold (m) for the low-depth warning: cells shallower than this are painted. */
+    val lowDepthWarningMaxM: Float = DepthConstants.LOW_DEPTH_WARNING_MAX_M.toFloat()
 )
 
 class SettingsManager(
@@ -87,6 +97,8 @@ class SettingsManager(
         zone300Visible   = prefs.getBoolean(KEY_ZONE300_VISIBLE, true),
         zoneAutoRevealDistanceM = prefs.getFloat(KEY_ZONE_AUTOREVEAL_DIST_M, defaultAutoRevealDistM),
         zoneAutoRevealTimeS     = prefs.getInt(KEY_ZONE_AUTOREVEAL_TIME_S, defaultAutoRevealTimeS),
+        zone300AutoShowGps  = prefs.getBoolean(KEY_ZONE300_AUTOSHOW_GPS, true),
+        zone300AutoShowDemo = prefs.getBoolean(KEY_ZONE300_AUTOSHOW_DEMO, true),
         gpsMode          = prefs.getBoolean(KEY_GPS_MODE, false),
         recenterDelaySeconds = prefs.getInt(KEY_RECENTER_DELAY_S, 5),
         gpsActiveIntervalSec = prefs.getInt(KEY_GPS_INTERVAL_S, 2),
@@ -101,7 +113,9 @@ class SettingsManager(
         isWater          = prefs.getBoolean(KEY_IS_WATER, true),
         distanceToShore  = prefs.getFloat(KEY_DISTANCE_TO_SHORE, Float.NaN).toDouble(),
         languageCode     = prefs.getString(KEY_LANGUAGE_CODE, "system") ?: "system",
-        keepScreenOn     = prefs.getBoolean(KEY_KEEP_SCREEN_ON, false)
+        keepScreenOn     = prefs.getBoolean(KEY_KEEP_SCREEN_ON, false),
+        lowDepthWarningVisible = prefs.getBoolean(KEY_LOW_DEPTH_WARNING_VISIBLE, true),
+        lowDepthWarningMaxM = prefs.getFloat(KEY_LOW_DEPTH_WARNING_MAX_M, DepthConstants.LOW_DEPTH_WARNING_MAX_M.toFloat())
     )
 
     /**
@@ -124,6 +138,8 @@ class SettingsManager(
             .putBoolean(KEY_ZONE300_VISIBLE, updated.zone300Visible)
             .putFloat(KEY_ZONE_AUTOREVEAL_DIST_M, updated.zoneAutoRevealDistanceM)
             .putInt(KEY_ZONE_AUTOREVEAL_TIME_S, updated.zoneAutoRevealTimeS)
+            .putBoolean(KEY_ZONE300_AUTOSHOW_GPS, updated.zone300AutoShowGps)
+            .putBoolean(KEY_ZONE300_AUTOSHOW_DEMO, updated.zone300AutoShowDemo)
             .putBoolean(KEY_GPS_MODE, updated.gpsMode)
             .putInt(KEY_RECENTER_DELAY_S, updated.recenterDelaySeconds)
             .putInt(KEY_GPS_INTERVAL_S, updated.gpsActiveIntervalSec)
@@ -139,6 +155,8 @@ class SettingsManager(
             .putFloat(KEY_DISTANCE_TO_SHORE, updated.distanceToShore.toFloat())
             .putString(KEY_LANGUAGE_CODE, updated.languageCode)
             .putBoolean(KEY_KEEP_SCREEN_ON, updated.keepScreenOn)
+            .putBoolean(KEY_LOW_DEPTH_WARNING_VISIBLE, updated.lowDepthWarningVisible)
+            .putFloat(KEY_LOW_DEPTH_WARNING_MAX_M, updated.lowDepthWarningMaxM)
             .apply()
     }
 
@@ -150,6 +168,8 @@ class SettingsManager(
         private const val KEY_ZONE300_VISIBLE = "zone300_visible"
         private const val KEY_ZONE_AUTOREVEAL_DIST_M = "zone_autoreveal_dist_m"
         private const val KEY_ZONE_AUTOREVEAL_TIME_S = "zone_autoreveal_time_s"
+        private const val KEY_ZONE300_AUTOSHOW_GPS = "zone300_autoshow_gps"
+        private const val KEY_ZONE300_AUTOSHOW_DEMO = "zone300_autoshow_demo"
         private const val KEY_GPS_MODE = "gps_mode"
         private const val KEY_RECENTER_DELAY_S = "recenter_delay_s"
         private const val KEY_GPS_INTERVAL_S = "gps_interval_s"
@@ -165,5 +185,7 @@ class SettingsManager(
         private const val KEY_DISTANCE_TO_SHORE = "distance_to_shore"
         private const val KEY_LANGUAGE_CODE = "language_code"
         private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
+        private const val KEY_LOW_DEPTH_WARNING_VISIBLE = "low_depth_warning_visible"
+        private const val KEY_LOW_DEPTH_WARNING_MAX_M = "low_depth_warning_max_m"
     }
 }

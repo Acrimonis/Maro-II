@@ -32,6 +32,10 @@
     <string name="settings_coastline_desc">Afficher la ligne de côte sur la carte</string>
     <string name="settings_zone300_label">Zone 300 m</string>
     <string name="settings_zone300_desc">Afficher la zone des 300 m sur la carte</string>
+    <string name="settings_low_depth_warning_label">Alerte faible profondeur</string>
+    <string name="settings_low_depth_warning_desc">Surligner les hauts-fonds dangereux</string>
+    <string name="settings_low_depth_threshold_label">Profondeur d\'alerte</string>
+    <string name="settings_low_depth_threshold_desc">Surligner l\'eau moins profonde que ce seuil</string>
     <string name="settings_section_power">Économie d\'énergie</string>
     <string name="settings_keep_screen_on_label">Garder le téléphone allumé</string>
     <string name="settings_keep_screen_on_desc">Garder l\'écran allumé pendant que l\'app fonctionne</string>
@@ -52,11 +56,15 @@
     <string name="settings_adaptive_dist_desc">En dessous de ce déplacement, vous êtes considéré « à l\'arrêt »</string>
     <string name="settings_section_advanced">Avancé</string>
     <string name="settings_alert_label">Alerte zone 300 m</string>
-    <string name="settings_alert_desc">Réaffiche automatiquement la zone des 300 m masquée à l\'approche de la côte (GPS)</string>
+    <string name="settings_alert_desc">Réaffiche automatiquement la zone des 300 m masquée à l\'approche de la côte</string>
     <string name="settings_alert_dist_label">Distance d\'alerte</string>
     <string name="settings_alert_dist_desc">Distance avant la limite des 300 m à laquelle la zone réapparaît</string>
     <string name="settings_alert_time_label">Délai d\'alerte</string>
     <string name="settings_alert_time_desc">Temps avant d\'atteindre la limite (à la vitesse actuelle) déclenchant le réaffichage</string>
+    <string name="settings_alert_gps_label">Auto-affichage en mode GPS</string>
+    <string name="settings_alert_gps_desc">Réaffiche la zone des 300 m à l\'approche, position pilotée par le GPS</string>
+    <string name="settings_alert_demo_label">Auto-affichage en mode démo</string>
+    <string name="settings_alert_demo_desc">Réaffiche la zone des 300 m à l\'approche, en navigation démo</string>
     <string name="settings_freq_label">Fréquence GPS</string>
     <string name="settings_freq_desc">Intervalle entre les positions GPS en mouvement · plus lent = moins de batterie</string>
     <string name="settings_freq_high">Haute</string>
@@ -71,6 +79,7 @@
     <string name="settings_value_seconds">%d s</string>
     <string name="settings_value_fps">%d fps</string>
     <string name="settings_value_meters">%d m</string>
+    <string name="settings_value_depth">%.1f m</string>
 
     <!-- Dashboard -->
     <string name="dash_distance_title">Distance</string>

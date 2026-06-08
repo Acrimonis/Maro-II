@@ -33,6 +33,10 @@
     <string name="settings_coastline_desc">Show the coastline on the map</string>
     <string name="settings_zone300_label">300 m zone</string>
     <string name="settings_zone300_desc">Show the 300 m zone on the map</string>
+    <string name="settings_low_depth_warning_label">Low-depth warning</string>
+    <string name="settings_low_depth_warning_desc">Highlight dangerously shallow water</string>
+    <string name="settings_low_depth_threshold_label">Warning depth</string>
+    <string name="settings_low_depth_threshold_desc">Highlight water shallower than this</string>
     <string name="settings_section_power">Power saving</string>
     <string name="settings_keep_screen_on_label">Keep phone on</string>
     <string name="settings_keep_screen_on_desc">Keep the screen on while the app is running</string>
@@ -53,11 +57,15 @@
     <string name="settings_adaptive_dist_desc">Below this movement, you are considered \"stopped\"</string>
     <string name="settings_section_advanced">Advanced</string>
     <string name="settings_alert_label">300 m zone alert</string>
-    <string name="settings_alert_desc">Automatically re-shows the hidden 300 m zone when approaching the coast (GPS)</string>
+    <string name="settings_alert_desc">Automatically re-shows the hidden 300 m zone when approaching the coast</string>
     <string name="settings_alert_dist_label">Alert distance</string>
     <string name="settings_alert_dist_desc">Distance before the 300 m limit at which the zone reappears</string>
     <string name="settings_alert_time_label">Alert delay</string>
     <string name="settings_alert_time_desc">Time before reaching the limit (at the current speed) that triggers re-display</string>
+    <string name="settings_alert_gps_label">Auto-show in GPS mode</string>
+    <string name="settings_alert_gps_desc">Reveal the 300 m zone on approach when GPS drives the position</string>
+    <string name="settings_alert_demo_label">Auto-show in demo mode</string>
+    <string name="settings_alert_demo_desc">Reveal the 300 m zone on approach while panning in demo mode</string>
     <string name="settings_freq_label">GPS frequency</string>
     <string name="settings_freq_desc">Interval between GPS fixes while moving · slower = less battery</string>
     <string name="settings_freq_high">High</string>
@@ -72,6 +80,7 @@
     <string name="settings_value_seconds">%d s</string>
     <string name="settings_value_fps">%d fps</string>
     <string name="settings_value_meters">%d m</string>
+    <string name="settings_value_depth">%.1f m</string>
 
     <!-- Dashboard -->
     <string name="dash_distance_title">Distance</string>

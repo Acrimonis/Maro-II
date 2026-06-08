@@ -300,6 +300,15 @@ class CoastlineViewModel(
                 _distanceToZone.value = shore.distToZone
                 // Hybrid proximity auto-reveal (distance OR time-to-band) — pure logic in zone300Decision().
                 val cfg = settings.value
+                // Per-mode opt-out: when auto-show is off for the active mode, leave the band under
+                // manual control and reset the decision state so a later re-enable starts clean.
+                val autoShowEnabled = if (cfg.gpsMode) cfg.zone300AutoShowGps else cfg.zone300AutoShowDemo
+                if (!autoShowEnabled) {
+                    zone300AutoRevealed = false
+                    bandEnteredSinceReveal = false
+                    lastDistToZone = shore.distToZone
+                    return@onEach
+                }
                 // SOG source. GPS: real speed (null before the first fix = unknown). Demo: pan-derived
                 // speed; a *paused* map (null pan speed) reads as 0 kn when INSIDE the zone (you've
                 // parked there → declutter) but as unknown (null) when OUTSIDE, so pausing to observe
@@ -460,6 +469,14 @@ class CoastlineViewModel(
             zone300ManuallyHidden = false
             zone300AutoRevealed = false
         }
+    }
+
+    /**
+     * Toggles the low-depth (<threshold) pink grounding-hazard overlay visibility.
+     * Plain on/off — unlike the 300 m band there is no auto-reveal state to manage.
+     */
+    fun toggleLowDepthWarningVisibility() {
+        settingsManager.update { it.copy(lowDepthWarningVisible = !it.lowDepthWarningVisible) }
     }
 
     /**
