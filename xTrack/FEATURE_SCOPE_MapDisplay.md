@@ -2,9 +2,9 @@
 name: MapDisplay
 status: active
 created: 2026-06-07 00:00
-modified: 2026-06-08 20:23
-active_subfeature: layer-lowdepth
-subs_total: 6
+modified: 2026-06-08 20:43
+active_subfeature: none
+subs_total: 7
 subs_done: 3
 one_liner: Map display layer management — depth layer, color depth layer, and orientation-aware rendering.
 ---
@@ -120,6 +120,30 @@ itself so bays and capes alike get a uniform 6 NM (no cape under-coverage).
 - `app/src/main/java/ykws/android/maro/data/depth/DepthConstants.kt`
 - `app/src/test/java/ykws/android/maro/data/prebake/DepthPrebakeTest.kt`
 - `tools/bake_emodnet.bat`, `tools/bake_litto3d.bat`
+
+### config 300m auto display  [ ]
+
+Two per-mode toggles to activate the 300 m zone auto-show independently for GPS and Demo;
+the shared distance/time thresholds are only shown when at least one toggle is on.
+
+#### Todos
+- [x] Add `zone300AutoShowGps` + `zone300AutoShowDemo` to `AppSettings` (persisted, default on)
+- [x] Two toggles in Settings → Avancé → 300 m zone alert (one GPS, one Demo)
+- [x] Show the shared distance/time sliders only when GPS or Demo auto-show is on
+- [x] Gate the shore-pipeline auto-reveal on the active mode's toggle (reset decision state when off)
+- [x] FR + EN strings for both toggles
+- [ ] Build (`apk-build.bat`) + on-device verify (toggle off per mode suppresses auto-show; sliders hide)
+
+#### Rules
+- One boolean per mode (`gpsMode` true→GPS, false→Demo); both default **on** to preserve the existing always-on auto-reveal
+- The distance/time sliders are shared across modes and only rendered when GPS or Demo auto-show is enabled
+- When the active mode's toggle is off, the shore pipeline leaves `zone300Visible` under manual control and resets `zone300AutoRevealed` / `bandEnteredSinceReveal`
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — the 2 persisted booleans
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — toggles + conditional thresholds
+- `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — per-mode gate in the shore pipeline
+- `app/src/main/res/values/strings.xml`, `app/src/main/res/values-fr/strings.xml` — toggle labels
 
 ### layer-lowdepth  [ ]
 

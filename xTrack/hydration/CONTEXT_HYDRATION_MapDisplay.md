@@ -1,30 +1,28 @@
 # Context Hydration — MapDisplay
 
-**Last Bake:** 2026-06-08 20:23 (UTC)
-**Branch:** feature/layout-lowdepth (off origin/develop)
-**Active Subfeature:** layer-lowdepth
+**Last Bake:** 2026-06-08 20:43
+**Feature Status:** active (3/7 subfeatures done)
+**Active Subfeature:** none (config 300m auto display impl done, build/verify pending)
 
-## State
-Low-depth warning overlay complete: bright-magenta `GroundOverlay` above the depth raster for all
-water shallower than a configurable threshold (Settings → Display slider 0.5–5.0 m, default 1.5,
-persisted); own toggle. "Keep phone on" moved to top of Power saving. Mercator offset fixed by
-latitude-banding BOTH depth + warning rasters (`addBandedOverlay`, 8 strips). **Land kept off all
-depth layers at the DATA level:** `DepthZoneMask.apply` now also nulls `!isWater` cells; the
-re-baked `nice-frejus.bin` is land-free, so the colour map (NaN→transparent) and isobaths (marching
-squares skip NaN) avoid land for free, and the warning's `!isNaN` gate does too. Re-bake validation
-`passed=true`, `datumMismatch=false`. assembleDebug green. Committed: DepthZoneMask + prebake-batch.md
-(the `.bin` is gitignored — regenerate locally via `tools\bake-depth.bat`).
+## State Summary
+Added per-mode control over the 300 m zone auto-show. Two persisted booleans `zone300AutoShowGps`
++ `zone300AutoShowDemo` (`AppSettings`, default **ON** to preserve the prior always-on behaviour).
+Settings → Avancé → "300 m zone alert" now renders two toggles (GPS / Demo); the shared distance +
+time sliders render only when at least one toggle is on. The shore pipeline (`CoastlineViewModel`)
+gates auto-reveal on the active mode's toggle — when off it leaves `zone300Visible` under manual
+control and resets `zone300AutoRevealed` / `bandEnteredSinceReveal`. Pure `zone300Decision()`
+unchanged (`Zone300DecisionTest` untouched). EN + FR strings added. Branch `feature/300-auto-show`.
 
-## Known issue (tracked todo)
-Pink warning still laps ~½ cell (~12 m) onto land at the waterline — 25 m cells classified by
-CENTRE, amplified by the warning's opaque paint (the colour map has the same residual but faint).
-Fix: sub-cell water test (sample cell corners) OR vector-clip the warning bitmap to the coastline
-polygon. Low-priority polish.
+## Merged from develop (now in this branch)
+- **layer-lowdepth** subfeature: bright low-depth-warning `GroundOverlay` above the depth raster
+  (threshold slider 0.5–5.0 m, default 1.5, persisted; own toggle). Mercator offset fixed via
+  latitude-banding. Bake-time land mask (`DepthZoneMask` nulls `!isWater`). KNOWN: pink warning laps
+  ~½ cell onto land at 25 m granularity — open todo (sub-cell test / vector clip).
+- New settings auto-merged into `AppSettings`/`SettingsManager`: `keepScreenOn`,
+  `lowDepthWarningVisible`, `lowDepthWarningMaxM` (+ `DepthConstants` import).
 
-## Next
-Decide + implement the bleed fix; on-device verify (offset gone, layers land-free, toggle/threshold persist).
-
-## Target files
-- `data/depth/DepthZoneMask.kt` (land mask, done); `ui/map/LowDepthWarningBitmap.kt` + `MapScreen.kt` (bleed fix)
-- `spatial/CoastlineSpatialIndex.kt:403` `isWater`; re-bake via `DepthPrebakeTest` / `tools\bake-depth.bat`
-- Doc: `docs/prebake-batch.md`
+## Next Steps
+- Build (`apk-build.bat`) FIRST — confirm the auto-merged `SettingsManager` / `MapScreen` compile,
+  then on-device verify both the auto-show toggles and the low-depth overlay.
+- Open decision: should Demo auto-show default **off** (currently on)?
+- Pending: "depth color" + "layer-zone" re-bake; low-depth pink-bleed fix.
