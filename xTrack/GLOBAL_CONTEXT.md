@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** BakeNormalization
+- **Active Feature:** AppBakFlow
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-08
-- **Last Bake:** 2026-06-08 14:31 (BakeNormalization — Phases 1–3: region single-sourced from props→BuildConfig, depth envelope derived (WATER_BBOX removed), no baked data in git, bake-*/apk-bake/build/deploy split; fixes: streaming .asc parser (OOM), APK .asc-exclude, CRLF .gitattributes; on-device verified)
-- **Prev Bake:** 2026-06-08 12:32 (MapDisplay — 300 m proximity auto-reveal reworked: hybrid reveal (200 m / 20 s), stop/compliance/exit/retreat auto-hide, configurable thresholds, demo pan-speed; pure `zone300Decision()` + unit tests)
+- **Last Bake:** 2026-06-08 16:43 (AppBakFlow — back-to-exit double-press (2 s) showing a bottom-centre "Press back again to exit" toast styled like the dashboard tile (#16213E), kept clear of the right-edge zoom stack, exit via finishAffinity; + "Keep phone on" settings toggle (bottom of Display) driving LocalView.keepScreenOn, persisted in SettingsManager; EN+FR strings; assembleDebug green, on-device verification pending; committed+pushed feature/app-bak-flow)
+- **Prev Bake:** 2026-06-08 15:43 (Localisation — EN default + FR (values-fr) ~70 strings; instant Compose locale override via a ContextWrapper-around-Activity; Settings System/English/Français selector; on-device verified, committed+pushed feature/localisation)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -23,6 +23,8 @@
 | performance, battery, gps-tune, adaptive, compass-gate, map-refresh, battery-drain | FEATURE_SCOPE_Performance.md |
 | isonwater, isonwateragain, iswater, waterland, raycast, crossing, point-in-polygon | FEATURE_SCOPE_isOnWaterAgain.md |
 | bake, baking, bake-script, bake-bat, apk-bake, apk-build, apk-deploy, deploy, prebake-pipeline, bake-env | FEATURE_SCOPE_BakeNormalization.md |
+| localisation, localization, i18n, locale, language, translation, strings, values-fr, stringresource | FEATURE_SCOPE_Localisation.md |
+| app-bak-flow, app-back-flow, back, back button, back handler, exit, double-back, press back, keep screen on, keep awake, screen-on, wakelock | FEATURE_SCOPE_AppBakFlow.md |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).
