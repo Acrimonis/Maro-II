@@ -4,7 +4,7 @@
 - **Active Feature:** BakeNormalization
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-08
-- **Last Bake:** 2026-06-08 09:22 (WorkflowImprovement — xTrack system review: #doc sync, #doc audit, #diff, spec consolidation, Always-Loaded Context, ## Docs on 5 feature files, commands.md deprecated)
+- **Last Bake:** 2026-06-08 14:31 (BakeNormalization — Phases 1–3: region single-sourced from props→BuildConfig, depth envelope derived (WATER_BBOX removed), no baked data in git, bake-*/apk-bake/build/deploy split; fixes: streaming .asc parser (OOM), APK .asc-exclude, CRLF .gitattributes; on-device verified)
 
 ## Routing Map
 | Keyword | Feature File |

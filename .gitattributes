@@ -1,0 +1,5 @@
+# Windows shell scripts MUST keep CRLF — cmd.exe desyncs (eats leading chars) on LF endings
+# when re-reading the file for for/call/goto. Keep these as CRLF regardless of core.autocrlf.
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf

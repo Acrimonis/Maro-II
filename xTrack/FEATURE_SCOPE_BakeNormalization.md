@@ -2,7 +2,7 @@
 name: BakeNormalization
 status: active
 created: 2026-06-08 00:00
-modified: 2026-06-08 00:00
+modified: 2026-06-08 14:31
 active_subfeature: none
 subs_total: 0
 subs_done: 0
@@ -23,21 +23,23 @@ packages what was baked (`apk-build.bat`), and a deploy that pushes + relaunches
 ## Subfeatures
 
 ## Todos
-- [ ] Decompose bakes into directly-runnable `tools\bake-[type].bat`: `bake-coastline` (OSM + geometry + 300 m band), `bake-emodnet`, `bake-litto3d`, `bake-depth` (merge + 6 NM clip)
-- [ ] `apk-bake.bat` — the only interactive script: present/MISSING menu of functional choices that calls the granular bats; also accept args (`all`, `coastline depth`) for non-interactive CI/agent runs
-- [ ] `apk-build.bat` — strip all prebake prompts; just `gradlew assembleDebug` (ships whatever assets exist)
-- [ ] `apk-deploy.bat` — `adb install -r` the debug APK + `am force-stop` + `am start` to relaunch
+- [x] Decomposed bakes into directly-runnable `tools\bake-*.bat`: `bake-coastline` (OSM + band), `bake-emodnet`, `bake-litto3d`, `bake-depth` (merge + 6 NM clip), `bake-zone300`, `bake-env`
+- [x] `apk-bake.bat` — selector: present/MISSING menu calling the granular bats; also non-interactive args (`all`, `coastline depth`, …)
+- [x] `apk-build.bat` — stripped to just `gradlew assembleDebug` (no baking; ships whatever's in `data/app-assets`)
+- [x] `apk-deploy.bat` — already a robust deploy (adb check, device select, install, aapt-launch); left as-is from develop
 - [x] Add gradle props `maro.region.lonWest` / `lonEast` as the single region source (→ `BuildConfig.REGION_LON_WEST/EAST`); `CoastlineGenerator` reads them (`LON_WEST/LON_EAST` + fetch-lon now derived)
 - [x] Derive the depth envelope from coastline bbox + 6 NM at bake time (`DepthZoneMask.envelopeOf`, `DepthPrebakeTest`); **`DepthConstants.WATER_BBOX` removed**, `DepthGenerator.generate(bbox=…)` now required
-- [ ] `tools\bake-env.bat` — derive the GDAL clip box (W/S/E/N) from the W/E props + 6 NM margin; sourced by every bat (kill the bbox drift)
+- [x] `tools\bake-env.bat` — reads the W/E props for the GDAL clip E/W; S/N = generous seaward window (no float math — the 6 NM that matters is seaward; coverage itself derives at merge). Sourced by bake-emodnet/litto3d
 - [x] Move depth `.asc` + `.bin` to gitignored `data/app-assets/depth/` (`git rm --cached` the committed `.bin`, `/data/` already ignored, packaged via asset srcDir); `bake_emodnet/litto3d/depth.bat` OUT + `DepthPrebakeTest` read/write there via `maro.repoDir`
-- [ ] APK-size follow-up: exclude depth `.asc`/`.aux.xml`/`.prj` intermediates from packaging (they ride along in `data/app-assets/depth/`; app only reads the `.bin`) — split ingredients to a non-asset `data/bake-cache/` or add an asset-ignore pattern
+- [x] Exclude depth `.asc`/`.aux.xml`/`.prj` from the APK via `androidResources.ignoreAssetsPatterns` (a corridor-wide Litto3D `.asc` is ~1 GB; app reads only the `.bin`) — verified with `mergeDebugAssets` (no `.asc` packaged, `.bin` kept)
+- [x] Stream-parse `.asc` (`AsciiGridParser.parse(File)`) — the ~1 GB Litto3D `.asc` OOM'd `readText()` + the token `ArrayList`; now peak memory ∝ the grid `FloatArray` (~508 MB), fits the 4 g test heap
+- [ ] Litto3D `.asc` bloat: the generous seaward box at 5 m = ~972 MB of mostly-nodata padding (→ a 127 M-cell merge). Tighten the litto3d clip (focused tiles, or drop GDAL `-te` padding) so the shallow tier stays nearshore-sized
 - [x] Cleanup dead code: deleted the dead singular `assets/coastline/` baker path (`CoastlinePrebakeTest` + the stale checked-in `.bin`); `Zone300AssetBaker` → gitignored `data/app-assets/coastlines/` is the one coastline baker the app actually ships (apk-build.bat already pointed there post-rebase)
 - [x] Retarget the 6 NM depth-mask to read the SHIPPED coastline (gitignored `data/app-assets/coastlines/`, via `maro.repoDir`) instead of the dead singular checked-in asset — fixes the mask clipping against an unshipped coastline
-- [ ] `bake-zone300.bat` — recompute the 300 m band from an existing `coastline.bin` with no network (band-only refresh), in addition to the band built inside `bake-coastline`
-- [ ] `bake-depth` auto-resolves a missing `coastline.bin` by running `bake-coastline` first (with a network notice); `--no-mask` / `--no-auto-deps` to opt out
-- [ ] EMODnet `.tif` download caching — skip the hundreds-of-MB re-download when only the clip box changes
-- [ ] Rename `bake_*.bat` → `bake-*.bat` for naming consistency; update `docs/DepthMappingBake.md`
+- [x] `bake-zone300.bat` + `Zone300BandRefreshTest` — recompute the 300 m band from the existing `coastline.bin`, no network (band-only refresh)
+- [x] `bake-depth` auto-resolves missing deps (runs `bake-coastline` / `bake-emodnet` if absent), `--no-auto-deps` to hard-fail. (`--no-mask` dropped — the envelope now derives from the coastline, so it's mandatory)
+- [x] EMODnet `.tif` download caching — `bake-emodnet` reuses the cached `%TEMP%\emodnet_e5\*.tif`, re-clips only
+- [x] Renamed `bake_*.bat` → `bake-*.bat`; updated `docs/DepthMappingBake.md` (bake/build/deploy model, derived envelope, `data/app-assets` paths)
 
 ## Rules
 - Bake / build / deploy are separate stages: bake = data prep (writes `assets/`), build = package only (`assembleDebug`), deploy = install + relaunch. `apk-build.bat` must NOT bake.
@@ -54,11 +56,11 @@ packages what was baked (`apk-build.bat`), and a deploy that pushes + relaunches
 - **Missing dependencies:** bakes **auto-resolve** them (e.g. `bake-depth` runs `bake-coastline` when `coastline.bin` is absent), with `--no-auto-deps` / `--no-mask` opt-outs.
 
 ## Key Files
-- `apk-build.bat`, `apk-bake.bat` (to add), `apk-deploy.bat` (to add)
-- `tools\bake_depth.bat`, `tools\bake_emodnet.bat`, `tools\bake_litto3d.bat`, `tools\fetch_litto3d_paca.ps1`, `tools\gdal_env.bat`
-- `app/src/test/java/ykws/android/maro/data/prebake/CoastlinePrebakeTest.kt`, `app/src/test/java/ykws/android/maro/data/prebake/DepthPrebakeTest.kt`
-- `app/src/test/java/ykws/android/maro/data/coastline/Zone300AssetBaker.kt`
-- `app/src/main/java/ykws/android/maro/data/depth/DepthConstants.kt`
+- `apk-bake.bat` (selector), `apk-build.bat` (build-only), `apk-deploy.bat`
+- `tools\bake-env.bat`, `bake-coastline.bat`, `bake-emodnet.bat`, `bake-litto3d.bat`, `bake-depth.bat`, `bake-zone300.bat`, `fetch_litto3d_paca.ps1`, `gdal_env.bat`
+- `app/src/test/java/ykws/android/maro/data/prebake/DepthPrebakeTest.kt`
+- `app/src/test/java/ykws/android/maro/data/coastline/Zone300AssetBaker.kt`, `Zone300BandRefreshTest.kt`
+- `gradle.properties` (region props) · `app/build.gradle.kts` (BuildConfig) · `…/data/coastline/CoastlineGenerator.kt` · `…/data/depth/DepthZoneMask.kt`
 
 ## Docs
 - `docs/DepthMappingBake.md` — current bake guide (to be updated as the scripts are normalized)

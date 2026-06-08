@@ -2,6 +2,7 @@ package ykws.android.maro.data.depth.raster
 
 import ykws.android.maro.data.model.BoundingBox
 import ykws.android.maro.data.model.DepthSource
+import java.io.File
 
 /**
  * Parses an **ESRI/Arc ASCII grid** (`.asc`) into a [SourceRaster]. This is the
@@ -100,6 +101,92 @@ object AsciiGridParser {
             cellSizeDegLat = cellSize,
             cellSizeDegLon = cellSize,
             values = values,
+            resM = resM,
+            source = source
+        )
+    }
+
+    /**
+     * **Streaming** variant — parses [file] line-by-line straight into the grid `FloatArray`, never
+     * materialising the whole text as a `String` or buffering tokens. Use this for the large baked
+     * grids (a corridor-wide Litto3D `.asc` can be ~1 GB of mostly-nodata text); the [String] overload
+     * would OOM. Peak memory is just the output `FloatArray` (~4 bytes/cell). Semantics are identical.
+     */
+    fun parse(
+        file: File,
+        source: DepthSource,
+        resM: Double,
+        negate: Boolean = false,
+        latOffsetM: Double = 0.0
+    ): SourceRaster {
+        var ncols = -1
+        var nrows = -1
+        var xll = Double.NaN
+        var yll = Double.NaN
+        var xCenter = false
+        var yCenter = false
+        var cellSize = Double.NaN
+        var noData = -9999.0
+        var values: FloatArray? = null
+        var n = 0
+        var t = 0
+        val ws = Regex("\\s+")
+
+        file.bufferedReader().useLines { seq ->
+            for (rawLine in seq) {
+                val line = rawLine.trim()
+                if (line.isEmpty()) continue
+                val parts = line.split(ws)
+                when (parts[0].lowercase()) {
+                    "ncols" -> ncols = parts[1].toInt()
+                    "nrows" -> nrows = parts[1].toInt()
+                    "xllcorner" -> { xll = parts[1].toDouble(); xCenter = false }
+                    "xllcenter" -> { xll = parts[1].toDouble(); xCenter = true }
+                    "yllcorner" -> { yll = parts[1].toDouble(); yCenter = false }
+                    "yllcenter" -> { yll = parts[1].toDouble(); yCenter = true }
+                    "cellsize" -> cellSize = parts[1].toDouble()
+                    "nodata_value" -> noData = parts[1].toDoubleOrNull() ?: Double.NaN
+                    else -> {
+                        if (values == null) {                       // first data line → allocate
+                            require(ncols > 0 && nrows > 0 && cellSize > 0.0 && !xll.isNaN() && !yll.isNaN()) {
+                                "Malformed ASCII grid header (ncols=$ncols nrows=$nrows cellsize=$cellSize)"
+                            }
+                            n = ncols * nrows
+                            values = FloatArray(n)
+                        }
+                        val vals = values!!
+                        for (tok in parts) {
+                            if (t >= n) break                        // ignore any trailing tokens
+                            val raw = tok.toDoubleOrNull()
+                            val v = if (raw == null || raw == noData) Float.NaN
+                                    else ((if (negate) -raw else raw) - latOffsetM).toFloat()
+                            // ESRI row 0 = north → flip to grid row 0 = south.
+                            val gridRow = nrows - 1 - (t / ncols)
+                            vals[gridRow * ncols + (t % ncols)] = v
+                            t++
+                        }
+                    }
+                }
+            }
+        }
+
+        val vals = values ?: error("ASCII grid '${file.name}' had no data rows")
+        require(t >= n) { "ASCII grid '${file.name}' has $t values, expected $n" }
+
+        val latSouth = if (yCenter) yll - 0.5 * cellSize else yll
+        val lonWest = if (xCenter) xll - 0.5 * cellSize else xll
+        return SourceRaster(
+            bbox = BoundingBox(
+                latSouth = latSouth,
+                latNorth = latSouth + nrows * cellSize,
+                lonWest = lonWest,
+                lonEast = lonWest + ncols * cellSize
+            ),
+            rows = nrows,
+            cols = ncols,
+            cellSizeDegLat = cellSize,
+            cellSizeDegLon = cellSize,
+            values = vals,
             resM = resM,
             source = source
         )

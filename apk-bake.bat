@@ -1,45 +1,55 @@
 @echo off
-REM ======================================================================
-REM  Maro II - Pre-deploy 300 m band baker
-REM ----------------------------------------------------------------------
-REM  Generates the coastline + 300 m band OFFLINE on this build machine and
-REM  writes it into the GITIGNORED data/ tree (NOT committed):
-REM      data\app-assets\coastlines\nice-frejus.bin
-REM  app\build.gradle.kts adds data\app-assets as an assets source root, so the
-REM  next build packages it into the APK at assets\coastlines\nice-frejus.bin.
-REM  The app then ships this prebaked band (CoastlineRepository.loadCoastline
-REM  prefers the bundled asset), so a fresh install shows it immediately.
-REM
-REM  Requires internet (Overpass). Run this only when the OSM coastline or the
-REM  band algorithm changed; then just rebuild + deploy (nothing to commit).
-REM ======================================================================
-
-REM Run from this script's own directory so gradlew.bat and project paths
-REM resolve regardless of the caller's working directory.
+setlocal enabledelayedexpansion
 cd /d "%~dp0"
-
-echo ======================================
-echo  Baking Maro II coastline + 300 m band...
-echo ======================================
-
-REM --rerun-tasks: the baker's output (.bin) is not a declared Gradle task
-REM output, so force the test task to run even if it looks up-to-date.
-call gradlew.bat :app:testDebugUnitTest --tests "*Zone300AssetBaker*" -Dmaro.bake=true --rerun-tasks
-
-if %ERRORLEVEL% NEQ 0 (
-    echo [ERROR] Bake failed with error code %ERRORLEVEL%
-    echo         Needs internet for Overpass. See the test output above.
-    exit /b %ERRORLEVEL%
+REM -- Bake selector - writes the gitignored data\app-assets tree (apk-build.bat packages it) --
+REM Interactive menu, OR non-interactive (any order/count):
+REM   apk-bake.bat all | coastline | band | emodnet | litto3d | depth
+if not "%~1"=="" (
+  for %%T in (%*) do call :do_%%T
+  goto done
 )
 
-set "ASSET=data\app-assets\coastlines\nice-frejus.bin"
-if not exist "%ASSET%" (
-    echo [ERROR] Bake reported success but %ASSET% is missing.
-    exit /b 1
-)
+echo ============================================
+echo   Bake selector   ^(present / MISSING^)
+echo ============================================
+call :status "Coastline + 300 m band" "data\app-assets\coastlines\nice-frejus.bin"
+call :status "EMODnet deep .asc"       "data\app-assets\depth\emodnet-nice-frejus.asc"
+call :status "Litto3D shallow .asc"    "data\app-assets\depth\litto3d-nice-frejus.asc"
+call :status "Depth .bin (merge+clip)" "data\app-assets\depth\nice-frejus.bin"
+echo.
+set "A=N" & set /p "A=Bake coastline + 300 m band (OSM, network)? [y/N]: "
+if /i "!A:~0,1!"=="y" call :do_coastline
+set "A=N" & set /p "A=Bake EMODnet deep backbone (large download, cached)? [y/N]: "
+if /i "!A:~0,1!"=="y" call :do_emodnet
+set "A=N" & set /p "A=Bake Litto3D shallow tier (needs tiles)? [y/N]: "
+if /i "!A:~0,1!"=="y" call :do_litto3d
+set "A=N" & set /p "A=Bake depth .bin (merge + 6 NM clip; auto-resolves deps)? [y/N]: "
+if /i "!A:~0,1!"=="y" call :do_depth
+goto done
 
-echo ======================================
-echo  Bake OK: %ASSET%  (gitignored - do NOT commit)
-echo  Next: apk-build.bat   then   apk-deploy.bat
-echo        (the build incorporates the band from data\app-assets into the APK)
-echo ======================================
+:status
+if exist "%~2" (echo   [present] %~1) else (echo   [MISSING] %~1)
+exit /b 0
+:do_all
+call :do_coastline & call :do_emodnet & call :do_litto3d & call :do_depth
+exit /b 0
+:do_coastline
+call "tools\bake-coastline.bat"
+exit /b 0
+:do_emodnet
+call "tools\bake-emodnet.bat"
+exit /b 0
+:do_litto3d
+call "tools\bake-litto3d.bat"
+exit /b 0
+:do_band
+call "tools\bake-zone300.bat"
+exit /b 0
+:do_depth
+call "tools\bake-depth.bat"
+exit /b 0
+:done
+echo ============================================
+echo   Bake done.   Build: apk-build.bat    Deploy: apk-deploy.bat
+echo ============================================
+endlocal

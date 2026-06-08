@@ -44,10 +44,10 @@ class DepthPrebakeTest {
         val envelope = DepthZoneMask.envelopeOf(coast.boundingBox)
 
         val deep = AsciiGridParser.parse(
-            emodnetAsc.readText(), DepthSource.EMODNET, DepthSource.EMODNET.nominalResM, negate = true
+            emodnetAsc, DepthSource.EMODNET, DepthSource.EMODNET.nominalResM, negate = true
         )
         val shallow = if (litto3dAsc.exists()) AsciiGridParser.parse(
-            litto3dAsc.readText(), DepthSource.LITTO3D, DepthSource.LITTO3D.nominalResM,
+            litto3dAsc, DepthSource.LITTO3D, DepthSource.LITTO3D.nominalResM,
             negate = true, latOffsetM = DepthConstants.IGN69_ABOVE_LAT_M
         ) else null
 
