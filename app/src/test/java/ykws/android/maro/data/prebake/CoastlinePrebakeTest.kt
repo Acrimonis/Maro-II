@@ -6,10 +6,8 @@ import org.junit.Test
 import ykws.android.maro.data.coastline.CoastlineGenerator
 import ykws.android.maro.data.coastline.CoastlineSerializer
 import ykws.android.maro.spatial.CoastlineSpatialIndex
-import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.Zone300Builder
 import java.io.File
-import kotlin.math.PI
 
 /**
  * **Build-time prebake — NOT a unit test.** Fetches OSM, runs the coastline pipeline, builds the
@@ -27,32 +25,17 @@ class CoastlinePrebakeTest {
         val data = runBlocking { CoastlineGenerator().generate(regionId = region) { _, _ -> } }
         val index = CoastlineSpatialIndex(data.allSegments)
 
-        // isWater mirrors CoastlineRepository.isOnWater (south-ray parity + island enclosure),
-        // duplicated here because the band build must run off-device at prebake time.
+        // Use the SAME classifier and cleaned segments as the app (CoastlineRepository.isOnWater →
+        // CoastlineSpatialIndex.isWater: mainland side test + real-island containment, with degenerate
+        // rings and tiny fragments dropped) so the prebaked band matches the live water/land result.
         val sixNm = 6.0 * 1852.0
-        val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
-        fun isWater(lat: Double, lon: Double, dist: Double): Boolean {
-            if (dist > sixNm) return true
-            val rayEnd = lat - (sixNm / mPerDegLat)
-            val cand = index.queryColumn(lat, lon, sixNm)
-            var mainland = 0
-            for (c in cand) if (c.polylineIdx == 0 &&
-                SpatialOperations.rayCrossesSegmentSouth(lon, lat, rayEnd, c.a, c.b)) mainland++
-            val water = mainland % 2 == 0
-            if (water) {
-                for ((_, segs) in cand.filter { it.polylineIdx > 0 }.groupBy { it.polylineIdx }) {
-                    var x = 0
-                    for (s in segs) if (SpatialOperations.rayCrossesSegmentSouth(lon, lat, rayEnd, s.a, s.b)) x++
-                    if (x % 2 == 1) return false
-                }
-            }
-            return water
-        }
+        fun isWater(lat: Double, lon: Double, dist: Double): Boolean =
+            if (dist > sixNm) true else index.isWater(lat, lon)
 
         val cell = data.metadata.meanSpacingM.coerceIn(5.0, 15.0)
         val band = Zone300Builder(
             index = index,
-            segments = data.allSegments,
+            segments = index.usableSegments,
             refLat = data.metadata.projectionRefLat,
             isWater = { la, lo, d -> isWater(la, lo, d) },
             cellM = cell

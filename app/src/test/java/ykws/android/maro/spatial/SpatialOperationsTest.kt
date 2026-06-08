@@ -219,6 +219,27 @@ class SpatialOperationsTest {
         assertTrue("Exactly one segment should cross the shared vertex", cross1 != cross2)
     }
 
+    // ── 3b. Signed side (nearest-segment water/land test) ──────────────────
+
+    @Test
+    fun `signedSide is negative on the right of travel, positive on the left`() {
+        // Eastward coast edge; convention: water on the RIGHT (south), land on the LEFT (north).
+        val a = LatLng(43.50, 7.00)
+        val b = LatLng(43.50, 7.10)
+        assertTrue(
+            "south of an eastward edge is on the right (< 0 = water)",
+            SpatialOperations.signedSide(LatLng(43.49, 7.05), a, b) < 0.0
+        )
+        assertTrue(
+            "north of an eastward edge is on the left (> 0 = land)",
+            SpatialOperations.signedSide(LatLng(43.51, 7.05), a, b) > 0.0
+        )
+        assertEquals(
+            "a collinear point is exactly on the line",
+            0.0, SpatialOperations.signedSide(LatLng(43.50, 7.05), a, b), 1e-12
+        )
+    }
+
     // ── 4. Douglas-Peucker simplification ──────────────────────────────────
 
     @Test

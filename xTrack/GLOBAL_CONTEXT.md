@@ -1,10 +1,10 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** WorkflowImprovement
+- **Active Feature:** isOnWaterAgain
 - **Active Subfeature:** none
-- **Last Updated:** 2026-06-07
-- **Last Bake:** 2026-06-07 (MapDisplay — emoji removal from dashboard tiles, last tweaks before push)
+- **Last Updated:** 2026-06-08
+- **Last Bake:** 2026-06-08 (isOnWaterAgain — mainland-primary water/land classifier + coastline data cleaning + capOpenEnds band-spike fix; rebaked nice-frejus.bin; tests green)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -19,6 +19,7 @@
 | ui, ui-thingies, layout, onwater, button | FEATURE_SCOPE_UiThingies.md |
 | gps, gpsplugin, gps mode, demo mode, heading, course, compass, location, geolocation | FEATURE_SCOPE_GpsPlugin.md |
 | mapdisplay, map display, map, layer, depth layer, color depth, orientation | FEATURE_SCOPE_MapDisplay.md |
+| isonwater, isonwateragain, iswater, waterland, raycast, crossing, point-in-polygon | FEATURE_SCOPE_isOnWaterAgain.md |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).
