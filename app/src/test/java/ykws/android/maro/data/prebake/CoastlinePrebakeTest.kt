@@ -11,9 +11,14 @@ import java.io.File
 
 /**
  * **Build-time prebake — NOT a unit test.** Fetches OSM, runs the coastline pipeline, builds the
- * Zone300 band on the computer, and writes the cooked coastline (with band) to
- * `assets/coastline/<region>.bin` (the default the app ships). Needs network. Gated by
- * `-Dmaro.prebake=true`, so it is **skipped in normal runs**. See docs/DepthMappingBake.md.
+ * Zone300 band on the computer, and writes the cooked coastline (with band) to the **committed**
+ * `src/main/assets/coastline/<region>.bin` (singular) — a git-tracked fallback and the
+ * [ykws.android.maro.data.prebake.BandValidationTest] fixture.
+ *
+ * NOTE: the shipped app loads `assets/`**`coastlines`**`/<region>.bin` (plural) from the gitignored
+ * `data/app-assets/` tree, baked by [ykws.android.maro.data.coastline.Zone300AssetBaker] /
+ * `apk-bake.bat` — NOT this file. To change what the device shows, bake **that**. Needs network.
+ * Gated by `-Dmaro.prebake=true`, so it is **skipped in normal runs**. See docs/DepthMappingBake.md.
  */
 class CoastlinePrebakeTest {
 

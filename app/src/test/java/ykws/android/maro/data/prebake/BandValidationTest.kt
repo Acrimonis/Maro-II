@@ -9,13 +9,8 @@ import ykws.android.maro.spatial.CoastlineSpatialIndex
 import java.io.File
 
 /**
- * Regression guard for the prebaked 300 m band (isOnWaterAgain).
- *
- * The band is, by construction, the water region within [Zone300Data.bandM] of the coast, so EVERY
- * band vertex must lie within ~that distance of the (cleaned) coast. A `capOpenEnds` spike — a flood
- * barrier sealed from an interior fragmented-mainland end out to the grid boundary — puts band
- * geometry far from any coast, so this catches exactly that artifact (and the seg4323 tiny-fragment
- * spike). Runs against the committed asset; skips if it is absent or has no band.
+ * Regression guards for the prebaked 300 m band (isOnWaterAgain). Both run against the committed
+ * asset and skip if it is absent or has no band.
  */
 class BandValidationTest {
 
@@ -52,6 +47,41 @@ class BandValidationTest {
             "band vertex %s is %.0f m from the coast (> %.0f) — a capOpenEnds / fragment spike"
                 .format(worstPt, worst, threshold),
             worst <= threshold
+        )
+    }
+
+    /**
+     * 300m-pinch guard: the red **seaward** line must sit on the ~bandM offshore contour, never dive
+     * into a harbour channel. After `dropPinchedSeawardRuns`, no seaward vertex anywhere is closer
+     * than `bandM / 2` to the coast. (Landward *fill* vertices are a separate structure and are
+     * allowed to hug the coast — only the seaward line is checked.) The `> 50` count also guards
+     * against the filter over-clipping the line away.
+     */
+    @Test
+    fun `prebaked 300m band - no seaward vertex pinches toward the coast`() {
+        val f = File("src/main/assets/coastline/nice-frejus.bin")
+        Assume.assumeTrue("no prebaked asset", f.exists())
+        val data = CoastlineSerializer.deserialize(f.readBytes())
+        val zone = data.zone300
+        Assume.assumeTrue("asset has no 300 m band", zone != null)
+
+        val index = CoastlineSpatialIndex(data.allSegments)
+        val floor = zone!!.bandM / 2.0
+
+        var worst = Double.MAX_VALUE
+        var worstPt: LatLng? = null
+        var checked = 0
+        for (line in zone.seawardLines) for (p in line) {
+            val d = index.query(p.latitude, p.longitude).distanceMeters
+            checked++
+            if (d < worst) { worst = d; worstPt = p }
+        }
+
+        assertTrue("seaward line has too few vertices to validate ($checked)", checked > 50)
+        assertTrue(
+            "seaward vertex %s is only %.0f m from the coast (< %.0f = bandM/2) — a marina pinch"
+                .format(worstPt, worst, floor),
+            worst >= floor
         )
     }
 }

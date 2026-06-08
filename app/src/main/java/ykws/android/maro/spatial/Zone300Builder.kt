@@ -95,8 +95,13 @@ class Zone300Builder(
             seaward.addAll(seawardRuns)
         }
         onProgress("Finalisation de la zone", 95)
-        // Bridge red-line fragments split by noise / ring boundaries into continuous lines.
-        val result = Zone300Data(groupRings(cleaned), mergeLines(seaward), cellM, bandM)
+        // Bridge red-line fragments split by noise / ring boundaries into continuous lines, then
+        // drop "pinch" vertices where the red line leaks into a harbour channel: a genuine seaward
+        // vertex sits at ≈bandM from shore, so anything closer than bandM/2 is a misclassification.
+        val seawardLines = dropPinchedSeawardRuns(mergeLines(seaward), bandM / 2.0) {
+            index.query(it.latitude, it.longitude).distanceMeters
+        }
+        val result = Zone300Data(groupRings(cleaned), seawardLines, cellM, bandM)
         onProgress("Terminé", 100)
         return result
     }
@@ -663,4 +668,22 @@ class Zone300Builder(
         val DR = intArrayOf(-1, 1, 0, 0)
         val DC = intArrayOf(0, 0, -1, 1)
     }
+}
+
+/**
+ * Drops seaward (red-line) vertices closer than [minDistM] to the coast — the marina **pinch**
+ * artifact, where the 300 m band leaks into a harbour channel and the red line dives toward the
+ * shore. A genuine seaward vertex lies on the band's bandM isodistance contour, so it is ~bandM
+ * from the nearest coast *by construction*; a pinch vertex is only a few tens of metres out. The
+ * two populations sit at opposite ends with a wide empty gap, so the exact cut (bandM/2) is robust.
+ *
+ * Filtering *within* each line (rather than splitting it) lets the red line bridge straight across
+ * the harbour mouth. Pure function — takes a distance closure — so it is unit-testable with no index.
+ */
+internal fun dropPinchedSeawardRuns(
+    lines: List<List<LatLng>>,
+    minDistM: Double,
+    distToCoastM: (LatLng) -> Double,
+): List<List<LatLng>> = lines.mapNotNull { line ->
+    line.filter { distToCoastM(it) >= minDistM }.takeIf { it.size >= 2 }
 }
