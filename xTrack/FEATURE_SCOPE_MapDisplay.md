@@ -3,8 +3,8 @@ name: MapDisplay
 status: active
 created: 2026-06-07 00:00
 modified: 2026-06-08 12:32
-active_subfeature: layer-zone
-subs_total: 5
+active_subfeature: layer-lowdepth
+subs_total: 6
 subs_done: 3
 one_liner: Map display layer management — depth layer, color depth layer, and orientation-aware rendering.
 ---
@@ -120,6 +120,32 @@ itself so bays and capes alike get a uniform 6 NM (no cape under-coverage).
 - `app/src/main/java/ykws/android/maro/data/depth/DepthConstants.kt`
 - `app/src/test/java/ykws/android/maro/data/prebake/DepthPrebakeTest.kt`
 - `tools/bake_emodnet.bat`, `tools/bake_litto3d.bat`
+
+### layer-lowdepth  [ ]
+
+Highlight all charted water shallower than 1.5 m as a bright, near-opaque grounding-hazard
+overlay, drawn as a second `GroundOverlay` above the depth colour raster. Pure runtime layer —
+**no rebake**: the shipped `nice-frejus.bin` already carries continuous per-cell depth.
+
+#### Todos
+- [x] Add `DepthConstants.LOW_DEPTH_WARNING_MAX_M = 1.5`
+- [x] New `LowDepthWarningBitmap` — paint cells <1.5 m bright magenta, else transparent (mirrors `DepthBitmap`)
+- [x] `AppSettings.lowDepthWarningVisible` (default on) + SharedPreferences persistence
+- [x] MapScreen: sibling `produceState` build, visibility gate, `drawLowDepthWarning()` overlay, Settings toggle row
+- [x] EN/FR label strings (`settings_low_depth_warning_*`); `assembleDebug` green
+- [ ] Verify on-device over a known <1.5 m near-shore spot; confirm toggle persists across restart
+
+#### Rules
+- Warn on ANY cell <1.5 m regardless of source/confidence (design choice)
+- Separate overlay above the depth raster, below isobaths/zone/coastline; reuse `DEPTH_MAP_MIN_DRAW_ZOOM` (z≥11)
+- No rebake: granularity is the baked 25 m grid (shoalest-wins → conservatively over-flags shallow, correct for a hazard); finer outlines would need a smaller `GRID_RES_M` rebake
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/LowDepthWarningBitmap.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
+- `app/src/main/java/ykws/android/maro/data/depth/DepthConstants.kt`
+- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt`
+- `app/src/main/res/values/strings.xml`, `app/src/main/res/values-fr/strings.xml`
 
 ## Todos
 

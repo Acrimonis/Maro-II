@@ -223,6 +223,13 @@ fun MapScreen(
         value = depthGrid?.let { g -> withContext(Dispatchers.Default) { DepthBitmap.build(g) } }
     }
 
+    // Second raster: cells shallower than the user's warning threshold, painted bright.
+    // Re-rasterises when the grid OR the threshold changes.
+    val lowDepthWarningBitmap by produceState<Bitmap?>(initialValue = null, depthGrid, appSettings.lowDepthWarningMaxM) {
+        val maxM = appSettings.lowDepthWarningMaxM
+        value = depthGrid?.let { g -> withContext(Dispatchers.Default) { LowDepthWarningBitmap.build(g, maxM) } }
+    }
+
     // The map centre drives BOTH layers: coastline (distance/zone) and depth-at-centre.
     val onCenterChanged: (Double, Double) -> Unit = remember(viewModel, depthViewModel) {
         { lat, lon ->
@@ -302,6 +309,7 @@ fun MapScreen(
                 distanceToShore = distanceToShore,
                 zone300 = zone300,
                 depthBitmap = depthBitmap,
+                lowDepthWarningBitmap = lowDepthWarningBitmap,
                 depthBox = depthGrid?.boundingBox,
                 isobaths = isobaths,
                 appSettings = appSettings,
@@ -389,6 +397,7 @@ private fun MapContent(
     distanceToShore: Double?,
     zone300: Zone300Data?,
     depthBitmap: Bitmap?,
+    lowDepthWarningBitmap: Bitmap?,
     depthBox: BoundingBox?,
     isobaths: List<Isobath>,
     appSettings: AppSettings,
@@ -415,10 +424,13 @@ private fun MapContent(
         val segments = if (appSettings.coastlineVisible) allSegments else emptyList()
         // Apply zone300 visibility toggle
         val visibleZone300 = if (appSettings.zone300Visible) zone300 else null
+        // Apply low-depth (<1.5 m) warning visibility toggle
+        val visibleLowDepthWarning = if (appSettings.lowDepthWarningVisible) lowDepthWarningBitmap else null
         CoastlineMapView(
             segments = segments,
             zone300 = visibleZone300,
             depthBitmap = depthBitmap,
+            lowDepthWarningBitmap = visibleLowDepthWarning,
             depthBox = depthBox,
             isobaths = isobaths,
             zoomLevel = zoomLevel,
@@ -665,6 +677,7 @@ private fun CoastlineMapView(
     segments: List<CoastlineSegment>,
     zone300: Zone300Data?,
     depthBitmap: Bitmap?,
+    lowDepthWarningBitmap: Bitmap?,
     depthBox: BoundingBox?,
     isobaths: List<Isobath>,
     zoomLevel: Double,
@@ -684,7 +697,7 @@ private fun CoastlineMapView(
     val shallowIsobathVisible = zoomLevel >= DepthConstants.SHALLOW_ISOBATH_MIN_ZOOM
     val overlayKey = remember(
         segments, zone300, zoneVisible,
-        depthBitmap, isobaths, depthVisible, isobathVisible, shallowIsobathVisible
+        depthBitmap, lowDepthWarningBitmap, isobaths, depthVisible, isobathVisible, shallowIsobathVisible
     ) { Any() }
     val lastOverlayKey = remember { mutableStateOf<Any?>(null) }
 
@@ -706,6 +719,7 @@ private fun CoastlineMapView(
                 controller.setZoom(initialZoom)
                 controller.setCenter(GeoPoint(center.latitude, center.longitude))
                 drawDepthMap(this, depthBitmap, depthBox, zoomLevel)   // bottom: colour raster
+                drawLowDepthWarning(this, lowDepthWarningBitmap, depthBox, zoomLevel) // <1.5 m hazard
                 drawIsobaths(this, isobaths, zoomLevel)                // contours above raster
                 drawZone300(this, zone300, zoomLevel)                  // 300 m band fill + line
                 drawCoastline(this, segments)                          // coastline on top
@@ -741,6 +755,7 @@ private fun CoastlineMapView(
                 // rebuild bottom-to-top in z-order.
                 mapView.overlays.removeAll { it is Polyline || it is Polygon || it is GroundOverlay }
                 drawDepthMap(mapView, depthBitmap, depthBox, zoomLevel)
+                drawLowDepthWarning(mapView, lowDepthWarningBitmap, depthBox, zoomLevel)
                 drawIsobaths(mapView, isobaths, zoomLevel)
                 drawZone300(mapView, zone300, zoomLevel)
                 drawCoastline(mapView, segments)
@@ -1078,13 +1093,31 @@ private fun SettingsOverlay(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // ── Keep the screen awake while the app is running ─────────────
+            // ── Low-depth warning overlay toggle ──────────────────────────
             SettingsToggleRow(
-                label = stringResource(R.string.settings_keep_screen_on_label),
-                description = stringResource(R.string.settings_keep_screen_on_desc),
-                checked = settings.keepScreenOn,
-                onCheckedChange = { on -> onUpdateSettings { it.copy(keepScreenOn = on) } }
+                label = stringResource(R.string.settings_low_depth_warning_label),
+                description = stringResource(R.string.settings_low_depth_warning_desc),
+                checked = settings.lowDepthWarningVisible,
+                onCheckedChange = { visible ->
+                    onUpdateSettings { it.copy(lowDepthWarningVisible = visible) }
+                }
             )
+
+            // Warning depth threshold — lives inside the warning's box, shown only when it is on.
+            if (settings.lowDepthWarningVisible) {
+                Spacer(modifier = Modifier.height(12.dp))
+                SettingsSliderRow(
+                    label = stringResource(R.string.settings_low_depth_threshold_label),
+                    description = stringResource(R.string.settings_low_depth_threshold_desc),
+                    valueLabel = stringResource(R.string.settings_value_depth, settings.lowDepthWarningMaxM),
+                    value = settings.lowDepthWarningMaxM,
+                    valueRange = 0.5f..5f,
+                    steps = 8,
+                    onValueChange = { v ->
+                        onUpdateSettings { it.copy(lowDepthWarningMaxM = (v * 2f).roundToInt() / 2f) }
+                    }
+                )
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -1092,6 +1125,16 @@ private fun SettingsOverlay(
             SectionHeader(title = stringResource(R.string.settings_section_power))
 
             Spacer(modifier = Modifier.height(12.dp))
+
+            // ── Keep the screen awake while the app runs (first power lever) ──
+            SettingsToggleRow(
+                label = stringResource(R.string.settings_keep_screen_on_label),
+                description = stringResource(R.string.settings_keep_screen_on_desc),
+                checked = settings.keepScreenOn,
+                onCheckedChange = { on -> onUpdateSettings { it.copy(keepScreenOn = on) } }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             // Group 1: GPS acquisition cadence while moving.
             SubSectionHeader(
@@ -1717,6 +1760,24 @@ private fun drawDepthMap(mapView: MapView, bitmap: Bitmap?, box: BoundingBox?, z
     val overlay = GroundOverlay().apply {
         setImage(bitmap)
         // Axis-aligned placement: top-left = NW corner, bottom-right = SE corner.
+        setPosition(
+            GeoPoint(box.latNorth, box.lonWest),
+            GeoPoint(box.latSouth, box.lonEast)
+        )
+    }
+    mapView.overlays.add(overlay)
+}
+
+/**
+ * Draws the low-depth (<1.5 m) warning raster as a [GroundOverlay] directly above the depth
+ * colour map but below the isobaths, 300 m band and coastline. Same placement + zoom gate as
+ * [drawDepthMap]; the bitmap is transparent everywhere except the shallow cells, so it only
+ * tints genuine grounding hazards.
+ */
+private fun drawLowDepthWarning(mapView: MapView, bitmap: Bitmap?, box: BoundingBox?, zoomLevel: Double) {
+    if (bitmap == null || box == null || zoomLevel < DepthConstants.DEPTH_MAP_MIN_DRAW_ZOOM) return
+    val overlay = GroundOverlay().apply {
+        setImage(bitmap)
         setPosition(
             GeoPoint(box.latNorth, box.lonWest),
             GeoPoint(box.latSouth, box.lonEast)

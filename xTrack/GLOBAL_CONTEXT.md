@@ -1,8 +1,8 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** AppBakFlow
-- **Active Subfeature:** none
+- **Active Feature:** MapDisplay
+- **Active Subfeature:** layer-lowdepth
 - **Last Updated:** 2026-06-08
 - **Last Bake:** 2026-06-08 16:43 (AppBakFlow — back-to-exit double-press (2 s) showing a bottom-centre "Press back again to exit" toast styled like the dashboard tile (#16213E), kept clear of the right-edge zoom stack, exit via finishAffinity; + "Keep phone on" settings toggle (bottom of Display) driving LocalView.keepScreenOn, persisted in SettingsManager; EN+FR strings; assembleDebug green, on-device verification pending; committed+pushed feature/app-bak-flow)
 - **Prev Bake:** 2026-06-08 15:43 (Localisation — EN default + FR (values-fr) ~70 strings; instant Compose locale override via a ContextWrapper-around-Activity; Settings System/English/Français selector; on-device verified, committed+pushed feature/localisation)
