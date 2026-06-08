@@ -4,8 +4,8 @@
 - **Active Feature:** MapDisplay
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-08
-- **Last Bake:** 2026-06-08 20:43 (MapDisplay — per-mode 300 m auto-show: two persisted toggles (GPS / Demo) in Settings → Avancé; shared distance/time sliders shown only when one is on; shore pipeline gates auto-reveal on the active mode's toggle; `zone300Decision()` unchanged; EN/FR strings)
-- **Prev Bake:** 2026-06-08 20:23 (MapDisplay — low-depth warning overlay (configurable threshold slider 0.5–5.0 m, default 1.5, persisted) above the depth raster; "Keep phone on" → top of Power saving; Mercator offset fixed by latitude-banding BOTH depth + warning (addBandedOverlay, 8 strips); bake-time land mask resolved to develop's DepthZoneMask. KNOWN: pink warning laps ~½ cell onto land at 25 m granularity)
+- **Last Bake:** 2026-06-08 21:36 (MapDisplay — toggle-danger-layer: blue warning-triangle map button toggling the pink low-depth overlay, grouped just above the 300 m toggle (centred pair, 8 dp); 300 m icon → circular ring; all control-stack icons blue; tighter stack padding (top/bottom/right 12→6 dp); `toggleLowDepthWarningVisibility()` wired through MapContent)
+- **Prev Bake:** 2026-06-08 20:43 (MapDisplay — per-mode 300 m auto-show: two persisted toggles (GPS / Demo) in Settings → Avancé; shared distance/time sliders shown only when one is on; shore pipeline gates auto-reveal on the active mode's toggle; `zone300Decision()` unchanged; EN/FR strings)
 
 ## Routing Map
 | Keyword | Feature File |

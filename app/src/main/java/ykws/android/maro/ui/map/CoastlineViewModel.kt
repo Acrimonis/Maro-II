@@ -472,6 +472,14 @@ class CoastlineViewModel(
     }
 
     /**
+     * Toggles the low-depth (<threshold) pink grounding-hazard overlay visibility.
+     * Plain on/off — unlike the 300 m band there is no auto-reveal state to manage.
+     */
+    fun toggleLowDepthWarningVisibility() {
+        settingsManager.update { it.copy(lowDepthWarningVisible = !it.lowDepthWarningVisible) }
+    }
+
+    /**
      * Called whenever the user pans the map or GPS delivers a fix.
      *
      * Records the new center cheaply on the UI thread and persists it so the

@@ -2,9 +2,9 @@
 name: MapDisplay
 status: active
 created: 2026-06-07 00:00
-modified: 2026-06-08 20:43
+modified: 2026-06-08 21:36
 active_subfeature: none
-subs_total: 7
+subs_total: 8
 subs_done: 3
 one_liner: Map display layer management — depth layer, color depth layer, and orientation-aware rendering.
 ---
@@ -175,6 +175,28 @@ overlay, drawn as a second `GroundOverlay` above the depth colour raster. Pure r
 - `app/src/main/java/ykws/android/maro/data/depth/DepthConstants.kt`
 - `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt`
 - `app/src/main/res/values/strings.xml`, `app/src/main/res/values-fr/strings.xml`
+
+### toggle-danger-layer  [ ]
+
+Map control button to toggle the pink low-depth/danger overlay (`lowDepthWarningVisible`), placed
+just above the 300 m zone toggle in the right-edge control stack — the two grouped and centred
+together (as the 300 m toggle was on its own).
+
+#### Todos
+- [x] `DangerLayerButton` composable — warning-triangle icon (themed blue, mirrors `LayerButton`)
+- [x] Group it above `LayerButton` in an inner Column (8 dp gap), centred by the parent SpaceBetween
+- [x] Thread `onToggleLowDepthWarning` through `MapContent` → `CoastlineViewModel.toggleLowDepthWarningVisibility()`
+- [x] Polish: 300 m zone icon → circular ring; danger icon → blue; tighter control-stack padding (top/bottom/right 12→6 dp)
+- [ ] Build (`apk-build.bat`) + on-device verify (button toggles the pink layer; pair stays centred)
+
+#### Rules
+- All control-stack button icons are themed blue (`0xFF1565C0`) for consistency (not the overlay magenta)
+- Danger button sits ABOVE the 300 m toggle; the two stay close (8 dp) and centred as a group
+- Toggles `AppSettings.lowDepthWarningVisible` only — no rebake, no depth-data change
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `DangerLayerButton` + control-stack grouping
+- `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — `toggleLowDepthWarningVisibility()`
 
 ## Todos
 
