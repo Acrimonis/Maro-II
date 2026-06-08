@@ -1,18 +1,28 @@
 # Context Hydration — MapDisplay
 
-**Last Bake:** 2026-06-08 12:32
-**Feature Status:** active (3/4 subfeatures done)
-**Active Subfeature:** zone proximity auto-reveal (done ✅)
+**Last Bake:** 2026-06-08 19:23 (UTC)
+**Branch:** feature/layout-lowdepth (off origin/develop)
+**Active Subfeature:** layer-lowdepth
 
-## State Summary
-The 300 m band proximity auto-reveal was fully reworked this session for functional GPS use and shipped (build + unit suite green; debug APK assembles). Old single-shot / fixed-400 m heuristic removed (`ZONE_AUTO_REVEAL_M` gone). Logic lives in a pure, unit-tested `zone300Decision()` driven by the 150 ms shore pipeline. **Reveal** while a manually-hidden band is OUTSIDE (dist > 0) and closing, within 200 m of the band edge OR 20 s away at SOG (hybrid). **Auto-hide** on any of: stopped & not closing (≤ 1 kn), compliant inside (≤ 5 kn), exited seaward, retreated past margin; `armed` persists through an auto-hide (re-approach re-reveals), manual toggle disarms. **Demo** uses pan-derived speed (paused = 0 kn inside / unknown outside); GPS uses real SOG; logic shared (no gpsMode branch). Thresholds (200 m / 20 s) tunable in `zone.properties` + Settings → Avancé; reg (5 kn) / stop (1 kn) in `ZoneConfig`.
+## State
+Low-depth warning overlay shipped, building green (assembleDebug). It paints every depth
+cell shallower than a **configurable threshold** (default 1.5 m; Settings → Display slider
+0.5–5.0 m, persisted) as a bright-magenta `GroundOverlay` stacked above the depth colour
+raster, with its own visibility toggle. "Keep phone on" moved to the top of Power saving.
+Found + fixed a depth-overlay **Mercator offset** (equirectangular bitmap stretched on a
+Web-Mercator map → ~43 m landward bow mid-grid): both depth + warning rasters now draw via
+`addBandedOverlay()` as 8 latitude strips → sub-metre. Banding + threshold committed on
+feature/layout-lowdepth.
 
-## Key Files
-- `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — shore pipeline + `zone300Decision()` + flags
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — Settings → Avancé sliders
-- `app/src/main/java/ykws/android/maro/ui/map/ZoneConfig.kt` / `data/settings/SettingsManager.kt` / `assets/zone.properties` — thresholds
-- `app/src/test/java/ykws/android/maro/ui/map/Zone300DecisionTest.kt` — unit tests
+## Next step (immediate)
+Mask the warning to **water only**: in `LowDepthWarningBitmap.build`, for each <threshold
+cell, call a `isWater(lat,lon)` predicate and skip land/island cells. Wire
+`CoastlineViewModel.isOnWater` (→ `CoastlineSpatialIndex.isWater`, ~0.1 ms/call) in from
+MapScreen's `produceState`; use `grid.cellCenterLat/Lon`; re-key the build on coastline-ready.
+Then on-device verify: offset gone, no pink on land, toggle + threshold persist.
 
-## Next Steps
-- Subfeature "depth color" still pending: align DepthCard color with DepthColorRamp palette.
-- Optional (flagged, non-blocking): deadband/cooldown for the anchored-within-margin GPS-jitter flap; regulatory speed as a 3rd Advanced slider; persist `armed` across restarts; on-device GPS validation.
+## Target files
+- `ui/map/LowDepthWarningBitmap.kt` — add `isWater` predicate param (default `{_,_->true}`)
+- `ui/map/MapScreen.kt` — pass `viewModel::isOnWater`; `addBandedOverlay`; produceState keys
+- `spatial/CoastlineSpatialIndex.kt:403` `isWater()`; `ui/map/CoastlineViewModel.kt:561` `isOnWater()`
+- `data/settings/SettingsManager.kt` — `lowDepthWarningVisible` / `lowDepthWarningMaxM` (done)

@@ -2,7 +2,7 @@
 name: MapDisplay
 status: active
 created: 2026-06-07 00:00
-modified: 2026-06-08 12:32
+modified: 2026-06-08 19:23
 active_subfeature: layer-lowdepth
 subs_total: 6
 subs_done: 3
@@ -128,12 +128,15 @@ overlay, drawn as a second `GroundOverlay` above the depth colour raster. Pure r
 **no rebake**: the shipped `nice-frejus.bin` already carries continuous per-cell depth.
 
 #### Todos
-- [x] Add `DepthConstants.LOW_DEPTH_WARNING_MAX_M = 1.5`
-- [x] New `LowDepthWarningBitmap` — paint cells <1.5 m bright magenta, else transparent (mirrors `DepthBitmap`)
+- [x] Add `DepthConstants.LOW_DEPTH_WARNING_MAX_M = 1.5` (now the default threshold)
+- [x] New `LowDepthWarningBitmap` — paint cells <threshold bright magenta, else transparent (mirrors `DepthBitmap`)
 - [x] `AppSettings.lowDepthWarningVisible` (default on) + SharedPreferences persistence
 - [x] MapScreen: sibling `produceState` build, visibility gate, `drawLowDepthWarning()` overlay, Settings toggle row
-- [x] EN/FR label strings (`settings_low_depth_warning_*`); `assembleDebug` green
-- [ ] Verify on-device over a known <1.5 m near-shore spot; confirm toggle persists across restart
+- [x] EN/FR label strings (`settings_low_depth_*`); `assembleDebug` green
+- [x] Configurable warning depth (slider 0.5–5.0 m, default 1.5, persisted; overlay re-rasterises on change)
+- [x] Fix depth-overlay Mercator offset via latitude-banding (`addBandedOverlay`, 8 strips; both depth + warning)
+- [ ] Mask the warning to water only (`CoastlineViewModel.isOnWater`) — no pink on land/islands
+- [ ] Verify on-device: offset gone + warning only on water; toggle + threshold persist
 
 #### Rules
 - Warn on ANY cell <1.5 m regardless of source/confidence (design choice)

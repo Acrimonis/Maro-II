@@ -4,8 +4,8 @@
 - **Active Feature:** MapDisplay
 - **Active Subfeature:** layer-lowdepth
 - **Last Updated:** 2026-06-08
-- **Last Bake:** 2026-06-08 16:43 (AppBakFlow — back-to-exit double-press (2 s) showing a bottom-centre "Press back again to exit" toast styled like the dashboard tile (#16213E), kept clear of the right-edge zoom stack, exit via finishAffinity; + "Keep phone on" settings toggle (bottom of Display) driving LocalView.keepScreenOn, persisted in SettingsManager; EN+FR strings; assembleDebug green, on-device verification pending; committed+pushed feature/app-bak-flow)
-- **Prev Bake:** 2026-06-08 15:43 (Localisation — EN default + FR (values-fr) ~70 strings; instant Compose locale override via a ContextWrapper-around-Activity; Settings System/English/Français selector; on-device verified, committed+pushed feature/localisation)
+- **Last Bake:** 2026-06-08 19:23 (MapDisplay — low-depth warning overlay: bright-magenta GroundOverlay above the depth raster for all water shallower than a configurable threshold (Settings toggle + slider 0.5–5.0 m, default 1.5, persisted); "Keep phone on" moved to top of Power saving; fixed depth-overlay Mercator offset by latitude-banding BOTH depth + warning via addBandedOverlay (8 strips, ~43 m→<1 m); assembleDebug green, committed feature/layout-lowdepth. NEXT: mask warning to water-only via CoastlineViewModel.isOnWater + on-device verify)
+- **Prev Bake:** 2026-06-08 16:43 (AppBakFlow — back-to-exit double-press (2 s) toast + "Keep phone on" toggle driving keepScreenOn; EN+FR; assembleDebug green; committed+pushed feature/app-bak-flow)
 
 ## Routing Map
 | Keyword | Feature File |

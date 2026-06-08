@@ -1747,43 +1747,64 @@ private fun drawZone300(mapView: MapView, zone: Zone300Data?, zoomLevel: Double)
 
 // ── Depth overlays ────────────────────────────────────────────────────────────
 
+/** Number of horizontal strips per depth raster overlay — see [addBandedOverlay]. ~8 ⇒ sub-metre. */
+private const val DEPTH_OVERLAY_BANDS = 8
+
 /**
- * Draws the hypsometric depth colour map as a single bottom-most [GroundOverlay].
- * Zoom-gated below [DepthConstants.DEPTH_MAP_MIN_DRAW_ZOOM] and skipped until the bitmap has
- * been built ([bitmap] == null). The bitmap already carries per-pixel alpha (NaN cells
- * transparent, water semi-opaque), so it is added at full overlay opacity.
+ * Adds [bitmap] as [bands] stacked horizontal `GroundOverlay` strips instead of one, each pinned
+ * at its own true latitudes. osmdroid stretches every overlay linearly in Web-Mercator, but the
+ * grid's rows are equal *latitude* steps — which are NOT equal Mercator steps — so one full-height
+ * overlay bows by ~tens of metres mid-grid. Splitting resets that error to zero at every strip
+ * edge; it then falls with the square of the strip height (~8 bands ⇒ sub-metre). Longitude is
+ * already linear in Mercator, so only latitude is split. Adjacent strips share pixel-row AND
+ * latitude boundaries, so they tile exactly — no seam, no gap.
+ */
+private fun addBandedOverlay(mapView: MapView, bitmap: Bitmap, box: BoundingBox, bands: Int) {
+    val w = bitmap.width
+    val h = bitmap.height
+    val n = bands.coerceIn(1, h)
+    val latSpan = box.latNorth - box.latSouth
+    for (i in 0 until n) {
+        val y0 = (i.toLong() * h / n).toInt()
+        val y1 = ((i + 1).toLong() * h / n).toInt()
+        val sliceH = y1 - y0
+        if (sliceH <= 0) continue
+        // Bitmap row 0 = north; latitude is linear in pixel row, so split proportionally.
+        val latNorthStrip = box.latNorth - latSpan * (y0.toDouble() / h)
+        val latSouthStrip = box.latNorth - latSpan * (y1.toDouble() / h)
+        val overlay = GroundOverlay().apply {
+            setImage(Bitmap.createBitmap(bitmap, 0, y0, w, sliceH))
+            setPosition(
+                GeoPoint(latNorthStrip, box.lonWest),
+                GeoPoint(latSouthStrip, box.lonEast)
+            )
+        }
+        mapView.overlays.add(overlay)
+    }
+}
+
+/**
+ * Draws the hypsometric depth colour map as a stack of [DEPTH_OVERLAY_BANDS] `GroundOverlay` strips
+ * (see [addBandedOverlay] for why it is banded). Zoom-gated below
+ * [DepthConstants.DEPTH_MAP_MIN_DRAW_ZOOM] and skipped until the bitmap is built ([bitmap] == null).
+ * The bitmap carries per-pixel alpha (NaN cells transparent), so it draws at full overlay opacity.
  *
  * Added FIRST so the isobaths, 300 m band and coastline read on top.
  */
 private fun drawDepthMap(mapView: MapView, bitmap: Bitmap?, box: BoundingBox?, zoomLevel: Double) {
     if (bitmap == null || box == null || zoomLevel < DepthConstants.DEPTH_MAP_MIN_DRAW_ZOOM) return
-    val overlay = GroundOverlay().apply {
-        setImage(bitmap)
-        // Axis-aligned placement: top-left = NW corner, bottom-right = SE corner.
-        setPosition(
-            GeoPoint(box.latNorth, box.lonWest),
-            GeoPoint(box.latSouth, box.lonEast)
-        )
-    }
-    mapView.overlays.add(overlay)
+    addBandedOverlay(mapView, bitmap, box, DEPTH_OVERLAY_BANDS)
 }
 
 /**
- * Draws the low-depth (<1.5 m) warning raster as a [GroundOverlay] directly above the depth
- * colour map but below the isobaths, 300 m band and coastline. Same placement + zoom gate as
- * [drawDepthMap]; the bitmap is transparent everywhere except the shallow cells, so it only
- * tints genuine grounding hazards.
+ * Draws the low-depth warning raster as banded `GroundOverlay` strips (see [addBandedOverlay])
+ * directly above the depth colour map but below the isobaths, 300 m band and coastline. Same zoom
+ * gate as [drawDepthMap]; the bitmap is transparent except the shallow cells, so it only tints
+ * genuine grounding hazards.
  */
 private fun drawLowDepthWarning(mapView: MapView, bitmap: Bitmap?, box: BoundingBox?, zoomLevel: Double) {
     if (bitmap == null || box == null || zoomLevel < DepthConstants.DEPTH_MAP_MIN_DRAW_ZOOM) return
-    val overlay = GroundOverlay().apply {
-        setImage(bitmap)
-        setPosition(
-            GeoPoint(box.latNorth, box.lonWest),
-            GeoPoint(box.latSouth, box.lonEast)
-        )
-    }
-    mapView.overlays.add(overlay)
+    addBandedOverlay(mapView, bitmap, box, DEPTH_OVERLAY_BANDS)
 }
 
 /**
