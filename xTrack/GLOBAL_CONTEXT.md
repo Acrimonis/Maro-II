@@ -2,9 +2,9 @@
 
 ## Active Session Pointers
 - **Active Feature:** isOnWaterAgain
-- **Active Subfeature:** 300m-pinch
+- **Active Subfeature:** none
 - **Last Updated:** 2026-06-08
-- **Last Bake:** 2026-06-08 (isOnWaterAgain/300m-pinch — marina band PINCH fixed by a seaward-line distance filter in Zone300Builder; deployed + confirmed on device; apk-build.bat footgun fixed; ready to commit/push to develop)
+- **Last Bake:** 2026-06-08 (isOnWaterAgain/300m-pinch — marina band PINCH fixed by a seaward-line distance filter in Zone300Builder; deployed + confirmed on device; apk-build.bat footgun fixed; feature done, merged develop → branch)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -19,6 +19,7 @@
 | ui, ui-thingies, layout, onwater, button | FEATURE_SCOPE_UiThingies.md |
 | gps, gpsplugin, gps mode, demo mode, heading, course, compass, location, geolocation | FEATURE_SCOPE_GpsPlugin.md |
 | mapdisplay, map display, map, layer, depth layer, color depth, orientation | FEATURE_SCOPE_MapDisplay.md |
+| performance, battery, gps-tune, adaptive, compass-gate, map-refresh, battery-drain | FEATURE_SCOPE_Performance.md |
 | isonwater, isonwateragain, iswater, waterland, raycast, crossing, point-in-polygon | FEATURE_SCOPE_isOnWaterAgain.md |
 
 ## Global Rules

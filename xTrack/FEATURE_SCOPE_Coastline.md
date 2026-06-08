@@ -1,8 +1,8 @@
 ---
 name: Coastline
 status: active
-created: 2026-06-05
-modified: 2026-06-05
+created: 2026-06-05 00:00
+modified: 2026-06-05 00:00
 active_subfeature: none
 subs_total: 0
 subs_done: 0

@@ -1,8 +1,8 @@
 ---
 name: CodeReview
 status: done
-created: 2026-06-04
-modified: 2026-06-04
+created: 2026-06-04 00:00
+modified: 2026-06-04 00:00
 active_subfeature: none
 subs_total: 1
 subs_done: 1

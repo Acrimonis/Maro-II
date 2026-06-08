@@ -1,11 +1,11 @@
 ---
 name: isOnWaterAgain
-status: active
+status: done
 created: 2026-06-07
 modified: 2026-06-08
-active_subfeature: 300m-pinch
+active_subfeature: none
 subs_total: 2
-subs_done: 1
+subs_done: 2
 one_liner: Fixed inverted isOnWater + 300 m band at marinas via a mainland-primary classifier (nearest-mainland side test OR real-island containment) plus coastline data cleaning (drop tiny fragments / degenerate rings) and a capOpenEnds boundary-only fix; validated by tests + a rebaked asset.
 ---
 
@@ -24,14 +24,14 @@ temporary `isWaterDbg` Logcat line driven by demo-mode panning to capture concre
 
 ## Subfeatures
 
-### 300M Zone Rendering  [ ]
+### 300M Zone Rendering  [x]
 
 300 m band rendering. **Spikes fixed**; a separate **pre-existing pinch** artifact remains (deferred).
 
 #### Todos
 - [x] `capOpenEnds` seals only region-clipped ends → the Golfe-Juan / Cap d'Antibes **spikes are gone** (confirmed visually + the `BandValidationTest` no-spike guard).
 - [x] In-app builders + the offline prebake use `index.usableSegments` + `index.isWater`; rebaked `nice-frejus.bin`.
-- [ ] **Band PINCH at marina near-closed loops — PRE-EXISTING, deferred.** Port breakwaters are traced as short near-closed loops (~5–53 m end-gap, `isClosed` flag set) the cap logic never handled (old or new build). The band contour penetrates the gap (classified *seaward* because the gap cell isn't flagged `land`), pinching the red line in to the coast. Diagnosed: 16 interior open coastline ends ↔ 73 band pinch vertices (e.g. boat-bay loop at 43.4523,6.9219). Tried sealing the flood gap (no effect) and dropping the loops from the band geometry (worse — 106) — both wrong levers; **reverted to the clean spike-fixed state.** Proper fix: **close these near-closed loops in `CoastlineGenerator`** (data quality — also tidies `isWater` there); OR a careful change to the seaward classification, which sits next to the documented Zone300 **land-mirror** regression (high risk — guard with island-present tests first).
+- [x] **Band PINCH — FIXED** in the `300m-pinch` subfeature (seaward-line distance filter in `Zone300Builder`). Original diagnosis kept for the record: Port breakwaters are traced as short near-closed loops (~5–53 m end-gap, `isClosed` flag set) the cap logic never handled (old or new build). The band contour penetrates the gap (classified *seaward* because the gap cell isn't flagged `land`), pinching the red line in to the coast. Diagnosed: 16 interior open coastline ends ↔ 73 band pinch vertices (e.g. boat-bay loop at 43.4523,6.9219). Tried sealing the flood gap (no effect) and dropping the loops from the band geometry (worse — 106) — both wrong levers; **reverted to the clean spike-fixed state.** Proper fix: **close these near-closed loops in `CoastlineGenerator`** (data quality — also tidies `isWater` there); OR a careful change to the seaward classification, which sits next to the documented Zone300 **land-mirror** regression (high risk — guard with island-present tests first).
 
 #### Rules
 - The band fill/lines derive from `index.isWater` + the **cleaned** coastline; never pass raw `allSegments` to `Zone300Builder`.
