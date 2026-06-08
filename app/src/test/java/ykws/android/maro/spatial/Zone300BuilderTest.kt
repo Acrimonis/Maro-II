@@ -206,6 +206,33 @@ class Zone300BuilderTest {
         assertTrue("water side by the hazard must be banded", covered(43.4990, 7.015))
     }
 
+    // ── Seaward pinch filter (300m-pinch subfeature) ──────────────────────────
+
+    @Test
+    fun `dropPinchedSeawardRuns removes vertices that dive toward the coast`() {
+        // Offshore (≈300 m) → dips into a harbour (≈10 m) → offshore again. The dip is the pinch.
+        val line = listOf(
+            LatLng(43.500, 7.000), LatLng(43.500, 7.001),  // offshore
+            LatLng(43.490, 7.002), LatLng(43.490, 7.003),  // pinch (close to coast)
+            LatLng(43.500, 7.004), LatLng(43.500, 7.005),  // offshore
+        )
+        val distToCoast: (LatLng) -> Double = { if (it.latitude < 43.495) 10.0 else 300.0 }
+        val kept = dropPinchedSeawardRuns(listOf(line), minDistM = 150.0, distToCoast).flatten()
+        assertEquals("the two pinch vertices are dropped", 4, kept.size)
+        assertTrue("every kept vertex is offshore", kept.all { distToCoast(it) >= 150.0 })
+    }
+
+    @Test
+    fun `dropPinchedSeawardRuns drops a fully-pinched line and keeps a clean one`() {
+        val pinched = listOf(LatLng(43.49, 7.0), LatLng(43.49, 7.001), LatLng(43.49, 7.002))
+        assertTrue("a wholly-pinched line is removed",
+            dropPinchedSeawardRuns(listOf(pinched), 150.0) { 10.0 }.isEmpty())
+
+        val clean = listOf(LatLng(43.5, 7.0), LatLng(43.5, 7.001), LatLng(43.5, 7.002))
+        assertEquals("a clean offshore line is untouched",
+            listOf(clean), dropPinchedSeawardRuns(listOf(clean), 150.0) { 300.0 })
+    }
+
     /** Closed [n]-gon ring of radius [radiusM] (m) around a centre, first vertex repeated. */
     private fun circleRing(centerLat: Double, centerLon: Double, radiusM: Double, n: Int = 24): List<LatLng> {
         val dLat = radiusM / mPerDegLat

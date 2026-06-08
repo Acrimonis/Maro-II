@@ -2,9 +2,9 @@
 
 ## Active Session Pointers
 - **Active Feature:** isOnWaterAgain
-- **Active Subfeature:** none
+- **Active Subfeature:** 300m-pinch
 - **Last Updated:** 2026-06-08
-- **Last Bake:** 2026-06-08 (isOnWaterAgain — mainland-primary water/land classifier + coastline data cleaning + capOpenEnds band-spike fix; rebaked nice-frejus.bin; tests green)
+- **Last Bake:** 2026-06-08 (isOnWaterAgain/300m-pinch — marina band PINCH fixed by a seaward-line distance filter in Zone300Builder; deployed + confirmed on device; apk-build.bat footgun fixed; ready to commit/push to develop)
 
 ## Routing Map
 | Keyword | Feature File |
