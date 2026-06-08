@@ -12,9 +12,9 @@ import kotlin.math.cos
 
 /**
  * Clips a baked depth grid to the **navigable zone**: every populated cell whose centre lies
- * farther than [maxDistM] from the coastline is reset to NoData (`NaN` / [DepthSource.NONE]).
- * With the default 6 NM this is exactly the licence navigation limit, so depth is drawn only
- * where the user may actually go.
+ * farther than [maxDistM] from the coastline — or (when `excludeLand`) on land/islands — is reset
+ * to NoData (`NaN` / [DepthSource.NONE]). With the default 6 NM this is exactly the licence
+ * navigation limit, so depth is drawn only on water where the user may actually go.
  *
  * **Why a mask, not a re-shaped grid:** the runtime keeps its axis-aligned grid + `GroundOverlay`
  * untouched — masked cells render fully transparent through the existing ramp, so the
@@ -49,14 +49,16 @@ object DepthZoneMask {
     }
 
     /**
-     * Erases (→ NoData) every non-NaN cell of [grid] farther than [maxDistM] from the nearest of
-     * [segments] (typically `CoastlineData.allSegments`). Returns the number of cells erased.
-     * No-op (returns 0) when [segments] is empty or carries no usable geometry.
+     * Erases (→ NoData) every non-NaN cell of [grid] that is farther than [maxDistM] from the nearest
+     * of [segments] (typically `CoastlineData.allSegments`) OR — when [excludeLand] — lies on land per
+     * [CoastlineSpatialIndex.isWater], keeping depth water-only inside the navigable buffer. Returns
+     * the number of cells erased. No-op (returns 0) when [segments] is empty or carries no geometry.
      */
     fun apply(
         grid: MutableDepthGrid,
         segments: List<CoastlineSegment>,
-        maxDistM: Double = SIX_NM_M
+        maxDistM: Double = SIX_NM_M,
+        excludeLand: Boolean = true
     ): Int {
         if (segments.isEmpty()) return 0
         val index = CoastlineSpatialIndex(segments)
@@ -68,7 +70,10 @@ object DepthZoneMask {
             for (c in 0 until cols) {
                 if (grid.get(r, c).isNaN()) continue           // already NoData — skip
                 val lon = grid.cellCenterLon(c)
-                if (index.query(lat, lon).distanceMeters > maxDistM) {
+                // Outside the 6 NM navigable buffer, or on land/islands → not navigable water.
+                if (index.query(lat, lon).distanceMeters > maxDistM ||
+                    (excludeLand && !index.isWater(lat, lon))
+                ) {
                     grid.set(r, c, Float.NaN, DepthSource.NONE, 0)
                     erased.incrementAndGet()
                 }

@@ -2,7 +2,7 @@
 name: MapDisplay
 status: active
 created: 2026-06-07 00:00
-modified: 2026-06-08 19:34
+modified: 2026-06-08 20:23
 active_subfeature: layer-lowdepth
 subs_total: 6
 subs_done: 3
@@ -135,7 +135,9 @@ overlay, drawn as a second `GroundOverlay` above the depth colour raster. Pure r
 - [x] EN/FR label strings (`settings_low_depth_*`); `assembleDebug` green
 - [x] Configurable warning depth (slider 0.5–5.0 m, default 1.5, persisted; overlay re-rasterises on change)
 - [x] Fix depth-overlay Mercator offset via latitude-banding (`addBandedOverlay`, 8 strips; both depth + warning)
-- [x] Mask the warning to water only (`CoastlineViewModel.isOnWater`) — no pink on land/islands
+- [x] Mask the warning to water only (runtime `CoastlineViewModel.isOnWater`)
+- [x] Bake-time land mask: `DepthZoneMask` nulls `!isWater` cells → re-baked `nice-frejus.bin`; colour map + isobaths + warning all water-only at the data level (validation passed, datumMismatch=false)
+- [ ] Pink-bleed FIX — warning laps ~½ cell (~12 m) onto land at 25 m granularity (cells classified by CENTRE; not a mask gap). How: sub-cell water test (sample cell corners, require ~all water) OR vector-clip the warning bitmap to the coastline polygon — pick the crisper. Low-priority polish.
 - [ ] Verify on-device: offset gone + warning only on water; toggle + threshold persist
 
 #### Rules

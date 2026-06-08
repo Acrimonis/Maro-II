@@ -1,27 +1,30 @@
 # Context Hydration — MapDisplay
 
-**Last Bake:** 2026-06-08 19:34 (UTC)
+**Last Bake:** 2026-06-08 20:23 (UTC)
 **Branch:** feature/layout-lowdepth (off origin/develop)
 **Active Subfeature:** layer-lowdepth
 
 ## State
-Low-depth warning overlay complete, building green (assembleDebug). Paints every **water**
-cell shallower than a configurable threshold (default 1.5 m; Settings → Display slider 0.5–5.0 m,
-persisted) as a bright-magenta `GroundOverlay` above the depth raster, own visibility toggle.
-"Keep phone on" moved to top of Power saving. Depth-overlay **Mercator offset** fixed by
-latitude-banding both depth + warning rasters via `addBandedOverlay()` (8 strips, ~43 m→<1 m).
-Warning now **masked to water only**: `LowDepthWarningBitmap.build` takes an `isWater` predicate
-(fed `viewModel::isOnWater` → `CoastlineSpatialIndex.isWater`), skipping land/island cells; the
-overlay rebuilds when the coastline becomes Ready. All committed+pushed on feature/layout-lowdepth.
+Low-depth warning overlay complete: bright-magenta `GroundOverlay` above the depth raster for all
+water shallower than a configurable threshold (Settings → Display slider 0.5–5.0 m, default 1.5,
+persisted); own toggle. "Keep phone on" moved to top of Power saving. Mercator offset fixed by
+latitude-banding BOTH depth + warning rasters (`addBandedOverlay`, 8 strips). **Land kept off all
+depth layers at the DATA level:** `DepthZoneMask.apply` now also nulls `!isWater` cells; the
+re-baked `nice-frejus.bin` is land-free, so the colour map (NaN→transparent) and isobaths (marching
+squares skip NaN) avoid land for free, and the warning's `!isNaN` gate does too. Re-bake validation
+`passed=true`, `datumMismatch=false`. assembleDebug green. Committed: DepthZoneMask + prebake-batch.md
+(the `.bin` is gitignored — regenerate locally via `tools\bake-depth.bat`).
 
-## Next step
-On-device verification only (no code pending): deploy (`.\apk-deploy.bat`), zoom to the Lérins
-islands / a shallow near-shore spot and confirm (a) the shallow band hugs the real waterline
-(offset gone), (b) no pink on land/islands, (c) toggle + depth slider persist across restart.
-If a small *uniform* shift remains after banding, that's the separate datum component — measure
-edge-vs-middle to confirm.
+## Known issue (tracked todo)
+Pink warning still laps ~½ cell (~12 m) onto land at the waterline — 25 m cells classified by
+CENTRE, amplified by the warning's opaque paint (the colour map has the same residual but faint).
+Fix: sub-cell water test (sample cell corners) OR vector-clip the warning bitmap to the coastline
+polygon. Low-priority polish.
+
+## Next
+Decide + implement the bleed fix; on-device verify (offset gone, layers land-free, toggle/threshold persist).
 
 ## Target files
-- `ui/map/LowDepthWarningBitmap.kt` — `build(grid, maxDepthM, isWater)` (done)
-- `ui/map/MapScreen.kt` — `addBandedOverlay`; warning `produceState` passes `viewModel::isOnWater`, keyed on coastline-ready (done)
-- `spatial/CoastlineSpatialIndex.kt:403` `isWater()`; `ui/map/CoastlineViewModel.kt:561` `isOnWater()`
+- `data/depth/DepthZoneMask.kt` (land mask, done); `ui/map/LowDepthWarningBitmap.kt` + `MapScreen.kt` (bleed fix)
+- `spatial/CoastlineSpatialIndex.kt:403` `isWater`; re-bake via `DepthPrebakeTest` / `tools\bake-depth.bat`
+- Doc: `docs/prebake-batch.md`
