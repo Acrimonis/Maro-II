@@ -2,7 +2,7 @@
 name: DepthSafety
 status: active
 created: 2026-06-08 18:25
-modified: 2026-06-08 18:25
+modified: 2026-06-08 19:16
 active_subfeature: water-only
 subs_total: 4
 subs_done: 0
@@ -19,13 +19,13 @@ branches off `feature/litto3d-shallow` — B1, B2, B3 from the base, **B4 from B
 ## Subfeatures
 
 ### water-only  [ ]
-B1 · `feature/depth-warning-1` — no depth colour when `!isOnWater`. Runtime guard **and** bake mask.
+B1 · `feature/depth-warning-1` — no depth colour when `!isOnWater`. **Bake-mask is the guard** (per-cell runtime guard infeasible — grid is ~7 M cells).
 #### Todos
 - [x] Bake-time land-mask: `DepthZoneMask.apply` also erases `!isWater` cells (committed 3c6ee3d, in base)
-- [ ] Runtime guard: thread the coastline `isWater` index into `DepthBitmap.build` → transparent on land
 - [ ] Re-bake + on-device verify the tint stops at the waterline
+- [ ] (optional) cheap load-time integrity check: sample `isWater`, log/flag a stale / un-masked asset
 #### Rules
-- Belt-and-suspenders: the colour layer must not paint land even from a stale / un-masked grid.
+- Per-cell runtime `isWater` masking is infeasible (~7 M cells = tens of seconds on-device); the bake mask is authoritative. Canvas `PorterDuff.CLEAR` of land polygons is the fallback if a hard runtime guarantee is ever needed.
 #### Key Files
 - `ui/map/DepthBitmap.kt`, `data/depth/DepthRepository.kt`, `ui/map/MapScreen.kt`, `data/depth/DepthZoneMask.kt`
 
