@@ -33,7 +33,7 @@ packages what was baked (`apk-build.bat`), and a deploy that pushes + relaunches
 - [x] Move depth `.asc` + `.bin` to gitignored `data/app-assets/depth/` (`git rm --cached` the committed `.bin`, `/data/` already ignored, packaged via asset srcDir); `bake_emodnet/litto3d/depth.bat` OUT + `DepthPrebakeTest` read/write there via `maro.repoDir`
 - [x] Exclude depth `.asc`/`.aux.xml`/`.prj` from the APK via `androidResources.ignoreAssetsPatterns` (a corridor-wide Litto3D `.asc` is ~1 GB; app reads only the `.bin`) — verified with `mergeDebugAssets` (no `.asc` packaged, `.bin` kept)
 - [x] Stream-parse `.asc` (`AsciiGridParser.parse(File)`) — the ~1 GB Litto3D `.asc` OOM'd `readText()` + the token `ArrayList`; now peak memory ∝ the grid `FloatArray` (~508 MB), fits the 4 g test heap
-- [ ] Litto3D `.asc` bloat: the generous seaward box at 5 m = ~972 MB of mostly-nodata padding (→ a 127 M-cell merge). Tighten the litto3d clip (focused tiles, or drop GDAL `-te` padding) so the shallow tier stays nearshore-sized
+- [x] Litto3D `.asc` bloat (deep = nodata, not data) — **implemented** (re-bake `litto3d depth` to confirm): no hardcoded band — clip derives from a coastline-bbox sidecar (`Zone300AssetBaker` emits `<region>.bbox`, `bake-env` reads it) + `bake-litto3d` **gzips** the `.asc` (`AsciiGridParser` reads `.gz`; −99999 padding compresses ~50–100× → ~10–30 MB). See `plans/litto3d-shallow-coverage.md`.
 - [x] Cleanup dead code: deleted the dead singular `assets/coastline/` baker path (`CoastlinePrebakeTest` + the stale checked-in `.bin`); `Zone300AssetBaker` → gitignored `data/app-assets/coastlines/` is the one coastline baker the app actually ships (apk-build.bat already pointed there post-rebase)
 - [x] Retarget the 6 NM depth-mask to read the SHIPPED coastline (gitignored `data/app-assets/coastlines/`, via `maro.repoDir`) instead of the dead singular checked-in asset — fixes the mask clipping against an unshipped coastline
 - [x] `bake-zone300.bat` + `Zone300BandRefreshTest` — recompute the 300 m band from the existing `coastline.bin`, no network (band-only refresh)
@@ -64,3 +64,4 @@ packages what was baked (`apk-build.bat`), and a deploy that pushes + relaunches
 
 ## Docs
 - `docs/DepthMappingBake.md` — current bake guide (to be updated as the scripts are normalized)
+- `plans/litto3d-shallow-coverage.md` — design: kill the hardcoded litto3d band → derive the clip from a coastline-bbox sidecar + gzip the nodata-heavy `.asc` + full-tile fetch for whole-range shallow

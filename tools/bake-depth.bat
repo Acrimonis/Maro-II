@@ -11,7 +11,9 @@ set "REGION=nice-frejus"
 set "AUTODEPS=1"
 if /i "%~1"=="--no-auto-deps" set "AUTODEPS=0"
 
-set "COAST=data\app-assets\coastlines\%REGION%.bin"
+REM Key the coastline dep on the .bbox sidecar (bake-env needs it): an old .bin without a sidecar
+REM re-bakes the coastline, which emits both .bin + .bbox.
+set "COAST=data\app-assets\coastlines\%REGION%.bbox"
 set "EMASC=data\app-assets\depth\emodnet-%REGION%.asc"
 
 if not exist "%COAST%" (
@@ -27,7 +29,7 @@ if not exist "%EMASC%" (
   ) else (echo [bake-depth] ERROR: %EMASC% missing ^(--no-auto-deps^). Bake EMODnet first. & exit /b 1)
 )
 REM Litto3D is the optional shallow tier - bake only if tiles are present and the .asc is missing.
-if exist "tools\litto3d_tiles\*.asc" if not exist "data\app-assets\depth\litto3d-%REGION%.asc" call "%~dp0bake-litto3d.bat"
+if exist "tools\litto3d_tiles\*.asc" if not exist "data\app-assets\depth\litto3d-%REGION%.asc.gz" call "%~dp0bake-litto3d.bat"
 
 echo [bake-depth] Merge + 6 NM clip -^> %REGION%.bin ...
 call gradlew testDebugUnitTest --tests "*DepthPrebakeTest*" -Dmaro.prebake=true --rerun-tasks

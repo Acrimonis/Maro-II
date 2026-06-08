@@ -1,7 +1,7 @@
 @echo off
 setlocal enabledelayedexpansion
 call "%~dp0gdal_env.bat"
-call "%~dp0bake-env.bat"
+call "%~dp0bake-env.bat" || exit /b 1
 REM ---------------------------------------------------------------------------
 REM Bake the EMODnet DTM 2024 deep backbone -> data\app-assets\depth\emodnet-<region>.asc
 REM   (ESRI ASCII, elevation rel. LAT -- the app negates it to depth.) Gitignored (/data/).
@@ -21,7 +21,7 @@ for %%F in ("%WORK%\*.tif") do set "SRC=%%F"
 if defined SRC (
   echo [1/3] Using cached EMODnet tile: !SRC!
 ) else (
-  echo [1/3] Downloading EMODnet tile E5 ^(large; hundreds of MB^)...
+  echo [1/3] Downloading EMODnet tile E5 -- LARGE ^(hundreds of MB^); curl progress meter below:
   curl -L -o "%WORK%\E5.tif.zip" "%URL%" || (echo Download failed & exit /b 1)
   tar -xf "%WORK%\E5.tif.zip" -C "%WORK%" || (echo Extract failed & exit /b 1)
   for %%F in ("%WORK%\*.tif") do set "SRC=%%F"

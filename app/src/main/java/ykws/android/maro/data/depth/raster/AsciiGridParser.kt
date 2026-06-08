@@ -3,6 +3,7 @@ package ykws.android.maro.data.depth.raster
 import ykws.android.maro.data.model.BoundingBox
 import ykws.android.maro.data.model.DepthSource
 import java.io.File
+import java.util.zip.GZIPInputStream
 
 /**
  * Parses an **ESRI/Arc ASCII grid** (`.asc`) into a [SourceRaster]. This is the
@@ -132,7 +133,13 @@ object AsciiGridParser {
         var t = 0
         val ws = Regex("\\s+")
 
-        file.bufferedReader().useLines { seq ->
+        // Transparently read a gzipped grid (`.asc.gz`): the big Litto3D grid is mostly nodata text
+        // that compresses ~50-100x, so the bake ships it gzipped. Streaming keeps memory proportional
+        // to the output array, not the (decompressed) text.
+        val reader = if (file.name.endsWith(".gz", ignoreCase = true))
+            GZIPInputStream(file.inputStream().buffered()).bufferedReader()
+        else file.bufferedReader()
+        reader.useLines { seq ->
             for (rawLine in seq) {
                 val line = rawLine.trim()
                 if (line.isEmpty()) continue

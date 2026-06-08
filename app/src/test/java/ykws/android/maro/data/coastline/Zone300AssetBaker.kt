@@ -4,6 +4,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertTrue
 import org.junit.Assume
 import org.junit.Test
+import ykws.android.maro.data.depth.DepthZoneMask
 import ykws.android.maro.spatial.CoastlineSpatialIndex
 import ykws.android.maro.spatial.Zone300Builder
 import java.io.File
@@ -67,6 +68,12 @@ class Zone300AssetBaker {
             val outDir = File(repoDir, "data/app-assets/coastlines").apply { mkdirs() }
             val outFile = File(outDir, "$regionId.bin")
             outFile.writeBytes(CoastlineSerializer.serialize(baked))
+
+            // Emit the bake-clip envelope sidecar (coastline bbox + 6 NM) that the GDAL bakes read via
+            // bake-env.bat — so the EMODnet/Litto3D clip derives from the real coast, nothing hardcoded.
+            val env = DepthZoneMask.envelopeOf(baked.boundingBox)
+            File(outDir, "$regionId.bbox")
+                .writeText("${env.latSouth} ${env.latNorth} ${env.lonWest} ${env.lonEast}\n")
 
             println(
                 "Baked ${baked.allSegments.size} segments + band " +
