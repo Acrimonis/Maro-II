@@ -1,17 +1,23 @@
-# Context Hydration — WorkflowImprovement — 2026-06-06
+# Context Hydration — WorkflowImprovement
 
-**Active Subfeature:** none
+**Last Bake:** 2026-06-08 09:22 UTC
 
-## State
-**AGENTSmdNormalization workstream complete** (all 6 fixes implemented + committed on branch `feature/ai-tooling`, pushed to `origin`). Tip `e806c22`. Subfeature 18/18; status stays `active` only because the post-merge reconcile parent todo is pending. Self-validation green (front-matter counts match checkboxes; no stale singular `CONTEXT_HYDRATION.md` refs; dates normalized; rename `#list`→`#features` complete with alias kept; new `#feature` orientation command everywhere). Branch is **not yet merged** to `develop` — PR not opened.
+**State:**
+- All 20 subfeatures done (19/19 → 20/20). The `#doc list attachment column` subfeature is now `[x]`. New subfeature "xTrack system review — #doc sync, #doc audit, #diff, spec consolidation" added and completed.
+- Three new commands spec'd: `#doc sync` (generate feature profile doc from front-matter), `#doc audit` (scan docs for structural issues), `#diff` (show changes since last bake). All in AGENTS.md §7b + cmd_help.md.
+- Spec consolidation: commands.md deprecated, AGENTS.md §7b is sole canonical source. Always-Loaded Context section added to GLOBAL_CONTEXT.md + templates.md.
+- 5 feature files now have `## Docs` sections (WorkflowImprovement, DepthMapping, Coastline, CodeReview, Zone300). DepthMapping has 9 docs attached.
 
-## Target Files
-- `AGENTS.md` (canonical § 7a/7b incl. new § 7b.12 `#doctor` and § 7b.13 `#feature`)
-- `.claude/skills/xtrack/{SKILL.md, references/commands.md, references/templates.md}`
-- `docs/cmd_help.md`; `xTrack/FEATURE_SCOPE_*.md` (front-matter); `xTrack/hydration/`
+**Target files:**
+- `AGENTS.md` — §7b items 8, 11, 14 updated
+- `docs/cmd_help.md` — reference table + 3 new detailed sections
+- `xTrack/GLOBAL_CONTEXT.md` — active feature pivoted, Always-Loaded Context, Global Instructions
+- `xTrack/FEATURE_SCOPE_WorkflowImprovement.md` — front-matter, new subfeature, ## Docs
+- `xTrack/FEATURE_SCOPE_{DepthMapping,Coastline,CodeReview,Zone300}.md` — ## Docs added
+- `.claude/skills/xtrack/references/commands.md` — deprecated
+- `.claude/skills/xtrack/{SKILL.md,templates.md,fuzzy-resolve.md}` — updated refs
+- `plans/xTrack-review-plan.md` — review analysis document
 
-## Next Step
-Open PR `feature/ai-tooling → develop` and merge. Then execute the parent-level reconcile procedure when spatial branches (e.g. `feature/300M-Claude-II`) later land on `develop`.
-
-## Still open (other workstream — separate branch)
-- **Coastline** (`feature/300M-Claude-II`, folder `D:\.src\Maro_II_c`): on-device «Côte» full-regen check of 6 OSM seamarks + Tradelière; verify no Zone300 donut around hazard rings. State preserved in that folder's own `xTrack/`.
+**Next step:**
+- Outstanding: UiThingies malformed section (`### compact-dash` outside `## Subfeatures`), DepthMapping non-standard `[~]` marker.
+- Parent todo "Post-merge reconcile xTrack/ across branches" still open.

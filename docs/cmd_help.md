@@ -2,6 +2,7 @@ View:     #features            compact feature table (front-matter, by modified)
           #feature             current context: active feature + subs list + working path
           #status              feature details (active)
           #status [name]       feature details (named)
+          #diff [name]         changes since last #bake (active/named)
 Manage:   #track [name]        create feature (with YAML front-matter)
           #focus [name]        switch to feature
           #sub [name]          add subfeature (active)
@@ -20,6 +21,8 @@ Docs:     #doc                 feature docs (scope-aware)
           #doc read [name]     load doc into context
           #doc attach [name]   link doc → feature ## Docs (bare = prompt)
           #doc detach [name]   unlink doc (bare = prompt)
+          #doc sync [name]     generate/update feature profile doc from front-matter
+          #doc audit           check docs for missing scope tags, orphans, invalid scopes
 Session:  #bake                snapshot session (per-feature hydration)
           #help                this list
 Health:   #doctor              lint xTrack for drift (#doctor fix = auto-repair)
@@ -214,3 +217,35 @@ Lint the xTrack stack for structural drift.
               Report-only items (malformed sections, orphan docs, status/rule-dedupe
               judgment calls) are printed but not auto-fixed.
               #bake runs the auto-fix subset first.
+
+## #diff
+
+Show changes since the last `#bake` for a feature.
+
+  [no param]      Diff the active feature against its last hydration snapshot.
+                  Report: subfeatures toggled, new/removed todos/rules/key-files/docs,
+                  changed front-matter fields (status, one_liner, dates).
+                  If never baked: "No hydration snapshot found — run #bake first."
+
+  [name]          Fuzzy-resolve name against existing features and diff that feature
+                  instead of the active one.
+
+## #doc sync
+
+Generate or update a feature profile document from the feature's YAML front-matter.
+
+  [name]          Fuzzy-resolve [name] against existing features. Create or overwrite
+                  docs/feature-[name].md with: name, status, one_liner, created/modified
+                  dates, subfeature completion ratio (subs_done/subs_total), list of
+                  attached docs. Scope tag: feature.
+                  If [name] is omitted, sync the active feature.
+
+## #doc audit
+
+Audit all documentation for structural issues.
+
+  [no param]      Scan docs/**/*.md recursively. Report:
+                  (a) docs missing <!-- scope: ... --> tag
+                  (b) orphan docs (attached to no feature ## Docs / #### Docs, not README.md)
+                  (c) docs with invalid scope (not core|onboarding|feature|reference|archived)
+                  Print findings grouped by severity. Does NOT auto-fix.

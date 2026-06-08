@@ -48,8 +48,9 @@ Templates live in [references/templates.md](references/templates.md).
 
 ## Command dispatch
 
-Read [references/commands.md](references/commands.md) for the full spec of each
-command — it carries the exact field semantics, output formats, and edge cases.
+**The canonical command spec is `AGENTS.md` (§ 7b).** Read it there for the full
+semantics, output formats, and edge cases. `references/commands.md` is deprecated
+and will be removed — do not rely on it.
 Quick map:
 
 | Command | Action |

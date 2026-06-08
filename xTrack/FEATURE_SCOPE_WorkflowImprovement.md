@@ -2,10 +2,10 @@
 name: WorkflowImprovement
 status: active
 created: 2026-06-03 00:00
-modified: 2026-06-06 00:00
+modified: 2026-06-08 09:22
 active_subfeature: none
-subs_total: 18
-subs_done: 18
+subs_total: 20
+subs_done: 20
 one_liner: xTrack #command system, trigger syntax, fuzzy matching, bootstrap, and memory bake lifecycle
 ---
 
@@ -33,7 +33,7 @@ Improving the xTrack workflow and command system (canonicalized in AGENTS.md) �
 ### #doc attach [name] — add doc; bare = prompt pick-list  [x]
 ### #doc detach [name] — remove doc; bare = prompt pick-list  [x]
 
-### #doc list attachment column  [ ]
+### #doc list attachment column  [x]
 `#doc list` now scans each FEATURE_SCOPE_*.md's `## Docs` (and subfeature `#### Docs`) sections to show which feature/subfeature each doc is attached to, as an extra column in the table.
 
 #### Todos
@@ -43,6 +43,27 @@ Improving the xTrack workflow and command system (canonicalized in AGENTS.md) �
 #### Key Files
 - `AGENTS.md` — §7b.11
 - `docs/cmd_help.md` — `## #doc` section
+
+### xTrack system review — #doc sync, #doc audit, #diff, spec consolidation  [x]
+Complete review of the xTrack system: identified spec fragmentation, orphan docs, missing ## Docs sections, cache optimization gaps, and template drift. Implemented all fixes across 3 phases.
+
+#### Todos
+- [x] Phase 1: Quick Fixes — flip #doc list attachment column [x], pivot active feature to WorkflowImprovement, add ## Docs to 5 feature files, attach most orphan docs
+- [x] Phase 2: Spec Consolidation — deprecate commands.md (redirect to AGENTS.md), add Always-Loaded Context to GLOBAL_CONTEXT.md + templates.md, fix template drift
+- [x] Phase 3: New Capabilities — add #doc sync, #doc audit, #diff specs to AGENTS.md §7b and docs/cmd_help.md
+
+#### Rules
+- AGENTS.md §7b is the sole canonical spec for all #-commands. references/commands.md is deprecated.
+- Always-Loaded Context section ensures cache-critical files are loaded every session.
+
+#### Key Files
+- `AGENTS.md` — §7b updated with #doc sync, #doc audit, #diff
+- `xTrack/GLOBAL_CONTEXT.md` — Always-Loaded Context + Global Instructions
+- `docs/cmd_help.md` — new command sections
+- `.claude/skills/xtrack/references/commands.md` — deprecated
+
+#### Docs
+- `plans/xTrack-review-plan.md` — full review analysis and roadmap
 
 ### AGENTSmdNormalization  [x]
 Vendor-neutral consolidation onto the AGENTS.md standard + xTrack hardening (this branch). All 6 fixes implemented + committed.
@@ -69,6 +90,9 @@ Vendor-neutral consolidation onto the AGENTS.md standard + xTrack hardening (thi
 
 ## Key Files
 - `AGENTS.md` — canonical rules incl. § 7a/7b xTrack; `.clinerules`/`CLAUDE.md` are adapters
+
+## Docs
+- `docs/cmd_help.md` — command reference (—help output)
 
 ## Notes
 <!-- blockers, design decisions, context for next session -->
