@@ -17,6 +17,9 @@ import kotlinx.coroutines.flow.asStateFlow
  * @property defaultLongitude  Initial map center longitude (WGS84, °E).
  * @property coastlineVisible  Whether the coastline polyline overlay is drawn.
  * @property zone300Visible    Whether the 300 m regulatory band overlay is drawn.
+ * @property zone300AutoShowGps   GPS mode: auto-reveal the hidden 300 m band on approach.
+ *                             When off, the band stays under manual control in GPS mode.
+ * @property zone300AutoShowDemo  Demo mode: same approach auto-reveal, driven by pan speed.
  * @property mapCenterLat      Persisted map center latitude  (NaN = not yet saved).
  * @property mapCenterLon      Persisted map center longitude (NaN = not yet saved).
  * @property zoomLevel         Persisted map zoom level (0.0 = not yet saved).
@@ -49,6 +52,8 @@ data class AppSettings(
     val zone300Visible: Boolean = true,
     val zoneAutoRevealDistanceM: Float = 200f,
     val zoneAutoRevealTimeS: Int = 20,
+    val zone300AutoShowGps: Boolean = true,
+    val zone300AutoShowDemo: Boolean = true,
     val gpsMode: Boolean = false,
     val recenterDelaySeconds: Int = 5,
     val gpsActiveIntervalSec: Int = 2,
@@ -85,6 +90,8 @@ class SettingsManager(
         zone300Visible   = prefs.getBoolean(KEY_ZONE300_VISIBLE, true),
         zoneAutoRevealDistanceM = prefs.getFloat(KEY_ZONE_AUTOREVEAL_DIST_M, defaultAutoRevealDistM),
         zoneAutoRevealTimeS     = prefs.getInt(KEY_ZONE_AUTOREVEAL_TIME_S, defaultAutoRevealTimeS),
+        zone300AutoShowGps  = prefs.getBoolean(KEY_ZONE300_AUTOSHOW_GPS, true),
+        zone300AutoShowDemo = prefs.getBoolean(KEY_ZONE300_AUTOSHOW_DEMO, true),
         gpsMode          = prefs.getBoolean(KEY_GPS_MODE, false),
         recenterDelaySeconds = prefs.getInt(KEY_RECENTER_DELAY_S, 5),
         gpsActiveIntervalSec = prefs.getInt(KEY_GPS_INTERVAL_S, 2),
@@ -121,6 +128,8 @@ class SettingsManager(
             .putBoolean(KEY_ZONE300_VISIBLE, updated.zone300Visible)
             .putFloat(KEY_ZONE_AUTOREVEAL_DIST_M, updated.zoneAutoRevealDistanceM)
             .putInt(KEY_ZONE_AUTOREVEAL_TIME_S, updated.zoneAutoRevealTimeS)
+            .putBoolean(KEY_ZONE300_AUTOSHOW_GPS, updated.zone300AutoShowGps)
+            .putBoolean(KEY_ZONE300_AUTOSHOW_DEMO, updated.zone300AutoShowDemo)
             .putBoolean(KEY_GPS_MODE, updated.gpsMode)
             .putInt(KEY_RECENTER_DELAY_S, updated.recenterDelaySeconds)
             .putInt(KEY_GPS_INTERVAL_S, updated.gpsActiveIntervalSec)
@@ -146,6 +155,8 @@ class SettingsManager(
         private const val KEY_ZONE300_VISIBLE = "zone300_visible"
         private const val KEY_ZONE_AUTOREVEAL_DIST_M = "zone_autoreveal_dist_m"
         private const val KEY_ZONE_AUTOREVEAL_TIME_S = "zone_autoreveal_time_s"
+        private const val KEY_ZONE300_AUTOSHOW_GPS = "zone300_autoshow_gps"
+        private const val KEY_ZONE300_AUTOSHOW_DEMO = "zone300_autoshow_demo"
         private const val KEY_GPS_MODE = "gps_mode"
         private const val KEY_RECENTER_DELAY_S = "recenter_delay_s"
         private const val KEY_GPS_INTERVAL_S = "gps_interval_s"

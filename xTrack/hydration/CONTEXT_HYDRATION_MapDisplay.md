@@ -1,18 +1,27 @@
 # Context Hydration — MapDisplay
 
-**Last Bake:** 2026-06-08 12:32
-**Feature Status:** active (3/4 subfeatures done)
-**Active Subfeature:** zone proximity auto-reveal (done ✅)
+**Last Bake:** 2026-06-08 20:43
+**Feature Status:** active (3/6 subfeatures done)
+**Active Subfeature:** config 300m auto display (impl done, build/verify pending)
 
 ## State Summary
-The 300 m band proximity auto-reveal was fully reworked this session for functional GPS use and shipped (build + unit suite green; debug APK assembles). Old single-shot / fixed-400 m heuristic removed (`ZONE_AUTO_REVEAL_M` gone). Logic lives in a pure, unit-tested `zone300Decision()` driven by the 150 ms shore pipeline. **Reveal** while a manually-hidden band is OUTSIDE (dist > 0) and closing, within 200 m of the band edge OR 20 s away at SOG (hybrid). **Auto-hide** on any of: stopped & not closing (≤ 1 kn), compliant inside (≤ 5 kn), exited seaward, retreated past margin; `armed` persists through an auto-hide (re-approach re-reveals), manual toggle disarms. **Demo** uses pan-derived speed (paused = 0 kn inside / unknown outside); GPS uses real SOG; logic shared (no gpsMode branch). Thresholds (200 m / 20 s) tunable in `zone.properties` + Settings → Avancé; reg (5 kn) / stop (1 kn) in `ZoneConfig`.
+Added per-mode control over the 300 m zone auto-show. Two new persisted booleans
+`zone300AutoShowGps` + `zone300AutoShowDemo` (`AppSettings`, default **ON** to preserve the prior
+always-on behaviour). Settings → Avancé → "300 m zone alert" now renders two toggles (GPS / Demo);
+the shared distance + time threshold sliders render only when at least one toggle is on. The shore
+pipeline (`CoastlineViewModel`) gates auto-reveal on the active mode's toggle — when off it leaves
+`zone300Visible` under manual control and resets `zone300AutoRevealed` / `bandEnteredSinceReveal`.
+The pure `zone300Decision()` is unchanged, so `Zone300DecisionTest` is untouched. EN + FR strings
+added; the section description dropped its "(GPS)" qualifier since it now covers both modes.
+Branch: `feature/300-auto-show` (forked from `feature/UI-icons`).
 
 ## Key Files
-- `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — shore pipeline + `zone300Decision()` + flags
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — Settings → Avancé sliders
-- `app/src/main/java/ykws/android/maro/ui/map/ZoneConfig.kt` / `data/settings/SettingsManager.kt` / `assets/zone.properties` — thresholds
-- `app/src/test/java/ykws/android/maro/ui/map/Zone300DecisionTest.kt` — unit tests
+- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — `zone300AutoShowGps` / `zone300AutoShowDemo` (persist + defaults)
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — two toggles + conditional threshold sliders in the alert section
+- `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — per-mode gate in the 150 ms shore pipeline
+- `app/src/main/res/values/strings.xml`, `app/src/main/res/values-fr/strings.xml` — toggle labels/descriptions
 
 ## Next Steps
-- Subfeature "depth color" still pending: align DepthCard color with DepthColorRamp palette.
-- Optional (flagged, non-blocking): deadband/cooldown for the anchored-within-margin GPS-jitter flap; regulatory speed as a 3rd Advanced slider; persist `armed` across restarts; on-device GPS validation.
+- Build (`apk-build.bat`) + on-device verify: each mode's toggle off suppresses auto-show and hides the sliders; default-on keeps current behaviour.
+- Open decision: should Demo auto-show default **off** (currently on)?
+- Still pending in this feature: "depth color" subfeature; "layer-zone" depth re-bake + on-device coverage check.

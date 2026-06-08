@@ -1104,28 +1104,51 @@ private fun SettingsOverlay(
                 title = stringResource(R.string.settings_alert_label),
                 description = stringResource(R.string.settings_alert_desc)
             )
+
             Spacer(modifier = Modifier.height(8.dp))
-            SettingsSliderRow(
-                label = stringResource(R.string.settings_alert_dist_label),
-                description = stringResource(R.string.settings_alert_dist_desc),
-                valueLabel = stringResource(R.string.settings_value_meters, settings.zoneAutoRevealDistanceM.roundToInt()),
-                value = settings.zoneAutoRevealDistanceM,
-                valueRange = 50f..500f,
-                steps = 17,
-                onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealDistanceM = (v / 25f).roundToInt() * 25f) } }
+
+            // Per-mode auto-show toggles. The shared distance/time thresholds below only
+            // apply — and are only shown — when at least one mode has auto-show enabled.
+            SettingsToggleRow(
+                label = stringResource(R.string.settings_alert_gps_label),
+                description = stringResource(R.string.settings_alert_gps_desc),
+                checked = settings.zone300AutoShowGps,
+                onCheckedChange = { on -> onUpdateSettings { it.copy(zone300AutoShowGps = on) } }
             )
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            SettingsSliderRow(
-                label = stringResource(R.string.settings_alert_time_label),
-                description = stringResource(R.string.settings_alert_time_desc),
-                valueLabel = stringResource(R.string.settings_value_seconds, settings.zoneAutoRevealTimeS),
-                value = settings.zoneAutoRevealTimeS.toFloat(),
-                valueRange = 5f..120f,
-                steps = 22,
-                onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealTimeS = (v / 5f).roundToInt() * 5) } }
+            SettingsToggleRow(
+                label = stringResource(R.string.settings_alert_demo_label),
+                description = stringResource(R.string.settings_alert_demo_desc),
+                checked = settings.zone300AutoShowDemo,
+                onCheckedChange = { on -> onUpdateSettings { it.copy(zone300AutoShowDemo = on) } }
             )
+
+            if (settings.zone300AutoShowGps || settings.zone300AutoShowDemo) {
+                Spacer(modifier = Modifier.height(12.dp))
+                SettingsSliderRow(
+                    label = stringResource(R.string.settings_alert_dist_label),
+                    description = stringResource(R.string.settings_alert_dist_desc),
+                    valueLabel = stringResource(R.string.settings_value_meters, settings.zoneAutoRevealDistanceM.roundToInt()),
+                    value = settings.zoneAutoRevealDistanceM,
+                    valueRange = 50f..500f,
+                    steps = 17,
+                    onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealDistanceM = (v / 25f).roundToInt() * 25f) } }
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                SettingsSliderRow(
+                    label = stringResource(R.string.settings_alert_time_label),
+                    description = stringResource(R.string.settings_alert_time_desc),
+                    valueLabel = stringResource(R.string.settings_value_seconds, settings.zoneAutoRevealTimeS),
+                    value = settings.zoneAutoRevealTimeS.toFloat(),
+                    valueRange = 5f..120f,
+                    steps = 22,
+                    onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealTimeS = (v / 5f).roundToInt() * 5) } }
+                )
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
 
