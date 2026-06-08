@@ -33,6 +33,17 @@ Improving the xTrack workflow and command system (canonicalized in AGENTS.md) �
 ### #doc attach [name] — add doc; bare = prompt pick-list  [x]
 ### #doc detach [name] — remove doc; bare = prompt pick-list  [x]
 
+### #doc list attachment column  [ ]
+`#doc list` now scans each FEATURE_SCOPE_*.md's `## Docs` (and subfeature `#### Docs`) sections to show which feature/subfeature each doc is attached to, as an extra column in the table.
+
+#### Todos
+- [x] Update AGENTS.md §7b.11 `#doc list` spec to add "Attached to" column
+- [x] Update docs/cmd_help.md `## #doc` section to document the column
+
+#### Key Files
+- `AGENTS.md` — §7b.11
+- `docs/cmd_help.md` — `## #doc` section
+
 ### AGENTSmdNormalization  [x]
 Vendor-neutral consolidation onto the AGENTS.md standard + xTrack hardening (this branch). All 6 fixes implemented + committed.
 

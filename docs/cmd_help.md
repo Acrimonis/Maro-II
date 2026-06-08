@@ -149,8 +149,13 @@ Manage documentation attached to a feature scope.
                       and description.
 
   list                Scan docs/**/*.md recursively. Read the first ~5 lines for
-                      the <!-- scope: ... --> tag and the first # heading. Print a
-                      table grouped by scope: relative path → scope → heading.
+                      the <!-- scope: ... --> tag and the first # heading. Also
+                      scan every FEATURE_SCOPE_*.md for ## Docs (parent) and
+                      #### Docs (subfeature) sections to determine which
+                      feature/subfeature each doc is attached to.
+                      Print a table grouped by scope:
+                      relative path → scope → heading → attached to
+                      (feature/subfeature name, or "—" if unattached).
                       README.md is implicit scope: core.
 
   create [name]       Create docs/name.md. Prompt for scope tag:
