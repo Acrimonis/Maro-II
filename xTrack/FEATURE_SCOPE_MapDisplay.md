@@ -1,8 +1,8 @@
 ---
 name: MapDisplay
 status: active
-created: 2026-06-07
-modified: 2026-06-07
+created: 2026-06-07 00:00
+modified: 2026-06-07 00:00
 active_subfeature: zone proximity auto-reveal
 subs_total: 4
 subs_done: 3

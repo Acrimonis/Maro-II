@@ -1,8 +1,8 @@
 ---
 name: Zone300
 status: active
-created: 2026-06-03
-modified: 2026-06-03
+created: 2026-06-03 00:00
+modified: 2026-06-03 00:00
 active_subfeature: none
 subs_total: 1
 subs_done: 0

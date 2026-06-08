@@ -1,8 +1,8 @@
 ---
 name: GpsPlugin
 status: active
-created: 2026-06-07
-modified: 2026-06-07
+created: 2026-06-07 00:00
+modified: 2026-06-07 00:00
 active_subfeature: settings
 subs_total: 2
 subs_done: 0

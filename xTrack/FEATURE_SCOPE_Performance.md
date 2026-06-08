@@ -1,8 +1,8 @@
 ---
 name: Performance
 status: active
-created: 2026-06-07
-modified: 2026-06-07
+created: 2026-06-07 00:00
+modified: 2026-06-07 00:00
 active_subfeature: none
 subs_total: 5
 subs_done: 4

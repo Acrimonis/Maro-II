@@ -1,8 +1,8 @@
 ---
 name: WorkflowImprovement
 status: active
-created: 2026-06-03
-modified: 2026-06-06
+created: 2026-06-03 00:00
+modified: 2026-06-06 00:00
 active_subfeature: none
 subs_total: 18
 subs_done: 18
