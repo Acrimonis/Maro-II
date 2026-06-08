@@ -4,8 +4,8 @@
 - **Active Feature:** DepthSafety
 - **Active Subfeature:** isobar-precision
 - **Last Updated:** 2026-06-08
-- **Last Bake:** 2026-06-08 19:16 (DepthSafety — planned 4 branches off feature/litto3d-shallow; B1 per-cell runtime guard found INFEASIBLE (~7 M cells × isWater = tens of s on-device) → bake-mask is the guard (re-bake+verify); Mercator overlay approx ~35 m mid-band noted as optional B5. NEXT: merge feature/litto3d-shallow → develop, then branch B1-B4 from develop)
-- **Prev Bake:** 2026-06-08 18:25 (BakeNormalization — feature/litto3d-shallow finalized: depth land-mask (water-only) committed 3c6ee3d, APK built 16 MB; spun off new DepthSafety feature — 4 branches: water-only, isobar-precision, danger-display, danger-alert)
+- **Last Bake:** 2026-06-08 21:44 (DepthSafety — B2 isobar-precision implemented on feature/depth-warning-2: IsobathLine model, fine-over-coarse suppression, colour+width by source from zone.properties (litto3d #1B5E20 dark green +1px; emodnet #00008B blue -1px; dash conf≤35), Chaikin smoothing of Litto3D lines; unit-tested + assembleDebug green. On-device colour verify pending; option-3 gdal_contour parked)
+- **Prev Bake:** 2026-06-08 19:16 (DepthSafety — planned 4 branches; B1 per-cell runtime guard INFEASIBLE → bake-mask is the guard; Mercator overlay ~35 m parked as optional B5)
 
 ## Routing Map
 | Keyword | Feature File |

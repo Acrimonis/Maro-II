@@ -1,12 +1,22 @@
 package ykws.android.maro.data.model
 
 /**
+ * One polyline of a depth contour, tagged with the **data source + confidence** of the cells it
+ * crosses so the UI can reflect data precision (colour-by-source, dash low-confidence fill).
+ */
+data class IsobathLine(
+    val points: List<LatLng>,
+    val source: DepthSource,
+    val confidence: Int
+)
+
+/**
  * One depth contour level and its polylines (already simplified). Derived from the
  * [DepthGrid] via scalar marching squares; not serialised (rebuilt from the grid).
  */
 data class Isobath(
     val depthM: Float,
-    val lines: List<List<LatLng>>
+    val lines: List<IsobathLine>
 )
 
 /**
