@@ -2,7 +2,7 @@
 
 ## Active Session Pointers
 - **Active Feature:** MapDisplay
-- **Active Subfeature:** config 300m auto display
+- **Active Subfeature:** none
 - **Last Updated:** 2026-06-08
 - **Last Bake:** 2026-06-08 20:43 (MapDisplay — per-mode 300 m auto-show: two persisted toggles (GPS / Demo) in Settings → Avancé; shared distance/time sliders shown only when one is on; shore pipeline gates auto-reveal on the active mode's toggle; `zone300Decision()` unchanged; EN/FR strings)
 - **Prev Bake:** 2026-06-08 14:31 (BakeNormalization — Phases 1–3: region single-sourced from props→BuildConfig, depth envelope derived (WATER_BBOX removed), no baked data in git, bake-*/apk-bake/build/deploy split; fixes: streaming .asc parser (OOM), APK .asc-exclude, CRLF .gitattributes; on-device verified)

@@ -3,7 +3,7 @@ name: MapDisplay
 status: active
 created: 2026-06-07 00:00
 modified: 2026-06-08 20:43
-active_subfeature: config 300m auto display
+active_subfeature: none
 subs_total: 6
 subs_done: 3
 one_liner: Map display layer management — depth layer, color depth layer, and orientation-aware rendering.
