@@ -1,18 +1,30 @@
 # Context Hydration — MapDisplay
 
-**Last Bake:** 2026-06-08 12:32
-**Feature Status:** active (3/4 subfeatures done)
-**Active Subfeature:** zone proximity auto-reveal (done ✅)
+**Last Bake:** 2026-06-08 20:23 (UTC)
+**Branch:** feature/layout-lowdepth (off origin/develop)
+**Active Subfeature:** layer-lowdepth
 
-## State Summary
-The 300 m band proximity auto-reveal was fully reworked this session for functional GPS use and shipped (build + unit suite green; debug APK assembles). Old single-shot / fixed-400 m heuristic removed (`ZONE_AUTO_REVEAL_M` gone). Logic lives in a pure, unit-tested `zone300Decision()` driven by the 150 ms shore pipeline. **Reveal** while a manually-hidden band is OUTSIDE (dist > 0) and closing, within 200 m of the band edge OR 20 s away at SOG (hybrid). **Auto-hide** on any of: stopped & not closing (≤ 1 kn), compliant inside (≤ 5 kn), exited seaward, retreated past margin; `armed` persists through an auto-hide (re-approach re-reveals), manual toggle disarms. **Demo** uses pan-derived speed (paused = 0 kn inside / unknown outside); GPS uses real SOG; logic shared (no gpsMode branch). Thresholds (200 m / 20 s) tunable in `zone.properties` + Settings → Avancé; reg (5 kn) / stop (1 kn) in `ZoneConfig`.
+## State
+Low-depth warning overlay complete: bright-magenta `GroundOverlay` above the depth raster for all
+water shallower than a configurable threshold (Settings → Display slider 0.5–5.0 m, default 1.5,
+persisted); own toggle. "Keep phone on" moved to top of Power saving. Mercator offset fixed by
+latitude-banding BOTH depth + warning rasters (`addBandedOverlay`, 8 strips). **Land kept off all
+depth layers at the DATA level:** `DepthZoneMask.apply` now also nulls `!isWater` cells; the
+re-baked `nice-frejus.bin` is land-free, so the colour map (NaN→transparent) and isobaths (marching
+squares skip NaN) avoid land for free, and the warning's `!isNaN` gate does too. Re-bake validation
+`passed=true`, `datumMismatch=false`. assembleDebug green. Committed: DepthZoneMask + prebake-batch.md
+(the `.bin` is gitignored — regenerate locally via `tools\bake-depth.bat`).
 
-## Key Files
-- `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — shore pipeline + `zone300Decision()` + flags
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — Settings → Avancé sliders
-- `app/src/main/java/ykws/android/maro/ui/map/ZoneConfig.kt` / `data/settings/SettingsManager.kt` / `assets/zone.properties` — thresholds
-- `app/src/test/java/ykws/android/maro/ui/map/Zone300DecisionTest.kt` — unit tests
+## Known issue (tracked todo)
+Pink warning still laps ~½ cell (~12 m) onto land at the waterline — 25 m cells classified by
+CENTRE, amplified by the warning's opaque paint (the colour map has the same residual but faint).
+Fix: sub-cell water test (sample cell corners) OR vector-clip the warning bitmap to the coastline
+polygon. Low-priority polish.
 
-## Next Steps
-- Subfeature "depth color" still pending: align DepthCard color with DepthColorRamp palette.
-- Optional (flagged, non-blocking): deadband/cooldown for the anchored-within-margin GPS-jitter flap; regulatory speed as a 3rd Advanced slider; persist `armed` across restarts; on-device GPS validation.
+## Next
+Decide + implement the bleed fix; on-device verify (offset gone, layers land-free, toggle/threshold persist).
+
+## Target files
+- `data/depth/DepthZoneMask.kt` (land mask, done); `ui/map/LowDepthWarningBitmap.kt` + `MapScreen.kt` (bleed fix)
+- `spatial/CoastlineSpatialIndex.kt:403` `isWater`; re-bake via `DepthPrebakeTest` / `tools\bake-depth.bat`
+- Doc: `docs/prebake-batch.md`

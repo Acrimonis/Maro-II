@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** DepthSafety
-- **Active Subfeature:** water-only
+- **Active Feature:** MapDisplay
+- **Active Subfeature:** layer-lowdepth
 - **Last Updated:** 2026-06-08
-- **Last Bake:** 2026-06-08 19:16 (DepthSafety — planned 4 branches off feature/litto3d-shallow; B1 per-cell runtime guard found INFEASIBLE (~7 M cells × isWater = tens of s on-device) → bake-mask is the guard (re-bake+verify); Mercator overlay approx ~35 m mid-band noted as optional B5. NEXT: merge feature/litto3d-shallow → develop, then branch B1-B4 from develop)
-- **Prev Bake:** 2026-06-08 18:25 (BakeNormalization — feature/litto3d-shallow finalized: depth land-mask (water-only) committed 3c6ee3d, APK built 16 MB; spun off new DepthSafety feature — 4 branches: water-only, isobar-precision, danger-display, danger-alert)
+- **Last Bake:** 2026-06-08 20:23 (MapDisplay — low-depth warning overlay (configurable threshold slider 0.5–5.0 m, default 1.5, persisted) above the depth raster; "Keep phone on" → top of Power saving; Mercator offset fixed by latitude-banding BOTH depth + warning (addBandedOverlay, 8 strips). Merged feature/layout-lowdepth → develop: my bake land-mask was CONVERGENT with develop's DepthSafety/litto3d-shallow land-mask → resolved DepthZoneMask to develop's. KNOWN: pink warning laps ~½ cell onto land at 25 m granularity (todo: sub-cell test / vector clip). NEXT: decide bleed fix + on-device verify; reconcile MapDisplay/layer-lowdepth vs DepthSafety overlap)
+- **Prev Bake:** 2026-06-08 19:16 (DepthSafety — bake-mask chosen as the water-only guard (per-cell runtime infeasible ~7 M cells); merged feature/litto3d-shallow → develop; planned branches: water-only, isobar-precision, danger-display, danger-alert)
 
 ## Routing Map
 | Keyword | Feature File |

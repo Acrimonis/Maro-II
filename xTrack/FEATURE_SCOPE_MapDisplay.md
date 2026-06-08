@@ -2,9 +2,9 @@
 name: MapDisplay
 status: active
 created: 2026-06-07 00:00
-modified: 2026-06-08 12:32
-active_subfeature: layer-zone
-subs_total: 5
+modified: 2026-06-08 20:23
+active_subfeature: layer-lowdepth
+subs_total: 6
 subs_done: 3
 one_liner: Map display layer management — depth layer, color depth layer, and orientation-aware rendering.
 ---
@@ -120,6 +120,37 @@ itself so bays and capes alike get a uniform 6 NM (no cape under-coverage).
 - `app/src/main/java/ykws/android/maro/data/depth/DepthConstants.kt`
 - `app/src/test/java/ykws/android/maro/data/prebake/DepthPrebakeTest.kt`
 - `tools/bake_emodnet.bat`, `tools/bake_litto3d.bat`
+
+### layer-lowdepth  [ ]
+
+Highlight all charted water shallower than 1.5 m as a bright, near-opaque grounding-hazard
+overlay, drawn as a second `GroundOverlay` above the depth colour raster. Pure runtime layer —
+**no rebake**: the shipped `nice-frejus.bin` already carries continuous per-cell depth.
+
+#### Todos
+- [x] Add `DepthConstants.LOW_DEPTH_WARNING_MAX_M = 1.5` (now the default threshold)
+- [x] New `LowDepthWarningBitmap` — paint cells <threshold bright magenta, else transparent (mirrors `DepthBitmap`)
+- [x] `AppSettings.lowDepthWarningVisible` (default on) + SharedPreferences persistence
+- [x] MapScreen: sibling `produceState` build, visibility gate, `drawLowDepthWarning()` overlay, Settings toggle row
+- [x] EN/FR label strings (`settings_low_depth_*`); `assembleDebug` green
+- [x] Configurable warning depth (slider 0.5–5.0 m, default 1.5, persisted; overlay re-rasterises on change)
+- [x] Fix depth-overlay Mercator offset via latitude-banding (`addBandedOverlay`, 8 strips; both depth + warning)
+- [x] Mask the warning to water only (runtime `CoastlineViewModel.isOnWater`)
+- [x] Bake-time land mask: `DepthZoneMask` nulls `!isWater` cells → re-baked `nice-frejus.bin`; colour map + isobaths + warning all water-only at the data level (validation passed, datumMismatch=false)
+- [ ] Pink-bleed FIX — warning laps ~½ cell (~12 m) onto land at 25 m granularity (cells classified by CENTRE; not a mask gap). How: sub-cell water test (sample cell corners, require ~all water) OR vector-clip the warning bitmap to the coastline polygon — pick the crisper. Low-priority polish.
+- [ ] Verify on-device: offset gone + warning only on water; toggle + threshold persist
+
+#### Rules
+- Warn on ANY cell <1.5 m regardless of source/confidence (design choice)
+- Separate overlay above the depth raster, below isobaths/zone/coastline; reuse `DEPTH_MAP_MIN_DRAW_ZOOM` (z≥11)
+- No rebake: granularity is the baked 25 m grid (shoalest-wins → conservatively over-flags shallow, correct for a hazard); finer outlines would need a smaller `GRID_RES_M` rebake
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/LowDepthWarningBitmap.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
+- `app/src/main/java/ykws/android/maro/data/depth/DepthConstants.kt`
+- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt`
+- `app/src/main/res/values/strings.xml`, `app/src/main/res/values-fr/strings.xml`
 
 ## Todos
 
