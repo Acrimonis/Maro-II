@@ -106,6 +106,24 @@ object SpatialOperations {
     }
 
     /**
+     * Signed side of point [p] relative to the directed segment [a]→[b].
+     *
+     * Returns the 2D cross product (b−a) × (p−a) in raw degrees. Only its **sign**
+     * is meaningful:
+     *  - `< 0` ⇒ [p] is to the RIGHT of travel a→b,
+     *  - `> 0` ⇒ to the LEFT,
+     *  - `== 0` ⇒ collinear.
+     *
+     * Scaling longitude/latitude by different positive factors multiplies the cross
+     * product by a positive constant, so the **sign is projection-independent** — raw
+     * degrees give the same side as a metric projection. Used by the nearest-segment
+     * water/land test (coastline convention: water on the RIGHT of the direction of travel).
+     */
+    fun signedSide(p: LatLng, a: LatLng, b: LatLng): Double =
+        (b.longitude - a.longitude) * (p.latitude - a.latitude) -
+            (b.latitude - a.latitude) * (p.longitude - a.longitude)
+
+    /**
      * Minimum distance between two polylines in meters.
      *
      * Uses a local planar projection centered on the bounding box of both
@@ -296,19 +314,17 @@ object SpatialOperations {
                          (bLon <= rayLon && rayLon < aLon)
         if (!crossesLon) return false
 
-        // 2. Compute the latitude where the ray intersects the segment's line.
+        // 2. Division-free crossing test (mirror of rayCrossesSegmentNorth). With
+        //    cross(P) = dLon·(P.lat − aLat) − (bLat − aLat)·(rayLon − aLon), the sign of
+        //    (yc − P.lat) equals the sign of −cross(P)·dLon — no division by the
+        //    near-zero dLon of a near-vertical segment.
         val dLon = bLon - aLon
-        val intersectLat: Double = if (dLon == 0.0) {
-            // Vertical segment, collinear with the ray.
-            // Count as crossed if the segment extends south of the ray start.
-            minOf(aLat, bLat)
-        } else {
-            aLat + (rayLon - aLon) * (bLat - aLat) / dLon
-        }
+        val crossStart = dLon * (rayLatStart - aLat) - (bLat - aLat) * (rayLon - aLon)
+        val crossEnd = dLon * (rayLatEnd - aLat) - (bLat - aLat) * (rayLon - aLon)
 
-        // 3. Crossing counts only if the intersection is strictly south of the
-        //    query point and at-or-south of the 6 NM limit.
-        return intersectLat < rayLatStart && intersectLat >= rayLatEnd
+        // 3. Crossing counts only strictly south of the query (yc < rayLatStart) and
+        //    at-or-north of the limit (yc >= rayLatEnd) — identical to the old <,>= rules.
+        return crossStart * dLon > 0.0 && crossEnd * dLon <= 0.0
     }
 
     /**
@@ -356,17 +372,19 @@ object SpatialOperations {
                          (bLon <= rayLon && rayLon < aLon)
         if (!crossesLon) return false
 
-        // 2. Latitude where the ray's line meets the segment.
+        // 2. Division-free crossing test. For the intersection latitude yc where the
+        //    segment meets the ray's vertical line, (yc − P.lat)·dLon = −cross(P), with
+        //    cross(P) = dLon·(P.lat − aLat) − (bLat − aLat)·(rayLon − aLon). Comparing via
+        //    these cross products avoids dividing by dLon — that division blows up FP error
+        //    for near-vertical segments and was the source of inverted water/land results.
+        //    The crossesLon guard already ensures dLon ≠ 0 and a single intersection.
         val dLon = bLon - aLon
-        val intersectLat: Double = if (dLon == 0.0) {
-            // Vertical segment collinear with the ray: count if it reaches north of the start.
-            maxOf(aLat, bLat)
-        } else {
-            aLat + (rayLon - aLon) * (bLat - aLat) / dLon
-        }
+        val crossStart = dLon * (rayLatStart - aLat) - (bLat - aLat) * (rayLon - aLon)
+        val crossEnd = dLon * (rayLatEnd - aLat) - (bLat - aLat) * (rayLon - aLon)
 
-        // 3. Crossing counts only strictly north of the query point, at-or-south of the limit.
-        return intersectLat > rayLatStart && intersectLat <= rayLatEnd
+        // 3. Crossing counts only strictly north of the query (yc > rayLatStart) and
+        //    at-or-south of the limit (yc <= rayLatEnd) — identical to the old <,<= rules.
+        return crossStart * dLon < 0.0 && crossEnd * dLon >= 0.0
     }
 
     // ─────────────────────────────────────────────────────────────────────────
