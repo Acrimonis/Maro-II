@@ -1070,6 +1070,40 @@ private fun SettingsOverlay(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // ── Avancé : alerte zone 300 m (auto-affichage) ───────────────
+            SectionHeader(title = "Avancé")
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            SubSectionHeader(
+                title = "Alerte zone 300 m",
+                description = "Réaffiche automatiquement la zone des 300 m masquée à l'approche de la côte (GPS)"
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            SettingsSliderRow(
+                label = "Distance d'alerte",
+                description = "Distance avant la limite des 300 m à laquelle la zone réapparaît",
+                valueLabel = "${settings.zoneAutoRevealDistanceM.roundToInt()} m",
+                value = settings.zoneAutoRevealDistanceM,
+                valueRange = 50f..500f,
+                steps = 17,
+                onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealDistanceM = (v / 25f).roundToInt() * 25f) } }
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            SettingsSliderRow(
+                label = "Délai d'alerte",
+                description = "Temps avant d'atteindre la limite (à la vitesse actuelle) déclenchant le réaffichage",
+                valueLabel = "${settings.zoneAutoRevealTimeS} s",
+                value = settings.zoneAutoRevealTimeS.toFloat(),
+                valueRange = 5f..120f,
+                steps = 22,
+                onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealTimeS = (v / 5f).roundToInt() * 5) } }
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
             // ── Footer ────────────────────────────────────────────────────
             Spacer(modifier = Modifier.height(32.dp))
             Text(

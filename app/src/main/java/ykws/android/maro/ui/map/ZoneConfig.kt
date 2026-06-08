@@ -18,6 +18,9 @@ import java.util.Properties
  * distanceToZoneGradientText=600    # Text fade range (m)
  * distanceToZoneGradientColor=300   # Tile fade range outward (m)
  * distanceToZoneGradientTransp=33   # Outside-zone transparency (0–100)
+ * zoneAutoRevealDistanceM=200       # Auto-reveal distance outside band (m)
+ * zoneAutoRevealTimeS=20            # Auto-reveal time-to-band at SOG (s)
+ * zoneRegulatorySpeedKn=5           # Regulatory speed inside band (kn)
  * ```
  */
 object ZoneConfig {
@@ -32,6 +35,18 @@ object ZoneConfig {
 
     /** Transparency percentage (0–100) applied to the zone colour when outside the zone. */
     var distanceToZoneGradientTransp = 33
+        private set
+
+    /** Distance (m) outside the 300 m band edge at which a hidden band auto-reveals (default for the in-app setting). */
+    var zoneAutoRevealDistanceM = 200f
+        private set
+
+    /** Time (s) before reaching the 300 m band edge (at SOG) at which a hidden band auto-reveals (default for the in-app setting). */
+    var zoneAutoRevealTimeS = 20
+        private set
+
+    /** Regulatory speed limit (kn) inside the 300 m band — at/below this, an auto-revealed band re-hides. */
+    var zoneRegulatorySpeedKn = 5f
         private set
 
     /**
@@ -54,6 +69,15 @@ object ZoneConfig {
             }
             props.getProperty("distanceToZoneGradientTransp")?.toIntOrNull()?.let {
                 distanceToZoneGradientTransp = it.coerceIn(0, 100)
+            }
+            props.getProperty("zoneAutoRevealDistanceM")?.toFloatOrNull()?.let {
+                zoneAutoRevealDistanceM = it.coerceIn(50f, 500f)
+            }
+            props.getProperty("zoneAutoRevealTimeS")?.toIntOrNull()?.let {
+                zoneAutoRevealTimeS = it.coerceIn(5, 120)
+            }
+            props.getProperty("zoneRegulatorySpeedKn")?.toFloatOrNull()?.let {
+                zoneRegulatorySpeedKn = it.coerceIn(1f, 20f)
             }
         } catch (_: Exception) {
             // Keep defaults — properties file missing or corrupt.

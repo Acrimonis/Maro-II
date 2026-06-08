@@ -5,6 +5,7 @@
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-08
 - **Last Bake:** 2026-06-08 14:31 (BakeNormalization — Phases 1–3: region single-sourced from props→BuildConfig, depth envelope derived (WATER_BBOX removed), no baked data in git, bake-*/apk-bake/build/deploy split; fixes: streaming .asc parser (OOM), APK .asc-exclude, CRLF .gitattributes; on-device verified)
+- **Prev Bake:** 2026-06-08 12:32 (MapDisplay — 300 m proximity auto-reveal reworked: hybrid reveal (200 m / 20 s), stop/compliance/exit/retreat auto-hide, configurable thresholds, demo pan-speed; pure `zone300Decision()` + unit tests)
 
 ## Routing Map
 | Keyword | Feature File |

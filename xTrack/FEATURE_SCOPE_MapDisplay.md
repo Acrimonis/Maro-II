@@ -2,7 +2,7 @@
 name: MapDisplay
 status: active
 created: 2026-06-07 00:00
-modified: 2026-06-08 00:00
+modified: 2026-06-08 12:32
 active_subfeature: layer-zone
 subs_total: 5
 subs_done: 3
@@ -47,21 +47,31 @@ one_liner: Map display layer management — depth layer, color depth layer, and 
 ### zone proximity auto-reveal  [x]
 
 #### Todos
-- [x] Track `zone300ManuallyHidden` state in CoastlineViewModel (session-only, not persisted)
-- [x] Inject auto-re-enable logic in the shore pipeline onEach block, watching `_distanceToZone` threshold
-- [x] Single-shot: once auto-re-enabled, normal toggle behavior resumes
-- [x] Extract toggle into `viewModel.toggleZone300Visibility()` to manage the manual-hide flag
+- [x] Track `zone300ManuallyHidden` (armed) + `zone300AutoRevealed` + `bandEnteredSinceReveal` flags (session-only)
+- [x] Hybrid reveal in the shore pipeline: closing + (within distance OR time-to-band at SOG)
+- [x] Auto-hide: stopped & not closing, compliant inside (≤ reg speed), exited seaward, retreated past margin
+- [x] Suppress auto-show while inside the band (reveal only from outside, dist > 0)
+- [x] Configurable distance/time in zone.properties + Settings → Avancé; reg/stop speeds in ZoneConfig
+- [x] Demo support via pan-derived speed (paused = 0 kn inside / unknown outside)
+- [x] Extract pure, unit-tested `zone300Decision()`; `toggleZone300Visibility()` manages the armed flag
 
 #### Rules
-- Single-shot only — the system should not harass the user by re-enabling repeatedly
-- Works in both GPS and demo modes (no GPS gating) — distance-based trigger only
-- Uses a ~400m buffer (100m before the 300m boundary) as the activation threshold
-- The auto-re-enable IS the alert — no separate toast/sound needed
-- Design note: `distanceToZone = distanceToCoast - 300.0` already computed every 150ms
+- Reveal only while OUTSIDE the band (dist > 0) and closing; hybrid = distance (default 200 m) OR time-to-band (default 20 s at SOG), whichever fires first
+- Auto-hide on any of: stopped & not closing (≤ 1 kn), compliant inside (≤ 5 kn = `ZoneConfig.zoneRegulatorySpeedKn`), exited seaward, retreated past the reveal margin
+- `armed` persists through an auto-hide → re-approaching re-reveals; a manual toggle disarms
+- Speed source: GPS real SOG; demo pan-speed (null/unknown is never read as stopped/compliant). Decision logic is shared across modes (no gpsMode branch)
+- Thresholds live in `zone.properties` AND Settings → Avancé (distance/time); regulatory + stopped speeds in `ZoneConfig`
+- Decision is a pure, side-effect-free `zone300Decision()` covered by `Zone300DecisionTest`; shore pipeline samples every 150 ms
+- Known edge: anchored within the reveal margin with GPS distance jitter could flap (deadband/cooldown not yet added)
+- Replaces the old single-shot / fixed-400 m heuristic (`ZONE_AUTO_REVEAL_M` removed)
 
 #### Key Files
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — shore pipeline + `zone300Decision()` + flags
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — Settings → Avancé sliders
+- `app/src/main/java/ykws/android/maro/ui/map/ZoneConfig.kt` — defaults (distance/time/reg speed)
+- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — persisted thresholds
+- `app/src/main/assets/zone.properties` — tunable defaults
+- `app/src/test/java/ykws/android/maro/ui/map/Zone300DecisionTest.kt` — unit tests
 
 ### speed in demo  [x]
 

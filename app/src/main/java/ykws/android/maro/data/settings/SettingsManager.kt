@@ -47,6 +47,8 @@ data class AppSettings(
     val defaultLongitude: Double = 7.00,
     val coastlineVisible: Boolean = true,
     val zone300Visible: Boolean = true,
+    val zoneAutoRevealDistanceM: Float = 200f,
+    val zoneAutoRevealTimeS: Int = 20,
     val gpsMode: Boolean = false,
     val recenterDelaySeconds: Int = 5,
     val gpsActiveIntervalSec: Int = 2,
@@ -62,7 +64,11 @@ data class AppSettings(
     val distanceToShore: Double = Double.NaN
 )
 
-class SettingsManager(context: Context) {
+class SettingsManager(
+    context: Context,
+    private val defaultAutoRevealDistM: Float = 200f,
+    private val defaultAutoRevealTimeS: Int = 20
+) {
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -75,6 +81,8 @@ class SettingsManager(context: Context) {
         defaultLongitude = prefs.getFloat(KEY_DEFAULT_LON, 7.00f).toDouble(),
         coastlineVisible = prefs.getBoolean(KEY_COASTLINE_VISIBLE, true),
         zone300Visible   = prefs.getBoolean(KEY_ZONE300_VISIBLE, true),
+        zoneAutoRevealDistanceM = prefs.getFloat(KEY_ZONE_AUTOREVEAL_DIST_M, defaultAutoRevealDistM),
+        zoneAutoRevealTimeS     = prefs.getInt(KEY_ZONE_AUTOREVEAL_TIME_S, defaultAutoRevealTimeS),
         gpsMode          = prefs.getBoolean(KEY_GPS_MODE, false),
         recenterDelaySeconds = prefs.getInt(KEY_RECENTER_DELAY_S, 5),
         gpsActiveIntervalSec = prefs.getInt(KEY_GPS_INTERVAL_S, 2),
@@ -108,6 +116,8 @@ class SettingsManager(context: Context) {
             .putFloat(KEY_DEFAULT_LON, updated.defaultLongitude.toFloat())
             .putBoolean(KEY_COASTLINE_VISIBLE, updated.coastlineVisible)
             .putBoolean(KEY_ZONE300_VISIBLE, updated.zone300Visible)
+            .putFloat(KEY_ZONE_AUTOREVEAL_DIST_M, updated.zoneAutoRevealDistanceM)
+            .putInt(KEY_ZONE_AUTOREVEAL_TIME_S, updated.zoneAutoRevealTimeS)
             .putBoolean(KEY_GPS_MODE, updated.gpsMode)
             .putInt(KEY_RECENTER_DELAY_S, updated.recenterDelaySeconds)
             .putInt(KEY_GPS_INTERVAL_S, updated.gpsActiveIntervalSec)
@@ -130,6 +140,8 @@ class SettingsManager(context: Context) {
         private const val KEY_DEFAULT_LON = "default_lon"
         private const val KEY_COASTLINE_VISIBLE = "coastline_visible"
         private const val KEY_ZONE300_VISIBLE = "zone300_visible"
+        private const val KEY_ZONE_AUTOREVEAL_DIST_M = "zone_autoreveal_dist_m"
+        private const val KEY_ZONE_AUTOREVEAL_TIME_S = "zone_autoreveal_time_s"
         private const val KEY_GPS_MODE = "gps_mode"
         private const val KEY_RECENTER_DELAY_S = "recenter_delay_s"
         private const val KEY_GPS_INTERVAL_S = "gps_interval_s"
