@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** BakeNormalization
-- **Active Subfeature:** none
+- **Active Feature:** DepthSafety
+- **Active Subfeature:** water-only
 - **Last Updated:** 2026-06-08
-- **Last Bake:** 2026-06-08 17:10 (BakeNormalization — feature/litto3d-shallow incremental: Litto3D EAST fetched (510 tiles) → full-corridor .asc.gz → depth .bin re-merged (eastern shallow in); fixed bake-depth --fresh shift/%0 bug; fixed APK build OOM (*.asc.gz exclude + purged stale 1.6 GB .asc) → 16 MB APK; depth source label bold + red→green by confidence; verified dashboard #, colored overlay & isobaths share one DepthGrid)
-- **Prev Bake:** 2026-06-08 14:31 (BakeNormalization — Phases 1–3: region single-sourced from props→BuildConfig, depth envelope derived (WATER_BBOX removed), no baked data in git, bake-*/apk-bake/build/deploy split; fixes: streaming .asc parser (OOM), APK .asc-exclude, CRLF .gitattributes; on-device verified)
+- **Last Bake:** 2026-06-08 18:25 (BakeNormalization — feature/litto3d-shallow finalized: depth land-mask (water-only) committed 3c6ee3d, APK built 16 MB; spun off new DepthSafety feature — 4 branches: water-only, isobar-precision, danger-display, danger-alert)
+- **Prev Bake:** 2026-06-08 17:10 (BakeNormalization — feature/litto3d-shallow incremental: Litto3D EAST fetched (510 tiles) → full-corridor .asc.gz → depth .bin re-merged; fixed bake-depth --fresh shift/%0 bug; fixed APK build OOM (*.asc.gz exclude + purged stale 1.6 GB .asc) → 16 MB APK; depth source label bold + red→green by confidence)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -23,6 +23,7 @@
 | performance, battery, gps-tune, adaptive, compass-gate, map-refresh, battery-drain | FEATURE_SCOPE_Performance.md |
 | isonwater, isonwateragain, iswater, waterland, raycast, crossing, point-in-polygon | FEATURE_SCOPE_isOnWaterAgain.md |
 | bake, baking, bake-script, bake-bat, apk-bake, apk-build, apk-deploy, deploy, prebake-pipeline, bake-env | FEATURE_SCOPE_BakeNormalization.md |
+| depthsafety, depth-safety, danger-depth, shallow, grounding, isobar precision, isobath precision, depth alert, depth overlay, water-only | FEATURE_SCOPE_DepthSafety.md |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).
