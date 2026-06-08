@@ -14,6 +14,8 @@ set "WORK=%TEMP%\emodnet_e5"
 set "OUT=data\app-assets\depth"
 if not exist "%OUT%" mkdir "%OUT%"
 if not exist "%WORK%" mkdir "%WORK%"
+if /i "%~1"=="--fresh" echo [bake-emodnet] --fresh: clearing the cached E5 tile to force a re-download...
+if /i "%~1"=="--fresh" del /q "%WORK%\*.tif" "%WORK%\*.zip" 2>nul
 
 REM Cache: reuse the extracted .tif if present (the E5 tile is hundreds of MB).
 set "SRC="

@@ -43,7 +43,7 @@ android {
     androidResources {
         // Don't package the GDAL/OSM bake intermediates that ride along in data/app-assets/depth/
         // (a corridor-wide Litto3D .asc is ~1 GB); the app only reads the cooked .bin. Keeps the APK lean.
-        ignoreAssetsPatterns += listOf("*.asc", "*.asc.aux.xml", "*.prj", "*.vrt")
+        ignoreAssetsPatterns += listOf("*.asc", "*.asc.gz", "*.asc.aux.xml", "*.prj", "*.vrt")
     }
 
     sourceSets {

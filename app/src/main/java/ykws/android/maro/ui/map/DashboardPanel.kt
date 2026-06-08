@@ -171,6 +171,7 @@ private fun DashboardCard(
     cardColor: Color = DashboardColors.cardBg,
     valueColor: Color = DashboardColors.textPrimary,
     subtitleColor: Color = DashboardColors.textMuted,
+    subtitleWeight: FontWeight = FontWeight.Normal,
     borderColor: Color = Color.Transparent,
     borderWidth: Dp = 0.dp,
     modifier: Modifier = Modifier
@@ -212,6 +213,7 @@ private fun DashboardCard(
                 text = subtitle ?: "",
                 color = subtitleColor,
                 fontSize = 9.sp,
+                fontWeight = subtitleWeight,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 textAlign = TextAlign.Center
@@ -396,11 +398,15 @@ private fun DepthCard(
     val depthColor = depthRampColor(depthM)
     val sourceLabel = depthSourceLabel(depthSample.source)
     val confidencePct = depthSample.confidence.toInt()
+    // Confidence colour: red (low) -> amber -> green (high), via HSV hue 0..120 deg.
+    val confColor = Color.hsv(120f * (confidencePct / 100f).coerceIn(0f, 1f), 0.90f, 0.72f)
 
     DashboardCard(
         title = "Profondeur",
         value = "%.1f m".format(depthM),
         subtitle = "$sourceLabel · ${confidencePct}%",
+        subtitleColor = confColor,
+        subtitleWeight = FontWeight.Bold,
         cardColor = depthColor.copy(alpha = 0.25f),
         modifier = modifier
     )

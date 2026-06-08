@@ -4,8 +4,8 @@
 - **Active Feature:** BakeNormalization
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-08
-- **Last Bake:** 2026-06-08 14:31 (BakeNormalization — Phases 1–3: region single-sourced from props→BuildConfig, depth envelope derived (WATER_BBOX removed), no baked data in git, bake-*/apk-bake/build/deploy split; fixes: streaming .asc parser (OOM), APK .asc-exclude, CRLF .gitattributes; on-device verified)
-- **Prev Bake:** 2026-06-08 12:32 (MapDisplay — 300 m proximity auto-reveal reworked: hybrid reveal (200 m / 20 s), stop/compliance/exit/retreat auto-hide, configurable thresholds, demo pan-speed; pure `zone300Decision()` + unit tests)
+- **Last Bake:** 2026-06-08 17:10 (BakeNormalization — feature/litto3d-shallow incremental: Litto3D EAST fetched (510 tiles) → full-corridor .asc.gz → depth .bin re-merged (eastern shallow in); fixed bake-depth --fresh shift/%0 bug; fixed APK build OOM (*.asc.gz exclude + purged stale 1.6 GB .asc) → 16 MB APK; depth source label bold + red→green by confidence; verified dashboard #, colored overlay & isobaths share one DepthGrid)
+- **Prev Bake:** 2026-06-08 14:31 (BakeNormalization — Phases 1–3: region single-sourced from props→BuildConfig, depth envelope derived (WATER_BBOX removed), no baked data in git, bake-*/apk-bake/build/deploy split; fixes: streaming .asc parser (OOM), APK .asc-exclude, CRLF .gitattributes; on-device verified)
 
 ## Routing Map
 | Keyword | Feature File |

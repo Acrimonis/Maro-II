@@ -13,6 +13,8 @@ set "RES=0.00005"
 set "TILES=tools\litto3d_tiles"
 set "WORK=%TEMP%\litto3d"
 set "OUT=data\app-assets\depth"
+if /i "%~1"=="--fresh" echo [bake-litto3d] --fresh: fetching/updating tiles via fetch_litto3d_paca.ps1 -- can be a large download...
+if /i "%~1"=="--fresh" powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0fetch_litto3d_paca.ps1" -Mnt5m -TilesDir "%~dp0litto3d_tiles"
 if not exist "%TILES%\*.asc" (echo No .asc tiles in %TILES% - run tools\fetch_litto3d_paca.ps1 first. & exit /b 1)
 if not exist "%OUT%" mkdir "%OUT%"
 if not exist "%WORK%" mkdir "%WORK%"
