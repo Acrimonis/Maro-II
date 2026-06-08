@@ -205,7 +205,7 @@ class CoastlineRepository(
                 logCoastlineTopology(base)
                 val band = Zone300Builder(
                     index = index,
-                    segments = base.allSegments,
+                    segments = index.usableSegments,   // cleaned: no degenerate rings / tiny fragments
                     refLat = base.metadata.projectionRefLat,
                     isWater = { lat, lon, d -> isOnWater(lat, lon, d) },
                     cellM = cell
@@ -275,7 +275,7 @@ class CoastlineRepository(
             val band = withContext(Dispatchers.Default) {
                 Zone300Builder(
                     index = index,
-                    segments = data.allSegments,
+                    segments = index.usableSegments,   // cleaned: no degenerate rings / tiny fragments
                     refLat = data.metadata.projectionRefLat,
                     isWater = { lat, lon, d -> isOnWater(lat, lon, d) },
                     cellM = cell

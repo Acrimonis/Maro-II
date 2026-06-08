@@ -62,6 +62,13 @@ class CoastlineSpatialIndex(
     /** Row-major grid cell key. */
     private data class GridCell(val row: Int, val col: Int)
 
+    /** A real island ring (interior = land) with its bbox, for point-in-polygon containment. */
+    private class IslandRing(
+        val pts: List<LatLng>,
+        val minLat: Double, val maxLat: Double,
+        val minLon: Double, val maxLon: Double
+    )
+
     // ── State ────────────────────────────────────────────────────────────────
 
     /** All segments flattened from all polylines, in order. */
@@ -72,6 +79,13 @@ class CoastlineSpatialIndex(
 
     /** The original coastline segments (needed for segment IDs). */
     private val segmentsById: List<CoastlineSegment>
+
+    /**
+     * The segments the index actually uses — degenerate rings and tiny open fragments removed.
+     * Exposed so the 300 m band builder rasterises the **same cleaned coastline**; otherwise a
+     * dropped scrap (e.g. the 13 m seg4323 sliver) still corrupts the band's flood barrier / ribbon.
+     */
+    val usableSegments: List<CoastlineSegment>
 
     // Bounding box
     private val minLat: Double
@@ -99,6 +113,13 @@ class CoastlineSpatialIndex(
     private val isRingPoly: BooleanArray
 
     /**
+     * Precomputed **real island** rings (closed, non-degenerate, CCW = interior land), each with its
+     * point list and bounding box, for fast point-in-island containment ([insideRealIsland]). Marina
+     * basins (CW) and degenerate slivers are excluded — they must not turn open water into land.
+     */
+    private val islandRings: List<IslandRing>
+
+    /**
      * Longitude span of the **open mainland coast** (all non-ring polylines combined) —
      * the extent of the virtual inland "cap" edge that closes the open coast into a land
      * polygon for [isWater]. `min > max` (empty range) ⇒ no mainland present.
@@ -123,6 +144,8 @@ class CoastlineSpatialIndex(
             rowCount = 0; colCount = 0
             mainlandLonMin = 1.0; mainlandLonMax = -1.0   // empty range ⇒ no cap
             isRingPoly = BooleanArray(0)
+            islandRings = emptyList()
+            usableSegments = emptyList()
         } else {
             // — 1. Global bounding box —
             var bMinLat = Double.MAX_VALUE
@@ -159,9 +182,50 @@ class CoastlineSpatialIndex(
             rowCount = max(1, ceil((maxLat - minLat) / cellSizeLat).toInt())
             colCount = max(1, ceil((maxLon - minLon) / cellSizeLon).toInt())
 
-            // — 3. Flatten segments —
+            // — 3. Per-polyline ring detection (island = geometrically closed), then DROP
+            //   degenerate rings: ≤3 points or ~zero area are noise slivers mis-closed into
+            //   "rings" by the first/last≈ heuristic. They are not real polygons and corrupt the
+            //   nearest-feature water/land test — a zero-area sliver has a meaningless "side", so
+            //   points on either side of it flip arbitrarily (the residual marina bands). —
+            isRingPoly = BooleanArray(segments.size) { polyIdx ->
+                val pts = segments[polyIdx].points
+                pts.size >= 3 &&
+                    abs(pts.first().lat - pts.last().lat) < RING_CLOSE_EPS_DEG &&
+                    abs(pts.first().lon - pts.last().lon) < RING_CLOSE_EPS_DEG
+            }
+            val polyUsable = BooleanArray(segments.size) { polyIdx ->
+                val pts = segments[polyIdx].points
+                if (isRingPoly[polyIdx]) {
+                    // Ring: keep only non-degenerate polygons (≥3 distinct vertices + real area).
+                    if (pts.size < 4) return@BooleanArray false
+                    var area2 = 0.0
+                    for (i in 0 until pts.size - 1) {
+                        area2 += pts[i].lon.toDouble() * pts[i + 1].lat.toDouble() -
+                            pts[i + 1].lon.toDouble() * pts[i].lat.toDouble()
+                    }
+                    abs(area2) >= RING_MIN_AREA_DEG2
+                } else {
+                    // Open coast: drop tiny detached fragments (e.g. the 13 m seg4323 sliver). A
+                    // sub-threshold scrap carries no real sea/land boundary and only hijacks the
+                    // nearest-feature side test for the surrounding open water.
+                    val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
+                    var lenM = 0.0
+                    for (i in 0 until pts.size - 1) {
+                        val midLat = (pts[i].lat + pts[i + 1].lat) / 2.0
+                        val dy = (pts[i + 1].lat - pts[i].lat).toDouble() * mPerDegLat
+                        val dx = (pts[i + 1].lon - pts[i].lon).toDouble() *
+                            mPerDegLat * cos(Math.toRadians(midLat.toDouble()))
+                        lenM += sqrt(dx * dx + dy * dy)
+                    }
+                    lenM >= MIN_OPEN_POLYLINE_M
+                }
+            }
+            usableSegments = segments.filterIndexed { i, _ -> polyUsable[i] }
+
+            // — 4. Flatten segments (skipping degenerate rings) —
             val refs = mutableListOf<SegmentRef>()
             for ((polyIdx, seg) in segments.withIndex()) {
+                if (!polyUsable[polyIdx]) continue
                 val pts = seg.points
                 for (i in 0 until pts.size - 1) {
                     val a = LatLng(pts[i].lat.toDouble(), pts[i].lon.toDouble())
@@ -181,14 +245,7 @@ class CoastlineSpatialIndex(
             }
             segmentRefs = refs
 
-            // Per-polyline ring detection (island = geometrically closed) + the cap's
-            // longitude extent (the combined span of all OPEN mainland-coast polylines).
-            isRingPoly = BooleanArray(segments.size) { polyIdx ->
-                val pts = segments[polyIdx].points
-                pts.size >= 3 &&
-                    abs(pts.first().lat - pts.last().lat) < RING_CLOSE_EPS_DEG &&
-                    abs(pts.first().lon - pts.last().lon) < RING_CLOSE_EPS_DEG
-            }
+            // Cap longitude extent (combined span of all OPEN mainland-coast polylines).
             var mlMin = Double.MAX_VALUE; var mlMax = -Double.MAX_VALUE
             for (r in refs) if (!isRingPoly[r.polylineIdx]) {
                 if (r.minLon < mlMin) mlMin = r.minLon
@@ -196,7 +253,33 @@ class CoastlineSpatialIndex(
             }
             mainlandLonMin = mlMin; mainlandLonMax = mlMax
 
-            // — 4. Build sparse grid —
+            // — Real island rings (usable + CCW = interior land) for point-in-island containment.
+            //   CW basins and degenerate slivers are excluded so they never turn open water to land. —
+            val islands = mutableListOf<IslandRing>()
+            for (polyIdx in segments.indices) {
+                if (!isRingPoly[polyIdx]) continue
+                val pts0 = segments[polyIdx].points
+                if (pts0.size < 4) continue
+                var area2 = 0.0
+                for (i in 0 until pts0.size - 1) {
+                    area2 += pts0[i].lon.toDouble() * pts0[i + 1].lat.toDouble() -
+                        pts0[i + 1].lon.toDouble() * pts0[i].lat.toDouble()
+                }
+                if (area2 < RING_MIN_AREA_DEG2) continue   // CW basin / degenerate ⇒ not a land island
+                val ll = pts0.map { LatLng(it.lat.toDouble(), it.lon.toDouble()) }
+                var nLat = Double.MAX_VALUE; var xLat = -Double.MAX_VALUE
+                var nLon = Double.MAX_VALUE; var xLon = -Double.MAX_VALUE
+                for (p in ll) {
+                    if (p.latitude < nLat) nLat = p.latitude
+                    if (p.latitude > xLat) xLat = p.latitude
+                    if (p.longitude < nLon) nLon = p.longitude
+                    if (p.longitude > xLon) xLon = p.longitude
+                }
+                islands.add(IslandRing(ll, nLat, xLat, nLon, xLon))
+            }
+            islandRings = islands
+
+            // — 5. Build sparse grid —
             val gridBuilder = HashMap<GridCell, MutableList<Int>>()
             for ((segIdx, ref) in refs.withIndex()) {
                 val minRow = ((ref.minLat - minLat) / cellSizeLat).toInt().coerceIn(0, rowCount - 1)
@@ -235,9 +318,10 @@ class CoastlineSpatialIndex(
         val ref = nearestRef(latitude, longitude) ?: return noResult(latitude, longitude)
         val point = LatLng(latitude, longitude)
         val polyline = segmentsById[ref.polylineIdx]
+        val closest = SpatialOperations.projectPointOntoSegment(point, ref.a, ref.b)
         return CoastlineDistanceResult(
             distanceMeters = SpatialOperations.pointToSegmentDistance(point, ref.a, ref.b),
-            closestPoint = SpatialOperations.projectPointOntoSegment(point, ref.a, ref.b),
+            closestPoint = closest,
             segmentId = polyline.id,
             isMainland = ref.polylineIdx == 0,
             polylineIdx = ref.polylineIdx,
@@ -305,43 +389,119 @@ class CoastlineSpatialIndex(
     )
 
     /**
-     * Water/land by **closed-polygon containment** — winding-independent and corner-safe.
+     * Water/land by a **mainland-primary** test:
+     *  - **Base** = nearest-**MAINLAND**-segment **side test** ([classifyWater]) — the open coast is
+     *    what actually separates sea from land; this is immune to the vertical-ray degeneracy and is
+     *    not hijacked by tiny marina rings (breakwaters/pontoons) deciding the open sea.
+     *  - **Override** = inside a **real island** ([insideRealIsland]) ⇒ land. Real = closed,
+     *    non-degenerate, CCW (interior land); marina basins (CW) and zero-area slivers are excluded,
+     *    so they can never flip open water to land.
      *
-     * The mainland arrives as an OPEN polyline (clipped at the region's east/west
-     * longitudes). We model the **land** as the polygon bounded by that coastline plus a
-     * virtual **cap** edge along the inland (north) side of the data — an edge that lies
-     * entirely on land for this region, so the closure is geometrically valid. A point is
-     * on **land** iff it lies inside that polygon, or inside any island ring.
-     *
-     * Containment is decided by an even-odd ray cast going **north** (toward the cap):
-     *  1. count crossings of every **open mainland-coast** polyline (`!isRingPoly`) in the
-     *     point's longitude column, north of the point ([SpatialOperations.rayCrossesSegmentNorth]);
-     *  2. add **+1** for the cap edge — a northward ray always crosses it once when the
-     *     point's longitude lies within the mainland span ([mainlandLonMin]..[mainlandLonMax]);
-     *  3. **odd** total ⇒ inside the land polygon ⇒ **land**.
-     * Each island (closed ring) is then tested separately: an odd crossing count ⇒ the
-     * point is inside that island ⇒ **land**.
-     *
-     * Counting **all** open polylines (not just `polylineIdx == 0`) means a mainland that
-     * assembled into several pieces is still closed into one land polygon by the shared
-     * cap — so a fragment running ~north–south can no longer leave a land-side band.
-     *
-     * Unlike the previous open-polyline **south**-ray (which it replaces), this cannot
-     * mislabel land beside ~north–south coast stretches or harbours: the cap closes the
-     * polygon, so even-odd parity is a true topological invariant (Jordan curve theorem),
-     * independent of coastline winding/orientation. `true` = water (default: no data).
+     * `land = mainland-side-says-land OR inside-a-real-island`. `true` = water (default: no data).
+     * The legacy all-ray containment is kept as [isWaterByRayCast] for rollback.
      */
     fun isWater(latitude: Double, longitude: Double): Boolean {
         if (!hasData) return true
+        val mainRef = nearestRef(latitude, longitude, mainlandOnly = true)
+        val mainLand = if (mainRef != null) {
+            val point = LatLng(latitude, longitude)
+            val closest = SpatialOperations.projectPointOntoSegment(point, mainRef.a, mainRef.b)
+            !classifyWater(point, mainRef, closest)
+        } else false
+        return !(mainLand || insideRealIsland(latitude, longitude))
+    }
 
-        val rayLatEnd = maxLat                       // north of all coastline (padded bbox top)
+    /** True when (lat,lon) is inside any real island ring (bbox-filtered even-odd PNPOLY). */
+    private fun insideRealIsland(latitude: Double, longitude: Double): Boolean {
+        for (ring in islandRings) {
+            if (latitude < ring.minLat || latitude > ring.maxLat ||
+                longitude < ring.minLon || longitude > ring.maxLon
+            ) continue
+            if (pointInPolygon(latitude, longitude, ring.pts)) return true
+        }
+        return false
+    }
+
+    /** Even-odd point-in-polygon (horizontal-ray PNPOLY; the straddle guard handles axis-aligned
+     *  edges and vertices and prevents divide-by-zero). */
+    private fun pointInPolygon(lat: Double, lon: Double, poly: List<LatLng>): Boolean {
+        var inside = false
+        var j = poly.size - 1
+        for (i in poly.indices) {
+            val yi = poly[i].latitude; val xi = poly[i].longitude
+            val yj = poly[j].latitude; val xj = poly[j].longitude
+            if (((yi > lat) != (yj > lat)) &&
+                (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi)
+            ) inside = !inside
+            j = i
+        }
+        return inside
+    }
+
+    /**
+     * Water/land for [point] from its nearest segment [ref] and the [closest] point on it. When
+     * [closest] is interior to the segment a single side test suffices; when it coincides with an
+     * endpoint the point is nearest a shared vertex and the corner rule ([cornerWater]) applies.
+     */
+    private fun classifyWater(point: LatLng, ref: SegmentRef, closest: LatLng): Boolean {
+        val atA = abs(closest.latitude - ref.a.latitude) < VERTEX_EPS_DEG &&
+            abs(closest.longitude - ref.a.longitude) < VERTEX_EPS_DEG
+        val atB = abs(closest.latitude - ref.b.latitude) < VERTEX_EPS_DEG &&
+            abs(closest.longitude - ref.b.longitude) < VERTEX_EPS_DEG
+        return when {
+            atA -> cornerWater(point, ref.polylineIdx, ref.vertexIdx)
+            atB -> cornerWater(point, ref.polylineIdx, ref.vertexIdx + 1)
+            else -> SpatialOperations.signedSide(point, ref.a, ref.b) < 0.0   // right of travel = water
+        }
+    }
+
+    /**
+     * Water/land when the nearest point is polyline vertex [v] (a corner shared by two edges).
+     * Resolves the ambiguity from both incident edges and the turn direction, keeping the
+     * water-on-the-right convention. Handles open-polyline endpoints (one edge) and ring wrap.
+     */
+    private fun cornerWater(point: LatLng, polyIdx: Int, v: Int): Boolean {
+        val poly = segmentsById[polyIdx].points   // CoastlinePoint (Float lat/lon)
+        val n = poly.size
+        val isRing = isRingPoly[polyIdx]
+        val prevIdx = if (v > 0) v - 1 else if (isRing) n - 2 else -1
+        val nextIdx = if (v < n - 1) v + 1 else if (isRing) 1 else -1
+        fun at(i: Int): LatLng? =
+            if (i in 0 until n) LatLng(poly[i].lat.toDouble(), poly[i].lon.toDouble()) else null
+        val vtx = at(v) ?: return true
+        val prev = at(prevIdx)
+        val next = at(nextIdx)
+        if (prev == null && next == null) return true
+        if (prev == null) return SpatialOperations.signedSide(point, vtx, next!!) < 0.0
+        if (next == null) return SpatialOperations.signedSide(point, prev, vtx) < 0.0
+        val waterIn = SpatialOperations.signedSide(point, prev, vtx) < 0.0
+        val waterOut = SpatialOperations.signedSide(point, vtx, next) < 0.0
+        // Turn at the vertex (sign only), land on the left (water-on-right ⇒ CCW interior):
+        //  > 0 left turn = CONVEX land corner (small land wedge) ⇒ water if on the water side of
+        //                  EITHER edge; <= 0 reflex ⇒ water only if on the water side of BOTH.
+        val turn = (vtx.longitude - prev.longitude) * (next.latitude - vtx.latitude) -
+            (vtx.latitude - prev.latitude) * (next.longitude - vtx.longitude)
+        return if (turn > 0.0) (waterIn || waterOut) else (waterIn && waterOut)
+    }
+
+    /**
+     * Legacy water/land by closed-polygon containment via a vertical NORTH ray (even-odd parity;
+     * mainland closed by a virtual inland cap; islands tested as rings). Retained for A/B
+     * comparison and rollback only — [isWater] now uses the nearest-segment side test, which is
+     * not degenerate against near-vertical coast. `true` = water (default: no data).
+     */
+    @Suppress("unused")
+    private fun isWaterByRayCast(latitude: Double, longitude: Double): Boolean {
+        if (!hasData) return true
+
+        val rayLatEnd = maxLat
         val col = ((longitude - minLon) / cellSizeLon).toInt().coerceIn(0, colCount - 1)
         val startRow = ((latitude - minLat) / cellSizeLat).toInt().coerceIn(0, rowCount - 1)
 
         var mainlandCrossings = 0
-        val islandCrossings = HashMap<Int, Int>()    // ring polylineIdx → crossing count
+        val islandCrossings = HashMap<Int, Int>()
         val seen = HashSet<Int>()
-        for (r in startRow until rowCount) {          // scan the column northward
+        for (r in startRow until rowCount) {
             val cell = grid[GridCell(r, col)] ?: continue
             for (segIdx in cell) {
                 if (!seen.add(segIdx)) continue
@@ -350,22 +510,19 @@ class CoastlineSpatialIndex(
                 if (isRingPoly[ref.polylineIdx]) {
                     islandCrossings[ref.polylineIdx] = (islandCrossings[ref.polylineIdx] ?: 0) + 1
                 } else {
-                    mainlandCrossings++              // any open coast piece (incl. fragments)
+                    mainlandCrossings++
                 }
             }
         }
 
-        // Mainland land = coastline crossings + the inland cap edge (+1 within the span).
         val capCrossing = if (longitude in mainlandLonMin..mainlandLonMax) 1 else 0
-        if ((mainlandCrossings + capCrossing) % 2 == 1) return false   // inside the mainland
-
-        // Inside any island ring ⇒ land.
+        if ((mainlandCrossings + capCrossing) % 2 == 1) return false
         for (c in islandCrossings.values) if (c % 2 == 1) return false
         return true
     }
 
     /** Ring-expanding nearest-segment search used by [query]. */
-    private fun nearestRef(latitude: Double, longitude: Double): SegmentRef? {
+    private fun nearestRef(latitude: Double, longitude: Double, mainlandOnly: Boolean = false): SegmentRef? {
         if (!hasData) return null
 
         val point = LatLng(latitude, longitude)
@@ -381,6 +538,7 @@ class CoastlineSpatialIndex(
             for (segIdx in collectRing(row, col, ring)) {
                 if (!processed.add(segIdx)) continue   // already evaluated in an inner box
                 val ref = segmentRefs[segIdx]
+                if (mainlandOnly && isRingPoly[ref.polylineIdx]) continue
                 val d = SpatialOperations.pointToSegmentDistance(point, ref.a, ref.b)
                 if (d < bestDist) {
                     bestDist = d
@@ -432,6 +590,17 @@ class CoastlineSpatialIndex(
     }
 
     private companion object {
+        /** Degrees within which a projected closest point is treated as coincident with a vertex (~1 cm). */
+        const val VERTEX_EPS_DEG = 1e-7
+
+        /** Min |signed area| (deg², shoelace ×2) for a ring to count as a real polygon (~a few m²);
+         *  below this it is a degenerate sliver and is dropped from the index. */
+        const val RING_MIN_AREA_DEG2 = 1e-9
+
+        /** Min total length (m) for an OPEN coast polyline to be kept; shorter detached fragments are
+         *  digitisation scraps that corrupt the nearest-feature water/land test, so they are dropped. */
+        const val MIN_OPEN_POLYLINE_M = 30.0
+
         /**
          * Safety margin on the ring-distance stop bound. The grid's longitude cell
          * width in metres varies slightly with latitude (projected at mid-latitude),

@@ -168,6 +168,70 @@ class CoastlineSpatialIndexWaterTest {
         assertTrue("water south of the dip floor", index.isWater(43.470, 7.027))
     }
 
+    // ── Corner rule (nearest-segment side test) ──────────────────────────────────
+
+    @Test
+    fun `convex island corner — point due south of the SE corner is water`() {
+        // Regression for the nearest-segment corner rule (cornerWater turn-sign). The nearest
+        // boundary point here is the SE vertex; the point is OUTSIDE ⇒ water. With the OR/AND
+        // branches swapped this wrongly returned land.
+        val s = 43.460; val n = 43.468; val w = 7.040; val e = 7.050
+        val ring = listOf(
+            LatLng(s, w), LatLng(s, e), LatLng(n, e), LatLng(n, w), LatLng(s, w)
+        )
+        val coast = (0..20).map { LatLng(43.50, 7.00 + it * 0.005) }
+        val index = indexOf(
+            seg(coast, mainland = true, closed = false),
+            seg(ring, mainland = false, closed = true)
+        )
+        assertTrue("due south of the SE island corner is open water", index.isWater(s - 0.002, e))
+    }
+
+    // ── Data-quality cleaning (isOnWaterAgain residual fixes) ────────────────────
+
+    @Test
+    fun `tiny offshore coastline fragment does not flip open water to land`() {
+        // Reproduces seg4323: a ~12 m near-vertical scrap floating in open water south of the coast.
+        // The index drops sub-30 m open fragments, so water around it stays water on BOTH sides
+        // (the scrap's meaningless "side" was making one side land).
+        val coast = (0..20).map { LatLng(43.50, 7.00 + it * 0.005) }            // E–W coast, water south
+        val scrap = listOf(LatLng(43.4800, 7.05000), LatLng(43.4801, 7.05005)) // ~12 m near-vertical
+        val index = indexOf(
+            seg(coast, mainland = true, closed = false),
+            seg(scrap, mainland = true, closed = false)
+        )
+        assertTrue("west of the scrap = water", index.isWater(43.4798, 7.04990))
+        assertTrue("at the scrap's longitude = water", index.isWater(43.4798, 7.05002))
+        assertTrue("east of the scrap = water", index.isWater(43.4798, 7.05010))
+    }
+
+    @Test
+    fun `degenerate zero-area ring is ignored`() {
+        val coast = (0..20).map { LatLng(43.50, 7.00 + it * 0.005) }
+        // 3-point, ~zero-area "ring" (first ≈ last) — a noise sliver; must be dropped.
+        val degen = listOf(LatLng(43.4800, 7.0500), LatLng(43.4805, 7.0500), LatLng(43.4800, 7.0500))
+        val index = indexOf(
+            seg(coast, mainland = true, closed = false),
+            seg(degen, mainland = false, closed = true)
+        )
+        assertTrue("near the degenerate ring, open water stays water", index.isWater(43.478, 7.0500))
+    }
+
+    @Test
+    fun `harbour basin ring (CW) is not treated as a land island`() {
+        val coast = (0..20).map { LatLng(43.50, 7.00 + it * 0.005) }
+        // Clockwise ring (interior = water basin); excluded from island containment, so it can't
+        // turn the surrounding/enclosed water into land.
+        val s = 43.470; val n = 43.476; val w = 7.040; val e = 7.050
+        val cw = listOf(LatLng(s, w), LatLng(n, w), LatLng(n, e), LatLng(s, e), LatLng(s, w))
+        val index = indexOf(
+            seg(coast, mainland = true, closed = false),
+            seg(cw, mainland = false, closed = true)
+        )
+        assertTrue("inside a CW basin is water, not land", index.isWater((s + n) / 2, (w + e) / 2))
+        assertTrue("south of the CW basin is water", index.isWater(s - 0.004, (w + e) / 2))
+    }
+
     // ── Degenerate ───────────────────────────────────────────────────────────────
 
     @Test

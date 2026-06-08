@@ -61,6 +61,12 @@ class Zone300Builder(
     private var y0 = 0.0
     private var cols = 0
     private var rows = 0
+    // Data (coastline) bounding box in projected metres — set in setupGrid; used to tell a genuine
+    // region-clipped open end (which must be sealed) from an interior fragment end (which must not).
+    private var dataMinX = 0.0
+    private var dataMaxX = 0.0
+    private var dataMinY = 0.0
+    private var dataMaxY = 0.0
 
     /** Per-cell land flag (candidate cell classified as land). Used to tell a
      *  seaward (deep-water-facing) contour edge from a landward (coast) edge. */
@@ -106,6 +112,7 @@ class Zone300Builder(
             if (y < minY) minY = y; if (y > maxY) maxY = y
         }
         if (minX > maxX) return
+        dataMinX = minX; dataMaxX = maxX; dataMinY = minY; dataMaxY = maxY
         val margin = ribbonM + 2.0 * cellM   // guarantees a false border → closed contours
         x0 = minX - margin; y0 = minY - margin
         cols = ceil((maxX - minX + 2.0 * margin) / cellM).toInt() + 1
@@ -225,15 +232,26 @@ class Zone300Builder(
             val pts = seg.points
             if (pts.size < 2) continue
             val n = pts.size
-            capFromEnd(
-                lon2x(pts[0].lon.toDouble()), lat2y(pts[0].lat.toDouble()),
-                lon2x(pts[1].lon.toDouble()), lat2y(pts[1].lat.toDouble()), flags
-            )
-            capFromEnd(
-                lon2x(pts[n - 1].lon.toDouble()), lat2y(pts[n - 1].lat.toDouble()),
-                lon2x(pts[n - 2].lon.toDouble()), lat2y(pts[n - 2].lat.toDouble()), flags
-            )
+            // Only seal ends genuinely clipped at the region edge. An INTERIOR open end (a
+            // fragmented-mainland junction) is not at the data boundary; sealing it shoots a spurious
+            // barrier to the grid edge — the source of the thin vertical band spikes.
+            val ax0 = lon2x(pts[0].lon.toDouble()); val ay0 = lat2y(pts[0].lat.toDouble())
+            if (nearDataBoundary(ax0, ay0)) {
+                capFromEnd(ax0, ay0, lon2x(pts[1].lon.toDouble()), lat2y(pts[1].lat.toDouble()), flags)
+            }
+            val axN = lon2x(pts[n - 1].lon.toDouble()); val ayN = lat2y(pts[n - 1].lat.toDouble())
+            if (nearDataBoundary(axN, ayN)) {
+                capFromEnd(axN, ayN, lon2x(pts[n - 2].lon.toDouble()), lat2y(pts[n - 2].lat.toDouble()), flags)
+            }
         }
+    }
+
+    /** True if (px,py) is within ~one band-width of the data bbox edge — a genuine region-clipped
+     *  coast end, not an interior fragment junction. */
+    private fun nearDataBoundary(px: Double, py: Double): Boolean {
+        val tol = ribbonM
+        return px <= dataMinX + tol || px >= dataMaxX - tol ||
+            py <= dataMinY + tol || py >= dataMaxY - tol
     }
 
     /** Rasterize a barrier from endpoint (px,py) along the outward tangent (away from
