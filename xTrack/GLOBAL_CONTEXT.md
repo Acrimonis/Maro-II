@@ -1,10 +1,10 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** WorkflowImprovement
-- **Active Subfeature:** none
+- **Active Feature:** MapDisplay
+- **Active Subfeature:** zone proximity auto-reveal
 - **Last Updated:** 2026-06-08
-- **Last Bake:** 2026-06-08 09:22 (WorkflowImprovement — xTrack system review: #doc sync, #doc audit, #diff, spec consolidation, Always-Loaded Context, ## Docs on 5 feature files, commands.md deprecated)
+- **Last Bake:** 2026-06-08 12:32 (MapDisplay — 300 m proximity auto-reveal reworked: hybrid reveal (200 m / 20 s), stop/compliance/exit/retreat auto-hide, no-show-inside, configurable thresholds, demo pan-speed; pure `zone300Decision()` + unit tests)
 
 ## Routing Map
 | Keyword | Feature File |
