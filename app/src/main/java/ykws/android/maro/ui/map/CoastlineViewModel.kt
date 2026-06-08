@@ -67,7 +67,8 @@ class CoastlineViewModel(
 ) : AndroidViewModel(application) {
 
     /** Persisted settings — initialised eagerly so StateFlows are seeded directly. */
-    private val settingsManager: SettingsManager = SettingsManager(application)
+    private val settingsManager: SettingsManager =
+        SettingsManager(application, ZoneConfig.zoneAutoRevealDistanceM, ZoneConfig.zoneAutoRevealTimeS)
 
     /** Device GPS + compass sources (framework-only, no Google Play Services) for GPS mode. */
     private val gpsSource: GpsLocationSource = GpsLocationSource(application)
@@ -197,10 +198,12 @@ class CoastlineViewModel(
     private var panStopJob: Job? = null
 
     // ── Zone 300 m proximity auto-reveal state machine ─────────────────────────
-    /** True when the user manually hid the 300m zone. */
+    /** True when the user manually hid the 300m zone → auto-reveal is armed. */
     private var zone300ManuallyHidden = false
-    /** True when the system auto-revealed the zone — tracks whether to re-hide later. */
+    /** True when the system auto-revealed the zone — gates the re-hide checks. */
     private var zone300AutoRevealed = false
+    /** True once the boat crossed into the band since the last auto-reveal (distinguishes exit vs turn-away). */
+    private var bandEnteredSinceReveal = false
     /** Previous [distanceToZone] sample — used to detect "getting closer" vs "moving away". */
     private var lastDistToZone: Double? = null
 
@@ -295,25 +298,31 @@ class CoastlineViewModel(
                 }
                 _inZone300.value = shore.inZone
                 _distanceToZone.value = shore.distToZone
-                // Proximity auto-reveal state machine — direction-aware.
-                val dist = shore.distToZone
-                val prevDist = lastDistToZone  // local snapshot for smart cast
-                val gettingCloser = dist != null && prevDist != null && dist < prevDist
-                val movingAway = dist != null && prevDist != null && dist > prevDist
-
-                // Rule 1: auto-reveal only when getting closer AND about to be delinquent.
-                if (zone300ManuallyHidden && !zone300AutoRevealed &&
-                    dist != null && dist <= ZONE_AUTO_REVEAL_M && gettingCloser) {
-                    zone300AutoRevealed = true
-                    settingsManager.update { it.copy(zone300Visible = true) }
+                // Hybrid proximity auto-reveal (distance OR time-to-band) — pure logic in zone300Decision().
+                val cfg = settings.value
+                // SOG source: real GPS speed in GPS mode (null = no fix yet → left null, never read as compliant);
+                // in demo, the pan-derived speed, where "not panning" means stationary = 0 kn.
+                val sogKn = if (cfg.gpsMode) _speedKnots.value else (_demoSpeedKnots.value ?: 0f)
+                val decision = zone300Decision(
+                    dist = shore.distToZone,
+                    prevDist = lastDistToZone,
+                    inZone = shore.inZone,
+                    sogKn = sogKn,
+                    armed = zone300ManuallyHidden,
+                    autoRevealed = zone300AutoRevealed,
+                    bandEntered = bandEnteredSinceReveal,
+                    revealDistM = cfg.zoneAutoRevealDistanceM.toDouble(),
+                    revealTimeS = cfg.zoneAutoRevealTimeS.toDouble(),
+                    regKn = ZoneConfig.zoneRegulatorySpeedKn.toDouble()
+                )
+                zone300AutoRevealed = decision.autoRevealed
+                bandEnteredSinceReveal = decision.bandEntered
+                when (decision.action) {
+                    Zone300Action.REVEAL -> settingsManager.update { it.copy(zone300Visible = true) }
+                    Zone300Action.HIDE -> settingsManager.update { it.copy(zone300Visible = false) }
+                    Zone300Action.NONE -> {}
                 }
-                // Rule 2: once auto-revealed, re-hide when no longer delinquent and moving away.
-                if (zone300AutoRevealed &&
-                    dist != null && dist > ZONE_AUTO_REVEAL_M && movingAway) {
-                    zone300AutoRevealed = false
-                    settingsManager.update { it.copy(zone300Visible = false) }
-                }
-                lastDistToZone = dist
+                lastDistToZone = shore.distToZone
             }
             .launchIn(viewModelScope)
 
@@ -437,6 +446,7 @@ class CoastlineViewModel(
     fun toggleZone300Visibility() {
         val current = settings.value.zone300Visible
         settingsManager.update { it.copy(zone300Visible = !current) }
+        bandEnteredSinceReveal = false
         if (current) { // was visible → now hiding (user manually hid it)
             zone300ManuallyHidden = true
             zone300AutoRevealed = false  // fresh manual hide, reset auto state
@@ -587,12 +597,6 @@ class CoastlineViewModel(
         /** Inactivity timeout (ms) before demo pan speed resets to null. */
         private const val PAN_STOP_DELAY_MS = 500L
 
-        /**
-         * Distance (m) from the 300m zone boundary at which the overlay auto-reveals
-         * if the user manually hid it. 100 m buffer before the actual 300 m line.
-         */
-        private const val ZONE_AUTO_REVEAL_M = 400.0
-
         /** Metres-per-second → knots. */
         private const val MPS_TO_KNOTS = 1.943844f
 
@@ -613,4 +617,76 @@ class CoastlineViewModel(
             }
         }
     }
+}
+
+/** Outcome of one [zone300Decision] evaluation. */
+internal enum class Zone300Action { NONE, REVEAL, HIDE }
+
+/** Action + next flag state from one auto-reveal evaluation (immutable, side-effect-free). */
+internal data class Zone300Decision(
+    val action: Zone300Action,
+    val autoRevealed: Boolean,
+    val bandEntered: Boolean
+)
+
+private const val KNOTS_TO_MPS = 0.514444      // 1 knot = 0.514444 m/s
+private const val CLOSING_EPS_MPS = 0.05       // ignore closing speeds below ~0.1 kn for time-to-band
+private const val STOPPED_SPEED_KN = 1.0f      // at/below this SOG the boat is "stopped" → auto-hide, never reveal
+
+/**
+ * Pure decision for the 300 m zone proximity auto-reveal — no side effects, unit-testable.
+ *
+ * Reveal (only while [armed] and not already shown): approach-gated **hybrid** — the boat is
+ * closing on the band AND is either within [revealDistM] of the band edge OR within [revealTimeS]
+ * of it at the current SOG, and is not stopped. Re-hide (only while [autoRevealed]) on any of:
+ * the boat stopped (SOG ≤ STOPPED_SPEED_KN), compliant inside the band (SOG ≤ [regKn]), exited
+ * the band seaward after entering, or retreated past [revealDistM] without ever entering.
+ * [armed] persists through an auto-hide, so re-approaching re-reveals.
+ *
+ * @param dist     signed distance to the 300 m band edge (+ outside, − inside); null if unknown.
+ * @param prevDist previous [dist] sample for direction; null on the first tick.
+ * @param inZone   true when inside the 300 m band on the water side.
+ * @param sogKn    speed over ground (kn); null in demo mode / before the first GPS fix.
+ */
+internal fun zone300Decision(
+    dist: Double?,
+    prevDist: Double?,
+    inZone: Boolean,
+    sogKn: Float?,
+    armed: Boolean,
+    autoRevealed: Boolean,
+    bandEntered: Boolean,
+    revealDistM: Double,
+    revealTimeS: Double,
+    regKn: Double
+): Zone300Decision {
+    val approaching = dist != null && prevDist != null && dist < prevDist
+    val movingAway = dist != null && prevDist != null && dist > prevDist
+    val stopped = sogKn != null && sogKn <= STOPPED_SPEED_KN
+    val entered = bandEntered || (autoRevealed && dist != null && dist <= 0.0)
+
+    if (!autoRevealed) {
+        val sogMps = (sogKn ?: 0f) * KNOTS_TO_MPS
+        val timeToBandS =
+            if (approaching && dist > 0.0 && sogMps > CLOSING_EPS_MPS) dist / sogMps
+            else Double.POSITIVE_INFINITY
+        // A stopped boat isn't closing on the zone → don't reveal (and it auto-hides below).
+        val reveal = armed && approaching && !stopped &&
+            (dist <= revealDistM || timeToBandS <= revealTimeS)
+        return Zone300Decision(
+            action = if (reveal) Zone300Action.REVEAL else Zone300Action.NONE,
+            autoRevealed = reveal,
+            bandEntered = false
+        )
+    }
+
+    val compliantInside = inZone && sogKn != null && sogKn <= regKn
+    val exitedSeaward = entered && dist != null && dist > 0.0 && movingAway
+    val retreatedPastMargin = !entered && dist != null && dist > revealDistM && movingAway
+    val hide = stopped || compliantInside || exitedSeaward || retreatedPastMargin
+    return Zone300Decision(
+        action = if (hide) Zone300Action.HIDE else Zone300Action.NONE,
+        autoRevealed = !hide,
+        bandEntered = if (hide) false else entered
+    )
 }
