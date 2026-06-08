@@ -19,6 +19,7 @@
 
     <!-- Settings -->
     <string name="settings_title">Settings</string>
+    <string name="settings_back">Back</string>
     <string name="settings_section_language">Language</string>
     <string name="settings_language_system">System</string>
     <string name="settings_section_position">Position source</string>
