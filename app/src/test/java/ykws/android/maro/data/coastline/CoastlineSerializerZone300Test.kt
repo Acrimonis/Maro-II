@@ -71,4 +71,59 @@ class CoastlineSerializerZone300Test {
         val back = CoastlineSerializer.deserialize(CoastlineSerializer.serialize(sampleData(null)))
         assertNull(back.zone300)
     }
+
+    private fun ring(lat: Float, lon: Float) = listOf(
+        CoastlinePoint(lat, lon),
+        CoastlinePoint(lat + 0.001f, lon + 0.001f),
+        CoastlinePoint(lat, lon)
+    )
+
+    private fun dataWithIslands(islands: List<CoastlineSegment>) = CoastlineData(
+        mainland = CoastlineSegment(
+            osmWayId = 1L,
+            points = listOf(CoastlinePoint(43.50f, 7.00f), CoastlinePoint(43.50f, 7.02f)),
+            isMainland = true,
+            isClosed = false
+        ),
+        islands = islands,
+        metadata = CoastlineMetadata(source = "test", pointCount = 0, meanSpacingM = 0.0, projectionRefLat = 43.5),
+        regionId = "test",
+        boundingBox = BoundingBox(43.40, 43.60, 6.80, 7.20)
+    )
+
+    @Test
+    fun `hazard flag and name round-trip, unnamed hazard stays a hazard`() {
+        val named = CoastlineSegment(
+            osmWayId = 0L, points = ring(43.540f, 7.083f),
+            isMainland = false, isClosed = true, isHazard = true, hazardName = "Phare de la Fourmigue"
+        )
+        val unnamed = CoastlineSegment(
+            osmWayId = 0L, points = ring(43.427f, 6.910f),
+            isMainland = false, isClosed = true, isHazard = true, hazardName = null
+        )
+
+        val back = CoastlineSerializer.deserialize(
+            CoastlineSerializer.serialize(dataWithIslands(listOf(named, unnamed)))
+        )
+
+        assertEquals(2, back.islands.size)
+        assertTrue("named hazard flag survives", back.islands[0].isHazard)
+        assertEquals("Phare de la Fourmigue", back.islands[0].hazardName)
+        // The crux: an UNNAMED danger must still be identified as a hazard.
+        assertTrue("unnamed danger is still a hazard", back.islands[1].isHazard)
+        assertNull("unnamed hazard has null name", back.islands[1].hazardName)
+    }
+
+    @Test
+    fun `ordinary island is not a hazard (backward compatible)`() {
+        val island = CoastlineSegment(
+            osmWayId = 42L, points = ring(43.510f, 7.050f),
+            isMainland = false, isClosed = true
+        )
+        val back = CoastlineSerializer.deserialize(
+            CoastlineSerializer.serialize(dataWithIslands(listOf(island)))
+        )
+        assertFalse(back.islands[0].isHazard)
+        assertNull(back.islands[0].hazardName)
+    }
 }

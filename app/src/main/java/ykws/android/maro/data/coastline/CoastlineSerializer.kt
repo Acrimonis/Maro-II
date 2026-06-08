@@ -106,11 +106,13 @@ object CoastlineSerializer {
             floats.add(pt.edgeDxM)
             floats.add(pt.edgeDyM)
         }
-        return CoastlineProtos.Polyline.newBuilder()
+        val builder = CoastlineProtos.Polyline.newBuilder()
             .setOsmWayId(segment.osmWayId)
             .setIsClosed(segment.isClosed)
+            .setIsHazard(segment.isHazard)
             .addAllData(floats)
-            .build()
+        segment.hazardName?.let { builder.setHazardName(it) }
+        return builder.build()
     }
 
     /**
@@ -137,7 +139,9 @@ object CoastlineSerializer {
             osmWayId = proto.osmWayId,
             points = points,
             isMainland = isMainland,
-            isClosed = proto.isClosed
+            isClosed = proto.isClosed,
+            isHazard = proto.isHazard,
+            hazardName = proto.hazardName.takeIf { it.isNotEmpty() }
         )
     }
 

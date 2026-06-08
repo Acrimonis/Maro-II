@@ -69,4 +69,11 @@ message Polyline {
     // = 24 bytes per point.
     // See CoastlinePoint in the Kotlin data model for field semantics.
     repeated float data = 3 [packed = true];
+
+    // True if this ring is an isolated offshore point-danger (seamark) micro-circle.
+    // Default false ⇒ mainland or ordinary island. Pre-feature caches deserialise to false.
+    bool is_hazard = 4;
+
+    // Optional hazard label (e.g. "Phare de la Fourmigue"); empty when unknown. Label only.
+    string hazard_name = 5;
 }
