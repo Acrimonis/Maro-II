@@ -16,6 +16,14 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
+
+        // Region corridor single source of truth — the W/E coastline-point longitudes (gradle.properties,
+        // overridable with -Pmaro.region.lonWest=…). Exposed to Kotlin so CoastlineGenerator and the
+        // derived depth envelope read ONE definition; the bake scripts read the same props via bake-env.bat.
+        val regionLonWest = (project.findProperty("maro.region.lonWest") as String?)?.toDouble() ?: 6.70
+        val regionLonEast = (project.findProperty("maro.region.lonEast") as String?)?.toDouble() ?: 7.31
+        buildConfigField("double", "REGION_LON_WEST", regionLonWest.toString())
+        buildConfigField("double", "REGION_LON_EAST", regionLonEast.toString())
     }
 
     compileOptions {
@@ -29,6 +37,13 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
+    }
+
+    androidResources {
+        // Don't package the GDAL/OSM bake intermediates that ride along in data/app-assets/depth/
+        // (a corridor-wide Litto3D .asc is ~1 GB); the app only reads the cooked .bin. Keeps the APK lean.
+        ignoreAssetsPatterns += listOf("*.asc", "*.asc.aux.xml", "*.prj", "*.vrt")
     }
 
     sourceSets {

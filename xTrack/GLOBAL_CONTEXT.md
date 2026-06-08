@@ -1,10 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** MapDisplay
-- **Active Subfeature:** zone proximity auto-reveal
+- **Active Feature:** BakeNormalization
+- **Active Subfeature:** none
 - **Last Updated:** 2026-06-08
-- **Last Bake:** 2026-06-08 12:32 (MapDisplay — 300 m proximity auto-reveal reworked: hybrid reveal (200 m / 20 s), stop/compliance/exit/retreat auto-hide, no-show-inside, configurable thresholds, demo pan-speed; pure `zone300Decision()` + unit tests)
+- **Last Bake:** 2026-06-08 14:31 (BakeNormalization — Phases 1–3: region single-sourced from props→BuildConfig, depth envelope derived (WATER_BBOX removed), no baked data in git, bake-*/apk-bake/build/deploy split; fixes: streaming .asc parser (OOM), APK .asc-exclude, CRLF .gitattributes; on-device verified)
+- **Prev Bake:** 2026-06-08 12:32 (MapDisplay — 300 m proximity auto-reveal reworked: hybrid reveal (200 m / 20 s), stop/compliance/exit/retreat auto-hide, configurable thresholds, demo pan-speed; pure `zone300Decision()` + unit tests)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -21,6 +22,7 @@
 | mapdisplay, map display, map, layer, depth layer, color depth, orientation | FEATURE_SCOPE_MapDisplay.md |
 | performance, battery, gps-tune, adaptive, compass-gate, map-refresh, battery-drain | FEATURE_SCOPE_Performance.md |
 | isonwater, isonwateragain, iswater, waterland, raycast, crossing, point-in-polygon | FEATURE_SCOPE_isOnWaterAgain.md |
+| bake, baking, bake-script, bake-bat, apk-bake, apk-build, apk-deploy, deploy, prebake-pipeline, bake-env | FEATURE_SCOPE_BakeNormalization.md |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).

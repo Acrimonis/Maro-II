@@ -10,6 +10,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import ykws.android.maro.BuildConfig
 import ykws.android.maro.data.model.*
 import ykws.android.maro.spatial.SpatialOperations
 import java.util.concurrent.TimeUnit
@@ -44,15 +45,19 @@ class CoastlineGenerator(
     companion object {
         private const val EARTH_RADIUS_M = 6_371_000.0
 
-        // Bounding box élargie pour récupérer les extrémités proprement
-        const val BBOX_LAT_MIN = 43.30
-        const val BBOX_LON_MIN = 6.58
-        const val BBOX_LAT_MAX = 43.80
-        const val BBOX_LON_MAX = 7.38
+        // Zone réglementaire Nice–Fréjus — SINGLE SOURCE: the W/E coastline-point longitudes come from
+        // gradle props (maro.region.lonWest/lonEast) via BuildConfig. The coastline clips E/W to these;
+        // the depth zone derives as coast + 6 NM. No other box redefines the corridor.
+        val LON_WEST = BuildConfig.REGION_LON_WEST
+        val LON_EAST = BuildConfig.REGION_LON_EAST
 
-        // Zone réglementaire Nice–Fréjus
-        const val LON_WEST = 6.70
-        const val LON_EAST = 7.31
+        // OSM fetch window — N/S is a generous fetch span (NOT a coverage cap; coverage = real coast +
+        // 6 NM); E/W = the corridor ± a small margin so clipped ways keep neighbours to assemble cleanly.
+        private const val FETCH_LON_MARGIN_DEG = 0.12
+        const val BBOX_LAT_MIN = 43.30
+        const val BBOX_LAT_MAX = 43.80
+        val BBOX_LON_MIN = LON_WEST - FETCH_LON_MARGIN_DEG
+        val BBOX_LON_MAX = LON_EAST + FETCH_LON_MARGIN_DEG
 
         // Default region identifier for this generator
         const val REGION_ID = "nice-frejus"

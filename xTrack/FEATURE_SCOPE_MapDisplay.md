@@ -3,8 +3,8 @@ name: MapDisplay
 status: active
 created: 2026-06-07 00:00
 modified: 2026-06-08 12:32
-active_subfeature: zone proximity auto-reveal
-subs_total: 4
+active_subfeature: layer-zone
+subs_total: 5
 subs_done: 3
 one_liner: Map display layer management — depth layer, color depth layer, and orientation-aware rendering.
 ---
@@ -92,6 +92,34 @@ one_liner: Map display layer management — depth layer, color depth layer, and 
 - `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt`
 - `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt`
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
+
+### layer-zone  [ ]
+
+Depth layer must cover the full **6 NM navigable zone** (the user's licence limit), not the old
+inset rectangle. Zone = all sea within 6 NM (11 112 m) of the coast, measured from the coastline
+itself so bays and capes alike get a uniform 6 NM (no cape under-coverage).
+
+#### Todos
+- [x] Widen `WATER_BBOX` envelope to cover coastline + 6 NM seaward (lat 43.31–43.74, lon 6.66–7.34)
+- [x] Add `DepthZoneMask` — erase grid cells >6 NM from coast at bake time (reuses `CoastlineSpatialIndex`)
+- [x] Hook the mask into `DepthGenerator.generate()` (new `coastlineSegments` param, after merge, before validate)
+- [x] Load coastline asset in `DepthPrebakeTest` and pass its segments to the generator
+- [x] Widen GDAL clip box in `bake_emodnet.bat` / `bake_litto3d.bat` to the new envelope
+- [ ] Re-bake the asset (`tools\bake_depth.bat` + `gradlew … -Dmaro.prebake=true`) and verify on-device coverage to the shore + past capes
+
+#### Rules
+- Zone = sea within 6 NM (= 6 × 1852 = 11 112 m, `DepthZoneMask.SIX_NM_M`) of the coast; distance measured from the coastline, never a straight baseline
+- Route A: keep the axis-aligned grid + `GroundOverlay`; the mask only NoData-s out-of-zone cells — no rendering changes
+- Masked / out-of-zone cells are `NaN` (`DepthSource.NONE`) → fully transparent via `DepthColorRamp`
+- The mask needs `assets/coastline/nice-frejus.bin`; without it the grid ships as the full rectangular envelope
+- Envelope grows the `.bin` (~18→~25 MB est.); NaN cells still occupy the FloatArray — revisit with a coarser offshore cell / oriented grid only if size becomes a problem
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/data/depth/DepthZoneMask.kt`
+- `app/src/main/java/ykws/android/maro/data/depth/DepthGenerator.kt`
+- `app/src/main/java/ykws/android/maro/data/depth/DepthConstants.kt`
+- `app/src/test/java/ykws/android/maro/data/prebake/DepthPrebakeTest.kt`
+- `tools/bake_emodnet.bat`, `tools/bake_litto3d.bat`
 
 ## Todos
 

@@ -3,9 +3,11 @@ package ykws.android.maro.data.prebake
 import kotlinx.coroutines.runBlocking
 import org.junit.Assume
 import org.junit.Test
+import ykws.android.maro.data.coastline.CoastlineSerializer
 import ykws.android.maro.data.depth.DepthConstants
 import ykws.android.maro.data.depth.DepthGenerator
 import ykws.android.maro.data.depth.DepthSerializer
+import ykws.android.maro.data.depth.DepthZoneMask
 import ykws.android.maro.data.depth.raster.AsciiGridParser
 import ykws.android.maro.data.model.DepthSource
 import java.io.File
@@ -23,23 +25,40 @@ class DepthPrebakeTest {
         Assume.assumeTrue("set -Dmaro.prebake=true to run", System.getProperty("maro.prebake") == "true")
 
         val region = DepthConstants.REGION_ID
-        val emodnetAsc = File("src/main/assets/depth/emodnet-$region.asc")
-        val litto3dAsc = File("src/main/assets/depth/litto3d-$region.asc")
+        // All baked data lives in the gitignored data/app-assets tree (packaged via the build's asset
+        // srcDir); resolve via maro.repoDir so the test CWD (app/) doesn't matter.
+        val repoDir = System.getProperty("maro.repoDir")?.let { File(it) } ?: File("..")
+        val depthDir = File(repoDir, "data/app-assets/depth")
+        val emodnetAsc = File(depthDir, "emodnet-$region.asc")
+        val litto3dAsc = File(depthDir, "litto3d-$region.asc")
         Assume.assumeTrue("EMODnet .asc missing — run tools\\bake_emodnet.bat first", emodnetAsc.exists())
 
+        // The depth zone DERIVES from the shipped coastline: envelope = coastline bbox + 6 NM, then
+        // DepthZoneMask trims to the exact 6 NM-of-coast buffer (same asset the app loads).
+        val coastBin = File(repoDir, "data/app-assets/coastlines/$region.bin")
+        Assume.assumeTrue(
+            "coastline asset missing (${coastBin.path}) — bake the coastline first; the depth zone derives from it",
+            coastBin.exists()
+        )
+        val coast = CoastlineSerializer.deserialize(coastBin.readBytes())
+        val envelope = DepthZoneMask.envelopeOf(coast.boundingBox)
+
         val deep = AsciiGridParser.parse(
-            emodnetAsc.readText(), DepthSource.EMODNET, DepthSource.EMODNET.nominalResM, negate = true
+            emodnetAsc, DepthSource.EMODNET, DepthSource.EMODNET.nominalResM, negate = true
         )
         val shallow = if (litto3dAsc.exists()) AsciiGridParser.parse(
-            litto3dAsc.readText(), DepthSource.LITTO3D, DepthSource.LITTO3D.nominalResM,
+            litto3dAsc, DepthSource.LITTO3D, DepthSource.LITTO3D.nominalResM,
             negate = true, latOffsetM = DepthConstants.IGN69_ABOVE_LAT_M
         ) else null
 
         val grid = runBlocking {
-            DepthGenerator().generate(region, deepSources = listOf(deep), shallowSource = shallow, nowMs = 0L)
+            DepthGenerator().generate(
+                region, bbox = envelope, deepSources = listOf(deep), shallowSource = shallow,
+                coastlineSegments = coast.allSegments, nowMs = 0L
+            )
         }
 
-        val out = File("src/main/assets/depth/$region.bin")
+        val out = File(depthDir, "$region.bin")
         out.parentFile?.mkdirs()
         out.writeBytes(DepthSerializer.serialize(grid))
         println("Prebaked depth grid -> ${out.path} (${out.length()} bytes)")

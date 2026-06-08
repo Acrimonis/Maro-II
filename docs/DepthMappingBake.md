@@ -11,12 +11,12 @@ fetch or decoder (see [depthMappingSources.md](depthMappingSources.md) for why).
 The repository (`DepthRepository`) reads these on a cache miss; **each is optional** —
 a missing file just skips that tier (the layer stays inert until baked in):
 
-| Asset (under `app/src/main/assets/`) | Source | Tier | Convention |
+| Asset (under gitignored `data/app-assets/`, packaged into the APK) | Source | Tier | Convention |
 |---|---|---|---|
 | `depth/emodnet-nice-frejus.asc` | EMODnet DTM 2024 (tile E5) | deep backbone 10–60 m+ | ESRI ASCII, **elevation rel. LAT** (app negates → depth) |
 | `depth/litto3d-nice-frejus.asc` | SHOM Litto3D PACA 2015 | collision 0–10 m | ESRI ASCII, **elevation rel. IGN69**, WGS84 (app negates **and** shifts IGN69→LAT) |
 
-- **Region id:** `nice-frejus`. **Box:** lat 43.40–43.75 N, lon 6.70–7.31 E (= `DepthConstants.WATER_BBOX`).
+- **Region id:** `nice-frejus`. **Corridor:** the W/E coastline-point gradle props `maro.region.lonWest/lonEast` (→ `BuildConfig`) are the single source. The depth grid **envelope is derived** (coastline bbox + 6 NM, `DepthZoneMask.envelopeOf`); `DepthZoneMask` then clips the grid to the exact **6 NM-of-coast navigable buffer**. Needs the shipped coastline `data/app-assets/coastlines/nice-frejus.bin` (auto-baked by `bake-depth` if missing). No hardcoded depth box.
 - **Sign/datum handled in-app:** `AsciiGridParser.parse(..., negate = true, latOffsetM = …)`. EMODnet
   uses `latOffsetM = 0.0` (already LAT); Litto3D uses `DepthConstants.IGN69_ABOVE_LAT_M` (0.40 m).
   So the bake only needs to produce **elevation** ESRI ASCII in WGS84 — no vertical math in GDAL.
@@ -36,28 +36,32 @@ a missing file just skips that tier (the layer stays inert until baked in):
   Verify: `gdalwarp --version`, `projinfo EPSG:2154` (confirms PROJ found `proj.db`).
 - `curl` and `tar` (built into Windows 10+).
 
-## Encapsulated bake & build integration
+## Bake / build / deploy
 
-All depth preprocessing is wrapped in one orchestrator — **`tools\bake_depth.bat`** — which
-confirms each source bake individually (showing whether each asset is `present`/`MISSING`) and runs
-only the confirmed ones. The per-source scripts (§1–§2) are its building blocks.
+Three separated stages — **bake** (data prep) → **build** (package) → **deploy** (install):
 
-`apk-build.bat` integrates it with a single top-level prompt **"Preprocess depth data before build?
-[y/N]"** (default **N**):
-- **N (default):** no regeneration — the existing bundled `assets/depth/` files are used as-is,
-  bundled into the APK, and pushed to the device on deploy (`apk-deploy.bat`).
-- **Y:** runs `tools\bake_depth.bat`, which asks per source — `EMODnet deep backbone`,
-  `Litto3D collision tier`, and (future) `SHOM survey lots` / `Sentinel-2 SDB`.
+- **`apk-bake.bat`** — the selector. Run it (interactive menu, present/MISSING per asset) or
+  non-interactively: `apk-bake.bat all | coastline | emodnet | litto3d | depth | band`. It writes the
+  gitignored `data\app-assets\` tree. Each target is a directly-runnable script under `tools\`:
+  `bake-coastline` (OSM + 300 m band), `bake-emodnet`, `bake-litto3d`, `bake-depth` (merge + 6 NM clip),
+  `bake-zone300` (network-free band refresh). All share the corridor via **`tools\bake-env.bat`**
+  (reads the `maro.region.*` props).
+- **`apk-build.bat`** — only `gradlew assembleDebug`; it does NOT bake. It packages whatever is in
+  `data\app-assets\` (+ app assets); unbaked tiers are simply absent.
+- **`apk-deploy.bat`** — installs the debug APK and relaunches the app on the connected device.
 
-Run `tools\bake_depth.bat` standalone (from the repo root) to preprocess without building.
+Dependencies auto-resolve: `bake-depth` needs the coastline (the 6 NM clip + envelope derive from it)
+and the EMODnet `.asc`, and runs `bake-coastline` / `bake-emodnet` first if they're missing
+(`--no-auto-deps` to hard-fail instead). A fresh clone has no baked data → bake before build.
 
 ## 1. EMODnet deep backbone (scripted)
 
 ```
-tools\bake_emodnet.bat
+tools\bake-emodnet.bat
 ```
-Downloads tile **E5** (`downloads.emodnet-bathymetry.eu/v12/E5_2024.tif.zip`, no auth, CC-BY 4.0),
-clips to the box, and writes `app/src/main/assets/depth/emodnet-nice-frejus.asc`. E5 is large
+Downloads tile **E5** (`downloads.emodnet-bathymetry.eu/v12/E5_2024.tif.zip`, no auth, CC-BY 4.0;
+the tile is **cached** in `%TEMP%` so re-clips skip the download), clips to the corridor box from
+`bake-env.bat`, and writes `data/app-assets/depth/emodnet-nice-frejus.asc`. E5 is large
 (covers the whole NW Mediterranean → North Sea); the clip is small (~a few hundred KB).
 
 ## 2. SHOM Litto3D collision tier (scripted fetch + bake)
@@ -84,14 +88,15 @@ Litto3D PACA 2015 is **open data** and downloads from the **SHOM INSPIRE pre-pac
    ```
    tools\fetch_litto3d_paca.ps1 -Mnt5m -Xmin 1013 -Xmax 1032 -Ymin 6273 -Ymax 6292
    ```
-   The bake clips to `WATER_BBOX` and the merge fills uncovered cells from EMODnet, so partial
-   Litto3D coverage is fine — extend east (Nice→Menton) later by re-running with a wider window + re-baking.
+   The bake clips to the corridor box from `bake-env.bat` and the merge fills uncovered cells from
+   EMODnet, so partial Litto3D coverage is fine — extend east (Nice→Menton) later by re-running with a
+   wider window + re-baking.
 2. Run:
    ```
-   tools\bake_litto3d.bat
+   tools\bake-litto3d.bat
    ```
    Mosaics the tiles, reprojects Lambert-93→WGS84, clips, downsamples shoalest (`-r min`), and
-   writes `app/src/main/assets/depth/litto3d-nice-frejus.asc`.
+   writes `data/app-assets/depth/litto3d-nice-frejus.asc`.
 
 > ⚠ Litto3D's guaranteed marine extent is only to the −10 m isobath, and open-coast coverage is
 > patchy beyond it — expect the collision band (0–10 m) well-covered, deeper gaps filled by EMODnet.
@@ -104,22 +109,12 @@ Litto3D PACA 2015 is **open data** and downloads from the **SHOM INSPIRE pre-pac
 - Build + run the app; the depth layer loads from the baked assets on first map init. The embedded
   `ValidationReport` (control points incl. the Lérins passage) gates the collision tier.
 
-## Migration plan (toward fully-encapsulated prebake)
+## Status
 
-Goal: every depth source is produced through the one `bake_depth.bat` orchestrator, selected at
-build time, with the app shipping whatever assets are present.
-
-1. **Done** — `tools\bake_{emodnet,litto3d}.bat` + `tools\bake_depth.bat` orchestrator +
-   `apk-build.bat` prompt (default N) + asset present/MISSING detection.
-2. **Add future source bakes** under `bake_depth.bat` as those sources land: `bake_shom_lots.bat`
-   (dive 25–60 m), `bake_sentinel_sdb.bat` (dive 10–25 m) — each follows the same
-   present/MISSING + confirm pattern.
-3. **Optional `.bin` prebake** — a JVM `DepthPrebakeTest` that merges the `.asc` ingredients into a
-   serialized grid for instant first-load (deferred; the app already cooks on first run).
-4. **Project-wide parity** — extend the same encapsulation to coastline (JVM prebake) and the
-   shared W/E `RegionConfig` prop. Tracked under DepthMapping → `prebakeData` (cross-cutting).
-
-Until a source's bake exists, its slot in `bake_depth.bat` shows a "not yet implemented" notice.
+The encapsulation is in place: directly-runnable `tools\bake-*.bat` per source + the `apk-bake.bat`
+selector, the region single-sourced from the `maro.region.*` props, and no baked data in git
+(everything lands in the gitignored `data\app-assets\`). Add future dive sources
+(`bake-shom-lots`, `bake-sentinel-sdb`) as new `tools\bake-*.bat` targets wired into `apk-bake.bat`.
 
 ## Later (data-availability-driven, see sources doc)
 
