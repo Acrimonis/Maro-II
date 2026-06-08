@@ -2,7 +2,7 @@
 name: MapDisplay
 status: active
 created: 2026-06-07 00:00
-modified: 2026-06-08 19:23
+modified: 2026-06-08 19:34
 active_subfeature: layer-lowdepth
 subs_total: 6
 subs_done: 3
@@ -135,7 +135,7 @@ overlay, drawn as a second `GroundOverlay` above the depth colour raster. Pure r
 - [x] EN/FR label strings (`settings_low_depth_*`); `assembleDebug` green
 - [x] Configurable warning depth (slider 0.5–5.0 m, default 1.5, persisted; overlay re-rasterises on change)
 - [x] Fix depth-overlay Mercator offset via latitude-banding (`addBandedOverlay`, 8 strips; both depth + warning)
-- [ ] Mask the warning to water only (`CoastlineViewModel.isOnWater`) — no pink on land/islands
+- [x] Mask the warning to water only (`CoastlineViewModel.isOnWater`) — no pink on land/islands
 - [ ] Verify on-device: offset gone + warning only on water; toggle + threshold persist
 
 #### Rules

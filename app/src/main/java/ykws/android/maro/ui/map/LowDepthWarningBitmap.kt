@@ -5,9 +5,9 @@ import ykws.android.maro.data.depth.DepthConstants
 import ykws.android.maro.data.model.DepthGrid
 
 /**
- * Rasterises a [DepthGrid] into a high-contrast **low-depth warning** [Bitmap]: every cell
- * shallower than [DepthConstants.LOW_DEPTH_WARNING_MAX_M] (1.5 m) is painted bright magenta,
- * every other cell (deeper, NoData, or above datum) is fully transparent. Drawn as a second
+ * Rasterises a [DepthGrid] into a high-contrast **low-depth warning** [Bitmap]: every water
+ * cell shallower than [maxDepthM] (default 1.5 m) is painted bright magenta; everything else
+ * (deeper, NoData, above datum, or on land per [isWater]) is fully transparent. Drawn as a second
  * `GroundOverlay` stacked directly above the depth colour raster so genuine grounding hazards
  * read as an unmistakable bright patch.
  *
@@ -24,7 +24,8 @@ object LowDepthWarningBitmap {
 
     fun build(
         grid: DepthGrid,
-        maxDepthM: Float = DepthConstants.LOW_DEPTH_WARNING_MAX_M.toFloat()
+        maxDepthM: Float = DepthConstants.LOW_DEPTH_WARNING_MAX_M.toFloat(),
+        isWater: (lat: Double, lon: Double) -> Boolean = { _, _ -> true }
     ): Bitmap {
         val w = grid.cols
         val h = grid.rows
@@ -33,7 +34,10 @@ object LowDepthWarningBitmap {
             val outRow = (h - 1 - r) * w   // flip south-up grid → top-down bitmap
             for (c in 0 until w) {
                 val d = grid.depthRaw(r, c)
-                colors[outRow + c] = if (!d.isNaN() && d >= 0f && d < maxDepthM) WARNING_ARGB else 0
+                // Depth gate first (cheap); the coastline lookup runs only for the few shallow cells.
+                val warn = !d.isNaN() && d >= 0f && d < maxDepthM &&
+                    isWater(grid.cellCenterLat(r), grid.cellCenterLon(c))
+                colors[outRow + c] = if (warn) WARNING_ARGB else 0
             }
         }
         return Bitmap.createBitmap(colors, w, h, Bitmap.Config.ARGB_8888)

@@ -223,11 +223,19 @@ fun MapScreen(
         value = depthGrid?.let { g -> withContext(Dispatchers.Default) { DepthBitmap.build(g) } }
     }
 
-    // Second raster: cells shallower than the user's warning threshold, painted bright.
-    // Re-rasterises when the grid OR the threshold changes.
-    val lowDepthWarningBitmap by produceState<Bitmap?>(initialValue = null, depthGrid, appSettings.lowDepthWarningMaxM) {
+    // Second raster: cells shallower than the user's warning threshold, on water only, painted bright.
+    // Re-rasterises when the grid, the threshold, or coastline readiness changes.
+    val coastlineReady = state is CoastlineState.Ready
+    val lowDepthWarningBitmap by produceState<Bitmap?>(
+        initialValue = null, depthGrid, appSettings.lowDepthWarningMaxM, coastlineReady
+    ) {
         val maxM = appSettings.lowDepthWarningMaxM
-        value = depthGrid?.let { g -> withContext(Dispatchers.Default) { LowDepthWarningBitmap.build(g, maxM) } }
+        // Skip land/island cells via the coastline classifier; until it loads, treat all as water.
+        val waterTest: (Double, Double) -> Boolean =
+            if (coastlineReady) viewModel::isOnWater else { _, _ -> true }
+        value = depthGrid?.let { g ->
+            withContext(Dispatchers.Default) { LowDepthWarningBitmap.build(g, maxM, waterTest) }
+        }
     }
 
     // The map centre drives BOTH layers: coastline (distance/zone) and depth-at-centre.

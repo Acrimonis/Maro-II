@@ -4,7 +4,7 @@
 - **Active Feature:** MapDisplay
 - **Active Subfeature:** layer-lowdepth
 - **Last Updated:** 2026-06-08
-- **Last Bake:** 2026-06-08 19:23 (MapDisplay — low-depth warning overlay: bright-magenta GroundOverlay above the depth raster for all water shallower than a configurable threshold (Settings toggle + slider 0.5–5.0 m, default 1.5, persisted); "Keep phone on" moved to top of Power saving; fixed depth-overlay Mercator offset by latitude-banding BOTH depth + warning via addBandedOverlay (8 strips, ~43 m→<1 m); assembleDebug green, committed feature/layout-lowdepth. NEXT: mask warning to water-only via CoastlineViewModel.isOnWater + on-device verify)
+- **Last Bake:** 2026-06-08 19:34 (MapDisplay — low-depth warning overlay: bright-magenta GroundOverlay above the depth raster for all water shallower than a configurable threshold (Settings toggle + slider 0.5–5.0 m, default 1.5, persisted); "Keep phone on" moved to top of Power saving; fixed depth-overlay Mercator offset by latitude-banding BOTH depth + warning via addBandedOverlay (8 strips, ~43 m→<1 m); warning now masked to water-only via CoastlineViewModel.isOnWater (skips land/islands, rebuilds when coastline loads); assembleDebug green, committed+pushed feature/layout-lowdepth. NEXT: on-device verify — offset gone + no pink on land + toggle/threshold persist)
 - **Prev Bake:** 2026-06-08 16:43 (AppBakFlow — back-to-exit double-press (2 s) toast + "Keep phone on" toggle driving keepScreenOn; EN+FR; assembleDebug green; committed+pushed feature/app-bak-flow)
 
 ## Routing Map
