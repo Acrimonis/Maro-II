@@ -1,16 +1,11 @@
 package ykws.android.maro.data.depth
 
-import ykws.android.maro.data.model.BoundingBox
-
 /**
  * Tunable constants for the depth feature, shared by the generator, repository, render
  * model, and view model. See DepthMappingPlan.md § 9.
  */
 object DepthConstants {
     const val REGION_ID = "nice-frejus"
-
-    /** Baked-grid extent — full Cannes→Menton coastal zone (matches the coastline zone). lat S/N, lon W/E. */
-    val WATER_BBOX = BoundingBox(latSouth = 43.40, latNorth = 43.75, lonWest = 6.70, lonEast = 7.31)
 
     const val GRID_RES_M = 25.0
     const val SHALLOW_TIER_MAX_M = 10.0       // Litto3D authoritative ceiling (constraint #4)

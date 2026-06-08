@@ -18,15 +18,15 @@ REM Run from the repo root:  tools\bake_litto3d.bat
 REM ---------------------------------------------------------------------------
 REM Clip box defaults to the full WATER_BBOX; override via env vars (W/S/E/N) to bake only a
 REM focused coast stretch when you fetched a sub-window (keeps the .asc small; merge fills the rest).
-if not defined W set "W=6.70"
-if not defined S set "S=43.40"
-if not defined E set "E=7.31"
-if not defined N set "N=43.75"
+if not defined W set "W=6.66"
+if not defined S set "S=43.31"
+if not defined E set "E=7.34"
+if not defined N set "N=43.74"
 set "REGION=nice-frejus"
 set "RES=0.00005"
 set "TILES=tools\litto3d_tiles"
 set "WORK=%TEMP%\litto3d"
-set "OUT=app\src\main\assets\depth"
+set "OUT=data\app-assets\depth"
 
 if not exist "%TILES%\*.asc" (echo No .asc tiles in %TILES% - run tools\fetch_litto3d_paca.ps1 first ^(see header^). & exit /b 1)
 if not exist "%OUT%" mkdir "%OUT%"

@@ -38,12 +38,8 @@ local.properties
 tmp/
 app/preloaded/
 
-# Depth-mapping bake intermediates — reproducible via tools/fetch_litto3d_paca.ps1 + tools/bake_*.bat.
-# The app ships the cooked .bin (committed); the raw/GDAL intermediates are not.
+# NO baked data in git. Coastline + depth assets bake into the gitignored /data/app-assets tree and
+# package into the APK via the build's asset srcDir; GDAL/OSM intermediates (tiles, .asc) are
+# reproducible via tools/fetch_litto3d_paca.ps1 + tools/bake-*.bat. A fresh clone bakes before build.
 tools/litto3d_tiles/
-app/src/main/assets/depth/*.asc
-app/src/main/assets/depth/*.asc.aux.xml
-app/src/main/assets/depth/*.prj
-
-# Off-tree bake staging (Zone300/coastline asset bakers write here); the cooked .bin ships from app/src/main/assets/.
 /data/

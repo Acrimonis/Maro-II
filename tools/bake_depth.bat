@@ -8,7 +8,7 @@ REM  APK -> pushed to the device on deploy).
 REM  Run from the repo root (apk-build.bat does this). Needs GDAL on PATH.
 REM  See docs\DepthMappingBake.md.
 REM ===========================================================================
-set "DEPTH_ASSETS=app\src\main\assets\depth"
+set "DEPTH_ASSETS=data\app-assets\depth"
 
 echo ============================================
 echo  Depth preprocessing (per-source confirm)

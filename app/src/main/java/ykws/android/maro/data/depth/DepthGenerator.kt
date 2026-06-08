@@ -8,6 +8,7 @@ import ykws.android.maro.data.depth.validation.ControlPoint
 import ykws.android.maro.data.depth.validation.ControlPoints
 import ykws.android.maro.data.depth.validation.DepthValidator
 import ykws.android.maro.data.model.BoundingBox
+import ykws.android.maro.data.model.CoastlineSegment
 import ykws.android.maro.data.model.DepthDatum
 import ykws.android.maro.data.model.DepthGrid
 import ykws.android.maro.data.model.MutableDepthGrid
@@ -33,9 +34,10 @@ class DepthGenerator(
 ) {
     suspend fun generate(
         regionId: String = DepthConstants.REGION_ID,
-        bbox: BoundingBox = DepthConstants.WATER_BBOX,
+        bbox: BoundingBox,
         deepSources: List<SourceRaster> = emptyList(),
         shallowSource: SourceRaster? = null,
+        coastlineSegments: List<CoastlineSegment>? = null,
         controlPoints: List<ControlPoint> = ControlPoints.NICE_FREJUS,
         nowMs: Long = System.currentTimeMillis(),
         onProgress: (phase: String, pct: Int) -> Unit = { _, _ -> }
@@ -54,6 +56,14 @@ class DepthGenerator(
         if (shallowSource != null) {
             onProgress("Fusion littorale", 70)
             DepthMerge.mergeShallowShoalest(grid, shallowSource, DepthConstants.SHALLOW_TIER_MAX_M)
+        }
+
+        // 2b. Clip to the 6 NM navigable buffer (licence limit): erase every cell farther than 6 NM
+        //     from the coast so depth is drawn only where the user may navigate. Distance is taken
+        //     from the coastline itself → uniform 6 NM around bays AND capes. No-op when no coastline.
+        if (!coastlineSegments.isNullOrEmpty()) {
+            onProgress("Découpe zone 6 NM", 72)
+            DepthZoneMask.apply(grid, coastlineSegments)
         }
 
         // 3. Validate (provisional immutable shares arrays with `grid`, unchanged by validate).

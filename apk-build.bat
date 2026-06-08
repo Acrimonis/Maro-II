@@ -21,7 +21,7 @@ set "PREBAKE_DEPTH=N"
 set /p "PREBAKE_DEPTH=Preprocess depth (GDAL gather, then merge/serialize)? [y/N]: "
 if /i "%PREBAKE_DEPTH:~0,1%"=="y" (
     call tools\bake_depth.bat
-    call gradlew testDebugUnitTest --tests "*DepthPrebakeTest*" -Dmaro.prebake=true
+    call gradlew testDebugUnitTest --tests "*DepthPrebakeTest*" -Dmaro.prebake=true --rerun-tasks
 )
 echo.
 

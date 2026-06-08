@@ -1,7 +1,7 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** WorkflowImprovement
+- **Active Feature:** BakeNormalization
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-08
 - **Last Bake:** 2026-06-08 09:22 (WorkflowImprovement — xTrack system review: #doc sync, #doc audit, #diff, spec consolidation, Always-Loaded Context, ## Docs on 5 feature files, commands.md deprecated)
@@ -21,6 +21,7 @@
 | mapdisplay, map display, map, layer, depth layer, color depth, orientation | FEATURE_SCOPE_MapDisplay.md |
 | performance, battery, gps-tune, adaptive, compass-gate, map-refresh, battery-drain | FEATURE_SCOPE_Performance.md |
 | isonwater, isonwateragain, iswater, waterland, raycast, crossing, point-in-polygon | FEATURE_SCOPE_isOnWaterAgain.md |
+| bake, baking, bake-script, bake-bat, apk-bake, apk-build, apk-deploy, deploy, prebake-pipeline, bake-env | FEATURE_SCOPE_BakeNormalization.md |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).

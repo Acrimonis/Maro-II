@@ -16,7 +16,7 @@ a missing file just skips that tier (the layer stays inert until baked in):
 | `depth/emodnet-nice-frejus.asc` | EMODnet DTM 2024 (tile E5) | deep backbone 10–60 m+ | ESRI ASCII, **elevation rel. LAT** (app negates → depth) |
 | `depth/litto3d-nice-frejus.asc` | SHOM Litto3D PACA 2015 | collision 0–10 m | ESRI ASCII, **elevation rel. IGN69**, WGS84 (app negates **and** shifts IGN69→LAT) |
 
-- **Region id:** `nice-frejus`. **Box:** lat 43.40–43.75 N, lon 6.70–7.31 E (= `DepthConstants.WATER_BBOX`).
+- **Region id:** `nice-frejus`. **Envelope box:** lat 43.31–43.74 N, lon 6.66–7.34 E (= `DepthConstants.WATER_BBOX`), clipped at prebake to the **6 NM-of-coast navigable buffer** (`DepthZoneMask`, needs `assets/coastline/nice-frejus.bin`).
 - **Sign/datum handled in-app:** `AsciiGridParser.parse(..., negate = true, latOffsetM = …)`. EMODnet
   uses `latOffsetM = 0.0` (already LAT); Litto3D uses `DepthConstants.IGN69_ABOVE_LAT_M` (0.40 m).
   So the bake only needs to produce **elevation** ESRI ASCII in WGS84 — no vertical math in GDAL.

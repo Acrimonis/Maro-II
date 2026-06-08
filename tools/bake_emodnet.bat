@@ -8,14 +8,14 @@ REM           (ESRI ASCII, elevation rel. LAT -- the app negates it to depth.)
 REM Requires on PATH: curl, tar (built into Win10+), GDAL (gdalwarp, gdal_translate).
 REM Run from the repo root:  tools\bake_emodnet.bat
 REM ---------------------------------------------------------------------------
-set "W=6.70"
-set "S=43.40"
-set "E=7.31"
-set "N=43.75"
+set "W=6.66"
+set "S=43.31"
+set "E=7.34"
+set "N=43.74"
 set "REGION=nice-frejus"
 set "URL=https://downloads.emodnet-bathymetry.eu/v12/E5_2024.tif.zip"
 set "WORK=%TEMP%\emodnet_e5"
-set "OUT=app\src\main\assets\depth"
+set "OUT=data\app-assets\depth"
 
 if not exist "%OUT%" mkdir "%OUT%"
 if not exist "%WORK%" mkdir "%WORK%"
