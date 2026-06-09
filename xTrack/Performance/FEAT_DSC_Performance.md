@@ -122,5 +122,5 @@ and compass-gating are unconditional correct behaviour. Framework `LocationManag
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — settings UI + capped follow applier
 
 ## Docs
-- `FEAT_DOC_Performance_battery-design.md` — battery hotspot analysis, presets/defaults, adaptive-policy contract, refresh-cap mechanism.
+- `xTrack/Performance/FEAT_DOC_Performance_battery-design.md` — battery hotspot analysis, presets/defaults, adaptive-policy contract, refresh-cap mechanism.
 - `docs/MARO_ARCHITECTURE.md` — spatial-engine constraints (async render rules) the map/refresh changes operate within.

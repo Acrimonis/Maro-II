@@ -90,5 +90,5 @@ Litto3D shallow) — also the on-device way to confirm the Litto3D east baked in
 - `gradle.properties` (region props) · `app/build.gradle.kts` (BuildConfig) · `…/data/coastline/CoastlineGenerator.kt` · `…/data/depth/DepthZoneMask.kt`
 
 ## Docs
-- `FEAT_DOC_DepthMapping_bake.md` — current bake guide (to be updated as the scripts are normalized)
-- `FEAT_PLN_DepthMapping_litto3d-shallow-coverage.md` — design: kill the hardcoded litto3d band → derive the clip from a coastline-bbox sidecar + gzip the nodata-heavy `.asc` + full-tile fetch for whole-range shallow
+- `xTrack/DepthMapping/FEAT_DOC_DepthMapping_bake.md` — current bake guide (to be updated as the scripts are normalized)
+- `xTrack/DepthMapping/FEAT_PLN_DepthMapping_litto3d-shallow-coverage.md` — design: kill the hardcoded litto3d band → derive the clip from a coastline-bbox sidecar + gzip the nodata-heavy `.asc` + full-tile fetch for whole-range shallow

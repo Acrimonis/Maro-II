@@ -24,10 +24,10 @@ FEAT_[TYPE]_[FeatureName]_[topic].md
 
 | Type | Meaning | Example |
 |---|---|---|
-| `DSC` | Feature description (was FEATURE_SCOPE_) | `FEAT_DSC_DepthSafety.md` |
-| `DOC` | Feature-scoped reference doc (was docs/ feature-specific) | `FEAT_DOC_DepthMapping_design.md` |
-| `PLN` | Plan / design discussion (was plans/*.md) | `FEAT_PLN_DepthSafety_caching-strategy.md` |
-| `HYD` | Hydration snapshot (was xTrack/hydration/) | `FEAT_HYD_DepthSafety.md` |
+| `DSC` | Feature description (was FEATURE_SCOPE_) | `xTrack/DepthSafety/FEAT_DSC_DepthSafety.md` |
+| `DOC` | Feature-scoped reference doc (was docs/ feature-specific) | `xTrack/DepthMapping/FEAT_DOC_DepthMapping_design.md` |
+| `PLN` | Plan / design discussion (was plans/*.md) | `xTrack/DepthSafety/FEAT_PLN_DepthSafety_caching-strategy.md` |
+| `HYD` | Hydration snapshot (was xTrack/hydration/) | `xTrack/DepthSafety/FEAT_HYD_DepthSafety.md` |
 
 For subfeature-scoped DOC/PLN: `FEAT_[TYPE]_[Feature]_[subfeature]_[topic].md`
 

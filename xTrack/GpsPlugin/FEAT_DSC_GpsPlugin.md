@@ -73,6 +73,6 @@ ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 ## Key Files
 
 ## Docs
-- `FEAT_DOC_MapDisplay_marker-sizing.md` — sizing/behaviour of the centred boat marker that GPS positions on the map.
+- `xTrack/MapDisplay/FEAT_DOC_MapDisplay_marker-sizing.md` — sizing/behaviour of the centred boat marker that GPS positions on the map.
 - `docs/MARO_ARCHITECTURE.md` — spatial-engine constraints (Nice–Fréjus bounding box, async/map rules) GPS positions operate within.
-- `FEAT_DOC_Coastline_300m-line-design.md` — the 300 m regulatory band + 5-knot rule the dashboard speed colour-coding enforces.
+- `xTrack/Coastline/FEAT_DOC_Coastline_300m-line-design.md` — the 300 m regulatory band + 5-knot rule the dashboard speed colour-coding enforces.

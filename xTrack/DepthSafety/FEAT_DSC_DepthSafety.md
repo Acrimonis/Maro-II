@@ -81,4 +81,4 @@ B4 · `feature/depth-warning-4` — the **ALARM** (pulse + banner; sound later).
 - See per-subfeature Key Files.
 
 ## Docs
-- `FEAT_PLN_DepthSafety_plan.md` — the branch-per-feature workflow + per-branch design.
+- `xTrack/DepthSafety/FEAT_PLN_DepthSafety_plan.md` — the branch-per-feature workflow + per-branch design.

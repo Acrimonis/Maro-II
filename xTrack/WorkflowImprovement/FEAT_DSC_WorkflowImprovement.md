@@ -2,7 +2,7 @@
 name: WorkflowImprovement
 status: active
 created: 2026-06-03 00:00
-modified: 2026-06-09 13:54
+modified: 2026-06-09 14:52
 active_subfeature: none
 ---
 
@@ -122,8 +122,8 @@ Define the Zero-Piecemeal Writes discussion exception: allow one plan file per d
 
 ## Docs
 - `docs/cmd_help.md` — command reference (—help output)
-- `FEAT_PLN_WorkflowImprovement_planning.md` — Zero-Piecemeal Writes discussion exception design
-- `FEAT_PLN_WorkflowImprovement_feat-summary-layer.md` — FEAT_ summary layer token optimization discussion
+- `xTrack/WorkflowImprovement/FEAT_PLN_WorkflowImprovement_planning.md` — Zero-Piecemeal Writes discussion exception design
+- `xTrack/WorkflowImprovement/FEAT_PLN_WorkflowImprovement_feat-summary-layer.md` — FEAT_ summary layer token optimization discussion
 
 ## Notes
 <!-- blockers, design decisions, context for next session -->

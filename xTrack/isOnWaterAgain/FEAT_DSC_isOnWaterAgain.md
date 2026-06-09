@@ -87,4 +87,4 @@ Marina **band pinch** (split out of `300M Zone Rendering`). The red **seaward** 
 - `app/src/test/java/ykws/android/maro/spatial/CoastlineSpatialIndexWaterTest.kt` — oracle sweep / regressions.
 
 ## Docs
-- `FEAT_DOC_isOnWaterAgain_nearest-segment-design.md` — Option 2 design + implementation plan (nearest-segment side test).
+- `xTrack/isOnWaterAgain/FEAT_DOC_isOnWaterAgain_nearest-segment-design.md` — Option 2 design + implementation plan (nearest-segment side test).

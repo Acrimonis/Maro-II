@@ -236,10 +236,10 @@ is the **W/E map extent**. *(Cross-cutting — also touches Coastline; tracked h
 - `C:\Users\Nicolas\.claude\plans\2-well-lido-is-typed-bonbon.md` — approved implementation plan.
 
 ## Docs
-- `FEAT_DOC_DepthMapping_design.md` — design document
-- `FEAT_DOC_DepthMapping_plan.md` — implementation plan
-- `FEAT_DOC_DepthMapping_bake.md` — offline bake guide
-- `FEAT_DOC_DepthMapping_sources.md` — recoverable source synthesis
+- `xTrack/DepthMapping/FEAT_DOC_DepthMapping_design.md` — design document
+- `xTrack/DepthMapping/FEAT_DOC_DepthMapping_plan.md` — implementation plan
+- `xTrack/DepthMapping/FEAT_DOC_DepthMapping_bake.md` — offline bake guide
+- `xTrack/DepthMapping/FEAT_DOC_DepthMapping_sources.md` — recoverable source synthesis
 - `docs/oZer/BARO - alternative sources finer than HOMONIM.md` — prior research
 - `docs/oZer/BARO - Fetch Sentinel.md` — prior research
 - `docs/oZer/BARO - general concepts.md` — prior research
