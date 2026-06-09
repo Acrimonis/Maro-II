@@ -1,10 +1,10 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** Settings
+- **Active Feature:** DepthMapping
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-09
-- **Last Bake:** 2026-06-09 19:42 (Settings — scroll persistence implemented: save via snapshotFlow + MutableState, restore with layout-aware scrollTo after maxValue > 0)
+- **Last Bake:** 2026-06-09 20:53 (DepthMapping — EMODnet shallow gate applied to colour map, warning overlay, isobaths; water-aware NoData colour using grid.source byte check; DepthColorRamp reverted to pure transparent; tests green)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -35,7 +35,7 @@
 | ProjectDocumentation | Project documentation, README, FAQs, setup guides, and architecture overview | 2026-05-15 00:00 | 2026-06-03 00:00 | active |
 | Zone300 | 300m zone generation from coastline with water-only constraint | 2026-05-20 00:00 | 2026-06-03 00:00 | active |
 | CodeReview | Code quality review, linting, and structural improvements | 2026-06-01 00:00 | 2026-06-05 00:00 | active |
-| DepthMapping | Bathymetry / depth mapping from Litto3D, SHOM, EMODnet sources | 2026-05-10 00:00 | 2026-06-05 00:00 | active |
+| DepthMapping | Bathymetry / depth mapping from Litto3D, SHOM, EMODnet sources | 2026-05-10 00:00 | 2026-06-09 20:53 | active |
 | Coastline | Coastline extraction, spatial indexing, isOnWater determination | 2026-05-10 00:00 | 2026-06-05 00:00 | active |
 | Dashboard | Main dashboard UI layout and HUD information display | 2026-05-15 00:00 | 2026-06-03 00:00 | active |
 | UiThingies | UI widgets, buttons, and interactive elements | 2026-05-20 00:00 | 2026-06-03 00:00 | active |

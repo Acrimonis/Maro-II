@@ -9,6 +9,7 @@ import kotlin.math.roundToInt
  * ints (semi-transparent, for a translucent overlay). NaN / above-datum → fully transparent.
  *
  * Pure (no Android types) so it is JVM-unit-testable; [DepthBitmap] applies it per cell.
+ * NoData colour handling (water-aware) is done in [DepthBitmap].
  */
 object DepthColorRamp {
 

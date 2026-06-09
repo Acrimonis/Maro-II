@@ -56,6 +56,11 @@ object ZoneConfig {
     var lowDepthWarningMinOpacityPct = 25
         private set
 
+    /** ARGB colour for NoData / above-datum cells on the depth colour map.
+     *  Default `0xFFCCCCCC` (light grey). Set via `nodata.color` in zone.properties. */
+    var nodataColor: Int = 0xFFCCCCCC.toInt()
+        private set
+
     /** Isobath line colour per data source (ARGB int); a source with no entry falls back to [isobarColorDefault]. */
     private val isobarColors = hashMapOf(
         DepthSource.LITTO3D to 0xFF1B5E20.toInt(), // dark green (Material 900)
@@ -104,6 +109,9 @@ object ZoneConfig {
             }
             props.getProperty("lowDepthWarningMinOpacityPct")?.toIntOrNull()?.let {
                 lowDepthWarningMinOpacityPct = it.coerceIn(0, 100)
+            }
+            props.getProperty("nodata.color")?.let { parseColorOrNull(it) }?.let {
+                nodataColor = it
             }
             for (src in DepthSource.entries) {
                 val key = src.name.lowercase()
