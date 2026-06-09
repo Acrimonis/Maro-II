@@ -22,18 +22,38 @@ import kotlin.math.roundToInt
  */
 object DepthIsobaths {
 
+    /**
+     * Derives isobath polylines from a [DepthGrid].
+     *
+     * @param emodnetCutoffM EMODnet shallow-water gate: cells from EMODNET shallower than this
+     *                       are masked to NaN (skipped by marching squares). 0 disables. Default 0.
+     *                       This is a **separate pass** from [maskCoarseSources] — the two concerns
+     *                       (resolution vs reliability) are independent.
+     */
     fun build(
         grid: DepthGrid,
         levels: List<Float> = DepthConstants.ISOBATH_LEVELS,
-        epsilonM: Double = DepthConstants.ISOBATH_EPSILON_M
+        epsilonM: Double = DepthConstants.ISOBATH_EPSILON_M,
+        emodnetCutoffM: Float = 0f
     ): List<Isobath> {
         // Field for the FINE levels: coarse-source cells erased so fine contours only form over fine
         // data. Built once (lazily) and shared across every fine level.
         val fineField = lazy { maskCoarseSources(grid) }
+        // EMODnet shallow-masked fields (separate pass, applied on top of the source-masked fine field
+        // or directly on the raw depths for coarse levels). Cached to avoid per-level copies.
+        val emodnetFineField = lazy {
+            if (emodnetCutoffM > 0f) maskEmodnetShallow(fineField.value, grid, emodnetCutoffM) else null
+        }
+        val emodnetCoarseField = lazy {
+            if (emodnetCutoffM > 0f) maskEmodnetShallow(grid.depths, grid, emodnetCutoffM) else null
+        }
         val out = ArrayList<Isobath>(levels.size)
         for (level in levels) {
-            val field =
-                if (level <= DepthConstants.ISOBATH_FINE_LEVEL_MAX_M) fineField.value else grid.depths
+            val field = if (level <= DepthConstants.ISOBATH_FINE_LEVEL_MAX_M) {
+                if (emodnetCutoffM > 0f) emodnetFineField.value!! else fineField.value
+            } else {
+                if (emodnetCutoffM > 0f) emodnetCoarseField.value!! else grid.depths
+            }
             val raw = SpatialOperations.marchingSquaresScalar(field, grid.cols, grid.rows, level.toDouble())
             if (raw.isEmpty()) continue
             val lines = raw.mapNotNull { line ->
@@ -67,6 +87,23 @@ object DepthIsobaths {
         for (i in 0 until n) {
             if (out[i].isNaN()) continue
             if (DepthSource.fromId(grid.source[i].toInt()).nominalResM > DepthConstants.ISOBATH_FINE_MAX_RES_M) {
+                out[i] = Float.NaN
+            }
+        }
+        return out
+    }
+
+    /**
+     * **Separate pass** — copies [depths] and sets every EMODNET cell shallower than [cutoffM]
+     * to NaN, so marching squares skips it. Applied on top of the resolution-based mask for fine
+     * levels, or directly on raw depths for coarse levels. No-op when [cutoffM] ≤ 0.
+     */
+    private fun maskEmodnetShallow(depths: FloatArray, grid: DepthGrid, cutoffM: Float): FloatArray {
+        val out = depths.copyOf()
+        val n = out.size
+        for (i in 0 until n) {
+            if (out[i].isNaN()) continue
+            if (DepthSource.fromId(grid.source[i].toInt()) == DepthSource.EMODNET && out[i] < cutoffM) {
                 out[i] = Float.NaN
             }
         }

@@ -91,6 +91,20 @@ class DepthGrid(
     fun sourceAt(r: Int, c: Int): DepthSource = DepthSource.fromId(source[idx(r, c)].toInt())
     fun confidenceAt(r: Int, c: Int): Int = confidence[idx(r, c)].toInt() and 0xFF
 
+    /**
+     * Gate coarse EMODnet cell readings in the shallow danger band: an EMODnet cell
+     * (115 m, often a coast/rock artifact) shallower than [cutoffM] returns [Float.NaN]
+     * (NoData) so downstream builders (bitmap, warning, isobaths) skip it.
+     * Only EMODnet is gated; finer sources (Litto3D/SDB) and deeper EMODnet pass through.
+     * [cutoffM] = 0 disables the gate. NaN or above-datum cells pass through unchanged.
+     */
+    fun depthGated(r: Int, c: Int, cutoffM: Float): Float {
+        val d = depthRaw(r, c)
+        if (d.isNaN() || d < 0f) return d
+        if (cutoffM > 0f && sourceAt(r, c) == DepthSource.EMODNET && d < cutoffM) return Float.NaN
+        return d
+    }
+
     fun cellCenterLat(r: Int): Double = boundingBox.latSouth + (r + 0.5) * cellSizeDegLat
     fun cellCenterLon(c: Int): Double = boundingBox.lonWest + (c + 0.5) * cellSizeDegLon
 

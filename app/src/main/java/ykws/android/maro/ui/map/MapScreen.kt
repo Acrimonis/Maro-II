@@ -226,23 +226,34 @@ fun MapScreen(
     val depthValidation = depthGrid?.metadata?.validation
     val isobaths = depthRender?.isobaths ?: emptyList()
 
+    // Coastline classifier is needed for both the low-depth warning and the depth colour map
+    // (to keep NoData colour off land).
+    val coastlineReady = state is CoastlineState.Ready
+    val waterTest: (Double, Double) -> Boolean =
+        if (coastlineReady) viewModel::isOnWater else { _, _ -> true }
+
     // Rasterise the colour map once per grid, off the main thread (~7 M cells).
     val depthBitmap by produceState<Bitmap?>(initialValue = null, depthGrid,
-        appSettings.lowDepthWarningMaxM, appSettings.lowDepthWarningMinOpacityPct) {
+        appSettings.lowDepthWarningMaxM, appSettings.lowDepthWarningMinOpacityPct,
+        appSettings.emodnetShallowCutoffM, coastlineReady) {
         // If cache exists, skip the expensive live build
         val cached = depthGrid?.let {
             depthViewModel.readCached(context, RasterCache.Step.DEPTH_COLOUR, appSettings)
         }
         if (cached != null) { value = cached; return@produceState }
-        value = depthGrid?.let { g -> withContext(Dispatchers.Default) { DepthBitmap.build(g) } }
+        value = depthGrid?.let { g ->
+            withContext(Dispatchers.Default) {
+                DepthBitmap.build(g, appSettings.emodnetShallowCutoffM, ZoneConfig.nodataColor)
+            }
+        }
     }
 
     // Second raster: cells shallower than the user's warning threshold, on water only, painted bright.
     // Re-rasterises when the grid, the threshold, or coastline readiness changes.
-    val coastlineReady = state is CoastlineState.Ready
     val lowDepthWarningBitmap by produceState<Bitmap?>(
         initialValue = null, depthGrid, appSettings.lowDepthWarningMaxM,
-        appSettings.lowDepthWarningMinOpacityPct, coastlineReady
+        appSettings.lowDepthWarningMinOpacityPct, coastlineReady,
+        appSettings.emodnetShallowCutoffM
     ) {
         // If cache exists, skip the expensive live build
         val cached = depthGrid?.let {
@@ -250,13 +261,11 @@ fun MapScreen(
         }
         if (cached != null) { value = cached; return@produceState }
         val maxM = appSettings.lowDepthWarningMaxM
-        // Skip land/island cells via the coastline classifier; until it loads, treat all as water.
-        val waterTest: (Double, Double) -> Boolean =
-            if (coastlineReady) viewModel::isOnWater else { _, _ -> true }
         value = depthGrid?.let { g ->
             withContext(Dispatchers.Default) {
                 LowDepthWarningBitmap.build(g, maxM, waterTest,
-                    appSettings.lowDepthWarningMinOpacityPct / 100f)
+                    appSettings.lowDepthWarningMinOpacityPct / 100f,
+                    appSettings.emodnetShallowCutoffM)
             }
         }
     }
@@ -269,11 +278,12 @@ fun MapScreen(
     // ── Silent lazy-init: on cache miss, generate rasters in background (no LoadingOverlay).
     //    Warning layer is deferred until coastline is ready (needs accurate isWater). ──
     LaunchedEffect(depthGrid, appSettings.lowDepthWarningMaxM,
-                   appSettings.lowDepthWarningMinOpacityPct, coastlineReady) {
+                   appSettings.lowDepthWarningMinOpacityPct, coastlineReady,
+                   appSettings.emodnetShallowCutoffM) {
         val grid = depthGrid ?: return@LaunchedEffect
         val key = RasterCache.Key(
             gridTimestampMs = grid.metadata.fetchTimestampMs,
-            emodnetCutoffM = 0f,
+            emodnetCutoffM = appSettings.emodnetShallowCutoffM,
             lowDepthMaxM = appSettings.lowDepthWarningMaxM,
             lowDepthMinOpacityPct = appSettings.lowDepthWarningMinOpacityPct
         )
@@ -379,8 +389,8 @@ fun MapScreen(
         // The dashboard panel is overlaid via Modifier.align() in the orientation branch.
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val isLandscape = maxWidth > maxHeight
-            val portraitDashboardHeight = maxWidth * 2 / 3  // mirror landscape: ⅔ of the short side
-            val landscapeDashboardWidth = maxHeight // dashboard width = full screen height
+            val portraitDashboardHeight = maxWidth * 3 / 5  // mirror landscape: ⅔ of the short side
+            val landscapeDashboardWidth = maxHeight * 80 / 100 // dashboard width = full screen height
 
             // Map fills the box, padded to leave room for the dashboard overlay.
             // Stable composition slot — never inside an if/else branch.

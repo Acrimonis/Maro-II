@@ -22,11 +22,16 @@ import kotlin.math.roundToInt
  */
 object LowDepthWarningBitmap {
 
+    /**
+     * @param emodnetCutoffM EMODnet shallow-water gate: cells from EMODNET shallower than this
+     *                       render as NoData (transparent). 0 disables. Default 0.
+     */
     fun build(
         grid: DepthGrid,
         maxDepthM: Float = DepthConstants.LOW_DEPTH_WARNING_MAX_M.toFloat(),
         isWater: (lat: Double, lon: Double) -> Boolean = { _, _ -> true },
         minOpacity: Float = 0.25f,
+        emodnetCutoffM: Float = 0f,
         onProgress: ((Int) -> Unit)? = null
     ): Bitmap {
         val w = grid.cols
@@ -37,7 +42,7 @@ object LowDepthWarningBitmap {
         for (r in 0 until h) {
             val outRow = (h - 1 - r) * w   // flip south-up grid → top-down bitmap
             for (c in 0 until w) {
-                val d = grid.depthRaw(r, c)
+                val d = grid.depthGated(r, c, emodnetCutoffM)
                 if (d.isNaN() || d < 0f || d >= maxDepthM) {
                     colors[outRow + c] = 0
                     continue
