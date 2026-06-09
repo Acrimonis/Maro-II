@@ -4,9 +4,6 @@ status: active
 created: 2026-06-06 00:00
 modified: 2026-06-06 00:00
 active_subfeature: none
-subs_total: 6
-subs_done: 6
-one_liner: UI layout refinements for the Maro map — onwater toggle, settings, map position persistence, ergonomics
 ---
 
 # Feature: UiThingies

@@ -4,9 +4,6 @@ status: active
 created: 2026-06-05 00:00
 modified: 2026-06-05 00:00
 active_subfeature: none
-subs_total: 0
-subs_done: 0
-one_liner: Extend the coastline dataset to include isolated offshore point hazards (e.g. Phare de la Fourmigue) so the spatial engine no longer misses standalone rocks/turrets that lie off the continuous trait de côte.
 ---
 
 # Feature: Coastline

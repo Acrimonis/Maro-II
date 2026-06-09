@@ -4,9 +4,6 @@ status: done
 created: 2026-06-04 00:00
 modified: 2026-06-04 00:00
 active_subfeature: none
-subs_total: 1
-subs_done: 1
-one_liner: Code-review findings for the Maro coastline app and their fixes.
 ---
 
 # Feature: CodeReview

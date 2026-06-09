@@ -4,9 +4,6 @@ status: active
 created: 2026-06-07 00:00
 modified: 2026-06-07 00:00
 active_subfeature: settings
-subs_total: 2
-subs_done: 0
-one_liner: Démo↔GPS toggle that drives the boat marker from the device GPS with a heading-up rotating map.
 ---
 
 # Feature: GpsPlugin
@@ -76,6 +73,6 @@ ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 ## Key Files
 
 ## Docs
-- `docs/MARKER_SIZING.md` — sizing/behaviour of the centred boat marker that GPS positions on the map.
+- `xTrack/MapDisplay/FEAT_DOC_MapDisplay_marker-sizing.md` — sizing/behaviour of the centred boat marker that GPS positions on the map.
 - `docs/MARO_ARCHITECTURE.md` — spatial-engine constraints (Nice–Fréjus bounding box, async/map rules) GPS positions operate within.
-- `docs/300MLineDesign.md` — the 300 m regulatory band + 5-knot rule the dashboard speed colour-coding enforces.
+- `xTrack/Coastline/FEAT_DOC_Coastline_300m-line-design.md` — the 300 m regulatory band + 5-knot rule the dashboard speed colour-coding enforces.

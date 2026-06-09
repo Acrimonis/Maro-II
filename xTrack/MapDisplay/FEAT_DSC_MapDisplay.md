@@ -4,9 +4,6 @@ status: active
 created: 2026-06-07 00:00
 modified: 2026-06-08 21:36
 active_subfeature: none
-subs_total: 8
-subs_done: 3
-one_liner: Map display layer management — depth layer, color depth layer, and orientation-aware rendering.
 ---
 
 **Description:** Map display layer management — depth layer, color depth layer, and orientation-aware rendering.

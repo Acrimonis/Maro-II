@@ -4,9 +4,6 @@ status: active
 created: 2026-06-04 00:00
 modified: 2026-06-06 00:00
 active_subfeature: none
-subs_total: 5
-subs_done: 2
-one_liner: Map 0–60 m seafloor depth in the scoped zone for collision avoidance and dive profiling.
 ---
 
 # Feature: DepthMapping
@@ -239,10 +236,10 @@ is the **W/E map extent**. *(Cross-cutting — also touches Coastline; tracked h
 - `C:\Users\Nicolas\.claude\plans\2-well-lido-is-typed-bonbon.md` — approved implementation plan.
 
 ## Docs
-- `docs/DepthMappingDesign.md` — design document
-- `docs/DepthMappingPlan.md` — implementation plan
-- `docs/DepthMappingBake.md` — offline bake guide
-- `docs/depthMappingSources.md` — recoverable source synthesis
+- `xTrack/DepthMapping/FEAT_DOC_DepthMapping_design.md` — design document
+- `xTrack/DepthMapping/FEAT_DOC_DepthMapping_plan.md` — implementation plan
+- `xTrack/DepthMapping/FEAT_DOC_DepthMapping_bake.md` — offline bake guide
+- `xTrack/DepthMapping/FEAT_DOC_DepthMapping_sources.md` — recoverable source synthesis
 - `docs/oZer/BARO - alternative sources finer than HOMONIM.md` — prior research
 - `docs/oZer/BARO - Fetch Sentinel.md` — prior research
 - `docs/oZer/BARO - general concepts.md` — prior research

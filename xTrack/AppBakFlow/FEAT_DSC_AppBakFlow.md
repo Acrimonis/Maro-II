@@ -4,9 +4,6 @@ status: done
 created: 2026-06-08 16:43
 modified: 2026-06-08 16:43
 active_subfeature: none
-subs_total: 2
-subs_done: 2
-one_liner: Confirm-on-back exit (double-press within 2s) plus a "keep screen on while running" setting.
 ---
 
 # Feature: AppBakFlow

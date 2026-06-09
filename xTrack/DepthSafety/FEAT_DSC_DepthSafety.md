@@ -4,9 +4,6 @@ status: active
 created: 2026-06-08 18:25
 modified: 2026-06-09 12:01
 active_subfeature: caching
-subs_total: 6
-subs_done: 5
-one_liner: Make the depth layer navigation-safe — water-only colour, precision-aware isobaths, a very-visible sub-danger-depth overlay, and a configurable shallow-water alarm.
 ---
 
 # Feature: DepthSafety
@@ -132,5 +129,5 @@ Runtime layer bitmap caching — avoid rebuilding the ~7 M-cell depth colour map
 - See per-subfeature Key Files.
 
 ## Docs
-- `plans/depth-safety.md` — the branch-per-feature workflow + per-branch design.
+- `xTrack/DepthSafety/FEAT_PLN_DepthSafety_plan.md` — the branch-per-feature workflow + per-branch design.
 - `plans/depth-gate-visual-consistency.md` — design & implementation plan for extending the EMODnet shallow gate to the magenta overlay and isobath contours.
