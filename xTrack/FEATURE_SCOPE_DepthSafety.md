@@ -2,10 +2,10 @@
 name: DepthSafety
 status: active
 created: 2026-06-08 18:25
-modified: 2026-06-08 21:53
-active_subfeature: isobar-precision
-subs_total: 4
-subs_done: 1
+modified: 2026-06-09 12:01
+active_subfeature: caching
+subs_total: 6
+subs_done: 5
 one_liner: Make the depth layer navigation-safe — water-only colour, precision-aware isobaths, a very-visible sub-danger-depth overlay, and a configurable shallow-water alarm.
 ---
 
@@ -18,18 +18,18 @@ branches off `feature/litto3d-shallow` — B1, B2, B3 from the base, **B4 from B
 
 ## Subfeatures
 
-### water-only  [ ]
+### water-only  [x]
 B1 · `feature/depth-warning-1` — no depth colour when `!isOnWater`. **Bake-mask is the guard** (per-cell runtime guard infeasible — grid is ~7 M cells).
 #### Todos
 - [x] Bake-time land-mask: `DepthZoneMask.apply` also erases `!isWater` cells (committed 3c6ee3d, in base)
-- [ ] Re-bake + on-device verify the tint stops at the waterline
+- [x] Re-bake + on-device verify the tint stops at the waterline
 - [ ] (optional) cheap load-time integrity check: sample `isWater`, log/flag a stale / un-masked asset
 #### Rules
 - Per-cell runtime `isWater` masking is infeasible (~7 M cells = tens of seconds on-device); the bake mask is authoritative. Canvas `PorterDuff.CLEAR` of land polygons is the fallback if a hard runtime guarantee is ever needed.
 #### Key Files
 - `ui/map/DepthBitmap.kt`, `data/depth/DepthRepository.kt`, `ui/map/MapScreen.kt`, `data/depth/DepthZoneMask.kt`
 
-### isobar-precision  [ ]
+### isobar-precision  [x]
 B2 · `feature/depth-warning-2` — isobaths reflect data precision (suppress fine-over-coarse + style by confidence).
 #### Todos
 - [x] `Isobath.lines` → `List<IsobathLine(points, source, confidence)>`
@@ -72,8 +72,56 @@ B4 · `feature/depth-warning-4` — the **ALARM** (pulse + banner; sound later).
 #### Key Files
 - `data/model/DepthGrid.kt`, `ui/map/DashboardPanel.kt`, `ui/map/MapScreen.kt`, `ZoneConfig.kt`, `data/settings/SettingsManager.kt`
 
+### edonet false alert  [x]
+Coarse EMODnet (115 m) sampling emergent rocks reads above chart datum → after the elevation→depth negation it surfaces as a negative / false-shallow "depth" (the −1.7 m off Cap d'Antibes) that reads as a false grounding hazard. Two-layer fix: bake-time drop of above-datum cells + a runtime, configurable cutoff on the readout. Branch `feature/pink-fix-edonet` (off develop).
+#### Todos
+- [x] Bake-time guard: `mergeDeep` / `fillGaps` / DepthGrid `mergeShallowShoalest` drop `v<0` (above-datum), mirroring the shallow-raster guard
+- [x] Runtime gate `DepthSample.gatedForEmodnetShallow(cutoff)` — EMODnet shallower than cutoff → no-data ("—")
+- [x] Persisted setting `emodnetShallowCutoffM` (0–5 m, default 2.0) + slider at end of Advanced (EN+FR strings)
+- [x] Unit tests `DepthSampleGateTest` + `DepthMergeTest` deep-negative; `testDebugUnitTest` + `assembleDebug` green
+- [ ] On-device verify: −1.7 m readout → "—" at Cap d'Antibes (needs deploy)
+- [ ] Gate the depth colour map (`DepthBitmap`): EMODnet shallow cells render as gray instead of depth colour
+- [ ] (later) reuse the gate for the B4 alarm so coarse EMODnet can't trip a false grounding alert
+#### Rules
+- Gate applies to the **readout**, **depth colour map**, **magenta low-depth overlay**, and **all isobath contour levels**. Gated EMODnet shallow cells: readout → `"—"`; colour map → semi-transparent gray (`DepthBitmap.GATED_GRAY_ARGB`); overlay → transparent; isobaths → mask to NaN (fine levels ≤10 m already mask coarse sources; coarse levels get additional `maskEmodnetShallow`). All three bitmaps rebuild reactively on cutoff change (`produceState` key); isobaths re-derive via `DepthRepository.recomputeIsobaths` triggered by `LaunchedEffect`. The bake-time `v<0` guard only affects the shipped grid after a re-bake.
+- EMODnet is a deep backbone, **not** a shallow source: below the cutoff it must not drive a nearshore depth/alert. Litto3D/SDB are authoritative nearshore.
+- Litto3D coverage is thin (~24 k cells in the baked grid) → coarse EMODnet leaks shallow at many spots; the gate is the readout safeguard, real depth needs Litto3D.
+#### Key Files
+- `data/depth/DepthMerge.kt`, `data/model/DepthGrid.kt` (`DepthSample.gatedForEmodnetShallow`), `data/settings/SettingsManager.kt`, `ui/map/MapScreen.kt`, `res/values*/strings.xml`
+
 ## Todos
-- [ ] **NEXT:** B2 committed+pushed; develop merged in. **B3 superseded** by develop's low-depth overlay (done). Remaining DepthSafety work: **B4 · danger-alert** (alarm: `isBelow` + pulsing card/banner + sound stub) and **B1 · water-only** re-bake/verify. On-device verify B2 colours. Option-3 gdal_contour parked.
+- [ ] **NEXT:** B4 · danger-alert (alarm: `isBelow` + pulsing card/banner + sound stub). On-device verify B2 colours + edonet-gate at Cap d'Antibes. Option-3 gdal_contour parked.
+
+## Subfeatures
+
+### caching  [x]
+Runtime layer bitmap caching — avoid rebuilding the ~7 M-cell depth colour map and low-depth warning overlay on every cold launch. RawBuf disk cache (IntArray→FileChannel), measured at 78ms colour / 52ms warning vs 980ms / 5178ms compute.
+#### Todos
+- [x] Measure pertinence of a disk cache — RawBuf wins decisively. See `plans/caching.md`.
+- [x] Implement `RasterCache` object: write/read RawBuf (IntArray→ByteBuffer→FileChannel) with compound key (grid fetchTimestampMs + all threshold settings)
+- [x] Add `generateRasterLayers(layers: List<RasterLayer>)` to DepthViewModel — builds requested rasters + persists cache + reports progress via StateFlow<RasterProgress>
+- [x] Add settings control: "Regenerate Rasters" button in Advanced section (regenerates both layers; per-layer selection is follow-up)
+- [x] Lazy instantiation on MapScreen start: if cached raster(s) missing → auto-trigger `generateRasterLayers()` for the missing ones
+- [x] Show `LoadingOverlay` during raster generation with progress % computed from measured per-step timings (grid 877ms + isobath 1887ms + colour 980ms + warning 5178ms → total 8922ms baseline)
+- [x] Remove timing simulation code (`simulateCacheFormats`) after cache is operational
+- [ ] Measure end-to-end cold-start improvement after cache (needs on-device deploy)
+#### Rules
+- The grid is ~7 M cells (2,476×2,856), 41 MB protobuf. Cache targets only the raster Bitmap output, not the grid itself.
+- Cache key = `grid.metadata.fetchTimestampMs` + `emodnetShallowCutoffM` + `lowDepthWarningMaxM` + `lowDepthWarningMinOpacityPct`. Any change → rebuild + overwrite.
+- RawBuf format: `IntArray` → `ByteBuffer.allocateDirect()` → `FileChannel.write()`; read reverses. Zero encode/decode overhead.
+- Progress during `generateRasterLayers()` is weighted by measured timings: grid load ~10%, isobaths ~21%, colour raster ~11%, warning raster ~58% of total 8922ms.
+- `LoadingOverlay` reuses the existing composable (spinner + LinearProgressIndicator + phase label) but driven by a `depthProgress: GenerationProgress` parameter, not the coastline progress.
+#### Key Files
+- `ui/map/MapScreen.kt` (produceState blocks, LoadingOverlay wiring, lazy-init trigger)
+- `ui/map/DepthBitmap.kt`, `ui/map/LowDepthWarningBitmap.kt` (raster builders)
+- `ui/map/DepthViewModel.kt` (generateRasterLayers, progress StateFlow)
+- `data/depth/DepthRepository.kt` (grid load, isobath build)
+- `data/settings/SettingsManager.kt` (regeneration control)
+- `data/depth/RasterCache.kt` (new: RawBuf disk I/O)
+- `data/model/GenerationProgress.kt` (reused for progress reporting)
+#### Docs
+- `plans/caching.md` — measurement results and RawBuf decision
+- `plans/caching-rawbuf.md` — implementation plan for RawBuf cache with progress UI
 
 ## Rules
 - Branch-per-feature off `feature/litto3d-shallow`: B1, B2, B3 from the base; **B4 from B3**. Commit only on explicit instruction.
@@ -85,3 +133,4 @@ B4 · `feature/depth-warning-4` — the **ALARM** (pulse + banner; sound later).
 
 ## Docs
 - `plans/depth-safety.md` — the branch-per-feature workflow + per-branch design.
+- `plans/depth-gate-visual-consistency.md` — design & implementation plan for extending the EMODnet shallow gate to the magenta overlay and isobath contours.

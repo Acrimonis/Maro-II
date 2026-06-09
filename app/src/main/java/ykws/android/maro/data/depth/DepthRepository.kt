@@ -1,6 +1,8 @@
 package ykws.android.maro.data.depth
 
 import android.content.Context
+import android.os.SystemClock
+import android.util.Log
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -57,17 +59,35 @@ class DepthRepository(
     /** Re-reads the bundled prebaked grid (no on-device generation). */
     suspend fun refreshDepth(regionId: String = DepthConstants.REGION_ID) = loadDepth(regionId)
 
+    /** Loads the prebaked grid from bundled assets without touching UI state. Idempotent — safe to
+     *  call even when the grid is already loaded (returns the cached instance). */
+    suspend fun loadGridFromAssets(regionId: String = DepthConstants.REGION_ID): DepthGrid? {
+        val cached = grid
+        if (cached != null) return cached
+        return withContext(ioDispatcher) { readBundled(regionId) }
+    }
+
     private fun readBundled(regionId: String): DepthGrid? = try {
-        assets?.open("depth/$regionId.bin")?.use { DepthSerializer.deserialize(it.readBytes()) }
+        assets?.open("depth/$regionId.bin")?.use { stream ->
+            val raw = stream.readBytes()
+            val t0 = SystemClock.elapsedRealtime()
+            val grid = DepthSerializer.deserialize(raw)
+            val elapsed = SystemClock.elapsedRealtime() - t0
+            Log.d("Perf", "DepthGridLoad: ${elapsed}ms rows=${grid.rows} cols=${grid.cols} cells=${grid.rows * grid.cols} fileSizeKB=${raw.size / 1024}")
+            grid
+        }
     } catch (_: Exception) {
         null
     }
 
     private suspend fun setReady(g: DepthGrid) {
         grid = g
+        val t0 = SystemClock.elapsedRealtime()
         renderModel = withContext(Dispatchers.Default) {
             DepthRenderModel(isobaths = DepthIsobaths.build(g), bitmapReady = false)
         }
+        val elapsed = SystemClock.elapsedRealtime() - t0
+        Log.d("Perf", "IsobathBuild: ${elapsed}ms")
         _state.value = DepthState.Ready(g)
     }
 

@@ -2,10 +2,10 @@
 
 ## Active Session Pointers
 - **Active Feature:** DepthSafety
-- **Active Subfeature:** isobar-precision
-- **Last Updated:** 2026-06-08
-- **Last Bake:** 2026-06-08 21:53 (DepthSafety — merged develop into feature/depth-warning-2; re-scoped B3: develop's low-depth warning overlay (magenta, configurable lowDepthWarningMaxM slider, toggle, water-only via depth-gated isWater, rebuild-on-change) SUPERSEDES B3 danger-display → done (subs 1/4). Remaining: B4 danger-alert (alarm) + B1 water-only re-bake. compileDebugKotlin green)
-- **Prev Bake:** 2026-06-08 21:44 (DepthSafety — B2 isobar-precision implemented: IsobathLine model, fine-over-coarse suppression, colour+width by source, Chaikin smoothing of Litto3D lines; unit-tested + assembleDebug green)
+- **Active Subfeature:** caching
+- **Last Updated:** 2026-06-09
+- **Last Bake:** 2026-06-09 12:01 (DepthSafety — caching implemented: 4-step pipeline, sequential hide/show, persisted checkboxes, silent lazy-init, cache-guarded live builds. 5/6 subs done. Remaining: danger-alert.)
+- **Prev Bake:** 2026-06-09 08:06 (DepthSafety — EMODnet shallow gate now covers all four layers: readout, depth colour map, magenta low-depth overlay, isobath contours. All bitmaps rebuild reactively on cutoff change. testDebugUnitTest + assembleDebug green. On-device verify pending.)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -29,6 +29,7 @@
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).
+- `adb.exe` is in the computer PATH — use `adb` directly without full path qualifier.
 - Auto-refine rule wording for clarity and conciseness on `#rule` add.
 - Use apk-build.bat to build APK (runs gradlew assembleDebug).
 - **No Côte/Bande or Earth/Water controls anywhere in the UI.** The "Côte" (generate coastline) and "Bande" (regenerate 300m band) buttons are completely removed from the app interface. The Earth/Water icon display in the dashboard is also removed. These exist as ViewModel methods only for programmatic/internal use.
