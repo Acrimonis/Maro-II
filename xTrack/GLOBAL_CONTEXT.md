@@ -4,7 +4,7 @@
 - **Active Feature:** DepthSafety
 - **Active Subfeature:** caching
 - **Last Updated:** 2026-06-09
-- **Last Bake:** 2026-06-09 12:01 (DepthSafety — caching implemented: 4-step pipeline, sequential hide/show, persisted checkboxes, silent lazy-init, cache-guarded live builds. 5/6 subs done. Remaining: danger-alert.)
+- **Last Bake:** 2026-06-09 12:21 (DepthSafety — merged origin/develop into feature/layers-caching. Resolved conflicts in SettingsManager (kept emodnetShallowCutoffM + regen* flags) and MapScreen (gatedForEmodnetShallow + EMODnet slider + caching code). 5/6 subs done. assembleDebug green.)
 - **Prev Bake:** 2026-06-09 08:06 (DepthSafety — EMODnet shallow gate now covers all four layers: readout, depth colour map, magenta low-depth overlay, isobath contours. All bitmaps rebuild reactively on cutoff change. testDebugUnitTest + assembleDebug green. On-device verify pending.)
 
 ## Routing Map
