@@ -1,8 +1,8 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** WorkflowImprovement
-- **Active Subfeature:** none
+- **Active Feature:** UiThingies
+- **Active Subfeature:** dash-size
 - **Last Updated:** 2026-06-09
 - **Last Bake:** 2026-06-09 14:52 (WorkflowImprovement — xTrack reorganization: all 55 FEAT_* files moved into 16 feature subdirectories; AGENTS.md, cmd_help.md, GLOBAL_CONTEXT.md, 7 FEAT_DSC_ ## Docs sections, taxonomy table all updated)
 

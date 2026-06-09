@@ -375,7 +375,7 @@ fun MapScreen(
         // The dashboard panel is overlaid via Modifier.align() in the orientation branch.
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val isLandscape = maxWidth > maxHeight
-            val landscapeDashboardWidth = maxHeight * 2 / 3 // dashboard width = ⅔ screen height
+            val landscapeDashboardWidth = maxHeight // dashboard width = full screen height
             val portraitDashboardHeight = maxWidth * 2 / 3  // mirror landscape: ⅔ of the short side
 
             // Map fills the box, padded to leave room for the dashboard overlay.
