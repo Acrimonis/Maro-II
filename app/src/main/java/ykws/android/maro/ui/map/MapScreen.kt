@@ -62,6 +62,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -96,6 +97,8 @@ import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import ykws.android.maro.data.depth.DepthConstants
 import ykws.android.maro.data.depth.RasterCache
@@ -140,6 +143,7 @@ fun MapScreen(
     val appSettings by viewModel.settings.collectAsState()
     var mapView by remember { mutableStateOf<MapView?>(null) }
     var showSettings by remember { mutableStateOf(false) }
+    var settingsScrollOffset by remember { mutableStateOf(0) }
     val demoSpeedKnots by viewModel.demoSpeedKnots.collectAsState()
 
     val context = LocalContext.current
@@ -375,8 +379,8 @@ fun MapScreen(
         // The dashboard panel is overlaid via Modifier.align() in the orientation branch.
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val isLandscape = maxWidth > maxHeight
-            val landscapeDashboardWidth = maxHeight // dashboard width = full screen height
             val portraitDashboardHeight = maxWidth * 2 / 3  // mirror landscape: ⅔ of the short side
+            val landscapeDashboardWidth = maxHeight // dashboard width = full screen height
 
             // Map fills the box, padded to leave room for the dashboard overlay.
             // Stable composition slot — never inside an if/else branch.
@@ -452,6 +456,8 @@ fun MapScreen(
                 onUpdateSettings = viewModel::updateSettings,
                 onGpsModeChange = onGpsModeChange,
                 onDismiss = { showSettings = false },
+                initialScrollOffset = settingsScrollOffset,
+                onScrollChanged = { offset -> settingsScrollOffset = offset },
                 onRegenerateRasters = { steps ->
                     val waterTest: (Double, Double) -> Boolean =
                         if (state is CoastlineState.Ready) viewModel::isOnWater else { _, _ -> true }
@@ -1117,7 +1123,9 @@ private fun SettingsOverlay(
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
     onGpsModeChange: (Boolean) -> Unit,
     onDismiss: () -> Unit,
-    onRegenerateRasters: (List<RasterCache.Step>) -> Unit = {}
+    onRegenerateRasters: (List<RasterCache.Step>) -> Unit = {},
+    initialScrollOffset: Int = 0,
+    onScrollChanged: (Int) -> Unit = {}
 ) {
     Box(
         modifier = Modifier
@@ -1167,11 +1175,32 @@ private fun SettingsOverlay(
 
             // Scrollable settings body — the header above stays pinned so the back
             // button is always reachable. weight(1f) bounds the height so verticalScroll works.
+            val scrollState = rememberScrollState()
+
+            // Restore the saved scroll offset on every open.  We wait until the
+            // scrollable Column has been laid out (maxValue > 0) before calling
+            // scrollTo, because scrollTo silently clamps to [0, maxValue] — if
+            // maxValue is still 0 when scrollTo runs, the scroll is clamped to 0
+            // and the restored position is silently lost.
+            LaunchedEffect(Unit) {
+                if (initialScrollOffset > 0) {
+                    snapshotFlow { scrollState.maxValue }
+                        .first { it > 0 }
+                    scrollState.scrollTo(initialScrollOffset.coerceAtMost(scrollState.maxValue))
+                }
+            }
+
+            // Persist the scroll offset on every change so it survives dismiss/reopen.
+            LaunchedEffect(scrollState) {
+                snapshotFlow { scrollState.value }
+                    .collect { onScrollChanged(it) }
+            }
+
             Column(
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
+                    .verticalScroll(scrollState)
             ) {
 
             // ── Langue / Language section (global app setting — kept first) ──
