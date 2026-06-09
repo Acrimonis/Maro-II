@@ -214,6 +214,8 @@ fun MapScreen(
     val depthState by depthViewModel.state.collectAsState()
     val depthRender by depthViewModel.renderModel.collectAsState()
     val depthAtCenter by depthViewModel.depthAtCenter.collectAsState()
+    // Gate coarse EMODnet shallow readings (unreliable near rocks/coast) → no-data in the readout.
+    val depthReadout = depthAtCenter?.gatedForEmodnetShallow(appSettings.emodnetShallowCutoffM)
     val depthGrid = (depthState as? DepthState.Ready)?.grid
     val depthValidation = depthGrid?.metadata?.validation
     val isobaths = depthRender?.isobaths ?: emptyList()
@@ -346,7 +348,7 @@ fun MapScreen(
                     distanceToShore = distanceToShore,
                     inZone300 = inZone300,
                     distanceToZone = distanceToZone,
-                    depthSample = depthAtCenter,
+                    depthSample = depthReadout,
                     validation = depthValidation,
                     speedKnots = speedKnots ?: demoSpeedKnots,
                     modifier = Modifier
@@ -361,7 +363,7 @@ fun MapScreen(
                     distanceToShore = distanceToShore,
                     inZone300 = inZone300,
                     distanceToZone = distanceToZone,
-                    depthSample = depthAtCenter,
+                    depthSample = depthReadout,
                     validation = depthValidation,
                     speedKnots = speedKnots ?: demoSpeedKnots,
                     modifier = Modifier
@@ -1351,6 +1353,24 @@ private fun SettingsOverlay(
                         onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealTimeS = (v / 5f).roundToInt() * 5) } }
                     )
                 }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            SubSectionHeader(
+                title = stringResource(R.string.settings_emodnet_section_label),
+                description = stringResource(R.string.settings_emodnet_section_desc)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            SettingsSliderGroup {
+                SliderRowContent(
+                    label = stringResource(R.string.settings_emodnet_cutoff_label),
+                    description = stringResource(R.string.settings_emodnet_cutoff_desc),
+                    valueLabel = stringResource(R.string.settings_value_depth, settings.emodnetShallowCutoffM),
+                    value = settings.emodnetShallowCutoffM,
+                    valueRange = 0f..5f,
+                    steps = 9,
+                    onValueChange = { v -> onUpdateSettings { it.copy(emodnetShallowCutoffM = (v * 2f).roundToInt() / 2f) } }
+                )
             }
 
             Spacer(modifier = Modifier.height(24.dp))

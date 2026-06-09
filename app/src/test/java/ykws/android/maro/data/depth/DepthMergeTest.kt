@@ -95,6 +95,27 @@ class DepthMergeTest {
         assertEquals(DepthSource.EMODNET, t.sourceAt(r, c))
     }
 
+    @Test
+    fun `mergeDeep ignores above-datum cells (negative depth)`() {
+        val t = target()
+        val r = t.rows / 2; val c = t.cols / 2
+        // An EMODnet cell over an emergent rock samples above datum → negative "depth".
+        // It must never land in the grid (the −1.7 m Cap-d'Antibes false reading).
+        DepthMerge.mergeDeep(t, uniformRaster(-1.7f, DepthSource.EMODNET.nominalResM, DepthSource.EMODNET))
+        assertTrue("above-datum EMODnet must not become a negative depth", t.get(r, c).isNaN())
+    }
+
+    @Test
+    fun `mergeDeep negative finer source does not overwrite a good cell`() {
+        val t = target()
+        val r = t.rows / 2; val c = t.cols / 2
+        DepthMerge.mergeDeep(t, uniformRaster(5f, DepthSource.EMODNET.nominalResM, DepthSource.EMODNET))
+        // A finer source (SDB, 10 m < EMODnet 115 m) that reads above datum must NOT replace 5 m.
+        DepthMerge.mergeDeep(t, uniformRaster(-1.7f, DepthSource.SDB.nominalResM, DepthSource.SDB))
+        assertEquals(5f, t.get(r, c), 1e-3f)
+        assertEquals(DepthSource.EMODNET, t.sourceAt(r, c))
+    }
+
     // ── mergeShallowShoalest ──────────────────────────────────────────────────
 
     @Test
