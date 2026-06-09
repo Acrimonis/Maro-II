@@ -2,8 +2,8 @@
 name: UiThingies
 status: active
 created: 2026-06-06 00:00
-modified: 2026-06-06 00:00
-active_subfeature: none
+modified: 2026-06-09 00:00
+active_subfeature: dash-size
 ---
 
 # Feature: UiThingies
@@ -97,6 +97,23 @@ UI layout refinements for the Maro map — reorganizing on-screen elements for b
 
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt`
+
+#### Docs
+
+### dash-size  [ ]
+
+#### Todos
+- [ ] In landscape mode, change `landscapeDashboardWidth` from `maxHeight * 2 / 3` to `maxHeight` — the dashboard width equals the full screen height
+- [ ] Verify all 4 cards (Distance, Zone300, Depth, Speed) still render without clipping at the wider landscape dashboard width
+- [ ] Confirm the map padding `PaddingValues(start = landscapeDashboardWidth)` correctly shrinks the map area to accommodate the wider dashboard
+- [ ] Test on narrow-landscape devices (e.g. small phone in landscape) to ensure the dashboard doesn't overflow
+
+#### Rules
+- The 2×2 card grid layout inside `DashboardPanel.kt` does not need changes — only the sizing modifier passed from `MapScreen.kt`
+- No new composables or parameters — purely a dimension constant change
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — line 378: `landscapeDashboardWidth = maxHeight * 2 / 3` → `maxHeight`
 
 #### Docs
 
