@@ -77,7 +77,10 @@ data class AppSettings(
     /** Depth threshold (m) for the low-depth warning: cells shallower than this are painted. */
     val lowDepthWarningMaxM: Float = DepthConstants.LOW_DEPTH_WARNING_MAX_M.toFloat(),
     /** Min opacity (%, 0–100) of the low-depth warning at the threshold; 100 % at the shoreline fades to this. */
-    val lowDepthWarningMinOpacityPct: Int = 25
+    val lowDepthWarningMinOpacityPct: Int = 25,
+    /** EMODnet shallow cutoff (m): EMODnet point readings shallower than this are coarse
+     *  (115 m cell over rocks/coast) and unreliable → presented as no-data. 0 disables the gate. */
+    val emodnetShallowCutoffM: Float = 2.0f
 )
 
 class SettingsManager(
@@ -119,7 +122,8 @@ class SettingsManager(
         keepScreenOn     = prefs.getBoolean(KEY_KEEP_SCREEN_ON, false),
         lowDepthWarningVisible = prefs.getBoolean(KEY_LOW_DEPTH_WARNING_VISIBLE, true),
         lowDepthWarningMaxM = prefs.getFloat(KEY_LOW_DEPTH_WARNING_MAX_M, DepthConstants.LOW_DEPTH_WARNING_MAX_M.toFloat()),
-        lowDepthWarningMinOpacityPct = prefs.getInt(KEY_LOW_DEPTH_MIN_OPACITY_PCT, defaultLowDepthMinOpacityPct)
+        lowDepthWarningMinOpacityPct = prefs.getInt(KEY_LOW_DEPTH_MIN_OPACITY_PCT, defaultLowDepthMinOpacityPct),
+        emodnetShallowCutoffM = prefs.getFloat(KEY_EMODNET_SHALLOW_CUTOFF_M, 2.0f)
     )
 
     /**
@@ -162,6 +166,7 @@ class SettingsManager(
             .putBoolean(KEY_LOW_DEPTH_WARNING_VISIBLE, updated.lowDepthWarningVisible)
             .putFloat(KEY_LOW_DEPTH_WARNING_MAX_M, updated.lowDepthWarningMaxM)
             .putInt(KEY_LOW_DEPTH_MIN_OPACITY_PCT, updated.lowDepthWarningMinOpacityPct)
+            .putFloat(KEY_EMODNET_SHALLOW_CUTOFF_M, updated.emodnetShallowCutoffM)
             .apply()
     }
 
@@ -193,5 +198,6 @@ class SettingsManager(
         private const val KEY_LOW_DEPTH_WARNING_VISIBLE = "low_depth_warning_visible"
         private const val KEY_LOW_DEPTH_WARNING_MAX_M = "low_depth_warning_max_m"
         private const val KEY_LOW_DEPTH_MIN_OPACITY_PCT = "low_depth_min_opacity_pct"
+        private const val KEY_EMODNET_SHALLOW_CUTOFF_M = "emodnet_shallow_cutoff_m"
     }
 }

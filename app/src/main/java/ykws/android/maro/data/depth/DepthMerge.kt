@@ -26,7 +26,11 @@ object DepthMerge {
         for (r in 0 until target.rows) {
             for (c in 0 until target.cols) {
                 val v = src.sampleAt(target.cellCenterLat(r), target.cellCenterLon(c))
-                if (v.isNaN()) continue
+                // Drop NaN and above-datum land/rock (v<0): a coarse deep source (EMODnet/GEBCO)
+                // straddling an emergent rock samples above chart datum → a negative "depth" that
+                // must never reach the grid (it reads as a false grounding hazard). Mirrors the
+                // shallow-raster guard in mergeShallowShoalest below.
+                if (v.isNaN() || v < 0f) continue
                 val cur = target.get(r, c)
                 val curRes = if (cur.isNaN()) Double.MAX_VALUE else target.sourceAt(r, c).nominalResM
                 if (cur.isNaN() || src.resM < curRes) {
@@ -50,7 +54,7 @@ object DepthMerge {
         for (sr in 0 until shallow.rows) {
             for (sc in 0 until shallow.cols) {
                 val v = shallow.depthRaw(sr, sc)
-                if (v.isNaN() || v > shallowTierMaxM) continue
+                if (v.isNaN() || v < 0f || v > shallowTierMaxM) continue
                 val lat = shallow.cellCenterLat(sr)
                 val lon = shallow.cellCenterLon(sc)
                 val tr = ((lat - target.boundingBox.latSouth) / target.cellSizeDegLat).toInt()
@@ -102,7 +106,7 @@ object DepthMerge {
             for (c in 0 until target.cols) {
                 if (!target.get(r, c).isNaN()) continue
                 val v = src.sampleAt(target.cellCenterLat(r), target.cellCenterLon(c))
-                if (v.isNaN()) continue
+                if (v.isNaN() || v < 0f) continue   // above-datum land/rock → never a negative "depth"
                 target.set(r, c, v, src.source, src.source.seedConfidence / 2)
             }
         }

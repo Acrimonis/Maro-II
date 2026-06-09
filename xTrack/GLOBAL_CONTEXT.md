@@ -2,10 +2,10 @@
 
 ## Active Session Pointers
 - **Active Feature:** DepthSafety
-- **Active Subfeature:** isobar-precision
-- **Last Updated:** 2026-06-08
-- **Last Bake:** 2026-06-08 21:53 (DepthSafety — merged develop into feature/depth-warning-2; re-scoped B3: develop's low-depth warning overlay (magenta, configurable lowDepthWarningMaxM slider, toggle, water-only via depth-gated isWater, rebuild-on-change) SUPERSEDES B3 danger-display → done (subs 1/4). Remaining: B4 danger-alert (alarm) + B1 water-only re-bake. compileDebugKotlin green)
-- **Prev Bake:** 2026-06-08 21:44 (DepthSafety — B2 isobar-precision implemented: IsobathLine model, fine-over-coarse suppression, colour+width by source, Chaikin smoothing of Litto3D lines; unit-tested + assembleDebug green)
+- **Active Subfeature:** edonet false alert
+- **Last Updated:** 2026-06-09
+- **Last Bake:** 2026-06-09 00:14 (DepthSafety — edonet-false-alert: runtime EMODnet shallow gate `DepthSample.gatedForEmodnetShallow` + persisted `emodnetShallowCutoffM` (0–5 m, default 2.0, Advanced slider, EN+FR) + bake-time `v<0` guard in DepthMerge/fillGaps. testDebugUnitTest + assembleDebug green. Committed a55b914 on feature/pink-fix-edonet (off develop), pushed. On-device verify pending; readout fix needs no re-bake.)
+- **Prev Bake:** 2026-06-08 21:53 (DepthSafety — merged develop; develop's low-depth overlay SUPERSEDES B3 danger-display → done. Remaining: B4 danger-alert + B1 water-only re-bake.)
 
 ## Routing Map
 | Keyword | Feature File |

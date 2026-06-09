@@ -39,6 +39,15 @@ data class DepthSample(
     val confidence: Int,
     val hasData: Boolean
 ) {
+    /**
+     * Gate coarse EMODnet point readings in the shallow danger band: an EMODnet cell
+     * (115 m, often a coast/rock artifact) reading shallower than [cutoffM] is unreliable
+     * for navigation → presented as no-data ([NONE]). Only EMODnet is gated; finer sources
+     * (Litto3D/SDB) and deeper EMODnet pass through. [cutoffM] = 0 disables the gate.
+     */
+    fun gatedForEmodnetShallow(cutoffM: Float): DepthSample =
+        if (hasData && source == DepthSource.EMODNET && depthM < cutoffM) NONE else this
+
     companion object {
         val NONE = DepthSample(Float.NaN, DepthSource.NONE, 0, false)
     }

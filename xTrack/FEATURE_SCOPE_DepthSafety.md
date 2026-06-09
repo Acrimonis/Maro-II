@@ -2,10 +2,10 @@
 name: DepthSafety
 status: active
 created: 2026-06-08 18:25
-modified: 2026-06-08 21:53
-active_subfeature: isobar-precision
-subs_total: 4
-subs_done: 1
+modified: 2026-06-09 00:14
+active_subfeature: edonet false alert
+subs_total: 5
+subs_done: 3
 one_liner: Make the depth layer navigation-safe — water-only colour, precision-aware isobaths, a very-visible sub-danger-depth overlay, and a configurable shallow-water alarm.
 ---
 
@@ -29,7 +29,7 @@ B1 · `feature/depth-warning-1` — no depth colour when `!isOnWater`. **Bake-ma
 #### Key Files
 - `ui/map/DepthBitmap.kt`, `data/depth/DepthRepository.kt`, `ui/map/MapScreen.kt`, `data/depth/DepthZoneMask.kt`
 
-### isobar-precision  [ ]
+### isobar-precision  [x]
 B2 · `feature/depth-warning-2` — isobaths reflect data precision (suppress fine-over-coarse + style by confidence).
 #### Todos
 - [x] `Isobath.lines` → `List<IsobathLine(points, source, confidence)>`
@@ -72,8 +72,24 @@ B4 · `feature/depth-warning-4` — the **ALARM** (pulse + banner; sound later).
 #### Key Files
 - `data/model/DepthGrid.kt`, `ui/map/DashboardPanel.kt`, `ui/map/MapScreen.kt`, `ZoneConfig.kt`, `data/settings/SettingsManager.kt`
 
+### edonet false alert  [x]
+Coarse EMODnet (115 m) sampling emergent rocks reads above chart datum → after the elevation→depth negation it surfaces as a negative / false-shallow "depth" (the −1.7 m off Cap d'Antibes) that reads as a false grounding hazard. Two-layer fix: bake-time drop of above-datum cells + a runtime, configurable cutoff on the readout. Branch `feature/pink-fix-edonet` (off develop).
+#### Todos
+- [x] Bake-time guard: `mergeDeep` / `fillGaps` / DepthGrid `mergeShallowShoalest` drop `v<0` (above-datum), mirroring the shallow-raster guard
+- [x] Runtime gate `DepthSample.gatedForEmodnetShallow(cutoff)` — EMODnet shallower than cutoff → no-data ("—")
+- [x] Persisted setting `emodnetShallowCutoffM` (0–5 m, default 2.0) + slider at end of Advanced (EN+FR strings)
+- [x] Unit tests `DepthSampleGateTest` + `DepthMergeTest` deep-negative; `testDebugUnitTest` + `assembleDebug` green
+- [ ] On-device verify: −1.7 m readout → "—" at Cap d'Antibes (needs deploy)
+- [ ] (later) reuse the gate for the B4 alarm so coarse EMODnet can't trip a false grounding alert
+#### Rules
+- Gate is **readout-only** (DepthViewModel→MapScreen `depthReadout`); the map colour raster + low-depth overlay read the raw grid (unchanged). The bake-time `v<0` guard only affects the shipped grid after a re-bake.
+- EMODnet is a deep backbone, **not** a shallow source: below the cutoff it must not drive a nearshore depth/alert. Litto3D/SDB are authoritative nearshore.
+- Litto3D coverage is thin (~24 k cells in the baked grid) → coarse EMODnet leaks shallow at many spots; the gate is the readout safeguard, real depth needs Litto3D.
+#### Key Files
+- `data/depth/DepthMerge.kt`, `data/model/DepthGrid.kt` (`DepthSample.gatedForEmodnetShallow`), `data/settings/SettingsManager.kt`, `ui/map/MapScreen.kt`, `res/values*/strings.xml`
+
 ## Todos
-- [ ] **NEXT:** B2 committed+pushed; develop merged in. **B3 superseded** by develop's low-depth overlay (done). Remaining DepthSafety work: **B4 · danger-alert** (alarm: `isBelow` + pulsing card/banner + sound stub) and **B1 · water-only** re-bake/verify. On-device verify B2 colours. Option-3 gdal_contour parked.
+- [ ] **NEXT:** edonet-false-alert done on `feature/pink-fix-edonet` (off develop) — runtime EMODnet shallow gate + `emodnetShallowCutoffM` setting + bake-time `v<0` guard; on-device verify pending. Remaining DepthSafety work: **B4 · danger-alert** (alarm: `isBelow` + pulsing card/banner + sound stub) and **B1 · water-only** re-bake/verify. On-device verify B2 colours. Option-3 gdal_contour parked.
 
 ## Rules
 - Branch-per-feature off `feature/litto3d-shallow`: B1, B2, B3 from the base; **B4 from B3**. Commit only on explicit instruction.

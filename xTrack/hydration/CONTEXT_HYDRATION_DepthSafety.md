@@ -1,28 +1,22 @@
 # Hydration — DepthSafety
 
-**Last Bake:** 2026-06-08 21:53
+**Last Bake:** 2026-06-09 00:14 UTC · branch `feature/pink-fix-edonet` (off `origin/develop` #46) · commit `a55b914`
 
-## State (on `feature/depth-warning-2`; develop merged in, compile green)
-Subs **1/4** done. Branch contains all of develop (merge `a83cd12`).
-- **B2 isobar-precision — DONE (committed `1819487`, pushed):** `IsobathLine(points, source, confidence)`;
-  fine-over-coarse suppression (mask coarse cells for fine levels); colour + width by source from
-  `zone.properties`/`ZoneConfig` (litto3d `#1B5E20` +1 px, emodnet `#00008B` −1 px, dash conf≤35);
-  Chaikin smoothing of Litto3D lines (`SpatialOperations.chaikin`). Unit-tested. **On-device colour verify pending.**
-- **B3 danger-display — SUPERSEDED/done by develop's low-depth overlay** (merged): `LowDepthWarningBitmap`
-  (magenta, water-only via **depth-gated isWater** — cheap), **configurable+persisted** `lowDepthWarningMaxM`
-  (Settings slider + map toggle), rebuilds on change. Don't re-implement; extend it. Optional leftover:
-  move the default to `zone.properties`.
-- **B4 danger-alert — STILL NEEDED:** develop has only the *display*, not an at-the-boat alarm. Add
-  `DepthSample.isBelow`, derived `shallowAlert` (isWater && isBelow + 0.3 m hysteresis) → pulsing `DepthCard`
-  + grounding banner; reuse `lowDepthWarningMaxM` (or a separate `dangerAlertMaxM`); stub `onShallowAlert()` for sound.
-- **B1 water-only** — bake-mask is the guard; re-bake + on-device verify pending.
-- **Parked:** option-3 `gdal_contour` on full-res Litto3D = real contour fidelity (own subfeature); optional B5 overlay-reproject.
+## State — `edonet false alert` DONE (implemented, unit-tested, APK builds)
+Fixes coarse EMODnet (115 m) reading above chart datum near rocks → negative / false-shallow "depth" (the −1.7 m off Cap d'Antibes) that looked like a grounding hazard.
+
+- **Runtime gate** `DepthSample.gatedForEmodnetShallow(cutoff)` (`data/model/DepthGrid.kt`) — EMODnet shallower than cutoff → `DepthSample.NONE` ("—"). Wired in MapScreen as `depthReadout`, fed to both DashboardPanel call sites. **Readout-only** (map raster + low-depth overlay untouched).
+- **Setting** `emodnetShallowCutoffM` (0–5 m, default 2.0; `SettingsManager`) + 0.5 m slider at the END of the **Advanced** settings section (`MapScreen`), EN+FR strings.
+- **Bake-time guard:** `DepthMerge.mergeDeep` / `fillGaps` / DepthGrid shallow overload drop `v<0` (above-datum) — mirrors the shallow-raster guard. Affects the shipped grid only after a re-bake.
+- **Tests:** `DepthSampleGateTest` (6) + `DepthMergeTest` deep-negative. `testDebugUnitTest` + `assembleDebug` green.
 
 ## Next
-1. On-device verify B2 colours; PR `feature/depth-warning-2` → develop when ready.
-2. **B4 · danger-alert** (the alarm) — the main remaining DepthSafety work.
-3. B1 water-only re-bake/verify.
+1. **On-device verify:** build + install APK → the Cap d'Antibes spot reads "—", not −1.7 m. **No re-bake needed** for the readout (runtime gate). Re-bake only to clean the map raster via the `v<0` guard.
+2. PR `feature/pink-fix-edonet` → develop (branch is develop + 1 commit, clean merge).
+3. Other DepthSafety work still open: **B4 danger-alert** (the alarm), **B1 water-only** re-bake/verify, on-device verify B2 colours.
+
+## Context
+Litto3D coverage in the baked grid is thin (~24 k cells / ~1.8 % of covered cells), so EMODnet leaks shallow at many nearshore spots — the gate is the readout safeguard; true ~5 m depth needs better Litto3D coverage (separate data-ingestion problem; user has a newer 678 MB tile staged in `app/src/main/assets/depth/`, NOT in the baker's `data/app-assets/depth/`).
 
 ## Key files
-B2: `data/model/Isobath.kt`, `data/depth/DepthIsobaths.kt`+`DepthConstants.kt`, `ui/map/ZoneConfig.kt`+`assets/zone.properties`, `ui/map/MapScreen.kt`, `spatial/SpatialOperations.kt`.
-B3 (develop): `ui/map/LowDepthWarningBitmap.kt`, `data/settings/SettingsManager.kt`. B4: `data/model/DepthGrid.kt`, `ui/map/DashboardPanel.kt`.
+`data/depth/DepthMerge.kt`, `data/model/DepthGrid.kt` (`DepthSample.gatedForEmodnetShallow`), `data/settings/SettingsManager.kt`, `ui/map/MapScreen.kt` (`depthReadout` + Advanced slider), `res/values*/strings.xml`. Tests: `data/model/DepthSampleGateTest.kt`, `data/depth/DepthMergeTest.kt`.
