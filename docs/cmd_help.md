@@ -1,9 +1,9 @@
 View:     #context             current context: active feature + subs list + working path
-          #context list        compact feature table (front-matter, by modified) [alias #features]
-          #status              feature details (active)
+          #context list        compact feature table (from GLOBAL_CONTEXT.md summaries) [alias #features]
+          #status              feature details (active, subfeature-scoped when focused)
           #status [name]       feature details (named)
           #status diff [name]  changes since last #bake (active/named)
-Manage:   #track [name]        create feature (with YAML front-matter)
+Manage:   #track [name]        create feature (FEAT_DSC_, YAML front-matter + summaries row)
           #focus [name]        switch to feature
           #focus sub [name]    drill into subfeature
           #focus out           exit subfeature → parent
@@ -16,14 +16,14 @@ Track:    #todo                list todos (scope-aware)
           #rule [desc]         add rule (scope-aware)
           #rule [tgt]:[desc]   add rule (tgt: feature|parent|global)
 Docs:     #doc                 feature docs (scope-aware)
-          #doc list            list docs with scope tags (recursive docs/**)
-          #doc create [name]   create doc + scope prompt (core|onboarding|feature|reference|archived)
-          #doc read [name]     load doc into context
+          #doc list            list docs grouped by source (DOC / PLN / docs/)
+          #doc create [name]   create doc (prompts: feature-scoped → FEAT_DOC_ or cross-cutting → docs/)
+          #doc read [name]     load doc into context (scans FEAT_DOC_/FEAT_PLN_/docs/)
           #doc attach [name]   link doc → feature ## Docs (bare = prompt)
           #doc detach [name]   unlink doc (bare = prompt)
-          #doc sync [name]     generate/update feature profile doc from front-matter
+          #doc sync [name]     generate/update FEAT_DOC_[name]_profile.md from feature + summaries
           #doc audit           check docs for missing scope tags, orphans, invalid scopes
-Session:  #bake                snapshot session (per-feature hydration)
+Session:  #bake                snapshot session (updates summaries table + FEAT_HYD_)
           #help                this list
 Health:   #doctor              lint xTrack for drift
           #doctor fix          auto-repair
@@ -32,26 +32,30 @@ Health:   #doctor              lint xTrack for drift
 
 Display lightweight orientation or a compact feature dashboard.
 
-  [no param]         Show: active feature name + status + one-liner, active subfeature
-                     (or "none"), current working directory, Last Bake timestamp.
+  [no param]         Show: active feature name + status + one-liner (from the Feature Summaries
+                     table in GLOBAL_CONTEXT.md), active subfeature (or "none"), current working
+                     directory, Last Bake timestamp.
                      Then list all subfeatures of the active feature, marking the focused
                      subfeature with ← focused.
                      Does NOT fetch git branch or worktree info.
 
-  list               Print a table of all features: name, one-liner, created, modified
-                     (with time), subfeature ratio, status. Sorted by modified descending
-                     (newest first). Active feature row highlighted (bold + ← active).
-                     Does NOT expand subfeature checklists — use #status for that.
+  list               Print a table of all features from the ## Feature Summaries table in
+                     GLOBAL_CONTEXT.md: name, one-liner, created, modified (with time), status.
+                     Sorted by modified descending (newest first). Active feature highlighted
+                     (bold + ← active). No per-file reads needed.
                      Alias: #features
 
 ## #status
 
 Show a detailed single-feature dashboard, or diff since last bake.
 
-  [no param]      Full dashboard of the active feature: front-matter, all subfeature
-                  checklists with completion status, parent-level todos, rules, and
-                  docs. If a subfeature is focused, expand that subfeature's nested
-                  todos/rules/key-files/docs.
+  [no param]      Full dashboard of the active feature: front-matter, one-liner (from the
+                  Feature Summaries table), status/dates.
+                  If a subfeature is focused, read only that subfeature's section (### header +
+                  nested todos/rules/key-files/docs) — omit the rest of the checklist to save
+                  tokens.
+                  If no subfeature is focused, print the full subfeature checklist with
+                  completion status plus all parent-level todos, rules, and docs.
                   If all subfeatures, todos, and rules are complete, appends:
                   "All clear. #bake to snapshot."
 
@@ -59,10 +63,9 @@ Show a detailed single-feature dashboard, or diff since last bake.
                   detailed dashboard for the named feature.
 
   diff [name]     Show what changed since the last `#bake` of a feature. Read the
-                  feature's hydration file as baseline, compare with current file and
-                  report: subfeatures toggled (`[ ]` ↔ `[x]`), new/removed
-                  todos/rules/key-files/docs, changed front-matter fields (status,
-                  one_liner, dates).
+                  feature's FEAT_HYD_[Feature].md hydration file as baseline, compare with
+                  current file and report: subfeatures toggled (`[ ]` ↔ `[x]`), new/removed
+                  todos/rules/key-files/docs, changed front-matter fields (status, dates).
                   If [name] is omitted, diff the active feature.
                   If never baked: "No hydration snapshot found — run #bake first."
 
@@ -71,11 +74,12 @@ Show a detailed single-feature dashboard, or diff since last bake.
 Create a new tracked feature.
 
   [name]          Fuzzy-resolve name against existing features. If no match:
-                  1. Create xTrack/FEATURE_SCOPE_name.md with YAML front-matter
-                     (name, status: active, created/modified = now, active_subfeature:
-                     none, subs_total: 0, subs_done: 0, one_liner)
-                  2. Derive one_liner from the description
-                  3. Append a keyword-to-path row to the Routing Map in
+                  1. Create xTrack/FEAT_DSC_name.md with YAML front-matter
+                     (name, status: active, created/modified = now, active_subfeature: none)
+                  2. Append a keyword-to-path row to the Routing Map in GLOBAL_CONTEXT.md
+                  3. Add a row to the ## Feature Summaries table with a derived one_liner
+                  3. Derive one_liner from the description
+                  4. Append a keyword-to-path row to the Routing Map in
                      GLOBAL_CONTEXT.md
                   If input is a descriptive phrase rather than PascalCase, derive
                   a clean feature name and confirm before creating.
@@ -122,7 +126,7 @@ Track todos at three scope levels.
                       Todos list.
 
   [target]: [desc]    Route todo to a specific target:
-                      • global → xTrack/GLOBAL_TODOS.md
+                      • global → GLOBAL_CONTEXT.md ## Global Todos
                       • parent → one level up (sub→feature, feature→global)
                       • feature-name → fuzzy-resolve, write to that feature's scope
                       If target is unrecognized, ask: (a) #track it, (b) use global,
@@ -154,27 +158,29 @@ Manage documentation attached to a feature scope.
                       parent feature's ## Docs. Prints each doc as relative path
                       and description.
 
-  list                Scan docs/**/*.md recursively. Read the first ~5 lines for
-                      the <!-- scope: ... --> tag and the first # heading. Also
-                      scan every FEATURE_SCOPE_*.md for ## Docs (parent) and
-                      #### Docs (subfeature) sections to determine which
-                      feature/subfeature each doc is attached to.
-                      Print a table grouped by scope:
-                      relative path → scope → heading → attached to
-                      (feature/subfeature name, or "—" if unattached).
+  list                Scan docs/**/*.md (recursive), FEAT_DOC_*.md, and FEAT_PLN_*.md.
+                      Read first ~5 lines for <!-- scope: ... --> tag and first # heading.
+                      Also scan every FEAT_DSC_*.md for ## Docs (parent) and #### Docs
+                      (subfeature) sections to determine which feature/subfeature each
+                      doc is attached to.
+                      Print a table grouped by source:
+                      DOC (FEAT_DOC_), PLN (FEAT_PLN_), docs/ (cross-cutting reference).
                       README.md is implicit scope: core.
 
-  create [name]       Create docs/name.md. Prompt for scope tag:
-                      (a) core, (b) onboarding, (c) feature, (d) reference,
-                      (e) archived. Write <!-- scope: chosen --> as line 1 and
-                      # Name as the title on line 3.
+  create [name]       Prompt: "Feature-scoped or cross-cutting?"
+                      Feature-scoped → create FEAT_DOC_[ActiveFeature]_[name].md
+                      Cross-cutting → create docs/[name].md, prompt for scope:
+                      (a) core, (b) onboarding, (c) reference, (d) archived.
+                      Write <!-- scope: chosen --> as line 1, # Name as title on line 3.
+                      Feature-scoped docs use <!-- scope: feature -->.
 
-  read [name]         Fuzzy-resolve name against docs/** filenames (.md optional).
-                      Load the doc into AI context. Print filename, scope, line count.
+  read [name]         Fuzzy-resolve name against docs/**, FEAT_DOC_*, FEAT_PLN_*
+                      filenames (.md optional). Load the doc into AI context.
+                      Print filename, scope, line count.
 
-  attach [name]       Fuzzy-resolve name against docs/**/*.md and link it to the
-                      active feature's ## Docs (or #### Docs if subfeature focused).
-                      Skip if already present.
+  attach [name]       Fuzzy-resolve name against docs/**/*.md, FEAT_DOC_*.md,
+                      FEAT_PLN_*.md and link it to the active feature's ## Docs
+                      (or #### Docs if subfeature focused). Skip if already present.
                       Bare (no name): run #doc list then prompt which to attach.
 
   detach [name]       Fuzzy-resolve name and remove from the active feature's
@@ -186,10 +192,12 @@ Manage documentation attached to a feature scope.
 Snapshot the current session into per-feature hydration memory.
 
   [no param]  1. Update subfeature checkmarks in the current feature file.
-              2. Recompute subs_total/subs_done from checkboxes in front-matter.
-              3. Set modified to current YYYY-MM-DD HH:mm (UTC).
-              4. Create/overwrite xTrack/hydration/CONTEXT_HYDRATION_[Feature].md
-                 with a ~200-word micro-state summary (state, target files, next step).
+              2. Update the feature's row in the ## Feature Summaries table in
+                 GLOBAL_CONTEXT.md (recompute one_liner if needed, bump modified date).
+              3. Set modified in front-matter to current YYYY-MM-DD HH:mm (UTC)
+                 — only if the feature was actually modified this session.
+              4. Create/overwrite FEAT_HYD_[Feature].md with a ~200-word micro-state
+                 summary (state, target files, next step).
               5. Update Last Bake in GLOBAL_CONTEXT.md.
               6. Prompt user to clear the workspace.
               Also triggered automatically by closing phrases (done, goodbye, etc.).
@@ -213,11 +221,11 @@ Lint the xTrack stack for structural drift.
 
   [no param]  Run all checks and print findings grouped by severity.
               Checks: routing row duplicates, duplicate rules, stale active_subfeature,
-              date format, subs count mismatch, status vs completion, malformed sections,
-              orphan docs, missing routing rows.
+              date format, status vs completion, malformed sections,
+              orphan docs, missing routing rows, Feature Summaries ↔ FEAT_DSC_ mismatch.
 
   fix         Auto-repair safe classes: dedupe routing rows, normalize dates,
-              recompute subs counts, reset stale active_subfeature.
+              reset stale active_subfeature, sync Feature Summaries ↔ FEAT_DSC_ files.
               Report-only items (malformed sections, orphan docs, status/rule-dedupe
               judgment calls) are printed but not auto-fixed.
               #bake runs the auto-fix subset first.
@@ -225,19 +233,21 @@ Lint the xTrack stack for structural drift.
 
 ## #doc sync
 
-Generate or update a feature profile document from the feature's YAML front-matter.
+Generate or update a feature profile document from the feature's front-matter
+and the Feature Summaries table.
 
   [name]          Fuzzy-resolve [name] against existing features. Create or overwrite
-                  docs/feature-[name].md with: name, status, one_liner, created/modified
-                  dates, subfeature completion ratio (subs_done/subs_total), list of
-                  attached docs. Scope tag: feature.
+                  FEAT_DOC_[name]_profile.md with: name, status, one_liner, created/modified
+                  dates, subfeature completion ratio, list of attached docs.
+                  Scope tag: feature.
                   If [name] is omitted, sync the active feature.
 
 ## #doc audit
 
 Audit all documentation for structural issues.
 
-  [no param]      Scan docs/**/*.md recursively. Report:
+  [no param]      Scan docs/**/*.md (recursive), FEAT_DOC_*.md, FEAT_PLN_*.md.
+                  Report:
                   (a) docs missing <!-- scope: ... --> tag
                   (b) orphan docs (attached to no feature ## Docs / #### Docs, not README.md)
                   (c) docs with invalid scope (not core|onboarding|feature|reference|archived)

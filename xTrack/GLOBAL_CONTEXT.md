@@ -1,31 +1,51 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** DepthSafety
-- **Active Subfeature:** isobar-precision
-- **Last Updated:** 2026-06-08
-- **Last Bake:** 2026-06-08 21:53 (DepthSafety — merged develop into feature/depth-warning-2; re-scoped B3: develop's low-depth warning overlay (magenta, configurable lowDepthWarningMaxM slider, toggle, water-only via depth-gated isWater, rebuild-on-change) SUPERSEDES B3 danger-display → done (subs 1/4). Remaining: B4 danger-alert (alarm) + B1 water-only re-bake. compileDebugKotlin green)
-- **Prev Bake:** 2026-06-08 21:44 (DepthSafety — B2 isobar-precision implemented: IsobathLine model, fine-over-coarse suppression, colour+width by source, Chaikin smoothing of Litto3D lines; unit-tested + assembleDebug green)
+- **Active Feature:** WorkflowImprovement
+- **Active Subfeature:** none
+- **Last Updated:** 2026-06-09
+- **Last Bake:** 2026-06-09 13:54 (WorkflowImprovement — token optimization implemented: FEAT_DSC_/DOC_/PLN_/HYD_ taxonomy, summaries table, Always-Loaded 6→3, plans/docs/hydration migrated)
 
 ## Routing Map
 | Keyword | Feature File |
 |---|---|
-| workflow, clinerules, xtrack, commands, memory, #doc, doccommands | FEATURE_SCOPE_WorkflowImprovement.md |
-| documentation, docs, readme, project | FEATURE_SCOPE_ProjectDocumentation.md |
-| zone300, zone, 300 | FEATURE_SCOPE_Zone300.md |
-| codereview, code review, review, quality, lint | FEATURE_SCOPE_CodeReview.md |
-| depth, bathymetry, depthmapping, baro, seafloor, soundings, litto3d, shom, emodnet | FEATURE_SCOPE_DepthMapping.md |
-| coastline, trait de côte, fourmigue, hazard, obstruction, balisage, danger_isole, aton, seamark, lighthouse, reef | FEATURE_SCOPE_Coastline.md |
-| dashboard, ui, layout, hud, display, screen | FEATURE_SCOPE_Dashboard.md |
-| ui, ui-thingies, layout, onwater, button | FEATURE_SCOPE_UiThingies.md |
-| gps, gpsplugin, gps mode, demo mode, heading, course, compass, location, geolocation | FEATURE_SCOPE_GpsPlugin.md |
-| mapdisplay, map display, map, layer, depth layer, color depth, orientation | FEATURE_SCOPE_MapDisplay.md |
-| performance, battery, gps-tune, adaptive, compass-gate, map-refresh, battery-drain | FEATURE_SCOPE_Performance.md |
-| isonwater, isonwateragain, iswater, waterland, raycast, crossing, point-in-polygon | FEATURE_SCOPE_isOnWaterAgain.md |
-| bake, baking, bake-script, bake-bat, apk-bake, apk-build, apk-deploy, deploy, prebake-pipeline, bake-env | FEATURE_SCOPE_BakeNormalization.md |
-| depthsafety, depth-safety, danger-depth, shallow, grounding, isobar precision, isobath precision, depth alert, depth overlay, water-only | FEATURE_SCOPE_DepthSafety.md |
-| localisation, localization, i18n, locale, language, translation, strings, values-fr, stringresource | FEATURE_SCOPE_Localisation.md |
-| app-bak-flow, app-back-flow, back, back button, back handler, exit, double-back, press back, keep screen on, keep awake, screen-on, wakelock | FEATURE_SCOPE_AppBakFlow.md |
+| workflow, clinerules, xtrack, commands, memory, #doc, doccommands | FEAT_DSC_WorkflowImprovement.md |
+| documentation, docs, readme, project | FEAT_DSC_ProjectDocumentation.md |
+| zone300, zone, 300 | FEAT_DSC_Zone300.md |
+| codereview, code review, review, quality, lint | FEAT_DSC_CodeReview.md |
+| depth, bathymetry, depthmapping, baro, seafloor, soundings, litto3d, shom, emodnet | FEAT_DSC_DepthMapping.md |
+| coastline, trait de côte, fourmigue, hazard, obstruction, balisage, danger_isole, aton, seamark, lighthouse, reef | FEAT_DSC_Coastline.md |
+| dashboard, ui, layout, hud, display, screen | FEAT_DSC_Dashboard.md |
+| ui, ui-thingies, layout, onwater, button | FEAT_DSC_UiThingies.md |
+| gps, gpsplugin, gps mode, demo mode, heading, course, compass, location, geolocation | FEAT_DSC_GpsPlugin.md |
+| mapdisplay, map display, map, layer, depth layer, color depth, orientation | FEAT_DSC_MapDisplay.md |
+| performance, battery, gps-tune, adaptive, compass-gate, map-refresh, battery-drain | FEAT_DSC_Performance.md |
+| isonwater, isonwateragain, iswater, waterland, raycast, crossing, point-in-polygon | FEAT_DSC_isOnWaterAgain.md |
+| bake, baking, bake-script, bake-bat, apk-bake, apk-build, apk-deploy, deploy, prebake-pipeline, bake-env | FEAT_DSC_BakeNormalization.md |
+| depthsafety, depth-safety, danger-depth, shallow, grounding, isobar precision, isobath precision, depth alert, depth overlay, water-only | FEAT_DSC_DepthSafety.md |
+| localisation, localization, i18n, locale, language, translation, strings, values-fr, stringresource | FEAT_DSC_Localisation.md |
+| app-bak-flow, app-back-flow, back, back button, back handler, exit, double-back, press back, keep screen on, keep awake, screen-on, wakelock | FEAT_DSC_AppBakFlow.md |
+
+## Feature Summaries
+
+| Feature | One-Liner | Created | Modified | Status |
+|---------|-----------|---------|----------|--------|
+| WorkflowImprovement | xTrack #command system, trigger syntax, fuzzy matching, bootstrap, and memory bake lifecycle | 2026-06-03 00:00 | 2026-06-09 13:54 | active |
+| ProjectDocumentation | Project documentation, README, FAQs, setup guides, and architecture overview | 2026-05-15 00:00 | 2026-06-03 00:00 | active |
+| Zone300 | 300m zone generation from coastline with water-only constraint | 2026-05-20 00:00 | 2026-06-03 00:00 | active |
+| CodeReview | Code quality review, linting, and structural improvements | 2026-06-01 00:00 | 2026-06-05 00:00 | active |
+| DepthMapping | Bathymetry / depth mapping from Litto3D, SHOM, EMODnet sources | 2026-05-10 00:00 | 2026-06-05 00:00 | active |
+| Coastline | Coastline extraction, spatial indexing, isOnWater determination | 2026-05-10 00:00 | 2026-06-05 00:00 | active |
+| Dashboard | Main dashboard UI layout and HUD information display | 2026-05-15 00:00 | 2026-06-03 00:00 | active |
+| UiThingies | UI widgets, buttons, and interactive elements | 2026-05-20 00:00 | 2026-06-03 00:00 | active |
+| GpsPlugin | GPS plugin with demo mode, heading/COG compass, geolocation | 2026-05-10 00:00 | 2026-06-03 00:00 | active |
+| MapDisplay | Map rendering, depth color layer, orientation overlay | 2026-05-10 00:00 | 2026-06-03 00:00 | active |
+| Performance | Battery optimization, adaptive GPS tuning, compass gate, map refresh | 2026-05-20 00:00 | 2026-06-05 00:00 | active |
+| isOnWaterAgain | Water/land determination via raycasting and point-in-polygon | 2026-05-25 00:00 | 2026-06-05 00:00 | active |
+| BakeNormalization | APK bake/build/deploy pipeline and prebake data processing | 2026-06-01 00:00 | 2026-06-05 00:00 | active |
+| DepthSafety | Danger depth alerts, shallow water grounding prevention, isobath precision | 2026-06-03 00:00 | 2026-06-05 00:00 | active |
+| Localisation | i18n/localization, French translations, string resources | 2026-06-03 00:00 | 2026-06-03 00:00 | active |
+| AppBakFlow | Back button handling, double-back-to-exit, keep-screen-on/wakelock | 2026-06-03 00:00 | 2026-06-03 00:00 | active |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).
@@ -35,16 +55,17 @@
 - **Do not commit or push unless explicitly instructed.** Stage only when directed.
 - **Do not commit or push directly to develop.** Always work through feature branches and merge via PR or explicit user instruction.
 
+## Global Todos
+- [ ] Validate the intermittent Overpass-outage theory — confirm the coastline OSM fetch failures are transient (succeeded 13:52, failing ~16:52 on 2026-06-08), not a persistent network / cert / IPv6 block. Quick checks: retry `bake-coastline` later; `curl -sk https://overpass-api.de/api/status`; race other mirrors.
+
 ## Always-Loaded Context
 These files are loaded into context at the start of every session to maximize the AI prefix-cache hit rate:
 - `AGENTS.md` — canonical rulebook (all project rules + xTrack §7a/7b command spec)
+- `xTrack/GLOBAL_CONTEXT.md` — this file (routing table, feature summaries, global todos, global rules)
 - `.claude/skills/xtrack/SKILL.md` — skill dispatch map
-- `.claude/skills/xtrack/references/fuzzy-resolve.md` — fuzzy lookup cascade
-- `.claude/skills/xtrack/references/templates.md` — file templates
-- `docs/cmd_help.md` — command reference summary
-- `xTrack/GLOBAL_CONTEXT.md` — this file (routing table, active pointers, global rules)
 
 ## Global Instructions
 - The xTrack `#`-command system is the canonical workflow. Use it for all feature tracking, todo/rule management, doc management, and session snapshots.
 - On Turn 1 of any session: read GLOBAL_CONTEXT.md, match user intent against the Routing Map, open the corresponding feature file and its hydration file.
 - Route docs, key files, and todos to the correct feature scope. Keep feature files lean — use ## Docs for references, ## Key Files for source paths.
+- `docs/cmd_help.md`, `references/fuzzy-resolve.md`, and `references/templates.md` are lazy-loaded on `#help` only — not loaded every session.

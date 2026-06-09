@@ -4,9 +4,6 @@ status: done
 created: 2026-06-07
 modified: 2026-06-08
 active_subfeature: none
-subs_total: 2
-subs_done: 2
-one_liner: Fixed inverted isOnWater + 300 m band at marinas via a mainland-primary classifier (nearest-mainland side test OR real-island containment) plus coastline data cleaning (drop tiny fragments / degenerate rings) and a capOpenEnds boundary-only fix; validated by tests + a rebaked asset.
 ---
 
 # Feature: isOnWaterAgain
@@ -90,4 +87,4 @@ Marina **band pinch** (split out of `300M Zone Rendering`). The red **seaward** 
 - `app/src/test/java/ykws/android/maro/spatial/CoastlineSpatialIndexWaterTest.kt` — oracle sweep / regressions.
 
 ## Docs
-- `docs/isOnWater-nearest-segment-design.md` — Option 2 design + implementation plan (nearest-segment side test).
+- `FEAT_DOC_isOnWaterAgain_nearest-segment-design.md` — Option 2 design + implementation plan (nearest-segment side test).

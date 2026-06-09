@@ -4,9 +4,6 @@ status: active
 created: 2026-06-08 00:00
 modified: 2026-06-08 17:10
 active_subfeature: none
-subs_total: 1
-subs_done: 0
-one_liner: Rationalize the data-bake / APK-build / device-deploy scripts into a clean bake-[type].bat set plus an apk-bake / apk-build / apk-deploy split, with a single region source of truth.
 ---
 
 # Feature: BakeNormalization
@@ -93,5 +90,5 @@ Litto3D shallow) — also the on-device way to confirm the Litto3D east baked in
 - `gradle.properties` (region props) · `app/build.gradle.kts` (BuildConfig) · `…/data/coastline/CoastlineGenerator.kt` · `…/data/depth/DepthZoneMask.kt`
 
 ## Docs
-- `docs/DepthMappingBake.md` — current bake guide (to be updated as the scripts are normalized)
-- `plans/litto3d-shallow-coverage.md` — design: kill the hardcoded litto3d band → derive the clip from a coastline-bbox sidecar + gzip the nodata-heavy `.asc` + full-tile fetch for whole-range shallow
+- `FEAT_DOC_DepthMapping_bake.md` — current bake guide (to be updated as the scripts are normalized)
+- `FEAT_PLN_DepthMapping_litto3d-shallow-coverage.md` — design: kill the hardcoded litto3d band → derive the clip from a coastline-bbox sidecar + gzip the nodata-heavy `.asc` + full-tile fetch for whole-range shallow

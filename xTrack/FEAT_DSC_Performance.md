@@ -4,9 +4,6 @@ status: active
 created: 2026-06-07 00:00
 modified: 2026-06-07 00:00
 active_subfeature: none
-subs_total: 5
-subs_done: 4
-one_liner: Cut battery drain by making GPS acquisition tunable + movement-adaptive, capping map re-render rate, and powering the compass only when needed.
 ---
 
 # Feature: Performance
@@ -125,5 +122,5 @@ and compass-gating are unconditional correct behaviour. Framework `LocationManag
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — settings UI + capped follow applier
 
 ## Docs
-- `docs/PerformanceBatteryDesign.md` — battery hotspot analysis, presets/defaults, adaptive-policy contract, refresh-cap mechanism.
+- `FEAT_DOC_Performance_battery-design.md` — battery hotspot analysis, presets/defaults, adaptive-policy contract, refresh-cap mechanism.
 - `docs/MARO_ARCHITECTURE.md` — spatial-engine constraints (async render rules) the map/refresh changes operate within.

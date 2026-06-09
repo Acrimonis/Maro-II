@@ -4,9 +4,6 @@ status: active
 created: 2026-06-06 00:00
 modified: 2026-06-07 00:00
 active_subfeature: tweak
-subs_total: 3
-subs_done: 1
-one_liner: Redesign the bottom dashboard panel into visual gauge cards for quick reading of key indicators.
 ---
 
 # Feature: Dashboard

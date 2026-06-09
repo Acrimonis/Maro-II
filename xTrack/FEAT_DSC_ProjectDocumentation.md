@@ -4,9 +4,6 @@ status: active
 created: 2026-06-03 00:00
 modified: 2026-06-03 00:00
 active_subfeature: none
-subs_total: 0
-subs_done: 0
-one_liner: README rationalization, scoped sub-docs with scope tags, and #doc command system
 ---
 
 # Feature: ProjectDocumentation

@@ -4,9 +4,6 @@ status: active
 created: 2026-06-08 18:25
 modified: 2026-06-08 21:53
 active_subfeature: isobar-precision
-subs_total: 4
-subs_done: 1
-one_liner: Make the depth layer navigation-safe — water-only colour, precision-aware isobaths, a very-visible sub-danger-depth overlay, and a configurable shallow-water alarm.
 ---
 
 # Feature: DepthSafety
@@ -84,4 +81,4 @@ B4 · `feature/depth-warning-4` — the **ALARM** (pulse + banner; sound later).
 - See per-subfeature Key Files.
 
 ## Docs
-- `plans/depth-safety.md` — the branch-per-feature workflow + per-branch design.
+- `FEAT_PLN_DepthSafety_plan.md` — the branch-per-feature workflow + per-branch design.
