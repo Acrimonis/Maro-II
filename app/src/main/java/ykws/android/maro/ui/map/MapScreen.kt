@@ -98,6 +98,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import ykws.android.maro.data.depth.DepthConstants
+import ykws.android.maro.data.depth.RasterCache
 import ykws.android.maro.data.model.BoundingBox
 import ykws.android.maro.data.model.CoastlinePoint
 import ykws.android.maro.data.model.CoastlineSegment
@@ -106,6 +107,7 @@ import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.DepthState
 import ykws.android.maro.data.model.GenerationProgress
 import ykws.android.maro.data.model.Isobath
+import ykws.android.maro.data.model.RasterProgress
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.ValidationReport
 import ykws.android.maro.data.model.Zone300Data
@@ -220,8 +222,14 @@ fun MapScreen(
     val depthValidation = depthGrid?.metadata?.validation
     val isobaths = depthRender?.isobaths ?: emptyList()
 
-    // Rasterise the colour map once per grid, off the main thread (~3 M cells).
-    val depthBitmap by produceState<Bitmap?>(initialValue = null, depthGrid) {
+    // Rasterise the colour map once per grid, off the main thread (~7 M cells).
+    val depthBitmap by produceState<Bitmap?>(initialValue = null, depthGrid,
+        appSettings.lowDepthWarningMaxM, appSettings.lowDepthWarningMinOpacityPct) {
+        // If cache exists, skip the expensive live build
+        val cached = depthGrid?.let {
+            depthViewModel.readCached(context, RasterCache.Step.DEPTH_COLOUR, appSettings)
+        }
+        if (cached != null) { value = cached; return@produceState }
         value = depthGrid?.let { g -> withContext(Dispatchers.Default) { DepthBitmap.build(g) } }
     }
 
@@ -229,16 +237,78 @@ fun MapScreen(
     // Re-rasterises when the grid, the threshold, or coastline readiness changes.
     val coastlineReady = state is CoastlineState.Ready
     val lowDepthWarningBitmap by produceState<Bitmap?>(
-        initialValue = null, depthGrid, appSettings.lowDepthWarningMaxM, appSettings.lowDepthWarningMinOpacityPct, coastlineReady
+        initialValue = null, depthGrid, appSettings.lowDepthWarningMaxM,
+        appSettings.lowDepthWarningMinOpacityPct, coastlineReady
     ) {
+        // If cache exists, skip the expensive live build
+        val cached = depthGrid?.let {
+            depthViewModel.readCached(context, RasterCache.Step.LOW_DEPTH_WARNING, appSettings)
+        }
+        if (cached != null) { value = cached; return@produceState }
         val maxM = appSettings.lowDepthWarningMaxM
         // Skip land/island cells via the coastline classifier; until it loads, treat all as water.
         val waterTest: (Double, Double) -> Boolean =
             if (coastlineReady) viewModel::isOnWater else { _, _ -> true }
         value = depthGrid?.let { g ->
-            withContext(Dispatchers.Default) { LowDepthWarningBitmap.build(g, maxM, waterTest, appSettings.lowDepthWarningMinOpacityPct / 100f) }
+            withContext(Dispatchers.Default) {
+                LowDepthWarningBitmap.build(g, maxM, waterTest,
+                    appSettings.lowDepthWarningMinOpacityPct / 100f)
+            }
         }
     }
+
+    // ── Raster cache reads (no lazy auto-trigger; only settings button triggers generation) ──
+    val rasterProgress by depthViewModel.rasterProgress.collectAsState()
+    val generatingStep by depthViewModel.generatingStep.collectAsState()
+    val rasterCacheVersion by depthViewModel.rasterCacheVersion.collectAsState()
+
+    // ── Silent lazy-init: on cache miss, generate rasters in background (no LoadingOverlay).
+    //    Warning layer is deferred until coastline is ready (needs accurate isWater). ──
+    LaunchedEffect(depthGrid, appSettings.lowDepthWarningMaxM,
+                   appSettings.lowDepthWarningMinOpacityPct, coastlineReady) {
+        val grid = depthGrid ?: return@LaunchedEffect
+        val key = RasterCache.Key(
+            gridTimestampMs = grid.metadata.fetchTimestampMs,
+            emodnetCutoffM = 0f,
+            lowDepthMaxM = appSettings.lowDepthWarningMaxM,
+            lowDepthMinOpacityPct = appSettings.lowDepthWarningMinOpacityPct
+        )
+        val missing = mutableListOf<RasterCache.Step>()
+        if (!RasterCache.has(context, RasterCache.Step.DEPTH_COLOUR, key))
+            missing.add(RasterCache.Step.DEPTH_COLOUR)
+        if (coastlineReady && !RasterCache.has(context, RasterCache.Step.LOW_DEPTH_WARNING, key))
+            missing.add(RasterCache.Step.LOW_DEPTH_WARNING)
+        if (missing.isNotEmpty()) {
+            val waterTest: (Double, Double) -> Boolean =
+                if (coastlineReady) viewModel::isOnWater else { _, _ -> true }
+            depthViewModel.generateRasterLayers(context, missing, appSettings, waterTest, silent = true)
+        }
+    }
+
+    // Read cached rasters; hide a layer when it's being regenerated.
+    val depthBitmapCached by produceState<Bitmap?>(initialValue = null, depthGrid,
+        appSettings.lowDepthWarningMaxM, appSettings.lowDepthWarningMinOpacityPct,
+        rasterCacheVersion, generatingStep) {
+        if (generatingStep == RasterCache.Step.DEPTH_COLOUR) { value = null; return@produceState }
+        value = depthGrid?.let {
+            depthViewModel.readCached(context, RasterCache.Step.DEPTH_COLOUR, appSettings)
+        }
+    }
+    val lowDepthWarningCached by produceState<Bitmap?>(initialValue = null, depthGrid,
+        appSettings.lowDepthWarningMaxM, appSettings.lowDepthWarningMinOpacityPct,
+        rasterCacheVersion, generatingStep) {
+        if (generatingStep == RasterCache.Step.LOW_DEPTH_WARNING) { value = null; return@produceState }
+        value = depthGrid?.let {
+            depthViewModel.readCached(context, RasterCache.Step.LOW_DEPTH_WARNING, appSettings)
+        }
+    }
+
+    // Prefer cached rasters; fall back to live-built ones. Hide a layer entirely
+    // while it's being regenerated (generatingStep signals the active step).
+    val effectiveDepthBitmap = if (generatingStep == RasterCache.Step.DEPTH_COLOUR) null
+        else (depthBitmapCached ?: depthBitmap)
+    val effectiveLowDepthWarning = if (generatingStep == RasterCache.Step.LOW_DEPTH_WARNING) null
+        else (lowDepthWarningCached ?: lowDepthWarningBitmap)
 
     // The map centre drives BOTH layers: coastline (distance/zone) and depth-at-centre.
     val onCenterChanged: (Double, Double) -> Unit = remember(viewModel, depthViewModel) {
@@ -318,8 +388,8 @@ fun MapScreen(
                 zoomLevel = zoomLevel,
                 distanceToShore = distanceToShore,
                 zone300 = zone300,
-                depthBitmap = depthBitmap,
-                lowDepthWarningBitmap = lowDepthWarningBitmap,
+                depthBitmap = effectiveDepthBitmap,
+                lowDepthWarningBitmap = effectiveLowDepthWarning,
                 depthBox = depthGrid?.boundingBox,
                 isobaths = isobaths,
                 appSettings = appSettings,
@@ -332,6 +402,7 @@ fun MapScreen(
                 onToggleZone300 = viewModel::toggleZone300Visibility,
                 onToggleLowDepthWarning = viewModel::toggleLowDepthWarningVisibility,
                 showExitBanner = showExitBanner,
+                rasterProgress = rasterProgress,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(
@@ -380,7 +451,12 @@ fun MapScreen(
                 settings = appSettings,
                 onUpdateSettings = viewModel::updateSettings,
                 onGpsModeChange = onGpsModeChange,
-                onDismiss = { showSettings = false }
+                onDismiss = { showSettings = false },
+                onRegenerateRasters = { steps ->
+                    val waterTest: (Double, Double) -> Boolean =
+                        if (state is CoastlineState.Ready) viewModel::isOnWater else { _, _ -> true }
+                    depthViewModel.generateRasterLayers(context, steps, appSettings, waterTest)
+                }
             )
         }
     }
@@ -421,6 +497,7 @@ private fun MapContent(
     onToggleZone300: () -> Unit,
     onToggleLowDepthWarning: () -> Unit,
     showExitBanner: Boolean,
+    rasterProgress: RasterProgress? = null,
     modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier.clipToBounds()) {
@@ -483,8 +560,12 @@ private fun MapContent(
                 .padding(start = 12.dp, end = 76.dp, bottom = 12.dp),
             contentAlignment = Alignment.Center
         ) {
-            if (state is CoastlineState.Loading) {
-                LoadingOverlay(progress = progress)
+            if (rasterProgress != null && rasterProgress!!.globalProgress < 100) {
+                val rp = rasterProgress!!
+                LoadingOverlay(
+                    progress = GenerationProgress(rp.phase, rp.globalProgress),
+                    title = "Generating Layers"
+                )
             }
             if (state is CoastlineState.Error) {
                 ErrorOverlay(
@@ -595,7 +676,8 @@ private fun MapContent(
 @Composable
 private fun LoadingOverlay(
     progress: GenerationProgress,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    title: String = stringResource(R.string.map_loading_coastline)
 ) {
     Column(
         modifier = modifier
@@ -610,7 +692,7 @@ private fun LoadingOverlay(
         )
 
         Text(
-            text = stringResource(R.string.map_loading_coastline),
+            text = title,
             color = ComposeColor(0xFF1565C0),
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold
@@ -1034,7 +1116,8 @@ private fun SettingsOverlay(
     settings: AppSettings,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
     onGpsModeChange: (Boolean) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onRegenerateRasters: (List<RasterCache.Step>) -> Unit = {}
 ) {
     Box(
         modifier = Modifier
@@ -1196,6 +1279,53 @@ private fun SettingsOverlay(
                         }
                     )
                 }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // ── Regenerate Layers ──────────────────────────────────────────
+            SectionHeader(title = "Regenerate Layers")
+            Spacer(modifier = Modifier.height(4.dp))
+            SettingsToggleRow(
+                label = "Depth grid",
+                description = "Reload the prebaked depth grid from assets",
+                checked = settings.regenGrid,
+                onCheckedChange = { v -> onUpdateSettings { it.copy(regenGrid = v) } }
+            )
+            SettingsToggleRow(
+                label = "Isobath contours",
+                description = "Re-derive contour lines from the grid",
+                checked = settings.regenIsobaths,
+                onCheckedChange = { v -> onUpdateSettings { it.copy(regenIsobaths = v) } }
+            )
+            SettingsToggleRow(
+                label = "Depth colour map",
+                description = "Rebuild the depth-coloured raster overlay",
+                checked = settings.regenColour,
+                onCheckedChange = { v -> onUpdateSettings { it.copy(regenColour = v) } }
+            )
+            SettingsToggleRow(
+                label = "Low-depth warning overlay",
+                description = "Rebuild the shallow-water magenta hazard overlay",
+                checked = settings.regenWarning,
+                onCheckedChange = { v -> onUpdateSettings { it.copy(regenWarning = v) } }
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(
+                onClick = {
+                    val selected = buildList {
+                        if (settings.regenGrid) add(RasterCache.Step.GRID)
+                        if (settings.regenIsobaths) add(RasterCache.Step.ISOBATH)
+                        if (settings.regenColour) add(RasterCache.Step.DEPTH_COLOUR)
+                        if (settings.regenWarning) add(RasterCache.Step.LOW_DEPTH_WARNING)
+                    }
+                    onDismiss()
+                    onRegenerateRasters(selected)
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = ComposeColor(0xFF1565C0)),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("Regenerate", color = ComposeColor.White)
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -1372,8 +1502,6 @@ private fun SettingsOverlay(
                     onValueChange = { v -> onUpdateSettings { it.copy(emodnetShallowCutoffM = (v * 2f).roundToInt() / 2f) } }
                 )
             }
-
-            Spacer(modifier = Modifier.height(24.dp))
 
             // ── Footer ────────────────────────────────────────────────────
             Spacer(modifier = Modifier.height(32.dp))

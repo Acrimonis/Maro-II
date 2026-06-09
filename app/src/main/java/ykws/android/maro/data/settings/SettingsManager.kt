@@ -45,6 +45,9 @@ import ykws.android.maro.data.depth.DepthConstants
  *                             Default 6.
  * @property mapRefreshFps     GPS auto-follow re-render ceiling in frames/s (5–50). Lower = fewer
  *                             whole-map repaints = less battery. Default 25.
+ * @property emodnetShallowCutoffM  EMODnet shallow cutoff (m): EMODnet point readings shallower
+ *                             than this are coarse (115 m cell over rocks/coast) and unreliable →
+ *                             presented as no-data. 0 disables the gate. Default 2.0.
  */
 data class AppSettings(
     val defaultLatitude: Double = 43.55,
@@ -80,7 +83,15 @@ data class AppSettings(
     val lowDepthWarningMinOpacityPct: Int = 25,
     /** EMODnet shallow cutoff (m): EMODnet point readings shallower than this are coarse
      *  (115 m cell over rocks/coast) and unreliable → presented as no-data. 0 disables the gate. */
-    val emodnetShallowCutoffM: Float = 2.0f
+    val emodnetShallowCutoffM: Float = 2.0f,
+    /** Regenerate: reload depth grid from assets. */
+    val regenGrid: Boolean = true,
+    /** Regenerate: re-derive isobath contours. */
+    val regenIsobaths: Boolean = true,
+    /** Regenerate: rebuild + re-cache depth colour raster. */
+    val regenColour: Boolean = true,
+    /** Regenerate: rebuild + re-cache shallow warning raster. */
+    val regenWarning: Boolean = true
 )
 
 class SettingsManager(
@@ -123,7 +134,11 @@ class SettingsManager(
         lowDepthWarningVisible = prefs.getBoolean(KEY_LOW_DEPTH_WARNING_VISIBLE, true),
         lowDepthWarningMaxM = prefs.getFloat(KEY_LOW_DEPTH_WARNING_MAX_M, DepthConstants.LOW_DEPTH_WARNING_MAX_M.toFloat()),
         lowDepthWarningMinOpacityPct = prefs.getInt(KEY_LOW_DEPTH_MIN_OPACITY_PCT, defaultLowDepthMinOpacityPct),
-        emodnetShallowCutoffM = prefs.getFloat(KEY_EMODNET_SHALLOW_CUTOFF_M, 2.0f)
+        emodnetShallowCutoffM = prefs.getFloat(KEY_EMODNET_SHALLOW_CUTOFF_M, 2.0f),
+        regenGrid    = prefs.getBoolean(KEY_REGEN_GRID, true),
+        regenIsobaths = prefs.getBoolean(KEY_REGEN_ISOBATHS, true),
+        regenColour  = prefs.getBoolean(KEY_REGEN_COLOUR, true),
+        regenWarning = prefs.getBoolean(KEY_REGEN_WARNING, true)
     )
 
     /**
@@ -167,6 +182,10 @@ class SettingsManager(
             .putFloat(KEY_LOW_DEPTH_WARNING_MAX_M, updated.lowDepthWarningMaxM)
             .putInt(KEY_LOW_DEPTH_MIN_OPACITY_PCT, updated.lowDepthWarningMinOpacityPct)
             .putFloat(KEY_EMODNET_SHALLOW_CUTOFF_M, updated.emodnetShallowCutoffM)
+            .putBoolean(KEY_REGEN_GRID, updated.regenGrid)
+            .putBoolean(KEY_REGEN_ISOBATHS, updated.regenIsobaths)
+            .putBoolean(KEY_REGEN_COLOUR, updated.regenColour)
+            .putBoolean(KEY_REGEN_WARNING, updated.regenWarning)
             .apply()
     }
 
@@ -199,5 +218,9 @@ class SettingsManager(
         private const val KEY_LOW_DEPTH_WARNING_MAX_M = "low_depth_warning_max_m"
         private const val KEY_LOW_DEPTH_MIN_OPACITY_PCT = "low_depth_min_opacity_pct"
         private const val KEY_EMODNET_SHALLOW_CUTOFF_M = "emodnet_shallow_cutoff_m"
+        private const val KEY_REGEN_GRID = "regen_grid"
+        private const val KEY_REGEN_ISOBATHS = "regen_isobaths"
+        private const val KEY_REGEN_COLOUR = "regen_colour"
+        private const val KEY_REGEN_WARNING = "regen_warning"
     }
 }

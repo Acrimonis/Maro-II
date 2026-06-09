@@ -2,10 +2,10 @@
 
 ## Active Session Pointers
 - **Active Feature:** DepthSafety
-- **Active Subfeature:** edonet false alert
+- **Active Subfeature:** caching
 - **Last Updated:** 2026-06-09
-- **Last Bake:** 2026-06-09 00:14 (DepthSafety — edonet-false-alert: runtime EMODnet shallow gate `DepthSample.gatedForEmodnetShallow` + persisted `emodnetShallowCutoffM` (0–5 m, default 2.0, Advanced slider, EN+FR) + bake-time `v<0` guard in DepthMerge/fillGaps. testDebugUnitTest + assembleDebug green. Committed a55b914 on feature/pink-fix-edonet (off develop), pushed. On-device verify pending; readout fix needs no re-bake.)
-- **Prev Bake:** 2026-06-08 21:53 (DepthSafety — merged develop; develop's low-depth overlay SUPERSEDES B3 danger-display → done. Remaining: B4 danger-alert + B1 water-only re-bake.)
+- **Last Bake:** 2026-06-09 12:21 (DepthSafety — merged origin/develop into feature/layers-caching. Resolved conflicts in SettingsManager (kept emodnetShallowCutoffM + regen* flags) and MapScreen (gatedForEmodnetShallow + EMODnet slider + caching code). 5/6 subs done. assembleDebug green.)
+- **Prev Bake:** 2026-06-09 08:06 (DepthSafety — EMODnet shallow gate now covers all four layers: readout, depth colour map, magenta low-depth overlay, isobath contours. All bitmaps rebuild reactively on cutoff change. testDebugUnitTest + assembleDebug green. On-device verify pending.)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -29,6 +29,7 @@
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).
+- `adb.exe` is in the computer PATH — use `adb` directly without full path qualifier.
 - Auto-refine rule wording for clarity and conciseness on `#rule` add.
 - Use apk-build.bat to build APK (runs gradlew assembleDebug).
 - **No Côte/Bande or Earth/Water controls anywhere in the UI.** The "Côte" (generate coastline) and "Bande" (regenerate 300m band) buttons are completely removed from the app interface. The Earth/Water icon display in the dashboard is also removed. These exist as ViewModel methods only for programmatic/internal use.

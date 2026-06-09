@@ -26,7 +26,8 @@ object LowDepthWarningBitmap {
         grid: DepthGrid,
         maxDepthM: Float = DepthConstants.LOW_DEPTH_WARNING_MAX_M.toFloat(),
         isWater: (lat: Double, lon: Double) -> Boolean = { _, _ -> true },
-        minOpacity: Float = 0.25f
+        minOpacity: Float = 0.25f,
+        onProgress: ((Int) -> Unit)? = null
     ): Bitmap {
         val w = grid.cols
         val h = grid.rows
@@ -50,7 +51,11 @@ object LowDepthWarningBitmap {
                     isWater(clat + hLat, clon - hLon) && isWater(clat + hLat, clon + hLon)
                 colors[outRow + c] = if (fullyWater) warningArgb(d, maxDepthM, minOpacity) else 0
             }
+            if (onProgress != null && (r and 0xFF) == 0) {
+                onProgress(r * 100 / h)
+            }
         }
+        onProgress?.invoke(100)
         return Bitmap.createBitmap(colors, w, h, Bitmap.Config.ARGB_8888)
     }
 
