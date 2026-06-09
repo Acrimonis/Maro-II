@@ -144,7 +144,8 @@ class DepthViewModel(
                 gridTimestampMs = grid.metadata.fetchTimestampMs,
                 emodnetCutoffM = cutoffM,
                 lowDepthMaxM = settings.lowDepthWarningMaxM,
-                lowDepthMinOpacityPct = settings.lowDepthWarningMinOpacityPct
+                lowDepthMinOpacityPct = settings.lowDepthWarningMinOpacityPct,
+                nodataColor = nodataColor
             )
 
             withContext(Dispatchers.Default) {
@@ -204,7 +205,8 @@ class DepthViewModel(
             gridTimestampMs = grid.metadata.fetchTimestampMs,
             emodnetCutoffM = settings.emodnetShallowCutoffM,
             lowDepthMaxM = settings.lowDepthWarningMaxM,
-            lowDepthMinOpacityPct = settings.lowDepthWarningMinOpacityPct
+            lowDepthMinOpacityPct = settings.lowDepthWarningMinOpacityPct,
+            nodataColor = ZoneConfig.nodataColor
         )
         return RasterCache.read(context, step, key)
     }

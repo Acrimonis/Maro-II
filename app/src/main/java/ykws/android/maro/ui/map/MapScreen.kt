@@ -285,7 +285,8 @@ fun MapScreen(
             gridTimestampMs = grid.metadata.fetchTimestampMs,
             emodnetCutoffM = appSettings.emodnetShallowCutoffM,
             lowDepthMaxM = appSettings.lowDepthWarningMaxM,
-            lowDepthMinOpacityPct = appSettings.lowDepthWarningMinOpacityPct
+            lowDepthMinOpacityPct = appSettings.lowDepthWarningMinOpacityPct,
+            nodataColor = ZoneConfig.nodataColor
         )
         val missing = mutableListOf<RasterCache.Step>()
         if (!RasterCache.has(context, RasterCache.Step.DEPTH_COLOUR, key))

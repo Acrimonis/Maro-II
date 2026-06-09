@@ -39,7 +39,8 @@ object RasterCache {
         val gridTimestampMs: Long,
         val emodnetCutoffM: Float,
         val lowDepthMaxM: Float,
-        val lowDepthMinOpacityPct: Int
+        val lowDepthMinOpacityPct: Int,
+        val nodataColor: Int
     )
 
     // ── Public API ──────────────────────────────────────────────────────────
