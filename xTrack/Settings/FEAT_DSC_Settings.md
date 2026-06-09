@@ -2,15 +2,15 @@
 name: Settings
 status: active
 created: 2026-06-09 15:28
-modified: 2026-06-09 15:28
-active_subfeature: settings apply on close
+modified: 2026-06-09 19:42
+active_subfeature: none
 ---
 
 **Description:** Settings page UI, settings persistence (SharedPreferences), settings-related widgets, and settings UX enhancements.
 
 ## Subfeatures
 
-### scroll persistance  [x]
+### scroll persistence  [x]
 
 #### Todos
 - [x] Hoist the settings scroll state (`ScrollState`) outside the `SettingsOverlay` composable so it survives overlay dismiss/reopen within one session

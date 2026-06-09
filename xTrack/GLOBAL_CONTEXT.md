@@ -2,9 +2,9 @@
 
 ## Active Session Pointers
 - **Active Feature:** Settings
-- **Active Subfeature:** settings apply on close
+- **Active Subfeature:** none
 - **Last Updated:** 2026-06-09
-- **Last Bake:** 2026-06-09 14:52 (WorkflowImprovement — xTrack reorganization: all 55 FEAT_* files moved into 16 feature subdirectories; AGENTS.md, cmd_help.md, GLOBAL_CONTEXT.md, 7 FEAT_DSC_ ## Docs sections, taxonomy table all updated)
+- **Last Bake:** 2026-06-09 19:42 (Settings — scroll persistence implemented: save via snapshotFlow + MutableState, restore with layout-aware scrollTo after maxValue > 0)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -47,7 +47,7 @@
 | DepthSafety | Danger depth alerts, shallow water grounding prevention, isobath precision | 2026-06-03 00:00 | 2026-06-05 00:00 | active |
 | Localisation | i18n/localization, French translations, string resources | 2026-06-03 00:00 | 2026-06-03 00:00 | active |
 | AppBakFlow | Back button handling, double-back-to-exit, keep-screen-on/wakelock | 2026-06-03 00:00 | 2026-06-03 00:00 | active |
-| Settings | Settings page UI, persistence, widgets, and UX enhancements | 2026-06-09 15:28 | 2026-06-09 15:28 | active |
+| Settings | Settings page UI, persistence, widgets, and UX enhancements | 2026-06-09 15:28 | 2026-06-09 19:42 | active |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).
