@@ -17,7 +17,13 @@ import ykws.android.maro.data.model.DepthGrid
  */
 object DepthBitmap {
 
-    fun build(grid: DepthGrid): Bitmap {
+    /**
+     * Rasterises the grid into an ARGB bitmap.
+     *
+     * @param onProgress optional callback receiving 0–100 intra-step progress (row/h %), called
+     *                   roughly every 256 rows to keep overhead negligible.
+     */
+    fun build(grid: DepthGrid, onProgress: ((Int) -> Unit)? = null): Bitmap {
         val w = grid.cols
         val h = grid.rows
         val colors = IntArray(w * h)
@@ -26,7 +32,11 @@ object DepthBitmap {
             for (c in 0 until w) {
                 colors[outRow + c] = DepthColorRamp.argb(grid.depthRaw(r, c))
             }
+            if (onProgress != null && (r and 0xFF) == 0) {
+                onProgress(r * 100 / h)
+            }
         }
+        onProgress?.invoke(100)
         return Bitmap.createBitmap(colors, w, h, Bitmap.Config.ARGB_8888)
     }
 }

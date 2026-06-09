@@ -1,28 +1,35 @@
-# Hydration — DepthSafety
+# DepthSafety — Session Hydration
 
-**Last Bake:** 2026-06-08 21:53
+**Last Bake:** 2026-06-09 12:01 UTC
 
-## State (on `feature/depth-warning-2`; develop merged in, compile green)
-Subs **1/4** done. Branch contains all of develop (merge `a83cd12`).
-- **B2 isobar-precision — DONE (committed `1819487`, pushed):** `IsobathLine(points, source, confidence)`;
-  fine-over-coarse suppression (mask coarse cells for fine levels); colour + width by source from
-  `zone.properties`/`ZoneConfig` (litto3d `#1B5E20` +1 px, emodnet `#00008B` −1 px, dash conf≤35);
-  Chaikin smoothing of Litto3D lines (`SpatialOperations.chaikin`). Unit-tested. **On-device colour verify pending.**
-- **B3 danger-display — SUPERSEDED/done by develop's low-depth overlay** (merged): `LowDepthWarningBitmap`
-  (magenta, water-only via **depth-gated isWater** — cheap), **configurable+persisted** `lowDepthWarningMaxM`
-  (Settings slider + map toggle), rebuilds on change. Don't re-implement; extend it. Optional leftover:
-  move the default to `zone.properties`.
-- **B4 danger-alert — STILL NEEDED:** develop has only the *display*, not an at-the-boat alarm. Add
-  `DepthSample.isBelow`, derived `shallowAlert` (isWater && isBelow + 0.3 m hysteresis) → pulsing `DepthCard`
-  + grounding banner; reuse `lowDepthWarningMaxM` (or a separate `dangerAlertMaxM`); stub `onShallowAlert()` for sound.
-- **B1 water-only** — bake-mask is the guard; re-bake + on-device verify pending.
-- **Parked:** option-3 `gdal_contour` on full-res Litto3D = real contour fidelity (own subfeature); optional B5 overlay-reproject.
+## State Summary
 
-## Next
-1. On-device verify B2 colours; PR `feature/depth-warning-2` → develop when ready.
-2. **B4 · danger-alert** (the alarm) — the main remaining DepthSafety work.
-3. B1 water-only re-bake/verify.
+DepthSafety is active (5/6 subfeatures done). Caching subfeature implemented: RawBuf disk cache with 4-step pipeline, sequential hide/show regeneration, persisted per-layer checkboxes, silent lazy-init on cold start.
 
-## Key files
-B2: `data/model/Isobath.kt`, `data/depth/DepthIsobaths.kt`+`DepthConstants.kt`, `ui/map/ZoneConfig.kt`+`assets/zone.properties`, `ui/map/MapScreen.kt`, `spatial/SpatialOperations.kt`.
-B3 (develop): `ui/map/LowDepthWarningBitmap.kt`, `data/settings/SettingsManager.kt`. B4: `data/model/DepthGrid.kt`, `ui/map/DashboardPanel.kt`.
+## Active Work: Caching Subfeature — DONE
+
+- `RasterCache` object with `Step` enum (GRID, ISOBATH, DEPTH_COLOUR, LOW_DEPTH_WARNING)
+- RawBuf format: IntArray → ByteBuffer → FileChannel, ~78ms colour / ~52ms warning reads
+- `generateRasterLayers()` self-contained 4-step pipeline with intra-step onProgress callbacks
+- Sequential generation: hides layer before regenerating, shows immediately after
+- `DepthViewModel.generatingStep` + `rasterCacheVersion` StateFlows for hide/show
+- Settings: 4 persisted checkboxes (regenGrid/Isobaths/Colour/Warning) + "Regenerate" button
+- Silent lazy-init LaunchedEffect populates cache on cold start without LoadingOverlay
+- Live-build produceState blocks skip build when cache exists
+- Warning layer no longer blocked on coastlineReady for cached reads
+- Coastline loading overlay removed
+
+## Remaining
+
+- `danger-alert` subfeature (B4: pulsing alarm + sound stub)
+- On-device verify + measure cold-start improvement after cache
+
+## Target Files
+- `data/depth/RasterCache.kt` — RawBuf disk I/O
+- `data/model/RasterProgress.kt` — weighted progress
+- `data/settings/SettingsManager.kt` — 4 regen flags
+- `data/depth/DepthRepository.kt` — loadGridFromAssets()
+- `ui/map/DepthViewModel.kt` — generateRasterLayers, generatingStep, rasterCacheVersion
+- `ui/map/DepthBitmap.kt` — onProgress callback
+- `ui/map/LowDepthWarningBitmap.kt` — onProgress callback
+- `ui/map/MapScreen.kt` — silent lazy-init, hide/show, 4 checkboxes, cache-guarded live builds

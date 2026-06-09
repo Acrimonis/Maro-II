@@ -68,7 +68,7 @@ class CoastlineViewModel(
 
     /** Persisted settings — initialised eagerly so StateFlows are seeded directly. */
     private val settingsManager: SettingsManager =
-        SettingsManager(application, ZoneConfig.zoneAutoRevealDistanceM, ZoneConfig.zoneAutoRevealTimeS)
+        SettingsManager(application, ZoneConfig.zoneAutoRevealDistanceM, ZoneConfig.zoneAutoRevealTimeS, ZoneConfig.lowDepthWarningMinOpacityPct)
 
     /** Device GPS + compass sources (framework-only, no Google Play Services) for GPS mode. */
     private val gpsSource: GpsLocationSource = GpsLocationSource(application)

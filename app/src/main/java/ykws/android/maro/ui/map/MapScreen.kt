@@ -98,6 +98,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import ykws.android.maro.data.depth.DepthConstants
+import ykws.android.maro.data.depth.RasterCache
 import ykws.android.maro.data.model.BoundingBox
 import ykws.android.maro.data.model.CoastlinePoint
 import ykws.android.maro.data.model.CoastlineSegment
@@ -106,6 +107,7 @@ import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.DepthState
 import ykws.android.maro.data.model.GenerationProgress
 import ykws.android.maro.data.model.Isobath
+import ykws.android.maro.data.model.RasterProgress
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.ValidationReport
 import ykws.android.maro.data.model.Zone300Data
@@ -214,12 +216,20 @@ fun MapScreen(
     val depthState by depthViewModel.state.collectAsState()
     val depthRender by depthViewModel.renderModel.collectAsState()
     val depthAtCenter by depthViewModel.depthAtCenter.collectAsState()
+    // Gate coarse EMODnet shallow readings (unreliable near rocks/coast) → no-data in the readout.
+    val depthReadout = depthAtCenter?.gatedForEmodnetShallow(appSettings.emodnetShallowCutoffM)
     val depthGrid = (depthState as? DepthState.Ready)?.grid
     val depthValidation = depthGrid?.metadata?.validation
     val isobaths = depthRender?.isobaths ?: emptyList()
 
-    // Rasterise the colour map once per grid, off the main thread (~3 M cells).
-    val depthBitmap by produceState<Bitmap?>(initialValue = null, depthGrid) {
+    // Rasterise the colour map once per grid, off the main thread (~7 M cells).
+    val depthBitmap by produceState<Bitmap?>(initialValue = null, depthGrid,
+        appSettings.lowDepthWarningMaxM, appSettings.lowDepthWarningMinOpacityPct) {
+        // If cache exists, skip the expensive live build
+        val cached = depthGrid?.let {
+            depthViewModel.readCached(context, RasterCache.Step.DEPTH_COLOUR, appSettings)
+        }
+        if (cached != null) { value = cached; return@produceState }
         value = depthGrid?.let { g -> withContext(Dispatchers.Default) { DepthBitmap.build(g) } }
     }
 
@@ -227,16 +237,78 @@ fun MapScreen(
     // Re-rasterises when the grid, the threshold, or coastline readiness changes.
     val coastlineReady = state is CoastlineState.Ready
     val lowDepthWarningBitmap by produceState<Bitmap?>(
-        initialValue = null, depthGrid, appSettings.lowDepthWarningMaxM, coastlineReady
+        initialValue = null, depthGrid, appSettings.lowDepthWarningMaxM,
+        appSettings.lowDepthWarningMinOpacityPct, coastlineReady
     ) {
+        // If cache exists, skip the expensive live build
+        val cached = depthGrid?.let {
+            depthViewModel.readCached(context, RasterCache.Step.LOW_DEPTH_WARNING, appSettings)
+        }
+        if (cached != null) { value = cached; return@produceState }
         val maxM = appSettings.lowDepthWarningMaxM
         // Skip land/island cells via the coastline classifier; until it loads, treat all as water.
         val waterTest: (Double, Double) -> Boolean =
             if (coastlineReady) viewModel::isOnWater else { _, _ -> true }
         value = depthGrid?.let { g ->
-            withContext(Dispatchers.Default) { LowDepthWarningBitmap.build(g, maxM, waterTest) }
+            withContext(Dispatchers.Default) {
+                LowDepthWarningBitmap.build(g, maxM, waterTest,
+                    appSettings.lowDepthWarningMinOpacityPct / 100f)
+            }
         }
     }
+
+    // ── Raster cache reads (no lazy auto-trigger; only settings button triggers generation) ──
+    val rasterProgress by depthViewModel.rasterProgress.collectAsState()
+    val generatingStep by depthViewModel.generatingStep.collectAsState()
+    val rasterCacheVersion by depthViewModel.rasterCacheVersion.collectAsState()
+
+    // ── Silent lazy-init: on cache miss, generate rasters in background (no LoadingOverlay).
+    //    Warning layer is deferred until coastline is ready (needs accurate isWater). ──
+    LaunchedEffect(depthGrid, appSettings.lowDepthWarningMaxM,
+                   appSettings.lowDepthWarningMinOpacityPct, coastlineReady) {
+        val grid = depthGrid ?: return@LaunchedEffect
+        val key = RasterCache.Key(
+            gridTimestampMs = grid.metadata.fetchTimestampMs,
+            emodnetCutoffM = 0f,
+            lowDepthMaxM = appSettings.lowDepthWarningMaxM,
+            lowDepthMinOpacityPct = appSettings.lowDepthWarningMinOpacityPct
+        )
+        val missing = mutableListOf<RasterCache.Step>()
+        if (!RasterCache.has(context, RasterCache.Step.DEPTH_COLOUR, key))
+            missing.add(RasterCache.Step.DEPTH_COLOUR)
+        if (coastlineReady && !RasterCache.has(context, RasterCache.Step.LOW_DEPTH_WARNING, key))
+            missing.add(RasterCache.Step.LOW_DEPTH_WARNING)
+        if (missing.isNotEmpty()) {
+            val waterTest: (Double, Double) -> Boolean =
+                if (coastlineReady) viewModel::isOnWater else { _, _ -> true }
+            depthViewModel.generateRasterLayers(context, missing, appSettings, waterTest, silent = true)
+        }
+    }
+
+    // Read cached rasters; hide a layer when it's being regenerated.
+    val depthBitmapCached by produceState<Bitmap?>(initialValue = null, depthGrid,
+        appSettings.lowDepthWarningMaxM, appSettings.lowDepthWarningMinOpacityPct,
+        rasterCacheVersion, generatingStep) {
+        if (generatingStep == RasterCache.Step.DEPTH_COLOUR) { value = null; return@produceState }
+        value = depthGrid?.let {
+            depthViewModel.readCached(context, RasterCache.Step.DEPTH_COLOUR, appSettings)
+        }
+    }
+    val lowDepthWarningCached by produceState<Bitmap?>(initialValue = null, depthGrid,
+        appSettings.lowDepthWarningMaxM, appSettings.lowDepthWarningMinOpacityPct,
+        rasterCacheVersion, generatingStep) {
+        if (generatingStep == RasterCache.Step.LOW_DEPTH_WARNING) { value = null; return@produceState }
+        value = depthGrid?.let {
+            depthViewModel.readCached(context, RasterCache.Step.LOW_DEPTH_WARNING, appSettings)
+        }
+    }
+
+    // Prefer cached rasters; fall back to live-built ones. Hide a layer entirely
+    // while it's being regenerated (generatingStep signals the active step).
+    val effectiveDepthBitmap = if (generatingStep == RasterCache.Step.DEPTH_COLOUR) null
+        else (depthBitmapCached ?: depthBitmap)
+    val effectiveLowDepthWarning = if (generatingStep == RasterCache.Step.LOW_DEPTH_WARNING) null
+        else (lowDepthWarningCached ?: lowDepthWarningBitmap)
 
     // The map centre drives BOTH layers: coastline (distance/zone) and depth-at-centre.
     val onCenterChanged: (Double, Double) -> Unit = remember(viewModel, depthViewModel) {
@@ -316,8 +388,8 @@ fun MapScreen(
                 zoomLevel = zoomLevel,
                 distanceToShore = distanceToShore,
                 zone300 = zone300,
-                depthBitmap = depthBitmap,
-                lowDepthWarningBitmap = lowDepthWarningBitmap,
+                depthBitmap = effectiveDepthBitmap,
+                lowDepthWarningBitmap = effectiveLowDepthWarning,
                 depthBox = depthGrid?.boundingBox,
                 isobaths = isobaths,
                 appSettings = appSettings,
@@ -330,6 +402,7 @@ fun MapScreen(
                 onToggleZone300 = viewModel::toggleZone300Visibility,
                 onToggleLowDepthWarning = viewModel::toggleLowDepthWarningVisibility,
                 showExitBanner = showExitBanner,
+                rasterProgress = rasterProgress,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(
@@ -346,7 +419,7 @@ fun MapScreen(
                     distanceToShore = distanceToShore,
                     inZone300 = inZone300,
                     distanceToZone = distanceToZone,
-                    depthSample = depthAtCenter,
+                    depthSample = depthReadout,
                     validation = depthValidation,
                     speedKnots = speedKnots ?: demoSpeedKnots,
                     modifier = Modifier
@@ -361,7 +434,7 @@ fun MapScreen(
                     distanceToShore = distanceToShore,
                     inZone300 = inZone300,
                     distanceToZone = distanceToZone,
-                    depthSample = depthAtCenter,
+                    depthSample = depthReadout,
                     validation = depthValidation,
                     speedKnots = speedKnots ?: demoSpeedKnots,
                     modifier = Modifier
@@ -378,7 +451,12 @@ fun MapScreen(
                 settings = appSettings,
                 onUpdateSettings = viewModel::updateSettings,
                 onGpsModeChange = onGpsModeChange,
-                onDismiss = { showSettings = false }
+                onDismiss = { showSettings = false },
+                onRegenerateRasters = { steps ->
+                    val waterTest: (Double, Double) -> Boolean =
+                        if (state is CoastlineState.Ready) viewModel::isOnWater else { _, _ -> true }
+                    depthViewModel.generateRasterLayers(context, steps, appSettings, waterTest)
+                }
             )
         }
     }
@@ -419,6 +497,7 @@ private fun MapContent(
     onToggleZone300: () -> Unit,
     onToggleLowDepthWarning: () -> Unit,
     showExitBanner: Boolean,
+    rasterProgress: RasterProgress? = null,
     modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier.clipToBounds()) {
@@ -481,8 +560,12 @@ private fun MapContent(
                 .padding(start = 12.dp, end = 76.dp, bottom = 12.dp),
             contentAlignment = Alignment.Center
         ) {
-            if (state is CoastlineState.Loading) {
-                LoadingOverlay(progress = progress)
+            if (rasterProgress != null && rasterProgress!!.globalProgress < 100) {
+                val rp = rasterProgress!!
+                LoadingOverlay(
+                    progress = GenerationProgress(rp.phase, rp.globalProgress),
+                    title = "Generating Layers"
+                )
             }
             if (state is CoastlineState.Error) {
                 ErrorOverlay(
@@ -593,7 +676,8 @@ private fun MapContent(
 @Composable
 private fun LoadingOverlay(
     progress: GenerationProgress,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    title: String = stringResource(R.string.map_loading_coastline)
 ) {
     Column(
         modifier = modifier
@@ -608,7 +692,7 @@ private fun LoadingOverlay(
         )
 
         Text(
-            text = stringResource(R.string.map_loading_coastline),
+            text = title,
             color = ComposeColor(0xFF1565C0),
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold
@@ -1032,7 +1116,8 @@ private fun SettingsOverlay(
     settings: AppSettings,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
     onGpsModeChange: (Boolean) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    onRegenerateRasters: (List<RasterCache.Step>) -> Unit = {}
 ) {
     Box(
         modifier = Modifier
@@ -1169,17 +1254,78 @@ private fun SettingsOverlay(
             // Warning depth threshold — lives inside the warning's box, shown only when it is on.
             if (settings.lowDepthWarningVisible) {
                 Spacer(modifier = Modifier.height(12.dp))
-                SettingsSliderRow(
-                    label = stringResource(R.string.settings_low_depth_threshold_label),
-                    description = stringResource(R.string.settings_low_depth_threshold_desc),
-                    valueLabel = stringResource(R.string.settings_value_depth, settings.lowDepthWarningMaxM),
-                    value = settings.lowDepthWarningMaxM,
-                    valueRange = 0.5f..5f,
-                    steps = 8,
-                    onValueChange = { v ->
-                        onUpdateSettings { it.copy(lowDepthWarningMaxM = (v * 2f).roundToInt() / 2f) }
+                SettingsSliderGroup {
+                    SliderRowContent(
+                        label = stringResource(R.string.settings_low_depth_threshold_label),
+                        description = stringResource(R.string.settings_low_depth_threshold_desc),
+                        valueLabel = stringResource(R.string.settings_value_depth, settings.lowDepthWarningMaxM),
+                        value = settings.lowDepthWarningMaxM,
+                        valueRange = 0.5f..5f,
+                        steps = 8,
+                        onValueChange = { v ->
+                            onUpdateSettings { it.copy(lowDepthWarningMaxM = (v * 2f).roundToInt() / 2f) }
+                        }
+                    )
+                    SliderRowDivider()
+                    SliderRowContent(
+                        label = stringResource(R.string.settings_low_depth_opacity_label),
+                        description = stringResource(R.string.settings_low_depth_opacity_desc),
+                        valueLabel = stringResource(R.string.settings_value_percent, settings.lowDepthWarningMinOpacityPct),
+                        value = settings.lowDepthWarningMinOpacityPct.toFloat(),
+                        valueRange = 0f..100f,
+                        steps = 19,
+                        onValueChange = { v ->
+                            onUpdateSettings { it.copy(lowDepthWarningMinOpacityPct = (v / 5f).roundToInt() * 5) }
+                        }
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // ── Regenerate Layers ──────────────────────────────────────────
+            SectionHeader(title = "Regenerate Layers")
+            Spacer(modifier = Modifier.height(4.dp))
+            SettingsToggleRow(
+                label = "Depth grid",
+                description = "Reload the prebaked depth grid from assets",
+                checked = settings.regenGrid,
+                onCheckedChange = { v -> onUpdateSettings { it.copy(regenGrid = v) } }
+            )
+            SettingsToggleRow(
+                label = "Isobath contours",
+                description = "Re-derive contour lines from the grid",
+                checked = settings.regenIsobaths,
+                onCheckedChange = { v -> onUpdateSettings { it.copy(regenIsobaths = v) } }
+            )
+            SettingsToggleRow(
+                label = "Depth colour map",
+                description = "Rebuild the depth-coloured raster overlay",
+                checked = settings.regenColour,
+                onCheckedChange = { v -> onUpdateSettings { it.copy(regenColour = v) } }
+            )
+            SettingsToggleRow(
+                label = "Low-depth warning overlay",
+                description = "Rebuild the shallow-water magenta hazard overlay",
+                checked = settings.regenWarning,
+                onCheckedChange = { v -> onUpdateSettings { it.copy(regenWarning = v) } }
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(
+                onClick = {
+                    val selected = buildList {
+                        if (settings.regenGrid) add(RasterCache.Step.GRID)
+                        if (settings.regenIsobaths) add(RasterCache.Step.ISOBATH)
+                        if (settings.regenColour) add(RasterCache.Step.DEPTH_COLOUR)
+                        if (settings.regenWarning) add(RasterCache.Step.LOW_DEPTH_WARNING)
                     }
-                )
+                    onDismiss()
+                    onRegenerateRasters(selected)
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = ComposeColor(0xFF1565C0)),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("Regenerate", color = ComposeColor.White)
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -1259,27 +1405,27 @@ private fun SettingsOverlay(
                 onToggle = { adaptiveAdvanced = !adaptiveAdvanced }
             ) {
                 Spacer(modifier = Modifier.height(8.dp))
-                SettingsSliderRow(
-                    label = stringResource(R.string.settings_window_label),
-                    description = stringResource(R.string.settings_window_desc),
-                    valueLabel = stringResource(R.string.settings_value_seconds, settings.adaptiveWindowSec),
-                    value = settings.adaptiveWindowSec.toFloat(),
-                    valueRange = 15f..60f,
-                    steps = 8,
-                    onValueChange = { v -> onUpdateSettings { it.copy(adaptiveWindowSec = (v / 5f).roundToInt() * 5) } }
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                SettingsSliderRow(
-                    label = stringResource(R.string.settings_adaptive_dist_label),
-                    description = stringResource(R.string.settings_adaptive_dist_desc),
-                    valueLabel = stringResource(R.string.settings_value_meters, settings.adaptiveDistanceM),
-                    value = settings.adaptiveDistanceM.toFloat(),
-                    valueRange = 10f..30f,
-                    steps = 3,
-                    onValueChange = { v -> onUpdateSettings { it.copy(adaptiveDistanceM = (v / 5f).roundToInt() * 5) } }
-                )
+                SettingsSliderGroup {
+                    SliderRowContent(
+                        label = stringResource(R.string.settings_window_label),
+                        description = stringResource(R.string.settings_window_desc),
+                        valueLabel = stringResource(R.string.settings_value_seconds, settings.adaptiveWindowSec),
+                        value = settings.adaptiveWindowSec.toFloat(),
+                        valueRange = 15f..60f,
+                        steps = 8,
+                        onValueChange = { v -> onUpdateSettings { it.copy(adaptiveWindowSec = (v / 5f).roundToInt() * 5) } }
+                    )
+                    SliderRowDivider()
+                    SliderRowContent(
+                        label = stringResource(R.string.settings_adaptive_dist_label),
+                        description = stringResource(R.string.settings_adaptive_dist_desc),
+                        valueLabel = stringResource(R.string.settings_value_meters, settings.adaptiveDistanceM),
+                        value = settings.adaptiveDistanceM.toFloat(),
+                        valueRange = 10f..30f,
+                        steps = 3,
+                        onValueChange = { v -> onUpdateSettings { it.copy(adaptiveDistanceM = (v / 5f).roundToInt() * 5) } }
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -1316,30 +1462,46 @@ private fun SettingsOverlay(
 
             if (settings.zone300AutoShowGps || settings.zone300AutoShowDemo) {
                 Spacer(modifier = Modifier.height(12.dp))
-                SettingsSliderRow(
-                    label = stringResource(R.string.settings_alert_dist_label),
-                    description = stringResource(R.string.settings_alert_dist_desc),
-                    valueLabel = stringResource(R.string.settings_value_meters, settings.zoneAutoRevealDistanceM.roundToInt()),
-                    value = settings.zoneAutoRevealDistanceM,
-                    valueRange = 50f..500f,
-                    steps = 17,
-                    onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealDistanceM = (v / 25f).roundToInt() * 25f) } }
-                )
-
-                Spacer(modifier = Modifier.height(12.dp))
-
-                SettingsSliderRow(
-                    label = stringResource(R.string.settings_alert_time_label),
-                    description = stringResource(R.string.settings_alert_time_desc),
-                    valueLabel = stringResource(R.string.settings_value_seconds, settings.zoneAutoRevealTimeS),
-                    value = settings.zoneAutoRevealTimeS.toFloat(),
-                    valueRange = 5f..120f,
-                    steps = 22,
-                    onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealTimeS = (v / 5f).roundToInt() * 5) } }
-                )
+                SettingsSliderGroup {
+                    SliderRowContent(
+                        label = stringResource(R.string.settings_alert_dist_label),
+                        description = stringResource(R.string.settings_alert_dist_desc),
+                        valueLabel = stringResource(R.string.settings_value_meters, settings.zoneAutoRevealDistanceM.roundToInt()),
+                        value = settings.zoneAutoRevealDistanceM,
+                        valueRange = 50f..500f,
+                        steps = 17,
+                        onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealDistanceM = (v / 25f).roundToInt() * 25f) } }
+                    )
+                    SliderRowDivider()
+                    SliderRowContent(
+                        label = stringResource(R.string.settings_alert_time_label),
+                        description = stringResource(R.string.settings_alert_time_desc),
+                        valueLabel = stringResource(R.string.settings_value_seconds, settings.zoneAutoRevealTimeS),
+                        value = settings.zoneAutoRevealTimeS.toFloat(),
+                        valueRange = 5f..120f,
+                        steps = 22,
+                        onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealTimeS = (v / 5f).roundToInt() * 5) } }
+                    )
+                }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+            SubSectionHeader(
+                title = stringResource(R.string.settings_emodnet_section_label),
+                description = stringResource(R.string.settings_emodnet_section_desc)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            SettingsSliderGroup {
+                SliderRowContent(
+                    label = stringResource(R.string.settings_emodnet_cutoff_label),
+                    description = stringResource(R.string.settings_emodnet_cutoff_desc),
+                    valueLabel = stringResource(R.string.settings_value_depth, settings.emodnetShallowCutoffM),
+                    value = settings.emodnetShallowCutoffM,
+                    valueRange = 0f..5f,
+                    steps = 9,
+                    onValueChange = { v -> onUpdateSettings { it.copy(emodnetShallowCutoffM = (v * 2f).roundToInt() / 2f) } }
+                )
+            }
 
             // ── Footer ────────────────────────────────────────────────────
             Spacer(modifier = Modifier.height(32.dp))
@@ -1466,6 +1628,14 @@ private fun SettingsSliderRow(
     steps: Int,
     onValueChange: (Float) -> Unit
 ) {
+    SettingsSliderGroup {
+        SliderRowContent(label, description, valueLabel, value, valueRange, steps, onValueChange)
+    }
+}
+
+/** Rounded settings "box" hosting one or more [SliderRowContent]s — groups related sliders together. */
+@Composable
+private fun SettingsSliderGroup(content: @Composable () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -1473,44 +1643,71 @@ private fun SettingsSliderRow(
             .background(ComposeColor(0x1AFFFFFF))
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = label,
-                    color = ComposeColor.White,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    text = description,
-                    color = ComposeColor(0xFFB0BEC5),
-                    fontSize = 13.sp
-                )
-            }
-            Spacer(modifier = Modifier.width(16.dp))
+        content()
+    }
+}
+
+/** A label + value + slider WITHOUT its own box — placed inside a [SettingsSliderGroup]. */
+@Composable
+private fun SliderRowContent(
+    label: String,
+    description: String,
+    valueLabel: String,
+    value: Float,
+    valueRange: ClosedFloatingPointRange<Float>,
+    steps: Int,
+    onValueChange: (Float) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = valueLabel,
-                color = ComposeColor(0xFF1565C0),
+                text = label,
+                color = ComposeColor.White,
                 fontSize = 16.sp,
-                fontWeight = FontWeight.Bold
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = description,
+                color = ComposeColor(0xFFB0BEC5),
+                fontSize = 13.sp
             )
         }
-        Slider(
-            value = value,
-            onValueChange = onValueChange,
-            valueRange = valueRange,
-            steps = steps,
-            colors = SliderDefaults.colors(
-                thumbColor = ComposeColor(0xFF1565C0),
-                activeTrackColor = ComposeColor(0xFF1565C0),
-                inactiveTrackColor = ComposeColor(0x33FFFFFF)
-            )
+        Spacer(modifier = Modifier.width(16.dp))
+        Text(
+            text = valueLabel,
+            color = ComposeColor(0xFF1565C0),
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold
         )
     }
+    Slider(
+        value = value,
+        onValueChange = onValueChange,
+        valueRange = valueRange,
+        steps = steps,
+        colors = SliderDefaults.colors(
+            thumbColor = ComposeColor(0xFF1565C0),
+            activeTrackColor = ComposeColor(0xFF1565C0),
+            inactiveTrackColor = ComposeColor(0x33FFFFFF)
+        )
+    )
+}
+
+/** Thin divider between sliders that share a [SettingsSliderGroup]. */
+@Composable
+private fun SliderRowDivider() {
+    Spacer(modifier = Modifier.height(10.dp))
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(ComposeColor(0x14FFFFFF))
+    )
+    Spacer(modifier = Modifier.height(2.dp))
 }
 
 /** Dimmer sub-heading with an optional one-line description, for grouping settings in a section. */
@@ -1761,8 +1958,16 @@ private fun ZoomButton(
 /**
  * Draws the coastline segments on the OSMdroid [MapView].
  *
- * Mainland: solid blue (#1565C0), 7px width
- * Islands:  blue (#42A5F5), 5px width — slightly distinct from mainland
+ * Mainland: solid blue (#1545C0), 10 px
+ * Islands:  green (#08805C), 10 px
+ * Hazards:  vivid yellow disc + black outline + outer black ring + black cross — isolated offshore point dangers
+ *
+ * A segment is treated as a hazard primarily via its explicit [CoastlineSegment.isHazard] flag
+ * (set by [HazardRings.toSegment], persisted in the proto cache). As a fallback for pre-feature
+ * cached/bundled data that predates the flag, a closed island with no real OSM way id
+ * (`!isMainland && isClosed && osmWayId == 0L`) is also treated as a hazard — hazard rings always
+ * carry `osmWayId = 0L`, genuine OSM islands have positive ids — so hazards still render correctly
+ * without re-baking the bundled asset.
  */
 private fun drawCoastline(
     mapView: MapView,
@@ -1774,13 +1979,53 @@ private fun drawCoastline(
 
         val osmPoints = points.map { GeoPoint(it.lat.toDouble(), it.lon.toDouble()) }
 
+        // Explicit flag first (robust, incl. unnamed dangers); heuristic fallback for
+        // pre-feature cached/bundled data that lacks the flag.
+        val isHazard = segment.isHazard ||
+            (!segment.isMainland && segment.isClosed && segment.osmWayId == 0L)
+
+        if (isHazard) {
+            // Isolated offshore danger → vivid filled yellow disc with a black outline,
+            // plus a black cross spreading a little past the circle. Distinct from green
+            // islands / blue mainland and the magenta low-depth overlay.
+            mapView.overlays.add(Polygon().apply {
+                setPoints(osmPoints)
+                fillPaint.color = Color.argb(235, 255, 232, 0)   // vivid yellow (#FFE800) — full circle
+                fillPaint.isAntiAlias = true
+                outlinePaint.color = Color.BLACK                  // black circle around it
+                outlinePaint.strokeWidth = 6f
+                outlinePaint.isAntiAlias = true
+            })
+            val cLat = (osmPoints.minOf { it.latitude } + osmPoints.maxOf { it.latitude }) / 2.0
+            val cLon = (osmPoints.minOf { it.longitude } + osmPoints.maxOf { it.longitude }) / 2.0
+            // Outer black ring, concentric with the disc (~1.6× radius).
+            mapView.overlays.add(Polyline().apply {
+                setPoints(osmPoints.map {
+                    GeoPoint(cLat + (it.latitude - cLat) * 1.6, cLon + (it.longitude - cLon) * 1.6)
+                })
+                outlinePaint.apply { color = Color.BLACK; strokeWidth = 5f; isAntiAlias = true }
+            })
+            // Black cross centred on the marker, arms ~80% past the radius (just past the outer ring).
+            val hLat = (osmPoints.maxOf { it.latitude } - osmPoints.minOf { it.latitude }) / 2.0 * 1.8
+            val hLon = (osmPoints.maxOf { it.longitude } - osmPoints.minOf { it.longitude }) / 2.0 * 1.8
+            mapView.overlays.add(Polyline().apply {
+                setPoints(listOf(GeoPoint(cLat, cLon - hLon), GeoPoint(cLat, cLon + hLon)))
+                outlinePaint.apply { color = Color.BLACK; strokeWidth = 5f; isAntiAlias = true }
+            })
+            mapView.overlays.add(Polyline().apply {
+                setPoints(listOf(GeoPoint(cLat - hLat, cLon), GeoPoint(cLat + hLat, cLon)))
+                outlinePaint.apply { color = Color.BLACK; strokeWidth = 5f; isAntiAlias = true }
+            })
+            continue
+        }
+
         val polyline = Polyline().apply {
             setPoints(osmPoints)
             outlinePaint.apply {
                 color = if (segment.isMainland) Color.parseColor("#1545c0")
                         else Color.parseColor("#08805c")
-                strokeWidth = 10f // if (segment.isMainland) 7f else 5f
-                alpha = 128 // if (segment.isMainland) 200 else 160
+                strokeWidth = 10f
+                alpha = 128
                 isAntiAlias = true
             }
         }
