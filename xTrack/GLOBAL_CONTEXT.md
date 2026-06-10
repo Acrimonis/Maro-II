@@ -2,7 +2,7 @@
 
 ## Active Session Pointers
 - **Active Feature:** Dashboard
-- **Active Subfeature:** readability
+- **Active Subfeature:** none
 - **Last Updated:** 2026-06-10
 - **Last Bake:** 2026-06-10 08:35 (WorkflowImprovement — #merge git shortcut added: rebase onto origin/develop, D/F/M priority conflict prompt)
 

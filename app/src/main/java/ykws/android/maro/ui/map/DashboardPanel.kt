@@ -40,7 +40,6 @@ import ykws.android.maro.data.depth.DepthConstants
 import ykws.android.maro.data.model.CoastlineState
 import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.DepthSource
-import ykws.android.maro.data.model.ValidationReport
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -83,7 +82,6 @@ fun DashboardPanel(
     inZone300: Boolean,
     distanceToZone: Double?,
     depthSample: DepthSample?,
-    validation: ValidationReport?,
     speedKnots: Float?,
     modifier: Modifier = Modifier
 ) {
@@ -148,12 +146,6 @@ fun DashboardPanel(
                             .fillMaxHeight()
                     )
                 }
-            }
-
-            // ── Validation badge ───────────────────────────────────────────
-            if (validation != null) {
-                ValidationBadge(validation = validation)
-                Spacer(modifier = Modifier.height(6.dp))
             }
         }
     }
@@ -518,32 +510,6 @@ private fun SpeedCard(
         cardColor = cardColor,
         modifier = modifier
     )
-}
-
-// ── Validation badge ─────────────────────────────────────────────────────────
-
-@Composable
-private fun ValidationBadge(
-    validation: ValidationReport,
-    modifier: Modifier = Modifier
-) {
-    val (badge, badgeColor) = if (validation.passed) {
-        stringResource(R.string.dash_valid_ok, validation.rmseM) to DashboardColors.validationOk
-    } else {
-        stringResource(R.string.dash_valid_incomplete, validation.rmseM) to DashboardColors.validationWarn
-    }
-
-    Box(
-        modifier = modifier.fillMaxWidth(),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = badge,
-            color = badgeColor,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Medium
-        )
-    }
 }
 
 // ── Utility functions ────────────────────────────────────────────────────────
