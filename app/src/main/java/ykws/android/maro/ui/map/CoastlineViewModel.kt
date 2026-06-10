@@ -15,6 +15,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -45,10 +46,22 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.Zone300Data
 import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.settings.SettingsManager
+import kotlin.math.sqrt
 import ykws.android.maro.spatial.SpatialOperations
 
 /** One throttled camera target for GPS auto-follow: where to centre + which way to face. */
 data class CameraTarget(val position: LatLng, val bearingDeg: Float)
+
+/**
+ * Atomic navigation state for the boat marker + cap arrow.
+ * A single data class guarantees Compose reads bearing + speed from the same
+ * snapshot frame — no intermediate frame where only one has updated.
+ */
+data class NavigationState(
+    val bearingDeg: Float = 0f,
+    val speedKnots: Float? = null,
+    val demoSpeedKnots: Float? = null
+)
 
 /**
  * ViewModel for the coastline map screen.
@@ -173,17 +186,14 @@ class CoastlineViewModel(
     private val _gpsPosition = MutableStateFlow<LatLng?>(null)
     val gpsPosition: StateFlow<LatLng?> = _gpsPosition.asStateFlow()
 
-    /** Heading (deg) the map should orient to — GPS course, else compass. Map rotates −mapBearing. */
-    private val _mapBearing = MutableStateFlow(0f)
-    val mapBearing: StateFlow<Float> = _mapBearing.asStateFlow()
-
-    /** Speed over ground in knots while in GPS mode; null in demo / before the first fix. */
-    private val _speedKnots = MutableStateFlow<Float?>(null)
-    val speedKnots: StateFlow<Float?> = _speedKnots.asStateFlow()
-
-    /** Demo-mode pan speed in knots; null when not panning or in GPS mode. */
-    private val _demoSpeedKnots = MutableStateFlow<Float?>(null)
-    val demoSpeedKnots: StateFlow<Float?> = _demoSpeedKnots.asStateFlow()
+    /**
+     * Atomic navigation state (bearing + speed) for the boat marker and cap arrow.
+     * Exposed as a single StateFlow so Compose reads all values from the same
+     * snapshot frame — eliminates intermediate frames where bearing updated
+     * but speed hasn't yet (or vice versa).
+     */
+    private val _navigationState = MutableStateFlow(NavigationState())
+    val navigationState: StateFlow<NavigationState> = _navigationState.asStateFlow()
 
     /** Foreground gate: GPS/compass collectors run only while true (set by the screen lifecycle). */
     private val _gpsActive = MutableStateFlow(false)
@@ -240,7 +250,7 @@ class CoastlineViewModel(
             .map { (1_000L / it.mapRefreshFps.coerceIn(5, 50)).coerceAtLeast(1L) }
             .distinctUntilChanged()
             .flatMapLatest { periodMs ->
-                combine(_gpsPosition.filterNotNull(), _mapBearing) { p, b -> CameraTarget(p, b) }
+                combine(_gpsPosition.filterNotNull(), _navigationState) { p, nav -> CameraTarget(p, nav.bearingDeg) }
                     .sample(periodMs)
             }
 
@@ -260,8 +270,11 @@ class CoastlineViewModel(
 
     /** Update heading only past a small threshold so sensor jitter doesn't churn the map. */
     private fun setMapBearing(deg: Float) {
-        val delta = kotlin.math.abs(((deg - _mapBearing.value + 540f) % 360f) - 180f)
-        if (delta >= MIN_BEARING_DELTA_DEG) _mapBearing.value = deg
+        _navigationState.update { current ->
+            val delta = kotlin.math.abs(((deg - current.bearingDeg + 540f) % 360f) - 180f)
+            if (delta >= MIN_BEARING_DELTA_DEG) current.copy(bearingDeg = deg)
+            else current
+        }
     }
 
     init {
@@ -314,9 +327,9 @@ class CoastlineViewModel(
                 // parked there → declutter) but as unknown (null) when OUTSIDE, so pausing to observe
                 // the approach never hides the band. Unknown is never treated as stopped/compliant.
                 val sogKn = if (cfg.gpsMode) {
-                    _speedKnots.value
+                    _navigationState.value.speedKnots
                 } else {
-                    _demoSpeedKnots.value ?: if (shore.inZone) 0f else null
+                    _navigationState.value.demoSpeedKnots ?: if (shore.inZone) 0f else null
                 }
                 val decision = zone300Decision(
                     dist = shore.distToZone,
@@ -374,9 +387,19 @@ class CoastlineViewModel(
                 val now = SystemClock.elapsedRealtime()
                 _gpsPosition.value = fix.position
                 updateMapCenter(fix.position.latitude, fix.position.longitude)
-                _speedKnots.value = fix.speedMps?.let { it * MPS_TO_KNOTS }
+                // Atomic update: bearing + speed written in a single snapshot so
+                // Compose never sees an intermediate frame with mismatched values.
+                _navigationState.update { current ->
+                    val newSpeed = fix.speedMps?.let { it * MPS_TO_KNOTS }
+                    val newBearing = if (fix.hasCourse && fix.bearingDeg != null) {
+                        val delta = kotlin.math.abs(((fix.bearingDeg - current.bearingDeg + 540f) % 360f) - 180f)
+                        if (delta >= MIN_BEARING_DELTA_DEG) fix.bearingDeg else current.bearingDeg
+                    } else {
+                        current.bearingDeg
+                    }
+                    current.copy(bearingDeg = newBearing, speedKnots = newSpeed)
+                }
                 if (fix.hasCourse && fix.bearingDeg != null) {
-                    setMapBearing(fix.bearingDeg)
                     lastGpsBearingMs = now
                     _needsCompass.value = false                 // GPS course present → compass off
                 } else if (now - lastGpsBearingMs > HEADING_FALLBACK_MS) {
@@ -413,8 +436,7 @@ class CoastlineViewModel(
             .onEach { on ->
                 if (!on) {
                     _gpsPosition.value = null
-                    _mapBearing.value = 0f
-                    _speedKnots.value = null
+                    _navigationState.value = NavigationState()
                     lastGpsBearingMs = 0L
                     adaptivePolicy.reset()
                     _acquisitionMode.value = AcquisitionMode.ACTIVE
@@ -501,7 +523,7 @@ class CoastlineViewModel(
         if (!settings.value.gpsMode) {
             computeDemoSpeed(latitude, longitude)
         } else {
-            _demoSpeedKnots.value = null
+            _navigationState.update { it.copy(demoSpeedKnots = null) }
         }
     }
 
@@ -520,9 +542,11 @@ class CoastlineViewModel(
                 val dist = SpatialOperations.haversine(
                     LatLng(lastPanLat, lastPanLon), LatLng(lat, lon)
                 )
-                // Divide by 10 to compensate for exaggerated pan-to-ground distance ratio
-                val speedMps = dist / (elapsed / 1_000.0) / 10.0
-                _demoSpeedKnots.value = (speedMps * MPS_TO_KNOTS).toFloat()
+                // sqrt compression: dampens extreme pan-to-ground ratios while keeping
+                // low-speed drags responsive. Slow drag → ~3-6 kn, brisk → ~20-50 kn.
+                val rawMps = dist / (elapsed / 1_000.0)
+                val knots = sqrt(rawMps * DEMO_SPEED_SCALE).coerceIn(0.0, MAX_DEMO_KNOTS)
+                _navigationState.update { it.copy(demoSpeedKnots = knots.toFloat()) }
                 lastPanLat = lat
                 lastPanLon = lon
                 lastPanMs = now
@@ -536,7 +560,7 @@ class CoastlineViewModel(
         panStopJob?.cancel()
         panStopJob = viewModelScope.launch {
             delay(PAN_STOP_DELAY_MS)
-            if (isActive) _demoSpeedKnots.value = null
+            if (isActive) _navigationState.update { it.copy(demoSpeedKnots = null) }
         }
     }
 
@@ -622,6 +646,11 @@ class CoastlineViewModel(
 
         /** Metres-per-second → knots. */
         private const val MPS_TO_KNOTS = 1.943844f
+
+        /** Scale factor for sqrt-compressed demo speed: knots = sqrt(rawMps × this). */
+        private const val DEMO_SPEED_SCALE = 0.2
+        /** Maximum demo speed in knots — prevents extreme swipes from going off-scale. */
+        private const val MAX_DEMO_KNOTS = 50.0
 
         /**
          * Factory for [CoastlineViewModel] — required because the primary constructor
