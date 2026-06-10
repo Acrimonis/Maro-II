@@ -17,9 +17,11 @@ import ykws.android.maro.R
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -58,11 +60,17 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Size
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -156,7 +164,9 @@ fun MapScreen(
     val appSettings by viewModel.settings.collectAsState()
     var mapView by remember { mutableStateOf<MapView?>(null) }
     var showSettings by remember { mutableStateOf(false) }
-    var settingsScrollOffset by remember { mutableStateOf(0) }
+    val displayScrollState = rememberScrollState()
+    val navigationScrollState = rememberScrollState()
+    val systemScrollState = rememberScrollState()
 
     val context = LocalContext.current
     val autoFollowSuppressed by viewModel.autoFollowSuppressed.collectAsState()
@@ -478,8 +488,9 @@ fun MapScreen(
                 onUpdateSettings = viewModel::updateSettings,
                 onGpsModeChange = onGpsModeChange,
                 onDismiss = { showSettings = false },
-                initialScrollOffset = settingsScrollOffset,
-                onScrollChanged = { offset -> settingsScrollOffset = offset },
+                displayScrollState = displayScrollState,
+                navigationScrollState = navigationScrollState,
+                systemScrollState = systemScrollState,
                 onRegenerateRasters = { steps ->
                     val waterTest: (Double, Double) -> Boolean =
                         if (state is CoastlineState.Ready) viewModel::isOnWater else { _, _ -> true }
@@ -1243,6 +1254,10 @@ private fun DangerLayerButton(
 
 // ── Settings overlay (full-screen page) ─────────────────────────────────────
 
+// Tab definitions for the settings page.
+private val settingsTabLabels = listOf("Display", "Navigation", "System")
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SettingsOverlay(
     settings: AppSettings,
@@ -1250,9 +1265,17 @@ private fun SettingsOverlay(
     onGpsModeChange: (Boolean) -> Unit,
     onDismiss: () -> Unit,
     onRegenerateRasters: (List<RasterCache.Step>) -> Unit = {},
-    initialScrollOffset: Int = 0,
-    onScrollChanged: (Int) -> Unit = {}
+    displayScrollState: ScrollState,
+    navigationScrollState: ScrollState,
+    systemScrollState: ScrollState,
 ) {
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    val pagerState = rememberPagerState(pageCount = { 3 })
+
+    // Sync tab selection <-> pager position (bidirectional).
+    LaunchedEffect(selectedTab) { pagerState.animateScrollToPage(selectedTab) }
+    LaunchedEffect(pagerState.currentPage) { selectedTab = pagerState.currentPage }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -1270,7 +1293,6 @@ private fun SettingsOverlay(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Back arrow button (returns to map)
                     Button(
                         onClick = onDismiss,
                         modifier = Modifier.size(48.dp),
@@ -1297,206 +1319,449 @@ private fun SettingsOverlay(
                 }
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Scrollable settings body — the header above stays pinned so the back
-            // button is always reachable. weight(1f) bounds the height so verticalScroll works.
-            val scrollState = rememberScrollState()
-
-            // Restore the saved scroll offset on every open.  We wait until the
-            // scrollable Column has been laid out (maxValue > 0) before calling
-            // scrollTo, because scrollTo silently clamps to [0, maxValue] — if
-            // maxValue is still 0 when scrollTo runs, the scroll is clamped to 0
-            // and the restored position is silently lost.
-            LaunchedEffect(Unit) {
-                if (initialScrollOffset > 0) {
-                    snapshotFlow { scrollState.maxValue }
-                        .first { it > 0 }
-                    scrollState.scrollTo(initialScrollOffset.coerceAtMost(scrollState.maxValue))
+            // ── Tab bar (manual Row + indicator instead of TabRow) ─────────
+            val tabColor = ComposeColor(0xFF1565C0)
+            val tabCount = settingsTabLabels.size
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(ComposeColor(0xFF1A1A2E))
+                    .drawBehind {
+                        // Draw the selected tab indicator line at the bottom
+                        val tabWidth = size.width / tabCount
+                        val indicatorLeft = tabWidth * selectedTab
+                        drawRect(
+                            color = tabColor,
+                            topLeft = Offset(indicatorLeft, size.height - 3.dp.toPx()),
+                            size = Size(tabWidth, 3.dp.toPx())
+                        )
+                    }
+            ) {
+                settingsTabLabels.forEachIndexed { index, label ->
+                    val isSelected = selectedTab == index
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { selectedTab = index }
+                            .padding(vertical = 14.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = label,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 14.sp,
+                            color = if (isSelected) tabColor else ComposeColor(0xFF78909C)
+                        )
+                    }
                 }
             }
 
-            // Persist the scroll offset on every change so it survives dismiss/reopen.
-            LaunchedEffect(scrollState) {
-                snapshotFlow { scrollState.value }
-                    .collect { onScrollChanged(it) }
-            }
+            Spacer(modifier = Modifier.height(8.dp))
 
-            Column(
+            // ── Tab content ───────────────────────────────────────────────
+            HorizontalPager(
+                state = pagerState,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .verticalScroll(scrollState)
-            ) {
-
-            // ── Langue / Language section (global app setting — kept first) ──
-            SectionHeader(title = stringResource(R.string.settings_section_language))
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            SettingsLanguageRow(
-                languageCode = settings.languageCode,
-                onSelect = { code -> onUpdateSettings { it.copy(languageCode = code) } }
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // -- Source de position (Demo <-> GPS) section --
-            SectionHeader(title = stringResource(R.string.settings_section_position))
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            SettingsToggleRow(
-                label = stringResource(R.string.settings_gps_mode_label),
-                description = stringResource(R.string.settings_gps_mode_desc),
-                checked = settings.gpsMode,
-                onCheckedChange = onGpsModeChange
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            SettingsSliderRow(
-                label = stringResource(R.string.settings_recenter_label),
-                description = stringResource(R.string.settings_recenter_desc),
-                valueLabel = stringResource(R.string.settings_value_seconds, settings.recenterDelaySeconds),
-                value = settings.recenterDelaySeconds.toFloat(),
-                valueRange = 1f..10f,
-                steps = 8,
-                onValueChange = { v -> onUpdateSettings { it.copy(recenterDelaySeconds = v.roundToInt()) } }
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // ── Affichage (Display) section ──────────────────────────────
-            SectionHeader(title = stringResource(R.string.settings_section_display))
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // ── Coastline overlay toggle ──────────────────────────────────
-            SettingsToggleRow(
-                label = stringResource(R.string.settings_coastline_label),
-                description = stringResource(R.string.settings_coastline_desc),
-                checked = settings.coastlineVisible,
-                onCheckedChange = { visible ->
-                    onUpdateSettings { it.copy(coastlineVisible = visible) }
-                }
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // ── Zone 300 m overlay toggle ─────────────────────────────────
-            SettingsToggleRow(
-                label = stringResource(R.string.settings_zone300_label),
-                description = stringResource(R.string.settings_zone300_desc),
-                checked = settings.zone300Visible,
-                onCheckedChange = { visible ->
-                    onUpdateSettings { it.copy(zone300Visible = visible) }
-                }
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // ── Low-depth warning overlay toggle ──────────────────────────
-            SettingsToggleRow(
-                label = stringResource(R.string.settings_low_depth_warning_label),
-                description = stringResource(R.string.settings_low_depth_warning_desc),
-                checked = settings.lowDepthWarningVisible,
-                onCheckedChange = { visible ->
-                    onUpdateSettings { it.copy(lowDepthWarningVisible = visible) }
-                }
-            )
-
-            // Warning depth threshold — lives inside the warning's box, shown only when it is on.
-            if (settings.lowDepthWarningVisible) {
-                Spacer(modifier = Modifier.height(12.dp))
-                SettingsSliderGroup {
-                    SliderRowContent(
-                        label = stringResource(R.string.settings_low_depth_threshold_label),
-                        description = stringResource(R.string.settings_low_depth_threshold_desc),
-                        valueLabel = stringResource(R.string.settings_value_depth, settings.lowDepthWarningMaxM),
-                        value = settings.lowDepthWarningMaxM,
-                        valueRange = 0.5f..5f,
-                        steps = 8,
-                        onValueChange = { v ->
-                            onUpdateSettings { it.copy(lowDepthWarningMaxM = (v * 2f).roundToInt() / 2f) }
-                        }
-                    )
-                    SliderRowDivider()
-                    SliderRowContent(
-                        label = stringResource(R.string.settings_low_depth_opacity_label),
-                        description = stringResource(R.string.settings_low_depth_opacity_desc),
-                        valueLabel = stringResource(R.string.settings_value_percent, settings.lowDepthWarningMinOpacityPct),
-                        value = settings.lowDepthWarningMinOpacityPct.toFloat(),
-                        valueRange = 0f..100f,
-                        steps = 19,
-                        onValueChange = { v ->
-                            onUpdateSettings { it.copy(lowDepthWarningMinOpacityPct = (v / 5f).roundToInt() * 5) }
-                        }
-                    )
+            ) { page ->
+                when (page) {
+                    0 -> DisplaySettings(settings, onUpdateSettings, displayScrollState)
+                    1 -> NavigationSettings(settings, onUpdateSettings, onGpsModeChange, navigationScrollState)
+                    2 -> SystemSettings(settings, onUpdateSettings, onRegenerateRasters, systemScrollState)
                 }
             }
 
+            // ── Footer ────────────────────────────────────────────────────
+            Text(
+                text = stringResource(R.string.app_version_footer),
+                color = ComposeColor(0xFF546E7A),
+                fontSize = 12.sp,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
+        }
+    }
+}
+
+// ── Display tab ───────────────────────────────────────────────────────────
+
+@Composable
+private fun DisplaySettings(
+    settings: AppSettings,
+    onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
+    scrollState: ScrollState
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+    ) {
+        // ── Coastline overlay toggle ──────────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_section_display))
+        Spacer(modifier = Modifier.height(8.dp))
+
+        SettingsToggleRow(
+            label = stringResource(R.string.settings_coastline_label),
+            description = stringResource(R.string.settings_coastline_desc),
+            checked = settings.coastlineVisible,
+            onCheckedChange = { visible ->
+                onUpdateSettings { it.copy(coastlineVisible = visible) }
+            }
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // ── Zone 300 m overlay toggle ─────────────────────────────────
+        SettingsToggleRow(
+            label = stringResource(R.string.settings_zone300_label),
+            description = stringResource(R.string.settings_zone300_desc),
+            checked = settings.zone300Visible,
+            onCheckedChange = { visible ->
+                onUpdateSettings { it.copy(zone300Visible = visible) }
+            }
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // ── Low-depth warning overlay toggle ──────────────────────────
+        SettingsToggleRow(
+            label = stringResource(R.string.settings_low_depth_warning_label),
+            description = stringResource(R.string.settings_low_depth_warning_desc),
+            checked = settings.lowDepthWarningVisible,
+            onCheckedChange = { visible ->
+                onUpdateSettings { it.copy(lowDepthWarningVisible = visible) }
+            }
+        )
+
+        // Warning depth threshold — shown only when the warning is on.
+        if (settings.lowDepthWarningVisible) {
             Spacer(modifier = Modifier.height(12.dp))
+            SettingsSliderGroup {
+                SliderRowContent(
+                    label = stringResource(R.string.settings_low_depth_threshold_label),
+                    description = stringResource(R.string.settings_low_depth_threshold_desc),
+                    valueLabel = stringResource(R.string.settings_value_depth, settings.lowDepthWarningMaxM),
+                    value = settings.lowDepthWarningMaxM,
+                    valueRange = 0.5f..5f,
+                    steps = 8,
+                    onValueChange = { v ->
+                        onUpdateSettings { it.copy(lowDepthWarningMaxM = (v * 2f).roundToInt() / 2f) }
+                    }
+                )
+                SliderRowDivider()
+                SliderRowContent(
+                    label = stringResource(R.string.settings_low_depth_opacity_label),
+                    description = stringResource(R.string.settings_low_depth_opacity_desc),
+                    valueLabel = stringResource(R.string.settings_value_percent, settings.lowDepthWarningMinOpacityPct),
+                    value = settings.lowDepthWarningMinOpacityPct.toFloat(),
+                    valueRange = 0f..100f,
+                    steps = 19,
+                    onValueChange = { v ->
+                        onUpdateSettings { it.copy(lowDepthWarningMinOpacityPct = (v / 5f).roundToInt() * 5) }
+                    }
+                )
+            }
+        }
 
-            // ── Navigation ────────────────────────────────────────────────
-            SubSectionHeader(
-                title = "Navigation",
-                description = null
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // ── Heading direction line toggle ────────────────────────────
+        SubSectionHeader(
+            title = "Navigation",
+            description = null
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        SettingsToggleRow(
+            label = stringResource(R.string.settings_heading_line_label),
+            description = stringResource(R.string.settings_heading_line_desc),
+            checked = settings.headingLineVisible,
+            onCheckedChange = { visible ->
+                onUpdateSettings { it.copy(headingLineVisible = visible) }
+            }
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // ── Variable cap arrow toggle ─────────────────────────────────
+        SettingsToggleRow(
+            label = stringResource(R.string.settings_cap_arrow_label),
+            description = stringResource(R.string.settings_cap_arrow_desc),
+            checked = settings.capArrowVisible,
+            onCheckedChange = { visible ->
+                onUpdateSettings { it.copy(capArrowVisible = visible) }
+            }
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // ── EMODnet shallow filter ────────────────────────────────────
+        SubSectionHeader(
+            title = stringResource(R.string.settings_emodnet_section_label),
+            description = stringResource(R.string.settings_emodnet_section_desc)
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        SettingsSliderGroup {
+            SliderRowContent(
+                label = stringResource(R.string.settings_emodnet_cutoff_label),
+                description = stringResource(R.string.settings_emodnet_cutoff_desc),
+                valueLabel = stringResource(R.string.settings_value_depth, settings.emodnetShallowCutoffM),
+                value = settings.emodnetShallowCutoffM,
+                valueRange = 0f..5f,
+                steps = 9,
+                onValueChange = { v -> onUpdateSettings { it.copy(emodnetShallowCutoffM = (v * 2f).roundToInt() / 2f) } }
             )
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+// ── Navigation tab ────────────────────────────────────────────────────────
+
+@Composable
+private fun NavigationSettings(
+    settings: AppSettings,
+    onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
+    onGpsModeChange: (Boolean) -> Unit,
+    scrollState: ScrollState
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+    ) {
+        // -- Source de position (Demo <-> GPS) section --
+        SectionHeader(title = stringResource(R.string.settings_section_position))
+        Spacer(modifier = Modifier.height(8.dp))
+
+        SettingsToggleRow(
+            label = stringResource(R.string.settings_gps_mode_label),
+            description = stringResource(R.string.settings_gps_mode_desc),
+            checked = settings.gpsMode,
+            onCheckedChange = onGpsModeChange
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        SettingsSliderRow(
+            label = stringResource(R.string.settings_recenter_label),
+            description = stringResource(R.string.settings_recenter_desc),
+            valueLabel = stringResource(R.string.settings_value_seconds, settings.recenterDelaySeconds),
+            value = settings.recenterDelaySeconds.toFloat(),
+            valueRange = 1f..10f,
+            steps = 8,
+            onValueChange = { v -> onUpdateSettings { it.copy(recenterDelaySeconds = v.roundToInt()) } }
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // ── GPS acquisition while moving ──────────────────────────────
+        SubSectionHeader(
+            title = stringResource(R.string.settings_sub_gps_label),
+            description = stringResource(R.string.settings_sub_gps_desc)
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        SettingsFrequencyRow(
+            intervalSec = settings.gpsActiveIntervalSec,
+            onSelect = { ivl, dist ->
+                onUpdateSettings { it.copy(gpsActiveIntervalSec = ivl, gpsActiveMinDistanceM = dist) }
+            }
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // ── Map rendering FPS ceiling ─────────────────────────────────
+        SubSectionHeader(
+            title = stringResource(R.string.settings_sub_render_label),
+            description = stringResource(R.string.settings_sub_render_desc)
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        SettingsSliderRow(
+            label = stringResource(R.string.settings_fps_label),
+            description = stringResource(R.string.settings_fps_desc),
+            valueLabel = stringResource(R.string.settings_value_fps, settings.mapRefreshFps),
+            value = settings.mapRefreshFps.toFloat(),
+            valueRange = 5f..50f,
+            steps = 8,
+            onValueChange = { v -> onUpdateSettings { it.copy(mapRefreshFps = (v / 5f).roundToInt() * 5) } }
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // ── Idle saving ───────────────────────────────────────────────
+        SubSectionHeader(
+            title = stringResource(R.string.settings_idle_section_label),
+            description = stringResource(R.string.settings_idle_section_desc)
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        SettingsSliderRow(
+            label = stringResource(R.string.settings_idle_interval_label),
+            description = stringResource(R.string.settings_idle_interval_desc),
+            valueLabel = stringResource(R.string.settings_value_seconds, settings.adaptiveIdleIntervalSec),
+            value = settings.adaptiveIdleIntervalSec.toFloat(),
+            valueRange = 4f..15f,
+            steps = 10,
+            onValueChange = { v -> onUpdateSettings { it.copy(adaptiveIdleIntervalSec = v.roundToInt()) } }
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Advanced stop-detection thresholds, collapsed by default.
+        var adaptiveAdvanced by remember { mutableStateOf(false) }
+        SettingsExpander(
+            label = stringResource(R.string.settings_advanced_stop_label),
+            expanded = adaptiveAdvanced,
+            onToggle = { adaptiveAdvanced = !adaptiveAdvanced }
+        ) {
             Spacer(modifier = Modifier.height(8.dp))
+            SettingsSliderGroup {
+                SliderRowContent(
+                    label = stringResource(R.string.settings_window_label),
+                    description = stringResource(R.string.settings_window_desc),
+                    valueLabel = stringResource(R.string.settings_value_seconds, settings.adaptiveWindowSec),
+                    value = settings.adaptiveWindowSec.toFloat(),
+                    valueRange = 15f..60f,
+                    steps = 8,
+                    onValueChange = { v -> onUpdateSettings { it.copy(adaptiveWindowSec = (v / 5f).roundToInt() * 5) } }
+                )
+                SliderRowDivider()
+                SliderRowContent(
+                    label = stringResource(R.string.settings_adaptive_dist_label),
+                    description = stringResource(R.string.settings_adaptive_dist_desc),
+                    valueLabel = stringResource(R.string.settings_value_meters, settings.adaptiveDistanceM),
+                    value = settings.adaptiveDistanceM.toFloat(),
+                    valueRange = 10f..30f,
+                    steps = 3,
+                    onValueChange = { v -> onUpdateSettings { it.copy(adaptiveDistanceM = (v / 5f).roundToInt() * 5) } }
+                )
+            }
+        }
 
-            // ── Heading direction line toggle ────────────────────────────
-            SettingsToggleRow(
-                label = stringResource(R.string.settings_heading_line_label),
-                description = stringResource(R.string.settings_heading_line_desc),
-                checked = settings.headingLineVisible,
-                onCheckedChange = { visible ->
-                    onUpdateSettings { it.copy(headingLineVisible = visible) }
-                }
-            )
+        Spacer(modifier = Modifier.height(24.dp))
 
+        // ── 300 m zone alert (auto-show on approach) ────────────────────
+        SectionHeader(title = stringResource(R.string.settings_alert_label))
+        Spacer(modifier = Modifier.height(8.dp))
+
+        SettingsToggleRow(
+            label = stringResource(R.string.settings_alert_gps_label),
+            description = stringResource(R.string.settings_alert_gps_desc),
+            checked = settings.zone300AutoShowGps,
+            onCheckedChange = { on -> onUpdateSettings { it.copy(zone300AutoShowGps = on) } }
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        SettingsToggleRow(
+            label = stringResource(R.string.settings_alert_demo_label),
+            description = stringResource(R.string.settings_alert_demo_desc),
+            checked = settings.zone300AutoShowDemo,
+            onCheckedChange = { on -> onUpdateSettings { it.copy(zone300AutoShowDemo = on) } }
+        )
+
+        if (settings.zone300AutoShowGps || settings.zone300AutoShowDemo) {
             Spacer(modifier = Modifier.height(12.dp))
+            SettingsSliderGroup {
+                SliderRowContent(
+                    label = stringResource(R.string.settings_alert_dist_label),
+                    description = stringResource(R.string.settings_alert_dist_desc),
+                    valueLabel = stringResource(R.string.settings_value_meters, settings.zoneAutoRevealDistanceM.roundToInt()),
+                    value = settings.zoneAutoRevealDistanceM,
+                    valueRange = 50f..500f,
+                    steps = 17,
+                    onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealDistanceM = (v / 25f).roundToInt() * 25f) } }
+                )
+                SliderRowDivider()
+                SliderRowContent(
+                    label = stringResource(R.string.settings_alert_time_label),
+                    description = stringResource(R.string.settings_alert_time_desc),
+                    valueLabel = stringResource(R.string.settings_value_seconds, settings.zoneAutoRevealTimeS),
+                    value = settings.zoneAutoRevealTimeS.toFloat(),
+                    valueRange = 5f..120f,
+                    steps = 22,
+                    onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealTimeS = (v / 5f).roundToInt() * 5) } }
+                )
+            }
+        }
 
-            // ── Variable cap arrow toggle ─────────────────────────────────
-            SettingsToggleRow(
-                label = stringResource(R.string.settings_cap_arrow_label),
-                description = stringResource(R.string.settings_cap_arrow_desc),
-                checked = settings.capArrowVisible,
-                onCheckedChange = { visible ->
-                    onUpdateSettings { it.copy(capArrowVisible = visible) }
-                }
-            )
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+}
 
-            Spacer(modifier = Modifier.height(24.dp))
+// ── System tab ───────────────────────────────────────────────────────────
 
-            // ── Regenerate Layers ──────────────────────────────────────────
-            SectionHeader(title = "Regenerate Layers")
-            Spacer(modifier = Modifier.height(4.dp))
-            SettingsToggleRow(
-                label = "Depth grid",
-                description = "Reload the prebaked depth grid from assets",
-                checked = settings.regenGrid,
-                onCheckedChange = { v -> onUpdateSettings { it.copy(regenGrid = v) } }
-            )
-            SettingsToggleRow(
-                label = "Isobath contours",
-                description = "Re-derive contour lines from the grid",
-                checked = settings.regenIsobaths,
-                onCheckedChange = { v -> onUpdateSettings { it.copy(regenIsobaths = v) } }
-            )
-            SettingsToggleRow(
-                label = "Depth colour map",
-                description = "Rebuild the depth-coloured raster overlay",
-                checked = settings.regenColour,
-                onCheckedChange = { v -> onUpdateSettings { it.copy(regenColour = v) } }
-            )
-            SettingsToggleRow(
-                label = "Low-depth warning overlay",
-                description = "Rebuild the shallow-water magenta hazard overlay",
-                checked = settings.regenWarning,
-                onCheckedChange = { v -> onUpdateSettings { it.copy(regenWarning = v) } }
-            )
-            Spacer(modifier = Modifier.height(8.dp))
+@Composable
+private fun SystemSettings(
+    settings: AppSettings,
+    onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
+    onRegenerateRasters: (List<RasterCache.Step>) -> Unit,
+    scrollState: ScrollState
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+    ) {
+        // ── Language ──────────────────────────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_section_language))
+        Spacer(modifier = Modifier.height(8.dp))
+
+        SettingsLanguageRow(
+            languageCode = settings.languageCode,
+            onSelect = { code -> onUpdateSettings { it.copy(languageCode = code) } }
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // ── Keep screen on ────────────────────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_section_power))
+        Spacer(modifier = Modifier.height(8.dp))
+
+        SettingsToggleRow(
+            label = stringResource(R.string.settings_keep_screen_on_label),
+            description = stringResource(R.string.settings_keep_screen_on_desc),
+            checked = settings.keepScreenOn,
+            onCheckedChange = { on -> onUpdateSettings { it.copy(keepScreenOn = on) } }
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // ── Regenerate Layers ─────────────────────────────────────────
+        SectionHeader(title = "Regenerate Layers")
+        Spacer(modifier = Modifier.height(4.dp))
+        SettingsToggleRow(
+            label = "Depth grid",
+            description = "Reload the prebaked depth grid from assets",
+            checked = settings.regenGrid,
+            onCheckedChange = { v -> onUpdateSettings { it.copy(regenGrid = v) } }
+        )
+        SettingsToggleRow(
+            label = "Isobath contours",
+            description = "Re-derive contour lines from the grid",
+            checked = settings.regenIsobaths,
+            onCheckedChange = { v -> onUpdateSettings { it.copy(regenIsobaths = v) } }
+        )
+        SettingsToggleRow(
+            label = "Depth colour map",
+            description = "Rebuild the depth-coloured raster overlay",
+            checked = settings.regenColour,
+            onCheckedChange = { v -> onUpdateSettings { it.copy(regenColour = v) } }
+        )
+        SettingsToggleRow(
+            label = "Low-depth warning overlay",
+            description = "Rebuild the shallow-water magenta hazard overlay",
+            checked = settings.regenWarning,
+            onCheckedChange = { v -> onUpdateSettings { it.copy(regenWarning = v) } }
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End
+        ) {
             Button(
                 onClick = {
                     val selected = buildList {
@@ -1505,7 +1770,6 @@ private fun SettingsOverlay(
                         if (settings.regenColour) add(RasterCache.Step.DEPTH_COLOUR)
                         if (settings.regenWarning) add(RasterCache.Step.LOW_DEPTH_WARNING)
                     }
-                    onDismiss()
                     onRegenerateRasters(selected)
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = ComposeColor(0xFF1565C0)),
@@ -1513,192 +1777,9 @@ private fun SettingsOverlay(
             ) {
                 Text("Regenerate", color = ComposeColor.White)
             }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // ── Économie d'énergie section (battery) — grouped by function ──
-            SectionHeader(title = stringResource(R.string.settings_section_power))
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // ── Keep the screen awake while the app runs (first power lever) ──
-            SettingsToggleRow(
-                label = stringResource(R.string.settings_keep_screen_on_label),
-                description = stringResource(R.string.settings_keep_screen_on_desc),
-                checked = settings.keepScreenOn,
-                onCheckedChange = { on -> onUpdateSettings { it.copy(keepScreenOn = on) } }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Group 1: GPS acquisition cadence while moving.
-            SubSectionHeader(
-                title = stringResource(R.string.settings_sub_gps_label),
-                description = stringResource(R.string.settings_sub_gps_desc)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            SettingsFrequencyRow(
-                intervalSec = settings.gpsActiveIntervalSec,
-                onSelect = { ivl, dist ->
-                    onUpdateSettings { it.copy(gpsActiveIntervalSec = ivl, gpsActiveMinDistanceM = dist) }
-                }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Group 2: map re-render ceiling.
-            SubSectionHeader(
-                title = stringResource(R.string.settings_sub_render_label),
-                description = stringResource(R.string.settings_sub_render_desc)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            SettingsSliderRow(
-                label = stringResource(R.string.settings_fps_label),
-                description = stringResource(R.string.settings_fps_desc),
-                valueLabel = stringResource(R.string.settings_value_fps, settings.mapRefreshFps),
-                value = settings.mapRefreshFps.toFloat(),
-                valueRange = 5f..50f,
-                steps = 8,
-                onValueChange = { v -> onUpdateSettings { it.copy(mapRefreshFps = (v / 5f).roundToInt() * 5) } }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Group 3: movement-adaptive idle behaviour.
-            SubSectionHeader(
-                title = stringResource(R.string.settings_idle_section_label),
-                description = stringResource(R.string.settings_idle_section_desc)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            // Primary lever (always visible): how slow GPS goes once stopped.
-            SettingsSliderRow(
-                label = stringResource(R.string.settings_idle_interval_label),
-                description = stringResource(R.string.settings_idle_interval_desc),
-                valueLabel = stringResource(R.string.settings_value_seconds, settings.adaptiveIdleIntervalSec),
-                value = settings.adaptiveIdleIntervalSec.toFloat(),
-                valueRange = 4f..15f,
-                steps = 10,
-                onValueChange = { v -> onUpdateSettings { it.copy(adaptiveIdleIntervalSec = v.roundToInt()) } }
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Advanced stop-detection thresholds, collapsed by default (progressive disclosure).
-            var adaptiveAdvanced by remember { mutableStateOf(false) }
-            SettingsExpander(
-                label = stringResource(R.string.settings_advanced_stop_label),
-                expanded = adaptiveAdvanced,
-                onToggle = { adaptiveAdvanced = !adaptiveAdvanced }
-            ) {
-                Spacer(modifier = Modifier.height(8.dp))
-                SettingsSliderGroup {
-                    SliderRowContent(
-                        label = stringResource(R.string.settings_window_label),
-                        description = stringResource(R.string.settings_window_desc),
-                        valueLabel = stringResource(R.string.settings_value_seconds, settings.adaptiveWindowSec),
-                        value = settings.adaptiveWindowSec.toFloat(),
-                        valueRange = 15f..60f,
-                        steps = 8,
-                        onValueChange = { v -> onUpdateSettings { it.copy(adaptiveWindowSec = (v / 5f).roundToInt() * 5) } }
-                    )
-                    SliderRowDivider()
-                    SliderRowContent(
-                        label = stringResource(R.string.settings_adaptive_dist_label),
-                        description = stringResource(R.string.settings_adaptive_dist_desc),
-                        valueLabel = stringResource(R.string.settings_value_meters, settings.adaptiveDistanceM),
-                        value = settings.adaptiveDistanceM.toFloat(),
-                        valueRange = 10f..30f,
-                        steps = 3,
-                        onValueChange = { v -> onUpdateSettings { it.copy(adaptiveDistanceM = (v / 5f).roundToInt() * 5) } }
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // ── Avancé : alerte zone 300 m (auto-affichage) ───────────────
-            SectionHeader(title = stringResource(R.string.settings_section_advanced))
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            SubSectionHeader(
-                title = stringResource(R.string.settings_alert_label),
-                description = stringResource(R.string.settings_alert_desc)
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Per-mode auto-show toggles. The shared distance/time thresholds below only
-            // apply — and are only shown — when at least one mode has auto-show enabled.
-            SettingsToggleRow(
-                label = stringResource(R.string.settings_alert_gps_label),
-                description = stringResource(R.string.settings_alert_gps_desc),
-                checked = settings.zone300AutoShowGps,
-                onCheckedChange = { on -> onUpdateSettings { it.copy(zone300AutoShowGps = on) } }
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            SettingsToggleRow(
-                label = stringResource(R.string.settings_alert_demo_label),
-                description = stringResource(R.string.settings_alert_demo_desc),
-                checked = settings.zone300AutoShowDemo,
-                onCheckedChange = { on -> onUpdateSettings { it.copy(zone300AutoShowDemo = on) } }
-            )
-
-            if (settings.zone300AutoShowGps || settings.zone300AutoShowDemo) {
-                Spacer(modifier = Modifier.height(12.dp))
-                SettingsSliderGroup {
-                    SliderRowContent(
-                        label = stringResource(R.string.settings_alert_dist_label),
-                        description = stringResource(R.string.settings_alert_dist_desc),
-                        valueLabel = stringResource(R.string.settings_value_meters, settings.zoneAutoRevealDistanceM.roundToInt()),
-                        value = settings.zoneAutoRevealDistanceM,
-                        valueRange = 50f..500f,
-                        steps = 17,
-                        onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealDistanceM = (v / 25f).roundToInt() * 25f) } }
-                    )
-                    SliderRowDivider()
-                    SliderRowContent(
-                        label = stringResource(R.string.settings_alert_time_label),
-                        description = stringResource(R.string.settings_alert_time_desc),
-                        valueLabel = stringResource(R.string.settings_value_seconds, settings.zoneAutoRevealTimeS),
-                        value = settings.zoneAutoRevealTimeS.toFloat(),
-                        valueRange = 5f..120f,
-                        steps = 22,
-                        onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealTimeS = (v / 5f).roundToInt() * 5) } }
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-            SubSectionHeader(
-                title = stringResource(R.string.settings_emodnet_section_label),
-                description = stringResource(R.string.settings_emodnet_section_desc)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            SettingsSliderGroup {
-                SliderRowContent(
-                    label = stringResource(R.string.settings_emodnet_cutoff_label),
-                    description = stringResource(R.string.settings_emodnet_cutoff_desc),
-                    valueLabel = stringResource(R.string.settings_value_depth, settings.emodnetShallowCutoffM),
-                    value = settings.emodnetShallowCutoffM,
-                    valueRange = 0f..5f,
-                    steps = 9,
-                    onValueChange = { v -> onUpdateSettings { it.copy(emodnetShallowCutoffM = (v * 2f).roundToInt() / 2f) } }
-                )
-            }
-
-            // ── Footer ────────────────────────────────────────────────────
-            Spacer(modifier = Modifier.height(32.dp))
-            Text(
-                text = stringResource(R.string.app_version_footer),
-                color = ComposeColor(0xFF546E7A),
-                fontSize = 12.sp,
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            )
-            } // end scrollable settings body
         }
+
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 

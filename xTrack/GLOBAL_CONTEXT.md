@@ -1,10 +1,10 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** Navigation
-- **Active Subfeature:** cap
+- **Active Feature:** Settings
+- **Active Subfeature:** none
 - **Last Updated:** 2026-06-10
-- **Last Bake:** 2026-06-10 14:21 (Navigation — restored missing settings toggle rows for Heading Line + Variable Arrow)
+- **Last Bake:** 2026-06-10 14:57 (Settings — tab organization with Material 3 tabs: Display, Navigation, System)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -48,7 +48,7 @@
 | DepthSafety | Danger depth alerts, shallow water grounding prevention, isobath precision | 2026-06-03 00:00 | 2026-06-05 00:00 | active |
 | Localisation | i18n/localization, French translations, string resources | 2026-06-03 00:00 | 2026-06-03 00:00 | active |
 | AppBakFlow | Back button handling, double-back-to-exit, keep-screen-on/wakelock | 2026-06-03 00:00 | 2026-06-03 00:00 | active |
-| Settings | Settings page UI, persistence, widgets, and UX enhancements | 2026-06-09 15:28 | 2026-06-09 19:42 | active |
+| Settings | Settings page UI, persistence, widgets, and UX enhancements | 2026-06-09 15:28 | 2026-06-10 14:57 | active |
 | UiTweaks | Non-functional UI adjustments — visual polish, colour tuning, layout refinement | 2026-06-09 21:05 | 2026-06-09 21:16 | active |
 | **Navigation** | **Navigation aids — heading/speed arrow and direction line on map overlay** | **2026-06-10 08:40** | **2026-06-10 14:21** | **active** |
 

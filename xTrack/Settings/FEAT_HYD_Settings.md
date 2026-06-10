@@ -1,6 +1,6 @@
 # Settings — Hydration Snapshot
 
-**Baked:** 2026-06-09 19:42 UTC
+**Baked:** 2026-06-10 14:57 UTC
 
 ## State
 
@@ -8,7 +8,7 @@ Parent feature active; no subfeature focused.
 
 ## Completed
 
-- **scroll persistence [x]** — Settings scroll position now survives overlay dismiss/reopen within one session. Uses explicit save (snapshotFlow → MutableState at MapScreen level) + layout-aware restore (wait for maxValue > 0 via snapshotFlow.first() before scrollTo). File: `MapScreen.kt:1175-1197`.
+- **tab organization [x]** — Settings page split into 3 Material 3 tabs (Display, Navigation, System) with HorizontalPager. Replaced TabRow (purple indicator) with custom Row + drawBehind blue indicator. Z300 alert moved from System to Navigation tab. Regenerate button right-aligned. 3 hoisted ScrollStates for per-tab scroll persistence.
 
 ## Next Steps
 

@@ -2,7 +2,7 @@
 name: Settings
 status: active
 created: 2026-06-09 15:28
-modified: 2026-06-09 19:42
+modified: 2026-06-10 14:57
 active_subfeature: none
 ---
 
@@ -36,6 +36,26 @@ active_subfeature: none
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
 - `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt`
 
+### tab organization  [x]
+
+#### Todos
+- [x] Replace single scrolling settings page with Material 3 TabRow + HorizontalPager (3 tabs: Display, Navigation, System)
+- [x] Extract DisplaySettings composable (coastline, Z300, low-depth warning, heading line, cap arrow, EMODnet cutoff)
+- [x] Extract NavigationSettings composable (GPS mode, recenter delay, GPS frequency, FPS, idle/adaptive, Z300 alert)
+- [x] Extract SystemSettings composable (language, keep screen on, regenerate)
+- [x] Move Z300 auto-alert from System tab to Navigation tab under "300M ZONE ALERT" section header
+- [x] Hoist 3 per-tab ScrollStates to MapScreen level for session scroll persistence
+- [x] Replace TabRow default indicator (purple) with custom blue (0xFF1565C0) drawBehind indicator
+- [x] Right-align Regenerate button in System tab
+
+#### Rules
+- Tab selection persisted via rememberSaveable — survives overlay dismiss/reopen + config change
+- Per-tab scroll states are session-only (resets on app restart)
+- SettingsManager/SharedPreferences persistence is untouched
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
+
 ## Todos
 
 ## Rules
@@ -46,3 +66,4 @@ active_subfeature: none
 
 ## Docs
 - `plans/settings-scroll-persistence.md` — discussion: hoist `ScrollState` to survive overlay dismiss/reopen within a session
+- `plans/settings-tab-organization.md` — discussion: organize settings into tabs/sections
