@@ -2,8 +2,8 @@
 name: Navigation
 status: active
 created: 2026-06-10 08:40
-modified: 2026-06-10 12:18
-active_subfeature: none
+modified: 2026-06-10 14:21
+active_subfeature: cap
 ---
 
 # Feature: Navigation
@@ -26,10 +26,11 @@ Navigation aids on the map overlay — heading/speed indicator and direction lin
 - [x] Fix atomic data flow: merge 3 separate StateFlows into single NavigationState data class
 - [x] Fix visual offset: remove `.offset(y = -arrowDp)` causing arrow to float disconnected above boat
 - [x] Add direction line: thin dashed line from boat to map edge in heading direction
-- [x] Add Navigation settings block under Display with Heading + Variable Arrow toggles
+- [x] Add Navigation settings block under Display with Heading + Variable Arrow toggles (regression: toggle rows missing from develop, re-added in fix)
 - [x] Add `direction.line.color` to maro.properties
 - [x] Tune arrow rendering: 1dp min @3kn → 65dp max @30kn, 2.5kn threshold, thicker stroke ×1.5
 - [x] Build green (assembleDebug)
+- [ ] Re-verify build after restoring missing settings toggle rows
 
 #### Rules
 - Arrow hides below 2.5 kn (drifting threshold).

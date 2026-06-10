@@ -39,6 +39,10 @@
     <string name="settings_low_depth_threshold_desc">Highlight water shallower than this</string>
     <string name="settings_low_depth_opacity_label">Warning opacity</string>
     <string name="settings_low_depth_opacity_desc">Faintness at the threshold depth (100 % at the shoreline)</string>
+    <string name="settings_heading_line_label">Heading line</string>
+    <string name="settings_heading_line_desc">Show the dashed heading direction line from the boat marker to the map edge</string>
+    <string name="settings_cap_arrow_label">Variable arrow</string>
+    <string name="settings_cap_arrow_desc">Show the speed-proportional direction arrow extending from the boat marker</string>
     <string name="settings_emodnet_section_label">EMODnet shallow filter</string>
     <string name="settings_emodnet_section_desc">Coarse EMODnet data is unreliable in very shallow water near rocks and the coast</string>
     <string name="settings_emodnet_cutoff_label">Cutoff depth</string>

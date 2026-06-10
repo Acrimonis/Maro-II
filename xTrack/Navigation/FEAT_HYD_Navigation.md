@@ -1,16 +1,12 @@
 # Hydration: Navigation
 
-**State:** Active — all subfeature implementation complete. Pending on-device visual verification.
+**State:** Active — cap subfeature complete. Settings toggle rows restored after being lost in PR #57 merge.
 
-**Session summary:** Replaced three separate StateFlows (`_mapBearing`, `_speedKnots`, `_demoSpeedKnots`) with a single atomic `NavigationState` data class. Fixed arrow rendering by removing `.offset(y = -arrowDp)` which was pushing the arrow ~38dp above the boat. Added `DirectionLine` composable (dashed line from screen center to map edge in heading direction). Added `headingLineVisible` (default ON) + `capArrowVisible` (default OFF) to `AppSettings` with a Navigation settings card under Display. Added `direction.line.color` to `maro.properties`. Retuned arrow: 1dp min @3kn → 65dp max @30kn, 2.5kn threshold, thicker stroke ×1.5, bigger dashes.
+**Session summary:** Validated that NavigationState data class, DirectionLine composable, cap arrow rendering, and all constants (CAP_MIN_DP, CAP_MAX_DP, CAP_DP_PER_KNOT, CAP_MIN_SPEED_KNOTS) are present in origin/develop. Found that the Navigation settings toggle rows (Heading Line + Variable Arrow) under Display section were missing. Restored them in MapScreen.kt, added EN and FR string resources.
 
 **Target files:**
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/ZoneConfig.kt`
-- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt`
-- `app/src/main/assets/maro.properties`
-- `xTrack/Navigation/FEAT_DSC_Navigation.md`
-- `xTrack/GLOBAL_CONTEXT.md`
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — Navigation sub-section under Display with toggle rows
+- `app/src/main/res/values/strings.xml` — EN strings: heading_line_label/desc, cap_arrow_label/desc
+- `app/src/main/res/values-fr/strings.xml` — FR strings: Ligne de cap / Flèche variable
 
-**Next step:** Deploy APK and visually verify on-device: direction line, cap arrow, settings toggles, arrow length distribution across speeds.
+**Next step:** apk-build.bat to verify build, then on-device visual verification of toggles.

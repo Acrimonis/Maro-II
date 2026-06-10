@@ -1,10 +1,10 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** Settings
-- **Active Subfeature:** none
+- **Active Feature:** Navigation
+- **Active Subfeature:** cap
 - **Last Updated:** 2026-06-10
-- **Last Bake:** 2026-06-10 12:53 (Settings — keepScreenOn default true, moved window flag to MainActivity to fix Android 16 screen-off issue)
+- **Last Bake:** 2026-06-10 14:21 (Navigation — restored missing settings toggle rows for Heading Line + Variable Arrow)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -50,6 +50,7 @@
 | AppBakFlow | Back button handling, double-back-to-exit, keep-screen-on/wakelock | 2026-06-03 00:00 | 2026-06-03 00:00 | active |
 | Settings | Settings page UI, persistence, widgets, and UX enhancements | 2026-06-09 15:28 | 2026-06-09 19:42 | active |
 | UiTweaks | Non-functional UI adjustments — visual polish, colour tuning, layout refinement | 2026-06-09 21:05 | 2026-06-09 21:16 | active |
+| **Navigation** | **Navigation aids — heading/speed arrow and direction line on map overlay** | **2026-06-10 08:40** | **2026-06-10 14:21** | **active** |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).

@@ -38,6 +38,10 @@
     <string name="settings_low_depth_threshold_desc">Surligner l\'eau moins profonde que ce seuil</string>
     <string name="settings_low_depth_opacity_label">Opacité de l\'alerte</string>
     <string name="settings_low_depth_opacity_desc">Intensité au seuil de profondeur (100 % au rivage)</string>
+    <string name="settings_heading_line_label">Ligne de cap</string>
+    <string name="settings_heading_line_desc">Afficher la ligne de cap en pointillés depuis le bateau jusqu\'au bord de la carte</string>
+    <string name="settings_cap_arrow_label">Flèche variable</string>
+    <string name="settings_cap_arrow_desc">Afficher la flèche de direction proportionnelle à la vitesse depuis le bateau</string>
     <string name="settings_emodnet_section_label">Filtre EMODnet faible profondeur</string>
     <string name="settings_emodnet_section_desc">Les données EMODnet (grossières) sont peu fiables en eau très peu profonde près des rochers et de la côte</string>
     <string name="settings_emodnet_cutoff_label">Profondeur seuil</string>

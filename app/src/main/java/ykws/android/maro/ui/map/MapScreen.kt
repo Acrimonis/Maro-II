@@ -1436,6 +1436,37 @@ private fun SettingsOverlay(
                 }
             }
 
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // ── Navigation ────────────────────────────────────────────────
+            SubSectionHeader(
+                title = "Navigation",
+                description = null
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // ── Heading direction line toggle ────────────────────────────
+            SettingsToggleRow(
+                label = stringResource(R.string.settings_heading_line_label),
+                description = stringResource(R.string.settings_heading_line_desc),
+                checked = settings.headingLineVisible,
+                onCheckedChange = { visible ->
+                    onUpdateSettings { it.copy(headingLineVisible = visible) }
+                }
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // ── Variable cap arrow toggle ─────────────────────────────────
+            SettingsToggleRow(
+                label = stringResource(R.string.settings_cap_arrow_label),
+                description = stringResource(R.string.settings_cap_arrow_desc),
+                checked = settings.capArrowVisible,
+                onCheckedChange = { visible ->
+                    onUpdateSettings { it.copy(capArrowVisible = visible) }
+                }
+            )
+
             Spacer(modifier = Modifier.height(24.dp))
 
             // ── Regenerate Layers ──────────────────────────────────────────
