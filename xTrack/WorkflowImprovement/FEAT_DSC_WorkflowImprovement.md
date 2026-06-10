@@ -122,6 +122,7 @@ Define the Zero-Piecemeal Writes discussion exception: allow one plan file per d
 - [x] Define `#move [branch]` — stash uncommitted changes, switch branch, pop stash
 - [x] Define `#move new [branch]` — stash, create branch from develop, pop stash
 - [x] Define `#cherry [target]` / `#copy [target]` — interactive cherry-pick of unpushed commits
+- [x] Define `#rename [branch]` — rename current branch via `git branch -m`
 - [x] Update `docs/cmd_help.md` with all git commands in reference table + Git section
 - [ ] On-device / real-repo verification of all git shortcuts
 

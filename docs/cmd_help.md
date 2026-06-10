@@ -32,6 +32,7 @@ Git:      #new [branch]        fetch develop, create + switch to new branch from
           #move new [branch]   stash uncommitted changes, create new branch from develop, pop stash
           #cherry [target]     interactive: list unpushed commits, select which to copy to [target]
           #copy [target]       alias for #cherry
+          #rename [branch]     rename current branch to [branch]
 Health:   #doctor              lint xTrack for drift
           #doctor fix          auto-repair
 
@@ -293,6 +294,12 @@ All commands are thin wrappers over standard git commands.
 
                       Does NOT delete commits from source branch —
                       use `git reset --hard HEAD~N` manually.
+
+  #rename [branch]    Rename the current branch to [branch].
+                      `git branch -m [branch]`
+                      Works regardless of whether the branch has been pushed.
+                      If the old name was already pushed, you'll need to push
+                      the new name and delete the old remote branch manually.
 
 ## #doc sync
 
