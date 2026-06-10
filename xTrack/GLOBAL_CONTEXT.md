@@ -1,8 +1,8 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** UiTweaks
-- **Active Subfeature:** none
+- **Active Feature:** Performance
+- **Active Subfeature:** gps-refreshing
 - **Last Updated:** 2026-06-09
 - **Last Bake:** 2026-06-09 21:16 (UiTweaks — dashboard panel edge padding 12dp→9dp; dashboard-unit-size rolled back, didn't render; RasterCache.Key nodataColor cache-invalidation fix; DepthColorRamp reverted to pure transparent; all tests green)
 

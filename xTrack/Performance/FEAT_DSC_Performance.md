@@ -2,8 +2,11 @@
 name: Performance
 status: active
 created: 2026-06-07 00:00
-modified: 2026-06-07 00:00
+modified: 2026-06-10 06:14
 active_subfeature: none
+subs_total: 6
+subs_done: 5
+one_liner: Cut battery drain by making GPS acquisition tunable + movement-adaptive, capping map re-render rate, and powering the compass only when needed.
 ---
 
 # Feature: Performance
@@ -91,6 +94,25 @@ and compass-gating are unconditional correct behaviour. Framework `LocationManag
 
 #### Docs
 
+### gps-refreshing  [x]
+
+#### Todos
+- [x] Replace `setCenter` snap with bounded `animateTo(600ms)` for smooth GPS-follow glide
+- [x] Add haversine guard (> 3m) to skip animation on sub-threshold GPS noise
+- [x] Add `GPS_ANIMATION_MIN_MOVE_M` and `GPS_ANIMATION_DURATION_MS` file-level constants
+- [x] Update stale comments to reflect the new animation approach
+- [ ] On-device visual verification of smoothness at 1s / 2s / 4s intervals
+
+#### Rules
+- Animation duration (600ms) must remain < minimum GPS fix interval (1s) to avoid overlapping animations.
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `animateTo` in GPS auto-follow collector (lines ~198-222)
+
+#### Docs
+- `plans/gps-refreshing-discussion.md` — GPS refresh rate: app vs chipset, real perf advantage
+- `plans/animateTo-interaction-analysis.md` — `animateTo` interaction with `mapRefreshFps`
+
 ### settings-ui  [ ]
 
 #### Todos
@@ -124,3 +146,4 @@ and compass-gating are unconditional correct behaviour. Framework `LocationManag
 ## Docs
 - `xTrack/Performance/FEAT_DOC_Performance_battery-design.md` — battery hotspot analysis, presets/defaults, adaptive-policy contract, refresh-cap mechanism.
 - `docs/MARO_ARCHITECTURE.md` — spatial-engine constraints (async render rules) the map/refresh changes operate within.
+- `plans/gps-refreshing-discussion.md` — GPS refresh rate: app vs chipset, real perf advantage (subfeature `gps-refreshing`)

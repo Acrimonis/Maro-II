@@ -115,6 +115,12 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.ValidationReport
 import ykws.android.maro.data.model.Zone300Data
 import ykws.android.maro.data.settings.AppSettings
+import ykws.android.maro.spatial.SpatialOperations
+
+/** GPS-follow animation: minimum displacement (m) to trigger a glide instead of snap. */
+private const val GPS_ANIMATION_MIN_MOVE_M = 3.0
+/** Animation duration per GPS-follow scroll (ms). Must be < min GPS fix interval (1s). */
+private const val GPS_ANIMATION_DURATION_MS = 600L
 
 /**
  * Compose screen rendering the coastline on an OSMdroid map.
@@ -186,20 +192,19 @@ fun MapScreen(
         }
     }
 
-    // ── GPS auto-follow: capped recenter + heading-up (rules 1–3) ─────────
+    // ── GPS auto-follow: smooth glide + heading-up ─────────────────────────
     // One throttled stream (≤ appSettings.mapRefreshFps) drives BOTH position and
-    // orientation via a single setCenter + mapOrientation per tick — replacing the
-    // per-fix animateTo, whose scroll animation repainted the whole map at ~60 fps.
-    // The effect is keyed on gpsMode/suppression/mapView, so it restarts each time
-    // auto-follow re-engages (GPS on, or the recenter delay expiring after a pan):
-    // the FIRST target then animates (smooth scroll back), and every subsequent fix
-    // uses the cheap capped setCenter. Manual pinch/pan/fling keep osmdroid's own
-    // full-rate path — the cap governs only this GPS-follow flow.
+    // orientation. Re-engage uses the default animateTo (smooth scroll back);
+    // subsequent GPS fixes use animateTo with a 600 ms bounded duration so the
+    // boat glides smoothly instead of stepping. The haversine guard (> 3 m) skips
+    // sub-threshold GPS noise. Manual pinch/pan/fling keep osmdroid's own full-rate
+    // path — the cap governs only this GPS-follow flow.
     LaunchedEffect(appSettings.gpsMode, autoFollowSuppressed, mapView) {
         val mv = mapView ?: return@LaunchedEffect
         if (!appSettings.gpsMode) { mv.mapOrientation = 0f; mv.invalidate(); return@LaunchedEffect }
         if (autoFollowSuppressed) return@LaunchedEffect
         var reengage = true
+        var lastPosition: LatLng? = null
         viewModel.cameraUpdates.collect { target ->
             val point = GeoPoint(target.position.latitude, target.position.longitude)
             if (reengage) {
@@ -207,10 +212,17 @@ fun MapScreen(
                 mv.controller.animateTo(point)
                 reengage = false
             } else {
-                mv.controller.setCenter(point)
+                val prev = lastPosition
+                if (prev == null ||
+                    SpatialOperations.haversine(prev, target.position) > GPS_ANIMATION_MIN_MOVE_M
+                ) {
+                // Smoothly animate to the new GPS fix so the boat glides instead of stepping.
+                    mv.controller.animateTo(point, null, GPS_ANIMATION_DURATION_MS)
+                }
             }
             mv.mapOrientation = -target.bearingDeg
             mv.invalidate()
+            lastPosition = target.position
             // Keep depth-at-center following the GPS fix at the same capped cadence.
             depthViewModel.updateMapCenter(target.position.latitude, target.position.longitude)
         }
