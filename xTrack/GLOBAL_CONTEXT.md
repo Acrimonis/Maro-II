@@ -1,10 +1,10 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** DepthMapping
+- **Active Feature:** Settings
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-10
-- **Last Bake:** 2026-06-10 12:13 (DepthMapping — Litto3D regression analysis: missing .asc data file, pipeline already integrated in apk-bake.bat, fix: `apk-bake.bat litto3d depth`)
+- **Last Bake:** 2026-06-10 12:53 (Settings — keepScreenOn default true, moved window flag to MainActivity to fix Android 16 screen-off issue)
 
 ## Routing Map
 | Keyword | Feature File |

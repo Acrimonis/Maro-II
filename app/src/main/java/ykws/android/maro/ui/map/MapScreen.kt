@@ -150,11 +150,10 @@ fun MapScreen(
     var mapView by remember { mutableStateOf<MapView?>(null) }
     var showSettings by remember { mutableStateOf(false) }
     var settingsScrollOffset by remember { mutableStateOf(0) }
-    val demoSpeedKnots by viewModel.demoSpeedKnots.collectAsState()
 
     val context = LocalContext.current
     val autoFollowSuppressed by viewModel.autoFollowSuppressed.collectAsState()
-    val speedKnots by viewModel.speedKnots.collectAsState()
+    val navigationState by viewModel.navigationState.collectAsState()
 
     // GPS permission launcher: on grant, enable GPS mode; on deny, stay in demo mode.
     val gpsPermissionLauncher = rememberLauncherForActivityResult(
@@ -361,12 +360,7 @@ fun MapScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // ── Keep the screen awake while the app runs, when the user enabled it ──
-    val view = LocalView.current
-    DisposableEffect(appSettings.keepScreenOn) {
-        view.keepScreenOn = appSettings.keepScreenOn
-        onDispose { view.keepScreenOn = false }
-    }
+    // ── (keepScreenOn moved to MainActivity — window flag, avoids compose toggle glitch) ──
 
     // ── Double-back-to-exit state ─────────────────────────────────────────
     var lastBackAt by remember { mutableStateOf(0L) }
@@ -446,7 +440,7 @@ fun MapScreen(
                     inZone300 = inZone300,
                     distanceToZone = distanceToZone,
                     depthSample = depthReadout,
-                    speedKnots = speedKnots ?: demoSpeedKnots,
+                    speedKnots = navigationState.speedKnots ?: navigationState.demoSpeedKnots,
                     modifier = Modifier
                         .align(Alignment.CenterStart)
                         .width(landscapeDashboardWidth)
@@ -460,7 +454,7 @@ fun MapScreen(
                     inZone300 = inZone300,
                     distanceToZone = distanceToZone,
                     depthSample = depthReadout,
-                    speedKnots = speedKnots ?: demoSpeedKnots,
+                    speedKnots = navigationState.speedKnots ?: navigationState.demoSpeedKnots,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
