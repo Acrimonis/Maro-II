@@ -61,6 +61,8 @@ private object DashboardColors {
     val speedDanger = Color(0xFFC62828)   // red — >10 kn inside the zone
     val validationOk = Color(0xFF66BB6A)
     val validationWarn = Color(0xFFFFA726)
+    /** Alpha for all subdued/dulled dashboard states — no-data, on-land, far-from-zone, deep-water placeholder. */
+    const val dullAlpha = 0.33f
 }
 
 // ── Dashboard panel (public, called from MapScreen) ──────────────────────────
@@ -83,6 +85,7 @@ fun DashboardPanel(
     distanceToZone: Double?,
     depthSample: DepthSample?,
     speedKnots: Float?,
+    alertDistanceM: Float = 200f,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -120,6 +123,7 @@ fun DashboardPanel(
                         speedKnots = speedKnots,
                         state = state,
                         isWater = isWater,
+                        alertDistanceM = alertDistanceM,
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
@@ -163,6 +167,7 @@ private fun DashboardCard(
     value: String,
     subtitle: String? = null,
     cardColor: Color = DashboardColors.cardBg,
+    titleColor: Color = DashboardColors.textPrimary,
     valueColor: Color = DashboardColors.textPrimary,
     subtitleColor: Color = DashboardColors.textMuted,
     subtitleWeight: FontWeight = FontWeight.Medium,
@@ -188,9 +193,9 @@ private fun DashboardCard(
         ) {
             // Secondary: small, subdued label.
             Text(
-                text = title,
-                color = DashboardColors.textMuted,
-                fontSize = 10.sp,
+                text = title.uppercase(),
+                color = titleColor,
+                fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -206,7 +211,7 @@ private fun DashboardCard(
                 ) {
                     Text(
                         text = value,
-                        color = DashboardColors.textMuted,
+                        color = DashboardColors.textPrimary.copy(alpha = DashboardColors.dullAlpha),
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
                         maxLines = 1,
@@ -318,6 +323,7 @@ private fun Zone300Card(
     speedKnots: Float?,
     state: CoastlineState,
     isWater: Boolean,
+    alertDistanceM: Float = 200f,
     modifier: Modifier = Modifier
 ) {
     if (state !is CoastlineState.Ready || distanceToZone == null) {
@@ -330,15 +336,17 @@ private fun Zone300Card(
         return
     }
 
+    // Dull threshold: when distance to zone > alert distance, render in subdued style.
     if (!isWater) {
-        val dimAlpha = 0.38f
+        val dull = DashboardColors.textPrimary.copy(alpha = DashboardColors.dullAlpha)
         DashboardCard(
             title = stringResource(R.string.dash_zone_title),
             value = stringResource(R.string.dash_not_at_sea),
             subtitle = stringResource(R.string.dash_out_of_zone),
             cardColor = DashboardColors.zoneNormal,
-            valueColor = DashboardColors.textPrimary.copy(alpha = dimAlpha),
-            subtitleColor = DashboardColors.textMuted.copy(alpha = dimAlpha),
+            titleColor = dull,
+            valueColor = dull,
+            subtitleColor = DashboardColors.textMuted.copy(alpha = DashboardColors.dullAlpha),
             modifier = modifier
         )
         return
@@ -389,14 +397,29 @@ private fun Zone300Card(
     } else {
         val zoneM = abs(distanceToZone)
         val zoneText = distanceText(zoneM)
+        val farFromZone = distanceToZone > alertDistanceM.toDouble() * 2.0
 
-        DashboardCard(
-            title = stringResource(R.string.dash_zone_title),
-            value = zoneText,
-            subtitle = stringResource(R.string.dash_to_zone),
-            cardColor = DashboardColors.zoneNormal,
-            modifier = modifier
-        )
+        if (farFromZone) {
+            val dull = DashboardColors.textPrimary.copy(alpha = DashboardColors.dullAlpha)
+            DashboardCard(
+                title = stringResource(R.string.dash_zone_title),
+                value = zoneText,
+                subtitle = stringResource(R.string.dash_to_zone),
+                cardColor = DashboardColors.zoneNormal,
+                titleColor = dull,
+                valueColor = dull,
+                subtitleColor = DashboardColors.textMuted.copy(alpha = DashboardColors.dullAlpha),
+                modifier = modifier
+            )
+        } else {
+            DashboardCard(
+                title = stringResource(R.string.dash_zone_title),
+                value = zoneText,
+                subtitle = stringResource(R.string.dash_to_zone),
+                cardColor = DashboardColors.cardBg,
+                modifier = modifier
+            )
+        }
     }
 }
 
@@ -409,24 +432,28 @@ private fun DepthCard(
     modifier: Modifier = Modifier
 ) {
     if (!isWater) {
-        val dimAlpha = 0.38f
+        val dull = DashboardColors.textPrimary.copy(alpha = DashboardColors.dullAlpha)
         DashboardCard(
             title = stringResource(R.string.dash_depth_title),
             value = stringResource(R.string.dash_not_at_sea),
             subtitle = stringResource(R.string.dash_out_of_zone),
             cardColor = DashboardColors.zoneNormal,
-            valueColor = DashboardColors.textPrimary.copy(alpha = dimAlpha),
-            subtitleColor = DashboardColors.textMuted.copy(alpha = dimAlpha),
+            titleColor = dull,
+            valueColor = dull,
+            subtitleColor = DashboardColors.textMuted.copy(alpha = DashboardColors.dullAlpha),
             modifier = modifier
         )
         return
     }
 
     if (depthSample == null || !depthSample.hasData) {
+        val dull = DashboardColors.textPrimary.copy(alpha = DashboardColors.dullAlpha)
         DashboardCard(
             title = stringResource(R.string.dash_depth_title),
             value = stringResource(R.string.dash_empty),
-            isEmpty = true,
+            cardColor = DashboardColors.zoneNormal,
+            titleColor = dull,
+            valueColor = dull,
             modifier = modifier
         )
         return
@@ -436,12 +463,13 @@ private fun DepthCard(
 
     // Deep water gate: ≥ 100 m → show localized "Deep!" / "Fond!" in subdued color instead of numeric value.
     if (depthM >= 100f) {
-        val dimAlpha = 0.38f
+        val dull = DashboardColors.textPrimary.copy(alpha = DashboardColors.dullAlpha)
         DashboardCard(
             title = stringResource(R.string.dash_depth_title),
             value = stringResource(R.string.dash_depth_deep),
-            valueColor = DashboardColors.textMuted,
-            cardColor = DashboardColors.cardBg.copy(alpha = dimAlpha),
+            cardColor = DashboardColors.zoneNormal,
+            titleColor = dull,
+            valueColor = dull,
             modifier = modifier
         )
         return
@@ -555,3 +583,4 @@ fun depthReadoutColor(depthM: Float): Long = when {
     depthM <= DepthConstants.SHALLOW_TIER_MAX_M.toFloat() -> 0xFFFFB74D
     else -> 0xFF4FC3F7
 }
+

@@ -2,8 +2,8 @@
 name: Dashboard
 status: active
 created: 2026-06-06 00:00
-modified: 2026-06-07 00:00
-active_subfeature: tweak
+modified: 2026-06-10 15:24
+active_subfeature: tile subdued font
 ---
 
 # Feature: Dashboard
@@ -54,12 +54,57 @@ Redesign the bottom panel into a proper dashboard for quick reading of indicator
 - `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt` — remove action row, simplify params
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — relocate action buttons to MapContent
 
+### color tile 300m  [x]
+
+#### Todos
+- [x] Investigate: Zone300Card uses grey `zoneNormal` background when on water but outside zone — consider using default blue (`cardBg`) instead
+- [x] Implement: change `Zone300Card` outside-zone background from grey `zoneNormal` to default `cardBg` (navy blue)
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt` — Zone300Card composable, lines 389-400
+
 ### tweak  [ ]
 
 #### Todos
 - [ ] Dashboard must not resize when "données validées (RMSE...)" info is displayed — make layout ready for it
 - [ ] When !isOnWater, Zone tile must display neutral background with "Not at sea" caption instead of a value
 #### Key Files
+
+### tile titles  [x]
+
+#### Todos
+- [x] Bump title fontSize 10.sp → **13.sp** (was 12.sp, increased one more size)
+- [x] Change title color from `textMuted` to `textPrimary`
+- [x] All-caps titles via `title.uppercase()`
+- [x] Keep title fontWeight SemiBold (unchanged)
+- [x] Leave subtitle (9.sp, Medium, textMuted) untouched
+
+#### Rules
+- Do not increase title size beyond what measurably reduces the value's auto-sized font — the value is the primary display element
+- All changes must be in `DashboardCard` composable only, not per-card overrides
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt` — DashboardCard composable, lines 189-197
+- `plans/dashboard-tile-titles.md` — sizing analysis
+
+#### Docs
+- [`plans/dashboard-tile-titles.md`](plans/dashboard-tile-titles.md) — sizing & prominence analysis for tile titles
+
+### tile subdued font  [x]
+
+#### Todos
+- [x] Set `dullAlpha = 0.33f` — all subdued states use consistent 33% alpha
+- [x] Zone300Card far-from-zone: grey `zoneNormal` background (like on-land state)
+- [x] DepthCard "Deep!": grey `zoneNormal` background instead of dimmed cardBg
+- [x] DepthCard no-data: grey `zoneNormal` background instead of default cardBg
+- [x] Add `alertDistanceM` param to DashboardPanel → Zone300Card, wire from MapScreen
+
+#### Rules
+- Do not affect the normal data display colors — only the "low priority" / secondary states
+- The 300m zone tile should use alert-distance threshold (settings.zoneAutoRevealDistanceM) to decide normal vs dull rendering
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt`
 
 ### readability  [ ]
 

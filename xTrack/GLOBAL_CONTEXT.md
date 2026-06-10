@@ -1,10 +1,10 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** Navigation
-- **Active Subfeature:** cap
+- **Active Feature:** Dashboard
+- **Active Subfeature:** tile subdued font
 - **Last Updated:** 2026-06-10
-- **Last Bake:** 2026-06-10 14:21 (Navigation — restored missing settings toggle rows for Heading Line + Variable Arrow)
+- **Last Bake:** 2026-06-10 15:24 (Dashboard — tile subdued font: 33% alpha, grey bg for dull states, dimmed titles, 2x alert-distance gate)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -38,7 +38,7 @@
 | CodeReview | Code quality review, linting, and structural improvements | 2026-06-01 00:00 | 2026-06-05 00:00 | active |
 | DepthMapping | Bathymetry / depth mapping from Litto3D, SHOM, EMODnet sources | 2026-05-10 00:00 | 2026-06-10 12:13 | active |
 | Coastline | Coastline extraction, spatial indexing, isOnWater determination | 2026-05-10 00:00 | 2026-06-05 00:00 | active |
-| Dashboard | Main dashboard UI layout and HUD information display | 2026-05-15 00:00 | 2026-06-03 00:00 | active |
+| Dashboard | Main dashboard UI layout and HUD information display | 2026-05-15 00:00 | 2026-06-10 15:24 | active |
 | UiThingies | UI widgets, buttons, and interactive elements | 2026-05-20 00:00 | 2026-06-03 00:00 | active |
 | GpsPlugin | GPS plugin with demo mode, heading/COG compass, geolocation | 2026-05-10 00:00 | 2026-06-03 00:00 | active |
 | MapDisplay | Map rendering, depth color layer, orientation overlay | 2026-05-10 00:00 | 2026-06-03 00:00 | active |

@@ -449,6 +449,7 @@ fun MapScreen(
                     distanceToZone = distanceToZone,
                     depthSample = depthReadout,
                     speedKnots = navigationState.speedKnots ?: navigationState.demoSpeedKnots,
+                    alertDistanceM = appSettings.zoneAutoRevealDistanceM,
                     modifier = Modifier
                         .align(Alignment.CenterStart)
                         .width(landscapeDashboardWidth)
@@ -463,6 +464,7 @@ fun MapScreen(
                     distanceToZone = distanceToZone,
                     depthSample = depthReadout,
                     speedKnots = navigationState.speedKnots ?: navigationState.demoSpeedKnots,
+                    alertDistanceM = appSettings.zoneAutoRevealDistanceM,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
