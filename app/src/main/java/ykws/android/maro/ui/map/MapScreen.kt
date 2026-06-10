@@ -83,6 +83,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
+import kotlin.math.cos
+import kotlin.math.sin
 import org.osmdroid.config.Configuration
 import org.osmdroid.events.MapListener
 import org.osmdroid.events.ScrollEvent
@@ -94,6 +100,7 @@ import org.osmdroid.views.overlay.GroundOverlay
 import org.osmdroid.views.overlay.Polygon
 import org.osmdroid.views.overlay.Polyline
 import kotlin.math.pow
+import kotlin.math.sqrt
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -414,6 +421,7 @@ fun MapScreen(
                 isobaths = isobaths,
                 appSettings = appSettings,
                 mapView = mapView,
+                navigationState = navigationState,
                 onCenterChanged = onCenterChanged,
                 onZoomChanged = viewModel::updateZoomLevel,
                 onMapViewReady = { mapView = it },
@@ -509,6 +517,7 @@ private fun MapContent(
     isobaths: List<Isobath>,
     appSettings: AppSettings,
     mapView: MapView?,
+    navigationState: NavigationState = NavigationState(),
     onCenterChanged: (Double, Double) -> Unit,
     onZoomChanged: (Double) -> Unit,
     onMapViewReady: (MapView) -> Unit,
@@ -551,6 +560,15 @@ private fun MapContent(
             modifier = Modifier.fillMaxSize()
         )
 
+        // ── Direction line: thin dashed line from boat to map edge in heading direction ──
+        val moving = navigationState.speedKnots != null || navigationState.demoSpeedKnots != null
+        if (moving && appSettings.headingLineVisible) {
+            DirectionLine(
+                bearingDeg = navigationState.bearingDeg,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+
         // ── Earth / Water toggle (top-left) ───────────────────────────────
         EarthWaterIcon(
             emoji = if (isWater) "🌊" else "🏔️",
@@ -567,6 +585,8 @@ private fun MapContent(
             isWater = isWater,
             zoomLevel = zoomLevel,
             distanceToShore = distanceToShore,
+            navigationState = navigationState,
+            showCapArrow = appSettings.capArrowVisible,
             modifier = Modifier.align(Alignment.Center)
         )
 
@@ -932,6 +952,17 @@ private const val ZONE_MIN_ZOOM = 11.0
 
 // ───────────────────────────────────────────────────────────────────────────────
 
+/** Arrow length in dp at [REF_ZOOM] per knot of speed (65 dp ÷ 30 kn ≈ 2.17). */
+private const val CAP_DP_PER_KNOT = 65.0 / 30.0
+/** Minimum arrow length in dp at [REF_ZOOM] (barely visible nub at 3 kn). */
+private const val CAP_MIN_DP = 1.0
+/** Maximum arrow length in dp at [REF_ZOOM] (30+ kn capped). */
+private const val CAP_MAX_DP = 65.0
+/** Fraction of the marker image height from top edge to the visual boat tip. */
+private const val BOAT_TIP_OFFSET = 0.05
+/** Below this speed (knots) the arrow is hidden. */
+private const val CAP_MIN_SPEED_KNOTS = 2.5f
+
 /**
  * A fixed icon drawn at the center of the screen, indicating the current
  * GPS position. Stays in place while the map moves beneath it.
@@ -954,6 +985,8 @@ private fun CenterMarkerOverlay(
     isWater: Boolean,
     zoomLevel: Double,
     distanceToShore: Double?,
+    navigationState: NavigationState = NavigationState(),
+    showCapArrow: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val drawableId = if (isWater) R.drawable.maro_marker else R.drawable.maro_dot_marker
@@ -977,12 +1010,91 @@ private fun CenterMarkerOverlay(
 
     val finalSizeDp = ((baseDp * scaleFactor) * distMultiplier).dp
 
-    Image(
-        painter = painterResource(id = drawableId),
-        contentDescription = description,
-        modifier = modifier.size(finalSizeDp),
-        contentScale = ContentScale.Fit
-    )
+    // ── Cap arrow: visual speed indicator ────────────────────────────────
+    val bearingDeg = navigationState.bearingDeg
+    val effectiveSpeedKn = navigationState.speedKnots ?: navigationState.demoSpeedKnots
+    val hasSpeed = effectiveSpeedKn != null && effectiveSpeedKn > CAP_MIN_SPEED_KNOTS
+    val showArrow = hasSpeed && showCapArrow
+    val arrowDp = if (showArrow) {
+        val baseArrowDp = (effectiveSpeedKn!! * CAP_DP_PER_KNOT).coerceIn(CAP_MIN_DP, CAP_MAX_DP)
+        (baseArrowDp * scaleFactor).dp
+    } else {
+        0.dp
+    }
+
+    Box(modifier = modifier.size(finalSizeDp)) {
+        Image(
+            painter = painterResource(id = drawableId),
+            contentDescription = description,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Fit
+        )
+        if (showArrow) {
+            val arrowColor = ComposeColor(ZoneConfig.capArrowColor)
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val arrowLenPx = arrowDp.toPx()
+                val bearingRad = Math.toRadians(bearingDeg.toDouble())
+                val cX = size.width / 2
+                val startY = (size.height * BOAT_TIP_OFFSET).toFloat()
+                val endX = cX + (sin(bearingRad) * arrowLenPx).toFloat()
+                val endY = startY - (cos(bearingRad) * arrowLenPx).toFloat()
+
+                drawLine(
+                    color = arrowColor,
+                    start = Offset(cX, startY),
+                    end = Offset(endX, endY),
+                    strokeWidth = 2.25.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+                val headLen = 9.dp.toPx()
+                val headSpread = 0.5f
+                val path = Path().apply {
+                    moveTo(endX, endY)
+                    lineTo(
+                        endX + headLen * (-sin(bearingRad + headSpread)).toFloat(),
+                        endY + headLen * (cos(bearingRad + headSpread)).toFloat()
+                    )
+                    lineTo(
+                        endX + headLen * (-sin(bearingRad - headSpread)).toFloat(),
+                        endY + headLen * (cos(bearingRad - headSpread)).toFloat()
+                    )
+                    close()
+                }
+                drawPath(path, color = arrowColor)
+            }
+        }
+    }
+}
+
+// ── Direction line overlay ───────────────────────────────────────────────────
+
+/**
+ * Thin dashed line drawn from the screen center (boat position) outward in the
+ * heading direction, extending to the edge of the map.
+ */
+@Composable
+private fun DirectionLine(
+    bearingDeg: Float,
+    modifier: Modifier = Modifier
+) {
+    val lineColor = ComposeColor(ZoneConfig.directionLineColor)
+    Canvas(modifier = modifier) {
+        val cX = size.width / 2
+        val cY = size.height / 2
+        val bearingRad = Math.toRadians(bearingDeg.toDouble())
+        val reach = sqrt(size.width * size.width + size.height * size.height).toFloat()
+        val endX = cX + (sin(bearingRad) * reach).toFloat()
+        val endY = cY - (cos(bearingRad) * reach).toFloat()
+
+        drawLine(
+            color = lineColor,
+            start = Offset(cX, cY),
+            end = Offset(endX, endY),
+            strokeWidth = 1.dp.toPx(),
+            pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 6f), 0f),
+            cap = StrokeCap.Round
+        )
+    }
 }
 
 // ── Earth / Water icon control ───────────────────────────────────────────────
