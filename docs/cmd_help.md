@@ -33,6 +33,8 @@ Git:      #new [branch]        fetch develop, create + switch to new branch from
           #cherry [target]     interactive: list unpushed commits, select which to copy to [target]
           #copy [target]       alias for #cherry
           #rename [branch]     rename current branch to [branch]
+          #merge               rebase current branch onto origin/develop + force-push (PR-ready)
+          #merge [branch]      rebase current branch onto [branch] + force-push
 Health:   #doctor              lint xTrack for drift
           #doctor fix          auto-repair
 
@@ -300,6 +302,20 @@ All commands are thin wrappers over standard git commands.
                       Works regardless of whether the branch has been pushed.
                       If the old name was already pushed, you'll need to push
                       the new name and delete the old remote branch manually.
+
+  #merge              Rebase current branch onto origin/develop + force-push.
+                      Makes your branch PR-ready by replaying your commits on
+                      top of the latest remote develop.
+                      1. `git fetch origin develop`
+                      2. `git rebase origin/develop`
+                      3. On conflict: prompt D/F/M
+                         [D]evelop is the reference → `git rebase --skip`
+                         [F]eature is the reference → `git rebase --continue`
+                         [M]anual → `git rebase --abort`
+                      4. `git push --force-with-lease`
+
+  #merge [branch]     Same, but rebase onto a specific branch instead of develop.
+                      `git fetch origin [branch]` then `git rebase origin/[branch]`.
 
 ## #doc sync
 

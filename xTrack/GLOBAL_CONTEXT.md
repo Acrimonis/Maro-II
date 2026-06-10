@@ -4,7 +4,7 @@
 - **Active Feature:** WorkflowImprovement
 - **Active Subfeature:** gitting-it
 - **Last Updated:** 2026-06-10
-- **Last Bake:** 2026-06-10 07:30 (WorkflowImprovement — gitting-it subfeature completed: #new, #commit, #push, #move, #cherry/#copy git shortcuts documented in cmd_help.md + AGENTS.md; #context renamed to #now, #context list renamed to #list)
+- **Last Bake:** 2026-06-10 08:35 (WorkflowImprovement — #merge git shortcut added: rebase onto origin/develop, D/F/M priority conflict prompt)
 
 ## Routing Map
 | Keyword | Feature File |
