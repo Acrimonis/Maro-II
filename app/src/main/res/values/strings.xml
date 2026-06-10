@@ -104,9 +104,12 @@
     <string name="dash_to_zone">to the 300m zone</string>
     <string name="dash_depth_title">Depth</string>
     <string name="dash_value_km">%.1f km</string>
-    <string name="dash_value_m">%.0f m</string>
-    <string name="dash_value_depth_m">%.1f m</string>
-    <string name="dash_value_kn">%.1f kn</string>
+    <string name="dash_value_m">%4.0f m</string>
+    <string name="dash_value_depth_m">%4.1f m</string>
+    <string name="dash_value_kn">%4.1f kn</string>
+    <string name="dash_value_km_int">%d km</string>
+    <string name="dash_value_depth_m_int">%d m</string>
+    <string name="dash_depth_deep">Deep!</string>
     <string name="dash_depth_source_conf">%1$s · %2$d%%</string>
     <string name="dash_speed_title">Speed</string>
     <string name="dash_demo_mode">demo mode</string>

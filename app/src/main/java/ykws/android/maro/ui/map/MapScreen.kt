@@ -235,7 +235,6 @@ fun MapScreen(
     // Gate coarse EMODnet shallow readings (unreliable near rocks/coast) → no-data in the readout.
     val depthReadout = depthAtCenter?.gatedForEmodnetShallow(appSettings.emodnetShallowCutoffM)
     val depthGrid = (depthState as? DepthState.Ready)?.grid
-    val depthValidation = depthGrid?.metadata?.validation
     val isobaths = depthRender?.isobaths ?: emptyList()
 
     // Coastline classifier is needed for both the low-depth warning and the depth colour map
@@ -447,7 +446,6 @@ fun MapScreen(
                     inZone300 = inZone300,
                     distanceToZone = distanceToZone,
                     depthSample = depthReadout,
-                    validation = depthValidation,
                     speedKnots = speedKnots ?: demoSpeedKnots,
                     modifier = Modifier
                         .align(Alignment.CenterStart)
@@ -462,7 +460,6 @@ fun MapScreen(
                     inZone300 = inZone300,
                     distanceToZone = distanceToZone,
                     depthSample = depthReadout,
-                    validation = depthValidation,
                     speedKnots = speedKnots ?: demoSpeedKnots,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
