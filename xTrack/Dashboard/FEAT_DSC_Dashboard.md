@@ -61,6 +61,31 @@ Redesign the bottom panel into a proper dashboard for quick reading of indicator
 - [ ] When !isOnWater, Zone tile must display neutral background with "Not at sea" caption instead of a value
 #### Key Files
 
+### readability  [ ]
+
+#### Todos
+- [x] Finalize format specs (speed cap, depth tag, smart km, padding cuts, font weights) — plan locked
+- [ ] Reduce paddings: outer 12→4.h / 10→2.v, card 8→4.h / 6→2.v, grid 8→4.dp, corner 10→8.dp
+- [ ] Bump title font weight: Medium → SemiBold
+- [ ] Bump subtitle font weight: Normal → Medium
+- [ ] Update `strings.xml`: `%4.1f kn`, `%4.1f m`, `%4.0f m`; add `dash_value_km_int`, `dash_value_depth_m_int`, `dash_depth_deep`
+- [ ] Update `values-fr/strings.xml`: add `dash_depth_deep` = "Fond!", plus int format resources
+- [ ] Add speed > 99.9 kn gate → show dash in `SpeedCard`
+- [ ] Add depth ≥ 100m gate → show `dash_depth_deep` in `DepthCard`
+- [ ] Update `distanceText()`: smart km (`%.1f km` < 10 km, `%d km` ≥ 10 km)
+- [ ] Reduce outer panel padding: 12.h → 8.dp, 10.v → 6.dp
+- [ ] Reduce card internal padding: 8.h → 6.dp, 6.v → 4.dp
+- [ ] Reduce grid row/column spacing: 8.dp → 6.dp
+- [ ] Bump title font weight: Medium → SemiBold
+- [ ] Bump subtitle font weight: Normal → Medium
+
+#### Rules
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt`
+- `app/src/main/res/values/strings.xml`
+- `app/src/main/res/values-fr/strings.xml`
+
 ## Todos
 
 ## Rules
@@ -68,3 +93,4 @@ Redesign the bottom panel into a proper dashboard for quick reading of indicator
 ## Key Files
 
 ## Docs
+- [`plans/dashboard-readability-improvements.md`](plans/dashboard-readability-improvements.md) — Readability & space management discussion plan (format padding, reduced paddings, font weight bumps)

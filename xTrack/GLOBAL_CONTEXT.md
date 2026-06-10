@@ -1,8 +1,8 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** WorkflowImprovement
-- **Active Subfeature:** gitting-it
+- **Active Feature:** Dashboard
+- **Active Subfeature:** readability
 - **Last Updated:** 2026-06-10
 - **Last Bake:** 2026-06-10 08:35 (WorkflowImprovement — #merge git shortcut added: rebase onto origin/develop, D/F/M priority conflict prompt)
 
