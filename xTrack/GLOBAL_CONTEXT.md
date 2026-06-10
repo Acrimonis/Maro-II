@@ -1,10 +1,10 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** Settings
-- **Active Subfeature:** none
+- **Active Feature:** Dashboard
+- **Active Subfeature:** tile subdued font
 - **Last Updated:** 2026-06-10
-- **Last Bake:** 2026-06-10 14:57 (Settings — tab organization with Material 3 tabs: Display, Navigation, System)
+- **Last Bake:** 2026-06-10 15:24 (Dashboard — tile subdued font: 33% alpha, grey bg for dull states, dimmed titles, 2x alert-distance gate)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -38,7 +38,7 @@
 | CodeReview | Code quality review, linting, and structural improvements | 2026-06-01 00:00 | 2026-06-05 00:00 | active |
 | DepthMapping | Bathymetry / depth mapping from Litto3D, SHOM, EMODnet sources | 2026-05-10 00:00 | 2026-06-10 12:13 | active |
 | Coastline | Coastline extraction, spatial indexing, isOnWater determination | 2026-05-10 00:00 | 2026-06-05 00:00 | active |
-| Dashboard | Main dashboard UI layout and HUD information display | 2026-05-15 00:00 | 2026-06-03 00:00 | active |
+| Dashboard | Main dashboard UI layout and HUD information display | 2026-05-15 00:00 | 2026-06-10 15:24 | active |
 | UiThingies | UI widgets, buttons, and interactive elements | 2026-05-20 00:00 | 2026-06-03 00:00 | active |
 | GpsPlugin | GPS plugin with demo mode, heading/COG compass, geolocation | 2026-05-10 00:00 | 2026-06-03 00:00 | active |
 | MapDisplay | Map rendering, depth color layer, orientation overlay | 2026-05-10 00:00 | 2026-06-03 00:00 | active |
@@ -48,7 +48,7 @@
 | DepthSafety | Danger depth alerts, shallow water grounding prevention, isobath precision | 2026-06-03 00:00 | 2026-06-05 00:00 | active |
 | Localisation | i18n/localization, French translations, string resources | 2026-06-03 00:00 | 2026-06-03 00:00 | active |
 | AppBakFlow | Back button handling, double-back-to-exit, keep-screen-on/wakelock | 2026-06-03 00:00 | 2026-06-03 00:00 | active |
-| Settings | Settings page UI, persistence, widgets, and UX enhancements | 2026-06-09 15:28 | 2026-06-10 14:57 | active |
+| Settings | Settings page UI, persistence, widgets, and UX enhancements | 2026-06-09 15:28 | 2026-06-09 19:42 | active |
 | UiTweaks | Non-functional UI adjustments — visual polish, colour tuning, layout refinement | 2026-06-09 21:05 | 2026-06-09 21:16 | active |
 | **Navigation** | **Navigation aids — heading/speed arrow and direction line on map overlay** | **2026-06-10 08:40** | **2026-06-10 14:21** | **active** |
 
