@@ -361,12 +361,7 @@ fun MapScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // ── Keep the screen awake while the app runs, when the user enabled it ──
-    val view = LocalView.current
-    DisposableEffect(appSettings.keepScreenOn) {
-        view.keepScreenOn = appSettings.keepScreenOn
-        onDispose { view.keepScreenOn = false }
-    }
+    // ── (keepScreenOn moved to MainActivity — window flag, avoids compose toggle glitch) ──
 
     // ── Double-back-to-exit state ─────────────────────────────────────────
     var lastBackAt by remember { mutableStateOf(0L) }

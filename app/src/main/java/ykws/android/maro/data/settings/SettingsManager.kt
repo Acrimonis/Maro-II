@@ -74,7 +74,7 @@ data class AppSettings(
     /** App language: "system" (device locale, English fallback), "en", or "fr". */
     val languageCode: String = "system",
     /** Keep the device screen awake while the app is in the foreground. */
-    val keepScreenOn: Boolean = false,
+    val keepScreenOn: Boolean = true,
     /** Highlight charted shallow water as a bright grounding-hazard overlay. */
     val lowDepthWarningVisible: Boolean = true,
     /** Depth threshold (m) for the low-depth warning: cells shallower than this are painted. */
