@@ -1,10 +1,10 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** Performance
-- **Active Subfeature:** gps-refreshing
-- **Last Updated:** 2026-06-09
-- **Last Bake:** 2026-06-09 21:16 (UiTweaks — dashboard panel edge padding 12dp→9dp; dashboard-unit-size rolled back, didn't render; RasterCache.Key nodataColor cache-invalidation fix; DepthColorRamp reverted to pure transparent; all tests green)
+- **Active Feature:** WorkflowImprovement
+- **Active Subfeature:** gitting-it
+- **Last Updated:** 2026-06-10
+- **Last Bake:** 2026-06-10 07:30 (WorkflowImprovement — gitting-it subfeature completed: #new, #commit, #push, #move, #cherry/#copy git shortcuts documented in cmd_help.md + AGENTS.md; #context renamed to #now, #context list renamed to #list)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -32,7 +32,7 @@
 
 | Feature | One-Liner | Created | Modified | Status |
 |---------|-----------|---------|----------|--------|
-| WorkflowImprovement | xTrack #command system, trigger syntax, fuzzy matching, bootstrap, and memory bake lifecycle | 2026-06-03 00:00 | 2026-06-09 14:52 | active |
+| WorkflowImprovement | xTrack #command system, git shortcuts, #now/#list rename, trigger syntax, fuzzy matching, bootstrap, and memory bake lifecycle | 2026-06-03 00:00 | 2026-06-10 07:30 | active |
 | ProjectDocumentation | Project documentation, README, FAQs, setup guides, and architecture overview | 2026-05-15 00:00 | 2026-06-03 00:00 | active |
 | Zone300 | 300m zone generation from coastline with water-only constraint | 2026-05-20 00:00 | 2026-06-03 00:00 | active |
 | CodeReview | Code quality review, linting, and structural improvements | 2026-06-01 00:00 | 2026-06-05 00:00 | active |

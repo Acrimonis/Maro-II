@@ -1,5 +1,5 @@
-View:     #context             current context: active feature + subs list + working path
-          #context list        compact feature table (from GLOBAL_CONTEXT.md summaries) [alias #features]
+View:     #now                 current context: active feature + subs list + working path [alias #context #here #feat #feature]
+          #list                compact feature table (from GLOBAL_CONTEXT.md summaries) [alias #features]
           #status              feature details (active, subfeature-scoped when focused)
           #status [name]       feature details (named)
           #status diff [name]  changes since last #bake (active/named)
@@ -25,10 +25,17 @@ Docs:     #doc                 feature docs (scope-aware)
           #doc audit           check docs for missing scope tags, orphans, invalid scopes
 Session:  #bake                snapshot session (updates summaries table + xTrack/[Feature]/FEAT_HYD_)
           #help                this list
+Git:      #new [branch]        fetch develop, create + switch to new branch from remote develop
+          #commit              run #bake + git add -A && git commit
+          #push                push current branch to remote
+          #move [branch]       stash uncommitted changes, switch to existing branch, pop stash
+          #move new [branch]   stash uncommitted changes, create new branch from develop, pop stash
+          #cherry [target]     interactive: list unpushed commits, select which to copy to [target]
+          #copy [target]       alias for #cherry
 Health:   #doctor              lint xTrack for drift
           #doctor fix          auto-repair
 
-## #context
+## #now
 
 Display lightweight orientation or a compact feature dashboard.
 
@@ -208,9 +215,10 @@ Display command reference.
 
   [no param]  Print the full reference table from docs/cmd_help.md.
 
-  [cmd]       Fuzzy-resolve cmd against known commands (context, status, track,
-              focus, sub, todo, rule, doc, bake, help, doctor + alias features for
-              context list, sub-commands status diff / doc sync / doc audit).
+  [cmd]       Fuzzy-resolve cmd against known commands (now, list, status, track,
+              focus, sub, todo, rule, doc, bake, help, doctor,
+              new, commit, push, move, cherry, copy
+              + sub-commands status diff / doc sync / doc audit).
               Find the matching ## <cmd> section in docs/cmd_help.md and print only
               that section as a code block.
               If no match, print the full table and suggest the closest match.
@@ -230,6 +238,61 @@ Lint the xTrack stack for structural drift.
               judgment calls) are printed but not auto-fixed.
               #bake runs the auto-fix subset first.
 
+
+## Git — git workflow shortcuts
+
+Convenience commands for common git operations within the xTrack workflow.
+All commands are thin wrappers over standard git commands.
+
+  #new [branch]       1. `git fetch origin develop`
+                      2. `git checkout -b [branch] origin/develop`
+                      Always branches from the latest remote develop, never from
+                      the current branch. The branch name is used as-is (create
+                      it with a feature/ prefix yourself).
+
+  #commit             1. Run `#bake` to snapshot current xTrack session state.
+                      2. `git add -A`
+                      3. `git commit` (opens editor for commit message)
+                      Ensures xTrack hydration is always committed alongside code.
+
+  #push               `git push origin [current-branch]`
+                      Pushes the current branch to remote. No safety prompt —
+                      use explicit git commands for destructive operations.
+
+  #move [branch]      Move uncommitted working-tree changes to an existing branch.
+                      1. Check for uncommitted changes — no-op if clean.
+                      2. Fuzzy-resolve [branch] against local branches.
+                      3. If match: `git stash push`, `git checkout [branch]`,
+                         `git stash pop`.
+                      4. If no match: print "Branch not found — use `#move new
+                         [branch]` to create it or `#new [branch]` for a fresh
+                         checkout."
+
+  #move new [branch]  Move uncommitted changes to a new branch from develop.
+                      1. `git stash push`
+                      2. `git fetch origin develop`
+                      3. `git checkout -b [branch] origin/develop`
+                      4. `git stash pop`
+
+  #cherry [target]    Copy committed-but-unpushed commits to another branch.
+  #copy [target]      Alias for #cherry.
+
+                      Finds commits on the current branch that aren't in
+                      `origin/[current-branch]` (or origin/develop if never
+                      pushed), then prints a numbered list with one-line
+                      summaries and asks:
+
+                        Found 3 unpushed commits:
+                          [1] abc1234 Fix typo in GpsLocationSource
+                          [2] def5678 Add haversine guard to animateTo
+                          [3] ghi9012 Update xTrack subfeature counts
+                        Copy all to [target]? [Y/n] or select by number (1,3 or 1-3):
+
+                      On confirm: `git checkout [target]`,
+                      `git cherry-pick <selected-commits>`.
+
+                      Does NOT delete commits from source branch —
+                      use `git reset --hard HEAD~N` manually.
 
 ## #doc sync
 

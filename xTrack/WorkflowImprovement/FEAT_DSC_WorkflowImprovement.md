@@ -2,8 +2,8 @@
 name: WorkflowImprovement
 status: active
 created: 2026-06-03 00:00
-modified: 2026-06-09 14:52
-active_subfeature: none
+modified: 2026-06-10 06:56
+active_subfeature: gitting-it
 ---
 
 # Feature: WorkflowImprovement
@@ -112,6 +112,33 @@ Define the Zero-Piecemeal Writes discussion exception: allow one plan file per d
 
 #### Key Files
 - `AGENTS.md` — Core Directives + §3
+
+### gitting-it  [x]
+
+#### Todos
+- [x] Define `#new [branch]` — fetch origin/develop, checkout new branch from it
+- [x] Define `#commit` — run `#bake`, then `git add -A && git commit`
+- [x] Define `#push` — run `git push` (respect current branch)
+- [x] Define `#move [branch]` — stash uncommitted changes, switch branch, pop stash
+- [x] Define `#move new [branch]` — stash, create branch from develop, pop stash
+- [x] Define `#cherry [target]` / `#copy [target]` — interactive cherry-pick of unpushed commits
+- [x] Update `docs/cmd_help.md` with all git commands in reference table + Git section
+- [ ] On-device / real-repo verification of all git shortcuts
+
+#### Rules
+- Git commands are convenience shortcuts for the xTrack workflow, not replacements for manual git operations.
+- `#new` always branches from the latest remote `develop` — never from the current branch.
+- `#commit` always includes `#bake` first to snapshot session state.
+- `#push` uses the current branch name — no safety prompt (use explicit git commands for safety).
+- `#move` operates on uncommitted changes only (stash-based). Committed work stays on source branch.
+- `#cherry`/`#copy` does NOT delete source commits — user cleans up with `git reset --hard HEAD~N`.
+
+#### Key Files
+- `docs/cmd_help.md` — Git section + updated reference table
+- `plans/git-move-command.md` — full design spec for #move and #cherry
+
+#### Docs
+- `plans/git-move-command.md` — design spec for #move stash + #cherry interactive copy
 
 ## Todos
 - [ ] **Post-merge reconcile xTrack/ across branches.** After `feature/ai-tooling` lands on `develop`, other branches with their own `xTrack/` evolutions (e.g. `feature/300M-Claude-II` carrying Coastline/DepthMapping) will conflict on merge. Procedure: (1) **tooling-system files** (`AGENTS.md`, `CLAUDE.md`, `.clinerules`, `.claude/skills/xtrack/**`, `docs/cmd_help.md`) — accept ai-tooling's version on conflict; (2) **`FEATURE_SCOPE_*.md`** added or edited on spatial — add YAML front-matter (`name`/`status`/`created`/`modified`/`active_subfeature`/`subs_total`/`subs_done`/`one_liner`), normalize all dates to `YYYY-MM-DD`, remove duplicated prose header lines, and split any attached docs out of `## Key Files` into a new `## Docs` section; (3) **`xTrack/CONTEXT_HYDRATION.md`** — resolve the delete/modify conflict in favor of the deletion and split its content into per-feature `xTrack/hydration/CONTEXT_HYDRATION_[Feature].md` files (one per active feature); (4) **`GLOBAL_CONTEXT.md`** — merge Routing Map rows (dedupe), normalize the Active Session Pointers block (add `Last Bake` if missing), normalize dates; (5) run `#doctor fix` to sweep residual drift, then `#doctor` to confirm clean.
