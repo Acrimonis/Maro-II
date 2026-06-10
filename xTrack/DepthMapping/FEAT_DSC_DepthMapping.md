@@ -2,7 +2,7 @@
 name: DepthMapping
 status: active
 created: 2026-06-04 00:00
-modified: 2026-06-09 20:53
+modified: 2026-06-10 12:13
 active_subfeature: none
 ---
 
@@ -277,3 +277,4 @@ Apply the EMODnet shallow-water gate to the colour map, low-depth warning overla
 - `docs/oZer/BARO - Sentinel-2 SDB guide.md` — prior research
 - `docs/oZer/BARO - Step 01 - Data sources discussion.md` — prior research
 - `plans/depth-emodnet-gate-nodata-color.md` — EMODnet shallow gate + NoData colour plan
+- `plans/litto3d-regression-analysis.md` — Litto3D missing-from-bake regression analysis + fix path

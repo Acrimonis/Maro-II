@@ -1,10 +1,10 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** Dashboard
+- **Active Feature:** DepthMapping
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-10
-- **Last Bake:** 2026-06-10 08:35 (WorkflowImprovement — #merge git shortcut added: rebase onto origin/develop, D/F/M priority conflict prompt)
+- **Last Bake:** 2026-06-10 12:13 (DepthMapping — Litto3D regression analysis: missing .asc data file, pipeline already integrated in apk-bake.bat, fix: `apk-bake.bat litto3d depth`)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -36,7 +36,7 @@
 | ProjectDocumentation | Project documentation, README, FAQs, setup guides, and architecture overview | 2026-05-15 00:00 | 2026-06-03 00:00 | active |
 | Zone300 | 300m zone generation from coastline with water-only constraint | 2026-05-20 00:00 | 2026-06-03 00:00 | active |
 | CodeReview | Code quality review, linting, and structural improvements | 2026-06-01 00:00 | 2026-06-05 00:00 | active |
-| DepthMapping | Bathymetry / depth mapping from Litto3D, SHOM, EMODnet sources | 2026-05-10 00:00 | 2026-06-09 20:53 | active |
+| DepthMapping | Bathymetry / depth mapping from Litto3D, SHOM, EMODnet sources | 2026-05-10 00:00 | 2026-06-10 12:13 | active |
 | Coastline | Coastline extraction, spatial indexing, isOnWater determination | 2026-05-10 00:00 | 2026-06-05 00:00 | active |
 | Dashboard | Main dashboard UI layout and HUD information display | 2026-05-15 00:00 | 2026-06-03 00:00 | active |
 | UiThingies | UI widgets, buttons, and interactive elements | 2026-05-20 00:00 | 2026-06-03 00:00 | active |
