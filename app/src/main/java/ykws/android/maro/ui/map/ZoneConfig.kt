@@ -61,6 +61,16 @@ object ZoneConfig {
     var nodataColor: Int = 0xFFCCCCCC.toInt()
         private set
 
+    /** ARGB colour for the heading/speed cap arrow.
+     *  Default `0xFF1565C0` (Material Blue 700). Set via `cap.arrow.color` in maro.properties. */
+    var capArrowColor: Int = 0xFF1565C0.toInt()
+        private set
+
+    /** ARGB colour for the direction line projecting from the boat in the heading direction.
+     *  Default `0x4D1565C0` (Material Blue 700, 30% opacity). Set via `direction.line.color` in maro.properties. */
+    var directionLineColor: Int = 0x4D1565C0.toInt()
+        private set
+
     /** Isobath line colour per data source (ARGB int); a source with no entry falls back to [isobarColorDefault]. */
     private val isobarColors = hashMapOf(
         DepthSource.LITTO3D to 0xFF1B5E20.toInt(), // dark green (Material 900)
@@ -89,6 +99,15 @@ object ZoneConfig {
                 props.load(stream)
             }
 
+            // Also load maro.properties (optional — if missing, defaults are kept).
+            try {
+                context.assets.open("maro.properties").use { stream ->
+                    props.load(stream)
+                }
+            } catch (_: Exception) {
+                // maro.properties is optional; defaults apply if absent.
+            }
+
             props.getProperty("distanceToZoneGradientText")?.toFloatOrNull()?.let {
                 distanceToZoneGradientText = it.coerceIn(100f, 2000f)
             }
@@ -112,6 +131,12 @@ object ZoneConfig {
             }
             props.getProperty("nodata.color")?.let { parseColorOrNull(it) }?.let {
                 nodataColor = it
+            }
+            props.getProperty("cap.arrow.color")?.let { parseColorOrNull(it) }?.let {
+                capArrowColor = it
+            }
+            props.getProperty("direction.line.color")?.let { parseColorOrNull(it) }?.let {
+                directionLineColor = it
             }
             for (src in DepthSource.entries) {
                 val key = src.name.lowercase()

@@ -91,7 +91,11 @@ data class AppSettings(
     /** Regenerate: rebuild + re-cache depth colour raster. */
     val regenColour: Boolean = true,
     /** Regenerate: rebuild + re-cache shallow warning raster. */
-    val regenWarning: Boolean = true
+    val regenWarning: Boolean = true,
+    /** Show the dashed heading direction line from the boat marker to the map edge. */
+    val headingLineVisible: Boolean = true,
+    /** Show the speed-proportional cap arrow projecting from the boat marker. */
+    val capArrowVisible: Boolean = false
 )
 
 class SettingsManager(
@@ -138,7 +142,9 @@ class SettingsManager(
         regenGrid    = prefs.getBoolean(KEY_REGEN_GRID, true),
         regenIsobaths = prefs.getBoolean(KEY_REGEN_ISOBATHS, true),
         regenColour  = prefs.getBoolean(KEY_REGEN_COLOUR, true),
-        regenWarning = prefs.getBoolean(KEY_REGEN_WARNING, true)
+        regenWarning = prefs.getBoolean(KEY_REGEN_WARNING, true),
+        headingLineVisible = prefs.getBoolean(KEY_HEADING_LINE_VISIBLE, true),
+        capArrowVisible   = prefs.getBoolean(KEY_CAP_ARROW_VISIBLE, false)
     )
 
     /**
@@ -186,6 +192,8 @@ class SettingsManager(
             .putBoolean(KEY_REGEN_ISOBATHS, updated.regenIsobaths)
             .putBoolean(KEY_REGEN_COLOUR, updated.regenColour)
             .putBoolean(KEY_REGEN_WARNING, updated.regenWarning)
+            .putBoolean(KEY_HEADING_LINE_VISIBLE, updated.headingLineVisible)
+            .putBoolean(KEY_CAP_ARROW_VISIBLE, updated.capArrowVisible)
             .apply()
     }
 
@@ -222,5 +230,7 @@ class SettingsManager(
         private const val KEY_REGEN_ISOBATHS = "regen_isobaths"
         private const val KEY_REGEN_COLOUR = "regen_colour"
         private const val KEY_REGEN_WARNING = "regen_warning"
+        private const val KEY_HEADING_LINE_VISIBLE = "heading_line_visible"
+        private const val KEY_CAP_ARROW_VISIBLE = "cap_arrow_visible"
     }
 }
