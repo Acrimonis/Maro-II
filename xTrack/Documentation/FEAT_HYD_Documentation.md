@@ -1,7 +1,7 @@
 ## Hydration: Documentation
 
-**State:** Active — cleanup subfeature completed. All 24 plans scanned and classified; 14 plans, 4 orphan FEAT_DOCs, and 3 docs attached to their correct features. 6 ghost features purged. 5 features renamed (GpsPlugin→GPS, AppBakFlow→Ui_General, Dashboard→Ui_Dashboard, Settings→Ui_Settings, MapDisplay→UI_Map).
+**State:** Active — verif-scattering subfeature complete. Scanned AGENTS.md, GLOBAL_CONTEXT.md, all docs/cmd_help*.md, .clinerules, and CLAUDE.md for scattering/duplication. Applied 4 consolidations: (1) removed duplicated git rules from GLOBAL_CONTEXT.md Global Rules, (2) removed incorrect `list` sub-command from cmd_help_now.md (standalone `#list`), (3) added `rename` to AGENTS.md §7b.8 known command list, (4) created docs/cmd_help_the-c-word.md stub. All subfeatures now complete ([x]).
 
-**Target files:** `xTrack/Documentation/FEAT_DSC_Documentation.md`, `xTrack/GLOBAL_CONTEXT.md`, 9 other FEAT_DSC files with updated ## Docs sections.
+**Target files:** `xTrack/Documentation/FEAT_DSC_Documentation.md`, `xTrack/GLOBAL_CONTEXT.md`, `AGENTS.md`, `docs/cmd_help_now.md`, `docs/cmd_help_the-c-word.md`.
 
-**Next step:** Verify `#doctor` clean after renames, or switch to a feature task.
+**Next step:** Start a new feature or close the session.

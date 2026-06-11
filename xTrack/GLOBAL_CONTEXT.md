@@ -2,9 +2,9 @@
 
 ## Active Session Pointers
 - **Active Feature:** Documentation
-- **Active Subfeature:** verif-scattering
+- **Active Subfeature:** none
 - **Last Updated:** 2026-06-11
-- **Last Bake:** 2026-06-11 08:38 (Documentation — verif-scattering: dedup Explain/Discuss Gate in AGENTS.md §3; condense GLOBAL_CONTEXT.md Global Instructions)
+- **Last Bake:** 2026-06-11 09:26 (Documentation — verif-scattering: scanned AGENTS.md, GLOBAL_CONTEXT.md, cmd_help*.md, vendor adapters; applied 4 consolidations: removed duplicate git rules from GLOBAL_CONTEXT.md, fixed cmd_help_now.md drift, added rename to AGENTS.md command list, created cmd_help_the-c-word.md)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -27,7 +27,7 @@
 
 | Feature | One-Liner | Created | Modified | Status |
 |---------|-----------|---------|----------|--------|
-| **Documentation** | **README, FAQs, setup guides, architecture docs, and plans cleanup** | **2026-06-11 06:42** | **2026-06-11 08:38** | **active** |
+| **Documentation** | **README, FAQs, setup guides, architecture docs, and plans cleanup** | **2026-06-11 06:42** | **2026-06-11 09:26** | **active** |
 | WorkflowImprovement | xTrack #command system, git shortcuts, #now/#list rename, trigger syntax, fuzzy matching, bootstrap, and memory bake lifecycle | 2026-06-03 00:00 | 2026-06-10 07:30 | active |
 | Zone300 | 300m zone generation from coastline with water-only constraint | 2026-05-20 00:00 | 2026-06-03 00:00 | active |
 | DepthMapping | Bathymetry / depth mapping from Litto3D, SHOM, EMODnet sources | 2026-05-10 00:00 | 2026-06-10 12:13 | active |
@@ -47,8 +47,6 @@
 - `adb.exe` is in the computer PATH — use `adb` directly without full path qualifier.
 - Auto-refine rule wording for clarity and conciseness on `#rule` add.
 - Use apk-build.bat to build APK (runs gradlew assembleDebug).
-- **Do not commit or push unless explicitly instructed.** Stage only when directed.
-- **🔴 Never commit/push/merge to `develop` or `main`.** See [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md) for full rule + enforcement flow.
 
 ## Global Todos
 - [ ] Validate the intermittent Overpass-outage theory — confirm the coastline OSM fetch failures are transient (succeeded 13:52, failing ~16:52 on 2026-06-08), not a persistent network / cert / IPv6 block. Quick checks: retry `bake-coastline` later; `curl -sk https://overpass-api.de/api/status`; race other mirrors.

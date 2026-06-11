@@ -2,7 +2,7 @@
 name: Documentation
 status: active
 created: 2026-06-11 06:42
-modified: 2026-06-11 08:38
+modified: 2026-06-11 09:26
 active_subfeature: none
 ---
 
@@ -59,14 +59,14 @@ Cross-cutting project documentation — README, FAQs, setup guides, architecture
 - `AGENTS.md` §7b.8 — hard rule reference
 - `xTrack/GLOBAL_CONTEXT.md` — Global Rules reference
 
-### verif-scattering  [ ]  ← active
+### verif-scattering  [x]
 
 #### Todos
-- [ ] Scan `AGENTS.md` for scattered/duplicated instructions across sections
-- [ ] Scan `xTrack/GLOBAL_CONTEXT.md` Global Rules + Global Instructions for overlap with AGENTS.md
-- [ ] Scan `docs/cmd_help*.md` for drift vs AGENTS.md §7b spec
-- [ ] Scan `.clinerules`, `CLAUDE.md` — ensure they only point to AGENTS.md
-- [ ] Propose consolidations: compact token-optimized rewrites
+- [x] Scan `AGENTS.md` for scattered/duplicated instructions across sections
+- [x] Scan `xTrack/GLOBAL_CONTEXT.md` Global Rules + Global Instructions for overlap with AGENTS.md
+- [x] Scan `docs/cmd_help*.md` for drift vs AGENTS.md §7b spec
+- [x] Scan `.clinerules`, `CLAUDE.md` — ensure they only point to AGENTS.md
+- [x] Propose consolidations: compact token-optimized rewrites
 
 #### Rules
 - AGENTS.md is the canonical rulebook — vendor files (.clinerules, CLAUDE.md) must only be thin adapters.
