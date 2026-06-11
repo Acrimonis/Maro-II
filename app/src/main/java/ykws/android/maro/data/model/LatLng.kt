@@ -1,6 +1,7 @@
 package ykws.android.maro.data.model
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.protobuf.ProtoNumber
 
 /**
  * A geographic coordinate in WGS84 (latitude / longitude).
@@ -11,6 +12,6 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 data class LatLng(
-    val latitude: Double,
-    val longitude: Double
+    @ProtoNumber(1) val latitude: Double,
+    @ProtoNumber(2) val longitude: Double
 )

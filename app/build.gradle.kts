@@ -97,6 +97,7 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.okhttp)
     implementation(libs.kotlinx.serialization.json)
+    implementation(libs.kotlinx.serialization.protobuf)
     implementation(libs.osmdroid.android)
     implementation(libs.protobuf.javalite)
 
