@@ -2,7 +2,7 @@
 name: Documentation
 status: active
 created: 2026-06-11 06:42
-modified: 2026-06-11 08:30
+modified: 2026-06-11 08:38
 active_subfeature: none
 ---
 
@@ -39,7 +39,7 @@ Cross-cutting project documentation — README, FAQs, setup guides, architecture
 - `docs/cmd_help_*.md` — per-command detail files
 - `AGENTS.md` — §7b.8 Command Reference spec
 
-### git rules  [ ]  ← active
+### git rules  [x]
 
 #### Todos
 - [x] Rewrite `docs/GIT_WORKFLOW.md` into compact token-optimized source of truth (~30 lines)
@@ -59,6 +59,25 @@ Cross-cutting project documentation — README, FAQs, setup guides, architecture
 - `AGENTS.md` §7b.8 — hard rule reference
 - `xTrack/GLOBAL_CONTEXT.md` — Global Rules reference
 
+### verif-scattering  [ ]  ← active
+
+#### Todos
+- [ ] Scan `AGENTS.md` for scattered/duplicated instructions across sections
+- [ ] Scan `xTrack/GLOBAL_CONTEXT.md` Global Rules + Global Instructions for overlap with AGENTS.md
+- [ ] Scan `docs/cmd_help*.md` for drift vs AGENTS.md §7b spec
+- [ ] Scan `.clinerules`, `CLAUDE.md` — ensure they only point to AGENTS.md
+- [ ] Propose consolidations: compact token-optimized rewrites
+
+#### Rules
+- AGENTS.md is the canonical rulebook — vendor files (.clinerules, CLAUDE.md) must only be thin adapters.
+- One source of truth per concern; no duplication across files.
+
+#### Key Files
+- `AGENTS.md` — canonical rules
+- `xTrack/GLOBAL_CONTEXT.md` — routing + global rules
+- `docs/cmd_help*.md` — command reference
+- `.clinerules`, `CLAUDE.md` — vendor adapters
+
 ## Todos
 
 ## Rules
@@ -69,3 +88,4 @@ Cross-cutting project documentation — README, FAQs, setup guides, architecture
 - `docs/FAQ.md` — Project FAQ
 - `docs/SETUP.md` — Project setup guide
 - `plans/git-protection-workflow.md` — Git protection enforcement flow design
+- `plans/instruction-consolidation-audit.md` — Scattered/duplicated instructions audit findings
