@@ -2,7 +2,7 @@
 name: Navigation
 status: active
 created: 2026-06-10 08:40
-modified: 2026-06-10 14:21
+modified: 2026-06-11 11:55
 active_subfeature: cap
 ---
 
@@ -35,8 +35,8 @@ Navigation aids on the map overlay — heading/speed indicator and direction lin
 #### Rules
 - Arrow hides below 2.5 kn (drifting threshold).
 - Arrow length = speed(kn) × 2.17 dp, clamped to [1, 65] dp at REF_ZOOM, scaled with zoom via ZOOM_EXPONENT.
-- Arrow direction = bearingDeg (GPS course or compass azimuth).
-- Direction line is a thin dashed line (12px dash / 6px gap, 1dp stroke) from screen center to map edge in heading direction.
+- Arrow always draws straight up (screen-top) — heading-up map rotation aligns heading with screen-up via `mapOrientation = -bearingDeg`.
+- Direction line is a thin dashed line (12px dash / 6px gap, 1dp stroke) from screen center straight to top edge.
 - Navigation state (bearing, speed, demo speed) uses a single NavigationState data class for atomic Compose reads.
 - Heading line visible (default ON) and Variable Arrow (default OFF) are toggled from Settings → Display → Navigation.
 

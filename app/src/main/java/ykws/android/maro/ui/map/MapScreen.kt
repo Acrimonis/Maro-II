@@ -108,7 +108,6 @@ import org.osmdroid.views.overlay.GroundOverlay
 import org.osmdroid.views.overlay.Polygon
 import org.osmdroid.views.overlay.Polyline
 import kotlin.math.pow
-import kotlin.math.sqrt
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -575,7 +574,6 @@ private fun MapContent(
         val moving = navigationState.speedKnots != null || navigationState.demoSpeedKnots != null
         if (moving && appSettings.headingLineVisible) {
             DirectionLine(
-                bearingDeg = navigationState.bearingDeg,
                 modifier = Modifier.fillMaxSize()
             )
         }
@@ -1022,7 +1020,6 @@ private fun CenterMarkerOverlay(
     val finalSizeDp = ((baseDp * scaleFactor) * distMultiplier).dp
 
     // ── Cap arrow: visual speed indicator ────────────────────────────────
-    val bearingDeg = navigationState.bearingDeg
     val effectiveSpeedKn = navigationState.speedKnots ?: navigationState.demoSpeedKnots
     val hasSpeed = effectiveSpeedKn != null && effectiveSpeedKn > CAP_MIN_SPEED_KNOTS
     val showArrow = hasSpeed && showCapArrow
@@ -1044,30 +1041,28 @@ private fun CenterMarkerOverlay(
             val arrowColor = ComposeColor(ZoneConfig.capArrowColor)
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val arrowLenPx = arrowDp.toPx()
-                val bearingRad = Math.toRadians(bearingDeg.toDouble())
                 val cX = size.width / 2
                 val startY = (size.height * BOAT_TIP_OFFSET).toFloat()
-                val endX = cX + (sin(bearingRad) * arrowLenPx).toFloat()
-                val endY = startY - (cos(bearingRad) * arrowLenPx).toFloat()
+                val endY = startY - arrowLenPx
 
                 drawLine(
                     color = arrowColor,
                     start = Offset(cX, startY),
-                    end = Offset(endX, endY),
+                    end = Offset(cX, endY),
                     strokeWidth = 2.25.dp.toPx(),
                     cap = StrokeCap.Round
                 )
                 val headLen = 9.dp.toPx()
                 val headSpread = 0.5f
                 val path = Path().apply {
-                    moveTo(endX, endY)
+                    moveTo(cX, endY)
                     lineTo(
-                        endX + headLen * (-sin(bearingRad + headSpread)).toFloat(),
-                        endY + headLen * (cos(bearingRad + headSpread)).toFloat()
+                        cX - (headLen * sin(headSpread)).toFloat(),
+                        endY + (headLen * cos(headSpread)).toFloat()
                     )
                     lineTo(
-                        endX + headLen * (-sin(bearingRad - headSpread)).toFloat(),
-                        endY + headLen * (cos(bearingRad - headSpread)).toFloat()
+                        cX + (headLen * sin(headSpread)).toFloat(),
+                        endY + (headLen * cos(headSpread)).toFloat()
                     )
                     close()
                 }
@@ -1085,22 +1080,17 @@ private fun CenterMarkerOverlay(
  */
 @Composable
 private fun DirectionLine(
-    bearingDeg: Float,
     modifier: Modifier = Modifier
 ) {
     val lineColor = ComposeColor(ZoneConfig.directionLineColor)
     Canvas(modifier = modifier) {
         val cX = size.width / 2
         val cY = size.height / 2
-        val bearingRad = Math.toRadians(bearingDeg.toDouble())
-        val reach = sqrt(size.width * size.width + size.height * size.height).toFloat()
-        val endX = cX + (sin(bearingRad) * reach).toFloat()
-        val endY = cY - (cos(bearingRad) * reach).toFloat()
 
         drawLine(
             color = lineColor,
             start = Offset(cX, cY),
-            end = Offset(endX, endY),
+            end = Offset(cX, 0f),
             strokeWidth = 1.dp.toPx(),
             pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 6f), 0f),
             cap = StrokeCap.Round
