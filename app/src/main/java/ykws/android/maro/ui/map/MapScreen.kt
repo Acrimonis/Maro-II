@@ -451,6 +451,7 @@ fun MapScreen(
                 zoomLevel = zoomLevel,
                 distanceToShore = distanceToShore,
                 regulatedZones = regulatedZones,
+                waterTest = waterTest,
                 zone300 = zone300,
                 depthBitmap = effectiveDepthBitmap,
                 lowDepthWarningBitmap = effectiveLowDepthWarning,
@@ -553,6 +554,7 @@ private fun MapContent(
     zoomLevel: Double,
     distanceToShore: Double?,
     regulatedZones: RegulatedZoneSet?,
+    waterTest: (Double, Double) -> Boolean,
     zone300: Zone300Data?,
     depthBitmap: Bitmap?,
     lowDepthWarningBitmap: Bitmap?,
@@ -594,6 +596,7 @@ private fun MapContent(
         CoastlineMapView(
             segments = segments,
             regulatedZones = visibleRegulatedZones,
+            waterTest = waterTest,
             zone300 = visibleZone300,
             depthBitmap = depthBitmap,
             lowDepthWarningBitmap = visibleLowDepthWarning,
@@ -882,6 +885,7 @@ private fun ErrorOverlay(
 private fun CoastlineMapView(
     segments: List<CoastlineSegment>,
     regulatedZones: RegulatedZoneSet?,
+    waterTest: (Double, Double) -> Boolean,
     zone300: Zone300Data?,
     depthBitmap: Bitmap?,
     lowDepthWarningBitmap: Bitmap?,
@@ -928,7 +932,7 @@ private fun CoastlineMapView(
                 drawDepthMap(this, depthBitmap, depthBox, zoomLevel)   // bottom: colour raster
                 drawLowDepthWarning(this, lowDepthWarningBitmap, depthBox, zoomLevel) // <1.5 m hazard
                 drawIsobaths(this, isobaths, zoomLevel)                // contours above raster
-                drawRegulatedZones(this, regulatedZones, zoomLevel)    // regulated zone fill + outline
+                drawRegulatedZones(this, regulatedZones, zoomLevel, waterTest) // regulated zone fill + outline
                 drawZone300(this, zone300, zoomLevel)                  // 300 m band fill + line
                 drawCoastline(this, segments)                          // coastline on top
 
@@ -965,7 +969,7 @@ private fun CoastlineMapView(
                 drawDepthMap(mapView, depthBitmap, depthBox, zoomLevel)
                 drawLowDepthWarning(mapView, lowDepthWarningBitmap, depthBox, zoomLevel)
                 drawIsobaths(mapView, isobaths, zoomLevel)
-                drawRegulatedZones(mapView, regulatedZones, zoomLevel)
+                drawRegulatedZones(mapView, regulatedZones, zoomLevel, waterTest)
                 drawZone300(mapView, zone300, zoomLevel)
                 drawCoastline(mapView, segments)
                 mapView.invalidate()
@@ -2764,12 +2768,29 @@ private fun regulatedZoneColor(type: RegulatedZoneType): RegulationZoneColor = w
  *
  * Zoom-gated below [REGULATED_ZONE_MIN_ZOOM] and skipped when [zones] is null.
  *
+ * Maritime regulations only apply on water — if [waterTest] is provided, zones whose
+ * centroid falls on land are skipped. If the viewport centre is on land, all zones
+ * are skipped (no maritime regulations apply over land).
+ *
  * Drawn between isobaths and the 300 m band (see [CoastlineMapView] factory / update).
  */
-private fun drawRegulatedZones(mapView: MapView, zones: RegulatedZoneSet?, zoomLevel: Double) {
+private fun drawRegulatedZones(
+    mapView: MapView,
+    zones: RegulatedZoneSet?,
+    zoomLevel: Double,
+    waterTest: ((Double, Double) -> Boolean)? = null
+) {
     if (zones == null || zoomLevel < REGULATED_ZONE_MIN_ZOOM) return
     for (zone in zones.zones) {
         if (zone.outerRing.size < 3) continue
+
+        // Skip zones whose centroid is on land (maritime regulations don't apply there).
+        if (waterTest != null) {
+            val centroidLat = zone.outerRing.map { it.latitude }.average()
+            val centroidLon = zone.outerRing.map { it.longitude }.average()
+            if (!waterTest(centroidLat, centroidLon)) continue
+        }
+
         val colors = regulatedZoneColor(zone.zoneType)
         val fill = Polygon().apply {
             setPoints(zone.outerRing.map { GeoPoint(it.latitude, it.longitude) })

@@ -339,7 +339,8 @@ class ShomRegulationClient(
         /** Auth-protected endpoint (requires SHOM API key). */
         const val DEFAULT_BASE_URL = "https://services.data.shom.fr/wfs/reglementation"
 
-        const val EARTH_RADIUS_M = 6_371_000.0
+        /** Web Mercator (EPSG:3857) sphere radius = WGS84 semi-major axis. */
+        const val EARTH_RADIUS_M = 6_378_137.0
 
         /** Regulation layers available on the INSPIRE endpoint. */
         val CANDIDATE_TYPENAMES = listOf(

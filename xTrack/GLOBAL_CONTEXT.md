@@ -3,8 +3,8 @@
 ## Active Session Pointers
 - **Active Feature:** RegulatedZones
 - **Active Subfeature:** display-layer
-- **Last Updated:** 2026-06-11 20:35
-- **Last Bake:** 2026-06-11 20:35 (RegulatedZones — display-layer complete: drawRegulatedZones overlay, per-type colours, layer toggle button, RegulatedZonesRepository asset loader. All subfeatures done.)
+- **Last Updated:** 2026-06-11 20:59
+- **Last Bake:** 2026-06-11 20:59 (RegulatedZones — CRS offset fixed (EARTH_RADIUS_M → 6,378,137), stale prebake re-baked (3→75 zones), land-clipping via waterTest. All subfeatures done.)
 - **Branch:** feature/regulated-zones (tracking origin/develop)
 
 ## Routing Map
@@ -43,7 +43,7 @@
 | Ui_General | App-lifecycle UX: back-to-exit guard and keep-screen-on wakelock | 2026-06-03 00:00 | 2026-06-03 00:00 | active |
 | Ui_Settings | Settings page UI, persistence, widgets, and UX enhancements | 2026-06-09 15:28 | 2026-06-09 19:42 | active |
 | **Navigation** | **Navigation aids — heading/speed arrow and direction line on map overlay** | **2026-06-10 08:40** | **2026-06-11 11:55** | **active** |
-| **RegulatedZones** | **Maritime regulatory zones — fetch SHOM WFS, aggregate, serialize as bundled asset with vessel-size filtering, and display on map overlay** | **2026-06-11 18:00** | **2026-06-11 20:35** | **active** |
+| **RegulatedZones** | **Maritime regulatory zones — fetch SHOM WFS, aggregate, serialize as bundled asset with vessel-size filtering, and display on map overlay** | **2026-06-11 18:00** | **2026-06-11 20:59** | **active** |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).
