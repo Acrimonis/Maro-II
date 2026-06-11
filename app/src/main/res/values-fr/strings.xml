@@ -46,6 +46,7 @@
     <string name="settings_emodnet_section_desc">Les données EMODnet (grossières) sont peu fiables en eau très peu profonde près des rochers et de la côte</string>
     <string name="settings_emodnet_cutoff_label">Profondeur seuil</string>
     <string name="settings_emodnet_cutoff_desc">Masquer les profondeurs EMODnet inférieures à ce seuil (affichées sans donnée). 0 = désactivé</string>
+    <string name="settings_section_screen">Écran</string>
     <string name="settings_section_power">Économie d\'énergie</string>
     <string name="settings_keep_screen_on_label">Garder le téléphone allumé</string>
     <string name="settings_keep_screen_on_desc">Garder l\'écran allumé pendant que l\'app fonctionne</string>
@@ -53,14 +54,14 @@
     <string name="settings_sub_gps_desc">Mise à jour de votre position pendant la navigation</string>
     <string name="settings_sub_render_label">Rendu carte</string>
     <string name="settings_sub_render_desc">Nombre de redessins de la carte par seconde en suivi GPS</string>
-    <string name="settings_fps_label">Fréquence de rafraîchissement</string>
+    <string name="settings_fps_label">Taux de rafraîchissement carte</string>
     <string name="settings_fps_desc">Plus bas = moins de batterie, animation moins fluide</string>
-    <string name="settings_idle_section_label">Économie à l\'arrêt</string>
+    <string name="settings_idle_section_label">Détection d\'arrêt</string>
     <string name="settings_idle_section_desc">Quand le bateau ne bouge plus, les positions GPS s\'espacent pour économiser la batterie ; tout revient à la normale dès que vous repartez</string>
-    <string name="settings_idle_interval_label">Intervalle au repos</string>
+    <string name="settings_idle_interval_label">Durée d\'inactivité</string>
     <string name="settings_idle_interval_desc">Délai entre deux positions GPS à l\'arrêt · plus long = moins de batterie</string>
-    <string name="settings_advanced_stop_label">Avancé — détection de l\'arrêt</string>
-    <string name="settings_window_label">Fenêtre adaptative</string>
+    <string name="settings_advanced_stop_label">Réglages détection d\'arrêt</string>
+    <string name="settings_window_label">Temps adaptatif</string>
     <string name="settings_window_desc">Temps sans bouger avant de réduire la fréquence GPS</string>
     <string name="settings_adaptive_dist_label">Distance adaptative</string>
     <string name="settings_adaptive_dist_desc">En dessous de ce déplacement, vous êtes considéré « à l\'arrêt »</string>

@@ -2,13 +2,38 @@
 name: Ui_Settings
 status: active
 created: 2026-06-09 15:28
-modified: 2026-06-10 14:57
+modified: 2026-06-11 17:50
 active_subfeature: none
 ---
 
 **Description:** Settings page UI, settings persistence (SharedPreferences), settings-related widgets, and settings UX enhancements.
 
 ## Subfeatures
+
+### reorder-settings  [x]
+
+#### Todos
+- [x] Rename tab "Display" → "General" in `settingsTabLabels`
+- [x] Add "Layers" sub-section under DISPLAY in General tab
+- [x] Move Heading line + Cap arrow — keep in General tab, remove from Navigation tab
+- [x] Move EMODnet shallow filter → System tab, promoted to `SectionHeader`
+- [x] Move Position source / GPS mode → System tab, below Language
+- [x] Reorder System tab: Language → Position source (+ GPS-conditional freq/recenter) → Screen (+ FPS) → EMODnet → Regenerate layers
+- [x] Rename System "Power saving" section header to "Screen" — added `settings_section_screen` string resource (en/fr)
+- [x] Move Recenter delay → System, under POSITION SOURCE, GPS-conditional (`if (settings.gpsMode)`)
+- [x] Move GPS acquisition frequency → System, under POSITION SOURCE, GPS-conditional
+- [x] Move Map rendering FPS → System, in SCREEN section below Keep screen on
+- [x] Strip Recenter/GPS freq/FPS from NavigationSettings — keep only Idle saving + Z300 alert
+- [x] Update `HorizontalPager` dispatch
+- [x] Verify nothing breaks — BUILD SUCCESSFUL
+
+#### Rules
+- All existing settings widgets remain unchanged — only tab placement changes
+- Per-tab scroll states (`displayScrollState`, `navigationScrollState`, `systemScrollState`) must be re-checked to ensure they correctly map to the new content
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
+
 
 ### scroll persistence  [x]
 
@@ -18,6 +43,20 @@ active_subfeature: none
 #### Rules
 - Scroll position persistence is session-only (in-memory); on app restart, scroll goes back to top — no SharedPreferences needed
 - Must not interfere with existing `rememberScrollState()` behavior for other scrollable areas
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
+
+### fix-status-persistance  [x]
+
+#### Todos
+- [x] Hoist `selectedTab` to `MapScreen` composable level with `rememberSaveable` so it survives overlay dismissal/recomposition
+- [x] Fix bidirectional pager–tab sync race condition: initial `pagerState.currentPage = 0` was overwriting the restored `selectedTab` before `animateScrollToPage` could run
+- [x] Ensure per-tab scroll position survives overlay toggle (already at `MapScreen` level — verified correct)
+
+#### Rules
+- `selectedTab` must be hoisted to `MapScreen` composable level with `rememberSaveable` so it survives overlay dismissal/recomposition
+- Scroll states (`displayScrollState`, `navigationScrollState`, `systemScrollState`) are already at `MapScreen` level — verify they correctly persist across overlay toggle
 
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
@@ -59,6 +98,7 @@ active_subfeature: none
 ## Todos
 
 ## Rules
+- **Collapsible grouped-card pattern**: When a setting toggle has conditional sub-settings that should only appear when the toggle is ON, wrap both the toggle and the sub-settings in a single `Column` with `.clip(RoundedCornerShape(12.dp)).background(0x1AFFFFFF)` card background. Use a thin `0.5.dp` white divider (10% alpha) between the toggle and the expander. The sub-settings go inside a `SettingsExpander` with the `if (condition)` gate on the outer card. The expander label style should match the toggle label style (`White/16.sp/Medium`). Key files: `SystemSettings` in `MapScreen.kt` (POSITION SOURCE section).
 
 ## Key Files
 - `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt`

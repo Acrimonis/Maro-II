@@ -1,10 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** GPS
+- **Active Feature:** Ui_Settings
 - **Active Subfeature:** none
-- **Last Updated:** 2026-06-11 14:00
-- **Last Bake:** 2026-06-11 15:00 (GPS — icon layout tuning: bottom-left, blue IDLE, configurable alphas via maro.properties)
+- **Last Updated:** 2026-06-11 17:50
+- **Last Bake:** 2026-06-11 17:50 (Ui_Settings — settings tab reorg complete: General/Display rename, System reorder, GPS grouped card, idle saving move, low-depth + Z300 grouped cards, label renames)
+- **Branch:** feature/settings-reorga (tracking origin/develop)
 
 ## Routing Map
 | Keyword | Feature File |
