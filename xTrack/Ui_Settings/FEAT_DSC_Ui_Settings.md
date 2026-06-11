@@ -1,5 +1,5 @@
 ---
-name: Settings
+name: Ui_Settings
 status: active
 created: 2026-06-09 15:28
 modified: 2026-06-10 14:57
@@ -65,5 +65,7 @@ active_subfeature: none
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
 
 ## Docs
+- `plans/settings-apply-on-close.md` — settings apply-on-close UX design
 - `plans/settings-scroll-persistence.md` — discussion: hoist `ScrollState` to survive overlay dismiss/reopen within a session
+- `plans/settings-scroll-persistence-analysis.md` — scroll persistence analysis
 - `plans/settings-tab-organization.md` — discussion: organize settings into tabs/sections

@@ -1,55 +1,45 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** Dashboard
-- **Active Subfeature:** tile subdued font
-- **Last Updated:** 2026-06-10
-- **Last Bake:** 2026-06-10 15:24 (Dashboard — tile subdued font: 33% alpha, grey bg for dull states, dimmed titles, 2x alert-distance gate)
+- **Active Feature:** Documentation
+- **Active Subfeature:** none
+- **Last Updated:** 2026-06-11
+- **Last Bake:** 2026-06-11 07:35 (Documentation — cleanup: plans/doc attachment sweep complete; 5 features renamed)
 
 ## Routing Map
 | Keyword | Feature File |
 |---|---|
+| documentation, docs, readme, faq, setup, git_workflow, maro_architecture, plans | xTrack/Documentation/FEAT_DSC_Documentation.md |
 | workflow, clinerules, xtrack, commands, memory, #doc, doccommands | xTrack/WorkflowImprovement/FEAT_DSC_WorkflowImprovement.md |
-| documentation, docs, readme, project | xTrack/ProjectDocumentation/FEAT_DSC_ProjectDocumentation.md |
 | zone300, zone, 300 | xTrack/Zone300/FEAT_DSC_Zone300.md |
-| codereview, code review, review, quality, lint | xTrack/CodeReview/FEAT_DSC_CodeReview.md |
 | depth, bathymetry, depthmapping, baro, seafloor, soundings, litto3d, shom, emodnet | xTrack/DepthMapping/FEAT_DSC_DepthMapping.md |
 | coastline, trait de côte, fourmigue, hazard, obstruction, balisage, danger_isole, aton, seamark, lighthouse, reef | xTrack/Coastline/FEAT_DSC_Coastline.md |
-| dashboard, ui, layout, hud, display, screen | xTrack/Dashboard/FEAT_DSC_Dashboard.md |
-| ui, ui-thingies, layout, onwater, button | xTrack/UiThingies/FEAT_DSC_UiThingies.md |
-| gps, gpsplugin, gps mode, demo mode, heading, course, compass, location, geolocation | xTrack/GpsPlugin/FEAT_DSC_GpsPlugin.md |
-| mapdisplay, map display, map, layer, depth layer, color depth, orientation | xTrack/MapDisplay/FEAT_DSC_MapDisplay.md |
+| dashboard, ui, layout, hud, display, screen | xTrack/Ui_Dashboard/FEAT_DSC_Ui_Dashboard.md |
+| gps, gpsplugin, gps mode, demo mode, heading, course, compass, location, geolocation | xTrack/GPS/FEAT_DSC_GPS.md |
+| mapdisplay, map display, map, layer, depth layer, color depth, orientation | xTrack/UI_Map/FEAT_DSC_UI_Map.md |
 | performance, battery, gps-tune, adaptive, compass-gate, map-refresh, battery-drain | xTrack/Performance/FEAT_DSC_Performance.md |
-| isonwater, isonwateragain, iswater, waterland, raycast, crossing, point-in-polygon | xTrack/isOnWaterAgain/FEAT_DSC_isOnWaterAgain.md |
 | bake, baking, bake-script, bake-bat, apk-bake, apk-build, apk-deploy, deploy, prebake-pipeline, bake-env | xTrack/BakeNormalization/FEAT_DSC_BakeNormalization.md |
 | depthsafety, depth-safety, danger-depth, shallow, grounding, isobar precision, isobath precision, depth alert, depth overlay, water-only | xTrack/DepthSafety/FEAT_DSC_DepthSafety.md |
-| localisation, localization, i18n, locale, language, translation, strings, values-fr, stringresource | xTrack/Localisation/FEAT_DSC_Localisation.md |
-| app-bak-flow, app-back-flow, back, back button, back handler, exit, double-back, press back, keep screen on, keep awake, screen-on, wakelock | xTrack/AppBakFlow/FEAT_DSC_AppBakFlow.md |
-| settings, preferences, config, scroll, options | xTrack/Settings/FEAT_DSC_Settings.md |
-| ui-tweaks, nodata, colour, color, visual, polish, layout | xTrack/UiTweaks/FEAT_DSC_UiTweaks.md |
+| app-bak-flow, app-back-flow, back, back button, back handler, exit, double-back, press back, keep screen on, keep awake, screen-on, wakelock | xTrack/Ui_General/FEAT_DSC_Ui_General.md |
+| settings, preferences, config, scroll, options | xTrack/Ui_Settings/FEAT_DSC_Ui_Settings.md |
 
 ## Feature Summaries
 
 | Feature | One-Liner | Created | Modified | Status |
 |---------|-----------|---------|----------|--------|
+| **Documentation** | **README, FAQs, setup guides, architecture docs, and plans cleanup** | **2026-06-11 06:42** | **2026-06-11 07:35** | **active** |
 | WorkflowImprovement | xTrack #command system, git shortcuts, #now/#list rename, trigger syntax, fuzzy matching, bootstrap, and memory bake lifecycle | 2026-06-03 00:00 | 2026-06-10 07:30 | active |
-| ProjectDocumentation | Project documentation, README, FAQs, setup guides, and architecture overview | 2026-05-15 00:00 | 2026-06-03 00:00 | active |
 | Zone300 | 300m zone generation from coastline with water-only constraint | 2026-05-20 00:00 | 2026-06-03 00:00 | active |
-| CodeReview | Code quality review, linting, and structural improvements | 2026-06-01 00:00 | 2026-06-05 00:00 | active |
 | DepthMapping | Bathymetry / depth mapping from Litto3D, SHOM, EMODnet sources | 2026-05-10 00:00 | 2026-06-10 12:13 | active |
 | Coastline | Coastline extraction, spatial indexing, isOnWater determination | 2026-05-10 00:00 | 2026-06-05 00:00 | active |
-| Dashboard | Main dashboard UI layout and HUD information display | 2026-05-15 00:00 | 2026-06-10 15:24 | active |
-| UiThingies | UI widgets, buttons, and interactive elements | 2026-05-20 00:00 | 2026-06-03 00:00 | active |
-| GpsPlugin | GPS plugin with demo mode, heading/COG compass, geolocation | 2026-05-10 00:00 | 2026-06-03 00:00 | active |
-| MapDisplay | Map rendering, depth color layer, orientation overlay | 2026-05-10 00:00 | 2026-06-03 00:00 | active |
+| Ui_Dashboard | Main dashboard UI layout and HUD information display | 2026-05-15 00:00 | 2026-06-10 15:24 | active |
+| GPS | GPS plugin with demo mode, heading/COG compass, geolocation | 2026-05-10 00:00 | 2026-06-03 00:00 | active |
+| UI_Map | Map rendering, depth color layer, orientation overlay | 2026-05-10 00:00 | 2026-06-03 00:00 | active |
 | Performance | Battery optimization, adaptive GPS tuning, compass gate, map refresh | 2026-05-20 00:00 | 2026-06-05 00:00 | active |
-| isOnWaterAgain | Water/land determination via raycasting and point-in-polygon | 2026-05-25 00:00 | 2026-06-05 00:00 | active |
 | BakeNormalization | APK bake/build/deploy pipeline and prebake data processing | 2026-06-01 00:00 | 2026-06-05 00:00 | active |
 | DepthSafety | Danger depth alerts, shallow water grounding prevention, isobath precision | 2026-06-03 00:00 | 2026-06-05 00:00 | active |
-| Localisation | i18n/localization, French translations, string resources | 2026-06-03 00:00 | 2026-06-03 00:00 | active |
-| AppBakFlow | Back button handling, double-back-to-exit, keep-screen-on/wakelock | 2026-06-03 00:00 | 2026-06-03 00:00 | active |
-| Settings | Settings page UI, persistence, widgets, and UX enhancements | 2026-06-09 15:28 | 2026-06-09 19:42 | active |
-| UiTweaks | Non-functional UI adjustments — visual polish, colour tuning, layout refinement | 2026-06-09 21:05 | 2026-06-09 21:16 | active |
+| Ui_General | App-lifecycle UX: back-to-exit guard and keep-screen-on wakelock | 2026-06-03 00:00 | 2026-06-03 00:00 | active |
+| Ui_Settings | Settings page UI, persistence, widgets, and UX enhancements | 2026-06-09 15:28 | 2026-06-09 19:42 | active |
 | **Navigation** | **Navigation aids — heading/speed arrow and direction line on map overlay** | **2026-06-10 08:40** | **2026-06-10 14:21** | **active** |
 
 ## Global Rules

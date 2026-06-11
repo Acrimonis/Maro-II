@@ -1,17 +1,17 @@
 ---
-name: AppBakFlow
+name: Ui_General
 status: done
 created: 2026-06-08 16:43
 modified: 2026-06-08 16:43
 active_subfeature: none
 ---
 
-# Feature: AppBakFlow
+# Feature: Ui_General
 
 **Description:**
 App-lifecycle UX for the Maro-II app: intercept the system back action to guard
 against accidental exits, and let the user keep the device screen awake while the
-app is running. Branch `feature/app-bak-flow` (off `develop`).
+app is running.
 
 ## Subfeatures
 
@@ -48,7 +48,6 @@ screen from sleeping while the app is in the foreground.
 #### Key Files
 - `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — `keepScreenOn` field/key/load/persist (SharedPreferences, mirrors `languageCode`).
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `SettingsToggleRow` + `DisposableEffect` driving `LocalView.keepScreenOn`.
-- `app/src/main/res/values/strings.xml`, `values-fr/strings.xml` — `settings_keep_screen_on_label` / `_desc`.
 
 ## Todos
 

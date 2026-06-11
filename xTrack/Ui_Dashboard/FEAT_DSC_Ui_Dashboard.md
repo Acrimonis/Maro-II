@@ -1,9 +1,9 @@
 ---
-name: Dashboard
+name: Ui_Dashboard
 status: active
 created: 2026-06-06 00:00
 modified: 2026-06-10 15:24
-active_subfeature: tile subdued font
+active_subfeature: none
 ---
 
 # Feature: Dashboard
@@ -139,3 +139,4 @@ Redesign the bottom panel into a proper dashboard for quick reading of indicator
 
 ## Docs
 - [`plans/dashboard-readability-improvements.md`](plans/dashboard-readability-improvements.md) — Readability & space management discussion plan (format padding, reduced paddings, font weight bumps)
+- `plans/dashboard-tile-titles.md` — Dashboard tile titles sizing & prominence design

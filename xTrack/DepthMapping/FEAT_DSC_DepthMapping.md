@@ -278,3 +278,5 @@ Apply the EMODnet shallow-water gate to the colour map, low-depth warning overla
 - `docs/oZer/BARO - Step 01 - Data sources discussion.md` — prior research
 - `plans/depth-emodnet-gate-nodata-color.md` — EMODnet shallow gate + NoData colour plan
 - `plans/litto3d-regression-analysis.md` — Litto3D missing-from-bake regression analysis + fix path
+- `plans/depth-oom-mmap-fix.md` — Depth OOM memory-mapped I/O fix practical steps
+- `plans/intra-raster-progress.md` — Intra-raster progress fix plan for raster builders

@@ -57,3 +57,5 @@ small WFS GetFeature client; reuse Overpass HTTP plumbing from CoastlineGenerato
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — map controls: "Côte" button → `viewModel.loadCoastline()` → `refreshCoastline()` (delete cache + OSM refetch, re-merges hazards); "Bande" → `regenerateBand()` (band only, no refetch).
 
 ## Docs
+- `xTrack/Coastline/FEAT_DOC_Coastline_300m-line-design.md` — 300m line design document
+- `xTrack/Coastline/FEAT_DOC_Coastline_300m-line-plan.md` — 300m line plan document

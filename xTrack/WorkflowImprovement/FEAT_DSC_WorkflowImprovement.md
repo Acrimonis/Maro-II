@@ -3,7 +3,7 @@ name: WorkflowImprovement
 status: active
 created: 2026-06-03 00:00
 modified: 2026-06-10 06:56
-active_subfeature: gitting-it
+active_subfeature: none
 ---
 
 # Feature: WorkflowImprovement
@@ -152,8 +152,11 @@ Define the Zero-Piecemeal Writes discussion exception: allow one plan file per d
 
 ## Docs
 - `docs/cmd_help.md` — command reference (—help output)
+- `docs/GIT_WORKFLOW.md` — Git workflow conventions
 - `xTrack/WorkflowImprovement/FEAT_PLN_WorkflowImprovement_planning.md` — Zero-Piecemeal Writes discussion exception design
 - `xTrack/WorkflowImprovement/FEAT_PLN_WorkflowImprovement_feat-summary-layer.md` — FEAT_ summary layer token optimization discussion
+- `plans/feat-xtrack-reorg.md` — xTrack FEAT_* file reorganization implementation spec
+- `plans/git-merge-command.md` — Git merge command design
 
 ## Notes
 <!-- blockers, design decisions, context for next session -->

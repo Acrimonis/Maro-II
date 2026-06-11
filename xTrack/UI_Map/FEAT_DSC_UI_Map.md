@@ -1,5 +1,5 @@
 ---
-name: MapDisplay
+name: UI_Map
 status: active
 created: 2026-06-07 00:00
 modified: 2026-06-08 21:36
@@ -202,3 +202,5 @@ together (as the 300 m toggle was on its own).
 ## Key Files
 
 ## Docs
+- `xTrack/MapDisplay/FEAT_DOC_MapDisplay_marker-sizing.md` — centred boat marker sizing & behaviour on the map
+- `plans/animateTo-interaction-analysis.md` — animateTo interaction with map refresh FPS analysis
