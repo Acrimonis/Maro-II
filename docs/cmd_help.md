@@ -25,15 +25,15 @@ Docs:     #doc                 feature docs (scope-aware)
           #doc audit           check docs for missing scope tags, orphans, invalid scopes
 Session:  #bake                snapshot session (updates summaries table + xTrack/[Feature]/FEAT_HYD_)
           #help                this list
-Git:      #new [branch]        fetch develop, create + switch to new branch from remote develop
-          #commit              run #bake + git add -A && git commit
-          #push                push current branch to remote
-          #move [branch]       stash uncommitted changes, switch to existing branch, pop stash
-          #move new [branch]   stash uncommitted changes, create new branch from develop, pop stash
-          #cherry [target]     interactive: list unpushed commits, select which to copy to [target]
+Git:      🔴 See [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md) for full rules + enforcement.
+          #new [branch]        create `feature/[branch]` from origin/develop
+          #commit              bake + add + commit. 🚫 refuses on develop/main.
+          #push                push current branch. 🚫 refuses on develop/main.
+          #move [branch]       stash → switch → pop (existing)
+          #move new [branch]   stash → create from develop → pop
+          #cherry [target]     interactive cherry-pick unpushed commits
           #copy [target]       alias for #cherry
-          #rename [branch]     rename current branch to [branch]
-          #merge               rebase current branch onto origin/develop + force-push (PR-ready)
-          #merge [branch]      rebase current branch onto [branch] + force-push
+          #rename [branch]     git branch -m
+          #merge               rebase + force-push. 🚫 refuses on develop/main.
 Health:   #doctor              lint xTrack for drift
           #doctor fix          auto-repair
