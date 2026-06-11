@@ -1,7 +1,7 @@
 package ykws.android.maro.data.regulation
 
-import kotlinx.serialization.encodeToByteArray
-import kotlinx.serialization.decodeFromByteArray
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
 
 /**
@@ -34,7 +34,7 @@ object RegulatedZoneSerializer {
      * Serialize a [RegulatedZoneSet] into a [ByteArray].
      */
     fun serialize(data: RegulatedZoneSet): ByteArray =
-        json.encodeToByteArray(RegulatedZoneSet.serializer(), data)
+        json.encodeToString(data).encodeToByteArray()
 
     /**
      * Deserialize a [RegulatedZoneSet] from a [ByteArray].
@@ -43,5 +43,5 @@ object RegulatedZoneSerializer {
      *         malformed or incompatible with the current schema.
      */
     fun deserialize(bytes: ByteArray): RegulatedZoneSet =
-        json.decodeFromByteArray(RegulatedZoneSet.serializer(), bytes)
+        json.decodeFromString(bytes.decodeToString())
 }

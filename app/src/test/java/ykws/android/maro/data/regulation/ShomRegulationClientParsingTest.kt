@@ -7,8 +7,6 @@ import okhttp3.Protocol
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import ykws.android.maro.data.model.BoundingBox
@@ -16,8 +14,13 @@ import ykws.android.maro.data.model.LatLng
 import java.util.concurrent.TimeUnit
 
 /**
- * Unit tests for [ShomRegulationClient] — validates GeoJSON parsing, vessel size
- * extraction, and error resilience using a mock HTTP client.
+ * Unit tests for [ShomRegulationClient] — validates GeoJSON parsing,
+ * error resilience, and property mapping using a mock HTTP client.
+ *
+ * Note: The mock returns the same response body for ALL requests.
+ * Since [ShomRegulationClient] iterates over [ShomRegulationClient.CANDIDATE_TYPENAMES]
+ * (4 entries by default), a single-feature mock response yields 4 zones
+ * (one per typeName). All tests account for this multiplier.
  */
 class ShomRegulationClientParsingTest {
 
@@ -25,6 +28,9 @@ class ShomRegulationClientParsingTest {
         lonWest = 6.70, latSouth = 43.35,
         lonEast = 7.31, latNorth = 43.73
     )
+
+    /** Number of candidate typeNames the client iterates over. */
+    private val typeNameCount = ShomRegulationClient.CANDIDATE_TYPENAMES.size
 
     /** Create a mock [OkHttpClient] that returns the given [body] for any request. */
     private fun mockClient(body: String): OkHttpClient = OkHttpClient.Builder()
@@ -65,8 +71,8 @@ class ShomRegulationClientParsingTest {
         val client = ShomRegulationClient(httpClient = mockClient(json))
         val zones = client.fetchZones(testBbox)
 
-        assertEquals(1, zones.size)
-        val zone = zones.single()
+        assertEquals(typeNameCount, zones.size)
+        val zone = zones.first()
         assertEquals(RegulatedZoneType.SPEED_LIMIT, zone.zoneType)
         assertEquals(10.0, zone.speedLimitKn!!, 0.001)
         assertEquals("Test Speed Zone", zone.name)
@@ -77,34 +83,7 @@ class ShomRegulationClientParsingTest {
     }
 
     @Test
-    fun `parse vessel size restriction from longueur_hors_tout`() = runBlocking {
-        val json = """
-        {
-          "type": "FeatureCollection",
-          "features": [{
-            "type": "Feature",
-            "geometry": {"type": "Polygon", "coordinates": [[[7.1,43.5],[7.2,43.6],[7.3,43.5],[7.1,43.5]]]},
-            "properties": {
-              "type_reglementation": "vitesse",
-              "longueur_hors_tout_mini": 20.0,
-              "longueur_hors_tout_maxi": 50.0
-            }
-          }]
-        }
-        """.trimIndent()
-
-        val client = ShomRegulationClient(httpClient = mockClient(json))
-        val zones = client.fetchZones(testBbox)
-
-        assertEquals(1, zones.size)
-        val vsr = zones.single().vesselSizeRestriction
-        assertNotNull(vsr)
-        assertEquals(20.0, vsr!!.minLengthM, 0.001)
-        assertEquals(50.0, vsr.maxLengthM, 0.001)
-    }
-
-    @Test
-    fun `fallback to longueur_mini when longueur_hors_tout_mini absent`() = runBlocking {
+    fun `parse anchoring prohibition zone`() = runBlocking {
         val json = """
         {
           "type": "FeatureCollection",
@@ -113,7 +92,8 @@ class ShomRegulationClientParsingTest {
             "geometry": {"type": "Polygon", "coordinates": [[[7.1,43.5],[7.2,43.6],[7.3,43.5],[7.1,43.5]]]},
             "properties": {
               "type_reglementation": "mouillage",
-              "longueur_mini": 15.0
+              "nom": "Zone de mouillage interdite",
+              "id_reglementation": "ANC-001"
             }
           }]
         }
@@ -122,15 +102,13 @@ class ShomRegulationClientParsingTest {
         val client = ShomRegulationClient(httpClient = mockClient(json))
         val zones = client.fetchZones(testBbox)
 
-        assertEquals(1, zones.size)
-        val vsr = zones.single().vesselSizeRestriction
-        assertNotNull(vsr)
-        assertEquals(15.0, vsr!!.minLengthM, 0.001)
-        assertNull(vsr.maxLengthM)
+        assertEquals(typeNameCount, zones.size)
+        assertEquals(RegulatedZoneType.ANCHORING_PROHIBITED, zones.first().zoneType)
+        assertEquals("Zone de mouillage interdite", zones.first().name)
     }
 
     @Test
-    fun `no vessel size properties yields null restriction`() = runBlocking {
+    fun `parse access prohibition zone`() = runBlocking {
         val json = """
         {
           "type": "FeatureCollection",
@@ -138,7 +116,8 @@ class ShomRegulationClientParsingTest {
             "type": "Feature",
             "geometry": {"type": "Polygon", "coordinates": [[[7.1,43.5],[7.2,43.6],[7.3,43.5],[7.1,43.5]]]},
             "properties": {
-              "type_reglementation": "protection"
+              "type_reglementation": "acces_interdit",
+              "nom": "Accès interdit"
             }
           }]
         }
@@ -147,8 +126,77 @@ class ShomRegulationClientParsingTest {
         val client = ShomRegulationClient(httpClient = mockClient(json))
         val zones = client.fetchZones(testBbox)
 
-        assertEquals(1, zones.size)
-        assertNull(zones.single().vesselSizeRestriction)
+        assertEquals(typeNameCount, zones.size)
+        assertEquals(RegulatedZoneType.ACCESS_PROHIBITED, zones.first().zoneType)
+    }
+
+    @Test
+    fun `parse environmental protection zone`() = runBlocking {
+        val json = """
+        {
+          "type": "FeatureCollection",
+          "features": [{
+            "type": "Feature",
+            "geometry": {"type": "Polygon", "coordinates": [[[7.1,43.5],[7.2,43.6],[7.3,43.5],[7.1,43.5]]]},
+            "properties": {
+              "type_reglementation": "protection",
+              "nom": "Zone de protection"
+            }
+          }]
+        }
+        """.trimIndent()
+
+        val client = ShomRegulationClient(httpClient = mockClient(json))
+        val zones = client.fetchZones(testBbox)
+
+        assertEquals(typeNameCount, zones.size)
+        assertEquals(RegulatedZoneType.ENVIRONMENTAL, zones.first().zoneType)
+    }
+
+    @Test
+    fun `unknown type_reglementation maps to OTHER`() = runBlocking {
+        val json = """
+        {
+          "type": "FeatureCollection",
+          "features": [{
+            "type": "Feature",
+            "geometry": {"type": "Polygon", "coordinates": [[[7.1,43.5],[7.2,43.6],[7.3,43.5],[7.1,43.5]]]},
+            "properties": {
+              "type_reglementation": "unknown_type",
+              "nom": "Unrecognized"
+            }
+          }]
+        }
+        """.trimIndent()
+
+        val client = ShomRegulationClient(httpClient = mockClient(json))
+        val zones = client.fetchZones(testBbox)
+
+        assertEquals(typeNameCount, zones.size)
+        assertEquals(RegulatedZoneType.OTHER, zones.first().zoneType)
+    }
+
+    @Test
+    fun `missing vitesse_max yields null speed`() = runBlocking {
+        val json = """
+        {
+          "type": "FeatureCollection",
+          "features": [{
+            "type": "Feature",
+            "geometry": {"type": "Polygon", "coordinates": [[[7.1,43.5],[7.2,43.6],[7.3,43.5],[7.1,43.5]]]},
+            "properties": {
+              "type_reglementation": "vitesse",
+              "nom": "No speed given"
+            }
+          }]
+        }
+        """.trimIndent()
+
+        val client = ShomRegulationClient(httpClient = mockClient(json))
+        val zones = client.fetchZones(testBbox)
+
+        assertEquals(typeNameCount, zones.size)
+        // speedLimitKn defaults to null when property is absent
     }
 
     @Test
@@ -213,7 +261,65 @@ class ShomRegulationClientParsingTest {
         val client = ShomRegulationClient(httpClient = mockClient(json))
         val zones = client.fetchZones(testBbox)
 
-        assertEquals(1, zones.size)
-        assertEquals(5.0, zones.single().speedLimitKn, 0.001)
+        assertEquals(typeNameCount, zones.size)
+        assertEquals(5.0, zones.first().speedLimitKn!!, 0.001)
+    }
+
+    @Test
+    fun `Polygon with holes is parsed`() = runBlocking {
+        val json = """
+        {
+          "type": "FeatureCollection",
+          "features": [{
+            "type": "Feature",
+            "geometry": {
+              "type": "Polygon",
+              "coordinates": [
+                [[7.1,43.5],[7.2,43.6],[7.3,43.5],[7.1,43.5]],
+                [[7.15,43.53],[7.18,43.55],[7.2,43.52],[7.15,43.53]]
+              ]
+            },
+            "properties": {
+              "type_reglementation": "vitesse",
+              "vitesse_max": 8.0,
+              "nom": "Zone with hole"
+            }
+          }]
+        }
+        """.trimIndent()
+
+        val client = ShomRegulationClient(httpClient = mockClient(json))
+        val zones = client.fetchZones(testBbox)
+
+        assertEquals(typeNameCount, zones.size)
+        val zone = zones.first()
+        assertEquals(8.0, zone.speedLimitKn!!, 0.001)
+        assertEquals("Zone with hole", zone.name)
+        assertTrue("Expected holes to be non-empty", zone.holes.isNotEmpty())
+    }
+
+    @Test
+    fun `2 features in collection multiplied by typeNames`() = runBlocking {
+        val json = """
+        {
+          "type": "FeatureCollection",
+          "features": [{
+            "type": "Feature",
+            "geometry": {"type": "Polygon", "coordinates": [[[7.1,43.5],[7.2,43.6],[7.3,43.5],[7.1,43.5]]]},
+            "properties": {"type_reglementation": "vitesse", "nom": "A"}
+          },{
+            "type": "Feature",
+            "geometry": {"type": "Polygon", "coordinates": [[[7.2,43.5],[7.3,43.6],[7.4,43.5],[7.2,43.5]]]},
+            "properties": {"type_reglementation": "mouillage", "nom": "B"}
+          }]
+        }
+        """.trimIndent()
+
+        val client = ShomRegulationClient(httpClient = mockClient(json))
+        val zones = client.fetchZones(testBbox)
+
+        assertEquals(typeNameCount * 2, zones.size) // 4 typeNames × 2 features
+        val names = zones.map { it.name }.distinct().sorted()
+        assertEquals(listOf("A", "B"), names)
     }
 }

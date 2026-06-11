@@ -197,18 +197,6 @@ class ShomRegulationClient(
         val sourceRef = properties["id_reglementation"]?.jsonPrimitive?.content ?: ""
         val description = properties["description"]?.jsonPrimitive?.content ?: ""
 
-        // Parse vessel size restriction (SHOM uses longueur_hors_tout_mini/maxi;
-        // fall back to longueur_mini/maxi for alternative schemas).
-        val vesselSizeRestriction = run {
-            val minLen = properties["longueur_hors_tout_mini"]?.jsonPrimitive?.doubleOrNull
-                ?: properties["longueur_mini"]?.jsonPrimitive?.doubleOrNull
-            val maxLen = properties["longueur_hors_tout_maxi"]?.jsonPrimitive?.doubleOrNull
-                ?: properties["longueur_maxi"]?.jsonPrimitive?.doubleOrNull
-            if (minLen != null || maxLen != null) {
-                VesselSizeRestriction(minLengthM = minLen, maxLengthM = maxLen)
-            } else null
-        }
-
         // Parse geometry
         return when (geomType) {
             "Polygon" -> {
@@ -221,8 +209,7 @@ class ShomRegulationClient(
                     name = name,
                     source = "SHOM",
                     sourceRef = sourceRef,
-                    description = description,
-                    vesselSizeRestriction = vesselSizeRestriction
+                    description = description
                 )
             }
             "MultiPolygon" -> {
@@ -242,8 +229,7 @@ class ShomRegulationClient(
                     name = name,
                     source = "SHOM",
                     sourceRef = sourceRef,
-                    description = description,
-                    vesselSizeRestriction = vesselSizeRestriction
+                    description = description
                 )
             }
             else -> null // Unsupported geometry type

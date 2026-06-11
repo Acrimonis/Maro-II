@@ -55,18 +55,6 @@ class ShomRegulationConnectivityTest {
             assertFalse("Zone source should not be empty", first.source.isBlank())
             println("[connectivity] First zone: type=${first.zoneType} name='${first.name}' " +
                     "points=${first.outerRing.size} source=${first.source}")
-
-            // Check for vessel size data
-            val zonesWithSize = zones.count { it.vesselSizeRestriction != null }
-            if (zonesWithSize > 0) {
-                val sample = zones.first { it.vesselSizeRestriction != null }
-                println("[connectivity] Vessel size restrictions found: $zonesWithSize zones " +
-                        "(e.g. min=${sample.vesselSizeRestriction!!.minLengthM} " +
-                        "max=${sample.vesselSizeRestriction!!.maxLengthM})")
-            } else {
-                println("[connectivity] No vessel size restrictions found in response " +
-                        "(fields may be absent in current SHOM schema)")
-            }
         } else {
             println("[connectivity] SHOM returned 0 zones for the Nice–Fréjus bbox " +
                     "(may be empty area or schema mismatch)")
@@ -79,47 +67,48 @@ class ShomRegulationConnectivityTest {
         var successCount = 0
 
         for (typeName in ShomRegulationClient.CANDIDATE_TYPENAMES) {
-            val url = buildGetFeatureUrl(typeName, testBbox)
-            val body = httpGet(url)
-            if (body != null && body.contains("\"type\":\"FeatureCollection\"")) {
+            val url = "https://services.data.shom.fr/wfs/reglementation" +
+                    "?service=WFS&version=2.0.0&request=GetFeature" +
+                    "&typeNames=$typeName" +
+                    "&bbox=${testBbox.lonWest},${testBbox.latSouth},${testBbox.lonEast},${testBbox.latNorth}" +
+                    "&outputFormat=application/json&srsName=EPSG:4326"
+            val response = httpGet(url)
+            if (response != null) {
                 successCount++
-                // Quick count of features
-                val featureCount = body.split("\"type\":\"Feature\"").size - 1
-                totalZones += featureCount
-                println("[connectivity]   $typeName: $featureCount features")
+                totalZones += countOccurrences(response, "\"type\": \"Feature\"")
+                println("[connectivity]   $typeName: OK (${countOccurrences(response, "\"Feature\"")} features)")
             } else {
-                println("[connectivity]   $typeName: (empty or error)")
+                println("[connectivity]   $typeName: no response")
             }
         }
+        println("[connectivity] $successCount/${ShomRegulationClient.CANDIDATE_TYPENAMES.size} typeNames responded; $totalZones total features")
 
-        println("[connectivity] Total: $successCount/${ShomRegulationClient.CANDIDATE_TYPENAMES.size} typeNames returned data, $totalZones zones")
+        // At least some typeNames should respond if SHOM is up
+        // (no assert — this is diagnostic; SHOM may add/remove layers)
     }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
 
     private fun httpGet(url: String): String? {
-        return runCatching {
+        return try {
             val conn = URL(url).openConnection() as HttpURLConnection
-            conn.connectTimeout = 10_000
-            conn.readTimeout = 10_000
-            conn.setRequestProperty("User-Agent", "MaroII-ConnectivityTest/1.0")
-            conn.setRequestProperty("Accept", "application/json, text/plain, */*")
-            conn.inputStream.bufferedReader().use { it.readText() }
-        }.getOrNull()
+            conn.connectTimeout = 10000
+            conn.readTimeout = 10000
+            conn.requestMethod = "GET"
+            conn.inputStream.bufferedReader().readText()
+        } catch (e: Exception) {
+            println("[connectivity] HTTP error for $url: ${e.message}")
+            null
+        }
     }
 
-    private fun buildGetFeatureUrl(typeName: String, bbox: BoundingBox): String = buildString {
-        append("https://services.data.shom.fr/wfs/reglementation")
-        append("?service=WFS")
-        append("&version=2.0.0")
-        append("&request=GetFeature")
-        append("&typeNames=").append(typeName)
-        append("&bbox=")
-        append(bbox.lonWest).append(',')
-        append(bbox.latSouth).append(',')
-        append(bbox.lonEast).append(',')
-        append(bbox.latNorth)
-        append("&outputFormat=application/json")
-        append("&srsName=EPSG:4326")
+    private fun countOccurrences(text: String, sub: String): Int {
+        var count = 0
+        var idx = 0
+        while (true) {
+            idx = text.indexOf(sub, idx)
+            if (idx < 0) break
+            count++
+            idx += sub.length
+        }
+        return count
     }
 }

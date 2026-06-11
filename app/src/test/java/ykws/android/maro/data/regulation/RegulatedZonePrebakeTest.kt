@@ -30,15 +30,15 @@ class RegulatedZonePrebakeTest {
         val outputDir = File(repoDir, "data/app-assets/regulated-zones")
         outputDir.mkdirs()
 
+        val bbox = BoundingBox(
+            lonWest = 6.70, latSouth = 43.35,
+            lonEast = 7.31, latNorth = 43.73
+        )
+
         // ── 1. Fetch from SHOM WFS ────────────────────────────────────────────
         println("[prebake] Fetching SHOM regulation zones for $region...")
         val shomZones: List<RegulatedZone> = runBlocking {
-            ShomRegulationClient().fetchZones(
-                bbox = BoundingBox(
-                    lonWest = 6.70, latSouth = 43.35,
-                    lonEast = 7.31, latNorth = 43.73
-                )
-            )
+            ShomRegulationClient().fetchZones(bbox = bbox)
         }
         println("[prebake] SHOM returned ${shomZones.size} zones")
 
@@ -47,8 +47,11 @@ class RegulatedZonePrebakeTest {
         println("[prebake] ${seeds.size} seed zones")
 
         // ── 3. Aggregate (dedup SHOM + seeds) ─────────────────────────────────
-        val allZones = shomZones + seeds
-        val zoneSet = RegulationAggregator.aggregate(allZones, regionId = region)
+        val zoneSet = RegulationAggregator.aggregate(
+            shomZones = shomZones,
+            seedZones = seeds,
+            bbox = bbox
+        )
         println("[prebake] ${zoneSet.metadata.totalZones} zones after dedup " +
                 "(${zoneSet.metadata.sourceCount} sources)")
 
