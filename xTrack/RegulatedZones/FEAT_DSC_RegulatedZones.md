@@ -2,7 +2,7 @@
 name: RegulatedZones
 status: active
 created: 2026-06-11 18:00
-modified: 2026-06-11 18:47
+modified: 2026-06-11 20:25
 active_subfeature: data-lookup
 ---
 
@@ -46,15 +46,15 @@ Goal: gather, aggregate, and model these spatial regulatory zones into a structu
   - bbox = Nice–Fréjus corridor (6.73°E–7.31°E, 43.35°N–43.73°N)
   - Best-effort, swallow errors (dataset degrades gracefully to empty)
   - Add a hard-coded seed fallback: the known Cap d'Antibes 10 kn zone, Lérins restrictions, and the 300 m band (already covered by Zone300 feature, but enumerated here for consistency)
-- [ ] **Build aggregation/normalization** — merge zones from multiple sources (SHOM + seeds + future): deduplicate by proximity (zones within X m = same feature), reconcile conflicting attributes
+- [x] **Build aggregation/normalization** — merge zones from multiple sources (SHOM + seeds + future): deduplicate by proximity (zones within X m = same feature), reconcile conflicting attributes
 - [x] **Define serialization schema** — Protobuf or kotlinx.serialization for `RegulatedZoneSet`:
   - `zones: List<RegulatedZone>`
   - `metadata: {regionId, source, fetchTimestampMs, zoneCount}`
-- [ ] **Build prebake test** — `RegulatedZonePrebakeTest.kt` gated by `-Dmaro.prebake=true`:
+- [x] **Build prebake test** — `RegulatedZonePrebakeTest.kt` gated by `-Dmaro.prebake=true`:
   - Fetch from live sources → aggregate → serialize to `data/app-assets/regulated-zones/<region>.bin`
   - Produce a console summary: zones found by type, count per source
 - [ ] **Build bake script** — `tools/bake-regulated-zones.bat` calling the prebake test
-- [ ] **Integrate into `apk-bake.bat`** — add "regulated-zones" as a selectable target in the bake menu
+- [x] **Integrate into `apk-bake.bat`** — add "regulated-zones" as a selectable target in the bake menu
 
 #### Rules
 - Follow the prebake pattern: all gathering at build time, app is pure consumer
@@ -82,10 +82,16 @@ Goal: gather, aggregate, and model these spatial regulatory zones into a structu
 - [x] Data source discovery (SHOM WFS endpoint & layer names)
 - [x] Data model definition (`RegulatedZone` data class + enum + set + `VesselSizeRestriction`)
 - [x] SHOM WFS client implementation
-- [ ] Aggregation + dedup + seed fallback
+- [x] Aggregation + dedup + seed fallback
 - [x] Serialization schema (Protobuf + `RegulatedZoneSerializer`)
-- [ ] Prebake test + bake script
-- [ ] Integration into apk-bake.bat
+- [x] Prebake test + bake script
+- [x] Integration into apk-bake.bat
+- [x] Live SHOM INSPIRE WFS integration test (Cap d'Antibes, 72 zones)
+- [x] Vessel size filtering (`appliesTo()` with description text heuristic)
+- [x] Speed limit extraction from description text
+- [x] Public INSPIRE endpoint (no auth required)
+- [x] `test-regulated-zones.bat` runner with HTML report
+- [x] ELI16 practical summary in README
 
 ## Rules
 - Personal-use app — regulatory data fetched offline, not redistributed

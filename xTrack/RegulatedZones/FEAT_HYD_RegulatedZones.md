@@ -1,31 +1,25 @@
 # RegulatedZones — Hydration Snapshot
 
-**Baked:** 2026-06-11 18:47 UTC
+**Baked:** 2026-06-11 20:25 UTC
 
-## State
+**Status:** data-lookup subfeature **complete**. All 9 implementation steps done. 34 tests pass.
 
-- **Status:** active
-- **Active subfeature:** data-lookup (complete)
-- **Remaining:** aggregation/normalization, prebake test, bake script, apk-bake integration
+**What was accomplished this session:**
+- Public SHOM INSPIRE WFS endpoint discovered: `https://services.data.shom.fr/INSPIRE/wfs` (no auth)
+- Real layer names: `REGLEMENTATION_NAVIGATION_BDD_WFS:*` (resare, splare, achare, ctsare, admare)
+- EPSG:3857 → WGS84 coordinate conversion with auto-CRS detection
+- Speed limit extraction from description text ("speed is limited to X knots")
+- Vessel size filtering: `appliesTo()` with structured + text heuristic
+- 72 live zones fetched for Nice-Fréjus corridor: speed limits (12), anchoring (12), fishing (5), navigation restrictions (3), access prohibited (1)
+- Key zones detected: Golfe Juan 10 kn (827 vertices), Nice 5 kn/10 kn zones, Lerins anchoring prohibition
+- `tools/test-regulated-zones.bat` — runs all 34 tests + opens HTML report
+- ELI16 practical summary in plans/regulated-zones-readme.md
+- Cleaned up `tools/test-regulated-zones.bat` (no BOM, no infinite loop)
 
-## What was built this session
+**Source files:**
+- `app/src/main/java/ykws/android/maro/data/regulation/` — 5 source files
+- `app/src/test/java/ykws/android/maro/data/regulation/` — 7 test files
+- `tools/bake-regulated-zones.bat`, `tools/test-regulated-zones.bat`
+- `plans/regulated-zones-readme.md` (ELI16 + practical guide)
 
-1. **Data model** — `RegulatedZone`, `RegulatedZoneSet`, `RegulationMetadata`, `RegulatedZoneType`, `VesselSizeRestriction`, `RegulationSeed` — all with `@Serializable` and `@ProtoNumber` annotations.
-2. **`RegulatedZoneSerializer`** — `object` using `ProtoBuf { encodeDefaults = false }` for compact binary serialization.
-3. **`ShomRegulationClient`** — WFS GetFeature client for SHOM regulation layers, parses GeoJSON including `longueur_hors_tout_mini`/`maxi` for vessel size restrictions.
-4. **`LatLng` updated** — added `@ProtoNumber` annotations for Protobuf compatibility.
-5. **`kotlinx-serialization-protobuf` dependency** — added to `libs.versions.toml` and `app/build.gradle.kts`.
-
-## Key Files
-
-- `app/src/main/java/ykws/android/maro/data/model/LatLng.kt`
-- `app/src/main/java/ykws/android/maro/data/regulation/RegulatedZone.kt`
-- `app/src/main/java/ykws/android/maro/data/regulation/ShomRegulationClient.kt`
-- `app/src/main/java/ykws/android/maro/data/regulation/RegulatedZoneSerializer.kt`
-- `app/src/main/java/ykws/android/maro/data/regulation/RegulationSeeds.kt`
-- `gradle/libs.versions.toml`
-- `app/build.gradle.kts`
-
-## Next Step
-
-Step 7 — Build `RegulatedZonePrebakeTest.kt` (Gradle test gated by `-Dmaro.prebake=true`) and `tools/bake-regulated-zones.bat`.
+**Next step:** display-layer subfeature — render zones on map with per-type colours/legend.

@@ -43,13 +43,14 @@
 | Ui_General | App-lifecycle UX: back-to-exit guard and keep-screen-on wakelock | 2026-06-03 00:00 | 2026-06-03 00:00 | active |
 | Ui_Settings | Settings page UI, persistence, widgets, and UX enhancements | 2026-06-09 15:28 | 2026-06-09 19:42 | active |
 | **Navigation** | **Navigation aids — heading/speed arrow and direction line on map overlay** | **2026-06-10 08:40** | **2026-06-11 11:55** | **active** |
-| **RegulatedZones** | **Maritime regulatory zones — fetch SHOM WFS, aggregate, serialize as bundled asset with vessel-size filtering, and display on map overlay** | **2026-06-11 18:00** | **2026-06-11 18:47** | **active** |
+| **RegulatedZones** | **Maritime regulatory zones — fetch SHOM WFS, aggregate, serialize as bundled asset with vessel-size filtering, and display on map overlay** | **2026-06-11 18:00** | **2026-06-11 20:25** | **active** |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).
 - `adb.exe` is in the computer PATH — use `adb` directly without full path qualifier.
 - Auto-refine rule wording for clarity and conciseness on `#rule` add.
 - Use apk-build.bat to build APK (runs gradlew assembleDebug).
+- **NO auto git commit/push** — `git add` only when directed; wait for user to say "commit" or "push" before executing those commands (per AGENTS.md §5).
 
 ## Global Todos
 - [ ] Validate the intermittent Overpass-outage theory — confirm the coastline OSM fetch failures are transient (succeeded 13:52, failing ~16:52 on 2026-06-08), not a persistent network / cert / IPv6 block. Quick checks: retry `bake-coastline` later; `curl -sk https://overpass-api.de/api/status`; race other mirrors.
