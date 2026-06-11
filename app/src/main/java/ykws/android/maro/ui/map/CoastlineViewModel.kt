@@ -3,6 +3,7 @@ package ykws.android.maro.ui.map
 import android.app.Application
 import android.content.Context
 import android.os.SystemClock
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -21,6 +22,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.distinctUntilChangedBy
@@ -195,11 +197,24 @@ class CoastlineViewModel(
     private val _navigationState = MutableStateFlow(NavigationState())
     val navigationState: StateFlow<NavigationState> = _navigationState.asStateFlow()
 
+    /**
+     * True when the GPS fix is stale: no fix received within [GPS_STALE_TIMEOUT_MS] or
+     * [GpsFix.hasLock] is false (GNSS satellite count below threshold or provider unavailable).
+     * The UI uses this to show a "GPS perdu" indicator.
+     */
+    private val _gpsStale = MutableStateFlow(false)
+    val gpsStale: StateFlow<Boolean> = _gpsStale.asStateFlow()
+
     /** Foreground gate: GPS/compass collectors run only while true (set by the screen lifecycle). */
     private val _gpsActive = MutableStateFlow(false)
 
     /** elapsedRealtime() of the last valid GPS course — seeds the 3 s compass fallback. */
     private var lastGpsBearingMs = 0L
+
+    /** Stale-fix watchdog: monotonic clock time of the last fix received. 0 = never received. */
+    private var lastFixMs = 0L
+    /** Stale-fix watchdog: the timeout job — cancelled and re-armed on each valid fix. */
+    private var staleWatchdogJob: Job? = null
 
     // ── Demo-mode pan speed tracking ──────────────────────────────────────────
     private var lastPanLat = 0.0
@@ -233,6 +248,9 @@ class CoastlineViewModel(
 
     /** Current GPS acquisition cadence — folded into the subscription params (rebuilds on change). */
     private val _acquisitionMode = MutableStateFlow(AcquisitionMode.ACTIVE)
+
+    /** Current GPS acquisition mode — exposed for the dashboard to show ACTIVE/IDLE state. */
+    val acquisitionMode: StateFlow<AcquisitionMode> = _acquisitionMode.asStateFlow()
 
     /** True when the compass is needed for heading (no valid GPS course) — gates its registration. */
     private val _needsCompass = MutableStateFlow(true)
@@ -376,10 +394,14 @@ class CoastlineViewModel(
             val intervalMs =
                 if (mode == AcquisitionMode.IDLE) s.adaptiveIdleIntervalSec * 1_000L
                 else s.gpsActiveIntervalSec * 1_000L
-            GpsParams(on, intervalMs, s.gpsActiveMinDistanceM)
+            // Use gpsIdleMinDistanceM (default 0) when idle so tiny drifts update position.
+            val distM = if (mode == AcquisitionMode.IDLE) s.gpsIdleMinDistanceM else s.gpsActiveMinDistanceM
+            GpsParams(on, intervalMs, distM)
         }.distinctUntilChanged()
 
         gpsParams
+            // Debounce rapid settings changes (e.g. slider drag) → coalesce into one re-subscription.
+            .debounce(100)
             .flatMapLatest { p ->
                 if (p.on) gpsSource.locationUpdates(p.intervalMs, p.minDistanceM) else emptyFlow()
             }
@@ -387,6 +409,23 @@ class CoastlineViewModel(
                 val now = SystemClock.elapsedRealtime()
                 _gpsPosition.value = fix.position
                 updateMapCenter(fix.position.latitude, fix.position.longitude)
+
+                // ── Stale-fix watchdog ─────────────────────────────────
+                // Every valid fix: clear stale flag, arm a timeout that sets stale if no
+                // further fix arrives within GPS_STALE_TIMEOUT_MS. Also reset on hasLock = true.
+                if (fix.hasLock) {
+                    _gpsStale.value = false
+                    lastFixMs = now
+                    staleWatchdogJob?.cancel()
+                    staleWatchdogJob = viewModelScope.launch {
+                        delay(GPS_STALE_TIMEOUT_MS)
+                        _gpsStale.value = true
+                    }
+                } else {
+                    // No satellite lock → immediately stale
+                    _gpsStale.value = true
+                }
+
                 // Atomic update: bearing + speed written in a single snapshot so
                 // Compose never sees an intermediate frame with mismatched values.
                 _navigationState.update { current ->
@@ -412,7 +451,14 @@ class CoastlineViewModel(
                     s.adaptiveWindowSec * 1_000L, s.adaptiveDistanceM.toDouble()
                 )
             }
-            .catch { /* permission revoked mid-stream → stop silently */ }
+            .catch { e ->
+                if (e is SecurityException) {
+                    // Permission revoked mid-stream — stop silently
+                } else {
+                    Log.w(TAG, "GPS flow error", e)
+                    _gpsStale.value = true
+                }
+            }
             .launchIn(viewModelScope)
 
         // Compass: orient the boat only after HEADING_FALLBACK_MS without a GPS course (rule 3).
@@ -441,6 +487,9 @@ class CoastlineViewModel(
                     adaptivePolicy.reset()
                     _acquisitionMode.value = AcquisitionMode.ACTIVE
                     _needsCompass.value = true
+                    _gpsStale.value = false
+                    lastFixMs = 0L
+                    staleWatchdogJob?.cancel()
                 }
             }
             .launchIn(viewModelScope)
@@ -651,6 +700,16 @@ class CoastlineViewModel(
         private const val DEMO_SPEED_SCALE = 0.2
         /** Maximum demo speed in knots — prevents extreme swipes from going off-scale. */
         private const val MAX_DEMO_KNOTS = 50.0
+
+        /** Log tag for this ViewModel. */
+        private const val TAG = "CoastlineVM"
+
+        /**
+         * Stale-fix watchdog timeout (ms): if no GPS fix arrives within this window, the position
+         * is considered stale. Set to max(5s, interval × 3) — 5 s covers the typical idle cadence
+         * (6 s) with a small buffer, without being so short that a slow fix rate triggers false alerts.
+         */
+        private const val GPS_STALE_TIMEOUT_MS = 5_000L
 
         /**
          * Factory for [CoastlineViewModel] — required because the primary constructor

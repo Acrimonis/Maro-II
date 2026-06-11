@@ -170,6 +170,20 @@ fun MapScreen(
     val context = LocalContext.current
     val autoFollowSuppressed by viewModel.autoFollowSuppressed.collectAsState()
     val navigationState by viewModel.navigationState.collectAsState()
+    val gpsPosition by viewModel.gpsPosition.collectAsState()
+    val gpsStale by viewModel.gpsStale.collectAsState()
+    val acquisitionMode by viewModel.acquisitionMode.collectAsState()
+
+    // Derive the GPS icon state from ViewModel state (5-state model).
+    val gpsIconState = remember(appSettings.gpsMode, gpsPosition, gpsStale, acquisitionMode) {
+        when {
+            !appSettings.gpsMode -> GpsIconState.DEMO
+            gpsPosition == null -> GpsIconState.ACQUIRING
+            gpsStale -> GpsIconState.STALE
+            acquisitionMode == ykws.android.maro.data.location.AcquisitionMode.IDLE -> GpsIconState.IDLE
+            else -> GpsIconState.HEALTHY
+        }
+    }
 
     // GPS permission launcher: on grant, enable GPS mode; on deny, stay in demo mode.
     val gpsPermissionLauncher = rememberLauncherForActivityResult(
@@ -431,6 +445,7 @@ fun MapScreen(
                 appSettings = appSettings,
                 mapView = mapView,
                 navigationState = navigationState,
+                gpsIconState = gpsIconState,
                 onCenterChanged = onCenterChanged,
                 onZoomChanged = viewModel::updateZoomLevel,
                 onMapViewReady = { mapView = it },
@@ -528,6 +543,7 @@ private fun MapContent(
     appSettings: AppSettings,
     mapView: MapView?,
     navigationState: NavigationState = NavigationState(),
+    gpsIconState: GpsIconState = GpsIconState.DEMO,
     onCenterChanged: (Double, Double) -> Unit,
     onZoomChanged: (Double) -> Unit,
     onMapViewReady: (MapView) -> Unit,
@@ -578,16 +594,21 @@ private fun MapContent(
             )
         }
 
-        // ── Earth / Water toggle (top-left) ───────────────────────────────
-        EarthWaterIcon(
-            emoji = if (isWater) "🌊" else "🏔️",
-            isActive = true,
-            activeColor = if (isWater) ComposeColor(0xFF1565C0) else ComposeColor(0xFF2E7D32),
-            contentDescription = if (isWater) stringResource(R.string.side_water) else stringResource(R.string.side_land),
+        // ── Top-left icon stack (Earth/Water + GPS status) ────────────────
+        Column(
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(12.dp)
-        )
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            EarthWaterIcon(
+                emoji = if (isWater) "🌊" else "🏔️",
+                isActive = true,
+                activeColor = if (isWater) ComposeColor(0xFF1565C0) else ComposeColor(0xFF2E7D32),
+                contentDescription = if (isWater) stringResource(R.string.side_water) else stringResource(R.string.side_land)
+            )
+            GpsStatusIcon(state = gpsIconState)
+        }
 
         // ── Center position marker ────────────────────────────────────────
         CenterMarkerOverlay(
@@ -1239,6 +1260,43 @@ private fun DangerLayerButton(
                 alpha = iconAlpha
             )
         }
+    }
+}
+
+/**
+ * 5-state GPS indicator icon — placed top-left below [EarthWaterIcon].
+ *
+ * States match the derived [GpsIconState] enum:
+ * - [DEMO]: GPS toggle off, gray satellite outline
+ * - [ACQUIRING]: GPS on but no fix yet, amber background + pulsing dot
+ * - [HEALTHY]: GPS fix good, green background
+ * - [IDLE]: GPS fix but stationary (reduced cadence), cyan background
+ * - [STALE]: GPS lost / hasLock false / error, red background
+ */
+private enum class GpsIconState { DEMO, ACQUIRING, HEALTHY, IDLE, STALE }
+
+@Composable
+private fun GpsStatusIcon(state: GpsIconState) {
+    val bgColor: ComposeColor
+    val emoji: String
+    when (state) {
+        GpsIconState.DEMO -> { bgColor = ComposeColor(0x33FFFFFF); emoji = "🛰️" }
+        GpsIconState.ACQUIRING -> { bgColor = ComposeColor(0x33FFA726); emoji = "📡" }
+        GpsIconState.HEALTHY -> { bgColor = ComposeColor(0x334CAF50); emoji = "📡" }
+        GpsIconState.IDLE -> { bgColor = ComposeColor(0x3326C6DA); emoji = "📡" }
+        GpsIconState.STALE -> { bgColor = ComposeColor(0x33F44336); emoji = "📡" }
+    }
+    Box(
+        modifier = Modifier
+            .size(44.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(bgColor),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = emoji,
+            fontSize = 22.sp
+        )
     }
 }
 

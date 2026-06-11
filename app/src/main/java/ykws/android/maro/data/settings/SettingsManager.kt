@@ -95,7 +95,14 @@ data class AppSettings(
     /** Show the dashed heading direction line from the boat marker to the map edge. */
     val headingLineVisible: Boolean = true,
     /** Show the speed-proportional cap arrow projecting from the boat marker. */
-    val capArrowVisible: Boolean = false
+    val capArrowVisible: Boolean = false,
+    /**
+     * GPS idle mode: minimum metres of movement between fixes when the adaptive policy
+     * has switched to [AcquisitionMode.IDLE] (device stationary). Default 0 so even tiny
+     * drifts update the position at the idle cadence — prevents the perception of a
+     * "stuck" position when anchored or drifting slowly.
+     */
+    val gpsIdleMinDistanceM: Float = 0f
 )
 
 class SettingsManager(
@@ -144,7 +151,8 @@ class SettingsManager(
         regenColour  = prefs.getBoolean(KEY_REGEN_COLOUR, true),
         regenWarning = prefs.getBoolean(KEY_REGEN_WARNING, true),
         headingLineVisible = prefs.getBoolean(KEY_HEADING_LINE_VISIBLE, true),
-        capArrowVisible   = prefs.getBoolean(KEY_CAP_ARROW_VISIBLE, false)
+        capArrowVisible   = prefs.getBoolean(KEY_CAP_ARROW_VISIBLE, false),
+        gpsIdleMinDistanceM = prefs.getFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, 0f)
     )
 
     /**
@@ -194,6 +202,7 @@ class SettingsManager(
             .putBoolean(KEY_REGEN_WARNING, updated.regenWarning)
             .putBoolean(KEY_HEADING_LINE_VISIBLE, updated.headingLineVisible)
             .putBoolean(KEY_CAP_ARROW_VISIBLE, updated.capArrowVisible)
+            .putFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, updated.gpsIdleMinDistanceM)
             .apply()
     }
 
@@ -232,5 +241,6 @@ class SettingsManager(
         private const val KEY_REGEN_WARNING = "regen_warning"
         private const val KEY_HEADING_LINE_VISIBLE = "heading_line_visible"
         private const val KEY_CAP_ARROW_VISIBLE = "cap_arrow_visible"
+        private const val KEY_GPS_IDLE_MIN_DISTANCE_M = "gps_idle_min_distance_m"
     }
 }

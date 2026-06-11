@@ -2,8 +2,8 @@
 name: GPS
 status: active
 created: 2026-06-07 00:00
-modified: 2026-06-07 00:00
-active_subfeature: settings
+modified: 2026-06-11 14:00
+active_subfeature: none
 ---
 
 # Feature: GpsPlugin
@@ -60,10 +60,27 @@ ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — panel sizing (portrait ⅔), passes speedKnots/inZone300
 - `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — speedKnots StateFlow
 - `app/src/main/java/ykws/android/maro/data/location/GpsLocationSource.kt` — GpsFix.speedMps
-
 #### Docs
 
+### gps-loss  [x]
+
+#### Todos
+- [x] Investigate and fix GPS tracking loss under good reception conditions
+- [x] Replace dashboard GPS status bar with compact map-side icon
+
+#### Rules
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/data/location/GpsLocationSource.kt` — LocationManager GPS provider, empty onStatusChanged, no GNSS callback
+- `app/src/main/java/ykws/android/maro/data/location/AdaptiveGpsPolicy.kt` — idle cadence may suppress updates
+- `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — GPS collector, empty catch, no stale-fix timeout
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — lifecycle gating, GPS auto-follow LaunchedEffect
+
+#### Docs
+- `plans/gps-loss-investigation.md` — investigation report
+
 ## Todos
+
 
 ## Rules
 - GPS mode: the GPS position stays at the center of the map.
@@ -77,3 +94,4 @@ ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 - `docs/MARO_ARCHITECTURE.md` — spatial-engine constraints (Nice–Fréjus bounding box, async/map rules) GPS positions operate within.
 - `xTrack/Coastline/FEAT_DOC_Coastline_300m-line-design.md` — the 300 m regulatory band + 5-knot rule the dashboard speed colour-coding enforces.
 - `xTrack/GPS/FEAT_PLN_GPS_demo-speed-tuning.md` — Demo mode speed tuning discussion
+- `plans/gps-loss-investigation.md` — GPS tracking loss investigation report

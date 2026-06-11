@@ -1,10 +1,10 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** Navigation
+- **Active Feature:** GPS
 - **Active Subfeature:** none
-- **Last Updated:** 2026-06-11 13:11
-- **Last Bake:** 2026-06-11 11:55 (Navigation — cap arrow fix: removed bearingDeg from arrow/line rendering, always draw straight up)
+- **Last Updated:** 2026-06-11 14:00
+- **Last Bake:** 2026-06-11 14:00 (GPS — gps-loss fixes: GnssStatus, onStatusChanged, PASSIVE_PROVIDER, stale watchdog, GPS status icon)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -33,7 +33,7 @@
 | DepthMapping | Bathymetry / depth mapping from Litto3D, SHOM, EMODnet sources | 2026-05-10 00:00 | 2026-06-10 12:13 | active |
 | Coastline | Coastline extraction, spatial indexing, isOnWater determination | 2026-05-10 00:00 | 2026-06-05 00:00 | active |
 | Ui_Dashboard | Main dashboard UI layout and HUD information display | 2026-05-15 00:00 | 2026-06-10 15:24 | active |
-| GPS | GPS plugin with demo mode, heading/COG compass, geolocation | 2026-05-10 00:00 | 2026-06-03 00:00 | active |
+| GPS | GPS plugin with demo mode, heading/COG compass, geolocation | 2026-05-10 00:00 | 2026-06-11 14:00 | active |
 | UI_Map | Map rendering, depth color layer, orientation overlay | 2026-05-10 00:00 | 2026-06-03 00:00 | active |
 | Performance | Battery optimization, adaptive GPS tuning, compass gate, map refresh | 2026-05-20 00:00 | 2026-06-05 00:00 | active |
 | BakeNormalization | APK bake/build/deploy pipeline and prebake data processing | 2026-06-01 00:00 | 2026-06-05 00:00 | active |
