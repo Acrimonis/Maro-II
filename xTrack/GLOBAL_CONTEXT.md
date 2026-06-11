@@ -2,9 +2,9 @@
 
 ## Active Session Pointers
 - **Active Feature:** Documentation
-- **Active Subfeature:** none
+- **Active Subfeature:** help
 - **Last Updated:** 2026-06-11
-- **Last Bake:** 2026-06-11 07:35 (Documentation — cleanup: plans/doc attachment sweep complete; 5 features renamed)
+- **Last Bake:** 2026-06-11 07:46 (Documentation — help: cmd_help split into per-command files; AGENTS.md §7b.8 updated)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -27,7 +27,7 @@
 
 | Feature | One-Liner | Created | Modified | Status |
 |---------|-----------|---------|----------|--------|
-| **Documentation** | **README, FAQs, setup guides, architecture docs, and plans cleanup** | **2026-06-11 06:42** | **2026-06-11 07:35** | **active** |
+| **Documentation** | **README, FAQs, setup guides, architecture docs, and plans cleanup** | **2026-06-11 06:42** | **2026-06-11 07:46** | **active** |
 | WorkflowImprovement | xTrack #command system, git shortcuts, #now/#list rename, trigger syntax, fuzzy matching, bootstrap, and memory bake lifecycle | 2026-06-03 00:00 | 2026-06-10 07:30 | active |
 | Zone300 | 300m zone generation from coastline with water-only constraint | 2026-05-20 00:00 | 2026-06-03 00:00 | active |
 | DepthMapping | Bathymetry / depth mapping from Litto3D, SHOM, EMODnet sources | 2026-05-10 00:00 | 2026-06-10 12:13 | active |

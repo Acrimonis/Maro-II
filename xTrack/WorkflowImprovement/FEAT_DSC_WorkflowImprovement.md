@@ -151,7 +151,21 @@ Define the Zero-Piecemeal Writes discussion exception: allow one plan file per d
 - `AGENTS.md` — canonical rules incl. § 7a/7b xTrack; `.clinerules`/`CLAUDE.md` are adapters
 
 ## Docs
-- `docs/cmd_help.md` — command reference (—help output)
+- `docs/cmd_help.md` — command reference summary table
+- `docs/cmd_help_now.md` — #now / #list detail
+- `docs/cmd_help_status.md` — #status / #status diff detail
+- `docs/cmd_help_track.md` — #track detail
+- `docs/cmd_help_focus.md` — #focus / #focus sub / #focus out detail
+- `docs/cmd_help_sub.md` — #sub detail
+- `docs/cmd_help_todo.md` — #todo detail
+- `docs/cmd_help_rule.md` — #rule detail
+- `docs/cmd_help_doc.md` — #doc detail
+- `docs/cmd_help_bake.md` — #bake detail
+- `docs/cmd_help_help.md` — #help detail
+- `docs/cmd_help_doctor.md` — #doctor detail
+- `docs/cmd_help_git.md` — git workflow shortcuts detail
+- `docs/cmd_help_doc_sync.md` — #doc sync detail
+- `docs/cmd_help_doc_audit.md` — #doc audit detail
 - `docs/GIT_WORKFLOW.md` — Git workflow conventions
 - `xTrack/WorkflowImprovement/FEAT_PLN_WorkflowImprovement_planning.md` — Zero-Piecemeal Writes discussion exception design
 - `xTrack/WorkflowImprovement/FEAT_PLN_WorkflowImprovement_feat-summary-layer.md` — FEAT_ summary layer token optimization discussion

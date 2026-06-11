@@ -2,8 +2,8 @@
 name: Documentation
 status: active
 created: 2026-06-11 06:42
-modified: 2026-06-11 07:35
-active_subfeature: cleanup
+modified: 2026-06-11 07:46
+active_subfeature: help
 ---
 
 # Feature: Documentation
@@ -24,6 +24,20 @@ Cross-cutting project documentation — README, FAQs, setup guides, architecture
 #### Rules
 
 #### Key Files
+
+### help  [ ]  ← active
+
+#### Todos
+- [ ] Split `docs/cmd_help.md` into per-command detail files: `docs/cmd_help_[cmd].md`
+- [ ] Update `AGENTS.md` `#help` reference to use the new split files
+- [ ] Update `xTrack/WorkflowImprovement/FEAT_DSC_WorkflowImprovement.md` ## Docs to reference the split files
+
+#### Rules
+
+#### Key Files
+- `docs/cmd_help.md` — summary reference table
+- `docs/cmd_help_*.md` — per-command detail files
+- `AGENTS.md` — §7b.8 Command Reference spec
 
 ## Todos
 
