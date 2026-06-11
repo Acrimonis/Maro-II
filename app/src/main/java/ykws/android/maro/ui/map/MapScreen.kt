@@ -1509,43 +1509,97 @@ private fun GeneralSettings(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // ── Low-depth warning overlay toggle ──────────────────────────
-        SettingsToggleRow(
-            label = stringResource(R.string.settings_low_depth_warning_label),
-            description = stringResource(R.string.settings_low_depth_warning_desc),
-            checked = settings.lowDepthWarningVisible,
-            onCheckedChange = { visible ->
-                onUpdateSettings { it.copy(lowDepthWarningVisible = visible) }
+        // ── Low-depth warning overlay toggle — grouped card ────────────
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(ComposeColor(0x1AFFFFFF))
+        ) {
+            // Toggle row (inline)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_low_depth_warning_label),
+                        color = ComposeColor.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_low_depth_warning_desc),
+                        color = ComposeColor(0xFFB0BEC5),
+                        fontSize = 13.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Switch(
+                    checked = settings.lowDepthWarningVisible,
+                    onCheckedChange = { visible ->
+                        onUpdateSettings { it.copy(lowDepthWarningVisible = visible) }
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = ComposeColor(0xFF1565C0),
+                        checkedTrackColor = ComposeColor(0xFF1565C0).copy(alpha = 0.4f),
+                        uncheckedThumbColor = ComposeColor(0xFFB0BEC5),
+                        uncheckedTrackColor = ComposeColor(0x33FFFFFF)
+                    )
+                )
             }
-        )
 
-        // Warning depth threshold — shown only when the warning is on.
-        if (settings.lowDepthWarningVisible) {
-            Spacer(modifier = Modifier.height(12.dp))
-            SettingsSliderGroup {
-                SliderRowContent(
-                    label = stringResource(R.string.settings_low_depth_threshold_label),
-                    description = stringResource(R.string.settings_low_depth_threshold_desc),
-                    valueLabel = stringResource(R.string.settings_value_depth, settings.lowDepthWarningMaxM),
-                    value = settings.lowDepthWarningMaxM,
-                    valueRange = 0.5f..5f,
-                    steps = 8,
-                    onValueChange = { v ->
-                        onUpdateSettings { it.copy(lowDepthWarningMaxM = (v * 2f).roundToInt() / 2f) }
-                    }
+            // Warning sliders — collapsible, only visible when warning is on
+            if (settings.lowDepthWarningVisible) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(0.5.dp)
+                        .background(ComposeColor.White.copy(alpha = 0.1f))
                 )
-                SliderRowDivider()
-                SliderRowContent(
-                    label = stringResource(R.string.settings_low_depth_opacity_label),
-                    description = stringResource(R.string.settings_low_depth_opacity_desc),
-                    valueLabel = stringResource(R.string.settings_value_percent, settings.lowDepthWarningMinOpacityPct),
-                    value = settings.lowDepthWarningMinOpacityPct.toFloat(),
-                    valueRange = 0f..100f,
-                    steps = 19,
-                    onValueChange = { v ->
-                        onUpdateSettings { it.copy(lowDepthWarningMinOpacityPct = (v / 5f).roundToInt() * 5) }
+                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    var warningExpanded by remember { mutableStateOf(false) }
+                    SettingsExpander(
+                        label = "Warning settings",
+                        expanded = warningExpanded,
+                        onToggle = { warningExpanded = !warningExpanded },
+                        labelStyle = TextStyle(
+                            color = ComposeColor.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    ) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        SettingsSliderGroup {
+                            SliderRowContent(
+                                label = stringResource(R.string.settings_low_depth_threshold_label),
+                                description = stringResource(R.string.settings_low_depth_threshold_desc),
+                                valueLabel = stringResource(R.string.settings_value_depth, settings.lowDepthWarningMaxM),
+                                value = settings.lowDepthWarningMaxM,
+                                valueRange = 0.5f..5f,
+                                steps = 8,
+                                onValueChange = { v ->
+                                    onUpdateSettings { it.copy(lowDepthWarningMaxM = (v * 2f).roundToInt() / 2f) }
+                                }
+                            )
+                            SliderRowDivider()
+                            SliderRowContent(
+                                label = stringResource(R.string.settings_low_depth_opacity_label),
+                                description = stringResource(R.string.settings_low_depth_opacity_desc),
+                                valueLabel = stringResource(R.string.settings_value_percent, settings.lowDepthWarningMinOpacityPct),
+                                value = settings.lowDepthWarningMinOpacityPct.toFloat(),
+                                valueRange = 0f..100f,
+                                steps = 19,
+                                onValueChange = { v ->
+                                    onUpdateSettings { it.copy(lowDepthWarningMinOpacityPct = (v / 5f).roundToInt() * 5) }
+                                }
+                            )
+                        }
                     }
-                )
+                }
             }
         }
 
@@ -1596,100 +1650,136 @@ private fun NavigationSettings(
             .fillMaxSize()
             .verticalScroll(scrollState)
     ) {
-        // ── Idle saving ───────────────────────────────────────────────
-        SubSectionHeader(
-            title = stringResource(R.string.settings_idle_section_label),
-            description = stringResource(R.string.settings_idle_section_desc)
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-
-        SettingsSliderRow(
-            label = stringResource(R.string.settings_idle_interval_label),
-            description = stringResource(R.string.settings_idle_interval_desc),
-            valueLabel = stringResource(R.string.settings_value_seconds, settings.adaptiveIdleIntervalSec),
-            value = settings.adaptiveIdleIntervalSec.toFloat(),
-            valueRange = 4f..15f,
-            steps = 10,
-            onValueChange = { v -> onUpdateSettings { it.copy(adaptiveIdleIntervalSec = v.roundToInt()) } }
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Advanced stop-detection thresholds, collapsed by default.
-        var adaptiveAdvanced by remember { mutableStateOf(false) }
-        SettingsExpander(
-            label = stringResource(R.string.settings_advanced_stop_label),
-            expanded = adaptiveAdvanced,
-            onToggle = { adaptiveAdvanced = !adaptiveAdvanced }
-        ) {
-            Spacer(modifier = Modifier.height(8.dp))
-            SettingsSliderGroup {
-                SliderRowContent(
-                    label = stringResource(R.string.settings_window_label),
-                    description = stringResource(R.string.settings_window_desc),
-                    valueLabel = stringResource(R.string.settings_value_seconds, settings.adaptiveWindowSec),
-                    value = settings.adaptiveWindowSec.toFloat(),
-                    valueRange = 15f..60f,
-                    steps = 8,
-                    onValueChange = { v -> onUpdateSettings { it.copy(adaptiveWindowSec = (v / 5f).roundToInt() * 5) } }
-                )
-                SliderRowDivider()
-                SliderRowContent(
-                    label = stringResource(R.string.settings_adaptive_dist_label),
-                    description = stringResource(R.string.settings_adaptive_dist_desc),
-                    valueLabel = stringResource(R.string.settings_value_meters, settings.adaptiveDistanceM),
-                    value = settings.adaptiveDistanceM.toFloat(),
-                    valueRange = 10f..30f,
-                    steps = 3,
-                    onValueChange = { v -> onUpdateSettings { it.copy(adaptiveDistanceM = (v / 5f).roundToInt() * 5) } }
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // ── 300 m zone alert (auto-show on approach) ────────────────────
+        // ── 300 m zone alert (auto-show on approach) — grouped card ─────
         SectionHeader(title = stringResource(R.string.settings_alert_label))
         Spacer(modifier = Modifier.height(8.dp))
 
-        SettingsToggleRow(
-            label = stringResource(R.string.settings_alert_gps_label),
-            description = stringResource(R.string.settings_alert_gps_desc),
-            checked = settings.zone300AutoShowGps,
-            onCheckedChange = { on -> onUpdateSettings { it.copy(zone300AutoShowGps = on) } }
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        SettingsToggleRow(
-            label = stringResource(R.string.settings_alert_demo_label),
-            description = stringResource(R.string.settings_alert_demo_desc),
-            checked = settings.zone300AutoShowDemo,
-            onCheckedChange = { on -> onUpdateSettings { it.copy(zone300AutoShowDemo = on) } }
-        )
-
-        if (settings.zone300AutoShowGps || settings.zone300AutoShowDemo) {
-            Spacer(modifier = Modifier.height(12.dp))
-            SettingsSliderGroup {
-                SliderRowContent(
-                    label = stringResource(R.string.settings_alert_dist_label),
-                    description = stringResource(R.string.settings_alert_dist_desc),
-                    valueLabel = stringResource(R.string.settings_value_meters, settings.zoneAutoRevealDistanceM.roundToInt()),
-                    value = settings.zoneAutoRevealDistanceM,
-                    valueRange = 50f..500f,
-                    steps = 17,
-                    onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealDistanceM = (v / 25f).roundToInt() * 25f) } }
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(ComposeColor(0x1AFFFFFF))
+        ) {
+            // Auto-show GPS mode toggle
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_alert_gps_label),
+                        color = ComposeColor.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_alert_gps_desc),
+                        color = ComposeColor(0xFFB0BEC5),
+                        fontSize = 13.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Switch(
+                    checked = settings.zone300AutoShowGps,
+                    onCheckedChange = { on -> onUpdateSettings { it.copy(zone300AutoShowGps = on) } },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = ComposeColor(0xFF1565C0),
+                        checkedTrackColor = ComposeColor(0xFF1565C0).copy(alpha = 0.4f),
+                        uncheckedThumbColor = ComposeColor(0xFFB0BEC5),
+                        uncheckedTrackColor = ComposeColor(0x33FFFFFF)
+                    )
                 )
-                SliderRowDivider()
-                SliderRowContent(
-                    label = stringResource(R.string.settings_alert_time_label),
-                    description = stringResource(R.string.settings_alert_time_desc),
-                    valueLabel = stringResource(R.string.settings_value_seconds, settings.zoneAutoRevealTimeS),
-                    value = settings.zoneAutoRevealTimeS.toFloat(),
-                    valueRange = 5f..120f,
-                    steps = 22,
-                    onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealTimeS = (v / 5f).roundToInt() * 5) } }
+            }
+
+            // Thin divider between the two toggles
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(0.5.dp)
+                    .background(ComposeColor.White.copy(alpha = 0.1f))
+            )
+
+            // Auto-show Demo mode toggle
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_alert_demo_label),
+                        color = ComposeColor.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_alert_demo_desc),
+                        color = ComposeColor(0xFFB0BEC5),
+                        fontSize = 13.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Switch(
+                    checked = settings.zone300AutoShowDemo,
+                    onCheckedChange = { on -> onUpdateSettings { it.copy(zone300AutoShowDemo = on) } },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = ComposeColor(0xFF1565C0),
+                        checkedTrackColor = ComposeColor(0xFF1565C0).copy(alpha = 0.4f),
+                        uncheckedThumbColor = ComposeColor(0xFFB0BEC5),
+                        uncheckedTrackColor = ComposeColor(0x33FFFFFF)
+                    )
                 )
+            }
+
+            // Alert sliders — collapsible, only visible when either auto-show is on
+            if (settings.zone300AutoShowGps || settings.zone300AutoShowDemo) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(0.5.dp)
+                        .background(ComposeColor.White.copy(alpha = 0.1f))
+                )
+                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    var alertExpanded by remember { mutableStateOf(false) }
+                    SettingsExpander(
+                        label = "Alert settings",
+                        expanded = alertExpanded,
+                        onToggle = { alertExpanded = !alertExpanded },
+                        labelStyle = TextStyle(
+                            color = ComposeColor.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    ) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        SettingsSliderGroup {
+                            SliderRowContent(
+                                label = stringResource(R.string.settings_alert_dist_label),
+                                description = stringResource(R.string.settings_alert_dist_desc),
+                                valueLabel = stringResource(R.string.settings_value_meters, settings.zoneAutoRevealDistanceM.roundToInt()),
+                                value = settings.zoneAutoRevealDistanceM,
+                                valueRange = 50f..500f,
+                                steps = 17,
+                                onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealDistanceM = (v / 25f).roundToInt() * 25f) } }
+                            )
+                            SliderRowDivider()
+                            SliderRowContent(
+                                label = stringResource(R.string.settings_alert_time_label),
+                                description = stringResource(R.string.settings_alert_time_desc),
+                                valueLabel = stringResource(R.string.settings_value_seconds, settings.zoneAutoRevealTimeS),
+                                value = settings.zoneAutoRevealTimeS.toFloat(),
+                                valueRange = 5f..120f,
+                                steps = 22,
+                                onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealTimeS = (v / 5f).roundToInt() * 5) } }
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -1838,6 +1928,105 @@ private fun SystemSettings(
             steps = 8,
             onValueChange = { v -> onUpdateSettings { it.copy(mapRefreshFps = (v / 5f).roundToInt() * 5) } }
         )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // ── Idle saving — moved from Navigation tab ─────────────────────
+        SectionHeader(title = stringResource(R.string.settings_idle_section_label))
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Grouped card: idle interval slider + advanced expander
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(ComposeColor(0x1AFFFFFF))
+        ) {
+            // Adaptive idle interval slider (inline, no separate card bg)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_idle_interval_label),
+                        color = ComposeColor.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_idle_interval_desc),
+                        color = ComposeColor(0xFFB0BEC5),
+                        fontSize = 13.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Text(
+                    text = stringResource(R.string.settings_value_seconds, settings.adaptiveIdleIntervalSec),
+                    color = ComposeColor(0xFF1565C0),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            Slider(
+                value = settings.adaptiveIdleIntervalSec.toFloat(),
+                onValueChange = { v -> onUpdateSettings { it.copy(adaptiveIdleIntervalSec = v.roundToInt()) } },
+                valueRange = 4f..15f,
+                steps = 10,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 8.dp),
+                colors = SliderDefaults.colors(
+                    thumbColor = ComposeColor(0xFF1565C0),
+                    activeTrackColor = ComposeColor(0xFF1565C0),
+                    inactiveTrackColor = ComposeColor(0x33FFFFFF)
+                )
+            )
+
+            // Thin divider
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(0.5.dp)
+                    .background(ComposeColor.White.copy(alpha = 0.1f))
+            )
+
+            // Advanced stop-detection thresholds expander
+            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                var adaptiveAdvanced by remember { mutableStateOf(false) }
+                SettingsExpander(
+                    label = stringResource(R.string.settings_advanced_stop_label),
+                    expanded = adaptiveAdvanced,
+                    onToggle = { adaptiveAdvanced = !adaptiveAdvanced }
+                ) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    SettingsSliderGroup {
+                        SliderRowContent(
+                            label = stringResource(R.string.settings_window_label),
+                            description = stringResource(R.string.settings_window_desc),
+                            valueLabel = stringResource(R.string.settings_value_seconds, settings.adaptiveWindowSec),
+                            value = settings.adaptiveWindowSec.toFloat(),
+                            valueRange = 15f..60f,
+                            steps = 8,
+                            onValueChange = { v -> onUpdateSettings { it.copy(adaptiveWindowSec = (v / 5f).roundToInt() * 5) } }
+                        )
+                        SliderRowDivider()
+                        SliderRowContent(
+                            label = stringResource(R.string.settings_adaptive_dist_label),
+                            description = stringResource(R.string.settings_adaptive_dist_desc),
+                            valueLabel = stringResource(R.string.settings_value_meters, settings.adaptiveDistanceM),
+                            value = settings.adaptiveDistanceM.toFloat(),
+                            valueRange = 10f..30f,
+                            steps = 3,
+                            onValueChange = { v -> onUpdateSettings { it.copy(adaptiveDistanceM = (v / 5f).roundToInt() * 5) } }
+                        )
+                    }
+                }
+            }
+        }
 
         Spacer(modifier = Modifier.height(24.dp))
 

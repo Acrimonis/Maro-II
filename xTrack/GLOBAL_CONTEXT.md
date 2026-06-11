@@ -2,9 +2,9 @@
 
 ## Active Session Pointers
 - **Active Feature:** Ui_Settings
-- **Active Subfeature:** reorder-settings
-- **Last Updated:** 2026-06-11 16:56
-- **Last Bake:** 2026-06-11 16:04 (Ui_Settings — fixed tab persistence across settings overlay dismiss/reopen; fix-status-persistance ✅)
+- **Active Subfeature:** none
+- **Last Updated:** 2026-06-11 17:50
+- **Last Bake:** 2026-06-11 17:50 (Ui_Settings — settings tab reorg complete: General/Display rename, System reorder, GPS grouped card, idle saving move, low-depth + Z300 grouped cards, label renames)
 - **Branch:** feature/settings-reorga (tracking origin/develop)
 
 ## Routing Map

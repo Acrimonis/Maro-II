@@ -55,14 +55,14 @@
     <string name="settings_sub_gps_desc">Updating your position while under way</string>
     <string name="settings_sub_render_label">Map rendering</string>
     <string name="settings_sub_render_desc">Number of map redraws per second while GPS-following</string>
-    <string name="settings_fps_label">Refresh rate</string>
+    <string name="settings_fps_label">Map refresh rate</string>
     <string name="settings_fps_desc">Lower = less battery, less smooth animation</string>
-    <string name="settings_idle_section_label">Idle saving</string>
+    <string name="settings_idle_section_label">Stop detection</string>
     <string name="settings_idle_section_desc">When the boat stops moving, GPS fixes space out to save battery; everything returns to normal as soon as you set off again</string>
-    <string name="settings_idle_interval_label">Idle interval</string>
+    <string name="settings_idle_interval_label">Idle duration</string>
     <string name="settings_idle_interval_desc">Delay between two GPS fixes when stopped · longer = less battery</string>
-    <string name="settings_advanced_stop_label">Advanced — stop detection</string>
-    <string name="settings_window_label">Adaptive window</string>
+    <string name="settings_advanced_stop_label">Stop detection tuning</string>
+    <string name="settings_window_label">Adaptive time</string>
     <string name="settings_window_desc">Time without moving before reducing GPS frequency</string>
     <string name="settings_adaptive_dist_label">Adaptive distance</string>
     <string name="settings_adaptive_dist_desc">Below this movement, you are considered \"stopped\"</string>
