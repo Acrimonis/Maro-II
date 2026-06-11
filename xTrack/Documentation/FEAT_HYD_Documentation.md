@@ -1,7 +1,7 @@
 ## Hydration: Documentation
 
-**State:** Active — verif-scattering subfeature complete. Scanned AGENTS.md, GLOBAL_CONTEXT.md, all docs/cmd_help*.md, .clinerules, and CLAUDE.md for scattering/duplication. Applied 4 consolidations: (1) removed duplicated git rules from GLOBAL_CONTEXT.md Global Rules, (2) removed incorrect `list` sub-command from cmd_help_now.md (standalone `#list`), (3) added `rename` to AGENTS.md §7b.8 known command list, (4) created docs/cmd_help_the-c-word.md stub. All subfeatures now complete ([x]).
+**State:** Active — all 6 subfeatures complete ([x]): cleanup, help, git rules, verif-scattering, readme, planneding. Latest session migrated all 26 `plans/*.md` files to their respective `xTrack/[Feature]/FEAT_PLN_*` directories, updated `## Docs` references across 10 feature files, removed 2 stale references. `plans/` now contains only non-.md artifacts (icons, images).
 
-**Target files:** `xTrack/Documentation/FEAT_DSC_Documentation.md`, `xTrack/GLOBAL_CONTEXT.md`, `AGENTS.md`, `docs/cmd_help_now.md`, `docs/cmd_help_the-c-word.md`.
+**Target files:** `README.md`, `xTrack/Documentation/FEAT_DSC_Documentation.md`, `xTrack/GLOBAL_CONTEXT.md`, `xTrack/[Feature]/FEAT_PLN_*.md` (26 files), `xTrack/*/FEAT_DSC_*.md` (10 files updated).
 
-**Next step:** Start a new feature or close the session.
+**Next step:** Commit and push the migration.

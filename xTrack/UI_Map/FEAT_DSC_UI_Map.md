@@ -203,4 +203,4 @@ together (as the 300 m toggle was on its own).
 
 ## Docs
 - `xTrack/MapDisplay/FEAT_DOC_MapDisplay_marker-sizing.md` — centred boat marker sizing & behaviour on the map
-- `plans/animateTo-interaction-analysis.md` — animateTo interaction with map refresh FPS analysis
+- `xTrack/Performance/FEAT_PLN_Performance_animateTo-interaction-analysis.md` — animateTo interaction with map refresh FPS analysis

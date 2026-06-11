@@ -2,7 +2,7 @@
 name: Documentation
 status: active
 created: 2026-06-11 06:42
-modified: 2026-06-11 09:26
+modified: 2026-06-11 10:38
 active_subfeature: none
 ---
 
@@ -78,14 +78,49 @@ Cross-cutting project documentation — README, FAQs, setup guides, architecture
 - `docs/cmd_help*.md` — command reference
 - `.clinerules`, `CLAUDE.md` — vendor adapters
 
+### readme  [x]
+
+#### Todos
+- [x] Update tech stack with missing AGP 8.4.1 row
+- [x] Rewrite Quick Build as three-stage bake→build→deploy pipeline (from FEAT_DSC_BakeNormalization.md)
+- [x] Remove stale doc references (MARKER_SIZING.md, DepthMappingBake.md)
+- [x] Modernize project structure tree (add data/, tools/, xTrack/, proto/, gradle/libs.versions.toml)
+- [x] Sync documentation index (add MARO_ARCHITECTURE.md, remove dead entries)
+
+#### Rules
+- README scope tag must remain `<!-- scope: core -->`
+- Pipeline model: bake = data prep, build = package only, deploy = install+launch
+
+#### Key Files
+- `README.md` — updated project readme
+- `xTrack/BakeNormalization/FEAT_DSC_BakeNormalization.md` — bake pipeline reference
+
+### planneding  [x]
+
+#### Todos
+- [x] Classify all `plans/*.md` files by target feature (routing map)
+- [x] Move each plan to `xTrack/[Feature]/FEAT_PLN_[Feature]_[topic].md`
+- [x] Update `## Docs` references in target feature files
+- [x] Leave app icon/image assets (`.ico`, `.png`, `.pdn`, `.bat`) in `plans/` as non-plan artifacts
+
+#### Rules
+- Feature-scoped plans → `xTrack/[Feature]/FEAT_PLN_[Feature]_[topic].md`
+- Only `.md` plan files are moved; binary/image assets stay in `plans/`
+
+#### Key Files
+- `plans/` — legacy directory to migrate from
+
 ## Todos
 
 ## Rules
-
+- Feature-scoped discussion/plan files go in `xTrack/[Feature]/FEAT_PLN_[Feature]_[topic].md` (not in `plans/`). The `plans/` directory is legacy; new plans use the `FEAT_PLN_` convention under the target feature's xTrack directory.
 ## Key Files
 
 ## Docs
 - `docs/FAQ.md` — Project FAQ
 - `docs/SETUP.md` — Project setup guide
-- `plans/git-protection-workflow.md` — Git protection enforcement flow design
-- `plans/instruction-consolidation-audit.md` — Scattered/duplicated instructions audit findings
+- `xTrack/Documentation/FEAT_PLN_Documentation_git-protection-workflow.md` — Git protection enforcement flow design
+- `xTrack/Documentation/FEAT_PLN_Documentation_instruction-consolidation-audit.md` — Scattered/duplicated instructions audit findings
+- `xTrack/Documentation/FEAT_PLN_Documentation_readme-update.md` — README update discussion & proposed changes
+- `xTrack/Documentation/FEAT_PLN_Documentation_git-merge-command.md` — Git merge command design
+- `xTrack/Documentation/FEAT_PLN_Documentation_git-move-command.md` — Git move/rename command design

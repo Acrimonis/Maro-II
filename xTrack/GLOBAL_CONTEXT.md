@@ -3,8 +3,8 @@
 ## Active Session Pointers
 - **Active Feature:** Documentation
 - **Active Subfeature:** none
-- **Last Updated:** 2026-06-11
-- **Last Bake:** 2026-06-11 09:26 (Documentation — verif-scattering: scanned AGENTS.md, GLOBAL_CONTEXT.md, cmd_help*.md, vendor adapters; applied 4 consolidations: removed duplicate git rules from GLOBAL_CONTEXT.md, fixed cmd_help_now.md drift, added rename to AGENTS.md command list, created cmd_help_the-c-word.md)
+- **Last Updated:** 2026-06-11 10:13
+- **Last Bake:** 2026-06-11 10:38 (Documentation — planneding subfeature: migrated all 26 plans/*.md files to xTrack/[Feature]/FEAT_PLN_* directories; updated ## Docs references across 10 feature files; removed 2 stale refs to non-existent plans)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -27,7 +27,7 @@
 
 | Feature | One-Liner | Created | Modified | Status |
 |---------|-----------|---------|----------|--------|
-| **Documentation** | **README, FAQs, setup guides, architecture docs, and plans cleanup** | **2026-06-11 06:42** | **2026-06-11 09:26** | **active** |
+| **Documentation** | **README, FAQs, setup guides, architecture docs, and plans cleanup** | **2026-06-11 06:42** | **2026-06-11 10:36** | **active** |
 | WorkflowImprovement | xTrack #command system, git shortcuts, #now/#list rename, trigger syntax, fuzzy matching, bootstrap, and memory bake lifecycle | 2026-06-03 00:00 | 2026-06-10 07:30 | active |
 | Zone300 | 300m zone generation from coastline with water-only constraint | 2026-05-20 00:00 | 2026-06-03 00:00 | active |
 | DepthMapping | Bathymetry / depth mapping from Litto3D, SHOM, EMODnet sources | 2026-05-10 00:00 | 2026-06-10 12:13 | active |

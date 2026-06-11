@@ -48,8 +48,8 @@ Navigation aids on the map overlay — heading/speed indicator and direction lin
 - `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — headingLineVisible, capArrowVisible in AppSettings
 
 #### Docs
-- `plans/navigation-cap-arrow.md` — original cap arrow design spec
-- `plans/navigation-atomic-render.md` — atomic data flow + rendering analysis
+- `xTrack/Navigation/FEAT_PLN_Navigation_cap-arrow.md` — original cap arrow design spec
+- `xTrack/Navigation/FEAT_PLN_Navigation_atomic-render.md` — atomic data flow + rendering analysis
 
 ## Todos
 - [ ] On-device visual verification of all navigation features
