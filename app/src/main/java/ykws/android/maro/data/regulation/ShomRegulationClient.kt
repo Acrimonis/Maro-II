@@ -1,4 +1,5 @@
 package ykws.android.maro.data.regulation
+
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -14,27 +15,28 @@ import okhttp3.Request
 import ykws.android.maro.data.model.BoundingBox
 import ykws.android.maro.data.model.LatLng
 import java.util.concurrent.TimeUnit
+import kotlin.math.PI
+import kotlin.math.atan
+import kotlin.math.exp
+import kotlin.math.ln
+import kotlin.math.pow
+import kotlin.math.tan
 
 /**
  * Client for the **SHOM WFS** maritime regulation zones endpoint.
  *
- * Discovers regulation layers via [getCapabilities], then fetches GeoJSON
- * FeatureCollection data for each candidate typeName intersecting [BoundingBox].
- *
- * **Authentication:** SHOM regulation layers require an API key. Register at
- * [data.shom.fr](https://data.shom.fr) to obtain a free key, then pass it as
- * [apiKey] or set `-Dmaro.shomApiKey=YOUR_KEY` when running the prebake.
+ * Uses the **public INSPIRE** endpoint which serves regulation layers without
+ * authentication. Coordinates are in EPSG:3857 (Web Mercator) and are
+ * converted to WGS84 on the fly.
  *
  * Best-effort: returns empty list on error (never throws).
  *
  * @property httpClient  OkHttpClient used for all HTTP calls.
- * @property baseUrl     SHOM WFS base URL (default: [DEFAULT_BASE_URL]).
- * @property apiKey      SHOM API key for authenticated access, or `null` for anonymous.
+ * @property baseUrl     SHOM INSPIRE WFS base URL (default: [INSPIRE_BASE_URL]).
  */
 class ShomRegulationClient(
     private val httpClient: OkHttpClient = defaultClient(),
-    private val baseUrl: String = DEFAULT_BASE_URL,
-    private val apiKey: String? = System.getProperty("maro.shomApiKey")
+    private val baseUrl: String = INSPIRE_BASE_URL
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -42,17 +44,6 @@ class ShomRegulationClient(
 
     /**
      * Fetch all SHOM regulation zones intersecting [bbox] across all candidate typeNames.
-     *
-     * Iterates over each typeName in [CANDIDATE_TYPENAMES], issues a WFS GetFeature
-     * request with a bbox filter, parses the GeoJSON FeatureCollection response,
-     * and aggregates all results into a single list.
-     *
-     * Best-effort: returns an empty list on any error (never throws). The [onProgress]
-     * callback reports (completedTypeNameIndex, totalTypeNameCount) as percentage.
-     *
-     * @param bbox       The bounding box to intersect.
-     * @param onProgress Called with 0..100 as each typeName is attempted.
-     * @return Aggregated list of [RegulatedZone] from all successful typeName fetches.
      */
     suspend fun fetchZones(
         bbox: BoundingBox,
@@ -63,15 +54,16 @@ class ShomRegulationClient(
 
         val zones = mutableListOf<RegulatedZone>()
         CANDIDATE_TYPENAMES.forEachIndexed { index, typeName ->
-            val url = buildGetFeatureUrl(typeName, bbox)
+            val url = buildGetFeatureUrl(typeName)  // no bbox filter — fetch all, filter client-side
             val body = runCatching { httpGet(url) }.getOrNull()
             if (body != null) {
                 val parsed = runCatching { parseFeatureCollection(body) }.getOrNull()
                 if (parsed != null) {
-                    if (parsed.isNotEmpty()) {
-                        println("[INFO] $typeName: ${parsed.size} features")
+                    val inBbox = parsed.filter { zoneInBbox(it, bbox) }
+                    if (inBbox.isNotEmpty()) {
+                        println("[INFO] $typeName: ${inBbox.size} features in bbox (${parsed.size} total)")
                     }
-                    zones.addAll(parsed)
+                    zones.addAll(inBbox)
                 }
             }
             val pct = ((index + 1) * 100 / total).coerceIn(0, 100)
@@ -83,8 +75,6 @@ class ShomRegulationClient(
     /**
      * Probe the WFS GetCapabilities endpoint and return the list of available
      * feature typeNames found in the response.
-     *
-     * Best-effort: returns an empty list on any failure.
      */
     suspend fun getCapabilities(): List<String> = withContext(Dispatchers.IO) {
         val url = buildGetCapabilitiesUrl()
@@ -94,19 +84,12 @@ class ShomRegulationClient(
 
     // ── Internal Helpers ────────────────────────────────────────────────────
 
-    /**
-     * Perform an HTTP GET and return the response body as a [String], or null on error.
-     */
     private fun httpGet(url: String): String? {
-        val reqBuilder = Request.Builder()
+        val request = Request.Builder()
             .url(url)
             .header("User-Agent", "MaroII-Regulation-Fetcher/1.0")
             .header("Accept", "application/json, text/plain, */*")
-        // SHOM API key: passed as X-Api-Key header (standard SHOM practice)
-        if (apiKey != null) {
-            reqBuilder.header("X-Api-Key", apiKey)
-        }
-        val request = reqBuilder.build()
+            .build()
         return runCatching {
             httpClient.newCall(request).execute().use { resp ->
                 when {
@@ -122,26 +105,19 @@ class ShomRegulationClient(
     }
 
     /**
-     * Build a WFS GetFeature URL with a bbox filter requesting GeoJSON output.
+     * Build a WFS GetFeature URL requesting GeoJSON — no bbox filter because
+     * the INSPIRE endpoint expects EPSG:3857 coordinates.
      */
-    private fun buildGetFeatureUrl(typeName: String, bbox: BoundingBox): String = buildString {
+    private fun buildGetFeatureUrl(typeName: String): String = buildString {
         append(baseUrl)
         append("?service=WFS")
         append("&version=2.0.0")
         append("&request=GetFeature")
         append("&typeNames=").append(typeName)
-        append("&bbox=")
-        append(bbox.lonWest).append(',')
-        append(bbox.latSouth).append(',')
-        append(bbox.lonEast).append(',')
-        append(bbox.latNorth)
         append("&outputFormat=application/json")
-        append("&srsName=EPSG:4326")
+        append("&srsName=EPSG:3857")
     }
 
-    /**
-     * Build a WFS GetCapabilities URL.
-     */
     private fun buildGetCapabilitiesUrl(): String = buildString {
         append(baseUrl)
         append("?service=WFS")
@@ -151,10 +127,6 @@ class ShomRegulationClient(
 
     /**
      * Parse a WFS GetCapabilities XML response to extract available feature typeNames.
-     *
-     * Searches for `<FeatureType>` blocks containing `<Name>` elements.
-     * This is a simple string-based extraction (not a full XML parser) — best-effort,
-     * returns empty list on any failure.
      */
     private fun parseCapabilitiesTypeNames(xml: String): List<String> {
         return runCatching {
@@ -177,10 +149,7 @@ class ShomRegulationClient(
 
     /**
      * Parse a GeoJSON FeatureCollection string into a [List] of [RegulatedZone].
-     *
-     * Handles both `"Polygon"` and `"MultiPolygon"` geometry types.
-     * Best-effort: silently skips malformed features and returns whatever was
-     * successfully parsed.
+     * Coordinates are assumed to be in EPSG:3857 and converted to WGS84.
      */
     private fun parseFeatureCollection(body: String): List<RegulatedZone> {
         val root = runCatching { json.parseToJsonElement(body).jsonObject }.getOrNull()
@@ -204,14 +173,27 @@ class ShomRegulationClient(
         val geomType = geometry["type"]?.jsonPrimitive?.content ?: return null
         val coords = geometry["coordinates"] ?: return null
 
-        // Parse properties — SHOM regulation layers use French property names
+        // Parse properties — SHOM INSPIRE uses different property names than the auth WFS
         val typeReg = properties["type_reglementation"]?.jsonPrimitive?.content
-        val zoneType = typeReg?.let { parseZoneType(it) } ?: RegulatedZoneType.OTHER
+        val zoneType = if (typeReg != null) {
+            parseZoneType(typeReg)
+        } else {
+            // INSPIRE endpoint uses restrn (restriction type code)
+            parseRestrictionCode(properties["restrn"]?.jsonPrimitive?.content)
+        }
 
         val speedLimitKn = properties["vitesse_max"]?.jsonPrimitive?.doubleOrNull
-        val name = properties["nom"]?.jsonPrimitive?.content ?: ""
-        val sourceRef = properties["id_reglementation"]?.jsonPrimitive?.content ?: ""
-        val description = properties["description"]?.jsonPrimitive?.content ?: ""
+        val name = properties["objnam"]?.jsonPrimitive?.content
+            ?: properties["nobjnm"]?.jsonPrimitive?.content
+            ?: properties["nom"]?.jsonPrimitive?.content
+            ?: ""
+        val sourceRef = properties["inspireid"]?.jsonPrimitive?.content
+            ?: properties["id_reglementation"]?.jsonPrimitive?.content
+            ?: ""
+        val description = properties["inform"]?.jsonPrimitive?.content
+            ?: properties["ninfom"]?.jsonPrimitive?.content
+            ?: properties["description"]?.jsonPrimitive?.content
+            ?: ""
 
         // Parse geometry
         return when (geomType) {
@@ -243,18 +225,39 @@ class ShomRegulationClient(
                     description = description
                 )
             }
-            else -> null // Unsupported geometry type (Point, LineString, etc.)
+            else -> null
         }
     }
 
     /**
+     * Map SHOM INSPIRE restriction code to [RegulatedZoneType].
+     * Based on S-101 / SHOM restrn enumeration:
+     *   1  = Speed limit
+     *   2  = Depth limit / draught
+     *   7  = Anchoring prohibited
+     *   8  = Fishing prohibited
+     *   9  = Trawling prohibited
+     *   10 = Prohibited area (access)
+     *   11 = Entry prohibited (access)
+     *   12 = Exit prohibited
+     *   18 = Berthing prohibited
+     *   27 = Seasonal restriction (check perend/persta)
+     *   28 = Marine nature reserve
+     */
+    private fun parseRestrictionCode(code: String?): RegulatedZoneType = when (code?.trim()) {
+        "1" -> RegulatedZoneType.SPEED_LIMIT
+        "7" -> RegulatedZoneType.ANCHORING_PROHIBITED
+        "8", "9" -> RegulatedZoneType.FISHING_PROHIBITED
+        "10", "11", "12" -> RegulatedZoneType.ACCESS_PROHIBITED
+        "18" -> RegulatedZoneType.MOORING
+        "27" -> RegulatedZoneType.NAVIGATION_RESTRICTION
+        "28" -> RegulatedZoneType.ENVIRONMENTAL
+        else -> RegulatedZoneType.OTHER
+    }
+
+    /**
      * Parse a GeoJSON Polygon coordinate array into (outerRing, holes).
-     *
-     * A Polygon's coordinates array is:
-     *   [ [outerRing], [hole1], [hole2], ... ]
-     * where each ring is an array of [lon, lat] coordinate pairs.
-     *
-     * @return Pair of (outerRing, holes), or null if parsing fails.
+     * Coordinates are in EPSG:3857 and converted to WGS84.
      */
     private fun parsePolygon(coords: JsonElement): Pair<List<LatLng>, List<List<LatLng>>>? {
         val rings = coords.jsonArray ?: return null
@@ -267,22 +270,46 @@ class ShomRegulationClient(
     }
 
     /**
-     * Parse a GeoJSON ring (array of [lon, lat] pairs) into [List] of [LatLng].
+     * Parse a GeoJSON ring, auto-detecting CRS:
+     * - If coordinates look like EPSG:3857 (|x| > 180), convert from Web Mercator.
+     * - Otherwise treat as WGS84 lat/lon.
+     * GeoJSON order is [x, y] = [easting, northing] or [lon, lat].
      */
     private fun parseRing(ring: JsonElement): List<LatLng>? {
         val points = ring.jsonArray ?: return null
         return points.mapNotNull { point ->
             val arr = point.jsonArray ?: return@mapNotNull null
             if (arr.size < 2) return@mapNotNull null
-            val lon = arr[0].jsonPrimitive.doubleOrNull ?: return@mapNotNull null
-            val lat = arr[1].jsonPrimitive.doubleOrNull ?: return@mapNotNull null
-            LatLng(latitude = lat, longitude = lon)
-        }.takeIf { it.size >= 3 } // A valid polygon ring needs at least 3 points
+            val x = arr[0].jsonPrimitive.doubleOrNull ?: return@mapNotNull null
+            val y = arr[1].jsonPrimitive.doubleOrNull ?: return@mapNotNull null
+            if (kotlin.math.abs(x) > 180.0 || kotlin.math.abs(y) > 90.0) {
+                // Looks like EPSG:3857 — convert
+                webMercatorToWgs84(x, y)
+            } else {
+                // Already WGS84 lat/lon — GeoJSON order is [lon, lat]
+                LatLng(latitude = y, longitude = x)
+            }
+        }.takeIf { it.size >= 3 }
     }
 
     /**
-     * Map a SHOM `type_reglementation` string to [RegulatedZoneType].
+     * Convert EPSG:3857 (Web Mercator) coordinates to WGS84 (lat/lon).
      */
+    private fun webMercatorToWgs84(x: Double, y: Double): LatLng {
+        val lon = x / EARTH_RADIUS_M * 180.0 / PI
+        val lat = (PI / 2.0 - 2.0 * atan(exp(-y / EARTH_RADIUS_M))) * 180.0 / PI
+        return LatLng(latitude = lat, longitude = lon)
+    }
+
+    /** Check if a zone's centroid falls within [bbox]. */
+    private fun zoneInBbox(zone: RegulatedZone, bbox: BoundingBox): Boolean {
+        if (zone.outerRing.isEmpty()) return false
+        val centerLat = zone.outerRing.map { it.latitude }.average()
+        val centerLon = zone.outerRing.map { it.longitude }.average()
+        return centerLat in bbox.latSouth..bbox.latNorth &&
+                centerLon in bbox.lonWest..bbox.lonEast
+    }
+
     private fun parseZoneType(type: String): RegulatedZoneType = when (type.trim().lowercase()) {
         "vitesse" -> RegulatedZoneType.SPEED_LIMIT
         "mouillage" -> RegulatedZoneType.ANCHORING_PROHIBITED
@@ -292,30 +319,24 @@ class ShomRegulationClient(
     }
 
     companion object {
-        /** Default base URL for SHOM WFS regulation endpoint. */
+        /** Public INSPIRE WFS endpoint — no authentication required. */
+        const val INSPIRE_BASE_URL = "https://services.data.shom.fr/INSPIRE/wfs"
+
+        /** Auth-protected endpoint (requires SHOM API key). */
         const val DEFAULT_BASE_URL = "https://services.data.shom.fr/wfs/reglementation"
 
-        /**
-         * Real regulation layers discovered via GetCapabilities (2026-06-11).
-         *
-         * Layer code explanations:
-         *   splare  = SPeed Limit AREa      resare  = REStricted AREa
-         *   achare  = Anchoring Hazard AREa ctsare  = CauTion/Safety AREa
-         *   admare  = ADministrative MARitime AREa
-         */
+        const val EARTH_RADIUS_M = 6_371_000.0
+
+        /** Regulation layers available on the INSPIRE endpoint. */
         val CANDIDATE_TYPENAMES = listOf(
-            "REGLEMENTATION_NAVIGATION_BDD_WFS1:splare_polygon",
-            "REGLEMENTATION_NAVIGATION_BDD_WFS1:splare_point",
-            "REGLEMENTATION_NAVIGATION_BDD_WFS1:resare_polygon",
-            "REGLEMENTATION_NAVIGATION_BDD_WFS1:achare_polygon",
-            "REGLEMENTATION_NAVIGATION_BDD_WFS1:achare_point",
-            "REGLEMENTATION_NAVIGATION_BDD_WFS1:ctsare_polygon",
-            "REGLEMENTATION_NAVIGATION_BDD_WFS1:admare_polygon",
+            "REGLEMENTATION_NAVIGATION_BDD_WFS:resare_polygon",
+            "REGLEMENTATION_NAVIGATION_BDD_WFS:splare_polygon",
+            "REGLEMENTATION_NAVIGATION_BDD_WFS:achare_polygon",
+            "REGLEMENTATION_NAVIGATION_BDD_WFS:achare_point",
+            "REGLEMENTATION_NAVIGATION_BDD_WFS:ctsare_polygon",
+            "REGLEMENTATION_NAVIGATION_BDD_WFS:admare_polygon",
         )
 
-        /**
-         * Create a default [OkHttpClient] with 15s connect and 30s read timeouts.
-         */
         fun defaultClient(): OkHttpClient = OkHttpClient.Builder()
             .connectTimeout(15, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
