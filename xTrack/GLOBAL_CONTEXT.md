@@ -1,10 +1,10 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** Documentation
+- **Active Feature:** Navigation
 - **Active Subfeature:** none
-- **Last Updated:** 2026-06-11 11:08
-- **Last Bake:** 2026-06-11 11:08 (Documentation — merged origin/develop (1 ahead), resolved 3 content + 2 file-location conflicts keeping HEAD; working tree clean)
+- **Last Updated:** 2026-06-11 13:11
+- **Last Bake:** 2026-06-11 11:55 (Navigation — cap arrow fix: removed bearingDeg from arrow/line rendering, always draw straight up)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -40,7 +40,7 @@
 | DepthSafety | Danger depth alerts, shallow water grounding prevention, isobath precision | 2026-06-03 00:00 | 2026-06-05 00:00 | active |
 | Ui_General | App-lifecycle UX: back-to-exit guard and keep-screen-on wakelock | 2026-06-03 00:00 | 2026-06-03 00:00 | active |
 | Ui_Settings | Settings page UI, persistence, widgets, and UX enhancements | 2026-06-09 15:28 | 2026-06-09 19:42 | active |
-| **Navigation** | **Navigation aids — heading/speed arrow and direction line on map overlay** | **2026-06-10 08:40** | **2026-06-10 14:21** | **active** |
+| **Navigation** | **Navigation aids — heading/speed arrow and direction line on map overlay** | **2026-06-10 08:40** | **2026-06-11 11:55** | **active** |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).
