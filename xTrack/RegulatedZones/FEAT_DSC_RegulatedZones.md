@@ -2,8 +2,8 @@
 name: RegulatedZones
 status: active
 created: 2026-06-11 18:00
-modified: 2026-06-11 20:32
-active_subfeature: display-layer
+modified: 2026-06-11 21:08
+active_subfeature: none
 ---
 
 # Feature: RegulatedZones
@@ -107,6 +107,26 @@ asset is found (never baked), the overlay is simply absent — graceful degradat
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — MODIFIED. Added `drawRegulatedZones()`, `RegulatedZonesLayerButton`, `regulatedZonesVisible` wiring
 - `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — MODIFIED. Added `regulatedZonesVisible` field + persistence
 
+### filtering-zone-data  [ ]
+
+**Focus:** Filtering what regulated zones are displayed based on vessel size, zone type toggles, and interactive selection.
+
+**Design approach:** Apply the existing `RegulatedZone.appliesTo()` vessel-size filter in the display pipeline to skip inapplicable zones. Add per-type visibility toggles (show/hide speed limits, anchoring bans, etc.) and zone selection feedback on the info banner.
+
+#### Todos
+- [ ] **Apply vessel-size filter** — pass user's boat length to `drawRegulatedZones()` and skip zones where `!zone.appliesTo(userLengthM)`
+- [ ] **Per-type visibility toggles** — add per-`RegulatedZoneType` show/hide settings (speed, anchoring, access, etc.)
+- [ ] **Zone interaction** — tap a zone on the map to highlight it and show full details in the info banner
+
+#### Rules
+- Reuse `RegulatedZone.appliesTo()` for vessel size — no duplicate logic
+- Settings follow the existing `AppSettings` pattern with `SharedPreferences` persistence
+- Vessel length defaults to the user's boat length from settings (or 6 m if unknown)
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — MODIFIED. Vessel-size filter in `drawRegulatedZones()`, per-type toggles
+- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — MODIFIED. Per-type visibility fields
+
 ## Todos
 - [x] Data source discovery (SHOM WFS endpoint & layer names)
 - [x] Data model definition (`RegulatedZone` data class + enum + set + `VesselSizeRestriction`)
@@ -125,6 +145,9 @@ asset is found (never baked), the overlay is simply absent — graceful degradat
 - [x] Public INSPIRE endpoint (no auth required)
 - [x] `test-regulated-zones.bat` runner with HTML report
 - [x] ELI16 practical summary in README
+- [ ] Vessel-size filtering in display pipeline
+- [ ] Per-type visibility toggles (speed, anchoring, access, etc.)
+- [ ] Zone tap interaction (highlight + full details)
 
 ## Rules
 - Personal-use app — regulatory data fetched offline, not redistributed
