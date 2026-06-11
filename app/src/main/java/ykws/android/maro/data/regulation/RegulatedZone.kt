@@ -70,10 +70,51 @@ data class RegulatedZone(
      * @param vesselLengthM Length of the vessel in metres.
      * @return `true` if the zone applies, `false` if the vessel is exempt.
      */
+    /**
+     * Check whether this zone applies to a vessel of the given length.
+     *
+     * Checks two sources:
+     * 1. [vesselSizeRestriction] field (populated by auth-protected SHOM WFS)
+     * 2. [description] text heuristic (e.g. "vessels more than 50m",
+     *    "for all boats", "mandatory for vessels more than 50m")
+     *
+     * Speed limit zones always apply to all vessels. If no restriction is
+     * found, the zone applies to all.
+     *
+     * @param vesselLengthM Length of the vessel in metres.
+     * @return `true` if the zone applies, `false` if the vessel is exempt.
+     */
     fun appliesTo(vesselLengthM: Double): Boolean {
-        val r = vesselSizeRestriction ?: return true
-        if (r.minLengthM != null && vesselLengthM < r.minLengthM) return false
-        if (r.maxLengthM != null && vesselLengthM > r.maxLengthM) return false
+        if (vesselLengthM < 0.0) return false
+        // Speed limits apply to all vessels
+        if (speedLimitKn != null) return true
+
+        // 1. Check structured vesselSizeRestriction (from auth WFS)
+        val r = vesselSizeRestriction
+        if (r != null) {
+            if (r.minLengthM != null && vesselLengthM < r.minLengthM) return false
+            if (r.maxLengthM != null && vesselLengthM > r.maxLengthM) return false
+            return true
+        }
+
+        // 2. Check description text heuristic (from public INSPIRE WFS)
+        if (description.isNotBlank()) {
+            val desc = description.lowercase()
+            // Minimum vessel size: "more than 50m", "vessels more than 50m", "> 50m", "plus de 50m"
+            val minMatch = Regex("""(more than|over|exceeding|>|≥|minimum|supérieur|supérieure|plus de|>)\s*(\d+)\s*m""")
+                .find(desc)
+            if (minMatch != null) {
+                val minM = minMatch.groupValues[2].toDoubleOrNull()
+                if (minM != null && vesselLengthM < minM) return false
+            }
+            // Maximum vessel size: "less than 20m", "< 20m", "moins de 20m"
+            val maxMatch = Regex("""(less than|under|below|<|≤|maximum|inférieur|inférieure|moins de|<)\s*(\d+)\s*m""")
+                .find(desc)
+            if (maxMatch != null) {
+                val maxM = maxMatch.groupValues[2].toDoubleOrNull()
+                if (maxM != null && vesselLengthM > maxM) return false
+            }
+        }
         return true
     }
 }

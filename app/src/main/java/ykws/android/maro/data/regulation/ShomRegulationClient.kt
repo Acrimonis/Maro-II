@@ -182,7 +182,9 @@ class ShomRegulationClient(
             parseRestrictionCode(properties["restrn"]?.jsonPrimitive?.content)
         }
 
+        // Extract speed limit: prefer structured property, fall back to description text
         val speedLimitKn = properties["vitesse_max"]?.jsonPrimitive?.doubleOrNull
+            ?: parseSpeedFromDescription(properties["inform"]?.jsonPrimitive?.content)
         val name = properties["objnam"]?.jsonPrimitive?.content
             ?: properties["nobjnm"]?.jsonPrimitive?.content
             ?: properties["nom"]?.jsonPrimitive?.content
@@ -308,6 +310,18 @@ class ShomRegulationClient(
         val centerLon = zone.outerRing.map { it.longitude }.average()
         return centerLat in bbox.latSouth..bbox.latNorth &&
                 centerLon in bbox.lonWest..bbox.lonEast
+    }
+
+    /**
+     * Try to extract a speed limit (knots) from a description string.
+     * Handles "speed is limited to 10 knots", "speed limit of 5 knots",
+     * "3 knots", "10 noeuds", etc.
+     */
+    private fun parseSpeedFromDescription(desc: String?): Double? {
+        if (desc == null) return null
+        val regex = Regex("""(\d+[.]?\d*)\s*(knot|noeud|nds|kn)\b""", RegexOption.IGNORE_CASE)
+        val match = regex.find(desc.lowercase()) ?: return null
+        return match.groupValues[1].toDoubleOrNull()
     }
 
     private fun parseZoneType(type: String): RegulatedZoneType = when (type.trim().lowercase()) {

@@ -1,25 +1,21 @@
 # RegulatedZones — Hydration Snapshot
 
-**Baked:** 2026-06-11 20:25 UTC
+**Baked:** 2026-06-11 20:35 UTC
 
-**Status:** data-lookup subfeature **complete**. All 9 implementation steps done. 34 tests pass.
+**Status:** display-layer subfeature **complete**. Both subfeatures done.
 
 **What was accomplished this session:**
-- Public SHOM INSPIRE WFS endpoint discovered: `https://services.data.shom.fr/INSPIRE/wfs` (no auth)
-- Real layer names: `REGLEMENTATION_NAVIGATION_BDD_WFS:*` (resare, splare, achare, ctsare, admare)
-- EPSG:3857 → WGS84 coordinate conversion with auto-CRS detection
-- Speed limit extraction from description text ("speed is limited to X knots")
-- Vessel size filtering: `appliesTo()` with structured + text heuristic
-- 72 live zones fetched for Nice-Fréjus corridor: speed limits (12), anchoring (12), fishing (5), navigation restrictions (3), access prohibited (1)
-- Key zones detected: Golfe Juan 10 kn (827 vertices), Nice 5 kn/10 kn zones, Lerins anchoring prohibition
-- `tools/test-regulated-zones.bat` — runs all 34 tests + opens HTML report
-- ELI16 practical summary in plans/regulated-zones-readme.md
-- Cleaned up `tools/test-regulated-zones.bat` (no BOM, no infinite loop)
+- **`RegulatedZonesRepository`** — new asset loader that reads prebaked `RegulatedZoneSet` from `assets/regulated-zones/<region>.bin` via `context.assets.open()`. Best-effort: null if asset missing (graceful degradation).
+- **`drawRegulatedZones()`** — osmdroid `Polygon`-based renderer: one translucent filled polygon per zone with coloured outline. Supports polygon holes (island interiors). Zoom-gated at level 10.
+- **Per-type colour palette** — 8 `RegulatedZoneType` values mapped to distinct colours at ~19% fill opacity (matching zone300 style): speed (blue), anchoring (amber), access (red), environmental (green), mooring (teal), fishing (yellow), navigation (purple), other (grey).
+- **`regulatedZonesVisible` setting** — added to `AppSettings` with `SharedPreferences` persistence (default `true`).
+- **`RegulatedZonesLayerButton`** — 64dp circle button (ring+dot icon) in the right-edge layer control stack, between the danger (low-depth) and 300 m band toggles.
+- **Data flow wiring** — loaded via `produceState` in `MapScreen`, threaded through `MapContent` → `CoastlineMapView`. Overlay placed between isobaths and the 300 m band in the z-order stack.
+- **BUILD SUCCESSFUL** — `assembleDebug` passes with zero errors.
 
 **Source files:**
-- `app/src/main/java/ykws/android/maro/data/regulation/` — 5 source files
-- `app/src/test/java/ykws/android/maro/data/regulation/` — 7 test files
-- `tools/bake-regulated-zones.bat`, `tools/test-regulated-zones.bat`
-- `plans/regulated-zones-readme.md` (ELI16 + practical guide)
+- `app/src/main/java/ykws/android/maro/data/regulation/RegulatedZonesRepository.kt` — NEW
+- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — MODIFIED (regulatedZonesVisible)
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — MODIFIED (drawRegulatedZones, RegulatedZonesLayerButton, wiring)
 
-**Next step:** display-layer subfeature — render zones on map with per-type colours/legend.
+**Next step:** No remaining subfeatures. Possibly vessel-filter interactive demo, or legend panel, or move to next feature.

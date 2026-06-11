@@ -96,6 +96,8 @@ data class AppSettings(
     val headingLineVisible: Boolean = true,
     /** Show the speed-proportional cap arrow projecting from the boat marker. */
     val capArrowVisible: Boolean = false,
+    /** Whether the regulated zones overlay (speed limits, anchoring, access, …) is drawn. */
+    val regulatedZonesVisible: Boolean = true,
     /**
      * GPS idle mode: minimum metres of movement between fixes when the adaptive policy
      * has switched to [AcquisitionMode.IDLE] (device stationary). Default 0 so even tiny
@@ -152,6 +154,7 @@ class SettingsManager(
         regenWarning = prefs.getBoolean(KEY_REGEN_WARNING, true),
         headingLineVisible = prefs.getBoolean(KEY_HEADING_LINE_VISIBLE, true),
         capArrowVisible   = prefs.getBoolean(KEY_CAP_ARROW_VISIBLE, false),
+        regulatedZonesVisible = prefs.getBoolean(KEY_REGULATED_ZONES_VISIBLE, true),
         gpsIdleMinDistanceM = prefs.getFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, 0f)
     )
 
@@ -202,6 +205,7 @@ class SettingsManager(
             .putBoolean(KEY_REGEN_WARNING, updated.regenWarning)
             .putBoolean(KEY_HEADING_LINE_VISIBLE, updated.headingLineVisible)
             .putBoolean(KEY_CAP_ARROW_VISIBLE, updated.capArrowVisible)
+            .putBoolean(KEY_REGULATED_ZONES_VISIBLE, updated.regulatedZonesVisible)
             .putFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, updated.gpsIdleMinDistanceM)
             .apply()
     }
@@ -241,6 +245,7 @@ class SettingsManager(
         private const val KEY_REGEN_WARNING = "regen_warning"
         private const val KEY_HEADING_LINE_VISIBLE = "heading_line_visible"
         private const val KEY_CAP_ARROW_VISIBLE = "cap_arrow_visible"
+        private const val KEY_REGULATED_ZONES_VISIBLE = "regulated_zones_visible"
         private const val KEY_GPS_IDLE_MIN_DISTANCE_M = "gps_idle_min_distance_m"
     }
 }

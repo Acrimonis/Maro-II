@@ -63,6 +63,11 @@ class CapAntibesZoneTest {
             }
         }
 
+        // Filter for a typical small boat (< 6 m)
+        val myBoatLength = 5.8  // metres
+        val applicable = zones.filter { it.appliesTo(myBoatLength) }
+        val exempt = zones.filter { !it.appliesTo(myBoatLength) }
+
         // Summary stats
         println("\n${"=".repeat(70)}")
         println("  Résumé: ${zones.size} zones · ${byType.size} types de réglementation")
@@ -70,6 +75,17 @@ class CapAntibesZoneTest {
         println("  Surface totale couverte: ~${"%.1f".format(totalArea)} km²")
         val sources = zones.map { it.source }.distinct()
         println("  Sources: ${sources.joinToString(", ")}")
+
+        // Boat-specific summary
+        println("\n  Pour un bateau de ${"%.1f".format(myBoatLength)} m (< 6 m):")
+        println("  ✅ ${applicable.size} zones applicables")
+        println("  ⏭️  ${exempt.size} zones sans objet (réservées aux grands navires)")
+        if (exempt.isNotEmpty()) {
+            println("\n  Zones dont vous êtes exempté(e) :")
+            for (z in exempt) {
+                println("    • ${z.name.ifBlank { "(sans nom)" }} — ${z.description.take(100)}")
+            }
+        }
         println("${"=".repeat(70)}")
 
         // The point of this test: confirm we got data from the live endpoint

@@ -2,8 +2,8 @@
 name: RegulatedZones
 status: active
 created: 2026-06-11 18:00
-modified: 2026-06-11 20:25
-active_subfeature: data-lookup
+modified: 2026-06-11 20:32
+active_subfeature: display-layer
 ---
 
 # Feature: RegulatedZones
@@ -72,11 +72,40 @@ Goal: gather, aggregate, and model these spatial regulatory zones into a structu
 - `tools/bake-regulated-zones.bat` — NEW. Bake script
 - `data/app-assets/regulated-zones/` — NEW. Output directory (gitignored)
 
-### display-layer  [ ]
+### display-layer  [x]
 
 **Focus:** Rendering regulated zones as a map overlay layer with per-type colour/legend.
 
-*(Details to be designed after data-lookup is complete — placeholder for now.)*
+Renders each [RegulatedZone] as a translucent filled osmdroid Polygon with a coloured
+outline. Each [RegulatedZoneType] gets a distinct colour — speed limits blue, anchoring
+amber, access red, environmental green, mooring teal, fishing yellow, navigation purple,
+other grey. Polygon holes (island interiors) are supported. A visibility toggle button
+(ring-with-dot icon) sits in the right-edge layer controls, between the danger and 300 m
+band toggles. Zoom-gated below zoom 10.
+
+The prebaked asset is loaded via [RegulatedZonesRepository] from `assets/regulated-zones/`
+using a `produceState` in `MapScreen`, following the same pattern as `depthBitmap`. If no
+asset is found (never baked), the overlay is simply absent — graceful degradation.
+
+#### Todos
+- [x] **Create `RegulatedZonesRepository`** — load prebaked `RegulatedZoneSet` from APK assets
+- [x] **Define per-type colour palette** — `regulatedZoneColor()` for all 8 `RegulatedZoneType` values
+- [x] **Implement `drawRegulatedZones()`** — osmdroid Polygon per zone with fill + stroke, holes support, zoom gate at 10
+- [x] **Add `regulatedZonesVisible` setting** — `AppSettings` field + `SettingsManager` persistence key
+- [x] **Add layer toggle button** — `RegulatedZonesLayerButton` in right-edge control stack (ring + dot icon)
+- [x] **Wire data flow** — `produceState` loading in `MapScreen`, pass through `MapContent` → `CoastlineMapView`
+- [x] **Overlay stack placement** — drawn between isobaths and the 300 m band (above contours, below coastline)
+
+#### Rules
+- Follow the existing osmdroid overlay pattern (Polygon fill + Polyline outline, same as Zone300)
+- Graceful degradation: no baked asset → no overlay (null-safe in drawRegulatedZones)
+- Zoom-gate at 10 to avoid sub-pixel rendering
+- Layer button matches the existing 64dp circle style with theme-blue tint
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/data/regulation/RegulatedZonesRepository.kt` — NEW. Asset loader
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — MODIFIED. Added `drawRegulatedZones()`, `RegulatedZonesLayerButton`, `regulatedZonesVisible` wiring
+- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — MODIFIED. Added `regulatedZonesVisible` field + persistence
 
 ## Todos
 - [x] Data source discovery (SHOM WFS endpoint & layer names)
@@ -87,6 +116,10 @@ Goal: gather, aggregate, and model these spatial regulatory zones into a structu
 - [x] Prebake test + bake script
 - [x] Integration into apk-bake.bat
 - [x] Live SHOM INSPIRE WFS integration test (Cap d'Antibes, 72 zones)
+- [x] Regulated zones map overlay renderer (`drawRegulatedZones()`)
+- [x] Per-type colour palette (8 zone types)
+- [x] Regulated zones visibility toggle + layer button
+- [x] Prebaked asset loading via `RegulatedZonesRepository`
 - [x] Vessel size filtering (`appliesTo()` with description text heuristic)
 - [x] Speed limit extraction from description text
 - [x] Public INSPIRE endpoint (no auth required)
