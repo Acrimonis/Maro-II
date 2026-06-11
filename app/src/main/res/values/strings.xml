@@ -47,6 +47,7 @@
     <string name="settings_emodnet_section_desc">Coarse EMODnet data is unreliable in very shallow water near rocks and the coast</string>
     <string name="settings_emodnet_cutoff_label">Cutoff depth</string>
     <string name="settings_emodnet_cutoff_desc">Hide EMODnet depths shallower than this (shown as no data). 0 = off</string>
+    <string name="settings_section_screen">Screen</string>
     <string name="settings_section_power">Power saving</string>
     <string name="settings_keep_screen_on_label">Keep phone on</string>
     <string name="settings_keep_screen_on_desc">Keep the screen on while the app is running</string>

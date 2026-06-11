@@ -86,6 +86,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.core.content.ContextCompat
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -164,6 +165,7 @@ fun MapScreen(
     val appSettings by viewModel.settings.collectAsState()
     var mapView by remember { mutableStateOf<MapView?>(null) }
     var showSettings by remember { mutableStateOf(false) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val displayScrollState = rememberScrollState()
     val navigationScrollState = rememberScrollState()
     val systemScrollState = rememberScrollState()
@@ -503,6 +505,8 @@ fun MapScreen(
                 onUpdateSettings = viewModel::updateSettings,
                 onGpsModeChange = onGpsModeChange,
                 onDismiss = { showSettings = false },
+                selectedTab = selectedTab,
+                onTabChange = { selectedTab = it },
                 displayScrollState = displayScrollState,
                 navigationScrollState = navigationScrollState,
                 systemScrollState = systemScrollState,
@@ -1317,7 +1321,7 @@ private fun GpsStatusIcon(
 // ── Settings overlay (full-screen page) ─────────────────────────────────────
 
 // Tab definitions for the settings page.
-private val settingsTabLabels = listOf("Display", "Navigation", "System")
+private val settingsTabLabels = listOf("General", "Navigation", "System")
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -1326,17 +1330,29 @@ private fun SettingsOverlay(
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
     onGpsModeChange: (Boolean) -> Unit,
     onDismiss: () -> Unit,
+    selectedTab: Int,
+    onTabChange: (Int) -> Unit,
     onRegenerateRasters: (List<RasterCache.Step>) -> Unit = {},
     displayScrollState: ScrollState,
     navigationScrollState: ScrollState,
     systemScrollState: ScrollState,
 ) {
-    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val pagerState = rememberPagerState(pageCount = { 3 })
 
     // Sync tab selection <-> pager position (bidirectional).
-    LaunchedEffect(selectedTab) { pagerState.animateScrollToPage(selectedTab) }
-    LaunchedEffect(pagerState.currentPage) { selectedTab = pagerState.currentPage }
+    // The pagerSyncSettled flag prevents the initial pager→tab sync from
+    // overwriting selectedTab before animateScrollToPage has a chance to
+    // restore the persisted tab selection.
+    val pagerSyncSettled = remember { mutableStateOf(false) }
+    LaunchedEffect(selectedTab) {
+        pagerState.animateScrollToPage(selectedTab)
+        pagerSyncSettled.value = true
+    }
+    LaunchedEffect(pagerState.currentPage) {
+        if (pagerSyncSettled.value) {
+            onTabChange(pagerState.currentPage)
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -1406,7 +1422,7 @@ private fun SettingsOverlay(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .clickable { selectedTab = index }
+                            .clickable { onTabChange(index) }
                             .padding(vertical = 14.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -1430,9 +1446,9 @@ private fun SettingsOverlay(
                     .fillMaxWidth()
             ) { page ->
                 when (page) {
-                    0 -> DisplaySettings(settings, onUpdateSettings, displayScrollState)
-                    1 -> NavigationSettings(settings, onUpdateSettings, onGpsModeChange, navigationScrollState)
-                    2 -> SystemSettings(settings, onUpdateSettings, onRegenerateRasters, systemScrollState)
+                    0 -> GeneralSettings(settings, onUpdateSettings, displayScrollState)
+                    1 -> NavigationSettings(settings, onUpdateSettings, navigationScrollState)
+                    2 -> SystemSettings(settings, onUpdateSettings, onGpsModeChange, onRegenerateRasters, systemScrollState)
                 }
             }
 
@@ -1447,10 +1463,10 @@ private fun SettingsOverlay(
     }
 }
 
-// ── Display tab ───────────────────────────────────────────────────────────
+// ── General tab ───────────────────────────────────────────────────────────
 
 @Composable
-private fun DisplaySettings(
+private fun GeneralSettings(
     settings: AppSettings,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
     scrollState: ScrollState
@@ -1462,6 +1478,12 @@ private fun DisplaySettings(
     ) {
         // ── Coastline overlay toggle ──────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_section_display))
+        Spacer(modifier = Modifier.height(8.dp))
+
+        SubSectionHeader(
+            title = "Layers",
+            description = null
+        )
         Spacer(modifier = Modifier.height(8.dp))
 
         SettingsToggleRow(
@@ -1558,26 +1580,6 @@ private fun DisplaySettings(
         )
 
         Spacer(modifier = Modifier.height(24.dp))
-
-        // ── EMODnet shallow filter ────────────────────────────────────
-        SubSectionHeader(
-            title = stringResource(R.string.settings_emodnet_section_label),
-            description = stringResource(R.string.settings_emodnet_section_desc)
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        SettingsSliderGroup {
-            SliderRowContent(
-                label = stringResource(R.string.settings_emodnet_cutoff_label),
-                description = stringResource(R.string.settings_emodnet_cutoff_desc),
-                valueLabel = stringResource(R.string.settings_value_depth, settings.emodnetShallowCutoffM),
-                value = settings.emodnetShallowCutoffM,
-                valueRange = 0f..5f,
-                steps = 9,
-                onValueChange = { v -> onUpdateSettings { it.copy(emodnetShallowCutoffM = (v * 2f).roundToInt() / 2f) } }
-            )
-        }
-
-        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
@@ -1587,7 +1589,6 @@ private fun DisplaySettings(
 private fun NavigationSettings(
     settings: AppSettings,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
-    onGpsModeChange: (Boolean) -> Unit,
     scrollState: ScrollState
 ) {
     Column(
@@ -1595,95 +1596,6 @@ private fun NavigationSettings(
             .fillMaxSize()
             .verticalScroll(scrollState)
     ) {
-        // -- Source de position (Demo <-> GPS) section --
-        SectionHeader(title = stringResource(R.string.settings_section_position))
-        Spacer(modifier = Modifier.height(8.dp))
-
-        SettingsToggleRow(
-            label = stringResource(R.string.settings_gps_mode_label),
-            description = stringResource(R.string.settings_gps_mode_desc),
-            checked = settings.gpsMode,
-            onCheckedChange = onGpsModeChange
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Navigation
-        SubSectionHeader(
-            title = "Navigation",
-            description = null
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Heading direction line toggle
-        SettingsToggleRow(
-            label = stringResource(R.string.settings_heading_line_label),
-            description = stringResource(R.string.settings_heading_line_desc),
-            checked = settings.headingLineVisible,
-            onCheckedChange = { visible ->
-                onUpdateSettings { it.copy(headingLineVisible = visible) }
-            }
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Variable cap arrow toggle
-        SettingsToggleRow(
-            label = stringResource(R.string.settings_cap_arrow_label),
-            description = stringResource(R.string.settings_cap_arrow_desc),
-            checked = settings.capArrowVisible,
-            onCheckedChange = { visible ->
-                onUpdateSettings { it.copy(capArrowVisible = visible) }
-            }
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        SettingsSliderRow(
-            label = stringResource(R.string.settings_recenter_label),
-            description = stringResource(R.string.settings_recenter_desc),
-            valueLabel = stringResource(R.string.settings_value_seconds, settings.recenterDelaySeconds),
-            value = settings.recenterDelaySeconds.toFloat(),
-            valueRange = 1f..10f,
-            steps = 8,
-            onValueChange = { v -> onUpdateSettings { it.copy(recenterDelaySeconds = v.roundToInt()) } }
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // ── GPS acquisition while moving ──────────────────────────────
-        SubSectionHeader(
-            title = stringResource(R.string.settings_sub_gps_label),
-            description = stringResource(R.string.settings_sub_gps_desc)
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        SettingsFrequencyRow(
-            intervalSec = settings.gpsActiveIntervalSec,
-            onSelect = { ivl, dist ->
-                onUpdateSettings { it.copy(gpsActiveIntervalSec = ivl, gpsActiveMinDistanceM = dist) }
-            }
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // ── Map rendering FPS ceiling ─────────────────────────────────
-        SubSectionHeader(
-            title = stringResource(R.string.settings_sub_render_label),
-            description = stringResource(R.string.settings_sub_render_desc)
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        SettingsSliderRow(
-            label = stringResource(R.string.settings_fps_label),
-            description = stringResource(R.string.settings_fps_desc),
-            valueLabel = stringResource(R.string.settings_value_fps, settings.mapRefreshFps),
-            value = settings.mapRefreshFps.toFloat(),
-            valueRange = 5f..50f,
-            steps = 8,
-            onValueChange = { v -> onUpdateSettings { it.copy(mapRefreshFps = (v / 5f).roundToInt() * 5) } }
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
         // ── Idle saving ───────────────────────────────────────────────
         SubSectionHeader(
             title = stringResource(R.string.settings_idle_section_label),
@@ -1791,6 +1703,7 @@ private fun NavigationSettings(
 private fun SystemSettings(
     settings: AppSettings,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
+    onGpsModeChange: (Boolean) -> Unit,
     onRegenerateRasters: (List<RasterCache.Step>) -> Unit,
     scrollState: ScrollState
 ) {
@@ -1810,8 +1723,100 @@ private fun SystemSettings(
 
         Spacer(modifier = Modifier.height(24.dp))
 
+        // ── Position source (Demo <-> GPS) — moved from Navigation tab ─
+        SectionHeader(title = stringResource(R.string.settings_section_position))
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Grouped card: GPS toggle + optional GPS tuning expander
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(ComposeColor(0x1AFFFFFF))
+        ) {
+            // GPS mode toggle row (inline, no separate card background)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_gps_mode_label),
+                        color = ComposeColor.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_gps_mode_desc),
+                        color = ComposeColor(0xFFB0BEC5),
+                        fontSize = 13.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Switch(
+                    checked = settings.gpsMode,
+                    onCheckedChange = onGpsModeChange,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = ComposeColor(0xFF1565C0),
+                        checkedTrackColor = ComposeColor(0xFF1565C0).copy(alpha = 0.4f),
+                        uncheckedThumbColor = ComposeColor(0xFFB0BEC5),
+                        uncheckedTrackColor = ComposeColor(0x33FFFFFF)
+                    )
+                )
+            }
+
+            // GPS sub-settings — collapsible, only visible when GPS mode is on
+            if (settings.gpsMode) {
+                // Thin divider separating the toggle from the expander
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(0.5.dp)
+                        .background(ComposeColor.White.copy(alpha = 0.1f))
+                )
+                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    var gpsTuningExpanded by remember { mutableStateOf(false) }
+                    SettingsExpander(
+                        label = "GPS tuning",
+                        expanded = gpsTuningExpanded,
+                        onToggle = { gpsTuningExpanded = !gpsTuningExpanded },
+                        labelStyle = TextStyle(
+                            color = ComposeColor.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    ) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        SettingsFrequencyRow(
+                            intervalSec = settings.gpsActiveIntervalSec,
+                            onSelect = { ivl, dist ->
+                                onUpdateSettings { it.copy(gpsActiveIntervalSec = ivl, gpsActiveMinDistanceM = dist) }
+                            }
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        SettingsSliderRow(
+                            label = stringResource(R.string.settings_recenter_label),
+                            description = stringResource(R.string.settings_recenter_desc),
+                            valueLabel = stringResource(R.string.settings_value_seconds, settings.recenterDelaySeconds),
+                            value = settings.recenterDelaySeconds.toFloat(),
+                            valueRange = 1f..10f,
+                            steps = 8,
+                            onValueChange = { v -> onUpdateSettings { it.copy(recenterDelaySeconds = v.roundToInt()) } }
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
         // ── Keep screen on ────────────────────────────────────────────
-        SectionHeader(title = stringResource(R.string.settings_section_power))
+        SectionHeader(title = stringResource(R.string.settings_section_screen))
         Spacer(modifier = Modifier.height(8.dp))
 
         SettingsToggleRow(
@@ -1820,6 +1825,36 @@ private fun SystemSettings(
             checked = settings.keepScreenOn,
             onCheckedChange = { on -> onUpdateSettings { it.copy(keepScreenOn = on) } }
         )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Map rendering FPS ceiling — moved from Navigation tab
+        SettingsSliderRow(
+            label = stringResource(R.string.settings_fps_label),
+            description = stringResource(R.string.settings_fps_desc),
+            valueLabel = stringResource(R.string.settings_value_fps, settings.mapRefreshFps),
+            value = settings.mapRefreshFps.toFloat(),
+            valueRange = 5f..50f,
+            steps = 8,
+            onValueChange = { v -> onUpdateSettings { it.copy(mapRefreshFps = (v / 5f).roundToInt() * 5) } }
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // ── EMODnet shallow filter — moved from General tab ────────────
+        SectionHeader(title = stringResource(R.string.settings_emodnet_section_label))
+        Spacer(modifier = Modifier.height(8.dp))
+        SettingsSliderGroup {
+            SliderRowContent(
+                label = stringResource(R.string.settings_emodnet_cutoff_label),
+                description = stringResource(R.string.settings_emodnet_cutoff_desc),
+                valueLabel = stringResource(R.string.settings_value_depth, settings.emodnetShallowCutoffM),
+                value = settings.emodnetShallowCutoffM,
+                valueRange = 0f..5f,
+                steps = 9,
+                onValueChange = { v -> onUpdateSettings { it.copy(emodnetShallowCutoffM = (v * 2f).roundToInt() / 2f) } }
+            )
+        }
 
         Spacer(modifier = Modifier.height(24.dp))
 
@@ -2100,6 +2135,11 @@ private fun SettingsExpander(
     label: String,
     expanded: Boolean,
     onToggle: () -> Unit,
+    labelStyle: TextStyle = TextStyle(
+        color = ComposeColor(0xFF90A4AE),
+        fontSize = 13.sp,
+        fontWeight = FontWeight.SemiBold
+    ),
     content: @Composable () -> Unit
 ) {
     val rotation by animateFloatAsState(
@@ -2117,9 +2157,7 @@ private fun SettingsExpander(
         ) {
             Text(
                 text = label,
-                color = ComposeColor(0xFF90A4AE),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
+                style = labelStyle,
                 modifier = Modifier.weight(1f)
             )
             Icon(

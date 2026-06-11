@@ -46,6 +46,7 @@
     <string name="settings_emodnet_section_desc">Les données EMODnet (grossières) sont peu fiables en eau très peu profonde près des rochers et de la côte</string>
     <string name="settings_emodnet_cutoff_label">Profondeur seuil</string>
     <string name="settings_emodnet_cutoff_desc">Masquer les profondeurs EMODnet inférieures à ce seuil (affichées sans donnée). 0 = désactivé</string>
+    <string name="settings_section_screen">Écran</string>
     <string name="settings_section_power">Économie d\'énergie</string>
     <string name="settings_keep_screen_on_label">Garder le téléphone allumé</string>
     <string name="settings_keep_screen_on_desc">Garder l\'écran allumé pendant que l\'app fonctionne</string>
