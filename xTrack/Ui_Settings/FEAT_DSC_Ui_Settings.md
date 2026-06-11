@@ -65,7 +65,7 @@ active_subfeature: none
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
 
 ## Docs
-- `plans/settings-apply-on-close.md` — settings apply-on-close UX design
-- `plans/settings-scroll-persistence.md` — discussion: hoist `ScrollState` to survive overlay dismiss/reopen within a session
-- `plans/settings-scroll-persistence-analysis.md` — scroll persistence analysis
-- `plans/settings-tab-organization.md` — discussion: organize settings into tabs/sections
+- `xTrack/Ui_Settings/FEAT_PLN_Ui_Settings_apply-on-close.md` — settings apply-on-close UX design
+- `xTrack/Ui_Settings/FEAT_PLN_Ui_Settings_scroll-persistence.md` — discussion: hoist `ScrollState` to survive overlay dismiss/reopen within a session
+- `xTrack/Ui_Settings/FEAT_PLN_Ui_Settings_scroll-persistence-analysis.md` — scroll persistence analysis
+- `xTrack/Ui_Settings/FEAT_PLN_Ui_Settings_tab-organization.md` — discussion: organize settings into tabs/sections

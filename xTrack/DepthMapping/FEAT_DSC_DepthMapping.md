@@ -243,7 +243,7 @@ Apply the EMODnet shallow-water gate to the colour map, low-depth warning overla
 - `app/src/main/java/.../data/depth/{DepthIsobaths,RasterCache}.kt` — masking + cache
 - `app/src/main/java/.../ui/map/{DepthViewModel,ZoneConfig,MapScreen}.kt` — wiring
 - `app/src/main/assets/zone.properties` — `nodata.color` entry
-- `plans/depth-emodnet-gate-nodata-color.md` — design plan
+- `xTrack/DepthMapping/FEAT_PLN_DepthMapping_emodnet-gate-nodata-color.md` — design plan
 
 ## Todos
 - [ ] **▶ NEXT — On-device verify the depth rendering** *(do this first).* Confirm: colour-map GroundOverlay covers the zone with correct N/S/E/W orientation; isobaths appear at zoom ≥13 (2 m ≥15); z-order depth→isobaths→300 m band→coastline; dashboard shows `🌊 Fond` + source·confidence + validation badge (~1.4 m). Baked in `nice-frejus.bin`: deep EMODnet (full zone) + Litto3D collision tier (Cannes→Antibes); coastline `.bin` present.
@@ -276,7 +276,7 @@ Apply the EMODnet shallow-water gate to the colour map, low-depth warning overla
 - `docs/oZer/BARO - general concepts.md` — prior research
 - `docs/oZer/BARO - Sentinel-2 SDB guide.md` — prior research
 - `docs/oZer/BARO - Step 01 - Data sources discussion.md` — prior research
-- `plans/depth-emodnet-gate-nodata-color.md` — EMODnet shallow gate + NoData colour plan
-- `plans/litto3d-regression-analysis.md` — Litto3D missing-from-bake regression analysis + fix path
-- `plans/depth-oom-mmap-fix.md` — Depth OOM memory-mapped I/O fix practical steps
-- `plans/intra-raster-progress.md` — Intra-raster progress fix plan for raster builders
+- `xTrack/DepthMapping/FEAT_PLN_DepthMapping_emodnet-gate-nodata-color.md` — EMODnet shallow gate + NoData colour plan
+- `xTrack/DepthMapping/FEAT_PLN_DepthMapping_litto3d-regression-analysis.md` — Litto3D missing-from-bake regression analysis + fix path
+- `xTrack/DepthMapping/FEAT_PLN_DepthMapping_oom-mmap-fix.md` — Depth OOM memory-mapped I/O fix practical steps
+- `xTrack/DepthMapping/FEAT_PLN_DepthMapping_intra-raster-progress.md` — Intra-raster progress fix plan for raster builders

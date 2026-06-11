@@ -110,8 +110,8 @@ and compass-gating are unconditional correct behaviour. Framework `LocationManag
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `animateTo` in GPS auto-follow collector (lines ~198-222)
 
 #### Docs
-- `plans/gps-refreshing-discussion.md` — GPS refresh rate: app vs chipset, real perf advantage
-- `plans/animateTo-interaction-analysis.md` — `animateTo` interaction with `mapRefreshFps`
+- `xTrack/GPS/FEAT_PLN_GPS_refreshing-discussion.md` — GPS refresh rate: app vs chipset, real perf advantage
+- `xTrack/Performance/FEAT_PLN_Performance_animateTo-interaction-analysis.md` — `animateTo` interaction with `mapRefreshFps`
 
 ### settings-ui  [ ]
 
@@ -146,4 +146,4 @@ and compass-gating are unconditional correct behaviour. Framework `LocationManag
 ## Docs
 - `xTrack/Performance/FEAT_DOC_Performance_battery-design.md` — battery hotspot analysis, presets/defaults, adaptive-policy contract, refresh-cap mechanism.
 - `docs/MARO_ARCHITECTURE.md` — spatial-engine constraints (async render rules) the map/refresh changes operate within.
-- `plans/gps-refreshing-discussion.md` — GPS refresh rate: app vs chipset, real perf advantage (subfeature `gps-refreshing`)
+- `xTrack/GPS/FEAT_PLN_GPS_refreshing-discussion.md` — GPS refresh rate: app vs chipset, real perf advantage (subfeature `gps-refreshing`)

@@ -85,10 +85,10 @@ Redesign the bottom panel into a proper dashboard for quick reading of indicator
 
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt` — DashboardCard composable, lines 189-197
-- `plans/dashboard-tile-titles.md` — sizing analysis
+- `xTrack/Ui_Dashboard/FEAT_PLN_Ui_Dashboard_tile-titles.md` — sizing analysis
 
 #### Docs
-- [`plans/dashboard-tile-titles.md`](plans/dashboard-tile-titles.md) — sizing & prominence analysis for tile titles
+- `xTrack/Ui_Dashboard/FEAT_PLN_Ui_Dashboard_tile-titles.md` — sizing & prominence analysis for tile titles
 
 ### tile subdued font  [x]
 
@@ -138,5 +138,5 @@ Redesign the bottom panel into a proper dashboard for quick reading of indicator
 ## Key Files
 
 ## Docs
-- [`plans/dashboard-readability-improvements.md`](plans/dashboard-readability-improvements.md) — Readability & space management discussion plan (format padding, reduced paddings, font weight bumps)
-- `plans/dashboard-tile-titles.md` — Dashboard tile titles sizing & prominence design
+- `xTrack/Ui_Dashboard/FEAT_PLN_Ui_Dashboard_readability-improvements.md` — Readability & space management discussion plan (format padding, reduced paddings, font weight bumps)
+- `xTrack/Ui_Dashboard/FEAT_PLN_Ui_Dashboard_tile-titles.md` — Dashboard tile titles sizing & prominence design

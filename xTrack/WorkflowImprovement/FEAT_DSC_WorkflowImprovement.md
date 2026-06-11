@@ -60,7 +60,7 @@ Complete review of the xTrack system: identified spec fragmentation, orphan docs
 - `.claude/skills/xtrack/references/commands.md` — deprecated
 
 #### Docs
-- `plans/xTrack-review-plan.md` — full review analysis and roadmap
+- *(no plans attached)*
 
 ### AGENTSmdNormalization  [x]
 Vendor-neutral consolidation onto the AGENTS.md standard + xTrack hardening (this branch). All 6 fixes implemented + committed.
@@ -138,10 +138,10 @@ Define the Zero-Piecemeal Writes discussion exception: allow one plan file per d
 
 #### Key Files
 - `docs/cmd_help.md` — Git section + updated reference table
-- `plans/git-move-command.md` — full design spec for #move and #cherry
+- `xTrack/Documentation/FEAT_PLN_Documentation_git-move-command.md` — full design spec for #move and #cherry
 
 #### Docs
-- `plans/git-move-command.md` — design spec for #move stash + #cherry interactive copy
+- `xTrack/Documentation/FEAT_PLN_Documentation_git-move-command.md` — design spec for #move stash + #cherry interactive copy
 
 ## Todos
 - [ ] **Post-merge reconcile xTrack/ across branches.** After `feature/ai-tooling` lands on `develop`, other branches with their own `xTrack/` evolutions (e.g. `feature/300M-Claude-II` carrying Coastline/DepthMapping) will conflict on merge. Procedure: (1) **tooling-system files** (`AGENTS.md`, `CLAUDE.md`, `.clinerules`, `.claude/skills/xtrack/**`, `docs/cmd_help.md`) — accept ai-tooling's version on conflict; (2) **`FEATURE_SCOPE_*.md`** added or edited on spatial — add YAML front-matter (`name`/`status`/`created`/`modified`/`active_subfeature`/`subs_total`/`subs_done`/`one_liner`), normalize all dates to `YYYY-MM-DD`, remove duplicated prose header lines, and split any attached docs out of `## Key Files` into a new `## Docs` section; (3) **`xTrack/CONTEXT_HYDRATION.md`** — resolve the delete/modify conflict in favor of the deletion and split its content into per-feature `xTrack/hydration/CONTEXT_HYDRATION_[Feature].md` files (one per active feature); (4) **`GLOBAL_CONTEXT.md`** — merge Routing Map rows (dedupe), normalize the Active Session Pointers block (add `Last Bake` if missing), normalize dates; (5) run `#doctor fix` to sweep residual drift, then `#doctor` to confirm clean.
@@ -169,8 +169,8 @@ Define the Zero-Piecemeal Writes discussion exception: allow one plan file per d
 - `docs/GIT_WORKFLOW.md` — Git workflow conventions
 - `xTrack/WorkflowImprovement/FEAT_PLN_WorkflowImprovement_planning.md` — Zero-Piecemeal Writes discussion exception design
 - `xTrack/WorkflowImprovement/FEAT_PLN_WorkflowImprovement_feat-summary-layer.md` — FEAT_ summary layer token optimization discussion
-- `plans/feat-xtrack-reorg.md` — xTrack FEAT_* file reorganization implementation spec
-- `plans/git-merge-command.md` — Git merge command design
+- `xTrack/WorkflowImprovement/FEAT_PLN_WorkflowImprovement_xtrack-reorg.md` — xTrack FEAT_* file reorganization implementation spec
+- `xTrack/Documentation/FEAT_PLN_Documentation_git-merge-command.md` — Git merge command design
 
 ## Notes
 <!-- blockers, design decisions, context for next session -->
