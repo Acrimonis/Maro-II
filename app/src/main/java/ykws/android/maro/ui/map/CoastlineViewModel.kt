@@ -249,7 +249,7 @@ class CoastlineViewModel(
     /** Current GPS acquisition cadence — folded into the subscription params (rebuilds on change). */
     private val _acquisitionMode = MutableStateFlow(AcquisitionMode.ACTIVE)
 
-    /** Current GPS acquisition mode — exposed for the dashboard to show ACTIVE/IDLE state. */
+    /** Current GPS acquisition mode — exposed for the GPS status icon on the map. */
     val acquisitionMode: StateFlow<AcquisitionMode> = _acquisitionMode.asStateFlow()
 
     /** True when the compass is needed for heading (no valid GPS course) — gates its registration. */

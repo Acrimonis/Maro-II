@@ -1,21 +1,18 @@
 # Hydration — GPS
 
-**Last Bake:** 2026-06-11 14:00  
-**State:** All gps-loss fixes implemented and building successfully.
+**Last Bake:** 2026-06-11 15:00  
+**State:** All fixes implemented and building. UI icon tuning complete.
 
 ## Summary
-- Added `GnssStatus.Callback`, `onStatusChanged` handler, `PASSIVE_PROVIDER` supplement to `GpsLocationSource`
-- Added stale-fix watchdog (5 s timeout), error logging, debounce (100 ms), idle min distance to `CoastlineViewModel`
-- Added `gpsIdleMinDistanceM` setting to `AppSettings`
-- Replaced dashboard GPS status bar with compact 5-state `GpsStatusIcon` on the map (below EarthWaterIcon)
+- Icon backgrounds now configurable via `maro.properties` (waterIconBgAlpha, gpsIconBgAlpha, gpsIconDimBgAlpha)
+- GPS status icon moved to bottom-left, DEMO uses 📡 with dim alpha (19%), IDLE color changed to blue
+- Bottom padding reduced to 6dp for all elements
 - Build: ✅ SUCCESSFUL
 
 ## Modified Files
-- `app/src/main/java/ykws/android/maro/data/location/GpsLocationSource.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt`
-- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/ZoneConfig.kt`
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
+- `app/src/main/assets/maro.properties`
 
 ## Next Step
-On-device verification of: stale indicator, GPS lock recovery, passive provider fallback, idle cadence display.
+On-device verification.

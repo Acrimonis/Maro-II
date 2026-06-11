@@ -4,7 +4,7 @@
 - **Active Feature:** GPS
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-11 14:00
-- **Last Bake:** 2026-06-11 14:00 (GPS — gps-loss fixes: GnssStatus, onStatusChanged, PASSIVE_PROVIDER, stale watchdog, GPS status icon)
+- **Last Bake:** 2026-06-11 15:00 (GPS — icon layout tuning: bottom-left, blue IDLE, configurable alphas via maro.properties)
 
 ## Routing Map
 | Keyword | Feature File |

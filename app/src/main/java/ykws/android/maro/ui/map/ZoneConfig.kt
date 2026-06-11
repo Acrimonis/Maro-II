@@ -71,6 +71,21 @@ object ZoneConfig {
     var directionLineColor: Int = 0x4D1565C0.toInt()
         private set
 
+    /** Alpha (0–255) for the Earth/Water icon active background tint. Default 77 = 30%.
+     *  Set via `water.icon.bg.alpha` in maro.properties. */
+    var waterIconBgAlpha: Int = 77   // 30%
+        private set
+
+    /** Alpha (0–255) for the GPS status icon background in normal states (ACQUIRING, HEALTHY, IDLE, STALE).
+     *  Default 128 = 50%. Set via `gps.icon.bg.alpha` in maro.properties. */
+    var gpsIconBgAlpha: Int = 128   // 50%
+        private set
+
+    /** Alpha (0–255) for the GPS status icon background in DEMO mode (dimmed).
+     *  Default 48 = 19%. Set via `gps.icon.dim.alpha` in maro.properties. */
+    var gpsIconDimBgAlpha: Int = 48 // 19%
+        private set
+
     /** Isobath line colour per data source (ARGB int); a source with no entry falls back to [isobarColorDefault]. */
     private val isobarColors = hashMapOf(
         DepthSource.LITTO3D to 0xFF1B5E20.toInt(), // dark green (Material 900)
@@ -137,6 +152,15 @@ object ZoneConfig {
             }
             props.getProperty("direction.line.color")?.let { parseColorOrNull(it) }?.let {
                 directionLineColor = it
+            }
+            props.getProperty("water.icon.bg.alpha")?.toIntOrNull()?.let {
+                waterIconBgAlpha = it.coerceIn(0, 255)
+            }
+            props.getProperty("gps.icon.bg.alpha")?.toIntOrNull()?.let {
+                gpsIconBgAlpha = it.coerceIn(0, 255)
+            }
+            props.getProperty("gps.icon.dim.alpha")?.toIntOrNull()?.let {
+                gpsIconDimBgAlpha = it.coerceIn(0, 255)
             }
             for (src in DepthSource.entries) {
                 val key = src.name.lowercase()

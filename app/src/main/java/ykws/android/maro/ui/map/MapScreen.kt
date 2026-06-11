@@ -76,6 +76,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.rotate
@@ -594,21 +595,24 @@ private fun MapContent(
             )
         }
 
-        // ── Top-left icon stack (Earth/Water + GPS status) ────────────────
-        Column(
+        // ── Top-left icon: Earth/Water ────────────────────────────────────
+        EarthWaterIcon(
+            emoji = if (isWater) "🌊" else "🏔️",
+            isActive = true,
+            activeColor = if (isWater) ComposeColor(0xFF1565C0) else ComposeColor(0xFF2E7D32),
+            contentDescription = if (isWater) stringResource(R.string.side_water) else stringResource(R.string.side_land),
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            EarthWaterIcon(
-                emoji = if (isWater) "🌊" else "🏔️",
-                isActive = true,
-                activeColor = if (isWater) ComposeColor(0xFF1565C0) else ComposeColor(0xFF2E7D32),
-                contentDescription = if (isWater) stringResource(R.string.side_water) else stringResource(R.string.side_land)
-            )
-            GpsStatusIcon(state = gpsIconState)
-        }
+                .padding(6.dp)
+        )
+
+        // ── Bottom-left: GPS status icon ──────────────────────────────────
+        GpsStatusIcon(
+            state = gpsIconState,
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 6.dp, bottom = 6.dp)
+        )
 
         // ── Center position marker ────────────────────────────────────────
         CenterMarkerOverlay(
@@ -621,13 +625,14 @@ private fun MapContent(
         )
 
         // ── Bottom overlay: loading / error ───────────────────────────────
-        //   Centred horizontally but kept clear of the right-edge control
-        //   stack (reserve ~76dp = 64dp button + 12dp right margin).
+        //   Centred horizontally: clear the GPS status icon (~50dp = 44dp + 6dp
+        //   padding) on the left, and the right-edge control stack (~76dp = 64dp
+        //   button + 12dp margin) on the right. The overlay fills the space between.
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(start = 12.dp, end = 76.dp, bottom = 12.dp),
+                .padding(start = 56.dp, end = 76.dp, bottom = 6.dp),
             contentAlignment = Alignment.Center
         ) {
             if (rasterProgress != null && rasterProgress!!.globalProgress < 100) {
@@ -646,14 +651,14 @@ private fun MapContent(
         }
 
         // ── "Press back again to exit" toast ──────────────────────────────
-        //   Shares the loading/error slot: bottom-centred in the space left
-        //   of the right-edge control stack (reserve ~76dp), pinned to bottom.
+        //   Shares the loading/error slot: bottom-centred, clear of the GPS
+        //   icon left (~56dp) and the right-edge control stack (~76dp).
         if (showExitBanner) {
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .padding(start = 12.dp, end = 76.dp, bottom = 12.dp),
+                    .padding(start = 56.dp, end = 76.dp, bottom = 6.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Surface(
@@ -1140,7 +1145,7 @@ private fun EarthWaterIcon(
             .size(44.dp)
             .clip(RoundedCornerShape(8.dp))
             .background(
-                if (isActive) activeColor.copy(alpha = 0.30f)
+                if (isActive) activeColor.copy(alpha = ZoneConfig.waterIconBgAlpha / 255f)
                 else ComposeColor(0xEEFFFFFF)
             ),
         contentAlignment = Alignment.Center
@@ -1276,26 +1281,35 @@ private fun DangerLayerButton(
 private enum class GpsIconState { DEMO, ACQUIRING, HEALTHY, IDLE, STALE }
 
 @Composable
-private fun GpsStatusIcon(state: GpsIconState) {
-    val bgColor: ComposeColor
-    val emoji: String
+private fun GpsStatusIcon(
+    state: GpsIconState,
+    modifier: Modifier = Modifier
+) {
+    val baseColor: ComposeColor
+    val bgAlpha: Float
+    val contentAlpha: Float
     when (state) {
-        GpsIconState.DEMO -> { bgColor = ComposeColor(0x33FFFFFF); emoji = "🛰️" }
-        GpsIconState.ACQUIRING -> { bgColor = ComposeColor(0x33FFA726); emoji = "📡" }
-        GpsIconState.HEALTHY -> { bgColor = ComposeColor(0x334CAF50); emoji = "📡" }
-        GpsIconState.IDLE -> { bgColor = ComposeColor(0x3326C6DA); emoji = "📡" }
-        GpsIconState.STALE -> { bgColor = ComposeColor(0x33F44336); emoji = "📡" }
+        GpsIconState.DEMO -> {
+            baseColor = ComposeColor.White
+            bgAlpha = ZoneConfig.gpsIconDimBgAlpha / 255f
+            contentAlpha = 0.35f
+        }
+        GpsIconState.ACQUIRING -> { baseColor = ComposeColor(0xFFFFA726); bgAlpha = ZoneConfig.gpsIconBgAlpha / 255f; contentAlpha = 1f }
+        GpsIconState.HEALTHY -> { baseColor = ComposeColor(0xFF4CAF50); bgAlpha = ZoneConfig.gpsIconBgAlpha / 255f; contentAlpha = 1f }
+        GpsIconState.IDLE -> { baseColor = ComposeColor(0xFF42A5F5); bgAlpha = ZoneConfig.gpsIconBgAlpha / 255f; contentAlpha = 1f }
+        GpsIconState.STALE -> { baseColor = ComposeColor(0xFFF44336); bgAlpha = ZoneConfig.gpsIconBgAlpha / 255f; contentAlpha = 1f }
     }
     Box(
-        modifier = Modifier
+        modifier = modifier
             .size(44.dp)
             .clip(RoundedCornerShape(8.dp))
-            .background(bgColor),
+            .background(baseColor.copy(alpha = bgAlpha)),
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = emoji,
-            fontSize = 22.sp
+            text = "📡",
+            fontSize = 22.sp,
+            modifier = if (contentAlpha < 1f) Modifier.alpha(contentAlpha) else Modifier
         )
     }
 }
