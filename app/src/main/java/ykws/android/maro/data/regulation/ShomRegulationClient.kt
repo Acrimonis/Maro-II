@@ -1,5 +1,4 @@
 package ykws.android.maro.data.regulation
-
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -7,7 +6,6 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.doubleOrNull
-import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -23,14 +21,20 @@ import java.util.concurrent.TimeUnit
  * Discovers regulation layers via [getCapabilities], then fetches GeoJSON
  * FeatureCollection data for each candidate typeName intersecting [BoundingBox].
  *
- * Best-effort throughout — returns empty lists on any error (never throws).
+ * **Authentication:** SHOM regulation layers require an API key. Register at
+ * [data.shom.fr](https://data.shom.fr) to obtain a free key, then pass it as
+ * [apiKey] or set `-Dmaro.shomApiKey=YOUR_KEY` when running the prebake.
+ *
+ * Best-effort: returns empty list on error (never throws).
  *
  * @property httpClient  OkHttpClient used for all HTTP calls.
  * @property baseUrl     SHOM WFS base URL (default: [DEFAULT_BASE_URL]).
+ * @property apiKey      SHOM API key for authenticated access, or `null` for anonymous.
  */
 class ShomRegulationClient(
     private val httpClient: OkHttpClient = defaultClient(),
-    private val baseUrl: String = DEFAULT_BASE_URL
+    private val baseUrl: String = DEFAULT_BASE_URL,
+    private val apiKey: String? = System.getProperty("maro.shomApiKey")
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -64,6 +68,9 @@ class ShomRegulationClient(
             if (body != null) {
                 val parsed = runCatching { parseFeatureCollection(body) }.getOrNull()
                 if (parsed != null) {
+                    if (parsed.isNotEmpty()) {
+                        println("[INFO] $typeName: ${parsed.size} features")
+                    }
                     zones.addAll(parsed)
                 }
             }
@@ -91,14 +98,25 @@ class ShomRegulationClient(
      * Perform an HTTP GET and return the response body as a [String], or null on error.
      */
     private fun httpGet(url: String): String? {
-        val request = Request.Builder()
+        val reqBuilder = Request.Builder()
             .url(url)
             .header("User-Agent", "MaroII-Regulation-Fetcher/1.0")
             .header("Accept", "application/json, text/plain, */*")
-            .build()
+        // SHOM API key: passed as X-Api-Key header (standard SHOM practice)
+        if (apiKey != null) {
+            reqBuilder.header("X-Api-Key", apiKey)
+        }
+        val request = reqBuilder.build()
         return runCatching {
             httpClient.newCall(request).execute().use { resp ->
-                if (!resp.isSuccessful) null else resp.body?.string()
+                when {
+                    !resp.isSuccessful -> {
+                        val body = resp.body?.string()?.take(200) ?: "(no body)"
+                        println("[WARN] SHOM HTTP ${resp.code} for ${resp.request.url}: $body")
+                        null
+                    }
+                    else -> resp.body?.string()
+                }
             }
         }.getOrNull()
     }
@@ -141,8 +159,6 @@ class ShomRegulationClient(
     private fun parseCapabilitiesTypeNames(xml: String): List<String> {
         return runCatching {
             val typeNames = mutableListOf<String>()
-            // Simple extraction: find <FeatureType>...</FeatureType> blocks,
-            // then extract <Name>...</Name> content within each block.
             val featureTypeRegex = Regex(
                 "<FeatureType[^>]*>(.*?)</FeatureType>",
                 RegexOption.DOT_MATCHES_ALL
@@ -188,7 +204,7 @@ class ShomRegulationClient(
         val geomType = geometry["type"]?.jsonPrimitive?.content ?: return null
         val coords = geometry["coordinates"] ?: return null
 
-        // Parse properties
+        // Parse properties — SHOM regulation layers use French property names
         val typeReg = properties["type_reglementation"]?.jsonPrimitive?.content
         val zoneType = typeReg?.let { parseZoneType(it) } ?: RegulatedZoneType.OTHER
 
@@ -213,11 +229,6 @@ class ShomRegulationClient(
                 )
             }
             "MultiPolygon" -> {
-                // For MultiPolygon, we flatten all polygons into individual zones
-                // since each polygon may have its own regulation attributes.
-                // We return the first polygon as the primary zone; subsequent polygons
-                // are not generated here to keep the API simple (callers iterate
-                // the full list). For now, take the first polygon if any.
                 val polygons = coords.jsonArray ?: return null
                 val firstPoly = polygons.firstOrNull() ?: return null
                 val polygon = parsePolygon(firstPoly) ?: return null
@@ -232,7 +243,7 @@ class ShomRegulationClient(
                     description = description
                 )
             }
-            else -> null // Unsupported geometry type
+            else -> null // Unsupported geometry type (Point, LineString, etc.)
         }
     }
 
@@ -284,18 +295,22 @@ class ShomRegulationClient(
         /** Default base URL for SHOM WFS regulation endpoint. */
         const val DEFAULT_BASE_URL = "https://services.data.shom.fr/wfs/reglementation"
 
-        /** Candidate base URLs to try (primary first, fallbacks after). */
-        val CANDIDATE_BASE_URLS = listOf(
-            "https://services.data.shom.fr/wfs/reglementation",
-            "https://services.data.shom.fr/inspire/wfs"
-        )
-
-        /** Candidate WFS typeName values for regulation layers. */
+        /**
+         * Real regulation layers discovered via GetCapabilities (2026-06-11).
+         *
+         * Layer code explanations:
+         *   splare  = SPeed Limit AREa      resare  = REStricted AREa
+         *   achare  = Anchoring Hazard AREa ctsare  = CauTion/Safety AREa
+         *   admare  = ADministrative MARitime AREa
+         */
         val CANDIDATE_TYPENAMES = listOf(
-            "reglementation:zone_vitesse",
-            "reglementation:zone_mouillage",
-            "reglementation:zone_acces_interdit",
-            "reglementation:zone_protection"
+            "REGLEMENTATION_NAVIGATION_BDD_WFS1:splare_polygon",
+            "REGLEMENTATION_NAVIGATION_BDD_WFS1:splare_point",
+            "REGLEMENTATION_NAVIGATION_BDD_WFS1:resare_polygon",
+            "REGLEMENTATION_NAVIGATION_BDD_WFS1:achare_polygon",
+            "REGLEMENTATION_NAVIGATION_BDD_WFS1:achare_point",
+            "REGLEMENTATION_NAVIGATION_BDD_WFS1:ctsare_polygon",
+            "REGLEMENTATION_NAVIGATION_BDD_WFS1:admare_polygon",
         )
 
         /**
