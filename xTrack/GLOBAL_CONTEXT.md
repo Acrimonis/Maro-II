@@ -2,9 +2,9 @@
 
 ## Active Session Pointers
 - **Active Feature:** Documentation
-- **Active Subfeature:** help
+- **Active Subfeature:** verif-scattering
 - **Last Updated:** 2026-06-11
-- **Last Bake:** 2026-06-11 07:46 (Documentation — help: cmd_help split into per-command files; AGENTS.md §7b.8 updated)
+- **Last Bake:** 2026-06-11 08:38 (Documentation — verif-scattering: dedup Explain/Discuss Gate in AGENTS.md §3; condense GLOBAL_CONTEXT.md Global Instructions)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -27,7 +27,7 @@
 
 | Feature | One-Liner | Created | Modified | Status |
 |---------|-----------|---------|----------|--------|
-| **Documentation** | **README, FAQs, setup guides, architecture docs, and plans cleanup** | **2026-06-11 06:42** | **2026-06-11 07:46** | **active** |
+| **Documentation** | **README, FAQs, setup guides, architecture docs, and plans cleanup** | **2026-06-11 06:42** | **2026-06-11 08:38** | **active** |
 | WorkflowImprovement | xTrack #command system, git shortcuts, #now/#list rename, trigger syntax, fuzzy matching, bootstrap, and memory bake lifecycle | 2026-06-03 00:00 | 2026-06-10 07:30 | active |
 | Zone300 | 300m zone generation from coastline with water-only constraint | 2026-05-20 00:00 | 2026-06-03 00:00 | active |
 | DepthMapping | Bathymetry / depth mapping from Litto3D, SHOM, EMODnet sources | 2026-05-10 00:00 | 2026-06-10 12:13 | active |
@@ -48,7 +48,7 @@
 - Auto-refine rule wording for clarity and conciseness on `#rule` add.
 - Use apk-build.bat to build APK (runs gradlew assembleDebug).
 - **Do not commit or push unless explicitly instructed.** Stage only when directed.
-- **Do not commit or push directly to develop.** Always work through feature branches and merge via PR or explicit user instruction.
+- **🔴 Never commit/push/merge to `develop` or `main`.** See [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md) for full rule + enforcement flow.
 
 ## Global Todos
 - [ ] Validate the intermittent Overpass-outage theory — confirm the coastline OSM fetch failures are transient (succeeded 13:52, failing ~16:52 on 2026-06-08), not a persistent network / cert / IPv6 block. Quick checks: retry `bake-coastline` later; `curl -sk https://overpass-api.de/api/status`; race other mirrors.
@@ -60,7 +60,5 @@ These files are loaded into context at the start of every session to maximize th
 - `.claude/skills/xtrack/SKILL.md` — skill dispatch map
 
 ## Global Instructions
-- The xTrack `#`-command system is the canonical workflow. Use it for all feature tracking, todo/rule management, doc management, and session snapshots.
-- On Turn 1 of any session: read GLOBAL_CONTEXT.md, match user intent against the Routing Map, open the corresponding feature file and its hydration file.
-- Route docs, key files, and todos to the correct feature scope. Keep feature files lean — use ## Docs for references, ## Key Files for source paths.
-- `docs/cmd_help.md`, `references/fuzzy-resolve.md`, and `references/templates.md` are lazy-loaded on `#help` only — not loaded every session.
+- xTrack workflow per AGENTS.md §7a/7b. Keep feature files lean — ## Docs for references, ## Key Files for source paths.
+- `docs/cmd_help.md` is lazy-loaded on `#help` only — not loaded every session.
