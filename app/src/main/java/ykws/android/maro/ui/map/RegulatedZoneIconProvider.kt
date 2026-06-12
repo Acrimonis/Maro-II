@@ -7,7 +7,7 @@ import ykws.android.maro.data.regulation.ZoneDisplayCategory
 /**
  * Provides emoji and colour mappings for [RegulatedZoneType] icons used in the
  * [RegulatedZoneWarningStrip] composable, plus display-category icons for the
- * 5 semantic zone categories.
+ * 8 semantic zone categories.
  *
  * This is a pure mapping provider — no bitmap generation needed since the
  * warning strip uses Compose [Text] with emoji directly (same pattern as
@@ -50,18 +50,29 @@ object RegulatedZoneIconProvider {
         ZoneDisplayCategory.MOORING -> "\uD83D\uDEA4"           // 🚤 speedboat
         ZoneDisplayCategory.SPEED_LIMIT -> ""                   // number rendered separately
         ZoneDisplayCategory.NO_DIVING -> "\uD83E\uDD3F"         // 🤿 diving mask
-        ZoneDisplayCategory.SEAPLANE -> "\uD83D\uDEEB"          // 🛬 airplane landing
+        ZoneDisplayCategory.SEAPLANE -> "\u2708\uFE0F"          // ✈️ airplane
         ZoneDisplayCategory.NO_ACCESS -> "\uD83D\uDEA4"         // 🚤 speedboat (same as mooring, differentiated by strike)
+        ZoneDisplayCategory.ENVIRONMENTAL -> "\uD83C\uDF3F"      // 🌿 herb
+        ZoneDisplayCategory.INFORMATION -> "\u2139\uFE0F"        // ℹ️ information
     }
 
-    /** Background colour for each [ZoneDisplayCategory] — all except SPEED use dark blue theme. */
+    /**
+     * Background colour for each [ZoneDisplayCategory].
+     *
+     * All prohibition/info categories use dark blue (#1565C0) for a uniform
+     * background, except:
+     * - SPEED_LIMIT (red — stands out as primary action)
+     * - SEAPLANE (grey — informational, low priority)
+     */
     fun colorForCategory(category: ZoneDisplayCategory): Color = when (category) {
         ZoneDisplayCategory.NO_ANCHOR -> Color(0xFF1565C0)      // Dark blue — uniform background
         ZoneDisplayCategory.MOORING -> Color(0xFF1565C0)        // Dark blue — uniform background
-        ZoneDisplayCategory.SPEED_LIMIT -> Color(0xFFE53935)    // Red — speed limit (unchanged)
+        ZoneDisplayCategory.SPEED_LIMIT -> Color(0xFFE53935)    // Red — speed limit (stand out)
         ZoneDisplayCategory.NO_DIVING -> Color(0xFF1565C0)      // Dark blue — uniform background
-        ZoneDisplayCategory.SEAPLANE -> Color(0xFF1565C0)       // Dark blue — uniform background
+        ZoneDisplayCategory.SEAPLANE -> Color(0xFF78909C)       // Blue Grey — low priority info
         ZoneDisplayCategory.NO_ACCESS -> Color(0xFF1565C0)      // Dark blue — uniform background
+        ZoneDisplayCategory.ENVIRONMENTAL -> Color(0xFF1565C0)   // Dark blue — uniform background
+        ZoneDisplayCategory.INFORMATION -> Color(0xFF1565C0)     // Dark blue — uniform background
     }
 
     /**
@@ -72,6 +83,8 @@ object RegulatedZoneIconProvider {
     fun alphaForCategory(category: ZoneDisplayCategory): Float {
         val alphaInt = when (category) {
             ZoneDisplayCategory.SEAPLANE -> ZoneConfig.iconBackInactiveAlpha
+            ZoneDisplayCategory.ENVIRONMENTAL -> ZoneConfig.iconBackInactiveAlpha
+            ZoneDisplayCategory.INFORMATION -> ZoneConfig.iconBackInactiveAlpha
             else -> ZoneConfig.iconBackActiveAlpha
         }
         return alphaInt.toFloat() / 255f

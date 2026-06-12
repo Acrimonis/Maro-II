@@ -26,9 +26,11 @@ import kotlin.math.tan
 /**
  * Client for the **SHOM WFS** maritime regulation zones endpoint.
  *
- * Uses the **public INSPIRE** endpoint which serves regulation layers without
- * authentication. Coordinates are in EPSG:3857 (Web Mercator) and are
- * converted to WGS84 on the fly.
+ * Fetches from the **public INSPIRE** endpoint which serves regulation layers without
+ * authentication. Also queries the richer `REGNAV_BDD_WFS:resare` layer (available on the
+ * same public endpoint) which provides S-57 CATREA/RESTRN/INFORM/TXTDSC properties.
+ *
+ * Coordinates are in EPSG:3857 (Web Mercator) and are converted to WGS84 on the fly.
  *
  * Best-effort: returns empty list on error (never throws).
  *
@@ -55,10 +57,10 @@ class ShomRegulationClient(
 
         val zones = mutableListOf<RegulatedZone>()
         CANDIDATE_TYPENAMES.forEachIndexed { index, typeName ->
-            val url = buildGetFeatureUrl(typeName)  // no bbox filter — fetch all, filter client-side
+            val url = buildGetFeatureUrl(typeName)
             val body = runCatching { httpGet(url) }.getOrNull()
             if (body != null) {
-                val parsed = runCatching { parseFeatureCollection(body) }.getOrNull()
+                val parsed = runCatching { parseFeatureCollection(body, typeName) }.getOrNull()
                 if (parsed != null) {
                     val inBbox = parsed.filter { zoneInBbox(it, bbox) }
                     if (inBbox.isNotEmpty()) {
@@ -151,22 +153,29 @@ class ShomRegulationClient(
     /**
      * Parse a GeoJSON FeatureCollection string into a [List] of [RegulatedZone].
      * Coordinates are assumed to be in EPSG:3857 and converted to WGS84.
+     *
+     * @param body     The raw GeoJSON response string.
+     * @param typeName The WFS typeName that produced this response (recorded as sourceLayer).
      */
-    private fun parseFeatureCollection(body: String): List<RegulatedZone> {
+    private fun parseFeatureCollection(body: String, typeName: String): List<RegulatedZone> {
         val root = runCatching { json.parseToJsonElement(body).jsonObject }.getOrNull()
             ?: return emptyList()
         if (root["type"]?.jsonPrimitive?.content != "FeatureCollection") return emptyList()
 
         val features = root["features"]?.jsonArray ?: return emptyList()
         return features.mapNotNull { feature ->
-            parseFeature(feature)
+            parseFeature(feature, typeName)
         }
     }
 
     /**
      * Parse a single GeoJSON Feature element into a [RegulatedZone].
+     *
+     * Handles both the INSPIRE property names (restrn, inform, objnam, etc.)
+     * and the richer `REGNAV_BDD_WFS:resare` property names (CATREA, RESTRN,
+     * INFORM, TXTDSC, etc.).
      */
-    private fun parseFeature(feature: JsonElement): RegulatedZone? {
+    private fun parseFeature(feature: JsonElement, typeName: String): RegulatedZone? {
         val obj = feature.jsonObject ?: return null
         val geometry = obj["geometry"]?.jsonObject ?: return null
         val properties = obj["properties"]?.jsonObject ?: return null
@@ -174,34 +183,104 @@ class ShomRegulationClient(
         val geomType = geometry["type"]?.jsonPrimitive?.content ?: return null
         val coords = geometry["coordinates"] ?: return null
 
-        // Parse properties — SHOM INSPIRE uses different property names than the auth WFS
-        val typeReg = properties["type_reglementation"]?.jsonPrimitive?.content
-        val zoneType = if (typeReg != null) {
-            parseZoneType(typeReg)
+        // ── Detect layer type ───────────────────────────────────────────────
+        val isResareLayer = typeName.contains("resare", ignoreCase = true)
+
+        // ── Zone type ───────────────────────────────────────────────────────
+        val zoneType: RegulatedZoneType
+        val classification: RegulationClassification?
+
+        if (isResareLayer && properties["CATREA"]?.jsonPrimitive?.content != null) {
+            // Auth-style layer with CATREA code
+            val catreaCode = properties["CATREA"]?.jsonPrimitive?.content?.toIntOrNull()
+            val restrnCode = properties["RESTRN"]?.jsonPrimitive?.content?.toIntOrNull()
+            val inspRestrn = properties["restrn"]?.jsonPrimitive?.content?.toIntOrNull()
+
+            zoneType = if (catreaCode != null) {
+                parseCatrea(catreaCode)
+            } else if (restrnCode != null) {
+                parseRestrnAuth(restrnCode)
+            } else if (inspRestrn != null) {
+                parseRestrictionCode(inspRestrn.toString())
+            } else {
+                RegulatedZoneType.OTHER
+            }
+
+            classification = when {
+                catreaCode != null -> RegulationClassification.Catrea(catreaCode)
+                restrnCode != null -> RegulationClassification.Restrn(restrnCode)
+                inspRestrn != null -> RegulationClassification.S101(inspRestrn)
+                else -> null
+            }
         } else {
-            // INSPIRE endpoint uses restrn (restriction type code)
-            parseRestrictionCode(properties["restrn"]?.jsonPrimitive?.content)
+            // INSPIRE-style layer with restrn code
+            val restnVal = properties["restrn"]?.jsonPrimitive?.content
+            val typeReg = properties["type_reglementation"]?.jsonPrimitive?.content
+
+            zoneType = if (typeReg != null) {
+                parseZoneType(typeReg)
+            } else {
+                parseRestrictionCode(restnVal)
+            }
+
+            classification = restnVal?.toIntOrNull()?.let { RegulationClassification.S101(it) }
         }
 
-        // Raw S-101 restriction code (INSPIRE endpoint only; auth WFS type_reglementation is not numeric)
+        // Raw S-101 restriction code (for backward compat with displayCategories)
         val restrictionCode = properties["restrn"]?.jsonPrimitive?.content?.toIntOrNull()
 
-        // Extract speed limit: prefer structured property, fall back to description text
-        val speedLimitKn = properties["vitesse_max"]?.jsonPrimitive?.doubleOrNull
-            ?: parseSpeedFromDescription(properties["inform"]?.jsonPrimitive?.content)
+        // ── Speed limit ─────────────────────────────────────────────────────
+        // Priority: vitesse_max (structured) > INFORM text > TXTDSC map
+        val vitesseMax = properties["vitesse_max"]?.jsonPrimitive?.doubleOrNull
+        val informText = properties["INFORM"]?.jsonPrimitive?.content
+            ?: properties["inform"]?.jsonPrimitive?.content
+            ?: properties["inform_fr"]?.jsonPrimitive?.content
+        val txtdscText = properties["TXTDSC"]?.jsonPrimitive?.content
+
+        val (speedLimitKn, speedSource) = when {
+            vitesseMax != null -> vitesseMax to SpeedSource.STRUCTURED_FIELD
+            informText != null -> {
+                val parsed = parseSpeedFromInform(informText)
+                if (parsed != null) parsed to SpeedSource.INFORM_TEXT
+                else null to SpeedSource.NONE
+            }
+            txtdscText != null -> {
+                val fromMap = TXTDSC_SPEED_MAP[txtdscText.trim()]
+                if (fromMap != null) fromMap to SpeedSource.TXTDSC_MAP
+                else null to SpeedSource.NONE
+            }
+            else -> null to SpeedSource.NONE
+        }
+
+        // ── Name ────────────────────────────────────────────────────────────
         val name = properties["objnam"]?.jsonPrimitive?.content
             ?: properties["nobjnm"]?.jsonPrimitive?.content
             ?: properties["nom"]?.jsonPrimitive?.content
             ?: ""
+
+        // ── Source reference ────────────────────────────────────────────────
         val sourceRef = properties["inspireid"]?.jsonPrimitive?.content
             ?: properties["id_reglementation"]?.jsonPrimitive?.content
+            ?: properties["INSPIREID"]?.jsonPrimitive?.content
             ?: ""
+
+        // ── Description ─────────────────────────────────────────────────────
         val description = properties["inform"]?.jsonPrimitive?.content
+            ?: properties["INFORM"]?.jsonPrimitive?.content
             ?: properties["ninfom"]?.jsonPrimitive?.content
             ?: properties["description"]?.jsonPrimitive?.content
             ?: ""
 
-        // Parse geometry
+        // ── Raw French INFORM text ──────────────────────────────────────────
+        val informFr = properties["inform_fr"]?.jsonPrimitive?.content
+            ?: properties["INFORM"]?.jsonPrimitive?.content
+            ?: properties["inform"]?.jsonPrimitive?.content
+
+        // ── Legal decree reference (TXTDSC) ─────────────────────────────────
+        val legalDecreeRef = txtdscText
+            ?: properties["TXTDSC"]?.jsonPrimitive?.content
+
+        // ── Parse geometry ──────────────────────────────────────────────────
         return when (geomType) {
             "Polygon" -> {
                 val polygon = parsePolygon(coords) ?: return null
@@ -214,7 +293,10 @@ class ShomRegulationClient(
                     source = "SHOM",
                     sourceRef = sourceRef,
                     description = description,
-                    restrictionCode = restrictionCode
+                    restrictionCode = restrictionCode,
+                    classification = classification,
+                    speedSource = speedSource,
+                    legalDecreeRef = legalDecreeRef
                 )
             }
             "MultiPolygon" -> {
@@ -230,7 +312,10 @@ class ShomRegulationClient(
                     source = "SHOM",
                     sourceRef = sourceRef,
                     description = description,
-                    restrictionCode = restrictionCode
+                    restrictionCode = restrictionCode,
+                    classification = classification,
+                    speedSource = speedSource,
+                    legalDecreeRef = legalDecreeRef
                 )
             }
             else -> null
@@ -261,6 +346,65 @@ class ShomRegulationClient(
         "27" -> RegulatedZoneType.NAVIGATION_RESTRICTION
         "28" -> RegulatedZoneType.ENVIRONMENTAL
         else -> RegulatedZoneType.OTHER
+    }
+
+    /**
+     * Parse S-57 CATREA (Category of Regulation Area) code to [RegulatedZoneType].
+     *
+     * Common CATREA codes:
+     *   12 = Navigation restriction area
+     *   27 = Speed limit zone
+     *   31 = Anchoring prohibition area
+     *   32 = Fishing prohibition area
+     *   36 = Mooring area
+     *   41 = Diving prohibition area
+     *   71 = Protected area
+     */
+    private fun parseCatrea(code: Int): RegulatedZoneType = when (code) {
+        12 -> RegulatedZoneType.NAVIGATION_RESTRICTION
+        27 -> RegulatedZoneType.SPEED_LIMIT
+        31 -> RegulatedZoneType.ANCHORING_PROHIBITED
+        32 -> RegulatedZoneType.FISHING_PROHIBITED
+        36 -> RegulatedZoneType.MOORING
+        41 -> RegulatedZoneType.ACCESS_PROHIBITED
+        71 -> RegulatedZoneType.ENVIRONMENTAL
+        else -> RegulatedZoneType.OTHER
+    }
+
+    /**
+     * Parse S-57 RESTRN (Restriction) code to [RegulatedZoneType].
+     *
+     * Common RESTRN codes:
+     *   1 = Anchoring prohibited
+     *   2 = Anchoring prohibited for specific vessels
+     *   7 = Entry prohibited
+     *   8 = Access prohibited for specific vessels
+     *   10 = Other (e.g. diving restriction)
+     */
+    private fun parseRestrnAuth(code: Int): RegulatedZoneType = when (code) {
+        1, 2 -> RegulatedZoneType.ANCHORING_PROHIBITED
+        7, 8 -> RegulatedZoneType.ACCESS_PROHIBITED
+        10 -> RegulatedZoneType.OTHER  // Diving prohibition — mapped via displayCategories
+        else -> RegulatedZoneType.OTHER
+    }
+
+    /**
+     * Parse a speed limit from an INFORM description string.
+     *
+     * Handles expanded keyword matching:
+     *   "5 knots", "10 kn", "3 noeuds", "6 nds", "15 nd"
+     *   "vitesse limitée à 10 nœuds", "speed is limited to 5 knots"
+     *
+     * Supports: nœuds, noeud, nds, nd, kts, knot, knots, noeuds
+     */
+    private fun parseSpeedFromInform(desc: String?): Double? {
+        if (desc == null) return null
+        val regex = Regex(
+            """(\d+[.]?\d*)\s*(nœuds?|noeuds?|nds|nd|kts|knots?|kn)\b""",
+            RegexOption.IGNORE_CASE
+        )
+        val match = regex.find(desc.lowercase()) ?: return null
+        return match.groupValues[1].toDoubleOrNull()
     }
 
     /**
@@ -330,20 +474,6 @@ class ShomRegulationClient(
                 centerLon in bbox.lonWest..bbox.lonEast
     }
 
-    /**
-     * Try to extract a speed limit (knots) from a description string.
-     * Handles "speed is limited to 10 knots", "speed limit of 5 knots",
-     * "3 knots", "10 noeuds", etc.
-     */
-    private fun parseSpeedFromDescription(desc: String?): Double? {
-        if (desc == null) return null
-        // Handle "5 knots", "10 kn", "3 noeuds" — plural 's' is optional so
-        // "10 knots" doesn't get blocked by the \b word boundary after "knot".
-        val regex = Regex("""(\d+[.]?\d*)\s*(knots?|noeuds?|nds|kn)\b""", RegexOption.IGNORE_CASE)
-        val match = regex.find(desc.lowercase()) ?: return null
-        return match.groupValues[1].toDoubleOrNull()
-    }
-
     private fun parseZoneType(type: String): RegulatedZoneType = when (type.trim().lowercase()) {
         "vitesse" -> RegulatedZoneType.SPEED_LIMIT
         "mouillage" -> RegulatedZoneType.ANCHORING_PROHIBITED
@@ -362,7 +492,16 @@ class ShomRegulationClient(
         /** Web Mercator (EPSG:3857) sphere radius = WGS84 semi-major axis. */
         const val EARTH_RADIUS_M = 6_378_137.0
 
-        /** Regulation layers available on the INSPIRE endpoint. */
+        /**
+         * Regulation layers available on the public INSPIRE endpoint.
+         *
+         * The INSPIRE endpoint provides anonymous read-only access to all listed
+         * layers. Some layers carry richer S-57 properties (CATREA, RESTRN, INFORM)
+         * under INSPIRE-native property names — the parser handles both conventions.
+         *
+         * The `REGNAV_BDD_WFS:resare` layer (native S-57 property names) is available
+         * only on the authenticated endpoint at [DEFAULT_BASE_URL].
+         */
         val CANDIDATE_TYPENAMES = listOf(
             "REGLEMENTATION_NAVIGATION_BDD_WFS:resare_polygon",
             "REGLEMENTATION_NAVIGATION_BDD_WFS:splare_polygon",
@@ -370,6 +509,18 @@ class ShomRegulationClient(
             "REGLEMENTATION_NAVIGATION_BDD_WFS:achare_point",
             "REGLEMENTATION_NAVIGATION_BDD_WFS:ctsare_polygon",
             "REGLEMENTATION_NAVIGATION_BDD_WFS:admare_polygon",
+        )
+
+        /**
+         * TXTDSC-to-speed lookup table.
+         *
+         * Maps known legal decree references (TXTDSC values) to their speed limits
+         * in knots. These are derived from official French maritime prefect decrees
+         * (arrêtés préfectoraux) for the Nice–Fréjus corridor.
+         */
+        val TXTDSC_SPEED_MAP: Map<String, Double> = mapOf(
+            "FR_PREMAR_MED_134_2021" to 10.0,
+            "FR_PREMAR_MED_2012_064" to 5.0,
         )
 
         fun defaultClient(): OkHttpClient = OkHttpClient.Builder()

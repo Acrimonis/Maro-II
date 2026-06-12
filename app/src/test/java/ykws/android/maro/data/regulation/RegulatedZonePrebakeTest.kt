@@ -7,9 +7,9 @@ import ykws.android.maro.data.model.BoundingBox
 import java.io.File
 
 /**
- * **Build-time prebake — NOT a unit test.** Fetches regulation zones from SHOM WFS,
- * aggregates with hardcoded seed zones, deduplicates, filters by vessel size and
- * zone type, and writes the cooked `.bin` to `assets/regulated-zones/<region>.bin`
+ * **Build-time prebake — NOT a unit test.** Fetches regulation zones from SHOM WFS
+ * and INPN WFS, aggregates with hardcoded seed zones, deduplicates, filters by vessel
+ * size and zone type, and writes the cooked `.bin` to `assets/regulated-zones/<region>.bin`
  * for bundling into the APK.
  *
  * Gated by `-Dmaro.prebake=true`, so it is **skipped in normal runs**.
@@ -31,9 +31,10 @@ class RegulatedZonePrebakeTest {
         val outputDir = File(repoDir, "data/app-assets/regulated-zones")
         outputDir.mkdirs()
 
+        // Expanded bbox: Menton (7.6°E) to Fréjus (6.7°E)
         val bbox = BoundingBox(
-            lonWest = 6.70, latSouth = 43.35,
-            lonEast = 7.31, latNorth = 43.73
+            lonWest = 6.7, latSouth = 43.4,
+            lonEast = 7.6, latNorth = 43.8
         )
 
         // ── 1. Fetch from SHOM WFS ────────────────────────────────────────────
@@ -43,34 +44,46 @@ class RegulatedZonePrebakeTest {
         }
         println("[prebake] SHOM returned ${shomZones.size} zones")
 
-        // ── 2. No seed zones — SHOM data only ──────────────────────────────
-        println("[prebake] 0 seed zones (SHOM-only mode)")
+        // ── 2. Fetch from IGN API Carto Nature (Natura 2000, etc.) ──────────
+        println("[prebake] Fetching IGN Nature zones for $region...")
+        val ignZones: List<RegulatedZone> = runBlocking {
+            IgnCartoNatureClient().fetchZones(bbox = bbox)
+        }
+        println("[prebake] IGN Nature returned ${ignZones.size} zones")
 
-        // ── 3. Wrapped zone set (no dedup needed, no seeds) ─────────────────
+        // ── 3. Seed zones ──────────────────────────────────────────────────────
+        val seedZones = RegulationSeeds.getSeeds()
+        println("[prebake] ${seedZones.size} seed zones")
+
+        // ── 4. Aggregate with 3-way dedup ──────────────────────────────────────
         val nowMs = System.currentTimeMillis()
-        val metadata = RegulationMetadata(
-            fetchTimestampMs = nowMs,
-            sourceCount = 1,
-            totalZones = shomZones.size
+        val zoneSet = RegulationAggregator.aggregate(
+            shomZones = shomZones,
+            inpnZones = ignZones,    // IGN API Carto Nature data
+            seedZones = seedZones,
+            bbox = bbox,
+            nowMs = nowMs
         )
-        val zoneSet = RegulatedZoneSet(zones = shomZones, metadata = metadata)
-        println("[prebake] ${zoneSet.metadata.totalZones} zones (no filtering)")
+        println("[prebake] Aggregated: ${zoneSet.metadata.totalZones} zones after dedup")
 
-        // ── 4. Per-zone detail dump ───────────────────────────────────────────
+        // ── 5. Per-source summary ──────────────────────────────────────────────
+        val bySource = zoneSet.zones.groupBy { it.source }
+        println("[prebake] Per-source breakdown:")
+        for ((source, zones) in bySource.entries.sortedByDescending { it.value.size }) {
+            println("         $source: ${zones.size} zones")
+        }
+
+        // ── 6. Per-zone detail dump ────────────────────────────────────────────
         println("[prebake] Per-zone details (full descriptions):")
         for ((i, z) in zoneSet.zones.withIndex()) {
-            val desc = z.description.replace("\n", " | ")
-            println("         #${i + 1} [${z.restrictionCode?.toString()?.padEnd(4) ?: "null"}] " +
-                    "[${z.zoneType.name.padEnd(25)}] " +
+            val desc = z.description.replace("\n", " | ").take(120)
+            val src = z.source.padEnd(5)
+            println("         #${i + 1} [${src}] [${z.zoneType.name.padEnd(25)}] " +
                     "${z.name.padEnd(40)} desc=${desc}")
         }
 
-        // ── 5. No filtering — raw SHOM data ─────────────────────────────────
-        val filtered = zoneSet
-        println("[prebake] Filter disabled — using all ${filtered.metadata.totalZones} zones")
-
-        // ── 6. Display-category summary ───────────────────────────────────────
-        val byCategory = filtered.zones
+        // ── 7. Display-category summary ────────────────────────────────────────
+        val byCategory = zoneSet.zones
             .flatMap { zone ->
                 zone.displayCategories().map { cat -> cat to zone.speedLimitKn }
             }
@@ -82,13 +95,13 @@ class RegulatedZonePrebakeTest {
             println("         ${cat.name.padEnd(20)} ${list.size} zones$speedInfo")
         }
 
-        // ── 7. Serialize to .bin ──────────────────────────────────────────────
+        // ── 8. Serialize to .bin ──────────────────────────────────────────────
         val out = File(outputDir, "$region.bin")
-        out.writeBytes(RegulatedZoneSerializer.serialize(filtered))
+        out.writeBytes(RegulatedZoneSerializer.serialize(zoneSet))
         println("[prebake] Wrote ${out.length()} bytes -> ${out.path}")
 
-        // ── 8. Summary ────────────────────────────────────────────────────────
-        val byType = filtered.zones.groupBy { it.zoneType }
+        // ── 9. Breakdown by zone type ─────────────────────────────────────────
+        val byType = zoneSet.zones.groupBy { it.zoneType }
         println("[prebake] Breakdown by zone type:")
         for ((type, list) in byType.entries.sortedByDescending { it.value.size }) {
             println("         ${type.name.padEnd(30)} ${list.size}")

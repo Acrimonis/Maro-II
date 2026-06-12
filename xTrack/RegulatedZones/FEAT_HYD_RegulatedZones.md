@@ -1,28 +1,37 @@
 # Hydration: RegulatedZones
 
-**Last Bake:** 2026-06-12 21:49 UTC+2
-**State:** Architectural design session complete. All planning docs created and approved by user.
+**Last Bake:** 2026-06-12 22:37 UTC+2
+**State:** multi-source-normalization subfeature complete. Full implementation deployed.
 
-## Summary
+## Session Summary
 
-Designed multi-source data normalization for regulated zones. Key outcomes:
-- **Data format:** 14 ProtoNumber fields with sealed `RegulationClassification` (S101, Catrea, Restrn, InpnMpa, Seed) and `SpeedSource` enum
-- **Icon mapping:** 8 `ZoneDisplayCategory` values — SPEED_LIMIT (5/10 red), NO_ANCHOR (⚓ blue+strike), NO_ACCESS (🚤 blue+strike), MOORING (🛥️ blue), NO_DIVING (🤿 blue+strike), SEAPLANE (✈️ grey), ENVIRONMENTAL (🌿 blue), INFORMATION (ℹ️ blue)
-- **Data extraction:** SHOM `REGNAV_BDD_WFS:resare` layer on same public INSPIRE endpoint + new `InpnRegulationClient` for INPN Marine Protected Areas
-- **Backward compat:** Not required — old .bin regenerated
-- **Scope:** 8 files, 1 new, 7 modified
+Implemented the multi-source-normalization plan for RegulatedZones. Added sealed classification system (RegulationClassification), speed source tracking (SpeedSource), IGN API Carto Nature client for Natura 2000 data, enhanced SHOM client with CATREA/RESTRN/INFORM/TXTDSC parsing, 3-way aggregator with Haversine dedup, 2 new display categories (ENVIRONMENTAL, INFORMATION), and updated icon provider.
 
-## Target Files
+## Current State
 
-- `RegulatedZone.kt` — Rewrite data model + displayCategories()
-- `RegulatedZoneIconProvider.kt` — 2 new categories, fix colours
-- `ShomRegulationClient.kt` — Add REGNAV layer, parse CATREA/RESTRN/INFORM/TXTDSC
-- `InpnRegulationClient.kt` — NEW
-- `RegulationAggregator.kt` — 3-way merge
-- `RegulatedZonePrebakeTest.kt` — Wire INPN, expand bbox
-- `MapScreen.kt` — Verify new categories
-- `*.bin` — Delete and regenerate
+- **SHOM INSPIRE:** 110 zones fetched (3 layers)
+- **IGN Natura 2000:** 16 zones fetched (13 habitat + 3 birds), 12 survived dedup
+- **SEED:** 3 zones
+- **Total after aggregate:** 124 zones
+- **New fields:** classification (RegulationClassification), speedSource (SpeedSource), legalDecreeRef — all nullable
+- **New display categories:** ENVIRONMENTAL (🌿, blue, 50%), INFORMATION (ℹ️, blue, 50%)
+- **APK:** Built and deployed to device (35111FDH2002V9)
 
-## Next Step
+## Target Files Modified
 
-`#focus multi-source-normalization` then switch to Code mode for implementation.
+- `app/src/main/java/ykws/android/maro/data/regulation/RegulatedZone.kt`
+- `app/src/main/java/ykws/android/maro/data/regulation/ShomRegulationClient.kt`
+- `app/src/main/java/ykws/android/maro/data/regulation/RegulationAggregator.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneIconProvider.kt`
+- `app/src/test/java/ykws/android/maro/data/regulation/RegulatedZonePrebakeTest.kt`
+
+## Files Created
+
+- `app/src/main/java/ykws/android/maro/data/regulation/IgnCartoNatureClient.kt`
+- `app/src/main/java/ykws/android/maro/data/regulation/InpnRegulationClient.kt`
+
+## Next Steps
+
+- `trouble-shoot-reg-layers` subfeature — hexagon rendering fix verification
+- `reg-zones-filtering` subfeature — vessel size filtering and zone type gates
+- `add-zone-text` subfeature — zone name labels on map polygons

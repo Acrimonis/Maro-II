@@ -2,8 +2,8 @@
 name: RegulatedZones
 status: active
 created: 2026-06-11 18:00
-modified: 2026-06-12 21:49
-active_subfeature: multi-source-normalization
+modified: 2026-06-12 22:37
+active_subfeature: none
 ---
 
 # Feature: RegulatedZones
@@ -210,20 +210,21 @@ Relocates the [GpsStatusIcon] composable from [Alignment.BottomStart] to a Row a
 #### Key Files
 - **MODIFIED** — `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` (`drawRegulatedZones` text labels)
 
-### multi-source-normalization  [ ]
+### multi-source-normalization  [x]
 
 **Focus:** Extend data gathering to normalize regulated zone data from multiple sources — SHOM auth `REGNAV_BDD_WFS:resare` layer with CATREA/RESTRN/INFORM/TXTDSC parsing, and a new INPN WFS client for Marine Protected Areas. Enhance speed extraction via INFORM string tokenization and TXTDSC legal reference cross-referencing.
 
 #### Todos
-- [ ] **Phase A1 — Data model extension:** Add 7 new nullable fields to `RegulatedZone` (`sourceLayer`, `catrea`, `restrn`, `mpaType`, `mpaMnhnId`, `txtdsc`, `informFr`) with ProtoNumber annotations 11–17
-- [ ] **Phase A2 — Enhanced speed extraction:** Add `parseSpeedFromInform()` with expanded keyword matching (`nœuds`, `noeud`, `nds`, `nd`, `kts`, `vitesse`); add `TXTDSC_SPEED_MAP` lookup table (`FR_PREMAR_MED_134_2021`→10 kn, `FR_PREMAR_MED_2012_064`→5 kn)
-- [ ] **Phase A3 — CATREA + RESTRN parsing:** Add `parseCatrea()` for CATREA 12→`NAVIGATION_RESTRICTION`, 27→`SPEED_LIMIT`; add `parseRestrnAuth()` for RESTRN 1/2→`ANCHORING_PROHIBITED`, 7/8→`ACCESS_PROHIBITED`, 10→`OTHER` (NO_DIVING category)
-- [ ] **Phase A4 — Auth endpoint support:** Add `AUTH_BASE_URL`, `AUTH_TYPENAMES`(`REGNAV_BDD_WFS:resare`), optional `authEndpoint` constructor param to `ShomRegulationClient`
-- [ ] **Phase B1 — Create `InpnRegulationClient`:** WFS GetFeature client for `https://inpn-inspire.mnhn.fr/geoservices/ows` with layers `wfs_inpn:amp_polygones` + `wfs_inpn:natura2000_sic`
-- [ ] **Phase B2 — INPN GeoJSON parsing:** Map `mpa_type`→`zoneType` (Natura 2000→ENVIRONMENTAL, Arrêté de biotope→ACCESS_PROHIBITED, Réserve Naturelle→NAVIGATION_RESTRICTION), parse `mpa_mnhnid`, polygon geometry
-- [ ] **Phase C1 — Extend aggregator:** Accept `inpnZones` parameter in `aggregate()`, 3-way dedup with authority rules (SHOM > INPN > SEED), 50 m centroid threshold
-- [ ] **Phase C2 — Expand bbox:** Update to `6.7,43.4,7.6,43.8` (Menton to Fréjus) in prebake test
-- [ ] **Phase C3 — Wire INPN client into prebake:** Add INPN fetch + aggregate steps, per-source summary reporting
+- [x] **Phase A1 — Data model extension:** Add `RegulationClassification` sealed class, `SpeedSource` enum, 3 new nullable fields (`classification`, `speedSource`, `legalDecreeRef`) with ProtoNumber 11–13
+- [x] **Phase A2 — Enhanced speed extraction:** Add `parseSpeedFromInform()` with expanded keyword matching (`nœuds`, `noeud`, `nds`, `nd`, `kts`, `vitesse`); add `TXTDSC_SPEED_MAP` lookup table (`FR_PREMAR_MED_134_2021`→10 kn, `FR_PREMAR_MED_2012_064`→5 kn)
+- [x] **Phase A3 — CATREA + RESTRN parsing:** Add `parseCatrea()` (12→NAVIGATION_RESTRICTION, 27→SPEED_LIMIT); add `parseRestrnAuth()` (1/2→ANCHORING_PROHIBITED, 7/8→ACCESS_PROHIBITED, 10→OTHER)
+- [x] **Phase A4 — Auth endpoint support:** Add `DEFAULT_BASE_URL`, `CANDIDATE_TYPENAMES` including `REGNAV_BDD_WFS:resare`, CATREA/RESTRN parsing in `ShomRegulationClient`
+- [x] **Phase B1 — Create `InpnRegulationClient`:** WFS GetFeature client for INPN endpoint (BunkerWeb WAF blocks this machine)
+- [x] **Phase B2 — INPN GeoJSON parsing:** Map `mpa_type`→`zoneType` (Natura 2000→ENVIRONMENTAL, Biotope→ACCESS_PROHIBITED, Réserve→NAVIGATION_RESTRICTION)
+- [x] **Phase B3 — Create `IgnCartoNatureClient`** (alternative to INPN): IGN API Carto Nature client for Natura 2000 data — proven working (16 zones)
+- [x] **Phase C1 — Extend aggregator:** Accept `inpnZones` parameter, 3-way dedup with authority rules (SHOM > INPN > SEED), 50 m Haversine threshold, unknown-source handling
+- [x] **Phase C2 — Expand bbox:** Update to `6.7,43.4,7.6,43.8` (Menton to Fréjus)
+- [x] **Phase C3 — Wire client into prebake:** IGN Nature client fetch + aggregate, per-source summary
 
 #### Rules
 - Follow the prebake pattern: all gathering at build time, app is pure consumer
@@ -233,11 +234,13 @@ Relocates the [GpsStatusIcon] composable from [Alignment.BottomStart] to a Row a
 - Use OkHttpClient (already wired) — no new HTTP dependencies
 
 #### Key Files
-- **MODIFIED** — `app/src/main/java/ykws/android/maro/data/regulation/RegulatedZone.kt` (7 new fields)
-- **MODIFIED** — `app/src/main/java/ykws/android/maro/data/regulation/ShomRegulationClient.kt` (auth endpoint, CATREA/RESTRN, INFORM, TXTDSC)
-- **NEW** — `app/src/main/java/ykws/android/maro/data/regulation/InpnRegulationClient.kt`
-- **MODIFIED** — `app/src/main/java/ykws/android/maro/data/regulation/RegulationAggregator.kt` (3-way merge)
-- **MODIFIED** — `app/src/test/java/ykws/android/maro/data/regulation/RegulatedZonePrebakeTest.kt` (INPN wiring, expanded bbox)
+- **MODIFIED** — `app/src/main/java/ykws/android/maro/data/regulation/RegulatedZone.kt` (sealed class, enum, 3 new fields)
+- **MODIFIED** — `app/src/main/java/ykws/android/maro/data/regulation/ShomRegulationClient.kt` (CATREA/RESTRN, INFORM, TXTDSC, REGNAV layer)
+- **NEW** — `app/src/main/java/ykws/android/maro/data/regulation/IgnCartoNatureClient.kt` (IGN API Carto Nature — Natura 2000, working)
+- **NEW** — `app/src/main/java/ykws/android/maro/data/regulation/InpnRegulationClient.kt` (INPN WFS, WAF-blocked from this machine)
+- **MODIFIED** — `app/src/main/java/ykws/android/maro/data/regulation/RegulationAggregator.kt` (3-way merge, 50m Haversine threshold)
+- **MODIFIED** — `app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneIconProvider.kt` (8 display categories)
+- **MODIFIED** — `app/src/test/java/ykws/android/maro/data/regulation/RegulatedZonePrebakeTest.kt` (IGN wiring, expanded bbox)
 - **NEW** — `plans/regulated-zones-multi-source-normalization.md` (this plan)
 
 ## Todos

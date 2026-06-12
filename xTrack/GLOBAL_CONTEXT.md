@@ -2,9 +2,9 @@
 
 ## Active Session Pointers
 - **Active Feature:** RegulatedZones
-- **Active Subfeature:** multi-source-normalization
-- **Last Updated:** 2026-06-12 21:49
-- **Last Bake:** 2026-06-12 21:49 (RegulatedZones — architectural design complete. Data format, icon mapping, multi-source extraction designed and approved.)
+- **Active Subfeature:** none
+- **Last Updated:** 2026-06-12 22:37
+- **Last Bake:** 2026-06-12 22:37 (RegulatedZones — multi-source-normalization implemented. 124 zones prebaked (109 SHOM + 12 IGN Natura 2000 + 3 SEED), sealed classification, 8 display categories, 3 new data fields, deployed to device.)
 - **Branch:** feature/zone-other-source (tracking origin/develop)
 
 ## Routing Map
@@ -43,7 +43,7 @@
 | Ui_General | App-lifecycle UX: back-to-exit guard and keep-screen-on wakelock | 2026-06-03 00:00 | 2026-06-03 00:00 | active |
 | Ui_Settings | Settings page UI, persistence, widgets, and UX enhancements | 2026-06-09 15:28 | 2026-06-09 19:42 | active |
 | **Navigation** | **Navigation aids — heading/speed arrow and direction line on map overlay** | **2026-06-10 08:40** | **2026-06-11 11:55** | **active** |
-| **RegulatedZones** | **Maritime regulatory zones — multi-source data normalization (SHOM INSPIRE + INPN), sealed classification, 8-category icon mapping with keyword-driven display logic** | **2026-06-11 18:00** | **2026-06-12 21:49** | **active** |
+| **RegulatedZones** | **Maritime regulatory zones — multi-source normalization (SHOM INSPIRE + IGN Natura 2000), sealed classification, 8-category icon mapping, keyword-driven display logic** | **2026-06-11 18:00** | **2026-06-12 22:37** | **active** |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).
