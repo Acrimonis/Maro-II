@@ -33,6 +33,8 @@
     <string name="settings_coastline_desc">Show the coastline on the map</string>
     <string name="settings_zone300_label">300 m zone</string>
     <string name="settings_zone300_desc">Show the 300 m zone on the map</string>
+    <string name="settings_regulated_zones_label">Regulated zones</string>
+    <string name="settings_regulated_zones_desc">Show regulated zones (speed limits, anchoring, etc.) on the map</string>
     <string name="settings_low_depth_warning_label">Low-depth warning</string>
     <string name="settings_low_depth_warning_desc">Highlight dangerously shallow water</string>
     <string name="settings_low_depth_threshold_label">Warning depth</string>

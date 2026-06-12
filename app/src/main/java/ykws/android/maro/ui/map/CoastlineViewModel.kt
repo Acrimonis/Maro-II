@@ -543,6 +543,38 @@ class CoastlineViewModel(
     }
 
     /**
+     * Cycles the merged zone layer button through None → 300m → Both → Reg Zones.
+     * Manages auto-reveal flags when zone300 visibility changes, mirroring the logic
+     * in [toggleZone300Visibility].
+     */
+    fun cycleZoneLayers() {
+        val s = settings.value
+        val zone300On = s.zone300Visible
+        val regOn = s.regulatedZonesVisible
+        // Compute next state: None → 300m → Both → Reg → None
+        data class LayerState(val z: Boolean, val r: Boolean)
+        val current = LayerState(zone300On, regOn)
+        val next = when (current) {
+            LayerState(false, false) -> LayerState(true, false)  // None → 300m
+            LayerState(true, false)  -> LayerState(true, true)   // 300m → Both
+            LayerState(true, true)   -> LayerState(false, true)  // Both → Reg
+            LayerState(false, true)  -> LayerState(false, false) // Reg → None
+            else                     -> LayerState(false, false) // fallback → None
+        }
+        settingsManager.update { it.copy(zone300Visible = next.z, regulatedZonesVisible = next.r) }
+        // Track manual hide/reveal for zone300 auto-reveal state machine
+        if (zone300On != next.z) {
+            if (next.z) { // was off → now on
+                zone300ManuallyHidden = false
+                zone300AutoRevealed = false
+            } else { // was on → now off (user manually hid it)
+                zone300ManuallyHidden = true
+                zone300AutoRevealed = false
+            }
+        }
+    }
+
+    /**
      * Toggles the low-depth (<threshold) pink grounding-hazard overlay visibility.
      * Plain on/off — unlike the 300 m band there is no auto-reveal state to manage.
      */

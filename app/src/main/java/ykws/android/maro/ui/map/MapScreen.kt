@@ -130,6 +130,9 @@ import ykws.android.maro.data.model.RasterProgress
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.ValidationReport
 import ykws.android.maro.data.model.Zone300Data
+import ykws.android.maro.data.regulation.RegulatedZoneSet
+import ykws.android.maro.data.regulation.RegulatedZoneType
+import ykws.android.maro.data.regulation.RegulatedZonesRepository
 import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.spatial.SpatialOperations
 
@@ -313,6 +316,13 @@ fun MapScreen(
         }
     }
 
+    // ── Regulated zones overlay: load prebaked asset on first composition ──────────
+    val regulatedZones by produceState<RegulatedZoneSet?>(initialValue = null) {
+        val repo = RegulatedZonesRepository()
+        repo.load(context)
+        value = repo.zoneSet.value
+    }
+
     // ── Raster cache reads (no lazy auto-trigger; only settings button triggers generation) ──
     val rasterProgress by depthViewModel.rasterProgress.collectAsState()
     val generatingStep by depthViewModel.generatingStep.collectAsState()
@@ -440,6 +450,7 @@ fun MapScreen(
                 isWater = isWater,
                 zoomLevel = zoomLevel,
                 distanceToShore = distanceToShore,
+                regulatedZones = regulatedZones,
                 zone300 = zone300,
                 depthBitmap = effectiveDepthBitmap,
                 lowDepthWarningBitmap = effectiveLowDepthWarning,
@@ -454,7 +465,7 @@ fun MapScreen(
                 onMapViewReady = { mapView = it },
                 onRetry = { viewModel.loadCoastline() },
                 onOpenSettings = { showSettings = true },
-                onToggleZone300 = viewModel::toggleZone300Visibility,
+                onCycleZoneLayers = viewModel::cycleZoneLayers,
                 onToggleLowDepthWarning = viewModel::toggleLowDepthWarningVisibility,
                 showExitBanner = showExitBanner,
                 rasterProgress = rasterProgress,
@@ -540,6 +551,7 @@ private fun MapContent(
     isWater: Boolean,
     zoomLevel: Double,
     distanceToShore: Double?,
+    regulatedZones: RegulatedZoneSet?,
     zone300: Zone300Data?,
     depthBitmap: Bitmap?,
     lowDepthWarningBitmap: Bitmap?,
@@ -554,7 +566,7 @@ private fun MapContent(
     onMapViewReady: (MapView) -> Unit,
     onRetry: () -> Unit,
     onOpenSettings: () -> Unit,
-    onToggleZone300: () -> Unit,
+    onCycleZoneLayers: () -> Unit,
     onToggleLowDepthWarning: () -> Unit,
     showExitBanner: Boolean,
     rasterProgress: RasterProgress? = null,
@@ -573,10 +585,13 @@ private fun MapContent(
         val segments = if (appSettings.coastlineVisible) allSegments else emptyList()
         // Apply zone300 visibility toggle
         val visibleZone300 = if (appSettings.zone300Visible) zone300 else null
+        // Apply regulated zones visibility toggle
+        val visibleRegulatedZones = if (appSettings.regulatedZonesVisible) regulatedZones else null
         // Apply low-depth (<1.5 m) warning visibility toggle
         val visibleLowDepthWarning = if (appSettings.lowDepthWarningVisible) lowDepthWarningBitmap else null
         CoastlineMapView(
             segments = segments,
+            regulatedZones = visibleRegulatedZones,
             zone300 = visibleZone300,
             depthBitmap = depthBitmap,
             lowDepthWarningBitmap = visibleLowDepthWarning,
@@ -599,24 +614,22 @@ private fun MapContent(
             )
         }
 
-        // ── Top-left icon: Earth/Water ────────────────────────────────────
-        EarthWaterIcon(
-            emoji = if (isWater) "🌊" else "🏔️",
-            isActive = true,
-            activeColor = if (isWater) ComposeColor(0xFF1565C0) else ComposeColor(0xFF2E7D32),
-            contentDescription = if (isWater) stringResource(R.string.side_water) else stringResource(R.string.side_land),
+        // ── Top-left icons: GPS + Earth/Water ─────────────────────────────
+        Row(
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(6.dp)
-        )
-
-        // ── Bottom-left: GPS status icon ──────────────────────────────────
-        GpsStatusIcon(
-            state = gpsIconState,
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(start = 6.dp, bottom = 6.dp)
-        )
+                .padding(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            GpsStatusIcon(state = gpsIconState)
+            EarthWaterIcon(
+                emoji = if (isWater) "🌊" else "🏔️",
+                isActive = true,
+                activeColor = if (isWater) ComposeColor(0xFF1565C0) else ComposeColor(0xFF2E7D32),
+                contentDescription = if (isWater) stringResource(R.string.side_water) else stringResource(R.string.side_land),
+            )
+        }
 
         // ── Center position marker ────────────────────────────────────────
         CenterMarkerOverlay(
@@ -700,8 +713,9 @@ private fun MapContent(
             SettingsButton(onClick = onOpenSettings)
 
             // Middle — layer toggles, grouped & centred in the leftover space by the
-            // parent SpaceBetween. The danger (low-depth) toggle sits just above the 300 m
-            // toggle, kept close together (8.dp) like the zoom cluster below.
+            // parent SpaceBetween. The danger (low-depth) toggle sits at the top, then
+            // regulated zones, then the 300 m band toggle — kept close together (8.dp)
+            // like the zoom cluster below.
             Column(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -710,9 +724,9 @@ private fun MapContent(
                     isWarningVisible = appSettings.lowDepthWarningVisible,
                     onClick = onToggleLowDepthWarning
                 )
-                LayerButton(
-                    isZoneVisible = appSettings.zone300Visible,
-                    onClick = onToggleZone300
+                ZoneLayerButton(
+                    state = ZoneLayerState.fromBooleans(appSettings.zone300Visible, appSettings.regulatedZonesVisible),
+                    onClick = onCycleZoneLayers
                 )
             }
 
@@ -859,6 +873,7 @@ private fun ErrorOverlay(
 @Composable
 private fun CoastlineMapView(
     segments: List<CoastlineSegment>,
+    regulatedZones: RegulatedZoneSet?,
     zone300: Zone300Data?,
     depthBitmap: Bitmap?,
     lowDepthWarningBitmap: Bitmap?,
@@ -880,7 +895,7 @@ private fun CoastlineMapView(
     val isobathVisible = zoomLevel >= DepthConstants.ISOBATH_MIN_DRAW_ZOOM
     val shallowIsobathVisible = zoomLevel >= DepthConstants.SHALLOW_ISOBATH_MIN_ZOOM
     val overlayKey = remember(
-        segments, zone300, zoneVisible,
+        segments, regulatedZones, zone300, zoneVisible,
         depthBitmap, lowDepthWarningBitmap, isobaths, depthVisible, isobathVisible, shallowIsobathVisible
     ) { Any() }
     val lastOverlayKey = remember { mutableStateOf<Any?>(null) }
@@ -905,6 +920,7 @@ private fun CoastlineMapView(
                 drawDepthMap(this, depthBitmap, depthBox, zoomLevel)   // bottom: colour raster
                 drawLowDepthWarning(this, lowDepthWarningBitmap, depthBox, zoomLevel) // <1.5 m hazard
                 drawIsobaths(this, isobaths, zoomLevel)                // contours above raster
+                drawRegulatedZones(this, regulatedZones, zoomLevel)    // regulated zone fill + outline
                 drawZone300(this, zone300, zoomLevel)                  // 300 m band fill + line
                 drawCoastline(this, segments)                          // coastline on top
 
@@ -941,6 +957,7 @@ private fun CoastlineMapView(
                 drawDepthMap(mapView, depthBitmap, depthBox, zoomLevel)
                 drawLowDepthWarning(mapView, lowDepthWarningBitmap, depthBox, zoomLevel)
                 drawIsobaths(mapView, isobaths, zoomLevel)
+                drawRegulatedZones(mapView, regulatedZones, zoomLevel)
                 drawZone300(mapView, zone300, zoomLevel)
                 drawCoastline(mapView, segments)
                 mapView.invalidate()
@@ -1186,11 +1203,30 @@ private fun SettingsButton(
     }
 }
 
-// ── Layer toggle button (right edge, between settings and zoom) ──────────
+// ── 4-state zone layer toggle — merged 300m + regulated zones ─────────────
 
+/** 4-state cycle for the merged zone layer button. Derive from booleans each render. */
+private enum class ZoneLayerState(val zone300: Boolean, val regulated: Boolean) {
+    NONE(false, false),
+    ZONE300(true, false),
+    BOTH(true, true),
+    REGULATED(false, true);
+
+    fun next() = entries[(ordinal + 1) % entries.size]
+
+    companion object {
+        fun fromBooleans(zone300: Boolean, regulated: Boolean): ZoneLayerState =
+            entries.firstOrNull { it.zone300 == zone300 && it.regulated == regulated } ?: NONE
+    }
+}
+
+/**
+ * Single toggle button cycling through None → 300m ZONE → BOTH → Reg Zones.
+ * Two concentric circles indicate state: inner = 300m zone, outer = regulated zones.
+ */
 @Composable
-private fun LayerButton(
-    isZoneVisible: Boolean,
+private fun ZoneLayerButton(
+    state: ZoneLayerState,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -1200,22 +1236,31 @@ private fun LayerButton(
         modifier = modifier.size(64.dp),
         shape = CircleShape,
         colors = ButtonDefaults.buttonColors(
-            containerColor = ComposeColor(0xCCFFFFFF)  // solid white bg always
+            containerColor = ComposeColor(0xCCFFFFFF)
         ),
         contentPadding = PaddingValues(0.dp)
     ) {
-        // Custom circular outline (no dependency on material-icons-extended)
         Canvas(modifier = Modifier.size(28.dp)) {
             val w = size.width
             val h = size.height
-            val iconAlpha = if (isZoneVisible) 1.0f else 0.25f
-            // Circular outline — the 300 m zone is a circle around the boat.
+            // Inner circle alpha = 300m zone state
+            val innerAlpha = if (state.zone300) 1.0f else 0.25f
+            // Outer ring alpha = regulated zones state
+            val outerAlpha = if (state.regulated) 1.0f else 0.25f
+            // Outer ring: regulated zones indicator (stroke)
             drawCircle(
                 color = themeBlue,
-                radius = w * 0.38f,
+                radius = w * 0.40f,
                 center = androidx.compose.ui.geometry.Offset(w * 0.5f, h * 0.5f),
-                alpha = iconAlpha,
-                style = androidx.compose.ui.graphics.drawscope.Stroke(width = w * 0.12f)
+                alpha = outerAlpha,
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = w * 0.10f)
+            )
+            // Inner circle: 300m zone indicator (fill)
+            drawCircle(
+                color = themeBlue,
+                radius = w * 0.22f,
+                center = androidx.compose.ui.geometry.Offset(w * 0.5f, h * 0.5f),
+                alpha = innerAlpha
             )
         }
     }
@@ -1272,8 +1317,9 @@ private fun DangerLayerButton(
     }
 }
 
+
 /**
- * 5-state GPS indicator icon — placed top-left below [EarthWaterIcon].
+ * 5-state GPS indicator icon — placed top-left to the left of [EarthWaterIcon].
  *
  * States match the derived [GpsIconState] enum:
  * - [DEMO]: GPS toggle off, gray satellite outline
@@ -1296,11 +1342,11 @@ private fun GpsStatusIcon(
         GpsIconState.DEMO -> {
             baseColor = ComposeColor.White
             bgAlpha = ZoneConfig.gpsIconDimBgAlpha / 255f
-            contentAlpha = 0.35f
+            contentAlpha = 0.50f
         }
         GpsIconState.ACQUIRING -> { baseColor = ComposeColor(0xFFFFA726); bgAlpha = ZoneConfig.gpsIconBgAlpha / 255f; contentAlpha = 1f }
-        GpsIconState.HEALTHY -> { baseColor = ComposeColor(0xFF4CAF50); bgAlpha = ZoneConfig.gpsIconBgAlpha / 255f; contentAlpha = 1f }
-        GpsIconState.IDLE -> { baseColor = ComposeColor(0xFF42A5F5); bgAlpha = ZoneConfig.gpsIconBgAlpha / 255f; contentAlpha = 1f }
+        GpsIconState.HEALTHY -> { baseColor = ComposeColor(0xFF2E7D32); bgAlpha = ZoneConfig.gpsIconBgAlpha / 255f; contentAlpha = 1f }
+        GpsIconState.IDLE -> { baseColor = ComposeColor(0xFF1565C0); bgAlpha = ZoneConfig.gpsIconBgAlpha / 255f; contentAlpha = 1f }
         GpsIconState.STALE -> { baseColor = ComposeColor(0xFFF44336); bgAlpha = ZoneConfig.gpsIconBgAlpha / 255f; contentAlpha = 1f }
     }
     Box(
@@ -1504,6 +1550,18 @@ private fun GeneralSettings(
             checked = settings.zone300Visible,
             onCheckedChange = { visible ->
                 onUpdateSettings { it.copy(zone300Visible = visible) }
+            }
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // ── Regulated zones overlay toggle ─────────────────────────────
+        SettingsToggleRow(
+            label = stringResource(R.string.settings_regulated_zones_label),
+            description = stringResource(R.string.settings_regulated_zones_desc),
+            checked = settings.regulatedZonesVisible,
+            onCheckedChange = { visible ->
+                onUpdateSettings { it.copy(regulatedZonesVisible = visible) }
             }
         )
 
@@ -2660,6 +2718,68 @@ private fun drawZone300(mapView: MapView, zone: Zone300Data?, zoomLevel: Double)
             }
         }
         mapView.overlays.add(redLine)
+    }
+}
+
+// ── Regulated zones overlay ────────────────────────────────────────────────────
+
+/** Minimum zoom level to draw regulated zone polygons (below this they'd be sub-pixel). */
+private const val REGULATED_ZONE_MIN_ZOOM = 10.0
+
+/**
+ * Per-type colour configuration for regulated zone overlays.
+ *
+ * @property fillARGB ARGB colour int for the translucent polygon fill (alpha pre-applied).
+ * @property strokeARGB Fully opaque ARGB colour int for the polygon outline.
+ */
+private data class RegulationZoneColor(val fillARGB: Int, val strokeARGB: Int)
+
+/** Map each [RegulatedZoneType] to a distinct translucent fill + opaque outline colour. */
+private fun regulatedZoneColor(type: RegulatedZoneType): RegulationZoneColor = when (type) {
+    // Fill uses 0x30 alpha (~19 %, matching zone300 fill opacity) applied via Color.argb.
+    // Stroke uses full-opacity ARGB with .toInt() for values > Int.MAX_VALUE (0xFF prefix).
+    RegulatedZoneType.SPEED_LIMIT           -> RegulationZoneColor(0x301565C0, 0xFF1565C0.toInt())  // Blue
+    RegulatedZoneType.ANCHORING_PROHIBITED  -> RegulationZoneColor(0x30FF8F00, 0xFFFF8F00.toInt())  // Amber
+    RegulatedZoneType.ACCESS_PROHIBITED     -> RegulationZoneColor(0x30E53935, 0xFFE53935.toInt())  // Red
+    RegulatedZoneType.ENVIRONMENTAL         -> RegulationZoneColor(0x302E7D32, 0xFF2E7D32.toInt())  // Green
+    RegulatedZoneType.MOORING               -> RegulationZoneColor(0x3000897B, 0xFF00897B.toInt())  // Teal
+    RegulatedZoneType.FISHING_PROHIBITED    -> RegulationZoneColor(0x30FDD835, 0xFFFDD835.toInt())  // Yellow
+    RegulatedZoneType.NAVIGATION_RESTRICTION -> RegulationZoneColor(0x308E24AA, 0xFF8E24AA.toInt()) // Purple
+    RegulatedZoneType.OTHER                 -> RegulationZoneColor(0x3078909C, 0xFF78909C.toInt())  // Blue Grey
+}
+
+/**
+ * Draws regulated zones as translucent filled polygons with coloured outlines, one per
+ * [RegulatedZone] in the set. Each [RegulatedZoneType] gets a distinct colour (see
+ * [regulatedZoneColor]). Polygon holes (island interiors) are supported.
+ *
+ * Zoom-gated below [REGULATED_ZONE_MIN_ZOOM] and skipped when [zones] is null.
+ *
+ * Drawn between isobaths and the 300 m band (see [CoastlineMapView] factory / update).
+ */
+private fun drawRegulatedZones(
+    mapView: MapView,
+    zones: RegulatedZoneSet?,
+    zoomLevel: Double
+) {
+    if (zones == null || zoomLevel < REGULATED_ZONE_MIN_ZOOM) return
+    for (zone in zones.zones) {
+        if (zone.outerRing.size < 3) continue
+
+        val colors = regulatedZoneColor(zone.zoneType)
+        val fill = Polygon().apply {
+            setPoints(zone.outerRing.map { GeoPoint(it.latitude, it.longitude) })
+            val validHoles = zone.holes.filter { it.size >= 3 }
+            if (validHoles.isNotEmpty()) {
+                setHoles(validHoles.map { hole -> hole.map { GeoPoint(it.latitude, it.longitude) } })
+            }
+            fillPaint.color = colors.fillARGB
+            outlinePaint.color = colors.strokeARGB
+            outlinePaint.strokeWidth = 3f
+            outlinePaint.alpha = 200
+            outlinePaint.isAntiAlias = true
+        }
+        mapView.overlays.add(fill)
     }
 }
 

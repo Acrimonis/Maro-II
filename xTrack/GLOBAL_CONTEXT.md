@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** Ui_Settings
+- **Active Feature:** RegulatedZones
 - **Active Subfeature:** none
-- **Last Updated:** 2026-06-11 17:50
-- **Last Bake:** 2026-06-11 17:50 (Ui_Settings — settings tab reorg complete: General/Display rename, System reorder, GPS grouped card, idle saving move, low-depth + Z300 grouped cards, label renames)
-- **Branch:** feature/settings-reorga (tracking origin/develop)
+- **Last Updated:** 2026-06-12 08:16
+- **Last Bake:** 2026-06-12 11:48 (RegulatedZones — hexagon-rendering-fix complete: overlap dedup replaces 25m+type gates, RDP simplification added to parseRing, Protobuf serializer, Port-Cros stub removed. Phase A+B tests PASS.)
+- **Branch:** feature/regulated-zones (tracking origin/develop)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -23,6 +23,7 @@
 | depthsafety, depth-safety, danger-depth, shallow, grounding, isobar precision, isobath precision, depth alert, depth overlay, water-only | xTrack/DepthSafety/FEAT_DSC_DepthSafety.md |
 | app-bak-flow, app-back-flow, back, back button, back handler, exit, double-back, press back, keep screen on, keep awake, screen-on, wakelock | xTrack/Ui_General/FEAT_DSC_Ui_General.md |
 | settings, preferences, config, scroll, options | xTrack/Ui_Settings/FEAT_DSC_Ui_Settings.md |
+| regulation, regulated zones, regulatedzone, regulation zone, speed zone, speed limit, anchoring, SHOM regulation, shom reg, maritime regulation, regulatory zone, réglementation maritime, zone réglementée, arrêté maritime, DIRM, cap d'antibes, lérins | xTrack/RegulatedZones/FEAT_DSC_RegulatedZones.md |
 
 ## Feature Summaries
 
@@ -42,12 +43,14 @@
 | Ui_General | App-lifecycle UX: back-to-exit guard and keep-screen-on wakelock | 2026-06-03 00:00 | 2026-06-03 00:00 | active |
 | Ui_Settings | Settings page UI, persistence, widgets, and UX enhancements | 2026-06-09 15:28 | 2026-06-09 19:42 | active |
 | **Navigation** | **Navigation aids — heading/speed arrow and direction line on map overlay** | **2026-06-10 08:40** | **2026-06-11 11:55** | **active** |
+| **RegulatedZones** | **Maritime regulatory zones — fetch SHOM WFS, aggregate, serialize as bundled asset with vessel-size filtering, and display on map overlay** | **2026-06-11 18:00** | **2026-06-12 11:48** | **active** |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).
 - `adb.exe` is in the computer PATH — use `adb` directly without full path qualifier.
 - Auto-refine rule wording for clarity and conciseness on `#rule` add.
 - Use apk-build.bat to build APK (runs gradlew assembleDebug).
+- **NO auto git commit/push** — `git add` only when directed; wait for user to say "commit" or "push" before executing those commands (per AGENTS.md §5).
 
 ## Global Todos
 - [ ] Validate the intermittent Overpass-outage theory — confirm the coastline OSM fetch failures are transient (succeeded 13:52, failing ~16:52 on 2026-06-08), not a persistent network / cert / IPv6 block. Quick checks: retry `bake-coastline` later; `curl -sk https://overpass-api.de/api/status`; race other mirrors.

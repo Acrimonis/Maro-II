@@ -5,6 +5,7 @@ import android.content.SharedPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import ykws.android.maro.BuildConfig
 import ykws.android.maro.data.depth.DepthConstants
 
 /**
@@ -52,8 +53,8 @@ import ykws.android.maro.data.depth.DepthConstants
 data class AppSettings(
     val defaultLatitude: Double = 43.55,
     val defaultLongitude: Double = 7.00,
-    val coastlineVisible: Boolean = true,
-    val zone300Visible: Boolean = true,
+    val coastlineVisible: Boolean = BuildConfig.LAYER_COASTLINE_DEFAULT,
+    val zone300Visible: Boolean = BuildConfig.LAYER_ZONE300_DEFAULT,
     val zoneAutoRevealDistanceM: Float = 200f,
     val zoneAutoRevealTimeS: Int = 20,
     val zone300AutoShowGps: Boolean = true,
@@ -96,6 +97,8 @@ data class AppSettings(
     val headingLineVisible: Boolean = true,
     /** Show the speed-proportional cap arrow projecting from the boat marker. */
     val capArrowVisible: Boolean = false,
+    /** Whether the regulated zones overlay (speed limits, anchoring, access, …) is drawn. */
+    val regulatedZonesVisible: Boolean = BuildConfig.LAYER_REGULATED_ZONES_DEFAULT,
     /**
      * GPS idle mode: minimum metres of movement between fixes when the adaptive policy
      * has switched to [AcquisitionMode.IDLE] (device stationary). Default 0 so even tiny
@@ -121,8 +124,8 @@ class SettingsManager(
     private fun load(): AppSettings = AppSettings(
         defaultLatitude  = prefs.getFloat(KEY_DEFAULT_LAT, 43.55f).toDouble(),
         defaultLongitude = prefs.getFloat(KEY_DEFAULT_LON, 7.00f).toDouble(),
-        coastlineVisible = prefs.getBoolean(KEY_COASTLINE_VISIBLE, true),
-        zone300Visible   = prefs.getBoolean(KEY_ZONE300_VISIBLE, true),
+        coastlineVisible = prefs.getBoolean(KEY_COASTLINE_VISIBLE, BuildConfig.LAYER_COASTLINE_DEFAULT),
+        zone300Visible   = prefs.getBoolean(KEY_ZONE300_VISIBLE, BuildConfig.LAYER_ZONE300_DEFAULT),
         zoneAutoRevealDistanceM = prefs.getFloat(KEY_ZONE_AUTOREVEAL_DIST_M, defaultAutoRevealDistM),
         zoneAutoRevealTimeS     = prefs.getInt(KEY_ZONE_AUTOREVEAL_TIME_S, defaultAutoRevealTimeS),
         zone300AutoShowGps  = prefs.getBoolean(KEY_ZONE300_AUTOSHOW_GPS, true),
@@ -152,6 +155,7 @@ class SettingsManager(
         regenWarning = prefs.getBoolean(KEY_REGEN_WARNING, true),
         headingLineVisible = prefs.getBoolean(KEY_HEADING_LINE_VISIBLE, true),
         capArrowVisible   = prefs.getBoolean(KEY_CAP_ARROW_VISIBLE, false),
+        regulatedZonesVisible = prefs.getBoolean(KEY_REGULATED_ZONES_VISIBLE, BuildConfig.LAYER_REGULATED_ZONES_DEFAULT),
         gpsIdleMinDistanceM = prefs.getFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, 0f)
     )
 
@@ -202,6 +206,7 @@ class SettingsManager(
             .putBoolean(KEY_REGEN_WARNING, updated.regenWarning)
             .putBoolean(KEY_HEADING_LINE_VISIBLE, updated.headingLineVisible)
             .putBoolean(KEY_CAP_ARROW_VISIBLE, updated.capArrowVisible)
+            .putBoolean(KEY_REGULATED_ZONES_VISIBLE, updated.regulatedZonesVisible)
             .putFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, updated.gpsIdleMinDistanceM)
             .apply()
     }
@@ -241,6 +246,7 @@ class SettingsManager(
         private const val KEY_REGEN_WARNING = "regen_warning"
         private const val KEY_HEADING_LINE_VISIBLE = "heading_line_visible"
         private const val KEY_CAP_ARROW_VISIBLE = "cap_arrow_visible"
+        private const val KEY_REGULATED_ZONES_VISIBLE = "regulated_zones_visible"
         private const val KEY_GPS_IDLE_MIN_DISTANCE_M = "gps_idle_min_distance_m"
     }
 }
