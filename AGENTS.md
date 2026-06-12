@@ -19,6 +19,7 @@
 - Never make assumptions about the broader architecture outside the immediate task scope.
 - Do not implement unrequested features. If new capabilities are needed, discuss first.
 - **Explain/Discuss Gate:** If a user prompt ends with "explain" or "discuss" (any casing), the response must be explanation/discussion only — no code edits, file writes, or tool-based modifications are allowed. Treat these as read-only Q&A. **Exceptions:** (a) exactly one `plans/[topic].md` file may be created to capture the discussion, auto-attached to the active feature's `## Docs`; (b) context-changing xTrack commands (`#focus`, `#sub`, `#sub out`) are permitted during discussion — follow them automatically.
+- **🔴 ABSOLUTE RULE: NEVER write to `develop` or `main` — no pushes, no force-pushes, no reverts, no direct commits. Any operation that modifies these branches is forbidden.** Feature work lives on `feature/*` branches; merges to `develop`/`main` are done via pull request only.
 - You are allowed to challenge what I say; push back on bad ideas being clear on why, but in fine defer to my judgement.
 - At the end of task, provide a concise bullet summary of changes. Include a brief ELI16 summary.
 
