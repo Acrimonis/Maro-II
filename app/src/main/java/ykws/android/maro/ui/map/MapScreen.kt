@@ -614,24 +614,22 @@ private fun MapContent(
             )
         }
 
-        // ── Top-left icon: Earth/Water ────────────────────────────────────
-        EarthWaterIcon(
-            emoji = if (isWater) "🌊" else "🏔️",
-            isActive = true,
-            activeColor = if (isWater) ComposeColor(0xFF1565C0) else ComposeColor(0xFF2E7D32),
-            contentDescription = if (isWater) stringResource(R.string.side_water) else stringResource(R.string.side_land),
+        // ── Top-left icons: GPS + Earth/Water ─────────────────────────────
+        Row(
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(6.dp)
-        )
-
-        // ── Bottom-left: GPS status icon ──────────────────────────────────
-        GpsStatusIcon(
-            state = gpsIconState,
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .padding(start = 6.dp, bottom = 6.dp)
-        )
+                .padding(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            GpsStatusIcon(state = gpsIconState)
+            EarthWaterIcon(
+                emoji = if (isWater) "🌊" else "🏔️",
+                isActive = true,
+                activeColor = if (isWater) ComposeColor(0xFF1565C0) else ComposeColor(0xFF2E7D32),
+                contentDescription = if (isWater) stringResource(R.string.side_water) else stringResource(R.string.side_land),
+            )
+        }
 
         // ── Center position marker ────────────────────────────────────────
         CenterMarkerOverlay(
@@ -1321,7 +1319,7 @@ private fun DangerLayerButton(
 
 
 /**
- * 5-state GPS indicator icon — placed top-left below [EarthWaterIcon].
+ * 5-state GPS indicator icon — placed top-left to the left of [EarthWaterIcon].
  *
  * States match the derived [GpsIconState] enum:
  * - [DEMO]: GPS toggle off, gray satellite outline
@@ -1344,11 +1342,11 @@ private fun GpsStatusIcon(
         GpsIconState.DEMO -> {
             baseColor = ComposeColor.White
             bgAlpha = ZoneConfig.gpsIconDimBgAlpha / 255f
-            contentAlpha = 0.35f
+            contentAlpha = 0.50f
         }
         GpsIconState.ACQUIRING -> { baseColor = ComposeColor(0xFFFFA726); bgAlpha = ZoneConfig.gpsIconBgAlpha / 255f; contentAlpha = 1f }
-        GpsIconState.HEALTHY -> { baseColor = ComposeColor(0xFF4CAF50); bgAlpha = ZoneConfig.gpsIconBgAlpha / 255f; contentAlpha = 1f }
-        GpsIconState.IDLE -> { baseColor = ComposeColor(0xFF42A5F5); bgAlpha = ZoneConfig.gpsIconBgAlpha / 255f; contentAlpha = 1f }
+        GpsIconState.HEALTHY -> { baseColor = ComposeColor(0xFF2E7D32); bgAlpha = ZoneConfig.gpsIconBgAlpha / 255f; contentAlpha = 1f }
+        GpsIconState.IDLE -> { baseColor = ComposeColor(0xFF1565C0); bgAlpha = ZoneConfig.gpsIconBgAlpha / 255f; contentAlpha = 1f }
         GpsIconState.STALE -> { baseColor = ComposeColor(0xFFF44336); bgAlpha = ZoneConfig.gpsIconBgAlpha / 255f; contentAlpha = 1f }
     }
     Box(

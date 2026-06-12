@@ -2,8 +2,8 @@
 name: RegulatedZones
 status: active
 created: 2026-06-11 18:00
-modified: 2026-06-12 07:37
-active_subfeature: toggle-control-merge
+modified: 2026-06-12 08:16
+active_subfeature: none
 ---
 
 # Feature: RegulatedZones
@@ -133,6 +133,21 @@ Replaces the two separate layer toggle buttons (``LayerButton`` for Zone300, ``R
 - ``app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`` — MODIFIED. Replace two toggle buttons with one merged button
 - ``app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt`` — MODIFIED. Add ``regulatedZonesVisible`` settings UI entry
 - ``app/src/main/java/ykws/android/maro/ui/settings/SettingsScreen.kt`` — MODIFIED. Add regulated zones toggle in layers section
+
+### preparation-for-icons-layout  [x]
+
+**Focus:** Move GPS icon from bottom-left to top-left, next to the Earth/Water icon, to free up bottom-left space for future icon layout changes.
+
+Relocates the [GpsStatusIcon] composable from [Alignment.BottomStart] to a Row alongside [EarthWaterIcon] at [Alignment.TopStart], preserving the same 6.dp padding and icon sizes.
+
+#### Todos
+- [x] **Move GPS icon** — change GpsStatusIcon placement from BottomStart to TopStart, group with EarthWaterIcon in a horizontal Row
+- [x] **Update doc comment** — fix GpsStatusIcon KDoc "placed top-left below EarthWaterIcon" → "placed top-left to the left of EarthWaterIcon"
+- [x] **Normalize icon colors** — GPS HEALTHY/IDLE now use same green/blue as EarthWaterIcon and theme
+- [x] **Add icon transparency properties** — `icon.back.active.transparency` and `icon.back.inactive.transparency` in maro.properties, wired through BuildConfig → ZoneConfig
+
+#### Key Files
+- ``app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`` — MODIFIED. GPS icon layout repositioned
 
 ## Todos
 - [x] Data source discovery (SHOM WFS endpoint & layer names)

@@ -2,9 +2,9 @@
 
 ## Active Session Pointers
 - **Active Feature:** RegulatedZones
-- **Active Subfeature:** toggle-control-merge
-- **Last Updated:** 2026-06-12 07:37
-- **Last Bake:** 2026-06-12 09:37 (RegulatedZones — toggle-control-merge complete: merged 300m+reg zones button, maro.properties, BuildConfig defaults, settings toggle. BUILD SUCCESSFUL.)
+- **Active Subfeature:** none
+- **Last Updated:** 2026-06-12 08:16
+- **Last Bake:** 2026-06-12 10:16 (RegulatedZones — preparation-for-icons-layout complete: GPS icon moved top-left, icon colors normalized, icon transparency properties added to maro.properties. BUILD SUCCESSFUL.)
 - **Branch:** feature/regulated-zones (tracking origin/develop)
 
 ## Routing Map
@@ -43,7 +43,7 @@
 | Ui_General | App-lifecycle UX: back-to-exit guard and keep-screen-on wakelock | 2026-06-03 00:00 | 2026-06-03 00:00 | active |
 | Ui_Settings | Settings page UI, persistence, widgets, and UX enhancements | 2026-06-09 15:28 | 2026-06-09 19:42 | active |
 | **Navigation** | **Navigation aids — heading/speed arrow and direction line on map overlay** | **2026-06-10 08:40** | **2026-06-11 11:55** | **active** |
-| **RegulatedZones** | **Maritime regulatory zones — fetch SHOM WFS, aggregate, serialize as bundled asset with vessel-size filtering, and display on map overlay** | **2026-06-11 18:00** | **2026-06-12 07:37** | **active** |
+| **RegulatedZones** | **Maritime regulatory zones — fetch SHOM WFS, aggregate, serialize as bundled asset with vessel-size filtering, and display on map overlay** | **2026-06-11 18:00** | **2026-06-12 08:16** | **active** |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).

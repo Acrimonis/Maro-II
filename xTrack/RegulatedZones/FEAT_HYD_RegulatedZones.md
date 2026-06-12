@@ -1,31 +1,29 @@
 # Hydration: RegulatedZones
 
-**Last Bake:** 2026-06-12 09:37 UTC+2
-**State:** Active — toggle-control-merge subfeature complete.
+**Last Bake:** 2026-06-12 10:16 UTC+2
+**State:** Active — preparation-for-icons-layout subfeature complete.
 
 ## Summary
-- **Toggle control merge implemented** — replaced separate `LayerButton` (300m) + `RegulatedZonesLayerButton` with single `ZoneLayerButton` composable cycling through **None → 300m ZONE → BOTH → Reg Zones**
-- **Icon**: two concentric circles — inner (fill) = 300m state, outer (stroke) = regulated zones state, each at full or dim alpha independently
-- **maro.properties** created at repo root — controls first-launch default visibility for all layers via `BuildConfig` fields
-- **SettingsManager.kt** updated — `zone300Visible`, `regulatedZonesVisible`, `coastlineVisible`, `lowDepthWarningVisible` defaults sourced from `maro.properties` via BuildConfig
-- **CoastlineViewModel.kt** — added `cycleZoneLayers()` with auto-reveal state machine tracking for zone300
-- **Settings toggle** added — `regulatedZonesVisible` checkbox in General/Display/Layers alongside the existing zone300 toggle
+- **GPS icon moved** from bottom-left to top-left — grouped with EarthWaterIcon in a Row at `Alignment.TopStart`
+- **Icon colors normalized** — GPS HEALTHY now uses `#2E7D32` (EarthWaterIcon's green), GPS IDLE uses `#1565C0` (theme blue), both more saturated
+- **Icon transparency properties** added to `maro.properties`:
+  - `icon.back.active.transparency=75` (75% opacity for active states)
+  - `icon.back.inactive.transparency=50` (50% opacity for dimmed/demo states)
+- **ZoneConfig refactored** — unified `iconBackActiveAlpha`/`iconBackInactiveAlpha` fields; old `gpsIconBgAlpha`/`gpsIconDimBgAlpha`/`waterIconBgAlpha` now delegate to them
 - **`BUILD SUCCESSFUL`** — `assembleDebug` compiles cleanly
 
 ## Target Files
-- `maro.properties` — NEW. Layer default visibility config
-- `app/build.gradle.kts` — MODIFIED. Reads maro.properties, exposes BuildConfig fields
-- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — MODIFIED. BuildConfig-sourced layer defaults
-- `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — MODIFIED. Added `cycleZoneLayers()`
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — MODIFIED. `ZoneLayerState` enum, `ZoneLayerButton`, `onCycleZoneLayers`, settings toggle
-- `app/src/main/res/values/strings.xml` — MODIFIED. Regulated zones settings label + description
-- `app/src/main/res/values-fr/strings.xml` — MODIFIED. French translations
+- `maro.properties` — MODIFIED. Added `icon.back.active.transparency`, `icon.back.inactive.transparency`
+- `app/build.gradle.kts` — MODIFIED. Reads new properties as `BuildConfig.ICON_BACK_ACTIVE_ALPHA`, `ICON_BACK_INACTIVE_ALPHA`
+- `app/src/main/java/ykws/android/maro/ui/map/ZoneConfig.kt` — MODIFIED. Unified `iconBackActiveAlpha`/`iconBackInactiveAlpha` fields
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — MODIFIED. GPS icon repositioned, colors normalized
 
 ## Key Changes
-- `LayerButton` and `RegulatedZonesLayerButton` composables removed → replaced by `ZoneLayerButton(state: ZoneLayerState, onClick)`
-- Old `onToggleZone300` + `onToggleRegulatedZones` callbacks → single `onCycleZoneLayers` callback wired to `viewModel::cycleZoneLayers`
-- `ZoneLayerState` enum: `NONE`, `ZONE300`, `BOTH`, `REGULATED` with `fromBooleans()` + `next()`
-- Default state = NONE (both layers off), configurable via `maro.properties`
+- GpsStatusIcon + EarthWaterIcon now in a Row at TopStart (GPS left, Earth/Water right)
+- GPS HEALTHY: `#4CAF50` → `#2E7D32` (consistent green)
+- GPS IDLE: `#42A5F5` → `#1565C0` (consistent theme blue)
+- GPS DEMO contentAlpha: 0.35 → 0.50
+- All icon backgrounds now use unified 75% / 50% opacity from maro.properties
 
 ## Next Steps
 None pending — feature is stable. Open for future enhancement:

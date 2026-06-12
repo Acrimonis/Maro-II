@@ -71,20 +71,24 @@ object ZoneConfig {
     var directionLineColor: Int = 0x4D1565C0.toInt()
         private set
 
-    /** Alpha (0–255) for the Earth/Water icon active background tint. Default 77 = 30%.
-     *  Set via `water.icon.bg.alpha` in maro.properties. */
-    var waterIconBgAlpha: Int = 77   // 30%
+    /** Alpha (0–255) for icon backgrounds in active state (normal operation).
+     *  Default 191 = 75% (from icon.back.active.transparency in maro.properties). */
+    var iconBackActiveAlpha: Int = 191  // 75%
         private set
 
-    /** Alpha (0–255) for the GPS status icon background in normal states (ACQUIRING, HEALTHY, IDLE, STALE).
-     *  Default 128 = 50%. Set via `gps.icon.bg.alpha` in maro.properties. */
-    var gpsIconBgAlpha: Int = 128   // 50%
+    /** Alpha (0–255) for icon backgrounds in inactive/dimmed state (demo, disabled).
+     *  Default 128 = 50% (from icon.back.inactive.transparency in maro.properties). */
+    var iconBackInactiveAlpha: Int = 128 // 50%
         private set
 
-    /** Alpha (0–255) for the GPS status icon background in DEMO mode (dimmed).
-     *  Default 48 = 19%. Set via `gps.icon.dim.alpha` in maro.properties. */
-    var gpsIconDimBgAlpha: Int = 48 // 19%
-        private set
+    /** Alpha for the Earth/Water icon active background — delegates to [iconBackActiveAlpha]. */
+    var waterIconBgAlpha: Int get() = iconBackActiveAlpha; private set(@Suppress("UNUSED_PARAMETER") _: Int) {}
+
+    /** Alpha for GPS icon active states (ACQUIRING, HEALTHY, IDLE, STALE) — delegates to [iconBackActiveAlpha]. */
+    var gpsIconBgAlpha: Int get() = iconBackActiveAlpha; private set(@Suppress("UNUSED_PARAMETER") _: Int) {}
+
+    /** Alpha for GPS icon DEMO state — delegates to [iconBackInactiveAlpha]. */
+    var gpsIconDimBgAlpha: Int get() = iconBackInactiveAlpha; private set(@Suppress("UNUSED_PARAMETER") _: Int) {}
 
     /** Isobath line colour per data source (ARGB int); a source with no entry falls back to [isobarColorDefault]. */
     private val isobarColors = hashMapOf(
@@ -153,14 +157,11 @@ object ZoneConfig {
             props.getProperty("direction.line.color")?.let { parseColorOrNull(it) }?.let {
                 directionLineColor = it
             }
-            props.getProperty("water.icon.bg.alpha")?.toIntOrNull()?.let {
-                waterIconBgAlpha = it.coerceIn(0, 255)
+            props.getProperty("icon.back.active.transparency")?.toIntOrNull()?.let {
+                iconBackActiveAlpha = (it.coerceIn(0, 100) * 255 / 100)
             }
-            props.getProperty("gps.icon.bg.alpha")?.toIntOrNull()?.let {
-                gpsIconBgAlpha = it.coerceIn(0, 255)
-            }
-            props.getProperty("gps.icon.dim.alpha")?.toIntOrNull()?.let {
-                gpsIconDimBgAlpha = it.coerceIn(0, 255)
+            props.getProperty("icon.back.inactive.transparency")?.toIntOrNull()?.let {
+                iconBackInactiveAlpha = (it.coerceIn(0, 100) * 255 / 100)
             }
             for (src in DepthSource.entries) {
                 val key = src.name.lowercase()

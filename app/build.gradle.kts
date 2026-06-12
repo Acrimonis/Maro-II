@@ -41,11 +41,17 @@ android {
         }
         fun propBool(key: String, default: Boolean): Boolean =
             maroProps[key]?.lowercase()?.toBooleanStrictOrNull() ?: default
+        fun propInt(key: String, default: Int): Int =
+            maroProps[key]?.toIntOrNull()?.coerceIn(0, 100) ?: default
 
         buildConfigField("boolean", "LAYER_ZONE300_DEFAULT", propBool("layer.zone300.default", true).toString())
         buildConfigField("boolean", "LAYER_REGULATED_ZONES_DEFAULT", propBool("layer.regulatedZones.default", false).toString())
         buildConfigField("boolean", "LAYER_COASTLINE_DEFAULT", propBool("layer.coastline.default", true).toString())
         buildConfigField("boolean", "LAYER_LOW_DEPTH_DEFAULT", propBool("layer.lowDepthWarning.default", true).toString())
+
+        // ── Icon background opacity from maro.properties ─────────────────
+        buildConfigField("int", "ICON_BACK_ACTIVE_ALPHA", (propInt("icon.back.active.transparency", 75) * 255 / 100).toString())
+        buildConfigField("int", "ICON_BACK_INACTIVE_ALPHA", (propInt("icon.back.inactive.transparency", 50) * 255 / 100).toString())
     }
 
     compileOptions {
