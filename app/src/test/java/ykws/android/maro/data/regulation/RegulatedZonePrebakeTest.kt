@@ -8,8 +8,9 @@ import java.io.File
 
 /**
  * **Build-time prebake — NOT a unit test.** Fetches regulation zones from SHOM WFS,
- * aggregates with hardcoded seed zones, deduplicates, and writes the cooked `.bin`
- * to `assets/regulated-zones/<region>.bin` for bundling into the APK.
+ * aggregates with hardcoded seed zones, deduplicates, filters by vessel size and
+ * zone type, and writes the cooked `.bin` to `assets/regulated-zones/<region>.bin`
+ * for bundling into the APK.
  *
  * Gated by `-Dmaro.prebake=true`, so it is **skipped in normal runs**.
  * Invoked by `tools\bake-regulated-zones.bat`.
@@ -42,26 +43,52 @@ class RegulatedZonePrebakeTest {
         }
         println("[prebake] SHOM returned ${shomZones.size} zones")
 
-        // ── 2. Add seed fallback zones ────────────────────────────────────────
-        val seeds = RegulationSeeds.getSeeds()
-        println("[prebake] ${seeds.size} seed zones")
+        // ── 2. No seed zones — SHOM data only ──────────────────────────────
+        println("[prebake] 0 seed zones (SHOM-only mode)")
 
-        // ── 3. Aggregate (dedup SHOM + seeds) ─────────────────────────────────
-        val zoneSet = RegulationAggregator.aggregate(
-            shomZones = shomZones,
-            seedZones = seeds,
-            bbox = bbox
+        // ── 3. Wrapped zone set (no dedup needed, no seeds) ─────────────────
+        val nowMs = System.currentTimeMillis()
+        val metadata = RegulationMetadata(
+            fetchTimestampMs = nowMs,
+            sourceCount = 1,
+            totalZones = shomZones.size
         )
-        println("[prebake] ${zoneSet.metadata.totalZones} zones after dedup " +
-                "(${zoneSet.metadata.sourceCount} sources)")
+        val zoneSet = RegulatedZoneSet(zones = shomZones, metadata = metadata)
+        println("[prebake] ${zoneSet.metadata.totalZones} zones (no filtering)")
 
-        // ── 4. Serialize to .bin ──────────────────────────────────────────────
+        // ── 4. Per-zone detail dump ───────────────────────────────────────────
+        println("[prebake] Per-zone details (full descriptions):")
+        for ((i, z) in zoneSet.zones.withIndex()) {
+            val desc = z.description.replace("\n", " | ")
+            println("         #${i + 1} [${z.restrictionCode?.toString()?.padEnd(4) ?: "null"}] " +
+                    "[${z.zoneType.name.padEnd(25)}] " +
+                    "${z.name.padEnd(40)} desc=${desc}")
+        }
+
+        // ── 5. No filtering — raw SHOM data ─────────────────────────────────
+        val filtered = zoneSet
+        println("[prebake] Filter disabled — using all ${filtered.metadata.totalZones} zones")
+
+        // ── 6. Display-category summary ───────────────────────────────────────
+        val byCategory = filtered.zones
+            .flatMap { zone ->
+                zone.displayCategories().map { cat -> cat to zone.speedLimitKn }
+            }
+            .groupBy { it.first }
+        println("[prebake] Display categories in strip:")
+        for ((cat, list) in byCategory.entries.sortedBy { it.key.ordinal }) {
+            val speeds = list.mapNotNull { it.second }.distinct().sorted()
+            val speedInfo = if (speeds.isNotEmpty()) " (${speeds.joinToString(", ")} kn)" else ""
+            println("         ${cat.name.padEnd(20)} ${list.size} zones$speedInfo")
+        }
+
+        // ── 7. Serialize to .bin ──────────────────────────────────────────────
         val out = File(outputDir, "$region.bin")
-        out.writeBytes(RegulatedZoneSerializer.serialize(zoneSet))
+        out.writeBytes(RegulatedZoneSerializer.serialize(filtered))
         println("[prebake] Wrote ${out.length()} bytes -> ${out.path}")
 
-        // ── 5. Summary ────────────────────────────────────────────────────────
-        val byType = zoneSet.zones.groupBy { it.zoneType }
+        // ── 8. Summary ────────────────────────────────────────────────────────
+        val byType = filtered.zones.groupBy { it.zoneType }
         println("[prebake] Breakdown by zone type:")
         for ((type, list) in byType.entries.sortedByDescending { it.value.size }) {
             println("         ${type.name.padEnd(30)} ${list.size}")

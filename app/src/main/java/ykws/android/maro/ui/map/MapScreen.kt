@@ -15,6 +15,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import ykws.android.maro.R
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -33,7 +34,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -89,12 +92,16 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.core.content.ContextCompat
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import kotlin.math.cos
@@ -133,6 +140,10 @@ import ykws.android.maro.data.model.Zone300Data
 import ykws.android.maro.data.regulation.RegulatedZoneSet
 import ykws.android.maro.data.regulation.RegulatedZoneType
 import ykws.android.maro.data.regulation.RegulatedZonesRepository
+import ykws.android.maro.data.regulation.RegulatedZone
+import ykws.android.maro.data.regulation.ZoneDisplayCategory
+import ykws.android.maro.data.regulation.displayCategories
+import ykws.android.maro.data.regulation.contains
 import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.spatial.SpatialOperations
 
@@ -460,6 +471,9 @@ fun MapScreen(
                 mapView = mapView,
                 navigationState = navigationState,
                 gpsIconState = gpsIconState,
+                // Demo mode (gpsPosition == null): use mapCenter as fallback so
+                // geo-fence still works when panning the map in demo/manual mode.
+                boatPosition = gpsPosition ?: mapCenter,
                 onCenterChanged = onCenterChanged,
                 onZoomChanged = viewModel::updateZoomLevel,
                 onMapViewReady = { mapView = it },
@@ -561,6 +575,7 @@ private fun MapContent(
     mapView: MapView?,
     navigationState: NavigationState = NavigationState(),
     gpsIconState: GpsIconState = GpsIconState.DEMO,
+    boatPosition: LatLng? = null,
     onCenterChanged: (Double, Double) -> Unit,
     onZoomChanged: (Double) -> Unit,
     onMapViewReady: (MapView) -> Unit,
@@ -693,6 +708,31 @@ private fun MapContent(
                     )
                 }
             }
+        }
+
+        // ── Regulated zone info + warning strip (bottom-left) ─────────────
+        //   Zone info text sits above the icon strip row. Extends rightward
+        //   to within 82 dp of the right edge (to avoid overlapping the zoom
+        //   +/- stack which is ~76 dp wide + 6 dp margin).
+        //   Ellipsis truncation if text exceeds available width.
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 6.dp, bottom = 6.dp)
+                .widthIn(max = (LocalConfiguration.current.screenWidthDp.dp - 82.dp))
+        ) {
+            RegulatedZoneInfoText(
+                regulatedZones = visibleRegulatedZones,
+                boatPosition = boatPosition,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 2.dp)
+            )
+            RegulatedZoneWarningStrip(
+                regulatedZones = visibleRegulatedZones,
+                boatPosition = boatPosition,
+                modifier = Modifier
+            )
         }
 
         // ── Right-edge control stack ──────────────────────────────────────
@@ -2873,4 +2913,198 @@ private fun drawIsobaths(mapView: MapView, isobaths: List<Isobath>, zoomLevel: D
             mapView.overlays.add(poly)
         }
     }
+}
+
+// ── Regulated zone warning strip ─────────────────────────────────────────────
+
+/**
+ * Bottom-left warning strip showing one icon per active regulated zone type.
+ *
+ * Deduplicates by zone type — if multiple zones of the same type exist, only
+ * one icon is shown. The strip is scrollable horizontally if icons don't fit.
+ * Only renders when [regulatedZones] is non-null and non-empty.
+ */
+@Composable
+private fun RegulatedZoneWarningStrip(
+    regulatedZones: RegulatedZoneSet?,
+    boatPosition: LatLng? = null,
+    modifier: Modifier = Modifier
+) {
+    if (regulatedZones == null || regulatedZones.zones.isEmpty()) return
+
+    // Geo-fence: only show icons for zones whose polygon contains the boat.
+    // When position is null (GPS not acquired), fall back to showing all zones.
+    val categories = remember(regulatedZones, boatPosition) {
+        val zones = if (boatPosition != null) {
+            regulatedZones.zones.filter { it.contains(boatPosition) }
+        } else {
+            regulatedZones.zones
+        }
+        if (zones.isEmpty()) return@remember emptyList()
+
+        // Deduplicate by (displayCategory, speedLimitKn) — show one icon per
+        // distinct category per speed value. A single zone can contribute multiple
+        // categories (e.g. a Nice airport zone restricting "anchorage" AND
+        // "diving" shows both ⚓ and 🤿). Speed zones with different knot values
+        // (5 kn vs 10 kn) render as separate icons.
+        zones
+            .flatMap { zone ->
+                val speed = zone.speedLimitKn
+                    ?: parseSpeedFromDescription(zone.description)
+                zone.displayCategories().map { cat -> cat to speed }
+            }
+            // Filter out SPEED_LIMIT entries with no speed value — these are
+            // zones typed as speed-limit by SHOM but without an actual speed
+            // value, which would render as an empty red block (meaningless).
+            .filter { (cat, speed) -> cat != ZoneDisplayCategory.SPEED_LIMIT || speed != null }
+            .distinct()
+    }
+
+    if (categories.isEmpty()) return
+
+    Row(
+        modifier = modifier
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        categories.forEach { (category, speedKn) ->
+            RegulationZoneCategoryIcon(category = category, speedKn = speedKn)
+        }
+    }
+}
+
+/**
+ * A single 44×44 dp icon for a [ZoneDisplayCategory], displaying the category's
+ * emoji (or speed number) on a coloured rounded-square background, with a thin
+ * Canvas-drawn red diagonal strike overlay for prohibition categories.
+ *
+ * Speed limit zones render the knot value as bold white text instead of an emoji
+ * (e.g. "5" or "10") so the user can distinguish different speed limits at a glance.
+ *
+ * Background alpha is sourced from [RegulatedZoneIconProvider.alphaForCategory]:
+ * prohibition/warning icons use [ZoneConfig.iconBackActiveAlpha] (75 %),
+ * informational icons use [ZoneConfig.iconBackInactiveAlpha] (50 %).
+ *
+ * Categories requiring a strike (NO_ANCHOR, NO_DIVING, NO_ACCESS) render the emoji
+ * Text first, then overlay a thin red diagonal line via Canvas on top.
+ */
+@Composable
+private fun RegulationZoneCategoryIcon(
+    category: ZoneDisplayCategory,
+    speedKn: Double? = null,
+    modifier: Modifier = Modifier
+) {
+    val bgColor = RegulatedZoneIconProvider.colorForCategory(category)
+    val alpha = RegulatedZoneIconProvider.alphaForCategory(category)
+    val hasStrike = category == ZoneDisplayCategory.NO_ANCHOR ||
+            category == ZoneDisplayCategory.NO_DIVING ||
+            category == ZoneDisplayCategory.NO_ACCESS
+
+    Box(
+        modifier = modifier
+            .size(44.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(bgColor.copy(alpha = alpha)),
+        contentAlignment = Alignment.Center
+    ) {
+        if (category == ZoneDisplayCategory.SPEED_LIMIT) {
+            Text(
+                text = if (speedKn != null) "${speedKn.toInt()}" else "",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                color = ComposeColor.White
+            )
+        } else {
+            // Emoji Text for all non-speed categories
+            Text(
+                text = RegulatedZoneIconProvider.emojiForCategory(category),
+                fontSize = 24.sp
+            )
+        }
+
+        // Thin red diagonal strike overlay for prohibition categories
+        if (hasStrike) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val sw = size.width * 0.04f // thinner strike
+                drawLine(
+                    color = ComposeColor.Red,
+                    start = Offset(size.width * 0.08f, size.height * 0.08f),
+                    end = Offset(size.width * 0.92f, size.height * 0.92f),
+                    strokeWidth = sw
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Zone info text panel — shows one line per regulated zone containing the
+ * boat, placed between the icon strip row and the zoom +/- buttons.
+ *
+ * Format per line: {emoji} {zone.name or fallback} — {speed or short desc}
+ * Font sized so ~3–4 lines fit in one icon height (44 dp). Lines are
+ * bottom-aligned (grow upward). Truncated to one line with ellipsis.
+ */
+@Composable
+private fun RegulatedZoneInfoText(
+    regulatedZones: RegulatedZoneSet?,
+    boatPosition: LatLng? = null,
+    modifier: Modifier = Modifier
+) {
+    if (regulatedZones == null || regulatedZones.zones.isEmpty()) return
+
+    val zones = remember(regulatedZones, boatPosition) {
+        if (boatPosition != null) {
+            regulatedZones.zones.filter { it.contains(boatPosition) }
+        } else {
+            regulatedZones.zones
+        }
+    }
+    if (zones.isEmpty()) return
+
+    Column(
+        modifier = modifier.heightIn(max = 44.dp),
+        verticalArrangement = Arrangement.Bottom
+    ) {
+        zones.forEach { zone ->
+            val emoji = RegulatedZoneIconProvider.emojiForType(zone.zoneType)
+            // SHOM sometimes returns literal "null" string — treat as absent
+            val rawName = zone.name
+            val name = if (rawName.isNullOrBlank() || rawName.equals("null", ignoreCase = true)) {
+                zone.zoneType.name.lowercase().replace('_', ' ')
+            } else {
+                rawName
+            }
+            val rawDesc = zone.description
+            val desc = if (rawDesc.isNullOrBlank() || rawDesc.equals("null", ignoreCase = true)) "" else rawDesc
+            val keyInfo = when {
+                zone.speedLimitKn != null -> "${zone.speedLimitKn} nds"
+                desc.isNotBlank() -> desc.replace("\n", " ")
+                else -> ""
+            }
+            Text(
+                text = if (keyInfo.isNotBlank()) "$emoji $name — $keyInfo" else "$emoji $name",
+                fontSize = 9.sp,
+                lineHeight = 14.sp, // ~9.sp text + 0.5× gap = ~14.sp per line
+                color = ComposeColor.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+/**
+ * Extract a speed limit (knots) from a zone description string as fallback
+ * when [RegulatedZone.speedLimitKn] is null. Handles "speed is limited to
+ * 10 knots", "speed limit of 5 knots", "3 kn", "10 noeuds", etc.
+ */
+private fun parseSpeedFromDescription(desc: String?): Double? {
+    if (desc == null) return null
+    // Handle "5 knots", "10 kn", "3 noeuds" — plural 's' is optional so
+    // "10 knots" doesn't get blocked by the \b word boundary after "knot".
+    return Regex("""(\d+[.]?\d*)\s*(?:knots?|noeuds?|nds|kn)\b""", RegexOption.IGNORE_CASE)
+        .find(desc.lowercase())
+        ?.groupValues?.get(1)?.toDoubleOrNull()
 }

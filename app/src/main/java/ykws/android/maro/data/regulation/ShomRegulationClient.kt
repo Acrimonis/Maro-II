@@ -183,6 +183,9 @@ class ShomRegulationClient(
             parseRestrictionCode(properties["restrn"]?.jsonPrimitive?.content)
         }
 
+        // Raw S-101 restriction code (INSPIRE endpoint only; auth WFS type_reglementation is not numeric)
+        val restrictionCode = properties["restrn"]?.jsonPrimitive?.content?.toIntOrNull()
+
         // Extract speed limit: prefer structured property, fall back to description text
         val speedLimitKn = properties["vitesse_max"]?.jsonPrimitive?.doubleOrNull
             ?: parseSpeedFromDescription(properties["inform"]?.jsonPrimitive?.content)
@@ -210,7 +213,8 @@ class ShomRegulationClient(
                     name = name,
                     source = "SHOM",
                     sourceRef = sourceRef,
-                    description = description
+                    description = description,
+                    restrictionCode = restrictionCode
                 )
             }
             "MultiPolygon" -> {
@@ -225,7 +229,8 @@ class ShomRegulationClient(
                     name = name,
                     source = "SHOM",
                     sourceRef = sourceRef,
-                    description = description
+                    description = description,
+                    restrictionCode = restrictionCode
                 )
             }
             else -> null
@@ -332,7 +337,9 @@ class ShomRegulationClient(
      */
     private fun parseSpeedFromDescription(desc: String?): Double? {
         if (desc == null) return null
-        val regex = Regex("""(\d+[.]?\d*)\s*(knot|noeud|nds|kn)\b""", RegexOption.IGNORE_CASE)
+        // Handle "5 knots", "10 kn", "3 noeuds" — plural 's' is optional so
+        // "10 knots" doesn't get blocked by the \b word boundary after "knot".
+        val regex = Regex("""(\d+[.]?\d*)\s*(knots?|noeuds?|nds|kn)\b""", RegexOption.IGNORE_CASE)
         val match = regex.find(desc.lowercase()) ?: return null
         return match.groupValues[1].toDoubleOrNull()
     }

@@ -43,6 +43,10 @@ android {
             maroProps[key]?.lowercase()?.toBooleanStrictOrNull() ?: default
         fun propInt(key: String, default: Int): Int =
             maroProps[key]?.toIntOrNull()?.coerceIn(0, 100) ?: default
+        fun propDouble(key: String, default: Double): Double =
+            maroProps[key]?.toDoubleOrNull() ?: default
+        fun propString(key: String, default: String): String =
+            maroProps[key] ?: default
 
         buildConfigField("boolean", "LAYER_ZONE300_DEFAULT", propBool("layer.zone300.default", true).toString())
         buildConfigField("boolean", "LAYER_REGULATED_ZONES_DEFAULT", propBool("layer.regulatedZones.default", false).toString())
@@ -52,6 +56,12 @@ android {
         // ── Icon background opacity from maro.properties ─────────────────
         buildConfigField("int", "ICON_BACK_ACTIVE_ALPHA", (propInt("icon.back.active.transparency", 75) * 255 / 100).toString())
         buildConfigField("int", "ICON_BACK_INACTIVE_ALPHA", (propInt("icon.back.inactive.transparency", 50) * 255 / 100).toString())
+
+        // ── Regulated zone bake-time filtering from maro.properties ──────
+        buildConfigField("double", "REGULATED_ZONES_DEFAULT_VESSEL_LENGTH_M",
+            propDouble("regulatedZones.defaultVesselLengthM", 6.0).toString())
+        buildConfigField("String", "REGULATED_ZONES_FILTERED_TYPES",
+            "\"${propString("regulatedZones.filteredTypes", "ENVIRONMENTAL,FISHING_PROHIBITED,OTHER")}\"")
     }
 
     compileOptions {

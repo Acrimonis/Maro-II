@@ -2,7 +2,7 @@
 name: RegulatedZones
 status: active
 created: 2026-06-11 18:00
-modified: 2026-06-12 11:48
+modified: 2026-06-12 20:39
 active_subfeature: none
 ---
 
@@ -170,6 +170,46 @@ Relocates the [GpsStatusIcon] composable from [Alignment.BottomStart] to a Row a
 - `app/src/main/java/ykws/android/maro/data/regulation/RegulatedZoneSerializer.kt` — Protobuf serialization of geometry
 - `app/src/main/java/ykws/android/maro/data/regulation/RegulatedZonesRepository.kt` — Asset loading and deserialization
 
+### reg-zones-filtering  [ ]
+
+**Focus:** Vessel size filtering and speed limit extraction for regulated zones — ensuring zones with `vesselSizeRestriction` (min/max length) and speed limits parsed from description text are correctly applied at runtime based on the user's vessel configuration.
+
+#### Todos
+- [ ] **Phase 1 — Data Extraction & Type Audit:** Run prebake, dump per-zone details, decide keep/filter list for zone types
+- [ ] **Phase 2 — Bake-Time Filtering:** Create `RegulationFilter.kt` with vessel-size + type gates; add `maro.properties` keys; wire into prebake test
+- [ ] **Phase 3 — Icon Assignment:** Create `RegulatedZoneIconProvider.kt` generating emoji-on-circle Bitmap icons per zone type
+- [ ] **Phase 4 — Warning Strip UI:** Add `RegulatedZoneWarningStrip` composable at `Alignment.BottomStart` — horizontal Row of emoji-on-circle icons per active zone type, tied to `regulatedZonesVisible` setting
+
+#### Rules
+- Filter runs at bake time (computer), not runtime — produces smaller `.bin` asset
+- Speed limit zones always apply per existing `appliesTo()` logic
+- Default filtered types: `ENVIRONMENTAL`, `FISHING_PROHIBITED`, `OTHER` (configurable via maro.properties)
+- Use emoji-on-canvas for v1 icons (same pattern as GpsStatusIcon's "📡")
+- Store centroids in Protobuf model with nullable defaults so old assets deserialize safely
+
+#### Key Files
+- **NEW** — `app/src/main/java/ykws/android/maro/data/regulation/RegulationFilter.kt`
+- **NEW** — `app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneIconProvider.kt`
+- **MODIFIED** — `app/src/main/java/ykws/android/maro/data/regulation/RegulatedZone.kt` (add centroid fields)
+- **MODIFIED** — `app/src/main/java/ykws/android/maro/data/regulation/RegulationAggregator.kt` (compute centroids)
+- **MODIFIED** — `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` (icon rendering + overlay cleanup)
+- **MODIFIED** — `app/src/test/java/ykws/android/maro/data/regulation/RegulatedZonePrebakeTest.kt` (insert filter step)
+- **MODIFIED** — `maro.properties` + `app/build.gradle.kts` (new config keys)
+
+### add-zone-text  [ ]
+
+**Focus:** Add zone name/description text labels on regulated zone map polygons so the user can identify which zone is which (e.g., "Cannes bay speed limit", "Anchoring prohibited") without guessing from polygon colour alone.
+
+#### Todos
+- [ ] Design label placement strategy (centroid? leader line? avoid overlap?)
+- [ ] Implement text overlay on regulated zone polygons
+- [ ] Style: font size, colour, outline for readability on varied backgrounds
+- [ ] Gate behind zoom level (show only above threshold zoom)
+- [ ] Optional toggle in settings
+
+#### Key Files
+- **MODIFIED** — `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` (`drawRegulatedZones` text labels)
+
 ## Todos
 - [x] Data source discovery (SHOM WFS endpoint & layer names)
 - [x] Data model definition (`RegulatedZone` data class + enum + set + `VesselSizeRestriction`)
@@ -196,6 +236,9 @@ Relocates the [GpsStatusIcon] composable from [Alignment.BottomStart] to a Row a
 
 ## Key Files
 - (See subfeature key files above)
+
+#### Docs
+- [`plans/regulated-zones-icon-warnings-plan.md`](../plans/regulated-zones-icon-warnings-plan.md) — Implementation plan for regulated zone icon warnings: data extraction, bake-time filtering, icon assignment, map overlay rendering
 
 ## Docs
 - [`plans/regulated-zones-vessel-filter-design.md`](../plans/regulated-zones-vessel-filter-design.md) — Vessel size restriction design discussion: data model, SHOM parsing, runtime filtering, updated ProtoNumber assignment, and run instructions

@@ -60,7 +60,9 @@ data class RegulatedZone(
     @ProtoNumber(6) val source: String = "SHOM",
     @ProtoNumber(7) val sourceRef: String = "",
     @ProtoNumber(8) val description: String = "",
-    @ProtoNumber(9) val vesselSizeRestriction: VesselSizeRestriction? = null
+    @ProtoNumber(9) val vesselSizeRestriction: VesselSizeRestriction? = null,
+    /** Raw SHOM S-101 restriction code integer, e.g. 1=speed, 7=no-anchor, 25=diving, 28=environment. */
+    @ProtoNumber(10) val restrictionCode: Int? = null
 ) {
     /**
      * Check whether this zone applies to a vessel of the given length.
@@ -100,13 +102,21 @@ data class RegulatedZone(
         // 2. Check description text heuristic (from public INSPIRE WFS)
         if (description.isNotBlank()) {
             val desc = description.lowercase()
-            // Minimum vessel size: "more than 50m", "vessels more than 50m", "> 50m", "plus de 50m"
-            val minMatch = Regex("""(more than|over|exceeding|>|≥|minimum|supérieur|supérieure|plus de|>)\s*(\d+)\s*m""")
+
+            // Minimum vessel size patterns:
+            //   "more than 50m", "greater than 20 m", "over 80m"
+            //   "greater than or equal to 24 m", "≥ 24 m"
+            //   "20 metres or more", "24 m or more", "80 metres and over"
+            val minMatch = Regex("""(more than|over|exceeding|greater than or equal to|greater than|>|≥|minimum|supérieur|supérieure|plus de|>)\s*(\d+)\s*m""")
                 .find(desc)
-            if (minMatch != null) {
-                val minM = minMatch.groupValues[2].toDoubleOrNull()
-                if (minM != null && vesselLengthM < minM) return false
-            }
+            val orMoreMatch = Regex("""(\d+)\s*m(etres|eters)?\s*(or more|ou plus|and over|et plus)""")
+                .find(desc)
+
+            val minM = minMatch?.groupValues?.get(2)?.toDoubleOrNull()
+                ?: orMoreMatch?.groupValues?.get(1)?.toDoubleOrNull()
+
+            if (minM != null && vesselLengthM < minM) return false
+
             // Maximum vessel size: "less than 20m", "< 20m", "moins de 20m"
             val maxMatch = Regex("""(less than|under|below|<|≤|maximum|inférieur|inférieure|moins de|<)\s*(\d+)\s*m""")
                 .find(desc)
@@ -164,3 +174,128 @@ data class RegulationSeed(
     val name: String,
     val description: String
 )
+
+/**
+ * Display category for the warning strip — derived at render time from
+ * [RegulatedZone] properties. No protobuf serialization impact.
+ *
+ * Each category gets a distinct icon and colour in [RegulatedZoneWarningStrip].
+ * Only 5 categories are rendered as strip icons; zones that don't match any
+ * still appear on the map but get no strip icon.
+ */
+enum class ZoneDisplayCategory {
+    NO_ANCHOR,
+    MOORING,
+    SPEED_LIMIT,
+    NO_DIVING,
+    SEAPLANE,
+    NO_ACCESS,
+}
+
+/**
+ * Derive all [ZoneDisplayCategory] values that apply to this [RegulatedZone]
+ * based on its type, speed limit, and description text.
+ *
+ * A single zone can match multiple categories (e.g. a Nice airport zone that
+ * restricts both "anchorage" and "diving" returns both [NO_ANCHOR] and
+ * [NO_DIVING]). The warning strip shows one icon per distinct category.
+ *
+ * Returns an empty set if no category matches (zone renders on map but gets
+ * no strip icon).
+ */
+fun RegulatedZone.displayCategories(): Set<ZoneDisplayCategory> {
+    val desc = description.lowercase()
+    val cats = mutableSetOf<ZoneDisplayCategory>()
+
+    // Diving / plongée
+    if ("diving" in desc || "plongée" in desc) cats += ZoneDisplayCategory.NO_DIVING
+
+    // Seaplane / hydravion
+    if ("seaplane" in desc || "hydravion" in desc) cats += ZoneDisplayCategory.SEAPLANE
+
+    // Anchoring prohibition — skip when zone is a speed-limit with generic SHOM
+    // boilerplate ("In this area, anchoring is prohibited") that isn't an actual
+    // anchoring-restriction zone. Speed-limit zones often carry this text in the
+    // "inform" field as a default description, not a real anchoring prohibition.
+    val hasAnchorDesc = "anchoring is prohibited" in desc ||
+            "anchoring and stopping prohibited" in desc ||
+            "anchorage is prohibited" in desc ||
+            "anchoring" in desc ||
+            "mouillage" in desc
+    if (zoneType == RegulatedZoneType.ANCHORING_PROHIBITED ||
+        (zoneType != RegulatedZoneType.SPEED_LIMIT && hasAnchorDesc)
+    ) cats += ZoneDisplayCategory.NO_ANCHOR
+
+    // Small craft mooring
+    if (zoneType == RegulatedZoneType.MOORING ||
+        "small craft mooring" in desc ||
+        "moorings" in desc ||
+        "mooring" in desc ||
+        "amarrage" in desc
+    ) cats += ZoneDisplayCategory.MOORING
+
+    // Speed limit
+    if (zoneType == RegulatedZoneType.SPEED_LIMIT ||
+        speedLimitKn != null ||
+        "speed is limited" in desc ||
+        "speed limit" in desc ||
+        "speed" in desc ||
+        "vitesse" in desc ||
+        "knot" in desc ||
+        "noeud" in desc
+    ) cats += ZoneDisplayCategory.SPEED_LIMIT
+
+    // Access prohibition
+    if (zoneType == RegulatedZoneType.ACCESS_PROHIBITED ||
+        "access is prohibited" in desc ||
+        "entry is prohibited" in desc ||
+        "prohibited area" in desc ||
+        "accès interdit" in desc
+    ) cats += ZoneDisplayCategory.NO_ACCESS
+
+    return cats
+}
+
+/**
+ * Check whether a geographic [point] (WGS84) falls inside this [RegulatedZone]'s
+ * outer ring (and not inside any hole). Uses the even-odd rule ray casting
+ * algorithm, matching the implementation in [CoastlineSpatialIndex].
+ *
+ * @param point The point to test (WGS84 latitude/longitude).
+ * @return `true` if the point is inside the zone (including on the boundary).
+ */
+fun RegulatedZone.contains(point: LatLng): Boolean {
+    val ring = outerRing
+    if (ring.size < 3) return false
+
+    // Even-odd ray casting (PNPOLY)
+    var inside = false
+    var j = ring.size - 1
+    for (i in ring.indices) {
+        val yi = ring[i].latitude; val xi = ring[i].longitude
+        val yj = ring[j].latitude; val xj = ring[j].longitude
+        if (((yi > point.latitude) != (yj > point.latitude)) &&
+            (point.longitude < (xj - xi) * (point.latitude - yi) / (yj - yi) + xi)
+        ) inside = !inside
+        j = i
+    }
+    if (!inside) return false
+
+    // Check holes — if the point is inside any hole, it's NOT in the zone
+    for (hole in holes) {
+        if (hole.size < 3) continue
+        var inHole = false
+        var k = hole.size - 1
+        for (i in hole.indices) {
+            val yi = hole[i].latitude; val xi = hole[i].longitude
+            val yj = hole[k].latitude; val xj = hole[k].longitude
+            if (((yi > point.latitude) != (yj > point.latitude)) &&
+                (point.longitude < (xj - xi) * (point.latitude - yi) / (yj - yi) + xi)
+            ) inHole = !inHole
+            k = i
+        }
+        if (inHole) return false
+    }
+
+    return true
+}
