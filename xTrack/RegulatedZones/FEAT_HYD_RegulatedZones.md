@@ -1,17 +1,26 @@
-# RegulatedZones — Hydration Snapshot
+# Hydration: RegulatedZones
 
-**Baked:** 2026-06-11 21:08 UTC
+**Last Bake:** 2026-06-12 08:55 UTC+2
+**State:** Active — display-layer complete, all subfeatures done.
 
-**Status:** display-layer subfeature **complete**. New subfeature `filtering-zone-data` created.
+## Summary
+- Reverted **HEAD** (`e84c7ba` — overlay reorder, pointInPolygon, RegulationInfoBanner, activeRegulations detection) — info banner and zone-detection removed from the map UI
+- Removed **land-clipping** (centroid waterTest filter from `drawRegulatedZones()`) — zones now render unconditionally without centroid-based skip
+- Remaining display-layer: `drawRegulatedZones()` renders translucent filled polygons with per-type colours, `RegulatedZonesLayerButton` toggle, `RegulatedZonesRepository` asset loader, `produceState` data flow, `regulatedZonesVisible` settings toggle
+- Prebaked .bin contains 77 zones — all render as fill+stroke polygons on the map
 
-**What was accomplished this session:**
-- **Overlay reorder** — regulated zones now drawn above the 300 m band (between zone300 and coastline in z-order).
-- **Point-in-polygon detection** — `pointInPolygon()` ray-casting algorithm added; boat position (GPS fix or demo center) tested against all zone polygons on each update.
-- **Regulation info banner** — `RegulationInfoBanner` composable at the bottom of the map, dark semi-transparent background, colour-coded per zone type, showing zone name + type label + speed limit + vessel size restriction + description.
-- **`filtering-zone-data` subfeature created** — placeholder for vessel-size filtering, per-type visibility toggles, and zone tap interaction.
-- **BUILD SUCCESSFUL** — `assembleDebug` passes with zero errors.
+## Target Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — Modified (cleaned: no info banner, no land-clipping, no pointInPolygon)
+- `xTrack/RegulatedZones/FEAT_DSC_RegulatedZones.md` — Updated front-matter dates
+- `xTrack/GLOBAL_CONTEXT.md` — Updated active pointers + feature summary
 
-**Source files:**
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — MODIFIED (overlay reorder, pointInPolygon, RegulationInfoBanner, activeRegulations wiring)
+## Key Changes
+- Reverted HEAD commit `e84c7ba` — removed `RegulationInfoBanner`, `pointInPolygon()`, `activeRegulations` detection, overlay reorder, `RegulatedZone` import, `TextOverflow` import
+- Removed `waterTest` centroid filter from `drawRegulatedZones()` — no more land-clipping skip logic
+- Stripped `waterTest` parameter from `MapContent`, `CoastlineMapView`, and `drawRegulatedZones()` signatures
 
-**Next step:** `filtering-zone-data` — apply vessel-size filter, per-type toggles, zone interaction.
+## Next Steps
+None pending — feature is stable. Open for future enhancement:
+- Vessel-size filter integration in display pipeline
+- Per-type visibility toggles (speed, anchoring, access, etc.)
+- Zone tap interaction (highlight + full details in info banner)

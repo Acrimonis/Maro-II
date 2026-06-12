@@ -90,7 +90,6 @@ import androidx.compose.ui.text.TextStyle
 import androidx.core.content.ContextCompat
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -131,7 +130,6 @@ import ykws.android.maro.data.model.RasterProgress
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.ValidationReport
 import ykws.android.maro.data.model.Zone300Data
-import ykws.android.maro.data.regulation.RegulatedZone
 import ykws.android.maro.data.regulation.RegulatedZoneSet
 import ykws.android.maro.data.regulation.RegulatedZoneType
 import ykws.android.maro.data.regulation.RegulatedZonesRepository
@@ -325,15 +323,6 @@ fun MapScreen(
         value = repo.zoneSet.value
     }
 
-    // ── Detect regulated zones under the current boat position ──────────────────
-    val boatPosition: LatLng? = if (appSettings.gpsMode) gpsPosition else mapCenter
-    val activeRegulations: List<RegulatedZone> = remember(regulatedZones, boatPosition) {
-        val pos = boatPosition ?: return@remember emptyList()
-        regulatedZones?.zones?.filter { zone ->
-            zone.outerRing.size >= 3 && pointInPolygon(pos.latitude, pos.longitude, zone.outerRing)
-        } ?: emptyList()
-    }
-
     // ── Raster cache reads (no lazy auto-trigger; only settings button triggers generation) ──
     val rasterProgress by depthViewModel.rasterProgress.collectAsState()
     val generatingStep by depthViewModel.generatingStep.collectAsState()
@@ -462,8 +451,6 @@ fun MapScreen(
                 zoomLevel = zoomLevel,
                 distanceToShore = distanceToShore,
                 regulatedZones = regulatedZones,
-                activeRegulations = activeRegulations,
-                waterTest = waterTest,
                 zone300 = zone300,
                 depthBitmap = effectiveDepthBitmap,
                 lowDepthWarningBitmap = effectiveLowDepthWarning,
@@ -566,8 +553,6 @@ private fun MapContent(
     zoomLevel: Double,
     distanceToShore: Double?,
     regulatedZones: RegulatedZoneSet?,
-    activeRegulations: List<RegulatedZone>,
-    waterTest: (Double, Double) -> Boolean,
     zone300: Zone300Data?,
     depthBitmap: Bitmap?,
     lowDepthWarningBitmap: Bitmap?,
@@ -609,7 +594,6 @@ private fun MapContent(
         CoastlineMapView(
             segments = segments,
             regulatedZones = visibleRegulatedZones,
-            waterTest = waterTest,
             zone300 = visibleZone300,
             depthBitmap = depthBitmap,
             lowDepthWarningBitmap = visibleLowDepthWarning,
@@ -686,12 +670,6 @@ private fun MapContent(
                 )
             }
         }
-
-        // ── Regulated zone info banner: zones under the boat ──────────────
-        RegulationInfoBanner(
-            zones = activeRegulations,
-            modifier = Modifier.align(Alignment.BottomCenter)
-        )
 
         // ── "Press back again to exit" toast ──────────────────────────────
         //   Shares the loading/error slot: bottom-centred, clear of the GPS
@@ -904,7 +882,6 @@ private fun ErrorOverlay(
 private fun CoastlineMapView(
     segments: List<CoastlineSegment>,
     regulatedZones: RegulatedZoneSet?,
-    waterTest: (Double, Double) -> Boolean,
     zone300: Zone300Data?,
     depthBitmap: Bitmap?,
     lowDepthWarningBitmap: Bitmap?,
@@ -951,8 +928,8 @@ private fun CoastlineMapView(
                 drawDepthMap(this, depthBitmap, depthBox, zoomLevel)   // bottom: colour raster
                 drawLowDepthWarning(this, lowDepthWarningBitmap, depthBox, zoomLevel) // <1.5 m hazard
                 drawIsobaths(this, isobaths, zoomLevel)                // contours above raster
+                drawRegulatedZones(this, regulatedZones, zoomLevel)    // regulated zone fill + outline
                 drawZone300(this, zone300, zoomLevel)                  // 300 m band fill + line
-                drawRegulatedZones(this, regulatedZones, zoomLevel, waterTest) // regulated zone fill + outline (above zone300)
                 drawCoastline(this, segments)                          // coastline on top
 
                 // Force-sync the ViewModel zoom level to match the actual MapView
@@ -988,8 +965,8 @@ private fun CoastlineMapView(
                 drawDepthMap(mapView, depthBitmap, depthBox, zoomLevel)
                 drawLowDepthWarning(mapView, lowDepthWarningBitmap, depthBox, zoomLevel)
                 drawIsobaths(mapView, isobaths, zoomLevel)
+                drawRegulatedZones(mapView, regulatedZones, zoomLevel)
                 drawZone300(mapView, zone300, zoomLevel)
-                drawRegulatedZones(mapView, regulatedZones, zoomLevel, waterTest)
                 drawCoastline(mapView, segments)
                 mapView.invalidate()
             }
@@ -2787,28 +2764,16 @@ private fun regulatedZoneColor(type: RegulatedZoneType): RegulationZoneColor = w
  *
  * Zoom-gated below [REGULATED_ZONE_MIN_ZOOM] and skipped when [zones] is null.
  *
- * Maritime regulations only apply on water — if [waterTest] is provided, zones whose
- * centroid falls on land are skipped. If the viewport centre is on land, all zones
- * are skipped (no maritime regulations apply over land).
- *
  * Drawn between isobaths and the 300 m band (see [CoastlineMapView] factory / update).
  */
 private fun drawRegulatedZones(
     mapView: MapView,
     zones: RegulatedZoneSet?,
-    zoomLevel: Double,
-    waterTest: ((Double, Double) -> Boolean)? = null
+    zoomLevel: Double
 ) {
     if (zones == null || zoomLevel < REGULATED_ZONE_MIN_ZOOM) return
     for (zone in zones.zones) {
         if (zone.outerRing.size < 3) continue
-
-        // Skip zones whose centroid is on land (maritime regulations don't apply there).
-        if (waterTest != null) {
-            val centroidLat = zone.outerRing.map { it.latitude }.average()
-            val centroidLon = zone.outerRing.map { it.longitude }.average()
-            if (!waterTest(centroidLat, centroidLon)) continue
-        }
 
         val colors = regulatedZoneColor(zone.zoneType)
         val fill = Polygon().apply {
@@ -2917,113 +2882,4 @@ private fun drawIsobaths(mapView: MapView, isobaths: List<Isobath>, zoomLevel: D
             mapView.overlays.add(poly)
         }
     }
-}
-
-// ── Regulated zone info banner ────────────────────────────────────────────────
-
-/**
- * Bottom-of-map banner showing regulated zones under the current boat position.
- * Each zone is rendered as a coloured row with name, zone type label, and
- * applicable regulations (speed limit, vessel size restriction).
- *
- * Visible only when [zones] is non-empty. Uses the same per-type colours
- * as the map overlay ([regulatedZoneColor]).
- */
-@Composable
-private fun RegulationInfoBanner(
-    zones: List<RegulatedZone>,
-    modifier: Modifier = Modifier
-) {
-    if (zones.isEmpty()) return
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .background(ComposeColor(0xD5000000)) // dark semi-transparent bg
-            .padding(horizontal = 10.dp, vertical = 6.dp)
-    ) {
-        for (zone in zones) {
-            val colors = regulatedZoneColor(zone.zoneType)
-            val typeLabel = regulationTypeLabel(zone.zoneType)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 2.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Color indicator bar
-                Box(
-                    modifier = Modifier
-                        .width(4.dp)
-                        .height(32.dp)
-                        .background(ComposeColor(colors.strokeARGB))
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = zone.name.ifBlank { typeLabel },
-                        color = ComposeColor.White,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                    val details = buildList<String> {
-                        add(typeLabel)
-                        if (zone.speedLimitKn != null) {
-                            add("${zone.speedLimitKn!!.toInt()} nds")
-                        }
-                        val sizeParts = mutableListOf<String>()
-                        zone.vesselSizeRestriction?.let { r ->
-                            if (r.minLengthM != null) sizeParts.add("≥${r.minLengthM!!.toInt()} m")
-                            if (r.maxLengthM != null) sizeParts.add("≤${r.maxLengthM!!.toInt()} m")
-                        }
-                        if (sizeParts.isNotEmpty()) add(sizeParts.joinToString(", "))
-                        if (zone.description.isNotBlank()) {
-                            add(zone.description.take(80))
-                        }
-                    }.joinToString(" · ")
-                    Text(
-                        text = details,
-                        color = ComposeColor(0xCCFFFFFF),
-                        fontSize = 11.sp,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
-        }
-    }
-}
-
-/** Human-readable label for a [RegulatedZoneType]. */
-private fun regulationTypeLabel(type: RegulatedZoneType): String = when (type) {
-    RegulatedZoneType.SPEED_LIMIT           -> "Limitation de vitesse"
-    RegulatedZoneType.ANCHORING_PROHIBITED  -> "Mouillage interdit"
-    RegulatedZoneType.ACCESS_PROHIBITED     -> "Accès interdit"
-    RegulatedZoneType.ENVIRONMENTAL         -> "Protection environnementale"
-    RegulatedZoneType.MOORING               -> "Amarrage réglementé"
-    RegulatedZoneType.FISHING_PROHIBITED    -> "Pêche interdite"
-    RegulatedZoneType.NAVIGATION_RESTRICTION -> "Restriction de navigation"
-    RegulatedZoneType.OTHER                 -> "Réglementation"
-}
-
-// ── Point-in-polygon helper ──────────────────────────────────────────────────
-
-/**
- * Ray-casting point-in-polygon test. Returns `true` if the point ([lat], [lon])
- * lies inside the closed polygon defined by [poly].
- */
-private fun pointInPolygon(lat: Double, lon: Double, poly: List<LatLng>): Boolean {
-    var inside = false
-    var j = poly.size - 1
-    for (i in poly.indices) {
-        if ((poly[i].longitude > lon) != (poly[j].longitude > lon) &&
-            lat < (poly[j].latitude - poly[i].latitude) * (lon - poly[i].longitude) /
-                (poly[j].longitude - poly[i].longitude) + poly[i].latitude
-        ) {
-            inside = !inside
-        }
-        j = i
-    }
-    return inside
 }
