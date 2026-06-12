@@ -5,12 +5,16 @@
 > Source of truth for all git rules. Upper layers (AGENTS.md, cmd_help_git.md,
 > GLOBAL_CONTEXT.md) reference this file — edit rules here only.
 
-## 🔴 Hard Rule: NEVER push to develop or main
+## 🔴 ABSOLUTE RULE: NEVER write to develop or main — EVER
 
-Direct commits, pushes, or merges on `develop` or `main` are **forbidden**.
-If attempted, the AI **must abort** and propose `#move`:
-- **New branch?** → prompt with `feature/` prepopulated
-- **Existing?** → list branches by last commit date descending
+**Any** write operation on `develop` or `main` is **strictly forbidden** — this includes:
+- `git push`/`git push --force`/`git push --force-with-lease`
+- `git commit` directly on the branch
+- `git revert` or any form of undo that writes
+- `git merge` or `git rebase` targeting these branches
+
+If a command would write to `develop` or `main`, the AI **must abort immediately**
+and propose `#move new <name>` to create a fresh feature branch.
 
 ## Branch Model
 
