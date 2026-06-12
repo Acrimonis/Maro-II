@@ -2,8 +2,8 @@
 name: RegulatedZones
 status: active
 created: 2026-06-11 18:00
-modified: 2026-06-12 20:39
-active_subfeature: none
+modified: 2026-06-12 21:49
+active_subfeature: multi-source-normalization
 ---
 
 # Feature: RegulatedZones
@@ -210,6 +210,36 @@ Relocates the [GpsStatusIcon] composable from [Alignment.BottomStart] to a Row a
 #### Key Files
 - **MODIFIED** — `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` (`drawRegulatedZones` text labels)
 
+### multi-source-normalization  [ ]
+
+**Focus:** Extend data gathering to normalize regulated zone data from multiple sources — SHOM auth `REGNAV_BDD_WFS:resare` layer with CATREA/RESTRN/INFORM/TXTDSC parsing, and a new INPN WFS client for Marine Protected Areas. Enhance speed extraction via INFORM string tokenization and TXTDSC legal reference cross-referencing.
+
+#### Todos
+- [ ] **Phase A1 — Data model extension:** Add 7 new nullable fields to `RegulatedZone` (`sourceLayer`, `catrea`, `restrn`, `mpaType`, `mpaMnhnId`, `txtdsc`, `informFr`) with ProtoNumber annotations 11–17
+- [ ] **Phase A2 — Enhanced speed extraction:** Add `parseSpeedFromInform()` with expanded keyword matching (`nœuds`, `noeud`, `nds`, `nd`, `kts`, `vitesse`); add `TXTDSC_SPEED_MAP` lookup table (`FR_PREMAR_MED_134_2021`→10 kn, `FR_PREMAR_MED_2012_064`→5 kn)
+- [ ] **Phase A3 — CATREA + RESTRN parsing:** Add `parseCatrea()` for CATREA 12→`NAVIGATION_RESTRICTION`, 27→`SPEED_LIMIT`; add `parseRestrnAuth()` for RESTRN 1/2→`ANCHORING_PROHIBITED`, 7/8→`ACCESS_PROHIBITED`, 10→`OTHER` (NO_DIVING category)
+- [ ] **Phase A4 — Auth endpoint support:** Add `AUTH_BASE_URL`, `AUTH_TYPENAMES`(`REGNAV_BDD_WFS:resare`), optional `authEndpoint` constructor param to `ShomRegulationClient`
+- [ ] **Phase B1 — Create `InpnRegulationClient`:** WFS GetFeature client for `https://inpn-inspire.mnhn.fr/geoservices/ows` with layers `wfs_inpn:amp_polygones` + `wfs_inpn:natura2000_sic`
+- [ ] **Phase B2 — INPN GeoJSON parsing:** Map `mpa_type`→`zoneType` (Natura 2000→ENVIRONMENTAL, Arrêté de biotope→ACCESS_PROHIBITED, Réserve Naturelle→NAVIGATION_RESTRICTION), parse `mpa_mnhnid`, polygon geometry
+- [ ] **Phase C1 — Extend aggregator:** Accept `inpnZones` parameter in `aggregate()`, 3-way dedup with authority rules (SHOM > INPN > SEED), 50 m centroid threshold
+- [ ] **Phase C2 — Expand bbox:** Update to `6.7,43.4,7.6,43.8` (Menton to Fréjus) in prebake test
+- [ ] **Phase C3 — Wire INPN client into prebake:** Add INPN fetch + aggregate steps, per-source summary reporting
+
+#### Rules
+- Follow the prebake pattern: all gathering at build time, app is pure consumer
+- Best-effort fetch for all sources — unreachable WFS degrades gracefully to empty
+- SHOM auth endpoint is best-effort; if it fails (no API key configured), fall back to INSPIRE only
+- New fields are nullable with `null` defaults — backward-compatible with existing `.bin` assets
+- Use OkHttpClient (already wired) — no new HTTP dependencies
+
+#### Key Files
+- **MODIFIED** — `app/src/main/java/ykws/android/maro/data/regulation/RegulatedZone.kt` (7 new fields)
+- **MODIFIED** — `app/src/main/java/ykws/android/maro/data/regulation/ShomRegulationClient.kt` (auth endpoint, CATREA/RESTRN, INFORM, TXTDSC)
+- **NEW** — `app/src/main/java/ykws/android/maro/data/regulation/InpnRegulationClient.kt`
+- **MODIFIED** — `app/src/main/java/ykws/android/maro/data/regulation/RegulationAggregator.kt` (3-way merge)
+- **MODIFIED** — `app/src/test/java/ykws/android/maro/data/regulation/RegulatedZonePrebakeTest.kt` (INPN wiring, expanded bbox)
+- **NEW** — `plans/regulated-zones-multi-source-normalization.md` (this plan)
+
 ## Todos
 - [x] Data source discovery (SHOM WFS endpoint & layer names)
 - [x] Data model definition (`RegulatedZone` data class + enum + set + `VesselSizeRestriction`)
@@ -241,6 +271,10 @@ Relocates the [GpsStatusIcon] composable from [Alignment.BottomStart] to a Row a
 - [`plans/regulated-zones-icon-warnings-plan.md`](../plans/regulated-zones-icon-warnings-plan.md) — Implementation plan for regulated zone icon warnings: data extraction, bake-time filtering, icon assignment, map overlay rendering
 
 ## Docs
-- [`plans/regulated-zones-vessel-filter-design.md`](../plans/regulated-zones-vessel-filter-design.md) — Vessel size restriction design discussion: data model, SHOM parsing, runtime filtering, updated ProtoNumber assignment, and run instructions
-- [`plans/regulated-zones-readme.md`](../plans/regulated-zones-readme.md) — Feature README: architecture overview, per-step test coverage, how to demonstrate each step, quick reference
-- [`plans/regulated-zones-toggle-merge-design.md`](../plans/regulated-zones-toggle-merge-design.md) — Design discussion: merge 300m zone + regulated zones toggle into single 4-state cycle button, add regulated zones setting toggle
+- [`plans/regulated-zones-vessel-filter-design.md`](../plans/regulated-zones-vessel-filter-design.md) — Vessel size restriction design discussion
+- [`plans/regulated-zones-readme.md`](../plans/regulated-zones-readme.md) — Feature README: architecture overview, per-step test coverage
+- [`plans/regulated-zones-toggle-merge-design.md`](../plans/regulated-zones-toggle-merge-design.md) — Toggle button merge design
+- [`plans/regulated-zones-category-icon-mapping.md`](../plans/regulated-zones-category-icon-mapping.md) — Functional category-to-icon chain
+- [`plans/regulated-zones-reqs-formalized.md`](../plans/regulated-zones-reqs-formalized.md) — Formalized requirements
+- [`plans/regulated-zones-multi-source-normalization.md`](../plans/regulated-zones-multi-source-normalization.md) — Implementation plan
+- [`xTrack/RegulatedZones/FEAT_PLN_RegulatedZones_data-format-redesign.md`](FEAT_PLN_RegulatedZones_data-format-redesign.md) — Data format redesign proposal (no backward compat)

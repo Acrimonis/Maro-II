@@ -1,27 +1,28 @@
 # Hydration: RegulatedZones
 
-**Last Bake:** 2026-06-12 20:39 (UTC+2)
-**State:** Pre-commit snapshot on `feature/reg-zones-next`. Staged changes include filter design plan, icon-rendering overhaul, and regulation filter implementation. Unstaged: MapScreen.kt tweaks, PrebakeTest updates, and `plans/zone-info-text-discussion.md` (new, untracked).
+**Last Bake:** 2026-06-12 21:49 UTC+2
+**State:** Architectural design session complete. All planning docs created and approved by user.
 
 ## Summary
 
-Completed subfeatures: `data-lookup [x]`, `display-layer [x]`, `toggle-control-merge [x]`, `preparation-for-icons-layout [x]`.
-In-progress: `trouble-shoot-reg-layers [ ]` (1/4 todos done — root cause pinned, fix implemented, remaining: device verify), `reg-zones-filtering [ ]` (0/4 — not started), `add-zone-text [ ]` (0/5 — design phase).
+Designed multi-source data normalization for regulated zones. Key outcomes:
+- **Data format:** 14 ProtoNumber fields with sealed `RegulationClassification` (S101, Catrea, Restrn, InpnMpa, Seed) and `SpeedSource` enum
+- **Icon mapping:** 8 `ZoneDisplayCategory` values — SPEED_LIMIT (5/10 red), NO_ANCHOR (⚓ blue+strike), NO_ACCESS (🚤 blue+strike), MOORING (🛥️ blue), NO_DIVING (🤿 blue+strike), SEAPLANE (✈️ grey), ENVIRONMENTAL (🌿 blue), INFORMATION (ℹ️ blue)
+- **Data extraction:** SHOM `REGNAV_BDD_WFS:resare` layer on same public INSPIRE endpoint + new `InpnRegulationClient` for INPN Marine Protected Areas
+- **Backward compat:** Not required — old .bin regenerated
+- **Scope:** 8 files, 1 new, 7 modified
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/data/regulation/RegulatedZone.kt` — MODIFIED (staged)
-- `app/src/main/java/ykws/android/maro/data/regulation/RegulationFilter.kt` — NEW (staged)
-- `app/src/main/java/ykws/android/maro/data/regulation/ShomRegulationClient.kt` — MODIFIED (staged)
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — MODIFIED (staged + unstaged changes)
-- `app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneIconProvider.kt` — NEW (staged)
-- `app/src/test/java/ykws/android/maro/data/regulation/RegulatedZonePrebakeTest.kt` — MODIFIED (staged + unstaged)
-- `maro.properties` — MODIFIED (staged)
-- `plans/zone-info-text-discussion.md` — NEW (untracked)
-- `plans/regulated-zones-filter-design.md` — NEW (staged)
-- `plans/regulated-zones-icon-warnings-plan.md` — NEW (staged)
-- `plans/icon-rendering-overhaul-plan.md` — NEW (staged)
+- `RegulatedZone.kt` — Rewrite data model + displayCategories()
+- `RegulatedZoneIconProvider.kt` — 2 new categories, fix colours
+- `ShomRegulationClient.kt` — Add REGNAV layer, parse CATREA/RESTRN/INFORM/TXTDSC
+- `InpnRegulationClient.kt` — NEW
+- `RegulationAggregator.kt` — 3-way merge
+- `RegulatedZonePrebakeTest.kt` — Wire INPN, expand bbox
+- `MapScreen.kt` — Verify new categories
+- `*.bin` — Delete and regenerate
 
 ## Next Step
 
-`#commit` then `#push` to upstream.
+`#focus multi-source-normalization` then switch to Code mode for implementation.
