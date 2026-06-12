@@ -2,7 +2,7 @@
 name: RegulatedZones
 status: active
 created: 2026-06-11 18:00
-modified: 2026-06-12 11:48
+modified: 2026-06-12 22:37
 active_subfeature: none
 ---
 
@@ -170,6 +170,79 @@ Relocates the [GpsStatusIcon] composable from [Alignment.BottomStart] to a Row a
 - `app/src/main/java/ykws/android/maro/data/regulation/RegulatedZoneSerializer.kt` — Protobuf serialization of geometry
 - `app/src/main/java/ykws/android/maro/data/regulation/RegulatedZonesRepository.kt` — Asset loading and deserialization
 
+### reg-zones-filtering  [ ]
+
+**Focus:** Vessel size filtering and speed limit extraction for regulated zones — ensuring zones with `vesselSizeRestriction` (min/max length) and speed limits parsed from description text are correctly applied at runtime based on the user's vessel configuration.
+
+#### Todos
+- [ ] **Phase 1 — Data Extraction & Type Audit:** Run prebake, dump per-zone details, decide keep/filter list for zone types
+- [ ] **Phase 2 — Bake-Time Filtering:** Create `RegulationFilter.kt` with vessel-size + type gates; add `maro.properties` keys; wire into prebake test
+- [ ] **Phase 3 — Icon Assignment:** Create `RegulatedZoneIconProvider.kt` generating emoji-on-circle Bitmap icons per zone type
+- [ ] **Phase 4 — Warning Strip UI:** Add `RegulatedZoneWarningStrip` composable at `Alignment.BottomStart` — horizontal Row of emoji-on-circle icons per active zone type, tied to `regulatedZonesVisible` setting
+
+#### Rules
+- Filter runs at bake time (computer), not runtime — produces smaller `.bin` asset
+- Speed limit zones always apply per existing `appliesTo()` logic
+- Default filtered types: `ENVIRONMENTAL`, `FISHING_PROHIBITED`, `OTHER` (configurable via maro.properties)
+- Use emoji-on-canvas for v1 icons (same pattern as GpsStatusIcon's "📡")
+- Store centroids in Protobuf model with nullable defaults so old assets deserialize safely
+
+#### Key Files
+- **NEW** — `app/src/main/java/ykws/android/maro/data/regulation/RegulationFilter.kt`
+- **NEW** — `app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneIconProvider.kt`
+- **MODIFIED** — `app/src/main/java/ykws/android/maro/data/regulation/RegulatedZone.kt` (add centroid fields)
+- **MODIFIED** — `app/src/main/java/ykws/android/maro/data/regulation/RegulationAggregator.kt` (compute centroids)
+- **MODIFIED** — `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` (icon rendering + overlay cleanup)
+- **MODIFIED** — `app/src/test/java/ykws/android/maro/data/regulation/RegulatedZonePrebakeTest.kt` (insert filter step)
+- **MODIFIED** — `maro.properties` + `app/build.gradle.kts` (new config keys)
+
+### add-zone-text  [ ]
+
+**Focus:** Add zone name/description text labels on regulated zone map polygons so the user can identify which zone is which (e.g., "Cannes bay speed limit", "Anchoring prohibited") without guessing from polygon colour alone.
+
+#### Todos
+- [ ] Design label placement strategy (centroid? leader line? avoid overlap?)
+- [ ] Implement text overlay on regulated zone polygons
+- [ ] Style: font size, colour, outline for readability on varied backgrounds
+- [ ] Gate behind zoom level (show only above threshold zoom)
+- [ ] Optional toggle in settings
+
+#### Key Files
+- **MODIFIED** — `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` (`drawRegulatedZones` text labels)
+
+### multi-source-normalization  [x]
+
+**Focus:** Extend data gathering to normalize regulated zone data from multiple sources — SHOM auth `REGNAV_BDD_WFS:resare` layer with CATREA/RESTRN/INFORM/TXTDSC parsing, and a new INPN WFS client for Marine Protected Areas. Enhance speed extraction via INFORM string tokenization and TXTDSC legal reference cross-referencing.
+
+#### Todos
+- [x] **Phase A1 — Data model extension:** Add `RegulationClassification` sealed class, `SpeedSource` enum, 3 new nullable fields (`classification`, `speedSource`, `legalDecreeRef`) with ProtoNumber 11–13
+- [x] **Phase A2 — Enhanced speed extraction:** Add `parseSpeedFromInform()` with expanded keyword matching (`nœuds`, `noeud`, `nds`, `nd`, `kts`, `vitesse`); add `TXTDSC_SPEED_MAP` lookup table (`FR_PREMAR_MED_134_2021`→10 kn, `FR_PREMAR_MED_2012_064`→5 kn)
+- [x] **Phase A3 — CATREA + RESTRN parsing:** Add `parseCatrea()` (12→NAVIGATION_RESTRICTION, 27→SPEED_LIMIT); add `parseRestrnAuth()` (1/2→ANCHORING_PROHIBITED, 7/8→ACCESS_PROHIBITED, 10→OTHER)
+- [x] **Phase A4 — Auth endpoint support:** Add `DEFAULT_BASE_URL`, `CANDIDATE_TYPENAMES` including `REGNAV_BDD_WFS:resare`, CATREA/RESTRN parsing in `ShomRegulationClient`
+- [x] **Phase B1 — Create `InpnRegulationClient`:** WFS GetFeature client for INPN endpoint (BunkerWeb WAF blocks this machine)
+- [x] **Phase B2 — INPN GeoJSON parsing:** Map `mpa_type`→`zoneType` (Natura 2000→ENVIRONMENTAL, Biotope→ACCESS_PROHIBITED, Réserve→NAVIGATION_RESTRICTION)
+- [x] **Phase B3 — Create `IgnCartoNatureClient`** (alternative to INPN): IGN API Carto Nature client for Natura 2000 data — proven working (16 zones)
+- [x] **Phase C1 — Extend aggregator:** Accept `inpnZones` parameter, 3-way dedup with authority rules (SHOM > INPN > SEED), 50 m Haversine threshold, unknown-source handling
+- [x] **Phase C2 — Expand bbox:** Update to `6.7,43.4,7.6,43.8` (Menton to Fréjus)
+- [x] **Phase C3 — Wire client into prebake:** IGN Nature client fetch + aggregate, per-source summary
+
+#### Rules
+- Follow the prebake pattern: all gathering at build time, app is pure consumer
+- Best-effort fetch for all sources — unreachable WFS degrades gracefully to empty
+- SHOM auth endpoint is best-effort; if it fails (no API key configured), fall back to INSPIRE only
+- New fields are nullable with `null` defaults — backward-compatible with existing `.bin` assets
+- Use OkHttpClient (already wired) — no new HTTP dependencies
+
+#### Key Files
+- **MODIFIED** — `app/src/main/java/ykws/android/maro/data/regulation/RegulatedZone.kt` (sealed class, enum, 3 new fields)
+- **MODIFIED** — `app/src/main/java/ykws/android/maro/data/regulation/ShomRegulationClient.kt` (CATREA/RESTRN, INFORM, TXTDSC, REGNAV layer)
+- **NEW** — `app/src/main/java/ykws/android/maro/data/regulation/IgnCartoNatureClient.kt` (IGN API Carto Nature — Natura 2000, working)
+- **NEW** — `app/src/main/java/ykws/android/maro/data/regulation/InpnRegulationClient.kt` (INPN WFS, WAF-blocked from this machine)
+- **MODIFIED** — `app/src/main/java/ykws/android/maro/data/regulation/RegulationAggregator.kt` (3-way merge, 50m Haversine threshold)
+- **MODIFIED** — `app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneIconProvider.kt` (8 display categories)
+- **MODIFIED** — `app/src/test/java/ykws/android/maro/data/regulation/RegulatedZonePrebakeTest.kt` (IGN wiring, expanded bbox)
+- **NEW** — `plans/regulated-zones-multi-source-normalization.md` (this plan)
+
 ## Todos
 - [x] Data source discovery (SHOM WFS endpoint & layer names)
 - [x] Data model definition (`RegulatedZone` data class + enum + set + `VesselSizeRestriction`)
@@ -197,7 +270,14 @@ Relocates the [GpsStatusIcon] composable from [Alignment.BottomStart] to a Row a
 ## Key Files
 - (See subfeature key files above)
 
+#### Docs
+- [`plans/regulated-zones-icon-warnings-plan.md`](../plans/regulated-zones-icon-warnings-plan.md) — Implementation plan for regulated zone icon warnings: data extraction, bake-time filtering, icon assignment, map overlay rendering
+
 ## Docs
-- [`plans/regulated-zones-vessel-filter-design.md`](../plans/regulated-zones-vessel-filter-design.md) — Vessel size restriction design discussion: data model, SHOM parsing, runtime filtering, updated ProtoNumber assignment, and run instructions
-- [`plans/regulated-zones-readme.md`](../plans/regulated-zones-readme.md) — Feature README: architecture overview, per-step test coverage, how to demonstrate each step, quick reference
-- [`plans/regulated-zones-toggle-merge-design.md`](../plans/regulated-zones-toggle-merge-design.md) — Design discussion: merge 300m zone + regulated zones toggle into single 4-state cycle button, add regulated zones setting toggle
+- [`plans/regulated-zones-vessel-filter-design.md`](../plans/regulated-zones-vessel-filter-design.md) — Vessel size restriction design discussion
+- [`plans/regulated-zones-readme.md`](../plans/regulated-zones-readme.md) — Feature README: architecture overview, per-step test coverage
+- [`plans/regulated-zones-toggle-merge-design.md`](../plans/regulated-zones-toggle-merge-design.md) — Toggle button merge design
+- [`plans/regulated-zones-category-icon-mapping.md`](../plans/regulated-zones-category-icon-mapping.md) — Functional category-to-icon chain
+- [`plans/regulated-zones-reqs-formalized.md`](../plans/regulated-zones-reqs-formalized.md) — Formalized requirements
+- [`plans/regulated-zones-multi-source-normalization.md`](../plans/regulated-zones-multi-source-normalization.md) — Implementation plan
+- [`xTrack/RegulatedZones/FEAT_PLN_RegulatedZones_data-format-redesign.md`](FEAT_PLN_RegulatedZones_data-format-redesign.md) — Data format redesign proposal (no backward compat)

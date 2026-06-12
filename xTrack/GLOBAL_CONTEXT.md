@@ -3,9 +3,9 @@
 ## Active Session Pointers
 - **Active Feature:** RegulatedZones
 - **Active Subfeature:** none
-- **Last Updated:** 2026-06-12 08:16
-- **Last Bake:** 2026-06-12 11:48 (RegulatedZones — hexagon-rendering-fix complete: overlap dedup replaces 25m+type gates, RDP simplification added to parseRing, Protobuf serializer, Port-Cros stub removed. Phase A+B tests PASS.)
-- **Branch:** feature/regulated-zones (tracking origin/develop)
+- **Last Updated:** 2026-06-12 23:49
+- **Last Bake:** 2026-06-12 23:49 (RegulatedZones — seeds removed, 121 zones rebaked (109 SHOM + 12 IGN), boat size filter + category toggles + collapsible settings deployed.)
+- **Branch:** feature/zone-other-source (tracking origin/develop)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -43,7 +43,7 @@
 | Ui_General | App-lifecycle UX: back-to-exit guard and keep-screen-on wakelock | 2026-06-03 00:00 | 2026-06-03 00:00 | active |
 | Ui_Settings | Settings page UI, persistence, widgets, and UX enhancements | 2026-06-09 15:28 | 2026-06-09 19:42 | active |
 | **Navigation** | **Navigation aids — heading/speed arrow and direction line on map overlay** | **2026-06-10 08:40** | **2026-06-11 11:55** | **active** |
-| **RegulatedZones** | **Maritime regulatory zones — fetch SHOM WFS, aggregate, serialize as bundled asset with vessel-size filtering, and display on map overlay** | **2026-06-11 18:00** | **2026-06-12 11:48** | **active** |
+| **RegulatedZones** | **Maritime regulatory zones — multi-source normalization (SHOM INSPIRE + IGN Natura 2000), sealed classification, 8-category icon mapping, keyword-driven display logic** | **2026-06-11 18:00** | **2026-06-12 22:37** | **active** |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).
@@ -51,6 +51,7 @@
 - Auto-refine rule wording for clarity and conciseness on `#rule` add.
 - Use apk-build.bat to build APK (runs gradlew assembleDebug).
 - **NO auto git commit/push** — `git add` only when directed; wait for user to say "commit" or "push" before executing those commands (per AGENTS.md §5).
+- **Do not switch to Code mode to implement until explicitly instructed.** Discuss/design in Architect mode first, wait for user's go-ahead before switching.
 
 ## Global Todos
 - [ ] Validate the intermittent Overpass-outage theory — confirm the coastline OSM fetch failures are transient (succeeded 13:52, failing ~16:52 on 2026-06-08), not a persistent network / cert / IPv6 block. Quick checks: retry `bake-coastline` later; `curl -sk https://overpass-api.de/api/status`; race other mirrors.

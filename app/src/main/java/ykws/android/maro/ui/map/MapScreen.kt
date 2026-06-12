@@ -15,6 +15,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import ykws.android.maro.R
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -33,7 +34,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -89,12 +92,16 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.core.content.ContextCompat
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import kotlin.math.cos
@@ -133,6 +140,10 @@ import ykws.android.maro.data.model.Zone300Data
 import ykws.android.maro.data.regulation.RegulatedZoneSet
 import ykws.android.maro.data.regulation.RegulatedZoneType
 import ykws.android.maro.data.regulation.RegulatedZonesRepository
+import ykws.android.maro.data.regulation.RegulatedZone
+import ykws.android.maro.data.regulation.ZoneDisplayCategory
+import ykws.android.maro.data.regulation.displayCategories
+import ykws.android.maro.data.regulation.contains
 import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.spatial.SpatialOperations
 
@@ -460,6 +471,9 @@ fun MapScreen(
                 mapView = mapView,
                 navigationState = navigationState,
                 gpsIconState = gpsIconState,
+                // Demo mode (gpsPosition == null): use mapCenter as fallback so
+                // geo-fence still works when panning the map in demo/manual mode.
+                boatPosition = gpsPosition ?: mapCenter,
                 onCenterChanged = onCenterChanged,
                 onZoomChanged = viewModel::updateZoomLevel,
                 onMapViewReady = { mapView = it },
@@ -561,6 +575,7 @@ private fun MapContent(
     mapView: MapView?,
     navigationState: NavigationState = NavigationState(),
     gpsIconState: GpsIconState = GpsIconState.DEMO,
+    boatPosition: LatLng? = null,
     onCenterChanged: (Double, Double) -> Unit,
     onZoomChanged: (Double) -> Unit,
     onMapViewReady: (MapView) -> Unit,
@@ -585,8 +600,10 @@ private fun MapContent(
         val segments = if (appSettings.coastlineVisible) allSegments else emptyList()
         // Apply zone300 visibility toggle
         val visibleZone300 = if (appSettings.zone300Visible) zone300 else null
-        // Apply regulated zones visibility toggle
-        val visibleRegulatedZones = if (appSettings.regulatedZonesVisible) regulatedZones else null
+        // Apply regulated zones visibility + boat size + category toggles
+        val visibleRegulatedZones = if (appSettings.regulatedZonesVisible) {
+            filterRegulatedZones(regulatedZones, appSettings.boatSizeM) { appSettings.isCategoryVisible(it) }
+        } else null
         // Apply low-depth (<1.5 m) warning visibility toggle
         val visibleLowDepthWarning = if (appSettings.lowDepthWarningVisible) lowDepthWarningBitmap else null
         CoastlineMapView(
@@ -692,6 +709,36 @@ private fun MapContent(
                         modifier = Modifier.padding(horizontal = 28.dp, vertical = 16.dp)
                     )
                 }
+            }
+        }
+
+        // ── Regulated zone icons + info text (bottom-left) ──────────────────
+        //   A Row with two children:
+        //     Left  — vertical icon stack (44×44 dp each), most restrictive
+        //             (SPEED_LIMIT) at the bottom, informational at the top.
+        //     Right — zone info text filling remaining width up to the zoom
+        //             +/- stack, with auto-wrapping instead of ellipsis.
+        //   Constrained to avoid overlapping the zoom stack (~82 dp from right).
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 6.dp, bottom = 6.dp)
+                .widthIn(max = (LocalConfiguration.current.screenWidthDp.dp - 82.dp))
+        ) {
+            RegulatedZoneWarningStrip(
+                regulatedZones = visibleRegulatedZones,
+                boatPosition = boatPosition,
+                modifier = Modifier.align(Alignment.Bottom)
+            )
+            if (appSettings.regulationInfoVisible) {
+                RegulatedZoneInfoText(
+                    regulatedZones = visibleRegulatedZones,
+                    boatPosition = boatPosition,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 4.dp)
+                        .align(Alignment.Bottom)
+                )
             }
         }
 
@@ -1530,44 +1577,9 @@ private fun GeneralSettings(
             title = "Layers",
             description = null
         )
-        Spacer(modifier = Modifier.height(8.dp))
-
-        SettingsToggleRow(
-            label = stringResource(R.string.settings_coastline_label),
-            description = stringResource(R.string.settings_coastline_desc),
-            checked = settings.coastlineVisible,
-            onCheckedChange = { visible ->
-                onUpdateSettings { it.copy(coastlineVisible = visible) }
-            }
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // ── Zone 300 m overlay toggle ─────────────────────────────────
-        SettingsToggleRow(
-            label = stringResource(R.string.settings_zone300_label),
-            description = stringResource(R.string.settings_zone300_desc),
-            checked = settings.zone300Visible,
-            onCheckedChange = { visible ->
-                onUpdateSettings { it.copy(zone300Visible = visible) }
-            }
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // ── Regulated zones overlay toggle ─────────────────────────────
-        SettingsToggleRow(
-            label = stringResource(R.string.settings_regulated_zones_label),
-            description = stringResource(R.string.settings_regulated_zones_desc),
-            checked = settings.regulatedZonesVisible,
-            onCheckedChange = { visible ->
-                onUpdateSettings { it.copy(regulatedZonesVisible = visible) }
-            }
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
         // ── Low-depth warning overlay toggle — grouped card ────────────
+        //   (placed before zone 300 and regulated zones so the two spatial
+        //    overlays are grouped together)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -1660,6 +1672,169 @@ private fun GeneralSettings(
                 }
             }
         }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // ── Zone 300 m overlay toggle ─────────────────────────────────
+        SettingsToggleRow(
+            label = stringResource(R.string.settings_zone300_label),
+            description = stringResource(R.string.settings_zone300_desc),
+            checked = settings.zone300Visible,
+            onCheckedChange = { visible ->
+                onUpdateSettings { it.copy(zone300Visible = visible) }
+            }
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // ── Regulated zones overlay toggle — grouped card ──────────────
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(ComposeColor(0x1AFFFFFF))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_regulated_zones_label),
+                        color = ComposeColor.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_regulated_zones_desc),
+                        color = ComposeColor(0xFFB0BEC5),
+                        fontSize = 13.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Switch(
+                    checked = settings.regulatedZonesVisible,
+                    onCheckedChange = { visible ->
+                        onUpdateSettings { it.copy(regulatedZonesVisible = visible) }
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = ComposeColor(0xFF1565C0),
+                        checkedTrackColor = ComposeColor(0xFF1565C0).copy(alpha = 0.4f),
+                        uncheckedThumbColor = ComposeColor(0xFFB0BEC5),
+                        uncheckedTrackColor = ComposeColor(0x33FFFFFF)
+                    )
+                )
+            }
+
+            if (settings.regulatedZonesVisible) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(0.5.dp)
+                        .background(ComposeColor.White.copy(alpha = 0.1f))
+                )
+                // Regulation info — collapsible toggle for info text panel
+                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    SettingsExpander(
+                        label = "Regulation info",
+                        expanded = settings.regulationInfoExpanded,
+                        onToggle = { onUpdateSettings { it.copy(regulationInfoExpanded = !it.regulationInfoExpanded) } },
+                        labelStyle = TextStyle(
+                            color = ComposeColor.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    ) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Show zone info text beside the icon strip",
+                            color = ComposeColor(0xFF90A4AE),
+                            fontSize = 13.sp,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Info text visible",
+                                color = ComposeColor.White,
+                                fontSize = 14.sp
+                            )
+                            Switch(
+                                checked = settings.regulationInfoVisible,
+                                onCheckedChange = { visible ->
+                                    onUpdateSettings { it.copy(regulationInfoVisible = visible) }
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = ComposeColor(0xFF1565C0),
+                                    checkedTrackColor = ComposeColor(0xFF1565C0).copy(alpha = 0.4f)
+                                )
+                            )
+                        }
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(0.5.dp)
+                        .background(ComposeColor.White.copy(alpha = 0.1f))
+                )
+                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    SettingsExpander(
+                        label = "Categories",
+                        expanded = settings.categoryFilterExpanded,
+                        onToggle = { onUpdateSettings { it.copy(categoryFilterExpanded = !it.categoryFilterExpanded) } },
+                        labelStyle = TextStyle(
+                            color = ComposeColor.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    ) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        RegulatedZoneCategoryToggles(settings, onUpdateSettings)
+                    }
+                }
+                // Boat size in its own collapsible
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(0.5.dp)
+                        .background(ComposeColor.White.copy(alpha = 0.1f))
+                )
+                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    SettingsExpander(
+                        label = "Boat size",
+                        expanded = settings.boatSizeFilterExpanded,
+                        onToggle = { onUpdateSettings { it.copy(boatSizeFilterExpanded = !it.boatSizeFilterExpanded) } },
+                        labelStyle = TextStyle(
+                            color = ComposeColor.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    ) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        BoatSizeSlider(settings, onUpdateSettings)
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // ── Coastline overlay toggle ──────────────────────────────────
+        SettingsToggleRow(
+            label = stringResource(R.string.settings_coastline_label),
+            description = stringResource(R.string.settings_coastline_desc),
+            checked = settings.coastlineVisible,
+            onCheckedChange = { visible ->
+                onUpdateSettings { it.copy(coastlineVisible = visible) }
+            }
+        )
 
         Spacer(modifier = Modifier.height(12.dp))
 
@@ -2873,4 +3048,426 @@ private fun drawIsobaths(mapView: MapView, isobaths: List<Isobath>, zoomLevel: D
             mapView.overlays.add(poly)
         }
     }
+}
+
+// ── Regulated zone warning strip (vertical stack) ───────────────────────────
+
+/**
+ * Priority for vertical stack ordering — most restrictive (lowest index)
+ * placed at the bottom, informational (highest index) at the top.
+ */
+private val CATEGORY_PRIORITY: Map<ZoneDisplayCategory, Int> = mapOf(
+    ZoneDisplayCategory.SPEED_LIMIT to 0,
+    ZoneDisplayCategory.NO_ACCESS to 1,
+    ZoneDisplayCategory.NO_ANCHOR to 2,
+    ZoneDisplayCategory.NO_DIVING to 3,
+    ZoneDisplayCategory.FISHING_PROHIBITED to 4,
+    ZoneDisplayCategory.MOORING to 5,
+    ZoneDisplayCategory.SEAPLANE to 6,
+    ZoneDisplayCategory.ENVIRONMENTAL to 7,
+    ZoneDisplayCategory.INFORMATION to 8,
+)
+
+/**
+ * Bottom-left warning strip showing icons as a vertical stack.
+ *
+ * Icons are 44×44 dp, ordered from most restrictive (SPEED_LIMIT at the
+ * bottom) to informational (INFORMATION at the top). Deduplicates by
+ * (displayCategory, speedLimitKn). Only renders when [regulatedZones]
+ * is non-null and non-empty.
+ */
+@Composable
+private fun RegulatedZoneWarningStrip(
+    regulatedZones: RegulatedZoneSet?,
+    boatPosition: LatLng? = null,
+    modifier: Modifier = Modifier
+) {
+    if (regulatedZones == null || regulatedZones.zones.isEmpty()) return
+
+    // Geo-fence: only show icons for zones whose polygon contains the boat.
+    val categories = remember(regulatedZones, boatPosition) {
+        val zones = if (boatPosition != null) {
+            regulatedZones.zones.filter { it.contains(boatPosition) }
+        } else {
+            regulatedZones.zones
+        }
+        if (zones.isEmpty()) return@remember emptyList()
+
+        zones
+            .flatMap { zone ->
+                val speed = zone.speedLimitKn
+                    ?: parseSpeedFromDescription(zone.description)
+                zone.displayCategories().map { cat -> cat to speed }
+            }
+            .filter { (cat, speed) -> cat != ZoneDisplayCategory.SPEED_LIMIT || speed != null }
+            .distinct()
+            // Sort by priority — most restrictive first (bottom of stack)
+            .sortedBy { (cat, _) -> CATEGORY_PRIORITY[cat] ?: Int.MAX_VALUE }
+    }
+
+    if (categories.isEmpty()) return
+
+    // Vertical column: first item at bottom (most restrictive), last at top
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        // Render in reverse so the first sorted item (most restrictive)
+        // appears at the bottom of the stack
+        categories.reversed().forEach { (category, speedKn) ->
+            RegulationZoneCategoryIcon(category = category, speedKn = speedKn)
+        }
+    }
+}
+
+/**
+ * A single 44×44 dp icon for a [ZoneDisplayCategory], displaying the category's
+ * emoji (or speed number) on a coloured rounded-square background, with a thin
+ * Canvas-drawn red diagonal strike overlay for prohibition categories.
+ *
+ * Speed limit zones render the knot value as bold white text instead of an emoji
+ * (e.g. "5" or "10") so the user can distinguish different speed limits at a glance.
+ *
+ * Background alpha is sourced from [RegulatedZoneIconProvider.alphaForCategory]:
+ * prohibition/warning icons use [ZoneConfig.iconBackActiveAlpha] (75 %),
+ * informational icons use [ZoneConfig.iconBackInactiveAlpha] (50 %).
+ *
+ * Categories requiring a strike (NO_ANCHOR, NO_DIVING, NO_ACCESS) render the emoji
+ * Text first, then overlay a thin red diagonal line via Canvas on top.
+ */
+@Composable
+private fun RegulationZoneCategoryIcon(
+    category: ZoneDisplayCategory,
+    speedKn: Double? = null,
+    modifier: Modifier = Modifier
+) {
+    val bgColor = RegulatedZoneIconProvider.colorForCategory(category)
+    val alpha = RegulatedZoneIconProvider.alphaForCategory(category)
+    val hasStrike = category == ZoneDisplayCategory.NO_ANCHOR ||
+            category == ZoneDisplayCategory.NO_DIVING ||
+            category == ZoneDisplayCategory.NO_ACCESS ||
+            category == ZoneDisplayCategory.FISHING_PROHIBITED
+
+    Box(
+        modifier = modifier
+            .size(44.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(bgColor.copy(alpha = alpha)),
+        contentAlignment = Alignment.Center
+    ) {
+        if (category == ZoneDisplayCategory.SPEED_LIMIT) {
+            Text(
+                text = if (speedKn != null) "${speedKn.toInt()}" else "",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                color = ComposeColor.White
+            )
+        } else {
+            // Emoji Text for all non-speed categories
+            Text(
+                text = RegulatedZoneIconProvider.emojiForCategory(category),
+                fontSize = 24.sp
+            )
+        }
+
+        // Thin red diagonal strike overlay for prohibition categories
+        if (hasStrike) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val sw = size.width * 0.04f // thinner strike
+                drawLine(
+                    color = ComposeColor.Red,
+                    start = Offset(size.width * 0.08f, size.height * 0.08f),
+                    end = Offset(size.width * 0.92f, size.height * 0.92f),
+                    strokeWidth = sw
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Zone info text panel — shows zone info text beside the vertical icon stack.
+ *
+ * Builds the same deduplicated category list as [RegulatedZoneWarningStrip] so
+ * text lines match the icon stack exactly — same emoji, same priority order.
+ *
+ * Format per line: {category_emoji} {zone.name or fallback} — {speed or desc}
+ * Ordered by [CATEGORY_PRIORITY] (most restrictive at bottom, matching icons).
+ * Auto-wraps within the available space.
+ */
+@Composable
+private fun RegulatedZoneInfoText(
+    regulatedZones: RegulatedZoneSet?,
+    boatPosition: LatLng? = null,
+    modifier: Modifier = Modifier
+) {
+    if (regulatedZones == null || regulatedZones.zones.isEmpty()) return
+
+    // Derive the same deduplicated (category, speedKn) pairs as the warning strip
+    val categoryLines = remember(regulatedZones, boatPosition) {
+        val zones = if (boatPosition != null) {
+            regulatedZones.zones.filter { it.contains(boatPosition) }
+        } else {
+            regulatedZones.zones
+        }
+        if (zones.isEmpty()) return@remember emptyList()
+
+        zones
+            .flatMap { zone ->
+                val speed = zone.speedLimitKn
+                    ?: parseSpeedFromDescription(zone.description)
+                // Pair each display category with the zone it came from
+                zone.displayCategories().map { cat -> Triple(cat, speed, zone) }
+            }
+            .filter { (cat, speed, _) -> cat != ZoneDisplayCategory.SPEED_LIMIT || speed != null }
+            .distinctBy { (cat, speed, _) -> cat to speed }
+            .sortedBy { (cat, _, _) -> CATEGORY_PRIORITY[cat] ?: Int.MAX_VALUE }
+    }
+
+    if (categoryLines.isEmpty()) return
+
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.Bottom
+    ) {
+        // Render in reverse so most restrictive (first in sorted order) is at bottom
+        categoryLines.reversed().forEach { (category, speedKn, zone) ->
+            val emoji = if (category == ZoneDisplayCategory.SPEED_LIMIT) {
+                "\uD83D\uDD34"  // 🔴 red dot for speed info
+            } else {
+                RegulatedZoneIconProvider.emojiForCategory(category)
+            }
+            val rawName = zone.name
+            val name = if (rawName.isNullOrBlank() || rawName.equals("null", ignoreCase = true)) {
+                zone.zoneType.name.lowercase().replace('_', ' ')
+            } else {
+                rawName
+            }
+            val keyInfo = when {
+                speedKn != null -> "${speedKn.toInt()} nds"
+                zone.description.isNotBlank() -> zone.description.replace("\n", " ")
+                else -> ""
+            }
+            Text(
+                text = if (keyInfo.isNotBlank()) "$emoji $name — $keyInfo" else "$emoji $name",
+                fontSize = 9.sp,
+                lineHeight = 14.sp,
+                color = ComposeColor.White,
+            )
+        }
+    }
+}
+
+/**
+ * Category icon visibility toggles for the regulated zone warning strip.
+ * Each icon type can be individually hidden.
+ */
+@Composable
+private fun RegulatedZoneCategoryToggles(
+    settings: AppSettings,
+    onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(ComposeColor(0x1AFFFFFF))
+    ) {
+        categoryToggleItems.forEachIndexed { index, item ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier.size(28.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (item.iconIsRedBox) {
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(ComposeColor(0xFFE53935)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("10", color = ComposeColor.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        } else {
+                            Text(item.emoji, fontSize = 18.sp)
+                        }
+                        // Red diagonal strike overlay for prohibition categories
+                        if (item.hasStrike) {
+                            Canvas(modifier = Modifier.fillMaxSize()) {
+                                val sw = size.width * 0.06f
+                                drawLine(
+                                    color = ComposeColor.Red,
+                                    start = Offset(size.width * 0.1f, size.height * 0.1f),
+                                    end = Offset(size.width * 0.9f, size.height * 0.9f),
+                                    strokeWidth = sw
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = item.label, color = ComposeColor.White, fontSize = 14.sp)
+                }
+                Switch(
+                    checked = item.isVisible(settings),
+                    onCheckedChange = { visible ->
+                        onUpdateSettings { item.setter(it, visible) }
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = ComposeColor(0xFF1565C0),
+                        checkedTrackColor = ComposeColor(0xFF1565C0).copy(alpha = 0.4f)
+                    )
+                )
+            }
+            if (index < categoryToggleItems.size - 1) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(0.5.dp)
+                        .padding(horizontal = 16.dp)
+                        .background(ComposeColor(0x1AFFFFFF))
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Boat size slider (3–25m) for filtering regulated zones by vessel length.
+ * Shown in its own collapsible expander within the regulated zones card.
+ */
+@Composable
+private fun BoatSizeSlider(
+    settings: AppSettings,
+    onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(ComposeColor(0x1AFFFFFF))
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "\uD83D\uDEA4 Boat length",
+                color = ComposeColor.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = "${settings.boatSizeM.toInt()} m",
+                color = ComposeColor(0xFF1565C0),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Slider(
+            value = settings.boatSizeM.toFloat(),
+            onValueChange = { v ->
+                onUpdateSettings { it.copy(boatSizeM = v.toDouble().coerceIn(3.0, 25.0)) }
+            },
+            valueRange = 3f..25f,
+            steps = 21,
+            modifier = Modifier.fillMaxWidth(),
+            colors = SliderDefaults.colors(
+                thumbColor = ComposeColor(0xFF1565C0),
+                activeTrackColor = ComposeColor(0xFF1565C0),
+                inactiveTrackColor = ComposeColor(0xFF1565C0).copy(alpha = 0.3f)
+            )
+        )
+    }
+}
+
+private data class CategoryToggleItem(
+    val emoji: String,
+    val label: String,
+    val iconIsRedBox: Boolean = false,
+    val hasStrike: Boolean = false,
+    val isVisible: (AppSettings) -> Boolean,
+    val setter: (AppSettings, Boolean) -> AppSettings,
+)
+
+private val categoryToggleItems = listOf(
+    CategoryToggleItem("", "Speed limit", iconIsRedBox = true,
+        isVisible = { it.showCategorySpeedLimit },
+        setter = { s, v -> s.copy(showCategorySpeedLimit = v) }),
+    CategoryToggleItem("\uD83D\uDEA4", "No access",
+        hasStrike = true,
+        isVisible = { it.showCategoryNoAccess },
+        setter = { s, v -> s.copy(showCategoryNoAccess = v) }),
+    CategoryToggleItem("\u2693\uFE0F", "No anchor",
+        hasStrike = true,
+        isVisible = { it.showCategoryNoAnchor },
+        setter = { s, v -> s.copy(showCategoryNoAnchor = v) }),
+    CategoryToggleItem("\uD83E\uDD3F", "No diving",
+        hasStrike = true,
+        isVisible = { it.showCategoryNoDiving },
+        setter = { s, v -> s.copy(showCategoryNoDiving = v) }),
+    CategoryToggleItem("\uD83D\uDC1F", "Fishing prohibited",
+        hasStrike = true,
+        isVisible = { it.showCategoryFishingProhibited },
+        setter = { s, v -> s.copy(showCategoryFishingProhibited = v) }),
+    CategoryToggleItem("\uD83D\uDEA4", "Mooring",
+        isVisible = { it.showCategoryMooring },
+        setter = { s, v -> s.copy(showCategoryMooring = v) }),
+    CategoryToggleItem("\u2708\uFE0F", "Seaplane",
+        isVisible = { it.showCategorySeaplane },
+        setter = { s, v -> s.copy(showCategorySeaplane = v) }),
+    CategoryToggleItem("\uD83C\uDF3F", "Environmental",
+        isVisible = { it.showCategoryEnvironmental },
+        setter = { s, v -> s.copy(showCategoryEnvironmental = v) }),
+    CategoryToggleItem("\u2139\uFE0F", "Information",
+        isVisible = { it.showCategoryInformation },
+        setter = { s, v -> s.copy(showCategoryInformation = v) }),
+)
+
+/**
+ * Extract a speed limit (knots) from a zone description string as fallback
+ * when [RegulatedZone.speedLimitKn] is null. Handles "speed is limited to
+ * 10 knots", "speed limit of 5 knots", "3 kn", "10 noeuds", etc.
+ */
+private fun parseSpeedFromDescription(desc: String?): Double? {
+    if (desc == null) return null
+    // Handle "5 knots", "10 kn", "3 noeuds" — plural 's' is optional so
+    // "10 knots" doesn't get blocked by the \b word boundary after "knot".
+    return Regex("""(\d+[.]?\d*)\s*(?:knots?|noeuds?|nds|kn)\b""", RegexOption.IGNORE_CASE)
+        .find(desc.lowercase())
+        ?.groupValues?.get(1)?.toDoubleOrNull()
+}
+
+/**
+ * Filter regulated zones by boat size and per-category visibility.
+ *
+ * Pipeline:
+ * 1. Remove zones that don't apply to the configured [boatSizeM] (e.g. "≥ 24m" with a 6m boat)
+ * 2. Remove zones whose display categories are all toggled off in settings
+ * 3. Return null if no zones remain (layer auto-hides)
+ */
+private fun filterRegulatedZones(
+    zones: RegulatedZoneSet?,
+    boatSizeM: Double,
+    isCategoryVisible: (ZoneDisplayCategory) -> Boolean
+): RegulatedZoneSet? {
+    if (zones == null) return null
+    val filtered = zones.zones.filter { zone ->
+        if (!zone.appliesTo(boatSizeM)) return@filter false
+        val cats = zone.displayCategories()
+        if (cats.isEmpty()) return@filter false
+        cats.any { isCategoryVisible(it) }
+    }
+    if (filtered.isEmpty()) return null
+    return zones.copy(zones = filtered)
 }

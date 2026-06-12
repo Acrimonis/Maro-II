@@ -1,32 +1,31 @@
 # Hydration: RegulatedZones
 
-**Last Bake:** 2026-06-12 11:48 (UTC+2)
-**State:** `trouble-shoot-reg-layers` subfeature complete (investigation → plan → implementation → tests pass).
-**Pending:** Manual Phase C (on-device visual verification) and Phase D (regression checks).
+**Last Bake:** 2026-06-12 23:49 UTC+2
+**State:** Seeds removed, boat size filter, category toggles, collapsible settings, red dot for speed info.
 
-## Summary
+## Session Summary
 
-Fixed the hexagon-shaped regulated zone rendering bug. Root cause was that seed zones (8-vertex regular octagons) survived the aggregation pipeline due to a 25 m centroid-distance dedup check that failed to detect overlap with true SHOM zones.
+Implemented Round 2 of regulated zones: boat size slider (3–25m, default 6m), 9 per-category visibility toggles with persisted collapsible state, Regulation info toggle (off by default), red dot 🔴 for speed info text, coastline moved to bottom of Layers section, `appliesTo()` "between X and Y" fix, and removed seed zones.
 
-## Changes
+## Current State
 
-- **RegulationSeeds.kt:** Removed Port-Cros stub (empty ring)
-- **RegulationAggregator.kt:** Replaced centroid-distance + type-equality dedup with `centroidInBbox()` overlap test. Removed `DUP_RADIUS_M`, `mergeZones()`, `zoneDistanceM()`
-- **ShomRegulationClient.kt:** Added `SpatialOperations.douglasPeucker(ε=30m)` in `parseRing()` with ring re-closing guard
-- **RegulatedZoneSerializer.kt:** Switched from `Json` to `ProtoBuf` with explicit `RegulatedZoneSet.serializer()`
-- **RegulationAggregatorTest.kt:** Updated test names/comments to reflect overlap dedup
-- **Prebake:** Regenerated `nice-frejus.bin` (59,379 bytes, Protobuf format)
+- **SHOM INSPIRE:** 110 zones fetched
+- **IGN Natura 2000:** 16 zones fetched, 12 survived dedup
+- **SEED:** 0 zones (removed)
+- **Total after aggregate:** 121 zones
+- **APK:** Built and deployed to device
 
-## Target Files
+## Target Files Modified
 
-- `app/src/main/java/ykws/android/maro/data/regulation/RegulationAggregator.kt`
-- `app/src/main/java/ykws/android/maro/data/regulation/RegulatedZoneSerializer.kt`
-- `app/src/main/java/ykws/android/maro/data/regulation/ShomRegulationClient.kt`
-- `app/src/main/java/ykws/android/maro/data/regulation/RegulationSeeds.kt`
-- `app/src/test/java/ykws/android/maro/data/regulation/RegulationAggregatorTest.kt`
-- `data/app-assets/regulated-zones/nice-frejus.bin`
-- `plans/regulated-zones-hexagon-fix-plan.md`
+- `app/src/main/java/ykws/android/maro/data/regulation/RegulatedZone.kt` — `appliesTo()` range fix
+- `app/src/main/java/ykws/android/maro/data/regulation/RegulationSeeds.kt` — emptied
+- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — +11 fields
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — filter pipeline, settings UI, red dot
+- `app/src/test/java/ykws/android/maro/data/regulation/RegulatedZonePrebakeTest.kt` — seeds removed
 
-## Next Step
+## Next Steps
 
-Run `apk-build.bat` + `apk-deploy.bat` for on-device visual validation (Phase C).
+- `trouble-shoot-reg-layers` subfeature
+- `reg-zones-filtering` subfeature
+- `add-zone-text` subfeature
+- Translation of settings labels (en/fr)
