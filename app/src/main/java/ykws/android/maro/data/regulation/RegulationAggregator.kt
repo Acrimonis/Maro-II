@@ -4,23 +4,20 @@ import ykws.android.maro.data.model.BoundingBox
 import ykws.android.maro.data.model.LatLng
 import kotlin.math.abs
 import kotlin.math.cos
-import kotlin.math.sqrt
 
 /**
  * Aggregates [RegulatedZone] instances from SHOM WFS and seed sources into a
  * single deduplicated, validated, sorted [RegulatedZoneSet].
  *
  * Processing pipeline:
- * 1. **Collect** — start with SHOM zones, append seed zones not near any SHOM zone
- * 2. **Deduplicate** — zones within [DUP_RADIUS_M] + same [RegulatedZoneType] → merge
+ * 1. **Collect** — start with SHOM zones, append all seed zones
+ * 2. **Deduplicate** — seed zones whose centroid falls within any SHOM zone's bounding
+ *    box are discarded (SHOM attributes are authoritative)
  * 3. **Validate** — reject zones whose centroid falls outside the lookup [BoundingBox]
  * 4. **Sort** — by zone type ordinal, then approximate area descending
  * 5. **Build metadata** — [RegulationMetadata] with timestamp and source counts
  */
 object RegulationAggregator {
-
-    /** Maximum centroid distance (metres) to consider two zones a duplicate. */
-    private const val DUP_RADIUS_M = 25.0
 
     /**
      * Aggregate SHOM and seed zones into a single authoritative [RegulatedZoneSet].
@@ -38,23 +35,15 @@ object RegulationAggregator {
         nowMs: Long = System.currentTimeMillis()
     ): RegulatedZoneSet {
         // ── Step a: Collect ─────────────────────────────────────────────────────
-        // Start with all SHOM zones, then append seed zones that are NOT near any
-        // SHOM zone (within 25 m centroid distance).
+        // Start with all SHOM zones, then append all seed zones. Seeds that overlap
+        // SHOM zones are discarded in the deduplication step.
         val collected = mutableListOf<RegulatedZone>()
         collected.addAll(shomZones)
-
-        for (seed in seedZones) {
-            val isNearShom = shomZones.any { shom ->
-                zoneDistanceM(shom, seed) < DUP_RADIUS_M
-            }
-            if (!isNearShom) {
-                collected.add(seed)
-            }
-        }
+        collected.addAll(seedZones)
 
         // ── Step b: Deduplicate ─────────────────────────────────────────────────
-        // Zones within 25 m centroid distance + same RegulatedZoneType → merge.
-        // Keep SHOM attributes, append "+SEED" to source if one zone is a seed.
+        // For each non-SHOM zone, check if its centroid falls within any SHOM zone's
+        // bounding box. If yes, discard it (SHOM attributes are authoritative).
         val deduplicated = deduplicate(collected)
 
         // ── Step c: Validate ────────────────────────────────────────────────────
@@ -84,53 +73,27 @@ object RegulationAggregator {
     // ── Deduplication ──────────────────────────────────────────────────────────────
 
     /**
-     * Deduplicate zones by grouping same-type zones whose centroids are within
-     * [DUP_RADIUS_M] and merging each group into a single zone.
+     * Deduplicate zones by discarding non-SHOM zones whose centroids fall within
+     * any SHOM zone's axis-aligned bounding box.
+     *
+     * SHOM zones are retained as-is. Non-SHOM zones are kept only if their centroid
+     * lies outside all SHOM zone bounding boxes.
      */
     private fun deduplicate(zones: List<RegulatedZone>): List<RegulatedZone> {
-        val remaining = zones.toMutableList()
-        val result = mutableListOf<RegulatedZone>()
+        val shomZones = zones.filter { it.source == "SHOM" }
+        val nonShom = zones.filter { it.source != "SHOM" }
+        val result = shomZones.toMutableList()
 
-        while (remaining.isNotEmpty()) {
-            val current = remaining.removeAt(0)
-            val group = mutableListOf(current)
-
-            val iter = remaining.iterator()
-            while (iter.hasNext()) {
-                val other = iter.next()
-                if (other.zoneType == current.zoneType &&
-                    zoneDistanceM(current, other) < DUP_RADIUS_M
-                ) {
-                    group.add(other)
-                    iter.remove()
-                }
+        for (candidate in nonShom) {
+            val isOverlappingShom = shomZones.any { shom ->
+                centroidInBbox(centroid(candidate), shom.outerRing)
             }
-
-            result.add(mergeZones(group))
+            if (!isOverlappingShom) {
+                result.add(candidate)
+            }
         }
 
         return result
-    }
-
-    /**
-     * Merge a group of duplicate zones into a single authoritative zone.
-     *
-     * - If a SHOM zone exists in the group, its attributes are kept as the base.
-     * - If any zone in the group is a seed, the source becomes "SHOM+SEED"
-     *   (or just "SEED" if no SHOM zone is present).
-     * - Otherwise the first zone's attributes are used as-is.
-     */
-    private fun mergeZones(duplicates: List<RegulatedZone>): RegulatedZone {
-        val shomZone = duplicates.find { it.source == "SHOM" }
-        val primary = shomZone ?: duplicates.first()
-        val hasSeed = duplicates.any { it.source == "SEED" }
-
-        val mergedSource = when {
-            hasSeed && shomZone != null -> "SHOM+SEED"
-            else -> primary.source
-        }
-
-        return primary.copy(source = mergedSource)
     }
 
     // ── Geometry helpers ──────────────────────────────────────────────────────────
@@ -152,6 +115,21 @@ object RegulationAggregator {
     }
 
     /**
+     * Check whether [point] falls within the axis-aligned bounding box of [ring].
+     * A simple bounds check — sufficient for overlap detection in the
+     * Nice–Fréjus corridor which does not cross the antimeridian.
+     */
+    private fun centroidInBbox(point: LatLng, ring: List<LatLng>): Boolean {
+        if (ring.isEmpty()) return false
+        val minLat = ring.minOf { it.latitude }
+        val maxLat = ring.maxOf { it.latitude }
+        val minLon = ring.minOf { it.longitude }
+        val maxLon = ring.maxOf { it.longitude }
+        return point.latitude in minLat..maxLat &&
+                point.longitude in minLon..maxLon
+    }
+
+    /**
      * Check whether a [LatLng] point falls within a [BoundingBox].
      *
      * Performs a simple axis-aligned bounds check (sufficient for the
@@ -160,25 +138,6 @@ object RegulationAggregator {
     private fun isInBbox(point: LatLng, bbox: BoundingBox): Boolean {
         return point.latitude in bbox.latSouth..bbox.latNorth &&
                 point.longitude in bbox.lonWest..bbox.lonEast
-    }
-
-    /**
-     * Approximate Euclidean distance between two zone centroids in metres.
-     *
-     * Uses a degree-to-metre conversion that is accurate enough at mid-latitudes:
-     * ```
-     * dLat = (aCentroid.latitude - bCentroid.latitude) * 111_320.0
-     * dLon = (aCentroid.longitude - bCentroid.longitude) * 111_320.0 * cos(refLat)
-     * ```
-     * where `refLat` is the mean latitude of the two centroids.
-     */
-    private fun zoneDistanceM(a: RegulatedZone, b: RegulatedZone): Double {
-        val aCentroid = centroid(a)
-        val bCentroid = centroid(b)
-        val refLat = Math.toRadians((aCentroid.latitude + bCentroid.latitude) / 2.0)
-        val dLat = (aCentroid.latitude - bCentroid.latitude) * 111_320.0
-        val dLon = (aCentroid.longitude - bCentroid.longitude) * 111_320.0 * cos(refLat)
-        return sqrt(dLat * dLat + dLon * dLon)
     }
 
     /**

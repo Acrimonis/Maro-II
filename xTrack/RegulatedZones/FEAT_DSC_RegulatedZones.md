@@ -2,7 +2,7 @@
 name: RegulatedZones
 status: active
 created: 2026-06-11 18:00
-modified: 2026-06-12 08:16
+modified: 2026-06-12 11:48
 active_subfeature: none
 ---
 
@@ -148,6 +148,27 @@ Relocates the [GpsStatusIcon] composable from [Alignment.BottomStart] to a Row a
 
 #### Key Files
 - ``app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`` — MODIFIED. GPS icon layout repositioned
+
+### trouble-shoot-reg-layers  [ ]
+
+**Focus:** Debug and fix hexagon-shaped polygon rendering on regulated zone map overlays — two zones (one north of Îles de Lérins, one on top of Cap d'Antibes) render as default hexagons instead of their actual GeoJSON polygon shapes, indicating invalid/degenerate vertices in the geometry pipeline.
+
+#### Todos
+- [x] Pinpoint root cause of hexagon rendering (seed zones + bad dedup: 25m centroid-distance + type-equality gate)
+- [x] Document findings with concrete examples from the two affected zones
+- [x] Implement fix for the geometry pipeline (overlap dedup, RDP simplification, Protobuf serializer)
+- [ ] Verify fix on device/emulator (manual — Phase C + D)
+
+#### Rules
+- A hexagon shape in osmdroid Polygon indicates default fallback rendering — the Polygon's outline/points may be empty, null, or contain invalid coordinates
+- Trace the full data flow: SHOM WFS GeoJSON → ShomRegulationClient → RegulatedZone model → Protobuf serialization → deserialization → drawRegulatedZones() Polygon construction
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `drawRegulatedZones()` polygon rendering
+- `app/src/main/java/ykws/android/maro/data/regulation/ShomRegulationClient.kt` — GeoJSON polygon coordinate extraction
+- `app/src/main/java/ykws/android/maro/data/regulation/RegulatedZone.kt` — Data model with polygon geometry
+- `app/src/main/java/ykws/android/maro/data/regulation/RegulatedZoneSerializer.kt` — Protobuf serialization of geometry
+- `app/src/main/java/ykws/android/maro/data/regulation/RegulatedZonesRepository.kt` — Asset loading and deserialization
 
 ## Todos
 - [x] Data source discovery (SHOM WFS endpoint & layer names)

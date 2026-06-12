@@ -42,7 +42,7 @@ class RegulationAggregatorTest {
     }
 
     @Test
-    fun `dedup removes seed within 25m of SHOM zone with same type`() {
+    fun `dedup removes seed whose centroid overlaps SHOM bbox`() {
         val shom = RegulatedZone(
             outerRing = ringAround(43.56, 7.13),
             zoneType = RegulatedZoneType.SPEED_LIMIT,
@@ -50,7 +50,7 @@ class RegulationAggregatorTest {
             source = "SHOM"
         )
         val seed = RegulatedZone(
-            outerRing = ringAround(43.5601, 7.1301), // ~15 m away, within 25 m threshold
+            outerRing = ringAround(43.5601, 7.1301), // centroid inside SHOM bbox
             zoneType = RegulatedZoneType.SPEED_LIMIT,
             name = "Seed zone",
             source = "SEED"
@@ -61,7 +61,7 @@ class RegulationAggregatorTest {
             bbox = testBbox
         )
         assertEquals(1, result.metadata.totalZones)
-        assertEquals("SHOM zone", result.zones.single().name) // SHOM wins priority
+        assertEquals("SHOM zone", result.zones.single().name) // SHOM authoritative
     }
 
     @Test
@@ -87,7 +87,7 @@ class RegulationAggregatorTest {
     }
 
     @Test
-    fun `keeps zones of different types even when close`() {
+    fun `keeps multiple SHOM zones regardless of type`() {
         val speed = RegulatedZone(
             outerRing = ringAround(43.56, 7.13),
             zoneType = RegulatedZoneType.SPEED_LIMIT,
@@ -105,6 +105,7 @@ class RegulationAggregatorTest {
             seedZones = emptyList(),
             bbox = testBbox
         )
+        // Both are SHOM — dedup only discards non-SHOM zones overlapping SHOM bbox
         assertEquals(2, result.metadata.totalZones)
     }
 

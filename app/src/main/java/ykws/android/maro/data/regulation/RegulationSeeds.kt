@@ -63,15 +63,6 @@ object RegulationSeeds {
             description = "Zone de vitesse limitée à 10 nœuds dans la Baie des Anges"
         ),
 
-        // ── d. Parc National de Port-Cros (référence) ──────────────────────
-        // Stub: empty polygon, will be refined when detailed geometry is available.
-        RegulatedZone(
-            outerRing = emptyList(),
-            zoneType = RegulatedZoneType.ENVIRONMENTAL,
-            name = "Parc National de Port-Cros (référence)",
-            source = "SEED",
-            description = "Zone environnementale du Parc National de Port-Cros (en attente de géométrie précise)"
-        )
     )
 
     /**

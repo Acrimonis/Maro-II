@@ -1,32 +1,32 @@
 # Hydration: RegulatedZones
 
-**Last Bake:** 2026-06-12 10:16 UTC+2
-**State:** Active — preparation-for-icons-layout subfeature complete.
+**Last Bake:** 2026-06-12 11:48 (UTC+2)
+**State:** `trouble-shoot-reg-layers` subfeature complete (investigation → plan → implementation → tests pass).
+**Pending:** Manual Phase C (on-device visual verification) and Phase D (regression checks).
 
 ## Summary
-- **GPS icon moved** from bottom-left to top-left — grouped with EarthWaterIcon in a Row at `Alignment.TopStart`
-- **Icon colors normalized** — GPS HEALTHY now uses `#2E7D32` (EarthWaterIcon's green), GPS IDLE uses `#1565C0` (theme blue), both more saturated
-- **Icon transparency properties** added to `maro.properties`:
-  - `icon.back.active.transparency=75` (75% opacity for active states)
-  - `icon.back.inactive.transparency=50` (50% opacity for dimmed/demo states)
-- **ZoneConfig refactored** — unified `iconBackActiveAlpha`/`iconBackInactiveAlpha` fields; old `gpsIconBgAlpha`/`gpsIconDimBgAlpha`/`waterIconBgAlpha` now delegate to them
-- **`BUILD SUCCESSFUL`** — `assembleDebug` compiles cleanly
+
+Fixed the hexagon-shaped regulated zone rendering bug. Root cause was that seed zones (8-vertex regular octagons) survived the aggregation pipeline due to a 25 m centroid-distance dedup check that failed to detect overlap with true SHOM zones.
+
+## Changes
+
+- **RegulationSeeds.kt:** Removed Port-Cros stub (empty ring)
+- **RegulationAggregator.kt:** Replaced centroid-distance + type-equality dedup with `centroidInBbox()` overlap test. Removed `DUP_RADIUS_M`, `mergeZones()`, `zoneDistanceM()`
+- **ShomRegulationClient.kt:** Added `SpatialOperations.douglasPeucker(ε=30m)` in `parseRing()` with ring re-closing guard
+- **RegulatedZoneSerializer.kt:** Switched from `Json` to `ProtoBuf` with explicit `RegulatedZoneSet.serializer()`
+- **RegulationAggregatorTest.kt:** Updated test names/comments to reflect overlap dedup
+- **Prebake:** Regenerated `nice-frejus.bin` (59,379 bytes, Protobuf format)
 
 ## Target Files
-- `maro.properties` — MODIFIED. Added `icon.back.active.transparency`, `icon.back.inactive.transparency`
-- `app/build.gradle.kts` — MODIFIED. Reads new properties as `BuildConfig.ICON_BACK_ACTIVE_ALPHA`, `ICON_BACK_INACTIVE_ALPHA`
-- `app/src/main/java/ykws/android/maro/ui/map/ZoneConfig.kt` — MODIFIED. Unified `iconBackActiveAlpha`/`iconBackInactiveAlpha` fields
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — MODIFIED. GPS icon repositioned, colors normalized
 
-## Key Changes
-- GpsStatusIcon + EarthWaterIcon now in a Row at TopStart (GPS left, Earth/Water right)
-- GPS HEALTHY: `#4CAF50` → `#2E7D32` (consistent green)
-- GPS IDLE: `#42A5F5` → `#1565C0` (consistent theme blue)
-- GPS DEMO contentAlpha: 0.35 → 0.50
-- All icon backgrounds now use unified 75% / 50% opacity from maro.properties
+- `app/src/main/java/ykws/android/maro/data/regulation/RegulationAggregator.kt`
+- `app/src/main/java/ykws/android/maro/data/regulation/RegulatedZoneSerializer.kt`
+- `app/src/main/java/ykws/android/maro/data/regulation/ShomRegulationClient.kt`
+- `app/src/main/java/ykws/android/maro/data/regulation/RegulationSeeds.kt`
+- `app/src/test/java/ykws/android/maro/data/regulation/RegulationAggregatorTest.kt`
+- `data/app-assets/regulated-zones/nice-frejus.bin`
+- `plans/regulated-zones-hexagon-fix-plan.md`
 
-## Next Steps
-None pending — feature is stable. Open for future enhancement:
-- Vessel-size filter integration in display pipeline
-- Per-type visibility toggles (speed, anchoring, access, etc.)
-- Zone tap interaction (highlight + full details in info banner)
+## Next Step
+
+Run `apk-build.bat` + `apk-deploy.bat` for on-device visual validation (Phase C).

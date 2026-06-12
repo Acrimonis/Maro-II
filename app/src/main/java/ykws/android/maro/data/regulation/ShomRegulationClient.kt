@@ -12,6 +12,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.data.model.BoundingBox
 import ykws.android.maro.data.model.LatLng
 import java.util.concurrent.TimeUnit
@@ -279,7 +280,7 @@ class ShomRegulationClient(
      */
     private fun parseRing(ring: JsonElement): List<LatLng>? {
         val points = ring.jsonArray ?: return null
-        return points.mapNotNull { point ->
+        val raw = points.mapNotNull { point ->
             val arr = point.jsonArray ?: return@mapNotNull null
             if (arr.size < 2) return@mapNotNull null
             val x = arr[0].jsonPrimitive.doubleOrNull ?: return@mapNotNull null
@@ -291,7 +292,19 @@ class ShomRegulationClient(
                 // Already WGS84 lat/lon — GeoJSON order is [lon, lat]
                 LatLng(latitude = y, longitude = x)
             }
-        }.takeIf { it.size >= 3 }
+        }.takeIf { it.size >= 3 } ?: return null
+
+        // Ramer-Douglas-Peucker simplification: ε ≈ 30 m, visually indicative
+        // not survey-grade. Match pattern from CoastlineGenerator.
+        val simplified = SpatialOperations.douglasPeucker(raw, epsilonM = 30.0)
+
+        // Ensure the ring has at least 3 unique vertices and remains closed
+        if (simplified.size < 3) return null
+        return if (simplified.first() != simplified.last()) {
+            simplified + simplified.first()
+        } else {
+            simplified
+        }
     }
 
     /**
