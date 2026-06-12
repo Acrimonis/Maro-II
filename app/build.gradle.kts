@@ -24,6 +24,28 @@ android {
         val regionLonEast = (project.findProperty("maro.region.lonEast") as String?)?.toDouble() ?: 7.31
         buildConfigField("double", "REGION_LON_WEST", regionLonWest.toString())
         buildConfigField("double", "REGION_LON_EAST", regionLonEast.toString())
+
+        // ── Layer default visibility from maro.properties ─────────────────
+        val maroProps = mutableMapOf<String, String>()
+        val maroFile = rootProject.file("maro.properties")
+        if (maroFile.exists()) {
+            maroFile.readLines().forEach { line ->
+                val trimmed = line.trim()
+                if (trimmed.isNotBlank() && !trimmed.startsWith("#")) {
+                    val eq = trimmed.indexOf('=')
+                    if (eq > 0) {
+                        maroProps[trimmed.substring(0, eq).trim()] = trimmed.substring(eq + 1).trim()
+                    }
+                }
+            }
+        }
+        fun propBool(key: String, default: Boolean): Boolean =
+            maroProps[key]?.lowercase()?.toBooleanStrictOrNull() ?: default
+
+        buildConfigField("boolean", "LAYER_ZONE300_DEFAULT", propBool("layer.zone300.default", true).toString())
+        buildConfigField("boolean", "LAYER_REGULATED_ZONES_DEFAULT", propBool("layer.regulatedZones.default", false).toString())
+        buildConfigField("boolean", "LAYER_COASTLINE_DEFAULT", propBool("layer.coastline.default", true).toString())
+        buildConfigField("boolean", "LAYER_LOW_DEPTH_DEFAULT", propBool("layer.lowDepthWarning.default", true).toString())
     }
 
     compileOptions {

@@ -465,9 +465,8 @@ fun MapScreen(
                 onMapViewReady = { mapView = it },
                 onRetry = { viewModel.loadCoastline() },
                 onOpenSettings = { showSettings = true },
-                onToggleZone300 = viewModel::toggleZone300Visibility,
+                onCycleZoneLayers = viewModel::cycleZoneLayers,
                 onToggleLowDepthWarning = viewModel::toggleLowDepthWarningVisibility,
-                onToggleRegulatedZones = { viewModel.updateSettings { it.copy(regulatedZonesVisible = !it.regulatedZonesVisible) } },
                 showExitBanner = showExitBanner,
                 rasterProgress = rasterProgress,
                 modifier = Modifier
@@ -567,9 +566,8 @@ private fun MapContent(
     onMapViewReady: (MapView) -> Unit,
     onRetry: () -> Unit,
     onOpenSettings: () -> Unit,
-    onToggleZone300: () -> Unit,
+    onCycleZoneLayers: () -> Unit,
     onToggleLowDepthWarning: () -> Unit,
-    onToggleRegulatedZones: () -> Unit,
     showExitBanner: Boolean,
     rasterProgress: RasterProgress? = null,
     modifier: Modifier = Modifier
@@ -728,13 +726,9 @@ private fun MapContent(
                     isWarningVisible = appSettings.lowDepthWarningVisible,
                     onClick = onToggleLowDepthWarning
                 )
-                RegulatedZonesLayerButton(
-                    isVisible = appSettings.regulatedZonesVisible,
-                    onClick = onToggleRegulatedZones
-                )
-                LayerButton(
-                    isZoneVisible = appSettings.zone300Visible,
-                    onClick = onToggleZone300
+                ZoneLayerButton(
+                    state = ZoneLayerState.fromBooleans(appSettings.zone300Visible, appSettings.regulatedZonesVisible),
+                    onClick = onCycleZoneLayers
                 )
             }
 
@@ -1211,11 +1205,30 @@ private fun SettingsButton(
     }
 }
 
-// ── Layer toggle button (right edge, between settings and zoom) ──────────
+// ── 4-state zone layer toggle — merged 300m + regulated zones ─────────────
 
+/** 4-state cycle for the merged zone layer button. Derive from booleans each render. */
+private enum class ZoneLayerState(val zone300: Boolean, val regulated: Boolean) {
+    NONE(false, false),
+    ZONE300(true, false),
+    BOTH(true, true),
+    REGULATED(false, true);
+
+    fun next() = entries[(ordinal + 1) % entries.size]
+
+    companion object {
+        fun fromBooleans(zone300: Boolean, regulated: Boolean): ZoneLayerState =
+            entries.firstOrNull { it.zone300 == zone300 && it.regulated == regulated } ?: NONE
+    }
+}
+
+/**
+ * Single toggle button cycling through None → 300m ZONE → BOTH → Reg Zones.
+ * Two concentric circles indicate state: inner = 300m zone, outer = regulated zones.
+ */
 @Composable
-private fun LayerButton(
-    isZoneVisible: Boolean,
+private fun ZoneLayerButton(
+    state: ZoneLayerState,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -1225,22 +1238,31 @@ private fun LayerButton(
         modifier = modifier.size(64.dp),
         shape = CircleShape,
         colors = ButtonDefaults.buttonColors(
-            containerColor = ComposeColor(0xCCFFFFFF)  // solid white bg always
+            containerColor = ComposeColor(0xCCFFFFFF)
         ),
         contentPadding = PaddingValues(0.dp)
     ) {
-        // Custom circular outline (no dependency on material-icons-extended)
         Canvas(modifier = Modifier.size(28.dp)) {
             val w = size.width
             val h = size.height
-            val iconAlpha = if (isZoneVisible) 1.0f else 0.25f
-            // Circular outline — the 300 m zone is a circle around the boat.
+            // Inner circle alpha = 300m zone state
+            val innerAlpha = if (state.zone300) 1.0f else 0.25f
+            // Outer ring alpha = regulated zones state
+            val outerAlpha = if (state.regulated) 1.0f else 0.25f
+            // Outer ring: regulated zones indicator (stroke)
             drawCircle(
                 color = themeBlue,
-                radius = w * 0.38f,
+                radius = w * 0.40f,
                 center = androidx.compose.ui.geometry.Offset(w * 0.5f, h * 0.5f),
-                alpha = iconAlpha,
-                style = androidx.compose.ui.graphics.drawscope.Stroke(width = w * 0.12f)
+                alpha = outerAlpha,
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = w * 0.10f)
+            )
+            // Inner circle: 300m zone indicator (fill)
+            drawCircle(
+                color = themeBlue,
+                radius = w * 0.22f,
+                center = androidx.compose.ui.geometry.Offset(w * 0.5f, h * 0.5f),
+                alpha = innerAlpha
             )
         }
     }
@@ -1297,47 +1319,6 @@ private fun DangerLayerButton(
     }
 }
 
-// ── Regulated zones layer toggle — distinct per-type zones overlay ─────────────
-
-@Composable
-private fun RegulatedZonesLayerButton(
-    isVisible: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val themeBlue = ComposeColor(0xFF1565C0)
-    Button(
-        onClick = onClick,
-        modifier = modifier.size(64.dp),
-        shape = CircleShape,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = ComposeColor(0xCCFFFFFF)
-        ),
-        contentPadding = PaddingValues(0.dp)
-    ) {
-        // Stylised "RZ" lettering icon — no dependency on material-icons-extended.
-        Canvas(modifier = Modifier.size(28.dp)) {
-            val w = size.width
-            val h = size.height
-            val iconAlpha = if (isVisible) 1.0f else 0.25f
-            // Outer ring: regulation zone boundary indicator.
-            drawCircle(
-                color = themeBlue,
-                radius = w * 0.38f,
-                center = androidx.compose.ui.geometry.Offset(w * 0.5f, h * 0.5f),
-                alpha = iconAlpha,
-                style = androidx.compose.ui.graphics.drawscope.Stroke(width = w * 0.10f)
-            )
-            // Inner dot: zone fill hint.
-            drawCircle(
-                color = themeBlue,
-                radius = w * 0.14f,
-                center = androidx.compose.ui.geometry.Offset(w * 0.5f, h * 0.5f),
-                alpha = iconAlpha * 0.7f
-            )
-        }
-    }
-}
 
 /**
  * 5-state GPS indicator icon — placed top-left below [EarthWaterIcon].
@@ -1571,6 +1552,18 @@ private fun GeneralSettings(
             checked = settings.zone300Visible,
             onCheckedChange = { visible ->
                 onUpdateSettings { it.copy(zone300Visible = visible) }
+            }
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // ── Regulated zones overlay toggle ─────────────────────────────
+        SettingsToggleRow(
+            label = stringResource(R.string.settings_regulated_zones_label),
+            description = stringResource(R.string.settings_regulated_zones_desc),
+            checked = settings.regulatedZonesVisible,
+            onCheckedChange = { visible ->
+                onUpdateSettings { it.copy(regulatedZonesVisible = visible) }
             }
         )
 

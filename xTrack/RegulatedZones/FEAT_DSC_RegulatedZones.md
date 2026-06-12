@@ -2,8 +2,8 @@
 name: RegulatedZones
 status: active
 created: 2026-06-11 18:00
-modified: 2026-06-12 06:55
-active_subfeature: none
+modified: 2026-06-12 07:37
+active_subfeature: toggle-control-merge
 ---
 
 # Feature: RegulatedZones
@@ -79,9 +79,7 @@ Goal: gather, aggregate, and model these spatial regulatory zones into a structu
 Renders each [RegulatedZone] as a translucent filled osmdroid Polygon with a coloured
 outline. Each [RegulatedZoneType] gets a distinct colour — speed limits blue, anchoring
 amber, access red, environmental green, mooring teal, fishing yellow, navigation purple,
-other grey. Polygon holes (island interiors) are supported. A visibility toggle button
-(ring-with-dot icon) sits in the right-edge layer controls, between the danger and 300 m
-band toggles. Zoom-gated below zoom 10.
+other grey. Polygon holes (island interiors) are supported. Zoom-gated below zoom 10.
 
 The prebaked asset is loaded via [RegulatedZonesRepository] from `assets/regulated-zones/`
 using a `produceState` in `MapScreen`, following the same pattern as `depthBitmap`. If no
@@ -106,6 +104,35 @@ asset is found (never baked), the overlay is simply absent — graceful degradat
 - `app/src/main/java/ykws/android/maro/data/regulation/RegulatedZonesRepository.kt` — NEW. Asset loader
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — MODIFIED. Added `drawRegulatedZones()`, `RegulatedZonesLayerButton`, `regulatedZonesVisible` wiring
 - `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — MODIFIED. Added `regulatedZonesVisible` field + persistence
+
+### toggle-control-merge  [x]
+
+**Focus:** Merge the 300m zone and regulated zones map toggle buttons into a single 4-state cycle button, plus add a regulated zones toggle in General/Display/Layers settings.
+
+Replaces the two separate layer toggle buttons (``LayerButton`` for Zone300, ``RegulatedZonesLayerButton`` for regulated zones) with one button cycling through: **None → 300m Zone → Both → Reg Zones**. The button icon uses two concentric circles — inner circle for 300m state, outer circle for regulated zones state. The settings page gets a ``regulatedZonesVisible`` toggle in the General/Display/Layers section alongside the existing zone300 toggle.
+
+#### Todos
+- [x] **Create ``maro.properties``** — new config file at repo root with ``layer.zone300.default``, ``layer.regulatedZones.default``, ``layer.lowDepthWarning.default``, ``layer.coastline.default`` keys
+- [x] **Wire maro.properties to BuildConfig** — in ``app/build.gradle.kts``, read properties and expose as ``BuildConfig`` fields
+- [x] **Update AppSettings defaults** — in ``SettingsManager.kt``, read BuildConfig values as defaults instead of hardcoded booleans
+- [x] **Build merged 4-state button** — ``ZoneLayerButton`` composable replacing ``LayerButton`` + ``RegulatedZonesLayerButton``; concentric-circle icon; derives state from two booleans
+- [x] **Add ``ZoneLayerState`` enum** — ``NONE``, ``ZONE300``, ``BOTH``, ``REGULATED`` with ``next()`` and ``fromBooleans()`` factory
+- [x] **Wire single onCycleZoneLayers callback** — replaces ``onToggleZone300`` + ``onToggleRegulatedZones`` in the right-edge control stack
+- [x] **Add settings toggle** — ``regulatedZonesVisible`` checkbox in General/Display/Layers settings section (follow existing ``zone300`` toggle pattern)
+
+#### Rules
+- Preserve existing independent settings booleans — the 4-state cycle sets both, but individual settings toggles still override
+- Derive 4-state from two booleans each render (not stored separately) to stay synced with Settings
+- Z-order remains: isobaths → regulated zones → 300m zone → coastline, regardless of state
+- Default state: None (both layers off) — configurable via maro.properties
+- Cycle order: None → 300m → Both → Reg
+- Danger layer button stays separate (not merged)
+- Icon uses two concentric circles: inner = 300m state, outer = regulated zones state
+
+#### Key Files
+- ``app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`` — MODIFIED. Replace two toggle buttons with one merged button
+- ``app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt`` — MODIFIED. Add ``regulatedZonesVisible`` settings UI entry
+- ``app/src/main/java/ykws/android/maro/ui/settings/SettingsScreen.kt`` — MODIFIED. Add regulated zones toggle in layers section
 
 ## Todos
 - [x] Data source discovery (SHOM WFS endpoint & layer names)
@@ -137,3 +164,4 @@ asset is found (never baked), the overlay is simply absent — graceful degradat
 ## Docs
 - [`plans/regulated-zones-vessel-filter-design.md`](../plans/regulated-zones-vessel-filter-design.md) — Vessel size restriction design discussion: data model, SHOM parsing, runtime filtering, updated ProtoNumber assignment, and run instructions
 - [`plans/regulated-zones-readme.md`](../plans/regulated-zones-readme.md) — Feature README: architecture overview, per-step test coverage, how to demonstrate each step, quick reference
+- [`plans/regulated-zones-toggle-merge-design.md`](../plans/regulated-zones-toggle-merge-design.md) — Design discussion: merge 300m zone + regulated zones toggle into single 4-state cycle button, add regulated zones setting toggle
