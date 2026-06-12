@@ -3,8 +3,8 @@
 ## Active Session Pointers
 - **Active Feature:** RegulatedZones
 - **Active Subfeature:** none
-- **Last Updated:** 2026-06-12 22:37
-- **Last Bake:** 2026-06-12 22:37 (RegulatedZones — multi-source-normalization implemented. 124 zones prebaked (109 SHOM + 12 IGN Natura 2000 + 3 SEED), sealed classification, 8 display categories, 3 new data fields, deployed to device.)
+- **Last Updated:** 2026-06-12 23:49
+- **Last Bake:** 2026-06-12 23:49 (RegulatedZones — seeds removed, 121 zones rebaked (109 SHOM + 12 IGN), boat size filter + category toggles + collapsible settings deployed.)
 - **Branch:** feature/zone-other-source (tracking origin/develop)
 
 ## Routing Map
@@ -51,6 +51,7 @@
 - Auto-refine rule wording for clarity and conciseness on `#rule` add.
 - Use apk-build.bat to build APK (runs gradlew assembleDebug).
 - **NO auto git commit/push** — `git add` only when directed; wait for user to say "commit" or "push" before executing those commands (per AGENTS.md §5).
+- **Do not switch to Code mode to implement until explicitly instructed.** Discuss/design in Architect mode first, wait for user's go-ahead before switching.
 
 ## Global Todos
 - [ ] Validate the intermittent Overpass-outage theory — confirm the coastline OSM fetch failures are transient (succeeded 13:52, failing ~16:52 on 2026-06-08), not a persistent network / cert / IPv6 block. Quick checks: retry `bake-coastline` later; `curl -sk https://overpass-api.de/api/status`; race other mirrors.

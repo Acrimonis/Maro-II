@@ -1,37 +1,31 @@
 # Hydration: RegulatedZones
 
-**Last Bake:** 2026-06-12 22:37 UTC+2
-**State:** multi-source-normalization subfeature complete. Full implementation deployed.
+**Last Bake:** 2026-06-12 23:49 UTC+2
+**State:** Seeds removed, boat size filter, category toggles, collapsible settings, red dot for speed info.
 
 ## Session Summary
 
-Implemented the multi-source-normalization plan for RegulatedZones. Added sealed classification system (RegulationClassification), speed source tracking (SpeedSource), IGN API Carto Nature client for Natura 2000 data, enhanced SHOM client with CATREA/RESTRN/INFORM/TXTDSC parsing, 3-way aggregator with Haversine dedup, 2 new display categories (ENVIRONMENTAL, INFORMATION), and updated icon provider.
+Implemented Round 2 of regulated zones: boat size slider (3–25m, default 6m), 9 per-category visibility toggles with persisted collapsible state, Regulation info toggle (off by default), red dot 🔴 for speed info text, coastline moved to bottom of Layers section, `appliesTo()` "between X and Y" fix, and removed seed zones.
 
 ## Current State
 
-- **SHOM INSPIRE:** 110 zones fetched (3 layers)
-- **IGN Natura 2000:** 16 zones fetched (13 habitat + 3 birds), 12 survived dedup
-- **SEED:** 3 zones
-- **Total after aggregate:** 124 zones
-- **New fields:** classification (RegulationClassification), speedSource (SpeedSource), legalDecreeRef — all nullable
-- **New display categories:** ENVIRONMENTAL (🌿, blue, 50%), INFORMATION (ℹ️, blue, 50%)
-- **APK:** Built and deployed to device (35111FDH2002V9)
+- **SHOM INSPIRE:** 110 zones fetched
+- **IGN Natura 2000:** 16 zones fetched, 12 survived dedup
+- **SEED:** 0 zones (removed)
+- **Total after aggregate:** 121 zones
+- **APK:** Built and deployed to device
 
 ## Target Files Modified
 
-- `app/src/main/java/ykws/android/maro/data/regulation/RegulatedZone.kt`
-- `app/src/main/java/ykws/android/maro/data/regulation/ShomRegulationClient.kt`
-- `app/src/main/java/ykws/android/maro/data/regulation/RegulationAggregator.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneIconProvider.kt`
-- `app/src/test/java/ykws/android/maro/data/regulation/RegulatedZonePrebakeTest.kt`
-
-## Files Created
-
-- `app/src/main/java/ykws/android/maro/data/regulation/IgnCartoNatureClient.kt`
-- `app/src/main/java/ykws/android/maro/data/regulation/InpnRegulationClient.kt`
+- `app/src/main/java/ykws/android/maro/data/regulation/RegulatedZone.kt` — `appliesTo()` range fix
+- `app/src/main/java/ykws/android/maro/data/regulation/RegulationSeeds.kt` — emptied
+- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — +11 fields
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — filter pipeline, settings UI, red dot
+- `app/src/test/java/ykws/android/maro/data/regulation/RegulatedZonePrebakeTest.kt` — seeds removed
 
 ## Next Steps
 
-- `trouble-shoot-reg-layers` subfeature — hexagon rendering fix verification
-- `reg-zones-filtering` subfeature — vessel size filtering and zone type gates
-- `add-zone-text` subfeature — zone name labels on map polygons
+- `trouble-shoot-reg-layers` subfeature
+- `reg-zones-filtering` subfeature
+- `add-zone-text` subfeature
+- Translation of settings labels (en/fr)

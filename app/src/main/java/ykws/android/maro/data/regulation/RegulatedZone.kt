@@ -151,20 +151,33 @@ data class RegulatedZone(
             val minMatch = Regex("""(more than|over|exceeding|greater than or equal to|greater than|>|≥|minimum|supérieur|supérieure|plus de|>)\s*(\d+)\s*m""")
                 .find(desc)
             val orMoreMatch = Regex("""(\d+)\s*m(etres|eters)?\s*(or more|ou plus|and over|et plus)""")
-                .find(desc)
+        .find(desc)
 
-            val minM = minMatch?.groupValues?.get(2)?.toDoubleOrNull()
-                ?: orMoreMatch?.groupValues?.get(1)?.toDoubleOrNull()
+    val minM = minMatch?.groupValues?.get(2)?.toDoubleOrNull()
+        ?: orMoreMatch?.groupValues?.get(1)?.toDoubleOrNull()
 
-            if (minM != null && vesselLengthM < minM) return false
+    if (minM != null && vesselLengthM < minM) return false
 
-            // Maximum vessel size: "less than 20m", "< 20m", "moins de 20m"
-            val maxMatch = Regex("""(less than|under|below|<|≤|maximum|inférieur|inférieure|moins de|<)\s*(\d+)\s*m""")
-                .find(desc)
-            if (maxMatch != null) {
-                val maxM = maxMatch.groupValues[2].toDoubleOrNull()
-                if (maxM != null && vesselLengthM > maxM) return false
-            }
+    // Range pattern: "between 24 m and 80 m", "between 20 m to 80 m",
+    // "entre 24 m et 80 m"
+    val rangeMatch = Regex(
+        """(?:between|entre)\s+(\d+)\s*m\s*(?:and|to|et)\s*(\d+)\s*m""",
+        RegexOption.IGNORE_CASE
+    ).find(desc)
+    if (rangeMatch != null) {
+        val rangeMin = rangeMatch.groupValues[1].toDoubleOrNull()
+        val rangeMax = rangeMatch.groupValues[2].toDoubleOrNull()
+        if (rangeMin != null && vesselLengthM < rangeMin) return false
+        if (rangeMax != null && vesselLengthM > rangeMax) return false
+    }
+
+    // Maximum vessel size: "less than 20m", "< 20m", "moins de 20m"
+    val maxMatch = Regex("""(less than|under|below|<|≤|maximum|inférieur|inférieure|moins de|<)\s*(\d+)\s*m""")
+        .find(desc)
+    if (maxMatch != null) {
+        val maxM = maxMatch.groupValues[2].toDoubleOrNull()
+        if (maxM != null && vesselLengthM > maxM) return false
+    }
         }
         return true
     }
@@ -232,6 +245,7 @@ enum class ZoneDisplayCategory {
     NO_DIVING,
     SEAPLANE,
     NO_ACCESS,
+    FISHING_PROHIBITED,
     /** Environmental zone (marine park, nature reserve) with no actionable prohibition. */
     ENVIRONMENTAL,
     /** Informational zone with no actionable prohibition or speed limit. */
@@ -304,6 +318,14 @@ fun RegulatedZone.displayCategories(): Set<ZoneDisplayCategory> {
         "interdit" in desc ||
         "prohibé" in desc
     ) cats += ZoneDisplayCategory.NO_ACCESS
+
+    // ── Fishing prohibition ─────────────────────────────────────────────────
+    if (zoneType == RegulatedZoneType.FISHING_PROHIBITED ||
+        "fishing" in desc ||
+        "trawling" in desc ||
+        "pêche" in desc ||
+        "chalutage" in desc
+    ) cats += ZoneDisplayCategory.FISHING_PROHIBITED
 
     // ── Fallback for environmental zones ────────────────────────────────────
     // If the zone is ENVIRONMENTAL type but no actionable keyword matched,

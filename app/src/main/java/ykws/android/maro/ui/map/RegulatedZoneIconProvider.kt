@@ -52,6 +52,7 @@ object RegulatedZoneIconProvider {
         ZoneDisplayCategory.NO_DIVING -> "\uD83E\uDD3F"         // 🤿 diving mask
         ZoneDisplayCategory.SEAPLANE -> "\u2708\uFE0F"          // ✈️ airplane
         ZoneDisplayCategory.NO_ACCESS -> "\uD83D\uDEA4"         // 🚤 speedboat (same as mooring, differentiated by strike)
+        ZoneDisplayCategory.FISHING_PROHIBITED -> "\uD83D\uDC1F" // 🐟 fish
         ZoneDisplayCategory.ENVIRONMENTAL -> "\uD83C\uDF3F"      // 🌿 herb
         ZoneDisplayCategory.INFORMATION -> "\u2139\uFE0F"        // ℹ️ information
     }
@@ -71,6 +72,7 @@ object RegulatedZoneIconProvider {
         ZoneDisplayCategory.NO_DIVING -> Color(0xFF1565C0)      // Dark blue — uniform background
         ZoneDisplayCategory.SEAPLANE -> Color(0xFF78909C)       // Blue Grey — low priority info
         ZoneDisplayCategory.NO_ACCESS -> Color(0xFF1565C0)      // Dark blue — uniform background
+        ZoneDisplayCategory.FISHING_PROHIBITED -> Color(0xFF1565C0) // Dark blue — uniform background
         ZoneDisplayCategory.ENVIRONMENTAL -> Color(0xFF1565C0)   // Dark blue — uniform background
         ZoneDisplayCategory.INFORMATION -> Color(0xFF1565C0)     // Dark blue — uniform background
     }

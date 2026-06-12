@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import ykws.android.maro.BuildConfig
 import ykws.android.maro.data.depth.DepthConstants
+import ykws.android.maro.data.regulation.ZoneDisplayCategory
 
 /**
  * User-facing settings persisted via SharedPreferences.
@@ -99,6 +100,26 @@ data class AppSettings(
     val capArrowVisible: Boolean = false,
     /** Whether the regulated zones overlay (speed limits, anchoring, access, …) is drawn. */
     val regulatedZonesVisible: Boolean = BuildConfig.LAYER_REGULATED_ZONES_DEFAULT,
+    /** Show zone info text panel beside the icon stack. */
+    val regulationInfoVisible: Boolean = false,
+    /** Boat length in metres — used to filter out zones with vessel size exemptions. */
+    val boatSizeM: Double = BuildConfig.REGULATED_ZONES_DEFAULT_VESSEL_LENGTH_M,
+    /** Whether the regulation info expander in settings is expanded. */
+    val regulationInfoExpanded: Boolean = false,
+    /** Whether the category visibility expander in settings is expanded. */
+    val categoryFilterExpanded: Boolean = false,
+    /** Whether the boat size expander in settings is expanded. */
+    val boatSizeFilterExpanded: Boolean = false,
+    /** Per-category visibility toggles for the regulated zone warning strip. */
+    val showCategoryNoAnchor: Boolean = true,
+    val showCategoryMooring: Boolean = false,
+    val showCategorySpeedLimit: Boolean = true,
+    val showCategoryNoDiving: Boolean = true,
+    val showCategorySeaplane: Boolean = false,
+    val showCategoryNoAccess: Boolean = true,
+    val showCategoryFishingProhibited: Boolean = false,
+    val showCategoryEnvironmental: Boolean = true,
+    val showCategoryInformation: Boolean = false,
     /**
      * GPS idle mode: minimum metres of movement between fixes when the adaptive policy
      * has switched to [AcquisitionMode.IDLE] (device stationary). Default 0 so even tiny
@@ -106,7 +127,20 @@ data class AppSettings(
      * "stuck" position when anchored or drifting slowly.
      */
     val gpsIdleMinDistanceM: Float = 0f
-)
+) {
+    /** Check whether a [ZoneDisplayCategory] is enabled in the current settings. */
+    fun isCategoryVisible(cat: ZoneDisplayCategory): Boolean = when (cat) {
+        ZoneDisplayCategory.NO_ANCHOR -> showCategoryNoAnchor
+        ZoneDisplayCategory.MOORING -> showCategoryMooring
+        ZoneDisplayCategory.SPEED_LIMIT -> showCategorySpeedLimit
+        ZoneDisplayCategory.NO_DIVING -> showCategoryNoDiving
+        ZoneDisplayCategory.SEAPLANE -> showCategorySeaplane
+        ZoneDisplayCategory.NO_ACCESS -> showCategoryNoAccess
+        ZoneDisplayCategory.FISHING_PROHIBITED -> showCategoryFishingProhibited
+        ZoneDisplayCategory.ENVIRONMENTAL -> showCategoryEnvironmental
+        ZoneDisplayCategory.INFORMATION -> showCategoryInformation
+    }
+}
 
 class SettingsManager(
     context: Context,
@@ -156,6 +190,20 @@ class SettingsManager(
         headingLineVisible = prefs.getBoolean(KEY_HEADING_LINE_VISIBLE, true),
         capArrowVisible   = prefs.getBoolean(KEY_CAP_ARROW_VISIBLE, false),
         regulatedZonesVisible = prefs.getBoolean(KEY_REGULATED_ZONES_VISIBLE, BuildConfig.LAYER_REGULATED_ZONES_DEFAULT),
+        regulationInfoVisible = prefs.getBoolean(KEY_REGULATION_INFO_VISIBLE, false),
+        regulationInfoExpanded = prefs.getBoolean(KEY_REGULATION_INFO_EXPANDED, false),
+        boatSizeM = prefs.getFloat(KEY_BOAT_SIZE_M, BuildConfig.REGULATED_ZONES_DEFAULT_VESSEL_LENGTH_M.toFloat()).toDouble(),
+        categoryFilterExpanded = prefs.getBoolean(KEY_CATEGORY_FILTER_EXPANDED, false),
+        boatSizeFilterExpanded = prefs.getBoolean(KEY_BOAT_SIZE_FILTER_EXPANDED, false),
+        showCategoryNoAnchor = prefs.getBoolean(KEY_SHOW_CATEGORY_NO_ANCHOR, true),
+        showCategoryMooring = prefs.getBoolean(KEY_SHOW_CATEGORY_MOORING, false),
+        showCategorySpeedLimit = prefs.getBoolean(KEY_SHOW_CATEGORY_SPEED_LIMIT, true),
+        showCategoryNoDiving = prefs.getBoolean(KEY_SHOW_CATEGORY_NO_DIVING, true),
+        showCategorySeaplane = prefs.getBoolean(KEY_SHOW_CATEGORY_SEAPLANE, false),
+        showCategoryNoAccess = prefs.getBoolean(KEY_SHOW_CATEGORY_NO_ACCESS, true),
+        showCategoryFishingProhibited = prefs.getBoolean(KEY_SHOW_CATEGORY_FISHING_PROHIBITED, false),
+        showCategoryEnvironmental = prefs.getBoolean(KEY_SHOW_CATEGORY_ENVIRONMENTAL, true),
+        showCategoryInformation = prefs.getBoolean(KEY_SHOW_CATEGORY_INFORMATION, false),
         gpsIdleMinDistanceM = prefs.getFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, 0f)
     )
 
@@ -207,6 +255,20 @@ class SettingsManager(
             .putBoolean(KEY_HEADING_LINE_VISIBLE, updated.headingLineVisible)
             .putBoolean(KEY_CAP_ARROW_VISIBLE, updated.capArrowVisible)
             .putBoolean(KEY_REGULATED_ZONES_VISIBLE, updated.regulatedZonesVisible)
+            .putFloat(KEY_BOAT_SIZE_M, updated.boatSizeM.toFloat())
+            .putBoolean(KEY_SHOW_CATEGORY_NO_ANCHOR, updated.showCategoryNoAnchor)
+            .putBoolean(KEY_SHOW_CATEGORY_MOORING, updated.showCategoryMooring)
+            .putBoolean(KEY_SHOW_CATEGORY_SPEED_LIMIT, updated.showCategorySpeedLimit)
+            .putBoolean(KEY_SHOW_CATEGORY_NO_DIVING, updated.showCategoryNoDiving)
+            .putBoolean(KEY_SHOW_CATEGORY_SEAPLANE, updated.showCategorySeaplane)
+            .putBoolean(KEY_SHOW_CATEGORY_NO_ACCESS, updated.showCategoryNoAccess)
+            .putBoolean(KEY_SHOW_CATEGORY_FISHING_PROHIBITED, updated.showCategoryFishingProhibited)
+            .putBoolean(KEY_SHOW_CATEGORY_ENVIRONMENTAL, updated.showCategoryEnvironmental)
+            .putBoolean(KEY_SHOW_CATEGORY_INFORMATION, updated.showCategoryInformation)
+            .putBoolean(KEY_REGULATION_INFO_VISIBLE, updated.regulationInfoVisible)
+            .putBoolean(KEY_REGULATION_INFO_EXPANDED, updated.regulationInfoExpanded)
+            .putBoolean(KEY_CATEGORY_FILTER_EXPANDED, updated.categoryFilterExpanded)
+            .putBoolean(KEY_BOAT_SIZE_FILTER_EXPANDED, updated.boatSizeFilterExpanded)
             .putFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, updated.gpsIdleMinDistanceM)
             .apply()
     }
@@ -247,6 +309,20 @@ class SettingsManager(
         private const val KEY_HEADING_LINE_VISIBLE = "heading_line_visible"
         private const val KEY_CAP_ARROW_VISIBLE = "cap_arrow_visible"
         private const val KEY_REGULATED_ZONES_VISIBLE = "regulated_zones_visible"
+        private const val KEY_BOAT_SIZE_M = "boat_size_m"
+        private const val KEY_SHOW_CATEGORY_NO_ANCHOR = "show_category_no_anchor"
+        private const val KEY_SHOW_CATEGORY_MOORING = "show_category_mooring"
+        private const val KEY_SHOW_CATEGORY_SPEED_LIMIT = "show_category_speed_limit"
+        private const val KEY_SHOW_CATEGORY_NO_DIVING = "show_category_no_diving"
+        private const val KEY_SHOW_CATEGORY_SEAPLANE = "show_category_seaplane"
+        private const val KEY_SHOW_CATEGORY_NO_ACCESS = "show_category_no_access"
+        private const val KEY_SHOW_CATEGORY_FISHING_PROHIBITED = "show_category_fishing_prohibited"
+        private const val KEY_SHOW_CATEGORY_ENVIRONMENTAL = "show_category_environmental"
+        private const val KEY_SHOW_CATEGORY_INFORMATION = "show_category_information"
+        private const val KEY_CATEGORY_FILTER_EXPANDED = "category_filter_expanded"
+        private const val KEY_BOAT_SIZE_FILTER_EXPANDED = "boat_size_filter_expanded"
+        private const val KEY_REGULATION_INFO_VISIBLE = "regulation_info_visible"
+        private const val KEY_REGULATION_INFO_EXPANDED = "regulation_info_expanded"
         private const val KEY_GPS_IDLE_MIN_DISTANCE_M = "gps_idle_min_distance_m"
     }
 }

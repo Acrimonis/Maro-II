@@ -51,16 +51,11 @@ class RegulatedZonePrebakeTest {
         }
         println("[prebake] IGN Nature returned ${ignZones.size} zones")
 
-        // ── 3. Seed zones ──────────────────────────────────────────────────────
-        val seedZones = RegulationSeeds.getSeeds()
-        println("[prebake] ${seedZones.size} seed zones")
-
-        // ── 4. Aggregate with 3-way dedup ──────────────────────────────────────
+        // ── 3. Aggregate (no seed zones — all data from live sources) ──────────
         val nowMs = System.currentTimeMillis()
         val zoneSet = RegulationAggregator.aggregate(
             shomZones = shomZones,
             inpnZones = ignZones,    // IGN API Carto Nature data
-            seedZones = seedZones,
             bbox = bbox,
             nowMs = nowMs
         )
