@@ -1,11 +1,10 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** RegulatedZones
+- **Active Feature:** ArcLayout
 - **Active Subfeature:** none
-- **Last Updated:** 2026-06-12 23:49
-- **Last Bake:** 2026-06-12 23:49 (RegulatedZones — seeds removed, 121 zones rebaked (109 SHOM + 12 IGN), boat size filter + category toggles + collapsible settings deployed.)
-- **Branch:** feature/zone-other-source (tracking origin/develop)
+- **Last Updated:** 2026-06-13
+- **Last Bake:** 2026-06-13 13:36 (ArcLayout — reg icon diagonal slash, all buttons fully opaque white, badge text centering with PlatformTextStyle)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -24,6 +23,7 @@
 | app-bak-flow, app-back-flow, back, back button, back handler, exit, double-back, press back, keep screen on, keep awake, screen-on, wakelock | xTrack/Ui_General/FEAT_DSC_Ui_General.md |
 | settings, preferences, config, scroll, options | xTrack/Ui_Settings/FEAT_DSC_Ui_Settings.md |
 | regulation, regulated zones, regulatedzone, regulation zone, speed zone, speed limit, anchoring, SHOM regulation, shom reg, maritime regulation, regulatory zone, réglementation maritime, zone réglementée, arrêté maritime, DIRM, cap d'antibes, lérins | xTrack/RegulatedZones/FEAT_DSC_RegulatedZones.md |
+| arclayout, arc, arc-menu, layer-toggle, multi-btn, layer, toggle, fan-out | xTrack/ArcLayout/FEAT_DSC_ArcLayout.md |
 
 ## Feature Summaries
 
@@ -44,6 +44,7 @@
 | Ui_Settings | Settings page UI, persistence, widgets, and UX enhancements | 2026-06-09 15:28 | 2026-06-09 19:42 | active |
 | **Navigation** | **Navigation aids — heading/speed arrow and direction line on map overlay** | **2026-06-10 08:40** | **2026-06-11 11:55** | **active** |
 | **RegulatedZones** | **Maritime regulatory zones — multi-source normalization (SHOM INSPIRE + IGN Natura 2000), sealed classification, 8-category icon mapping, keyword-driven display logic** | **2026-06-11 18:00** | **2026-06-12 22:37** | **active** |
+| **ArcLayout** | **Layer toggle arc menu — pure-Compose semicircle fan-out with 4 layer toggles, staggered animation, and state indicators** | **2026-06-13 07:34** | **2026-06-13 13:36** | **active** |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).

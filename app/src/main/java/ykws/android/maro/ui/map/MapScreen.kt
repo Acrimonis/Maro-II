@@ -15,8 +15,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import ykws.android.maro.R
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -179,6 +181,8 @@ fun MapScreen(
     val appSettings by viewModel.settings.collectAsState()
     var mapView by remember { mutableStateOf<MapView?>(null) }
     var showSettings by remember { mutableStateOf(false) }
+    var arcExpanded by remember { mutableStateOf(false) }
+    var anchorCenter by remember { mutableStateOf<androidx.compose.ui.geometry.Offset?>(null) }
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val displayScrollState = rememberScrollState()
     val navigationScrollState = rememberScrollState()
@@ -421,13 +425,18 @@ fun MapScreen(
     var showExitBanner by remember { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxSize()) {
+        // ── Intercept system back when arc is open ───────────────────────
+        if (arcExpanded) {
+            BackHandler { arcExpanded = false }
+        }
+
         // ── Intercept system back when settings are open ──────────────────
         if (showSettings) {
             BackHandler { showSettings = false }
         }
 
         // ── Otherwise require a second back press within 2 s to exit ───────
-        BackHandler(enabled = !showSettings) {
+        BackHandler(enabled = !showSettings && !arcExpanded) {
             val now = SystemClock.elapsedRealtime()
             if (now - lastBackAt <= 2_000L) {
                 context.findActivity()?.finishAffinity()
@@ -479,8 +488,13 @@ fun MapScreen(
                 onMapViewReady = { mapView = it },
                 onRetry = { viewModel.loadCoastline() },
                 onOpenSettings = { showSettings = true },
-                onCycleZoneLayers = viewModel::cycleZoneLayers,
                 onToggleLowDepthWarning = viewModel::toggleLowDepthWarningVisibility,
+                onToggleDepthLayer = viewModel::toggleDepthLayerVisibility,
+                onToggleRegulatedZones = { viewModel.updateSettings { it.copy(regulatedZonesVisible = !it.regulatedZonesVisible) } },
+                onToggleZone300 = viewModel::toggleZone300Visibility,
+                onToggleArc = { arcExpanded = !arcExpanded },
+                onAnchorPositionChanged = { anchorCenter = it },
+                arcExpanded = arcExpanded,
                 showExitBanner = showExitBanner,
                 rasterProgress = rasterProgress,
                 modifier = Modifier
@@ -522,6 +536,28 @@ fun MapScreen(
                 )
             }
         }
+
+        // ── Arc button overlay (at top-level Box — full screen, no clipping) ──
+        ArcButtonOverlay(
+            expanded = arcExpanded,
+            onDismiss = { arcExpanded = false },
+            anchorCenter = anchorCenter,
+            activeLayerCount = listOf(
+                appSettings.depthLayerVisible,
+                appSettings.regulatedZonesVisible,
+                appSettings.zone300Visible,
+                appSettings.lowDepthWarningVisible
+            ).count { it },
+            depthLayerVisible = appSettings.depthLayerVisible,
+            onToggleDepthLayer = viewModel::toggleDepthLayerVisibility,
+            regulatedZonesVisible = appSettings.regulatedZonesVisible,
+            onToggleRegulatedZones = { viewModel.updateSettings { it.copy(regulatedZonesVisible = !it.regulatedZonesVisible) } },
+            zone300Visible = appSettings.zone300Visible,
+            onToggleZone300 = viewModel::toggleZone300Visibility,
+            lowDepthWarningVisible = appSettings.lowDepthWarningVisible,
+            onToggleLowDepthWarning = viewModel::toggleLowDepthWarningVisibility,
+            modifier = Modifier.fillMaxSize()
+        )
 
         // ── Settings overlay (full-screen, covers dashboard too) ──────────
         if (showSettings) {
@@ -581,10 +617,15 @@ private fun MapContent(
     onMapViewReady: (MapView) -> Unit,
     onRetry: () -> Unit,
     onOpenSettings: () -> Unit,
-    onCycleZoneLayers: () -> Unit,
+    onToggleZone300: () -> Unit,
+    onToggleRegulatedZones: () -> Unit,
     onToggleLowDepthWarning: () -> Unit,
+    onToggleDepthLayer: () -> Unit,
+    onToggleArc: () -> Unit = {},
+    onAnchorPositionChanged: (androidx.compose.ui.geometry.Offset) -> Unit = {},
     showExitBanner: Boolean,
     rasterProgress: RasterProgress? = null,
+    arcExpanded: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier.clipToBounds()) {
@@ -606,14 +647,17 @@ private fun MapContent(
         } else null
         // Apply low-depth (<1.5 m) warning visibility toggle
         val visibleLowDepthWarning = if (appSettings.lowDepthWarningVisible) lowDepthWarningBitmap else null
+        // Apply depth layer colour map + isobath contours visibility toggle
+        val visibleDepthBitmap = if (appSettings.depthLayerVisible) depthBitmap else null
+        val visibleIsobaths = if (appSettings.depthLayerVisible) isobaths else emptyList()
         CoastlineMapView(
             segments = segments,
             regulatedZones = visibleRegulatedZones,
             zone300 = visibleZone300,
-            depthBitmap = depthBitmap,
+            depthBitmap = visibleDepthBitmap,
             lowDepthWarningBitmap = visibleLowDepthWarning,
             depthBox = depthBox,
-            isobaths = isobaths,
+            isobaths = visibleIsobaths,
             zoomLevel = zoomLevel,
             center = mapCenter,
             initialZoom = zoomLevel,
@@ -748,6 +792,11 @@ private fun MapContent(
         //   with SpaceBetween keeps the centring exact regardless of the
         //   differing top/bottom cluster heights, holds in both portrait and
         //   landscape, and stops the three controls ever overlapping.
+        val controlFadeAlpha by animateFloatAsState(
+            targetValue = if (arcExpanded) 0f else 1f,
+            animationSpec = tween(220, easing = FastOutSlowInEasing),
+            label = "controlFade"
+        )
         Column(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
@@ -757,30 +806,26 @@ private fun MapContent(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Top — settings
-            SettingsButton(onClick = onOpenSettings)
+            SettingsButton(onClick = onOpenSettings, modifier = Modifier.alpha(controlFadeAlpha))
 
-            // Middle — layer toggles, grouped & centred in the leftover space by the
-            // parent SpaceBetween. The danger (low-depth) toggle sits at the top, then
-            // regulated zones, then the 300 m band toggle — kept close together (8.dp)
-            // like the zoom cluster below.
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                DangerLayerButton(
-                    isWarningVisible = appSettings.lowDepthWarningVisible,
-                    onClick = onToggleLowDepthWarning
-                )
-                ZoneLayerButton(
-                    state = ZoneLayerState.fromBooleans(appSettings.zone300Visible, appSettings.regulatedZonesVisible),
-                    onClick = onCycleZoneLayers
-                )
-            }
+            // Middle — layer toggle anchor button. Arc buttons + scrim are rendered
+            // at the top-level Box via ArcButtonOverlay (no clipping, full space).
+            ArcAnchorButton(
+                activeLayerCount = listOf(
+                    appSettings.depthLayerVisible,
+                    appSettings.regulatedZonesVisible,
+                    appSettings.zone300Visible,
+                    appSettings.lowDepthWarningVisible
+                ).count { it },
+                onClick = onToggleArc,
+                onPositionChanged = onAnchorPositionChanged
+            )
 
             // Bottom — zoom +/-. A placeholder holds the slot before the map
             // is ready so the middle toggle stays centred (no load-time jump).
             if (mapView != null) {
                 Column(
+                    modifier = Modifier.alpha(controlFadeAlpha),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
@@ -1237,7 +1282,7 @@ private fun SettingsButton(
         modifier = modifier.size(64.dp),
         shape = CircleShape,
         colors = ButtonDefaults.buttonColors(
-            containerColor = ComposeColor(0xCCFFFFFF)
+            containerColor = ComposeColor.White
         ),
         contentPadding = PaddingValues(0.dp)
     ) {
@@ -2739,7 +2784,7 @@ private fun ZoomButton(
         modifier = Modifier.size(64.dp),
         shape = CircleShape,
         colors = ButtonDefaults.buttonColors(
-            containerColor = ComposeColor(0xCCFFFFFF)
+            containerColor = ComposeColor.White
         ),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
     ) {
