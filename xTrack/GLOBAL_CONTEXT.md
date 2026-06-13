@@ -4,7 +4,7 @@
 - **Active Feature:** ArcLayout
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-13
-- **Last Bake:** 2026-06-13 12:51 (ArcLayout — dp/px fix, collapse animation, dummy anchor for emerge-from-behind effect, R=80dp spacing, badge outside CircleShape clip, settings/zoom fade on arc open)
+- **Last Bake:** 2026-06-13 13:36 (ArcLayout — reg icon diagonal slash, all buttons fully opaque white, badge text centering with PlatformTextStyle)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -44,7 +44,7 @@
 | Ui_Settings | Settings page UI, persistence, widgets, and UX enhancements | 2026-06-09 15:28 | 2026-06-09 19:42 | active |
 | **Navigation** | **Navigation aids — heading/speed arrow and direction line on map overlay** | **2026-06-10 08:40** | **2026-06-11 11:55** | **active** |
 | **RegulatedZones** | **Maritime regulatory zones — multi-source normalization (SHOM INSPIRE + IGN Natura 2000), sealed classification, 8-category icon mapping, keyword-driven display logic** | **2026-06-11 18:00** | **2026-06-12 22:37** | **active** |
-| **ArcLayout** | **Layer toggle arc menu — pure-Compose semicircle fan-out with 4 layer toggles, staggered animation, and state indicators** | **2026-06-13 07:34** | **2026-06-13 12:51** | **active** |
+| **ArcLayout** | **Layer toggle arc menu — pure-Compose semicircle fan-out with 4 layer toggles, staggered animation, and state indicators** | **2026-06-13 07:34** | **2026-06-13 13:36** | **active** |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).

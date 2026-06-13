@@ -34,6 +34,8 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.PlatformTextStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntOffset
@@ -67,7 +69,7 @@ fun ArcAnchorButton(
             modifier = Modifier
                 .size(64.dp)
                 .clip(CircleShape)
-                .background(ComposeColor(0xCCFFFFFF))
+                .background(ComposeColor.White)
                 .clickable(onClick = onClick)
         ) {
             Box(Modifier.size(32.dp).align(Alignment.Center)) {
@@ -84,8 +86,9 @@ fun ArcAnchorButton(
         if (activeLayerCount>0) {
             Box(Modifier.size(18.dp).clip(CircleShape).background(ComposeColor(0xFF1565C0)).align(Alignment.TopEnd)) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("$activeLayerCount", color = ComposeColor.White, fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                    Text("$activeLayerCount", color = ComposeColor.White, fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
+                        style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false)))
                 }
             }
         }
@@ -173,8 +176,9 @@ fun ArcButtonOverlay(
         if (activeLayerCount>0) {
             Box(Modifier.size(18.dp).clip(CircleShape).background(ComposeColor(0xFF1565C0)).align(Alignment.TopEnd)) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("$activeLayerCount", color = ComposeColor.White, fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                    Text("$activeLayerCount", color = ComposeColor.White, fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
+                        style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false)))
                 }
             }
         }
@@ -221,7 +225,7 @@ private fun arcButton(
     Button(onClick = onClick,
         modifier = Modifier.size(64.dp).offset { IntOffset(dx, dy) },
         shape = CircleShape,
-        colors = ButtonDefaults.buttonColors(containerColor = ComposeColor(0xCCFFFFFF)),
+        colors = ButtonDefaults.buttonColors(containerColor = ComposeColor.White),
         contentPadding = PaddingValues(0.dp)
     ) { icon(active) }
 }
@@ -240,7 +244,7 @@ private fun arcButton(
     val a=if(active)1f else .25f;val c=ComposeColor(0xFF1565C0)
     Canvas(Modifier.size(28.dp)){val w=size.width;val cx=w/2f;val cy=size.height/2f;val r=w*.40f
         drawCircle(c,r,Offset(cx,cy),a,style=Stroke(w*.12f))
-        drawLine(c,Offset(cx-r*.7f,cy),Offset(cx+r*.7f,cy),w*.12f,cap=androidx.compose.ui.graphics.StrokeCap.Round,alpha=a)}
+        val d=r*.5f;drawLine(c,Offset(cx-d,cy+d),Offset(cx+d,cy-d),w*.12f,cap=androidx.compose.ui.graphics.StrokeCap.Round,alpha=a)}
 }
 
 @Composable private fun zoneIcon(active:Boolean) {

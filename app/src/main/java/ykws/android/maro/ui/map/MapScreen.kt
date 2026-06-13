@@ -1282,7 +1282,7 @@ private fun SettingsButton(
         modifier = modifier.size(64.dp),
         shape = CircleShape,
         colors = ButtonDefaults.buttonColors(
-            containerColor = ComposeColor(0xCCFFFFFF)
+            containerColor = ComposeColor.White
         ),
         contentPadding = PaddingValues(0.dp)
     ) {
@@ -2784,7 +2784,7 @@ private fun ZoomButton(
         modifier = Modifier.size(64.dp),
         shape = CircleShape,
         colors = ButtonDefaults.buttonColors(
-            containerColor = ComposeColor(0xCCFFFFFF)
+            containerColor = ComposeColor.White
         ),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
     ) {
