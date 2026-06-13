@@ -583,6 +583,13 @@ class CoastlineViewModel(
     }
 
     /**
+     * Toggles the depth colour map + isobath contour overlay visibility.
+     */
+    fun toggleDepthLayerVisibility() {
+        settingsManager.update { it.copy(depthLayerVisible = !it.depthLayerVisible) }
+    }
+
+    /**
      * Called whenever the user pans the map or GPS delivers a fix.
      *
      * Records the new center cheaply on the UI thread and persists it so the

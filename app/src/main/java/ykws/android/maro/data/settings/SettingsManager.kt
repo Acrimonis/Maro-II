@@ -98,6 +98,8 @@ data class AppSettings(
     val headingLineVisible: Boolean = true,
     /** Show the speed-proportional cap arrow projecting from the boat marker. */
     val capArrowVisible: Boolean = false,
+    /** Show the hypsometric depth colour map and isobath contour overlays. */
+    val depthLayerVisible: Boolean = true,
     /** Whether the regulated zones overlay (speed limits, anchoring, access, …) is drawn. */
     val regulatedZonesVisible: Boolean = BuildConfig.LAYER_REGULATED_ZONES_DEFAULT,
     /** Show zone info text panel beside the icon stack. */
@@ -189,6 +191,7 @@ class SettingsManager(
         regenWarning = prefs.getBoolean(KEY_REGEN_WARNING, true),
         headingLineVisible = prefs.getBoolean(KEY_HEADING_LINE_VISIBLE, true),
         capArrowVisible   = prefs.getBoolean(KEY_CAP_ARROW_VISIBLE, false),
+        depthLayerVisible = prefs.getBoolean(KEY_DEPTH_LAYER_VISIBLE, true),
         regulatedZonesVisible = prefs.getBoolean(KEY_REGULATED_ZONES_VISIBLE, BuildConfig.LAYER_REGULATED_ZONES_DEFAULT),
         regulationInfoVisible = prefs.getBoolean(KEY_REGULATION_INFO_VISIBLE, false),
         regulationInfoExpanded = prefs.getBoolean(KEY_REGULATION_INFO_EXPANDED, false),
@@ -254,6 +257,7 @@ class SettingsManager(
             .putBoolean(KEY_REGEN_WARNING, updated.regenWarning)
             .putBoolean(KEY_HEADING_LINE_VISIBLE, updated.headingLineVisible)
             .putBoolean(KEY_CAP_ARROW_VISIBLE, updated.capArrowVisible)
+            .putBoolean(KEY_DEPTH_LAYER_VISIBLE, updated.depthLayerVisible)
             .putBoolean(KEY_REGULATED_ZONES_VISIBLE, updated.regulatedZonesVisible)
             .putFloat(KEY_BOAT_SIZE_M, updated.boatSizeM.toFloat())
             .putBoolean(KEY_SHOW_CATEGORY_NO_ANCHOR, updated.showCategoryNoAnchor)
@@ -308,6 +312,7 @@ class SettingsManager(
         private const val KEY_REGEN_WARNING = "regen_warning"
         private const val KEY_HEADING_LINE_VISIBLE = "heading_line_visible"
         private const val KEY_CAP_ARROW_VISIBLE = "cap_arrow_visible"
+        private const val KEY_DEPTH_LAYER_VISIBLE = "depth_layer_visible"
         private const val KEY_REGULATED_ZONES_VISIBLE = "regulated_zones_visible"
         private const val KEY_BOAT_SIZE_M = "boat_size_m"
         private const val KEY_SHOW_CATEGORY_NO_ANCHOR = "show_category_no_anchor"
