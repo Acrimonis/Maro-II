@@ -4,7 +4,7 @@
 - **Active Feature:** speed-zones
 - **Active Subfeature:** (none)
 - **Last Updated:** 2026-06-14
-- **Last Bake:** (fresh branch from origin/develop — awaiting squash merge)
+- **Last Bake:** 2026-06-14 19:50 (Squash-merge rebase from feature/speed-zones onto origin/develop — 14 commits → 1, conflicts resolved in 4 files. Build: green. Branch: feature/speed-zones-v2.)
 - **Branch:** feature/speed-zones-v2
 ## Routing Map
 | Keyword | Feature File |
