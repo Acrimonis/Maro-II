@@ -146,6 +146,15 @@ import ykws.android.maro.data.regulation.RegulatedZone
 import ykws.android.maro.data.regulation.ZoneDisplayCategory
 import ykws.android.maro.data.regulation.displayCategories
 import ykws.android.maro.data.regulation.contains
+import ykws.android.maro.ui.map.CircleRingIcon
+import ykws.android.maro.ui.map.FanConfig
+import ykws.android.maro.ui.map.FanDirection
+import ykws.android.maro.ui.map.FanLayout
+import ykws.android.maro.ui.map.GearIcon
+import ykws.android.maro.ui.map.MapControlButton
+import ykws.android.maro.ui.map.MinusIcon
+import ykws.android.maro.ui.map.PlusIcon
+import ykws.android.maro.ui.map.WarningTriangleIcon
 import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.spatial.SpatialOperations
 
@@ -181,8 +190,7 @@ fun MapScreen(
     val appSettings by viewModel.settings.collectAsState()
     var mapView by remember { mutableStateOf<MapView?>(null) }
     var showSettings by remember { mutableStateOf(false) }
-    var arcExpanded by remember { mutableStateOf(false) }
-    var anchorCenter by remember { mutableStateOf<androidx.compose.ui.geometry.Offset?>(null) }
+    var layerFanExpanded by remember { mutableStateOf(false) }
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val displayScrollState = rememberScrollState()
     val navigationScrollState = rememberScrollState()
@@ -425,9 +433,9 @@ fun MapScreen(
     var showExitBanner by remember { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxSize()) {
-        // ── Intercept system back when arc is open ───────────────────────
-        if (arcExpanded) {
-            BackHandler { arcExpanded = false }
+        // ── Intercept system back when layer fan is open ──────────────────
+        if (layerFanExpanded) {
+            BackHandler { layerFanExpanded = false }
         }
 
         // ── Intercept system back when settings are open ──────────────────
@@ -436,7 +444,7 @@ fun MapScreen(
         }
 
         // ── Otherwise require a second back press within 2 s to exit ───────
-        BackHandler(enabled = !showSettings && !arcExpanded) {
+        BackHandler(enabled = !showSettings && !layerFanExpanded) {
             val now = SystemClock.elapsedRealtime()
             if (now - lastBackAt <= 2_000L) {
                 context.findActivity()?.finishAffinity()
@@ -492,9 +500,8 @@ fun MapScreen(
                 onToggleDepthLayer = viewModel::toggleDepthLayerVisibility,
                 onToggleRegulatedZones = { viewModel.updateSettings { it.copy(regulatedZonesVisible = !it.regulatedZonesVisible) } },
                 onToggleZone300 = viewModel::toggleZone300Visibility,
-                onToggleArc = { arcExpanded = !arcExpanded },
-                onAnchorPositionChanged = { anchorCenter = it },
-                arcExpanded = arcExpanded,
+                layerFanExpanded = layerFanExpanded,
+                onToggleLayerFan = { layerFanExpanded = !layerFanExpanded },
                 showExitBanner = showExitBanner,
                 rasterProgress = rasterProgress,
                 modifier = Modifier
@@ -536,28 +543,6 @@ fun MapScreen(
                 )
             }
         }
-
-        // ── Arc button overlay (at top-level Box — full screen, no clipping) ──
-        ArcButtonOverlay(
-            expanded = arcExpanded,
-            onDismiss = { arcExpanded = false },
-            anchorCenter = anchorCenter,
-            activeLayerCount = listOf(
-                appSettings.depthLayerVisible,
-                appSettings.regulatedZonesVisible,
-                appSettings.zone300Visible,
-                appSettings.lowDepthWarningVisible
-            ).count { it },
-            depthLayerVisible = appSettings.depthLayerVisible,
-            onToggleDepthLayer = viewModel::toggleDepthLayerVisibility,
-            regulatedZonesVisible = appSettings.regulatedZonesVisible,
-            onToggleRegulatedZones = { viewModel.updateSettings { it.copy(regulatedZonesVisible = !it.regulatedZonesVisible) } },
-            zone300Visible = appSettings.zone300Visible,
-            onToggleZone300 = viewModel::toggleZone300Visibility,
-            lowDepthWarningVisible = appSettings.lowDepthWarningVisible,
-            onToggleLowDepthWarning = viewModel::toggleLowDepthWarningVisibility,
-            modifier = Modifier.fillMaxSize()
-        )
 
         // ── Settings overlay (full-screen, covers dashboard too) ──────────
         if (showSettings) {
@@ -621,11 +606,10 @@ private fun MapContent(
     onToggleRegulatedZones: () -> Unit,
     onToggleLowDepthWarning: () -> Unit,
     onToggleDepthLayer: () -> Unit,
-    onToggleArc: () -> Unit = {},
-    onAnchorPositionChanged: (androidx.compose.ui.geometry.Offset) -> Unit = {},
+    layerFanExpanded: Boolean = false,
+    onToggleLayerFan: () -> Unit = {},
     showExitBanner: Boolean,
     rasterProgress: RasterProgress? = null,
-    arcExpanded: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier.clipToBounds()) {
@@ -792,11 +776,6 @@ private fun MapContent(
         //   with SpaceBetween keeps the centring exact regardless of the
         //   differing top/bottom cluster heights, holds in both portrait and
         //   landscape, and stops the three controls ever overlapping.
-        val controlFadeAlpha by animateFloatAsState(
-            targetValue = if (arcExpanded) 0f else 1f,
-            animationSpec = tween(220, easing = FastOutSlowInEasing),
-            label = "controlFade"
-        )
         Column(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
@@ -806,47 +785,70 @@ private fun MapContent(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Top — settings
-            SettingsButton(onClick = onOpenSettings, modifier = Modifier.alpha(controlFadeAlpha))
+            SettingsButton(onClick = onOpenSettings)
 
-            // Middle — layer toggle anchor button. Arc buttons + scrim are rendered
-            // at the top-level Box via ArcButtonOverlay (no clipping, full space).
-            ArcAnchorButton(
-                activeLayerCount = listOf(
+            // Middle — layer toggle fan button. Children fan out from behind the parent
+            // using the FanLayout framework with staggered animation and toggle support.
+            FanLayout(
+                config = FanConfig(
+                    maxCount = 5,
+                    currentCount = 4,
+                    direction = FanDirection.LEFT,
+                    isOpen = layerFanExpanded,
+                    toggleChildren = true,
+                    showActiveBadge = true,
+                    activeChildCount = listOf(
+                        appSettings.depthLayerVisible,
+                        appSettings.regulatedZonesVisible,
+                        appSettings.zone300Visible,
+                        appSettings.lowDepthWarningVisible
+                    ).count { it }
+                ),
+                parent = { _: Boolean, _: Int -> ThreeStripeLayerIcon(alpha = 1f) },
+                onParentClick = onToggleLayerFan,
+                children = listOf<@Composable (Boolean) -> Unit>(
+                    { isActive -> DepthBarIcon(alpha = if (isActive) 1f else 0.25f) },
+                    { isActive -> RegulatedZoneIcon(alpha = if (isActive) 1f else 0.25f) },
+                    { isActive -> DoubleCircleIcon(alpha = if (isActive) 1f else 0.25f) },
+                    { isActive -> WarningTriangleIcon(alpha = if (isActive) 1f else 0.25f) }
+                ),
+                activeStates = listOf(
                     appSettings.depthLayerVisible,
                     appSettings.regulatedZonesVisible,
                     appSettings.zone300Visible,
                     appSettings.lowDepthWarningVisible
-                ).count { it },
-                onClick = onToggleArc,
-                onPositionChanged = onAnchorPositionChanged
+                ),
+                onChildClick = { index: Int, _: Boolean ->
+                    when (index) {
+                        0 -> onToggleDepthLayer()
+                        1 -> onToggleRegulatedZones()
+                        2 -> onToggleZone300()
+                        3 -> onToggleLowDepthWarning()
+                    }
+                }
             )
 
             // Bottom — zoom +/-. A placeholder holds the slot before the map
             // is ready so the middle toggle stays centred (no load-time jump).
             if (mapView != null) {
                 Column(
-                    modifier = Modifier.alpha(controlFadeAlpha),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    ZoomButton(
-                        isPlus = true,
-                        desc = stringResource(R.string.map_zoom_in),
+                    MapControlButton(
                         onClick = {
-                            val mv = mapView ?: return@ZoomButton
+                            val mv = mapView ?: return@MapControlButton
                             mv.controller.zoomIn()
                             onZoomChanged(mv.zoomLevelDouble)
                         }
-                    )
-                    ZoomButton(
-                        isPlus = false,
-                        desc = stringResource(R.string.map_zoom_out),
+                    ) { PlusIcon() }
+                    MapControlButton(
                         onClick = {
-                            val mv = mapView ?: return@ZoomButton
+                            val mv = mapView ?: return@MapControlButton
                             mv.controller.zoomOut()
                             onZoomChanged(mv.zoomLevelDouble)
                         }
-                    )
+                    ) { MinusIcon() }
                 }
             } else {
                 // Reserve the zoom cluster's footprint: two 64dp buttons + 8dp.

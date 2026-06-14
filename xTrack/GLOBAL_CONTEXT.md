@@ -2,9 +2,9 @@
 
 ## Active Session Pointers
 - **Active Feature:** ArcLayout
-- **Active Subfeature:** none
-- **Last Updated:** 2026-06-13
-- **Last Bake:** 2026-06-13 13:36 (ArcLayout — reg icon diagonal slash, all buttons fully opaque white, badge text centering with PlatformTextStyle)
+- **Active Subfeature:** fan-migration
+- **Last Updated:** 2026-06-14
+- **Last Bake:** 2026-06-14 14:55 (ArcLayout — fan-migration: Z-order fix — children declared first in Box (behind parent), parent second (on top). Children fan out from behind. effectiveTheta=180/currentCount, full-arc ½θ margins. Build: green.)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -44,7 +44,7 @@
 | Ui_Settings | Settings page UI, persistence, widgets, and UX enhancements | 2026-06-09 15:28 | 2026-06-09 19:42 | active |
 | **Navigation** | **Navigation aids — heading/speed arrow and direction line on map overlay** | **2026-06-10 08:40** | **2026-06-11 11:55** | **active** |
 | **RegulatedZones** | **Maritime regulatory zones — multi-source normalization (SHOM INSPIRE + IGN Natura 2000), sealed classification, 8-category icon mapping, keyword-driven display logic** | **2026-06-11 18:00** | **2026-06-12 22:37** | **active** |
-| **ArcLayout** | **Layer toggle arc menu — pure-Compose semicircle fan-out with 4 layer toggles, staggered animation, and state indicators** | **2026-06-13 07:34** | **2026-06-13 13:36** | **active** |
+| **ArcLayout** | **Layer toggle arc menu — pure-Compose semicircle fan-out with layer toggles, FanLayout framework, fixed child centering using effectiveTheta=180/currentCount** | **2026-06-13 07:34** | **2026-06-14 14:50** | **active** |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).
@@ -64,5 +64,7 @@ These files are loaded into context at the start of every session to maximize th
 - `.claude/skills/xtrack/SKILL.md` — skill dispatch map
 
 ## Global Instructions
-- xTrack workflow per AGENTS.md §7a/7b. Keep feature files lean — ## Docs for references, ## Key Files for source paths.
-- `docs/cmd_help.md` is lazy-loaded on `#help` only — not loaded every session.
+- The xTrack `#`-command system is the canonical workflow. Use it for all feature tracking, todo/rule management, doc management, and session snapshots.
+- On Turn 1 of any session: read GLOBAL_CONTEXT.md, match user intent against the Routing Map, open the corresponding feature file and its hydration file.
+- Route docs, key files, and todos to the correct feature scope. Keep feature files lean — use ## Docs for references, ## Key Files for source paths.
+- `docs/cmd_help.md`, `references/fuzzy-resolve.md`, and `references/templates.md` are lazy-loaded on `#help` only — not loaded every session.
