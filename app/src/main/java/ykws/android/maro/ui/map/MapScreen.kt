@@ -480,6 +480,7 @@ fun MapScreen(
                 distanceToShore = distanceToShore,
                 regulatedZones = regulatedZones,
                 zone300 = zone300,
+                inZone300 = inZone300,
                 depthBitmap = effectiveDepthBitmap,
                 lowDepthWarningBitmap = effectiveLowDepthWarning,
                 depthBox = depthGrid?.boundingBox,
@@ -588,6 +589,7 @@ private fun MapContent(
     distanceToShore: Double?,
     regulatedZones: RegulatedZoneSet?,
     zone300: Zone300Data?,
+    inZone300: Boolean,
     depthBitmap: Bitmap?,
     lowDepthWarningBitmap: Bitmap?,
     depthBox: BoundingBox?,
@@ -740,10 +742,12 @@ private fun MapContent(
             }
         }
 
-        // ── Regulated zone icons + info text (bottom-left) ──────────────────
-        //   A Row with two children:
-        //     Left  — vertical icon stack (44×44 dp each), most restrictive
-        //             (SPEED_LIMIT) at the bottom, informational at the top.
+        // ── Regulated zone icons + 300m badge + info text (bottom-left) ────
+        //   A Row with up to three children:
+        //     Left  — 300m speed badge (when inZone300)
+        //     Middle — vertical icon stack (44×44 dp each), most restrictive
+        //              (SPEED_LIMIT) at the bottom, informational at the top.
+        //              SPEED_LIMIT icons suppressed when in 300m zone.
         //     Right — zone info text filling remaining width up to the zoom
         //             +/- stack, with auto-wrapping instead of ellipsis.
         //   Constrained to avoid overlapping the zoom stack (~82 dp from right).
@@ -756,12 +760,14 @@ private fun MapContent(
             RegulatedZoneWarningStrip(
                 regulatedZones = visibleRegulatedZones,
                 boatPosition = boatPosition,
+                inZone300 = inZone300,
                 modifier = Modifier.align(Alignment.Bottom)
             )
             if (appSettings.regulationInfoVisible) {
                 RegulatedZoneInfoText(
                     regulatedZones = visibleRegulatedZones,
                     boatPosition = boatPosition,
+                    inZone300 = inZone300,
                     modifier = Modifier
                         .weight(1f)
                         .padding(start = 4.dp)
@@ -3120,36 +3126,56 @@ private val CATEGORY_PRIORITY: Map<ZoneDisplayCategory, Int> = mapOf(
  *
  * Icons are 44×44 dp, ordered from most restrictive (SPEED_LIMIT at the
  * bottom) to informational (INFORMATION at the top). Deduplicates by
- * (displayCategory, speedLimitKn). Only renders when [regulatedZones]
- * is non-null and non-empty.
+ * (displayCategory, speedLimitKn).
+ *
+ * When [inZone300] is true, the 300m zone is injected as a SPEED_LIMIT entry
+ * at the highest priority (bottom of stack), and regulated SPEED_LIMIT icons
+ * are suppressed to avoid duplicating speed limit info.
  */
 @Composable
 private fun RegulatedZoneWarningStrip(
     regulatedZones: RegulatedZoneSet?,
     boatPosition: LatLng? = null,
+    inZone300: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    if (regulatedZones == null || regulatedZones.zones.isEmpty()) return
-
-    // Geo-fence: only show icons for zones whose polygon contains the boat.
-    val categories = remember(regulatedZones, boatPosition) {
-        val zones = if (boatPosition != null) {
-            regulatedZones.zones.filter { it.contains(boatPosition) }
-        } else {
-            regulatedZones.zones
-        }
-        if (zones.isEmpty()) return@remember emptyList()
-
-        zones
-            .flatMap { zone ->
-                val speed = zone.speedLimitKn
-                    ?: parseSpeedFromDescription(zone.description)
-                zone.displayCategories().map { cat -> cat to speed }
+    val categories = remember(regulatedZones, boatPosition, inZone300) {
+        val base = if (regulatedZones != null && regulatedZones.zones.isNotEmpty()) {
+            val zones = if (boatPosition != null) {
+                regulatedZones.zones.filter { it.contains(boatPosition) }
+            } else {
+                regulatedZones.zones
             }
-            .filter { (cat, speed) -> cat != ZoneDisplayCategory.SPEED_LIMIT || speed != null }
-            .distinct()
-            // Sort by priority — most restrictive first (bottom of stack)
-            .sortedBy { (cat, _) -> CATEGORY_PRIORITY[cat] ?: Int.MAX_VALUE }
+            if (zones.isEmpty()) {
+                emptyList()
+            } else {
+                zones
+                    .flatMap { zone ->
+                        val speed = zone.speedLimitKn
+                            ?: parseSpeedFromDescription(zone.description)
+                        zone.displayCategories().map { cat -> cat to speed }
+                    }
+                    .filter { (cat, speed) -> cat != ZoneDisplayCategory.SPEED_LIMIT || speed != null }
+                    // When in 300m zone, suppress regulated speed limit icons (300m replaces them)
+                    .filter { (cat, _) -> !(inZone300 && cat == ZoneDisplayCategory.SPEED_LIMIT) }
+                    .distinct()
+            }
+        } else {
+            emptyList()
+        }
+
+        // When in the 300m zone, inject it as the highest-priority SPEED_LIMIT entry
+        val withZone300 = if (inZone300) {
+            val zoneSpeed = ZoneConfig.zoneRegulatorySpeedKn.toDouble()
+            base + (ZoneDisplayCategory.SPEED_LIMIT to zoneSpeed)
+        } else {
+            base
+        }
+
+        if (withZone300.isEmpty()) return@remember emptyList()
+
+        // Sort by priority — most restrictive first (bottom of stack)
+        withZone300.sortedBy { (cat, _) -> CATEGORY_PRIORITY[cat] ?: Int.MAX_VALUE }
     }
 
     if (categories.isEmpty()) return
@@ -3232,6 +3258,7 @@ private fun RegulationZoneCategoryIcon(
     }
 }
 
+
 /**
  * Zone info text panel — shows zone info text beside the vertical icon stack.
  *
@@ -3246,29 +3273,47 @@ private fun RegulationZoneCategoryIcon(
 private fun RegulatedZoneInfoText(
     regulatedZones: RegulatedZoneSet?,
     boatPosition: LatLng? = null,
+    inZone300: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    if (regulatedZones == null || regulatedZones.zones.isEmpty()) return
-
     // Derive the same deduplicated (category, speedKn) pairs as the warning strip
-    val categoryLines = remember(regulatedZones, boatPosition) {
-        val zones = if (boatPosition != null) {
-            regulatedZones.zones.filter { it.contains(boatPosition) }
-        } else {
-            regulatedZones.zones
-        }
-        if (zones.isEmpty()) return@remember emptyList()
-
-        zones
-            .flatMap { zone ->
-                val speed = zone.speedLimitKn
-                    ?: parseSpeedFromDescription(zone.description)
-                // Pair each display category with the zone it came from
-                zone.displayCategories().map { cat -> Triple(cat, speed, zone) }
+    val categoryLines = remember(regulatedZones, boatPosition, inZone300) {
+        val base = if (regulatedZones != null && regulatedZones.zones.isNotEmpty()) {
+            val zones = if (boatPosition != null) {
+                regulatedZones.zones.filter { it.contains(boatPosition) }
+            } else {
+                regulatedZones.zones
             }
-            .filter { (cat, speed, _) -> cat != ZoneDisplayCategory.SPEED_LIMIT || speed != null }
-            .distinctBy { (cat, speed, _) -> cat to speed }
-            .sortedBy { (cat, _, _) -> CATEGORY_PRIORITY[cat] ?: Int.MAX_VALUE }
+            if (zones.isEmpty()) {
+                emptyList()
+            } else {
+                zones
+                    .flatMap { zone ->
+                        val speed = zone.speedLimitKn
+                            ?: parseSpeedFromDescription(zone.description)
+                        // Pair each display category with the zone it came from
+                        zone.displayCategories().map { cat -> Triple(cat, speed, zone) }
+                    }
+                    .filter { (cat, speed, _) -> cat != ZoneDisplayCategory.SPEED_LIMIT || speed != null }
+                    // When in 300m zone, suppress regulated speed limit info text (300m replaces it)
+                    .filter { (cat, _, _) -> !(inZone300 && cat == ZoneDisplayCategory.SPEED_LIMIT) }
+                    .distinctBy { (cat, speed, _) -> cat to speed }
+            }
+        } else {
+            emptyList()
+        }
+
+        // When in the 300m zone, inject it as the highest-priority SPEED_LIMIT info line
+        val withZone300 = if (inZone300) {
+            val zoneSpeed = ZoneConfig.zoneRegulatorySpeedKn.toDouble()
+            base + Triple(ZoneDisplayCategory.SPEED_LIMIT, zoneSpeed, null)
+        } else {
+            base
+        }
+
+        if (withZone300.isEmpty()) return@remember emptyList()
+
+        withZone300.sortedBy { (cat, _, _) -> CATEGORY_PRIORITY[cat] ?: Int.MAX_VALUE }
     }
 
     if (categoryLines.isEmpty()) return
@@ -3284,15 +3329,20 @@ private fun RegulatedZoneInfoText(
             } else {
                 RegulatedZoneIconProvider.emojiForCategory(category)
             }
-            val rawName = zone.name
-            val name = if (rawName.isNullOrBlank() || rawName.equals("null", ignoreCase = true)) {
-                zone.zoneType.name.lowercase().replace('_', ' ')
+            // 300m zone synthetic entry (zone == null) uses hardcoded name
+            val name = if (zone != null) {
+                val rawName = zone.name
+                if (rawName.isNullOrBlank() || rawName.equals("null", ignoreCase = true)) {
+                    zone.zoneType.name.lowercase().replace('_', ' ')
+                } else {
+                    rawName
+                }
             } else {
-                rawName
+                "300 m Zone"
             }
             val keyInfo = when {
                 speedKn != null -> "${speedKn.toInt()} nds"
-                zone.description.isNotBlank() -> zone.description.replace("\n", " ")
+                zone != null && zone.description.isNotBlank() -> zone.description.replace("\n", " ")
                 else -> ""
             }
             Text(

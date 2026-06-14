@@ -1,10 +1,10 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** ArcLayout
-- **Active Subfeature:** fan-migration
+- **Active Feature:** Zone300SpeedBadge
+- **Active Subfeature:** none
 - **Last Updated:** 2026-06-14
-- **Last Bake:** 2026-06-14 14:55 (ArcLayout — fan-migration: Z-order fix — children declared first in Box (behind parent), parent second (on top). Children fan out from behind. effectiveTheta=180/currentCount, full-arc ½θ margins. Build: green.)
+- **Last Bake:** 2026-06-14 17:42 (Zone300SpeedBadge — 300m speed badge integrated into regulated zone icon stack and info text as highest-priority SPEED_LIMIT entry. Removed standalone Zone300SpeedBadge composable. Build: green.)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -24,6 +24,7 @@
 | settings, preferences, config, scroll, options | xTrack/Ui_Settings/FEAT_DSC_Ui_Settings.md |
 | regulation, regulated zones, regulatedzone, regulation zone, speed zone, speed limit, anchoring, SHOM regulation, shom reg, maritime regulation, regulatory zone, réglementation maritime, zone réglementée, arrêté maritime, DIRM, cap d'antibes, lérins | xTrack/RegulatedZones/FEAT_DSC_RegulatedZones.md |
 | arclayout, arc, arc-menu, layer-toggle, multi-btn, layer, toggle, fan-out | xTrack/ArcLayout/FEAT_DSC_ArcLayout.md |
+| zone300speed, 300m badge, speed badge, 300m speed | xTrack/Zone300SpeedBadge/FEAT_DSC_Zone300SpeedBadge.md |
 
 ## Feature Summaries
 
@@ -45,6 +46,7 @@
 | **Navigation** | **Navigation aids — heading/speed arrow and direction line on map overlay** | **2026-06-10 08:40** | **2026-06-11 11:55** | **active** |
 | **RegulatedZones** | **Maritime regulatory zones — multi-source normalization (SHOM INSPIRE + IGN Natura 2000), sealed classification, 8-category icon mapping, keyword-driven display logic** | **2026-06-11 18:00** | **2026-06-12 22:37** | **active** |
 | **ArcLayout** | **Layer toggle arc menu — pure-Compose semicircle fan-out with layer toggles, FanLayout framework, fixed child centering using effectiveTheta=180/currentCount** | **2026-06-13 07:34** | **2026-06-14 14:50** | **active** |
+| **Zone300SpeedBadge** | **300m zone speed limit badge integrated into regulated zone icon stack as highest-priority SPEED_LIMIT entry** | **2026-06-14 17:42** | **2026-06-14 17:42** | **done** |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).
