@@ -791,7 +791,7 @@ private fun MapContent(
             // using the FanLayout framework with staggered animation and toggle support.
             FanLayout(
                 config = FanConfig(
-                    maxCount = 4,
+                    maxCount = 5,
                     currentCount = 4,
                     direction = FanDirection.LEFT,
                     isOpen = layerFanExpanded,
