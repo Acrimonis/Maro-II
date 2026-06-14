@@ -2,9 +2,9 @@
 
 ## Active Session Pointers
 - **Active Feature:** UI_Map
-- **Active Subfeature:** rotate
+- **Active Subfeature:** boat-center
 - **Last Updated:** 2026-06-14
-- **Last Bake:** 2026-06-14 18:53 (ArcLayout/fan-migration — Control stack refactored to dynamic ControlItem list. Hardcoded Column children replaced with ControlId/ControlSection/ControlItem data model. Non-fan controls (Settings, Zoom) hide via AnimatedVisibility when a fan is expanded. Sibling controls re-added via enum. Build: green.)
+- **Last Bake:** 2026-06-14 19:39 (Boat marker offset — decoupled Image and Canvas in CenterMarkerOverlay; Image shifted down by half height so top-center = map center; cap arrow stays at map center; BOAT_TIP_OFFSET removed; low-depth warning color configurable via zone.properties. Build: green.)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -37,7 +37,7 @@
 | Coastline | Coastline extraction, spatial indexing, isOnWater determination | 2026-05-10 00:00 | 2026-06-05 00:00 | active |
 | Ui_Dashboard | Main dashboard UI layout and HUD information display | 2026-05-15 00:00 | 2026-06-10 15:24 | active |
 | GPS | GPS plugin with demo mode, heading/COG compass, geolocation | 2026-05-10 00:00 | 2026-06-11 14:00 | active |
-| UI_Map | Map rendering, depth color layer, orientation overlay | 2026-05-10 00:00 | 2026-06-03 00:00 | active |
+| UI_Map | Map rendering, depth color layer, orientation overlay, boat marker offset | 2026-05-10 00:00 | 2026-06-14 19:39 | active |
 | Performance | Battery optimization, adaptive GPS tuning, compass gate, map refresh | 2026-05-20 00:00 | 2026-06-05 00:00 | active |
 | BakeNormalization | APK bake/build/deploy pipeline and prebake data processing | 2026-06-01 00:00 | 2026-06-05 00:00 | active |
 | DepthSafety | Danger depth alerts, shallow water grounding prevention, isobath precision | 2026-06-03 00:00 | 2026-06-05 00:00 | active |

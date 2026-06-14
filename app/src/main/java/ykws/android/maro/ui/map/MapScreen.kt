@@ -40,6 +40,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.ColumnScope
@@ -1238,8 +1239,6 @@ private const val CAP_DP_PER_KNOT = 65.0 / 30.0
 private const val CAP_MIN_DP = 1.0
 /** Maximum arrow length in dp at [REF_ZOOM] (30+ kn capped). */
 private const val CAP_MAX_DP = 65.0
-/** Fraction of the marker image height from top edge to the visual boat tip. */
-private const val BOAT_TIP_OFFSET = 0.05
 /** Below this speed (knots) the arrow is hidden. */
 private const val CAP_MIN_SPEED_KNOTS = 2.5f
 
@@ -1301,24 +1300,37 @@ private fun CenterMarkerOverlay(
         0.dp
     }
 
+    // The marker Box stays at Alignment.Center (map center) in the parent.
+    // On water: the boat image is shifted down by half its height so its top-center
+    // aligns with the map center (GPS position at the boat's bow).
+    // On land:   the dot stays centered (no offset — a dot has no direction).
+    // The cap arrow remains at map center (unshifted), drawn from the canvas center
+    // upward so it emerges from the boat's top (now at map center).
     Box(modifier = modifier.size(finalSizeDp)) {
+        // ── Boat/land marker ──────────────────────────────────────────────
+        val yOffset = if (isWater) finalSizeDp / 2 else 0.dp
         Image(
             painter = painterResource(id = drawableId),
             contentDescription = description,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .offset(y = yOffset),
             contentScale = ContentScale.Fit
         )
+        // ── Cap arrow — centered at map center, draws upward ──────────────
         if (showArrow) {
             val arrowColor = ComposeColor(ZoneConfig.capArrowColor)
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val arrowLenPx = arrowDp.toPx()
                 val cX = size.width / 2
-                val startY = (size.height * BOAT_TIP_OFFSET).toFloat()
-                val endY = startY - arrowLenPx
+                // Canvas is centered at map center, so its midpoint = map center.
+                // Arrow emerges from the boat's tip (now at map center) and extends upward.
+                val midY = size.height / 2
+                val endY = midY - arrowLenPx
 
                 drawLine(
                     color = arrowColor,
-                    start = Offset(cX, startY),
+                    start = Offset(cX, midY),
                     end = Offset(cX, endY),
                     strokeWidth = 2.25.dp.toPx(),
                     cap = StrokeCap.Round
