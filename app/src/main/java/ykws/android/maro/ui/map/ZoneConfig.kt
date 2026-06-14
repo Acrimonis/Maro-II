@@ -56,6 +56,12 @@ object ZoneConfig {
     var lowDepthWarningMinOpacityPct = 25
         private set
 
+    /** ARGB colour for the low-depth warning overlay (pink grounding-hazard).
+     *  Default `0xFFFF00E5` (bright magenta). Set via `lowDepthWarningColor` in zone.properties.
+     *  The alpha from this value is ignored — depth-graded alpha is applied at runtime. */
+    var lowDepthWarningColor: Int = 0xFFFF00E5.toInt()
+        private set
+
     /** ARGB colour for NoData / above-datum cells on the depth colour map.
      *  Default `0xFFCCCCCC` (light grey). Set via `nodata.color` in zone.properties. */
     var nodataColor: Int = 0xFFCCCCCC.toInt()
@@ -147,6 +153,9 @@ object ZoneConfig {
             }
             props.getProperty("lowDepthWarningMinOpacityPct")?.toIntOrNull()?.let {
                 lowDepthWarningMinOpacityPct = it.coerceIn(0, 100)
+            }
+            props.getProperty("lowDepthWarningColor")?.let { parseColorOrNull(it) }?.let {
+                lowDepthWarningColor = it
             }
             props.getProperty("nodata.color")?.let { parseColorOrNull(it) }?.let {
                 nodataColor = it

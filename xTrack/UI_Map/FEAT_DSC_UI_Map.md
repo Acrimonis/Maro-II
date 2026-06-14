@@ -2,8 +2,8 @@
 name: UI_Map
 status: active
 created: 2026-06-07 00:00
-modified: 2026-06-14 18:18
-active_subfeature: rotate
+modified: 2026-06-14 19:39
+active_subfeature: boat-center
 ---
 
 **Description:** Map display layer management — depth layer, color depth layer, and orientation-aware rendering.
@@ -228,6 +228,24 @@ Allow manual two-finger rotation of the map in demo mode, and derive the heading
 
 #### Docs
 - `plans/rotate-map-demo-mode-implications.md` — this analysis
+
+### boat-center  [x]
+
+#### Todos
+- [x] Decouple boat marker Image and cap arrow Canvas in `CenterMarkerOverlay`
+- [x] Shift boat marker down by half its height so top-center = map center (GPS antenna position)
+- [x] Cap arrow stays centered at map center, drawn from canvas midpoint upward
+- [x] Remove `BOAT_TIP_OFFSET` constant (no longer needed)
+- [x] Land dot stays centered (no offset — a dot has no direction)
+- [x] `DirectionLine` unchanged (already draws from screen center)
+- [x] Build: SUCCESS (`gradlew assembleDebug`)
+
+#### Rules
+- Boat marker offset only applies on water (boat); land dot stays centered
+- Cap arrow always originates from map center, not the boat image top
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `CenterMarkerOverlay` decoupled Image + Canvas
 
 ## Todos
 
