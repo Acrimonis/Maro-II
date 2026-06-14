@@ -1,23 +1,20 @@
-# Hydration: Dashboard — baked 2026-06-10 15:24 UTC
+# Hydration: Dashboard — baked 2026-06-14 16:50 UTC
 
 ## State
-Session completed: "tile subdued font" subfeature done.
+Dashboard tile status fixes completed. Speed tile confirmed OK. Distance tile: on-land subdued background, negative exit/entry values, SHOM zone priority over 300m band, `nextZoneAhead` removed from `DistanceCard` (uses only `currentZone.beyondType`), `isNearEntry` threshold-gated by `autoRevealDistanceM`/`autoRevealTimeS`. Zone tile thresholds aligned via shared `autoRevealDistanceM` (100m) / `autoRevealTimeS` (10s).
 
 ### Changes
-- Added `DashboardColors.dullAlpha = 0.33f` — unified alpha for all subdued states
-- Added `titleColor` param to `DashboardCard` (default textPrimary)
-- Zone300Card far-from-zone: grey `zoneNormal` bg, dimmed title+value at 33%, gate = 2× alertDistanceM
-- DepthCard "Deep!": grey `zoneNormal` bg, dimmed title+value at 33%
-- DepthCard no-data: grey `zoneNormal` bg, dimmed title+value at 33%
-- DepthCard on-land & Zone300Card on-land: dimmed title at 33% (was hardcoded textPrimary)
-- All empty/dash states: textPrimary @ 33% instead of textMuted solid
-- Added `alertDistanceM` param to `DashboardPanel`, wired from `MapScreen`
+- [`DashboardPanel.kt`](app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt): DistanceCard — on-land subdued bg, negative exit/entry values, removed `nextZoneAhead` branch (shows `currentZone.beyondType` instead), `isNearEntry` re-gated with threshold
+- [`CoastlineViewModel.kt`](app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt): `currentZone` priority: SHOM zone first > 300m band fallback. `zonesAroundBoat()` steps 1 & 2 now respect `excludeZoneName`. `_zoneSituation` update guarded by `shore.distanceMeters != null`
+- [`SettingsManager.kt`](app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt): Prefs migration v2 — clears stale `zoneAutoRevealDistanceM`/`zoneAutoRevealTimeS` keys
+- [`ZoneConfig.kt`](app/src/main/java/ykws/android/maro/ui/map/ZoneConfig.kt): Defaults changed from 200m/20s → 100m/10s
+- [`zone.properties`](app/src/main/assets/zone.properties): Updated docs
 
 ### Target Files
-- `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
-- `plans/dashboard-tile-titles.md`
+- `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt` — DistanceCard + SpeedLimitCard
+- `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — zoneSituation pipeline + zonesAroundBoat
+- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — prefs migration
+- `app/src/main/java/ykws/android/maro/ui/map/ZoneConfig.kt` — defaults
 
 ### Remaining Dashboard Todos
-- tweak subfeature (dashboard resize, land tile caption)
 - readability subfeature (padding/weight/string updates)

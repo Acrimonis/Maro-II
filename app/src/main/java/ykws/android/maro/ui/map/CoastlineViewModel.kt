@@ -1,6 +1,7 @@
 package ykws.android.maro.ui.map
 
 import android.app.Application
+import kotlin.math.abs
 import android.content.Context
 import android.os.SystemClock
 import android.util.Log
@@ -46,10 +47,20 @@ import ykws.android.maro.data.model.CoastlineState
 import ykws.android.maro.data.model.GenerationProgress
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.Zone300Data
+import ykws.android.maro.data.regulation.RegulatedZoneSet
+import ykws.android.maro.data.regulation.RegulatedZonesRepository
+import ykws.android.maro.data.regulation.SpeedZone
+import ykws.android.maro.data.regulation.SpeedZoneBuilder
+import ykws.android.maro.data.regulation.SpeedZoneQuery
 import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.settings.SettingsManager
-import kotlin.math.sqrt
+import ykws.android.maro.BuildConfig
+import ykws.android.maro.spatial.SpeedZoneIndex
 import ykws.android.maro.spatial.SpatialOperations
+import kotlin.math.sqrt
+import kotlin.math.sin
+import kotlin.math.cos
+import kotlin.math.atan2
 
 /** One throttled camera target for GPS auto-follow: where to centre + which way to face. */
 data class CameraTarget(val position: LatLng, val bearingDeg: Float)
@@ -58,11 +69,18 @@ data class CameraTarget(val position: LatLng, val bearingDeg: Float)
  * Atomic navigation state for the boat marker + cap arrow.
  * A single data class guarantees Compose reads bearing + speed from the same
  * snapshot frame — no intermediate frame where only one has updated.
+ *
+ * @property bearingDeg       GPS/compass heading (degrees, 0-360). Used for map orientation in GPS mode.
+ * @property speedKnots       GPS speed over ground (knots).
+ * @property demoSpeedKnots   Demo-mode pan speed (knots), null when map is stationary.
+ * @property demoBearingDeg   Demo-mode pan direction (degrees, 0-360), null when map is stationary.
+ *                            Separate from [bearingDeg] so demo panning doesn't rotate the map.
  */
 data class NavigationState(
     val bearingDeg: Float = 0f,
     val speedKnots: Float? = null,
-    val demoSpeedKnots: Float? = null
+    val demoSpeedKnots: Float? = null,
+    val demoBearingDeg: Float? = null
 )
 
 /**
@@ -105,6 +123,8 @@ class CoastlineViewModel(
         }
 
         repository.setCacheDir(context)
+        // Also load regulated zones (best-effort — gracefully degrades if no asset)
+        regulatedZonesRepository.load(context)
         viewModelScope.launch {
             repository.loadCoastline()
 
@@ -150,7 +170,14 @@ class CoastlineViewModel(
         else
             LatLng(43.55, 7.00)
     )
+
+    /** Raw map center — emits at scroll rate (~60 fps) for internal pipeline use. */
     val mapCenter: StateFlow<LatLng> = _mapCenter.asStateFlow()
+
+    /** Throttled map center (~3 Hz) for Compose UI consumption — prevents 60 fps recomposition during drag. */
+    val uiMapCenter: StateFlow<LatLng> = _mapCenter
+        .sample(333L)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), _mapCenter.value)
 
     /** True if the current map center is on the water side of the coastline. */
     private val _isWater: MutableStateFlow<Boolean> = MutableStateFlow(initialAppSettings.isWater)
@@ -182,6 +209,21 @@ class CoastlineViewModel(
     val zone300: StateFlow<Zone300Data?> = repository.state
         .map { (it as? CoastlineState.Ready)?.data?.zone300 }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    // ── Regulated zones / speed zone state ─────────────────────────────
+
+    /** Repository for prebaked regulated zone data (loaded from APK assets). */
+    private val regulatedZonesRepository: RegulatedZonesRepository = RegulatedZonesRepository()
+
+    /** Speed zone spatial index — built once when both data sources are ready. */
+    private val _speedZoneIndex = MutableStateFlow<SpeedZoneIndex?>(null)
+
+    /** Unified zone situation: current zone, heading-ahead zone, and nearby zones — replaces 7 individual StateFlows. */
+    private val _zoneSituation = MutableStateFlow<ZoneSituation?>(null)
+    val zoneSituation: StateFlow<ZoneSituation?> = _zoneSituation.asStateFlow()
+
+    /** Elapsed realtime of the last settings persist during drag — throttles SharedPreferences writes + Compose recomposition from ~60 fps to ~1 Hz. */
+    private var lastPersistMs = 0L
 
     // ── GPS mode state ──────────────────────────────────────────────────────
     /** Latest GPS fix position (null until first fix). Drives the MapView recenter in GPS mode. */
@@ -220,7 +262,8 @@ class CoastlineViewModel(
     private var lastPanLat = 0.0
     private var lastPanLon = 0.0
     private var lastPanMs = 0L
-    private var panStopJob: Job? = null
+    /** Last scroll event timestamp — replaces launched coroutine stop-detector to avoid 60 coroutine creations/s. */
+    private var lastScrollMs = 0L
 
     // ── Zone 300 m proximity auto-reveal state machine ─────────────────────────
     /** True when the user manually hid the 300m zone → auto-reveal is armed. */
@@ -231,6 +274,14 @@ class CoastlineViewModel(
     private var bandEnteredSinceReveal = false
     /** Previous [distanceToZone] sample — used to detect "getting closer" vs "moving away". */
     private var lastDistToZone: Double? = null
+
+    // ── Speed zone proximity auto-reveal state machine ────────────────────────
+    /** True when the user manually hid the speed zones → auto-reveal is armed. */
+    private var speedZoneManuallyHidden = false
+    /** True when the system auto-revealed speed zones — gates the re-hide checks. */
+    private var speedZoneAutoRevealed = false
+    /** Previous distance to speed zone — used to detect "getting closer" vs "moving away". */
+    private var lastDistToSpeedZone: Double? = null
 
     /** Called from the screen lifecycle: enable GPS/compass on resume, disable on pause. */
     fun setGpsActive(active: Boolean) {
@@ -317,7 +368,90 @@ class CoastlineViewModel(
                 val inZone = water && hasDist &&
                     result.distanceMeters <= CoastlineRepository.ZONE_DISTANCE_M
                 val distToZone = if (hasDist) result.distanceMeters - CoastlineRepository.ZONE_DISTANCE_M else null
-                ShoreState(distance, water, inZone, distToZone)
+
+                // Speed zone query
+                val szIndex = _speedZoneIndex.value
+                val szQuery = if (szIndex != null && water) {
+                    val q = szIndex.query(center.latitude, center.longitude)
+                    Log.d(TAG, "SZI query at (${"%.4f".format(center.latitude)}, ${"%.4f".format(center.longitude)}): " +
+                            "insideAny=${q.insideAnyZone} nearest=${q.nearestZone?.name ?: "null"} " +
+                            "distToBoundary=${q.distanceToBoundaryM?.let { "%.1f".format(it) } ?: "null"} " +
+                            "mostRestrictive=${q.mostRestrictiveSpeedKn?.let { "%.1f".format(it) } ?: "null"} " +
+                            "nInside=${q.allInsideZones.size} hasData=${szIndex.hasData}")
+                    q
+                } else {
+                    Log.d(TAG, "SZI query SKIPPED: index=${szIndex != null} water=$water")
+                    SpeedZoneQuery()
+                }
+
+                // ── Unified zone situation (computed on background via flowOn) ──
+                val navH = _navigationState.value
+                val cfgH = settings.value
+                val sogKnH = if (cfgH.gpsMode) navH.speedKnots
+                    else navH.demoSpeedKnots ?: if (water) 0f else null
+                val headingDegH = if (cfgH.gpsMode) navH.bearingDeg.toDouble()
+                    else navH.demoBearingDeg?.toDouble() ?: 0.0
+
+                val maxSearchM = BuildConfig.SPEED_ZONE_MAX_SEARCH_M
+                val szIdx = _speedZoneIndex.value
+                val zoneSituation = if (distance != null) {
+                    val currentZone = if (szQuery.insideAnyZone && szQuery.mostRestrictiveSpeedKn != null) {
+                        // INSIDE a SHOM speed zone — prefer it as currentZone over the 300m band
+                        // so the distance tile shows exit info for the regulatory zone, not the
+                        // 300m band (which may have a different beyond-type).
+                        val zone = szQuery.allInsideZones.firstOrNull()
+                        if (zone != null) {
+                            val dist = abs(szQuery.distanceToBoundaryM ?: 0.0)
+                            ZoneBoundaryInfo(
+                                distanceM = dist,
+                                zoneName = zone.name,
+                                speedLimitKn = szQuery.mostRestrictiveSpeedKn!!,
+                                currentSpeedKnots = sogKnH,
+                                isCompliant = sogKnH == null || sogKnH < szQuery.mostRestrictiveSpeedKn!!.toFloat(),
+                                beyondType = BeyondType.OPEN_SEA,
+                            )
+                        } else null
+                    } else if (inZone) {
+                        // Inside the 300m band (no SHOM zone) — compute exit via ray-march.
+                        infoToZoneExitAlongHeading(
+                            center.latitude, center.longitude,
+                            headingDegH, distance, sogKnH, szIdx, maxSearchM
+                        ) ?: run {
+                            // Fallback: exit not found along heading — create from query data.
+                            val q = szQuery
+                            if (q.insideAnyZone && q.mostRestrictiveSpeedKn != null) {
+                                val z = q.allInsideZones.firstOrNull()
+                                if (z != null) {
+                                    val d = abs(q.distanceToBoundaryM ?: 0.0)
+                                    ZoneBoundaryInfo(
+                                        distanceM = d, zoneName = z.name,
+                                        speedLimitKn = q.mostRestrictiveSpeedKn!!,
+                                        currentSpeedKnots = sogKnH,
+                                        isCompliant = sogKnH == null || sogKnH < q.mostRestrictiveSpeedKn!!.toFloat(),
+                                        beyondType = BeyondType.OPEN_SEA,
+                                    )
+                                } else null
+                            } else null
+                        }
+                    } else null
+
+                    val zones = zonesAroundBoat(
+                        center.latitude, center.longitude,
+                        headingDegH, distance, sogKnH, szIdx, maxSearchM,
+                        excludeZoneName = currentZone?.zoneName
+                    )
+                    val zonesAround = zones
+                    ZoneSituation(currentZone = currentZone, zonesAround = zonesAround)
+                } else null
+
+                ShoreState(
+                    distanceMeters = distance,
+                    isWater = water,
+                    inZone = inZone,
+                    distToZone = distToZone,
+                    speedZoneQuery = szQuery,
+                    zoneSituation = zoneSituation
+                )
             }
             .flowOn(Dispatchers.Default)
             .onEach { shore ->
@@ -326,13 +460,22 @@ class CoastlineViewModel(
                 if (shore.distanceMeters != null) {
                     _distanceToShore.value = shore.distanceMeters
                     _isWater.value = shore.isWater
+                    // ── Zone situation — only update alongside valid distance ──
+                    _zoneSituation.value = shore.zoneSituation
                 }
                 _inZone300.value = shore.inZone
                 _distanceToZone.value = shore.distToZone
-                // Hybrid proximity auto-reveal (distance OR time-to-band) — pure logic in zone300Decision().
+
                 val cfg = settings.value
-                // Per-mode opt-out: when auto-show is off for the active mode, leave the band under
-                // manual control and reset the decision state so a later re-enable starts clean.
+
+                // ── SOG source (shared by auto-show) ─────────────────────────
+                val sogKn = if (cfg.gpsMode) {
+                    _navigationState.value.speedKnots
+                } else {
+                    _navigationState.value.demoSpeedKnots ?: if (shore.inZone) 0f else null
+                }
+
+                // ── 300m zone auto-show (uses generalized decision) ─────────
                 val autoShowEnabled = if (cfg.gpsMode) cfg.zone300AutoShowGps else cfg.zone300AutoShowDemo
                 if (!autoShowEnabled) {
                     zone300AutoRevealed = false
@@ -340,35 +483,66 @@ class CoastlineViewModel(
                     lastDistToZone = shore.distToZone
                     return@onEach
                 }
-                // SOG source. GPS: real speed (null before the first fix = unknown). Demo: pan-derived
-                // speed; a *paused* map (null pan speed) reads as 0 kn when INSIDE the zone (you've
-                // parked there → declutter) but as unknown (null) when OUTSIDE, so pausing to observe
-                // the approach never hides the band. Unknown is never treated as stopped/compliant.
-                val sogKn = if (cfg.gpsMode) {
-                    _navigationState.value.speedKnots
-                } else {
-                    _navigationState.value.demoSpeedKnots ?: if (shore.inZone) 0f else null
-                }
-                val decision = zone300Decision(
+                val bandDecision = zoneAutoShowDecision(
                     dist = shore.distToZone,
                     prevDist = lastDistToZone,
-                    inZone = shore.inZone,
+                    insideZone = shore.inZone,
                     sogKn = sogKn,
                     armed = zone300ManuallyHidden,
                     autoRevealed = zone300AutoRevealed,
-                    bandEntered = bandEnteredSinceReveal,
+                    zoneEntered = bandEnteredSinceReveal,
                     revealDistM = cfg.zoneAutoRevealDistanceM.toDouble(),
                     revealTimeS = cfg.zoneAutoRevealTimeS.toDouble(),
-                    regKn = ZoneConfig.zoneRegulatorySpeedKn.toDouble()
+                    config = ZoneAutoShowConfig(
+                        hideOnCompliantInside = true,
+                        regulatorySpeedKn = ZoneConfig.zoneRegulatorySpeedKn.toDouble()
+                    )
                 )
-                zone300AutoRevealed = decision.autoRevealed
-                bandEnteredSinceReveal = decision.bandEntered
-                when (decision.action) {
-                    Zone300Action.REVEAL -> settingsManager.update { it.copy(zone300Visible = true) }
-                    Zone300Action.HIDE -> settingsManager.update { it.copy(zone300Visible = false) }
-                    Zone300Action.NONE -> {}
+                zone300AutoRevealed = bandDecision.autoRevealed
+                bandEnteredSinceReveal = bandDecision.zoneEntered
+                when (bandDecision.action) {
+                    AutoShowAction.REVEAL -> settingsManager.update { it.copy(zone300Visible = true) }
+                    AutoShowAction.HIDE -> settingsManager.update { it.copy(zone300Visible = false) }
+                    AutoShowAction.NONE -> {}
                 }
                 lastDistToZone = shore.distToZone
+
+                // ── Speed zone auto-show (uses generalized decision) ────────
+                val szAutoShowEnabled = if (cfg.gpsMode) cfg.speedZoneAutoShowGps else cfg.speedZoneAutoShowDemo
+                if (!szAutoShowEnabled) {
+                    speedZoneAutoRevealed = false
+                    lastDistToSpeedZone = shore.speedZoneQuery.distanceToBoundaryM
+                } else {
+                    val szDecision = zoneAutoShowDecision(
+                        dist = shore.speedZoneQuery.distanceToBoundaryM,
+                        prevDist = lastDistToSpeedZone,
+                        insideZone = shore.speedZoneQuery.insideAnyZone,
+                        sogKn = sogKn,
+                        armed = speedZoneManuallyHidden,
+                        autoRevealed = speedZoneAutoRevealed,
+                        zoneEntered = false,
+                        revealDistM = cfg.zoneAutoRevealDistanceM.toDouble(),
+                        revealTimeS = cfg.zoneAutoRevealTimeS.toDouble(),
+                        config = ZoneAutoShowConfig(
+                            hideOnCompliantInside = false,
+                            hysteresisM = ZoneConfig.speedZoneHysteresisM
+                        )
+                    )
+                    speedZoneAutoRevealed = szDecision.autoRevealed
+                    when (szDecision.action) {
+                        AutoShowAction.REVEAL -> settingsManager.update { it.copy(speedZonesVisible = true) }
+                        AutoShowAction.HIDE -> settingsManager.update { it.copy(speedZonesVisible = false) }
+                        AutoShowAction.NONE -> {}
+                    }
+                    lastDistToSpeedZone = shore.speedZoneQuery.distanceToBoundaryM
+                }
+
+                // ── Demo speed stop-detection (replaces panStopJob coroutine — no 60 Hz launch) ──
+                val nowMs = SystemClock.elapsedRealtime()
+                if (lastScrollMs > 0 && nowMs - lastScrollMs > PAN_STOP_DELAY_MS) {
+                    _navigationState.update { it.copy(demoSpeedKnots = null) }
+                    lastScrollMs = 0
+                }
             }
             .launchIn(viewModelScope)
 
@@ -475,6 +649,35 @@ class CoastlineViewModel(
             }
             .launchIn(viewModelScope)
 
+        // ── Speed zone index: build once when both data sources are ready ─────
+        combine(
+            regulatedZonesRepository.zoneSet,
+            repository.state.map { (it as? CoastlineState.Ready)?.data?.zone300 }
+                .distinctUntilChanged()
+        ) { zoneSet, _ ->
+            val zones = SpeedZoneBuilder.build(zoneSet)
+            val zoneCount = zoneSet?.zones?.size ?: 0
+            val speedCount = zones.size
+            Log.d(TAG, "SpeedZoneIndex: zoneSet has $zoneCount total zones, $speedCount speed zones")
+            if (zoneSet != null) {
+                Log.d(TAG, "SpeedZoneIndex: sample raw zones: ${zoneSet.zones.take(5).joinToString { "name='${it.name}' speed=${it.speedLimitKn} source=${it.source}" }}")
+            }
+            if (zones.isNotEmpty()) {
+                Log.d(TAG, "SpeedZoneIndex: building index with ${zones.size} zones")
+                zones.forEachIndexed { i, sz ->
+                    Log.d(TAG, "SpeedZoneIndex:   zone[$i] id='${sz.id}' name='${sz.name}' speed=${sz.speedLimitKn}kn vertices=${sz.outerRing.size} source=${sz.source}")
+                }
+                Log.d(TAG, "SpeedZoneIndex: total outer vertices: ${zones.sumOf { it.outerRing.size }}")
+                SpeedZoneIndex(zones)
+            } else {
+                Log.w(TAG, "SpeedZoneIndex: no speed zones found (zoneSet=${zoneSet != null})")
+                null
+            }
+        }
+            .distinctUntilChanged()
+            .onEach { idx -> _speedZoneIndex.value = idx }
+            .launchIn(viewModelScope)
+
         // Leaving GPS mode → clear GPS-derived state so demo pans freely (north-up) and a
         // later re-enable recenters even if the first fix repeats the last coordinates.
         settings.map { it.gpsMode }
@@ -575,6 +778,22 @@ class CoastlineViewModel(
     }
 
     /**
+     * Toggles the speed zone overlay visibility. Manages both the manual-hide flag
+     * and the auto-reveal flag so the state machine stays consistent.
+     */
+    fun toggleSpeedZonesVisibility() {
+        val current = settings.value.speedZonesVisible
+        settingsManager.update { it.copy(speedZonesVisible = !current) }
+        if (current) { // was visible → now hiding (user manually hid it)
+            speedZoneManuallyHidden = true
+            speedZoneAutoRevealed = false
+        } else { // was hidden → now showing (user manually toggled back on)
+            speedZoneManuallyHidden = false
+            speedZoneAutoRevealed = false
+        }
+    }
+
+    /**
      * Toggles the low-depth (<threshold) pink grounding-hazard overlay visibility.
      * Plain on/off — unlike the 300 m band there is no auto-reveal state to manage.
      */
@@ -601,10 +820,12 @@ class CoastlineViewModel(
      */
     fun updateMapCenter(latitude: Double, longitude: Double) {
         _mapCenter.value = LatLng(latitude, longitude)
-        // Persist only for user-driven moves. GPS auto-follow would write ~1×/s, so it relies on
-        // savePosition() at ON_PAUSE (exit) instead. Demo (no gpsMode) persists per pan, as before.
-        val userDriven = !settings.value.gpsMode || _autoFollowSuppressed.value
-        if (userDriven) {
+        // Throttle settings persistence to ~1 Hz — every scroll event (60 fps) would trigger
+        // appSettings StateFlow → Compose recomposition at 60 fps, bypassing uiMapCenter throttle.
+        // Full position is persisted via savePosition() at ON_PAUSE for crash recovery.
+        val nowMs = SystemClock.elapsedRealtime()
+        if (nowMs - lastPersistMs >= 1_000L) {
+            lastPersistMs = nowMs
             settingsManager.update { it.copy(mapCenterLat = latitude, mapCenterLon = longitude) }
         }
         // Demo mode: extrapolate pan velocity → simulated speed in knots (and heading if enabled).
@@ -637,7 +858,12 @@ class CoastlineViewModel(
                 // low-speed drags responsive. Slow drag → ~3-6 kn, brisk → ~20-50 kn.
                 val rawMps = dist / (elapsed / 1_000.0)
                 val knots = sqrt(rawMps * DEMO_SPEED_SCALE).coerceIn(0.0, MAX_DEMO_KNOTS)
-                _navigationState.update { it.copy(demoSpeedKnots = knots.toFloat()) }
+
+                // Heading is NOT extrapolated from panning — always 0° (north) in demo mode.
+                // Only speed is derived from pan velocity.
+                _navigationState.update { it.copy(
+                    demoSpeedKnots = knots.toFloat()
+                ) }
                 lastPanLat = lat
                 lastPanLon = lon
                 lastPanMs = now
@@ -647,12 +873,8 @@ class CoastlineViewModel(
             lastPanLon = lon
             lastPanMs = now
         }
-        // Restart stop-detection: clear speed 500 ms after the last pan event.
-        panStopJob?.cancel()
-        panStopJob = viewModelScope.launch {
-            delay(PAN_STOP_DELAY_MS)
-            if (isActive) _navigationState.update { it.copy(demoSpeedKnots = null) }
-        }
+        // Track last scroll for stop-detection (checked in pipeline onEach — no coroutine churn).
+        lastScrollMs = now
     }
 
     /**
@@ -715,20 +937,369 @@ class CoastlineViewModel(
     fun distanceToCoastMeters(latitude: Double, longitude: Double): Double =
         repository.distanceToCoastMeters(latitude, longitude)
 
+    // ── Heading-aware speed zone ahead ────────────────────────────────────────
+
+    /**
+     * Distance (meters) from (lat, lon) to the 300m band along [headingDeg],
+     * using ray-march in 10m increments with binary-search termination.
+     *
+     * Returns 0.0 if already inside the 300m band (currentDistToCoast <= 300),
+     * or null if no band intersection within [maxSearch] meters.
+     */
+    private fun distanceTo300mAlongHeading(
+        lat: Double, lon: Double,
+        headingDeg: Double,
+        currentDistToCoast: Double,
+        maxSearchM: Double = 500.0
+    ): Double? {
+        // Already inside the band
+        if (currentDistToCoast <= CoastlineRepository.ZONE_DISTANCE_M) return 0.0
+
+        // Ray-march in 10m steps
+        val stepM = 10.0
+        val maxSteps = (maxSearchM / stepM).toInt()
+        var prevDist = currentDistToCoast
+        var prevStepDist = 0.0
+
+        for (i in 1..maxSteps) {
+            val stepDist = i * stepM
+            val pt = SpatialOperations.pointAlongBearing(lat, lon, headingDeg, stepDist)
+            val coastDist = repository.distanceToCoastMeters(pt.latitude, pt.longitude)
+
+            if (coastDist <= CoastlineRepository.ZONE_DISTANCE_M) {
+                // Crossed into the band — binary search between prevStepDist and stepDist
+                var lo = prevStepDist
+                var hi = stepDist
+                repeat(10) { // 10 iterations = ~1cm precision
+                    val mid = (lo + hi) / 2.0
+                    val midPt = SpatialOperations.pointAlongBearing(lat, lon, headingDeg, mid)
+                    val midCoastDist = repository.distanceToCoastMeters(midPt.latitude, midPt.longitude)
+                    if (midCoastDist <= CoastlineRepository.ZONE_DISTANCE_M) {
+                        hi = mid
+                    } else {
+                        lo = mid
+                    }
+                }
+                return hi
+            }
+            prevDist = coastDist
+            prevStepDist = stepDist
+        }
+        return null // No intersection within maxSearchM
+    }
+
+    /**
+     * Unified entry query: distance + ETA to the nearest zone boundary along heading.
+     * Directly queries the 300m band ray-march and SHOM firstSpeedZoneAhead,
+     * picking the closest result. Returns null when no zone is ahead.
+     */
+    /**
+     * Unified zone query: returns all relevant zones within [radiusM] of the boat,
+     * sorted by heading-priority (zones directly ahead first).
+     *
+     * Combines three sources:
+     * 1. Direct heading ray-march for 300m band entry
+     * 2. Direct heading ray for SHOM zones (firstSpeedZoneAhead)
+     * 3. Radial scan for remaining zones within radius
+     * 4. 300m band virtual zone
+     */
+    private fun zonesAroundBoat(
+        lat: Double, lon: Double,
+        headingDeg: Double,
+        currentDistToCoast: Double,
+        currentSpeedKnots: Float?,
+        speedZoneIndex: SpeedZoneIndex?,
+        radiusM: Double = 500.0,
+        excludeZoneName: String? = null,
+        onlyAhead: Boolean = true
+    ): List<ZoneBoundaryInfo> {
+        val results = mutableListOf<ZoneBoundaryInfo>()
+        val pos = LatLng(lat, lon)
+
+        // Helper to compute ETA for heading-ray results
+        fun eta(distM: Double): Double? = if (currentSpeedKnots != null && currentSpeedKnots > 0f)
+            (distM / (currentSpeedKnots * 0.514444)).coerceAtLeast(0.0) else null
+
+        // 1. Direct heading ray-march for 300m band entry
+        val bandDist = distanceTo300mAlongHeading(lat, lon, headingDeg, currentDistToCoast, radiusM)
+        if (bandDist != null && bandDist > 0.0 && bandDist <= radiusM && "BANDE 300M" != excludeZoneName) {
+            val pt = SpatialOperations.pointAlongBearing(lat, lon, headingDeg, bandDist)
+            val bearing = SpatialOperations.initialBearing(pos, pt)
+            results.add(ZoneBoundaryInfo(
+                distanceM = bandDist, zoneName = "BANDE 300M",
+                speedLimitKn = 5.0, beyondType = BeyondType.ZONE, beyondName = "BANDE 300M",
+                directionArrow = computeArrow(bearing, headingDeg),
+                etaSeconds = eta(bandDist),
+                currentSpeedKnots = currentSpeedKnots,
+                isCompliant = currentSpeedKnots == null || currentSpeedKnots < 5f,
+                boundaryPosition = pt
+            ))
+        }
+
+        // 2. Direct heading ray for SHOM zones
+        val szHit = speedZoneIndex?.firstSpeedZoneAhead(lat, lon, headingDeg, radiusM)
+        if (szHit != null && szHit.second > 0.0 && szHit.second <= radiusM && szHit.first.name != excludeZoneName) {
+            val (zone, dist) = szHit
+            val pt = SpatialOperations.pointAlongBearing(lat, lon, headingDeg, dist)
+            val bearing = SpatialOperations.initialBearing(pos, pt)
+            val limitKn = zone.speedLimitKn.toDouble()
+            results.add(ZoneBoundaryInfo(
+                distanceM = dist, zoneName = zone.name,
+                speedLimitKn = limitKn,
+                beyondType = BeyondType.ZONE, beyondName = zone.name,
+                directionArrow = computeArrow(bearing, headingDeg),
+                etaSeconds = eta(dist),
+                currentSpeedKnots = currentSpeedKnots,
+                isCompliant = currentSpeedKnots == null || currentSpeedKnots < limitKn.toFloat(),
+                boundaryPosition = pt
+            ))
+        }
+
+        // 3. Radial scan (only when !onlyAhead — heading-ray callers skip this)
+        if (!onlyAhead) {
+        val query = speedZoneIndex?.query(lat, lon)
+        query?.let { q ->
+            val foundNames = results.map { it.zoneName }.toSet()
+            // nearest zone (if not already in results and not excluded)
+            if (q.distanceToBoundaryM != null && abs(q.distanceToBoundaryM) <= radiusM) {
+                q.nearestZone?.let { zone ->
+                    if (zone.name !in foundNames && zone.name != excludeZoneName) {
+                        val ring = zone.outerRing
+                        val nearestPt = ring.minByOrNull { SpatialOperations.haversine(pos, it) }
+                        val edgeDist = nearestPt?.let { SpatialOperations.haversine(pos, it) }
+                            ?: abs(q.distanceToBoundaryM)
+                        if (edgeDist <= radiusM) {
+                            val bearing = nearestPt?.let { SpatialOperations.initialBearing(pos, it) } ?: headingDeg
+                            results.add(ZoneBoundaryInfo(
+                                distanceM = edgeDist, zoneName = zone.name,
+                                speedLimitKn = zone.speedLimitKn.toDouble(),
+                                beyondType = BeyondType.ZONE, beyondName = zone.name,
+                                directionArrow = computeArrow(bearing, headingDeg)
+                            ))
+                        }
+                    }
+                }
+            }
+            // inside zones (not already in results and not excluded)
+            for (zone in q.allInsideZones) {
+                if (zone.name !in foundNames && results.none { it.zoneName == zone.name } && zone.name != excludeZoneName) {
+                    val ring = zone.outerRing
+                    val nearestPt = ring.minByOrNull { SpatialOperations.haversine(pos, it) }
+                    val dist = nearestPt?.let { SpatialOperations.haversine(pos, it) } ?: 0.0
+                    if (dist <= radiusM) {
+                        val bearing = nearestPt?.let { SpatialOperations.initialBearing(pos, it) } ?: headingDeg
+                        results.add(ZoneBoundaryInfo(
+                            distanceM = dist, zoneName = zone.name,
+                            speedLimitKn = zone.speedLimitKn.toDouble(),
+                            beyondType = BeyondType.ZONE, beyondName = zone.name,
+                            directionArrow = computeArrow(bearing, headingDeg)
+                        ))
+                    }
+                }
+            }
+        }
+        } // end if (!onlyAhead)
+
+        // 4. 300m band virtual zone (only when !onlyAhead — heading-ray already has it from step 1)
+        if (!onlyAhead && "BANDE 300M" !in results.map { it.zoneName }) {
+            if (currentDistToCoast <= CoastlineRepository.ZONE_DISTANCE_M + radiusM) {
+                val bandDist = maxOf(0.0, currentDistToCoast - CoastlineRepository.ZONE_DISTANCE_M)
+                results.add(ZoneBoundaryInfo(
+                    distanceM = bandDist, zoneName = "BANDE 300M",
+                    speedLimitKn = 5.0, beyondType = BeyondType.ZONE, beyondName = "BANDE 300M"
+                ))
+            }
+        }
+
+        // 5. Sort by heading priority: ahead (↑) first, then side (→/←), then behind (↓)
+        return results.sortedBy { info ->
+            when (info.directionArrow) {
+                "\u2191" -> 0
+                "\u2192", "\u2190" -> 1
+                else -> 2
+            }
+        }
+    }
+
+    /**
+     * Computes a direction arrow (↑ → ← ↓) based on the bearing to a zone
+     * relative to the boat's heading.
+     */
+    private fun computeArrow(zoneBearingDeg: Double, headingDeg: Double): String {
+        if (headingDeg < 0.0) return "\u2191"
+        val diff = ((zoneBearingDeg - headingDeg + 540.0) % 360.0) - 180.0
+        return when {
+            diff > 150.0 || diff < -150.0 -> "\u2193"
+            diff > CONE_HALF_ANGLE -> "\u2192"
+            diff < -CONE_HALF_ANGLE -> "\u2190"
+            else -> "\u2191"
+        }
+    }
+
+    /**
+     * Unified exit query: distance + ETA to exit the current zone along heading.
+     * Returns null when exit can't be determined.
+     *
+     * For the 300m band: inverts the ray-march — searches forward until coastDist > ZONE_DISTANCE_M.
+     * For SHOM zones: queries the spatial index for the nearest boundary.
+     */
+    private fun infoToZoneExitAlongHeading(
+        lat: Double, lon: Double,
+        headingDeg: Double,
+        currentDistToCoast: Double,
+        currentSpeedKnots: Float?,
+        speedZoneIndex: SpeedZoneIndex?,
+        maxSearchM: Double = 500.0
+    ): ZoneBoundaryInfo? {
+        // 300m band exit: inverted ray-march
+        val bandExit = if (currentDistToCoast <= CoastlineRepository.ZONE_DISTANCE_M) {
+            findBandExitAlongHeading(lat, lon, headingDeg, currentDistToCoast, maxSearchM)
+        } else null
+
+        // SHOM zone exit: query the index for the current zone boundary
+        val szQuery = speedZoneIndex?.query(lat, lon)
+        val szExit = szQuery?.let { q ->
+            val nz = q.nearestZone ?: q.allInsideZones.firstOrNull()
+            if (nz != null && q.distanceToBoundaryM != null) {
+                val rawDist = abs(q.distanceToBoundaryM!!)
+                val ring = nz.outerRing
+                val nearestPt = ring.minByOrNull { pt ->
+                    SpatialOperations.haversine(LatLng(lat, lon), pt)
+                }
+                val bearing = nearestPt?.let { SpatialOperations.initialBearing(LatLng(lat, lon), it) }
+                // Project shortest exit distance onto heading direction
+                val headingDiff = if (bearing != null) {
+                    abs(((bearing - headingDeg + 540.0) % 360.0) - 180.0)
+                } else 0.0
+                val projectedDist = if (headingDiff <= 90.0) {
+                    (rawDist / cos(Math.toRadians(headingDiff))).coerceAtMost(rawDist * 3.0)
+                } else null
+                if (projectedDist != null) {
+                    Triple(nz.name, nz.speedLimitKn, projectedDist)
+                } else null
+            } else null
+        }
+
+        // Pick closest exit
+        val bestExit = when {
+            bandExit != null && szExit != null ->
+                if (bandExit <= szExit.third) Triple("BANDE 300M", 5.0, bandExit) else szExit
+            bandExit != null -> Triple("BANDE 300M", 5.0, bandExit)
+            szExit != null -> szExit
+            else -> return null
+        }
+
+        val (zoneName, limitKn, exitDistM) = bestExit
+        val etaSeconds = if (currentSpeedKnots != null && currentSpeedKnots > 0f) {
+            (exitDistM / (currentSpeedKnots * 0.514444)).coerceAtLeast(0.0)
+        } else null
+        val compliant = currentSpeedKnots == null || currentSpeedKnots < limitKn.toFloat()
+        val boundaryPos = SpatialOperations.pointAlongBearing(lat, lon, headingDeg, exitDistM)
+        val beyond = determineBeyondType(boundaryPos, headingDeg, speedZoneIndex)
+
+        return ZoneBoundaryInfo(
+            distanceM = exitDistM,
+            etaSeconds = etaSeconds,
+            directionArrow = "\u2191",
+            zoneName = zoneName,
+            speedLimitKn = limitKn,
+            currentSpeedKnots = currentSpeedKnots,
+            isCompliant = compliant,
+            beyondType = beyond.first,
+            beyondName = beyond.second,
+            boundaryPosition = boundaryPos
+        )
+    }
+
+    /**
+     * Inverted ray-march for 300m band: from inside the band, walk forward along heading
+     * until [coastDist] exceeds [ZONE_DISTANCE_M], then binary-search the exact exit boundary.
+     * Returns distance (m) to exit, or null if no exit within 2km.
+     */
+    private fun findBandExitAlongHeading(
+        lat: Double, lon: Double,
+        headingDeg: Double,
+        currentDistToCoast: Double,
+        maxSearchM: Double = 500.0
+    ): Double? {
+        // Already outside the band — can't be exiting
+        if (currentDistToCoast > CoastlineRepository.ZONE_DISTANCE_M) return null
+
+        val stepM = 10.0
+        val maxSteps = (maxSearchM / stepM).toInt()
+        var prevStepDist = 0.0
+        var prevCoastDist = currentDistToCoast
+
+        for (i in 1..maxSteps) {
+            val stepDist = i * stepM
+            val pt = SpatialOperations.pointAlongBearing(lat, lon, headingDeg, stepDist)
+            val coastDist = repository.distanceToCoastMeters(pt.latitude, pt.longitude)
+
+            if (coastDist > CoastlineRepository.ZONE_DISTANCE_M) {
+                // Crossed out of the band — binary search between prevStepDist and stepDist
+                var lo = prevStepDist
+                var hi = stepDist
+                var loDist = prevCoastDist
+                repeat(10) {
+                    val mid = (lo + hi) / 2.0
+                    val midPt = SpatialOperations.pointAlongBearing(lat, lon, headingDeg, mid)
+                    val midCoastDist = repository.distanceToCoastMeters(midPt.latitude, midPt.longitude)
+                    if (midCoastDist <= CoastlineRepository.ZONE_DISTANCE_M) {
+                        lo = mid
+                        loDist = midCoastDist
+                    } else {
+                        hi = mid
+                    }
+                }
+                return hi
+            }
+            prevStepDist = stepDist
+            prevCoastDist = coastDist
+        }
+        return null // No exit within maxSearch
+    }
+
+    /**
+     * Determines what lies beyond a [boundaryPos] along [headingDeg].
+     * Checks zone first (instant), then exponential land probe up to 500m.
+     * @return Pair(beyondType, zoneName if ZONE, null otherwise)
+     */
+    private fun determineBeyondType(
+        boundaryPos: LatLng, headingDeg: Double,
+        speedZoneIndex: SpeedZoneIndex?
+    ): Pair<BeyondType, String?> {
+        val blt = boundaryPos.latitude
+        val blo = boundaryPos.longitude
+        // 1. Check for another zone ahead (instant, independent of distance)
+        val nextZone = speedZoneIndex?.firstSpeedZoneAhead(blt, blo, headingDeg)
+        if (nextZone != null) return BeyondType.ZONE to nextZone.first.name
+
+        // 2. Exponential land probe: 25 → 50 → 100 → 200 → 400 → 500 (cap)
+        var probe = 25.0
+        while (probe <= 500.0) {
+            val pt = SpatialOperations.pointAlongBearing(blt, blo, headingDeg, probe)
+            if (!repository.isOnWater(pt.latitude, pt.longitude)) return BeyondType.LAND to null
+            probe *= 2
+        }
+        return BeyondType.OPEN_SEA to null
+    }
+
     /** GPS subscription parameters — flatMapLatest re-subscribes the listener when any field changes. */
     private data class GpsParams(val on: Boolean, val intervalMs: Long, val minDistanceM: Float)
 
-    /** Result of one throttled recompute: shore distance + water flag + 300 m zone status. */
+    /** Result of one throttled recompute: shore distance + water flag + 300 m zone + speed zone data + unified zone situation. */
     private data class ShoreState(
         val distanceMeters: Double?,
         val isWater: Boolean,
         val inZone: Boolean,
-        val distToZone: Double?
+        val distToZone: Double?,
+        val speedZoneQuery: SpeedZoneQuery = SpeedZoneQuery(),
+        val zoneSituation: ZoneSituation? = null
     )
 
     companion object {
-        /** Sampling interval for the map-center recompute pipeline (~6–7 Hz). */
-        private const val SHORE_SAMPLE_INTERVAL_MS = 150L
+        /** Sampling interval for the map-center recompute pipeline (~3 Hz). */
+        private const val SHORE_SAMPLE_INTERVAL_MS = 333L
 
         /** Time without a GPS course before the compass takes over heading-up (rule 3). */
         private const val HEADING_FALLBACK_MS = 3_000L
@@ -740,7 +1311,7 @@ class CoastlineViewModel(
         private const val HEADING_SAMPLE_MS = 200L
 
         /** Minimum interval (ms) between demo speed computations — throttles the 60 fps scroll stream. */
-        private const val MIN_DEMO_SPEED_INTERVAL_MS = 100L
+        private const val MIN_DEMO_SPEED_INTERVAL_MS = 333L
 
         /** Inactivity timeout (ms) before demo pan speed resets to null. */
         private const val PAN_STOP_DELAY_MS = 500L
@@ -750,6 +1321,8 @@ class CoastlineViewModel(
 
         /** Scale factor for sqrt-compressed demo speed: knots = sqrt(rawMps × this). */
         private const val DEMO_SPEED_SCALE = 0.2
+        /** Cone half-angle (degrees) — zones within ±this of heading get priority and show as "ahead". */
+        private const val CONE_HALF_ANGLE = 15.0
         /** Maximum demo speed in knots — prevents extreme swipes from going off-scale. */
         private const val MAX_DEMO_KNOTS = 50.0
 
@@ -782,35 +1355,178 @@ class CoastlineViewModel(
     }
 }
 
-/** Outcome of one [zone300Decision] evaluation. */
-internal enum class Zone300Action { NONE, REVEAL, HIDE }
+/** What's beyond a zone boundary along the current heading. */
+enum class BeyondType { LAND, ZONE, OPEN_SEA }
 
-/** Action + next flag state from one auto-reveal evaluation (immutable, side-effect-free). */
-internal data class Zone300Decision(
-    val action: Zone300Action,
-    val autoRevealed: Boolean,
-    val bandEntered: Boolean
+/**
+ * Unified result for both entry (approaching) and exit (inside) zone boundary info.
+ *
+ * @property distanceM        Distance (m) to the zone boundary along heading.
+ * @property etaSeconds       ETA to the boundary at current SOG, or null if speed unknown.
+ * @property directionArrow   Unicode arrow: ↑ ahead, → starboard, ← port, ↓ behind.
+ * @property zoneName         Name of the zone (e.g. "BANDE 300M" or SHOM zone).
+ * @property speedLimitKn     Speed limit in the zone.
+ * @property currentSpeedKnots Boat's current SOG (for caller to compare vs limit).
+ * @property isCompliant      true when currentSpeedKnots <= speedLimitKn.
+ * @property beyondType       What's past the boundary — LAND, ZONE, or OPEN_SEA.
+ * @property beyondName       Zone name if beyondType==ZONE, null otherwise.
+ * @property boundaryPosition Geographic intersection point on the zone boundary.
+ */
+data class ZoneBoundaryInfo(
+    val distanceM: Double,
+    val etaSeconds: Double? = null,
+    val directionArrow: String = "\u2191",
+    val zoneName: String,
+    val speedLimitKn: Double,
+    val currentSpeedKnots: Float? = null,
+    val isCompliant: Boolean = true,
+    val beyondType: BeyondType,
+    val beyondName: String? = null,
+    val boundaryPosition: LatLng? = null
 )
+
+/**
+ * Unified zone situation at the boat position — replaces 7 individual StateFlows.
+ *
+ * @property currentZone   The zone the boat is currently inside (exit boundary info),
+ *                         or null if not inside any zone.
+ * @property headingAhead  The next zone boundary along the boat's heading (entry info),
+ *                         or null if nothing ahead or already inside a zone.
+ * @property nearbyZones   All zones (SHOM + 300m band virtual zone) within the search radius,
+ *                         sorted by distance.
+ */
+data class ZoneSituation(
+    val currentZone: ZoneBoundaryInfo?,
+    val zonesAround: List<ZoneBoundaryInfo>,
+)
+
+/** Outcome of one generalized zone auto-show evaluation. */
+internal enum class AutoShowAction { NONE, REVEAL, HIDE }
+
+/**
+ * Action + next flag state from one auto-reveal evaluation (immutable, side-effect-free).
+ *
+ * Replaces both [Zone300Decision] and [SpeedZoneDecision] with a single result type.
+ * @property zoneEntered Tracks whether the boat has crossed into the zone since last auto-reveal
+ *                       (only meaningful for 300m band behavior; always false for speed zones).
+ */
+internal data class AutoShowDecision(
+    val action: AutoShowAction,
+    val autoRevealed: Boolean,
+    val zoneEntered: Boolean = false
+)
+
+/** Configuration for [zoneAutoShowDecision] behavioral differences between zone types. */
+internal data class ZoneAutoShowConfig(
+    /** True = hide when compliant inside (300m band behavior). False = stay visible while inside (speed zone behavior). */
+    val hideOnCompliantInside: Boolean = true,
+    /** Regulatory speed limit (kn) for compliance check (only when [hideOnCompliantInside]). */
+    val regulatorySpeedKn: Double = 5.0,
+    /** Hysteresis deadband (m) for boundary detection (only for speed zone behavior). */
+    val hysteresisM: Double = 5.0
+)
+
+// Backward-compat typealiases so existing tests and toggle functions still compile.
+@Deprecated("Use AutoShowAction", ReplaceWith("AutoShowAction"))
+internal typealias Zone300Action = AutoShowAction
+@Deprecated("Use AutoShowAction", ReplaceWith("AutoShowAction"))
+internal typealias SpeedZoneAction = AutoShowAction
+@Deprecated("Use AutoShowDecision", ReplaceWith("AutoShowDecision"))
+internal typealias Zone300Decision = AutoShowDecision
+@Deprecated("Use AutoShowDecision", ReplaceWith("AutoShowDecision"))
+internal typealias SpeedZoneDecision = AutoShowDecision
 
 private const val KNOTS_TO_MPS = 0.514444      // 1 knot = 0.514444 m/s
 private const val CLOSING_EPS_MPS = 0.05       // ignore closing speeds below ~0.1 kn for time-to-band
 private const val STOPPED_SPEED_KN = 1.0f      // at/below this SOG the boat is "stopped" → auto-hide, never reveal
 
 /**
- * Pure decision for the 300 m zone proximity auto-reveal — no side effects, unit-testable.
+ * Generalized pure function for zone proximity auto-reveal — replaces both [zone300Decision]
+ * and [speedZoneDecision] with a single parameterized implementation.
  *
- * Reveal (only while [armed], not already shown, and still OUTSIDE the band): approach-gated
- * **hybrid** — the boat is closing on the band AND is either within [revealDistM] of the band
- * edge OR within [revealTimeS] of it at the current SOG. Re-hide (only while [autoRevealed]) on
- * any of: stopped and no longer closing (SOG ≤ STOPPED_SPEED_KN), compliant inside the band
- * (SOG ≤ [regKn]), exited the band seaward after entering, or retreated past [revealDistM]
- * without ever entering. [armed] persists through an auto-hide, so re-approaching re-reveals.
+ * Handles two zone types via [config]:
+ * - **300m band** ([hideOnCompliantInside] = true): hides when compliant inside the band (boat at or
+ *   below regulatory speed). Tracks [zoneEntered] for seaward-exit detection.
+ * - **Speed zone** ([hideOnCompliantInside] = false): stays visible while navigating through;
+ *   only hides when stopped+idle or retreated past the reveal margin. No compliance-inside hide.
  *
- * @param dist     signed distance to the 300 m band edge (+ outside, − inside); null if unknown.
- * @param prevDist previous [dist] sample for direction; null on the first tick.
- * @param inZone   true when inside the 300 m band on the water side.
- * @param sogKn    speed over ground (kn); null in demo mode / before the first GPS fix.
+ * Reveal (only while [armed], not already shown, still OUTSIDE): approach-gated hybrid — the boat
+ * is closing AND is either within [revealDistM] of the boundary or within [revealTimeS] at SOG.
+ * [armed] persists through auto-hide, so re-approaching re-reveals.
+ *
+ * @param dist         signed distance to zone boundary (+ outside, − inside); null if unknown.
+ * @param prevDist     previous [dist] sample for direction; null on first tick.
+ * @param insideZone   true when currently inside the zone.
+ * @param sogKn        speed over ground (kn); null in demo mode / before first GPS fix.
+ * @param armed        true when the user manually hid the zone.
+ * @param autoRevealed true when the system previously auto-revealed.
+ * @param zoneEntered  true if the boat has crossed into the zone since the last auto-reveal (300m only).
+ * @param revealDistM  distance (m) outside boundary at which to reveal.
+ * @param revealTimeS  time (s) to boundary at SOG at which to reveal.
+ * @param config       behavioral configuration ([ZoneAutoShowConfig]).
  */
+internal fun zoneAutoShowDecision(
+    dist: Double?,
+    prevDist: Double?,
+    insideZone: Boolean,
+    sogKn: Float?,
+    armed: Boolean,
+    autoRevealed: Boolean,
+    zoneEntered: Boolean,
+    revealDistM: Double,
+    revealTimeS: Double,
+    config: ZoneAutoShowConfig = ZoneAutoShowConfig()
+): AutoShowDecision {
+    val approaching = dist != null && prevDist != null && dist < prevDist
+    val movingAway = dist != null && prevDist != null && dist > prevDist
+    val stopped = sogKn != null && sogKn <= STOPPED_SPEED_KN
+    val entered = zoneEntered || (autoRevealed && dist != null && dist <= 0.0)
+
+    if (!autoRevealed) {
+        val sogMps = (sogKn ?: 0f) * KNOTS_TO_MPS
+        val timeToZoneS =
+            if (approaching && dist != null && dist > 0.0 && sogMps > CLOSING_EPS_MPS) dist / sogMps
+            else Double.POSITIVE_INFINITY
+        val reveal = armed && approaching && dist != null && dist > 0.0 &&
+            (dist <= revealDistM || timeToZoneS <= revealTimeS)
+        return AutoShowDecision(
+            action = if (reveal) AutoShowAction.REVEAL else AutoShowAction.NONE,
+            autoRevealed = reveal,
+            zoneEntered = false
+        )
+    }
+
+    val stoppedAndIdle = stopped && !approaching
+
+    if (config.hideOnCompliantInside) {
+        // 300m band behavior: hide on compliant-inside, exited seaward, or retreated
+        val compliantInside = insideZone && sogKn != null && sogKn <= config.regulatorySpeedKn
+        val exitedSeaward = entered && dist != null && dist > 0.0 && movingAway
+        val retreatedPastMargin = !entered && dist != null && dist > revealDistM && movingAway
+        val hide = stoppedAndIdle || compliantInside || exitedSeaward || retreatedPastMargin
+        return AutoShowDecision(
+            action = if (hide) AutoShowAction.HIDE else AutoShowAction.NONE,
+            autoRevealed = !hide,
+            zoneEntered = if (hide) false else entered
+        )
+    } else {
+        // Speed zone behavior: hide only when stopped+idle or retreated past margin
+        val effectivelyOutside = dist != null && dist > config.hysteresisM
+        val retreatedPastMargin = effectivelyOutside && movingAway && dist != null && dist > revealDistM
+        val hide = stoppedAndIdle || retreatedPastMargin
+        return AutoShowDecision(
+            action = if (hide) AutoShowAction.HIDE else AutoShowAction.NONE,
+            autoRevealed = !hide
+        )
+    }
+}
+
+/**
+ * Delegates to [zoneAutoShowDecision] with 300m-band config — kept for backward compatibility.
+ * @see zoneAutoShowDecision
+ */
+@Deprecated("Use zoneAutoShowDecision() with ZoneAutoShowConfig(hideOnCompliantInside=true)",
+    ReplaceWith("zoneAutoShowDecision(dist, prevDist, inZone, sogKn, armed, autoRevealed, bandEntered, revealDistM, revealTimeS, ZoneAutoShowConfig(hideOnCompliantInside = true, regulatorySpeedKn = regKn))"))
 internal fun zone300Decision(
     dist: Double?,
     prevDist: Double?,
@@ -822,39 +1538,32 @@ internal fun zone300Decision(
     revealDistM: Double,
     revealTimeS: Double,
     regKn: Double
-): Zone300Decision {
-    val approaching = dist != null && prevDist != null && dist < prevDist
-    val movingAway = dist != null && prevDist != null && dist > prevDist
-    val stopped = sogKn != null && sogKn <= STOPPED_SPEED_KN
-    val entered = bandEntered || (autoRevealed && dist != null && dist <= 0.0)
+): AutoShowDecision = zoneAutoShowDecision(
+    dist = dist, prevDist = prevDist, insideZone = inZone, sogKn = sogKn,
+    armed = armed, autoRevealed = autoRevealed, zoneEntered = bandEntered,
+    revealDistM = revealDistM, revealTimeS = revealTimeS,
+    config = ZoneAutoShowConfig(hideOnCompliantInside = true, regulatorySpeedKn = regKn)
+)
 
-    if (!autoRevealed) {
-        val sogMps = (sogKn ?: 0f) * KNOTS_TO_MPS
-        val timeToBandS =
-            if (approaching && dist > 0.0 && sogMps > CLOSING_EPS_MPS) dist / sogMps
-            else Double.POSITIVE_INFINITY
-        // Reveal while OUTSIDE the band (dist > 0) and closing on it. Speed gates the *time* arm
-        // only — a slowly-but-genuinely-approaching boat still reveals via the distance arm.
-        // Already inside + manually hidden → respect the hide, the approach warning is moot.
-        val reveal = armed && approaching && dist > 0.0 &&
-            (dist <= revealDistM || timeToBandS <= revealTimeS)
-        return Zone300Decision(
-            action = if (reveal) Zone300Action.REVEAL else Zone300Action.NONE,
-            autoRevealed = reveal,
-            bandEntered = false
-        )
-    }
-
-    // Stopped hides only once the boat is no longer closing — an approaching boat keeps the alert,
-    // which also prevents reveal/hide flapping at very low speed.
-    val stoppedAndIdle = stopped && !approaching
-    val compliantInside = inZone && sogKn != null && sogKn <= regKn
-    val exitedSeaward = entered && dist != null && dist > 0.0 && movingAway
-    val retreatedPastMargin = !entered && dist != null && dist > revealDistM && movingAway
-    val hide = stoppedAndIdle || compliantInside || exitedSeaward || retreatedPastMargin
-    return Zone300Decision(
-        action = if (hide) Zone300Action.HIDE else Zone300Action.NONE,
-        autoRevealed = !hide,
-        bandEntered = if (hide) false else entered
-    )
-}
+/**
+ * Delegates to [zoneAutoShowDecision] with speed-zone config — kept for backward compatibility.
+ * @see zoneAutoShowDecision
+ */
+@Deprecated("Use zoneAutoShowDecision() with ZoneAutoShowConfig(hideOnCompliantInside=false, hysteresisM=...)",
+    ReplaceWith("zoneAutoShowDecision(distToBoundary, prevDist, insideAnyZone, sogKn, armed, autoRevealed, false, revealDistM, revealTimeS, ZoneAutoShowConfig(hideOnCompliantInside = false, hysteresisM = hysteresisM))"))
+internal fun speedZoneDecision(
+    distToBoundary: Double?,
+    prevDist: Double?,
+    insideAnyZone: Boolean,
+    sogKn: Float?,
+    armed: Boolean,
+    autoRevealed: Boolean,
+    revealDistM: Double,
+    revealTimeS: Double,
+    hysteresisM: Double
+): AutoShowDecision = zoneAutoShowDecision(
+    dist = distToBoundary, prevDist = prevDist, insideZone = insideAnyZone, sogKn = sogKn,
+    armed = armed, autoRevealed = autoRevealed, zoneEntered = false,
+    revealDistM = revealDistM, revealTimeS = revealTimeS,
+    config = ZoneAutoShowConfig(hideOnCompliantInside = false, hysteresisM = hysteresisM)
+)

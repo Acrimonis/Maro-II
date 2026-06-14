@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** UI_Map
-- **Active Subfeature:** boat-center
+- **Active Feature:** speed-zones
+- **Active Subfeature:** (none)
 - **Last Updated:** 2026-06-14
-- **Last Bake:** 2026-06-14 19:39 (Boat marker offset — decoupled Image and Canvas in CenterMarkerOverlay; Image shifted down by half height so top-center = map center; cap arrow stays at map center; BOAT_TIP_OFFSET removed; low-depth warning color configurable via zone.properties. Build: green.)
-
+- **Last Bake:** 2026-06-14 19:50 (Squash-merge rebase from feature/speed-zones onto origin/develop — 14 commits → 1, conflicts resolved in 4 files. Build: green. Branch: feature/speed-zones-v2.)
+- **Branch:** feature/speed-zones-v2
 ## Routing Map
 | Keyword | Feature File |
 |---|---|
@@ -35,7 +35,7 @@
 | Zone300 | 300m zone generation from coastline with water-only constraint | 2026-05-20 00:00 | 2026-06-03 00:00 | active |
 | DepthMapping | Bathymetry / depth mapping from Litto3D, SHOM, EMODnet sources | 2026-05-10 00:00 | 2026-06-10 12:13 | active |
 | Coastline | Coastline extraction, spatial indexing, isOnWater determination | 2026-05-10 00:00 | 2026-06-05 00:00 | active |
-| Ui_Dashboard | Main dashboard UI layout and HUD information display | 2026-05-15 00:00 | 2026-06-10 15:24 | active |
+| Ui_Dashboard | Main dashboard UI layout and HUD information display | 2026-05-15 00:00 | 2026-06-14 06:21 | active |
 | GPS | GPS plugin with demo mode, heading/COG compass, geolocation | 2026-05-10 00:00 | 2026-06-11 14:00 | active |
 | UI_Map | Map rendering, depth color layer, orientation overlay, boat marker offset | 2026-05-10 00:00 | 2026-06-14 19:39 | active |
 | Performance | Battery optimization, adaptive GPS tuning, compass gate, map refresh | 2026-05-20 00:00 | 2026-06-05 00:00 | active |
@@ -58,6 +58,8 @@
 
 ## Global Todos
 - [ ] Validate the intermittent Overpass-outage theory — confirm the coastline OSM fetch failures are transient (succeeded 13:52, failing ~16:52 on 2026-06-08), not a persistent network / cert / IPv6 block. Quick checks: retry `bake-coastline` later; `curl -sk https://overpass-api.de/api/status`; race other mirrors.
+- [x] **Classify all `plans/*.md` by target feature (routing map)** — completed during Documentation feature
+- [ ] **Change direction arrow color by speed compliance** — arrow in heading-ahead display (↑/↗→/→) should reflect speed-vs-limit ratio: green ≤ limit, orange ≤ limit×1.4, red > limit×1.4
 
 ## Always-Loaded Context
 These files are loaded into context at the start of every session to maximize the AI prefix-cache hit rate:

@@ -56,8 +56,8 @@ data class AppSettings(
     val defaultLongitude: Double = 7.00,
     val coastlineVisible: Boolean = BuildConfig.LAYER_COASTLINE_DEFAULT,
     val zone300Visible: Boolean = BuildConfig.LAYER_ZONE300_DEFAULT,
-    val zoneAutoRevealDistanceM: Float = 200f,
-    val zoneAutoRevealTimeS: Int = 20,
+    val zoneAutoRevealDistanceM: Float = 100f,
+    val zoneAutoRevealTimeS: Int = 10,
     val zone300AutoShowGps: Boolean = true,
     val zone300AutoShowDemo: Boolean = true,
     val gpsMode: Boolean = false,
@@ -123,6 +123,20 @@ data class AppSettings(
     val showCategoryEnvironmental: Boolean = true,
     val showCategoryInformation: Boolean = false,
     /**
+     * Whether the speed zone (SHOM speed-limited regulated zones) overlay is visible.
+     * Separate from [regulatedZonesVisible] — speed zones have their own auto-show logic.
+     */
+    val speedZonesVisible: Boolean = false,
+    /**
+     * GPS mode: auto-reveal the hidden speed zone overlay when approaching a speed-limited zone.
+     * When off, the overlay stays under manual control in GPS mode.
+     */
+    val speedZoneAutoShowGps: Boolean = true,
+    /**
+     * Demo mode: same approach auto-reveal, driven by pan speed.
+     */
+    val speedZoneAutoShowDemo: Boolean = true,
+    /**
      * GPS idle mode: minimum metres of movement between fixes when the adaptive policy
      * has switched to [AcquisitionMode.IDLE] (device stationary). Default 0 so even tiny
      * drifts update the position at the idle cadence — prevents the perception of a
@@ -155,6 +169,18 @@ class SettingsManager(
 
     private val prefs: SharedPreferences =
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    init {
+        // Migration: reset stale values when prefs version changes.
+        val savedVersion = prefs.getInt(KEY_PREFS_VERSION, 1)
+        if (savedVersion < CURRENT_VERSION) {
+            prefs.edit()
+                .remove(KEY_ZONE_AUTOREVEAL_DIST_M)
+                .remove(KEY_ZONE_AUTOREVEAL_TIME_S)
+                .putInt(KEY_PREFS_VERSION, CURRENT_VERSION)
+                .apply()
+        }
+    }
 
     private val _settings = MutableStateFlow(load())
     val settings: StateFlow<AppSettings> = _settings.asStateFlow()
@@ -210,6 +236,9 @@ class SettingsManager(
         showCategoryEnvironmental = prefs.getBoolean(KEY_SHOW_CATEGORY_ENVIRONMENTAL, true),
         showCategoryInformation = prefs.getBoolean(KEY_SHOW_CATEGORY_INFORMATION, false),
         demoHeadingUp = prefs.getBoolean(KEY_DEMO_HEADING_UP, false),
+        speedZonesVisible = prefs.getBoolean(KEY_SPEED_ZONES_VISIBLE, false),
+        speedZoneAutoShowGps = prefs.getBoolean(KEY_SPEED_ZONE_AUTOSHOW_GPS, true),
+        speedZoneAutoShowDemo = prefs.getBoolean(KEY_SPEED_ZONE_AUTOSHOW_DEMO, true),
         gpsIdleMinDistanceM = prefs.getFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, 0f)
     )
 
@@ -277,6 +306,9 @@ class SettingsManager(
             .putBoolean(KEY_CATEGORY_FILTER_EXPANDED, updated.categoryFilterExpanded)
             .putBoolean(KEY_BOAT_SIZE_FILTER_EXPANDED, updated.boatSizeFilterExpanded)
             .putBoolean(KEY_DEMO_HEADING_UP, updated.demoHeadingUp)
+            .putBoolean(KEY_SPEED_ZONES_VISIBLE, updated.speedZonesVisible)
+            .putBoolean(KEY_SPEED_ZONE_AUTOSHOW_GPS, updated.speedZoneAutoShowGps)
+            .putBoolean(KEY_SPEED_ZONE_AUTOSHOW_DEMO, updated.speedZoneAutoShowDemo)
             .putFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, updated.gpsIdleMinDistanceM)
             .apply()
     }
@@ -333,6 +365,11 @@ class SettingsManager(
         private const val KEY_REGULATION_INFO_VISIBLE = "regulation_info_visible"
         private const val KEY_REGULATION_INFO_EXPANDED = "regulation_info_expanded"
         private const val KEY_DEMO_HEADING_UP = "demo_heading_up"
+        private const val KEY_SPEED_ZONES_VISIBLE = "speed_zones_visible"
+        private const val KEY_SPEED_ZONE_AUTOSHOW_GPS = "speed_zone_autoshow_gps"
+        private const val KEY_SPEED_ZONE_AUTOSHOW_DEMO = "speed_zone_autoshow_demo"
         private const val KEY_GPS_IDLE_MIN_DISTANCE_M = "gps_idle_min_distance_m"
+        private const val KEY_PREFS_VERSION = "prefs_version"
+        private const val CURRENT_VERSION = 2
     }
 }

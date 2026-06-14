@@ -20,8 +20,8 @@ import java.util.Properties
  * distanceToZoneGradientText=600    # Text fade range (m)
  * distanceToZoneGradientColor=300   # Tile fade range outward (m)
  * distanceToZoneGradientTransp=33   # Outside-zone transparency (0–100)
- * zoneAutoRevealDistanceM=200       # Auto-reveal distance outside band (m)
- * zoneAutoRevealTimeS=20            # Auto-reveal time-to-band at SOG (s)
+ * zoneAutoRevealDistanceM=100       # Auto-reveal distance outside band (m) / dashboard near-exit threshold
+ * zoneAutoRevealTimeS=10            # Auto-reveal time-to-band at SOG (s) / dashboard near-exit threshold
  * zoneRegulatorySpeedKn=5           # Regulatory speed inside band (kn)
  * lowDepthWarningMinOpacityPct=25   # Pink warning opacity at threshold (0–100)
  * ```
@@ -40,16 +40,22 @@ object ZoneConfig {
     var distanceToZoneGradientTransp = 33
         private set
 
-    /** Distance (m) outside the 300 m band edge at which a hidden band auto-reveals (default for the in-app setting). */
-    var zoneAutoRevealDistanceM = 200f
+    /** Distance (m) outside the 300 m band edge at which a hidden band auto-reveals (default for the in-app setting).
+     *  Also used as the dashboard tile near-exit / near-entry threshold. */
+    var zoneAutoRevealDistanceM = 100f
         private set
 
-    /** Time (s) before reaching the 300 m band edge (at SOG) at which a hidden band auto-reveals (default for the in-app setting). */
-    var zoneAutoRevealTimeS = 20
+    /** Time (s) before reaching the 300 m band edge (at SOG) at which a hidden band auto-reveals (default for the in-app setting).
+     *  Also used as the dashboard tile near-exit / near-entry time threshold. */
+    var zoneAutoRevealTimeS = 10
         private set
 
     /** Regulatory speed limit (kn) inside the 300 m band — at/below this, an auto-revealed band re-hides. */
     var zoneRegulatorySpeedKn = 5f
+        private set
+
+    /** Hysteresis deadband (meters) for speed zone boundary detection — prevents GPS jitter from flapping inside/outside state. */
+    var speedZoneHysteresisM: Double = 5.0
         private set
 
     /** Minimum opacity (%, 0–100) of the low-depth warning at the threshold depth; 100 % at the shoreline fades to this. */
@@ -150,6 +156,9 @@ object ZoneConfig {
             }
             props.getProperty("zoneRegulatorySpeedKn")?.toFloatOrNull()?.let {
                 zoneRegulatorySpeedKn = it.coerceIn(1f, 20f)
+            }
+            props.getProperty("speedZone.hysteresisM")?.toDoubleOrNull()?.let {
+                speedZoneHysteresisM = it.coerceIn(0.0, 50.0)
             }
             props.getProperty("lowDepthWarningMinOpacityPct")?.toIntOrNull()?.let {
                 lowDepthWarningMinOpacityPct = it.coerceIn(0, 100)

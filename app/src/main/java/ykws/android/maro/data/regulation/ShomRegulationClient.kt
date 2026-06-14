@@ -253,10 +253,13 @@ class ShomRegulationClient(
         }
 
         // ── Name ────────────────────────────────────────────────────────────
-        val name = properties["objnam"]?.jsonPrimitive?.content
+        // The SHOM WFS sometimes returns the literal string "null" for unnamed
+        // zones — filter it to empty so SpeedZoneBuilder can apply its fallback.
+        val name = (properties["objnam"]?.jsonPrimitive?.content
             ?: properties["nobjnm"]?.jsonPrimitive?.content
             ?: properties["nom"]?.jsonPrimitive?.content
-            ?: ""
+            ?: "")
+            .takeIf { it != "null" && it.isNotBlank() } ?: ""
 
         // ── Source reference ────────────────────────────────────────────────
         val sourceRef = properties["inspireid"]?.jsonPrimitive?.content

@@ -4,168 +4,306 @@ import org.junit.Assert.*
 import org.junit.Test
 
 /**
- * Unit tests for the pure 300 m zone proximity auto-reveal decision ([zone300Decision]).
+ * Unit tests for the generalized zone auto-show decision ([zoneAutoShowDecision]).
  *
- * Convention: `dist` is the signed distance to the 300 m band edge (+ outside, − inside).
+ * Tests both the 300m band behavior ([ZoneAutoShowConfig.hideOnCompliantInside] = true)
+ * and speed zone behavior (hideOnCompliantInside = false) branches of the unified function.
+ *
+ * Convention: `dist` is the signed distance to the zone boundary (+ outside, − inside).
  * Defaults mirror the shipped config: reveal at 200 m or 20 s, regulatory limit 5 kn.
  */
 class Zone300DecisionTest {
 
-    private fun decide(
+    // ── Convenience helpers ──────────────────────────────────────────────
+
+    /** 300m band config (hide on compliant inside, with regulatory speed). */
+    private val bandConfig = ZoneAutoShowConfig(
+        hideOnCompliantInside = true,
+        regulatorySpeedKn = 5.0
+    )
+
+    /** Speed zone config (no hide on compliant inside, with hysteresis). */
+    private val speedConfig = ZoneAutoShowConfig(
+        hideOnCompliantInside = false,
+        hysteresisM = 5.0
+    )
+
+    private fun bandDecision(
         dist: Double?,
         prevDist: Double?,
         inZone: Boolean = false,
         sogKn: Float? = null,
         armed: Boolean = true,
         autoRevealed: Boolean = false,
-        bandEntered: Boolean = false,
+        zoneEntered: Boolean = false,
         revealDistM: Double = 200.0,
-        revealTimeS: Double = 20.0,
-        regKn: Double = 5.0
-    ) = zone300Decision(
-        dist, prevDist, inZone, sogKn, armed, autoRevealed, bandEntered, revealDistM, revealTimeS, regKn
+        revealTimeS: Double = 20.0
+    ) = zoneAutoShowDecision(
+        dist = dist, prevDist = prevDist, insideZone = inZone,
+        sogKn = sogKn, armed = armed, autoRevealed = autoRevealed,
+        zoneEntered = zoneEntered,
+        revealDistM = revealDistM, revealTimeS = revealTimeS,
+        config = bandConfig
     )
 
-    // ── Reveal arm ──────────────────────────────────────────────────────────
+    private fun speedDecision(
+        dist: Double?,
+        prevDist: Double?,
+        insideZone: Boolean = false,
+        sogKn: Float? = null,
+        armed: Boolean = true,
+        autoRevealed: Boolean = false,
+        zoneEntered: Boolean = false,
+        revealDistM: Double = 200.0,
+        revealTimeS: Double = 20.0
+    ) = zoneAutoShowDecision(
+        dist = dist, prevDist = prevDist, insideZone = insideZone,
+        sogKn = sogKn, armed = armed, autoRevealed = autoRevealed,
+        zoneEntered = zoneEntered,
+        revealDistM = revealDistM, revealTimeS = revealTimeS,
+        config = speedConfig
+    )
+
+    // ═════════════════════════════════════════════════════════════════════
+    //  300m BAND BEHAVIOR (hideOnCompliantInside = true)
+    // ═════════════════════════════════════════════════════════════════════
+
+    // ── Reveal arm ──────────────────────────────────────────────────────
 
     @Test
-    fun `distance arm reveals when armed and closing within 200 m`() {
-        val d = decide(dist = 180.0, prevDist = 190.0)
-        assertEquals(Zone300Action.REVEAL, d.action)
+    fun `band distance arm reveals when armed and closing within 200 m`() {
+        val d = bandDecision(dist = 180.0, prevDist = 190.0)
+        assertEquals(AutoShowAction.REVEAL, d.action)
         assertTrue(d.autoRevealed)
-        assertFalse(d.bandEntered)
+        assertFalse(d.zoneEntered)
     }
 
     @Test
-    fun `time arm reveals a fast boat still beyond the distance margin`() {
+    fun `band time arm reveals a fast boat still beyond the distance margin`() {
         // 30 kn ≈ 15.4 m/s → 300 m is ~19.4 s away ≤ 20 s, even though 300 m > 200 m.
-        val d = decide(dist = 300.0, prevDist = 320.0, sogKn = 30f)
-        assertEquals(Zone300Action.REVEAL, d.action)
+        val d = bandDecision(dist = 300.0, prevDist = 320.0, sogKn = 30f)
+        assertEquals(AutoShowAction.REVEAL, d.action)
     }
 
     @Test
-    fun `same approach without speed does not reveal beyond the distance margin`() {
-        val d = decide(dist = 300.0, prevDist = 320.0, sogKn = null)
-        assertEquals(Zone300Action.NONE, d.action)
+    fun `band same approach without speed does not reveal beyond the distance margin`() {
+        val d = bandDecision(dist = 300.0, prevDist = 320.0, sogKn = null)
+        assertEquals(AutoShowAction.NONE, d.action)
         assertFalse(d.autoRevealed)
     }
 
     @Test
-    fun `no reveal when stationary or parallel even within the margin`() {
-        assertEquals(Zone300Action.NONE, decide(dist = 150.0, prevDist = 150.0, sogKn = 10f).action) // stationary
-        assertEquals(Zone300Action.NONE, decide(dist = 150.0, prevDist = 140.0, sogKn = 10f).action) // moving away
+    fun `band no reveal when stationary or parallel even within the margin`() {
+        assertEquals(AutoShowAction.NONE, bandDecision(dist = 150.0, prevDist = 150.0, sogKn = 10f).action) // stationary
+        assertEquals(AutoShowAction.NONE, bandDecision(dist = 150.0, prevDist = 140.0, sogKn = 10f).action) // moving away
     }
 
     @Test
-    fun `no reveal when disarmed`() {
-        val d = decide(dist = 100.0, prevDist = 150.0, armed = false)
-        assertEquals(Zone300Action.NONE, d.action)
+    fun `band no reveal when disarmed`() {
+        val d = bandDecision(dist = 100.0, prevDist = 150.0, armed = false)
+        assertEquals(AutoShowAction.NONE, d.action)
     }
 
     @Test
-    fun `first sample with no previous distance does not reveal`() {
-        assertEquals(Zone300Action.NONE, decide(dist = 100.0, prevDist = null).action)
+    fun `band first sample with no previous distance does not reveal`() {
+        assertEquals(AutoShowAction.NONE, bandDecision(dist = 100.0, prevDist = null).action)
     }
 
     @Test
-    fun `distance arm reveals when SOG is unknown (null)`() {
-        assertEquals(Zone300Action.REVEAL, decide(dist = 180.0, prevDist = 190.0, sogKn = null).action)
+    fun `band distance arm reveals when SOG is unknown (null)`() {
+        assertEquals(AutoShowAction.REVEAL, bandDecision(dist = 180.0, prevDist = 190.0, sogKn = null).action)
     }
 
     @Test
-    fun `a not-closing boat does not reveal (speed does not gate the distance arm)`() {
-        // Steady distance → not approaching → no reveal, regardless of speed.
-        assertEquals(Zone300Action.NONE, decide(dist = 180.0, prevDist = 180.0, sogKn = 0f).action)
+    fun `band a not-closing boat does not reveal`() {
+        assertEquals(AutoShowAction.NONE, bandDecision(dist = 180.0, prevDist = 180.0, sogKn = 0f).action)
     }
 
     @Test
-    fun `a slow but genuinely closing boat still reveals`() {
-        // Below the stopped threshold yet distance is shrinking → distance arm reveals (no flap).
-        assertEquals(Zone300Action.REVEAL, decide(dist = 180.0, prevDist = 190.0, sogKn = 0.5f).action)
+    fun `band a slow but genuinely closing boat still reveals`() {
+        assertEquals(AutoShowAction.REVEAL, bandDecision(dist = 180.0, prevDist = 190.0, sogKn = 0.5f).action)
     }
 
     @Test
-    fun `does not reveal when already inside the band (manually hidden)`() {
-        // Inside the band (dist < 0) and closing deeper → respect the manual hide, no auto-show.
-        assertEquals(Zone300Action.NONE, decide(dist = -50.0, prevDist = -40.0, sogKn = 5f).action)
+    fun `band does not reveal when already inside (manually hidden)`() {
+        assertEquals(AutoShowAction.NONE, bandDecision(dist = -50.0, prevDist = -40.0, sogKn = 5f).action)
     }
 
-    // ── Re-hide arm ─────────────────────────────────────────────────────────
+    // ── Re-hide arm ─────────────────────────────────────────────────────
 
     @Test
-    fun `compliant inside the band hides`() {
-        val d = decide(dist = -50.0, prevDist = -40.0, inZone = true, sogKn = 4f, autoRevealed = true, bandEntered = true)
-        assertEquals(Zone300Action.HIDE, d.action)
+    fun `band compliant inside the band hides`() {
+        val d = bandDecision(dist = -50.0, prevDist = -40.0, inZone = true, sogKn = 4f, autoRevealed = true, zoneEntered = true)
+        assertEquals(AutoShowAction.HIDE, d.action)
         assertFalse(d.autoRevealed)
-        assertFalse(d.bandEntered)
+        assertFalse(d.zoneEntered)
     }
 
     @Test
-    fun `non-compliant inside the band stays revealed (no flap)`() {
-        val d = decide(dist = -50.0, prevDist = -40.0, inZone = true, sogKn = 12f, autoRevealed = true, bandEntered = true)
-        assertEquals(Zone300Action.NONE, d.action)
+    fun `band non-compliant inside the band stays revealed (no flap)`() {
+        val d = bandDecision(dist = -50.0, prevDist = -40.0, inZone = true, sogKn = 12f, autoRevealed = true, zoneEntered = true)
+        assertEquals(AutoShowAction.NONE, d.action)
         assertTrue(d.autoRevealed)
     }
 
     @Test
-    fun `unknown speed (null SOG) cannot trigger the compliance hide`() {
-        // GPS mode before a fix: null SOG must not be read as compliant.
-        val d = decide(dist = -50.0, prevDist = -40.0, inZone = true, sogKn = null, autoRevealed = true, bandEntered = true)
-        assertEquals(Zone300Action.NONE, d.action)
+    fun `band unknown speed (null SOG) cannot trigger compliance hide`() {
+        val d = bandDecision(dist = -50.0, prevDist = -40.0, inZone = true, sogKn = null, autoRevealed = true, zoneEntered = true)
+        assertEquals(AutoShowAction.NONE, d.action)
     }
 
     @Test
-    fun `stationary inside the band (0 kn) hides on compliance`() {
-        // Demo feeds 0 kn when the map is not being panned → compliant inside → hide.
-        val d = decide(dist = -50.0, prevDist = -50.0, inZone = true, sogKn = 0f, autoRevealed = true, bandEntered = true)
-        assertEquals(Zone300Action.HIDE, d.action)
+    fun `band stationary inside the band (0 kn) hides on compliance`() {
+        val d = bandDecision(dist = -50.0, prevDist = -50.0, inZone = true, sogKn = 0f, autoRevealed = true, zoneEntered = true)
+        assertEquals(AutoShowAction.HIDE, d.action)
     }
 
     @Test
-    fun `a stopped boat that is no longer closing auto-hides, even outside the zone`() {
-        // Stopped (≤ 1 kn) and not closing → clear the alert, even seaward of the band.
-        val d = decide(dist = 120.0, prevDist = 120.0, sogKn = 0f, autoRevealed = true)
-        assertEquals(Zone300Action.HIDE, d.action)
+    fun `band a stopped boat that is no longer closing auto-hides, even outside`() {
+        val d = bandDecision(dist = 120.0, prevDist = 120.0, sogKn = 0f, autoRevealed = true)
+        assertEquals(AutoShowAction.HIDE, d.action)
     }
 
     @Test
-    fun `a low-speed reading while still closing does not hide (no flap)`() {
-        // <= stopped threshold but distance still shrinking → keep the alert, don't flap.
-        val d = decide(dist = 150.0, prevDist = 160.0, sogKn = 0.5f, autoRevealed = true)
-        assertEquals(Zone300Action.NONE, d.action)
+    fun `band a low-speed reading while still closing does not hide (no flap)`() {
+        val d = bandDecision(dist = 150.0, prevDist = 160.0, sogKn = 0.5f, autoRevealed = true)
+        assertEquals(AutoShowAction.NONE, d.action)
         assertTrue(d.autoRevealed)
     }
 
     @Test
-    fun `exited the band seaward hides`() {
-        val d = decide(dist = 20.0, prevDist = 10.0, autoRevealed = true, bandEntered = true)
-        assertEquals(Zone300Action.HIDE, d.action)
+    fun `band exited seaward hides`() {
+        val d = bandDecision(dist = 20.0, prevDist = 10.0, autoRevealed = true, zoneEntered = true)
+        assertEquals(AutoShowAction.HIDE, d.action)
     }
 
     @Test
-    fun `retreated past the margin without entering hides`() {
-        val d = decide(dist = 250.0, prevDist = 240.0, autoRevealed = true, bandEntered = false)
-        assertEquals(Zone300Action.HIDE, d.action)
+    fun `band retreated past the margin without entering hides`() {
+        val d = bandDecision(dist = 250.0, prevDist = 240.0, autoRevealed = true, zoneEntered = false)
+        assertEquals(AutoShowAction.HIDE, d.action)
     }
 
     @Test
-    fun `near-miss still inside the margin stays revealed until past it`() {
-        val d = decide(dist = 150.0, prevDist = 140.0, autoRevealed = true, bandEntered = false)
-        assertEquals(Zone300Action.NONE, d.action)
+    fun `band near-miss still inside the margin stays revealed until past it`() {
+        val d = bandDecision(dist = 150.0, prevDist = 140.0, autoRevealed = true, zoneEntered = false)
+        assertEquals(AutoShowAction.NONE, d.action)
         assertTrue(d.autoRevealed)
     }
 
     @Test
-    fun `crossing into the band while revealed records entry`() {
-        val d = decide(dist = -10.0, prevDist = 10.0, inZone = true, sogKn = 12f, autoRevealed = true, bandEntered = false)
-        assertEquals(Zone300Action.NONE, d.action)
-        assertTrue(d.bandEntered)
+    fun `band crossing into the band while revealed records entry`() {
+        val d = bandDecision(dist = -10.0, prevDist = 10.0, inZone = true, sogKn = 12f, autoRevealed = true, zoneEntered = false)
+        assertEquals(AutoShowAction.NONE, d.action)
+        assertTrue(d.zoneEntered)
     }
 
     @Test
-    fun `re-approaching after an auto-hide reveals again because still armed`() {
-        // After a hide the band is hidden again but armed stays true → the next approach re-reveals.
-        val d = decide(dist = 180.0, prevDist = 190.0, armed = true, autoRevealed = false, bandEntered = false)
-        assertEquals(Zone300Action.REVEAL, d.action)
+    fun `band re-approaching after auto-hide reveals again because still armed`() {
+        val d = bandDecision(dist = 180.0, prevDist = 190.0, armed = true, autoRevealed = false, zoneEntered = false)
+        assertEquals(AutoShowAction.REVEAL, d.action)
+    }
+
+    // ═════════════════════════════════════════════════════════════════════
+    //  SPEED ZONE BEHAVIOR (hideOnCompliantInside = false)
+    // ═════════════════════════════════════════════════════════════════════
+
+    // ── Reveal arm ──────────────────────────────────────────────────────
+
+    @Test
+    fun `speed zone reveals when approaching within distance margin`() {
+        val d = speedDecision(dist = 180.0, prevDist = 200.0)
+        assertEquals(AutoShowAction.REVEAL, d.action)
+        assertTrue(d.autoRevealed)
+    }
+
+    @Test
+    fun `speed zone time arm reveals a fast boat beyond distance margin`() {
+        val d = speedDecision(dist = 300.0, prevDist = 320.0, sogKn = 30f)
+        assertEquals(AutoShowAction.REVEAL, d.action)
+    }
+
+    @Test
+    fun `speed zone no reveal when moving away`() {
+        val d = speedDecision(dist = 200.0, prevDist = 180.0)
+        assertEquals(AutoShowAction.NONE, d.action)
+    }
+
+    @Test
+    fun `speed zone no reveal when disarmed`() {
+        val d = speedDecision(dist = 100.0, prevDist = 150.0, armed = false)
+        assertEquals(AutoShowAction.NONE, d.action)
+    }
+
+    @Test
+    fun `speed zone no reveal when already inside`() {
+        val d = speedDecision(dist = -50.0, prevDist = -30.0)
+        assertEquals(AutoShowAction.NONE, d.action)
+    }
+
+    // ── Re-hide arm ─────────────────────────────────────────────────────
+
+    @Test
+    fun `speed zone does NOT hide when compliant inside (unlike 300m band)`() {
+        // Speed zones are informational — stay visible while navigating through
+        val d = speedDecision(dist = -50.0, prevDist = -40.0, insideZone = true, sogKn = 4f, autoRevealed = true)
+        assertEquals(AutoShowAction.NONE, d.action)
+        assertTrue("should stay revealed while inside", d.autoRevealed)
+    }
+
+    @Test
+    fun `speed zone does NOT hide when non-compliant inside`() {
+        val d = speedDecision(dist = -50.0, prevDist = -40.0, insideZone = true, sogKn = 12f, autoRevealed = true)
+        assertEquals(AutoShowAction.NONE, d.action)
+        assertTrue(d.autoRevealed)
+    }
+
+    @Test
+    fun `speed zone stopped and not closing hides`() {
+        val d = speedDecision(dist = 120.0, prevDist = 120.0, sogKn = 0f, autoRevealed = true)
+        assertEquals(AutoShowAction.HIDE, d.action)
+        assertFalse(d.autoRevealed)
+    }
+
+    @Test
+    fun `speed zone low speed while still closing does not hide (no flap)`() {
+        val d = speedDecision(dist = 150.0, prevDist = 160.0, sogKn = 0.5f, autoRevealed = true)
+        assertEquals(AutoShowAction.NONE, d.action)
+        assertTrue(d.autoRevealed)
+    }
+
+    @Test
+    fun `speed zone hides when retreated past margin`() {
+        val d = speedDecision(dist = 250.0, prevDist = 240.0, autoRevealed = true)
+        assertEquals(AutoShowAction.HIDE, d.action)
+        assertFalse(d.autoRevealed)
+    }
+
+    @Test
+    fun `speed zone stays revealed within margin even if moving away`() {
+        val d = speedDecision(dist = 150.0, prevDist = 140.0, autoRevealed = true)
+        assertEquals(AutoShowAction.NONE, d.action)
+        assertTrue(d.autoRevealed)
+    }
+
+    @Test
+    fun `speed zone zero distance does not flap inside-outside`() {
+        // Exactly on the boundary: treat as inside (or within hysteresis)
+        val d = speedDecision(dist = 0.0, prevDist = 0.0, insideZone = true, autoRevealed = true)
+        assertEquals(AutoShowAction.NONE, d.action)
+        assertTrue(d.autoRevealed)
+    }
+
+    @Test
+    fun `speed zone re-approaching after auto-hide reveals again`() {
+        val d = speedDecision(dist = 180.0, prevDist = 190.0, armed = true, autoRevealed = false)
+        assertEquals(AutoShowAction.REVEAL, d.action)
+    }
+
+    @Test
+    fun `speed zone within hysteresis deadband stays visible`() {
+        // Just inside the hysteresis band (dist between -hysteresisM and 0)
+        val d = speedDecision(dist = -3.0, prevDist = -2.0, insideZone = true, autoRevealed = true)
+        assertEquals(AutoShowAction.NONE, d.action)
+        assertTrue(d.autoRevealed)
     }
 }

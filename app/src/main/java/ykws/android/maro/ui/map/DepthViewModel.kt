@@ -225,6 +225,6 @@ class DepthViewModel(
     }
 
     private companion object {
-        private const val SAMPLE_INTERVAL_MS = 150L
+        private const val SAMPLE_INTERVAL_MS = 333L
     }
 }

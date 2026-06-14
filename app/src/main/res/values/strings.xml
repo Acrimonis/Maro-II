@@ -108,7 +108,6 @@
     <string name="dash_out_of_zone">Out of zone</string>
     <string name="dash_in_zone">IN ZONE!</string>
     <string name="dash_zone_speed_limit">5 kn max — %1$s</string>
-    <string name="dash_speed_suffix_ok">" · ✅ %.1f kn"</string>
     <string name="dash_speed_suffix_warn">" · ⚠ %.1f kn"</string>
     <string name="dash_to_zone">to the 300m zone</string>
     <string name="dash_depth_title">Depth</string>
@@ -127,4 +126,11 @@
     <string name="dash_valid_incomplete">⚠ Validation incomplete (RMSE %.1f m)</string>
     <string name="src_satellite">Satellite</string>
     <string name="src_interpolated">Interpolated</string>
+    <string name="dash_value_speed_limit">%.0f kn</string>
+    <string name="dash_libre_title">LIBRE</string>
+    <string name="dash_libre_value">--</string>
+    <string name="dash_no_limit">No limit</string>
+    <string name="dash_speed_zone_limit">Limit %.0f kn</string>
+    <string name="dash_eta_sec">ETA %d s</string>
+    <string name="dash_eta_min_sec">ETA %1$d:%2$02d min</string>
 </resources>

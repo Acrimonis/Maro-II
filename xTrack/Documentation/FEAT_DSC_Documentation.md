@@ -98,7 +98,6 @@ Cross-cutting project documentation — README, FAQs, setup guides, architecture
 ### planneding  [x]
 
 #### Todos
-- [x] Classify all `plans/*.md` files by target feature (routing map)
 - [x] Move each plan to `xTrack/[Feature]/FEAT_PLN_[Feature]_[topic].md`
 - [x] Update `## Docs` references in target feature files
 - [x] Leave app icon/image assets (`.ico`, `.png`, `.pdn`, `.bat`) in `plans/` as non-plan artifacts

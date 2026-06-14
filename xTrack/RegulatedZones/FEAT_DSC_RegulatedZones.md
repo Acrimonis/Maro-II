@@ -2,8 +2,8 @@
 name: RegulatedZones
 status: active
 created: 2026-06-11 18:00
-modified: 2026-06-12 22:37
-active_subfeature: none
+modified: 2026-06-13 20:23
+active_subfeature: design
 ---
 
 # Feature: RegulatedZones
@@ -242,6 +242,68 @@ Relocates the [GpsStatusIcon] composable from [Alignment.BottomStart] to a Row a
 - **MODIFIED** — `app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneIconProvider.kt` (8 display categories)
 - **MODIFIED** — `app/src/test/java/ykws/android/maro/data/regulation/RegulatedZonePrebakeTest.kt` (IGN wiring, expanded bbox)
 - **NEW** — `plans/regulated-zones-multi-source-normalization.md` (this plan)
+
+### design  [ ]
+
+**Focus:** Unify speed restrictions from regulated zones with the 300m zone mechanism — a single Speed Limit engine replacing the current 300m-only dashboard tile with a unified speed limit card showing the most restrictive speed under the boat.
+
+**Design approach:** Create a spatial index over speed zone polygon edges (baked into `.bin` asset, zero runtime build). Merge the 300m geometric band as a virtual 5-kn speed zone. Query nearest zone boundary + most restrictive speed at each GPS tick. Generalize the existing `zone300Decision()` auto-show to any speed zone. Color-code dashboard by speed-vs-limit ratio (green ≤ limit, orange ≤ limit×1.4, red > limit×1.4).
+
+#### Todos
+- [x] **Create `SpeedZone` runtime model** — `SpeedZone` + `SpeedZoneQuery` in [`SpeedZone.kt`](../../../../app/src/main/java/ykws/android/maro/data/regulation/SpeedZone.kt)
+- [x] **Create `SpeedZoneBuilder`** — filters `RegulatedZoneSet` to `speedLimitKn != null`, builds `List<SpeedZone>`
+- [x] **Create `SpeedZoneIndex`** — grid spatial index over polygon edges (~1-2ms runtime build) in [`SpeedZoneIndex.kt`](../../../../app/src/main/java/ykws/android/maro/spatial/SpeedZoneIndex.kt); fixed containment to check ALL zones (not grid-proximate only)
+- [x] **Extend `CoastlineViewModel` shore pipeline** — add speed zone queries, merge 300m+SHOM speed limit, 5 new StateFlows (`speedLimitKn`, `activeSpeedZone`, `speedZoneQuery`, `distanceToSpeedZone`, `approachingSpeedZone`)
+- [x] **Replace `Zone300Card` with `SpeedLimitCard`** — unified dashboard tile with zone name, limit, distance, compliance color; approaching state shows distance as main value + direction arrow
+- [x] **Generalize `zone300Decision()` to any speed zone** — created `zoneAutoShowDecision()` with `ZoneAutoShowConfig` parameterizing 300m-band vs speed-zone behavior; replaced both call sites in `onEach` pipeline. Added speed zone auto-show toggles to Navigation settings UI.
+- [x] **Add speed zone auto-show toggles** — `speedZonesVisible`, `speedZoneAutoShowGps`, `speedZoneAutoShowDemo` in AppSettings + SettingsManager
+- [x] **Update `SpeedCard` color-coding** — relative to active speed zone limit (limit × 1.4 thresholds)
+- [x] **Unit tests** — `SpeedZoneIndexTest` (9 tests), `SpeedZoneBuilderTest` (11 tests), `Zone300DecisionTest` updated (33 tests covering both 300m band + speed zone behaviors)
+- [x] **Zone-ahead cone visualization** — flashy yellow cone (±15°) on map showing heading-ahead search area; always visible when heading is known
+- [x] **Zone-ahead green line** — thick solid green line from boat to detected zone intersection; always visible
+- [x] **Demo mode heading** — always 0° (north), boat always faces top of map; speed still extrapolated from pan velocity
+- [x] **Heading-ahead always active** — removed old `hasHeading` gate; runs on every pipeline tick in both GPS and demo modes
+- [x] **Prebake fixes** — zone names fixed (SHOM literal "null" filtered, fallback to "Zone X kn"); fresh prebake with current schema
+- [x] **Exhaustive containment** — `SpeedZoneIndex.query()` checks ALL zones for point-in-polygon, not just grid-proximate ones (fixes large zone detection)
+- [ ] **Validate distance to speed zone** — verify signed distance logic (inside → negative, outside → positive) works correctly with real baked data (requires device/emu)
+- [ ] **Refine tile flow** — always warn of arrival at zone limit (entry or exit), not just when already inside
+- [ ] **Add speed icon at bottom left** — show speed icon in the dashboard when inside 300m zone / speed zone
+
+#### Rules
+- The 300m geometric band is a virtual speed zone (5 kn) — same query path as SHOM zones
+- Spatial index is prebaked — zero build cost on device, invalidated on rebake
+- Color thresholds: green ≤ zone limit, orange ≤ limit×1.4, red > limit×1.4
+- Overlapping zones: display the most restrictive (lowest) speed limit
+- Hysteresis deadband (±5m configurable) prevents GPS jitter at zone boundaries
+- Graceful degradation: no baked asset → 300m-band-only fallback
+
+#### Key Files
+- **NEW** — `app/src/main/java/ykws/android/maro/data/regulation/SpeedZone.kt` (runtime model + query result)
+- **NEW** — `app/src/main/java/ykws/android/maro/spatial/SpeedZoneIndex.kt` (grid spatial index)
+- **NEW** — `app/src/main/java/ykws/android/maro/data/regulation/SpeedZoneBuilder.kt` (unifies 300m band + SHOM speed zones)
+- **MODIFIED** — `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` (shore pipeline extension)
+- **MODIFIED** — `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt` (SpeedLimitCard replacing Zone300Card)
+- **MODIFIED** — `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` (wire new StateFlows)
+- **MODIFIED** — `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` (auto-show toggles)
+- **PLAN** — `plans/speed-zones-design.md` (this design)
+
+#### Docs
+- [`plans/speed-zones-design.md`](../plans/speed-zones-design.md) — Full design plan
+- [`plans/speed-zones-heading-distance-discussion.md`](../plans/speed-zones-heading-distance-discussion.md) — Gap analysis: heading-aware distance not implemented, auto-show not wired
+- [`plans/speed-zones-side-zone-display-design.md`](../plans/speed-zones-side-zone-display-design.md) — Side-zone display: show left/right/behind direction when nothing ahead
+
+### more-dedebug  [ ]
+
+**Focus:** Debug and decouple visualization elements — separate cone and green line drawing, arrow color reflecting speed excess.
+
+#### Todos
+- [ ] **Decouple cone and green line drawing** — separate the cone (yellow wedge) and green line (dashed path) into independent LaunchedEffect/update cycles in MapScreen so changes to one don't force a combined redraw of the other
+- [ ] **Color direction arrow by speed compliance** — change arrow color (green/orange/red) based on speed-vs-limit ratio, matching the dashboard tile color scheme
+
+#### Rules
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — drawZoneAheadCone, drawZoneAheadLine, LaunchedEffect for heading-ahead
 
 ## Todos
 - [x] Data source discovery (SHOM WFS endpoint & layer names)
