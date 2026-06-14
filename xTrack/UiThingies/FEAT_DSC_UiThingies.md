@@ -85,14 +85,14 @@ UI layout refinements for the Maro map — reorganizing on-screen elements for b
 ### arc-layout-button  [ ]
 
 #### Todos
-- [ ] Create `FanConfig` data class (thetaDeg, currentCount, direction, buttonSizeDp, edgeGapDp, isOpen) + `FanDirection` enum (UP, DOWN, LEFT, RIGHT, UP_LEFT, UP_RIGHT, DOWN_LEFT, DOWN_RIGHT)
-- [ ] Create `MapControlButton` composable — 64 dp circle, white bg `0xCCFFFFFF`, theme blue `0xFF1565C0`, zero padding, contentDescription on Button
-- [ ] Create `FanLayout` composable — parent at center, children on arc at radius R computed from θ + button size + edge gap
-- [ ] Implement geometry: `R = (buttonSize + edgeGap) / (2 × sin(θ/2))`, children positioned at `startAngle + offset + i × θ`, centered in the directional arc
-- [ ] Implement z-ordering: parent at bottom, children drawn ON TOP (higher z-index)
-- [ ] Standardise icon size to 28 dp across all control-stack buttons
-- [ ] Create Canvas icon composables: CircleRingIcon (300m zone), WarningTriangleIcon (danger layer), PlusIcon, MinusIcon, GearIcon
-- [ ] Port existing 5 buttons to `MapControlButton` + `FanLayout` (first fan = layer toggles group)
+- [x] Create `FanConfig` data class (thetaDeg, currentCount, direction, buttonSizeDp, edgeGapDp, isOpen) + `FanDirection` enum (UP, DOWN, LEFT, RIGHT, UP_LEFT, UP_RIGHT, DOWN_LEFT, DOWN_RIGHT)
+- [x] Create `MapControlButton` composable — 64 dp circle, white bg `0xCCFFFFFF`, theme blue `0xFF1565C0`, zero padding, contentDescription on Button
+- [x] Create `FanLayout` composable — parent at center, children on arc at radius R computed from θ + button size + edge gap
+- [x] Implement geometry: `R = (buttonSize + edgeGap) / (2 × sin(θ/2))`, children positioned at `startAngle + offset + i × θ`, centered in the directional arc
+- [x] Implement z-ordering: parent declared first (bottom), children declared after (ON TOP)
+- [x] Standardise icon size to 28 dp across all control-stack buttons
+- [x] Create Canvas icon composables: CircleRingIcon (300m zone), WarningTriangleIcon (danger layer), PlusIcon, MinusIcon, GearIcon
+- [x] Port existing 5 buttons to `MapControlButton` + `FanLayout` (first fan = layer toggles group)
 - [ ] Add second fan button in the right-edge control stack (close to the layer fan)
 - [ ] Replace hardcoded Spacer(136.dp) with computed value
 - [ ] Verify fan layout and spacing on portrait / landscape / narrow-width layouts

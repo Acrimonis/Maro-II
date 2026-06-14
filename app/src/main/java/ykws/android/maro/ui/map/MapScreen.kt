@@ -114,6 +114,15 @@ import ykws.android.maro.data.model.RasterProgress
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.ValidationReport
 import ykws.android.maro.data.model.Zone300Data
+import ykws.android.maro.ui.map.CircleRingIcon
+import ykws.android.maro.ui.map.FanConfig
+import ykws.android.maro.ui.map.FanDirection
+import ykws.android.maro.ui.map.FanLayout
+import ykws.android.maro.ui.map.GearIcon
+import ykws.android.maro.ui.map.MapControlButton
+import ykws.android.maro.ui.map.MinusIcon
+import ykws.android.maro.ui.map.PlusIcon
+import ykws.android.maro.ui.map.WarningTriangleIcon
 import ykws.android.maro.data.settings.AppSettings
 
 /**
@@ -624,24 +633,27 @@ private fun MapContent(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Top — settings
-            SettingsButton(onClick = onOpenSettings)
+            MapControlButton(onClick = onOpenSettings) { GearIcon() }
 
-            // Middle — layer toggles, grouped & centred in the leftover space by the
-            // parent SpaceBetween. The danger (low-depth) toggle sits just above the 300 m
-            // toggle, kept close together (8.dp) like the zoom cluster below.
-            Column(
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                DangerLayerButton(
-                    isWarningVisible = appSettings.lowDepthWarningVisible,
-                    onClick = onToggleLowDepthWarning
-                )
-                LayerButton(
-                    isZoneVisible = appSettings.zone300Visible,
-                    onClick = onToggleZone300
-                )
-            }
+            // Middle — layer toggles, fanned out from behind the parent (danger layer)
+            // The FanLayout keeps children centred in the semicircle with constant θ spacing.
+            // Parent = DangerLayerButton (warning triangle), child[0] = LayerButton (300m ring).
+            FanLayout(
+                config = FanConfig(
+                    thetaDeg = 45f,
+                    currentCount = 1,
+                    direction = FanDirection.LEFT,
+                    isOpen = true
+                ),
+                parent = { WarningTriangleIcon(alpha = if (appSettings.lowDepthWarningVisible) 1f else 0.25f) },
+                onParentClick = onToggleLowDepthWarning,
+                children = listOf(
+                    { CircleRingIcon(alpha = if (appSettings.zone300Visible) 1f else 0.25f) }
+                ),
+                onChildClick = { index ->
+                    if (index == 0) onToggleZone300()
+                }
+            )
 
             // Bottom — zoom +/-. A placeholder holds the slot before the map
             // is ready so the middle toggle stays centred (no load-time jump).
@@ -650,24 +662,20 @@ private fun MapContent(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    ZoomButton(
-                        isPlus = true,
-                        desc = stringResource(R.string.map_zoom_in),
+                    MapControlButton(
                         onClick = {
-                            val mv = mapView ?: return@ZoomButton
+                            val mv = mapView ?: return@MapControlButton
                             mv.controller.zoomIn()
                             onZoomChanged(mv.zoomLevelDouble)
                         }
-                    )
-                    ZoomButton(
-                        isPlus = false,
-                        desc = stringResource(R.string.map_zoom_out),
+                    ) { PlusIcon() }
+                    MapControlButton(
                         onClick = {
-                            val mv = mapView ?: return@ZoomButton
+                            val mv = mapView ?: return@MapControlButton
                             mv.controller.zoomOut()
                             onZoomChanged(mv.zoomLevelDouble)
                         }
-                    )
+                    ) { MinusIcon() }
                 }
             } else {
                 // Reserve the zoom cluster's footprint: two 64dp buttons + 8dp.
@@ -1004,116 +1012,6 @@ private fun EarthWaterIcon(
     }
 }
 
-// ── Settings button (top-right of map, matching zoom button style) ──────────
-
-@Composable
-private fun SettingsButton(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Button(
-        onClick = onClick,
-        modifier = modifier.size(64.dp),
-        shape = CircleShape,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = ComposeColor(0xCCFFFFFF)
-        ),
-        contentPadding = PaddingValues(0.dp)
-    ) {
-        Icon(
-            imageVector = Icons.Default.Settings,
-            contentDescription = stringResource(R.string.map_settings),
-            tint = ComposeColor(0xFF1565C0),
-            modifier = Modifier.size(32.dp)
-        )
-    }
-}
-
-// ── Layer toggle button (right edge, between settings and zoom) ──────────
-
-@Composable
-private fun LayerButton(
-    isZoneVisible: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val themeBlue = ComposeColor(0xFF1565C0)
-    Button(
-        onClick = onClick,
-        modifier = modifier.size(64.dp),
-        shape = CircleShape,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = ComposeColor(0xCCFFFFFF)  // solid white bg always
-        ),
-        contentPadding = PaddingValues(0.dp)
-    ) {
-        // Custom circular outline (no dependency on material-icons-extended)
-        Canvas(modifier = Modifier.size(28.dp)) {
-            val w = size.width
-            val h = size.height
-            val iconAlpha = if (isZoneVisible) 1.0f else 0.25f
-            // Circular outline — the 300 m zone is a circle around the boat.
-            drawCircle(
-                color = themeBlue,
-                radius = w * 0.38f,
-                center = androidx.compose.ui.geometry.Offset(w * 0.5f, h * 0.5f),
-                alpha = iconAlpha,
-                style = androidx.compose.ui.graphics.drawscope.Stroke(width = w * 0.12f)
-            )
-        }
-    }
-}
-
-// ── Danger (low-depth) layer toggle — pink grounding-hazard overlay ─────────
-
-@Composable
-private fun DangerLayerButton(
-    isWarningVisible: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    // Themed blue to match the other control buttons (LayerButton + zoom).
-    val themeBlue = ComposeColor(0xFF1565C0)
-    Button(
-        onClick = onClick,
-        modifier = modifier.size(64.dp),
-        shape = CircleShape,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = ComposeColor(0xCCFFFFFF)  // solid white bg always (matches LayerButton)
-        ),
-        contentPadding = PaddingValues(0.dp)
-    ) {
-        // Custom warning-triangle icon (no material-icons-extended dependency, like LayerButton).
-        Canvas(modifier = Modifier.size(28.dp)) {
-            val w = size.width
-            val h = size.height
-            val iconAlpha = if (isWarningVisible) 1.0f else 0.25f
-            // Filled hazard triangle
-            val triangle = androidx.compose.ui.graphics.Path().apply {
-                moveTo(w * 0.50f, h * 0.06f)
-                lineTo(w * 0.96f, h * 0.88f)
-                lineTo(w * 0.04f, h * 0.88f)
-                close()
-            }
-            drawPath(path = triangle, color = themeBlue, alpha = iconAlpha)
-            // Exclamation bar
-            drawRoundRect(
-                color = ComposeColor.White,
-                topLeft = androidx.compose.ui.geometry.Offset(w * 0.455f, h * 0.34f),
-                size = androidx.compose.ui.geometry.Size(w * 0.09f, h * 0.28f),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(3f, 3f),
-                alpha = iconAlpha
-            )
-            // Exclamation dot
-            drawCircle(
-                color = ComposeColor.White,
-                radius = w * 0.055f,
-                center = androidx.compose.ui.geometry.Offset(w * 0.50f, h * 0.74f),
-                alpha = iconAlpha
-            )
-        }
-    }
-}
 
 // ── Settings overlay (full-screen page) ─────────────────────────────────────
 
@@ -1931,56 +1829,6 @@ private fun SettingsTextFieldRow(
                 cursorColor = ComposeColor.White
             )
         )
-    }
-}
-
-// ── Zoom button (used for map +/- controls) ─────────────────────────────────
-
-@Composable
-private fun ZoomButton(
-    isPlus: Boolean,
-    desc: String,
-    onClick: () -> Unit
-) {
-    val themeBlue = ComposeColor(0xFF1565C0)
-    Button(
-        onClick = onClick,
-        modifier = Modifier.size(64.dp),
-        shape = CircleShape,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = ComposeColor(0xCCFFFFFF)
-        ),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
-    ) {
-        // "+" and "−" drawn from one shared strokeWidth so both glyphs carry
-        // identical (thick) line weight — independent of any font rendering.
-        Canvas(
-            modifier = Modifier.size(32.dp),
-            contentDescription = desc
-        ) {
-            val stroke = size.width * 0.16f
-            val inset = size.width * 0.20f
-            val cx = size.width / 2f
-            val cy = size.height / 2f
-            // Horizontal bar — the "−", and the cross-bar of "+"
-            drawLine(
-                color = themeBlue,
-                start = androidx.compose.ui.geometry.Offset(inset, cy),
-                end = androidx.compose.ui.geometry.Offset(size.width - inset, cy),
-                strokeWidth = stroke,
-                cap = androidx.compose.ui.graphics.StrokeCap.Round
-            )
-            if (isPlus) {
-                // Vertical bar — completes the "+"
-                drawLine(
-                    color = themeBlue,
-                    start = androidx.compose.ui.geometry.Offset(cx, inset),
-                    end = androidx.compose.ui.geometry.Offset(cx, size.height - inset),
-                    strokeWidth = stroke,
-                    cap = androidx.compose.ui.graphics.StrokeCap.Round
-                )
-            }
-        }
     }
 }
 
