@@ -607,7 +607,7 @@ class CoastlineViewModel(
         if (userDriven) {
             settingsManager.update { it.copy(mapCenterLat = latitude, mapCenterLon = longitude) }
         }
-        // Demo mode: extrapolate pan velocity → simulated speed in knots.
+        // Demo mode: extrapolate pan velocity → simulated speed in knots (and heading if enabled).
         if (!settings.value.gpsMode) {
             computeDemoSpeed(latitude, longitude)
         } else {
@@ -620,6 +620,9 @@ class CoastlineViewModel(
      * Uses Haversine distance ÷ elapsed wall-clock time between successive
      * [updateMapCenter] calls. A stop-detection timer clears the speed 500 ms
      * after the last pan event.
+     *
+     * Bearing/heading in demo mode is set independently via two-finger rotation
+     * gesture (see [setDemoBearing]) — this function only computes speed.
      */
     private fun computeDemoSpeed(lat: Double, lon: Double) {
         val now = SystemClock.elapsedRealtime()
@@ -650,6 +653,16 @@ class CoastlineViewModel(
             delay(PAN_STOP_DELAY_MS)
             if (isActive) _navigationState.update { it.copy(demoSpeedKnots = null) }
         }
+    }
+
+    /**
+     * Sets the bearing from a two-finger rotation gesture in demo mode.
+     * Called by [MapScreen]'s touch handler when a rotation is detected.
+     * Only effective when [AppSettings.demoHeadingUp] is enabled.
+     */
+    fun setDemoBearing(deg: Float) {
+        if (!settings.value.demoHeadingUp) return
+        setMapBearing(deg)
     }
 
     /**

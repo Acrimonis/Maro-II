@@ -1,10 +1,10 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** Zone300SpeedBadge
-- **Active Subfeature:** none
+- **Active Feature:** UI_Map
+- **Active Subfeature:** rotate
 - **Last Updated:** 2026-06-14
-- **Last Bake:** 2026-06-14 17:42 (Zone300SpeedBadge — 300m speed badge integrated into regulated zone icon stack and info text as highest-priority SPEED_LIMIT entry. Removed standalone Zone300SpeedBadge composable. Build: green.)
+- **Last Bake:** 2026-06-14 18:18 (UI_Map/rotate — Implementation complete. Two-finger rotation gesture in demo mode with demoHeadingUp toggle. setDemoBearing() in ViewModel, rotation gesture handler in MapScreen. Settings toggle in Display→Navigation. Build: green.)
 
 ## Routing Map
 | Keyword | Feature File |

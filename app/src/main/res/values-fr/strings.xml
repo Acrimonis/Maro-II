@@ -44,6 +44,8 @@
     <string name="settings_heading_line_desc">Afficher la ligne de cap en pointillés depuis le bateau jusqu\'au bord de la carte</string>
     <string name="settings_cap_arrow_label">Flèche variable</string>
     <string name="settings_cap_arrow_desc">Afficher la flèche de direction proportionnelle à la vitesse depuis le bateau</string>
+    <string name="settings_demo_heading_label">Cap en mode démo</string>
+    <string name="settings_demo_heading_desc">Déduire le cap de la direction du glissement en mode démo (au lieu du nord en haut)</string>
     <string name="settings_emodnet_section_label">Filtre EMODnet faible profondeur</string>
     <string name="settings_emodnet_section_desc">Les données EMODnet (grossières) sont peu fiables en eau très peu profonde près des rochers et de la côte</string>
     <string name="settings_emodnet_cutoff_label">Profondeur seuil</string>

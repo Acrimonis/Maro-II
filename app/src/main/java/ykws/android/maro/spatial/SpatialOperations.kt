@@ -33,6 +33,20 @@ object SpatialOperations {
     }
 
     /**
+     * Initial bearing (forward azimuth) from [p1] to [p2] in degrees, 0° = north,
+     * clockwise. Returns 0° when the two points are coincident.
+     */
+    fun initialBearing(p1: LatLng, p2: LatLng): Double {
+        val dLon = Math.toRadians(p2.longitude - p1.longitude)
+        val lat1 = Math.toRadians(p1.latitude)
+        val lat2 = Math.toRadians(p2.latitude)
+        val y = sin(dLon) * cos(lat2)
+        val x = cos(lat1) * sin(lat2) - sin(lat1) * cos(lat2) * cos(dLon)
+        val bearing = Math.toDegrees(atan2(y, x))
+        return (bearing + 360.0) % 360.0
+    }
+
+    /**
      * Minimum distance from point [p] to line segment [a]→[b], in meters.
      *
      * Uses a local planar projection (Lambert-like) centered at the midpoint
