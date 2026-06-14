@@ -1,7 +1,6 @@
 package ykws.android.maro.ui.map
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,7 +30,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -182,8 +180,6 @@ private fun DashboardCard(
     valueColor: Color = DashboardColors.textPrimary,
     subtitleColor: Color = DashboardColors.textMuted,
     subtitleWeight: FontWeight = FontWeight.Medium,
-    borderColor: Color = Color.Transparent,
-    borderWidth: Dp = 0.dp,
     isEmpty: Boolean = false,
     modifier: Modifier = Modifier
 ) {
@@ -191,11 +187,6 @@ private fun DashboardCard(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
             .background(cardColor)
-            .then(
-                if (borderWidth > 0.dp && borderColor != Color.Transparent) {
-                    Modifier.border(width = borderWidth, color = borderColor, shape = RoundedCornerShape(8.dp))
-                } else Modifier
-            )
             .padding(horizontal = 4.dp, vertical = 2.dp)
     ) {
         Column(
@@ -442,7 +433,7 @@ private fun DistanceCard(
  * 3. Inside zone (currentZone != null) → zone name + speed limit + exit distance + compliance color.
  *    Shows "→ Next zone" in subtitle when zones are ahead on heading.
  * 4. Zones ahead (zonesAround not empty) → zone name + direction arrow + distance + ETA
- * 5. No zones at all → "LIBRE"
+ * 5. No zones at all → "OPEN WATER"
  */
 @Composable
 private fun SpeedLimitCard(
@@ -518,15 +509,12 @@ private fun SpeedLimitCard(
                         else if (speedKnots <= limitF) DashboardColors.speedSafe
                         else if (speedKnots <= limitF * 1.4f) DashboardColors.speedCaution
                         else DashboardColors.speedDanger
-        val borderColor = cardColor
 
         DashboardCard(
             title = current.zoneName,
             value = stringResource(R.string.dash_value_speed_limit, limitKn),
             subtitle = subtitle.ifEmpty { null },
             cardColor = cardColor,
-            borderColor = borderColor,
-            borderWidth = 2.dp,
             modifier = modifier
         )
         return
@@ -640,8 +628,6 @@ private fun DepthCard(
         subtitleColor = confColor,
         subtitleWeight = FontWeight.Bold,
         cardColor = depthColor.copy(alpha = 0.25f),
-        borderColor = depthColor,
-        borderWidth = 2.dp,
         modifier = modifier
     )
 }
@@ -695,7 +681,6 @@ private fun SpeedCard(
     } else {
         DashboardColors.cardBg
     }
-    val showBorder = cardColor != DashboardColors.cardBg
     val subtitle = if (activeSpeedLimitKn != null)
         stringResource(R.string.dash_speed_zone_limit, activeSpeedLimitKn)
     else null
@@ -704,8 +689,6 @@ private fun SpeedCard(
         value = stringResource(R.string.dash_value_kn, speedKnots),
         subtitle = subtitle,
         cardColor = cardColor,
-        borderColor = if (showBorder) cardColor else Color.Transparent,
-        borderWidth = if (showBorder) 2.dp else 0.dp,
         modifier = modifier
     )
 }

@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** speed-zones
-- **Active Subfeature:** (none)
+- **Active Feature:** Ui_Dashboard
+- **Active Subfeature:** distance tile
 - **Last Updated:** 2026-06-14
-- **Last Bake:** 2026-06-14 19:50 (Squash-merge rebase from feature/speed-zones onto origin/develop — 14 commits → 1, conflicts resolved in 4 files. Build: green. Branch: feature/speed-zones-v2.)
-- **Branch:** feature/speed-zones-v2
+- **Last Bake:** 2026-06-14 19:59 (Dashboard borders removed from all tiles; OPEN WATER label replaces LIBRE; string audit confirmed clean. Build: green. Branch: feature/dashborders.)
+- **Branch:** feature/dashborders
 ## Routing Map
 | Keyword | Feature File |
 |---|---|

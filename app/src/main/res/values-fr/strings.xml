@@ -126,7 +126,7 @@
     <string name="src_satellite">Satellite</string>
     <string name="src_interpolated">Interpolé</string>
     <string name="dash_value_speed_limit">%.0f kn</string>
-    <string name="dash_libre_title">LIBRE</string>
+    <string name="dash_libre_title">EAU LIBRE</string>
     <string name="dash_libre_value">--</string>
     <string name="dash_no_limit">Aucune limite</string>
     <string name="dash_speed_zone_limit">Limite %.0f kn</string>
