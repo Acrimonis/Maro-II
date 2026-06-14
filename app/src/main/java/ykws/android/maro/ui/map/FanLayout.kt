@@ -31,8 +31,8 @@ import kotlin.math.sin
 
 /**
  * A fan layout that renders a parent button at a fixed position with child buttons
- * fanned out behind it along a circular arc. Children are drawn ON TOP of the parent
- * (Compose draws later-declared children on top by default).
+ * fanned out behind it along a circular arc. Children are drawn BEHIND the parent
+ * (Compose draws in declaration order; children declared first, parent after).
  *
  * Geometry (confirmed as STRONG rules in the feature spec):
  * - θ is the primary parameter (inter-button angle).
@@ -87,38 +87,9 @@ fun FanLayout(
     // The box size equals buttonSize so the parent fills it completely.
     // Children are offset from the box center using IntOffset (pixel-level precision for animation).
     Box(modifier = modifier.size(config.buttonSizeDp)) {
-        // ── Parent button ────────────────────────────────────────────────
-        // Wrapped in a Box so the badge can render OUTSIDE the circle clip.
-        Box(modifier = Modifier.size(config.buttonSizeDp)) {
-            MapControlButton(onClick = onParentClick) {
-                parent(config.isOpen, config.activeChildCount)
-            }
-
-            // Active badge — 18 dp blue circle at TopEnd, outside circle clip.
-            // Always visible when showActiveBadge is true (shows "0" when none active).
-            if (config.showActiveBadge) {
-                Box(
-                    modifier = Modifier
-                        .size(18.dp)
-                        .clip(CircleShape)
-                        .background(ComposeColor(0xFF1565C0))
-                        .align(Alignment.TopEnd)
-                ) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(
-                            "${config.activeChildCount}",
-                            color = ComposeColor.White,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center,
-                            style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false))
-                        )
-                    }
-                }
-            }
-        }
-
         // ── Child buttons (animated, only visible when fan is open) ──────
+        // Declared FIRST so they render BEHIND the parent — children appear
+        // to "fan out from behind" the parent when they animate outward.
         if (config.isOpen && config.currentCount > 0) {
             val count = config.currentCount.coerceAtMost(children.size)
             val density = androidx.compose.ui.platform.LocalDensity.current
@@ -199,6 +170,35 @@ fun FanLayout(
                         },
                         icon = { childContent(isActive) }
                     )
+                }
+            }
+        }
+
+        // ── Parent button (on TOP of children → "fans out from behind") ──
+        Box(modifier = Modifier.size(config.buttonSizeDp)) {
+            MapControlButton(onClick = onParentClick) {
+                parent(config.isOpen, config.activeChildCount)
+            }
+
+            // Active badge — 18 dp blue circle at TopEnd, outside circle clip.
+            if (config.showActiveBadge) {
+                Box(
+                    modifier = Modifier
+                        .size(18.dp)
+                        .clip(CircleShape)
+                        .background(ComposeColor(0xFF1565C0))
+                        .align(Alignment.TopEnd)
+                ) {
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            "${config.activeChildCount}",
+                            color = ComposeColor.White,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                            style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false))
+                        )
+                    }
                 }
             }
         }

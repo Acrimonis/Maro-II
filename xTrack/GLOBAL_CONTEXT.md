@@ -4,7 +4,7 @@
 - **Active Feature:** ArcLayout
 - **Active Subfeature:** fan-migration
 - **Last Updated:** 2026-06-14
-- **Last Bake:** 2026-06-14 14:50 (ArcLayout — fan-migration: Fixed child centering. effectiveTheta=180/currentCount used for angles+R when currentCount<maxCount. Children distribute across full 180° arc with ½θ at each end. θ=45°, R=94.1dp for currentCount=4, maxCount=5. Build: green.)
+- **Last Bake:** 2026-06-14 14:55 (ArcLayout — fan-migration: Z-order fix — children declared first in Box (behind parent), parent second (on top). Children fan out from behind. effectiveTheta=180/currentCount, full-arc ½θ margins. Build: green.)
 
 ## Routing Map
 | Keyword | Feature File |
