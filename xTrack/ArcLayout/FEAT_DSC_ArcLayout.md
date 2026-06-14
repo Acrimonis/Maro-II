@@ -2,7 +2,7 @@
 name: ArcLayout
 status: active
 created: 2026-06-13 07:34
-modified: 2026-06-14 14:50
+modified: 2026-06-14 18:53
 active_subfeature: fan-migration
 ---
 
@@ -48,6 +48,7 @@ active_subfeature: fan-migration
 - [x] Add per-child toggle state via activeStates parameter
 - [x] Center maxCount template (not currentCount) in 180° semicircle
 - [x] Fix child centering: use effectiveTheta=180/currentCount for angles+R, full-arc distribution with ½θ at each end
+- [x] Refactor control stack: replace hardcoded Column children with dynamic ControlItem list; non-fan controls hide via AnimatedVisibility when any fan is expanded
 - [ ] Add second fan button in control stack
 - [ ] Replace hardcoded Spacer(136.dp) with computed value
 

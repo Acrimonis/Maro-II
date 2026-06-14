@@ -1,25 +1,19 @@
-# Hydration: ArcLayout → fan-migration
+# Hydration: ArcLayout — fan-migration
 
-**Session:** 2026-06-14 14:55 UTC
-**Last Bake:** 2026-06-14 14:55
+**Baked:** 2026-06-14 18:54 UTC
 
-## Micro State
+## Micro-State Summary
 
-- FanLayout framework fully implemented with FanConfig + FanLayout + MapControlButton + FanIconComponents
-- Layer fan: maxCount=5, currentCount=4, direction=LEFT, toggleChildren=true, showActiveBadge=true
-- Child centering fixed: effectiveTheta = 180/currentCount (45° for 4 buttons) for angles and radius
-- Full-arc distribution: children span full 180° with ½θ at each end — "½ space, btn, btn, btn, btn, ½ space"
-- R = 94.1dp — chord = btn+gap = 72dp maintained
-- Z-order fixed: children declared FIRST in Box (behind parent), parent SECOND (on top) — children fan out from behind
-- Remaining todos: second fan button, Spacer replacement
+Control stack refactored: hardcoded Column children replaced with `ControlId`/`ControlSection`/`ControlItem` data model. Non-fan controls (Settings, Zoom) now hide via `AnimatedVisibility` when a fan is expanded. The `expandedFanId: ControlId?` state replaces the old `layerFanExpanded: Boolean`.
 
-## Target Files
-- `app/src/main/java/ykws/android/maro/ui/map/FanLayout.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/FanConfig.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/MapControlButton.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/FanIconComponents.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/ArcLayoutToggle.kt`
+### What changed
+- **MapScreen.kt**: Added `ControlId`, `ControlSection`, `ControlItem` types + `ControlSectionContent` composable. Replaced static Column children with list-based `remember` block + `AnimatedVisibility` gate.
+- **plan**: `plans/fan-btn-hide-ozers-plan.md`
 
-## Next Step
-Add second fan button in control stack + replace hardcoded Spacer.
+### Key design
+- `ControlId.SETTINGS` (TOP), `LAYER_FAN` (MIDDLE), `ZOOM` (BOTTOM) — sections preserve `SpaceBetween` layout
+- Visibility: `item.isFan || !anyFanOpen || isExpanded`
+- Adding a new control = one enum entry + one `ControlItem` in the list
+
+### Next step
+- Ready to add second fan button in control stack
