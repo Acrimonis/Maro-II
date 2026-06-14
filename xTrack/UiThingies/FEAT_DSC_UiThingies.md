@@ -2,8 +2,8 @@
 name: UiThingies
 status: active
 created: 2026-06-06 00:00
-modified: 2026-06-09 00:00
-active_subfeature: dash-size
+modified: 2026-06-14 11:43
+active_subfeature: arc-layout-button
 ---
 
 # Feature: UiThingies
@@ -81,6 +81,45 @@ UI layout refinements for the Maro map — reorganizing on-screen elements for b
 - `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt`
 
 #### Docs
+
+### arc-layout-button  [ ]
+
+#### Todos
+- [ ] Create `FanConfig` data class (thetaDeg, currentCount, direction, buttonSizeDp, edgeGapDp, isOpen) + `FanDirection` enum (UP, DOWN, LEFT, RIGHT, UP_LEFT, UP_RIGHT, DOWN_LEFT, DOWN_RIGHT)
+- [ ] Create `MapControlButton` composable — 64 dp circle, white bg `0xCCFFFFFF`, theme blue `0xFF1565C0`, zero padding, contentDescription on Button
+- [ ] Create `FanLayout` composable — parent at center, children on arc at radius R computed from θ + button size + edge gap
+- [ ] Implement geometry: `R = (buttonSize + edgeGap) / (2 × sin(θ/2))`, children positioned at `startAngle + offset + i × θ`, centered in the directional arc
+- [ ] Implement z-ordering: parent at bottom, children drawn ON TOP (higher z-index)
+- [ ] Standardise icon size to 28 dp across all control-stack buttons
+- [ ] Create Canvas icon composables: CircleRingIcon (300m zone), WarningTriangleIcon (danger layer), PlusIcon, MinusIcon, GearIcon
+- [ ] Port existing 5 buttons to `MapControlButton` + `FanLayout` (first fan = layer toggles group)
+- [ ] Add second fan button in the right-edge control stack (close to the layer fan)
+- [ ] Replace hardcoded Spacer(136.dp) with computed value
+- [ ] Verify fan layout and spacing on portrait / landscape / narrow-width layouts
+
+#### Rules — STRONG (Geometry)
+- **θ is the primary parameter.** It defines the angular spacing between adjacent children as seen from the parent at center. R is DERIVED from θ + button size + edge gap.
+- **Parent at center.** Parent button sits at the center of the circle. Children sit on the arc at radius R around it.
+- **Equidistance per relationship type.** All parent→child distances = R (internally consistent). All child↔child chords = 2R × sin(θ/2) (internally consistent). These two values differ numerically unless θ = 60°. This is INTENTIONAL.
+- **R formula:** `R = (buttonSizeDp + edgeGapDp) / (2 × sin(θ/2))` — ensures no button overlap with a consistent visual gap.
+- **Children centered in arc.** The N children are centered in the directional arc using offset from the start angle.
+- **Children on top.** Children render at higher z-order than the parent. On fan open, animate from parent center outward to arc positions.
+
+#### Rules — STRONG (Visual)
+- All control-stack buttons use `MapControlButton` composable (64 dp circle, white bg `0xCCFFFFFF`, theme blue `0xFF1565C0`)
+- Icon size standardised to 28 dp across all control-stack buttons
+- Canvas drawing for icons (no material-icons-extended dependency); exception: Settings gear may reuse Material `Icons.Default.Settings`
+- Active/inactive toggle: icon alpha 1.0f / 0.25f, button background stays `0xCCFFFFFF` regardless
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — control stack layout, existing button composables
+- New: `app/src/main/java/ykws/android/maro/ui/map/FanLayout.kt` — FanLayout composable
+- New: `app/src/main/java/ykws/android/maro/ui/map/FanConfig.kt` — FanConfig + FanDirection
+- New: `app/src/main/java/ykws/android/maro/ui/map/MapControlButton.kt` — shared button composable
+- New: `app/src/main/java/ykws/android/maro/ui/map/FanIconComponents.kt` — Canvas icon composables
+
+#### Docs
+- `plans/arclayout-button-analysis.md` — full UI analysis, geometry spec, and design decisions
 
 ## Todos
 

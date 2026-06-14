@@ -1,10 +1,10 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** Settings
-- **Active Subfeature:** none
-- **Last Updated:** 2026-06-09
-- **Last Bake:** 2026-06-09 19:42 (Settings — scroll persistence implemented: save via snapshotFlow + MutableState, restore with layout-aware scrollTo after maxValue > 0)
+- **Active Feature:** UiThingies
+- **Active Subfeature:** arc-layout-button
+- **Last Updated:** 2026-06-14
+- **Last Bake:** 2026-06-14 11:43 (UiThingies — arc-layout-button: designed FanLayout framework with parameterised θ, parent-at-center geometry, equidistance per relationship type, direction-weighted fan. 11 todos across 5 new/1 existing file.)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -38,7 +38,7 @@
 | DepthMapping | Bathymetry / depth mapping from Litto3D, SHOM, EMODnet sources | 2026-05-10 00:00 | 2026-06-05 00:00 | active |
 | Coastline | Coastline extraction, spatial indexing, isOnWater determination | 2026-05-10 00:00 | 2026-06-05 00:00 | active |
 | Dashboard | Main dashboard UI layout and HUD information display | 2026-05-15 00:00 | 2026-06-03 00:00 | active |
-| UiThingies | UI widgets, buttons, and interactive elements | 2026-05-20 00:00 | 2026-06-03 00:00 | active |
+| UiThingies | UI widgets, buttons, and interactive elements | 2026-05-20 00:00 | 2026-06-14 11:43 | active |
 | GpsPlugin | GPS plugin with demo mode, heading/COG compass, geolocation | 2026-05-10 00:00 | 2026-06-03 00:00 | active |
 | MapDisplay | Map rendering, depth color layer, orientation overlay | 2026-05-10 00:00 | 2026-06-03 00:00 | active |
 | Performance | Battery optimization, adaptive GPS tuning, compass gate, map refresh | 2026-05-20 00:00 | 2026-06-05 00:00 | active |
