@@ -2,8 +2,8 @@
 name: UI_Map
 status: active
 created: 2026-06-07 00:00
-modified: 2026-06-08 21:36
-active_subfeature: none
+modified: 2026-06-14 18:18
+active_subfeature: rotate
 ---
 
 **Description:** Map display layer management — depth layer, color depth layer, and orientation-aware rendering.
@@ -195,6 +195,40 @@ together (as the 300 m toggle was on its own).
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `DangerLayerButton` + control-stack grouping
 - `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — `toggleLowDepthWarningVisibility()`
 
+### rotate  [ ]
+
+Allow manual two-finger rotation of the map in demo mode, and derive the heading/cap arrow bearing from that rotation instead of defaulting to north-up (0°). This transforms demo mode from a purely north-up free-pan mode into a heading-capable reference tool.
+
+#### Todos
+- [ ] Design and document the approach (see `plans/rotate-map-demo-mode-implications.md`)
+- [ ] Determine bearing source in demo mode: user gesture rotation vs pan-direction-derived
+- [ ] Allow non-zero `mapOrientation` in demo mode (remove the `mv.mapOrientation = 0f` hard reset at `MapScreen.kt:262`)
+- [ ] Add two-finger rotation gesture to MapView in demo mode (osmdroid rotation support or custom gesture detector)
+- [ ] Wire rotated bearing through `NavigationState.bearingDeg` in demo mode
+- [ ] Verify cap arrow draws correctly at all rotation angles in demo mode
+- [ ] Verify direction line (dashed heading line) works at rotated angles
+- [ ] Verify depth overlays, isobaths, 300m zone, regulated zones render correctly at non-zero orientation
+- [ ] Add setting toggle: "Demo mode heading-up" (opt-in) in Settings → Display
+- [ ] Performance: measure invalidate() repaint cost of rotation in demo mode
+- [ ] Build (apk-build.bat) + on-device verification
+
+#### Rules
+- The cap arrow must always draw straight up (screen-top) — same rule as GPS mode — map rotation aligns heading with screen-top
+- Demo mode bearing source must be clearly distinct from GPS bearing (can't mix the two)
+- Rotation gesture must not interfere with single-finger pan
+- The `mapOrientation = 0f` reset in `MapScreen.kt:262` must be relaxed, not removed — keep a default north-up for non-rotated demo mode
+- A setting toggle controls the feature; default OFF preserves existing north-up behavior
+- Demo speed computation (pan-velocity to knots) is independent of rotation — both features coexist
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — orientation effect (`LaunchedEffect` at line 260), rotation gesture handling
+- `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — `NavigationState.bearingDeg` update path for demo mode, speed computation
+- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — demo mode heading-up toggle persistence
+- `app/src/main/res/values/strings.xml`, `app/src/main/res/values-fr/strings.xml` — toggle labels
+
+#### Docs
+- `plans/rotate-map-demo-mode-implications.md` — this analysis
+
 ## Todos
 
 ## Rules
@@ -204,3 +238,4 @@ together (as the 300 m toggle was on its own).
 ## Docs
 - `xTrack/MapDisplay/FEAT_DOC_MapDisplay_marker-sizing.md` — centred boat marker sizing & behaviour on the map
 - `xTrack/Performance/FEAT_PLN_Performance_animateTo-interaction-analysis.md` — animateTo interaction with map refresh FPS analysis
+- `plans/rotate-map-demo-mode-implications.md` — Rotate map in demo mode: implications analysis on all derived features

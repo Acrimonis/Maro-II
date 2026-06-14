@@ -128,6 +128,8 @@ data class AppSettings(
      * drifts update the position at the idle cadence — prevents the perception of a
      * "stuck" position when anchored or drifting slowly.
      */
+    /** Demo mode: rotate map heading-up (pan-direction-derived bearing) instead of north-up. */
+    val demoHeadingUp: Boolean = false,
     val gpsIdleMinDistanceM: Float = 0f
 ) {
     /** Check whether a [ZoneDisplayCategory] is enabled in the current settings. */
@@ -207,6 +209,7 @@ class SettingsManager(
         showCategoryFishingProhibited = prefs.getBoolean(KEY_SHOW_CATEGORY_FISHING_PROHIBITED, false),
         showCategoryEnvironmental = prefs.getBoolean(KEY_SHOW_CATEGORY_ENVIRONMENTAL, true),
         showCategoryInformation = prefs.getBoolean(KEY_SHOW_CATEGORY_INFORMATION, false),
+        demoHeadingUp = prefs.getBoolean(KEY_DEMO_HEADING_UP, false),
         gpsIdleMinDistanceM = prefs.getFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, 0f)
     )
 
@@ -273,6 +276,7 @@ class SettingsManager(
             .putBoolean(KEY_REGULATION_INFO_EXPANDED, updated.regulationInfoExpanded)
             .putBoolean(KEY_CATEGORY_FILTER_EXPANDED, updated.categoryFilterExpanded)
             .putBoolean(KEY_BOAT_SIZE_FILTER_EXPANDED, updated.boatSizeFilterExpanded)
+            .putBoolean(KEY_DEMO_HEADING_UP, updated.demoHeadingUp)
             .putFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, updated.gpsIdleMinDistanceM)
             .apply()
     }
@@ -328,6 +332,7 @@ class SettingsManager(
         private const val KEY_BOAT_SIZE_FILTER_EXPANDED = "boat_size_filter_expanded"
         private const val KEY_REGULATION_INFO_VISIBLE = "regulation_info_visible"
         private const val KEY_REGULATION_INFO_EXPANDED = "regulation_info_expanded"
+        private const val KEY_DEMO_HEADING_UP = "demo_heading_up"
         private const val KEY_GPS_IDLE_MIN_DISTANCE_M = "gps_idle_min_distance_m"
     }
 }
