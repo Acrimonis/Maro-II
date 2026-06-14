@@ -2,9 +2,9 @@
 
 ## Active Session Pointers
 - **Active Feature:** ArcLayout
-- **Active Subfeature:** none
+- **Active Subfeature:** fan-migration
 - **Last Updated:** 2026-06-14
-- **Last Bake:** 2026-06-14 11:43 (ArcLayout — implemented FanLayout framework: parameterised θ geometry, parent-at-center, equidistance per relationship type. 4 new files, migrated layer toggles, MapControlButton base. Build: green.)
+- **Last Bake:** 2026-06-14 14:50 (ArcLayout — fan-migration: Fixed child centering. effectiveTheta=180/currentCount used for angles+R when currentCount<maxCount. Children distribute across full 180° arc with ½θ at each end. θ=45°, R=94.1dp for currentCount=4, maxCount=5. Build: green.)
 
 ## Routing Map
 | Keyword | Feature File |
@@ -44,7 +44,7 @@
 | Ui_Settings | Settings page UI, persistence, widgets, and UX enhancements | 2026-06-09 15:28 | 2026-06-09 19:42 | active |
 | **Navigation** | **Navigation aids — heading/speed arrow and direction line on map overlay** | **2026-06-10 08:40** | **2026-06-11 11:55** | **active** |
 | **RegulatedZones** | **Maritime regulatory zones — multi-source normalization (SHOM INSPIRE + IGN Natura 2000), sealed classification, 8-category icon mapping, keyword-driven display logic** | **2026-06-11 18:00** | **2026-06-12 22:37** | **active** |
-| **ArcLayout** | **Layer toggle arc menu — pure-Compose semicircle fan-out with layer toggles, FanLayout framework, MapControlButton base** | **2026-06-13 07:34** | **2026-06-14 11:43** | **active** |
+| **ArcLayout** | **Layer toggle arc menu — pure-Compose semicircle fan-out with layer toggles, FanLayout framework, fixed child centering using effectiveTheta=180/currentCount** | **2026-06-13 07:34** | **2026-06-14 14:50** | **active** |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).

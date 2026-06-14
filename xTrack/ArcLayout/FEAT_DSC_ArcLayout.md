@@ -2,7 +2,7 @@
 name: ArcLayout
 status: active
 created: 2026-06-13 07:34
-modified: 2026-06-14 13:40
+modified: 2026-06-14 14:50
 active_subfeature: fan-migration
 ---
 
@@ -44,16 +44,19 @@ active_subfeature: fan-migration
 - [x] Port old ArcAnchorButton + ArcButtonOverlay to FanLayout
 - [x] Add badge, animation, toggle support to FanLayout
 - [x] Move 4 Canvas icons from ArcLayoutToggle to FanIconComponents
-- [x] Set maxCount=4, direction=LEFT for layer fan
+- [x] Set maxCount=5, direction=LEFT for layer fan (maxCount=5, currentCount=4)
 - [x] Add per-child toggle state via activeStates parameter
+- [x] Center maxCount template (not currentCount) in 180° semicircle
+- [x] Fix child centering: use effectiveTheta=180/currentCount for angles+R, full-arc distribution with ½θ at each end
 - [ ] Add second fan button in control stack
 - [ ] Replace hardcoded Spacer(136.dp) with computed value
 
 #### Rules — STRONG
-- **Primary params:** maxCount (→ θ = 180°/maxCount) + direction (fan center direction)
+- **Primary params:** maxCount sets slot template; effectiveTheta = 180/currentCount for actual spacing when currentCount < maxCount
+- **When currentCount < maxCount:** distribute children across FULL 180° arc with ½θ (= θ/2) empty at each end — "½ space, btn, btn, btn, btn, ½ space" = 5 slots total
+- **When currentCount == maxCount:** use original θ-spaced template centered in 180° with 18° margins
 - **Parent at center.** Children on arc at radius R. All parent→child = R (internally equal). All child↔child chords = 2R × sin(θ/2) (internally equal).
-- **R formula:** R = (buttonSizeDp + edgeGapDp) / (2 × sin(θ/2))
-- **Children centered** in the directional arc (offset from base angle)
+- **R formula:** R = (buttonSizeDp + edgeGapDp) / (2 × sin(effectiveTheta/2))
 - **Angle convention:** 0°=top, 90°=right, 180°=bottom, 270°=left
 - **Children on top** (Compose declaration order: parent first, children after)
 - **Toggle mode:** children receive per-child activeStates; active=alpha 1.0, inactive=alpha 0.25
@@ -73,6 +76,7 @@ active_subfeature: fan-migration
 - `plans/arclayout-button-analysis.md` — original analysis
 - `plans/fanlayout-extension-discussion.md` — toggle + badge + animation design
 - `plans/fanlayout-equidistance-rule.md` — equidistance geometry rule
+- `plans/fanlayout-child-centering-rule.md` — child button centering design rule
 
 ## Rules
 - Keep the plan at `plans/arclayout-feature-plan.md` as the single source of truth for design decisions

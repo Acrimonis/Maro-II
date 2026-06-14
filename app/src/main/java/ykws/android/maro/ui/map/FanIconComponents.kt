@@ -133,3 +133,72 @@ fun GearIcon() {
         modifier = Modifier.size(ICON_SIZE_DP.dp)
     )
 }
+
+/**
+ * Icon: three stacked horizontal bars (depth layer indicator).
+ * Mirrors the ArcLayoutToggle depth icon — narrower at top, full-width at bottom.
+ *
+ * @param alpha Opacity (1.0 = active, 0.25 = inactive).
+ */
+@Composable
+fun ThreeStripeLayerIcon(alpha: Float) {
+    Canvas(modifier = Modifier.size(ICON_SIZE_DP.dp)) {
+        val w = size.width; val h = size.height; val inset = w * 0.12f; val barHeight = h * 0.22f
+        // Top bar (narrowest)
+        drawRoundRect(ThemeBlue, Offset(inset * 0.5f, h * 0.02f), Size(w - inset, barHeight),
+            CornerRadius(3f, 3f), alpha = alpha * 0.5f)
+        // Middle bar
+        drawRoundRect(ThemeBlue, Offset(inset * 0.25f, h * 0.48f - barHeight / 2), Size(w - inset * 0.5f, barHeight),
+            CornerRadius(3f, 3f), alpha = alpha * 0.7f)
+        // Bottom bar (full width)
+        drawRoundRect(ThemeBlue, Offset(0f, h - barHeight - inset * 0.5f), Size(w, barHeight),
+            CornerRadius(3f, 3f), alpha = alpha)
+    }
+}
+
+/**
+ * Icon: circle with a diagonal slash (regulated zones indicator).
+ *
+ * @param alpha Opacity (1.0 = active, 0.25 = inactive).
+ */
+@Composable
+fun RegulatedZoneIcon(alpha: Float) {
+    Canvas(modifier = Modifier.size(ICON_SIZE_DP.dp)) {
+        val w = size.width; val cx = w / 2f; val cy = size.height / 2f; val r = w * 0.40f
+        val a = ThemeBlue
+        // Outer circle (stroke)
+        drawCircle(a, r, Offset(cx, cy), alpha, style = Stroke(w * 0.12f))
+        // Diagonal slash
+        val d = r * 0.5f
+        drawLine(a, Offset(cx - d, cy + d), Offset(cx + d, cy - d), w * 0.12f,
+            cap = StrokeCap.Round, alpha = alpha)
+    }
+}
+
+/**
+ * Icon: dual circle — outer stroke + inner fill (300m zone + regulated zones combined toggle).
+ *
+ * @param alpha Opacity (1.0 = active, 0.25 = inactive).
+ */
+@Composable
+fun DoubleCircleIcon(alpha: Float) {
+    Canvas(modifier = Modifier.size(ICON_SIZE_DP.dp)) {
+        val w = size.width; val cx = w / 2f; val cy = size.height / 2f
+        // Outer ring (regulated zones)
+        drawCircle(ThemeBlue, w * 0.40f, Offset(cx, cy), alpha, style = Stroke(w * 0.10f))
+        // Inner fill (300m zone)
+        drawCircle(ThemeBlue, w * 0.20f, Offset(cx, cy), alpha)
+    }
+}
+
+/**
+ * Icon: 3-step depth bar stack (depth layer toggle).
+ * Three stacked horizontal bars — narrow/mid/full width, same as ThreeStripeLayerIcon
+ * but aliased for semantic naming in depth layer context.
+ *
+ * @param alpha Opacity (1.0 = active, 0.25 = inactive).
+ */
+@Composable
+fun DepthBarIcon(alpha: Float) {
+    ThreeStripeLayerIcon(alpha = alpha)
+}

@@ -70,9 +70,16 @@ fun FanLayout(
     onChildClick: ((index: Int, isActive: Boolean) -> Unit)? = null,
     activeStates: List<Boolean> = emptyList()
 ) {
-    // Compute R in dp (arc radius) from θ + button size + gap.
-    val radiusDp: Dp = remember(config.thetaDeg, config.buttonSizeDp, config.edgeGapDp) {
-        val halfThetaRad = Math.toRadians((config.thetaDeg / 2f).toDouble())
+    // Compute effective θ from the actual number of buttons to place (not maxCount).
+    // This determines both spacing (angle between children) and radius (chord = btn+gap).
+    val effectiveTheta = if (config.currentCount >= config.maxCount || config.currentCount < 2)
+        config.thetaDeg
+    else
+        180f / config.currentCount
+
+    // Compute R in dp from effective θ + button size + gap.
+    val radiusDp: Dp = remember(effectiveTheta, config.buttonSizeDp, config.edgeGapDp) {
+        val halfThetaRad = Math.toRadians((effectiveTheta / 2f).toDouble())
         val totalDp = config.buttonSizeDp.value + config.edgeGapDp.value
         (totalDp / (2f * sin(halfThetaRad)).toFloat()).dp
     }
@@ -114,12 +121,6 @@ fun FanLayout(
         // ── Child buttons (animated, only visible when fan is open) ──────
         if (config.isOpen && config.currentCount > 0) {
             val count = config.currentCount.coerceAtMost(children.size)
-            val totalArcSpan = (count - 1) * config.thetaDeg
-            val offsetDeg = (180f - totalArcSpan) / 2f // centred in reference semicircle
-            // baseAngleDeg is the DIRECTION the fan points (center of semicircle).
-            // Derive the start angle: start = center - 90°.
-            val startAngleDeg = config.baseAngleDeg - 90f + offsetDeg
-            val baseAngleRad = Math.toRadians(startAngleDeg.toDouble())
             val density = androidx.compose.ui.platform.LocalDensity.current
             val rPx = with(density) { radiusDp.toPx() }
             val halfBtnPx = with(density) { (config.buttonSizeDp / 2f).toPx() }
@@ -127,8 +128,33 @@ fun FanLayout(
             val parentCxPx = with(density) { (config.buttonSizeDp / 2f).toPx() }
             val parentCyPx = with(density) { (config.buttonSizeDp / 2f).toPx() }
 
+            // Determine child positions.
+            // When currentCount == maxCount: use the θ-spaced template (centered in 180°).
+            // When currentCount < maxCount: distribute children across the FULL 180° arc
+            // with ½θ (= θ/2) empty at each end — "½ space, btn, btn, btn, btn, ½ space".
+            // Both θ and R are derived from effectiveTheta (= 180/currentCount).
+            val baseAngleRad: Double
+            val interButtonDeg: Float
+
+            if (config.currentCount >= config.maxCount) {
+                // Template mode: center maxCount slots in 180°, children at θ intervals.
+                val maxArcSpan = (config.maxCount - 1) * config.thetaDeg
+                val offsetDeg = (180f - maxArcSpan) / 2f
+                baseAngleRad = Math.toRadians(
+                    (config.baseAngleDeg - 90f + offsetDeg).toDouble()
+                )
+                interButtonDeg = config.thetaDeg
+            } else {
+                // Full-arc mode: use effectiveTheta from currentCount.
+                // Children span the full 180° with ½θ at each end.
+                val halfGapDeg = effectiveTheta / 2f
+                val startDeg = config.baseAngleDeg - 90f + halfGapDeg
+                baseAngleRad = Math.toRadians(startDeg.toDouble())
+                interButtonDeg = effectiveTheta
+            }
+
             children.take(count).forEachIndexed { i, childContent ->
-                val angleRad = baseAngleRad + i * Math.toRadians(config.thetaDeg.toDouble())
+                val angleRad = baseAngleRad + i * Math.toRadians(interButtonDeg.toDouble())
                 // User's angle convention: 0°=top (midnight), clockwise.
                 // Offset: x = R × sin(angle), y = -R × cos(angle)
                 // This maps 0°→up, 90°→right, 180°→down, 270°→left
