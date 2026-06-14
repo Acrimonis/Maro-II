@@ -5,7 +5,9 @@ import android.content.SharedPreferences
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import ykws.android.maro.BuildConfig
 import ykws.android.maro.data.depth.DepthConstants
+import ykws.android.maro.data.regulation.ZoneDisplayCategory
 
 /**
  * User-facing settings persisted via SharedPreferences.
@@ -52,8 +54,8 @@ import ykws.android.maro.data.depth.DepthConstants
 data class AppSettings(
     val defaultLatitude: Double = 43.55,
     val defaultLongitude: Double = 7.00,
-    val coastlineVisible: Boolean = true,
-    val zone300Visible: Boolean = true,
+    val coastlineVisible: Boolean = BuildConfig.LAYER_COASTLINE_DEFAULT,
+    val zone300Visible: Boolean = BuildConfig.LAYER_ZONE300_DEFAULT,
     val zoneAutoRevealDistanceM: Float = 200f,
     val zoneAutoRevealTimeS: Int = 20,
     val zone300AutoShowGps: Boolean = true,
@@ -74,7 +76,7 @@ data class AppSettings(
     /** App language: "system" (device locale, English fallback), "en", or "fr". */
     val languageCode: String = "system",
     /** Keep the device screen awake while the app is in the foreground. */
-    val keepScreenOn: Boolean = false,
+    val keepScreenOn: Boolean = true,
     /** Highlight charted shallow water as a bright grounding-hazard overlay. */
     val lowDepthWarningVisible: Boolean = true,
     /** Depth threshold (m) for the low-depth warning: cells shallower than this are painted. */
@@ -91,8 +93,56 @@ data class AppSettings(
     /** Regenerate: rebuild + re-cache depth colour raster. */
     val regenColour: Boolean = true,
     /** Regenerate: rebuild + re-cache shallow warning raster. */
-    val regenWarning: Boolean = true
-)
+    val regenWarning: Boolean = true,
+    /** Show the dashed heading direction line from the boat marker to the map edge. */
+    val headingLineVisible: Boolean = true,
+    /** Show the speed-proportional cap arrow projecting from the boat marker. */
+    val capArrowVisible: Boolean = false,
+    /** Show the hypsometric depth colour map and isobath contour overlays. */
+    val depthLayerVisible: Boolean = true,
+    /** Whether the regulated zones overlay (speed limits, anchoring, access, …) is drawn. */
+    val regulatedZonesVisible: Boolean = BuildConfig.LAYER_REGULATED_ZONES_DEFAULT,
+    /** Show zone info text panel beside the icon stack. */
+    val regulationInfoVisible: Boolean = false,
+    /** Boat length in metres — used to filter out zones with vessel size exemptions. */
+    val boatSizeM: Double = BuildConfig.REGULATED_ZONES_DEFAULT_VESSEL_LENGTH_M,
+    /** Whether the regulation info expander in settings is expanded. */
+    val regulationInfoExpanded: Boolean = false,
+    /** Whether the category visibility expander in settings is expanded. */
+    val categoryFilterExpanded: Boolean = false,
+    /** Whether the boat size expander in settings is expanded. */
+    val boatSizeFilterExpanded: Boolean = false,
+    /** Per-category visibility toggles for the regulated zone warning strip. */
+    val showCategoryNoAnchor: Boolean = true,
+    val showCategoryMooring: Boolean = false,
+    val showCategorySpeedLimit: Boolean = true,
+    val showCategoryNoDiving: Boolean = true,
+    val showCategorySeaplane: Boolean = false,
+    val showCategoryNoAccess: Boolean = true,
+    val showCategoryFishingProhibited: Boolean = false,
+    val showCategoryEnvironmental: Boolean = true,
+    val showCategoryInformation: Boolean = false,
+    /**
+     * GPS idle mode: minimum metres of movement between fixes when the adaptive policy
+     * has switched to [AcquisitionMode.IDLE] (device stationary). Default 0 so even tiny
+     * drifts update the position at the idle cadence — prevents the perception of a
+     * "stuck" position when anchored or drifting slowly.
+     */
+    val gpsIdleMinDistanceM: Float = 0f
+) {
+    /** Check whether a [ZoneDisplayCategory] is enabled in the current settings. */
+    fun isCategoryVisible(cat: ZoneDisplayCategory): Boolean = when (cat) {
+        ZoneDisplayCategory.NO_ANCHOR -> showCategoryNoAnchor
+        ZoneDisplayCategory.MOORING -> showCategoryMooring
+        ZoneDisplayCategory.SPEED_LIMIT -> showCategorySpeedLimit
+        ZoneDisplayCategory.NO_DIVING -> showCategoryNoDiving
+        ZoneDisplayCategory.SEAPLANE -> showCategorySeaplane
+        ZoneDisplayCategory.NO_ACCESS -> showCategoryNoAccess
+        ZoneDisplayCategory.FISHING_PROHIBITED -> showCategoryFishingProhibited
+        ZoneDisplayCategory.ENVIRONMENTAL -> showCategoryEnvironmental
+        ZoneDisplayCategory.INFORMATION -> showCategoryInformation
+    }
+}
 
 class SettingsManager(
     context: Context,
@@ -110,8 +160,8 @@ class SettingsManager(
     private fun load(): AppSettings = AppSettings(
         defaultLatitude  = prefs.getFloat(KEY_DEFAULT_LAT, 43.55f).toDouble(),
         defaultLongitude = prefs.getFloat(KEY_DEFAULT_LON, 7.00f).toDouble(),
-        coastlineVisible = prefs.getBoolean(KEY_COASTLINE_VISIBLE, true),
-        zone300Visible   = prefs.getBoolean(KEY_ZONE300_VISIBLE, true),
+        coastlineVisible = prefs.getBoolean(KEY_COASTLINE_VISIBLE, BuildConfig.LAYER_COASTLINE_DEFAULT),
+        zone300Visible   = prefs.getBoolean(KEY_ZONE300_VISIBLE, BuildConfig.LAYER_ZONE300_DEFAULT),
         zoneAutoRevealDistanceM = prefs.getFloat(KEY_ZONE_AUTOREVEAL_DIST_M, defaultAutoRevealDistM),
         zoneAutoRevealTimeS     = prefs.getInt(KEY_ZONE_AUTOREVEAL_TIME_S, defaultAutoRevealTimeS),
         zone300AutoShowGps  = prefs.getBoolean(KEY_ZONE300_AUTOSHOW_GPS, true),
@@ -138,7 +188,26 @@ class SettingsManager(
         regenGrid    = prefs.getBoolean(KEY_REGEN_GRID, true),
         regenIsobaths = prefs.getBoolean(KEY_REGEN_ISOBATHS, true),
         regenColour  = prefs.getBoolean(KEY_REGEN_COLOUR, true),
-        regenWarning = prefs.getBoolean(KEY_REGEN_WARNING, true)
+        regenWarning = prefs.getBoolean(KEY_REGEN_WARNING, true),
+        headingLineVisible = prefs.getBoolean(KEY_HEADING_LINE_VISIBLE, true),
+        capArrowVisible   = prefs.getBoolean(KEY_CAP_ARROW_VISIBLE, false),
+        depthLayerVisible = prefs.getBoolean(KEY_DEPTH_LAYER_VISIBLE, true),
+        regulatedZonesVisible = prefs.getBoolean(KEY_REGULATED_ZONES_VISIBLE, BuildConfig.LAYER_REGULATED_ZONES_DEFAULT),
+        regulationInfoVisible = prefs.getBoolean(KEY_REGULATION_INFO_VISIBLE, false),
+        regulationInfoExpanded = prefs.getBoolean(KEY_REGULATION_INFO_EXPANDED, false),
+        boatSizeM = prefs.getFloat(KEY_BOAT_SIZE_M, BuildConfig.REGULATED_ZONES_DEFAULT_VESSEL_LENGTH_M.toFloat()).toDouble(),
+        categoryFilterExpanded = prefs.getBoolean(KEY_CATEGORY_FILTER_EXPANDED, false),
+        boatSizeFilterExpanded = prefs.getBoolean(KEY_BOAT_SIZE_FILTER_EXPANDED, false),
+        showCategoryNoAnchor = prefs.getBoolean(KEY_SHOW_CATEGORY_NO_ANCHOR, true),
+        showCategoryMooring = prefs.getBoolean(KEY_SHOW_CATEGORY_MOORING, false),
+        showCategorySpeedLimit = prefs.getBoolean(KEY_SHOW_CATEGORY_SPEED_LIMIT, true),
+        showCategoryNoDiving = prefs.getBoolean(KEY_SHOW_CATEGORY_NO_DIVING, true),
+        showCategorySeaplane = prefs.getBoolean(KEY_SHOW_CATEGORY_SEAPLANE, false),
+        showCategoryNoAccess = prefs.getBoolean(KEY_SHOW_CATEGORY_NO_ACCESS, true),
+        showCategoryFishingProhibited = prefs.getBoolean(KEY_SHOW_CATEGORY_FISHING_PROHIBITED, false),
+        showCategoryEnvironmental = prefs.getBoolean(KEY_SHOW_CATEGORY_ENVIRONMENTAL, true),
+        showCategoryInformation = prefs.getBoolean(KEY_SHOW_CATEGORY_INFORMATION, false),
+        gpsIdleMinDistanceM = prefs.getFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, 0f)
     )
 
     /**
@@ -186,6 +255,25 @@ class SettingsManager(
             .putBoolean(KEY_REGEN_ISOBATHS, updated.regenIsobaths)
             .putBoolean(KEY_REGEN_COLOUR, updated.regenColour)
             .putBoolean(KEY_REGEN_WARNING, updated.regenWarning)
+            .putBoolean(KEY_HEADING_LINE_VISIBLE, updated.headingLineVisible)
+            .putBoolean(KEY_CAP_ARROW_VISIBLE, updated.capArrowVisible)
+            .putBoolean(KEY_DEPTH_LAYER_VISIBLE, updated.depthLayerVisible)
+            .putBoolean(KEY_REGULATED_ZONES_VISIBLE, updated.regulatedZonesVisible)
+            .putFloat(KEY_BOAT_SIZE_M, updated.boatSizeM.toFloat())
+            .putBoolean(KEY_SHOW_CATEGORY_NO_ANCHOR, updated.showCategoryNoAnchor)
+            .putBoolean(KEY_SHOW_CATEGORY_MOORING, updated.showCategoryMooring)
+            .putBoolean(KEY_SHOW_CATEGORY_SPEED_LIMIT, updated.showCategorySpeedLimit)
+            .putBoolean(KEY_SHOW_CATEGORY_NO_DIVING, updated.showCategoryNoDiving)
+            .putBoolean(KEY_SHOW_CATEGORY_SEAPLANE, updated.showCategorySeaplane)
+            .putBoolean(KEY_SHOW_CATEGORY_NO_ACCESS, updated.showCategoryNoAccess)
+            .putBoolean(KEY_SHOW_CATEGORY_FISHING_PROHIBITED, updated.showCategoryFishingProhibited)
+            .putBoolean(KEY_SHOW_CATEGORY_ENVIRONMENTAL, updated.showCategoryEnvironmental)
+            .putBoolean(KEY_SHOW_CATEGORY_INFORMATION, updated.showCategoryInformation)
+            .putBoolean(KEY_REGULATION_INFO_VISIBLE, updated.regulationInfoVisible)
+            .putBoolean(KEY_REGULATION_INFO_EXPANDED, updated.regulationInfoExpanded)
+            .putBoolean(KEY_CATEGORY_FILTER_EXPANDED, updated.categoryFilterExpanded)
+            .putBoolean(KEY_BOAT_SIZE_FILTER_EXPANDED, updated.boatSizeFilterExpanded)
+            .putFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, updated.gpsIdleMinDistanceM)
             .apply()
     }
 
@@ -222,5 +310,24 @@ class SettingsManager(
         private const val KEY_REGEN_ISOBATHS = "regen_isobaths"
         private const val KEY_REGEN_COLOUR = "regen_colour"
         private const val KEY_REGEN_WARNING = "regen_warning"
+        private const val KEY_HEADING_LINE_VISIBLE = "heading_line_visible"
+        private const val KEY_CAP_ARROW_VISIBLE = "cap_arrow_visible"
+        private const val KEY_DEPTH_LAYER_VISIBLE = "depth_layer_visible"
+        private const val KEY_REGULATED_ZONES_VISIBLE = "regulated_zones_visible"
+        private const val KEY_BOAT_SIZE_M = "boat_size_m"
+        private const val KEY_SHOW_CATEGORY_NO_ANCHOR = "show_category_no_anchor"
+        private const val KEY_SHOW_CATEGORY_MOORING = "show_category_mooring"
+        private const val KEY_SHOW_CATEGORY_SPEED_LIMIT = "show_category_speed_limit"
+        private const val KEY_SHOW_CATEGORY_NO_DIVING = "show_category_no_diving"
+        private const val KEY_SHOW_CATEGORY_SEAPLANE = "show_category_seaplane"
+        private const val KEY_SHOW_CATEGORY_NO_ACCESS = "show_category_no_access"
+        private const val KEY_SHOW_CATEGORY_FISHING_PROHIBITED = "show_category_fishing_prohibited"
+        private const val KEY_SHOW_CATEGORY_ENVIRONMENTAL = "show_category_environmental"
+        private const val KEY_SHOW_CATEGORY_INFORMATION = "show_category_information"
+        private const val KEY_CATEGORY_FILTER_EXPANDED = "category_filter_expanded"
+        private const val KEY_BOAT_SIZE_FILTER_EXPANDED = "boat_size_filter_expanded"
+        private const val KEY_REGULATION_INFO_VISIBLE = "regulation_info_visible"
+        private const val KEY_REGULATION_INFO_EXPANDED = "regulation_info_expanded"
+        private const val KEY_GPS_IDLE_MIN_DISTANCE_M = "gps_idle_min_distance_m"
     }
 }

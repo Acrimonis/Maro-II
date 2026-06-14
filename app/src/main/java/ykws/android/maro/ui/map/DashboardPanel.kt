@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -40,7 +41,6 @@ import ykws.android.maro.data.depth.DepthConstants
 import ykws.android.maro.data.model.CoastlineState
 import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.DepthSource
-import ykws.android.maro.data.model.ValidationReport
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -62,6 +62,8 @@ private object DashboardColors {
     val speedDanger = Color(0xFFC62828)   // red — >10 kn inside the zone
     val validationOk = Color(0xFF66BB6A)
     val validationWarn = Color(0xFFFFA726)
+    /** Alpha for all subdued/dulled dashboard states — no-data, on-land, far-from-zone, deep-water placeholder. */
+    const val dullAlpha = 0.33f
 }
 
 // ── Dashboard panel (public, called from MapScreen) ──────────────────────────
@@ -83,14 +85,14 @@ fun DashboardPanel(
     inZone300: Boolean,
     distanceToZone: Double?,
     depthSample: DepthSample?,
-    validation: ValidationReport?,
     speedKnots: Float?,
+    alertDistanceM: Float = 200f,
     modifier: Modifier = Modifier
 ) {
     Box(
         modifier = modifier
             .background(DashboardColors.background)
-            .padding(horizontal = 12.dp, vertical = 10.dp),
+            .padding(horizontal = 4.dp, vertical = 2.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
         Column(
@@ -100,13 +102,13 @@ fun DashboardPanel(
             // ── 2×2 indicator grid ─────────────────────────────────────────
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     DistanceCard(
                         distanceToShore = distanceToShore,
@@ -122,6 +124,7 @@ fun DashboardPanel(
                         speedKnots = speedKnots,
                         state = state,
                         isWater = isWater,
+                        alertDistanceM = alertDistanceM,
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
@@ -131,7 +134,7 @@ fun DashboardPanel(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     DepthCard(
                         depthSample = depthSample,
@@ -149,12 +152,6 @@ fun DashboardPanel(
                     )
                 }
             }
-
-            // ── Validation badge ───────────────────────────────────────────
-            if (validation != null) {
-                ValidationBadge(validation = validation)
-                Spacer(modifier = Modifier.height(6.dp))
-            }
         }
     }
 }
@@ -171,23 +168,25 @@ private fun DashboardCard(
     value: String,
     subtitle: String? = null,
     cardColor: Color = DashboardColors.cardBg,
+    titleColor: Color = DashboardColors.textPrimary,
     valueColor: Color = DashboardColors.textPrimary,
     subtitleColor: Color = DashboardColors.textMuted,
-    subtitleWeight: FontWeight = FontWeight.Normal,
+    subtitleWeight: FontWeight = FontWeight.Medium,
     borderColor: Color = Color.Transparent,
     borderWidth: Dp = 0.dp,
+    isEmpty: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(10.dp))
+            .clip(RoundedCornerShape(8.dp))
             .background(cardColor)
             .then(
                 if (borderWidth > 0.dp && borderColor != Color.Transparent) {
-                    Modifier.border(width = borderWidth, color = borderColor, shape = RoundedCornerShape(10.dp))
+                    Modifier.border(width = borderWidth, color = borderColor, shape = RoundedCornerShape(8.dp))
                 } else Modifier
             )
-            .padding(horizontal = 8.dp, vertical = 6.dp)
+            .padding(horizontal = 4.dp, vertical = 2.dp)
     ) {
         Column(
             modifier = Modifier.fillMaxSize(),
@@ -195,21 +194,42 @@ private fun DashboardCard(
         ) {
             // Secondary: small, subdued label.
             Text(
-                text = title,
-                color = DashboardColors.textMuted,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Medium,
+                text = title.uppercase(),
+                color = titleColor,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
             // Primary: the value, as large as the cell allows.
-            AutoSizeValue(
-                text = value,
-                color = valueColor,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-            )
+            if (isEmpty) {
+                // Empty state: small subdued dash instead of the auto-sized value.
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = value,
+                        color = DashboardColors.textPrimary.copy(alpha = DashboardColors.dullAlpha),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Clip,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            } else {
+                AutoSizeValue(
+                    text = value,
+                    color = valueColor,
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                )
+            }
             // Secondary: small, subdued context (empty string keeps cell baselines aligned).
             Text(
                 text = subtitle ?: "",
@@ -251,11 +271,18 @@ private fun AutoSizeValue(
     }
 }
 
-/** Distance in metres rendered as a localised "x.x km" / "x m" string (decimal separator follows locale). */
+/** Distance in metres rendered as a localised "x.x km" / "x m" string (decimal separator follows locale).
+ *  Drops the decimal when ≥ 10 km: shows "18 km" instead of "18.1 km". */
 @Composable
-private fun distanceText(distanceM: Double): String =
-    if (distanceM >= 1000.0) stringResource(R.string.dash_value_km, distanceM / 1000.0)
-    else stringResource(R.string.dash_value_m, distanceM)
+private fun distanceText(distanceM: Double): String {
+    val km = distanceM / 1000.0
+    return if (distanceM >= 1000.0) {
+        if (km >= 10.0) stringResource(R.string.dash_value_km_int, km.toInt())
+        else stringResource(R.string.dash_value_km, km)
+    } else {
+        stringResource(R.string.dash_value_m, distanceM)
+    }
+}
 
 // ── Distance card ────────────────────────────────────────────────────────────
 
@@ -270,6 +297,7 @@ private fun DistanceCard(
         DashboardCard(
             title = stringResource(R.string.dash_distance_title),
             value = stringResource(R.string.dash_empty),
+            isEmpty = true,
             modifier = modifier
         )
         return
@@ -296,26 +324,30 @@ private fun Zone300Card(
     speedKnots: Float?,
     state: CoastlineState,
     isWater: Boolean,
+    alertDistanceM: Float = 200f,
     modifier: Modifier = Modifier
 ) {
     if (state !is CoastlineState.Ready || distanceToZone == null) {
         DashboardCard(
             title = stringResource(R.string.dash_zone_title),
             value = stringResource(R.string.dash_empty),
+            isEmpty = true,
             modifier = modifier
         )
         return
     }
 
+    // Dull threshold: when distance to zone > alert distance, render in subdued style.
     if (!isWater) {
-        val dimAlpha = 0.38f
+        val dull = DashboardColors.textPrimary.copy(alpha = DashboardColors.dullAlpha)
         DashboardCard(
             title = stringResource(R.string.dash_zone_title),
             value = stringResource(R.string.dash_not_at_sea),
             subtitle = stringResource(R.string.dash_out_of_zone),
             cardColor = DashboardColors.zoneNormal,
-            valueColor = DashboardColors.textPrimary.copy(alpha = dimAlpha),
-            subtitleColor = DashboardColors.textMuted.copy(alpha = dimAlpha),
+            titleColor = dull,
+            valueColor = dull,
+            subtitleColor = DashboardColors.textMuted.copy(alpha = DashboardColors.dullAlpha),
             modifier = modifier
         )
         return
@@ -366,14 +398,29 @@ private fun Zone300Card(
     } else {
         val zoneM = abs(distanceToZone)
         val zoneText = distanceText(zoneM)
+        val farFromZone = distanceToZone > alertDistanceM.toDouble() * 2.0
 
-        DashboardCard(
-            title = stringResource(R.string.dash_zone_title),
-            value = zoneText,
-            subtitle = stringResource(R.string.dash_to_zone),
-            cardColor = DashboardColors.zoneNormal,
-            modifier = modifier
-        )
+        if (farFromZone) {
+            val dull = DashboardColors.textPrimary.copy(alpha = DashboardColors.dullAlpha)
+            DashboardCard(
+                title = stringResource(R.string.dash_zone_title),
+                value = zoneText,
+                subtitle = stringResource(R.string.dash_to_zone),
+                cardColor = DashboardColors.zoneNormal,
+                titleColor = dull,
+                valueColor = dull,
+                subtitleColor = DashboardColors.textMuted.copy(alpha = DashboardColors.dullAlpha),
+                modifier = modifier
+            )
+        } else {
+            DashboardCard(
+                title = stringResource(R.string.dash_zone_title),
+                value = zoneText,
+                subtitle = stringResource(R.string.dash_to_zone),
+                cardColor = DashboardColors.cardBg,
+                modifier = modifier
+            )
+        }
     }
 }
 
@@ -386,29 +433,49 @@ private fun DepthCard(
     modifier: Modifier = Modifier
 ) {
     if (!isWater) {
-        val dimAlpha = 0.38f
+        val dull = DashboardColors.textPrimary.copy(alpha = DashboardColors.dullAlpha)
         DashboardCard(
             title = stringResource(R.string.dash_depth_title),
             value = stringResource(R.string.dash_not_at_sea),
             subtitle = stringResource(R.string.dash_out_of_zone),
             cardColor = DashboardColors.zoneNormal,
-            valueColor = DashboardColors.textPrimary.copy(alpha = dimAlpha),
-            subtitleColor = DashboardColors.textMuted.copy(alpha = dimAlpha),
+            titleColor = dull,
+            valueColor = dull,
+            subtitleColor = DashboardColors.textMuted.copy(alpha = DashboardColors.dullAlpha),
             modifier = modifier
         )
         return
     }
 
     if (depthSample == null || !depthSample.hasData) {
+        val dull = DashboardColors.textPrimary.copy(alpha = DashboardColors.dullAlpha)
         DashboardCard(
             title = stringResource(R.string.dash_depth_title),
             value = stringResource(R.string.dash_empty),
+            cardColor = DashboardColors.zoneNormal,
+            titleColor = dull,
+            valueColor = dull,
             modifier = modifier
         )
         return
     }
 
     val depthM = depthSample.depthM
+
+    // Deep water gate: ≥ 100 m → show localized "Deep!" / "Fond!" in subdued color instead of numeric value.
+    if (depthM >= 100f) {
+        val dull = DashboardColors.textPrimary.copy(alpha = DashboardColors.dullAlpha)
+        DashboardCard(
+            title = stringResource(R.string.dash_depth_title),
+            value = stringResource(R.string.dash_depth_deep),
+            cardColor = DashboardColors.zoneNormal,
+            titleColor = dull,
+            valueColor = dull,
+            modifier = modifier
+        )
+        return
+    }
+
     val depthColor = depthRampColor(depthM)
     val sourceLabel = depthSourceLabel(depthSample.source)
     val confidencePct = depthSample.confidence.toInt()
@@ -440,6 +507,17 @@ private fun SpeedCard(
             title = stringResource(R.string.dash_speed_title),
             value = stringResource(R.string.dash_empty),
             subtitle = stringResource(R.string.dash_demo_mode),
+            isEmpty = true,
+            modifier = modifier
+        )
+        return
+    }
+    // > 99.9 kn = unrealistic for recreational vessels → also show dash (no subtitle).
+    if (speedKnots > 99.9f) {
+        DashboardCard(
+            title = stringResource(R.string.dash_speed_title),
+            value = stringResource(R.string.dash_empty),
+            isEmpty = true,
             modifier = modifier
         )
         return
@@ -461,32 +539,6 @@ private fun SpeedCard(
         cardColor = cardColor,
         modifier = modifier
     )
-}
-
-// ── Validation badge ─────────────────────────────────────────────────────────
-
-@Composable
-private fun ValidationBadge(
-    validation: ValidationReport,
-    modifier: Modifier = Modifier
-) {
-    val (badge, badgeColor) = if (validation.passed) {
-        stringResource(R.string.dash_valid_ok, validation.rmseM) to DashboardColors.validationOk
-    } else {
-        stringResource(R.string.dash_valid_incomplete, validation.rmseM) to DashboardColors.validationWarn
-    }
-
-    Box(
-        modifier = modifier.fillMaxWidth(),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = badge,
-            color = badgeColor,
-            fontSize = 10.sp,
-            fontWeight = FontWeight.Medium
-        )
-    }
 }
 
 // ── Utility functions ────────────────────────────────────────────────────────
@@ -532,3 +584,4 @@ fun depthReadoutColor(depthM: Float): Long = when {
     depthM <= DepthConstants.SHALLOW_TIER_MAX_M.toFloat() -> 0xFFFFB74D
     else -> 0xFF4FC3F7
 }
+

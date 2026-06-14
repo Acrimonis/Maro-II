@@ -2,7 +2,7 @@
 name: WorkflowImprovement
 status: active
 created: 2026-06-03 00:00
-modified: 2026-06-09 14:52
+modified: 2026-06-10 06:56
 active_subfeature: none
 ---
 
@@ -60,7 +60,7 @@ Complete review of the xTrack system: identified spec fragmentation, orphan docs
 - `.claude/skills/xtrack/references/commands.md` — deprecated
 
 #### Docs
-- `plans/xTrack-review-plan.md` — full review analysis and roadmap
+- *(no plans attached)*
 
 ### AGENTSmdNormalization  [x]
 Vendor-neutral consolidation onto the AGENTS.md standard + xTrack hardening (this branch). All 6 fixes implemented + committed.
@@ -113,6 +113,36 @@ Define the Zero-Piecemeal Writes discussion exception: allow one plan file per d
 #### Key Files
 - `AGENTS.md` — Core Directives + §3
 
+### gitting-it  [x]
+
+#### Todos
+- [x] Define `#new [branch]` — fetch origin/develop, checkout new branch from it
+- [x] Define `#commit` — run `#bake`, then `git add -A && git commit`
+- [x] Define `#push` — run `git push` (respect current branch)
+- [x] Define `#move [branch]` — stash uncommitted changes, switch branch, pop stash
+- [x] Define `#move new [branch]` — stash, create branch from develop, pop stash
+- [x] Define `#cherry [target]` / `#copy [target]` — interactive cherry-pick of unpushed commits
+- [x] Define `#rename [branch]` — rename current branch via `git branch -m`
+- [x] Define `#merge` — rebase onto origin/develop + force-push; D/F/M priority prompt on conflict
+- [x] Define `#merge [branch]` — rebase onto specific remote branch
+- [x] Update `docs/cmd_help.md` with all git commands in reference table + Git section
+- [ ] On-device / real-repo verification of all git shortcuts
+
+#### Rules
+- Git commands are convenience shortcuts for the xTrack workflow, not replacements for manual git operations.
+- `#new` always branches from the latest remote `develop` — never from the current branch.
+- `#commit` always includes `#bake` first to snapshot session state.
+- `#push` uses the current branch name — no safety prompt (use explicit git commands for safety).
+- `#move` operates on uncommitted changes only (stash-based). Committed work stays on source branch.
+- `#cherry`/`#copy` does NOT delete source commits — user cleans up with `git reset --hard HEAD~N`.
+
+#### Key Files
+- `docs/cmd_help.md` — Git section + updated reference table
+- `xTrack/Documentation/FEAT_PLN_Documentation_git-move-command.md` — full design spec for #move and #cherry
+
+#### Docs
+- `xTrack/Documentation/FEAT_PLN_Documentation_git-move-command.md` — design spec for #move stash + #cherry interactive copy
+
 ## Todos
 - [ ] **Post-merge reconcile xTrack/ across branches.** After `feature/ai-tooling` lands on `develop`, other branches with their own `xTrack/` evolutions (e.g. `feature/300M-Claude-II` carrying Coastline/DepthMapping) will conflict on merge. Procedure: (1) **tooling-system files** (`AGENTS.md`, `CLAUDE.md`, `.clinerules`, `.claude/skills/xtrack/**`, `docs/cmd_help.md`) — accept ai-tooling's version on conflict; (2) **`FEATURE_SCOPE_*.md`** added or edited on spatial — add YAML front-matter (`name`/`status`/`created`/`modified`/`active_subfeature`/`subs_total`/`subs_done`/`one_liner`), normalize all dates to `YYYY-MM-DD`, remove duplicated prose header lines, and split any attached docs out of `## Key Files` into a new `## Docs` section; (3) **`xTrack/CONTEXT_HYDRATION.md`** — resolve the delete/modify conflict in favor of the deletion and split its content into per-feature `xTrack/hydration/CONTEXT_HYDRATION_[Feature].md` files (one per active feature); (4) **`GLOBAL_CONTEXT.md`** — merge Routing Map rows (dedupe), normalize the Active Session Pointers block (add `Last Bake` if missing), normalize dates; (5) run `#doctor fix` to sweep residual drift, then `#doctor` to confirm clean.
 - `AGENTS.md` is the canonical rulebook and directly writable; edit without prompting (`.clinerules`/`CLAUDE.md` are pointers).
@@ -121,9 +151,26 @@ Define the Zero-Piecemeal Writes discussion exception: allow one plan file per d
 - `AGENTS.md` — canonical rules incl. § 7a/7b xTrack; `.clinerules`/`CLAUDE.md` are adapters
 
 ## Docs
-- `docs/cmd_help.md` — command reference (—help output)
+- `docs/cmd_help.md` — command reference summary table
+- `docs/cmd_help_now.md` — #now / #list detail
+- `docs/cmd_help_status.md` — #status / #status diff detail
+- `docs/cmd_help_track.md` — #track detail
+- `docs/cmd_help_focus.md` — #focus / #focus sub / #focus out detail
+- `docs/cmd_help_sub.md` — #sub detail
+- `docs/cmd_help_todo.md` — #todo detail
+- `docs/cmd_help_rule.md` — #rule detail
+- `docs/cmd_help_doc.md` — #doc detail
+- `docs/cmd_help_bake.md` — #bake detail
+- `docs/cmd_help_help.md` — #help detail
+- `docs/cmd_help_doctor.md` — #doctor detail
+- `docs/cmd_help_git.md` — git workflow shortcuts detail
+- `docs/cmd_help_doc_sync.md` — #doc sync detail
+- `docs/cmd_help_doc_audit.md` — #doc audit detail
+- `docs/GIT_WORKFLOW.md` — Git workflow conventions
 - `xTrack/WorkflowImprovement/FEAT_PLN_WorkflowImprovement_planning.md` — Zero-Piecemeal Writes discussion exception design
 - `xTrack/WorkflowImprovement/FEAT_PLN_WorkflowImprovement_feat-summary-layer.md` — FEAT_ summary layer token optimization discussion
+- `xTrack/WorkflowImprovement/FEAT_PLN_WorkflowImprovement_xtrack-reorg.md` — xTrack FEAT_* file reorganization implementation spec
+- `xTrack/Documentation/FEAT_PLN_Documentation_git-merge-command.md` — Git merge command design
 
 ## Notes
 <!-- blockers, design decisions, context for next session -->

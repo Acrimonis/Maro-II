@@ -3,6 +3,7 @@ package ykws.android.maro.ui.map
 import android.app.Application
 import android.content.Context
 import android.os.SystemClock
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
@@ -15,11 +16,13 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.distinctUntilChangedBy
@@ -45,10 +48,22 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.Zone300Data
 import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.settings.SettingsManager
+import kotlin.math.sqrt
 import ykws.android.maro.spatial.SpatialOperations
 
 /** One throttled camera target for GPS auto-follow: where to centre + which way to face. */
 data class CameraTarget(val position: LatLng, val bearingDeg: Float)
+
+/**
+ * Atomic navigation state for the boat marker + cap arrow.
+ * A single data class guarantees Compose reads bearing + speed from the same
+ * snapshot frame — no intermediate frame where only one has updated.
+ */
+data class NavigationState(
+    val bearingDeg: Float = 0f,
+    val speedKnots: Float? = null,
+    val demoSpeedKnots: Float? = null
+)
 
 /**
  * ViewModel for the coastline map screen.
@@ -173,23 +188,33 @@ class CoastlineViewModel(
     private val _gpsPosition = MutableStateFlow<LatLng?>(null)
     val gpsPosition: StateFlow<LatLng?> = _gpsPosition.asStateFlow()
 
-    /** Heading (deg) the map should orient to — GPS course, else compass. Map rotates −mapBearing. */
-    private val _mapBearing = MutableStateFlow(0f)
-    val mapBearing: StateFlow<Float> = _mapBearing.asStateFlow()
+    /**
+     * Atomic navigation state (bearing + speed) for the boat marker and cap arrow.
+     * Exposed as a single StateFlow so Compose reads all values from the same
+     * snapshot frame — eliminates intermediate frames where bearing updated
+     * but speed hasn't yet (or vice versa).
+     */
+    private val _navigationState = MutableStateFlow(NavigationState())
+    val navigationState: StateFlow<NavigationState> = _navigationState.asStateFlow()
 
-    /** Speed over ground in knots while in GPS mode; null in demo / before the first fix. */
-    private val _speedKnots = MutableStateFlow<Float?>(null)
-    val speedKnots: StateFlow<Float?> = _speedKnots.asStateFlow()
-
-    /** Demo-mode pan speed in knots; null when not panning or in GPS mode. */
-    private val _demoSpeedKnots = MutableStateFlow<Float?>(null)
-    val demoSpeedKnots: StateFlow<Float?> = _demoSpeedKnots.asStateFlow()
+    /**
+     * True when the GPS fix is stale: no fix received within [GPS_STALE_TIMEOUT_MS] or
+     * [GpsFix.hasLock] is false (GNSS satellite count below threshold or provider unavailable).
+     * The UI uses this to show a "GPS perdu" indicator.
+     */
+    private val _gpsStale = MutableStateFlow(false)
+    val gpsStale: StateFlow<Boolean> = _gpsStale.asStateFlow()
 
     /** Foreground gate: GPS/compass collectors run only while true (set by the screen lifecycle). */
     private val _gpsActive = MutableStateFlow(false)
 
     /** elapsedRealtime() of the last valid GPS course — seeds the 3 s compass fallback. */
     private var lastGpsBearingMs = 0L
+
+    /** Stale-fix watchdog: monotonic clock time of the last fix received. 0 = never received. */
+    private var lastFixMs = 0L
+    /** Stale-fix watchdog: the timeout job — cancelled and re-armed on each valid fix. */
+    private var staleWatchdogJob: Job? = null
 
     // ── Demo-mode pan speed tracking ──────────────────────────────────────────
     private var lastPanLat = 0.0
@@ -224,6 +249,9 @@ class CoastlineViewModel(
     /** Current GPS acquisition cadence — folded into the subscription params (rebuilds on change). */
     private val _acquisitionMode = MutableStateFlow(AcquisitionMode.ACTIVE)
 
+    /** Current GPS acquisition mode — exposed for the GPS status icon on the map. */
+    val acquisitionMode: StateFlow<AcquisitionMode> = _acquisitionMode.asStateFlow()
+
     /** True when the compass is needed for heading (no valid GPS course) — gates its registration. */
     private val _needsCompass = MutableStateFlow(true)
 
@@ -240,7 +268,7 @@ class CoastlineViewModel(
             .map { (1_000L / it.mapRefreshFps.coerceIn(5, 50)).coerceAtLeast(1L) }
             .distinctUntilChanged()
             .flatMapLatest { periodMs ->
-                combine(_gpsPosition.filterNotNull(), _mapBearing) { p, b -> CameraTarget(p, b) }
+                combine(_gpsPosition.filterNotNull(), _navigationState) { p, nav -> CameraTarget(p, nav.bearingDeg) }
                     .sample(periodMs)
             }
 
@@ -260,8 +288,11 @@ class CoastlineViewModel(
 
     /** Update heading only past a small threshold so sensor jitter doesn't churn the map. */
     private fun setMapBearing(deg: Float) {
-        val delta = kotlin.math.abs(((deg - _mapBearing.value + 540f) % 360f) - 180f)
-        if (delta >= MIN_BEARING_DELTA_DEG) _mapBearing.value = deg
+        _navigationState.update { current ->
+            val delta = kotlin.math.abs(((deg - current.bearingDeg + 540f) % 360f) - 180f)
+            if (delta >= MIN_BEARING_DELTA_DEG) current.copy(bearingDeg = deg)
+            else current
+        }
     }
 
     init {
@@ -314,9 +345,9 @@ class CoastlineViewModel(
                 // parked there → declutter) but as unknown (null) when OUTSIDE, so pausing to observe
                 // the approach never hides the band. Unknown is never treated as stopped/compliant.
                 val sogKn = if (cfg.gpsMode) {
-                    _speedKnots.value
+                    _navigationState.value.speedKnots
                 } else {
-                    _demoSpeedKnots.value ?: if (shore.inZone) 0f else null
+                    _navigationState.value.demoSpeedKnots ?: if (shore.inZone) 0f else null
                 }
                 val decision = zone300Decision(
                     dist = shore.distToZone,
@@ -363,10 +394,14 @@ class CoastlineViewModel(
             val intervalMs =
                 if (mode == AcquisitionMode.IDLE) s.adaptiveIdleIntervalSec * 1_000L
                 else s.gpsActiveIntervalSec * 1_000L
-            GpsParams(on, intervalMs, s.gpsActiveMinDistanceM)
+            // Use gpsIdleMinDistanceM (default 0) when idle so tiny drifts update position.
+            val distM = if (mode == AcquisitionMode.IDLE) s.gpsIdleMinDistanceM else s.gpsActiveMinDistanceM
+            GpsParams(on, intervalMs, distM)
         }.distinctUntilChanged()
 
         gpsParams
+            // Debounce rapid settings changes (e.g. slider drag) → coalesce into one re-subscription.
+            .debounce(100)
             .flatMapLatest { p ->
                 if (p.on) gpsSource.locationUpdates(p.intervalMs, p.minDistanceM) else emptyFlow()
             }
@@ -374,9 +409,36 @@ class CoastlineViewModel(
                 val now = SystemClock.elapsedRealtime()
                 _gpsPosition.value = fix.position
                 updateMapCenter(fix.position.latitude, fix.position.longitude)
-                _speedKnots.value = fix.speedMps?.let { it * MPS_TO_KNOTS }
+
+                // ── Stale-fix watchdog ─────────────────────────────────
+                // Every valid fix: clear stale flag, arm a timeout that sets stale if no
+                // further fix arrives within GPS_STALE_TIMEOUT_MS. Also reset on hasLock = true.
+                if (fix.hasLock) {
+                    _gpsStale.value = false
+                    lastFixMs = now
+                    staleWatchdogJob?.cancel()
+                    staleWatchdogJob = viewModelScope.launch {
+                        delay(GPS_STALE_TIMEOUT_MS)
+                        _gpsStale.value = true
+                    }
+                } else {
+                    // No satellite lock → immediately stale
+                    _gpsStale.value = true
+                }
+
+                // Atomic update: bearing + speed written in a single snapshot so
+                // Compose never sees an intermediate frame with mismatched values.
+                _navigationState.update { current ->
+                    val newSpeed = fix.speedMps?.let { it * MPS_TO_KNOTS }
+                    val newBearing = if (fix.hasCourse && fix.bearingDeg != null) {
+                        val delta = kotlin.math.abs(((fix.bearingDeg - current.bearingDeg + 540f) % 360f) - 180f)
+                        if (delta >= MIN_BEARING_DELTA_DEG) fix.bearingDeg else current.bearingDeg
+                    } else {
+                        current.bearingDeg
+                    }
+                    current.copy(bearingDeg = newBearing, speedKnots = newSpeed)
+                }
                 if (fix.hasCourse && fix.bearingDeg != null) {
-                    setMapBearing(fix.bearingDeg)
                     lastGpsBearingMs = now
                     _needsCompass.value = false                 // GPS course present → compass off
                 } else if (now - lastGpsBearingMs > HEADING_FALLBACK_MS) {
@@ -389,7 +451,14 @@ class CoastlineViewModel(
                     s.adaptiveWindowSec * 1_000L, s.adaptiveDistanceM.toDouble()
                 )
             }
-            .catch { /* permission revoked mid-stream → stop silently */ }
+            .catch { e ->
+                if (e is SecurityException) {
+                    // Permission revoked mid-stream — stop silently
+                } else {
+                    Log.w(TAG, "GPS flow error", e)
+                    _gpsStale.value = true
+                }
+            }
             .launchIn(viewModelScope)
 
         // Compass: orient the boat only after HEADING_FALLBACK_MS without a GPS course (rule 3).
@@ -413,12 +482,14 @@ class CoastlineViewModel(
             .onEach { on ->
                 if (!on) {
                     _gpsPosition.value = null
-                    _mapBearing.value = 0f
-                    _speedKnots.value = null
+                    _navigationState.value = NavigationState()
                     lastGpsBearingMs = 0L
                     adaptivePolicy.reset()
                     _acquisitionMode.value = AcquisitionMode.ACTIVE
                     _needsCompass.value = true
+                    _gpsStale.value = false
+                    lastFixMs = 0L
+                    staleWatchdogJob?.cancel()
                 }
             }
             .launchIn(viewModelScope)
@@ -472,11 +543,50 @@ class CoastlineViewModel(
     }
 
     /**
+     * Cycles the merged zone layer button through None → 300m → Both → Reg Zones.
+     * Manages auto-reveal flags when zone300 visibility changes, mirroring the logic
+     * in [toggleZone300Visibility].
+     */
+    fun cycleZoneLayers() {
+        val s = settings.value
+        val zone300On = s.zone300Visible
+        val regOn = s.regulatedZonesVisible
+        // Compute next state: None → 300m → Both → Reg → None
+        data class LayerState(val z: Boolean, val r: Boolean)
+        val current = LayerState(zone300On, regOn)
+        val next = when (current) {
+            LayerState(false, false) -> LayerState(true, false)  // None → 300m
+            LayerState(true, false)  -> LayerState(true, true)   // 300m → Both
+            LayerState(true, true)   -> LayerState(false, true)  // Both → Reg
+            LayerState(false, true)  -> LayerState(false, false) // Reg → None
+            else                     -> LayerState(false, false) // fallback → None
+        }
+        settingsManager.update { it.copy(zone300Visible = next.z, regulatedZonesVisible = next.r) }
+        // Track manual hide/reveal for zone300 auto-reveal state machine
+        if (zone300On != next.z) {
+            if (next.z) { // was off → now on
+                zone300ManuallyHidden = false
+                zone300AutoRevealed = false
+            } else { // was on → now off (user manually hid it)
+                zone300ManuallyHidden = true
+                zone300AutoRevealed = false
+            }
+        }
+    }
+
+    /**
      * Toggles the low-depth (<threshold) pink grounding-hazard overlay visibility.
      * Plain on/off — unlike the 300 m band there is no auto-reveal state to manage.
      */
     fun toggleLowDepthWarningVisibility() {
         settingsManager.update { it.copy(lowDepthWarningVisible = !it.lowDepthWarningVisible) }
+    }
+
+    /**
+     * Toggles the depth colour map + isobath contour overlay visibility.
+     */
+    fun toggleDepthLayerVisibility() {
+        settingsManager.update { it.copy(depthLayerVisible = !it.depthLayerVisible) }
     }
 
     /**
@@ -501,7 +611,7 @@ class CoastlineViewModel(
         if (!settings.value.gpsMode) {
             computeDemoSpeed(latitude, longitude)
         } else {
-            _demoSpeedKnots.value = null
+            _navigationState.update { it.copy(demoSpeedKnots = null) }
         }
     }
 
@@ -520,9 +630,11 @@ class CoastlineViewModel(
                 val dist = SpatialOperations.haversine(
                     LatLng(lastPanLat, lastPanLon), LatLng(lat, lon)
                 )
-                // Divide by 10 to compensate for exaggerated pan-to-ground distance ratio
-                val speedMps = dist / (elapsed / 1_000.0) / 10.0
-                _demoSpeedKnots.value = (speedMps * MPS_TO_KNOTS).toFloat()
+                // sqrt compression: dampens extreme pan-to-ground ratios while keeping
+                // low-speed drags responsive. Slow drag → ~3-6 kn, brisk → ~20-50 kn.
+                val rawMps = dist / (elapsed / 1_000.0)
+                val knots = sqrt(rawMps * DEMO_SPEED_SCALE).coerceIn(0.0, MAX_DEMO_KNOTS)
+                _navigationState.update { it.copy(demoSpeedKnots = knots.toFloat()) }
                 lastPanLat = lat
                 lastPanLon = lon
                 lastPanMs = now
@@ -536,7 +648,7 @@ class CoastlineViewModel(
         panStopJob?.cancel()
         panStopJob = viewModelScope.launch {
             delay(PAN_STOP_DELAY_MS)
-            if (isActive) _demoSpeedKnots.value = null
+            if (isActive) _navigationState.update { it.copy(demoSpeedKnots = null) }
         }
     }
 
@@ -622,6 +734,21 @@ class CoastlineViewModel(
 
         /** Metres-per-second → knots. */
         private const val MPS_TO_KNOTS = 1.943844f
+
+        /** Scale factor for sqrt-compressed demo speed: knots = sqrt(rawMps × this). */
+        private const val DEMO_SPEED_SCALE = 0.2
+        /** Maximum demo speed in knots — prevents extreme swipes from going off-scale. */
+        private const val MAX_DEMO_KNOTS = 50.0
+
+        /** Log tag for this ViewModel. */
+        private const val TAG = "CoastlineVM"
+
+        /**
+         * Stale-fix watchdog timeout (ms): if no GPS fix arrives within this window, the position
+         * is considered stale. Set to max(5s, interval × 3) — 5 s covers the typical idle cadence
+         * (6 s) with a small buffer, without being so short that a slow fix rate triggers false alerts.
+         */
+        private const val GPS_STALE_TIMEOUT_MS = 5_000L
 
         /**
          * Factory for [CoastlineViewModel] — required because the primary constructor

@@ -2,59 +2,33 @@
 
 # Git Workflow
 
-Branching strategy, feature lifecycle, and release process for Maro II.
+> Source of truth for all git rules. Upper layers (AGENTS.md, cmd_help_git.md,
+> GLOBAL_CONTEXT.md) reference this file — edit rules here only.
 
----
+## 🔴 ABSOLUTE RULE: NEVER write to develop or main — EVER
+
+**Any** write operation on `develop` or `main` is **strictly forbidden** — this includes:
+- `git push`/`git push --force`/`git push --force-with-lease`
+- `git commit` directly on the branch
+- `git revert` or any form of undo that writes
+- `git merge` or `git rebase` targeting these branches
+
+If a command would write to `develop` or `main`, the AI **must abort immediately**
+and propose `#move new <name>` to create a fresh feature branch.
 
 ## Branch Model
 
-```
-main        ●───────────────────────  (tagged releases only)
-             \
-develop      ●──●──●────●──●──●──●  (HEAD — daily development)
-                   \
-feature/xxx         ●──●──●──        (isolated feature work)
-```
+| Branch | Source | Merges to | Purpose |
+|--------|--------|-----------|---------|
+| `main` | — | — | Tagged releases only |
+| `develop` | `main` | `main` | Integration branch (no direct work) |
+| `feature/*` | `develop` | `develop` | Isolated feature work |
 
-## Rules
+## Quick Reference
 
-| Branch | Purpose | Source | Merges into |
-|--------|---------|--------|-------------|
-| `main` | Production releases | — | — |
-| `develop` | Integration branch | `main` | `main` (at release) |
-| `feature/*` | Isolated feature work | `develop` | `develop` |
-
----
-
-## Starting a Feature
-
-```bash
-git checkout develop
-git checkout -b feature/my-feature
-# work, commit, optionally push
-```
-
-## Completing a Feature
-
-```bash
-git checkout develop
-git merge --no-ff feature/my-feature
-git branch -d feature/my-feature
-```
-
-> `--no-ff` preserves the feature branch topology in the commit history.
-
-## Releasing
-
-```bash
-git checkout main
-git merge --no-ff develop
-git tag v0.1.0
-git push --tags
-```
-
-## Notes
-
-- Feature branches may be pushed to GitHub at the developer's discretion.
-- `main` is merged from `develop` only when a release is cut.
-- All day-to-day work targets `develop`.
+- `#new [name]` — fetch `origin/develop`, create `feature/[name]` tracking it
+- `#move new [name]` — stash → create from `origin/develop` → pop
+- `#move [name]` — stash → switch (existing) → pop
+- `#commit` — bake + add + commit (🚫 refuses on develop/main)
+- `#push` — push current branch (🚫 refuses on develop/main)
+- `#merge` — rebase onto `origin/develop` + force-push (🚫 refuses on develop/main)

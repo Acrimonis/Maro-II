@@ -16,10 +16,15 @@ import androidx.activity.result.contract.ActivityResultContracts
 import ykws.android.maro.R
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -31,7 +36,9 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -58,16 +65,23 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Size
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.rotate
@@ -77,12 +91,23 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.core.content.ContextCompat
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
+import kotlin.math.cos
+import kotlin.math.sin
 import org.osmdroid.config.Configuration
 import org.osmdroid.events.MapListener
 import org.osmdroid.events.ScrollEvent
@@ -114,6 +139,13 @@ import ykws.android.maro.data.model.RasterProgress
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.ValidationReport
 import ykws.android.maro.data.model.Zone300Data
+import ykws.android.maro.data.regulation.RegulatedZoneSet
+import ykws.android.maro.data.regulation.RegulatedZoneType
+import ykws.android.maro.data.regulation.RegulatedZonesRepository
+import ykws.android.maro.data.regulation.RegulatedZone
+import ykws.android.maro.data.regulation.ZoneDisplayCategory
+import ykws.android.maro.data.regulation.displayCategories
+import ykws.android.maro.data.regulation.contains
 import ykws.android.maro.ui.map.CircleRingIcon
 import ykws.android.maro.ui.map.FanConfig
 import ykws.android.maro.ui.map.FanDirection
@@ -124,6 +156,12 @@ import ykws.android.maro.ui.map.MinusIcon
 import ykws.android.maro.ui.map.PlusIcon
 import ykws.android.maro.ui.map.WarningTriangleIcon
 import ykws.android.maro.data.settings.AppSettings
+import ykws.android.maro.spatial.SpatialOperations
+
+/** GPS-follow animation: minimum displacement (m) to trigger a glide instead of snap. */
+private const val GPS_ANIMATION_MIN_MOVE_M = 3.0
+/** Animation duration per GPS-follow scroll (ms). Must be < min GPS fix interval (1s). */
+private const val GPS_ANIMATION_DURATION_MS = 600L
 
 /**
  * Compose screen rendering the coastline on an OSMdroid map.
@@ -152,12 +190,29 @@ fun MapScreen(
     val appSettings by viewModel.settings.collectAsState()
     var mapView by remember { mutableStateOf<MapView?>(null) }
     var showSettings by remember { mutableStateOf(false) }
-    var settingsScrollOffset by remember { mutableStateOf(0) }
-    val demoSpeedKnots by viewModel.demoSpeedKnots.collectAsState()
+    var layerFanExpanded by remember { mutableStateOf(false) }
+    var selectedTab by rememberSaveable { mutableIntStateOf(0) }
+    val displayScrollState = rememberScrollState()
+    val navigationScrollState = rememberScrollState()
+    val systemScrollState = rememberScrollState()
 
     val context = LocalContext.current
     val autoFollowSuppressed by viewModel.autoFollowSuppressed.collectAsState()
-    val speedKnots by viewModel.speedKnots.collectAsState()
+    val navigationState by viewModel.navigationState.collectAsState()
+    val gpsPosition by viewModel.gpsPosition.collectAsState()
+    val gpsStale by viewModel.gpsStale.collectAsState()
+    val acquisitionMode by viewModel.acquisitionMode.collectAsState()
+
+    // Derive the GPS icon state from ViewModel state (5-state model).
+    val gpsIconState = remember(appSettings.gpsMode, gpsPosition, gpsStale, acquisitionMode) {
+        when {
+            !appSettings.gpsMode -> GpsIconState.DEMO
+            gpsPosition == null -> GpsIconState.ACQUIRING
+            gpsStale -> GpsIconState.STALE
+            acquisitionMode == ykws.android.maro.data.location.AcquisitionMode.IDLE -> GpsIconState.IDLE
+            else -> GpsIconState.HEALTHY
+        }
+    }
 
     // GPS permission launcher: on grant, enable GPS mode; on deny, stay in demo mode.
     val gpsPermissionLauncher = rememberLauncherForActivityResult(
@@ -195,20 +250,19 @@ fun MapScreen(
         }
     }
 
-    // ── GPS auto-follow: capped recenter + heading-up (rules 1–3) ─────────
+    // ── GPS auto-follow: smooth glide + heading-up ─────────────────────────
     // One throttled stream (≤ appSettings.mapRefreshFps) drives BOTH position and
-    // orientation via a single setCenter + mapOrientation per tick — replacing the
-    // per-fix animateTo, whose scroll animation repainted the whole map at ~60 fps.
-    // The effect is keyed on gpsMode/suppression/mapView, so it restarts each time
-    // auto-follow re-engages (GPS on, or the recenter delay expiring after a pan):
-    // the FIRST target then animates (smooth scroll back), and every subsequent fix
-    // uses the cheap capped setCenter. Manual pinch/pan/fling keep osmdroid's own
-    // full-rate path — the cap governs only this GPS-follow flow.
+    // orientation. Re-engage uses the default animateTo (smooth scroll back);
+    // subsequent GPS fixes use animateTo with a 600 ms bounded duration so the
+    // boat glides smoothly instead of stepping. The haversine guard (> 3 m) skips
+    // sub-threshold GPS noise. Manual pinch/pan/fling keep osmdroid's own full-rate
+    // path — the cap governs only this GPS-follow flow.
     LaunchedEffect(appSettings.gpsMode, autoFollowSuppressed, mapView) {
         val mv = mapView ?: return@LaunchedEffect
         if (!appSettings.gpsMode) { mv.mapOrientation = 0f; mv.invalidate(); return@LaunchedEffect }
         if (autoFollowSuppressed) return@LaunchedEffect
         var reengage = true
+        var lastPosition: LatLng? = null
         viewModel.cameraUpdates.collect { target ->
             val point = GeoPoint(target.position.latitude, target.position.longitude)
             if (reengage) {
@@ -216,10 +270,17 @@ fun MapScreen(
                 mv.controller.animateTo(point)
                 reengage = false
             } else {
-                mv.controller.setCenter(point)
+                val prev = lastPosition
+                if (prev == null ||
+                    SpatialOperations.haversine(prev, target.position) > GPS_ANIMATION_MIN_MOVE_M
+                ) {
+                // Smoothly animate to the new GPS fix so the boat glides instead of stepping.
+                    mv.controller.animateTo(point, null, GPS_ANIMATION_DURATION_MS)
+                }
             }
             mv.mapOrientation = -target.bearingDeg
             mv.invalidate()
+            lastPosition = target.position
             // Keep depth-at-center following the GPS fix at the same capped cadence.
             depthViewModel.updateMapCenter(target.position.latitude, target.position.longitude)
         }
@@ -232,26 +293,36 @@ fun MapScreen(
     // Gate coarse EMODnet shallow readings (unreliable near rocks/coast) → no-data in the readout.
     val depthReadout = depthAtCenter?.gatedForEmodnetShallow(appSettings.emodnetShallowCutoffM)
     val depthGrid = (depthState as? DepthState.Ready)?.grid
-    val depthValidation = depthGrid?.metadata?.validation
     val isobaths = depthRender?.isobaths ?: emptyList()
+
+    // Coastline classifier is needed for both the low-depth warning and the depth colour map
+    // (to keep NoData colour off land).
+    val coastlineReady = state is CoastlineState.Ready
+    val waterTest: (Double, Double) -> Boolean =
+        if (coastlineReady) viewModel::isOnWater else { _, _ -> true }
 
     // Rasterise the colour map once per grid, off the main thread (~7 M cells).
     val depthBitmap by produceState<Bitmap?>(initialValue = null, depthGrid,
-        appSettings.lowDepthWarningMaxM, appSettings.lowDepthWarningMinOpacityPct) {
+        appSettings.lowDepthWarningMaxM, appSettings.lowDepthWarningMinOpacityPct,
+        appSettings.emodnetShallowCutoffM, coastlineReady) {
         // If cache exists, skip the expensive live build
         val cached = depthGrid?.let {
             depthViewModel.readCached(context, RasterCache.Step.DEPTH_COLOUR, appSettings)
         }
         if (cached != null) { value = cached; return@produceState }
-        value = depthGrid?.let { g -> withContext(Dispatchers.Default) { DepthBitmap.build(g) } }
+        value = depthGrid?.let { g ->
+            withContext(Dispatchers.Default) {
+                DepthBitmap.build(g, appSettings.emodnetShallowCutoffM, ZoneConfig.nodataColor)
+            }
+        }
     }
 
     // Second raster: cells shallower than the user's warning threshold, on water only, painted bright.
     // Re-rasterises when the grid, the threshold, or coastline readiness changes.
-    val coastlineReady = state is CoastlineState.Ready
     val lowDepthWarningBitmap by produceState<Bitmap?>(
         initialValue = null, depthGrid, appSettings.lowDepthWarningMaxM,
-        appSettings.lowDepthWarningMinOpacityPct, coastlineReady
+        appSettings.lowDepthWarningMinOpacityPct, coastlineReady,
+        appSettings.emodnetShallowCutoffM
     ) {
         // If cache exists, skip the expensive live build
         val cached = depthGrid?.let {
@@ -259,15 +330,20 @@ fun MapScreen(
         }
         if (cached != null) { value = cached; return@produceState }
         val maxM = appSettings.lowDepthWarningMaxM
-        // Skip land/island cells via the coastline classifier; until it loads, treat all as water.
-        val waterTest: (Double, Double) -> Boolean =
-            if (coastlineReady) viewModel::isOnWater else { _, _ -> true }
         value = depthGrid?.let { g ->
             withContext(Dispatchers.Default) {
                 LowDepthWarningBitmap.build(g, maxM, waterTest,
-                    appSettings.lowDepthWarningMinOpacityPct / 100f)
+                    appSettings.lowDepthWarningMinOpacityPct / 100f,
+                    appSettings.emodnetShallowCutoffM)
             }
         }
+    }
+
+    // ── Regulated zones overlay: load prebaked asset on first composition ──────────
+    val regulatedZones by produceState<RegulatedZoneSet?>(initialValue = null) {
+        val repo = RegulatedZonesRepository()
+        repo.load(context)
+        value = repo.zoneSet.value
     }
 
     // ── Raster cache reads (no lazy auto-trigger; only settings button triggers generation) ──
@@ -278,13 +354,15 @@ fun MapScreen(
     // ── Silent lazy-init: on cache miss, generate rasters in background (no LoadingOverlay).
     //    Warning layer is deferred until coastline is ready (needs accurate isWater). ──
     LaunchedEffect(depthGrid, appSettings.lowDepthWarningMaxM,
-                   appSettings.lowDepthWarningMinOpacityPct, coastlineReady) {
+                   appSettings.lowDepthWarningMinOpacityPct, coastlineReady,
+                   appSettings.emodnetShallowCutoffM) {
         val grid = depthGrid ?: return@LaunchedEffect
         val key = RasterCache.Key(
             gridTimestampMs = grid.metadata.fetchTimestampMs,
-            emodnetCutoffM = 0f,
+            emodnetCutoffM = appSettings.emodnetShallowCutoffM,
             lowDepthMaxM = appSettings.lowDepthWarningMaxM,
-            lowDepthMinOpacityPct = appSettings.lowDepthWarningMinOpacityPct
+            lowDepthMinOpacityPct = appSettings.lowDepthWarningMinOpacityPct,
+            nodataColor = ZoneConfig.nodataColor
         )
         val missing = mutableListOf<RasterCache.Step>()
         if (!RasterCache.has(context, RasterCache.Step.DEPTH_COLOUR, key))
@@ -348,25 +426,25 @@ fun MapScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
-    // ── Keep the screen awake while the app runs, when the user enabled it ──
-    val view = LocalView.current
-    DisposableEffect(appSettings.keepScreenOn) {
-        view.keepScreenOn = appSettings.keepScreenOn
-        onDispose { view.keepScreenOn = false }
-    }
+    // ── (keepScreenOn moved to MainActivity — window flag, avoids compose toggle glitch) ──
 
     // ── Double-back-to-exit state ─────────────────────────────────────────
     var lastBackAt by remember { mutableStateOf(0L) }
     var showExitBanner by remember { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxSize()) {
+        // ── Intercept system back when layer fan is open ──────────────────
+        if (layerFanExpanded) {
+            BackHandler { layerFanExpanded = false }
+        }
+
         // ── Intercept system back when settings are open ──────────────────
         if (showSettings) {
             BackHandler { showSettings = false }
         }
 
         // ── Otherwise require a second back press within 2 s to exit ───────
-        BackHandler(enabled = !showSettings) {
+        BackHandler(enabled = !showSettings && !layerFanExpanded) {
             val now = SystemClock.elapsedRealtime()
             if (now - lastBackAt <= 2_000L) {
                 context.findActivity()?.finishAffinity()
@@ -388,8 +466,8 @@ fun MapScreen(
         // The dashboard panel is overlaid via Modifier.align() in the orientation branch.
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val isLandscape = maxWidth > maxHeight
-            val portraitDashboardHeight = maxWidth * 2 / 3  // mirror landscape: ⅔ of the short side
-            val landscapeDashboardWidth = maxHeight // dashboard width = full screen height
+            val portraitDashboardHeight = maxWidth * 3 / 5
+            val landscapeDashboardWidth = maxHeight * 80 / 100
 
             // Map fills the box, padded to leave room for the dashboard overlay.
             // Stable composition slot — never inside an if/else branch.
@@ -400,6 +478,7 @@ fun MapScreen(
                 isWater = isWater,
                 zoomLevel = zoomLevel,
                 distanceToShore = distanceToShore,
+                regulatedZones = regulatedZones,
                 zone300 = zone300,
                 depthBitmap = effectiveDepthBitmap,
                 lowDepthWarningBitmap = effectiveLowDepthWarning,
@@ -407,13 +486,22 @@ fun MapScreen(
                 isobaths = isobaths,
                 appSettings = appSettings,
                 mapView = mapView,
+                navigationState = navigationState,
+                gpsIconState = gpsIconState,
+                // Demo mode (gpsPosition == null): use mapCenter as fallback so
+                // geo-fence still works when panning the map in demo/manual mode.
+                boatPosition = gpsPosition ?: mapCenter,
                 onCenterChanged = onCenterChanged,
                 onZoomChanged = viewModel::updateZoomLevel,
                 onMapViewReady = { mapView = it },
                 onRetry = { viewModel.loadCoastline() },
                 onOpenSettings = { showSettings = true },
-                onToggleZone300 = viewModel::toggleZone300Visibility,
                 onToggleLowDepthWarning = viewModel::toggleLowDepthWarningVisibility,
+                onToggleDepthLayer = viewModel::toggleDepthLayerVisibility,
+                onToggleRegulatedZones = { viewModel.updateSettings { it.copy(regulatedZonesVisible = !it.regulatedZonesVisible) } },
+                onToggleZone300 = viewModel::toggleZone300Visibility,
+                layerFanExpanded = layerFanExpanded,
+                onToggleLayerFan = { layerFanExpanded = !layerFanExpanded },
                 showExitBanner = showExitBanner,
                 rasterProgress = rasterProgress,
                 modifier = Modifier
@@ -433,8 +521,7 @@ fun MapScreen(
                     inZone300 = inZone300,
                     distanceToZone = distanceToZone,
                     depthSample = depthReadout,
-                    validation = depthValidation,
-                    speedKnots = speedKnots ?: demoSpeedKnots,
+                    speedKnots = navigationState.speedKnots ?: navigationState.demoSpeedKnots,
                     modifier = Modifier
                         .align(Alignment.CenterStart)
                         .width(landscapeDashboardWidth)
@@ -448,8 +535,7 @@ fun MapScreen(
                     inZone300 = inZone300,
                     distanceToZone = distanceToZone,
                     depthSample = depthReadout,
-                    validation = depthValidation,
-                    speedKnots = speedKnots ?: demoSpeedKnots,
+                    speedKnots = navigationState.speedKnots ?: navigationState.demoSpeedKnots,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
@@ -465,8 +551,11 @@ fun MapScreen(
                 onUpdateSettings = viewModel::updateSettings,
                 onGpsModeChange = onGpsModeChange,
                 onDismiss = { showSettings = false },
-                initialScrollOffset = settingsScrollOffset,
-                onScrollChanged = { offset -> settingsScrollOffset = offset },
+                selectedTab = selectedTab,
+                onTabChange = { selectedTab = it },
+                displayScrollState = displayScrollState,
+                navigationScrollState = navigationScrollState,
+                systemScrollState = systemScrollState,
                 onRegenerateRasters = { steps ->
                     val waterTest: (Double, Double) -> Boolean =
                         if (state is CoastlineState.Ready) viewModel::isOnWater else { _, _ -> true }
@@ -497,6 +586,7 @@ private fun MapContent(
     isWater: Boolean,
     zoomLevel: Double,
     distanceToShore: Double?,
+    regulatedZones: RegulatedZoneSet?,
     zone300: Zone300Data?,
     depthBitmap: Bitmap?,
     lowDepthWarningBitmap: Bitmap?,
@@ -504,13 +594,20 @@ private fun MapContent(
     isobaths: List<Isobath>,
     appSettings: AppSettings,
     mapView: MapView?,
+    navigationState: NavigationState = NavigationState(),
+    gpsIconState: GpsIconState = GpsIconState.DEMO,
+    boatPosition: LatLng? = null,
     onCenterChanged: (Double, Double) -> Unit,
     onZoomChanged: (Double) -> Unit,
     onMapViewReady: (MapView) -> Unit,
     onRetry: () -> Unit,
     onOpenSettings: () -> Unit,
     onToggleZone300: () -> Unit,
+    onToggleRegulatedZones: () -> Unit,
     onToggleLowDepthWarning: () -> Unit,
+    onToggleDepthLayer: () -> Unit,
+    layerFanExpanded: Boolean = false,
+    onToggleLayerFan: () -> Unit = {},
     showExitBanner: Boolean,
     rasterProgress: RasterProgress? = null,
     modifier: Modifier = Modifier
@@ -528,15 +625,23 @@ private fun MapContent(
         val segments = if (appSettings.coastlineVisible) allSegments else emptyList()
         // Apply zone300 visibility toggle
         val visibleZone300 = if (appSettings.zone300Visible) zone300 else null
+        // Apply regulated zones visibility + boat size + category toggles
+        val visibleRegulatedZones = if (appSettings.regulatedZonesVisible) {
+            filterRegulatedZones(regulatedZones, appSettings.boatSizeM) { appSettings.isCategoryVisible(it) }
+        } else null
         // Apply low-depth (<1.5 m) warning visibility toggle
         val visibleLowDepthWarning = if (appSettings.lowDepthWarningVisible) lowDepthWarningBitmap else null
+        // Apply depth layer colour map + isobath contours visibility toggle
+        val visibleDepthBitmap = if (appSettings.depthLayerVisible) depthBitmap else null
+        val visibleIsobaths = if (appSettings.depthLayerVisible) isobaths else emptyList()
         CoastlineMapView(
             segments = segments,
+            regulatedZones = visibleRegulatedZones,
             zone300 = visibleZone300,
-            depthBitmap = depthBitmap,
+            depthBitmap = visibleDepthBitmap,
             lowDepthWarningBitmap = visibleLowDepthWarning,
             depthBox = depthBox,
-            isobaths = isobaths,
+            isobaths = visibleIsobaths,
             zoomLevel = zoomLevel,
             center = mapCenter,
             initialZoom = zoomLevel,
@@ -546,33 +651,50 @@ private fun MapContent(
             modifier = Modifier.fillMaxSize()
         )
 
-        // ── Earth / Water toggle (top-left) ───────────────────────────────
-        EarthWaterIcon(
-            emoji = if (isWater) "🌊" else "🏔️",
-            isActive = true,
-            activeColor = if (isWater) ComposeColor(0xFF1565C0) else ComposeColor(0xFF2E7D32),
-            contentDescription = if (isWater) stringResource(R.string.side_water) else stringResource(R.string.side_land),
+        // ── Direction line: thin dashed line from boat to map edge in heading direction ──
+        val moving = navigationState.speedKnots != null || navigationState.demoSpeedKnots != null
+        if (moving && appSettings.headingLineVisible) {
+            DirectionLine(
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+
+        // ── Top-left icons: GPS + Earth/Water ─────────────────────────────
+        Row(
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(12.dp)
-        )
+                .padding(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            GpsStatusIcon(state = gpsIconState)
+            EarthWaterIcon(
+                emoji = if (isWater) "🌊" else "🏔️",
+                isActive = true,
+                activeColor = if (isWater) ComposeColor(0xFF1565C0) else ComposeColor(0xFF2E7D32),
+                contentDescription = if (isWater) stringResource(R.string.side_water) else stringResource(R.string.side_land),
+            )
+        }
 
         // ── Center position marker ────────────────────────────────────────
         CenterMarkerOverlay(
             isWater = isWater,
             zoomLevel = zoomLevel,
             distanceToShore = distanceToShore,
+            navigationState = navigationState,
+            showCapArrow = appSettings.capArrowVisible,
             modifier = Modifier.align(Alignment.Center)
         )
 
         // ── Bottom overlay: loading / error ───────────────────────────────
-        //   Centred horizontally but kept clear of the right-edge control
-        //   stack (reserve ~76dp = 64dp button + 12dp right margin).
+        //   Centred horizontally: clear the GPS status icon (~50dp = 44dp + 6dp
+        //   padding) on the left, and the right-edge control stack (~76dp = 64dp
+        //   button + 12dp margin) on the right. The overlay fills the space between.
         Box(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(start = 12.dp, end = 76.dp, bottom = 12.dp),
+                .padding(start = 56.dp, end = 76.dp, bottom = 6.dp),
             contentAlignment = Alignment.Center
         ) {
             if (rasterProgress != null && rasterProgress!!.globalProgress < 100) {
@@ -591,14 +713,14 @@ private fun MapContent(
         }
 
         // ── "Press back again to exit" toast ──────────────────────────────
-        //   Shares the loading/error slot: bottom-centred in the space left
-        //   of the right-edge control stack (reserve ~76dp), pinned to bottom.
+        //   Shares the loading/error slot: bottom-centred, clear of the GPS
+        //   icon left (~56dp) and the right-edge control stack (~76dp).
         if (showExitBanner) {
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .padding(start = 12.dp, end = 76.dp, bottom = 12.dp),
+                    .padding(start = 56.dp, end = 76.dp, bottom = 6.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Surface(
@@ -618,6 +740,36 @@ private fun MapContent(
             }
         }
 
+        // ── Regulated zone icons + info text (bottom-left) ──────────────────
+        //   A Row with two children:
+        //     Left  — vertical icon stack (44×44 dp each), most restrictive
+        //             (SPEED_LIMIT) at the bottom, informational at the top.
+        //     Right — zone info text filling remaining width up to the zoom
+        //             +/- stack, with auto-wrapping instead of ellipsis.
+        //   Constrained to avoid overlapping the zoom stack (~82 dp from right).
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 6.dp, bottom = 6.dp)
+                .widthIn(max = (LocalConfiguration.current.screenWidthDp.dp - 82.dp))
+        ) {
+            RegulatedZoneWarningStrip(
+                regulatedZones = visibleRegulatedZones,
+                boatPosition = boatPosition,
+                modifier = Modifier.align(Alignment.Bottom)
+            )
+            if (appSettings.regulationInfoVisible) {
+                RegulatedZoneInfoText(
+                    regulatedZones = visibleRegulatedZones,
+                    boatPosition = boatPosition,
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 4.dp)
+                        .align(Alignment.Bottom)
+                )
+            }
+        }
+
         // ── Right-edge control stack ──────────────────────────────────────
         //   Settings pinned to the top, zoom (+/-) pinned to the bottom, the
         //   layer toggle centred in the leftover space. A full-height Column
@@ -633,25 +785,46 @@ private fun MapContent(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Top — settings
-            MapControlButton(onClick = onOpenSettings) { GearIcon() }
+            SettingsButton(onClick = onOpenSettings)
 
-            // Middle — layer toggles, fanned out from behind the parent (danger layer)
-            // The FanLayout keeps children centred in the semicircle with constant θ spacing.
-            // Parent = DangerLayerButton (warning triangle), child[0] = LayerButton (300m ring).
+            // Middle — layer toggle fan button. Children fan out from behind the parent
+            // using the FanLayout framework with staggered animation and toggle support.
             FanLayout(
                 config = FanConfig(
-                    thetaDeg = 45f,
-                    currentCount = 1,
+                    maxCount = 4,
+                    currentCount = 4,
                     direction = FanDirection.LEFT,
-                    isOpen = true
+                    isOpen = layerFanExpanded,
+                    toggleChildren = true,
+                    showActiveBadge = true,
+                    activeChildCount = listOf(
+                        appSettings.depthLayerVisible,
+                        appSettings.regulatedZonesVisible,
+                        appSettings.zone300Visible,
+                        appSettings.lowDepthWarningVisible
+                    ).count { it }
                 ),
-                parent = { WarningTriangleIcon(alpha = if (appSettings.lowDepthWarningVisible) 1f else 0.25f) },
-                onParentClick = onToggleLowDepthWarning,
-                children = listOf(
-                    { CircleRingIcon(alpha = if (appSettings.zone300Visible) 1f else 0.25f) }
+                parent = { _: Boolean, _: Int -> ThreeStripeLayerIcon(alpha = 1f) },
+                onParentClick = onToggleLayerFan,
+                children = listOf<@Composable (Boolean) -> Unit>(
+                    { isActive -> DepthBarIcon(alpha = if (isActive) 1f else 0.25f) },
+                    { isActive -> RegulatedZoneIcon(alpha = if (isActive) 1f else 0.25f) },
+                    { isActive -> DoubleCircleIcon(alpha = if (isActive) 1f else 0.25f) },
+                    { isActive -> WarningTriangleIcon(alpha = if (isActive) 1f else 0.25f) }
                 ),
-                onChildClick = { index ->
-                    if (index == 0) onToggleZone300()
+                activeStates = listOf(
+                    appSettings.depthLayerVisible,
+                    appSettings.regulatedZonesVisible,
+                    appSettings.zone300Visible,
+                    appSettings.lowDepthWarningVisible
+                ),
+                onChildClick = { index: Int, _: Boolean ->
+                    when (index) {
+                        0 -> onToggleDepthLayer()
+                        1 -> onToggleRegulatedZones()
+                        2 -> onToggleZone300()
+                        3 -> onToggleLowDepthWarning()
+                    }
                 }
             )
 
@@ -794,6 +967,7 @@ private fun ErrorOverlay(
 @Composable
 private fun CoastlineMapView(
     segments: List<CoastlineSegment>,
+    regulatedZones: RegulatedZoneSet?,
     zone300: Zone300Data?,
     depthBitmap: Bitmap?,
     lowDepthWarningBitmap: Bitmap?,
@@ -815,7 +989,7 @@ private fun CoastlineMapView(
     val isobathVisible = zoomLevel >= DepthConstants.ISOBATH_MIN_DRAW_ZOOM
     val shallowIsobathVisible = zoomLevel >= DepthConstants.SHALLOW_ISOBATH_MIN_ZOOM
     val overlayKey = remember(
-        segments, zone300, zoneVisible,
+        segments, regulatedZones, zone300, zoneVisible,
         depthBitmap, lowDepthWarningBitmap, isobaths, depthVisible, isobathVisible, shallowIsobathVisible
     ) { Any() }
     val lastOverlayKey = remember { mutableStateOf<Any?>(null) }
@@ -840,6 +1014,7 @@ private fun CoastlineMapView(
                 drawDepthMap(this, depthBitmap, depthBox, zoomLevel)   // bottom: colour raster
                 drawLowDepthWarning(this, lowDepthWarningBitmap, depthBox, zoomLevel) // <1.5 m hazard
                 drawIsobaths(this, isobaths, zoomLevel)                // contours above raster
+                drawRegulatedZones(this, regulatedZones, zoomLevel)    // regulated zone fill + outline
                 drawZone300(this, zone300, zoomLevel)                  // 300 m band fill + line
                 drawCoastline(this, segments)                          // coastline on top
 
@@ -876,6 +1051,7 @@ private fun CoastlineMapView(
                 drawDepthMap(mapView, depthBitmap, depthBox, zoomLevel)
                 drawLowDepthWarning(mapView, lowDepthWarningBitmap, depthBox, zoomLevel)
                 drawIsobaths(mapView, isobaths, zoomLevel)
+                drawRegulatedZones(mapView, regulatedZones, zoomLevel)
                 drawZone300(mapView, zone300, zoomLevel)
                 drawCoastline(mapView, segments)
                 mapView.invalidate()
@@ -926,6 +1102,17 @@ private const val ZONE_MIN_ZOOM = 11.0
 
 // ───────────────────────────────────────────────────────────────────────────────
 
+/** Arrow length in dp at [REF_ZOOM] per knot of speed (65 dp ÷ 30 kn ≈ 2.17). */
+private const val CAP_DP_PER_KNOT = 65.0 / 30.0
+/** Minimum arrow length in dp at [REF_ZOOM] (barely visible nub at 3 kn). */
+private const val CAP_MIN_DP = 1.0
+/** Maximum arrow length in dp at [REF_ZOOM] (30+ kn capped). */
+private const val CAP_MAX_DP = 65.0
+/** Fraction of the marker image height from top edge to the visual boat tip. */
+private const val BOAT_TIP_OFFSET = 0.05
+/** Below this speed (knots) the arrow is hidden. */
+private const val CAP_MIN_SPEED_KNOTS = 2.5f
+
 /**
  * A fixed icon drawn at the center of the screen, indicating the current
  * GPS position. Stays in place while the map moves beneath it.
@@ -948,6 +1135,8 @@ private fun CenterMarkerOverlay(
     isWater: Boolean,
     zoomLevel: Double,
     distanceToShore: Double?,
+    navigationState: NavigationState = NavigationState(),
+    showCapArrow: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val drawableId = if (isWater) R.drawable.maro_marker else R.drawable.maro_dot_marker
@@ -971,12 +1160,83 @@ private fun CenterMarkerOverlay(
 
     val finalSizeDp = ((baseDp * scaleFactor) * distMultiplier).dp
 
-    Image(
-        painter = painterResource(id = drawableId),
-        contentDescription = description,
-        modifier = modifier.size(finalSizeDp),
-        contentScale = ContentScale.Fit
-    )
+    // ── Cap arrow: visual speed indicator ────────────────────────────────
+    val effectiveSpeedKn = navigationState.speedKnots ?: navigationState.demoSpeedKnots
+    val hasSpeed = effectiveSpeedKn != null && effectiveSpeedKn > CAP_MIN_SPEED_KNOTS
+    val showArrow = hasSpeed && showCapArrow
+    val arrowDp = if (showArrow) {
+        val baseArrowDp = (effectiveSpeedKn!! * CAP_DP_PER_KNOT).coerceIn(CAP_MIN_DP, CAP_MAX_DP)
+        (baseArrowDp * scaleFactor).dp
+    } else {
+        0.dp
+    }
+
+    Box(modifier = modifier.size(finalSizeDp)) {
+        Image(
+            painter = painterResource(id = drawableId),
+            contentDescription = description,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Fit
+        )
+        if (showArrow) {
+            val arrowColor = ComposeColor(ZoneConfig.capArrowColor)
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val arrowLenPx = arrowDp.toPx()
+                val cX = size.width / 2
+                val startY = (size.height * BOAT_TIP_OFFSET).toFloat()
+                val endY = startY - arrowLenPx
+
+                drawLine(
+                    color = arrowColor,
+                    start = Offset(cX, startY),
+                    end = Offset(cX, endY),
+                    strokeWidth = 2.25.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+                val headLen = 9.dp.toPx()
+                val headSpread = 0.5f
+                val path = Path().apply {
+                    moveTo(cX, endY)
+                    lineTo(
+                        cX - (headLen * sin(headSpread)).toFloat(),
+                        endY + (headLen * cos(headSpread)).toFloat()
+                    )
+                    lineTo(
+                        cX + (headLen * sin(headSpread)).toFloat(),
+                        endY + (headLen * cos(headSpread)).toFloat()
+                    )
+                    close()
+                }
+                drawPath(path, color = arrowColor)
+            }
+        }
+    }
+}
+
+// ── Direction line overlay ───────────────────────────────────────────────────
+
+/**
+ * Thin dashed line drawn from the screen center (boat position) outward in the
+ * heading direction, extending to the edge of the map.
+ */
+@Composable
+private fun DirectionLine(
+    modifier: Modifier = Modifier
+) {
+    val lineColor = ComposeColor(ZoneConfig.directionLineColor)
+    Canvas(modifier = modifier) {
+        val cX = size.width / 2
+        val cY = size.height / 2
+
+        drawLine(
+            color = lineColor,
+            start = Offset(cX, cY),
+            end = Offset(cX, 0f),
+            strokeWidth = 1.dp.toPx(),
+            pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 6f), 0f),
+            cap = StrokeCap.Round
+        )
+    }
 }
 
 // ── Earth / Water icon control ───────────────────────────────────────────────
@@ -1000,7 +1260,7 @@ private fun EarthWaterIcon(
             .size(44.dp)
             .clip(RoundedCornerShape(8.dp))
             .background(
-                if (isActive) activeColor.copy(alpha = 0.30f)
+                if (isActive) activeColor.copy(alpha = ZoneConfig.waterIconBgAlpha / 255f)
                 else ComposeColor(0xEEFFFFFF)
             ),
         contentAlignment = Alignment.Center
@@ -1012,19 +1272,228 @@ private fun EarthWaterIcon(
     }
 }
 
+// ── Settings button (top-right of map, matching zoom button style) ──────────
+
+@Composable
+private fun SettingsButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.size(64.dp),
+        shape = CircleShape,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = ComposeColor.White
+        ),
+        contentPadding = PaddingValues(0.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Default.Settings,
+            contentDescription = stringResource(R.string.map_settings),
+            tint = ComposeColor(0xFF1565C0),
+            modifier = Modifier.size(32.dp)
+        )
+    }
+}
+
+// ── 4-state zone layer toggle — merged 300m + regulated zones ─────────────
+
+/** 4-state cycle for the merged zone layer button. Derive from booleans each render. */
+private enum class ZoneLayerState(val zone300: Boolean, val regulated: Boolean) {
+    NONE(false, false),
+    ZONE300(true, false),
+    BOTH(true, true),
+    REGULATED(false, true);
+
+    fun next() = entries[(ordinal + 1) % entries.size]
+
+    companion object {
+        fun fromBooleans(zone300: Boolean, regulated: Boolean): ZoneLayerState =
+            entries.firstOrNull { it.zone300 == zone300 && it.regulated == regulated } ?: NONE
+    }
+}
+
+/**
+ * Single toggle button cycling through None → 300m ZONE → BOTH → Reg Zones.
+ * Two concentric circles indicate state: inner = 300m zone, outer = regulated zones.
+ */
+@Composable
+private fun ZoneLayerButton(
+    state: ZoneLayerState,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val themeBlue = ComposeColor(0xFF1565C0)
+    Button(
+        onClick = onClick,
+        modifier = modifier.size(64.dp),
+        shape = CircleShape,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = ComposeColor(0xCCFFFFFF)
+        ),
+        contentPadding = PaddingValues(0.dp)
+    ) {
+        Canvas(modifier = Modifier.size(28.dp)) {
+            val w = size.width
+            val h = size.height
+            // Inner circle alpha = 300m zone state
+            val innerAlpha = if (state.zone300) 1.0f else 0.25f
+            // Outer ring alpha = regulated zones state
+            val outerAlpha = if (state.regulated) 1.0f else 0.25f
+            // Outer ring: regulated zones indicator (stroke)
+            drawCircle(
+                color = themeBlue,
+                radius = w * 0.40f,
+                center = androidx.compose.ui.geometry.Offset(w * 0.5f, h * 0.5f),
+                alpha = outerAlpha,
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = w * 0.10f)
+            )
+            // Inner circle: 300m zone indicator (fill)
+            drawCircle(
+                color = themeBlue,
+                radius = w * 0.22f,
+                center = androidx.compose.ui.geometry.Offset(w * 0.5f, h * 0.5f),
+                alpha = innerAlpha
+            )
+        }
+    }
+}
+
+// ── Danger (low-depth) layer toggle — pink grounding-hazard overlay ─────────
+
+@Composable
+private fun DangerLayerButton(
+    isWarningVisible: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    // Themed blue to match the other control buttons (LayerButton + zoom).
+    val themeBlue = ComposeColor(0xFF1565C0)
+    Button(
+        onClick = onClick,
+        modifier = modifier.size(64.dp),
+        shape = CircleShape,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = ComposeColor(0xCCFFFFFF)  // solid white bg always (matches LayerButton)
+        ),
+        contentPadding = PaddingValues(0.dp)
+    ) {
+        // Custom warning-triangle icon (no material-icons-extended dependency, like LayerButton).
+        Canvas(modifier = Modifier.size(28.dp)) {
+            val w = size.width
+            val h = size.height
+            val iconAlpha = if (isWarningVisible) 1.0f else 0.25f
+            // Filled hazard triangle
+            val triangle = androidx.compose.ui.graphics.Path().apply {
+                moveTo(w * 0.50f, h * 0.06f)
+                lineTo(w * 0.96f, h * 0.88f)
+                lineTo(w * 0.04f, h * 0.88f)
+                close()
+            }
+            drawPath(path = triangle, color = themeBlue, alpha = iconAlpha)
+            // Exclamation bar
+            drawRoundRect(
+                color = ComposeColor.White,
+                topLeft = androidx.compose.ui.geometry.Offset(w * 0.455f, h * 0.34f),
+                size = androidx.compose.ui.geometry.Size(w * 0.09f, h * 0.28f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(3f, 3f),
+                alpha = iconAlpha
+            )
+            // Exclamation dot
+            drawCircle(
+                color = ComposeColor.White,
+                radius = w * 0.055f,
+                center = androidx.compose.ui.geometry.Offset(w * 0.50f, h * 0.74f),
+                alpha = iconAlpha
+            )
+        }
+    }
+}
+
+
+/**
+ * 5-state GPS indicator icon — placed top-left to the left of [EarthWaterIcon].
+ *
+ * States match the derived [GpsIconState] enum:
+ * - [DEMO]: GPS toggle off, gray satellite outline
+ * - [ACQUIRING]: GPS on but no fix yet, amber background + pulsing dot
+ * - [HEALTHY]: GPS fix good, green background
+ * - [IDLE]: GPS fix but stationary (reduced cadence), cyan background
+ * - [STALE]: GPS lost / hasLock false / error, red background
+ */
+private enum class GpsIconState { DEMO, ACQUIRING, HEALTHY, IDLE, STALE }
+
+@Composable
+private fun GpsStatusIcon(
+    state: GpsIconState,
+    modifier: Modifier = Modifier
+) {
+    val baseColor: ComposeColor
+    val bgAlpha: Float
+    val contentAlpha: Float
+    when (state) {
+        GpsIconState.DEMO -> {
+            baseColor = ComposeColor.White
+            bgAlpha = ZoneConfig.gpsIconDimBgAlpha / 255f
+            contentAlpha = 0.50f
+        }
+        GpsIconState.ACQUIRING -> { baseColor = ComposeColor(0xFFFFA726); bgAlpha = ZoneConfig.gpsIconBgAlpha / 255f; contentAlpha = 1f }
+        GpsIconState.HEALTHY -> { baseColor = ComposeColor(0xFF2E7D32); bgAlpha = ZoneConfig.gpsIconBgAlpha / 255f; contentAlpha = 1f }
+        GpsIconState.IDLE -> { baseColor = ComposeColor(0xFF1565C0); bgAlpha = ZoneConfig.gpsIconBgAlpha / 255f; contentAlpha = 1f }
+        GpsIconState.STALE -> { baseColor = ComposeColor(0xFFF44336); bgAlpha = ZoneConfig.gpsIconBgAlpha / 255f; contentAlpha = 1f }
+    }
+    Box(
+        modifier = modifier
+            .size(44.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(baseColor.copy(alpha = bgAlpha)),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "📡",
+            fontSize = 22.sp,
+            modifier = if (contentAlpha < 1f) Modifier.alpha(contentAlpha) else Modifier
+        )
+    }
+}
 
 // ── Settings overlay (full-screen page) ─────────────────────────────────────
 
+// Tab definitions for the settings page.
+private val settingsTabLabels = listOf("General", "Navigation", "System")
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun SettingsOverlay(
     settings: AppSettings,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
     onGpsModeChange: (Boolean) -> Unit,
     onDismiss: () -> Unit,
+    selectedTab: Int,
+    onTabChange: (Int) -> Unit,
     onRegenerateRasters: (List<RasterCache.Step>) -> Unit = {},
-    initialScrollOffset: Int = 0,
-    onScrollChanged: (Int) -> Unit = {}
+    displayScrollState: ScrollState,
+    navigationScrollState: ScrollState,
+    systemScrollState: ScrollState,
 ) {
+    val pagerState = rememberPagerState(pageCount = { 3 })
+
+    // Sync tab selection <-> pager position (bidirectional).
+    // The pagerSyncSettled flag prevents the initial pager→tab sync from
+    // overwriting selectedTab before animateScrollToPage has a chance to
+    // restore the persisted tab selection.
+    val pagerSyncSettled = remember { mutableStateOf(false) }
+    LaunchedEffect(selectedTab) {
+        pagerState.animateScrollToPage(selectedTab)
+        pagerSyncSettled.value = true
+    }
+    LaunchedEffect(pagerState.currentPage) {
+        if (pagerSyncSettled.value) {
+            onTabChange(pagerState.currentPage)
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -1042,7 +1511,6 @@ private fun SettingsOverlay(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Back arrow button (returns to map)
                     Button(
                         onClick = onDismiss,
                         modifier = Modifier.size(48.dp),
@@ -1069,175 +1537,828 @@ private fun SettingsOverlay(
                 }
             }
 
-            Spacer(modifier = Modifier.height(32.dp))
+            Spacer(modifier = Modifier.height(16.dp))
 
-            // Scrollable settings body — the header above stays pinned so the back
-            // button is always reachable. weight(1f) bounds the height so verticalScroll works.
-            val scrollState = rememberScrollState()
-
-            // Restore the saved scroll offset on every open.  We wait until the
-            // scrollable Column has been laid out (maxValue > 0) before calling
-            // scrollTo, because scrollTo silently clamps to [0, maxValue] — if
-            // maxValue is still 0 when scrollTo runs, the scroll is clamped to 0
-            // and the restored position is silently lost.
-            LaunchedEffect(Unit) {
-                if (initialScrollOffset > 0) {
-                    snapshotFlow { scrollState.maxValue }
-                        .first { it > 0 }
-                    scrollState.scrollTo(initialScrollOffset.coerceAtMost(scrollState.maxValue))
+            // ── Tab bar (manual Row + indicator instead of TabRow) ─────────
+            val tabColor = ComposeColor(0xFF1565C0)
+            val tabCount = settingsTabLabels.size
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(ComposeColor(0xFF1A1A2E))
+                    .drawBehind {
+                        // Draw the selected tab indicator line at the bottom
+                        val tabWidth = size.width / tabCount
+                        val indicatorLeft = tabWidth * selectedTab
+                        drawRect(
+                            color = tabColor,
+                            topLeft = Offset(indicatorLeft, size.height - 3.dp.toPx()),
+                            size = Size(tabWidth, 3.dp.toPx())
+                        )
+                    }
+            ) {
+                settingsTabLabels.forEachIndexed { index, label ->
+                    val isSelected = selectedTab == index
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clickable { onTabChange(index) }
+                            .padding(vertical = 14.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = label,
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 14.sp,
+                            color = if (isSelected) tabColor else ComposeColor(0xFF78909C)
+                        )
+                    }
                 }
             }
 
-            // Persist the scroll offset on every change so it survives dismiss/reopen.
-            LaunchedEffect(scrollState) {
-                snapshotFlow { scrollState.value }
-                    .collect { onScrollChanged(it) }
-            }
+            Spacer(modifier = Modifier.height(8.dp))
 
-            Column(
+            // ── Tab content ───────────────────────────────────────────────
+            HorizontalPager(
+                state = pagerState,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
-                    .verticalScroll(scrollState)
-            ) {
-
-            // ── Langue / Language section (global app setting — kept first) ──
-            SectionHeader(title = stringResource(R.string.settings_section_language))
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            SettingsLanguageRow(
-                languageCode = settings.languageCode,
-                onSelect = { code -> onUpdateSettings { it.copy(languageCode = code) } }
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // -- Source de position (Demo <-> GPS) section --
-            SectionHeader(title = stringResource(R.string.settings_section_position))
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            SettingsToggleRow(
-                label = stringResource(R.string.settings_gps_mode_label),
-                description = stringResource(R.string.settings_gps_mode_desc),
-                checked = settings.gpsMode,
-                onCheckedChange = onGpsModeChange
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            SettingsSliderRow(
-                label = stringResource(R.string.settings_recenter_label),
-                description = stringResource(R.string.settings_recenter_desc),
-                valueLabel = stringResource(R.string.settings_value_seconds, settings.recenterDelaySeconds),
-                value = settings.recenterDelaySeconds.toFloat(),
-                valueRange = 1f..10f,
-                steps = 8,
-                onValueChange = { v -> onUpdateSettings { it.copy(recenterDelaySeconds = v.roundToInt()) } }
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // ── Affichage (Display) section ──────────────────────────────
-            SectionHeader(title = stringResource(R.string.settings_section_display))
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // ── Coastline overlay toggle ──────────────────────────────────
-            SettingsToggleRow(
-                label = stringResource(R.string.settings_coastline_label),
-                description = stringResource(R.string.settings_coastline_desc),
-                checked = settings.coastlineVisible,
-                onCheckedChange = { visible ->
-                    onUpdateSettings { it.copy(coastlineVisible = visible) }
-                }
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // ── Zone 300 m overlay toggle ─────────────────────────────────
-            SettingsToggleRow(
-                label = stringResource(R.string.settings_zone300_label),
-                description = stringResource(R.string.settings_zone300_desc),
-                checked = settings.zone300Visible,
-                onCheckedChange = { visible ->
-                    onUpdateSettings { it.copy(zone300Visible = visible) }
-                }
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // ── Low-depth warning overlay toggle ──────────────────────────
-            SettingsToggleRow(
-                label = stringResource(R.string.settings_low_depth_warning_label),
-                description = stringResource(R.string.settings_low_depth_warning_desc),
-                checked = settings.lowDepthWarningVisible,
-                onCheckedChange = { visible ->
-                    onUpdateSettings { it.copy(lowDepthWarningVisible = visible) }
-                }
-            )
-
-            // Warning depth threshold — lives inside the warning's box, shown only when it is on.
-            if (settings.lowDepthWarningVisible) {
-                Spacer(modifier = Modifier.height(12.dp))
-                SettingsSliderGroup {
-                    SliderRowContent(
-                        label = stringResource(R.string.settings_low_depth_threshold_label),
-                        description = stringResource(R.string.settings_low_depth_threshold_desc),
-                        valueLabel = stringResource(R.string.settings_value_depth, settings.lowDepthWarningMaxM),
-                        value = settings.lowDepthWarningMaxM,
-                        valueRange = 0.5f..5f,
-                        steps = 8,
-                        onValueChange = { v ->
-                            onUpdateSettings { it.copy(lowDepthWarningMaxM = (v * 2f).roundToInt() / 2f) }
-                        }
-                    )
-                    SliderRowDivider()
-                    SliderRowContent(
-                        label = stringResource(R.string.settings_low_depth_opacity_label),
-                        description = stringResource(R.string.settings_low_depth_opacity_desc),
-                        valueLabel = stringResource(R.string.settings_value_percent, settings.lowDepthWarningMinOpacityPct),
-                        value = settings.lowDepthWarningMinOpacityPct.toFloat(),
-                        valueRange = 0f..100f,
-                        steps = 19,
-                        onValueChange = { v ->
-                            onUpdateSettings { it.copy(lowDepthWarningMinOpacityPct = (v / 5f).roundToInt() * 5) }
-                        }
-                    )
+            ) { page ->
+                when (page) {
+                    0 -> GeneralSettings(settings, onUpdateSettings, displayScrollState)
+                    1 -> NavigationSettings(settings, onUpdateSettings, navigationScrollState)
+                    2 -> SystemSettings(settings, onUpdateSettings, onGpsModeChange, onRegenerateRasters, systemScrollState)
                 }
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            // ── Footer ────────────────────────────────────────────────────
+            Text(
+                text = stringResource(R.string.app_version_footer),
+                color = ComposeColor(0xFF546E7A),
+                fontSize = 12.sp,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
+        }
+    }
+}
 
-            // ── Regenerate Layers ──────────────────────────────────────────
-            SectionHeader(title = "Regenerate Layers")
-            Spacer(modifier = Modifier.height(4.dp))
-            SettingsToggleRow(
-                label = "Depth grid",
-                description = "Reload the prebaked depth grid from assets",
-                checked = settings.regenGrid,
-                onCheckedChange = { v -> onUpdateSettings { it.copy(regenGrid = v) } }
+// ── General tab ───────────────────────────────────────────────────────────
+
+@Composable
+private fun GeneralSettings(
+    settings: AppSettings,
+    onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
+    scrollState: ScrollState
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+    ) {
+        // ── Coastline overlay toggle ──────────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_section_display))
+        Spacer(modifier = Modifier.height(8.dp))
+
+        SubSectionHeader(
+            title = "Layers",
+            description = null
+        )
+        // ── Low-depth warning overlay toggle — grouped card ────────────
+        //   (placed before zone 300 and regulated zones so the two spatial
+        //    overlays are grouped together)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(ComposeColor(0x1AFFFFFF))
+        ) {
+            // Toggle row (inline)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_low_depth_warning_label),
+                        color = ComposeColor.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_low_depth_warning_desc),
+                        color = ComposeColor(0xFFB0BEC5),
+                        fontSize = 13.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Switch(
+                    checked = settings.lowDepthWarningVisible,
+                    onCheckedChange = { visible ->
+                        onUpdateSettings { it.copy(lowDepthWarningVisible = visible) }
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = ComposeColor(0xFF1565C0),
+                        checkedTrackColor = ComposeColor(0xFF1565C0).copy(alpha = 0.4f),
+                        uncheckedThumbColor = ComposeColor(0xFFB0BEC5),
+                        uncheckedTrackColor = ComposeColor(0x33FFFFFF)
+                    )
+                )
+            }
+
+            // Warning sliders — collapsible, only visible when warning is on
+            if (settings.lowDepthWarningVisible) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(0.5.dp)
+                        .background(ComposeColor.White.copy(alpha = 0.1f))
+                )
+                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    var warningExpanded by remember { mutableStateOf(false) }
+                    SettingsExpander(
+                        label = "Warning settings",
+                        expanded = warningExpanded,
+                        onToggle = { warningExpanded = !warningExpanded },
+                        labelStyle = TextStyle(
+                            color = ComposeColor.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    ) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        SettingsSliderGroup {
+                            SliderRowContent(
+                                label = stringResource(R.string.settings_low_depth_threshold_label),
+                                description = stringResource(R.string.settings_low_depth_threshold_desc),
+                                valueLabel = stringResource(R.string.settings_value_depth, settings.lowDepthWarningMaxM),
+                                value = settings.lowDepthWarningMaxM,
+                                valueRange = 0.5f..5f,
+                                steps = 8,
+                                onValueChange = { v ->
+                                    onUpdateSettings { it.copy(lowDepthWarningMaxM = (v * 2f).roundToInt() / 2f) }
+                                }
+                            )
+                            SliderRowDivider()
+                            SliderRowContent(
+                                label = stringResource(R.string.settings_low_depth_opacity_label),
+                                description = stringResource(R.string.settings_low_depth_opacity_desc),
+                                valueLabel = stringResource(R.string.settings_value_percent, settings.lowDepthWarningMinOpacityPct),
+                                value = settings.lowDepthWarningMinOpacityPct.toFloat(),
+                                valueRange = 0f..100f,
+                                steps = 19,
+                                onValueChange = { v ->
+                                    onUpdateSettings { it.copy(lowDepthWarningMinOpacityPct = (v / 5f).roundToInt() * 5) }
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // ── Zone 300 m overlay toggle ─────────────────────────────────
+        SettingsToggleRow(
+            label = stringResource(R.string.settings_zone300_label),
+            description = stringResource(R.string.settings_zone300_desc),
+            checked = settings.zone300Visible,
+            onCheckedChange = { visible ->
+                onUpdateSettings { it.copy(zone300Visible = visible) }
+            }
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // ── Regulated zones overlay toggle — grouped card ──────────────
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(ComposeColor(0x1AFFFFFF))
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_regulated_zones_label),
+                        color = ComposeColor.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_regulated_zones_desc),
+                        color = ComposeColor(0xFFB0BEC5),
+                        fontSize = 13.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Switch(
+                    checked = settings.regulatedZonesVisible,
+                    onCheckedChange = { visible ->
+                        onUpdateSettings { it.copy(regulatedZonesVisible = visible) }
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = ComposeColor(0xFF1565C0),
+                        checkedTrackColor = ComposeColor(0xFF1565C0).copy(alpha = 0.4f),
+                        uncheckedThumbColor = ComposeColor(0xFFB0BEC5),
+                        uncheckedTrackColor = ComposeColor(0x33FFFFFF)
+                    )
+                )
+            }
+
+            if (settings.regulatedZonesVisible) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(0.5.dp)
+                        .background(ComposeColor.White.copy(alpha = 0.1f))
+                )
+                // Regulation info — collapsible toggle for info text panel
+                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    SettingsExpander(
+                        label = "Regulation info",
+                        expanded = settings.regulationInfoExpanded,
+                        onToggle = { onUpdateSettings { it.copy(regulationInfoExpanded = !it.regulationInfoExpanded) } },
+                        labelStyle = TextStyle(
+                            color = ComposeColor.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    ) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Show zone info text beside the icon strip",
+                            color = ComposeColor(0xFF90A4AE),
+                            fontSize = 13.sp,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Info text visible",
+                                color = ComposeColor.White,
+                                fontSize = 14.sp
+                            )
+                            Switch(
+                                checked = settings.regulationInfoVisible,
+                                onCheckedChange = { visible ->
+                                    onUpdateSettings { it.copy(regulationInfoVisible = visible) }
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = ComposeColor(0xFF1565C0),
+                                    checkedTrackColor = ComposeColor(0xFF1565C0).copy(alpha = 0.4f)
+                                )
+                            )
+                        }
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(0.5.dp)
+                        .background(ComposeColor.White.copy(alpha = 0.1f))
+                )
+                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    SettingsExpander(
+                        label = "Categories",
+                        expanded = settings.categoryFilterExpanded,
+                        onToggle = { onUpdateSettings { it.copy(categoryFilterExpanded = !it.categoryFilterExpanded) } },
+                        labelStyle = TextStyle(
+                            color = ComposeColor.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    ) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        RegulatedZoneCategoryToggles(settings, onUpdateSettings)
+                    }
+                }
+                // Boat size in its own collapsible
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(0.5.dp)
+                        .background(ComposeColor.White.copy(alpha = 0.1f))
+                )
+                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    SettingsExpander(
+                        label = "Boat size",
+                        expanded = settings.boatSizeFilterExpanded,
+                        onToggle = { onUpdateSettings { it.copy(boatSizeFilterExpanded = !it.boatSizeFilterExpanded) } },
+                        labelStyle = TextStyle(
+                            color = ComposeColor.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    ) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        BoatSizeSlider(settings, onUpdateSettings)
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // ── Coastline overlay toggle ──────────────────────────────────
+        SettingsToggleRow(
+            label = stringResource(R.string.settings_coastline_label),
+            description = stringResource(R.string.settings_coastline_desc),
+            checked = settings.coastlineVisible,
+            onCheckedChange = { visible ->
+                onUpdateSettings { it.copy(coastlineVisible = visible) }
+            }
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // ── Heading direction line toggle ────────────────────────────
+        SubSectionHeader(
+            title = "Navigation",
+            description = null
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        SettingsToggleRow(
+            label = stringResource(R.string.settings_heading_line_label),
+            description = stringResource(R.string.settings_heading_line_desc),
+            checked = settings.headingLineVisible,
+            onCheckedChange = { visible ->
+                onUpdateSettings { it.copy(headingLineVisible = visible) }
+            }
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // ── Variable cap arrow toggle ─────────────────────────────────
+        SettingsToggleRow(
+            label = stringResource(R.string.settings_cap_arrow_label),
+            description = stringResource(R.string.settings_cap_arrow_desc),
+            checked = settings.capArrowVisible,
+            onCheckedChange = { visible ->
+                onUpdateSettings { it.copy(capArrowVisible = visible) }
+            }
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+// ── Navigation tab ────────────────────────────────────────────────────────
+
+@Composable
+private fun NavigationSettings(
+    settings: AppSettings,
+    onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
+    scrollState: ScrollState
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+    ) {
+        // ── 300 m zone alert (auto-show on approach) — grouped card ─────
+        SectionHeader(title = stringResource(R.string.settings_alert_label))
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(ComposeColor(0x1AFFFFFF))
+        ) {
+            // Auto-show GPS mode toggle
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_alert_gps_label),
+                        color = ComposeColor.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_alert_gps_desc),
+                        color = ComposeColor(0xFFB0BEC5),
+                        fontSize = 13.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Switch(
+                    checked = settings.zone300AutoShowGps,
+                    onCheckedChange = { on -> onUpdateSettings { it.copy(zone300AutoShowGps = on) } },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = ComposeColor(0xFF1565C0),
+                        checkedTrackColor = ComposeColor(0xFF1565C0).copy(alpha = 0.4f),
+                        uncheckedThumbColor = ComposeColor(0xFFB0BEC5),
+                        uncheckedTrackColor = ComposeColor(0x33FFFFFF)
+                    )
+                )
+            }
+
+            // Thin divider between the two toggles
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(0.5.dp)
+                    .background(ComposeColor.White.copy(alpha = 0.1f))
             )
-            SettingsToggleRow(
-                label = "Isobath contours",
-                description = "Re-derive contour lines from the grid",
-                checked = settings.regenIsobaths,
-                onCheckedChange = { v -> onUpdateSettings { it.copy(regenIsobaths = v) } }
+
+            // Auto-show Demo mode toggle
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_alert_demo_label),
+                        color = ComposeColor.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_alert_demo_desc),
+                        color = ComposeColor(0xFFB0BEC5),
+                        fontSize = 13.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Switch(
+                    checked = settings.zone300AutoShowDemo,
+                    onCheckedChange = { on -> onUpdateSettings { it.copy(zone300AutoShowDemo = on) } },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = ComposeColor(0xFF1565C0),
+                        checkedTrackColor = ComposeColor(0xFF1565C0).copy(alpha = 0.4f),
+                        uncheckedThumbColor = ComposeColor(0xFFB0BEC5),
+                        uncheckedTrackColor = ComposeColor(0x33FFFFFF)
+                    )
+                )
+            }
+
+            // Alert sliders — collapsible, only visible when either auto-show is on
+            if (settings.zone300AutoShowGps || settings.zone300AutoShowDemo) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(0.5.dp)
+                        .background(ComposeColor.White.copy(alpha = 0.1f))
+                )
+                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    var alertExpanded by remember { mutableStateOf(false) }
+                    SettingsExpander(
+                        label = "Alert settings",
+                        expanded = alertExpanded,
+                        onToggle = { alertExpanded = !alertExpanded },
+                        labelStyle = TextStyle(
+                            color = ComposeColor.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    ) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        SettingsSliderGroup {
+                            SliderRowContent(
+                                label = stringResource(R.string.settings_alert_dist_label),
+                                description = stringResource(R.string.settings_alert_dist_desc),
+                                valueLabel = stringResource(R.string.settings_value_meters, settings.zoneAutoRevealDistanceM.roundToInt()),
+                                value = settings.zoneAutoRevealDistanceM,
+                                valueRange = 50f..500f,
+                                steps = 17,
+                                onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealDistanceM = (v / 25f).roundToInt() * 25f) } }
+                            )
+                            SliderRowDivider()
+                            SliderRowContent(
+                                label = stringResource(R.string.settings_alert_time_label),
+                                description = stringResource(R.string.settings_alert_time_desc),
+                                valueLabel = stringResource(R.string.settings_value_seconds, settings.zoneAutoRevealTimeS),
+                                value = settings.zoneAutoRevealTimeS.toFloat(),
+                                valueRange = 5f..120f,
+                                steps = 22,
+                                onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealTimeS = (v / 5f).roundToInt() * 5) } }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+// ── System tab ───────────────────────────────────────────────────────────
+
+@Composable
+private fun SystemSettings(
+    settings: AppSettings,
+    onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
+    onGpsModeChange: (Boolean) -> Unit,
+    onRegenerateRasters: (List<RasterCache.Step>) -> Unit,
+    scrollState: ScrollState
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+    ) {
+        // ── Language ──────────────────────────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_section_language))
+        Spacer(modifier = Modifier.height(8.dp))
+
+        SettingsLanguageRow(
+            languageCode = settings.languageCode,
+            onSelect = { code -> onUpdateSettings { it.copy(languageCode = code) } }
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // ── Position source (Demo <-> GPS) — moved from Navigation tab ─
+        SectionHeader(title = stringResource(R.string.settings_section_position))
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Grouped card: GPS toggle + optional GPS tuning expander
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(ComposeColor(0x1AFFFFFF))
+        ) {
+            // GPS mode toggle row (inline, no separate card background)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_gps_mode_label),
+                        color = ComposeColor.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_gps_mode_desc),
+                        color = ComposeColor(0xFFB0BEC5),
+                        fontSize = 13.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Switch(
+                    checked = settings.gpsMode,
+                    onCheckedChange = onGpsModeChange,
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = ComposeColor(0xFF1565C0),
+                        checkedTrackColor = ComposeColor(0xFF1565C0).copy(alpha = 0.4f),
+                        uncheckedThumbColor = ComposeColor(0xFFB0BEC5),
+                        uncheckedTrackColor = ComposeColor(0x33FFFFFF)
+                    )
+                )
+            }
+
+            // GPS sub-settings — collapsible, only visible when GPS mode is on
+            if (settings.gpsMode) {
+                // Thin divider separating the toggle from the expander
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(0.5.dp)
+                        .background(ComposeColor.White.copy(alpha = 0.1f))
+                )
+                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    var gpsTuningExpanded by remember { mutableStateOf(false) }
+                    SettingsExpander(
+                        label = "GPS tuning",
+                        expanded = gpsTuningExpanded,
+                        onToggle = { gpsTuningExpanded = !gpsTuningExpanded },
+                        labelStyle = TextStyle(
+                            color = ComposeColor.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    ) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        SettingsFrequencyRow(
+                            intervalSec = settings.gpsActiveIntervalSec,
+                            onSelect = { ivl, dist ->
+                                onUpdateSettings { it.copy(gpsActiveIntervalSec = ivl, gpsActiveMinDistanceM = dist) }
+                            }
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        SettingsSliderRow(
+                            label = stringResource(R.string.settings_recenter_label),
+                            description = stringResource(R.string.settings_recenter_desc),
+                            valueLabel = stringResource(R.string.settings_value_seconds, settings.recenterDelaySeconds),
+                            value = settings.recenterDelaySeconds.toFloat(),
+                            valueRange = 1f..10f,
+                            steps = 8,
+                            onValueChange = { v -> onUpdateSettings { it.copy(recenterDelaySeconds = v.roundToInt()) } }
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // ── Keep screen on ────────────────────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_section_screen))
+        Spacer(modifier = Modifier.height(8.dp))
+
+        SettingsToggleRow(
+            label = stringResource(R.string.settings_keep_screen_on_label),
+            description = stringResource(R.string.settings_keep_screen_on_desc),
+            checked = settings.keepScreenOn,
+            onCheckedChange = { on -> onUpdateSettings { it.copy(keepScreenOn = on) } }
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Map rendering FPS ceiling — moved from Navigation tab
+        SettingsSliderRow(
+            label = stringResource(R.string.settings_fps_label),
+            description = stringResource(R.string.settings_fps_desc),
+            valueLabel = stringResource(R.string.settings_value_fps, settings.mapRefreshFps),
+            value = settings.mapRefreshFps.toFloat(),
+            valueRange = 5f..50f,
+            steps = 8,
+            onValueChange = { v -> onUpdateSettings { it.copy(mapRefreshFps = (v / 5f).roundToInt() * 5) } }
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // ── Idle saving — moved from Navigation tab ─────────────────────
+        SectionHeader(title = stringResource(R.string.settings_idle_section_label))
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Grouped card: idle interval slider + advanced expander
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(ComposeColor(0x1AFFFFFF))
+        ) {
+            // Adaptive idle interval slider (inline, no separate card bg)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_idle_interval_label),
+                        color = ComposeColor.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_idle_interval_desc),
+                        color = ComposeColor(0xFFB0BEC5),
+                        fontSize = 13.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Text(
+                    text = stringResource(R.string.settings_value_seconds, settings.adaptiveIdleIntervalSec),
+                    color = ComposeColor(0xFF1565C0),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            Slider(
+                value = settings.adaptiveIdleIntervalSec.toFloat(),
+                onValueChange = { v -> onUpdateSettings { it.copy(adaptiveIdleIntervalSec = v.roundToInt()) } },
+                valueRange = 4f..15f,
+                steps = 10,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .padding(bottom = 8.dp),
+                colors = SliderDefaults.colors(
+                    thumbColor = ComposeColor(0xFF1565C0),
+                    activeTrackColor = ComposeColor(0xFF1565C0),
+                    inactiveTrackColor = ComposeColor(0x33FFFFFF)
+                )
             )
-            SettingsToggleRow(
-                label = "Depth colour map",
-                description = "Rebuild the depth-coloured raster overlay",
-                checked = settings.regenColour,
-                onCheckedChange = { v -> onUpdateSettings { it.copy(regenColour = v) } }
+
+            // Thin divider
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(0.5.dp)
+                    .background(ComposeColor.White.copy(alpha = 0.1f))
             )
-            SettingsToggleRow(
-                label = "Low-depth warning overlay",
-                description = "Rebuild the shallow-water magenta hazard overlay",
-                checked = settings.regenWarning,
-                onCheckedChange = { v -> onUpdateSettings { it.copy(regenWarning = v) } }
+
+            // Advanced stop-detection thresholds expander
+            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                var adaptiveAdvanced by remember { mutableStateOf(false) }
+                SettingsExpander(
+                    label = stringResource(R.string.settings_advanced_stop_label),
+                    expanded = adaptiveAdvanced,
+                    onToggle = { adaptiveAdvanced = !adaptiveAdvanced }
+                ) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    SettingsSliderGroup {
+                        SliderRowContent(
+                            label = stringResource(R.string.settings_window_label),
+                            description = stringResource(R.string.settings_window_desc),
+                            valueLabel = stringResource(R.string.settings_value_seconds, settings.adaptiveWindowSec),
+                            value = settings.adaptiveWindowSec.toFloat(),
+                            valueRange = 15f..60f,
+                            steps = 8,
+                            onValueChange = { v -> onUpdateSettings { it.copy(adaptiveWindowSec = (v / 5f).roundToInt() * 5) } }
+                        )
+                        SliderRowDivider()
+                        SliderRowContent(
+                            label = stringResource(R.string.settings_adaptive_dist_label),
+                            description = stringResource(R.string.settings_adaptive_dist_desc),
+                            valueLabel = stringResource(R.string.settings_value_meters, settings.adaptiveDistanceM),
+                            value = settings.adaptiveDistanceM.toFloat(),
+                            valueRange = 10f..30f,
+                            steps = 3,
+                            onValueChange = { v -> onUpdateSettings { it.copy(adaptiveDistanceM = (v / 5f).roundToInt() * 5) } }
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // ── EMODnet shallow filter — moved from General tab ────────────
+        SectionHeader(title = stringResource(R.string.settings_emodnet_section_label))
+        Spacer(modifier = Modifier.height(8.dp))
+        SettingsSliderGroup {
+            SliderRowContent(
+                label = stringResource(R.string.settings_emodnet_cutoff_label),
+                description = stringResource(R.string.settings_emodnet_cutoff_desc),
+                valueLabel = stringResource(R.string.settings_value_depth, settings.emodnetShallowCutoffM),
+                value = settings.emodnetShallowCutoffM,
+                valueRange = 0f..5f,
+                steps = 9,
+                onValueChange = { v -> onUpdateSettings { it.copy(emodnetShallowCutoffM = (v * 2f).roundToInt() / 2f) } }
             )
-            Spacer(modifier = Modifier.height(8.dp))
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // ── Regenerate Layers ─────────────────────────────────────────
+        SectionHeader(title = "Regenerate Layers")
+        Spacer(modifier = Modifier.height(4.dp))
+        SettingsToggleRow(
+            label = "Depth grid",
+            description = "Reload the prebaked depth grid from assets",
+            checked = settings.regenGrid,
+            onCheckedChange = { v -> onUpdateSettings { it.copy(regenGrid = v) } }
+        )
+        SettingsToggleRow(
+            label = "Isobath contours",
+            description = "Re-derive contour lines from the grid",
+            checked = settings.regenIsobaths,
+            onCheckedChange = { v -> onUpdateSettings { it.copy(regenIsobaths = v) } }
+        )
+        SettingsToggleRow(
+            label = "Depth colour map",
+            description = "Rebuild the depth-coloured raster overlay",
+            checked = settings.regenColour,
+            onCheckedChange = { v -> onUpdateSettings { it.copy(regenColour = v) } }
+        )
+        SettingsToggleRow(
+            label = "Low-depth warning overlay",
+            description = "Rebuild the shallow-water magenta hazard overlay",
+            checked = settings.regenWarning,
+            onCheckedChange = { v -> onUpdateSettings { it.copy(regenWarning = v) } }
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End
+        ) {
             Button(
                 onClick = {
                     val selected = buildList {
@@ -1246,7 +2367,6 @@ private fun SettingsOverlay(
                         if (settings.regenColour) add(RasterCache.Step.DEPTH_COLOUR)
                         if (settings.regenWarning) add(RasterCache.Step.LOW_DEPTH_WARNING)
                     }
-                    onDismiss()
                     onRegenerateRasters(selected)
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = ComposeColor(0xFF1565C0)),
@@ -1254,192 +2374,9 @@ private fun SettingsOverlay(
             ) {
                 Text("Regenerate", color = ComposeColor.White)
             }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // ── Économie d'énergie section (battery) — grouped by function ──
-            SectionHeader(title = stringResource(R.string.settings_section_power))
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // ── Keep the screen awake while the app runs (first power lever) ──
-            SettingsToggleRow(
-                label = stringResource(R.string.settings_keep_screen_on_label),
-                description = stringResource(R.string.settings_keep_screen_on_desc),
-                checked = settings.keepScreenOn,
-                onCheckedChange = { on -> onUpdateSettings { it.copy(keepScreenOn = on) } }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Group 1: GPS acquisition cadence while moving.
-            SubSectionHeader(
-                title = stringResource(R.string.settings_sub_gps_label),
-                description = stringResource(R.string.settings_sub_gps_desc)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            SettingsFrequencyRow(
-                intervalSec = settings.gpsActiveIntervalSec,
-                onSelect = { ivl, dist ->
-                    onUpdateSettings { it.copy(gpsActiveIntervalSec = ivl, gpsActiveMinDistanceM = dist) }
-                }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Group 2: map re-render ceiling.
-            SubSectionHeader(
-                title = stringResource(R.string.settings_sub_render_label),
-                description = stringResource(R.string.settings_sub_render_desc)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            SettingsSliderRow(
-                label = stringResource(R.string.settings_fps_label),
-                description = stringResource(R.string.settings_fps_desc),
-                valueLabel = stringResource(R.string.settings_value_fps, settings.mapRefreshFps),
-                value = settings.mapRefreshFps.toFloat(),
-                valueRange = 5f..50f,
-                steps = 8,
-                onValueChange = { v -> onUpdateSettings { it.copy(mapRefreshFps = (v / 5f).roundToInt() * 5) } }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Group 3: movement-adaptive idle behaviour.
-            SubSectionHeader(
-                title = stringResource(R.string.settings_idle_section_label),
-                description = stringResource(R.string.settings_idle_section_desc)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            // Primary lever (always visible): how slow GPS goes once stopped.
-            SettingsSliderRow(
-                label = stringResource(R.string.settings_idle_interval_label),
-                description = stringResource(R.string.settings_idle_interval_desc),
-                valueLabel = stringResource(R.string.settings_value_seconds, settings.adaptiveIdleIntervalSec),
-                value = settings.adaptiveIdleIntervalSec.toFloat(),
-                valueRange = 4f..15f,
-                steps = 10,
-                onValueChange = { v -> onUpdateSettings { it.copy(adaptiveIdleIntervalSec = v.roundToInt()) } }
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Advanced stop-detection thresholds, collapsed by default (progressive disclosure).
-            var adaptiveAdvanced by remember { mutableStateOf(false) }
-            SettingsExpander(
-                label = stringResource(R.string.settings_advanced_stop_label),
-                expanded = adaptiveAdvanced,
-                onToggle = { adaptiveAdvanced = !adaptiveAdvanced }
-            ) {
-                Spacer(modifier = Modifier.height(8.dp))
-                SettingsSliderGroup {
-                    SliderRowContent(
-                        label = stringResource(R.string.settings_window_label),
-                        description = stringResource(R.string.settings_window_desc),
-                        valueLabel = stringResource(R.string.settings_value_seconds, settings.adaptiveWindowSec),
-                        value = settings.adaptiveWindowSec.toFloat(),
-                        valueRange = 15f..60f,
-                        steps = 8,
-                        onValueChange = { v -> onUpdateSettings { it.copy(adaptiveWindowSec = (v / 5f).roundToInt() * 5) } }
-                    )
-                    SliderRowDivider()
-                    SliderRowContent(
-                        label = stringResource(R.string.settings_adaptive_dist_label),
-                        description = stringResource(R.string.settings_adaptive_dist_desc),
-                        valueLabel = stringResource(R.string.settings_value_meters, settings.adaptiveDistanceM),
-                        value = settings.adaptiveDistanceM.toFloat(),
-                        valueRange = 10f..30f,
-                        steps = 3,
-                        onValueChange = { v -> onUpdateSettings { it.copy(adaptiveDistanceM = (v / 5f).roundToInt() * 5) } }
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // ── Avancé : alerte zone 300 m (auto-affichage) ───────────────
-            SectionHeader(title = stringResource(R.string.settings_section_advanced))
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            SubSectionHeader(
-                title = stringResource(R.string.settings_alert_label),
-                description = stringResource(R.string.settings_alert_desc)
-            )
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // Per-mode auto-show toggles. The shared distance/time thresholds below only
-            // apply — and are only shown — when at least one mode has auto-show enabled.
-            SettingsToggleRow(
-                label = stringResource(R.string.settings_alert_gps_label),
-                description = stringResource(R.string.settings_alert_gps_desc),
-                checked = settings.zone300AutoShowGps,
-                onCheckedChange = { on -> onUpdateSettings { it.copy(zone300AutoShowGps = on) } }
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            SettingsToggleRow(
-                label = stringResource(R.string.settings_alert_demo_label),
-                description = stringResource(R.string.settings_alert_demo_desc),
-                checked = settings.zone300AutoShowDemo,
-                onCheckedChange = { on -> onUpdateSettings { it.copy(zone300AutoShowDemo = on) } }
-            )
-
-            if (settings.zone300AutoShowGps || settings.zone300AutoShowDemo) {
-                Spacer(modifier = Modifier.height(12.dp))
-                SettingsSliderGroup {
-                    SliderRowContent(
-                        label = stringResource(R.string.settings_alert_dist_label),
-                        description = stringResource(R.string.settings_alert_dist_desc),
-                        valueLabel = stringResource(R.string.settings_value_meters, settings.zoneAutoRevealDistanceM.roundToInt()),
-                        value = settings.zoneAutoRevealDistanceM,
-                        valueRange = 50f..500f,
-                        steps = 17,
-                        onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealDistanceM = (v / 25f).roundToInt() * 25f) } }
-                    )
-                    SliderRowDivider()
-                    SliderRowContent(
-                        label = stringResource(R.string.settings_alert_time_label),
-                        description = stringResource(R.string.settings_alert_time_desc),
-                        valueLabel = stringResource(R.string.settings_value_seconds, settings.zoneAutoRevealTimeS),
-                        value = settings.zoneAutoRevealTimeS.toFloat(),
-                        valueRange = 5f..120f,
-                        steps = 22,
-                        onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealTimeS = (v / 5f).roundToInt() * 5) } }
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-            SubSectionHeader(
-                title = stringResource(R.string.settings_emodnet_section_label),
-                description = stringResource(R.string.settings_emodnet_section_desc)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            SettingsSliderGroup {
-                SliderRowContent(
-                    label = stringResource(R.string.settings_emodnet_cutoff_label),
-                    description = stringResource(R.string.settings_emodnet_cutoff_desc),
-                    valueLabel = stringResource(R.string.settings_value_depth, settings.emodnetShallowCutoffM),
-                    value = settings.emodnetShallowCutoffM,
-                    valueRange = 0f..5f,
-                    steps = 9,
-                    onValueChange = { v -> onUpdateSettings { it.copy(emodnetShallowCutoffM = (v * 2f).roundToInt() / 2f) } }
-                )
-            }
-
-            // ── Footer ────────────────────────────────────────────────────
-            Spacer(modifier = Modifier.height(32.dp))
-            Text(
-                text = stringResource(R.string.app_version_footer),
-                color = ComposeColor(0xFF546E7A),
-                fontSize = 12.sp,
-                modifier = Modifier.align(Alignment.CenterHorizontally)
-            )
-            } // end scrollable settings body
         }
+
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
@@ -1667,6 +2604,11 @@ private fun SettingsExpander(
     label: String,
     expanded: Boolean,
     onToggle: () -> Unit,
+    labelStyle: TextStyle = TextStyle(
+        color = ComposeColor(0xFF90A4AE),
+        fontSize = 13.sp,
+        fontWeight = FontWeight.SemiBold
+    ),
     content: @Composable () -> Unit
 ) {
     val rotation by animateFloatAsState(
@@ -1684,9 +2626,7 @@ private fun SettingsExpander(
         ) {
             Text(
                 text = label,
-                color = ComposeColor(0xFF90A4AE),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
+                style = labelStyle,
                 modifier = Modifier.weight(1f)
             )
             Icon(
@@ -1832,6 +2772,56 @@ private fun SettingsTextFieldRow(
     }
 }
 
+// ── Zoom button (used for map +/- controls) ─────────────────────────────────
+
+@Composable
+private fun ZoomButton(
+    isPlus: Boolean,
+    desc: String,
+    onClick: () -> Unit
+) {
+    val themeBlue = ComposeColor(0xFF1565C0)
+    Button(
+        onClick = onClick,
+        modifier = Modifier.size(64.dp),
+        shape = CircleShape,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = ComposeColor.White
+        ),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
+    ) {
+        // "+" and "−" drawn from one shared strokeWidth so both glyphs carry
+        // identical (thick) line weight — independent of any font rendering.
+        Canvas(
+            modifier = Modifier.size(32.dp),
+            contentDescription = desc
+        ) {
+            val stroke = size.width * 0.16f
+            val inset = size.width * 0.20f
+            val cx = size.width / 2f
+            val cy = size.height / 2f
+            // Horizontal bar — the "−", and the cross-bar of "+"
+            drawLine(
+                color = themeBlue,
+                start = androidx.compose.ui.geometry.Offset(inset, cy),
+                end = androidx.compose.ui.geometry.Offset(size.width - inset, cy),
+                strokeWidth = stroke,
+                cap = androidx.compose.ui.graphics.StrokeCap.Round
+            )
+            if (isPlus) {
+                // Vertical bar — completes the "+"
+                drawLine(
+                    color = themeBlue,
+                    start = androidx.compose.ui.geometry.Offset(cx, inset),
+                    end = androidx.compose.ui.geometry.Offset(cx, size.height - inset),
+                    strokeWidth = stroke,
+                    cap = androidx.compose.ui.graphics.StrokeCap.Round
+                )
+            }
+        }
+    }
+}
+
 /**
  * Draws the coastline segments on the OSMdroid [MapView].
  *
@@ -1953,6 +2943,68 @@ private fun drawZone300(mapView: MapView, zone: Zone300Data?, zoomLevel: Double)
     }
 }
 
+// ── Regulated zones overlay ────────────────────────────────────────────────────
+
+/** Minimum zoom level to draw regulated zone polygons (below this they'd be sub-pixel). */
+private const val REGULATED_ZONE_MIN_ZOOM = 10.0
+
+/**
+ * Per-type colour configuration for regulated zone overlays.
+ *
+ * @property fillARGB ARGB colour int for the translucent polygon fill (alpha pre-applied).
+ * @property strokeARGB Fully opaque ARGB colour int for the polygon outline.
+ */
+private data class RegulationZoneColor(val fillARGB: Int, val strokeARGB: Int)
+
+/** Map each [RegulatedZoneType] to a distinct translucent fill + opaque outline colour. */
+private fun regulatedZoneColor(type: RegulatedZoneType): RegulationZoneColor = when (type) {
+    // Fill uses 0x30 alpha (~19 %, matching zone300 fill opacity) applied via Color.argb.
+    // Stroke uses full-opacity ARGB with .toInt() for values > Int.MAX_VALUE (0xFF prefix).
+    RegulatedZoneType.SPEED_LIMIT           -> RegulationZoneColor(0x301565C0, 0xFF1565C0.toInt())  // Blue
+    RegulatedZoneType.ANCHORING_PROHIBITED  -> RegulationZoneColor(0x30FF8F00, 0xFFFF8F00.toInt())  // Amber
+    RegulatedZoneType.ACCESS_PROHIBITED     -> RegulationZoneColor(0x30E53935, 0xFFE53935.toInt())  // Red
+    RegulatedZoneType.ENVIRONMENTAL         -> RegulationZoneColor(0x302E7D32, 0xFF2E7D32.toInt())  // Green
+    RegulatedZoneType.MOORING               -> RegulationZoneColor(0x3000897B, 0xFF00897B.toInt())  // Teal
+    RegulatedZoneType.FISHING_PROHIBITED    -> RegulationZoneColor(0x30FDD835, 0xFFFDD835.toInt())  // Yellow
+    RegulatedZoneType.NAVIGATION_RESTRICTION -> RegulationZoneColor(0x308E24AA, 0xFF8E24AA.toInt()) // Purple
+    RegulatedZoneType.OTHER                 -> RegulationZoneColor(0x3078909C, 0xFF78909C.toInt())  // Blue Grey
+}
+
+/**
+ * Draws regulated zones as translucent filled polygons with coloured outlines, one per
+ * [RegulatedZone] in the set. Each [RegulatedZoneType] gets a distinct colour (see
+ * [regulatedZoneColor]). Polygon holes (island interiors) are supported.
+ *
+ * Zoom-gated below [REGULATED_ZONE_MIN_ZOOM] and skipped when [zones] is null.
+ *
+ * Drawn between isobaths and the 300 m band (see [CoastlineMapView] factory / update).
+ */
+private fun drawRegulatedZones(
+    mapView: MapView,
+    zones: RegulatedZoneSet?,
+    zoomLevel: Double
+) {
+    if (zones == null || zoomLevel < REGULATED_ZONE_MIN_ZOOM) return
+    for (zone in zones.zones) {
+        if (zone.outerRing.size < 3) continue
+
+        val colors = regulatedZoneColor(zone.zoneType)
+        val fill = Polygon().apply {
+            setPoints(zone.outerRing.map { GeoPoint(it.latitude, it.longitude) })
+            val validHoles = zone.holes.filter { it.size >= 3 }
+            if (validHoles.isNotEmpty()) {
+                setHoles(validHoles.map { hole -> hole.map { GeoPoint(it.latitude, it.longitude) } })
+            }
+            fillPaint.color = colors.fillARGB
+            outlinePaint.color = colors.strokeARGB
+            outlinePaint.strokeWidth = 3f
+            outlinePaint.alpha = 200
+            outlinePaint.isAntiAlias = true
+        }
+        mapView.overlays.add(fill)
+    }
+}
+
 // ── Depth overlays ────────────────────────────────────────────────────────────
 
 /** Number of horizontal strips per depth raster overlay — see [addBandedOverlay]. ~8 ⇒ sub-metre. */
@@ -2043,4 +3095,426 @@ private fun drawIsobaths(mapView: MapView, isobaths: List<Isobath>, zoomLevel: D
             mapView.overlays.add(poly)
         }
     }
+}
+
+// ── Regulated zone warning strip (vertical stack) ───────────────────────────
+
+/**
+ * Priority for vertical stack ordering — most restrictive (lowest index)
+ * placed at the bottom, informational (highest index) at the top.
+ */
+private val CATEGORY_PRIORITY: Map<ZoneDisplayCategory, Int> = mapOf(
+    ZoneDisplayCategory.SPEED_LIMIT to 0,
+    ZoneDisplayCategory.NO_ACCESS to 1,
+    ZoneDisplayCategory.NO_ANCHOR to 2,
+    ZoneDisplayCategory.NO_DIVING to 3,
+    ZoneDisplayCategory.FISHING_PROHIBITED to 4,
+    ZoneDisplayCategory.MOORING to 5,
+    ZoneDisplayCategory.SEAPLANE to 6,
+    ZoneDisplayCategory.ENVIRONMENTAL to 7,
+    ZoneDisplayCategory.INFORMATION to 8,
+)
+
+/**
+ * Bottom-left warning strip showing icons as a vertical stack.
+ *
+ * Icons are 44×44 dp, ordered from most restrictive (SPEED_LIMIT at the
+ * bottom) to informational (INFORMATION at the top). Deduplicates by
+ * (displayCategory, speedLimitKn). Only renders when [regulatedZones]
+ * is non-null and non-empty.
+ */
+@Composable
+private fun RegulatedZoneWarningStrip(
+    regulatedZones: RegulatedZoneSet?,
+    boatPosition: LatLng? = null,
+    modifier: Modifier = Modifier
+) {
+    if (regulatedZones == null || regulatedZones.zones.isEmpty()) return
+
+    // Geo-fence: only show icons for zones whose polygon contains the boat.
+    val categories = remember(regulatedZones, boatPosition) {
+        val zones = if (boatPosition != null) {
+            regulatedZones.zones.filter { it.contains(boatPosition) }
+        } else {
+            regulatedZones.zones
+        }
+        if (zones.isEmpty()) return@remember emptyList()
+
+        zones
+            .flatMap { zone ->
+                val speed = zone.speedLimitKn
+                    ?: parseSpeedFromDescription(zone.description)
+                zone.displayCategories().map { cat -> cat to speed }
+            }
+            .filter { (cat, speed) -> cat != ZoneDisplayCategory.SPEED_LIMIT || speed != null }
+            .distinct()
+            // Sort by priority — most restrictive first (bottom of stack)
+            .sortedBy { (cat, _) -> CATEGORY_PRIORITY[cat] ?: Int.MAX_VALUE }
+    }
+
+    if (categories.isEmpty()) return
+
+    // Vertical column: first item at bottom (most restrictive), last at top
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        // Render in reverse so the first sorted item (most restrictive)
+        // appears at the bottom of the stack
+        categories.reversed().forEach { (category, speedKn) ->
+            RegulationZoneCategoryIcon(category = category, speedKn = speedKn)
+        }
+    }
+}
+
+/**
+ * A single 44×44 dp icon for a [ZoneDisplayCategory], displaying the category's
+ * emoji (or speed number) on a coloured rounded-square background, with a thin
+ * Canvas-drawn red diagonal strike overlay for prohibition categories.
+ *
+ * Speed limit zones render the knot value as bold white text instead of an emoji
+ * (e.g. "5" or "10") so the user can distinguish different speed limits at a glance.
+ *
+ * Background alpha is sourced from [RegulatedZoneIconProvider.alphaForCategory]:
+ * prohibition/warning icons use [ZoneConfig.iconBackActiveAlpha] (75 %),
+ * informational icons use [ZoneConfig.iconBackInactiveAlpha] (50 %).
+ *
+ * Categories requiring a strike (NO_ANCHOR, NO_DIVING, NO_ACCESS) render the emoji
+ * Text first, then overlay a thin red diagonal line via Canvas on top.
+ */
+@Composable
+private fun RegulationZoneCategoryIcon(
+    category: ZoneDisplayCategory,
+    speedKn: Double? = null,
+    modifier: Modifier = Modifier
+) {
+    val bgColor = RegulatedZoneIconProvider.colorForCategory(category)
+    val alpha = RegulatedZoneIconProvider.alphaForCategory(category)
+    val hasStrike = category == ZoneDisplayCategory.NO_ANCHOR ||
+            category == ZoneDisplayCategory.NO_DIVING ||
+            category == ZoneDisplayCategory.NO_ACCESS ||
+            category == ZoneDisplayCategory.FISHING_PROHIBITED
+
+    Box(
+        modifier = modifier
+            .size(44.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(bgColor.copy(alpha = alpha)),
+        contentAlignment = Alignment.Center
+    ) {
+        if (category == ZoneDisplayCategory.SPEED_LIMIT) {
+            Text(
+                text = if (speedKn != null) "${speedKn.toInt()}" else "",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                color = ComposeColor.White
+            )
+        } else {
+            // Emoji Text for all non-speed categories
+            Text(
+                text = RegulatedZoneIconProvider.emojiForCategory(category),
+                fontSize = 24.sp
+            )
+        }
+
+        // Thin red diagonal strike overlay for prohibition categories
+        if (hasStrike) {
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val sw = size.width * 0.04f // thinner strike
+                drawLine(
+                    color = ComposeColor.Red,
+                    start = Offset(size.width * 0.08f, size.height * 0.08f),
+                    end = Offset(size.width * 0.92f, size.height * 0.92f),
+                    strokeWidth = sw
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Zone info text panel — shows zone info text beside the vertical icon stack.
+ *
+ * Builds the same deduplicated category list as [RegulatedZoneWarningStrip] so
+ * text lines match the icon stack exactly — same emoji, same priority order.
+ *
+ * Format per line: {category_emoji} {zone.name or fallback} — {speed or desc}
+ * Ordered by [CATEGORY_PRIORITY] (most restrictive at bottom, matching icons).
+ * Auto-wraps within the available space.
+ */
+@Composable
+private fun RegulatedZoneInfoText(
+    regulatedZones: RegulatedZoneSet?,
+    boatPosition: LatLng? = null,
+    modifier: Modifier = Modifier
+) {
+    if (regulatedZones == null || regulatedZones.zones.isEmpty()) return
+
+    // Derive the same deduplicated (category, speedKn) pairs as the warning strip
+    val categoryLines = remember(regulatedZones, boatPosition) {
+        val zones = if (boatPosition != null) {
+            regulatedZones.zones.filter { it.contains(boatPosition) }
+        } else {
+            regulatedZones.zones
+        }
+        if (zones.isEmpty()) return@remember emptyList()
+
+        zones
+            .flatMap { zone ->
+                val speed = zone.speedLimitKn
+                    ?: parseSpeedFromDescription(zone.description)
+                // Pair each display category with the zone it came from
+                zone.displayCategories().map { cat -> Triple(cat, speed, zone) }
+            }
+            .filter { (cat, speed, _) -> cat != ZoneDisplayCategory.SPEED_LIMIT || speed != null }
+            .distinctBy { (cat, speed, _) -> cat to speed }
+            .sortedBy { (cat, _, _) -> CATEGORY_PRIORITY[cat] ?: Int.MAX_VALUE }
+    }
+
+    if (categoryLines.isEmpty()) return
+
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.Bottom
+    ) {
+        // Render in reverse so most restrictive (first in sorted order) is at bottom
+        categoryLines.reversed().forEach { (category, speedKn, zone) ->
+            val emoji = if (category == ZoneDisplayCategory.SPEED_LIMIT) {
+                "\uD83D\uDD34"  // 🔴 red dot for speed info
+            } else {
+                RegulatedZoneIconProvider.emojiForCategory(category)
+            }
+            val rawName = zone.name
+            val name = if (rawName.isNullOrBlank() || rawName.equals("null", ignoreCase = true)) {
+                zone.zoneType.name.lowercase().replace('_', ' ')
+            } else {
+                rawName
+            }
+            val keyInfo = when {
+                speedKn != null -> "${speedKn.toInt()} nds"
+                zone.description.isNotBlank() -> zone.description.replace("\n", " ")
+                else -> ""
+            }
+            Text(
+                text = if (keyInfo.isNotBlank()) "$emoji $name — $keyInfo" else "$emoji $name",
+                fontSize = 9.sp,
+                lineHeight = 14.sp,
+                color = ComposeColor.White,
+            )
+        }
+    }
+}
+
+/**
+ * Category icon visibility toggles for the regulated zone warning strip.
+ * Each icon type can be individually hidden.
+ */
+@Composable
+private fun RegulatedZoneCategoryToggles(
+    settings: AppSettings,
+    onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(ComposeColor(0x1AFFFFFF))
+    ) {
+        categoryToggleItems.forEachIndexed { index, item ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier.size(28.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (item.iconIsRedBox) {
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(ComposeColor(0xFFE53935)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text("10", color = ComposeColor.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        } else {
+                            Text(item.emoji, fontSize = 18.sp)
+                        }
+                        // Red diagonal strike overlay for prohibition categories
+                        if (item.hasStrike) {
+                            Canvas(modifier = Modifier.fillMaxSize()) {
+                                val sw = size.width * 0.06f
+                                drawLine(
+                                    color = ComposeColor.Red,
+                                    start = Offset(size.width * 0.1f, size.height * 0.1f),
+                                    end = Offset(size.width * 0.9f, size.height * 0.9f),
+                                    strokeWidth = sw
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(text = item.label, color = ComposeColor.White, fontSize = 14.sp)
+                }
+                Switch(
+                    checked = item.isVisible(settings),
+                    onCheckedChange = { visible ->
+                        onUpdateSettings { item.setter(it, visible) }
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = ComposeColor(0xFF1565C0),
+                        checkedTrackColor = ComposeColor(0xFF1565C0).copy(alpha = 0.4f)
+                    )
+                )
+            }
+            if (index < categoryToggleItems.size - 1) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(0.5.dp)
+                        .padding(horizontal = 16.dp)
+                        .background(ComposeColor(0x1AFFFFFF))
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Boat size slider (3–25m) for filtering regulated zones by vessel length.
+ * Shown in its own collapsible expander within the regulated zones card.
+ */
+@Composable
+private fun BoatSizeSlider(
+    settings: AppSettings,
+    onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(ComposeColor(0x1AFFFFFF))
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "\uD83D\uDEA4 Boat length",
+                color = ComposeColor.White,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = "${settings.boatSizeM.toInt()} m",
+                color = ComposeColor(0xFF1565C0),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
+        Slider(
+            value = settings.boatSizeM.toFloat(),
+            onValueChange = { v ->
+                onUpdateSettings { it.copy(boatSizeM = v.toDouble().coerceIn(3.0, 25.0)) }
+            },
+            valueRange = 3f..25f,
+            steps = 21,
+            modifier = Modifier.fillMaxWidth(),
+            colors = SliderDefaults.colors(
+                thumbColor = ComposeColor(0xFF1565C0),
+                activeTrackColor = ComposeColor(0xFF1565C0),
+                inactiveTrackColor = ComposeColor(0xFF1565C0).copy(alpha = 0.3f)
+            )
+        )
+    }
+}
+
+private data class CategoryToggleItem(
+    val emoji: String,
+    val label: String,
+    val iconIsRedBox: Boolean = false,
+    val hasStrike: Boolean = false,
+    val isVisible: (AppSettings) -> Boolean,
+    val setter: (AppSettings, Boolean) -> AppSettings,
+)
+
+private val categoryToggleItems = listOf(
+    CategoryToggleItem("", "Speed limit", iconIsRedBox = true,
+        isVisible = { it.showCategorySpeedLimit },
+        setter = { s, v -> s.copy(showCategorySpeedLimit = v) }),
+    CategoryToggleItem("\uD83D\uDEA4", "No access",
+        hasStrike = true,
+        isVisible = { it.showCategoryNoAccess },
+        setter = { s, v -> s.copy(showCategoryNoAccess = v) }),
+    CategoryToggleItem("\u2693\uFE0F", "No anchor",
+        hasStrike = true,
+        isVisible = { it.showCategoryNoAnchor },
+        setter = { s, v -> s.copy(showCategoryNoAnchor = v) }),
+    CategoryToggleItem("\uD83E\uDD3F", "No diving",
+        hasStrike = true,
+        isVisible = { it.showCategoryNoDiving },
+        setter = { s, v -> s.copy(showCategoryNoDiving = v) }),
+    CategoryToggleItem("\uD83D\uDC1F", "Fishing prohibited",
+        hasStrike = true,
+        isVisible = { it.showCategoryFishingProhibited },
+        setter = { s, v -> s.copy(showCategoryFishingProhibited = v) }),
+    CategoryToggleItem("\uD83D\uDEA4", "Mooring",
+        isVisible = { it.showCategoryMooring },
+        setter = { s, v -> s.copy(showCategoryMooring = v) }),
+    CategoryToggleItem("\u2708\uFE0F", "Seaplane",
+        isVisible = { it.showCategorySeaplane },
+        setter = { s, v -> s.copy(showCategorySeaplane = v) }),
+    CategoryToggleItem("\uD83C\uDF3F", "Environmental",
+        isVisible = { it.showCategoryEnvironmental },
+        setter = { s, v -> s.copy(showCategoryEnvironmental = v) }),
+    CategoryToggleItem("\u2139\uFE0F", "Information",
+        isVisible = { it.showCategoryInformation },
+        setter = { s, v -> s.copy(showCategoryInformation = v) }),
+)
+
+/**
+ * Extract a speed limit (knots) from a zone description string as fallback
+ * when [RegulatedZone.speedLimitKn] is null. Handles "speed is limited to
+ * 10 knots", "speed limit of 5 knots", "3 kn", "10 noeuds", etc.
+ */
+private fun parseSpeedFromDescription(desc: String?): Double? {
+    if (desc == null) return null
+    // Handle "5 knots", "10 kn", "3 noeuds" — plural 's' is optional so
+    // "10 knots" doesn't get blocked by the \b word boundary after "knot".
+    return Regex("""(\d+[.]?\d*)\s*(?:knots?|noeuds?|nds|kn)\b""", RegexOption.IGNORE_CASE)
+        .find(desc.lowercase())
+        ?.groupValues?.get(1)?.toDoubleOrNull()
+}
+
+/**
+ * Filter regulated zones by boat size and per-category visibility.
+ *
+ * Pipeline:
+ * 1. Remove zones that don't apply to the configured [boatSizeM] (e.g. "≥ 24m" with a 6m boat)
+ * 2. Remove zones whose display categories are all toggled off in settings
+ * 3. Return null if no zones remain (layer auto-hides)
+ */
+private fun filterRegulatedZones(
+    zones: RegulatedZoneSet?,
+    boatSizeM: Double,
+    isCategoryVisible: (ZoneDisplayCategory) -> Boolean
+): RegulatedZoneSet? {
+    if (zones == null) return null
+    val filtered = zones.zones.filter { zone ->
+        if (!zone.appliesTo(boatSizeM)) return@filter false
+        val cats = zone.displayCategories()
+        if (cats.isEmpty()) return@filter false
+        cats.any { isCategoryVisible(it) }
+    }
+    if (filtered.isEmpty()) return null
+    return zones.copy(zones = filtered)
 }

@@ -15,15 +15,17 @@ if not "%~1"=="" (
 echo ============================================
 echo   Bake selector   ^(present / MISSING^)
 echo ============================================
-call :status "Coastline + 300 m band" "data\app-assets\coastlines\nice-frejus.bin"
-call :status "EMODnet deep .asc"       "data\app-assets\depth\emodnet-nice-frejus.asc"
-call :status "Litto3D shallow .asc.gz" "data\app-assets\depth\litto3d-nice-frejus.asc.gz"
-call :status "Depth .bin (merge+clip)" "data\app-assets\depth\nice-frejus.bin"
+call :status "Coastline + 300 m band"    "data\app-assets\coastlines\nice-frejus.bin"
+call :status "EMODnet deep .asc"          "data\app-assets\depth\emodnet-nice-frejus.asc"
+call :status "Litto3D shallow .asc.gz"    "data\app-assets\depth\litto3d-nice-frejus.asc.gz"
+call :status "Depth .bin (merge+clip)"    "data\app-assets\depth\nice-frejus.bin"
+call :status "Regulated zones .bin"       "data\app-assets\regulated-zones\nice-frejus.bin"
 echo.
 call :ask "Bake coastline + 300 m band (OSM, network)? [y/N]: " "  Re-fetch OSM / overwrite? [y/N]: " coastline
 call :ask "Bake EMODnet deep backbone (large download, cached)? [y/N]: " "  Re-download the E5 tile? [y/N]: " emodnet
 call :ask "Bake Litto3D shallow tier (needs tiles)? [y/N]: " "  Re-fetch tiles (download missing)? [y/N]: " litto3d
 call :ask "Bake depth .bin (merge + 6 NM clip; auto-resolves deps)? [y/N]: " "  Re-bake depth sources fresh? [y/N]: " depth
+call :ask "Bake regulated zones .bin (SHOM WFS, network)? [y/N]: " "  Re-fetch SHOM / overwrite? [y/N]: " regulatedzones
 goto done
 
 REM %1 = bake prompt, %2 = fresh prompt, %3 = target. Body is top-level (no paren-block), so the
@@ -43,7 +45,7 @@ if exist "%~2" set "MARK=[present]"
 echo   !MARK! %~1
 exit /b 0
 :do_all
-call :do_coastline & call :do_emodnet & call :do_litto3d & call :do_depth
+call :do_coastline & call :do_emodnet & call :do_litto3d & call :do_depth & call :do_regulatedzones
 exit /b 0
 :do_coastline
 call "tools\bake-coastline.bat" %FRESH%
@@ -59,6 +61,9 @@ call "tools\bake-zone300.bat"
 exit /b 0
 :do_depth
 call "tools\bake-depth.bat" %FRESH%
+exit /b 0
+:do_regulatedzones
+call "tools\bake-regulated-zones.bat" %FRESH%
 exit /b 0
 :done
 echo ============================================

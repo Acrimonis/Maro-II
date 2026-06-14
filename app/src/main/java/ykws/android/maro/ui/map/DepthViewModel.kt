@@ -138,11 +138,14 @@ class DepthViewModel(
                 repository.loadGridFromAssets()
             } ?: run { _rasterProgress.value = null; return@launch }
 
+            val cutoffM = settings.emodnetShallowCutoffM
+            val nodataColor = ZoneConfig.nodataColor
             val key = RasterCache.Key(
                 gridTimestampMs = grid.metadata.fetchTimestampMs,
-                emodnetCutoffM = 0f,
+                emodnetCutoffM = cutoffM,
                 lowDepthMaxM = settings.lowDepthWarningMaxM,
-                lowDepthMinOpacityPct = settings.lowDepthWarningMinOpacityPct
+                lowDepthMinOpacityPct = settings.lowDepthWarningMinOpacityPct,
+                nodataColor = nodataColor
             )
 
             withContext(Dispatchers.Default) {
@@ -158,13 +161,13 @@ class DepthViewModel(
                         }
                         RasterCache.Step.ISOBATH -> {
                             report(RasterStep.ISOBATH, "Isobath contours", 0)
-                            DepthIsobaths.build(grid)
+                            DepthIsobaths.build(grid, emodnetCutoffM = cutoffM)
                             report(RasterStep.ISOBATH, "Isobath contours", 100)
                         }
                         RasterCache.Step.DEPTH_COLOUR -> {
                             RasterCache.evict(context, step) // force rebuild
                             report(RasterStep.COLOUR_RASTER, "Depth colour map", 0)
-                            val bmp = DepthBitmap.build(grid) { stepProgress ->
+                            val bmp = DepthBitmap.build(grid, cutoffM, nodataColor) { stepProgress ->
                                 report(RasterStep.COLOUR_RASTER, "Depth colour map", stepProgress)
                             }
                             val pixels = IntArray(grid.cols * grid.rows)
@@ -177,7 +180,7 @@ class DepthViewModel(
                             report(RasterStep.WARNING_RASTER, "Shallow warning overlay", 0)
                             val maxM = settings.lowDepthWarningMaxM
                             val minOpacity = settings.lowDepthWarningMinOpacityPct / 100f
-                            val bmp = LowDepthWarningBitmap.build(grid, maxM, isWater, minOpacity) { stepProgress ->
+                            val bmp = LowDepthWarningBitmap.build(grid, maxM, isWater, minOpacity, cutoffM) { stepProgress ->
                                 report(RasterStep.WARNING_RASTER, "Shallow warning overlay", stepProgress)
                             }
                             val pixels = IntArray(grid.cols * grid.rows)
@@ -200,9 +203,10 @@ class DepthViewModel(
         val grid = repository.getGrid() ?: return null
         val key = RasterCache.Key(
             gridTimestampMs = grid.metadata.fetchTimestampMs,
-            emodnetCutoffM = 0f,
+            emodnetCutoffM = settings.emodnetShallowCutoffM,
             lowDepthMaxM = settings.lowDepthWarningMaxM,
-            lowDepthMinOpacityPct = settings.lowDepthWarningMinOpacityPct
+            lowDepthMinOpacityPct = settings.lowDepthWarningMinOpacityPct,
+            nodataColor = ZoneConfig.nodataColor
         )
         return RasterCache.read(context, step, key)
     }

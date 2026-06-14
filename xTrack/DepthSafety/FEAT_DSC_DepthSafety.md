@@ -117,8 +117,8 @@ Runtime layer bitmap caching — avoid rebuilding the ~7 M-cell depth colour map
 - `data/depth/RasterCache.kt` (new: RawBuf disk I/O)
 - `data/model/GenerationProgress.kt` (reused for progress reporting)
 #### Docs
-- `plans/caching.md` — measurement results and RawBuf decision
-- `plans/caching-rawbuf.md` — implementation plan for RawBuf cache with progress UI
+- `xTrack/DepthMapping/FEAT_PLN_DepthMapping_caching.md` — measurement results and RawBuf decision
+- `xTrack/DepthMapping/FEAT_PLN_DepthMapping_caching-rawbuf.md` — implementation plan for RawBuf cache with progress UI
 
 ## Rules
 - Branch-per-feature off `feature/litto3d-shallow`: B1, B2, B3 from the base; **B4 from B3**. Commit only on explicit instruction.
@@ -130,4 +130,3 @@ Runtime layer bitmap caching — avoid rebuilding the ~7 M-cell depth colour map
 
 ## Docs
 - `xTrack/DepthSafety/FEAT_PLN_DepthSafety_plan.md` — the branch-per-feature workflow + per-branch design.
-- `plans/depth-gate-visual-consistency.md` — design & implementation plan for extending the EMODnet shallow gate to the magenta overlay and isobath contours.

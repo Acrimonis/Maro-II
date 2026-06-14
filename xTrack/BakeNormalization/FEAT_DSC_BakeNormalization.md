@@ -90,5 +90,10 @@ Litto3D shallow) — also the on-device way to confirm the Litto3D east baked in
 - `gradle.properties` (region props) · `app/build.gradle.kts` (BuildConfig) · `…/data/coastline/CoastlineGenerator.kt` · `…/data/depth/DepthZoneMask.kt`
 
 ## Docs
+- `xTrack/BakeNormalization/FEAT_DOC_BakeNormalization_prebake-batch.md` — prebake batch pipeline design
 - `xTrack/DepthMapping/FEAT_DOC_DepthMapping_bake.md` — current bake guide (to be updated as the scripts are normalized)
 - `xTrack/DepthMapping/FEAT_PLN_DepthMapping_litto3d-shallow-coverage.md` — design: kill the hardcoded litto3d band → derive the clip from a coastline-bbox sidecar + gzip the nodata-heavy `.asc` + full-tile fetch for whole-range shallow
+- `xTrack/BakeNormalization/FEAT_PLN_BakeNormalization_all-4-steps-progress.md` — All 4 pipeline steps in lazy rasterization progress design
+- `xTrack/BakeNormalization/FEAT_PLN_BakeNormalization_progress-captions.md` — Progress captions for loading overlay during raster generation
+- `xTrack/BakeNormalization/FEAT_PLN_BakeNormalization_regenerate-full-rework.md` — Regenerate layers full rework plan
+- `xTrack/BakeNormalization/FEAT_PLN_BakeNormalization_regenerate-layers-fixes.md` — Regenerate layers settings fixes

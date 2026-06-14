@@ -56,6 +56,40 @@ object ZoneConfig {
     var lowDepthWarningMinOpacityPct = 25
         private set
 
+    /** ARGB colour for NoData / above-datum cells on the depth colour map.
+     *  Default `0xFFCCCCCC` (light grey). Set via `nodata.color` in zone.properties. */
+    var nodataColor: Int = 0xFFCCCCCC.toInt()
+        private set
+
+    /** ARGB colour for the heading/speed cap arrow.
+     *  Default `0xFF1565C0` (Material Blue 700). Set via `cap.arrow.color` in maro.properties. */
+    var capArrowColor: Int = 0xFF1565C0.toInt()
+        private set
+
+    /** ARGB colour for the direction line projecting from the boat in the heading direction.
+     *  Default `0x4D1565C0` (Material Blue 700, 30% opacity). Set via `direction.line.color` in maro.properties. */
+    var directionLineColor: Int = 0x4D1565C0.toInt()
+        private set
+
+    /** Alpha (0–255) for icon backgrounds in active state (normal operation).
+     *  Default 191 = 75% (from icon.back.active.transparency in maro.properties). */
+    var iconBackActiveAlpha: Int = 191  // 75%
+        private set
+
+    /** Alpha (0–255) for icon backgrounds in inactive/dimmed state (demo, disabled).
+     *  Default 128 = 50% (from icon.back.inactive.transparency in maro.properties). */
+    var iconBackInactiveAlpha: Int = 128 // 50%
+        private set
+
+    /** Alpha for the Earth/Water icon active background — delegates to [iconBackActiveAlpha]. */
+    var waterIconBgAlpha: Int get() = iconBackActiveAlpha; private set(@Suppress("UNUSED_PARAMETER") _: Int) {}
+
+    /** Alpha for GPS icon active states (ACQUIRING, HEALTHY, IDLE, STALE) — delegates to [iconBackActiveAlpha]. */
+    var gpsIconBgAlpha: Int get() = iconBackActiveAlpha; private set(@Suppress("UNUSED_PARAMETER") _: Int) {}
+
+    /** Alpha for GPS icon DEMO state — delegates to [iconBackInactiveAlpha]. */
+    var gpsIconDimBgAlpha: Int get() = iconBackInactiveAlpha; private set(@Suppress("UNUSED_PARAMETER") _: Int) {}
+
     /** Isobath line colour per data source (ARGB int); a source with no entry falls back to [isobarColorDefault]. */
     private val isobarColors = hashMapOf(
         DepthSource.LITTO3D to 0xFF1B5E20.toInt(), // dark green (Material 900)
@@ -84,6 +118,15 @@ object ZoneConfig {
                 props.load(stream)
             }
 
+            // Also load maro.properties (optional — if missing, defaults are kept).
+            try {
+                context.assets.open("maro.properties").use { stream ->
+                    props.load(stream)
+                }
+            } catch (_: Exception) {
+                // maro.properties is optional; defaults apply if absent.
+            }
+
             props.getProperty("distanceToZoneGradientText")?.toFloatOrNull()?.let {
                 distanceToZoneGradientText = it.coerceIn(100f, 2000f)
             }
@@ -104,6 +147,21 @@ object ZoneConfig {
             }
             props.getProperty("lowDepthWarningMinOpacityPct")?.toIntOrNull()?.let {
                 lowDepthWarningMinOpacityPct = it.coerceIn(0, 100)
+            }
+            props.getProperty("nodata.color")?.let { parseColorOrNull(it) }?.let {
+                nodataColor = it
+            }
+            props.getProperty("cap.arrow.color")?.let { parseColorOrNull(it) }?.let {
+                capArrowColor = it
+            }
+            props.getProperty("direction.line.color")?.let { parseColorOrNull(it) }?.let {
+                directionLineColor = it
+            }
+            props.getProperty("icon.back.active.transparency")?.toIntOrNull()?.let {
+                iconBackActiveAlpha = (it.coerceIn(0, 100) * 255 / 100)
+            }
+            props.getProperty("icon.back.inactive.transparency")?.toIntOrNull()?.let {
+                iconBackInactiveAlpha = (it.coerceIn(0, 100) * 255 / 100)
             }
             for (src in DepthSource.entries) {
                 val key = src.name.lowercase()

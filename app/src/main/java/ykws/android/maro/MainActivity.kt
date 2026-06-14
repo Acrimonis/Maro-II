@@ -12,6 +12,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -56,6 +57,21 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.fillMaxSize(),
                         color = MaterialTheme.colorScheme.background
                     ) {
+                        // --- Keep screen on at the Activity level (not the composable tree) ---
+                        // Uses the window flag directly instead of View.keepScreenOn to avoid the
+                        // DisposableEffect onDispose toggle glitch (brief false→true reset that
+                        // trips Android 16's aggressive power management). Reset on dispose.
+                        DisposableEffect(appSettings.keepScreenOn) {
+                            if (appSettings.keepScreenOn) {
+                                window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                            } else {
+                                window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                            }
+                            onDispose {
+                                window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                            }
+                        }
+
                         // Restore persisted coastline + depth caches on first composition
                         LaunchedEffect(Unit) {
                             viewModel.initCache(this@MainActivity)
