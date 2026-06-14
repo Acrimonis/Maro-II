@@ -4,7 +4,7 @@
 - **Active Feature:** UI_Map
 - **Active Subfeature:** rotate
 - **Last Updated:** 2026-06-14
-- **Last Bake:** 2026-06-14 18:18 (UI_Map/rotate — Implementation complete. Two-finger rotation gesture in demo mode with demoHeadingUp toggle. setDemoBearing() in ViewModel, rotation gesture handler in MapScreen. Settings toggle in Display→Navigation. Build: green.)
+- **Last Bake:** 2026-06-14 18:53 (ArcLayout/fan-migration — Control stack refactored to dynamic ControlItem list. Hardcoded Column children replaced with ControlId/ControlSection/ControlItem data model. Non-fan controls (Settings, Zoom) hide via AnimatedVisibility when a fan is expanded. Sibling controls re-added via enum. Build: green.)
 
 ## Routing Map
 | Keyword | Feature File |

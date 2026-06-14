@@ -42,6 +42,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -190,7 +191,8 @@ fun MapScreen(
     val appSettings by viewModel.settings.collectAsState()
     var mapView by remember { mutableStateOf<MapView?>(null) }
     var showSettings by remember { mutableStateOf(false) }
-    var layerFanExpanded by remember { mutableStateOf(false) }
+    var expandedFanId by remember { mutableStateOf<ControlId?>(null) }
+    val anyFanExpanded = expandedFanId != null
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val displayScrollState = rememberScrollState()
     val navigationScrollState = rememberScrollState()
@@ -481,9 +483,9 @@ fun MapScreen(
     var showExitBanner by remember { mutableStateOf(false) }
 
     Box(modifier = modifier.fillMaxSize()) {
-        // ── Intercept system back when layer fan is open ──────────────────
-        if (layerFanExpanded) {
-            BackHandler { layerFanExpanded = false }
+        // ── Intercept system back when any fan is open ────────────────────
+        if (anyFanExpanded) {
+            BackHandler { expandedFanId = null }
         }
 
         // ── Intercept system back when settings are open ──────────────────
@@ -492,7 +494,7 @@ fun MapScreen(
         }
 
         // ── Otherwise require a second back press within 2 s to exit ───────
-        BackHandler(enabled = !showSettings && !layerFanExpanded) {
+        BackHandler(enabled = !showSettings && !anyFanExpanded) {
             val now = SystemClock.elapsedRealtime()
             if (now - lastBackAt <= 2_000L) {
                 context.findActivity()?.finishAffinity()
@@ -549,8 +551,8 @@ fun MapScreen(
                 onToggleDepthLayer = viewModel::toggleDepthLayerVisibility,
                 onToggleRegulatedZones = { viewModel.updateSettings { it.copy(regulatedZonesVisible = !it.regulatedZonesVisible) } },
                 onToggleZone300 = viewModel::toggleZone300Visibility,
-                layerFanExpanded = layerFanExpanded,
-                onToggleLayerFan = { layerFanExpanded = !layerFanExpanded },
+                expandedFanId = expandedFanId,
+                onToggleFan = { id -> expandedFanId = if (expandedFanId == id) null else id },
                 showExitBanner = showExitBanner,
                 rasterProgress = rasterProgress,
                 modifier = Modifier
@@ -627,6 +629,63 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
 /**
  * Map view with overlays: zoom buttons, center marker, loading & error states.
  */
+// ── Right-edge control stack types ─────────────────────────────────────────
+
+/** Identifies a control in the right-edge stack. Add new entries when adding controls. */
+private enum class ControlId { SETTINGS, LAYER_FAN, ZOOM }
+
+/** Vertical section within the SpaceBetween Column: TOP, MIDDLE, BOTTOM. */
+private enum class ControlSection { TOP, MIDDLE, BOTTOM }
+
+/**
+ * A control item in the right-edge control stack.
+ * @param id       Unique identifier matching [ControlId].
+ * @param isFan    True if this control can expand (a fan button).
+ * @param section  Vertical placement within the SpaceBetween Column.
+ * @param content  Composable content, receives [isExpanded] = (expandedFanId == id).
+ */
+private data class ControlItem(
+    val id: ControlId,
+    val isFan: Boolean = false,
+    val section: ControlSection,
+    val content: @Composable (isExpanded: Boolean) -> Unit
+)
+
+/**
+ * Renders a vertical section of the control stack within an [AnimatedVisibility]
+ * wrapper. Non-fan controls fade out when any fan is expanded.
+ * Must be called from within a [Column] (uses [ColumnScope.weight] for MIDDLE).
+ */
+@Composable
+private fun ColumnScope.ControlSectionContent(
+    section: ControlSection,
+    controls: List<ControlItem>,
+    expandedFanId: ControlId?,
+    anyFanOpen: Boolean
+) {
+    if (section == ControlSection.MIDDLE) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            controls.forEach { item ->
+                val isExpanded = expandedFanId == item.id
+                val visible = item.isFan || !anyFanOpen || isExpanded
+                AnimatedVisibility(visible = visible) { item.content(isExpanded) }
+            }
+        }
+    } else {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            controls.forEach { item ->
+                val isExpanded = expandedFanId == item.id
+                val visible = item.isFan || !anyFanOpen || isExpanded
+                AnimatedVisibility(visible = visible) { item.content(isExpanded) }
+            }
+        }
+    }
+}
+
 @Composable
 private fun MapContent(
     state: CoastlineState,
@@ -656,8 +715,8 @@ private fun MapContent(
     onToggleRegulatedZones: () -> Unit,
     onToggleLowDepthWarning: () -> Unit,
     onToggleDepthLayer: () -> Unit,
-    layerFanExpanded: Boolean = false,
-    onToggleLayerFan: () -> Unit = {},
+    expandedFanId: ControlId? = null,
+    onToggleFan: (ControlId) -> Unit = {},
     showExitBanner: Boolean,
     rasterProgress: RasterProgress? = null,
     modifier: Modifier = Modifier
@@ -825,11 +884,10 @@ private fun MapContent(
         }
 
         // ── Right-edge control stack ──────────────────────────────────────
-        //   Settings pinned to the top, zoom (+/-) pinned to the bottom, the
-        //   layer toggle centred in the leftover space. A full-height Column
-        //   with SpaceBetween keeps the centring exact regardless of the
-        //   differing top/bottom cluster heights, holds in both portrait and
-        //   landscape, and stops the three controls ever overlapping.
+        //   Controls are defined as a [ControlItem] list, rendered in three
+        //   vertical sections (TOP / MIDDLE / BOTTOM) inside a SpaceBetween
+        //   Column. Non-fan controls hide when any fan is expanded (via
+        //   AnimatedVisibility), making the expanded fan's children stand out.
         Column(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
@@ -838,75 +896,93 @@ private fun MapContent(
             verticalArrangement = Arrangement.SpaceBetween,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Top — settings
-            SettingsButton(onClick = onOpenSettings)
-
-            // Middle — layer toggle fan button. Children fan out from behind the parent
-            // using the FanLayout framework with staggered animation and toggle support.
-            FanLayout(
-                config = FanConfig(
-                    maxCount = 5,
-                    currentCount = 4,
-                    direction = FanDirection.LEFT,
-                    isOpen = layerFanExpanded,
-                    toggleChildren = true,
-                    showActiveBadge = true,
-                    activeChildCount = listOf(
-                        appSettings.depthLayerVisible,
-                        appSettings.regulatedZonesVisible,
-                        appSettings.zone300Visible,
-                        appSettings.lowDepthWarningVisible
-                    ).count { it }
-                ),
-                parent = { _: Boolean, _: Int -> ThreeStripeLayerIcon(alpha = 1f) },
-                onParentClick = onToggleLayerFan,
-                children = listOf<@Composable (Boolean) -> Unit>(
-                    { isActive -> DepthBarIcon(alpha = if (isActive) 1f else 0.25f) },
-                    { isActive -> RegulatedZoneIcon(alpha = if (isActive) 1f else 0.25f) },
-                    { isActive -> DoubleCircleIcon(alpha = if (isActive) 1f else 0.25f) },
-                    { isActive -> WarningTriangleIcon(alpha = if (isActive) 1f else 0.25f) }
-                ),
-                activeStates = listOf(
-                    appSettings.depthLayerVisible,
-                    appSettings.regulatedZonesVisible,
-                    appSettings.zone300Visible,
-                    appSettings.lowDepthWarningVisible
-                ),
-                onChildClick = { index: Int, _: Boolean ->
-                    when (index) {
-                        0 -> onToggleDepthLayer()
-                        1 -> onToggleRegulatedZones()
-                        2 -> onToggleZone300()
-                        3 -> onToggleLowDepthWarning()
+            // ── Build the control list ─────────────────────────────────
+            // Add new MIDDLE entries here when adding future fan/button controls.
+            val controls = remember(expandedFanId, appSettings, mapView) {
+                listOf(
+                    ControlItem(id = ControlId.SETTINGS, section = ControlSection.TOP) {
+                        SettingsButton(onClick = onOpenSettings)
+                    },
+                    ControlItem(id = ControlId.LAYER_FAN, isFan = true, section = ControlSection.MIDDLE) { isExpanded ->
+                        FanLayout(
+                            config = FanConfig(
+                                maxCount = 5,
+                                currentCount = 4,
+                                direction = FanDirection.LEFT,
+                                isOpen = isExpanded,
+                                toggleChildren = true,
+                                showActiveBadge = true,
+                                activeChildCount = listOf(
+                                    appSettings.depthLayerVisible,
+                                    appSettings.regulatedZonesVisible,
+                                    appSettings.zone300Visible,
+                                    appSettings.lowDepthWarningVisible
+                                ).count { it }
+                            ),
+                            parent = { _: Boolean, _: Int -> ThreeStripeLayerIcon(alpha = 1f) },
+                            onParentClick = { onToggleFan(ControlId.LAYER_FAN) },
+                            children = listOf<@Composable (Boolean) -> Unit>(
+                                { isActive -> DepthBarIcon(alpha = if (isActive) 1f else 0.25f) },
+                                { isActive -> RegulatedZoneIcon(alpha = if (isActive) 1f else 0.25f) },
+                                { isActive -> DoubleCircleIcon(alpha = if (isActive) 1f else 0.25f) },
+                                { isActive -> WarningTriangleIcon(alpha = if (isActive) 1f else 0.25f) }
+                            ),
+                            activeStates = listOf(
+                                appSettings.depthLayerVisible,
+                                appSettings.regulatedZonesVisible,
+                                appSettings.zone300Visible,
+                                appSettings.lowDepthWarningVisible
+                            ),
+                            onChildClick = { index: Int, _: Boolean ->
+                                when (index) {
+                                    0 -> onToggleDepthLayer()
+                                    1 -> onToggleRegulatedZones()
+                                    2 -> onToggleZone300()
+                                    3 -> onToggleLowDepthWarning()
+                                }
+                            }
+                        )
+                    },
+                    ControlItem(id = ControlId.ZOOM, section = ControlSection.BOTTOM) {
+                        if (mapView != null) {
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                MapControlButton(
+                                    onClick = {
+                                        val mv = mapView ?: return@MapControlButton
+                                        mv.controller.zoomIn()
+                                        onZoomChanged(mv.zoomLevelDouble)
+                                    }
+                                ) { PlusIcon() }
+                                MapControlButton(
+                                    onClick = {
+                                        val mv = mapView ?: return@MapControlButton
+                                        mv.controller.zoomOut()
+                                        onZoomChanged(mv.zoomLevelDouble)
+                                    }
+                                ) { MinusIcon() }
+                            }
+                        } else {
+                            Spacer(modifier = Modifier.height(136.dp))
+                        }
                     }
-                }
-            )
+                )
+            }
 
-            // Bottom — zoom +/-. A placeholder holds the slot before the map
-            // is ready so the middle toggle stays centred (no load-time jump).
-            if (mapView != null) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    MapControlButton(
-                        onClick = {
-                            val mv = mapView ?: return@MapControlButton
-                            mv.controller.zoomIn()
-                            onZoomChanged(mv.zoomLevelDouble)
-                        }
-                    ) { PlusIcon() }
-                    MapControlButton(
-                        onClick = {
-                            val mv = mapView ?: return@MapControlButton
-                            mv.controller.zoomOut()
-                            onZoomChanged(mv.zoomLevelDouble)
-                        }
-                    ) { MinusIcon() }
+            // ── Render each section ────────────────────────────────────
+            val anyFanOpen = expandedFanId != null
+            ControlSection.entries.forEach { section ->
+                val sectionControls = controls.filter { it.section == section }
+                if (sectionControls.isNotEmpty()) {
+                    ControlSectionContent(
+                        section = section,
+                        controls = sectionControls,
+                        expandedFanId = expandedFanId,
+                        anyFanOpen = anyFanOpen
+                    )
                 }
-            } else {
-                // Reserve the zoom cluster's footprint: two 64dp buttons + 8dp.
-                Spacer(modifier = Modifier.height(136.dp))
             }
         }
     }
