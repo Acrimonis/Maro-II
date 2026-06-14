@@ -1,16 +1,9 @@
 package ykws.android.maro.ui.map
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -25,15 +18,21 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ykws.android.maro.R
@@ -62,6 +61,10 @@ private object DashboardColors {
     val speedDanger = Color(0xFFC62828)   // red — >10 kn inside the zone
     val validationOk = Color(0xFF66BB6A)
     val validationWarn = Color(0xFFFFA726)
+    /** Amber for zone-entry distance tile — zone boundary ahead. */
+    val zoneEntry = Color(0xFFE65100)
+    /** Green for zone-exit distance tile — exiting to open sea. */
+    val zoneExit = Color(0xFF2E7D32)
     /** Alpha for all subdued/dulled dashboard states — no-data, on-land, far-from-zone, deep-water placeholder. */
     const val dullAlpha = 0.33f
 }
@@ -69,7 +72,11 @@ private object DashboardColors {
 // ── Dashboard panel (public, called from MapScreen) ──────────────────────────
 
 /**
- * Dashboard panel: a 2×2 grid of indicator cards — Distance, Zone 300 m, Depth, Speed.
+ * Dashboard panel: a 2×2 grid of indicator cards — Distance, Speed Zone, Depth, Speed.
+ *
+ * The top-right card is [SpeedLimitCard], replacing the old [Zone300Card]: it shows
+ * the unified speed zone name (300m band or SHOM speed zone), the most restrictive
+ * speed limit, heading-aware distance ahead, and speed compliance.
  *
  * Each card shows its value as large as the cell allows; the label and context are small and
  * subdued. The validation badge (when present) sits below the grid.
@@ -82,11 +89,11 @@ fun DashboardPanel(
     state: CoastlineState,
     isWater: Boolean,
     distanceToShore: Double?,
-    inZone300: Boolean,
-    distanceToZone: Double?,
     depthSample: DepthSample?,
     speedKnots: Float?,
-    alertDistanceM: Float = 200f,
+    zoneSituation: ZoneSituation? = null,
+    autoRevealDistanceM: Float = 100f,
+    autoRevealTimeS: Float = 10f,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -114,17 +121,20 @@ fun DashboardPanel(
                         distanceToShore = distanceToShore,
                         isWater = isWater,
                         state = state,
+                        zoneSituation = zoneSituation,
+                        autoRevealDistanceM = autoRevealDistanceM,
+                        autoRevealTimeS = autoRevealTimeS,
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
                     )
-                    Zone300Card(
-                        inZone300 = inZone300,
-                        distanceToZone = distanceToZone,
-                        speedKnots = speedKnots,
+                    SpeedLimitCard(
                         state = state,
                         isWater = isWater,
-                        alertDistanceM = alertDistanceM,
+                        speedKnots = speedKnots,
+                        zoneSituation = zoneSituation,
+                        autoRevealDistanceM = autoRevealDistanceM,
+                        autoRevealTimeS = autoRevealTimeS,
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
@@ -145,7 +155,7 @@ fun DashboardPanel(
                     )
                     SpeedCard(
                         speedKnots = speedKnots,
-                        inZone300 = inZone300,
+                        activeSpeedLimitKn = zoneSituation?.currentZone?.speedLimitKn,
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
@@ -245,8 +255,9 @@ private fun DashboardCard(
 }
 
 /**
- * Renders [text] centered at the largest font that fits the cell — sized from the cell height
- * (line height) and capped by width (≈ bold glyph width × length). No external auto-size API.
+ * Renders [text] centered at a fixed font size — sized once via [onSizeChanged] to avoid
+ * the per-recomposition subcomposite layout pass of [BoxWithConstraints]. Falls back to
+ * a sensible default (32sp) before the first measured size is available.
  */
 @Composable
 private fun AutoSizeValue(
@@ -254,10 +265,21 @@ private fun AutoSizeValue(
     modifier: Modifier = Modifier,
     color: Color = DashboardColors.textPrimary
 ) {
-    BoxWithConstraints(modifier = modifier, contentAlignment = Alignment.Center) {
-        val byHeight = maxHeight.value * 0.82f
-        val byWidth = maxWidth.value * 1.5f / text.length.coerceAtLeast(1)
-        val fontSize = minOf(byHeight, byWidth).coerceIn(14f, 64f)
+    var contentSize by remember { mutableStateOf(IntSize.Zero) }
+    val density = LocalDensity.current
+    val fontSize = if (contentSize != IntSize.Zero) {
+        val heightDp = with(density) { contentSize.height.toDp().value }
+        val widthDp = with(density) { contentSize.width.toDp().value }
+        val byHeight = heightDp * 0.70f
+        val byWidth = widthDp * 1.5f / text.length.coerceAtLeast(1)
+        minOf(byHeight, byWidth).coerceIn(14f, 64f)
+    } else 32f
+
+    Box(
+        modifier = modifier
+            .onSizeChanged { if (it != contentSize) contentSize = it },
+        contentAlignment = Alignment.Center
+    ) {
         Text(
             text = text,
             color = color,
@@ -284,6 +306,15 @@ private fun distanceText(distanceM: Double): String {
     }
 }
 
+/** Format ETA seconds as a localised string — either "ETA X s" or "ETA X:XX min". */
+@Composable
+private fun formatEta(etaSeconds: Double?): String? {
+    if (etaSeconds == null) return null
+    val sec = etaSeconds.toInt()
+    return if (sec < 60) stringResource(R.string.dash_eta_sec, sec)
+           else stringResource(R.string.dash_eta_min_sec, sec / 60, sec % 60)
+}
+
 // ── Distance card ────────────────────────────────────────────────────────────
 
 @Composable
@@ -291,8 +322,12 @@ private fun DistanceCard(
     distanceToShore: Double?,
     isWater: Boolean,
     state: CoastlineState,
+    zoneSituation: ZoneSituation? = null,
+    autoRevealDistanceM: Float = 100f,
+    autoRevealTimeS: Float = 10f,
     modifier: Modifier = Modifier
 ) {
+    // ── No data / loading ──────────────────────────────────────────────
     if (state !is CoastlineState.Ready || distanceToShore == null) {
         DashboardCard(
             title = stringResource(R.string.dash_distance_title),
@@ -303,31 +338,124 @@ private fun DistanceCard(
         return
     }
 
-    val displayText = distanceText(distanceToShore)
-    val label = if (isWater) stringResource(R.string.dash_distance_from_shore)
-                else stringResource(R.string.dash_distance_from_sea)
+    // ── On land ────────────────────────────────────────────────────────
+    if (!isWater) {
+        val dull = DashboardColors.textPrimary.copy(alpha = DashboardColors.dullAlpha)
+        DashboardCard(
+            title = stringResource(R.string.dash_distance_title),
+            value = distanceText(distanceToShore),
+            subtitle = stringResource(R.string.dash_distance_from_sea),
+            cardColor = DashboardColors.zoneNormal,
+            titleColor = dull,
+            valueColor = dull,
+            subtitleColor = DashboardColors.textMuted.copy(alpha = DashboardColors.dullAlpha),
+            modifier = modifier
+        )
+        return
+    }
+
+    // ── Dynamic relevance: show the nearest relevant boundary ──────────
+    val currentZone = zoneSituation?.currentZone
+    val nearestZone = zoneSituation?.zonesAround?.firstOrNull()
+
+    // Helper: inside zone AND within exit-preview thresholds (distance OR time)
+    val isNearExit = currentZone != null && (abs(currentZone.distanceM) <= autoRevealDistanceM ||
+        (currentZone.etaSeconds != null && currentZone.etaSeconds <= autoRevealTimeS))
+
+    // Helper: zone entry closer than shore AND within threshold
+    val isNearEntry = nearestZone != null && nearestZone.distanceM < distanceToShore &&
+        nearestZone.distanceM > 0.0 &&
+        (nearestZone.distanceM <= autoRevealDistanceM ||
+            (nearestZone.etaSeconds != null && nearestZone.etaSeconds <= autoRevealTimeS))
+
+    // Next zone ahead (beyond current zone's boundary) — from zonesAround with ↑ arrow
+    val nextZoneAhead = zoneSituation?.zonesAround?.firstOrNull { it.directionArrow == "\u2191" }
+
+    val (displayDist, displayLabel) = when {
+        // Priority 1: Inside zone AND within reveal thresholds → show exit distance + beyond type
+        // NOTE: nextZoneAhead is intentionally ignored here — when inside a zone, the distance tile
+        // shows where you're heading beyond the CURRENT zone's boundary (beyondType), not the next
+        // unrelated zone ahead. nextZoneAhead is for the zone tile (SpeedLimitCard) which shows
+        // regulation previews for zones on the heading.
+        isNearExit -> {
+            val label = when (currentZone!!.beyondType) {
+                BeyondType.OPEN_SEA -> "open water"
+                BeyondType.ZONE -> "\u2192 ${currentZone.beyondName ?: currentZone.zoneName}"
+                BeyondType.LAND -> "land"
+            }
+            -abs(currentZone.distanceM) to label
+        }
+        // Priority 2: Zone entry closer than shore → show entry distance (negative)
+        isNearEntry ->
+            -nearestZone!!.distanceM to "\u2192 ${nearestZone.zoneName}"
+        // Priority 3: Inside zone, beyond reveal thresholds → show shore (default)
+        currentZone != null ->
+            distanceToShore to stringResource(R.string.dash_distance_from_shore)
+        // Priority 4: Default → show shore
+        else ->
+            distanceToShore to stringResource(R.string.dash_distance_from_shore)
+    }
+
+    val displayText = distanceText(displayDist)
+    val etaSeconds = when {
+        isNearExit -> currentZone!!.etaSeconds
+        isNearEntry -> nearestZone!!.etaSeconds
+        else -> null
+    }
+    val labelWithEta = if (etaSeconds != null) {
+        val etaStr = formatEta(etaSeconds)
+        if (etaStr != null) "$displayLabel - $etaStr" else displayLabel
+    } else displayLabel
+
+    // Card color by boundary type
+    val cardColor = when {
+        // Inside zone within reveal thresholds → beyond type determines color
+        isNearExit -> when (currentZone!!.beyondType) {
+            BeyondType.ZONE -> DashboardColors.zoneEntry  // 🟠 amber — next zone ahead
+            BeyondType.LAND -> DashboardColors.cardBg     // 🔵 blue — land boundary, informational
+            BeyondType.OPEN_SEA -> DashboardColors.zoneExit // 🟢 green — clear exit
+        }
+        // Approaching a zone — amber only if directly ahead (↑)
+        isNearEntry && nearestZone!!.directionArrow == "\u2191" ->
+            DashboardColors.zoneEntry
+        // Default → blue
+        else -> DashboardColors.cardBg
+    }
 
     DashboardCard(
         title = stringResource(R.string.dash_distance_title),
         value = displayText,
-        subtitle = label,
+        subtitle = labelWithEta,
+        cardColor = cardColor,
         modifier = modifier
     )
 }
 
-// ── Zone 300 card ────────────────────────────────────────────────────────────
+// ── Speed Limit card (unified, replaces Zone300Card) ─────────────────────────
 
+/**
+ * Unified speed limit card driven by [ZoneSituation].
+ *
+ * Single-branch render:
+ * 1. Loading / no data → dull dash
+ * 2. On land → "TERRE" / dull
+ * 3. Inside zone (currentZone != null) → zone name + speed limit + exit distance + compliance color.
+ *    Shows "→ Next zone" in subtitle when zones are ahead on heading.
+ * 4. Zones ahead (zonesAround not empty) → zone name + direction arrow + distance + ETA
+ * 5. No zones at all → "LIBRE"
+ */
 @Composable
-private fun Zone300Card(
-    inZone300: Boolean,
-    distanceToZone: Double?,
-    speedKnots: Float?,
+private fun SpeedLimitCard(
     state: CoastlineState,
     isWater: Boolean,
-    alertDistanceM: Float = 200f,
+    speedKnots: Float?,
+    zoneSituation: ZoneSituation? = null,
+    autoRevealDistanceM: Float = 100f,
+    autoRevealTimeS: Float = 10f,
     modifier: Modifier = Modifier
 ) {
-    if (state !is CoastlineState.Ready || distanceToZone == null) {
+    // ── No data / loading ──────────────────────────────────────────────
+    if (state !is CoastlineState.Ready) {
         DashboardCard(
             title = stringResource(R.string.dash_zone_title),
             value = stringResource(R.string.dash_empty),
@@ -337,7 +465,7 @@ private fun Zone300Card(
         return
     }
 
-    // Dull threshold: when distance to zone > alert distance, render in subdued style.
+    // ── On land ────────────────────────────────────────────────────────
     if (!isWater) {
         val dull = DashboardColors.textPrimary.copy(alpha = DashboardColors.dullAlpha)
         DashboardCard(
@@ -353,75 +481,98 @@ private fun Zone300Card(
         return
     }
 
-    if (inZone300) {
-        val zoneM = abs(distanceToZone)
-        val exitText = distanceText(zoneM)
-        // Null speed (demo mode, stationary) = 0 kn → compliant
-        val compliant = speedKnots == null || speedKnots < 5f
-        val limitText = stringResource(R.string.dash_zone_speed_limit, exitText)
-
-        if (compliant) {
-            val subtitle = if (speedKnots != null)
-                limitText + stringResource(R.string.dash_speed_suffix_ok, speedKnots)
-            else limitText
-            DashboardCard(
-                title = stringResource(R.string.dash_zone_title),
-                value = stringResource(R.string.dash_in_zone),
-                subtitle = subtitle,
-                cardColor = DashboardColors.zoneCompliant,
-                modifier = modifier
-            )
-        } else {
-            // not compliant ⟹ speedKnots != null (and ≥ 5 kn)
-            val speed = speedKnots ?: 0f
-            val infiniteTransition = rememberInfiniteTransition(label = "zonePulse")
-            val pulseAlpha by infiniteTransition.animateFloat(
-                initialValue = 0.3f,
-                targetValue = 1.0f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(durationMillis = 800, easing = LinearEasing),
-                    repeatMode = RepeatMode.Reverse
-                ),
-                label = "pulseAlpha"
-            )
-
-            DashboardCard(
-                title = stringResource(R.string.dash_zone_title),
-                value = stringResource(R.string.dash_in_zone),
-                subtitle = limitText + stringResource(R.string.dash_speed_suffix_warn, speed),
-                cardColor = DashboardColors.zoneDanger,
-                borderColor = DashboardColors.red.copy(alpha = pulseAlpha),
-                borderWidth = 2.dp,
-                modifier = modifier
-            )
-        }
-    } else {
-        val zoneM = abs(distanceToZone)
-        val zoneText = distanceText(zoneM)
-        val farFromZone = distanceToZone > alertDistanceM.toDouble() * 2.0
-
-        if (farFromZone) {
-            val dull = DashboardColors.textPrimary.copy(alpha = DashboardColors.dullAlpha)
-            DashboardCard(
-                title = stringResource(R.string.dash_zone_title),
-                value = zoneText,
-                subtitle = stringResource(R.string.dash_to_zone),
-                cardColor = DashboardColors.zoneNormal,
-                titleColor = dull,
-                valueColor = dull,
-                subtitleColor = DashboardColors.textMuted.copy(alpha = DashboardColors.dullAlpha),
-                modifier = modifier
-            )
-        } else {
-            DashboardCard(
-                title = stringResource(R.string.dash_zone_title),
-                value = zoneText,
-                subtitle = stringResource(R.string.dash_to_zone),
-                cardColor = DashboardColors.cardBg,
-                modifier = modifier
-            )
-        }
+    // ── No zone data → libre ──────────────────────────────────────────
+    if (zoneSituation == null) {
+        DashboardCard(
+            title = stringResource(R.string.dash_libre_title),
+            value = stringResource(R.string.dash_libre_value),
+            subtitle = stringResource(R.string.dash_no_limit),
+            cardColor = DashboardColors.cardBg,
+            modifier = modifier
+        )
+        return
     }
+
+    // ── Inside a zone (currentZone != null) ────────────────────────────
+    val current = zoneSituation.currentZone
+    if (current != null) {
+        val exitDist = abs(current.distanceM)
+        val limitKn = current.speedLimitKn
+        val compliant = speedKnots == null || speedKnots < limitKn.toFloat()
+
+        val isNearExit = exitDist <= autoRevealDistanceM ||
+            (current.etaSeconds != null && current.etaSeconds <= autoRevealTimeS)
+
+        val subtitle = if (isNearExit) {
+            when (current.beyondType) {
+                BeyondType.OPEN_SEA -> "open water"
+                BeyondType.ZONE -> "\u2192 ${current.beyondName ?: current.zoneName}"
+                BeyondType.LAND -> ""  // land exit → no subtitle
+            }
+        } else {
+            ""  // Far from exit → no subtitle
+        }
+
+        val limitF = limitKn.toFloat()
+        val cardColor = if (speedKnots == null) DashboardColors.zoneCompliant
+                        else if (speedKnots <= limitF) DashboardColors.speedSafe
+                        else if (speedKnots <= limitF * 1.4f) DashboardColors.speedCaution
+                        else DashboardColors.speedDanger
+        val borderColor = cardColor
+
+        DashboardCard(
+            title = current.zoneName,
+            value = stringResource(R.string.dash_value_speed_limit, limitKn),
+            subtitle = subtitle.ifEmpty { null },
+            cardColor = cardColor,
+            borderColor = borderColor,
+            borderWidth = 2.dp,
+            modifier = modifier
+        )
+        return
+    }
+
+    // ── Zones ahead on heading (approaching) ──────────────────────────
+    val ahead = zoneSituation.zonesAround.firstOrNull()
+    if (ahead != null) {
+        val zoneDist = abs(ahead.distanceM)
+        val zoneText = distanceText(zoneDist)
+        val etaStr = formatEta(ahead.etaSeconds)
+
+        // Gate: only reveal when within distance OR time threshold
+        val shouldReveal = zoneDist <= autoRevealDistanceM ||
+            (ahead.etaSeconds != null && ahead.etaSeconds <= autoRevealTimeS)
+
+        if (shouldReveal) {
+            val subtitle = if (etaStr != null) "${ahead.zoneName} - $etaStr"
+                           else ahead.zoneName
+            // 3-tier speed compliance ramp vs ahead zone's limit
+            val limitF = ahead.speedLimitKn.toFloat()
+            val speedColor = if (speedKnots == null) DashboardColors.cardBg
+                             else if (speedKnots <= limitF) DashboardColors.speedSafe
+                             else if (speedKnots <= limitF * 1.4f) DashboardColors.speedCaution
+                             else DashboardColors.speedDanger
+            DashboardCard(
+                title = ahead.zoneName,
+                value = stringResource(R.string.dash_value_speed_limit, ahead.speedLimitKn),
+                subtitle = subtitle,
+                cardColor = speedColor,
+                modifier = modifier
+            )
+            return
+        }
+        // Fall through to LIBRE if beyond reveal thresholds
+    }
+
+
+    // ── No zone anywhere near → LIBRE ─────────────────────────────────
+    DashboardCard(
+        title = stringResource(R.string.dash_libre_title),
+        value = stringResource(R.string.dash_libre_value),
+        subtitle = stringResource(R.string.dash_no_limit),
+        cardColor = DashboardColors.cardBg,
+        modifier = modifier
+    )
 }
 
 // ── Depth card ───────────────────────────────────────────────────────────────
@@ -489,16 +640,27 @@ private fun DepthCard(
         subtitleColor = confColor,
         subtitleWeight = FontWeight.Bold,
         cardColor = depthColor.copy(alpha = 0.25f),
+        borderColor = depthColor,
+        borderWidth = 2.dp,
         modifier = modifier
     )
 }
 
 // ── Speed card (GPS) ──────────────────────────────────────────────────────────
 
+/**
+ * Speed card showing current speed over ground.
+ *
+ * Colour-codes compliance relative to the active speed zone limit (if any):
+ * - No zone: normal blue background
+ * - Inside zone, speed ≤ limit: dark green
+ * - Inside zone, limit < speed ≤ limit × 1.4: orange
+ * - Inside zone, speed > limit × 1.4: red
+ */
 @Composable
 private fun SpeedCard(
     speedKnots: Float?,
-    inZone300: Boolean,
+    activeSpeedLimitKn: Double? = null,
     modifier: Modifier = Modifier
 ) {
     // Null = demo mode (or no fix yet) → show a dash, default background.
@@ -522,21 +684,28 @@ private fun SpeedCard(
         )
         return
     }
-    // The 300 m zone limit is 5 kn — colour-code compliance there; default background elsewhere.
-    val cardColor = if (inZone300) {
+    // Colour-code relative to the active speed zone limit (if any).
+    val cardColor = if (activeSpeedLimitKn != null) {
+        val limit = activeSpeedLimitKn.toFloat()
         when {
-            speedKnots < 5f -> DashboardColors.speedSafe
-            speedKnots <= 10f -> DashboardColors.speedCaution
+            speedKnots <= limit -> DashboardColors.speedSafe
+            speedKnots <= limit * 1.4f -> DashboardColors.speedCaution
             else -> DashboardColors.speedDanger
         }
     } else {
         DashboardColors.cardBg
     }
+    val showBorder = cardColor != DashboardColors.cardBg
+    val subtitle = if (activeSpeedLimitKn != null)
+        stringResource(R.string.dash_speed_zone_limit, activeSpeedLimitKn)
+    else null
     DashboardCard(
         title = stringResource(R.string.dash_speed_title),
         value = stringResource(R.string.dash_value_kn, speedKnots),
-        subtitle = if (inZone300) stringResource(R.string.dash_5kn_in_zone) else null,
+        subtitle = subtitle,
         cardColor = cardColor,
+        borderColor = if (showBorder) cardColor else Color.Transparent,
+        borderWidth = if (showBorder) 2.dp else 0.dp,
         modifier = modifier
     )
 }

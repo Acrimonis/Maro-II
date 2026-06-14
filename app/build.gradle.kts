@@ -62,6 +62,19 @@ android {
             propDouble("regulatedZones.defaultVesselLengthM", 6.0).toString())
         buildConfigField("String", "REGULATED_ZONES_FILTERED_TYPES",
             "\"${propString("regulatedZones.filteredTypes", "ENVIRONMENTAL,FISHING_PROHIBITED,OTHER")}\"")
+
+        // ── Speed zone hysteresis from maro.properties ──────────────────
+        buildConfigField("double", "SPEED_ZONE_HYSTERESIS_M",
+            propDouble("speedZone.hysteresisM", 5.0).coerceAtLeast(0.0).toString())
+
+        // ── Speed zone max search distance from maro.properties ─────────
+        buildConfigField("double", "SPEED_ZONE_MAX_SEARCH_M",
+            propDouble("speedZone.maxSearchM", 750.0).toString())
+
+        // ── Distance threshold for zone exit preview from maro.properties ──
+        buildConfigField("double", "SPEED_ZONE_DISTANCE_OUT_OF_ZONE_INFO_M",
+            propDouble("speedZone.distanceOutOfZoneInfoM", 200.0)
+                .coerceAtLeast(10.0).toString())
     }
 
     compileOptions {

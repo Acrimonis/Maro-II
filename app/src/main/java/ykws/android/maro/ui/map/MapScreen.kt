@@ -1,5 +1,7 @@
 package ykws.android.maro.ui.map
 
+import android.graphics.DashPathEffect
+
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
@@ -182,13 +184,14 @@ fun MapScreen(
 ) {
     val state by viewModel.state.collectAsState()
     val progress by viewModel.progress.collectAsState()
-    val mapCenter by viewModel.mapCenter.collectAsState()
+    val mapCenter by viewModel.uiMapCenter.collectAsState()
     val isWater by viewModel.isWater.collectAsState()
     val distanceToShore by viewModel.distanceToShore.collectAsState()
     val zoomLevel by viewModel.zoomLevel.collectAsState()
-    val zone300 by viewModel.zone300.collectAsState()
     val inZone300 by viewModel.inZone300.collectAsState()
     val distanceToZone by viewModel.distanceToZone.collectAsState()
+    val zone300 by viewModel.zone300.collectAsState()
+    val zoneSituation by viewModel.zoneSituation.collectAsState()
     val appSettings by viewModel.settings.collectAsState()
     var mapView by remember { mutableStateOf<MapView?>(null) }
     var showSettings by remember { mutableStateOf(false) }
@@ -205,6 +208,12 @@ fun MapScreen(
     val gpsPosition by viewModel.gpsPosition.collectAsState()
     val gpsStale by viewModel.gpsStale.collectAsState()
     val acquisitionMode by viewModel.acquisitionMode.collectAsState()
+    // Effective heading for the zone-ahead cone:
+    // GPS mode → GPS bearing (COG/compass, boat faces direction of travel)
+    // Demo mode → 0° = north (boat marker always points up/top of map).
+    //             When panning actively, demoBearingDeg tracks pan direction.
+    val effectiveHeadingDeg = if (appSettings.gpsMode) navigationState.bearingDeg.toDouble()
+        else navigationState.demoBearingDeg?.toDouble() ?: 0.0
 
     // Derive the GPS icon state from ViewModel state (5-state model).
     val gpsIconState = remember(appSettings.gpsMode, gpsPosition, gpsStale, acquisitionMode) {
@@ -543,6 +552,7 @@ fun MapScreen(
                 // Demo mode (gpsPosition == null): use mapCenter as fallback so
                 // geo-fence still works when panning the map in demo/manual mode.
                 boatPosition = gpsPosition ?: mapCenter,
+                headingDeg = effectiveHeadingDeg,
                 onCenterChanged = onCenterChanged,
                 onZoomChanged = viewModel::updateZoomLevel,
                 onMapViewReady = { mapView = it },
@@ -565,35 +575,37 @@ fun MapScreen(
             )
 
             // Dashboard overlaid on top, positioned via alignment.
-            if (isLandscape) {
-                DashboardPanel(
-                    state = state,
-                    isWater = isWater,
-                    distanceToShore = distanceToShore,
-                    inZone300 = inZone300,
-                    distanceToZone = distanceToZone,
-                    depthSample = depthReadout,
-                    speedKnots = navigationState.speedKnots ?: navigationState.demoSpeedKnots,
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .width(landscapeDashboardWidth)
-                        .fillMaxHeight()
-                )
-            } else {
-                DashboardPanel(
-                    state = state,
-                    isWater = isWater,
-                    distanceToShore = distanceToShore,
-                    inZone300 = inZone300,
-                    distanceToZone = distanceToZone,
-                    depthSample = depthReadout,
-                    speedKnots = navigationState.speedKnots ?: navigationState.demoSpeedKnots,
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .height(portraitDashboardHeight)
-                )
-            }
+        if (isLandscape) {
+            DashboardPanel(
+                state = state,
+                isWater = isWater,
+                distanceToShore = distanceToShore,
+                depthSample = depthReadout,
+                speedKnots = navigationState.speedKnots ?: navigationState.demoSpeedKnots,
+                zoneSituation = zoneSituation,
+                autoRevealDistanceM = appSettings.zoneAutoRevealDistanceM,
+                autoRevealTimeS = appSettings.zoneAutoRevealTimeS.toFloat(),
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .width(landscapeDashboardWidth)
+                    .fillMaxHeight()
+            )
+        } else {
+            DashboardPanel(
+                state = state,
+                isWater = isWater,
+                distanceToShore = distanceToShore,
+                depthSample = depthReadout,
+                speedKnots = navigationState.speedKnots ?: navigationState.demoSpeedKnots,
+                zoneSituation = zoneSituation,
+                autoRevealDistanceM = appSettings.zoneAutoRevealDistanceM,
+                autoRevealTimeS = appSettings.zoneAutoRevealTimeS.toFloat(),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(portraitDashboardHeight)
+            )
+        }
         }
 
         // ── Settings overlay (full-screen, covers dashboard too) ──────────
@@ -707,6 +719,7 @@ private fun MapContent(
     navigationState: NavigationState = NavigationState(),
     gpsIconState: GpsIconState = GpsIconState.DEMO,
     boatPosition: LatLng? = null,
+    headingDeg: Double = -1.0,
     onCenterChanged: (Double, Double) -> Unit,
     onZoomChanged: (Double) -> Unit,
     onMapViewReady: (MapView) -> Unit,
@@ -755,6 +768,8 @@ private fun MapContent(
             zoomLevel = zoomLevel,
             center = mapCenter,
             initialZoom = zoomLevel,
+            boatPosition = boatPosition,
+            headingDeg = headingDeg,
             onCenterChanged = onCenterChanged,
             onZoomChanged = onZoomChanged,
             onMapViewReady = onMapViewReady,
@@ -1107,12 +1122,15 @@ private fun CoastlineMapView(
     zoomLevel: Double,
     center: LatLng,
     initialZoom: Double,
+    boatPosition: LatLng? = null,
+    headingDeg: Double = -1.0,
     onCenterChanged: (Double, Double) -> Unit = { _, _ -> },
     onZoomChanged: (Double) -> Unit = {},
     onMapViewReady: (MapView) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
+    val localMapView = remember { mutableStateOf<MapView?>(null) }
     // Rebuild overlays only when the data or a zoom-gate crossing changes — never on a
     // center pan (osmdroid pans internally; a per-frame removeAll+redraw would jank).
     val zoneVisible = zoomLevel >= ZONE_MIN_ZOOM
@@ -1148,6 +1166,8 @@ private fun CoastlineMapView(
                 drawRegulatedZones(this, regulatedZones, zoomLevel)    // regulated zone fill + outline
                 drawZone300(this, zone300, zoomLevel)                  // 300 m band fill + line
                 drawCoastline(this, segments)                          // coastline on top
+                // Cone + dashed line are managed by LaunchedEffect below (not in factory) to avoid
+                // coupling their updates to the full overlay rebuild cycle.
 
                 // Force-sync the ViewModel zoom level to match the actual MapView
                 // zoom right after construction, so the boat marker immediately
@@ -1169,7 +1189,10 @@ private fun CoastlineMapView(
                         return false
                     }
                 })
-            }.also { onMapViewReady(it) }
+            }.also { mv ->
+                localMapView.value = mv
+                onMapViewReady(mv)
+            }
         },
         update = { mapView ->
             // Only when data/visibility changed — not on every pan recomposition.
@@ -1178,17 +1201,34 @@ private fun CoastlineMapView(
                 // Remove every data overlay (depth raster GroundOverlay, isobath/zone/coast
                 // Polylines, zone fill Polygons) so nothing is orphaned or accumulates, then
                 // rebuild bottom-to-top in z-order.
-                mapView.overlays.removeAll { it is Polyline || it is Polygon || it is GroundOverlay }
+                // DISABLED: cone and green line overlay exclusions (see more-dedebug subfeature)
+                mapView.overlays.removeAll {
+                    (it is Polyline || it is Polygon || it is GroundOverlay) &&
+                    (it !is Polyline || (it as Polyline).title != "zoneAheadOuter") &&
+                    (it !is Polygon || (it as Polygon).title != "zoneAheadCone")
+                }
                 drawDepthMap(mapView, depthBitmap, depthBox, zoomLevel)
                 drawLowDepthWarning(mapView, lowDepthWarningBitmap, depthBox, zoomLevel)
                 drawIsobaths(mapView, isobaths, zoomLevel)
                 drawRegulatedZones(mapView, regulatedZones, zoomLevel)
                 drawZone300(mapView, zone300, zoomLevel)
                 drawCoastline(mapView, segments)
+                // Cone + dashed line are managed by LaunchedEffect below
                 mapView.invalidate()
             }
         }
     )
+
+    // ── Cone + dashed line: DISABLED — see more-dedebug subfeature ──────────────
+    // These were causing excessive mapView.invalidate() calls during drag.
+    // Re-enable once the decoupled rendering is implemented.
+    // LaunchedEffect(headingAheadResult, zoomLevel, boatPosition, headingDeg) {
+    //     val mv = localMapView.value ?: return@LaunchedEffect
+    //     drawZoneAheadCone(mv, boatPosition, headingAheadResult, zoomLevel, headingDeg)
+    //     val hitPt = headingAheadResult?.intersectionLatLng
+    //     drawZoneAheadLine(mv, boatPosition, hitPt, zoomLevel)
+    //     mv.invalidate()
+    // }
 }
 
 // ── Center marker overlay ────────────────────────────────────────────────────
@@ -2217,6 +2257,92 @@ private fun NavigationSettings(
             }
         }
 
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // ── Speed zone alert (auto-show on approach) — grouped card ─────────
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(ComposeColor(0x1AFFFFFF))
+        ) {
+            // Auto-show GPS mode toggle
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Speed zone alert (GPS)",
+                        color = ComposeColor.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = "Auto-show speed zones when approaching in GPS mode",
+                        color = ComposeColor(0xFFB0BEC5),
+                        fontSize = 13.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Switch(
+                    checked = settings.speedZoneAutoShowGps,
+                    onCheckedChange = { on -> onUpdateSettings { it.copy(speedZoneAutoShowGps = on) } },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = ComposeColor(0xFF1565C0),
+                        checkedTrackColor = ComposeColor(0xFF1565C0).copy(alpha = 0.4f),
+                        uncheckedThumbColor = ComposeColor(0xFFB0BEC5),
+                        uncheckedTrackColor = ComposeColor(0x33FFFFFF)
+                    )
+                )
+            }
+
+            // Thin divider between the two toggles
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(0.5.dp)
+                    .background(ComposeColor.White.copy(alpha = 0.1f))
+            )
+
+            // Auto-show Demo mode toggle
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Speed zone alert (Demo)",
+                        color = ComposeColor.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = "Auto-show speed zones when panning the map toward a zone",
+                        color = ComposeColor(0xFFB0BEC5),
+                        fontSize = 13.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Switch(
+                    checked = settings.speedZoneAutoShowDemo,
+                    onCheckedChange = { on -> onUpdateSettings { it.copy(speedZoneAutoShowDemo = on) } },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = ComposeColor(0xFF1565C0),
+                        checkedTrackColor = ComposeColor(0xFF1565C0).copy(alpha = 0.4f),
+                        uncheckedThumbColor = ComposeColor(0xFFB0BEC5),
+                        uncheckedTrackColor = ComposeColor(0x33FFFFFF)
+                    )
+                )
+            }
+        }
+
         Spacer(modifier = Modifier.height(24.dp))
     }
 }
@@ -3052,6 +3178,101 @@ private fun drawCoastline(
         }
         mapView.overlays.add(polyline)
     }
+}
+
+/**
+ * ISOLATED: Draws a dashed line from the boat position to the zone boundary
+ * intersection point, showing the distance path computed by [HeadingAheadResult].
+ *
+ * Uses a two-layer approach: dark inner dash + white outer dash for high-contrast
+ * visibility over both water and land backgrounds. Only draws on zoom ≥ [ZONE_MIN_ZOOM].
+ *
+ * To remove this feature entirely:
+ *   1. Delete this function
+ *   2. Remove its calls from the factory and update blocks in [CoastlineMapView]
+ *   3. Remove `intersectionLatLng` from [HeadingAheadResult]
+ *   4. Remove the `headingAheadResult` param from [MapContent] and [CoastlineMapView]
+ *   5. Remove the `headingAheadResult` param from the [MapScreen] → [MapContent] call
+ *   6. Delete the `import android.graphics.DashPathEffect`
+ */
+private fun drawZoneAheadLine(
+    mapView: MapView,
+    boatPosition: LatLng?,
+    stableIntersectionLatLng: LatLng?,
+    zoomLevel: Double
+) {
+    mapView.overlays.removeAll { it is Polyline && (it as Polyline).title == "zoneAheadOuter" }
+
+    val boat = boatPosition ?: return
+
+    val geoBoat = GeoPoint(boat.latitude, boat.longitude)
+    geoBoat.altitude = 0.0
+
+    // End point: zone intersection if detected, otherwise a short stub in heading direction
+    val endPt = if (stableIntersectionLatLng != null) {
+        GeoPoint(stableIntersectionLatLng!!.latitude, stableIntersectionLatLng!!.longitude).also { it.altitude = 0.0 }
+    } else {
+        // Short stub (50m) in north direction when no zone detected
+        val stub = SpatialOperations.pointAlongBearing(boat.latitude, boat.longitude, 0.0, 50.0)
+        GeoPoint(stub.latitude, stub.longitude).also { it.altitude = 0.0 }
+    }
+
+    mapView.overlays.add(Polyline().apply {
+        title = "zoneAheadOuter"
+        setPoints(listOf(geoBoat, endPt))
+        outlinePaint.apply {
+            color = android.graphics.Color.argb(220, 0, 200, 0) // green, 86% alpha
+            strokeWidth = 12f
+            style = android.graphics.Paint.Style.STROKE
+            isAntiAlias = true
+        }
+    })
+}
+
+/**
+ * ISOLATED: Draws a flashy yellow cone (wedge) on the map showing the heading-ahead
+ * search area. The cone radius matches the detected zone distance (or 2000m max if
+ * no zone detected), so its size represents the actual search range to the target.
+ *
+ * Always rendered when heading is known. To remove: delete this function + calls.
+ */
+private fun drawZoneAheadCone(
+    mapView: MapView,
+    boatPosition: LatLng?,
+    zoneDistanceAheadM: Double?,
+    zoomLevel: Double,
+    headingDeg: Double = -1.0
+) {
+    mapView.overlays.removeAll { it is Polygon && (it as Polygon).title == "zoneAheadCone" }
+
+    val boat = boatPosition ?: return
+    val heading = if (headingDeg >= 0.0) headingDeg else 0.0
+
+    val coneRadius = zoneDistanceAheadM?.coerceAtMost(2000.0) ?: 2000.0
+    val coneHalfAngle = 15.0
+    val segments = 10
+
+    val pts = mutableListOf<GeoPoint>()
+    pts.add(GeoPoint(boat.latitude, boat.longitude))
+    for (i in 0..segments) {
+        val angle = heading - coneHalfAngle + (2.0 * coneHalfAngle * i / segments)
+        val pt = SpatialOperations.pointAlongBearing(boat.latitude, boat.longitude, angle, coneRadius)
+        pts.add(GeoPoint(pt.latitude, pt.longitude))
+    }
+
+    mapView.overlays.add(Polygon().apply {
+        title = "zoneAheadCone"
+        setPoints(pts)
+        fillPaint.apply {
+            color = android.graphics.Color.argb(60, 255, 235, 0)
+            isAntiAlias = true
+        }
+        outlinePaint.apply {
+            color = android.graphics.Color.argb(160, 255, 200, 0)
+            strokeWidth = 2f
+            isAntiAlias = true
+        }
+    })
 }
 
 /**

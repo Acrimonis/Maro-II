@@ -816,4 +816,38 @@ object SpatialOperations {
             longitude = lonWest + (p.col + 0.5) * cellSizeDegLon
         )
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Heading / bearing helpers
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Compute a destination point along a great-circle bearing from a start point.
+     *
+     * Uses the standard spherical Earth formula. Accurate to ~0.1% for distances
+     * up to several hundred kilometres.
+     *
+     * @param lat         Start latitude (WGS84, degrees).
+     * @param lon         Start longitude (WGS84, degrees).
+     * @param bearingDeg  Forward bearing (degrees, clockwise from true north).
+     * @param distanceM   Distance to travel along the bearing (meters).
+     * @return The destination [LatLng].
+     */
+    fun pointAlongBearing(
+        lat: Double, lon: Double,
+        bearingDeg: Double,
+        distanceM: Double
+    ): LatLng {
+        val R = EARTH_RADIUS_M
+        val brng = Math.toRadians(bearingDeg)
+        val d = distanceM / R
+        val lat1 = Math.toRadians(lat)
+        val lon1 = Math.toRadians(lon)
+        val lat2 = asin(sin(lat1) * cos(d) + cos(lat1) * sin(d) * cos(brng))
+        val lon2 = lon1 + atan2(
+            sin(brng) * sin(d) * cos(lat1),
+            cos(d) - sin(lat1) * sin(lat2)
+        )
+        return LatLng(Math.toDegrees(lat2), Math.toDegrees(lon2))
+    }
 }

@@ -2,8 +2,8 @@
 name: Ui_Dashboard
 status: active
 created: 2026-06-06 00:00
-modified: 2026-06-10 15:24
-active_subfeature: none
+modified: 2026-06-14 16:50
+active_subfeature: distance tile
 ---
 
 # Feature: Dashboard
@@ -68,6 +68,16 @@ Redesign the bottom panel into a proper dashboard for quick reading of indicator
 #### Todos
 - [ ] Dashboard must not resize when "données validées (RMSE...)" info is displayed — make layout ready for it
 - [ ] When !isOnWater, Zone tile must display neutral background with "Not at sea" caption instead of a value
+- [x] exiting zone — normalize zone tile caption across inside/approaching/exiting states
+      - [x] Define shared types: `ZoneBoundaryInfo` data class + `BeyondType` enum
+      - [x] Implement `infoToZoneEntryAlongHeading()` — wraps existing `querySpeedZoneAhead()` into `ZoneBoundaryInfo`
+      - [x] Implement `infoToZoneExitAlongHeading()` — inverted ray-march for 300m band + angular projection for SHOM zones
+      - [x] Implement `determineBeyondType()` — exponential probe 25→500m for LAND/ZONE/OPEN_SEA classification
+      - [x] Wire into `mapLatest` pipeline via `ShoreState.zoneBoundaryInfo` + `_zoneBoundaryInfo` StateFlow
+      - [ ] Full migration to unified `ZoneSituation` model — 3 phases:
+            - **Phase 1 BL**: Define `ZoneSituation`, add `maxSearchM=500` param to entry/exit methods, implement `infoToZoneAroundBoat()` + `infoZoneAndZoneAhead()`, single `_zoneSituation` StateFlow, remove 7 old StateFlows
+            - **Phase 2 UI**: Collect `zoneSituation` in MapScreen, shrink DashboardPanel params, rewrite SpeedLimitCard to single-branch render from `ZoneSituation`
+            - **Phase 3 Cleanup**: Remove obsolete queries/imports/strings
 #### Key Files
 
 ### tile titles  [x]
@@ -131,7 +141,45 @@ Redesign the bottom panel into a proper dashboard for quick reading of indicator
 - `app/src/main/res/values/strings.xml`
 - `app/src/main/res/values-fr/strings.xml`
 
+### zone tile display evolution  [x]
+
+#### Todos
+- [x] Align thresholds: use shared `autoRevealDistanceM`/`autoRevealTimeS` defaults (100m/10s) for both map auto-show and dashboard tile near-exit checks
+- [x] SpeedLimitCard: show limit-only when far from exit, exit preview when close
+- [x] Handle LAND/OPEN_WATER/ZONE beyond types differently in preview
+- [x] Zone tile: remove distance from subtitle — only show limit + beyond type + next zone name
+
+#### Docs
+- `plans/zone-tile-exit-preview-threshold.md` — Exit preview threshold design
+
+### distance tile  [x]
+
+#### Todos
+- [x] Distance tile + zone tile split — distance shows nearest relevant boundary, zone shows regulation only
+- [x] Distance tile: on-land state uses subdued grey background (zoneNormal + dullAlpha) — consistent with zone/depth tiles
+- [x] Distance tile: show exit/entry distance with `-` prefix (negative value) to indicate "before boundary"
+- [x] Distance tile: when inside zone and within threshold, show exit distance instead of shore
+- [x] Distance tile: when outside and zone closer than shore, show zone entry distance (no threshold gate)
+- [x] Remove `isNearEntry` auto-reveal threshold gate — zone entry shows whenever zone is the nearest boundary
+
+#### Rules
+- Distance tile always shows the nearest relevant boundary: shore distance, zone exit distance (inside zone), or zone entry distance (approaching zone)
+- Zone tile shows regulation (speed limit) only — distance belongs to the distance tile
+- Exit/entry distances are shown with a `-` prefix (negative) to convey "distance to boundary"
+- On-land state uses subdued grey `zoneNormal` background at 33% alpha
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt` — DistanceCard composable
+- `app/src/main/java/ykws/android/maro/ui/map/ZoneConfig.kt` — zoneAutoRevealDistanceM/timeS defaults (100m/10s)
+- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — settings defaults aligned
+- `app/src/main/assets/zone.properties` — config documentation updated
+- `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — zonesAroundBoat, infoToZoneExitAlongHeading
+
 ## Todos
+- [x] Fix AutoSizeValue px/dp unit mismatch — `onSizeChanged` returns pixels, not dp. Added `LocalDensity` conversion to restore correct density-independent auto-sizing.
+- [x] Fix AutoSizeValue vertical centering — moved `onSizeChanged` from Text (with fillMaxSize) to outer Box, removed fillMaxSize, so Box's contentAlignment centers the value text properly.
+- [x] Fix direction arrow thresholds — replaced hardcoded 45° with CONE_HALF_ANGLE (15°) so the arrow's "ahead" range matches the map cone's visual boundary.
+- [x] Remove space between direction arrow and distance value — `"$arrow $zoneText"` → `"$arrow$zoneText"`.
 
 ## Rules
 
