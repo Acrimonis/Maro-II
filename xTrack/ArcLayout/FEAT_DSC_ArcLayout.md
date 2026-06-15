@@ -79,6 +79,14 @@ active_subfeature: fan-migration
 - `plans/fanlayout-equidistance-rule.md` — equidistance geometry rule
 - `plans/fanlayout-child-centering-rule.md` — child button centering design rule
 
+### hide-fix  [ ]
+
+#### Todos
+
+#### Rules
+
+#### Key Files
+
 ## Rules
 - Keep the plan at `plans/arclayout-feature-plan.md` as the single source of truth for design decisions
 - No library dependencies — pure Compose custom layout
