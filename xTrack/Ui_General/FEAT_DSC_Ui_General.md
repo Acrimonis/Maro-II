@@ -71,6 +71,28 @@ Edge-to-edge rendering with `enableEdgeToEdge()`, immersive status bar (dark bac
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — WindowInsets padding
 - `gradle/libs.versions.toml` — check activity-ktx version
 
+### immersive ui rework  [ ]
+
+Extend `enableEdgeToEdge()` to the nav bar: remove blanket `windowInsetsPadding(WindowInsets.systemBars)` from the root Box and apply targeted insets only to the overlay controls. The map fills the full screen behind both system bars.
+
+#### Todos
+- [ ] Remove `windowInsetsPadding(WindowInsets.systemBars)` from the root `Box` in `MapScreen` — map draws full-screen behind both status bar and nav bar
+- [ ] Add `windowInsetsPadding(WindowInsets.statusBars)` + existing `6.dp` padding to top-left icons Row (GPS + EarthWater)
+- [ ] Add `windowInsetsPadding(WindowInsets.systemBars)` + existing padding to right-edge control stack Column (settings, layer fan, zoom)
+- [ ] Add `windowInsetsPadding(WindowInsets.navigationBars)` to DashboardPanel (portrait `Alignment.BottomCenter` + landscape `Alignment.CenterStart`)
+- [ ] Add `windowInsetsPadding(WindowInsets.navigationBars)` to bottom overlay areas (loading overlay, exit toast, zone info row)
+- [ ] Verify: map content bottom padding formula `portraitDashboardHeight` accounts for nav bar height or not (dashboard extends behind nav bar)
+- [ ] Build & run on device — confirm no content is obscured by status bar or nav bar
+
+#### Rules
+- The map surface must fill the entire screen (behind both system bars)
+- Overlay controls (GPS/EarthWater icons, Settings button, zoom, dashboard) must remain visible and not overlap with system bars
+- `WindowInsets` consumption order: `windowInsetsPadding` first, then manual `padding`, so insets are consumed before extra spacing
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — root Box modifier, top-left icons Row, right-edge Column, DashboardPanel modifiers, bottom overlays
+- `app/src/main/java/ykws/android/maro/MainActivity.kt` — no change needed (already calls `enableEdgeToEdge()`)
+
 ## Todos
 
 ## Rules

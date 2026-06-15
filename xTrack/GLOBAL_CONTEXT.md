@@ -1,7 +1,7 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** Ui_Dashboard
+- **Active Feature:** Ui_General
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-15
 - **Last Bake:** 2026-06-15 08:29 (Clamp removed from AutoSizeValue, smart speed format added, size dash subfeature created. Build: green.)

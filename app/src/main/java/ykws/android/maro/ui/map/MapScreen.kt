@@ -46,6 +46,8 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.ColumnScope
@@ -498,7 +500,7 @@ fun MapScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .windowInsetsPadding(WindowInsets.systemBars)
+            .padding(bottom = 18.dp)
     ) {
         // ── Intercept system back when any fan is open ────────────────────
         if (anyFanExpanded) {
@@ -795,7 +797,8 @@ private fun MapContent(
         Row(
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(6.dp),
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(start = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -826,7 +829,8 @@ private fun MapContent(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .padding(start = 56.dp, end = 76.dp, bottom = 6.dp),
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .padding(start = 56.dp, end = 76.dp),
             contentAlignment = Alignment.Center
         ) {
             if (rasterProgress != null && rasterProgress!!.globalProgress < 100) {
@@ -852,7 +856,8 @@ private fun MapContent(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .padding(start = 56.dp, end = 76.dp, bottom = 6.dp),
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+                    .padding(start = 56.dp, end = 76.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Surface(
@@ -884,7 +889,8 @@ private fun MapContent(
         Row(
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = 6.dp, bottom = 6.dp)
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .padding(start = 6.dp)
                 .widthIn(max = (LocalConfiguration.current.screenWidthDp.dp - 82.dp))
         ) {
             RegulatedZoneWarningStrip(
@@ -915,7 +921,8 @@ private fun MapContent(
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .fillMaxHeight()
-                .padding(start = 12.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+                .windowInsetsPadding(WindowInsets.systemBars)
+                .padding(start = 12.dp, end = 6.dp),
             verticalArrangement = Arrangement.SpaceBetween,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
