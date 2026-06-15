@@ -1,9 +1,9 @@
 ---
 name: Ui_General
-status: done
+status: active
 created: 2026-06-08 16:43
-modified: 2026-06-08 16:43
-active_subfeature: none
+modified: 2026-06-15 06:55
+active_subfeature: page layout
 ---
 
 # Feature: Ui_General
@@ -11,7 +11,8 @@ active_subfeature: none
 **Description:**
 App-lifecycle UX for the Maro-II app: intercept the system back action to guard
 against accidental exits, and let the user keep the device screen awake while the
-app is running.
+app is running. Extended with page-layout concerns: edge-to-edge rendering, status
+bar immersion, and WindowInsets management.
 
 ## Subfeatures
 
@@ -49,6 +50,27 @@ screen from sleeping while the app is in the foreground.
 - `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — `keepScreenOn` field/key/load/persist (SharedPreferences, mirrors `languageCode`).
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `SettingsToggleRow` + `DisposableEffect` driving `LocalView.keepScreenOn`.
 
+### page layout  [x]
+
+Edge-to-edge rendering with `enableEdgeToEdge()`, immersive status bar (dark background, light icons), and proper WindowInsets consumption in MapScreen to fix portrait dashboard bottom clipping.
+
+#### Todos
+- [x] Add `enableEdgeToEdge()` in MainActivity.onCreate() before setContent
+- [x] Add `WindowInsetsController` status bar appearance (light icons on dark background)
+- [x] Add `WindowInsets.systemBars` padding in MapScreen root Box
+- [x] Verify build — BUILD SUCCESSFUL
+
+#### Rules
+- `enableEdgeToEdge()` must be called before `setContent()` in Activity.onCreate()
+- WindowInsets handling must not break existing landscape layout
+- Status bar icons must be light (white) on the dark background
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/MainActivity.kt` — add `enableEdgeToEdge()`
+- `app/src/main/res/values/themes.xml` — theme update
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — WindowInsets padding
+- `gradle/libs.versions.toml` — check activity-ktx version
+
 ## Todos
 
 ## Rules
@@ -56,3 +78,4 @@ screen from sleeping while the app is in the foreground.
 ## Key Files
 
 ## Docs
+- `plans/portrait-bottom-space-statusbar-discussion.md` — analysis of portrait bottom space and status bar immersion

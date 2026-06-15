@@ -1,20 +1,19 @@
-# Hydration: Dashboard — baked 2026-06-14 16:50 UTC
+# Hydration — Ui_Dashboard
 
-## State
-Dashboard tile status fixes completed. Speed tile confirmed OK. Distance tile: on-land subdued background, negative exit/entry values, SHOM zone priority over 300m band, `nextZoneAhead` removed from `DistanceCard` (uses only `currentZone.beyondType`), `isNearEntry` threshold-gated by `autoRevealDistanceM`/`autoRevealTimeS`. Zone tile thresholds aligned via shared `autoRevealDistanceM` (100m) / `autoRevealTimeS` (10s).
+**Last Bake:** 2026-06-15 08:29 UTC
+**Branch:** feature/ui-general
+**Build:** green
 
-### Changes
-- [`DashboardPanel.kt`](app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt): DistanceCard — on-land subdued bg, negative exit/entry values, removed `nextZoneAhead` branch (shows `currentZone.beyondType` instead), `isNearEntry` re-gated with threshold
-- [`CoastlineViewModel.kt`](app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt): `currentZone` priority: SHOM zone first > 300m band fallback. `zonesAroundBoat()` steps 1 & 2 now respect `excludeZoneName`. `_zoneSituation` update guarded by `shore.distanceMeters != null`
-- [`SettingsManager.kt`](app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt): Prefs migration v2 — clears stale `zoneAutoRevealDistanceM`/`zoneAutoRevealTimeS` keys
-- [`ZoneConfig.kt`](app/src/main/java/ykws/android/maro/ui/map/ZoneConfig.kt): Defaults changed from 200m/20s → 100m/10s
-- [`zone.properties`](app/src/main/assets/zone.properties): Updated docs
+## Session State
 
-### Target Files
-- `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt` — DistanceCard + SpeedLimitCard
-- `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — zoneSituation pipeline + zonesAroundBoat
-- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — prefs migration
-- `app/src/main/java/ykws/android/maro/ui/map/ZoneConfig.kt` — defaults
+Removed the 64sp max clamp from AutoSizeValue (coerceIn → coerceAtLeast) so dashboard value text takes all available cell space. Added smart speed format: integer when >= 10 kn, decimal when < 10. New "size dash" subfeature created to track immersive layout verification.
 
-### Remaining Dashboard Todos
-- readability subfeature (padding/weight/string updates)
+## Target Files
+
+- `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt` — AutoSizeValue clamp removed (line 266), SpeedCard smart formatting (line 687)
+- `app/src/main/res/values/strings.xml` — added `dash_value_kn_int`
+- `app/src/main/res/values-fr/strings.xml` — added `dash_value_kn_int`
+
+## Next Step
+
+Verify dashboard sizing in immersive mode (size dash subfeature todos). Consider increasing landscape dashboard width.

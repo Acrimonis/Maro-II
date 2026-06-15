@@ -263,7 +263,7 @@ private fun AutoSizeValue(
         val widthDp = with(density) { contentSize.width.toDp().value }
         val byHeight = heightDp * 0.70f
         val byWidth = widthDp * 1.5f / text.length.coerceAtLeast(1)
-        minOf(byHeight, byWidth).coerceIn(14f, 64f)
+        minOf(byHeight, byWidth).coerceAtLeast(14f)
     } else 32f
 
     Box(
@@ -684,9 +684,14 @@ private fun SpeedCard(
     val subtitle = if (activeSpeedLimitKn != null)
         stringResource(R.string.dash_speed_zone_limit, activeSpeedLimitKn)
     else null
+    // Smart speed format: integer when ≥ 10 kn (shorter = bigger font), decimal when < 10
+    val speedText = if (speedKnots >= 10f)
+        stringResource(R.string.dash_value_kn_int, speedKnots.toInt())
+    else
+        stringResource(R.string.dash_value_kn, speedKnots)
     DashboardCard(
         title = stringResource(R.string.dash_speed_title),
-        value = stringResource(R.string.dash_value_kn, speedKnots),
+        value = speedText,
         subtitle = subtitle,
         cardColor = cardColor,
         modifier = modifier

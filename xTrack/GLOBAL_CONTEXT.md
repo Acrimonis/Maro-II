@@ -2,10 +2,10 @@
 
 ## Active Session Pointers
 - **Active Feature:** Ui_Dashboard
-- **Active Subfeature:** distance tile
-- **Last Updated:** 2026-06-14
-- **Last Bake:** 2026-06-14 19:59 (Dashboard borders removed from all tiles; OPEN WATER label replaces LIBRE; string audit confirmed clean. Build: green. Branch: feature/dashborders.)
-- **Branch:** feature/dashborders
+- **Active Subfeature:** none
+- **Last Updated:** 2026-06-15
+- **Last Bake:** 2026-06-15 08:29 (Clamp removed from AutoSizeValue, smart speed format added, size dash subfeature created. Build: green.)
+- **Branch:** feature/ui-general
 ## Routing Map
 | Keyword | Feature File |
 |---|---|
@@ -35,13 +35,13 @@
 | Zone300 | 300m zone generation from coastline with water-only constraint | 2026-05-20 00:00 | 2026-06-03 00:00 | active |
 | DepthMapping | Bathymetry / depth mapping from Litto3D, SHOM, EMODnet sources | 2026-05-10 00:00 | 2026-06-10 12:13 | active |
 | Coastline | Coastline extraction, spatial indexing, isOnWater determination | 2026-05-10 00:00 | 2026-06-05 00:00 | active |
-| Ui_Dashboard | Main dashboard UI layout and HUD information display | 2026-05-15 00:00 | 2026-06-14 06:21 | active |
+| Ui_Dashboard | Main dashboard UI layout and HUD information display | 2026-05-15 00:00 | 2026-06-15 08:29 | active |
 | GPS | GPS plugin with demo mode, heading/COG compass, geolocation | 2026-05-10 00:00 | 2026-06-11 14:00 | active |
 | UI_Map | Map rendering, depth color layer, orientation overlay, boat marker offset | 2026-05-10 00:00 | 2026-06-14 19:39 | active |
 | Performance | Battery optimization, adaptive GPS tuning, compass gate, map refresh | 2026-05-20 00:00 | 2026-06-05 00:00 | active |
 | BakeNormalization | APK bake/build/deploy pipeline and prebake data processing | 2026-06-01 00:00 | 2026-06-05 00:00 | active |
 | DepthSafety | Danger depth alerts, shallow water grounding prevention, isobath precision | 2026-06-03 00:00 | 2026-06-05 00:00 | active |
-| Ui_General | App-lifecycle UX: back-to-exit guard and keep-screen-on wakelock | 2026-06-03 00:00 | 2026-06-03 00:00 | active |
+| Ui_General | App-lifecycle UX: back-to-exit guard, keep-screen-on wakelock, edge-to-edge rendering and WindowInsets management | 2026-06-03 00:00 | 2026-06-15 06:55 | active |
 | Ui_Settings | Settings page UI, persistence, widgets, and UX enhancements | 2026-06-09 15:28 | 2026-06-09 19:42 | active |
 | **Navigation** | **Navigation aids — heading/speed arrow and direction line on map overlay** | **2026-06-10 08:40** | **2026-06-11 11:55** | **active** |
 | **RegulatedZones** | **Maritime regulatory zones — multi-source normalization (SHOM INSPIRE + IGN Natura 2000), sealed classification, 8-category icon mapping, keyword-driven display logic** | **2026-06-11 18:00** | **2026-06-12 22:37** | **active** |
