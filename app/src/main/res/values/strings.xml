@@ -134,4 +134,7 @@
     <string name="dash_speed_zone_limit">Limit %.0f kn</string>
     <string name="dash_eta_sec">ETA %d s</string>
     <string name="dash_eta_min_sec">ETA %1$d:%2$02d min</string>
+    <string name="settings_boat_center_label">Boat center position</string>
+    <string name="settings_boat_center_desc">Vertical position of the boat marker (% from top)</string>
+    <string name="settings_boat_center_value">%d%%</string>
 </resources>

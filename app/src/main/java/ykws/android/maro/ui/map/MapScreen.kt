@@ -809,14 +809,21 @@ private fun MapContent(
         }
 
         // ── Center position marker ────────────────────────────────────────
-        CenterMarkerOverlay(
-            isWater = isWater,
-            zoomLevel = zoomLevel,
-            distanceToShore = distanceToShore,
-            navigationState = navigationState,
-            showCapArrow = appSettings.capArrowVisible,
-            modifier = Modifier.align(Alignment.Center)
-        )
+        // Positioned at [appSettings.boatCenterVerticalPct]% from the top.
+        // Adjustable in Settings > General > Boat center position.
+        val boatCenterPct = appSettings.boatCenterVerticalPct / 100f
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            CenterMarkerOverlay(
+                isWater = isWater,
+                zoomLevel = zoomLevel,
+                distanceToShore = distanceToShore,
+                navigationState = navigationState,
+                showCapArrow = appSettings.capArrowVisible,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .offset(y = maxHeight * boatCenterPct)
+            )
+        }
 
         // ── Bottom overlay: loading / error ───────────────────────────────
         //   Centred horizontally: clear the GPS status icon (~50dp = 44dp + 6dp
@@ -2111,6 +2118,22 @@ private fun GeneralSettings(
             checked = settings.demoHeadingUp,
             onCheckedChange = { headingUp ->
                 onUpdateSettings { it.copy(demoHeadingUp = headingUp) }
+            }
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // ── Boat center position slider ─────────────────────────────────
+        SettingsSliderRow(
+            label = stringResource(R.string.settings_boat_center_label),
+            description = stringResource(R.string.settings_boat_center_desc),
+            valueLabel = stringResource(R.string.settings_boat_center_value, settings.boatCenterVerticalPct),
+            value = settings.boatCenterVerticalPct.toFloat(),
+            valueRange = 10f..90f,
+            steps = 15,  // 10,15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90
+            onValueChange = { v ->
+                val snapped = (v / 5f).roundToInt() * 5
+                onUpdateSettings { it.copy(boatCenterVerticalPct = snapped.coerceIn(10, 90)) }
             }
         )
 

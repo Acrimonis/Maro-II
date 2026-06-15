@@ -133,4 +133,7 @@
     <string name="dash_speed_zone_limit">Limite %.0f kn</string>
     <string name="dash_eta_sec">Arrivée dans %d s</string>
     <string name="dash_eta_min_sec">Arrivée dans %1$d:%2$02d min</string>
+    <string name="settings_boat_center_label">Position du bateau</string>
+    <string name="settings_boat_center_desc">Position verticale du marqueur bateau (% depuis le haut)</string>
+    <string name="settings_boat_center_value">%d %%</string>
 </resources>

@@ -144,7 +144,9 @@ data class AppSettings(
      */
     /** Demo mode: rotate map heading-up (pan-direction-derived bearing) instead of north-up. */
     val demoHeadingUp: Boolean = false,
-    val gpsIdleMinDistanceM: Float = 0f
+    val gpsIdleMinDistanceM: Float = 0f,
+    /** Vertical position of the boat marker as a percentage from the top (25-75). Default 66. */
+    val boatCenterVerticalPct: Int = 66
 ) {
     /** Check whether a [ZoneDisplayCategory] is enabled in the current settings. */
     fun isCategoryVisible(cat: ZoneDisplayCategory): Boolean = when (cat) {
@@ -164,7 +166,8 @@ class SettingsManager(
     context: Context,
     private val defaultAutoRevealDistM: Float = 200f,
     private val defaultAutoRevealTimeS: Int = 20,
-    private val defaultLowDepthMinOpacityPct: Int = 25
+    private val defaultLowDepthMinOpacityPct: Int = 25,
+    private val defaultBoatCenterVerticalPct: Int = 66
 ) {
 
     private val prefs: SharedPreferences =
@@ -239,7 +242,8 @@ class SettingsManager(
         speedZonesVisible = prefs.getBoolean(KEY_SPEED_ZONES_VISIBLE, false),
         speedZoneAutoShowGps = prefs.getBoolean(KEY_SPEED_ZONE_AUTOSHOW_GPS, true),
         speedZoneAutoShowDemo = prefs.getBoolean(KEY_SPEED_ZONE_AUTOSHOW_DEMO, true),
-        gpsIdleMinDistanceM = prefs.getFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, 0f)
+        gpsIdleMinDistanceM = prefs.getFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, 0f),
+        boatCenterVerticalPct = prefs.getInt(KEY_BOAT_CENTER_VERTICAL_PCT, defaultBoatCenterVerticalPct)
     )
 
     /**
@@ -310,6 +314,7 @@ class SettingsManager(
             .putBoolean(KEY_SPEED_ZONE_AUTOSHOW_GPS, updated.speedZoneAutoShowGps)
             .putBoolean(KEY_SPEED_ZONE_AUTOSHOW_DEMO, updated.speedZoneAutoShowDemo)
             .putFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, updated.gpsIdleMinDistanceM)
+            .putInt(KEY_BOAT_CENTER_VERTICAL_PCT, updated.boatCenterVerticalPct)
             .apply()
     }
 
@@ -369,6 +374,7 @@ class SettingsManager(
         private const val KEY_SPEED_ZONE_AUTOSHOW_GPS = "speed_zone_autoshow_gps"
         private const val KEY_SPEED_ZONE_AUTOSHOW_DEMO = "speed_zone_autoshow_demo"
         private const val KEY_GPS_IDLE_MIN_DISTANCE_M = "gps_idle_min_distance_m"
+        private const val KEY_BOAT_CENTER_VERTICAL_PCT = "boat_center_vertical_pct"
         private const val KEY_PREFS_VERSION = "prefs_version"
         private const val CURRENT_VERSION = 2
     }

@@ -4,8 +4,8 @@
 - **Active Feature:** Ui_Dashboard
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-15
-- **Last Bake:** 2026-06-15 08:29 (Clamp removed from AutoSizeValue, smart speed format added, size dash subfeature created. Build: green.)
-- **Branch:** feature/ui-general
+- **Last Bake:** 2026-06-15 08:47 (Boat center: ZoneConfig property, AppSettings, slider 10-90%, marker offset. Build: green.)
+- **Branch:** feature/boat-center
 ## Routing Map
 | Keyword | Feature File |
 |---|---|

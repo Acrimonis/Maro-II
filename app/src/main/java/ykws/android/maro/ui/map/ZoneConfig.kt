@@ -102,6 +102,11 @@ object ZoneConfig {
     /** Alpha for GPS icon DEMO state — delegates to [iconBackInactiveAlpha]. */
     var gpsIconDimBgAlpha: Int get() = iconBackInactiveAlpha; private set(@Suppress("UNUSED_PARAMETER") _: Int) {}
 
+    /** Vertical position of the boat marker as a percentage from the top (10–90).
+     *  Default 66 (two-thirds from top). Set via `boatCenter.verticalPct` in maro.properties. */
+    var boatCenterVerticalPct: Int = 66
+        private set
+
     /** Isobath line colour per data source (ARGB int); a source with no entry falls back to [isobarColorDefault]. */
     private val isobarColors = hashMapOf(
         DepthSource.LITTO3D to 0xFF1B5E20.toInt(), // dark green (Material 900)
@@ -188,6 +193,9 @@ object ZoneConfig {
             }
             props.getProperty("isobar.color.default")?.let { parseColorOrNull(it) }?.let {
                 isobarColorDefault = it
+            }
+            props.getProperty("boatCenter.verticalPct")?.toIntOrNull()?.let {
+                boatCenterVerticalPct = it.coerceIn(10, 90)
             }
         } catch (_: Exception) {
             // Keep defaults — properties file missing or corrupt.

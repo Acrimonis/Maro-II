@@ -194,6 +194,19 @@ Investigate and fix dashboard sizing in immersive edge-to-edge mode: ensure the 
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — BoxWithConstraints layout, dashboard positioning
 - `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt` — Dashboard composable sizing
 
+### marker boat center  [ ]
+
+Investigate and adjust the boat marker position relative to the map center. Ensure the boat icon is properly centered or offset as needed for the immersive edge-to-edge layout.
+
+#### Todos
+- [ ] Verify boat marker position relative to map center in both orientations
+- [ ] Check boat marker offset logic in immersive (no insets) mode
+- [ ] Ensure marker is not clipped by screen edges or system bars
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — boat position, map center logic
+- `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — map center state
+
 ## Todos
 - [x] Fix AutoSizeValue px/dp unit mismatch — `onSizeChanged` returns pixels, not dp. Added `LocalDensity` conversion to restore correct density-independent auto-sizing.
 - [x] Fix AutoSizeValue vertical centering — moved `onSizeChanged` from Text (with fillMaxSize) to outer Box, removed fillMaxSize, so Box's contentAlignment centers the value text properly.
