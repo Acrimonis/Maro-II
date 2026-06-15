@@ -4,12 +4,17 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.res.Configuration
 import android.content.res.Resources
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
+import android.view.WindowInsetsController
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.core.view.WindowCompat
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -30,6 +35,21 @@ import ykws.android.maro.ui.map.ZoneConfig
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Enable edge-to-edge rendering: content draws behind the system status bar
+        // and navigation bar, which become transparent. Must be called before setContent().
+        enableEdgeToEdge()
+
+        // Dark window background: the light theme's default background shows through
+        // transparent system bars, creating a grey gap. Set it to match the app's
+        // dark dashboard background (#16213E) so system bar areas blend seamlessly.
+        window.setBackgroundDrawable(ColorDrawable(android.graphics.Color.parseColor("#16213E")))
+
+        // Set status bar icons to light (white) on the dark background.
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = false  // false = light icons on dark
+            isAppearanceLightNavigationBars = false
+        }
 
         // Load zone gradient tunables from zone.properties before the UI composes.
         ZoneConfig.init(this)
@@ -52,7 +72,7 @@ class MainActivity : ComponentActivity() {
                 LocalContext provides localizedContext,
                 LocalConfiguration provides localizedContext.resources.configuration
             ) {
-                MaterialTheme {
+                MaterialTheme(colorScheme = darkColorScheme()) {
                     Surface(
                         modifier = Modifier.fillMaxSize(),
                         color = MaterialTheme.colorScheme.background
