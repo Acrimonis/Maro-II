@@ -674,8 +674,11 @@ private data class ControlItem(
 )
 
 /**
- * Renders a vertical section of the control stack within an [AnimatedVisibility]
- * wrapper. Non-fan controls fade out when any fan is expanded.
+ * Renders a vertical section of the control stack with alpha fade for hidden
+ * controls. Unlike [AnimatedVisibility] (which collapses layout), this preserves
+ * the full layout footprint so the `SpaceBetween` column distribution never
+ * changes — the fan anchor button stays at its exact position regardless of
+ * whether non-fan controls (Settings top, Zoom bottom) are hidden.
  * Must be called from within a [Column] (uses [ColumnScope.weight] for MIDDLE).
  */
 @Composable
@@ -694,7 +697,13 @@ private fun ColumnScope.ControlSectionContent(
             controls.forEach { item ->
                 val isExpanded = expandedFanId == item.id
                 val visible = item.isFan || !anyFanOpen || isExpanded
-                AnimatedVisibility(visible = visible) { item.content(isExpanded) }
+                val alpha by animateFloatAsState(
+                    targetValue = if (visible) 1f else 0f,
+                    animationSpec = tween(300)
+                )
+                Box(modifier = Modifier.alpha(alpha)) {
+                    item.content(isExpanded)
+                }
             }
         }
     } else {
@@ -702,7 +711,13 @@ private fun ColumnScope.ControlSectionContent(
             controls.forEach { item ->
                 val isExpanded = expandedFanId == item.id
                 val visible = item.isFan || !anyFanOpen || isExpanded
-                AnimatedVisibility(visible = visible) { item.content(isExpanded) }
+                val alpha by animateFloatAsState(
+                    targetValue = if (visible) 1f else 0f,
+                    animationSpec = tween(300)
+                )
+                Box(modifier = Modifier.alpha(alpha)) {
+                    item.content(isExpanded)
+                }
             }
         }
     }

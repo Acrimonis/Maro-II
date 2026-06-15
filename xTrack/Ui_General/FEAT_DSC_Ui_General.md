@@ -2,8 +2,8 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-06-15 06:55
-active_subfeature: page layout
+modified: 2026-06-15 14:12
+active_subfeature: none
 ---
 
 # Feature: Ui_General
@@ -71,18 +71,18 @@ Edge-to-edge rendering with `enableEdgeToEdge()`, immersive status bar (dark bac
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — WindowInsets padding
 - `gradle/libs.versions.toml` — check activity-ktx version
 
-### immersive ui rework  [ ]
+### immersive ui rework  [x]
 
 Extend `enableEdgeToEdge()` to the nav bar: remove blanket `windowInsetsPadding(WindowInsets.systemBars)` from the root Box and apply targeted insets only to the overlay controls. The map fills the full screen behind both system bars.
 
 #### Todos
-- [ ] Remove `windowInsetsPadding(WindowInsets.systemBars)` from the root `Box` in `MapScreen` — map draws full-screen behind both status bar and nav bar
-- [ ] Add `windowInsetsPadding(WindowInsets.statusBars)` + existing `6.dp` padding to top-left icons Row (GPS + EarthWater)
-- [ ] Add `windowInsetsPadding(WindowInsets.systemBars)` + existing padding to right-edge control stack Column (settings, layer fan, zoom)
-- [ ] Add `windowInsetsPadding(WindowInsets.navigationBars)` to DashboardPanel (portrait `Alignment.BottomCenter` + landscape `Alignment.CenterStart`)
-- [ ] Add `windowInsetsPadding(WindowInsets.navigationBars)` to bottom overlay areas (loading overlay, exit toast, zone info row)
-- [ ] Verify: map content bottom padding formula `portraitDashboardHeight` accounts for nav bar height or not (dashboard extends behind nav bar)
-- [ ] Build & run on device — confirm no content is obscured by status bar or nav bar
+- [x] Remove `windowInsetsPadding(WindowInsets.systemBars)` from the root `Box` in `MapScreen` — map draws full-screen behind both status bar and nav bar
+- [x] Add `windowInsetsPadding(WindowInsets.statusBars)` + left padding to top-left icons Row (GPS + EarthWater) — removed redundant 6dp top padding
+- [x] Add `windowInsetsPadding(WindowInsets.systemBars)` + horizontal padding to right-edge control stack Column — removed redundant top/bottom
+- [x] Add `windowInsetsPadding(WindowInsets.navigationBars)` to bottom overlay areas (loading overlay, exit toast, zone info row)
+- [x] Build & run — BUILD SUCCESSFUL, debounced on device (controls visible, map fills full screen)
+- [-] DashboardPanel nav bar handling: decision — dashboard background (#16213E) matches window background, extends behind nav bar seamlessly; no extra padding needed
+- [-] `portraitDashboardHeight` formula unchanged — dashboard extends behind nav bar without adjustment
 
 #### Rules
 - The map surface must fill the entire screen (behind both system bars)
