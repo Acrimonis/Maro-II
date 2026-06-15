@@ -2,7 +2,7 @@
 name: Ui_Dashboard
 status: active
 created: 2026-06-06 00:00
-modified: 2026-06-14 16:50
+modified: 2026-06-15 08:29
 active_subfeature: distance tile
 ---
 
@@ -174,6 +174,25 @@ Redesign the bottom panel into a proper dashboard for quick reading of indicator
 - `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — settings defaults aligned
 - `app/src/main/assets/zone.properties` — config documentation updated
 - `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — zonesAroundBoat, infoToZoneExitAlongHeading
+
+### size dash  [ ]
+
+Investigate and fix dashboard sizing in immersive edge-to-edge mode: ensure the dashboard panel height is correct in portrait when content extends behind the navigation bar, and that the map content properly fills the area behind the status bar without overlapping dashboard controls.
+
+#### Todos
+- [ ] Verify dashboard panel height (`maxWidth * 3/5`) still works when dashboard extends behind the navigation bar
+- [ ] Ensure map padding (`bottom = portraitDashboardHeight`) correctly accounts for the dashboard height
+- [ ] Check landscape layout is unaffected by edge-to-edge changes
+- [ ] Verify no content is clipped or obscured by system bars in either orientation
+
+#### Rules
+- `portraitDashboardHeight = maxWidth * 3/5` must be maintained as the canonical formula
+- Map content must not overlap with dashboard controls
+- Status bar area must remain interactive (touches not consumed by invisible content)
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — BoxWithConstraints layout, dashboard positioning
+- `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt` — Dashboard composable sizing
 
 ## Todos
 - [x] Fix AutoSizeValue px/dp unit mismatch — `onSizeChanged` returns pixels, not dp. Added `LocalDensity` conversion to restore correct density-independent auto-sizing.

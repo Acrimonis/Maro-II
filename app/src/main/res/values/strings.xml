@@ -115,6 +115,7 @@
     <string name="dash_value_m">%4.0f m</string>
     <string name="dash_value_depth_m">%4.1f m</string>
     <string name="dash_value_kn">%4.1f kn</string>
+    <string name="dash_value_kn_int">%d kn</string>
     <string name="dash_value_km_int">%d km</string>
     <string name="dash_value_depth_m_int">%d m</string>
     <string name="dash_depth_deep">Deep!</string>

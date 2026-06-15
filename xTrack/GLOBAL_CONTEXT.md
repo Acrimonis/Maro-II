@@ -1,10 +1,10 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** Ui_General
-- **Active Subfeature:** page layout
+- **Active Feature:** Ui_Dashboard
+- **Active Subfeature:** none
 - **Last Updated:** 2026-06-15
-- **Last Bake:** none
+- **Last Bake:** 2026-06-15 08:29 (Clamp removed from AutoSizeValue, smart speed format added, size dash subfeature created. Build: green.)
 - **Branch:** feature/ui-general
 ## Routing Map
 | Keyword | Feature File |
@@ -35,7 +35,7 @@
 | Zone300 | 300m zone generation from coastline with water-only constraint | 2026-05-20 00:00 | 2026-06-03 00:00 | active |
 | DepthMapping | Bathymetry / depth mapping from Litto3D, SHOM, EMODnet sources | 2026-05-10 00:00 | 2026-06-10 12:13 | active |
 | Coastline | Coastline extraction, spatial indexing, isOnWater determination | 2026-05-10 00:00 | 2026-06-05 00:00 | active |
-| Ui_Dashboard | Main dashboard UI layout and HUD information display | 2026-05-15 00:00 | 2026-06-14 06:21 | active |
+| Ui_Dashboard | Main dashboard UI layout and HUD information display | 2026-05-15 00:00 | 2026-06-15 08:29 | active |
 | GPS | GPS plugin with demo mode, heading/COG compass, geolocation | 2026-05-10 00:00 | 2026-06-11 14:00 | active |
 | UI_Map | Map rendering, depth color layer, orientation overlay, boat marker offset | 2026-05-10 00:00 | 2026-06-14 19:39 | active |
 | Performance | Battery optimization, adaptive GPS tuning, compass gate, map refresh | 2026-05-20 00:00 | 2026-06-05 00:00 | active |

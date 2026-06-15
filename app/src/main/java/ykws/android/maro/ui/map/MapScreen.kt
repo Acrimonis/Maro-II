@@ -534,7 +534,7 @@ fun MapScreen(
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val isLandscape = maxWidth > maxHeight
             val portraitDashboardHeight = maxWidth * 3 / 5
-            val landscapeDashboardWidth = maxHeight * 80 / 100
+            val landscapeDashboardWidth = maxHeight * 100 / 100
 
             // Map fills the box, padded to leave room for the dashboard overlay.
             // Stable composition slot — never inside an if/else branch.
