@@ -74,7 +74,7 @@ object LowDepthWarningBitmap {
         val frac = (depthM / maxDepthM).coerceIn(0f, 1f)                              // 0 at surface … 1 at threshold
         val floor = minOpacity.coerceIn(0f, 1f)                                       // opacity at the threshold (e.g. 0.25)
         val alpha = (255f * (1f - (1f - floor) * frac)).roundToInt().coerceIn(0, 255) // 100 % at surface → floor at threshold
-        val rgb = ZoneConfig.lowDepthWarningColor and 0x00FFFFFF                      // strip any configured alpha
+        val rgb = ZoneConfig.overlayLowDepthColor and 0x00FFFFFF                       // strip any configured alpha
         return (alpha shl 24) or rgb                                                  // A (depth-graded) | R | G | B
     }
 }

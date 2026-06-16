@@ -57,7 +57,7 @@ fun ArcAnchorButton(
     onPositionChanged: (Offset) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val c = ComposeColor(0xFF1565C0)
+    val c = ComposeColor(ZoneConfig.uiArcAnchorColor)
     // Outer Box(64dp) holds layout; the circle clip is on an inner layer so the badge
     // (sibling at this level) renders outside the clip and is never cropped.
     Box(modifier = modifier.size(64.dp).onGloballyPositioned { co ->
@@ -69,7 +69,7 @@ fun ArcAnchorButton(
             modifier = Modifier
                 .size(64.dp)
                 .clip(CircleShape)
-                .background(ComposeColor.White)
+                .background(ComposeColor(ZoneConfig.uiArcAnchorBackground))
                 .clickable(onClick = onClick)
         ) {
             Box(Modifier.size(32.dp).align(Alignment.Center)) {
@@ -84,9 +84,9 @@ fun ArcAnchorButton(
         }
         // Badge OUTSIDE the circle clip — renders fully visible at top-right
         if (activeLayerCount>0) {
-            Box(Modifier.size(18.dp).clip(CircleShape).background(ComposeColor(0xFF1565C0)).align(Alignment.TopEnd)) {
+            Box(Modifier.size(18.dp).clip(CircleShape).background(ComposeColor(ZoneConfig.uiArcAnchorColor)).align(Alignment.TopEnd)) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("$activeLayerCount", color = ComposeColor.White, fontSize = 11.sp,
+                    Text("$activeLayerCount", color = ComposeColor(ZoneConfig.uiArcAnchorBackground), fontSize = 11.sp,
                         fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
                         style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false)))
                 }

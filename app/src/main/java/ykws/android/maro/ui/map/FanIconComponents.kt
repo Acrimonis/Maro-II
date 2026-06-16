@@ -16,8 +16,25 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 
-/** Shared theme blue used across all control-stack icons. */
-val ThemeBlue = ComposeColor(0xFF1565C0)
+// ── Single source of truth for all action-button colours ──────────────────────
+
+/**
+ * Shared colour palette for right-edge action buttons (settings, fan, zoom).
+ *
+ * Values are loaded at runtime from [ZoneConfig], which reads from
+ * `maro.properties` (bundled in assets). Edit the .properties file to
+ * change colours without modifying code — rebuild APK to apply.
+ */
+object ButtonColors {
+    /** Button background — loaded from maro.properties, defaults to semi-transparent white. */
+    val bg: ComposeColor get() = ComposeColor(ZoneConfig.buttonActionBgColor)
+    /** Icon colour for all action-button symbols — loaded from maro.properties. */
+    val icon: ComposeColor get() = ComposeColor(ZoneConfig.buttonActionIconColor)
+    /** Alpha (0.0–1.0) for active/toggled-on icon state. */
+    val activeAlpha: Float get() = ZoneConfig.buttonActionIconActiveAlpha
+    /** Alpha (0.0–1.0) for inactive/toggled-off icon state. */
+    val inactiveAlpha: Float get() = ZoneConfig.buttonActionIconInactiveAlpha
+}
 
 /** Standard icon size for control-stack buttons (28 dp). */
 private const val ICON_SIZE_DP = 28
@@ -33,7 +50,7 @@ fun CircleRingIcon(alpha: Float) {
         val w = size.width
         val h = size.height
         drawCircle(
-            color = ThemeBlue,
+            color = ButtonColors.icon,
             radius = w * 0.38f,
             center = Offset(w * 0.5f, h * 0.5f),
             alpha = alpha,
@@ -58,7 +75,7 @@ fun WarningTriangleIcon(alpha: Float) {
             lineTo(w * 0.04f, h * 0.88f)
             close()
         }
-        drawPath(path = triangle, color = ThemeBlue, alpha = alpha)
+        drawPath(path = triangle, color = ButtonColors.icon, alpha = alpha)
         drawRoundRect(
             color = ComposeColor.White,
             topLeft = Offset(w * 0.455f, h * 0.34f),
@@ -86,14 +103,14 @@ fun PlusIcon() {
         val cx = size.width / 2f
         val cy = size.height / 2f
         drawLine(
-            color = ThemeBlue,
+            color = ButtonColors.icon,
             start = Offset(inset, cy),
             end = Offset(size.width - inset, cy),
             strokeWidth = stroke,
             cap = StrokeCap.Round
         )
         drawLine(
-            color = ThemeBlue,
+            color = ButtonColors.icon,
             start = Offset(cx, inset),
             end = Offset(cx, size.height - inset),
             strokeWidth = stroke,
@@ -112,7 +129,7 @@ fun MinusIcon() {
         val inset = size.width * 0.20f
         val cy = size.height / 2f
         drawLine(
-            color = ThemeBlue,
+            color = ButtonColors.icon,
             start = Offset(inset, cy),
             end = Offset(size.width - inset, cy),
             strokeWidth = stroke,
@@ -129,7 +146,7 @@ fun GearIcon() {
     Icon(
         imageVector = Icons.Default.Settings,
         contentDescription = null,
-        tint = ThemeBlue,
+        tint = ButtonColors.icon,
         modifier = Modifier.size(ICON_SIZE_DP.dp)
     )
 }
@@ -145,13 +162,13 @@ fun ThreeStripeLayerIcon(alpha: Float) {
     Canvas(modifier = Modifier.size(ICON_SIZE_DP.dp)) {
         val w = size.width; val h = size.height; val inset = w * 0.12f; val barHeight = h * 0.22f
         // Top bar (narrowest)
-        drawRoundRect(ThemeBlue, Offset(inset * 0.5f, h * 0.02f), Size(w - inset, barHeight),
+        drawRoundRect(ButtonColors.icon, Offset(inset * 0.5f, h * 0.02f), Size(w - inset, barHeight),
             CornerRadius(3f, 3f), alpha = alpha * 0.5f)
         // Middle bar
-        drawRoundRect(ThemeBlue, Offset(inset * 0.25f, h * 0.48f - barHeight / 2), Size(w - inset * 0.5f, barHeight),
+        drawRoundRect(ButtonColors.icon, Offset(inset * 0.25f, h * 0.48f - barHeight / 2), Size(w - inset * 0.5f, barHeight),
             CornerRadius(3f, 3f), alpha = alpha * 0.7f)
         // Bottom bar (full width)
-        drawRoundRect(ThemeBlue, Offset(0f, h - barHeight - inset * 0.5f), Size(w, barHeight),
+        drawRoundRect(ButtonColors.icon, Offset(0f, h - barHeight - inset * 0.5f), Size(w, barHeight),
             CornerRadius(3f, 3f), alpha = alpha)
     }
 }
@@ -165,7 +182,7 @@ fun ThreeStripeLayerIcon(alpha: Float) {
 fun RegulatedZoneIcon(alpha: Float) {
     Canvas(modifier = Modifier.size(ICON_SIZE_DP.dp)) {
         val w = size.width; val cx = w / 2f; val cy = size.height / 2f; val r = w * 0.40f
-        val a = ThemeBlue
+        val a = ButtonColors.icon
         // Outer circle (stroke)
         drawCircle(a, r, Offset(cx, cy), alpha, style = Stroke(w * 0.12f))
         // Diagonal slash
@@ -185,9 +202,9 @@ fun DoubleCircleIcon(alpha: Float) {
     Canvas(modifier = Modifier.size(ICON_SIZE_DP.dp)) {
         val w = size.width; val cx = w / 2f; val cy = size.height / 2f
         // Outer ring (regulated zones)
-        drawCircle(ThemeBlue, w * 0.40f, Offset(cx, cy), alpha, style = Stroke(w * 0.10f))
+        drawCircle(ButtonColors.icon, w * 0.40f, Offset(cx, cy), alpha, style = Stroke(w * 0.10f))
         // Inner fill (300m zone)
-        drawCircle(ThemeBlue, w * 0.20f, Offset(cx, cy), alpha)
+        drawCircle(ButtonColors.icon, w * 0.20f, Offset(cx, cy), alpha)
     }
 }
 

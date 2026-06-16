@@ -11,8 +11,8 @@ import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.unit.dp
 
 /**
- * Shared base composable for ALL map control-stack buttons.
- * Renders a 64 dp circle with semi-transparent white background.
+ * Shared base composable for ALL map action buttons (right-edge control stack).
+ * Renders a 64 dp circle using [ButtonColors.bg].
  *
  * @param onClick  Tap handler.
  * @param modifier Optional modifier (caller may append .zIndex() for stacking).
@@ -29,7 +29,7 @@ fun MapControlButton(
         modifier = modifier.size(64.dp),
         shape = CircleShape,
         colors = ButtonDefaults.buttonColors(
-            containerColor = ComposeColor(0xCCFFFFFF)
+            containerColor = ButtonColors.bg
         ),
         contentPadding = PaddingValues(0.dp)
     ) {

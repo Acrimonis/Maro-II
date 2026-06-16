@@ -2,7 +2,7 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-06-15 14:12
+modified: 2026-06-16 10:18
 active_subfeature: none
 ---
 
@@ -101,3 +101,6 @@ Extend `enableEdgeToEdge()` to the nav bar: remove blanket `windowInsetsPadding(
 
 ## Docs
 - `plans/portrait-bottom-space-statusbar-discussion.md` — analysis of portrait bottom space and status bar immersion
+- `plans/btn-color-harmonization.md` — button color harmonization: match map control buttons to dashboard dark theme
+- `docs/color-scheme.md` — canonical reference for all colour tokens in the app
+- `plans/color-props-migration-plan.md` — migration plan: all colours → colors.properties

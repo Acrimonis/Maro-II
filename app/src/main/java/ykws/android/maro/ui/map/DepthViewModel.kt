@@ -139,13 +139,14 @@ class DepthViewModel(
             } ?: run { _rasterProgress.value = null; return@launch }
 
             val cutoffM = settings.emodnetShallowCutoffM
-            val nodataColor = ZoneConfig.nodataColor
+            val nodataColor = ZoneConfig.mapDepthNodataColor
             val key = RasterCache.Key(
                 gridTimestampMs = grid.metadata.fetchTimestampMs,
                 emodnetCutoffM = cutoffM,
                 lowDepthMaxM = settings.lowDepthWarningMaxM,
                 lowDepthMinOpacityPct = settings.lowDepthWarningMinOpacityPct,
-                nodataColor = nodataColor
+                nodataColor = nodataColor,
+                colorsHash = ZoneConfig.rasterColorsHash
             )
 
             withContext(Dispatchers.Default) {
@@ -206,7 +207,8 @@ class DepthViewModel(
             emodnetCutoffM = settings.emodnetShallowCutoffM,
             lowDepthMaxM = settings.lowDepthWarningMaxM,
             lowDepthMinOpacityPct = settings.lowDepthWarningMinOpacityPct,
-            nodataColor = ZoneConfig.nodataColor
+            nodataColor = ZoneConfig.mapDepthNodataColor,
+            colorsHash = ZoneConfig.rasterColorsHash
         )
         return RasterCache.read(context, step, key)
     }

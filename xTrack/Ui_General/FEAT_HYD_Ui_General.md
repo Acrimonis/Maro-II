@@ -1,25 +1,14 @@
 # Hydration — Ui_General
 
-**Last Bake:** 2026-06-15 14:12 UTC
+**Last Bake:** 2026-06-16 10:18
 
-## State
-All 4 subfeatures complete ✅. Feature is fully done.
+## Summary
+Full colour migration completed. All hardcoded colour values (~30 unique across ~160 locations) moved to `colors.properties` loaded via `ZoneConfig`. The `RasterCache.Key` now includes a `colorsHash` field so colour changes invalidate the raster cache. `docs/color-scheme.md` updated with 20px colour swatches and new sections for all colour groups.
 
-## Subfeature Completion
-- BackToExitConfirm [x] — double-back-to-exit guard with 2s toast
-- KeepScreenOn [x] — window flag FLAG_KEEP_SCREEN_ON via settings toggle
-- page layout [x] — `enableEdgeToEdge()`, light status bar icons, WindowInsets
-- immersive ui rework [x] — nav bar immersion via selective WindowInsets (Option A)
-
-## Target Files
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — all WindowInsets changes
-- `app/src/main/java/ykws/android/maro/MainActivity.kt` — unchanged (already had `enableEdgeToEdge()`)
-
-## Git
-- Branch: `feature/immersitvity`
-- Commit: `47b576d` — `feat(ui): extend immersive edge-to-edge to nav bar with selective WindowInsets`
-- Pushed: yes, upstream tracking set
+## Key Files
+- `app/src/main/assets/colors.properties` — single source of truth for all colours (~120 lines)
+- `app/src/main/java/ykws/android/maro/ui/map/ZoneConfig.kt` — 90+ colour fields loaded from properties
+- `docs/color-scheme.md` — canonical colour reference with swatches
 
 ## Next Steps
-- Feature is complete — consider `status: done` if no further work planned
-- Create PR from `feature/immersitvity` → `develop` when ready
+Settings panel colour fine-tuning. Zone colour type visual review.

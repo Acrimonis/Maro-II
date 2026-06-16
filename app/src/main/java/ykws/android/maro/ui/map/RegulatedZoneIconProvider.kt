@@ -29,14 +29,14 @@ object RegulatedZoneIconProvider {
 
     /** Background colour tint for each zone type (legacy — used for map rendering). */
     fun colorForType(type: RegulatedZoneType): Color = when (type) {
-        RegulatedZoneType.SPEED_LIMIT -> Color(0xFF1565C0)           // Blue
-        RegulatedZoneType.ANCHORING_PROHIBITED -> Color(0xFFFF8F00)  // Amber
-        RegulatedZoneType.ACCESS_PROHIBITED -> Color(0xFFE53935)     // Red
-        RegulatedZoneType.ENVIRONMENTAL -> Color(0xFF2E7D32)         // Green
-        RegulatedZoneType.MOORING -> Color(0xFF00897B)               // Teal
-        RegulatedZoneType.FISHING_PROHIBITED -> Color(0xFFFDD835)    // Yellow
-        RegulatedZoneType.NAVIGATION_RESTRICTION -> Color(0xFF8E24AA) // Purple
-        RegulatedZoneType.OTHER -> Color(0xFF78909C)                 // Blue Grey
+        RegulatedZoneType.SPEED_LIMIT -> Color(ZoneConfig.regulatedZoneTypeSpeedLimit)           // Blue
+        RegulatedZoneType.ANCHORING_PROHIBITED -> Color(ZoneConfig.regulatedZoneTypeAnchoringProhibited)  // Amber
+        RegulatedZoneType.ACCESS_PROHIBITED -> Color(ZoneConfig.regulatedZoneTypeAccessProhibited)     // Red
+        RegulatedZoneType.ENVIRONMENTAL -> Color(ZoneConfig.regulatedZoneTypeEnvironmental)         // Green
+        RegulatedZoneType.MOORING -> Color(ZoneConfig.regulatedZoneTypeMooring)               // Teal
+        RegulatedZoneType.FISHING_PROHIBITED -> Color(ZoneConfig.regulatedZoneTypeFishingProhibited)    // Yellow
+        RegulatedZoneType.NAVIGATION_RESTRICTION -> Color(ZoneConfig.regulatedZoneTypeNavigationRestriction) // Purple
+        RegulatedZoneType.OTHER -> Color(ZoneConfig.regulatedZoneTypeOther)                 // Blue Grey
     }
 
     // ── Display category mappings (warning strip) ──────────────────────────
@@ -66,29 +66,28 @@ object RegulatedZoneIconProvider {
      * - SEAPLANE (grey — informational, low priority)
      */
     fun colorForCategory(category: ZoneDisplayCategory): Color = when (category) {
-        ZoneDisplayCategory.NO_ANCHOR -> Color(0xFF1565C0)      // Dark blue — uniform background
-        ZoneDisplayCategory.MOORING -> Color(0xFF1565C0)        // Dark blue — uniform background
-        ZoneDisplayCategory.SPEED_LIMIT -> Color(0xFFE53935)    // Red — speed limit (stand out)
-        ZoneDisplayCategory.NO_DIVING -> Color(0xFF1565C0)      // Dark blue — uniform background
-        ZoneDisplayCategory.SEAPLANE -> Color(0xFF78909C)       // Blue Grey — low priority info
-        ZoneDisplayCategory.NO_ACCESS -> Color(0xFF1565C0)      // Dark blue — uniform background
-        ZoneDisplayCategory.FISHING_PROHIBITED -> Color(0xFF1565C0) // Dark blue — uniform background
-        ZoneDisplayCategory.ENVIRONMENTAL -> Color(0xFF1565C0)   // Dark blue — uniform background
-        ZoneDisplayCategory.INFORMATION -> Color(0xFF1565C0)     // Dark blue — uniform background
+        ZoneDisplayCategory.NO_ANCHOR -> Color(ZoneConfig.regulatedZoneTypeSpeedLimit)      // Dark blue — uniform background
+        ZoneDisplayCategory.MOORING -> Color(ZoneConfig.regulatedZoneTypeSpeedLimit)        // Dark blue — uniform background
+        ZoneDisplayCategory.SPEED_LIMIT -> Color(ZoneConfig.regulatedZoneTypeAccessProhibited)    // Red — speed limit (stand out)
+        ZoneDisplayCategory.NO_DIVING -> Color(ZoneConfig.regulatedZoneTypeSpeedLimit)      // Dark blue — uniform background
+        ZoneDisplayCategory.SEAPLANE -> Color(ZoneConfig.regulatedZoneTypeOther)       // Blue Grey — low priority info
+        ZoneDisplayCategory.NO_ACCESS -> Color(ZoneConfig.regulatedZoneTypeSpeedLimit)      // Dark blue — uniform background
+        ZoneDisplayCategory.FISHING_PROHIBITED -> Color(ZoneConfig.regulatedZoneTypeSpeedLimit) // Dark blue — uniform background
+        ZoneDisplayCategory.ENVIRONMENTAL -> Color(ZoneConfig.regulatedZoneTypeSpeedLimit)   // Dark blue — uniform background
+        ZoneDisplayCategory.INFORMATION -> Color(ZoneConfig.regulatedZoneTypeSpeedLimit)     // Dark blue — uniform background
     }
 
     /**
      * Background alpha (0.0–1.0) for each [ZoneDisplayCategory].
-     * Prohibition/warning icons use [ZoneConfig.iconBackActiveAlpha] (75 %),
-     * informational icons use [ZoneConfig.iconBackInactiveAlpha] (50 %).
+     * Prohibition/warning icons use [ZoneConfig.statusGpsAlphaActive] (75 %),
+     * informational icons use [ZoneConfig.statusGpsAlphaDimmed] (50 %).
      */
     fun alphaForCategory(category: ZoneDisplayCategory): Float {
-        val alphaInt = when (category) {
-            ZoneDisplayCategory.SEAPLANE -> ZoneConfig.iconBackInactiveAlpha
-            ZoneDisplayCategory.ENVIRONMENTAL -> ZoneConfig.iconBackInactiveAlpha
-            ZoneDisplayCategory.INFORMATION -> ZoneConfig.iconBackInactiveAlpha
-            else -> ZoneConfig.iconBackActiveAlpha
+        return when (category) {
+            ZoneDisplayCategory.SEAPLANE -> ZoneConfig.statusGpsAlphaDimmed
+            ZoneDisplayCategory.ENVIRONMENTAL -> ZoneConfig.statusGpsAlphaDimmed
+            ZoneDisplayCategory.INFORMATION -> ZoneConfig.statusGpsAlphaDimmed
+            else -> ZoneConfig.statusGpsAlphaActive
         }
-        return alphaInt.toFloat() / 255f
     }
 }
