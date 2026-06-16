@@ -17,7 +17,7 @@ Two targeted exceptions:
 
 ### 1. Explain/Discuss Gate — Plan File Exception
 
-During discussion (prompt ending with "explain" or "discuss"), the agent may create **exactly one** markdown file at `plans/[topic].md` to capture the discussion topic. This file must be auto-attached to the active feature's `## Docs`.
+During discussion (prompt ending with "explain" or "discuss"), the agent may create **exactly one** markdown file at `plans-[topic].md` within the feature path to capture the discussion topic. This file must be auto-attached to the active feature's `## Docs`.
 
 Rationale: one file maximizes cache stability (no piecemeal writes), keeps the discussion persistent across context clearances, and the file is trackable via `#doc list` / `#status`.
 

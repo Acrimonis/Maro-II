@@ -1,14 +1,13 @@
 # Hydration — Ui_General
 
-**Last Bake:** 2026-06-16 13:58
+**Last Bake:** 2026-06-16 17:04
 
 ## Summary
-Alias interpolation landed in `AppConfig.init()` — `${key}` references in `colors.properties` values are now resolved at load time, unblocking the colour token chain. Green status entries (8 in total) were normalized to point at `ui.dashboard.status.success` instead of hardcoded values. The `overlay.lowDepth` colour was reassigned from neutral to the error palette (`#CCB71C1C`, dark red), correcting a visual misclassification. The `nodata` colour was migrated from absent to a distinct pale yellow (`#60FFF59D`) for clear differentiation from real depth data. `zoneNormal` was removed from the palette (absent handles that role now). All semantic status colours (success/warning/error) are rendered at 80% opacity for a softer integration with the map. `color-scheme.md` updated with alias chain documentation and the new token entries. Build: green.
+ButtonColors subfeature progressed through color harmonization of all round UI buttons to the dark dashboard theme. All zoom ± buttons, settings gear, GPS/EarthWater toggles, and dashboard tile accent strips now use `#CC16213E` background (80% opacity dark navy) with `#E0E0E0` icon tint from the centralized `colors.properties` palette. Hardcoded `0xFF...` literals were replaced with named colour tokens. An inline `#` comment in `colors.properties` was breaking `Color.parseColor()` — the comment was removed to fix silent parse failures. A `${variable}` interpolation timing issue in `AppConfig.init()` was also corrected to ensure alias resolution happens before colour token consumption. The subfeature remains todo-pending for verification/deploy.
 
 ## Key Files
-- `app/src/main/java/ykws/android/maro/config/AppConfig.kt` — `${key}` alias resolution in `init()`
-- `app/src/main/assets/colors.properties` — green entries → `success` alias; lowDepth → error; nodata → pale yellow; zoneNormal removed
-- `docs/color-scheme.md` — alias chain documentation, new tokens
+- `app/src/main/assets/colors.properties` — button background/tint tokens, inline # comment removed
+- `app/src/main/java/ykws/android/maro/config/AppConfig.kt` — alias interpolation timing fix
 
 ## Next Steps
-Visual review of the new 80% opacity semantic colours on the map overlay. Monitor for any missing alias references that might fall through to raw property names.
+Rebuild and deploy to verify dark button theme renders correctly on device. Confirm all control buttons (zoom ±, settings, GPS, EarthWater, dashboard accent strips) use the harmonised colours.

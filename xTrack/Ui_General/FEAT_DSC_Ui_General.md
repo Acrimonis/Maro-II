@@ -2,7 +2,7 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-06-16 13:58
+modified: 2026-06-16 17:04
 active_subfeature: none
 ---
 
@@ -93,6 +93,17 @@ Extend `enableEdgeToEdge()` to the nav bar: remove blanket `windowInsetsPadding(
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — root Box modifier, top-left icons Row, right-edge Column, DashboardPanel modifiers, bottom overlays
 - `app/src/main/java/ykws/android/maro/MainActivity.kt` — no change needed (already calls `enableEdgeToEdge()`)
 
+### ButtonColors  [ ]
+
+Harmonise map control buttons (zoom +/- , settings gear, GPS/EarthWater toggles, dashboard tile accent strips) onto the dark dashboard theme using the centralized `colors.properties` palette. Replace hardcoded `0xFF...` literals with named colour tokens.
+
+#### Todos
+- [ ]
+
+#### Rules
+
+#### Key Files
+
 ## Todos
 
 ## Rules
@@ -104,3 +115,4 @@ Extend `enableEdgeToEdge()` to the nav bar: remove blanket `windowInsetsPadding(
 - `plans/btn-color-harmonization.md` — button color harmonization: match map control buttons to dashboard dark theme
 - `docs/color-scheme.md` — canonical reference for all colour tokens in the app
 - `plans/color-props-migration-plan.md` — migration plan: all colours → colors.properties
+- `plans/button-colors-discussion.md` — discussion: UI round button color identification and exploration
