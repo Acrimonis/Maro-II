@@ -1,4 +1,6 @@
+
 package ykws.android.maro.ui.map
+import ykws.android.maro.config.AppConfig
 
 import android.app.Application
 import kotlin.math.abs
@@ -101,7 +103,7 @@ class CoastlineViewModel(
 
     /** Persisted settings — initialised eagerly so StateFlows are seeded directly. */
     private val settingsManager: SettingsManager =
-        SettingsManager(application, ZoneConfig.zoneAutoRevealDistanceM, ZoneConfig.zoneAutoRevealTimeS, ZoneConfig.lowDepthWarningMinOpacityPct)
+        SettingsManager(application, AppConfig.zoneAutoRevealDistanceM, AppConfig.zoneAutoRevealTimeS, AppConfig.overlayLowDepthMinOpacity)
 
     /** Device GPS + compass sources (framework-only, no Google Play Services) for GPS mode. */
     private val gpsSource: GpsLocationSource = GpsLocationSource(application)
@@ -495,7 +497,7 @@ class CoastlineViewModel(
                     revealTimeS = cfg.zoneAutoRevealTimeS.toDouble(),
                     config = ZoneAutoShowConfig(
                         hideOnCompliantInside = true,
-                        regulatorySpeedKn = ZoneConfig.zoneRegulatorySpeedKn.toDouble()
+                        regulatorySpeedKn = AppConfig.zoneRegulatorySpeedKn.toDouble()
                     )
                 )
                 zone300AutoRevealed = bandDecision.autoRevealed
@@ -525,7 +527,7 @@ class CoastlineViewModel(
                         revealTimeS = cfg.zoneAutoRevealTimeS.toDouble(),
                         config = ZoneAutoShowConfig(
                             hideOnCompliantInside = false,
-                            hysteresisM = ZoneConfig.speedZoneHysteresisM
+                            hysteresisM = AppConfig.speedZoneHysteresisM
                         )
                     )
                     speedZoneAutoRevealed = szDecision.autoRevealed

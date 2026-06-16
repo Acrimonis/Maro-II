@@ -1,4 +1,6 @@
+
 package ykws.android.maro.data.depth
+import ykws.android.maro.config.AppConfig
 
 import android.content.Context
 import android.graphics.Bitmap
@@ -34,13 +36,16 @@ object RasterCache {
     /**
      * Compound cache key: any change in these values invalidates the cache.
      * Hash-code based filename avoids embedding special characters.
+     *
+     * When adding fields, also keep [AppConfig.rasterColorsHash] in sync.
      */
     data class Key(
         val gridTimestampMs: Long,
         val emodnetCutoffM: Float,
         val lowDepthMaxM: Float,
         val lowDepthMinOpacityPct: Int,
-        val nodataColor: Int
+        val nodataColor: Int,
+        val colorsHash: Int
     )
 
     // ── Public API ──────────────────────────────────────────────────────────

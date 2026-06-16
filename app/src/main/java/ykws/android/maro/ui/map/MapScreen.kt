@@ -1,4 +1,6 @@
+
 package ykws.android.maro.ui.map
+import ykws.android.maro.config.AppConfig
 
 import android.graphics.DashPathEffect
 
@@ -377,7 +379,7 @@ fun MapScreen(
         if (cached != null) { value = cached; return@produceState }
         value = depthGrid?.let { g ->
             withContext(Dispatchers.Default) {
-                DepthBitmap.build(g, appSettings.emodnetShallowCutoffM, ZoneConfig.nodataColor)
+                DepthBitmap.build(g, appSettings.emodnetShallowCutoffM, AppConfig.mapDepthNodataColor)
             }
         }
     }
@@ -427,7 +429,8 @@ fun MapScreen(
             emodnetCutoffM = appSettings.emodnetShallowCutoffM,
             lowDepthMaxM = appSettings.lowDepthWarningMaxM,
             lowDepthMinOpacityPct = appSettings.lowDepthWarningMinOpacityPct,
-            nodataColor = ZoneConfig.nodataColor
+            nodataColor = AppConfig.mapDepthNodataColor,
+            colorsHash = AppConfig.rasterColorsHash
         )
         val missing = mutableListOf<RasterCache.Step>()
         if (!RasterCache.has(context, RasterCache.Step.DEPTH_COLOUR, key))
@@ -821,7 +824,7 @@ private fun MapContent(
             EarthWaterIcon(
                 emoji = if (isWater) "🌊" else "🏔️",
                 isActive = true,
-                activeColor = if (isWater) ComposeColor(0xFF1565C0) else ComposeColor(0xFF2E7D32),
+                activeColor = if (isWater) ComposeColor(AppConfig.statusEarthWaterWater) else ComposeColor(AppConfig.statusEarthWaterLand),
                 contentDescription = if (isWater) stringResource(R.string.side_water) else stringResource(R.string.side_land),
             )
         }
@@ -877,7 +880,7 @@ private fun MapContent(
             ) {
                 Surface(
                     shape = RoundedCornerShape(28.dp),
-                    color = ComposeColor(0xFF16213E), // sampled from the dashboard tile background (DashboardColors.cardBg)
+                    color = ComposeColor(AppConfig.uiSettingsToastBackground),
                     shadowElevation = 8.dp
                 ) {
                     Text(
@@ -967,10 +970,10 @@ private fun MapContent(
                             parent = { _: Boolean, _: Int -> ThreeStripeLayerIcon(alpha = 1f) },
                             onParentClick = { onToggleFan(ControlId.LAYER_FAN) },
                             children = listOf<@Composable (Boolean) -> Unit>(
-                                { isActive -> DepthBarIcon(alpha = if (isActive) 1f else 0.25f) },
-                                { isActive -> RegulatedZoneIcon(alpha = if (isActive) 1f else 0.25f) },
-                                { isActive -> DoubleCircleIcon(alpha = if (isActive) 1f else 0.25f) },
-                                { isActive -> WarningTriangleIcon(alpha = if (isActive) 1f else 0.25f) }
+                                { isActive -> DepthBarIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
+                                { isActive -> RegulatedZoneIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
+                                { isActive -> DoubleCircleIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
+                                { isActive -> WarningTriangleIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) }
                             ),
                             activeStates = listOf(
                                 appSettings.depthLayerVisible,
@@ -1050,12 +1053,12 @@ private fun LoadingOverlay(
         CircularProgressIndicator(
             modifier = Modifier.size(18.dp),
             strokeWidth = 2.5.dp,
-            color = ComposeColor(0xFF1565C0)
+            color = ComposeColor(AppConfig.uiProgressAccent)
         )
 
         Text(
             text = title,
-            color = ComposeColor(0xFF1565C0),
+            color = ComposeColor(AppConfig.uiProgressAccent),
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold
         )
@@ -1067,7 +1070,7 @@ private fun LoadingOverlay(
         if (progress.phase.isNotEmpty()) {
             Text(
                 text = progress.phase,
-                color = ComposeColor(0xFF1565C0),
+                color = ComposeColor(AppConfig.uiProgressAccent),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -1079,13 +1082,13 @@ private fun LoadingOverlay(
                 modifier = Modifier
                     .weight(1f)
                     .height(4.dp),
-                color = ComposeColor(0xFF1565C0),
-                trackColor = ComposeColor(0x401565C0)
+                color = ComposeColor(AppConfig.uiProgressAccent),
+                trackColor = ComposeColor(AppConfig.uiProgressTrack)
             )
             Spacer(modifier = Modifier.width(4.dp))
             Text(
                 text = "${progress.progress}%",
-                color = ComposeColor(0xFF1565C0),
+                color = ComposeColor(AppConfig.uiProgressAccent),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -1104,7 +1107,7 @@ private fun ErrorOverlay(
     Column(
         modifier = modifier
             .clip(RoundedCornerShape(12.dp))
-            .background(ComposeColor(0xCCC62828))
+            .background(ComposeColor(AppConfig.uiErrorCard))
             .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -1117,19 +1120,19 @@ private fun ErrorOverlay(
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = message,
-            color = ComposeColor(0xEEFFFFFF),
+            color = ComposeColor(AppConfig.uiErrorText),
             fontSize = 12.sp
         )
         Spacer(modifier = Modifier.height(8.dp))
         Button(
             onClick = onRetry,
             colors = ButtonDefaults.buttonColors(
-                containerColor = ComposeColor.White
+                containerColor = ComposeColor(AppConfig.uiErrorButtonBackground)
             )
         ) {
             Text(
                 text = stringResource(R.string.retry),
-                color = ComposeColor(0xFFC62828),
+                color = ComposeColor(AppConfig.uiErrorButtonText),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -1388,7 +1391,7 @@ private fun CenterMarkerOverlay(
         )
         // ── Cap arrow — centered at map center, draws upward ──────────────
         if (showArrow) {
-            val arrowColor = ComposeColor(ZoneConfig.capArrowColor)
+            val arrowColor = ComposeColor(AppConfig.mapNavigationArrowColor)
             Canvas(modifier = Modifier.fillMaxSize()) {
                 val arrowLenPx = arrowDp.toPx()
                 val cX = size.width / 2
@@ -1434,7 +1437,7 @@ private fun CenterMarkerOverlay(
 private fun DirectionLine(
     modifier: Modifier = Modifier
 ) {
-    val lineColor = ComposeColor(ZoneConfig.directionLineColor)
+    val lineColor = ComposeColor(AppConfig.mapNavigationLineColor)
     Canvas(modifier = modifier) {
         val cX = size.width / 2
         val cY = size.height / 2
@@ -1471,8 +1474,8 @@ private fun EarthWaterIcon(
             .size(44.dp)
             .clip(RoundedCornerShape(8.dp))
             .background(
-                if (isActive) activeColor.copy(alpha = ZoneConfig.waterIconBgAlpha / 255f)
-                else ComposeColor(0xEEFFFFFF)
+                if (isActive) activeColor.copy(alpha = AppConfig.statusGpsAlphaActive)
+                else ComposeColor(AppConfig.statusEarthWaterInactive)
             ),
         contentAlignment = Alignment.Center
     ) {
@@ -1495,132 +1498,19 @@ private fun SettingsButton(
         modifier = modifier.size(64.dp),
         shape = CircleShape,
         colors = ButtonDefaults.buttonColors(
-            containerColor = ComposeColor.White
+            containerColor = ButtonColors.bg
         ),
         contentPadding = PaddingValues(0.dp)
     ) {
         Icon(
             imageVector = Icons.Default.Settings,
             contentDescription = stringResource(R.string.map_settings),
-            tint = ComposeColor(0xFF1565C0),
+            tint = ButtonColors.icon,
             modifier = Modifier.size(32.dp)
         )
     }
 }
 
-// ── 4-state zone layer toggle — merged 300m + regulated zones ─────────────
-
-/** 4-state cycle for the merged zone layer button. Derive from booleans each render. */
-private enum class ZoneLayerState(val zone300: Boolean, val regulated: Boolean) {
-    NONE(false, false),
-    ZONE300(true, false),
-    BOTH(true, true),
-    REGULATED(false, true);
-
-    fun next() = entries[(ordinal + 1) % entries.size]
-
-    companion object {
-        fun fromBooleans(zone300: Boolean, regulated: Boolean): ZoneLayerState =
-            entries.firstOrNull { it.zone300 == zone300 && it.regulated == regulated } ?: NONE
-    }
-}
-
-/**
- * Single toggle button cycling through None → 300m ZONE → BOTH → Reg Zones.
- * Two concentric circles indicate state: inner = 300m zone, outer = regulated zones.
- */
-@Composable
-private fun ZoneLayerButton(
-    state: ZoneLayerState,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val themeBlue = ComposeColor(0xFF1565C0)
-    Button(
-        onClick = onClick,
-        modifier = modifier.size(64.dp),
-        shape = CircleShape,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = ComposeColor(0xCCFFFFFF)
-        ),
-        contentPadding = PaddingValues(0.dp)
-    ) {
-        Canvas(modifier = Modifier.size(28.dp)) {
-            val w = size.width
-            val h = size.height
-            // Inner circle alpha = 300m zone state
-            val innerAlpha = if (state.zone300) 1.0f else 0.25f
-            // Outer ring alpha = regulated zones state
-            val outerAlpha = if (state.regulated) 1.0f else 0.25f
-            // Outer ring: regulated zones indicator (stroke)
-            drawCircle(
-                color = themeBlue,
-                radius = w * 0.40f,
-                center = androidx.compose.ui.geometry.Offset(w * 0.5f, h * 0.5f),
-                alpha = outerAlpha,
-                style = androidx.compose.ui.graphics.drawscope.Stroke(width = w * 0.10f)
-            )
-            // Inner circle: 300m zone indicator (fill)
-            drawCircle(
-                color = themeBlue,
-                radius = w * 0.22f,
-                center = androidx.compose.ui.geometry.Offset(w * 0.5f, h * 0.5f),
-                alpha = innerAlpha
-            )
-        }
-    }
-}
-
-// ── Danger (low-depth) layer toggle — pink grounding-hazard overlay ─────────
-
-@Composable
-private fun DangerLayerButton(
-    isWarningVisible: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    // Themed blue to match the other control buttons (LayerButton + zoom).
-    val themeBlue = ComposeColor(0xFF1565C0)
-    Button(
-        onClick = onClick,
-        modifier = modifier.size(64.dp),
-        shape = CircleShape,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = ComposeColor(0xCCFFFFFF)  // solid white bg always (matches LayerButton)
-        ),
-        contentPadding = PaddingValues(0.dp)
-    ) {
-        // Custom warning-triangle icon (no material-icons-extended dependency, like LayerButton).
-        Canvas(modifier = Modifier.size(28.dp)) {
-            val w = size.width
-            val h = size.height
-            val iconAlpha = if (isWarningVisible) 1.0f else 0.25f
-            // Filled hazard triangle
-            val triangle = androidx.compose.ui.graphics.Path().apply {
-                moveTo(w * 0.50f, h * 0.06f)
-                lineTo(w * 0.96f, h * 0.88f)
-                lineTo(w * 0.04f, h * 0.88f)
-                close()
-            }
-            drawPath(path = triangle, color = themeBlue, alpha = iconAlpha)
-            // Exclamation bar
-            drawRoundRect(
-                color = ComposeColor.White,
-                topLeft = androidx.compose.ui.geometry.Offset(w * 0.455f, h * 0.34f),
-                size = androidx.compose.ui.geometry.Size(w * 0.09f, h * 0.28f),
-                cornerRadius = androidx.compose.ui.geometry.CornerRadius(3f, 3f),
-                alpha = iconAlpha
-            )
-            // Exclamation dot
-            drawCircle(
-                color = ComposeColor.White,
-                radius = w * 0.055f,
-                center = androidx.compose.ui.geometry.Offset(w * 0.50f, h * 0.74f),
-                alpha = iconAlpha
-            )
-        }
-    }
-}
 
 
 /**
@@ -1645,14 +1535,14 @@ private fun GpsStatusIcon(
     val contentAlpha: Float
     when (state) {
         GpsIconState.DEMO -> {
-            baseColor = ComposeColor.White
-            bgAlpha = ZoneConfig.gpsIconDimBgAlpha / 255f
+            baseColor = ComposeColor(AppConfig.statusGpsDemo)
+            bgAlpha = AppConfig.statusGpsAlphaDimmed
             contentAlpha = 0.50f
         }
-        GpsIconState.ACQUIRING -> { baseColor = ComposeColor(0xFFFFA726); bgAlpha = ZoneConfig.gpsIconBgAlpha / 255f; contentAlpha = 1f }
-        GpsIconState.HEALTHY -> { baseColor = ComposeColor(0xFF2E7D32); bgAlpha = ZoneConfig.gpsIconBgAlpha / 255f; contentAlpha = 1f }
-        GpsIconState.IDLE -> { baseColor = ComposeColor(0xFF1565C0); bgAlpha = ZoneConfig.gpsIconBgAlpha / 255f; contentAlpha = 1f }
-        GpsIconState.STALE -> { baseColor = ComposeColor(0xFFF44336); bgAlpha = ZoneConfig.gpsIconBgAlpha / 255f; contentAlpha = 1f }
+        GpsIconState.ACQUIRING -> { baseColor = ComposeColor(AppConfig.statusGpsAcquiring); bgAlpha = AppConfig.statusGpsAlphaActive; contentAlpha = 1f }
+        GpsIconState.HEALTHY -> { baseColor = ComposeColor(AppConfig.statusGpsHealthy); bgAlpha = AppConfig.statusGpsAlphaActive; contentAlpha = 1f }
+        GpsIconState.IDLE -> { baseColor = ComposeColor(AppConfig.statusGpsIdle); bgAlpha = AppConfig.statusGpsAlphaActive; contentAlpha = 1f }
+        GpsIconState.STALE -> { baseColor = ComposeColor(AppConfig.statusGpsStale); bgAlpha = AppConfig.statusGpsAlphaActive; contentAlpha = 1f }
     }
     Box(
         modifier = modifier
@@ -1708,7 +1598,7 @@ private fun SettingsOverlay(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(ComposeColor(0xFF1A1A2E))
+            .background(ComposeColor(AppConfig.uiSettingsBackground))
     ) {
         Column(
             modifier = Modifier
@@ -1727,7 +1617,7 @@ private fun SettingsOverlay(
                         modifier = Modifier.size(48.dp),
                         shape = CircleShape,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = ComposeColor(0x33FFFFFF)
+                            containerColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
                         ),
                         contentPadding = PaddingValues(0.dp)
                     ) {
@@ -1751,12 +1641,12 @@ private fun SettingsOverlay(
             Spacer(modifier = Modifier.height(16.dp))
 
             // ── Tab bar (manual Row + indicator instead of TabRow) ─────────
-            val tabColor = ComposeColor(0xFF1565C0)
+            val tabColor = ComposeColor(AppConfig.uiSettingsAccent)
             val tabCount = settingsTabLabels.size
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(ComposeColor(0xFF1A1A2E))
+                    .background(ComposeColor(AppConfig.uiSettingsBackground))
                     .drawBehind {
                         // Draw the selected tab indicator line at the bottom
                         val tabWidth = size.width / tabCount
@@ -1781,7 +1671,7 @@ private fun SettingsOverlay(
                             text = label,
                             fontWeight = FontWeight.Medium,
                             fontSize = 14.sp,
-                            color = if (isSelected) tabColor else ComposeColor(0xFF78909C)
+                            color = if (isSelected) tabColor else ComposeColor(AppConfig.uiSettingsTextSecondary)
                         )
                     }
                 }
@@ -1806,7 +1696,7 @@ private fun SettingsOverlay(
             // ── Footer ────────────────────────────────────────────────────
             Text(
                 text = stringResource(R.string.app_version_footer),
-                color = ComposeColor(0xFF546E7A),
+                color = ComposeColor(AppConfig.uiSettingsFooterText),
                 fontSize = 12.sp,
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             )
@@ -1842,7 +1732,7 @@ private fun GeneralSettings(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .background(ComposeColor(0x1AFFFFFF))
+                .background(ComposeColor(AppConfig.uiSettingsCardBackground))
         ) {
             // Toggle row (inline)
             Row(
@@ -1861,7 +1751,7 @@ private fun GeneralSettings(
                     )
                     Text(
                         text = stringResource(R.string.settings_low_depth_warning_desc),
-                        color = ComposeColor(0xFFB0BEC5),
+                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
                         fontSize = 13.sp
                     )
                 }
@@ -1872,10 +1762,10 @@ private fun GeneralSettings(
                         onUpdateSettings { it.copy(lowDepthWarningVisible = visible) }
                     },
                     colors = SwitchDefaults.colors(
-                        checkedThumbColor = ComposeColor(0xFF1565C0),
-                        checkedTrackColor = ComposeColor(0xFF1565C0).copy(alpha = 0.4f),
-                        uncheckedThumbColor = ComposeColor(0xFFB0BEC5),
-                        uncheckedTrackColor = ComposeColor(0x33FFFFFF)
+                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
                     )
                 )
             }
@@ -1950,7 +1840,7 @@ private fun GeneralSettings(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .background(ComposeColor(0x1AFFFFFF))
+                .background(ComposeColor(AppConfig.uiSettingsCardBackground))
         ) {
             Row(
                 modifier = Modifier
@@ -1968,7 +1858,7 @@ private fun GeneralSettings(
                     )
                     Text(
                         text = stringResource(R.string.settings_regulated_zones_desc),
-                        color = ComposeColor(0xFFB0BEC5),
+                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
                         fontSize = 13.sp
                     )
                 }
@@ -1979,10 +1869,10 @@ private fun GeneralSettings(
                         onUpdateSettings { it.copy(regulatedZonesVisible = visible) }
                     },
                     colors = SwitchDefaults.colors(
-                        checkedThumbColor = ComposeColor(0xFF1565C0),
-                        checkedTrackColor = ComposeColor(0xFF1565C0).copy(alpha = 0.4f),
-                        uncheckedThumbColor = ComposeColor(0xFFB0BEC5),
-                        uncheckedTrackColor = ComposeColor(0x33FFFFFF)
+                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
                     )
                 )
             }
@@ -2009,7 +1899,7 @@ private fun GeneralSettings(
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
                             text = "Show zone info text beside the icon strip",
-                            color = ComposeColor(0xFF90A4AE),
+                            color = ComposeColor(AppConfig.uiDashboardTextMuted),
                             fontSize = 13.sp,
                             modifier = Modifier.padding(bottom = 8.dp)
                         )
@@ -2029,8 +1919,8 @@ private fun GeneralSettings(
                                     onUpdateSettings { it.copy(regulationInfoVisible = visible) }
                                 },
                                 colors = SwitchDefaults.colors(
-                                    checkedThumbColor = ComposeColor(0xFF1565C0),
-                                    checkedTrackColor = ComposeColor(0xFF1565C0).copy(alpha = 0.4f)
+                                    checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                                    checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f)
                                 )
                             )
                         }
@@ -2161,7 +2051,7 @@ private fun NavigationSettings(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .background(ComposeColor(0x1AFFFFFF))
+                .background(ComposeColor(AppConfig.uiSettingsCardBackground))
         ) {
             // Auto-show GPS mode toggle
             Row(
@@ -2180,7 +2070,7 @@ private fun NavigationSettings(
                     )
                     Text(
                         text = stringResource(R.string.settings_alert_gps_desc),
-                        color = ComposeColor(0xFFB0BEC5),
+                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
                         fontSize = 13.sp
                     )
                 }
@@ -2189,10 +2079,10 @@ private fun NavigationSettings(
                     checked = settings.zone300AutoShowGps,
                     onCheckedChange = { on -> onUpdateSettings { it.copy(zone300AutoShowGps = on) } },
                     colors = SwitchDefaults.colors(
-                        checkedThumbColor = ComposeColor(0xFF1565C0),
-                        checkedTrackColor = ComposeColor(0xFF1565C0).copy(alpha = 0.4f),
-                        uncheckedThumbColor = ComposeColor(0xFFB0BEC5),
-                        uncheckedTrackColor = ComposeColor(0x33FFFFFF)
+                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
                     )
                 )
             }
@@ -2222,7 +2112,7 @@ private fun NavigationSettings(
                     )
                     Text(
                         text = stringResource(R.string.settings_alert_demo_desc),
-                        color = ComposeColor(0xFFB0BEC5),
+                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
                         fontSize = 13.sp
                     )
                 }
@@ -2231,10 +2121,10 @@ private fun NavigationSettings(
                     checked = settings.zone300AutoShowDemo,
                     onCheckedChange = { on -> onUpdateSettings { it.copy(zone300AutoShowDemo = on) } },
                     colors = SwitchDefaults.colors(
-                        checkedThumbColor = ComposeColor(0xFF1565C0),
-                        checkedTrackColor = ComposeColor(0xFF1565C0).copy(alpha = 0.4f),
-                        uncheckedThumbColor = ComposeColor(0xFFB0BEC5),
-                        uncheckedTrackColor = ComposeColor(0x33FFFFFF)
+                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
                     )
                 )
             }
@@ -2293,7 +2183,7 @@ private fun NavigationSettings(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .background(ComposeColor(0x1AFFFFFF))
+                .background(ComposeColor(AppConfig.uiSettingsCardBackground))
         ) {
             // Auto-show GPS mode toggle
             Row(
@@ -2312,7 +2202,7 @@ private fun NavigationSettings(
                     )
                     Text(
                         text = "Auto-show speed zones when approaching in GPS mode",
-                        color = ComposeColor(0xFFB0BEC5),
+                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
                         fontSize = 13.sp
                     )
                 }
@@ -2321,10 +2211,10 @@ private fun NavigationSettings(
                     checked = settings.speedZoneAutoShowGps,
                     onCheckedChange = { on -> onUpdateSettings { it.copy(speedZoneAutoShowGps = on) } },
                     colors = SwitchDefaults.colors(
-                        checkedThumbColor = ComposeColor(0xFF1565C0),
-                        checkedTrackColor = ComposeColor(0xFF1565C0).copy(alpha = 0.4f),
-                        uncheckedThumbColor = ComposeColor(0xFFB0BEC5),
-                        uncheckedTrackColor = ComposeColor(0x33FFFFFF)
+                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
                     )
                 )
             }
@@ -2354,7 +2244,7 @@ private fun NavigationSettings(
                     )
                     Text(
                         text = "Auto-show speed zones when panning the map toward a zone",
-                        color = ComposeColor(0xFFB0BEC5),
+                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
                         fontSize = 13.sp
                     )
                 }
@@ -2363,10 +2253,10 @@ private fun NavigationSettings(
                     checked = settings.speedZoneAutoShowDemo,
                     onCheckedChange = { on -> onUpdateSettings { it.copy(speedZoneAutoShowDemo = on) } },
                     colors = SwitchDefaults.colors(
-                        checkedThumbColor = ComposeColor(0xFF1565C0),
-                        checkedTrackColor = ComposeColor(0xFF1565C0).copy(alpha = 0.4f),
-                        uncheckedThumbColor = ComposeColor(0xFFB0BEC5),
-                        uncheckedTrackColor = ComposeColor(0x33FFFFFF)
+                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
                     )
                 )
             }
@@ -2411,7 +2301,7 @@ private fun SystemSettings(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .background(ComposeColor(0x1AFFFFFF))
+                .background(ComposeColor(AppConfig.uiSettingsCardBackground))
         ) {
             // GPS mode toggle row (inline, no separate card background)
             Row(
@@ -2430,7 +2320,7 @@ private fun SystemSettings(
                     )
                     Text(
                         text = stringResource(R.string.settings_gps_mode_desc),
-                        color = ComposeColor(0xFFB0BEC5),
+                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
                         fontSize = 13.sp
                     )
                 }
@@ -2439,10 +2329,10 @@ private fun SystemSettings(
                     checked = settings.gpsMode,
                     onCheckedChange = onGpsModeChange,
                     colors = SwitchDefaults.colors(
-                        checkedThumbColor = ComposeColor(0xFF1565C0),
-                        checkedTrackColor = ComposeColor(0xFF1565C0).copy(alpha = 0.4f),
-                        uncheckedThumbColor = ComposeColor(0xFFB0BEC5),
-                        uncheckedTrackColor = ComposeColor(0x33FFFFFF)
+                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
                     )
                 )
             }
@@ -2529,7 +2419,7 @@ private fun SystemSettings(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .background(ComposeColor(0x1AFFFFFF))
+                .background(ComposeColor(AppConfig.uiSettingsCardBackground))
         ) {
             // Adaptive idle interval slider (inline, no separate card bg)
             Row(
@@ -2547,14 +2437,14 @@ private fun SystemSettings(
                     )
                     Text(
                         text = stringResource(R.string.settings_idle_interval_desc),
-                        color = ComposeColor(0xFFB0BEC5),
+                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
                         fontSize = 13.sp
                     )
                 }
                 Spacer(modifier = Modifier.width(16.dp))
                 Text(
                     text = stringResource(R.string.settings_value_seconds, settings.adaptiveIdleIntervalSec),
-                    color = ComposeColor(0xFF1565C0),
+                    color = ComposeColor(AppConfig.uiSettingsAccent),
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -2569,9 +2459,9 @@ private fun SystemSettings(
                     .padding(horizontal = 16.dp)
                     .padding(bottom = 8.dp),
                 colors = SliderDefaults.colors(
-                    thumbColor = ComposeColor(0xFF1565C0),
-                    activeTrackColor = ComposeColor(0xFF1565C0),
-                    inactiveTrackColor = ComposeColor(0x33FFFFFF)
+                    thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                    activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
+                    inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
                 )
             )
 
@@ -2678,7 +2568,7 @@ private fun SystemSettings(
                     }
                     onRegenerateRasters(selected)
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = ComposeColor(0xFF1565C0)),
+                colors = ButtonDefaults.buttonColors(containerColor = ComposeColor(AppConfig.uiSettingsAccent)),
                 shape = RoundedCornerShape(8.dp)
             ) {
                 Text("Regenerate", color = ComposeColor.White)
@@ -2695,7 +2585,7 @@ private fun SystemSettings(
 private fun SectionHeader(title: String) {
     Text(
         text = title.uppercase(),
-        color = ComposeColor(0xFF1565C0),
+        color = ComposeColor(AppConfig.uiSettingsAccent),
         fontSize = 17.sp,
         fontWeight = FontWeight.Bold,
         letterSpacing = 1.sp
@@ -2722,7 +2612,7 @@ private fun SettingsLanguageRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(ComposeColor(0x1AFFFFFF))
+            .background(ComposeColor(AppConfig.uiSettingsCardBackground))
             .padding(6.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
@@ -2732,14 +2622,14 @@ private fun SettingsLanguageRow(
                 modifier = Modifier
                     .weight(1f)
                     .clip(RoundedCornerShape(8.dp))
-                    .background(if (selected) ComposeColor(0xFF1565C0) else ComposeColor(0x14FFFFFF))
+                    .background(if (selected) ComposeColor(AppConfig.uiSettingsAccent) else ComposeColor(AppConfig.uiSettingsDivider))
                     .clickable { onSelect(code) }
                     .padding(vertical = 10.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = label,
-                    color = if (selected) ComposeColor.White else ComposeColor(0xFFB0BEC5),
+                    color = if (selected) ComposeColor.White else ComposeColor(AppConfig.uiSettingsTextMuted),
                     fontSize = 14.sp,
                     fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
                 )
@@ -2759,7 +2649,7 @@ private fun SettingsToggleRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(ComposeColor(0x1AFFFFFF))
+            .background(ComposeColor(AppConfig.uiSettingsCardBackground))
             .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
@@ -2773,7 +2663,7 @@ private fun SettingsToggleRow(
             )
             Text(
                 text = description,
-                color = ComposeColor(0xFFB0BEC5),
+                color = ComposeColor(AppConfig.uiSettingsTextMuted),
                 fontSize = 13.sp
             )
         }
@@ -2782,10 +2672,10 @@ private fun SettingsToggleRow(
             checked = checked,
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
-                checkedThumbColor = ComposeColor(0xFF1565C0),
-                checkedTrackColor = ComposeColor(0xFF1565C0).copy(alpha = 0.4f),
-                uncheckedThumbColor = ComposeColor(0xFFB0BEC5),
-                uncheckedTrackColor = ComposeColor(0x33FFFFFF)
+                checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
+                uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
             )
         )
     }
@@ -2813,7 +2703,7 @@ private fun SettingsSliderGroup(content: @Composable () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(ComposeColor(0x1AFFFFFF))
+            .background(ComposeColor(AppConfig.uiSettingsCardBackground))
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         content()
@@ -2845,14 +2735,14 @@ private fun SliderRowContent(
             )
             Text(
                 text = description,
-                color = ComposeColor(0xFFB0BEC5),
+                color = ComposeColor(AppConfig.uiSettingsTextMuted),
                 fontSize = 13.sp
             )
         }
         Spacer(modifier = Modifier.width(16.dp))
         Text(
             text = valueLabel,
-            color = ComposeColor(0xFF1565C0),
+            color = ComposeColor(AppConfig.uiSettingsAccent),
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold
         )
@@ -2863,9 +2753,9 @@ private fun SliderRowContent(
         valueRange = valueRange,
         steps = steps,
         colors = SliderDefaults.colors(
-            thumbColor = ComposeColor(0xFF1565C0),
-            activeTrackColor = ComposeColor(0xFF1565C0),
-            inactiveTrackColor = ComposeColor(0x33FFFFFF)
+            thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+            activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
+            inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
         )
     )
 }
@@ -2878,7 +2768,7 @@ private fun SliderRowDivider() {
         modifier = Modifier
             .fillMaxWidth()
             .height(1.dp)
-            .background(ComposeColor(0x14FFFFFF))
+            .background(ComposeColor(AppConfig.uiSettingsDivider))
     )
     Spacer(modifier = Modifier.height(2.dp))
 }
@@ -2889,7 +2779,7 @@ private fun SubSectionHeader(title: String, description: String? = null) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = title,
-            color = ComposeColor(0xFF90A4AE),
+            color = ComposeColor(AppConfig.uiDashboardTextMuted),
             fontSize = 16.sp,
             fontWeight = FontWeight.SemiBold
         )
@@ -2897,7 +2787,7 @@ private fun SubSectionHeader(title: String, description: String? = null) {
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = description,
-                color = ComposeColor(0xFF78909C),
+                color = ComposeColor(AppConfig.uiSettingsTextSecondary),
                 fontSize = 13.sp
             )
         }
@@ -2914,7 +2804,7 @@ private fun SettingsExpander(
     expanded: Boolean,
     onToggle: () -> Unit,
     labelStyle: TextStyle = TextStyle(
-        color = ComposeColor(0xFF90A4AE),
+        color = ComposeColor(AppConfig.uiDashboardTextMuted),
         fontSize = 13.sp,
         fontWeight = FontWeight.SemiBold
     ),
@@ -2941,7 +2831,7 @@ private fun SettingsExpander(
             Icon(
                 imageVector = Icons.Default.KeyboardArrowDown,
                 contentDescription = if (expanded) stringResource(R.string.collapse) else stringResource(R.string.expand),
-                tint = ComposeColor(0xFF90A4AE),
+                tint = ComposeColor(AppConfig.uiDashboardTextMuted),
                 modifier = Modifier.rotate(rotation)
             )
         }
@@ -2975,7 +2865,7 @@ private fun SettingsFrequencyRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(ComposeColor(0x1AFFFFFF))
+            .background(ComposeColor(AppConfig.uiSettingsCardBackground))
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         Text(
@@ -2986,7 +2876,7 @@ private fun SettingsFrequencyRow(
         )
         Text(
             text = stringResource(R.string.settings_freq_desc),
-            color = ComposeColor(0xFFB0BEC5),
+            color = ComposeColor(AppConfig.uiSettingsTextMuted),
             fontSize = 13.sp
         )
         Spacer(modifier = Modifier.height(4.dp))
@@ -2999,15 +2889,15 @@ private fun SettingsFrequencyRow(
             valueRange = 0f..2f,
             steps = 1,
             colors = SliderDefaults.colors(
-                thumbColor = ComposeColor(0xFF1565C0),
-                activeTrackColor = ComposeColor(0xFF1565C0),
-                inactiveTrackColor = ComposeColor(0x33FFFFFF)
+                thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
+                inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
             )
         )
         Row(modifier = Modifier.fillMaxWidth()) {
             stops.forEachIndexed { idx, stop ->
                 val selected = idx == currentIdx
-                val accent = if (selected) ComposeColor(0xFF1565C0) else ComposeColor(0xFFB0BEC5)
+                val accent = if (selected) ComposeColor(AppConfig.uiSettingsAccent) else ComposeColor(AppConfig.uiSettingsTextMuted)
                 Column(
                     modifier = Modifier.weight(1f),
                     horizontalAlignment = when (idx) {
@@ -3046,7 +2936,7 @@ private fun SettingsTextFieldRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(ComposeColor(0x1AFFFFFF))
+            .background(ComposeColor(AppConfig.uiSettingsCardBackground))
             .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
@@ -3073,63 +2963,14 @@ private fun SettingsTextFieldRow(
                 fontSize = 14.sp
             ),
             colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = ComposeColor(0xFF1565C0),
-                unfocusedBorderColor = ComposeColor(0x66FFFFFF),
+                focusedBorderColor = ComposeColor(AppConfig.uiSettingsAccent),
+                unfocusedBorderColor = ComposeColor(AppConfig.uiSettingsInputBorder),
                 cursorColor = ComposeColor.White
             )
         )
     }
 }
 
-// ── Zoom button (used for map +/- controls) ─────────────────────────────────
-
-@Composable
-private fun ZoomButton(
-    isPlus: Boolean,
-    desc: String,
-    onClick: () -> Unit
-) {
-    val themeBlue = ComposeColor(0xFF1565C0)
-    Button(
-        onClick = onClick,
-        modifier = Modifier.size(64.dp),
-        shape = CircleShape,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = ComposeColor.White
-        ),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(0.dp)
-    ) {
-        // "+" and "−" drawn from one shared strokeWidth so both glyphs carry
-        // identical (thick) line weight — independent of any font rendering.
-        Canvas(
-            modifier = Modifier.size(32.dp),
-            contentDescription = desc
-        ) {
-            val stroke = size.width * 0.16f
-            val inset = size.width * 0.20f
-            val cx = size.width / 2f
-            val cy = size.height / 2f
-            // Horizontal bar — the "−", and the cross-bar of "+"
-            drawLine(
-                color = themeBlue,
-                start = androidx.compose.ui.geometry.Offset(inset, cy),
-                end = androidx.compose.ui.geometry.Offset(size.width - inset, cy),
-                strokeWidth = stroke,
-                cap = androidx.compose.ui.graphics.StrokeCap.Round
-            )
-            if (isPlus) {
-                // Vertical bar — completes the "+"
-                drawLine(
-                    color = themeBlue,
-                    start = androidx.compose.ui.geometry.Offset(cx, inset),
-                    end = androidx.compose.ui.geometry.Offset(cx, size.height - inset),
-                    strokeWidth = stroke,
-                    cap = androidx.compose.ui.graphics.StrokeCap.Round
-                )
-            }
-        }
-    }
-}
 
 /**
  * Draws the coastline segments on the OSMdroid [MapView].
@@ -3166,9 +3007,9 @@ private fun drawCoastline(
             // islands / blue mainland and the magenta low-depth overlay.
             mapView.overlays.add(Polygon().apply {
                 setPoints(osmPoints)
-                fillPaint.color = Color.argb(235, 255, 232, 0)   // vivid yellow (#FFE800) — full circle
+                fillPaint.color = AppConfig.mapHazardDiscFill   // vivid yellow (#FFE800) — full circle
                 fillPaint.isAntiAlias = true
-                outlinePaint.color = Color.BLACK                  // black circle around it
+                outlinePaint.color = AppConfig.mapHazardOutline  // black circle around it
                 outlinePaint.strokeWidth = 6f
                 outlinePaint.isAntiAlias = true
             })
@@ -3198,9 +3039,9 @@ private fun drawCoastline(
         val polyline = Polyline().apply {
             setPoints(osmPoints)
             outlinePaint.apply {
-                color = if (segment.isMainland) Color.parseColor("#1545c0")
-                        else Color.parseColor("#08805c")
-                strokeWidth = 10f
+                color = if (segment.isMainland) AppConfig.mapCoastlineMainlandColor
+                        else AppConfig.mapCoastlineIslandColor
+                strokeWidth = AppConfig.mapCoastlineMainlandWidth.toFloat()
                 alpha = 128
                 isAntiAlias = true
             }
@@ -3250,7 +3091,7 @@ private fun drawZoneAheadLine(
         title = "zoneAheadOuter"
         setPoints(listOf(geoBoat, endPt))
         outlinePaint.apply {
-            color = android.graphics.Color.argb(220, 0, 200, 0) // green, 86% alpha
+            color = AppConfig.mapZoneAheadLine // green, 86% alpha
             strokeWidth = 12f
             style = android.graphics.Paint.Style.STROKE
             isAntiAlias = true
@@ -3293,11 +3134,11 @@ private fun drawZoneAheadCone(
         title = "zoneAheadCone"
         setPoints(pts)
         fillPaint.apply {
-            color = android.graphics.Color.argb(60, 255, 235, 0)
+            color = AppConfig.mapZoneAheadConeFill
             isAntiAlias = true
         }
         outlinePaint.apply {
-            color = android.graphics.Color.argb(160, 255, 200, 0)
+            color = AppConfig.mapZoneAheadConeOutline
             strokeWidth = 2f
             isAntiAlias = true
         }
@@ -3324,7 +3165,7 @@ private fun drawZone300(mapView: MapView, zone: Zone300Data?, zoomLevel: Double)
             if (validHoles.isNotEmpty()) {
                 setHoles(validHoles.map { hole -> hole.map { GeoPoint(it.latitude, it.longitude) } })
             }
-            fillPaint.color = Color.argb(48, 229, 57, 53)   // ~19% red
+            fillPaint.color = AppConfig.mapZone300Fill   // ~19% red
             outlinePaint.color = Color.TRANSPARENT
             outlinePaint.strokeWidth = 0f
         }
@@ -3337,7 +3178,7 @@ private fun drawZone300(mapView: MapView, zone: Zone300Data?, zoomLevel: Double)
         val redLine = Polyline().apply {
             setPoints(line.map { GeoPoint(it.latitude, it.longitude) })
             outlinePaint.apply {
-                color = Color.parseColor("#E53935")
+                color = AppConfig.mapZone300Boundary
                 strokeWidth = 6f
                 alpha = 220
                 isAntiAlias = true
@@ -3364,14 +3205,14 @@ private data class RegulationZoneColor(val fillARGB: Int, val strokeARGB: Int)
 private fun regulatedZoneColor(type: RegulatedZoneType): RegulationZoneColor = when (type) {
     // Fill uses 0x30 alpha (~19 %, matching zone300 fill opacity) applied via Color.argb.
     // Stroke uses full-opacity ARGB with .toInt() for values > Int.MAX_VALUE (0xFF prefix).
-    RegulatedZoneType.SPEED_LIMIT           -> RegulationZoneColor(0x301565C0, 0xFF1565C0.toInt())  // Blue
-    RegulatedZoneType.ANCHORING_PROHIBITED  -> RegulationZoneColor(0x30FF8F00, 0xFFFF8F00.toInt())  // Amber
-    RegulatedZoneType.ACCESS_PROHIBITED     -> RegulationZoneColor(0x30E53935, 0xFFE53935.toInt())  // Red
-    RegulatedZoneType.ENVIRONMENTAL         -> RegulationZoneColor(0x302E7D32, 0xFF2E7D32.toInt())  // Green
-    RegulatedZoneType.MOORING               -> RegulationZoneColor(0x3000897B, 0xFF00897B.toInt())  // Teal
-    RegulatedZoneType.FISHING_PROHIBITED    -> RegulationZoneColor(0x30FDD835, 0xFFFDD835.toInt())  // Yellow
-    RegulatedZoneType.NAVIGATION_RESTRICTION -> RegulationZoneColor(0x308E24AA, 0xFF8E24AA.toInt()) // Purple
-    RegulatedZoneType.OTHER                 -> RegulationZoneColor(0x3078909C, 0xFF78909C.toInt())  // Blue Grey
+    RegulatedZoneType.SPEED_LIMIT           -> RegulationZoneColor((AppConfig.regulatedZoneTypeSpeedLimit and 0x00FFFFFF) or 0x30000000, AppConfig.regulatedZoneTypeSpeedLimit)  // Blue
+    RegulatedZoneType.ANCHORING_PROHIBITED  -> RegulationZoneColor((AppConfig.regulatedZoneTypeAnchoringProhibited and 0x00FFFFFF) or 0x30000000, AppConfig.regulatedZoneTypeAnchoringProhibited)  // Amber
+    RegulatedZoneType.ACCESS_PROHIBITED     -> RegulationZoneColor((AppConfig.regulatedZoneTypeAccessProhibited and 0x00FFFFFF) or 0x30000000, AppConfig.regulatedZoneTypeAccessProhibited)  // Red
+    RegulatedZoneType.ENVIRONMENTAL         -> RegulationZoneColor((AppConfig.regulatedZoneTypeEnvironmental and 0x00FFFFFF) or 0x30000000, AppConfig.regulatedZoneTypeEnvironmental)  // Green
+    RegulatedZoneType.MOORING               -> RegulationZoneColor((AppConfig.regulatedZoneTypeMooring and 0x00FFFFFF) or 0x30000000, AppConfig.regulatedZoneTypeMooring)  // Teal
+    RegulatedZoneType.FISHING_PROHIBITED    -> RegulationZoneColor((AppConfig.regulatedZoneTypeFishingProhibited and 0x00FFFFFF) or 0x30000000, AppConfig.regulatedZoneTypeFishingProhibited)  // Yellow
+    RegulatedZoneType.NAVIGATION_RESTRICTION -> RegulationZoneColor((AppConfig.regulatedZoneTypeNavigationRestriction and 0x00FFFFFF) or 0x30000000, AppConfig.regulatedZoneTypeNavigationRestriction) // Purple
+    RegulatedZoneType.OTHER                 -> RegulationZoneColor((AppConfig.regulatedZoneTypeOther and 0x00FFFFFF) or 0x30000000, AppConfig.regulatedZoneTypeOther)  // Blue Grey
 }
 
 /**
@@ -3487,8 +3328,8 @@ private fun drawIsobaths(mapView: MapView, isobaths: List<Isobath>, zoomLevel: D
             val poly = Polyline().apply {
                 setPoints(line.points.map { GeoPoint(it.latitude, it.longitude) })
                 outlinePaint.apply {
-                    color = ZoneConfig.isobarColor(line.source)   // colour by data source
-                    strokeWidth = ((if (isMajor) 3f else 2f) + ZoneConfig.isobarWidthBonus(line.source)).coerceAtLeast(1f)
+                    color = AppConfig.isobarColor(line.source)   // colour by data source
+                    strokeWidth = ((if (isMajor) 3f else 2f) + AppConfig.isobarWidthBonus(line.source)).coerceAtLeast(1f)
                     alpha = if (isMajor) 180 else 120
                     isAntiAlias = true
                     // Dash genuinely low-confidence fill (GEBCO/interpolated) → reads as "approximate".
@@ -3564,7 +3405,7 @@ private fun RegulatedZoneWarningStrip(
 
         // When in the 300m zone, inject it as the highest-priority SPEED_LIMIT entry
         val withZone300 = if (inZone300) {
-            val zoneSpeed = ZoneConfig.zoneRegulatorySpeedKn.toDouble()
+            val zoneSpeed = AppConfig.zoneRegulatorySpeedKn.toDouble()
             base + (ZoneDisplayCategory.SPEED_LIMIT to zoneSpeed)
         } else {
             base
@@ -3600,8 +3441,8 @@ private fun RegulatedZoneWarningStrip(
  * (e.g. "5" or "10") so the user can distinguish different speed limits at a glance.
  *
  * Background alpha is sourced from [RegulatedZoneIconProvider.alphaForCategory]:
- * prohibition/warning icons use [ZoneConfig.iconBackActiveAlpha] (75 %),
- * informational icons use [ZoneConfig.iconBackInactiveAlpha] (50 %).
+ * prohibition/warning icons use [AppConfig.iconBackActiveAlpha] (75 %),
+ * informational icons use [AppConfig.iconBackInactiveAlpha] (50 %).
  *
  * Categories requiring a strike (NO_ANCHOR, NO_DIVING, NO_ACCESS) render the emoji
  * Text first, then overlay a thin red diagonal line via Canvas on top.
@@ -3703,7 +3544,7 @@ private fun RegulatedZoneInfoText(
 
         // When in the 300m zone, inject it as the highest-priority SPEED_LIMIT info line
         val withZone300 = if (inZone300) {
-            val zoneSpeed = ZoneConfig.zoneRegulatorySpeedKn.toDouble()
+            val zoneSpeed = AppConfig.zoneRegulatorySpeedKn.toDouble()
             base + Triple(ZoneDisplayCategory.SPEED_LIMIT, zoneSpeed, null)
         } else {
             base
@@ -3766,7 +3607,7 @@ private fun RegulatedZoneCategoryToggles(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(ComposeColor(0x1AFFFFFF))
+            .background(ComposeColor(AppConfig.uiSettingsCardBackground))
     ) {
         categoryToggleItems.forEachIndexed { index, item ->
             Row(
@@ -3786,7 +3627,7 @@ private fun RegulatedZoneCategoryToggles(
                                 modifier = Modifier
                                     .size(28.dp)
                                     .clip(RoundedCornerShape(4.dp))
-                                    .background(ComposeColor(0xFFE53935)),
+                                    .background(ComposeColor(AppConfig.uiSettingsDanger)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text("10", color = ComposeColor.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
@@ -3816,8 +3657,8 @@ private fun RegulatedZoneCategoryToggles(
                         onUpdateSettings { item.setter(it, visible) }
                     },
                     colors = SwitchDefaults.colors(
-                        checkedThumbColor = ComposeColor(0xFF1565C0),
-                        checkedTrackColor = ComposeColor(0xFF1565C0).copy(alpha = 0.4f)
+                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f)
                     )
                 )
             }
@@ -3827,7 +3668,7 @@ private fun RegulatedZoneCategoryToggles(
                         .fillMaxWidth()
                         .height(0.5.dp)
                         .padding(horizontal = 16.dp)
-                        .background(ComposeColor(0x1AFFFFFF))
+                        .background(ComposeColor(AppConfig.uiSettingsCardBackground))
                 )
             }
         }
@@ -3847,7 +3688,7 @@ private fun BoatSizeSlider(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(ComposeColor(0x1AFFFFFF))
+            .background(ComposeColor(AppConfig.uiSettingsCardBackground))
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         Row(
@@ -3863,7 +3704,7 @@ private fun BoatSizeSlider(
             )
             Text(
                 text = "${settings.boatSizeM.toInt()} m",
-                color = ComposeColor(0xFF1565C0),
+                color = ComposeColor(AppConfig.uiSettingsAccent),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -3878,9 +3719,9 @@ private fun BoatSizeSlider(
             steps = 21,
             modifier = Modifier.fillMaxWidth(),
             colors = SliderDefaults.colors(
-                thumbColor = ComposeColor(0xFF1565C0),
-                activeTrackColor = ComposeColor(0xFF1565C0),
-                inactiveTrackColor = ComposeColor(0xFF1565C0).copy(alpha = 0.3f)
+                thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
+                inactiveTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.3f)
             )
         )
     }

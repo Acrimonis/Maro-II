@@ -186,7 +186,7 @@ fun FanLayout(
                     modifier = Modifier
                         .size(18.dp)
                         .clip(CircleShape)
-                        .background(ComposeColor(0xFF1565C0))
+                        .background(ButtonColors.icon)
                         .align(Alignment.TopEnd)
                 ) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

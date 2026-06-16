@@ -1,4 +1,6 @@
+
 package ykws.android.maro.ui.map
+import ykws.android.maro.config.AppConfig
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -41,30 +43,32 @@ import ykws.android.maro.data.model.DepthSource
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
-// ── Colour palette ────────────────────────────────────────────────────────────
+// ── Colour palette — runtime bridge to colors.properties ──────────────────────
 
 private object DashboardColors {
-    val background = Color(0xFF1A1A2E)
-    val cardBg = Color(0xFF16213E)
-    val textPrimary = Color(0xFFE0E0E0)
-    val textMuted = Color(0xFF90A4AE)
-    val green = Color(0xFF4CAF50)
-    val yellow = Color(0xFFFFEB3B)
-    val red = Color(0xFFF44336)
-    val zoneDanger = Color(0xFFB71C1C)
-    val zoneNormal = Color(0xFF37474F)
-    val zoneCompliant = Color(0xFF1B5E20)  // dark green — inside zone, speed-compliant
-    val speedSafe = Color(0xFF2E7D32)     // green — compliant (<5 kn) inside the 300 m zone
-    val speedCaution = Color(0xFFEF6C00)  // orange — 5–10 kn inside the zone
-    val speedDanger = Color(0xFFC62828)   // red — >10 kn inside the zone
-    val validationOk = Color(0xFF66BB6A)
-    val validationWarn = Color(0xFFFFA726)
-    /** Amber for zone-entry distance tile — zone boundary ahead. */
-    val zoneEntry = Color(0xFFE65100)
-    /** Green for zone-exit distance tile — exiting to open sea. */
-    val zoneExit = Color(0xFF2E7D32)
-    /** Alpha for all subdued/dulled dashboard states — no-data, on-land, far-from-zone, deep-water placeholder. */
-    const val dullAlpha = 0.33f
+    val background get() = Color(AppConfig.uiDashboardBackground)
+    val cardBg get() = Color(AppConfig.uiDashboardCardBackground)
+    val textPrimary get() = Color(AppConfig.uiDashboardTextPrimary)
+    val textMuted get() = Color(AppConfig.uiDashboardTextMuted)
+    val success get() = Color(AppConfig.uiDashboardStatusSuccess)
+    val warning get() = Color(AppConfig.uiDashboardStatusWarning)
+    val error get() = Color(AppConfig.uiDashboardStatusError)
+    val neutral get() = Color(AppConfig.uiDashboardStatusNeutral)
+    val absent get() = Color(AppConfig.uiDashboardStatusAbsent)
+
+    // Semantic aliases — zone and speed status colours point to status tokens
+    val zoneDanger get() = Color(AppConfig.uiDashboardStatusError)       // alias to error
+    val zoneNormal get() = Color(AppConfig.uiDashboardStatusAbsent)      // alias to absent
+    val zoneCompliant get() = Color(AppConfig.uiDashboardStatusSuccess)  // alias to success
+    val speedSafe get() = Color(AppConfig.uiDashboardStatusSuccess)      // alias to success
+    val speedCaution get() = Color(AppConfig.uiDashboardStatusWarning)   // alias to warning
+    val speedDanger get() = Color(AppConfig.uiDashboardStatusError)      // alias to error
+    val validationOk get() = Color(AppConfig.uiDashboardStatusSuccess)   // alias to success
+    val validationWarn get() = Color(AppConfig.uiDashboardStatusWarning) // alias to warning
+    val zoneEntry get() = Color(AppConfig.uiDashboardStatusWarning)      // alias to warning
+    val zoneExit get() = Color(AppConfig.uiDashboardStatusSuccess)       // alias to success
+
+    val dullAlpha get() = AppConfig.uiDashboardDullAlpha
 }
 
 // ── Dashboard panel (public, called from MapScreen) ──────────────────────────
@@ -735,10 +739,10 @@ fun depthSourceLabel(source: DepthSource): String = when (source) {
     DepthSource.NONE -> "—"
 }
 
-/** Readout tint by band: collision (≤5 m) red, shallow (≤10 m) amber, profiling cyan. */
+/** Readout tint by band: collision (≤5 m) → status error, shallow (≤10 m) → status warning, profiling → status neutral. */
 fun depthReadoutColor(depthM: Float): Long = when {
-    depthM <= DepthConstants.COLLISION_MAX_DEPTH_M.toFloat() -> 0xFFEF5350
-    depthM <= DepthConstants.SHALLOW_TIER_MAX_M.toFloat() -> 0xFFFFB74D
-    else -> 0xFF4FC3F7
+    depthM <= DepthConstants.COLLISION_MAX_DEPTH_M.toFloat() -> AppConfig.uiDashboardStatusError.toLong()
+    depthM <= DepthConstants.SHALLOW_TIER_MAX_M.toFloat() -> AppConfig.uiDashboardStatusWarning.toLong()
+    else -> AppConfig.uiDashboardStatusNeutral.toLong()
 }
 
