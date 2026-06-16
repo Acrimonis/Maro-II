@@ -101,7 +101,7 @@ fun DashboardPanel(
     Box(
         modifier = modifier
             .background(DashboardColors.background)
-            .padding(horizontal = 4.dp, vertical = 2.dp),
+            .padding(horizontal = 8.dp, vertical = 8.dp),
         contentAlignment = Alignment.BottomCenter
     ) {
         Column(
@@ -111,13 +111,13 @@ fun DashboardPanel(
             // ── 2×2 indicator grid ─────────────────────────────────────────
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     DistanceCard(
                         distanceToShore = distanceToShore,
@@ -146,7 +146,7 @@ fun DashboardPanel(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     DepthCard(
                         depthSample = depthSample,

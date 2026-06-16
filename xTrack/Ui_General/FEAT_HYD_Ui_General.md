@@ -1,14 +1,33 @@
-# Hydration — Ui_General
+# Hydration: Ui_General
 
-**Last Bake:** 2026-06-16 13:58
+**Session:** Layout refactor — 2-column Row overlay structure with symmetric 6dp margins.
 
-## Summary
-Alias interpolation landed in `AppConfig.init()` — `${key}` references in `colors.properties` values are now resolved at load time, unblocking the colour token chain. Green status entries (8 in total) were normalized to point at `ui.dashboard.status.success` instead of hardcoded values. The `overlay.lowDepth` colour was reassigned from neutral to the error palette (`#CCB71C1C`, dark red), correcting a visual misclassification. The `nodata` colour was migrated from absent to a distinct pale yellow (`#60FFF59D`) for clear differentiation from real depth data. `zoneNormal` was removed from the palette (absent handles that role now). All semantic status colours (success/warning/error) are rendered at 80% opacity for a softer integration with the map. `color-scheme.md` updated with alias chain documentation and the new token entries. Build: green.
+**State:**
+- 4/6 subfeatures complete (BackToExitConfirm, KeepScreenOn, page layout, immersive ui rework all [x]).
+- ButtonColors [ ] — empty shell.
+- SVSpacing [ ] — currently focused subfeature, empty shell.
 
-## Key Files
-- `app/src/main/java/ykws/android/maro/config/AppConfig.kt` — `${key}` alias resolution in `init()`
-- `app/src/main/assets/colors.properties` — green entries → `success` alias; lowDepth → error; nodata → pale yellow; zoneNormal removed
-- `docs/color-scheme.md` — alias chain documentation, new tokens
+**What happened this session:**
+- Restructured MapContent from ad-hoc overlays to a clean 2-column Row layout.
+- Removed ControlItem/ControlSection/ControlSectionContent machinery (~70 lines).
+- Removed Spacer(136.dp) placeholder for 2nd fan.
+- Removed root bottom = 6.dp band-aid.
+- Replaced systemBars inset on right Column with per-section insets (statusBars on ct, padding(6dp) on cb).
+- Consolidated 4× navigationBars insets into 1 conditional (landscape only).
+- Set uniform 6dp margins on all edges (portrait) / navigationBars (landscape bottom).
+- Added orientation-aware top inset: statusBarHeight - 6dp (portrait), full statusBarHeight (landscape).
+- Reduced zoom button spacing from 8dp to 6dp.
+- Added isLandscape parameter to MapContent.
+- All changes BUILD SUCCESSFUL.
 
-## Next Steps
-Visual review of the new 80% opacity semantic colours on the map overlay. Monitor for any missing alias references that might fall through to raw property names.
+**Next step:**
+- Deploy and test on device for both portrait and landscape orientations.
+- Track any visual tweaks needed after on-device validation.
+
+**Key Files:**
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — all layout changes
+- `plans/map-overlay-layout-rationalization.md` — full design plan
+- `plans/map-overlay-layout-inventory.md` — overlay inventory
+- `plans/right-edge-controls-gap-asymmetry-analysis.md` — original gap analysis
+
+**Last Bake:** 2026-06-16 21:18 UTC

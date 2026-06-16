@@ -443,6 +443,19 @@ object AppConfig {
                 // colors.properties is optional; defaults apply if absent.
             }
 
+            // Resolve ${key} interpolation — run BEFORE individual property reads so that
+            // references like ${ui.dashboard.status.success} are expanded in-place.
+            val refPattern = Regex("""\$\{([^}]+)\}""")
+            for (key in props.stringPropertyNames()) {
+                val value = props.getProperty(key) ?: continue
+                val resolved = refPattern.replace(value) { match ->
+                    props.getProperty(match.groupValues[1]) ?: match.value
+                }
+                if (resolved != value) {
+                    props.setProperty(key, resolved)
+                }
+            }
+
             props.getProperty("distanceToZoneGradientText")?.toFloatOrNull()?.let {
                 distanceToZoneGradientText = it.coerceIn(100f, 2000f)
             }
@@ -609,17 +622,6 @@ object AppConfig {
             props.getProperty("map.depth.ramp.warning.b")?.toIntOrNull()?.let { mapDepthRampWarningB = it.coerceIn(0, 255) }
             props.getProperty("map.depth.ramp.alpha")?.toIntOrNull()?.let { mapDepthRampAlpha = it.coerceIn(0, 255) }
 
-            // Resolve ${key} interpolation — 2nd pass
-            val refPattern = Regex("""\$\{([^}]+)\}""")
-            for (key in props.stringPropertyNames()) {
-                val value = props.getProperty(key) ?: continue
-                val resolved = refPattern.replace(value) { match ->
-                    props.getProperty(match.groupValues[1]) ?: match.value
-                }
-                if (resolved != value) {
-                    props.setProperty(key, resolved)
-                }
-            }
         } catch (_: Exception) {
             // Keep defaults — properties file missing or corrupt.
         }
