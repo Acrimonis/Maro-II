@@ -110,14 +110,14 @@ object AppConfig {
     /** Dashboard muted text. Default #90A4AE. Set via `ui.dashboard.text.muted` in colors.properties. */
     var uiDashboardTextMuted: Int = 0xFF90A4AE.toInt()
         private set
-    /** Dashboard status success (general OK, validation passed). Default #4CAF50. Set via `ui.dashboard.status.success` in colors.properties. */
-    var uiDashboardStatusSuccess: Int = 0xFF4CAF50.toInt()
+    /** Dashboard status success (general OK, validation passed). Default #CC4CAF50 (green, 80% opacity). Set via `ui.dashboard.status.success` in colors.properties. */
+    var uiDashboardStatusSuccess: Int = 0xCC4CAF50.toInt()
         private set
-    /** Dashboard status warning (caution, validation warning — deep amber). Default #E65100. Set via `ui.dashboard.status.warning` in colors.properties. */
-    var uiDashboardStatusWarning: Int = 0xFFE65100.toInt()
+    /** Dashboard status warning (caution, validation warning — orange). Default #CCEF6C00 (orange, 80% opacity). Set via `ui.dashboard.status.warning` in colors.properties. */
+    var uiDashboardStatusWarning: Int = 0xCCEF6C00.toInt()
         private set
-    /** Dashboard status error (critical alert, failure). Default #F44336. Set via `ui.dashboard.status.error` in colors.properties. */
-    var uiDashboardStatusError: Int = 0xFFF44336.toInt()
+    /** Dashboard status error (critical alert, failure). Default #CCB71C1C (dark red, 80% opacity). Set via `ui.dashboard.status.error` in colors.properties. */
+    var uiDashboardStatusError: Int = 0xCCB71C1C.toInt()
         private set
     /** Dashboard status neutral (informational). Default #AA4FC3F7 (cyan, 67% alpha). Set via `ui.dashboard.status.neutral` in colors.properties. */
     var uiDashboardStatusNeutral: Int = 0xAA4FC3F7.toInt()
@@ -183,12 +183,12 @@ object AppConfig {
     var mapNavigationLineColor: Int = 0x4D1565C0.toInt()
         private set
 
-    /** Depth NoData cell colour. Default #CCCCCC. Set via `map.depth.nodata.color` in colors.properties. */
-    var mapDepthNodataColor: Int = 0xFFCCCCCC.toInt()
+    /** Depth NoData cell colour. Default #60FFF59D (pale yellow, ~38% alpha). Set via `map.depth.nodata.color` in colors.properties. */
+    var mapDepthNodataColor: Int = 0x60FFF59D.toInt()
         private set
 
-    /** Low-depth warning overlay colour. Default #FF00E5. Set via `overlay.lowDepth.color` in colors.properties. */
-    var overlayLowDepthColor: Int = 0xFFFF00E5.toInt()
+    /** Low-depth warning overlay colour. Default #CCB71C1C (dark red, 80% opacity, alias to ui.dashboard.status.error). Set via `overlay.lowDepth.color` in colors.properties. */
+    var overlayLowDepthColor: Int = 0xCCB71C1C.toInt()
         private set
     /** Low-depth warning minimum opacity %. Default 25. Set via `overlay.lowDepth.minOpacity` in colors.properties. */
     var overlayLowDepthMinOpacity: Int = 25
@@ -608,6 +608,18 @@ object AppConfig {
             props.getProperty("map.depth.ramp.warning.g")?.toIntOrNull()?.let { mapDepthRampWarningG = it.coerceIn(0, 255) }
             props.getProperty("map.depth.ramp.warning.b")?.toIntOrNull()?.let { mapDepthRampWarningB = it.coerceIn(0, 255) }
             props.getProperty("map.depth.ramp.alpha")?.toIntOrNull()?.let { mapDepthRampAlpha = it.coerceIn(0, 255) }
+
+            // Resolve ${key} interpolation — 2nd pass
+            val refPattern = Regex("""\$\{([^}]+)\}""")
+            for (key in props.stringPropertyNames()) {
+                val value = props.getProperty(key) ?: continue
+                val resolved = refPattern.replace(value) { match ->
+                    props.getProperty(match.groupValues[1]) ?: match.value
+                }
+                if (resolved != value) {
+                    props.setProperty(key, resolved)
+                }
+            }
         } catch (_: Exception) {
             // Keep defaults — properties file missing or corrupt.
         }

@@ -28,22 +28,24 @@
 
 | Token | Value | Swatch | Usage |
 |---|---|---|---|
-| `success` | `0xFF4CAF50` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#4CAF50;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | General OK, validation passed |
-| `warning` | `0xFFE65100` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#E65100;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Caution, validation warning (deep amber) |
-| `error` | `0xFFF44336` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#F44336;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Error / alert |
+| `success` | `0xCC4CAF50` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#4CAF50;opacity:0.8;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | General OK, validation passed |
+| `warning` | `0xCCEF6C00` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#EF6C00;opacity:0.8;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Caution, validation warning (orange) |
+| `error` | `0xCCB71C1C` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#B71C1C;opacity:0.8;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Error / alert (dark red) |
 | `neutral` | `0xAA4FC3F7` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#4FC3F7;opacity:0.67;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Neutral/informational (cyan, 67% alpha) |
 | `absent` | `0xAA37474F` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#37474F;opacity:0.67;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Absent/no-data (blue-grey, 67% alpha) |
-| `validationOk` | `0xFF4CAF50` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#4CAF50;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Alias to `success` |
-| `validationWarn` | `0xFFE65100` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#E65100;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Alias to `warning` |
+| `validationOk` | → `success` = `#CC4CAF50` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#4CAF50;opacity:0.8;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Code alias to `success` |
+| `validationWarn` | → `warning` = `#CCEF6C00` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#EF6C00;opacity:0.8;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Code alias to `warning` |
+| `zoneNormal` | → `absent` = `0xAA37474F` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#37474F;opacity:0.67;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Code alias to `absent` |
+| `overlay.lowDepth` | → `error` = `0xCCB71C1C` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#B71C1C;opacity:0.8;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Low-depth warning overlay aliased to `error` |
 
 ### Zone / Speed Status Colours
 
 | Token | Value | Swatch | Usage |
 |---|---|---|---|
 | `zoneDanger` | `0xFFB71C1C` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#B71C1C;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | In-zone danger (dark red) |
-| `zoneNormal` | `0xFF37474F` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#37474F;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | In-zone normal/default (blue-grey) |
-| `zoneCompliant` | `0xFF1B5E20` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1B5E20;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Inside zone, speed-compliant (dark green) |
-| `speedSafe` | `0xFF2E7D32` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#2E7D32;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Speed ≤ limit inside zone (green) |
+| `zoneNormal` | → `ui.dashboard.status.absent` = `0xAA37474F` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#37474F;opacity:0.67;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | In-zone normal/default (alias to absent) |
+| `zoneCompliant` | → `ui.dashboard.status.success` = `#CC4CAF50` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#4CAF50;opacity:0.8;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Inside zone, speed-compliant (green) |
+| `speedSafe` | → `ui.dashboard.status.success` = `#CC4CAF50` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#4CAF50;opacity:0.8;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Speed ≤ limit inside zone (green) |
 | `speedCaution` | `0xFFEF6C00` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#EF6C00;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Speed borderline inside zone (orange) |
 | `speedDanger` | `0xFFC62828` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#C62828;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Speed > limit inside zone (red) |
 
@@ -52,7 +54,7 @@
 | Token | Value | Swatch | Usage |
 |---|---|---|---|
 | `zoneEntry` | `0xFFE65100` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#E65100;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Amber — zone boundary ahead (entry distance tile) |
-| `zoneExit` | `0xFF2E7D32` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#2E7D32;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Green — exiting to open sea (exit distance tile) |
+| `zoneExit` | → `ui.dashboard.status.success` = `#CC4CAF50` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#4CAF50;opacity:0.8;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Green — exiting to open sea (exit distance tile) |
 
 ### Alpha Constants
 
@@ -106,9 +108,9 @@ Affects all right-edge control-stack buttons: Settings gear, fan parent, fan chi
 
 | Property | AppConfig field | Default | Swatch | Usage |
 |---|---|---|---|---|
-| `lowDepthWarningColor` | `lowDepthWarningColor` | `0xFFFF00E5` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FF00E5;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Low-depth warning overlay (bright magenta) — alpha is depth-graded at runtime |
-| `lowDepthWarningMinOpacityPct` | `lowDepthWarningMinOpacityPct` | `25` | — | Minimum opacity % at the threshold depth (0–100) |
-| `nodata.color` | `nodataColor` | `0xFFCCCCCC` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#CCCCCC;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | NoData / above-datum cells in depth colour map (light grey) |
+| `overlay.lowDepth.color` | `overlayLowDepthColor` | → `ui.dashboard.status.error` = `0xCCB71C1C` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#B71C1C;opacity:0.8;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Low-depth warning overlay (dark red, 80% opacity) — alpha is depth-graded at runtime |
+| `overlay.lowDepth.minOpacity` | `overlayLowDepthMinOpacity` | `25` | — | Minimum opacity % at the threshold depth (0–100) |
+| `map.depth.nodata.color` | `mapDepthNodataColor` | `0x60FFF59D` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFF59D;opacity:0.38;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | NoData cells (pale yellow, ~38% alpha) |
 
 ### Depth Colour Ramp
 
@@ -143,7 +145,7 @@ The hypsometric ramp interpolates between shallow (pale cyan) and deep (navy) en
 
 | Property | Default | Swatch | Usage |
 |---|---|---|---|
-| `isobar.color.litto3d` | `0xFF1B5E20` (dark green) | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1B5E20;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Litto3D isobath lines |
+| `isobar.color.litto3d` | → `ui.dashboard.status.success` = `#CC4CAF50` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#4CAF50;opacity:0.8;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Litto3D isobath lines |
 | `isobar.color.emodnet` | `0xFF00008B` (dark blue) | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#00008B;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | EMODnet isobath lines |
 | `isobar.color.default` | `0xFF37474F` (blue-grey) | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#37474F;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Fallback for any unlisted source |
 | `isobar.width.litto3d` | `+1px` | — | Litto3D line width bonus |
@@ -161,7 +163,7 @@ The hypsometric ramp interpolates between shallow (pale cyan) and deep (navy) en
 |---|---|---|---|---|---|---|
 | `DEMO` | `status.gps.demo` | `statusGpsDemo` | `#FFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | `statusGpsAlphaDimmed` | GPS off, dimmed |
 | `ACQUIRING` | `status.gps.acquiring` | `statusGpsAcquiring` | `#FFA726` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFA726;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | `statusGpsAlphaActive` | Searching for fix |
-| `HEALTHY` | `status.gps.healthy` | `statusGpsHealthy` | `#2E7D32` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#2E7D32;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | `statusGpsAlphaActive` | GPS fix good |
+| `HEALTHY` | `status.gps.healthy` | `statusGpsHealthy` | → `ui.dashboard.status.success` = `#CC4CAF50` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#4CAF50;opacity:0.8;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | `statusGpsAlphaActive` | GPS fix good |
 | `IDLE` | `status.gps.idle` | `statusGpsIdle` | `#1565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | `statusGpsAlphaActive` | GPS fix but stationary |
 | `STALE` | `status.gps.stale` | `statusGpsStale` | `#F44336` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#F44336;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | `statusGpsAlphaActive` | GPS lost / error |
 
@@ -176,7 +178,7 @@ The hypsometric ramp interpolates between shallow (pale cyan) and deep (navy) en
 | State | Property | AppConfig field | Default | Swatch | Alpha | Emoji |
 |---|---|---|---|---|---|---|
 | Water (active) | `status.earthWater.water` | `statusEarthWaterWater` | `#1565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | `statusGpsAlphaActive` | 🌊 |
-| Land (active) | `status.earthWater.land` | `statusEarthWaterLand` | `#2E7D32` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#2E7D32;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | `statusGpsAlphaActive` | 🏔️ |
+| Land (active) | `status.earthWater.land` | `statusEarthWaterLand` | → `ui.dashboard.status.success` = `#CC4CAF50` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#4CAF50;opacity:0.8;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | `statusGpsAlphaActive` | 🏔️ |
 | Inactive | `status.earthWater.inactive` | `statusEarthWaterInactive` | `#EEFFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;opacity:0.93;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | — | — |
 
 ---
@@ -203,7 +205,7 @@ The hypsometric ramp interpolates between shallow (pale cyan) and deep (navy) en
 
 | Property | AppConfig field | Default | Swatch | Usage |
 |---|---|---|---|---|
-| `map.zoneAhead.line` | `mapZoneAheadLine` | `#00C800` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#00C800;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Dashed line from boat to zone intersection (green) |
+| `map.zoneAhead.line` | `mapZoneAheadLine` | → `ui.dashboard.status.success` = `#CC4CAF50` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#4CAF50;opacity:0.8;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Dashed line from boat to zone intersection (green) |
 | `map.zoneAhead.cone.fill` | `mapZoneAheadConeFill` | `#FFEB00` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFEB00;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Translucent yellow cone fill (search area) |
 | `map.zoneAhead.cone.outline` | `mapZoneAheadConeOutline` | `#FFC800` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFC800;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Cone outline (search area) |
 
@@ -280,7 +282,7 @@ The hypsometric ramp interpolates between shallow (pale cyan) and deep (navy) en
 | `regulatedZone.type.speedLimit` | `regulatedZoneTypeSpeedLimit` | `#1565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Speed limit zones |
 | `regulatedZone.type.anchoringProhibited` | `regulatedZoneTypeAnchoringProhibited` | `#FF8F00` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FF8F00;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Anchoring prohibited |
 | `regulatedZone.type.accessProhibited` | `regulatedZoneTypeAccessProhibited` | `#E53935` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#E53935;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Access prohibited |
-| `regulatedZone.type.environmental` | `regulatedZoneTypeEnvironmental` | `#2E7D32` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#2E7D32;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Environmental protection |
+| `regulatedZone.type.environmental` | `regulatedZoneTypeEnvironmental` | → `ui.dashboard.status.success` = `#CC4CAF50` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#4CAF50;opacity:0.8;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Environmental protection |
 | `regulatedZone.type.mooring` | `regulatedZoneTypeMooring` | `#00897B` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#00897B;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Mooring areas |
 | `regulatedZone.type.fishingProhibited` | `regulatedZoneTypeFishingProhibited` | `#FDD835` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FDD835;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Fishing prohibited |
 | `regulatedZone.type.navigationRestriction` | `regulatedZoneTypeNavigationRestriction` | `#8E24AA` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#8E24AA;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Navigation restriction |

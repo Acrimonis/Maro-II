@@ -58,7 +58,7 @@ private object DashboardColors {
 
     // Semantic aliases — zone and speed status colours point to status tokens
     val zoneDanger get() = Color(AppConfig.uiDashboardStatusError)       // alias to error
-    val zoneNormal get() = Color(AppConfig.uiDashboardZoneNormal)        // keeps dedicated field
+    val zoneNormal get() = Color(AppConfig.uiDashboardStatusAbsent)      // alias to absent
     val zoneCompliant get() = Color(AppConfig.uiDashboardStatusSuccess)  // alias to success
     val speedSafe get() = Color(AppConfig.uiDashboardStatusSuccess)      // alias to success
     val speedCaution get() = Color(AppConfig.uiDashboardStatusWarning)   // alias to warning

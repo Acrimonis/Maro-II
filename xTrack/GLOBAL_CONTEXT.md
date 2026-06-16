@@ -4,7 +4,7 @@
 - **Active Feature:** Ui_General
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-16
-- **Last Bake:** 2026-06-16 12:21 (ZoneConfig → AppConfig rename + config/ package. Neutral/absent semantic colours added. DashboardColors aliases normalized. warning → deep amber. 10-file import fix. Build: green.)
+- **Last Bake:** 2026-06-16 13:58 (Alias interpolation in AppConfig.init(). 8 green entries wired to success. overlay.lowDepth → error. nodata → pale yellow #60FFF59D. zoneNormal → absent. Semantic colours 80% opacity. color-scheme.md updated. Build: green.)
 - **Branch:** feature/btns-color
 ## Routing Map
 | Keyword | Feature File |
@@ -41,7 +41,7 @@
 | Performance | Battery optimization, adaptive GPS tuning, compass gate, map refresh | 2026-05-20 00:00 | 2026-06-05 00:00 | active |
 | BakeNormalization | APK bake/build/deploy pipeline and prebake data processing | 2026-06-01 00:00 | 2026-06-05 00:00 | active |
 | DepthSafety | Danger depth alerts, shallow water grounding prevention, isobath precision | 2026-06-03 00:00 | 2026-06-05 00:00 | active |
-| Ui_General | App-lifecycle UX: back-to-exit guard, keep-screen-on wakelock, edge-to-edge rendering and WindowInsets management | 2026-06-08 16:43 | 2026-06-16 10:18 | active |
+| Ui_General | App-lifecycle UX: back-to-exit guard, keep-screen-on wakelock, edge-to-edge rendering and WindowInsets management | 2026-06-08 16:43 | 2026-06-16 13:58 | active |
 | Ui_Settings | Settings page UI, persistence, widgets, and UX enhancements | 2026-06-09 15:28 | 2026-06-09 19:42 | active |
 | **Navigation** | **Navigation aids — heading/speed arrow and direction line on map overlay** | **2026-06-10 08:40** | **2026-06-11 11:55** | **active** |
 | **RegulatedZones** | **Maritime regulatory zones — multi-source normalization (SHOM INSPIRE + IGN Natura 2000), sealed classification, 8-category icon mapping, keyword-driven display logic** | **2026-06-11 18:00** | **2026-06-12 22:37** | **active** |
