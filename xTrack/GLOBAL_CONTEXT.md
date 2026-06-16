@@ -4,7 +4,7 @@
 - **Active Feature:** Ui_General
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-16
-- **Last Bake:** 2026-06-16 13:58 (Alias interpolation in AppConfig.init(). 8 green entries wired to success. overlay.lowDepth → error. nodata → pale yellow #60FFF59D. zoneNormal → absent. Semantic colours 80% opacity. color-scheme.md updated. Build: green.)
+- **Last Bake:** 2026-06-16 16:09 (Created ColorManagement feature with alias interpolation, colour modification prompt, deploy+launch command. color-scheme.md linked.)
 - **Branch:** feature/btns-color
 ## Routing Map
 | Keyword | Feature File |
@@ -24,12 +24,14 @@
 | settings, preferences, config, scroll, options | xTrack/Ui_Settings/FEAT_DSC_Ui_Settings.md |
 | regulation, regulated zones, regulatedzone, regulation zone, speed zone, speed limit, anchoring, SHOM regulation, shom reg, maritime regulation, regulatory zone, réglementation maritime, zone réglementée, arrêté maritime, DIRM, cap d'antibes, lérins | xTrack/RegulatedZones/FEAT_DSC_RegulatedZones.md |
 | arclayout, arc, arc-menu, layer-toggle, multi-btn, layer, toggle, fan-out | xTrack/ArcLayout/FEAT_DSC_ArcLayout.md |
+| color, colour, color management, color-scheme, colors.properties, colour palette, colour scheme, colours, theme | xTrack/ColorManagement/FEAT_DSC_ColorManagement.md |
 | zone300speed, 300m badge, speed badge, 300m speed | xTrack/Zone300SpeedBadge/FEAT_DSC_Zone300SpeedBadge.md |
 
 ## Feature Summaries
 
 | Feature | One-Liner | Created | Modified | Status |
 |---------|-----------|---------|----------|--------|
+| **ColorManagement** | **Centralised colour palette — all tokens in colors.properties with alias interpolation, documented in color-scheme.md** | **2026-06-16 14:05** | **2026-06-16 14:05** | **active** |
 | **Documentation** | **README, FAQs, setup guides, architecture docs, and plans cleanup** | **2026-06-11 06:42** | **2026-06-11 10:36** | **active** |
 | WorkflowImprovement | xTrack #command system, git shortcuts, #now/#list rename, trigger syntax, fuzzy matching, bootstrap, and memory bake lifecycle | 2026-06-03 00:00 | 2026-06-10 07:30 | active |
 | Zone300 | 300m zone generation from coastline with water-only constraint | 2026-05-20 00:00 | 2026-06-03 00:00 | active |
