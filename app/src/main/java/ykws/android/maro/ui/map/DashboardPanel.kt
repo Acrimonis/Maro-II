@@ -1,4 +1,6 @@
+
 package ykws.android.maro.ui.map
+import ykws.android.maro.config.AppConfig
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -44,24 +46,29 @@ import kotlin.math.roundToInt
 // ── Colour palette — runtime bridge to colors.properties ──────────────────────
 
 private object DashboardColors {
-    val background get() = Color(ZoneConfig.uiDashboardBackground)
-    val cardBg get() = Color(ZoneConfig.uiDashboardCardBackground)
-    val textPrimary get() = Color(ZoneConfig.uiDashboardTextPrimary)
-    val textMuted get() = Color(ZoneConfig.uiDashboardTextMuted)
-    val success get() = Color(ZoneConfig.uiDashboardStatusSuccess)
-    val warning get() = Color(ZoneConfig.uiDashboardStatusWarning)
-    val error get() = Color(ZoneConfig.uiDashboardStatusError)
-    val zoneDanger get() = Color(ZoneConfig.uiDashboardZoneDangerDark)
-    val zoneNormal get() = Color(ZoneConfig.uiDashboardZoneNormal)
-    val zoneCompliant get() = Color(ZoneConfig.uiDashboardZoneCompliant)
-    val speedSafe get() = Color(ZoneConfig.uiDashboardZoneSafe)
-    val speedCaution get() = Color(ZoneConfig.uiDashboardZoneCaution)
-    val speedDanger get() = Color(ZoneConfig.uiDashboardZoneDanger)
-    val validationOk get() = Color(ZoneConfig.uiDashboardStatusSuccess)  // alias to success
-    val validationWarn get() = Color(ZoneConfig.uiDashboardStatusWarning) // alias to warning
-    val zoneEntry get() = Color(ZoneConfig.uiDashboardDistanceEntry)
-    val zoneExit get() = Color(ZoneConfig.uiDashboardDistanceExit)
-    val dullAlpha get() = ZoneConfig.uiDashboardDullAlpha
+    val background get() = Color(AppConfig.uiDashboardBackground)
+    val cardBg get() = Color(AppConfig.uiDashboardCardBackground)
+    val textPrimary get() = Color(AppConfig.uiDashboardTextPrimary)
+    val textMuted get() = Color(AppConfig.uiDashboardTextMuted)
+    val success get() = Color(AppConfig.uiDashboardStatusSuccess)
+    val warning get() = Color(AppConfig.uiDashboardStatusWarning)
+    val error get() = Color(AppConfig.uiDashboardStatusError)
+    val neutral get() = Color(AppConfig.uiDashboardStatusNeutral)
+    val absent get() = Color(AppConfig.uiDashboardStatusAbsent)
+
+    // Semantic aliases — zone and speed status colours point to status tokens
+    val zoneDanger get() = Color(AppConfig.uiDashboardStatusError)       // alias to error
+    val zoneNormal get() = Color(AppConfig.uiDashboardZoneNormal)        // keeps dedicated field
+    val zoneCompliant get() = Color(AppConfig.uiDashboardStatusSuccess)  // alias to success
+    val speedSafe get() = Color(AppConfig.uiDashboardStatusSuccess)      // alias to success
+    val speedCaution get() = Color(AppConfig.uiDashboardStatusWarning)   // alias to warning
+    val speedDanger get() = Color(AppConfig.uiDashboardStatusError)      // alias to error
+    val validationOk get() = Color(AppConfig.uiDashboardStatusSuccess)   // alias to success
+    val validationWarn get() = Color(AppConfig.uiDashboardStatusWarning) // alias to warning
+    val zoneEntry get() = Color(AppConfig.uiDashboardStatusWarning)      // alias to warning
+    val zoneExit get() = Color(AppConfig.uiDashboardStatusSuccess)       // alias to success
+
+    val dullAlpha get() = AppConfig.uiDashboardDullAlpha
 }
 
 // ── Dashboard panel (public, called from MapScreen) ──────────────────────────
@@ -732,10 +739,10 @@ fun depthSourceLabel(source: DepthSource): String = when (source) {
     DepthSource.NONE -> "—"
 }
 
-/** Readout tint by band: collision (≤5 m) red, shallow (≤10 m) amber, profiling cyan. */
+/** Readout tint by band: collision (≤5 m) → status error, shallow (≤10 m) → status warning, profiling → status neutral. */
 fun depthReadoutColor(depthM: Float): Long = when {
-    depthM <= DepthConstants.COLLISION_MAX_DEPTH_M.toFloat() -> ZoneConfig.uiDashboardReadoutCollision.toLong()
-    depthM <= DepthConstants.SHALLOW_TIER_MAX_M.toFloat() -> ZoneConfig.uiDashboardReadoutShallow.toLong()
-    else -> ZoneConfig.uiDashboardReadoutDeep.toLong()
+    depthM <= DepthConstants.COLLISION_MAX_DEPTH_M.toFloat() -> AppConfig.uiDashboardStatusError.toLong()
+    depthM <= DepthConstants.SHALLOW_TIER_MAX_M.toFloat() -> AppConfig.uiDashboardStatusWarning.toLong()
+    else -> AppConfig.uiDashboardStatusNeutral.toLong()
 }
 

@@ -1,4 +1,6 @@
+
 package ykws.android.maro.ui.map
+import ykws.android.maro.config.AppConfig
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.size
@@ -27,13 +29,13 @@ import androidx.compose.ui.unit.dp
  */
 object ButtonColors {
     /** Button background — loaded from maro.properties, defaults to semi-transparent white. */
-    val bg: ComposeColor get() = ComposeColor(ZoneConfig.buttonActionBgColor)
+    val bg: ComposeColor get() = ComposeColor(AppConfig.buttonActionBgColor)
     /** Icon colour for all action-button symbols — loaded from maro.properties. */
-    val icon: ComposeColor get() = ComposeColor(ZoneConfig.buttonActionIconColor)
+    val icon: ComposeColor get() = ComposeColor(AppConfig.buttonActionIconColor)
     /** Alpha (0.0–1.0) for active/toggled-on icon state. */
-    val activeAlpha: Float get() = ZoneConfig.buttonActionIconActiveAlpha
+    val activeAlpha: Float get() = AppConfig.buttonActionIconActiveAlpha
     /** Alpha (0.0–1.0) for inactive/toggled-off icon state. */
-    val inactiveAlpha: Float get() = ZoneConfig.buttonActionIconInactiveAlpha
+    val inactiveAlpha: Float get() = AppConfig.buttonActionIconInactiveAlpha
 }
 
 /** Standard icon size for control-stack buttons (28 dp). */

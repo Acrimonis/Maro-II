@@ -30,7 +30,7 @@ import java.util.Locale
 import ykws.android.maro.ui.map.CoastlineViewModel
 import ykws.android.maro.ui.map.DepthViewModel
 import ykws.android.maro.ui.map.MapScreen
-import ykws.android.maro.ui.map.ZoneConfig
+import ykws.android.maro.config.AppConfig
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -43,7 +43,7 @@ class MainActivity : ComponentActivity() {
         // Dark window background: the light theme's default background shows through
         // transparent system bars, creating a grey gap. Set it to match the app's
         // dark dashboard background (#16213E) so system bar areas blend seamlessly.
-        window.setBackgroundDrawable(ColorDrawable(ZoneConfig.uiSettingsToastBackground))
+        window.setBackgroundDrawable(ColorDrawable(AppConfig.uiSettingsToastBackground))
 
         // Set status bar icons to light (white) on the dark background.
         WindowCompat.getInsetsController(window, window.decorView).apply {
@@ -52,7 +52,7 @@ class MainActivity : ComponentActivity() {
         }
 
         // Load zone gradient tunables from zone.properties before the UI composes.
-        ZoneConfig.init(this)
+        AppConfig.init(this)
 
         setContent {
             // Use a factory because CoastlineViewModel now extends AndroidViewModel

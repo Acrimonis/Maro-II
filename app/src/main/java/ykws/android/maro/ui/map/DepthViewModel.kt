@@ -1,4 +1,6 @@
+
 package ykws.android.maro.ui.map
+import ykws.android.maro.config.AppConfig
 
 import android.content.Context
 import android.graphics.Bitmap
@@ -139,14 +141,14 @@ class DepthViewModel(
             } ?: run { _rasterProgress.value = null; return@launch }
 
             val cutoffM = settings.emodnetShallowCutoffM
-            val nodataColor = ZoneConfig.mapDepthNodataColor
+            val nodataColor = AppConfig.mapDepthNodataColor
             val key = RasterCache.Key(
                 gridTimestampMs = grid.metadata.fetchTimestampMs,
                 emodnetCutoffM = cutoffM,
                 lowDepthMaxM = settings.lowDepthWarningMaxM,
                 lowDepthMinOpacityPct = settings.lowDepthWarningMinOpacityPct,
                 nodataColor = nodataColor,
-                colorsHash = ZoneConfig.rasterColorsHash
+                colorsHash = AppConfig.rasterColorsHash
             )
 
             withContext(Dispatchers.Default) {
@@ -207,8 +209,8 @@ class DepthViewModel(
             emodnetCutoffM = settings.emodnetShallowCutoffM,
             lowDepthMaxM = settings.lowDepthWarningMaxM,
             lowDepthMinOpacityPct = settings.lowDepthWarningMinOpacityPct,
-            nodataColor = ZoneConfig.mapDepthNodataColor,
-            colorsHash = ZoneConfig.rasterColorsHash
+            nodataColor = AppConfig.mapDepthNodataColor,
+            colorsHash = AppConfig.rasterColorsHash
         )
         return RasterCache.read(context, step, key)
     }

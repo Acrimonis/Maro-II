@@ -4,7 +4,7 @@
 > Canonical reference for all colour tokens used in the Maro-II app.
 > All colours are now loaded at runtime from
 > [`colors.properties`](../app/src/main/assets/colors.properties) via
-> [`ZoneConfig.init()`](../app/src/main/java/ykws/android/maro/ui/map/ZoneConfig.kt:126).
+> [`AppConfig.init()`](../app/src/main/java/ykws/android/maro/ui/map/AppConfig.kt:126).
 > Edit the `.properties` file, rebuild the APK — no code changes needed.
 >
 > 🎨 <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1A1A2E;vertical-align:middle;margin:0 2px;border:1px solid rgba(255,255,255,0.2);"></span> Swatches show the actual colour.
@@ -29,10 +29,12 @@
 | Token | Value | Swatch | Usage |
 |---|---|---|---|
 | `success` | `0xFF4CAF50` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#4CAF50;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | General OK, validation passed |
-| `warning` | `0xFFFFA726` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFA726;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Caution, validation warning (amber) |
+| `warning` | `0xFFE65100` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#E65100;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Caution, validation warning (deep amber) |
 | `error` | `0xFFF44336` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#F44336;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Error / alert |
+| `neutral` | `0xAA4FC3F7` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#4FC3F7;opacity:0.67;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Neutral/informational (cyan, 67% alpha) |
+| `absent` | `0xAA37474F` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#37474F;opacity:0.67;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Absent/no-data (blue-grey, 67% alpha) |
 | `validationOk` | `0xFF4CAF50` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#4CAF50;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Alias to `success` |
-| `validationWarn` | `0xFFFFA726` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFA726;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Alias to `warning` |
+| `validationWarn` | `0xFFE65100` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#E65100;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Alias to `warning` |
 
 ### Zone / Speed Status Colours
 
@@ -61,9 +63,9 @@
 ### Depth Readout Tints
 
 **Property prefix:** `ui.dashboard.readout.*`
-**Source:** [`colors.properties`](../app/src/main/assets/colors.properties) → `ZoneConfig.uiDashboardReadout*`
+**Source:** [`colors.properties`](../app/src/main/assets/colors.properties) → `AppConfig.uiDashboardReadout*`
 
-| Property | ZoneConfig field | Default | Swatch | Usage |
+| Property | AppConfig field | Default | Swatch | Usage |
 |---|---|---|---|---|
 | `ui.dashboard.readout.collision` | `uiDashboardReadoutCollision` | `#FFEF5350` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#EF5350;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Depth readout ≤ 5 m (collision band) |
 | `ui.dashboard.readout.shallow` | `uiDashboardReadoutShallow` | `#FFFFB74D` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFB74D;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Depth readout ≤ 10 m (shallow tier) |
@@ -74,11 +76,11 @@
 ## 2. Action Button Colours (runtime)
 
 **Property prefix:** `ui.button.*`
-**Source:** [`colors.properties`](../app/src/main/assets/colors.properties) → `ZoneConfig.uiButton*` → [`ButtonColors`](../app/src/main/java/ykws/android/maro/ui/map/FanIconComponents.kt:28)
+**Source:** [`colors.properties`](../app/src/main/assets/colors.properties) → `AppConfig.uiButton*` → [`ButtonColors`](../app/src/main/java/ykws/android/maro/ui/map/FanIconComponents.kt:28)
 
 Affects all right-edge control-stack buttons: Settings gear, fan parent, fan children (depth, regulated zones, 300m zone, danger), zoom +/−, and the active-child badge.
 
-| Property | Default | ZoneConfig field | Swatch | Usage |
+| Property | Default | AppConfig field | Swatch | Usage |
 |---|---|---|---|---|
 | `ui.button.background` | `#CCFFFFFF` | `buttonActionBgColor` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;opacity:0.8;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Button circle fill (80% opaque white) |
 | `ui.button.icon` | `#1565C0` | `buttonActionIconColor` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | All icon symbols (gear, +/−, layer glyphs, badge) |
@@ -91,18 +93,18 @@ Affects all right-edge control-stack buttons: Settings gear, fan parent, fan chi
 
 ## 3. Configurable Map Colours (runtime from `maro.properties`)
 
-**Source:** [`ZoneConfig.kt`](../app/src/main/java/ykws/android/maro/ui/map/ZoneConfig.kt) — loaded from both `zone.properties` and `maro.properties`.
+**Source:** [`AppConfig.kt`](../app/src/main/java/ykws/android/maro/ui/map/AppConfig.kt) — loaded from both `zone.properties` and `maro.properties`.
 
 ### Arrow & Direction Line
 
-| Property | ZoneConfig field | Default | Swatch | Usage |
+| Property | AppConfig field | Default | Swatch | Usage |
 |---|---|---|---|---|
 | `cap.arrow.color` | `capArrowColor` | `0xFF1565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Heading/speed cap arrow (boat marker) |
 | `direction.line.color` | `directionLineColor` | `0x4D1565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;opacity:0.3;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Direction line from boat center (30% alpha blue) |
 
 ### Depth Overlay
 
-| Property | ZoneConfig field | Default | Swatch | Usage |
+| Property | AppConfig field | Default | Swatch | Usage |
 |---|---|---|---|---|
 | `lowDepthWarningColor` | `lowDepthWarningColor` | `0xFFFF00E5` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FF00E5;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Low-depth warning overlay (bright magenta) — alpha is depth-graded at runtime |
 | `lowDepthWarningMinOpacityPct` | `lowDepthWarningMinOpacityPct` | `25` | — | Minimum opacity % at the threshold depth (0–100) |
@@ -111,11 +113,11 @@ Affects all right-edge control-stack buttons: Settings gear, fan parent, fan chi
 ### Depth Colour Ramp
 
 **Property prefix:** `map.depth.ramp.*`
-**Source:** [`colors.properties`](../app/src/main/assets/colors.properties) → `ZoneConfig.mapDepthRamp*`
+**Source:** [`colors.properties`](../app/src/main/assets/colors.properties) → `AppConfig.mapDepthRamp*`
 
 The hypsometric ramp interpolates between shallow (pale cyan) and deep (navy) endpoints, with a red-orange warning blend in the 0–5 m collision band.
 
-| Property | ZoneConfig field | Default | Usage |
+| Property | AppConfig field | Default | Usage |
 |---|---|---|---|
 | `map.depth.ramp.shallow.r` | `mapDepthRampShallowR` | `200` | Shallow end red channel |
 | `map.depth.ramp.shallow.g` | `mapDepthRampShallowG` | `232` | Shallow end green channel |
@@ -132,7 +134,7 @@ The hypsometric ramp interpolates between shallow (pale cyan) and deep (navy) en
 
 ### Icon Background Opacity
 
-| Property | ZoneConfig field | Default | Usage |
+| Property | AppConfig field | Default | Usage |
 |---|---|---|---|
 | `icon.back.active.transparency` | `iconBackActiveAlpha` | `75` (→ 191/255) | GPS status icon and EarthWater icon active state bg opacity % |
 | `icon.back.inactive.transparency` | `iconBackInactiveAlpha` | `50` (→ 128/255) | GPS DEMO icon bg opacity % |
@@ -155,7 +157,7 @@ The hypsometric ramp interpolates between shallow (pale cyan) and deep (navy) en
 
 44×44 dp rounded square in top-left of the map.
 
-| State | Property | ZoneConfig field | Default | Swatch | Alpha | Usage |
+| State | Property | AppConfig field | Default | Swatch | Alpha | Usage |
 |---|---|---|---|---|---|---|
 | `DEMO` | `status.gps.demo` | `statusGpsDemo` | `#FFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | `statusGpsAlphaDimmed` | GPS off, dimmed |
 | `ACQUIRING` | `status.gps.acquiring` | `statusGpsAcquiring` | `#FFA726` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFA726;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | `statusGpsAlphaActive` | Searching for fix |
@@ -171,7 +173,7 @@ The hypsometric ramp interpolates between shallow (pale cyan) and deep (navy) en
 
 44×44 dp rounded square in top-left, beside GPS icon.
 
-| State | Property | ZoneConfig field | Default | Swatch | Alpha | Emoji |
+| State | Property | AppConfig field | Default | Swatch | Alpha | Emoji |
 |---|---|---|---|---|---|---|
 | Water (active) | `status.earthWater.water` | `statusEarthWaterWater` | `#1565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | `statusGpsAlphaActive` | 🌊 |
 | Land (active) | `status.earthWater.land` | `statusEarthWaterLand` | `#2E7D32` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#2E7D32;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | `statusGpsAlphaActive` | 🏔️ |
@@ -181,25 +183,25 @@ The hypsometric ramp interpolates between shallow (pale cyan) and deep (navy) en
 
 ## 6. Map Overlay Colours (runtime)
 
-**Source:** [`colors.properties`](../app/src/main/assets/colors.properties) → `ZoneConfig` map fields.
+**Source:** [`colors.properties`](../app/src/main/assets/colors.properties) → `AppConfig` map fields.
 
 ### Coastlines
 
-| Property | ZoneConfig field | Default | Swatch | Location |
+| Property | AppConfig field | Default | Swatch | Location |
 |---|---|---|---|---|
 | `map.coastline.mainland.color` | `mapCoastlineMainlandColor` | `#1545C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1545C0;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | [`MapScreen.kt:3137`](../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:3137) |
 | `map.coastline.island.color` | `mapCoastlineIslandColor` | `#08805C` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#08805C;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | [`MapScreen.kt:3138`](../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:3138) |
 
 ### Hazard Discs (isolated offshore dangers)
 
-| Property | ZoneConfig field | Default | Swatch | Usage |
+| Property | AppConfig field | Default | Swatch | Usage |
 |---|---|---|---|---|
 | `map.hazard.disc.fill` | `mapHazardDiscFill` | `#FFE800` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFE800;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Vivid yellow fill for isolated offshore danger discs |
 | `map.hazard.outline` | `mapHazardOutline` | `#000000` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#000000;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Black outline ring + cross on hazard markers |
 
 ### Zone-Ahead Line & Cone
 
-| Property | ZoneConfig field | Default | Swatch | Usage |
+| Property | AppConfig field | Default | Swatch | Usage |
 |---|---|---|---|---|
 | `map.zoneAhead.line` | `mapZoneAheadLine` | `#00C800` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#00C800;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Dashed line from boat to zone intersection (green) |
 | `map.zoneAhead.cone.fill` | `mapZoneAheadConeFill` | `#FFEB00` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFEB00;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Translucent yellow cone fill (search area) |
@@ -207,7 +209,7 @@ The hypsometric ramp interpolates between shallow (pale cyan) and deep (navy) en
 
 ### 300 m Band
 
-| Property | ZoneConfig field | Default | Swatch | Usage |
+| Property | AppConfig field | Default | Swatch | Usage |
 |---|---|---|---|---|
 | `map.zone300.fill` | `mapZone300Fill` | `#E53935` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#E53935;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Translucent red fill for 300 m band (water only) |
 | `map.zone300.boundary` | `mapZone300Boundary` | `#E53935` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#E53935;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Seaward boundary line of the 300 m band |
@@ -217,11 +219,11 @@ The hypsometric ramp interpolates between shallow (pale cyan) and deep (navy) en
 ## 7. Settings Overlay (runtime)
 
 **Property prefix:** `ui.settings.*`
-**Source:** [`colors.properties`](../app/src/main/assets/colors.properties) → `ZoneConfig.uiSettings*`
+**Source:** [`colors.properties`](../app/src/main/assets/colors.properties) → `AppConfig.uiSettings*`
 
 ### Background & Layout
 
-| Property | ZoneConfig field | Default | Swatch | Usage |
+| Property | AppConfig field | Default | Swatch | Usage |
 |---|---|---|---|---|
 | `ui.settings.background` | `uiSettingsBackground` | `#1A1A2E` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1A1A2E;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Fullscreen settings overlay background |
 | `ui.settings.card.background` | `uiSettingsCardBackground` | `#1AFFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;opacity:0.10;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Section card surfaces (~10% white) |
@@ -229,7 +231,7 @@ The hypsometric ramp interpolates between shallow (pale cyan) and deep (navy) en
 
 ### Text Colours
 
-| Property | ZoneConfig field | Default | Swatch | Usage |
+| Property | AppConfig field | Default | Swatch | Usage |
 |---|---|---|---|---|
 | `ui.settings.text.primary` | `uiSettingsTextPrimary` | `#FFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Section titles, primary labels |
 | `ui.settings.text.muted` | `uiSettingsTextMuted` | `#B0BEC5` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#B0BEC5;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Descriptive text, switch labels |
@@ -238,7 +240,7 @@ The hypsometric ramp interpolates between shallow (pale cyan) and deep (navy) en
 
 ### Accent & Interactive Elements
 
-| Property | ZoneConfig field | Default | Swatch | Usage |
+| Property | AppConfig field | Default | Swatch | Usage |
 |---|---|---|---|---|
 | `ui.settings.accent` | `uiSettingsAccent` | `#1565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Switch checked thumb/track, slider thumb/track, buttons, selected tab indicator |
 | `ui.settings.switch.track.inactive` | `uiSettingsSwitchTrackInactive` | `#33FFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;opacity:0.2;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Switch track when unchecked (20% white) |
@@ -247,7 +249,7 @@ The hypsometric ramp interpolates between shallow (pale cyan) and deep (navy) en
 
 ### Toast
 
-| Property | ZoneConfig field | Default | Swatch | Location |
+| Property | AppConfig field | Default | Swatch | Location |
 |---|---|---|---|---|
 | `ui.settings.toast.background` | `uiSettingsToastBackground` | `#16213E` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#16213E;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Exit-toast surface, system window background |
 | `ui.settings.toast.text` | `uiSettingsToastText` | `#FFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Exit-toast text |
@@ -257,10 +259,10 @@ The hypsometric ramp interpolates between shallow (pale cyan) and deep (navy) en
 ## 8. Arc Anchor Button (runtime)
 
 **Property prefix:** `ui.arc.anchor.*`
-**Source:** [`colors.properties`](../app/src/main/assets/colors.properties) → `ZoneConfig.uiArcAnchor*`
+**Source:** [`colors.properties`](../app/src/main/assets/colors.properties) → `AppConfig.uiArcAnchor*`
 **Usage:** [`ArcLayoutToggle.kt:60`](../app/src/main/java/ykws/android/maro/ui/map/ArcLayoutToggle.kt:60)
 
-| Property | ZoneConfig field | Default | Swatch | Usage |
+| Property | AppConfig field | Default | Swatch | Usage |
 |---|---|---|---|---|
 | `ui.arc.anchor.color` | `uiArcAnchorColor` | `#FF1565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Arc anchor icon and badge background |
 | `ui.arc.anchor.background` | `uiArcAnchorBackground` | `#CCFFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;opacity:0.8;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Arc anchor button circle fill |
@@ -270,10 +272,10 @@ The hypsometric ramp interpolates between shallow (pale cyan) and deep (navy) en
 ## 9. Regulated Zone Type Colours (runtime)
 
 **Property prefix:** `regulatedZone.type.*`
-**Source:** [`colors.properties`](../app/src/main/assets/colors.properties) → `ZoneConfig.regulatedZoneType*`
+**Source:** [`colors.properties`](../app/src/main/assets/colors.properties) → `AppConfig.regulatedZoneType*`
 **Usage:** [`RegulatedZoneIconProvider.kt:31`](../app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneIconProvider.kt:31), [`MapScreen.kt:3364`](../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:3364)
 
-| Property | ZoneConfig field | Default | Swatch | Zone Type |
+| Property | AppConfig field | Default | Swatch | Zone Type |
 |---|---|---|---|---|
 | `regulatedZone.type.speedLimit` | `regulatedZoneTypeSpeedLimit` | `#1565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Speed limit zones |
 | `regulatedZone.type.anchoringProhibited` | `regulatedZoneTypeAnchoringProhibited` | `#FF8F00` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FF8F00;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Anchoring prohibited |
@@ -291,19 +293,19 @@ These colours are also used for the **display category** background in the warni
 ## 10. Progress / Error Overlay (runtime)
 
 **Property prefix:** `ui.progress.*` / `ui.error.*`
-**Source:** [`colors.properties`](../app/src/main/assets/colors.properties) → `ZoneConfig.uiProgress*` / `uiError*`
+**Source:** [`colors.properties`](../app/src/main/assets/colors.properties) → `AppConfig.uiProgress*` / `uiError*`
 **Usage:** [`MapScreen.kt:1045`](../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1045)
 
 ### Progress Bar
 
-| Property | ZoneConfig field | Default | Swatch | Usage |
+| Property | AppConfig field | Default | Swatch | Usage |
 |---|---|---|---|---|
 | `ui.progress.accent` | `uiProgressAccent` | `#1565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Progress bar fill, title, percentage text |
 | `ui.progress.track` | `uiProgressTrack` | `#401565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;opacity:0.25;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Progress bar track background (~25% accent) |
 
 ### Error Card
 
-| Property | ZoneConfig field | Default | Swatch | Usage |
+| Property | AppConfig field | Default | Swatch | Usage |
 |---|---|---|---|---|
 | `ui.error.card` | `uiErrorCard` | `#CCC62828` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#C62828;opacity:0.8;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Error card background (dark red, 80% opaque) |
 | `ui.error.text` | `uiErrorText` | `#EEFFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;opacity:0.93;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Error message text |
@@ -322,13 +324,13 @@ flowchart LR
     subgraph zone.properties
         ZP[zone.properties<br/>isobar.* only]
     end
-    subgraph ZoneConfig
-        ZC[ZoneConfig.init]
+    subgraph AppConfig
+        ZC[AppConfig.init]
     end
     subgraph UI Layer
         BC[ButtonColors<br/>runtime getters]
         DC[DashboardColors<br/>runtime getters]
-        IC[Inline composable<br/>ZoneConfig field refs]
+        IC[Inline composable<br/>AppConfig field refs]
     end
 
     CP --> ZC

@@ -1,4 +1,6 @@
+
 package ykws.android.maro.ui.map
+import ykws.android.maro.config.AppConfig
 
 import ykws.android.maro.data.depth.DepthConstants
 import kotlin.math.roundToInt
@@ -21,18 +23,18 @@ object DepthColorRamp {
         val t = d / MAX_DEPTH_M  // 0 shallow .. 1 deep
 
         // Base ramp: (200,232,255) pale cyan → (10,30,90) navy.
-        var r = lerp(ZoneConfig.mapDepthRampShallowR, ZoneConfig.mapDepthRampDeepR, t)
-        var g = lerp(ZoneConfig.mapDepthRampShallowG, ZoneConfig.mapDepthRampDeepG, t)
-        var b = lerp(ZoneConfig.mapDepthRampShallowB, ZoneConfig.mapDepthRampDeepB, t)
+        var r = lerp(AppConfig.mapDepthRampShallowR, AppConfig.mapDepthRampDeepR, t)
+        var g = lerp(AppConfig.mapDepthRampShallowG, AppConfig.mapDepthRampDeepG, t)
+        var b = lerp(AppConfig.mapDepthRampShallowB, AppConfig.mapDepthRampDeepB, t)
 
         // Collision band 0–5 m: blend toward warning red-orange, strongest at the surface.
         if (d <= DepthConstants.COLLISION_MAX_DEPTH_M.toFloat()) {
             val w = 0.6f * (1f - d / DepthConstants.COLLISION_MAX_DEPTH_M.toFloat())
-            r = lerp(r, ZoneConfig.mapDepthRampWarningR, w)
-            g = lerp(g, ZoneConfig.mapDepthRampWarningG, w)
-            b = lerp(b, ZoneConfig.mapDepthRampWarningB, w)
+            r = lerp(r, AppConfig.mapDepthRampWarningR, w)
+            g = lerp(g, AppConfig.mapDepthRampWarningG, w)
+            b = lerp(b, AppConfig.mapDepthRampWarningB, w)
         }
-        return (ZoneConfig.mapDepthRampAlpha shl 24) or (r shl 16) or (g shl 8) or b
+        return (AppConfig.mapDepthRampAlpha shl 24) or (r shl 16) or (g shl 8) or b
     }
 
     private fun lerp(a: Int, b: Int, t: Float): Int =

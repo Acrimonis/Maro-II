@@ -1,4 +1,4 @@
-package ykws.android.maro.ui.map
+package ykws.android.maro.config
 
 import android.content.Context
 import android.graphics.Color
@@ -6,27 +6,20 @@ import ykws.android.maro.data.model.DepthSource
 import java.util.Properties
 
 /**
- * Runtime loader for [zone.properties](app/src/main/assets/zone.properties).
+ * Runtime loader for all `.properties` files bundled in assets.
  *
- * Reads the three gradient tunables from the properties file bundled in assets.
- * If the file is missing or any value cannot be parsed, the corresponding
+ * Loads [zone.properties](app/src/main/assets/zone.properties),
+ * [maro.properties](app/src/main/assets/maro.properties), and
+ * [colors.properties](app/src/main/assets/colors.properties) — each file
+ * overrides the previous on key collision, so `colors.properties` always
+ * wins.
+ *
+ * If a file is missing or any value cannot be parsed, the corresponding
  * hardcoded default is used so the app never crashes on a bad config.
  *
  * Call [init] once from [MainActivity] before the UI composes.
- *
- * ## Properties
- *
- * ```
- * distanceToZoneGradientText=600    # Text fade range (m)
- * distanceToZoneGradientColor=300   # Tile fade range outward (m)
- * distanceToZoneGradientTransp=33   # Outside-zone transparency (0–100)
- * zoneAutoRevealDistanceM=100       # Auto-reveal distance outside band (m) / dashboard near-exit threshold
- * zoneAutoRevealTimeS=10            # Auto-reveal time-to-band at SOG (s) / dashboard near-exit threshold
- * zoneRegulatorySpeedKn=5           # Regulatory speed inside band (kn)
- * lowDepthWarningMinOpacityPct=25   # Pink warning opacity at threshold (0–100)
- * ```
  */
-object ZoneConfig {
+object AppConfig {
 
     /** Distance (m) from zone boundary at which text reaches near-invisible alpha. */
     var distanceToZoneGradientText = 600f
@@ -74,32 +67,32 @@ object ZoneConfig {
         private set
 
     /** ARGB colour for the heading/speed cap arrow.
-     *  Default `0xFF1565C0` (Material Blue 700). Set via `cap.arrow.color` in maro.properties. */
+     *  Default `0xFF1565C0` (Material Blue 700). Set via `map.navigation.arrow.color` in colors.properties. */
     var capArrowColor: Int = 0xFF1565C0.toInt()
         private set
 
     /** ARGB colour for the direction line projecting from the boat in the heading direction.
-     *  Default `0x4D1565C0` (Material Blue 700, 30% opacity). Set via `direction.line.color` in maro.properties. */
+     *  Default `0x4D1565C0` (Material Blue 700, 30% opacity). Set via `map.navigation.line.color` in colors.properties. */
     var directionLineColor: Int = 0x4D1565C0.toInt()
         private set
 
     /** ARGB colour for action-button background (right-edge control stack).
-     *  Default `#CCFFFFFF` (semi-transparent white). Set via `button.action.background.color` in maro.properties. */
+     *  Default `#CCFFFFFF` (semi-transparent white). Set via `ui.button.background` in colors.properties. */
     var buttonActionBgColor: Int = 0xCCFFFFFF.toInt()
         private set
 
     /** ARGB colour for action-button icons.
-     *  Default `#FF1565C0` (Material Blue 700). Set via `button.action.icon.color` in maro.properties. */
+     *  Default `#FF1565C0` (Material Blue 700). Set via `ui.button.icon` in colors.properties. */
     var buttonActionIconColor: Int = 0xFF1565C0.toInt()
         private set
 
     /** Alpha (0.0–1.0) for active/toggled-on icon state.
-     *  Default 1.0. Set via `button.action.icon.active.alpha` in maro.properties. */
+     *  Default 1.0. Set via `ui.button.iconActiveAlpha` in colors.properties. */
     var buttonActionIconActiveAlpha: Float = 1.0f
         private set
 
     /** Alpha (0.0–1.0) for inactive/toggled-off icon state.
-     *  Default 0.25. Set via `button.action.icon.inactive.alpha` in maro.properties. */
+     *  Default 0.25. Set via `ui.button.iconInactiveAlpha` in colors.properties. */
     var buttonActionIconInactiveAlpha: Float = 0.25f
         private set
 
@@ -120,11 +113,17 @@ object ZoneConfig {
     /** Dashboard status success (general OK, validation passed). Default #4CAF50. Set via `ui.dashboard.status.success` in colors.properties. */
     var uiDashboardStatusSuccess: Int = 0xFF4CAF50.toInt()
         private set
-    /** Dashboard status warning (caution, validation warning — amber). Default #FFA726. Set via `ui.dashboard.status.warning` in colors.properties. */
-    var uiDashboardStatusWarning: Int = 0xFFFFA726.toInt()
+    /** Dashboard status warning (caution, validation warning — deep amber). Default #E65100. Set via `ui.dashboard.status.warning` in colors.properties. */
+    var uiDashboardStatusWarning: Int = 0xFFE65100.toInt()
         private set
     /** Dashboard status error (critical alert, failure). Default #F44336. Set via `ui.dashboard.status.error` in colors.properties. */
     var uiDashboardStatusError: Int = 0xFFF44336.toInt()
+        private set
+    /** Dashboard status neutral (informational). Default #AA4FC3F7 (cyan, 67% alpha). Set via `ui.dashboard.status.neutral` in colors.properties. */
+    var uiDashboardStatusNeutral: Int = 0xAA4FC3F7.toInt()
+        private set
+    /** Dashboard status absent (no-data, placeholder). Default #AA37474F (blue-grey, 67% alpha). Set via `ui.dashboard.status.absent` in colors.properties. */
+    var uiDashboardStatusAbsent: Int = 0xAA37474F.toInt()
         private set
     /** Dashboard zone speed-safe. Default #2E7D32. Set via `ui.dashboard.zone.safe` in colors.properties. */
     var uiDashboardZoneSafe: Int = 0xFF2E7D32.toInt()
@@ -393,25 +392,6 @@ object ZoneConfig {
         mapDepthRampAlpha,
     ).hashCode()
 
-    /** Alpha (0–255) for icon backgrounds in active state (normal operation).
-     *  Default 191 = 75% (from icon.back.active.transparency in maro.properties). */
-    var iconBackActiveAlpha: Int = 191  // 75%
-        private set
-
-    /** Alpha (0–255) for icon backgrounds in inactive/dimmed state (demo, disabled).
-     *  Default 128 = 50% (from icon.back.inactive.transparency in maro.properties). */
-    var iconBackInactiveAlpha: Int = 128 // 50%
-        private set
-
-    /** Alpha for the Earth/Water icon active background — delegates to [iconBackActiveAlpha]. */
-    var waterIconBgAlpha: Int get() = iconBackActiveAlpha; private set(@Suppress("UNUSED_PARAMETER") _: Int) {}
-
-    /** Alpha for GPS icon active states (ACQUIRING, HEALTHY, IDLE, STALE) — delegates to [iconBackActiveAlpha]. */
-    var gpsIconBgAlpha: Int get() = iconBackActiveAlpha; private set(@Suppress("UNUSED_PARAMETER") _: Int) {}
-
-    /** Alpha for GPS icon DEMO state — delegates to [iconBackInactiveAlpha]. */
-    var gpsIconDimBgAlpha: Int get() = iconBackInactiveAlpha; private set(@Suppress("UNUSED_PARAMETER") _: Int) {}
-
     /** Isobath line colour per data source (ARGB int); a source with no entry falls back to [isobarColorDefault]. */
     private val isobarColors = hashMapOf(
         DepthSource.LITTO3D to 0xFF1B5E20.toInt(), // dark green (Material 900)
@@ -429,9 +409,14 @@ object ZoneConfig {
     )
 
     /**
-     * Load tunables from [zone.properties](app/src/main/assets/zone.properties).
+     * Load tunables from all `.properties` files bundled in assets.
      * Must be called once (e.g. from [MainActivity.onCreate]) before the UI
      * reads the values. Missing or unparseable entries silently keep the default.
+     *
+     * Load order (each overrides the previous):
+     * 1. zone.properties  — gradient distances, isobath colours
+     * 2. maro.properties  — speed zone thresholds, vessel defaults
+     * 3. colors.properties — ALL colour values
      */
     fun init(context: Context) {
         try {
@@ -494,12 +479,6 @@ object ZoneConfig {
             props.getProperty("direction.line.color")?.let { parseColorOrNull(it) }?.let {
                 directionLineColor = it
             }
-            props.getProperty("icon.back.active.transparency")?.toIntOrNull()?.let {
-                iconBackActiveAlpha = (it.coerceIn(0, 100) * 255 / 100)
-            }
-            props.getProperty("icon.back.inactive.transparency")?.toIntOrNull()?.let {
-                iconBackInactiveAlpha = (it.coerceIn(0, 100) * 255 / 100)
-            }
             for (src in DepthSource.entries) {
                 val key = src.name.lowercase()
                 props.getProperty("isobar.color.$key")?.let { parseColorOrNull(it) }?.let { isobarColors[src] = it }
@@ -508,16 +487,16 @@ object ZoneConfig {
             props.getProperty("isobar.color.default")?.let { parseColorOrNull(it) }?.let {
                 isobarColorDefault = it
             }
-            props.getProperty("button.action.background.color")?.let { parseColorOrNull(it) }?.let {
+            props.getProperty("ui.button.background")?.let { parseColorOrNull(it) }?.let {
                 buttonActionBgColor = it
             }
-            props.getProperty("button.action.icon.color")?.let { parseColorOrNull(it) }?.let {
+            props.getProperty("ui.button.icon")?.let { parseColorOrNull(it) }?.let {
                 buttonActionIconColor = it
             }
-            props.getProperty("button.action.icon.active.alpha")?.toFloatOrNull()?.let {
+            props.getProperty("ui.button.iconActiveAlpha")?.toFloatOrNull()?.let {
                 buttonActionIconActiveAlpha = it.coerceIn(0f, 1f)
             }
-            props.getProperty("button.action.icon.inactive.alpha")?.toFloatOrNull()?.let {
+            props.getProperty("ui.button.iconInactiveAlpha")?.toFloatOrNull()?.let {
                 buttonActionIconInactiveAlpha = it.coerceIn(0f, 1f)
             }
 
@@ -529,6 +508,8 @@ object ZoneConfig {
             props.getProperty("ui.dashboard.status.success")?.let { parseColorOrNull(it) }?.let { uiDashboardStatusSuccess = it }
             props.getProperty("ui.dashboard.status.warning")?.let { parseColorOrNull(it) }?.let { uiDashboardStatusWarning = it }
             props.getProperty("ui.dashboard.status.error")?.let { parseColorOrNull(it) }?.let { uiDashboardStatusError = it }
+            props.getProperty("ui.dashboard.status.neutral")?.let { parseColorOrNull(it) }?.let { uiDashboardStatusNeutral = it }
+            props.getProperty("ui.dashboard.status.absent")?.let { parseColorOrNull(it) }?.let { uiDashboardStatusAbsent = it }
             props.getProperty("ui.dashboard.zone.safe")?.let { parseColorOrNull(it) }?.let { uiDashboardZoneSafe = it }
             props.getProperty("ui.dashboard.zone.caution")?.let { parseColorOrNull(it) }?.let { uiDashboardZoneCaution = it }
             props.getProperty("ui.dashboard.zone.danger")?.let { parseColorOrNull(it) }?.let { uiDashboardZoneDanger = it }

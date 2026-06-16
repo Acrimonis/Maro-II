@@ -4,7 +4,7 @@
 - **Active Feature:** Ui_General
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-16
-- **Last Bake:** 2026-06-16 10:18 (Full colour migration: all ~30 hardcoded colours moved to colors.properties, ZoneConfig rasterColorsHash added, docs/color-scheme.md updated with bigger swatches. Build: green.)
+- **Last Bake:** 2026-06-16 12:21 (ZoneConfig → AppConfig rename + config/ package. Neutral/absent semantic colours added. DashboardColors aliases normalized. warning → deep amber. 10-file import fix. Build: green.)
 - **Branch:** feature/btns-color
 ## Routing Map
 | Keyword | Feature File |
