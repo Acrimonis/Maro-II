@@ -22,7 +22,6 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -52,7 +51,6 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -99,6 +97,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -503,7 +502,6 @@ fun MapScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .padding(bottom = 6.dp)
     ) {
         // ── Intercept system back when any fan is open ────────────────────
         if (anyFanExpanded) {
@@ -574,6 +572,7 @@ fun MapScreen(
                 onToggleDepthLayer = viewModel::toggleDepthLayerVisibility,
                 onToggleRegulatedZones = { viewModel.updateSettings { it.copy(regulatedZonesVisible = !it.regulatedZonesVisible) } },
                 onToggleZone300 = viewModel::toggleZone300Visibility,
+                isLandscape = isLandscape,
                 expandedFanId = expandedFanId,
                 onToggleFan = { id -> expandedFanId = if (expandedFanId == id) null else id },
                 showExitBanner = showExitBanner,
@@ -659,73 +658,6 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
 /** Identifies a control in the right-edge stack. Add new entries when adding controls. */
 private enum class ControlId { SETTINGS, LAYER_FAN, ZOOM }
 
-/** Vertical section within the SpaceBetween Column: TOP, MIDDLE, BOTTOM. */
-private enum class ControlSection { TOP, MIDDLE, BOTTOM }
-
-/**
- * A control item in the right-edge control stack.
- * @param id       Unique identifier matching [ControlId].
- * @param isFan    True if this control can expand (a fan button).
- * @param section  Vertical placement within the SpaceBetween Column.
- * @param content  Composable content, receives [isExpanded] = (expandedFanId == id).
- */
-private data class ControlItem(
-    val id: ControlId,
-    val isFan: Boolean = false,
-    val section: ControlSection,
-    val content: @Composable (isExpanded: Boolean) -> Unit
-)
-
-/**
- * Renders a vertical section of the control stack with alpha fade for hidden
- * controls. Unlike [AnimatedVisibility] (which collapses layout), this preserves
- * the full layout footprint so the `SpaceBetween` column distribution never
- * changes — the fan anchor button stays at its exact position regardless of
- * whether non-fan controls (Settings top, Zoom bottom) are hidden.
- * Must be called from within a [Column] (uses [ColumnScope.weight] for MIDDLE).
- */
-@Composable
-private fun ColumnScope.ControlSectionContent(
-    section: ControlSection,
-    controls: List<ControlItem>,
-    expandedFanId: ControlId?,
-    anyFanOpen: Boolean
-) {
-    if (section == ControlSection.MIDDLE) {
-        Column(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            controls.forEach { item ->
-                val isExpanded = expandedFanId == item.id
-                val visible = item.isFan || !anyFanOpen || isExpanded
-                val alpha by animateFloatAsState(
-                    targetValue = if (visible) 1f else 0f,
-                    animationSpec = tween(300)
-                )
-                Box(modifier = Modifier.alpha(alpha)) {
-                    item.content(isExpanded)
-                }
-            }
-        }
-    } else {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            controls.forEach { item ->
-                val isExpanded = expandedFanId == item.id
-                val visible = item.isFan || !anyFanOpen || isExpanded
-                val alpha by animateFloatAsState(
-                    targetValue = if (visible) 1f else 0f,
-                    animationSpec = tween(300)
-                )
-                Box(modifier = Modifier.alpha(alpha)) {
-                    item.content(isExpanded)
-                }
-            }
-        }
-    }
-}
-
 @Composable
 private fun MapContent(
     state: CoastlineState,
@@ -756,6 +688,7 @@ private fun MapContent(
     onToggleRegulatedZones: () -> Unit,
     onToggleLowDepthWarning: () -> Unit,
     onToggleDepthLayer: () -> Unit,
+    isLandscape: Boolean = false,
     expandedFanId: ControlId? = null,
     onToggleFan: (ControlId) -> Unit = {},
     showExitBanner: Boolean,
@@ -763,6 +696,13 @@ private fun MapContent(
     modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier.clipToBounds()) {
+        // ── Compute top inset: full statusBars in landscape, -6dp in portrait ──
+        val density = LocalDensity.current
+        val topInset = with(density) {
+            val raw = WindowInsets.statusBars.getTop(this).toDp()
+            if (isLandscape) raw else (raw - 6.dp).coerceAtLeast(0.dp)
+        }
+
         // Memoize per state instance so panning (which does not change state) keeps a
         // stable list identity → no spurious overlay rebuilds.
         val allSegments = remember(state) {
@@ -784,6 +724,8 @@ private fun MapContent(
         // Apply depth layer colour map + isobath contours visibility toggle
         val visibleDepthBitmap = if (appSettings.depthLayerVisible) depthBitmap else null
         val visibleIsobaths = if (appSettings.depthLayerVisible) isobaths else emptyList()
+
+        // ── Layer 0: OSMdroid map (fills entire Box) ───────────────────────
         CoastlineMapView(
             segments = segments,
             regulatedZones = visibleRegulatedZones,
@@ -803,33 +745,12 @@ private fun MapContent(
             modifier = Modifier.fillMaxSize()
         )
 
-        // ── Direction line: thin dashed line from boat to map edge in heading direction ──
+        // ── Layer 0 overlays: direction line + center marker ─────────────
         val moving = navigationState.speedKnots != null || navigationState.demoSpeedKnots != null
         if (moving && appSettings.headingLineVisible) {
-            DirectionLine(
-                modifier = Modifier.fillMaxSize()
-            )
+            DirectionLine(modifier = Modifier.fillMaxSize())
         }
 
-        // ── Top-left icons: GPS + Earth/Water ─────────────────────────────
-        Row(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .windowInsetsPadding(WindowInsets.statusBars)
-                .padding(start = 6.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            GpsStatusIcon(state = gpsIconState)
-            EarthWaterIcon(
-                emoji = if (isWater) "🌊" else "🏔️",
-                isActive = true,
-                activeColor = if (isWater) ComposeColor(AppConfig.statusEarthWaterWater) else ComposeColor(AppConfig.statusEarthWaterLand),
-                contentDescription = if (isWater) stringResource(R.string.side_water) else stringResource(R.string.side_land),
-            )
-        }
-
-        // ── Center position marker ────────────────────────────────────────
         CenterMarkerOverlay(
             isWater = isWater,
             zoomLevel = zoomLevel,
@@ -839,119 +760,158 @@ private fun MapContent(
             modifier = Modifier.align(Alignment.Center)
         )
 
-        // ── Bottom overlay: loading / error ───────────────────────────────
-        //   Centred horizontally: clear the GPS status icon (~50dp = 44dp + 6dp
-        //   padding) on the left, and the right-edge control stack (~76dp = 64dp
-        //   button + 12dp margin) on the right. The overlay fills the space between.
-        Box(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.navigationBars)
-                .padding(start = 56.dp, end = 76.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            if (rasterProgress != null && rasterProgress!!.globalProgress < 100) {
-                val rp = rasterProgress!!
-                LoadingOverlay(
-                    progress = GenerationProgress(rp.phase, rp.globalProgress),
-                    title = "Generating Layers"
-                )
-            }
-            if (state is CoastlineState.Error) {
-                ErrorOverlay(
-                    message = (state as CoastlineState.Error).message,
-                    onRetry = onRetry
-                )
-            }
-        }
+        // ── Layer 1: 2-column overlay row (left fills, right content-sized) ──
+        Row(modifier = Modifier.fillMaxSize()) {
 
-        // ── "Press back again to exit" toast ──────────────────────────────
-        //   Shares the loading/error slot: bottom-centred, clear of the GPS
-        //   icon left (~56dp) and the right-edge control stack (~76dp).
-        if (showExitBanner) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .windowInsetsPadding(WindowInsets.navigationBars)
-                    .padding(start = 56.dp, end = 76.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(14.dp),
-                    color = ComposeColor(AppConfig.uiSettingsToastBackground),
-                    shadowElevation = 8.dp
+            // ── LEFT COLUMN: top + middle + btm ──────────────────────────
+            Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
+
+                // top zone: GPS status + EarthWater (statusBars minus 6dp)
+                Row(
+                    modifier = Modifier
+                        .padding(top = topInset, start = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = stringResource(R.string.exit_press_back_again),
-                        color = ComposeColor.White,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 28.dp, vertical = 16.dp)
+                    GpsStatusIcon(state = gpsIconState)
+                    EarthWaterIcon(
+                        emoji = if (isWater) "🌊" else "🏔️",
+                        isActive = true,
+                        activeColor = if (isWater) ComposeColor(AppConfig.statusEarthWaterWater) else ComposeColor(AppConfig.statusEarthWaterLand),
+                        contentDescription = if (isWater) stringResource(R.string.side_water) else stringResource(R.string.side_land),
                     )
                 }
-            }
-        }
 
-        // ── Regulated zone icons + 300m badge + info text (bottom-left) ────
-        //   A Row with up to three children:
-        //     Left  — 300m speed badge (when inZone300)
-        //     Middle — vertical icon stack (44×44 dp each), most restrictive
-        //              (SPEED_LIMIT) at the bottom, informational at the top.
-        //              SPEED_LIMIT icons suppressed when in 300m zone.
-        //     Right — zone info text filling remaining width up to the zoom
-        //             +/- stack, with auto-wrapping instead of ellipsis.
-        //   Constrained to avoid overlapping the zoom stack (~82 dp from right).
-        Row(
-            modifier = Modifier
-                .align(Alignment.BottomStart)
-                .windowInsetsPadding(WindowInsets.navigationBars)
-                .padding(start = 6.dp)
-                .widthIn(max = (LocalConfiguration.current.screenWidthDp.dp - 82.dp))
-        ) {
-            RegulatedZoneWarningStrip(
-                regulatedZones = visibleRegulatedZones,
-                boatPosition = boatPosition,
-                inZone300 = inZone300,
-                modifier = Modifier.align(Alignment.Bottom)
-            )
-            if (appSettings.regulationInfoVisible) {
-                RegulatedZoneInfoText(
-                    regulatedZones = visibleRegulatedZones,
-                    boatPosition = boatPosition,
-                    inZone300 = inZone300,
+                // middle zone: no overlay — map fills here
+                Spacer(modifier = Modifier.weight(1f))
+
+                // btm zone: tags + txt + overlays
+                // In landscape, clear the nav bar; in portrait, match cb's 6dp gap.
+                Box(
                     modifier = Modifier
-                        .weight(1f)
-                        .padding(start = 4.dp)
-                        .align(Alignment.Bottom)
-                )
-            }
-        }
+                        .fillMaxWidth()
+                        .then(
+                            if (isLandscape) Modifier.windowInsetsPadding(WindowInsets.navigationBars)
+                            else Modifier.padding(bottom = 6.dp)
+                        )
+                ) {
+                    // Behind layer: regulated zone icons + info text
+                    Row(
+                        modifier = Modifier
+                            .align(Alignment.BottomStart)
+                            .padding(start = 6.dp)
+                    ) {
+                        RegulatedZoneWarningStrip(
+                            regulatedZones = visibleRegulatedZones,
+                            boatPosition = boatPosition,
+                            inZone300 = inZone300,
+                            modifier = Modifier.align(Alignment.Bottom)
+                        )
+                        if (appSettings.regulationInfoVisible) {
+                            RegulatedZoneInfoText(
+                                regulatedZones = visibleRegulatedZones,
+                                boatPosition = boatPosition,
+                                inZone300 = inZone300,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(start = 4.dp)
+                                    .align(Alignment.Bottom)
+                            )
+                        }
+                    }
 
-        // ── Right-edge control stack ──────────────────────────────────────
-        //   Controls are defined as a [ControlItem] list, rendered in three
-        //   vertical sections (TOP / MIDDLE / BOTTOM) inside a SpaceBetween
-        //   Column. Non-fan controls hide when any fan is expanded (via
-        //   AnimatedVisibility), making the expanded fan's children stand out.
-        Column(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .fillMaxHeight()
-                .windowInsetsPadding(WindowInsets.systemBars)
-                .padding(start = 12.dp, end = 6.dp),
-            verticalArrangement = Arrangement.SpaceBetween,
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // ── Build the control list ─────────────────────────────────
-            // Add new MIDDLE entries here when adding future fan/button controls.
-            val controls = remember(expandedFanId, appSettings, mapView) {
-                listOf(
-                    ControlItem(id = ControlId.SETTINGS, section = ControlSection.TOP) {
-                        SettingsButton(onClick = onOpenSettings)
-                    },
-                    ControlItem(id = ControlId.LAYER_FAN, isFan = true, section = ControlSection.MIDDLE) { isExpanded ->
+                    // Middle layer: loading/error overlay (conditional)
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .padding(start = 56.dp, end = 76.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (rasterProgress != null && rasterProgress!!.globalProgress < 100) {
+                            val rp = rasterProgress!!
+                            LoadingOverlay(
+                                progress = GenerationProgress(rp.phase, rp.globalProgress),
+                                title = "Generating Layers"
+                            )
+                        }
+                        if (state is CoastlineState.Error) {
+                            ErrorOverlay(
+                                message = (state as CoastlineState.Error).message,
+                                onRetry = onRetry
+                            )
+                        }
+                    }
+
+                    // Top layer: exit toast (conditional)
+                    if (showExitBanner) {
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .padding(start = 56.dp, end = 76.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Surface(
+                                shape = RoundedCornerShape(14.dp),
+                                color = ComposeColor(AppConfig.uiSettingsToastBackground),
+                                shadowElevation = 8.dp
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.exit_press_back_again),
+                                    color = ComposeColor.White,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    textAlign = TextAlign.Center,
+                                    modifier = Modifier.padding(horizontal = 28.dp, vertical = 16.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── RIGHT COLUMN (ctrls): ct + cm + cb ───────────────────────
+            //   Width sized to content by the Row; horizontal padding only.
+            Column(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .padding(start = 12.dp, end = 6.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                val anyFanOpen = expandedFanId != null
+
+                // ct (controls top): Settings button + future
+                // statusBars inset minus 6dp — sits closer to the bar.
+                val ctAlpha by animateFloatAsState(
+                    targetValue = if (anyFanOpen) 0f else 1f,
+                    animationSpec = tween(300)
+                )
+                Column(
+                    modifier = Modifier
+                        .padding(top = topInset)
+                        .alpha(ctAlpha),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    SettingsButton(onClick = onOpenSettings)
+                    // Future top controls can be added here
+                }
+
+                // cm (controls middle): fan buttons, fills remaining height
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Fan layout with built-in alpha fade for children
+                    val isExpanded = expandedFanId == ControlId.LAYER_FAN
+                    // Only the fan anchor fades when another fan is expanded;
+                    // the fan itself is always visible when it's the expanded one.
+                    val cmAlpha by animateFloatAsState(
+                        targetValue = if (anyFanOpen && !isExpanded) 0f else 1f,
+                        animationSpec = tween(300)
+                    )
+                    Box(modifier = Modifier.alpha(cmAlpha)) {
                         FanLayout(
                             config = FanConfig(
                                 maxCount = 5,
@@ -990,46 +950,44 @@ private fun MapContent(
                                 }
                             }
                         )
-                    },
-                    ControlItem(id = ControlId.ZOOM, section = ControlSection.BOTTOM) {
-                        if (mapView != null) {
-                            Column(
-                                verticalArrangement = Arrangement.spacedBy(8.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                MapControlButton(
-                                    onClick = {
-                                        val mv = mapView ?: return@MapControlButton
-                                        mv.controller.zoomIn()
-                                        onZoomChanged(mv.zoomLevelDouble)
-                                    }
-                                ) { PlusIcon() }
-                                MapControlButton(
-                                    onClick = {
-                                        val mv = mapView ?: return@MapControlButton
-                                        mv.controller.zoomOut()
-                                        onZoomChanged(mv.zoomLevelDouble)
-                                    }
-                                ) { MinusIcon() }
-                            }
-                        } else {
-                            Spacer(modifier = Modifier.height(136.dp))
+                    }
+                    // Future middle controls (2nd fan, etc.) can be added here
+                }
+
+                // cb (controls bottom): Zoom +/- buttons + future
+                // Bottom gap matches the right padding (6.dp).
+                val cbAlpha by animateFloatAsState(
+                    targetValue = if (anyFanOpen) 0f else 1f,
+                    animationSpec = tween(300)
+                )
+                Column(
+                    modifier = Modifier
+                        .padding(bottom = 6.dp)
+                        .alpha(cbAlpha),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    if (mapView != null) {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            MapControlButton(
+                                onClick = {
+                                    val mv = mapView ?: return@MapControlButton
+                                    mv.controller.zoomIn()
+                                    onZoomChanged(mv.zoomLevelDouble)
+                                }
+                            ) { PlusIcon() }
+                            MapControlButton(
+                                onClick = {
+                                    val mv = mapView ?: return@MapControlButton
+                                    mv.controller.zoomOut()
+                                    onZoomChanged(mv.zoomLevelDouble)
+                                }
+                            ) { MinusIcon() }
                         }
                     }
-                )
-            }
-
-            // ── Render each section ────────────────────────────────────
-            val anyFanOpen = expandedFanId != null
-            ControlSection.entries.forEach { section ->
-                val sectionControls = controls.filter { it.section == section }
-                if (sectionControls.isNotEmpty()) {
-                    ControlSectionContent(
-                        section = section,
-                        controls = sectionControls,
-                        expandedFanId = expandedFanId,
-                        anyFanOpen = anyFanOpen
-                    )
+                    // Future bottom controls can be added here
                 }
             }
         }

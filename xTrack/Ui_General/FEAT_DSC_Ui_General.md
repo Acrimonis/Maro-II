@@ -2,7 +2,7 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-06-16 20:02
+modified: 2026-06-16 21:18
 active_subfeature: SVSpacing
 ---
 
@@ -127,3 +127,5 @@ Adjust vertical spacing between buttons in the right-edge control stack for impr
 - `plans/color-props-migration-plan.md` — migration plan: all colours → colors.properties
 - `plans/button-colors-discussion.md` — discussion: UI round button color identification and exploration
 - `plans/right-edge-controls-gap-asymmetry-analysis.md` — root cause analysis of asymmetric gap between right-edge controls and map edges after immersive rework
+- `plans/map-overlay-layout-rationalization.md` — complete layout refactor: 2-column Row structure, symmetric 6dp margins, orientation-aware insets
+- `plans/map-overlay-layout-inventory.md` — current overlay inventory and planned evolution audit
