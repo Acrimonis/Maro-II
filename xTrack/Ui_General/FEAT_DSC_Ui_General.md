@@ -2,8 +2,8 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-06-16 17:04
-active_subfeature: none
+modified: 2026-06-16 20:02
+active_subfeature: SVSpacing
 ---
 
 # Feature: Ui_General
@@ -104,6 +104,16 @@ Harmonise map control buttons (zoom +/- , settings gear, GPS/EarthWater toggles,
 
 #### Key Files
 
+### SVSpacing  [ ]
+
+Adjust vertical spacing between buttons in the right-edge control stack for improved touch targeting and visual balance.
+
+#### Todos
+
+#### Rules
+
+#### Key Files
+
 ## Todos
 
 ## Rules
@@ -116,3 +126,4 @@ Harmonise map control buttons (zoom +/- , settings gear, GPS/EarthWater toggles,
 - `docs/color-scheme.md` — canonical reference for all colour tokens in the app
 - `plans/color-props-migration-plan.md` — migration plan: all colours → colors.properties
 - `plans/button-colors-discussion.md` — discussion: UI round button color identification and exploration
+- `plans/right-edge-controls-gap-asymmetry-analysis.md` — root cause analysis of asymmetric gap between right-edge controls and map edges after immersive rework

@@ -503,7 +503,7 @@ fun MapScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .padding(bottom = 18.dp)
+            .padding(bottom = 6.dp)
     ) {
         // ── Intercept system back when any fan is open ────────────────────
         if (anyFanExpanded) {
@@ -879,7 +879,7 @@ private fun MapContent(
                 contentAlignment = Alignment.Center
             ) {
                 Surface(
-                    shape = RoundedCornerShape(28.dp),
+                    shape = RoundedCornerShape(14.dp),
                     color = ComposeColor(AppConfig.uiSettingsToastBackground),
                     shadowElevation = 8.dp
                 ) {
@@ -1603,7 +1603,8 @@ private fun SettingsOverlay(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp)
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(horizontal = 24.dp, vertical = 3.dp)
         ) {
             // ── Header row: title + close (back) button ───────────────────
             Row(
@@ -2569,7 +2570,7 @@ private fun SystemSettings(
                     onRegenerateRasters(selected)
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = ComposeColor(AppConfig.uiSettingsAccent)),
-                shape = RoundedCornerShape(8.dp)
+                shape = RoundedCornerShape(12.dp)
             ) {
                 Text("Regenerate", color = ComposeColor.White)
             }

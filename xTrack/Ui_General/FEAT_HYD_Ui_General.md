@@ -1,13 +1,26 @@
-# Hydration — Ui_General
+# Hydration: Ui_General
 
-**Last Bake:** 2026-06-16 17:04
+**Session:** Gap asymmetry analysis for right-edge control stack.
 
-## Summary
-ButtonColors subfeature progressed through color harmonization of all round UI buttons to the dark dashboard theme. All zoom ± buttons, settings gear, GPS/EarthWater toggles, and dashboard tile accent strips now use `#CC16213E` background (80% opacity dark navy) with `#E0E0E0` icon tint from the centralized `colors.properties` palette. Hardcoded `0xFF...` literals were replaced with named colour tokens. An inline `#` comment in `colors.properties` was breaking `Color.parseColor()` — the comment was removed to fix silent parse failures. A `${variable}` interpolation timing issue in `AppConfig.init()` was also corrected to ensure alias resolution happens before colour token consumption. The subfeature remains todo-pending for verification/deploy.
+**State:**
+- 4/6 subfeatures complete (BackToExitConfirm, KeepScreenOn, page layout, immersive ui rework all [x]).
+- ButtonColors [ ] — empty shell.
+- SVSpacing [ ] — currently focused subfeature, empty shell.
 
-## Key Files
-- `app/src/main/assets/colors.properties` — button background/tint tokens, inline # comment removed
-- `app/src/main/java/ykws/android/maro/config/AppConfig.kt` — alias interpolation timing fix
+**What happened this session:**
+- User reported asymmetric gap between right-edge controls and map edges (bottom gap > top gap).
+- Traced root cause to two factors in `MapScreen.kt`:
+  1. `windowInsetsPadding(WindowInsets.systemBars)` on the control Column (line 942) — applies different heights at top (statusBars ~24dp) vs bottom (navigationBars ~48dp).
+  2. `padding(bottom = 6.dp)` on the root Box (line 506) — adds 6dp extra at bottom only.
+- Combined effect: bottom gap ≈ 54dp vs top gap ≈ 24dp on 3-button nav devices (2.25× ratio).
+- Created `plans/right-edge-controls-gap-asymmetry-analysis.md` with full layout diagram, root cause breakdown, and recommended fix.
 
-## Next Steps
-Rebuild and deploy to verify dark button theme renders correctly on device. Confirm all control buttons (zoom ±, settings, GPS, EarthWater, dashboard accent strips) use the harmonised colours.
+**Next step:**
+- Discuss the analysis with the user. If approved, switch to Code mode to implement the fix (restructure control Column for symmetric insets, remove root `bottom = 6.dp`).
+
+**Key Files:**
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — root Box line 506, right-edge Column line 942
+- `plans/right-edge-controls-gap-asymmetry-analysis.md` — full analysis
+- `xTrack/Ui_General/FEAT_DSC_Ui_General.md` — feature tracking
+
+**Last Bake:** 2026-06-16 20:02 UTC
