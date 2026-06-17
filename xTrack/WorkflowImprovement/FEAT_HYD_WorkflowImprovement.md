@@ -1,14 +1,18 @@
-# Context Hydration — WorkflowImprovement — 2026-06-17
-
+# Hydration: WorkflowImprovement
+**Baked:** 2026-06-17 17:12 UTC
+**Status:** active
 **Active Subfeature:** none
+**Branch:** feature/workflow-validate
 
 ## State
-All 18 subfeatures complete ([x]). Plan migration executed (61 plans → FEAT_PLN_). new_task delegation + #implement pipeline designed in FEAT_PLN_ plan file. Auto-return to Architect rule added. ZoneTile feature created. AGENTS.md §7b.15 merge protocol added. OwnedFiles template added.
+All subfeatures are completed `[x]`. The core xTrack `#`-command system is fully implemented and canonicalized in AGENTS.md §7b. The last session added §8 Mode Handoff Protocol (handoff rules by mode, summary payload format, adapter file policy) and cleaned up `.claude/skills/xtrack/SKILL.md` and `references/fuzzy-resolve.md` to be thin redirects to AGENTS.md.
 
-## Target Files
-- `xTrack/WorkflowImprovement/FEAT_PLN_WorkflowImprovement_newtask-delegation.md` — new_task + #implement spec
-- `xTrack/GLOBAL_CONTEXT.md`
-- `AGENTS.md`
+## Key Files Modified
+- `AGENTS.md` — added §8 Mode Handoff Protocol
+- `.claude/skills/xtrack/SKILL.md` — simplified to redirect
+- `.claude/skills/xtrack/references/fuzzy-resolve.md` — deprecated, now redirects
+- `xTrack/GLOBAL_CONTEXT.md` — updated Feature Summaries, Last Bake
+- `xTrack/WorkflowImprovement/FEAT_DSC_WorkflowImprovement.md` — bumped modified date
 
 ## Next Step
-`#implement` invoked — needs action. `#implement` not yet defined as a live command in AGENTS.md §7b (only planned). Awaiting user direction.
+Ready for further WorkflowImprovement features or mode handoff protocol refinement. No pending todos.

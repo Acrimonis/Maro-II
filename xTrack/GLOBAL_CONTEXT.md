@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** ColorManagement
+- **Active Feature:** WorkflowImprovement
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-17
-- **Last Bake:** 2026-06-17 15:10 (Button taxonomy consolidation — removed ui.arc.anchor.* tokens, added badge bg/text/alpha tokens with active/inactive state, fixed badge rendering to preserve baked-in 80% opacity, fixed inactive=disabled logic, removed dead ArcLayoutToggle.kt, normalized on fanLayout naming)
-- **Branch:** feature/more-colors
+- **Last Bake:** 2026-06-17 17:12 (WorkflowImprovement — §8 Mode Handoff Protocol + adapter cleanup)
+- **Branch:** feature/workflow-validate
 ## Routing Map
 | Keyword | Feature File |
 |---|---|
@@ -34,7 +34,7 @@
 |---------|-----------|---------|----------|--------|
 | **ColorManagement** | **Centralised colour palette — all tokens in colors.properties with alias interpolation, documented in color-scheme.md** | **2026-06-16 14:05** | **2026-06-17 14:39** | **active** |
 | **Documentation** | **README, FAQs, setup guides, architecture docs, and plans cleanup** | **2026-06-11 06:42** | **2026-06-11 10:36** | **active** |
-| WorkflowImprovement | xTrack #command system, git shortcuts, #now/#list rename, trigger syntax, fuzzy matching, bootstrap, and memory bake lifecycle | 2026-06-03 00:00 | 2026-06-17 14:28 | active |
+| WorkflowImprovement | xTrack #command system, git shortcuts, #now/#list rename, trigger syntax, fuzzy matching, bootstrap, memory bake lifecycle, and mode handoff protocol | 2026-06-03 00:00 | 2026-06-17 17:12 | active |
 | Zone300 | 300m zone generation from coastline with water-only constraint | 2026-05-20 00:00 | 2026-06-03 00:00 | active |
 | DepthMapping | Bathymetry / depth mapping from Litto3D, SHOM, EMODnet sources | 2026-05-10 00:00 | 2026-06-10 12:13 | active |
 | Coastline | Coastline extraction, spatial indexing, isOnWater determination | 2026-05-10 00:00 | 2026-06-05 00:00 | active |
