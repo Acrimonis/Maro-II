@@ -285,6 +285,14 @@ class CoastlineViewModel(
     /** Previous distance to speed zone — used to detect "getting closer" vs "moving away". */
     private var lastDistToSpeedZone: Double? = null
 
+    // ── Regulated zone overlay auto-reveal state machine ──────────────────────
+    /** True when the user manually hid regulated zones → auto-reveal is armed. */
+    private var regulatedZoneManuallyHidden = false
+    /** True when the system auto-revealed regulated zones — gates the re-hide checks. */
+    private var regulatedZoneAutoRevealed = false
+    /** Previous distance to speed zone — used to detect "getting closer" vs "moving away". */
+    private var lastDistToRegZone: Double? = null
+
     /** Called from the screen lifecycle: enable GPS/compass on resume, disable on pause. */
     fun setGpsActive(active: Boolean) {
         _gpsActive.value = active
@@ -519,20 +527,32 @@ class CoastlineViewModel(
                 }
                 lastDistToZone = shore.distToZone
 
-                // ── Speed zone auto-show (uses generalized decision) ────────
-                val szAutoShowEnabled = if (cfg.gpsMode) cfg.speedZoneAutoShowGps else cfg.speedZoneAutoShowDemo
-                if (!szAutoShowEnabled) {
-                    speedZoneAutoRevealed = false
-                    lastDistToSpeedZone = shore.speedZoneQuery.distanceToBoundaryM
+                // ── Regulated zone overlay auto-show (speed enforcement) ────
+                // Uses the per-mode auto-show toggle as the armed flag so it reveals
+                // on FIRST approach (not just after manual hide). When the toggle is
+                // OFF the state machine resets and auto-show is suppressed.
+                val regAutoShowEnabled = if (cfg.gpsMode) cfg.regulatedZoneAutoShowGps else cfg.regulatedZoneAutoShowDemo
+                Log.d(TAG, "RegAutoShow: distToBoundary=${shore.speedZoneQuery.distanceToBoundaryM} " +
+                    "insideAny=${shore.speedZoneQuery.insideAnyZone} " +
+                    "prevDist=$lastDistToRegZone " +
+                    "armed=$regAutoShowEnabled water=${shore.isWater} " +
+                    "szIndex=${_speedZoneIndex.value != null} " +
+                    "zone300=${shore.inZone} " +
+                    "sogKn=$sogKn isStopped=${isStopped.value} " +
+                    "autoRevealed=$regulatedZoneAutoRevealed " +
+                    "regZonesVisible=${cfg.regulatedZonesVisible}")
+                if (!regAutoShowEnabled) {
+                    regulatedZoneAutoRevealed = false
+                    lastDistToRegZone = shore.speedZoneQuery.distanceToBoundaryM
                 } else {
-                    val szDecision = zoneAutoShowDecision(
+                    val regDecision = zoneAutoShowDecision(
                         dist = shore.speedZoneQuery.distanceToBoundaryM,
-                        prevDist = lastDistToSpeedZone,
+                        prevDist = lastDistToRegZone,
                         insideZone = shore.speedZoneQuery.insideAnyZone,
                         sogKn = sogKn,
                         isStopped = isStopped.value,
-                        armed = speedZoneManuallyHidden,
-                        autoRevealed = speedZoneAutoRevealed,
+                        armed = regAutoShowEnabled,  // always armed when setting ON → reveals on first approach
+                        autoRevealed = regulatedZoneAutoRevealed,
                         zoneEntered = false,
                         revealDistM = cfg.zoneAutoRevealDistanceM.toDouble(),
                         revealTimeS = cfg.zoneAutoRevealTimeS.toDouble(),
@@ -541,13 +561,17 @@ class CoastlineViewModel(
                             hysteresisM = AppConfig.speedZoneHysteresisM
                         )
                     )
-                    speedZoneAutoRevealed = szDecision.autoRevealed
-                    when (szDecision.action) {
-                        AutoShowAction.REVEAL -> settingsManager.update { it.copy(speedZonesVisible = true) }
-                        AutoShowAction.HIDE -> settingsManager.update { it.copy(speedZonesVisible = false) }
-                        AutoShowAction.NONE -> {}
+                    regulatedZoneAutoRevealed = regDecision.autoRevealed
+                    Log.d(TAG, "RegAutoShow: decision action=${regDecision.action} " +
+                        "autoRevealed=${regDecision.autoRevealed} " +
+                        "revealed=${regDecision.action == AutoShowAction.REVEAL} " +
+                        "hide=${regDecision.action == AutoShowAction.HIDE}")
+                    when (regDecision.action) {
+                        AutoShowAction.REVEAL -> settingsManager.update { it.copy(regulatedZonesVisible = true) }
+                        AutoShowAction.HIDE   -> settingsManager.update { it.copy(regulatedZonesVisible = false) }
+                        AutoShowAction.NONE   -> {}
                     }
-                    lastDistToSpeedZone = shore.speedZoneQuery.distanceToBoundaryM
+                    lastDistToRegZone = shore.speedZoneQuery.distanceToBoundaryM
                 }
 
                 // ── Demo speed stop-detection (replaces panStopJob coroutine — no 60 Hz launch) ──
@@ -787,6 +811,32 @@ class CoastlineViewModel(
                 zone300ManuallyHidden = true
                 zone300AutoRevealed = false
             }
+        }
+        // Track manual hide/reveal for regulated zone auto-reveal state machine
+        if (regOn != next.r) {
+            if (next.r) { // was off → now on
+                regulatedZoneManuallyHidden = false
+                regulatedZoneAutoRevealed = false
+            } else { // was on → now off (user manually hid it)
+                regulatedZoneManuallyHidden = true
+                regulatedZoneAutoRevealed = false
+            }
+        }
+    }
+
+    /**
+     * Toggles the regulated zone overlay visibility. Manages both the manual-hide flag
+     * and the auto-reveal flag so the state machine stays consistent.
+     */
+    fun toggleRegulatedZonesVisibility() {
+        val current = settings.value.regulatedZonesVisible
+        settingsManager.update { it.copy(regulatedZonesVisible = !current) }
+        if (current) { // was visible → now hiding (user manually hid it)
+            regulatedZoneManuallyHidden = true
+            regulatedZoneAutoRevealed = false
+        } else { // was hidden → now showing (user manually toggled back on)
+            regulatedZoneManuallyHidden = false
+            regulatedZoneAutoRevealed = false
         }
     }
 
@@ -1504,7 +1554,10 @@ internal fun zoneAutoShowDecision(
         // Re-show when inside the zone and non-compliant (was hidden by compliance)
         val insideNonCompliant = config.hideOnCompliantInside &&
             insideZone && sogKn != null && sogKn > config.regulatorySpeedKn
-        val reveal = outsideReveal || insideNonCompliant
+        // Speed zone (hideOnCompliantInside=false): reveal immediately when inside,
+        // even if the outside-approach window was missed (boat entered between ticks).
+        val insideZoneReveal = insideZone && !config.hideOnCompliantInside
+        val reveal = outsideReveal || insideNonCompliant || insideZoneReveal
         return AutoShowDecision(
             action = if (reveal) AutoShowAction.REVEAL else AutoShowAction.NONE,
             autoRevealed = reveal,
@@ -1530,13 +1583,18 @@ internal fun zoneAutoShowDecision(
             zoneEntered = if (hide) false else entered
         )
     } else {
-        // Speed zone behavior: hide only when stopped+idle or retreated past margin
+        // Speed zone behavior: hide when stopped+idle, retreated past margin,
+        // or exited the zone past the reveal margin (mirrors the show trigger).
         val effectivelyOutside = dist != null && dist > config.hysteresisM
         val retreatedPastMargin = effectivelyOutside && movingAway && dist != null && dist > revealDistM
-        val hide = isStopped && !approaching || retreatedPastMargin
+        // Hide when no longer inside the zone and clearly past the reveal margin
+        val exitedZone = autoRevealed && !insideZone && dist != null && dist > revealDistM
+        // Hide when SZI can't locate the boat (on land or too far from any zone)
+        val locationUnknown = autoRevealed && !insideZone && dist == null
+        val hide = isStopped && !approaching || retreatedPastMargin || exitedZone || locationUnknown
         return AutoShowDecision(
             action = if (hide) AutoShowAction.HIDE else AutoShowAction.NONE,
-            autoRevealed = !hide
+            autoRevealed = if (hide) false else autoRevealed
         )
     }
 }

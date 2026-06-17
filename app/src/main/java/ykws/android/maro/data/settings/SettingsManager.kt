@@ -137,6 +137,15 @@ data class AppSettings(
      */
     val speedZoneAutoShowDemo: Boolean = true,
     /**
+     * GPS mode: auto-reveal the regulated zone overlay when approaching a speed-enforced zone.
+     * When off, the overlay stays under manual control in GPS mode.
+     */
+    val regulatedZoneAutoShowGps: Boolean = true,
+    /**
+     * Demo mode: same approach auto-reveal for regulated zone overlay, driven by pan speed.
+     */
+    val regulatedZoneAutoShowDemo: Boolean = true,
+    /**
      * GPS idle mode: minimum metres of movement between fixes when the adaptive policy
      * has switched to [AcquisitionMode.IDLE] (device stationary). Default 0 so even tiny
      * drifts update the position at the idle cadence — prevents the perception of a
@@ -239,6 +248,8 @@ class SettingsManager(
         speedZonesVisible = prefs.getBoolean(KEY_SPEED_ZONES_VISIBLE, false),
         speedZoneAutoShowGps = prefs.getBoolean(KEY_SPEED_ZONE_AUTOSHOW_GPS, true),
         speedZoneAutoShowDemo = prefs.getBoolean(KEY_SPEED_ZONE_AUTOSHOW_DEMO, true),
+        regulatedZoneAutoShowGps = prefs.getBoolean(KEY_REGULATED_ZONE_AUTOSHOW_GPS, true),
+        regulatedZoneAutoShowDemo = prefs.getBoolean(KEY_REGULATED_ZONE_AUTOSHOW_DEMO, true),
         gpsIdleMinDistanceM = prefs.getFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, 0f)
     )
 
@@ -309,6 +320,8 @@ class SettingsManager(
             .putBoolean(KEY_SPEED_ZONES_VISIBLE, updated.speedZonesVisible)
             .putBoolean(KEY_SPEED_ZONE_AUTOSHOW_GPS, updated.speedZoneAutoShowGps)
             .putBoolean(KEY_SPEED_ZONE_AUTOSHOW_DEMO, updated.speedZoneAutoShowDemo)
+            .putBoolean(KEY_REGULATED_ZONE_AUTOSHOW_GPS, updated.regulatedZoneAutoShowGps)
+            .putBoolean(KEY_REGULATED_ZONE_AUTOSHOW_DEMO, updated.regulatedZoneAutoShowDemo)
             .putFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, updated.gpsIdleMinDistanceM)
             .apply()
     }
@@ -368,6 +381,8 @@ class SettingsManager(
         private const val KEY_SPEED_ZONES_VISIBLE = "speed_zones_visible"
         private const val KEY_SPEED_ZONE_AUTOSHOW_GPS = "speed_zone_autoshow_gps"
         private const val KEY_SPEED_ZONE_AUTOSHOW_DEMO = "speed_zone_autoshow_demo"
+        private const val KEY_REGULATED_ZONE_AUTOSHOW_GPS = "regulated_zone_autoshow_gps"
+        private const val KEY_REGULATED_ZONE_AUTOSHOW_DEMO = "regulated_zone_autoshow_demo"
         private const val KEY_GPS_IDLE_MIN_DISTANCE_M = "gps_idle_min_distance_m"
         private const val KEY_PREFS_VERSION = "prefs_version"
         private const val CURRENT_VERSION = 2
