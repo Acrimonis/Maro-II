@@ -86,11 +86,15 @@ fun ArcAnchorButton(
         }
         // Badge OUTSIDE the circle clip — renders fully visible at top-right.
         // Dimmed (inactive.alpha) when no layers are active (disabled).
+        // Multiply bg alpha by badgeAlpha to preserve the baked-in 80% opacity
+        // from ui.button.background=#CC16213E.
         val isEnabled = activeLayerCount > 0
         val badgeAlpha = if (isEnabled) ButtonColors.badgeActiveAlpha else ButtonColors.badgeInactiveAlpha
-        Box(Modifier.size(18.dp).clip(CircleShape).background(ButtonColors.bg.copy(alpha = badgeAlpha)).align(Alignment.TopEnd)) {
+        val bgColor = ButtonColors.bg.copy(alpha = ButtonColors.bg.alpha * badgeAlpha)
+        val textColor = ButtonColors.badgeText.copy(alpha = badgeAlpha)
+        Box(Modifier.size(18.dp).clip(CircleShape).background(bgColor).align(Alignment.TopEnd)) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("$activeLayerCount", color = ButtonColors.badgeText.copy(alpha = badgeAlpha), fontSize = 11.sp,
+                Text("$activeLayerCount", color = textColor, fontSize = 11.sp,
                     fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
                     style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false)))
             }
