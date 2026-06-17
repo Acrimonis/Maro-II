@@ -180,19 +180,20 @@ fun FanLayout(
                 parent(config.isOpen, config.activeChildCount)
             }
 
-            // Active badge — 18 dp blue circle at TopEnd, outside circle clip.
+            // Active badge — 18 dp circle at TopEnd, outside circle clip.
             if (config.showActiveBadge) {
+                val badgeAlpha = if (config.isOpen) ButtonColors.badgeActiveAlpha else ButtonColors.badgeInactiveAlpha
                 Box(
                     modifier = Modifier
                         .size(18.dp)
                         .clip(CircleShape)
-                        .background(ButtonColors.icon)
+                        .background(ButtonColors.badgeBg.copy(alpha = badgeAlpha))
                         .align(Alignment.TopEnd)
                 ) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
                             "${config.activeChildCount}",
-                            color = ykws.android.maro.ui.map.ButtonColors.icon,
+                            color = ButtonColors.badgeText.copy(alpha = badgeAlpha),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.Center,

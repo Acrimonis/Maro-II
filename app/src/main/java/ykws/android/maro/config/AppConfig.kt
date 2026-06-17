@@ -54,13 +54,30 @@ object AppConfig {
         private set
 
     /** Alpha (0.0–1.0) for active/toggled-on icon state.
-     *  Default 1.0. Set via `ui.button.iconActiveAlpha` in colors.properties. */
+     *  Default 1.0. Set via `ui.button.icon.active.alpha` in colors.properties. */
     var buttonActionIconActiveAlpha: Float = 1.0f
         private set
 
     /** Alpha (0.0–1.0) for inactive/toggled-off icon state.
-     *  Default 0.25. Set via `ui.button.iconInactiveAlpha` in colors.properties. */
+     *  Default 0.25. Set via `ui.button.icon.inactive.alpha` in colors.properties. */
     var buttonActionIconInactiveAlpha: Float = 0.25f
+        private set
+
+    /** ARGB colour for the badge circle fill on arc anchor and fan parent buttons (18 dp).
+     *  Default #CC16213E. Set via `ui.button.badge.background` in colors.properties. */
+    var uiButtonBadgeBackground: Int = 0xCC16213E.toInt()
+        private set
+    /** ARGB colour for badge count text.
+     *  Default #E0E0E0. Set via `ui.button.badge.text` in colors.properties. */
+    var uiButtonBadgeText: Int = 0xFFE0E0E0.toInt()
+        private set
+    /** Alpha (0.0–1.0) for badge when the arc/fan is OPEN (expanded).
+     *  Default 1.0. Set via `ui.button.badge.active.alpha` in colors.properties. */
+    var buttonBadgeActiveAlpha: Float = 1.0f
+        private set
+    /** Alpha (0.0–1.0) for badge when the arc/fan is CLOSED (collapsed).
+     *  Default 0.25. Set via `ui.button.badge.inactive.alpha` in colors.properties. */
+    var buttonBadgeInactiveAlpha: Float = 0.25f
         private set
 
     // ── Colors from colors.properties ────────────────────────────────────────
@@ -191,14 +208,6 @@ object AppConfig {
         private set
     /** EarthWater icon inactive-state colour. Default #EEFFFFFF. Set via `status.earthWater.inactive` in colors.properties. */
     var statusEarthWaterInactive: Int = 0xEEFFFFFF.toInt()
-        private set
-
-    // ── Arc anchor button ─────────────────────────────────────────────────────
-    /** Arc anchor button colour. Default #FFE0E0E0 (light grey). Set via `ui.arc.anchor.color` in colors.properties. */
-    var uiArcAnchorColor: Int = 0xFFE0E0E0.toInt()
-        private set
-    /** Arc anchor button background. Default #CC16213E (semi-transparent dark blue). Set via `ui.arc.anchor.background` in colors.properties. */
-    var uiArcAnchorBackground: Int = 0xCC16213E.toInt()
         private set
 
     // ── Dashboard depth readout tints ─────────────────────────────────────────
@@ -449,12 +458,16 @@ object AppConfig {
             props.getProperty("ui.button.icon")?.let { parseColorOrNull(it) }?.let {
                 buttonActionIconColor = it
             }
-            props.getProperty("ui.button.iconActiveAlpha")?.toFloatOrNull()?.let {
+            props.getProperty("ui.button.icon.active.alpha")?.toFloatOrNull()?.let {
                 buttonActionIconActiveAlpha = it.coerceIn(0f, 1f)
             }
-            props.getProperty("ui.button.iconInactiveAlpha")?.toFloatOrNull()?.let {
+            props.getProperty("ui.button.icon.inactive.alpha")?.toFloatOrNull()?.let {
                 buttonActionIconInactiveAlpha = it.coerceIn(0f, 1f)
             }
+            props.getProperty("ui.button.badge.background")?.let { parseColorOrNull(it) }?.let { uiButtonBadgeBackground = it }
+            props.getProperty("ui.button.badge.text")?.let { parseColorOrNull(it) }?.let { uiButtonBadgeText = it }
+            props.getProperty("ui.button.badge.active.alpha")?.toFloatOrNull()?.let { buttonBadgeActiveAlpha = it.coerceIn(0f, 1f) }
+            props.getProperty("ui.button.badge.inactive.alpha")?.toFloatOrNull()?.let { buttonBadgeInactiveAlpha = it.coerceIn(0f, 1f) }
 
             // ── Colors from colors.properties ────────────────────────────────────
             props.getProperty("ui.dashboard.background")?.let { parseColorOrNull(it) }?.let { uiDashboardBackground = it }
@@ -504,10 +517,6 @@ object AppConfig {
             props.getProperty("status.earthWater.water")?.let { parseColorOrNull(it) }?.let { statusEarthWaterWater = it }
             props.getProperty("status.earthWater.land")?.let { parseColorOrNull(it) }?.let { statusEarthWaterLand = it }
             props.getProperty("status.earthWater.inactive")?.let { parseColorOrNull(it) }?.let { statusEarthWaterInactive = it }
-
-            // ── Arc anchor button ─────────────────────────────────────────────
-            props.getProperty("ui.arc.anchor.color")?.let { parseColorOrNull(it) }?.let { uiArcAnchorColor = it }
-            props.getProperty("ui.arc.anchor.background")?.let { parseColorOrNull(it) }?.let { uiArcAnchorBackground = it }
 
             // ── Dashboard depth readout tints ─────────────────────────────────
             props.getProperty("ui.dashboard.readout.collision")?.let { parseColorOrNull(it) }?.let { uiDashboardReadoutCollision = it }
