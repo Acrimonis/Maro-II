@@ -526,8 +526,13 @@ fun MapScreen(
             BackHandler { showSettings = false }
         }
 
+        // ── Intercept system back when track history is open ──────────────
+        if (showTrackHistory) {
+            BackHandler { showTrackHistory = false }
+        }
+
         // ── Otherwise require a second back press within 2 s to exit ───────
-        BackHandler(enabled = !showSettings && !anyFanExpanded) {
+        BackHandler(enabled = !showSettings && !showTrackHistory && !anyFanExpanded) {
             val now = SystemClock.elapsedRealtime()
             if (now - lastBackAt <= 2_000L) {
                 context.findActivity()?.finishAffinity()
@@ -700,7 +705,7 @@ fun MapScreen(
                 recorderState = trackRecorderState,
                 onStartRecording = { trackViewModel.startRecording() },
                 onStopRecording = { trackViewModel.stopRecording() },
-                onViewTrackList = { showTrackHistory = true },
+                onViewTrackList = { showTrackDrawer = false; showTrackHistory = true },
                 onDismiss = { showTrackDrawer = false }
             )
         }
@@ -713,29 +718,7 @@ fun MapScreen(
                     trackViewModel.updateTrack(id, name, comment, visible)
                 },
                 onDeleteTrack = { id -> trackViewModel.deleteTrack(id) },
-                onShareGpx = { id ->
-                    trackScope.launch {
-                        val track = trackViewModel.loadTrackDetail(id)
-                        if (track != null) {
-                            val gpx = track.toGpx()
-                            val file = java.io.File(context.cacheDir, "${id}.gpx")
-                            file.writeText(gpx)
-                            val uri = androidx.core.content.FileProvider.getUriForFile(
-                                context,
-                                "${context.packageName}.fileprovider",
-                                file
-                            )
-                            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                                type = "application/gpx+xml"
-                                putExtra(android.content.Intent.EXTRA_STREAM, uri)
-                                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                            context.startActivity(
-                                android.content.Intent.createChooser(intent, "Share GPX")
-                            )
-                        }
-                    }
-                },
+                onShareGpx = { id -> shareTrackGpx(context, trackViewModel, id, trackScope) },
                 onDismiss = { showTrackHistory = false }
             )
         }
@@ -760,6 +743,35 @@ fun MapScreen(
                 }
             )
         }
+    }
+}
+
+/**
+ * Share a track as a GPX file via Android's share intent.
+ */
+private fun shareTrackGpx(
+    context: android.content.Context,
+    trackViewModel: ykws.android.maro.data.track.TrackViewModel,
+    trackId: String,
+    scope: kotlinx.coroutines.CoroutineScope
+) {
+    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+        val track = trackViewModel.loadTrackDetail(trackId) ?: return@launch
+        val gpx = track.toGpx()
+        val gpxFile = java.io.File(context.filesDir, "tracks/${trackId}.gpx")
+        gpxFile.parentFile?.mkdirs()
+        gpxFile.writeText(gpx)
+        val uri = androidx.core.content.FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            gpxFile
+        )
+        val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            type = "application/gpx+xml"
+            putExtra(android.content.Intent.EXTRA_STREAM, uri)
+            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(android.content.Intent.createChooser(intent, "Share GPX"))
     }
 }
 
