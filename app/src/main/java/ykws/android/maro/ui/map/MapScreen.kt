@@ -1,6 +1,7 @@
 
 package ykws.android.maro.ui.map
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.data.track.toGpx
 
 import android.graphics.DashPathEffect
 
@@ -78,6 +79,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
@@ -132,6 +134,7 @@ import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -204,6 +207,14 @@ fun MapScreen(
     var mapView by remember { mutableStateOf<MapView?>(null) }
     var showSettings by remember { mutableStateOf(false) }
     var expandedFanId by remember { mutableStateOf<ControlId?>(null) }
+    var showTrackDrawer by remember { mutableStateOf(false) }
+    var showTrackHistory by remember { mutableStateOf(false) }
+    val trackViewModel: ykws.android.maro.data.track.TrackViewModel =
+        androidx.lifecycle.viewmodel.compose.viewModel()
+    val trackRecorderState by trackViewModel.uiState.collectAsState()
+    val trackSummaries by trackViewModel.summaries.collectAsState()
+    val recoveryTrack by trackViewModel.recoveryTrack.collectAsState()
+    val trackScope = rememberCoroutineScope()
     val anyFanExpanded = expandedFanId != null
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val displayScrollState = rememberScrollState()
@@ -572,6 +583,45 @@ fun MapScreen(
                 onMapViewReady = { mapView = it },
                 onRetry = { viewModel.loadCoastline() },
                 onOpenSettings = { showSettings = true },
+                onOpenTrackDrawer = { showTrackDrawer = !showTrackDrawer },
+                showTrackDrawer = showTrackDrawer,
+                showTrackHistory = showTrackHistory,
+                trackRecorderState = trackRecorderState,
+                trackSummaries = trackSummaries,
+                recoveryTrack = recoveryTrack,
+                onStartRecording = { trackViewModel.startRecording() },
+                onStopRecording = { trackViewModel.stopRecording() },
+                onViewTrackList = { showTrackHistory = true },
+                onDismissTrackHistory = { showTrackHistory = false },
+                onUpdateTrack = { id, name, comment, visible ->
+                    trackViewModel.updateTrack(id, name, comment, visible)
+                },
+                onDeleteTrack = { id -> trackViewModel.deleteTrack(id) },
+                onShareGpx = { id ->
+                    trackScope.launch {
+                        val track = trackViewModel.loadTrackDetail(id)
+                        if (track != null) {
+                            val gpx = track.toGpx()
+                            val file = java.io.File(context.cacheDir, "${id}.gpx")
+                            file.writeText(gpx)
+                            val uri = androidx.core.content.FileProvider.getUriForFile(
+                                context,
+                                "${context.packageName}.fileprovider",
+                                file
+                            )
+                            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                                type = "application/gpx+xml"
+                                putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                            }
+                            context.startActivity(
+                                android.content.Intent.createChooser(intent, "Share GPX")
+                            )
+                        }
+                    }
+                },
+                onDiscardRecovery = { recoveryTrack?.let { trackViewModel.discardOrphanedCheckpoint(it) } },
+                onSaveRecovery = { recoveryTrack?.let { trackViewModel.saveOrphanedCheckpoint(it) } },
                 onToggleLowDepthWarning = viewModel::toggleLowDepthWarningVisibility,
                 onToggleDepthLayer = viewModel::toggleDepthLayerVisibility,
                 onToggleRegulatedZones = viewModel::toggleRegulatedZonesVisibility,
@@ -660,7 +710,7 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
 // ── Right-edge control stack types ─────────────────────────────────────────
 
 /** Identifies a control in the right-edge stack. Add new entries when adding controls. */
-private enum class ControlId { SETTINGS, LAYER_FAN, ZOOM }
+private enum class ControlId { SETTINGS, LAYER_FAN, ZOOM, MENU }
 
 @Composable
 private fun MapContent(
@@ -688,6 +738,21 @@ private fun MapContent(
     onMapViewReady: (MapView) -> Unit,
     onRetry: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenTrackDrawer: () -> Unit = {},
+    showTrackDrawer: Boolean = false,
+    showTrackHistory: Boolean = false,
+    trackRecorderState: ykws.android.maro.data.track.TrackRecorderUiState = ykws.android.maro.data.track.TrackRecorderUiState(),
+    trackSummaries: List<ykws.android.maro.data.track.TrackSummary> = emptyList(),
+    recoveryTrack: ykws.android.maro.data.track.Track? = null,
+    onStartRecording: () -> Unit = {},
+    onStopRecording: () -> Unit = {},
+    onViewTrackList: () -> Unit = {},
+    onDismissTrackHistory: () -> Unit = {},
+    onUpdateTrack: (String, String?, String?, Boolean?) -> Unit = { _, _, _, _ -> },
+    onDeleteTrack: (String) -> Unit = {},
+    onShareGpx: (String) -> Unit = {},
+    onDiscardRecovery: () -> Unit = {},
+    onSaveRecovery: () -> Unit = {},
     onToggleZone300: () -> Unit,
     zone300OverlayVisible: Boolean = false,
     regulatedZoneOverlayVisible: Boolean = false,
@@ -788,6 +853,10 @@ private fun MapContent(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     GpsStatusIcon(state = gpsIconState)
+                    TrackStatusIcon(
+                        recorderState = trackRecorderState,
+                        onClick = onOpenTrackDrawer
+                    )
                     EarthWaterIcon(
                         emoji = if (isWater) "🌊" else "🏔️",
                         isActive = true,
@@ -907,8 +976,18 @@ private fun MapContent(
                         .alpha(ctAlpha),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    // Menu (hamburger) button — above Settings
+                    MapControlButton(
+                        onClick = onOpenTrackDrawer,
+                        icon = {
+                            androidx.compose.material3.Text(
+                                text = "\u2630",
+                                color = ykws.android.maro.ui.map.ButtonColors.icon,
+                                fontSize = 24.sp
+                            )
+                        }
+                    )
                     SettingsButton(onClick = onOpenSettings)
-                    // Future top controls can be added here
                 }
 
                 // cm (controls middle): fan buttons, fills remaining height
@@ -1003,6 +1082,48 @@ private fun MapContent(
                     }
                     // Future bottom controls can be added here
                 }
+            }
+
+            // ── TrackDrawer overlay ───────────────────────────────────────
+            TrackDrawerOverlay(
+                isOpen = showTrackDrawer,
+                recorderState = trackRecorderState,
+                onStartRecording = onStartRecording,
+                onStopRecording = onStopRecording,
+                onViewTrackList = onViewTrackList,
+                onDismiss = { onOpenTrackDrawer() }
+            )
+
+            // ── TrackHistory overlay ──────────────────────────────────────
+            if (showTrackHistory) {
+                TrackHistoryOverlay(
+                    trackSummaries = trackSummaries,
+                    onUpdateTrack = onUpdateTrack,
+                    onDeleteTrack = onDeleteTrack,
+                    onShareGpx = onShareGpx,
+                    onDismiss = onDismissTrackHistory
+                )
+            }
+
+            // ── Process-death recovery dialog ─────────────────────────────
+            recoveryTrack?.let { track ->
+                androidx.compose.material3.AlertDialog(
+                    onDismissRequest = onDiscardRecovery,
+                    title = { androidx.compose.material3.Text("Unfinished Recording") },
+                    text = { androidx.compose.material3.Text(
+                        "Found an unfinished recording from ${track.name}. What would you like to do?"
+                    ) },
+                    confirmButton = {
+                        androidx.compose.material3.TextButton(
+                            onClick = onSaveRecovery
+                        ) { androidx.compose.material3.Text("Save") }
+                    },
+                    dismissButton = {
+                        androidx.compose.material3.TextButton(
+                            onClick = onDiscardRecovery
+                        ) { androidx.compose.material3.Text("Discard") }
+                    }
+                )
             }
         }
     }

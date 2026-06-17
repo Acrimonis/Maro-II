@@ -327,7 +327,7 @@ Protobuf file CRUD on `Dispatchers.IO`:
 
 **File:** `ui/map/TrackDrawerOverlay.kt` — right-side overlay panel using `ModalDrawerSheet`
 
-**Trigger:** 👣 `TrackStatusIcon` click opens the drawer. No separate hamburger button.
+**Triggers:** Both 🍔 hamburger button (right-edge stack, above settings) and 👣 `TrackStatusIcon` (top-left icon row) open the drawer.
 
 **TrackDrawerOverlay (right-side overlay):**
 - Right-aligned panel at 75% width (`Alignment.TopEnd`, `fillMaxWidth(0.75f)`)
@@ -425,10 +425,12 @@ The existing `gpsFixFlow` emission site should also emit to `_gpsFixFlow` via `_
 
 **File:** [`app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt)
 
-- Add `TrackStatusIcon` to top-left icon row (clickable → opens TrackDrawerOverlay)
+- Add 🍔 **hamburger button** to the right-edge control stack, **above the Settings button** — `Icons.Default.Menu`, 64dp round `MapControlButton` style
+- Add `TrackStatusIcon` to top-left icon row
+- Both hamburger and status icon open `TrackDrawerOverlay`
 - Track overlay `LaunchedEffect`: observes `trackSummaries`, manages osmdroid `Polyline` per visible track (8f stroke, `trackColorArgb`, titled `"track_$id"`)
 - Overlay cleanup protection: exclude `"track_"`-prefixed Polylines from general `removeAll`
-- `TrackDrawerOverlay` as right-side panel (activated by status icon click)
+- `TrackDrawerOverlay` as right-side panel
 - `TrackHistoryOverlay` as full-screen overlay
 - "Track Recording" toggle in General settings tab
 - "Track Configuration" read-only section (origin lat/lon/radius)
