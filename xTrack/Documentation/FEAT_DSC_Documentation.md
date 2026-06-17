@@ -123,3 +123,4 @@ Cross-cutting project documentation — README, FAQs, setup guides, architecture
 - `xTrack/Documentation/FEAT_PLN_Documentation_readme-update.md` — README update discussion & proposed changes
 - `xTrack/Documentation/FEAT_PLN_Documentation_git-merge-command.md` — Git merge command design
 - `xTrack/Documentation/FEAT_PLN_Documentation_git-move-command.md` — Git move/rename command design
+- `xTrack/Documentation/FEAT_PLN_Documentation_round-1-summary-round-2-plan.md` — Round 1 summary and round 2 plan

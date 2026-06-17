@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # Plan: `#help [cmd]` Extension
 
 ## Goal
@@ -94,3 +95,4 @@ Fuzzy resolution follows the existing protocol (§7b): exact → substring → e
 - Creating separate files per command (too heavy; single-file sections suffice)
 - Interactive `#help` with pagination (not needed for AI-consumed output)
 - Multilingual help text
+

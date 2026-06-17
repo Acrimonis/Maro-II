@@ -109,3 +109,7 @@ active_subfeature: none
 - `xTrack/Ui_Settings/FEAT_PLN_Ui_Settings_scroll-persistence.md` — discussion: hoist `ScrollState` to survive overlay dismiss/reopen within a session
 - `xTrack/Ui_Settings/FEAT_PLN_Ui_Settings_scroll-persistence-analysis.md` — scroll persistence analysis
 - `xTrack/Ui_Settings/FEAT_PLN_Ui_Settings_tab-organization.md` — discussion: organize settings into tabs/sections
+- `xTrack/Ui_Settings/FEAT_PLN_Ui_Settings_tab-reorder-discussion.md` — Tab reorder discussion
+- `xTrack/Ui_Settings/FEAT_PLN_Ui_Settings_vertical-padding.md` — Vertical padding discussion
+- `xTrack/Ui_Settings/FEAT_PLN_Ui_Settings_landscape-font-sizing.md` — Landscape font sizing discussion
+- `xTrack/Ui_Settings/FEAT_PLN_Ui_Settings_zoneconfig-to-appconfig.md` — ZoneConfig to AppConfig rename

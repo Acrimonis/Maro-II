@@ -10,5 +10,5 @@ Convenience wrappers over standard git. **🔴 See [`docs/GIT_WORKFLOW.md`](docs
   #cherry [target]    list unpushed commits, interactive pick to cherry-pick to [target].
   #copy [target]      alias for #cherry.
   #rename [branch]    git branch -m [branch].
-  #merge              rebase current branch onto origin/develop + force-push. 🚫 refuses on develop/main.
-  #merge [branch]     rebase onto [branch] + force-push. 🚫 refuses on develop/main.
+  #merge              rebase + force-push; AI auto-resolves conflicts via feature ownership (## OwnedFiles). 🚫 refuses on develop/main.
+  #merge [branch]     rebase onto [branch] + force-push; AI auto-resolves. 🚫 refuses on develop/main.

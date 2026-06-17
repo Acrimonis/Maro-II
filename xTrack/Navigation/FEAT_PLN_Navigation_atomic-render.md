@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # Cap Arrow Atomic Render — Discussion
 
 ## Problem
@@ -107,3 +108,4 @@ val navState by viewModel.navigationState.collectAsState()
 1. Should `demoSpeedKnots` also be folded into `NavigationState`? Currently set in a different coroutine (pan velocity). If folded, the demo speed update becomes atomic with bearing too.
 
 2. Would an alternative approach — combining into a single `combine()` flow in the ViewModel — be simpler? E.g., `combine(_mapBearing, _speedKnots, _demoSpeedKnots) { ... }` — this avoids changing the field storage but still gives a single atomic flow for the UI to collect.
+

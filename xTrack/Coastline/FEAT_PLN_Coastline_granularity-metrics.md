@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # Coastline Granularity — Metrics Comparison (50 km coastline)
 
 | Metric | ε=3m | ε=8m | ε=10m | ε=15m | Why it matters |
@@ -42,3 +43,4 @@ Zoom 11 view (1 cm on screen ≈ 50m on ground):
 - Zone error (3.5%) — very safe
 
 **ε=3m** is only useful if you're using survey-grade GPS (< 1m accuracy) or mapping harbor details. For open-water navigation, it's unnecessary.
+

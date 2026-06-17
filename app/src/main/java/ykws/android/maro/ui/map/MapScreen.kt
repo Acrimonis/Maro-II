@@ -746,6 +746,7 @@ private fun MapContent(
         )
 
         // ── Layer 0 overlays: cap (bottom), arrow (middle), marker (top) ──
+        // ── Layer 0 overlays: direction line + center marker ─────────────
         val moving = navigationState.speedKnots != null || navigationState.demoSpeedKnots != null
         if (moving && appSettings.headingLineVisible) {
             DirectionLine(modifier = Modifier.fillMaxSize())

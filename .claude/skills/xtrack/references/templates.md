@@ -97,6 +97,9 @@ active_subfeature: none
 ## Key Files
 - `path/to/source` — [brief description]
 
+## OwnedFiles
+- `path/to/source` — [brief description why feature owns this]
+
 ## Docs
 - `FEAT_DOC_[Feature]_[name].md` — [brief description]
 ```

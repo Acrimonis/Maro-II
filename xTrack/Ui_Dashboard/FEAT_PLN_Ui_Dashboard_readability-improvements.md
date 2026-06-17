@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # Dashboard Readability — Space Management & Readability Improvements
 
 > **Feature:** Dashboard
@@ -192,3 +193,4 @@ New math: `4+4+4+4+4+4 = 24dp` waste → **168dp per value** (+14%).
 - **Depth ≥ 100m** → localized "Deep!" / "Fond!" tag
 - **Distance ≥ 10 km** → clean whole-number `18 km` format
 - **Bolder hierarchy** — title easier to scan, subtitle still secondary
+

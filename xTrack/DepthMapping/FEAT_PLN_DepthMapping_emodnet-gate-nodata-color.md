@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # Plan: EMODnet Shallow Gate for All Depth Layers + Configurable NoData Color
 
 ## Overview
@@ -133,3 +134,4 @@ Only the **colour map** (`DepthBitmap`/`DepthColorRamp`) gets the NoData colour.
 3. **Above-datum cells** (`depthM < 0f`) — `DepthColorRamp` currently treats these as transparent (same as NaN). Should the NoData colour also apply to above-datum cells, or should they remain transparent? Above-datum means the seafloor is above the chart datum (negative depth, exposed at low tide) — arguably a distinct state from "no data available".
 
 4. **NoData color defaults** — The default of `0` (transparent) preserves current behaviour. But if we're adding a colour, what's a good default? Light grey (`#FFCCCCCC`), a subtle hatch pattern, or transparent by default and only visible when explicitly configured?
+

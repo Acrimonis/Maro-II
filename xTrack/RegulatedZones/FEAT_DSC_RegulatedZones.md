@@ -336,7 +336,19 @@ Relocates the [GpsStatusIcon] composable from [Alignment.BottomStart] to a Row a
 - [`plans/regulated-zones-icon-warnings-plan.md`](../plans/regulated-zones-icon-warnings-plan.md) — Implementation plan for regulated zone icon warnings: data extraction, bake-time filtering, icon assignment, map overlay rendering
 
 ## Docs
-- [`plans/regulated-zones-vessel-filter-design.md`](../plans/regulated-zones-vessel-filter-design.md) — Vessel size restriction design discussion
+- `xTrack/RegulatedZones/FEAT_PLN_RegulatedZones_category-icon-mapping.md` — Category icon mapping
+- `xTrack/RegulatedZones/FEAT_PLN_RegulatedZones_data-lookup-plan.md` — Data lookup plan
+- `xTrack/RegulatedZones/FEAT_PLN_RegulatedZones_filter-design.md` — Filter design
+- `xTrack/RegulatedZones/FEAT_PLN_RegulatedZones_fixes-discussion.md` — Fixes discussion
+- `xTrack/RegulatedZones/FEAT_PLN_RegulatedZones_hexagon-fix-plan.md` — Hexagon fix plan
+- `xTrack/RegulatedZones/FEAT_PLN_RegulatedZones_icon-gap-analysis.md` — Icon gap analysis
+- `xTrack/RegulatedZones/FEAT_PLN_RegulatedZones_icon-warnings-plan.md` — Icon warnings plan
+- `xTrack/RegulatedZones/FEAT_PLN_RegulatedZones_multi-source-normalization.md` — Multi-source normalization
+- `xTrack/RegulatedZones/FEAT_PLN_RegulatedZones_readme.md` — Feature readme
+- `xTrack/RegulatedZones/FEAT_PLN_RegulatedZones_reqs-formalized.md` — Requirements formalized
+- `xTrack/RegulatedZones/FEAT_PLN_RegulatedZones_toggle-merge-design.md` — Toggle merge design
+- `xTrack/RegulatedZones/FEAT_PLN_RegulatedZones_vessel-filter-design.md` — Vessel size restriction design
+- `xTrack/RegulatedZones/FEAT_PLN_RegulatedZones_vessel-size-filtering.md` — Vessel size filtering
 - [`plans/regulated-zones-readme.md`](../plans/regulated-zones-readme.md) — Feature README: architecture overview, per-step test coverage
 - [`plans/regulated-zones-toggle-merge-design.md`](../plans/regulated-zones-toggle-merge-design.md) — Toggle button merge design
 - [`plans/regulated-zones-category-icon-mapping.md`](../plans/regulated-zones-category-icon-mapping.md) — Functional category-to-icon chain

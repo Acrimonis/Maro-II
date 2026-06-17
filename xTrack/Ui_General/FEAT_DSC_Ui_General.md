@@ -4,6 +4,8 @@ status: active
 created: 2026-06-08 16:43
 modified: 2026-06-17 13:37
 active_subfeature: none
+modified: 2026-06-16 21:18
+active_subfeature: SVSpacing
 ---
 
 # Feature: Ui_General
@@ -94,6 +96,7 @@ Extend `enableEdgeToEdge()` to the nav bar: remove blanket `windowInsetsPadding(
 - `app/src/main/java/ykws/android/maro/MainActivity.kt` — no change needed (already calls `enableEdgeToEdge()`)
 
 ### ButtonColors  [x]
+### ButtonColors  [ ]
 
 Harmonise map control buttons (zoom +/- , settings gear, GPS/EarthWater toggles, dashboard tile accent strips) onto the dark dashboard theme using the centralized `colors.properties` palette. Replace hardcoded `0xFF...` literals with named colour tokens.
 
@@ -105,6 +108,7 @@ Harmonise map control buttons (zoom +/- , settings gear, GPS/EarthWater toggles,
 #### Key Files
 
 ### SVSpacing  [x]
+### SVSpacing  [ ]
 
 Adjust vertical spacing between buttons in the right-edge control stack for improved touch targeting and visual balance.
 
@@ -154,7 +158,7 @@ Adjust vertical spacing between buttons in the right-edge control stack for impr
 ## Key Files
 
 ## Docs
-- `plans/portrait-bottom-space-statusbar-discussion.md` — analysis of portrait bottom space and status bar immersion
+- `xTrack/Ui_General/FEAT_PLN_Ui_General_portrait-bottom-space.md` — analysis of portrait bottom space and status bar immersion
 - `plans/btn-color-harmonization.md` — button color harmonization: match map control buttons to dashboard dark theme
 - `docs/color-scheme.md` — canonical reference for all colour tokens in the app
 - `plans/color-props-migration-plan.md` — migration plan: all colours → colors.properties

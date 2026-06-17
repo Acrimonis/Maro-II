@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # Regulated Zones — Data Format & Extraction Redesign
 
 > No backward compatibility required. Full renumbering of ProtoNumber fields.
@@ -149,3 +150,4 @@ Expand from current `6.73,43.35,7.31,43.73` to `6.7,43.4,7.6,43.8` (Menton to Fr
 | `RegulatedZoneIconProvider.kt` | Add ENVIRONMENTAL + INFORMATION mappings, fix colours to blue |
 | `MapScreen.kt` | Verify new categories handled |
 | `data/app-assets/regulated-zones/nice-frejus.bin` | **Delete** — regenerate with `bake-regulated-zones` |
+

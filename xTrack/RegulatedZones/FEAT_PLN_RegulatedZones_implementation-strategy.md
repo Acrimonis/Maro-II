@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # Regulated Zones — Implementation Strategy
 
 ## Will We Have a Functional Product?
@@ -78,3 +79,4 @@ flowchart LR
 3. **Update `displayCategories()`** → add RESTRN=10 code check, keyword scanning, fallback logic
 4. **Update icon provider** → register 2 new categories, fix all backgrounds to blue
 5. **Verify on device** → run app, check strip shows correct icons for each zone type
+

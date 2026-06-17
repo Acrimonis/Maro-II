@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # xTrack System Review — Analysis & Proposed Improvements
 
 **Date:** 2026-06-08
@@ -162,3 +163,4 @@ flowchart TD
 | Feature files with `## Docs` | 3/12 | 12/12 |
 | Turn 1 cache prefix files loaded | depends on AI memory | guaranteed via Always-Loaded section |
 | Subfeatures done | 18/19 | 19/19 (flip pending checkbox) |
+

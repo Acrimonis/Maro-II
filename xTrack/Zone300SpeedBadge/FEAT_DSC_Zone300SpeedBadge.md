@@ -38,4 +38,4 @@ active_subfeature: none
 - app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt
 
 ## Docs
-- plans/zone300-speed-badge-design.md
+- `xTrack/Zone300SpeedBadge/FEAT_PLN_Zone300SpeedBadge_design.md` — Zone 300m speed badge design

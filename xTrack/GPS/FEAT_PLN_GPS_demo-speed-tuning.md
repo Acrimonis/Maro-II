@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # Demo Mode Speed Tuning
 
 > Discussion for demo speed computation in [`CoastlineViewModel.kt:514`](app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt:514).
@@ -73,3 +74,4 @@ private const val MAX_DEMO_KNOTS = 50.0
 ```
 
 Also need `import kotlin.math.sqrt` at the top of the file.
+

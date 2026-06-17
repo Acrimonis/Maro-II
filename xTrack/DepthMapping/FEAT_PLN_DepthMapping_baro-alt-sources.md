@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # BARO — Alternative Bathymetry Sources (finer than HOMONIM 100m)
 
 > **Parent**: [BARO - Step 01 - Data sources discussion](plans/BARO - Step 01 - Data sources discussion.md)
@@ -268,3 +269,4 @@ GEBCO 2024                   450m          All            ✅       Global
 | A5 | Search Ifremer/OCA research data portals | 1 hr | Unlikely to find full coverage | [seanoe.org](https://www.seanoe.org/) |
 
 **My recommendation**: Start with A3 (SDB) + A1 (SHOM portal) in parallel — these are the two most likely to yield usable results for free. SDB covers the 0–25m dive range beautifully; a SHOM coastal MNT at 25–50m would cover the deeper range.
+

@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # README Update — Complete Proposal
 
 ## Verification Results
@@ -146,3 +147,4 @@ Remove stale entries, add actual docs:
 3. Verify the final rendered markdown looks clean
 
 Ready to implement — switch to **Code** mode?
+

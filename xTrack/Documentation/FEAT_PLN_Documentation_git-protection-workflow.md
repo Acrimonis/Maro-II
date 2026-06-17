@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # Git Protection — Workflow Enforcement Rules
 
 ## Rule
@@ -34,3 +35,4 @@ Should the `#move` prompt logic be:
 - (c) Both?
 
 I'd suggest (b) — keeping it in [`GLOBAL_CONTEXT.md`](xTrack/GLOBAL_CONTEXT.md:51) Global Rules so `#doctor` can lint-check it, with an explicit mention in [`AGENTS.md`](AGENTS.md:76) §7b.8 since that's the command reference section.
+
