@@ -68,6 +68,9 @@ The `${key}` resolver in `AppConfig.init()` allows properties to reference each 
 
 ## Docs
 - `docs/color-scheme.md`
+- `xTrack/ColorManagement/FEAT_PLN_ColorManagement_btn-color-harmonization.md` — Button color harmonization
+- `xTrack/ColorManagement/FEAT_PLN_ColorManagement_button-colors-discussion.md` — Button colors discussion
+- `xTrack/ColorManagement/FEAT_PLN_ColorManagement_props-migration.md` — Color props migration plan
 
 ## Colour Modification Prompt
 

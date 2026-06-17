@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # Phase 2 — Protobuf Binary Cache for Coastline Data
 
 ## Context (Phase 1 Complete)
@@ -148,3 +149,4 @@ After changes:
 See [`plans/coastline-persistence-and-optimization-analysis.md`](plans/coastline-persistence-and-optimization-analysis.md) for the full storage format analysis.
 
 Git branch: `feature/coastline-generator-bis` — Phase 1 is already merged here.
+

@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # Overpass API Race Fix Plan
 
 ## Problem Analysis
@@ -198,3 +199,4 @@ The `CoastlineGeneratorTest` currently uses **synthetic data** and bypasses Over
    - If any server responds within 10s, data loads successfully
    - The request doesn't hang for 30s anymore
    - The error screen appears promptly if all servers fail
+

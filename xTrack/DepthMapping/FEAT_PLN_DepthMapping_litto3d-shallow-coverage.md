@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # Litto3D shallow coverage — full range, no hardcode
 
 > Design capture (attached to **BakeNormalization**). How to get all Litto3D shallow data across the
@@ -38,3 +39,4 @@ not a coverage one — and clipping for correctness is unnecessary (the merge sk
 ## Net
 Remove the hardcoded band → derive the clip from the coastline (sidecar) → fetch the full tiles →
 gzip `.asc` + parser `.gz`. Full shallow coverage, zero hardcoding, ~10–30 MB on disk.
+

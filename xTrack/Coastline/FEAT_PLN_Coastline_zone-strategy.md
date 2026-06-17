@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # Coastline Zone Strategy — Granular Data Loading
 
 ## Concept
@@ -182,3 +183,4 @@ Draw each active zone's polyline on the map. The overlap means polylines double-
 | Distance queries | Scan all points | Scan active zone points only |
 | Cache files | 1 file per region | ~14 files per region |
 | Overlap | N/A | 3-5 km for seamless behavior |
+

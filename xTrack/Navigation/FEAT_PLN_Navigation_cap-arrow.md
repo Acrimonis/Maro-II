@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # Navigation — Cap Arrow Design
 
 > Discussion for feature [`Navigation`](xTrack/Navigation/FEAT_DSC_Navigation.md), subfeature `cap`.
@@ -78,3 +79,4 @@ drawLine(
 ## Interaction with existing code
 
 The `cameraUpdates` flow in `CoastlineViewModel.kt:238` already emits `CameraTarget(position, bearingDeg)` at up to 25 fps. The `speedKnots` state is also available (line 146 of MapScreen.kt). Both update at the same rate — the arrow direction and length will be smooth.
+

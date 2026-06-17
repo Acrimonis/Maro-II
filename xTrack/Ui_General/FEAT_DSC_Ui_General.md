@@ -121,7 +121,7 @@ Adjust vertical spacing between buttons in the right-edge control stack for impr
 ## Key Files
 
 ## Docs
-- `plans/portrait-bottom-space-statusbar-discussion.md` — analysis of portrait bottom space and status bar immersion
+- `xTrack/Ui_General/FEAT_PLN_Ui_General_portrait-bottom-space.md` — analysis of portrait bottom space and status bar immersion
 - `plans/btn-color-harmonization.md` — button color harmonization: match map control buttons to dashboard dark theme
 - `docs/color-scheme.md` — canonical reference for all colour tokens in the app
 - `plans/color-props-migration-plan.md` — migration plan: all colours → colors.properties

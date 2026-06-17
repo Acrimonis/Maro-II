@@ -1,18 +1,14 @@
-# Context Hydration — WorkflowImprovement — 2026-06-09
+# Context Hydration — WorkflowImprovement — 2026-06-17
 
 **Active Subfeature:** none
 
 ## State
-xTrack FEAT_* reorganization complete: 55 files (DSC/DOC/PLN/HYD) moved from project root into 16 feature subdirectories under xTrack/. All spec files updated: AGENTS.md §7a/§7b (15 edits), docs/cmd_help.md (14 edits), GLOBAL_CONTEXT.md (Routing Map + Last Bake). 7 FEAT_DSC_ ## Docs sections updated with xTrack/[Feature]/ prefixes. FEAT_PLN taxonomy table updated. No orphan files remain.
+All 18 subfeatures complete ([x]). Plan migration executed (61 plans → FEAT_PLN_). new_task delegation + #implement pipeline designed in FEAT_PLN_ plan file. Auto-return to Architect rule added. ZoneTile feature created. AGENTS.md §7b.15 merge protocol added. OwnedFiles template added.
 
 ## Target Files
-- `AGENTS.md` — §7a/§7b paths updated to xTrack/[Feature]/
-- `docs/cmd_help.md` — scan patterns updated to xTrack/*/
-- `xTrack/GLOBAL_CONTEXT.md` — Routing Map + Last Bake
-- `xTrack/*/FEAT_DSC_*.md` — 15 files in feature subdirectories
-- `xTrack/*/FEAT_DOC_*.md` — 10 files in feature subdirectories
-- `xTrack/*/FEAT_PLN_*.md` — 25 files in feature subdirectories
-- `xTrack/*/FEAT_HYD_*.md` — 5 files in feature subdirectories
+- `xTrack/WorkflowImprovement/FEAT_PLN_WorkflowImprovement_newtask-delegation.md` — new_task + #implement spec
+- `xTrack/GLOBAL_CONTEXT.md`
+- `AGENTS.md`
 
 ## Next Step
-Commit. Merge-check against remote develop.
+`#implement` invoked — needs action. `#implement` not yet defined as a live command in AGENTS.md §7b (only planned). Awaiting user direction.

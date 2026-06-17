@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # Coastline System — Migration Design (Final Scope)
 
 ## ⚡ Current Task: Shoreline Tracing Only
@@ -133,3 +134,4 @@ Works for mainland (west→east, right=south=sea) and islands (CCW winding → r
 | `org.jetbrains.kotlinx:kotlinx-serialization-json` | 1.6.3 | JSON parsing |
 | `org.osmdroid:osmdroid-android` | 6.1.18 | Map rendering |
 | `androidx.lifecycle:lifecycle-viewmodel-compose` | 2.8.0 | ViewModel in Compose |
+

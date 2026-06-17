@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # `#move` Command Design
 
 > Discussion for subfeature `gitting-it` under [`WorkflowImprovement`](xTrack/WorkflowImprovement/FEAT_DSC_WorkflowImprovement.md).
@@ -122,3 +123,4 @@ User responds:
 | Target doesn't exist locally | Print branches and ask for correct name |
 | Only 1 commit found | Same interactive flow (shows 1 item, user confirms Y/n) |
 | `origin/[current-branch]` missing | Fall back to `origin/develop` baseline; note it in output |
+

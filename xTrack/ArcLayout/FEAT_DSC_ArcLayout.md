@@ -92,4 +92,10 @@ active_subfeature: fan-migration
 - No library dependencies — pure Compose custom layout
 
 ## Docs
-- [`plans/arclayout-feature-plan.md`](../../plans/arclayout-feature-plan.md) — Full feature plan
+- `xTrack/ArcLayout/FEAT_PLN_ArcLayout_button-analysis.md` — Button analysis
+- `xTrack/ArcLayout/FEAT_PLN_ArcLayout_feature-plan.md` — Full feature plan
+- `xTrack/ArcLayout/FEAT_PLN_ArcLayout_fan-btn-hide-ozers-plan.md` — Fan button hide ozers plan
+- `xTrack/ArcLayout/FEAT_PLN_ArcLayout_child-centering-rule.md` — Child centering rule
+- `xTrack/ArcLayout/FEAT_PLN_ArcLayout_equidistance-rule.md` — Equidistance rule
+- `xTrack/ArcLayout/FEAT_PLN_ArcLayout_extension-discussion.md` — Extension discussion
+- `xTrack/ArcLayout/FEAT_PLN_ArcLayout_badge-clipping-fix.md` — Badge clipping fix

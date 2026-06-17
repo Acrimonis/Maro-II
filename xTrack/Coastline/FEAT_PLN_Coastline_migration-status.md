@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # Coastline Migration — Final Status Report
 
 ## ✅ All Tasks Complete
@@ -69,3 +70,4 @@ CoastlineRepository (StateFlow<CoastlineState>)
     │
     └── isOnWater() / distanceToCoastMeters()  (future: point-in-zone)
 ```
+

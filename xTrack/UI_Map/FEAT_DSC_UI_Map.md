@@ -256,4 +256,8 @@ Allow manual two-finger rotation of the map in demo mode, and derive the heading
 ## Docs
 - `xTrack/MapDisplay/FEAT_DOC_MapDisplay_marker-sizing.md` — centred boat marker sizing & behaviour on the map
 - `xTrack/Performance/FEAT_PLN_Performance_animateTo-interaction-analysis.md` — animateTo interaction with map refresh FPS analysis
-- `plans/rotate-map-demo-mode-implications.md` — Rotate map in demo mode: implications analysis on all derived features
+- `xTrack/UI_Map/FEAT_PLN_UI_Map_boat-marker-offset-discussion.md` — Boat marker offset discussion
+- `xTrack/UI_Map/FEAT_PLN_UI_Map_right-edge-gap-asymmetry.md` — Right edge controls gap asymmetry analysis
+- `xTrack/UI_Map/FEAT_PLN_UI_Map_overlay-layout-inventory.md` — Map overlay layout inventory
+- `xTrack/UI_Map/FEAT_PLN_UI_Map_overlay-layout-rationalization.md` — Map overlay layout rationalization
+- `xTrack/UI_Map/FEAT_PLN_UI_Map_icon-rendering-overhaul.md` — Icon rendering overhaul plan

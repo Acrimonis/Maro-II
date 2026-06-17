@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # Settings Scroll Persistence — Failure Analysis
 
 ## Symptom
@@ -215,3 +216,4 @@ LaunchedEffect(scrollableHeight) {
 ## Files to modify
 
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — replace the `LaunchedEffect(Unit) { scrollState.scrollTo(...) }` block with one of the approaches above
+
