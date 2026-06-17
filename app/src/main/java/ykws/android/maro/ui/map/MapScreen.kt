@@ -873,7 +873,7 @@ private fun MapContent(
                             ) {
                                 Text(
                                     text = stringResource(R.string.exit_press_back_again),
-                                    color = ComposeColor.White,
+                                    color = ComposeColor(AppConfig.uiSettingsToastText),
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Medium,
                                     textAlign = TextAlign.Center,
@@ -1085,7 +1085,7 @@ private fun ErrorOverlay(
     ) {
         Text(
             text = stringResource(R.string.error_title),
-            color = ComposeColor.White,
+            color = ComposeColor(AppConfig.uiErrorText),
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold
         )
@@ -1673,14 +1673,14 @@ private fun SettingsOverlay(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.settings_back),
-                            tint = ComposeColor.White,
+                            tint = ComposeColor(AppConfig.uiSettingsTextPrimary),
                             modifier = Modifier.size(24.dp)
                         )
                     }
                     Spacer(modifier = Modifier.width(16.dp))
                     Text(
                         text = stringResource(R.string.settings_title),
-                        color = ComposeColor.White,
+                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -1794,7 +1794,7 @@ private fun GeneralSettings(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = stringResource(R.string.settings_low_depth_warning_label),
-                        color = ComposeColor.White,
+                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -1825,7 +1825,7 @@ private fun GeneralSettings(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(0.5.dp)
-                        .background(ComposeColor.White.copy(alpha = 0.1f))
+                        .background(ComposeColor(AppConfig.uiSettingsDivider))
                 )
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                     var warningExpanded by remember { mutableStateOf(false) }
@@ -1834,7 +1834,7 @@ private fun GeneralSettings(
                         expanded = warningExpanded,
                         onToggle = { warningExpanded = !warningExpanded },
                         labelStyle = TextStyle(
-                            color = ComposeColor.White,
+                            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -1901,7 +1901,7 @@ private fun GeneralSettings(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = stringResource(R.string.settings_regulated_zones_label),
-                        color = ComposeColor.White,
+                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -1931,7 +1931,7 @@ private fun GeneralSettings(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(0.5.dp)
-                        .background(ComposeColor.White.copy(alpha = 0.1f))
+                        .background(ComposeColor(AppConfig.uiSettingsDivider))
                 )
                 // Regulation info — collapsible toggle for info text panel
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
@@ -1940,7 +1940,7 @@ private fun GeneralSettings(
                         expanded = settings.regulationInfoExpanded,
                         onToggle = { onUpdateSettings { it.copy(regulationInfoExpanded = !it.regulationInfoExpanded) } },
                         labelStyle = TextStyle(
-                            color = ComposeColor.White,
+                            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -1959,7 +1959,7 @@ private fun GeneralSettings(
                         ) {
                             Text(
                                 text = "Info text visible",
-                                color = ComposeColor.White,
+                                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                                 fontSize = 14.sp
                             )
                             Switch(
@@ -1979,7 +1979,7 @@ private fun GeneralSettings(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(0.5.dp)
-                        .background(ComposeColor.White.copy(alpha = 0.1f))
+                        .background(ComposeColor(AppConfig.uiSettingsDivider))
                 )
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                     SettingsExpander(
@@ -1987,7 +1987,7 @@ private fun GeneralSettings(
                         expanded = settings.categoryFilterExpanded,
                         onToggle = { onUpdateSettings { it.copy(categoryFilterExpanded = !it.categoryFilterExpanded) } },
                         labelStyle = TextStyle(
-                            color = ComposeColor.White,
+                            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -2001,7 +2001,7 @@ private fun GeneralSettings(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(0.5.dp)
-                        .background(ComposeColor.White.copy(alpha = 0.1f))
+                        .background(ComposeColor(AppConfig.uiSettingsDivider))
                 )
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                     SettingsExpander(
@@ -2009,7 +2009,7 @@ private fun GeneralSettings(
                         expanded = settings.boatSizeFilterExpanded,
                         onToggle = { onUpdateSettings { it.copy(boatSizeFilterExpanded = !it.boatSizeFilterExpanded) } },
                         labelStyle = TextStyle(
-                            color = ComposeColor.White,
+                            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -2113,7 +2113,7 @@ private fun NavigationSettings(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = stringResource(R.string.settings_alert_gps_label),
-                        color = ComposeColor.White,
+                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -2141,7 +2141,7 @@ private fun NavigationSettings(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(0.5.dp)
-                    .background(ComposeColor.White.copy(alpha = 0.1f))
+                    .background(ComposeColor(AppConfig.uiSettingsDivider))
             )
 
             // Auto-show Demo mode toggle
@@ -2155,7 +2155,7 @@ private fun NavigationSettings(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = stringResource(R.string.settings_alert_demo_label),
-                        color = ComposeColor.White,
+                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -2184,7 +2184,7 @@ private fun NavigationSettings(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(0.5.dp)
-                        .background(ComposeColor.White.copy(alpha = 0.1f))
+                        .background(ComposeColor(AppConfig.uiSettingsDivider))
                 )
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                     var alertExpanded by remember { mutableStateOf(false) }
@@ -2193,7 +2193,7 @@ private fun NavigationSettings(
                         expanded = alertExpanded,
                         onToggle = { alertExpanded = !alertExpanded },
                         labelStyle = TextStyle(
-                            color = ComposeColor.White,
+                            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -2245,7 +2245,7 @@ private fun NavigationSettings(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Speed zone alert (GPS)",
-                        color = ComposeColor.White,
+                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -2273,7 +2273,7 @@ private fun NavigationSettings(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(0.5.dp)
-                    .background(ComposeColor.White.copy(alpha = 0.1f))
+                    .background(ComposeColor(AppConfig.uiSettingsDivider))
             )
 
             // Auto-show Demo mode toggle
@@ -2287,7 +2287,7 @@ private fun NavigationSettings(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Speed zone alert (Demo)",
-                        color = ComposeColor.White,
+                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -2315,7 +2315,7 @@ private fun NavigationSettings(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(0.5.dp)
-                    .background(ComposeColor.White.copy(alpha = 0.1f))
+                    .background(ComposeColor(AppConfig.uiSettingsDivider))
             )
 
             // Regulated zone overlay auto-show GPS toggle
@@ -2329,7 +2329,7 @@ private fun NavigationSettings(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Regulated zone alert (GPS)",
-                        color = ComposeColor.White,
+                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -2357,7 +2357,7 @@ private fun NavigationSettings(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(0.5.dp)
-                    .background(ComposeColor.White.copy(alpha = 0.1f))
+                    .background(ComposeColor(AppConfig.uiSettingsDivider))
             )
 
             // Regulated zone overlay auto-show Demo toggle
@@ -2371,7 +2371,7 @@ private fun NavigationSettings(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Regulated zone alert (Demo)",
-                        color = ComposeColor.White,
+                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -2447,7 +2447,7 @@ private fun SystemSettings(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = stringResource(R.string.settings_gps_mode_label),
-                        color = ComposeColor.White,
+                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -2477,7 +2477,7 @@ private fun SystemSettings(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(0.5.dp)
-                        .background(ComposeColor.White.copy(alpha = 0.1f))
+                        .background(ComposeColor(AppConfig.uiSettingsDivider))
                 )
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                     var gpsTuningExpanded by remember { mutableStateOf(false) }
@@ -2486,7 +2486,7 @@ private fun SystemSettings(
                         expanded = gpsTuningExpanded,
                         onToggle = { gpsTuningExpanded = !gpsTuningExpanded },
                         labelStyle = TextStyle(
-                            color = ComposeColor.White,
+                            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -2564,7 +2564,7 @@ private fun SystemSettings(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = stringResource(R.string.settings_idle_interval_label),
-                        color = ComposeColor.White,
+                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -2603,7 +2603,7 @@ private fun SystemSettings(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(0.5.dp)
-                    .background(ComposeColor.White.copy(alpha = 0.1f))
+                    .background(ComposeColor(AppConfig.uiSettingsDivider))
             )
 
             // Advanced stop-detection thresholds expander
@@ -2704,7 +2704,7 @@ private fun SystemSettings(
                 colors = ButtonDefaults.buttonColors(containerColor = ComposeColor(AppConfig.uiSettingsAccent)),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Regenerate", color = ComposeColor.White)
+                Text("Regenerate", color = ComposeColor(AppConfig.uiSettingsTextPrimary))
             }
         }
 
@@ -2762,7 +2762,7 @@ private fun SettingsLanguageRow(
             ) {
                 Text(
                     text = label,
-                    color = if (selected) ComposeColor.White else ComposeColor(AppConfig.uiSettingsTextMuted),
+                    color = if (selected) ComposeColor(AppConfig.uiSettingsTextPrimary) else ComposeColor(AppConfig.uiSettingsTextMuted),
                     fontSize = 14.sp,
                     fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
                 )
@@ -2790,7 +2790,7 @@ private fun SettingsToggleRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = label,
-                color = ComposeColor.White,
+                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium
             )
@@ -2862,7 +2862,7 @@ private fun SliderRowContent(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = label,
-                color = ComposeColor.White,
+                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium
             )
@@ -3003,7 +3003,7 @@ private fun SettingsFrequencyRow(
     ) {
         Text(
             text = stringResource(R.string.settings_freq_label),
-            color = ComposeColor.White,
+            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
             fontSize = 16.sp,
             fontWeight = FontWeight.Medium
         )
@@ -3076,7 +3076,7 @@ private fun SettingsTextFieldRow(
     ) {
         Text(
             text = label,
-            color = ComposeColor.White,
+            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
             fontSize = 16.sp,
             fontWeight = FontWeight.Medium,
             modifier = Modifier.width(100.dp)
@@ -3092,13 +3092,13 @@ private fun SettingsTextFieldRow(
                 .width(160.dp)
                 .height(48.dp),
             textStyle = androidx.compose.ui.text.TextStyle(
-                color = ComposeColor.White,
+                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                 fontSize = 14.sp
             ),
             colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = ComposeColor(AppConfig.uiSettingsAccent),
                 unfocusedBorderColor = ComposeColor(AppConfig.uiSettingsInputBorder),
-                cursorColor = ComposeColor.White
+                cursorColor = ComposeColor(AppConfig.uiSettingsTextPrimary)
             )
         )
     }
@@ -3655,7 +3655,7 @@ private fun RegulationZoneCategoryIcon(
                 text = if (speedKn != null) "${speedKn.toInt()}" else "",
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
-                color = ComposeColor.White
+                color = ComposeColor(AppConfig.uiSettingsTextPrimary)
             )
         } else {
             // Emoji Text for all non-speed categories
@@ -3771,7 +3771,7 @@ private fun RegulatedZoneInfoText(
                 text = if (keyInfo.isNotBlank()) "$emoji $name — $keyInfo" else "$emoji $name",
                 fontSize = 9.sp,
                 lineHeight = 14.sp,
-                color = ComposeColor.White,
+                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
             )
         }
     }
@@ -3813,7 +3813,7 @@ private fun RegulatedZoneCategoryToggles(
                                     .background(ComposeColor(AppConfig.uiSettingsDanger)),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text("10", color = ComposeColor.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text("10", color = ComposeColor(AppConfig.uiSettingsTextPrimary), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                         } else {
                             Text(item.emoji, fontSize = 18.sp)
@@ -3832,7 +3832,7 @@ private fun RegulatedZoneCategoryToggles(
                         }
                     }
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = item.label, color = ComposeColor.White, fontSize = 14.sp)
+                    Text(text = item.label, color = ComposeColor(AppConfig.uiSettingsTextPrimary), fontSize = 14.sp)
                 }
                 Switch(
                     checked = item.isVisible(settings),
@@ -3881,7 +3881,7 @@ private fun BoatSizeSlider(
         ) {
             Text(
                 text = "\uD83D\uDEA4 Boat length",
-                color = ComposeColor.White,
+                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium
             )

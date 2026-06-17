@@ -180,19 +180,27 @@ fun FanLayout(
                 parent(config.isOpen, config.activeChildCount)
             }
 
-            // Active badge — 18 dp blue circle at TopEnd, outside circle clip.
+            // Active badge — 18 dp circle at TopEnd, outside circle clip.
+            // Always shown when showActiveBadge is true; dimmed (inactive.alpha) when
+            // no children are active/visible (disabled state), full alpha when active.
             if (config.showActiveBadge) {
+                val isEnabled = config.activeChildCount > 0
+                val badgeAlpha = if (isEnabled) ButtonColors.badgeActiveAlpha else ButtonColors.badgeInactiveAlpha
+                // Multiply by ButtonColors.bg.alpha to preserve the baked-in 80% opacity
+                // from ui.button.background=#CC16213E; copy(alpha=...) would replace it entirely.
+                val bgColor = ButtonColors.bg.copy(alpha = ButtonColors.bg.alpha * badgeAlpha)
+                val textColor = ButtonColors.badgeText.copy(alpha = badgeAlpha)
                 Box(
                     modifier = Modifier
                         .size(18.dp)
                         .clip(CircleShape)
-                        .background(ButtonColors.icon)
+                        .background(bgColor)
                         .align(Alignment.TopEnd)
                 ) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
                             "${config.activeChildCount}",
-                            color = ComposeColor.White,
+                            color = textColor,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.Center,

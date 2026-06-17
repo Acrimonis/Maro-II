@@ -21,18 +21,6 @@ import java.util.Properties
  */
 object AppConfig {
 
-    /** Distance (m) from zone boundary at which text reaches near-invisible alpha. */
-    var distanceToZoneGradientText = 600f
-        private set
-
-    /** Distance (m) outward from zone boundary at which tile reaches plain cardBg. */
-    var distanceToZoneGradientColor = 300f
-        private set
-
-    /** Transparency percentage (0–100) applied to the zone colour when outside the zone. */
-    var distanceToZoneGradientTransp = 33
-        private set
-
     /** Distance (m) outside the 300 m band edge at which a hidden band auto-reveals (default for the in-app setting).
      *  Also used as the dashboard tile near-exit / near-entry threshold. */
     var zoneAutoRevealDistanceM = 100f
@@ -55,45 +43,37 @@ object AppConfig {
     var lowDepthWarningMinOpacityPct = 25
         private set
 
-    /** ARGB colour for the low-depth warning overlay (pink grounding-hazard).
-     *  Default `0xFFFF00E5` (bright magenta). Set via `lowDepthWarningColor` in zone.properties.
-     *  The alpha from this value is ignored — depth-graded alpha is applied at runtime. */
-    var lowDepthWarningColor: Int = 0xFFFF00E5.toInt()
-        private set
-
-    /** ARGB colour for NoData / above-datum cells on the depth colour map.
-     *  Default `0xFFCCCCCC` (light grey). Set via `nodata.color` in zone.properties. */
-    var nodataColor: Int = 0xFFCCCCCC.toInt()
-        private set
-
-    /** ARGB colour for the heading/speed cap arrow.
-     *  Default `0xFF1565C0` (Material Blue 700). Set via `map.navigation.arrow.color` in colors.properties. */
-    var capArrowColor: Int = 0xFF1565C0.toInt()
-        private set
-
-    /** ARGB colour for the direction line projecting from the boat in the heading direction.
-     *  Default `0x4D1565C0` (Material Blue 700, 30% opacity). Set via `map.navigation.line.color` in colors.properties. */
-    var directionLineColor: Int = 0x4D1565C0.toInt()
-        private set
-
     /** ARGB colour for action-button background (right-edge control stack).
-     *  Default `#CCFFFFFF` (semi-transparent white). Set via `ui.button.background` in colors.properties. */
-    var buttonActionBgColor: Int = 0xCCFFFFFF.toInt()
+     *  Default `#CC16213E` (semi-transparent dark blue). Set via `ui.button.background` in colors.properties. */
+    var buttonActionBgColor: Int = 0xCC16213E.toInt()
         private set
 
     /** ARGB colour for action-button icons.
-     *  Default `#FF1565C0` (Material Blue 700). Set via `ui.button.icon` in colors.properties. */
-    var buttonActionIconColor: Int = 0xFF1565C0.toInt()
+     *  Default `#FFE0E0E0` (light grey). Set via `ui.button.icon` in colors.properties. */
+    var buttonActionIconColor: Int = 0xFFE0E0E0.toInt()
         private set
 
     /** Alpha (0.0–1.0) for active/toggled-on icon state.
-     *  Default 1.0. Set via `ui.button.iconActiveAlpha` in colors.properties. */
+     *  Default 1.0. Set via `ui.button.icon.active.alpha` in colors.properties. */
     var buttonActionIconActiveAlpha: Float = 1.0f
         private set
 
     /** Alpha (0.0–1.0) for inactive/toggled-off icon state.
-     *  Default 0.25. Set via `ui.button.iconInactiveAlpha` in colors.properties. */
+     *  Default 0.25. Set via `ui.button.icon.inactive.alpha` in colors.properties. */
     var buttonActionIconInactiveAlpha: Float = 0.25f
+        private set
+
+    /** ARGB colour for badge count text.
+     *  Default #E0E0E0. Set via `ui.button.badge.text` in colors.properties. */
+    var uiButtonBadgeText: Int = 0xFFE0E0E0.toInt()
+        private set
+    /** Alpha (0.0–1.0) for badge when the arc/fan is OPEN (expanded).
+     *  Default 1.0. Set via `ui.button.badge.active.alpha` in colors.properties. */
+    var buttonBadgeActiveAlpha: Float = 1.0f
+        private set
+    /** Alpha (0.0–1.0) for badge when the arc/fan is CLOSED (collapsed).
+     *  Default 0.25. Set via `ui.button.badge.inactive.alpha` in colors.properties. */
+    var buttonBadgeInactiveAlpha: Float = 0.25f
         private set
 
     // ── Colors from colors.properties ────────────────────────────────────────
@@ -125,8 +105,8 @@ object AppConfig {
     /** Dashboard status absent (no-data, placeholder). Default #AA37474F (blue-grey, 67% alpha). Set via `ui.dashboard.status.absent` in colors.properties. */
     var uiDashboardStatusAbsent: Int = 0xAA37474F.toInt()
         private set
-    /** Dashboard zone speed-safe. Default #2E7D32. Set via `ui.dashboard.zone.safe` in colors.properties. */
-    var uiDashboardZoneSafe: Int = 0xFF2E7D32.toInt()
+    /** Dashboard zone speed-safe. Default #CC4CAF50 (alias of ${ui.dashboard.status.success}). Set via `ui.dashboard.zone.safe` in colors.properties. */
+    var uiDashboardZoneSafe: Int = 0xCC4CAF50.toInt()
         private set
     /** Dashboard zone speed-caution. Default #EF6C00. Set via `ui.dashboard.zone.caution` in colors.properties. */
     var uiDashboardZoneCaution: Int = 0xFFEF6C00.toInt()
@@ -134,11 +114,11 @@ object AppConfig {
     /** Dashboard zone speed-danger. Default #C62828. Set via `ui.dashboard.zone.danger` in colors.properties. */
     var uiDashboardZoneDanger: Int = 0xFFC62828.toInt()
         private set
-    /** Dashboard zone speed-compliant. Default #1B5E20. Set via `ui.dashboard.zone.compliant` in colors.properties. */
-    var uiDashboardZoneCompliant: Int = 0xFF1B5E20.toInt()
+    /** Dashboard zone speed-compliant. Default #CC4CAF50 (alias of ${ui.dashboard.status.success}). Set via `ui.dashboard.zone.compliant` in colors.properties. */
+    var uiDashboardZoneCompliant: Int = 0xCC4CAF50.toInt()
         private set
-    /** Dashboard zone normal. Default #37474F. Set via `ui.dashboard.zone.normal` in colors.properties. */
-    var uiDashboardZoneNormal: Int = 0xFF37474F.toInt()
+    /** Dashboard zone normal. Default #AA37474F (alias of ${ui.dashboard.status.absent}). Set via `ui.dashboard.zone.normal` in colors.properties. */
+    var uiDashboardZoneNormal: Int = 0xAA37474F.toInt()
         private set
     /** Dashboard zone danger-dark. Default #B71C1C. Set via `ui.dashboard.zone.dangerDark` in colors.properties. */
     var uiDashboardZoneDangerDark: Int = 0xFFB71C1C.toInt()
@@ -146,8 +126,8 @@ object AppConfig {
     /** Dashboard distance entry (amber). Default #E65100. Set via `ui.dashboard.distance.entry` in colors.properties. */
     var uiDashboardDistanceEntry: Int = 0xFFE65100.toInt()
         private set
-    /** Dashboard distance exit (green). Default #2E7D32. Set via `ui.dashboard.distance.exit` in colors.properties. */
-    var uiDashboardDistanceExit: Int = 0xFF2E7D32.toInt()
+    /** Dashboard distance exit (green). Default #CC4CAF50 (alias of ${ui.dashboard.status.success}). Set via `ui.dashboard.distance.exit` in colors.properties. */
+    var uiDashboardDistanceExit: Int = 0xCC4CAF50.toInt()
         private set
     /** Dashboard dull alpha. Default 0.33. Set via `ui.dashboard.dullAlpha` in colors.properties. */
     var uiDashboardDullAlpha: Float = 0.33f
@@ -200,8 +180,8 @@ object AppConfig {
     /** GPS icon ACQUIRING state background colour. Default #FFA726. Set via `status.gps.acquiring` in colors.properties. */
     var statusGpsAcquiring: Int = 0xFFFFA726.toInt()
         private set
-    /** GPS icon HEALTHY state background colour. Default #2E7D32. Set via `status.gps.healthy` in colors.properties. */
-    var statusGpsHealthy: Int = 0xFF2E7D32.toInt()
+    /** GPS icon HEALTHY state background colour. Default #CC4CAF50 (alias of ${ui.dashboard.status.success}). Set via `status.gps.healthy` in colors.properties. */
+    var statusGpsHealthy: Int = 0xCC4CAF50.toInt()
         private set
     /** GPS icon IDLE state background colour. Default #1565C0. Set via `status.gps.idle` in colors.properties. */
     var statusGpsIdle: Int = 0xFF1565C0.toInt()
@@ -219,19 +199,11 @@ object AppConfig {
     /** EarthWater icon water-state colour. Default #1565C0. Set via `status.earthWater.water` in colors.properties. */
     var statusEarthWaterWater: Int = 0xFF1565C0.toInt()
         private set
-    /** EarthWater icon land-state colour. Default #2E7D32. Set via `status.earthWater.land` in colors.properties. */
-    var statusEarthWaterLand: Int = 0xFF2E7D32.toInt()
+    /** EarthWater icon land-state colour. Default #CC4CAF50 (alias of ${ui.dashboard.status.success}). Set via `status.earthWater.land` in colors.properties. */
+    var statusEarthWaterLand: Int = 0xCC4CAF50.toInt()
         private set
     /** EarthWater icon inactive-state colour. Default #EEFFFFFF. Set via `status.earthWater.inactive` in colors.properties. */
     var statusEarthWaterInactive: Int = 0xEEFFFFFF.toInt()
-        private set
-
-    // ── Arc anchor button ─────────────────────────────────────────────────────
-    /** Arc anchor button colour. Default #FF1565C0. Set via `ui.arc.anchor.color` in colors.properties. */
-    var uiArcAnchorColor: Int = 0xFF1565C0.toInt()
-        private set
-    /** Arc anchor button background. Default #CCFFFFFF. Set via `ui.arc.anchor.background` in colors.properties. */
-    var uiArcAnchorBackground: Int = 0xCCFFFFFF.toInt()
         private set
 
     // ── Dashboard depth readout tints ─────────────────────────────────────────
@@ -287,8 +259,8 @@ object AppConfig {
     /** Regulated zone access-prohibited colour. Default #FFE53935. Set via `regulatedZone.type.accessProhibited` in colors.properties. */
     var regulatedZoneTypeAccessProhibited: Int = 0xFFE53935.toInt()
         private set
-    /** Regulated zone environmental colour. Default #FF2E7D32. Set via `regulatedZone.type.environmental` in colors.properties. */
-    var regulatedZoneTypeEnvironmental: Int = 0xFF2E7D32.toInt()
+    /** Regulated zone environmental colour. Default #CC4CAF50 (alias of ${ui.dashboard.status.success}). Set via `regulatedZone.type.environmental` in colors.properties. */
+    var regulatedZoneTypeEnvironmental: Int = 0xCC4CAF50.toInt()
         private set
     /** Regulated zone mooring colour. Default #FF00897B. Set via `regulatedZone.type.mooring` in colors.properties. */
     var regulatedZoneTypeMooring: Int = 0xFF00897B.toInt()
@@ -310,8 +282,8 @@ object AppConfig {
     /** Hazard disc outline colour. Default #FF000000. Set via `map.hazard.outline` in colors.properties. */
     var mapHazardOutline: Int = 0xFF000000.toInt()
         private set
-    /** Zone-ahead line colour. Default #FF00C800. Set via `map.zoneAhead.line` in colors.properties. */
-    var mapZoneAheadLine: Int = 0xFF00C800.toInt()
+    /** Zone-ahead line colour. Default #CC4CAF50 (alias of ${ui.dashboard.status.success}). Set via `map.zoneAhead.line` in colors.properties. */
+    var mapZoneAheadLine: Int = 0xCC4CAF50.toInt()
         private set
     /** Zone-ahead cone fill colour. Default #FFFFEB00. Set via `map.zoneAhead.cone.fill` in colors.properties. */
     var mapZoneAheadConeFill: Int = 0xFFFFEB00.toInt()
@@ -392,13 +364,17 @@ object AppConfig {
         mapDepthRampAlpha,
     ).hashCode()
 
-    /** Isobath line colour per data source (ARGB int); a source with no entry falls back to [isobarColorDefault]. */
+    /** Isobath line colour per data source (ARGB int); a source with no entry falls back to [isobarColorDefault].
+     *  Defaults are resolved from colors.properties (`map.isobar.*.color`) which may be overridden
+     *  by zone.properties (`isobar.color.*`) via the merged Properties object. */
     private val isobarColors = hashMapOf(
         DepthSource.LITTO3D to 0xFF1B5E20.toInt(), // dark green (Material 900)
         DepthSource.EMODNET to 0xFF00008B.toInt(), // dark blue
     )
 
-    /** Fallback isobath colour for any source without an explicit entry. */
+    /** Fallback isobath colour for any source without an explicit entry.
+     *  Default #FF37474F (muted blue-grey). Set via `map.isobar.default.color` in colors.properties
+     *  or `isobar.color.default` in zone.properties. */
     var isobarColorDefault = 0xFF37474F.toInt() // muted blue-grey
         private set
 
@@ -414,18 +390,14 @@ object AppConfig {
      * reads the values. Missing or unparseable entries silently keep the default.
      *
      * Load order (each overrides the previous):
-     * 1. zone.properties  — gradient distances, isobath colours
-     * 2. maro.properties  — speed zone thresholds, vessel defaults
-     * 3. colors.properties — ALL colour values
+     * 1. maro.properties  — speed zone thresholds, vessel defaults
+     * 2. colors.properties — ALL colour values
      */
     fun init(context: Context) {
         try {
             val props = Properties()
-            context.assets.open("zone.properties").use { stream ->
-                props.load(stream)
-            }
 
-            // Also load maro.properties (optional — if missing, defaults are kept).
+            // Load maro.properties (optional — if missing, defaults are kept).
             try {
                 context.assets.open("maro.properties").use { stream ->
                     props.load(stream)
@@ -456,15 +428,6 @@ object AppConfig {
                 }
             }
 
-            props.getProperty("distanceToZoneGradientText")?.toFloatOrNull()?.let {
-                distanceToZoneGradientText = it.coerceIn(100f, 2000f)
-            }
-            props.getProperty("distanceToZoneGradientColor")?.toFloatOrNull()?.let {
-                distanceToZoneGradientColor = it.coerceIn(50f, 1000f)
-            }
-            props.getProperty("distanceToZoneGradientTransp")?.toIntOrNull()?.let {
-                distanceToZoneGradientTransp = it.coerceIn(0, 100)
-            }
             props.getProperty("zoneAutoRevealDistanceM")?.toFloatOrNull()?.let {
                 zoneAutoRevealDistanceM = it.coerceIn(50f, 500f)
             }
@@ -476,21 +439,6 @@ object AppConfig {
             }
             props.getProperty("speedZone.hysteresisM")?.toDoubleOrNull()?.let {
                 speedZoneHysteresisM = it.coerceIn(0.0, 50.0)
-            }
-            props.getProperty("lowDepthWarningMinOpacityPct")?.toIntOrNull()?.let {
-                lowDepthWarningMinOpacityPct = it.coerceIn(0, 100)
-            }
-            props.getProperty("lowDepthWarningColor")?.let { parseColorOrNull(it) }?.let {
-                lowDepthWarningColor = it
-            }
-            props.getProperty("nodata.color")?.let { parseColorOrNull(it) }?.let {
-                nodataColor = it
-            }
-            props.getProperty("cap.arrow.color")?.let { parseColorOrNull(it) }?.let {
-                capArrowColor = it
-            }
-            props.getProperty("direction.line.color")?.let { parseColorOrNull(it) }?.let {
-                directionLineColor = it
             }
             for (src in DepthSource.entries) {
                 val key = src.name.lowercase()
@@ -506,12 +454,15 @@ object AppConfig {
             props.getProperty("ui.button.icon")?.let { parseColorOrNull(it) }?.let {
                 buttonActionIconColor = it
             }
-            props.getProperty("ui.button.iconActiveAlpha")?.toFloatOrNull()?.let {
+            props.getProperty("ui.button.icon.active.alpha")?.toFloatOrNull()?.let {
                 buttonActionIconActiveAlpha = it.coerceIn(0f, 1f)
             }
-            props.getProperty("ui.button.iconInactiveAlpha")?.toFloatOrNull()?.let {
+            props.getProperty("ui.button.icon.inactive.alpha")?.toFloatOrNull()?.let {
                 buttonActionIconInactiveAlpha = it.coerceIn(0f, 1f)
             }
+            props.getProperty("ui.button.badge.text")?.let { parseColorOrNull(it) }?.let { uiButtonBadgeText = it }
+            props.getProperty("ui.button.badge.active.alpha")?.toFloatOrNull()?.let { buttonBadgeActiveAlpha = it.coerceIn(0f, 1f) }
+            props.getProperty("ui.button.badge.inactive.alpha")?.toFloatOrNull()?.let { buttonBadgeInactiveAlpha = it.coerceIn(0f, 1f) }
 
             // ── Colors from colors.properties ────────────────────────────────────
             props.getProperty("ui.dashboard.background")?.let { parseColorOrNull(it) }?.let { uiDashboardBackground = it }
@@ -562,10 +513,6 @@ object AppConfig {
             props.getProperty("status.earthWater.land")?.let { parseColorOrNull(it) }?.let { statusEarthWaterLand = it }
             props.getProperty("status.earthWater.inactive")?.let { parseColorOrNull(it) }?.let { statusEarthWaterInactive = it }
 
-            // ── Arc anchor button ─────────────────────────────────────────────
-            props.getProperty("ui.arc.anchor.color")?.let { parseColorOrNull(it) }?.let { uiArcAnchorColor = it }
-            props.getProperty("ui.arc.anchor.background")?.let { parseColorOrNull(it) }?.let { uiArcAnchorBackground = it }
-
             // ── Dashboard depth readout tints ─────────────────────────────────
             props.getProperty("ui.dashboard.readout.collision")?.let { parseColorOrNull(it) }?.let { uiDashboardReadoutCollision = it }
             props.getProperty("ui.dashboard.readout.shallow")?.let { parseColorOrNull(it) }?.let { uiDashboardReadoutShallow = it }
@@ -609,6 +556,15 @@ object AppConfig {
             props.getProperty("ui.error.text")?.let { parseColorOrNull(it) }?.let { uiErrorText = it }
             props.getProperty("ui.error.button.background")?.let { parseColorOrNull(it) }?.let { uiErrorButtonBackground = it }
             props.getProperty("ui.error.button.text")?.let { parseColorOrNull(it) }?.let { uiErrorButtonText = it }
+
+            // ── Isobath colours (from colors.properties; may also be set via zone.properties) ──
+            props.getProperty("map.isobar.litto3d.color")?.let { parseColorOrNull(it) }?.let { isobarColors[DepthSource.LITTO3D] = it }
+            props.getProperty("map.isobar.emodnet.color")?.let { parseColorOrNull(it) }?.let { isobarColors[DepthSource.EMODNET] = it }
+            props.getProperty("map.isobar.default.color")?.let { parseColorOrNull(it) }?.let { isobarColorDefault = it }
+
+            // ── Isobath stroke widths (from colors.properties; may also be set via zone.properties) ──
+            props.getProperty("map.isobar.litto3d.width")?.toFloatOrNull()?.let { isobarWidthBonuses[DepthSource.LITTO3D] = it.coerceIn(-4f, 6f) }
+            props.getProperty("map.isobar.emodnet.width")?.toFloatOrNull()?.let { isobarWidthBonuses[DepthSource.EMODNET] = it.coerceIn(-4f, 6f) }
 
             // ── Depth colour ramp ─────────────────────────────────────────────
             props.getProperty("map.depth.ramp.shallow.r")?.toIntOrNull()?.let { mapDepthRampShallowR = it.coerceIn(0, 255) }

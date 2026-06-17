@@ -28,14 +28,20 @@ import androidx.compose.ui.unit.dp
  * change colours without modifying code — rebuild APK to apply.
  */
 object ButtonColors {
-    /** Button background — loaded from maro.properties, defaults to semi-transparent white. */
+    /** Button background — loaded from colors.properties, defaults to semi-transparent dark blue. */
     val bg: ComposeColor get() = ComposeColor(AppConfig.buttonActionBgColor)
-    /** Icon colour for all action-button symbols — loaded from maro.properties. */
+    /** Icon colour for all action-button symbols — loaded from colors.properties. */
     val icon: ComposeColor get() = ComposeColor(AppConfig.buttonActionIconColor)
     /** Alpha (0.0–1.0) for active/toggled-on icon state. */
     val activeAlpha: Float get() = AppConfig.buttonActionIconActiveAlpha
     /** Alpha (0.0–1.0) for inactive/toggled-off icon state. */
     val inactiveAlpha: Float get() = AppConfig.buttonActionIconInactiveAlpha
+    /** Badge count text colour. */
+    val badgeText: ComposeColor get() = ComposeColor(AppConfig.uiButtonBadgeText)
+    /** Badge alpha when the arc/fan is OPEN (expanded). */
+    val badgeActiveAlpha: Float get() = AppConfig.buttonBadgeActiveAlpha
+    /** Badge alpha when the arc/fan is CLOSED (collapsed). */
+    val badgeInactiveAlpha: Float get() = AppConfig.buttonBadgeInactiveAlpha
 }
 
 /** Standard icon size for control-stack buttons (28 dp). */
