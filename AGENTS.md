@@ -107,3 +107,32 @@ You are executing a 100% Greenfield rewrite in a fresh workspace, using the lega
       e. **Safety:** If `## OwnedFiles` is empty/missing for the active feature, the AI guesses by scanning the feature's description, todos, and `## Key Files`. If confidence is low or the conflict touches critical infrastructure (build files, protos, `xTrack/`), prompt the user instead of auto-resolving.
       f. **Feature Template:** Every `FEAT_DSC_[Feature].md` may include a `## OwnedFiles` section (parent-level, below `## Docs`) listing source files that the feature explicitly owns for auto-resolution purposes. This is separate from `## Key Files` (which lists important references regardless of ownership).
   16. **Implementation Pipeline (`#implement`):** If the user states `#implement` (bare or `#implement [feature]`), execute the full implementation pipeline: switch to Code → implement + build → switch to Ask → feature coverage review + code health review (one pass each, no looping) → switch to Architect → report summary. Error back-off (§4) applies per-step within Code's build loop. No git auto-write (§5) — Code stages but does not commit. No Code↔Ask ping-pong (each review is a single pass, issues go to Architect).
+
+# 8. Mode Handoff Protocol
+
+Every mode MUST follow this protocol at task completion to ensure control returns to Architect for reporting and next-step planning.
+
+## 8a. Agent-Specific Adapter Files
+
+Files under `.claude/`, `.clinerules`, and `CLAUDE.md` are **thin adapters only** — they MUST NOT duplicate rules or instructions. Each adapter file's sole purpose is to redirect the agent to `AGENTS.md` (the canonical rulebook). If you are in a mode that loads one of these files, read `AGENTS.md` for all rules, commands, and protocols. Any specific info found in adapter files beyond the redirect is stale — ignore it and flag for cleanup.
+
+## 8b. Handoff Rules by Mode
+
+| Entered via | Mode | On completion |
+|---|---|---|
+| Direct user session (any mode) | **Code** | Call `switch_mode("architect", "Implementation complete — report: [what was built, build status, files changed, any issues]")`. Do NOT stay in Code mode after finishing a delegated task. |
+| Direct user session (any mode) | **Ask** | Call `switch_mode("architect", "Review complete — findings: [scope coverage, code health observations]")`. Do NOT stay in Ask mode after finishing a review. |
+| Direct user session (any mode) | **Debug** | Call `switch_mode("architect", "Investigation complete — findings: [root cause, evidence, recommendations]")`. Do NOT stay in Debug mode after investigation. |
+| Direct user session (any mode) | **Architect** | No handoff needed — this is the home base. Produce a summary, then wait for user direction. |
+| `new_task(mode=code, ...)` from Orchestrator | **Code** | Auto-returns by design (subtask completes, parent Orchestrator resumes). No explicit `switch_mode` needed. |
+| `#implement` pipeline | **Code → Ask → Architect** | Follow the pipeline as specified in §7b.16. Each hop uses `switch_mode` with a summary payload. |
+| User asks for implementation without `#implement` | **Architect** | Use `new_task(mode=code, ...)` with the plan file path in `message` and an executable checklist in `todos`. Code reads from disk — no context dump. |
+
+## 8c. Summary Payload Format
+
+When calling `switch_mode`, include a concise summary in the reason field:
+- **Code:** what was implemented, build status (pass/fail), files changed, deviations from plan
+- **Ask:** scope covered, code health observations (spaghetti, factorization, maintenance issues)
+- **Debug:** root cause, evidence, fix/non-fix recommendation
+
+Keep summaries under 3 bullet points. The receiving Architect uses this to decide next steps without re-reading the full implementation context.
