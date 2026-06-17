@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # GPS Refresh Rate — App vs Chipset, Real Perf Advantage
 
 > Discussion captured for subfeature `gps-refreshing` under [`Performance`](xTrack/FEATURE_SCOPE_Performance.md).
@@ -58,3 +59,4 @@ The already-implemented [`adaptive-frequency`](xTrack/FEATURE_SCOPE_Performance.
 | Adaptive idle 2 s → 6 s | ✅ Both radio + CPU | **High** (most time is stationary) |
 
 **Bottom line:** The tunable acquisition setting is not fake — it genuinely influences the GNSS baseband's fix cadence on modern hardware, producing real battery savings. The existing implementation is architecturally correct.
+

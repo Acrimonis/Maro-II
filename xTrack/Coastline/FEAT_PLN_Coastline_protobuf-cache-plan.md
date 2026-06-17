@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # Phase 2 — Protobuf Binary Cache Implementation Plan
 
 ## Overview
@@ -628,3 +629,4 @@ cd Maro II
 4. **Thread safety**: `readFromCache` and `writeToCache` are called from `withContext(ioDispatcher)`, consistent with existing IO-dispatched operations.
 
 5. **Error resilience**: Cache read failures (corrupted files, I/O errors) fall back to a fresh OSM fetch. Cache write failures are silently ignored (non-critical).
+

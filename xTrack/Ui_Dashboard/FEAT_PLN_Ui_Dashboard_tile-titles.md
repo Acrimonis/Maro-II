@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # Dashboard Tile Titles — Sizing & Prominence
 
 **Feature:** Dashboard  
@@ -56,3 +57,4 @@ fontWeight: SemiBold (unchanged)
 ## Note
 
 The `subtitle` (third line, 9.sp) is left untouched — it's intentionally the quietest element.
+

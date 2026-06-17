@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # Litto3D Regression Analysis
 
 > Analysis of why Litto3D is ignored in the depth referential.
@@ -49,3 +50,4 @@ The Litto3D source raster `.asc` file is **missing** from the data pipeline. Onl
 2. Re-run `DepthPrebakeTest` with `-Dmaro.prebake=true` to merge Litto3D into the `.bin`
 3. Rebuild the APK
 4. On-device verify: nearshore cells should show `LITTO3D` source with shallower depths
+

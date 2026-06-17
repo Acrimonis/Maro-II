@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # Instruction Scattering & Duplication Audit
 
 ## Findings
@@ -59,3 +60,4 @@ The per-command files were generated directly from the monolithic cmd_help.md wh
 **Total potential savings:** ~300 tokens from the Always-Loaded Context prefix — small but improves cache-hit ratio.
 
 **Design principle applied:** One source of truth per concern, references only everywhere else.
+

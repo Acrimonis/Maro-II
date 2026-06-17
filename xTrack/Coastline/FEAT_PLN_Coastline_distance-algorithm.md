@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # Coastline Distance Algorithm — Design
 
 ## Decision: Uniform Spatial Grid (Approach B)
@@ -406,3 +407,4 @@ Test data: reuse the synthetic Villefranche → La Napoule coastline already use
 | `app/src/main/java/ykws/android/maro/data/coastline/CoastlineRepository.kt` | **MODIFY** — build index on load, replace `distanceToCoastMeters()` |
 | `app/src/main/java/ykws/android/maro/spatial/SpatialOperations.kt` | **MODIFY** — add `projectPointOntoSegment` helper |
 | `app/src/test/java/ykws/android/maro/spatial/CoastlineSpatialIndexTest.kt` | **CREATE** — 10 unit tests |
+

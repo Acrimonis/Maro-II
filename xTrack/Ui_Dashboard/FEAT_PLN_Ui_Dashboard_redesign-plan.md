@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # Dashboard Redesign Plan
 
 ## Objective
@@ -212,3 +213,4 @@ No changes needed to `MapScreen.kt` call sites — `DashboardPanel` already rece
 | `validation == null` | ValidationBadge hidden entirely |
 | Very narrow width (< 240dp) | Cards stack vertically, no title, compact value only |
 | Landscape (left panel, ⅔ screen height) | Cards fill full width, stacked |
+

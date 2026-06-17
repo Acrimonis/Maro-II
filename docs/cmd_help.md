@@ -34,6 +34,6 @@ Git:      🔴 See [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md) for full rules
           #cherry [target]     interactive cherry-pick unpushed commits
           #copy [target]       alias for #cherry
           #rename [branch]     git branch -m
-          #merge               rebase + force-push. 🚫 refuses on develop/main.
+          #merge               rebase + force-push; AI auto-resolves conflicts via feature ownership. 🚫 refuses on develop/main.
 Health:   #doctor              lint xTrack for drift
           #doctor fix          auto-repair

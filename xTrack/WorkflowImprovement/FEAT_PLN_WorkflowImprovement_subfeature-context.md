@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # Subfeature Context — Implementation Plan
 
 **Status:** Approved
@@ -99,3 +100,4 @@ When all `#### Todos` under a subfeature are `[x]`, the subfeature's H3 checkbox
 1. Update `.clinerules` — add subfeature focus/out commands, scope-aware rules, and `parent:` target to the command reference section
 2. Update [`docs/cmd_help.md`](docs/cmd_help.md) — reflect new commands and scope-aware behavior
 3. Migrate existing flat subfeatures in all `FEATURE_SCOPE_*.md` files to the new subsection format (backward-compatible: `- [ ] name` → `### name  [ ]`)
+

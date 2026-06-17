@@ -147,3 +147,5 @@ and compass-gating are unconditional correct behaviour. Framework `LocationManag
 - `xTrack/Performance/FEAT_DOC_Performance_battery-design.md` — battery hotspot analysis, presets/defaults, adaptive-policy contract, refresh-cap mechanism.
 - `docs/MARO_ARCHITECTURE.md` — spatial-engine constraints (async render rules) the map/refresh changes operate within.
 - `xTrack/GPS/FEAT_PLN_GPS_refreshing-discussion.md` — GPS refresh rate: app vs chipset, real perf advantage (subfeature `gps-refreshing`)
+- `xTrack/Performance/FEAT_PLN_Performance_drag-stutter-event-chain.md` — Drag stutter complete event chain analysis
+- `xTrack/Performance/FEAT_PLN_Performance_drag-stutter-analysis.md` — Drag stutter performance analysis

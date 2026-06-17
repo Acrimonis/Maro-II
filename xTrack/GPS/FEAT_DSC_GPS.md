@@ -79,6 +79,21 @@ ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 #### Docs
 - `plans/gps-loss-investigation.md` — investigation report
 
+### validation-idle  [ ]
+
+#### Todos
+- [ ] Define what "validation idle" means — GPS stale-fix timeout, no-fix grace period, or demo-mode idle detection
+- [ ] Implement idle detection logic (no valid fix for N seconds)
+- [ ] Expose idle state via StateFlow in ViewModel
+- [ ] Surface idle state in UI (icon, text, or dashboard indicator)
+- [ ] Build (apk-build.bat) + on-device verification
+
+#### Rules
+
+#### Key Files
+
+#### Docs
+
 ## Todos
 
 
@@ -94,4 +109,5 @@ ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 - `docs/MARO_ARCHITECTURE.md` — spatial-engine constraints (Nice–Fréjus bounding box, async/map rules) GPS positions operate within.
 - `xTrack/Coastline/FEAT_DOC_Coastline_300m-line-design.md` — the 300 m regulatory band + 5-knot rule the dashboard speed colour-coding enforces.
 - `xTrack/GPS/FEAT_PLN_GPS_demo-speed-tuning.md` — Demo mode speed tuning discussion
-- `plans/gps-loss-investigation.md` — GPS tracking loss investigation report
+- `xTrack/GPS/FEAT_PLN_GPS_loss-investigation.md` — GPS tracking loss investigation report
+- `xTrack/GPS/FEAT_PLN_GPS_loss-fix-plan.md` — GPS loss fix plan

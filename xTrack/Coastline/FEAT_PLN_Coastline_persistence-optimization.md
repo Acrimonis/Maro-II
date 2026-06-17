@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # CoastlineGenerator — Data Model & Storage Analysis
 
 ## Summary of Findings (for AI context injection)
@@ -159,3 +160,4 @@ Room adds value when you need to **query subsets** of data (e.g., "find all poin
 
 - **Granularity**: How many coastline points are actually needed for each use case (map display, water/land detection, distance check, 300m zone)?
 - **Persistence workflow**: When to save, when to refresh, how to handle multiple regions.
+

@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # `#merge` Command Design
 
 > Discussion for subfeature `gitting-it` under [`WorkflowImprovement`](xTrack/WorkflowImprovement/FEAT_DSC_WorkflowImprovement.md).
@@ -86,3 +87,4 @@ This avoids the confusing `--ours`/`--theirs` terminology swap during rebase (wh
 | Already up to date | Print "Already up to date" — no-op |
 | Merge aborted (M) | `git merge --abort`, user resolves manually |
 | Not on a feature branch | Prompt confirmation before merging to `develop` |
+

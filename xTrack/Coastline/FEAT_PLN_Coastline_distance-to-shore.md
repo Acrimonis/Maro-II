@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # Distance-to-Shore Algorithm Options
 
 > Context: Android app (Kotlin/JVM), coastline dataset for Nice–Fréjus (~60 km), simplified with Douglas-Peucker ε=3m → ~15,000 segments across 1 mainland polyline + 1–4 islands. Query rate: 1–10 Hz (GPS updates).
@@ -212,3 +213,4 @@ Approach A  ＿   0 KB     Brute-Force
 Approach D (bbox culling) is a valid quick-win if you want the closest-point feature today with near-zero code, accepting that it's only 4–10× faster than brute-force. Approach C (KD-tree) is over-engineered for this dataset size.
 
 Full implementation design: [`coastline-distance-algorithm.md`](coastline-distance-algorithm.md)
+

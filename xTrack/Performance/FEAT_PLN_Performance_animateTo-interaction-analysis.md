@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # Approach A — `animateTo` Interaction with `mapRefreshFps`
 
 > Discussion captured under subfeature [`gps-refreshing`](xTrack/FEATURE_SCOPE_Performance.md:97).
@@ -110,3 +111,4 @@ With the guard, `animateTo` is called only when a real GPS fix arrives (~1/s), n
 ## Bottom line
 
 `mapRefreshFps` and `animateTo` are **orthogonal** — the flow controls data delivery rate, the animation controls viewport interpolation. The 25fps cap still governs how often the ViewModel checks position and bearing. `animateTo` adds a smooth visual transition on the consumer side without changing the data pipeline.
+
