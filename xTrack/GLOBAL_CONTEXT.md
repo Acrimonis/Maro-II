@@ -4,7 +4,7 @@
 - **Active Feature:** WorkflowImprovement
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-17
-- **Last Bake:** 2026-06-17 09:48 (Plan migration: 61 plans moved from plans/ → xTrack/*/FEAT_PLN_*, ZoneTile feature created, AGENTS.md §7b.15 merge protocol, Explain/Discuss Gate rule fixed, OwnedFiles template added. Build: n/a — doc-only.)
+- **Last Bake:** 2026-06-17 11:41 (new_task delegation + #implement pipeline designed, auto-return rule. Build: n/a — doc-only.)
 - **Branch:** feature/ya-workflow-tweak
 ## Routing Map
 | Keyword | Feature File |
