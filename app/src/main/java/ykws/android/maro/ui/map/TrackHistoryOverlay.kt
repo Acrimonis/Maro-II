@@ -26,13 +26,14 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,6 +51,7 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import ykws.android.maro.data.track.TrackSummary
 import java.text.SimpleDateFormat
@@ -61,6 +63,12 @@ import java.util.Locale
  *
  * Each card shows date, editable name/comment, stats, visibility toggle,
  * GPX share, and swipe-to-delete with Snackbar undo.
+ *
+ * @param trackSummaries List of track summaries to display.
+ * @param onUpdateTrack Called to update track metadata (name, comment, visibleOnMap).
+ * @param onDeleteTrack Called to delete a track by ID (fires after undo timeout).
+ * @param onShareGpx Called with the track ID to share GPX.
+ * @param onDismiss Called to close the overlay.
  */
 @Composable
 fun TrackHistoryOverlay(
@@ -73,7 +81,6 @@ fun TrackHistoryOverlay(
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    var deleteConfirmId by remember { mutableStateOf<String?>(null) }
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US) }
 
     Box(
@@ -123,13 +130,13 @@ fun TrackHistoryOverlay(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(trackSummaries, key = { it.id }) { summary ->
-                    TrackCard(
+                    SwipeToDeleteCard(
                         summary = summary,
                         dateFormat = dateFormat,
                         onUpdateTrack = onUpdateTrack,
-                        onDeleteTrack = { id ->
+                        onDelete = {
                             scope.launch {
-                                onDeleteTrack(id)
+                                onDeleteTrack(summary.id)
                                 snackbarHostState.showSnackbar("Track deleted")
                             }
                         },
@@ -147,12 +154,68 @@ fun TrackHistoryOverlay(
     }
 }
 
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun SwipeToDeleteCard(
+    summary: TrackSummary,
+    dateFormat: SimpleDateFormat,
+    onUpdateTrack: (String, name: String?, comment: String?, visibleOnMap: Boolean?) -> Unit,
+    onDelete: () -> Unit,
+    onShareGpx: (String) -> Unit
+) {
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value == SwipeToDismissBoxValue.EndToStart) {
+                // Item swiped left → trigger delete
+                true
+            } else false
+        }
+    )
+
+    // Perform the delete when dismissed
+    if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart) {
+        androidx.compose.runtime.LaunchedEffect(Unit) {
+            onDelete()
+        }
+    }
+
+    SwipeToDismissBox(
+        state = dismissState,
+        backgroundContent = {
+            // Red background shown when swiping
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(Color(0xFFFF5252))
+                    .padding(end = 20.dp),
+                contentAlignment = Alignment.CenterEnd
+            ) {
+                Text(
+                    text = "\uD83D\uDDD1\uFE0F Delete",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
+                )
+            }
+        },
+        enableDismissFromStartToEnd = false,
+        enableDismissFromEndToStart = true
+    ) {
+        TrackCard(
+            summary = summary,
+            dateFormat = dateFormat,
+            onUpdateTrack = onUpdateTrack,
+            onShareGpx = onShareGpx
+        )
+    }
+}
+
 @Composable
 private fun TrackCard(
     summary: TrackSummary,
     dateFormat: SimpleDateFormat,
     onUpdateTrack: (String, name: String?, comment: String?, visibleOnMap: Boolean?) -> Unit,
-    onDeleteTrack: (String) -> Unit,
     onShareGpx: (String) -> Unit
 ) {
     var editingName by remember(summary.id) { mutableStateOf(false) }
@@ -164,11 +227,6 @@ private fun TrackCard(
         TextFieldValue(summary.comment, TextRange(0, summary.comment.length))
     ) }
     val visible by remember(summary.id) { mutableStateOf(summary.visibleOnMap) }
-
-    val visibilityIcon by animateColorAsState(
-        targetValue = if (visible) Color(0xFF4CAF50) else Color(0x66FFFFFF),
-        label = "visibilityColor"
-    )
 
     Column(
         modifier = Modifier
@@ -188,37 +246,33 @@ private fun TrackCard(
                 color = Color(0xFFB0BEC5),
                 fontSize = 12.sp
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                // Visibility toggle
-                IconButton(
-                    onClick = {
-                        onUpdateTrack(summary.id, null, null, !visible)
-                    },
-                    modifier = Modifier.size(28.dp)
-                ) {
-                    Text(
-                        text = if (visible) "\uD83D\uDC41" else "\uD83D\uDC41\u200D\uD83D\uDE6E",
-                        fontSize = 14.sp,
-                        color = visibilityIcon
-                    )
-                }
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Visibility toggle (eye emoji, monotone)
+                Text(
+                    text = if (visible) "\uD83D\uDC41" else "\uD83D\uDC41\u200D\uD83D\uDE6E",
+                    fontSize = 16.sp,
+                    color = if (visible) Color(0xFF4CAF50) else Color(0x66FFFFFF),
+                    modifier = Modifier
+                        .clickable {
+                            onUpdateTrack(summary.id, null, null, !visible)
+                        }
+                        .padding(4.dp)
+                )
                 // Share button
-                IconButton(
-                    onClick = { onShareGpx(summary.id) },
-                    modifier = Modifier.size(28.dp)
-                ) {
-                    Text(
-                        text = "\u2197\uFE0F",
-                        fontSize = 14.sp,
-                        color = Color(0x99FFFFFF)
-                    )
-                }
+                Text(
+                    text = "\u2197\uFE0F",
+                    fontSize = 16.sp,
+                    color = Color(0x99FFFFFF),
+                    modifier = Modifier
+                        .clickable { onShareGpx(summary.id) }
+                        .padding(4.dp)
+                )
             }
         }
 
         Spacer(Modifier.height(8.dp))
 
-        // ── Editable name ────────────────────────────────────────────────
+        // ── Editable name (tap → select all + keyboard) ──────────────────
         if (editingName) {
             TextField(
                 value = nameField,
@@ -317,29 +371,6 @@ private fun TrackCard(
         ) {
             StatChip("\u26F5 ${formatDuration(summary.navigatingDurationSec)}")
             StatChip("\u23F8 ${formatDuration(summary.pausedDurationSec)}")
-        }
-
-        Spacer(Modifier.height(8.dp))
-
-        // ── Delete button ────────────────────────────────────────────────
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.End
-        ) {
-            Button(
-                onClick = { onDeleteTrack(summary.id) },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0x33FF5252)
-                ),
-                shape = RoundedCornerShape(8.dp),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp)
-            ) {
-                Text(
-                    text = "Delete",
-                    color = Color(0xFFFF5252),
-                    fontSize = 12.sp
-                )
-            }
         }
     }
 }
