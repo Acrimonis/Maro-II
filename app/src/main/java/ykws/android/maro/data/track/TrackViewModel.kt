@@ -71,18 +71,42 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         recorder = null
     }
 
-    /** Manually start recording. */
+    /** Manually start recording. Lazily creates the recorder if not yet initialised. */
     fun startRecording() {
+        if (recorder == null) {
+            initRecorder()
+        }
         recorder?.startManual()
     }
 
     /** Manually stop recording (finalizes current track). */
     fun stopRecording() {
+        if (recorder == null) {
+            initRecorder()
+        }
         recorder?.stop()
         viewModelScope.launch {
-            // Small delay to let the recorder finalize before refreshing
             kotlinx.coroutines.delay(500)
             refreshSummaries()
+        }
+    }
+
+    private fun initRecorder(settings: ykws.android.maro.data.settings.AppSettings? = null) {
+        val rec = TrackRecorder(
+            repository = repository,
+            geofenceOriginLat = settings?.trackOriginLat ?: 43.55,
+            geofenceOriginLon = settings?.trackOriginLon ?: 7.00,
+            geofenceRadiusM = settings?.trackGeofenceRadiusM ?: 500.0,
+            geofenceEnabled = settings?.trackGeofenceEnabled ?: true,
+            adaptiveWindowMs = (settings?.adaptiveWindowSec ?: 30) * 1000L,
+            adaptiveThresholdM = (settings?.adaptiveDistanceM ?: 20).toDouble()
+        )
+        rec.start(kotlinx.coroutines.flow.emptyFlow())
+        recorder = rec
+        viewModelScope.launch {
+            rec.uiState.collect { state ->
+                _uiState.value = state
+            }
         }
     }
 

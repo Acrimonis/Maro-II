@@ -2,7 +2,7 @@
 name: BoatTrace
 status: active
 created: 2026-06-15 21:43
-modified: 2026-06-17 20:59
+modified: 2026-06-17 21:22
 active_subfeature: verification
 ---
 
@@ -14,6 +14,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 ## Subfeatures
 
 ### design  [x]
+
 
 #### Todos
 - [x] Define Tack and TackPoint data models

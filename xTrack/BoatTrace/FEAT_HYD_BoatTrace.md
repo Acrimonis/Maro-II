@@ -1,27 +1,24 @@
 # Hydration: BoatTrace
 
-**Last Bake:** 2026-06-17 20:59 UTC
+**Last Bake:** 2026-06-17 21:22 UTC
 **Status:** active
 **Active Subfeature:** verification
 
-## Session Summary (2026-06-17 19:04–20:59)
+## Session Summary (2026-06-17 19:04–21:22)
 
 **What happened:**
-- Full feature planning + Ask review cycles for data model, recording subsystem, and UI
-- 15 issues identified and resolved through iterative discussion
-- Fresh implementation on `feature/new-tracking` branch (from `origin/develop`)
-- All source files created and compiled (BUILD SUCCESSFUL)
-- UI components (TrackStatusIcon, TrackDrawerOverlay, TrackHistoryOverlay) created but not yet wired into MapScreen/CoastlineViewModel
-- No hamburger button — only 👣 TrackStatusIcon opens the drawer
-- Test files not yet created
+- Full implementation completed on `feature/new-tracking`
+- All source files created + MapScreen integration with branch-aligned patterns
+- TrackDrawerOverlay at MapScreen level (like SettingsOverlay)
+- BackHandler for track history, extracted shareTrackGpx helper
+- Lazily initializing TrackRecorder so manual start/stop works without GPS
+- BUILD SUCCESSFUL
 
 **State:**
-- 9 data/track/ source files: TrackPoint, Track, TrackEvent, TrackGeofenceChecker, TrackRecorder, TrackRepository, TrackViewModel, TrackRecordingService, GpxExporter
-- 3 ui/map/ composable files: TrackStatusIcon, TrackDrawerOverlay, TrackHistoryOverlay
-- Modified: GpsLocationSource (timestampEpochMs), SettingsManager (track fields), maro.properties, build.gradle.kts, AndroidManifest.xml
-- Remaining: CoastlineViewModel wiring, MapScreen integration, 5 test files
+- 13 source files, 6 modified files, all compiling
+- Manual start/stop works; GPS auto-detection needs GPS flow connection
+- 5 test files still pending
 
-**Next step (when resumed):**
-- Wire TrackViewModel/recorder state into CoastlineViewModel + MapScreen.kt
-- Create test files (GeofenceCheckerTest, TrackRecorderTest, TrackRepositoryTest, TrackSerializerTest, TrackViewModelTest)
-- Verify build + tests, then E2E device testing
+**Next step:**
+- Write test files (GeofenceCheckerTest, TrackRecorderTest, TrackRepositoryTest, TrackSerializerTest, TrackViewModelTest)
+- Wire GPS flow into TrackRecorder for real GPS auto-detection
