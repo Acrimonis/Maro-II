@@ -1103,6 +1103,31 @@ private fun ErrorOverlay(
     }
 }
 
+// ── Per-layer overlay reference tracking ──────────────────────────────────────
+
+/**
+ * Holds persistent references to all [MapView] overlays per layer, plus the
+ * last-known data state for dirty checking. Used by [CoastlineMapView] to
+ * rebuild only the layer whose data actually changed — no blanket removeAll.
+ */
+private class OverlayTracker {
+    val depth = mutableListOf<GroundOverlay>()
+    val lowDepth = mutableListOf<GroundOverlay>()
+    val isobaths = mutableListOf<Polyline>()
+    val regulatedZones = mutableListOf<Polygon>()
+    val zone300 = mutableListOf<Any>()
+    val coastline = mutableListOf<Any>()
+
+    var lastDepthBitmap: Bitmap? = null
+    var lastLowDepthBitmap: Bitmap? = null
+    var lastIsobaths: List<Isobath> = emptyList()
+    var lastRegulatedZones: RegulatedZoneSet? = null
+    var lastZone300: Zone300Data? = null
+    var lastSegments: List<CoastlineSegment> = emptyList()
+    var lastDepthBox: BoundingBox? = null
+    var lastZoom: Double = -1.0
+}
+
 // ── OSMdroid map view ───────────────────────────────────────────────────────
 
 @Composable
@@ -1126,17 +1151,9 @@ private fun CoastlineMapView(
 ) {
     val context = LocalContext.current
     val localMapView = remember { mutableStateOf<MapView?>(null) }
-    // Rebuild overlays only when the data or a zoom-gate crossing changes — never on a
-    // center pan (osmdroid pans internally; a per-frame removeAll+redraw would jank).
-    val zoneVisible = zoomLevel >= ZONE_MIN_ZOOM
-    val depthVisible = zoomLevel >= DepthConstants.DEPTH_MAP_MIN_DRAW_ZOOM
-    val isobathVisible = zoomLevel >= DepthConstants.ISOBATH_MIN_DRAW_ZOOM
-    val shallowIsobathVisible = zoomLevel >= DepthConstants.SHALLOW_ISOBATH_MIN_ZOOM
-    val overlayKey = remember(
-        segments, regulatedZones, zone300, zoneVisible,
-        depthBitmap, lowDepthWarningBitmap, isobaths, depthVisible, isobathVisible, shallowIsobathVisible
-    ) { Any() }
-    val lastOverlayKey = remember { mutableStateOf<Any?>(null) }
+    // Per-layer persistent overlay tracker — survives recompositions so we can
+    // selectively rebuild only layers whose input data actually changed.
+    val tracker = remember { OverlayTracker() }
 
     AndroidView(
         modifier = modifier,
@@ -1155,14 +1172,24 @@ private fun CoastlineMapView(
                 maxZoomLevel = 18.0
                 controller.setZoom(initialZoom)
                 controller.setCenter(GeoPoint(center.latitude, center.longitude))
-                drawDepthMap(this, depthBitmap, depthBox, zoomLevel)   // bottom: colour raster
-                drawLowDepthWarning(this, lowDepthWarningBitmap, depthBox, zoomLevel) // <1.5 m hazard
-                drawIsobaths(this, isobaths, zoomLevel)                // contours above raster
-                drawRegulatedZones(this, regulatedZones, zoomLevel)    // regulated zone fill + outline
-                drawZone300(this, zone300, zoomLevel)                  // 300 m band fill + line
-                drawCoastline(this, segments)                          // coastline on top
-                // Cone + dashed line are managed by LaunchedEffect below (not in factory) to avoid
-                // coupling their updates to the full overlay rebuild cycle.
+                // Draw all layers bottom-to-top; each appends to both mapView.overlays
+                // and the corresponding tracker list for later selective rebuild.
+                drawDepthMap(this, depthBitmap, depthBox, zoomLevel, tracker.depth)
+                drawLowDepthWarning(this, lowDepthWarningBitmap, depthBox, zoomLevel, tracker.lowDepth)
+                drawIsobaths(this, isobaths, zoomLevel, tracker.isobaths)
+                drawRegulatedZones(this, regulatedZones, zoomLevel, tracker.regulatedZones)
+                drawZone300(this, zone300, zoomLevel, tracker.zone300)
+                drawCoastline(this, segments, tracker.coastline)
+
+                // Seed last-known state so the first update call sees no changes.
+                tracker.lastDepthBitmap = depthBitmap
+                tracker.lastLowDepthBitmap = lowDepthWarningBitmap
+                tracker.lastIsobaths = isobaths
+                tracker.lastRegulatedZones = regulatedZones
+                tracker.lastZone300 = zone300
+                tracker.lastSegments = segments
+                tracker.lastDepthBox = depthBox
+                tracker.lastZoom = zoomLevel
 
                 // Force-sync the ViewModel zoom level to match the actual MapView
                 // zoom right after construction, so the boat marker immediately
@@ -1190,27 +1217,71 @@ private fun CoastlineMapView(
             }
         },
         update = { mapView ->
-            // Only when data/visibility changed — not on every pan recomposition.
-            if (lastOverlayKey.value !== overlayKey) {
-                lastOverlayKey.value = overlayKey
-                // Remove every data overlay (depth raster GroundOverlay, isobath/zone/coast
-                // Polylines, zone fill Polygons) so nothing is orphaned or accumulates, then
-                // rebuild bottom-to-top in z-order.
-                // DISABLED: cone and green line overlay exclusions (see more-dedebug subfeature)
-                mapView.overlays.removeAll {
-                    (it is Polyline || it is Polygon || it is GroundOverlay) &&
-                    (it !is Polyline || (it as Polyline).title != "zoneAheadOuter") &&
-                    (it !is Polygon || (it as Polygon).title != "zoneAheadCone")
-                }
-                drawDepthMap(mapView, depthBitmap, depthBox, zoomLevel)
-                drawLowDepthWarning(mapView, lowDepthWarningBitmap, depthBox, zoomLevel)
-                drawIsobaths(mapView, isobaths, zoomLevel)
-                drawRegulatedZones(mapView, regulatedZones, zoomLevel)
-                drawZone300(mapView, zone300, zoomLevel)
-                drawCoastline(mapView, segments)
-                // Cone + dashed line are managed by LaunchedEffect below
-                mapView.invalidate()
+            var dirty = false
+
+            // ── Zone300 layer ──────────────────────────────────────────────
+            if (zone300 !== tracker.lastZone300 || zoomLevel != tracker.lastZoom) {
+                mapView.overlays.removeAll(tracker.zone300)
+                tracker.zone300.clear()
+                drawZone300(mapView, zone300, zoomLevel, tracker.zone300)
+                tracker.lastZone300 = zone300
+                dirty = true
             }
+
+            // ── Regulated zones layer ──────────────────────────────────────
+            if (regulatedZones !== tracker.lastRegulatedZones || zoomLevel != tracker.lastZoom) {
+                mapView.overlays.removeAll(tracker.regulatedZones)
+                tracker.regulatedZones.clear()
+                drawRegulatedZones(mapView, regulatedZones, zoomLevel, tracker.regulatedZones)
+                tracker.lastRegulatedZones = regulatedZones
+                dirty = true
+            }
+
+            // ── Depth colour raster layer ──────────────────────────────────
+            if (depthBitmap !== tracker.lastDepthBitmap ||
+                depthBox !== tracker.lastDepthBox ||
+                zoomLevel != tracker.lastZoom
+            ) {
+                mapView.overlays.removeAll(tracker.depth)
+                tracker.depth.clear()
+                drawDepthMap(mapView, depthBitmap, depthBox, zoomLevel, tracker.depth)
+                tracker.lastDepthBitmap = depthBitmap
+                tracker.lastDepthBox = depthBox
+                dirty = true
+            }
+
+            // ── Low-depth warning layer ────────────────────────────────────
+            if (lowDepthWarningBitmap !== tracker.lastLowDepthBitmap ||
+                depthBox !== tracker.lastDepthBox ||
+                zoomLevel != tracker.lastZoom
+            ) {
+                mapView.overlays.removeAll(tracker.lowDepth)
+                tracker.lowDepth.clear()
+                drawLowDepthWarning(mapView, lowDepthWarningBitmap, depthBox, zoomLevel, tracker.lowDepth)
+                tracker.lastLowDepthBitmap = lowDepthWarningBitmap
+                dirty = true
+            }
+
+            // ── Isobaths layer ─────────────────────────────────────────────
+            if (isobaths !== tracker.lastIsobaths || zoomLevel != tracker.lastZoom) {
+                mapView.overlays.removeAll(tracker.isobaths)
+                tracker.isobaths.clear()
+                drawIsobaths(mapView, isobaths, zoomLevel, tracker.isobaths)
+                tracker.lastIsobaths = isobaths
+                dirty = true
+            }
+
+            // ── Coastline layer ────────────────────────────────────────────
+            if (segments !== tracker.lastSegments || zoomLevel != tracker.lastZoom) {
+                mapView.overlays.removeAll(tracker.coastline)
+                tracker.coastline.clear()
+                drawCoastline(mapView, segments, tracker.coastline)
+                tracker.lastSegments = segments
+                dirty = true
+            }
+
+            tracker.lastZoom = zoomLevel
+            if (dirty) mapView.invalidate()
         }
     )
 
@@ -2957,8 +3028,10 @@ private fun SettingsTextFieldRow(
  */
 private fun drawCoastline(
     mapView: MapView,
-    segments: List<CoastlineSegment>
+    segments: List<CoastlineSegment>,
+    sink: MutableList<Any>
 ) {
+    sink.clear()
     for (segment in segments) {
         val points = segment.points
         if (points.size < 2) continue
@@ -2974,34 +3047,42 @@ private fun drawCoastline(
             // Isolated offshore danger → vivid filled yellow disc with a black outline,
             // plus a black cross spreading a little past the circle. Distinct from green
             // islands / blue mainland and the magenta low-depth overlay.
-            mapView.overlays.add(Polygon().apply {
+            val disc = Polygon().apply {
                 setPoints(osmPoints)
                 fillPaint.color = AppConfig.mapHazardDiscFill   // vivid yellow (#FFE800) — full circle
                 fillPaint.isAntiAlias = true
                 outlinePaint.color = AppConfig.mapHazardOutline  // black circle around it
                 outlinePaint.strokeWidth = 6f
                 outlinePaint.isAntiAlias = true
-            })
+            }
+            mapView.overlays.add(disc)
+            sink.add(disc)
             val cLat = (osmPoints.minOf { it.latitude } + osmPoints.maxOf { it.latitude }) / 2.0
             val cLon = (osmPoints.minOf { it.longitude } + osmPoints.maxOf { it.longitude }) / 2.0
             // Outer black ring, concentric with the disc (~1.6× radius).
-            mapView.overlays.add(Polyline().apply {
+            val outerRing = Polyline().apply {
                 setPoints(osmPoints.map {
                     GeoPoint(cLat + (it.latitude - cLat) * 1.6, cLon + (it.longitude - cLon) * 1.6)
                 })
                 outlinePaint.apply { color = Color.BLACK; strokeWidth = 5f; isAntiAlias = true }
-            })
+            }
+            mapView.overlays.add(outerRing)
+            sink.add(outerRing)
             // Black cross centred on the marker, arms ~80% past the radius (just past the outer ring).
             val hLat = (osmPoints.maxOf { it.latitude } - osmPoints.minOf { it.latitude }) / 2.0 * 1.8
             val hLon = (osmPoints.maxOf { it.longitude } - osmPoints.minOf { it.longitude }) / 2.0 * 1.8
-            mapView.overlays.add(Polyline().apply {
+            val crossH = Polyline().apply {
                 setPoints(listOf(GeoPoint(cLat, cLon - hLon), GeoPoint(cLat, cLon + hLon)))
                 outlinePaint.apply { color = Color.BLACK; strokeWidth = 5f; isAntiAlias = true }
-            })
-            mapView.overlays.add(Polyline().apply {
+            }
+            mapView.overlays.add(crossH)
+            sink.add(crossH)
+            val crossV = Polyline().apply {
                 setPoints(listOf(GeoPoint(cLat - hLat, cLon), GeoPoint(cLat + hLat, cLon)))
                 outlinePaint.apply { color = Color.BLACK; strokeWidth = 5f; isAntiAlias = true }
-            })
+            }
+            mapView.overlays.add(crossV)
+            sink.add(crossV)
             continue
         }
 
@@ -3016,6 +3097,7 @@ private fun drawCoastline(
             }
         }
         mapView.overlays.add(polyline)
+        sink.add(polyline)
     }
 }
 
@@ -3122,7 +3204,13 @@ private fun drawZoneAheadCone(
  *
  * Must be drawn **before** [drawCoastline] so the coastline reads on top of the fill.
  */
-private fun drawZone300(mapView: MapView, zone: Zone300Data?, zoomLevel: Double) {
+private fun drawZone300(
+    mapView: MapView,
+    zone: Zone300Data?,
+    zoomLevel: Double,
+    sink: MutableList<Any>
+) {
+    sink.clear()
     if (zone == null || zoomLevel < ZONE_MIN_ZOOM) return
 
     // Fill (water only) — translucent red, no outline on the polygon itself.
@@ -3139,6 +3227,7 @@ private fun drawZone300(mapView: MapView, zone: Zone300Data?, zoomLevel: Double)
             outlinePaint.strokeWidth = 0f
         }
         mapView.overlays.add(fill)
+        sink.add(fill)
     }
 
     // Red seaward boundary line (above the fill).
@@ -3154,6 +3243,7 @@ private fun drawZone300(mapView: MapView, zone: Zone300Data?, zoomLevel: Double)
             }
         }
         mapView.overlays.add(redLine)
+        sink.add(redLine)
     }
 }
 
@@ -3196,8 +3286,10 @@ private fun regulatedZoneColor(type: RegulatedZoneType): RegulationZoneColor = w
 private fun drawRegulatedZones(
     mapView: MapView,
     zones: RegulatedZoneSet?,
-    zoomLevel: Double
+    zoomLevel: Double,
+    sink: MutableList<Polygon>
 ) {
+    sink.clear()
     if (zones == null || zoomLevel < REGULATED_ZONE_MIN_ZOOM) return
     for (zone in zones.zones) {
         if (zone.outerRing.size < 3) continue
@@ -3216,6 +3308,7 @@ private fun drawRegulatedZones(
             outlinePaint.isAntiAlias = true
         }
         mapView.overlays.add(fill)
+        sink.add(fill)
     }
 }
 
@@ -3233,7 +3326,13 @@ private const val DEPTH_OVERLAY_BANDS = 8
  * already linear in Mercator, so only latitude is split. Adjacent strips share pixel-row AND
  * latitude boundaries, so they tile exactly — no seam, no gap.
  */
-private fun addBandedOverlay(mapView: MapView, bitmap: Bitmap, box: BoundingBox, bands: Int) {
+private fun addBandedOverlay(
+    mapView: MapView,
+    bitmap: Bitmap,
+    box: BoundingBox,
+    bands: Int,
+    sink: MutableList<GroundOverlay>
+) {
     val w = bitmap.width
     val h = bitmap.height
     val n = bands.coerceIn(1, h)
@@ -3254,6 +3353,7 @@ private fun addBandedOverlay(mapView: MapView, bitmap: Bitmap, box: BoundingBox,
             )
         }
         mapView.overlays.add(overlay)
+        sink.add(overlay)
     }
 }
 
@@ -3265,9 +3365,16 @@ private fun addBandedOverlay(mapView: MapView, bitmap: Bitmap, box: BoundingBox,
  *
  * Added FIRST so the isobaths, 300 m band and coastline read on top.
  */
-private fun drawDepthMap(mapView: MapView, bitmap: Bitmap?, box: BoundingBox?, zoomLevel: Double) {
+private fun drawDepthMap(
+    mapView: MapView,
+    bitmap: Bitmap?,
+    box: BoundingBox?,
+    zoomLevel: Double,
+    sink: MutableList<GroundOverlay>
+) {
+    sink.clear()
     if (bitmap == null || box == null || zoomLevel < DepthConstants.DEPTH_MAP_MIN_DRAW_ZOOM) return
-    addBandedOverlay(mapView, bitmap, box, DEPTH_OVERLAY_BANDS)
+    addBandedOverlay(mapView, bitmap, box, DEPTH_OVERLAY_BANDS, sink)
 }
 
 /**
@@ -3276,9 +3383,16 @@ private fun drawDepthMap(mapView: MapView, bitmap: Bitmap?, box: BoundingBox?, z
  * gate as [drawDepthMap]; the bitmap is transparent except the shallow cells, so it only tints
  * genuine grounding hazards.
  */
-private fun drawLowDepthWarning(mapView: MapView, bitmap: Bitmap?, box: BoundingBox?, zoomLevel: Double) {
+private fun drawLowDepthWarning(
+    mapView: MapView,
+    bitmap: Bitmap?,
+    box: BoundingBox?,
+    zoomLevel: Double,
+    sink: MutableList<GroundOverlay>
+) {
+    sink.clear()
     if (bitmap == null || box == null || zoomLevel < DepthConstants.DEPTH_MAP_MIN_DRAW_ZOOM) return
-    addBandedOverlay(mapView, bitmap, box, DEPTH_OVERLAY_BANDS)
+    addBandedOverlay(mapView, bitmap, box, DEPTH_OVERLAY_BANDS, sink)
 }
 
 /**
@@ -3287,7 +3401,13 @@ private fun drawLowDepthWarning(mapView: MapView, bitmap: Bitmap?, box: Bounding
  * 2 m contour appears only at [DepthConstants.SHALLOW_ISOBATH_MIN_ZOOM]+. "Round" contours
  * (10/20/30…m) read slightly bolder than the in-between lines.
  */
-private fun drawIsobaths(mapView: MapView, isobaths: List<Isobath>, zoomLevel: Double) {
+private fun drawIsobaths(
+    mapView: MapView,
+    isobaths: List<Isobath>,
+    zoomLevel: Double,
+    sink: MutableList<Polyline>
+) {
+    sink.clear()
     if (zoomLevel < DepthConstants.ISOBATH_MIN_DRAW_ZOOM) return
     for (iso in isobaths) {
         if (iso.depthM <= 2f && zoomLevel < DepthConstants.SHALLOW_ISOBATH_MIN_ZOOM) continue
@@ -3307,6 +3427,7 @@ private fun drawIsobaths(mapView: MapView, isobaths: List<Isobath>, zoomLevel: D
                 }
             }
             mapView.overlays.add(poly)
+            sink.add(poly)
         }
     }
 }
