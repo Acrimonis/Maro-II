@@ -4,7 +4,7 @@
 - **Active Feature:** ColorManagement
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-17
-- **Last Bake:** 2026-06-17 14:39 (Centralized all colors into colors.properties — fixed 46 hardcoded ComposeColor.White refs, synced 12 stale AppConfig defaults, consolidated zone.properties into maro.properties, added isobar width/color tokens)
+- **Last Bake:** 2026-06-17 15:10 (Button taxonomy consolidation — removed ui.arc.anchor.* tokens, added badge bg/text/alpha tokens with active/inactive state, fixed badge rendering to preserve baked-in 80% opacity, fixed inactive=disabled logic, removed dead ArcLayoutToggle.kt, normalized on fanLayout naming)
 - **Branch:** feature/more-colors
 ## Routing Map
 | Keyword | Feature File |
