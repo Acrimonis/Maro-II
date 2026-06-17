@@ -25,6 +25,7 @@ Docs:     #doc                 feature docs (scope-aware)
           #doc audit           check docs for missing scope tags, orphans, invalid scopes
 Session:  #bake                snapshot session (updates summaries table + xTrack/[Feature]/FEAT_HYD_)
           #help                this list
+Pipeline: #implement           full pipeline: Code → build → Ask review → Architect report
 Git:      🔴 See [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md) for full rules + enforcement.
           #new [branch]        create `feature/[branch]` from origin/develop
           #commit              bake + add + commit. 🚫 refuses on develop/main.

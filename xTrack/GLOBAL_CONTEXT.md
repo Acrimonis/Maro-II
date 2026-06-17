@@ -4,7 +4,7 @@
 - **Active Feature:** WorkflowImprovement
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-17
-- **Last Bake:** 2026-06-17 11:41 (new_task delegation + #implement pipeline designed, auto-return rule. Build: n/a — doc-only.)
+- **Last Bake:** 2026-06-17 14:01 (added #implement command to AGENTS.md §7b.16 + cmd_help.md. Build: n/a — doc-only.)
 - **Branch:** feature/ya-workflow-tweak
 ## Routing Map
 | Keyword | Feature File |
@@ -34,7 +34,7 @@
 |---------|-----------|---------|----------|--------|
 | **ColorManagement** | **Centralised colour palette — all tokens in colors.properties with alias interpolation, documented in color-scheme.md** | **2026-06-16 14:05** | **2026-06-16 14:05** | **active** |
 | **Documentation** | **README, FAQs, setup guides, architecture docs, and plans cleanup** | **2026-06-11 06:42** | **2026-06-11 10:36** | **active** |
-| WorkflowImprovement | xTrack #command system, git shortcuts, #now/#list rename, trigger syntax, fuzzy matching, bootstrap, and memory bake lifecycle | 2026-06-03 00:00 | 2026-06-10 07:30 | active |
+| WorkflowImprovement | xTrack #command system, git shortcuts, #now/#list rename, trigger syntax, fuzzy matching, bootstrap, and memory bake lifecycle | 2026-06-03 00:00 | 2026-06-17 14:01 | active |
 | Zone300 | 300m zone generation from coastline with water-only constraint | 2026-05-20 00:00 | 2026-06-03 00:00 | active |
 | DepthMapping | Bathymetry / depth mapping from Litto3D, SHOM, EMODnet sources | 2026-05-10 00:00 | 2026-06-10 12:13 | active |
 | Coastline | Coastline extraction, spatial indexing, isOnWater determination | 2026-05-10 00:00 | 2026-06-05 00:00 | active |
