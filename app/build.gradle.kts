@@ -75,6 +75,12 @@ android {
         buildConfigField("double", "SPEED_ZONE_DISTANCE_OUT_OF_ZONE_INFO_M",
             propDouble("speedZone.distanceOutOfZoneInfoM", 200.0)
                 .coerceAtLeast(10.0).toString())
+
+        // ── Track recording defaults from maro.properties ──────────
+        buildConfigField("double", "TRACK_ORIGIN_LAT", propDouble("track.originLat.default", 43.55).toString())
+        buildConfigField("double", "TRACK_ORIGIN_LON", propDouble("track.originLon.default", 7.00).toString())
+        buildConfigField("double", "TRACK_GEOFENCE_RADIUS_M", propDouble("track.geofenceRadiusM", 500.0).toString())
+        buildConfigField("boolean", "TRACK_ENABLED_DEFAULT", propBool("track.enabled.default", false).toString())
     }
 
     compileOptions {

@@ -1,0 +1,254 @@
+package ykws.android.maro.ui.map
+
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import ykws.android.maro.data.track.TrackRecorderState
+import ykws.android.maro.data.track.TrackRecorderUiState
+
+/**
+ * Track Drawer overlay — animated panel that slides in from the right.
+ *
+ * Full-screen overlay with a scrim on the left 25% that closes on tap.
+ * Styled to match the Settings overlay (same design tokens).
+ *
+ * @param isOpen         Whether the drawer is visible.
+ * @param recorderState  Current recorder state from [TrackViewModel].
+ * @param onStartRecording Triggered when user taps Start.
+ * @param onStopRecording  Triggered when user taps Stop.
+ * @param onViewTrackList  Triggered when user taps "Track List".
+ * @param onDismiss        Triggered to close the drawer.
+ */
+@Composable
+fun TrackDrawerOverlay(
+    isOpen: Boolean,
+    recorderState: TrackRecorderUiState,
+    onStartRecording: () -> Unit,
+    onStopRecording: () -> Unit,
+    onViewTrackList: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    AnimatedVisibility(
+        visible = isOpen,
+        enter = fadeIn(),
+        exit = fadeOut()
+    ) {
+        Box(modifier = modifier.fillMaxSize()) {
+            BackHandler { onDismiss() }
+
+            // ── Scrim: full screen, clickable to dismiss ─────────────────
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .clickable(onClick = onDismiss)
+            )
+
+            // ── Drawer panel: 75% right, slides in from right ────────────
+            AnimatedVisibility(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .fillMaxWidth(0.75f)
+                    .fillMaxHeight(),
+                visible = isOpen,
+                enter = slideInHorizontally { it } + fadeIn(),
+                exit = slideOutHorizontally { it } + fadeOut()
+            ) {
+                ModalDrawerSheet(
+                    modifier = Modifier.fillMaxSize(),
+                    drawerContainerColor = Color(0xFF1A1A2E)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 8.dp)
+                    ) {
+                        // ── Header: back button + "Maro II" title ────────
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconButton(
+                                onClick = onDismiss,
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0x33FFFFFF))
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Close",
+                                    tint = Color.White
+                                )
+                            }
+                            Spacer(Modifier.width(16.dp))
+                            Text(
+                                text = "Maro II",
+                                color = Color.White,
+                                fontSize = 24.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Spacer(Modifier.height(24.dp))
+
+                        // ── Section header ──────────────────────────────────
+                        Text(
+                            text = "TRACK RECORDING",
+                            color = Color(0xFF1565C0),
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
+
+                        Spacer(Modifier.height(8.dp))
+                        HorizontalDivider(
+                            thickness = 0.5.dp,
+                            color = Color.White.copy(alpha = 0.1f)
+                        )
+                        Spacer(Modifier.height(8.dp))
+
+                        // ── Track List menu item ───────────────────────────
+                        Text(
+                            text = "Track List",
+                            color = Color.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(onClick = onViewTrackList)
+                                .padding(vertical = 6.dp)
+                        )
+
+                        // ── Start/stop toggle row ──────────────────────────
+                        val isActive = recorderState.state == TrackRecorderState.RECORDING ||
+                                recorderState.state == TrackRecorderState.PAUSED
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(onClick = {
+                                    if (isActive) onStopRecording() else onStartRecording()
+                                })
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = if (isActive) "Stop Tracking" else "Start Tracking",
+                                color = Color.White,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+
+                            Switch(
+                                checked = isActive,
+                                onCheckedChange = { checked ->
+                                    if (checked) onStartRecording() else onStopRecording()
+                                },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color(0xFF1565C0),
+                                    checkedTrackColor = Color(0xFF1565C0).copy(alpha = 0.4f),
+                                    uncheckedThumbColor = Color(0xFFB0BEC5),
+                                    uncheckedTrackColor = Color(0x33FFFFFF)
+                                )
+                            )
+                        }
+
+                        // ── Live stats card (only when recording/paused) ──
+                        if (isActive) {
+                            Spacer(Modifier.height(2.dp))
+
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0x1AFFFFFF))
+                                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                StatRow("State", when (recorderState.state) {
+                                    TrackRecorderState.RECORDING -> "\u25CF Recording"
+                                    TrackRecorderState.PAUSED -> "\u25CF Paused"
+                                    else -> "Idle"
+                                })
+                                StatRow("Elapsed", formatDuration(recorderState.elapsedSeconds))
+                                StatRow("Points", "${recorderState.pointCount}")
+                                StatRow("Distance", "${"%.2f".format(recorderState.distanceNm)} nm")
+                                StatRow("Max Speed", "${"%.1f".format(recorderState.maxSpeedKn)} kn")
+                                StatRow("Avg Speed", "${"%.1f".format(recorderState.avgSpeedKn)} kn")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun StatRow(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            color = Color(0xFFB0BEC5),
+            fontSize = 13.sp
+        )
+        Text(
+            text = value,
+            color = Color.White,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Medium
+        )
+    }
+}
+
+private fun formatDuration(totalSeconds: Long): String {
+    val hours = totalSeconds / 3600
+    val minutes = (totalSeconds % 3600) / 60
+    val seconds = totalSeconds % 60
+    return if (hours > 0) {
+        "${hours}h ${minutes}m ${seconds}s"
+    } else {
+        "${minutes}m ${seconds}s"
+    }
+}

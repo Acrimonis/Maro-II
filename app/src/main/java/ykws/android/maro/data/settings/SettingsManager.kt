@@ -153,7 +153,17 @@ data class AppSettings(
      */
     /** Demo mode: rotate map heading-up (pan-direction-derived bearing) instead of north-up. */
     val demoHeadingUp: Boolean = false,
-    val gpsIdleMinDistanceM: Float = 0f
+    val gpsIdleMinDistanceM: Float = 0f,
+    /** Enable track recording. */
+    val trackEnabled: Boolean = BuildConfig.TRACK_ENABLED_DEFAULT,
+    /** Geofence origin latitude for auto start/stop (Port Salis). */
+    val trackOriginLat: Double = BuildConfig.TRACK_ORIGIN_LAT,
+    /** Geofence origin longitude for auto start/stop (Port Salis). */
+    val trackOriginLon: Double = BuildConfig.TRACK_ORIGIN_LON,
+    /** Geofence radius in metres for auto start/stop. */
+    val trackGeofenceRadiusM: Double = BuildConfig.TRACK_GEOFENCE_RADIUS_M,
+    /** When false, recording starts on movement alone (no geofence check). */
+    val trackGeofenceEnabled: Boolean = true
 ) {
     /** Check whether a [ZoneDisplayCategory] is enabled in the current settings. */
     fun isCategoryVisible(cat: ZoneDisplayCategory): Boolean = when (cat) {
@@ -250,7 +260,12 @@ class SettingsManager(
         speedZoneAutoShowDemo = prefs.getBoolean(KEY_SPEED_ZONE_AUTOSHOW_DEMO, true),
         regulatedZoneAutoShowGps = prefs.getBoolean(KEY_REGULATED_ZONE_AUTOSHOW_GPS, true),
         regulatedZoneAutoShowDemo = prefs.getBoolean(KEY_REGULATED_ZONE_AUTOSHOW_DEMO, true),
-        gpsIdleMinDistanceM = prefs.getFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, 0f)
+        gpsIdleMinDistanceM = prefs.getFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, 0f),
+        trackEnabled = prefs.getBoolean(KEY_TRACK_ENABLED, BuildConfig.TRACK_ENABLED_DEFAULT),
+        trackOriginLat = prefs.getFloat(KEY_TRACK_ORIGIN_LAT, BuildConfig.TRACK_ORIGIN_LAT.toFloat()).toDouble(),
+        trackOriginLon = prefs.getFloat(KEY_TRACK_ORIGIN_LON, BuildConfig.TRACK_ORIGIN_LON.toFloat()).toDouble(),
+        trackGeofenceRadiusM = prefs.getFloat(KEY_TRACK_GEOFENCE_RADIUS_M, BuildConfig.TRACK_GEOFENCE_RADIUS_M.toFloat()).toDouble(),
+        trackGeofenceEnabled = prefs.getBoolean(KEY_TRACK_GEOFENCE_ENABLED, true)
     )
 
     /**
@@ -323,6 +338,11 @@ class SettingsManager(
             .putBoolean(KEY_REGULATED_ZONE_AUTOSHOW_GPS, updated.regulatedZoneAutoShowGps)
             .putBoolean(KEY_REGULATED_ZONE_AUTOSHOW_DEMO, updated.regulatedZoneAutoShowDemo)
             .putFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, updated.gpsIdleMinDistanceM)
+            .putBoolean(KEY_TRACK_ENABLED, updated.trackEnabled)
+            .putFloat(KEY_TRACK_ORIGIN_LAT, updated.trackOriginLat.toFloat())
+            .putFloat(KEY_TRACK_ORIGIN_LON, updated.trackOriginLon.toFloat())
+            .putFloat(KEY_TRACK_GEOFENCE_RADIUS_M, updated.trackGeofenceRadiusM.toFloat())
+            .putBoolean(KEY_TRACK_GEOFENCE_ENABLED, updated.trackGeofenceEnabled)
             .apply()
     }
 
@@ -384,6 +404,11 @@ class SettingsManager(
         private const val KEY_REGULATED_ZONE_AUTOSHOW_GPS = "regulated_zone_autoshow_gps"
         private const val KEY_REGULATED_ZONE_AUTOSHOW_DEMO = "regulated_zone_autoshow_demo"
         private const val KEY_GPS_IDLE_MIN_DISTANCE_M = "gps_idle_min_distance_m"
+        private const val KEY_TRACK_ENABLED = "track_enabled"
+        private const val KEY_TRACK_ORIGIN_LAT = "track_origin_lat"
+        private const val KEY_TRACK_ORIGIN_LON = "track_origin_lon"
+        private const val KEY_TRACK_GEOFENCE_RADIUS_M = "track_geofence_radius_m"
+        private const val KEY_TRACK_GEOFENCE_ENABLED = "track_geofence_enabled"
         private const val KEY_PREFS_VERSION = "prefs_version"
         private const val CURRENT_VERSION = 2
     }
