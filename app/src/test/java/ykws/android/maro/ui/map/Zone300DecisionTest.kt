@@ -33,6 +33,7 @@ class Zone300DecisionTest {
         prevDist: Double?,
         inZone: Boolean = false,
         sogKn: Float? = null,
+        isStopped: Boolean = false,
         armed: Boolean = true,
         autoRevealed: Boolean = false,
         zoneEntered: Boolean = false,
@@ -40,7 +41,8 @@ class Zone300DecisionTest {
         revealTimeS: Double = 20.0
     ) = zoneAutoShowDecision(
         dist = dist, prevDist = prevDist, insideZone = inZone,
-        sogKn = sogKn, armed = armed, autoRevealed = autoRevealed,
+        sogKn = sogKn, isStopped = isStopped,
+        armed = armed, autoRevealed = autoRevealed,
         zoneEntered = zoneEntered,
         revealDistM = revealDistM, revealTimeS = revealTimeS,
         config = bandConfig
@@ -51,6 +53,7 @@ class Zone300DecisionTest {
         prevDist: Double?,
         insideZone: Boolean = false,
         sogKn: Float? = null,
+        isStopped: Boolean = false,
         armed: Boolean = true,
         autoRevealed: Boolean = false,
         zoneEntered: Boolean = false,
@@ -58,7 +61,8 @@ class Zone300DecisionTest {
         revealTimeS: Double = 20.0
     ) = zoneAutoShowDecision(
         dist = dist, prevDist = prevDist, insideZone = insideZone,
-        sogKn = sogKn, armed = armed, autoRevealed = autoRevealed,
+        sogKn = sogKn, isStopped = isStopped,
+        armed = armed, autoRevealed = autoRevealed,
         zoneEntered = zoneEntered,
         revealDistM = revealDistM, revealTimeS = revealTimeS,
         config = speedConfig
@@ -159,9 +163,12 @@ class Zone300DecisionTest {
     }
 
     @Test
-    fun `band a stopped boat that is no longer closing auto-hides, even outside`() {
+    fun `band a stopped boat outside stays visible until it retreats past margin`() {
         val d = bandDecision(dist = 120.0, prevDist = 120.0, sogKn = 0f, autoRevealed = true)
-        assertEquals(AutoShowAction.HIDE, d.action)
+        // stoppedAndIdle removed per design: stopped outside should stay visible
+        // (only compliantInside, exitedSeaward, retreatedPastMargin trigger hide)
+        assertEquals(AutoShowAction.NONE, d.action)
+        assertTrue(d.autoRevealed)
     }
 
     @Test
@@ -259,7 +266,7 @@ class Zone300DecisionTest {
 
     @Test
     fun `speed zone stopped and not closing hides`() {
-        val d = speedDecision(dist = 120.0, prevDist = 120.0, sogKn = 0f, autoRevealed = true)
+        val d = speedDecision(dist = 120.0, prevDist = 120.0, sogKn = 0f, isStopped = true, autoRevealed = true)
         assertEquals(AutoShowAction.HIDE, d.action)
         assertFalse(d.autoRevealed)
     }

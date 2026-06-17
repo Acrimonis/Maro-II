@@ -2,7 +2,9 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-06-16 21:18
+modified: 2026-06-17 13:37
+active_subfeature: none
+modified: 2026-06-17 13:57
 active_subfeature: SVSpacing
 ---
 
@@ -93,6 +95,7 @@ Extend `enableEdgeToEdge()` to the nav bar: remove blanket `windowInsetsPadding(
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — root Box modifier, top-left icons Row, right-edge Column, DashboardPanel modifiers, bottom overlays
 - `app/src/main/java/ykws/android/maro/MainActivity.kt` — no change needed (already calls `enableEdgeToEdge()`)
 
+### ButtonColors  [x]
 ### ButtonColors  [ ]
 
 Harmonise map control buttons (zoom +/- , settings gear, GPS/EarthWater toggles, dashboard tile accent strips) onto the dark dashboard theme using the centralized `colors.properties` palette. Replace hardcoded `0xFF...` literals with named colour tokens.
@@ -104,6 +107,7 @@ Harmonise map control buttons (zoom +/- , settings gear, GPS/EarthWater toggles,
 
 #### Key Files
 
+### SVSpacing  [x]
 ### SVSpacing  [ ]
 
 Adjust vertical spacing between buttons in the right-edge control stack for improved touch targeting and visual balance.
@@ -113,6 +117,39 @@ Adjust vertical spacing between buttons in the right-edge control stack for impr
 #### Rules
 
 #### Key Files
+
+### map-print-layout  [ ]
+
+#### Todos
+
+#### Rules
+
+#### Key Files
+
+### reg speed zone  [x]
+
+**Focus:** Auto-show the regulated zone overlay (`regulatedZonesVisible`) when approaching a speed-enforced regulated zone — extending the same distance/time-threshold pattern used by the 300m band auto-show.
+
+#### Todos
+- [x] Add regulated zone overlay auto-show block in CoastlineViewModel onEach pipeline (uses `speedZoneQuery.distanceToBoundaryM` as trigger)
+- [x] Add `regulatedZoneAutoShowGps`/`regulatedZoneAutoShowDemo` settings fields + persistence
+- [x] Add settings UI toggles in Navigation tab
+- [x] Wire `onToggleRegulatedZones` to `toggleRegulatedZonesVisibility()` for manual override tracking
+- [x] Fix `armed` param: use settings toggle (`regAutoShowEnabled`) instead of `regulatedZoneManuallyHidden` — reveals on first approach
+- [x] Fix `zoneAutoShowDecision()` reveal: add `insideZoneReveal` for speed zone config (catches enter-between-ticks)
+- [x] Fix speed zone hide: add `exitedZone` (outside past revealDistM) and `locationUnknown` (dist=null on land) conditions
+- [x] BUILD SUCCESSFUL — show+hide cycle verified on device
+
+#### Rules
+- Always-on auto-show when settings toggle is ON (no manual pre-hide needed)
+- Hides when boat exits zone past revealDistM (100m default) or goes on land
+- `regulationInfoVisible` (text panel) stays under manual control only
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — regulated zone auto-show block, `insideZoneReveal`/`exitedZone`/`locationUnknown` in `zoneAutoShowDecision()`
+- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — `regulatedZoneAutoShowGps`/`regulatedZoneAutoShowDemo` fields
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — settings toggles, `onToggleRegulatedZones` wiring
+- `plans/speed-enforcement-zone-auto-show-plan.md` — design plan
 
 ## Todos
 
