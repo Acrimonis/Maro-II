@@ -1,7 +1,6 @@
 
 package ykws.android.maro.ui.map
 import ykws.android.maro.config.AppConfig
-import ykws.android.maro.data.track.toGpx
 
 import android.graphics.DashPathEffect
 
@@ -23,6 +22,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -52,14 +52,17 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -99,7 +102,6 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -132,11 +134,13 @@ import org.osmdroid.views.overlay.Polygon
 import org.osmdroid.views.overlay.Polyline
 import kotlin.math.pow
 import kotlin.math.roundToInt
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ykws.android.maro.data.depth.DepthConstants
 import ykws.android.maro.data.depth.RasterCache
@@ -169,6 +173,12 @@ import ykws.android.maro.ui.map.MinusIcon
 import ykws.android.maro.ui.map.PlusIcon
 import ykws.android.maro.ui.map.WarningTriangleIcon
 import ykws.android.maro.data.settings.AppSettings
+import ykws.android.maro.data.track.GpxExporter
+import ykws.android.maro.data.track.Track
+import ykws.android.maro.data.track.TrackPoint
+import ykws.android.maro.data.track.TrackRecorderState
+import ykws.android.maro.data.track.TrackRecorderUiState
+import ykws.android.maro.data.track.TrackSummary
 import ykws.android.maro.spatial.SpatialOperations
 
 /** GPS-follow animation: minimum displacement (m) to trigger a glide instead of snap. */
@@ -201,25 +211,20 @@ fun MapScreen(
     val distanceToZone by viewModel.distanceToZone.collectAsState()
     val zone300 by viewModel.zone300.collectAsState()
     val zoneSituation by viewModel.zoneSituation.collectAsState()
-    val zone300Overlay by viewModel.zone300OverlayVisible.collectAsState()
-    val regulatedZoneOverlay by viewModel.regulatedZoneOverlayVisible.collectAsState()
     val appSettings by viewModel.settings.collectAsState()
     var mapView by remember { mutableStateOf<MapView?>(null) }
     var showSettings by remember { mutableStateOf(false) }
     var expandedFanId by remember { mutableStateOf<ControlId?>(null) }
-    var showTrackDrawer by remember { mutableStateOf(false) }
-    var showTrackHistory by remember { mutableStateOf(false) }
-    val trackViewModel: ykws.android.maro.data.track.TrackViewModel =
-        androidx.lifecycle.viewmodel.compose.viewModel()
-    val trackRecorderState by trackViewModel.uiState.collectAsState()
-    val trackSummaries by trackViewModel.summaries.collectAsState()
-    val recoveryTrack by trackViewModel.recoveryTrack.collectAsState()
-    val trackScope = rememberCoroutineScope()
     val anyFanExpanded = expandedFanId != null
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val displayScrollState = rememberScrollState()
     val navigationScrollState = rememberScrollState()
     val systemScrollState = rememberScrollState()
+    val trackRecorderState by viewModel.trackRecorderState.collectAsState()
+    val trackSummaries by viewModel.trackSummaries.collectAsState()
+    var showTrackDrawer by remember { mutableStateOf(false) }
+    var showTrackHistory by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
 
     val context = LocalContext.current
     val autoFollowSuppressed by viewModel.autoFollowSuppressed.collectAsState()
@@ -508,6 +513,86 @@ fun MapScreen(
 
     // ── (keepScreenOn moved to MainActivity — window flag, avoids compose toggle glitch) ──
 
+    // ── Track overlay: manage osmdroid Polyline for visible tracks ─────────
+    LaunchedEffect(mapView, trackSummaries) {
+        val mv = mapView ?: return@LaunchedEffect
+        val trackVm = viewModel.trackViewModel
+
+        // Determine visible track IDs
+        val visibleIds = trackSummaries
+            .filter { it.visibleOnMap }
+            .map { it.id }
+            .toSet()
+
+        // Remove track overlays that are no longer visible
+        val existingTrackOverlays = mv.overlays.filter { overlay ->
+            (overlay as? Polyline)?.title?.startsWith("track_") == true
+        }
+        val toRemove = existingTrackOverlays.filter { overlay ->
+            val id = (overlay as Polyline).title?.removePrefix("track_") ?: ""
+            id !in visibleIds
+        }
+        mv.overlays.removeAll(toRemove)
+
+        // Add or update overlays for visible tracks
+        val existingIds = mv.overlays.filterIsInstance<Polyline>()
+            .mapNotNull { it.title?.removePrefix("track_") }
+            .toSet()
+        val newIds = visibleIds - existingIds
+
+        for (id in newIds) {
+            val track = trackVm.loadTrackSuspend(id) ?: continue
+            if (track.id != id || track.trackPoints.isEmpty()) continue
+
+            val polyline = Polyline().apply {
+                title = "track_$id"
+                outlinePaint.color = track.trackColorArgb
+                outlinePaint.strokeWidth = 8f
+                setPoints(track.trackPoints.map { pt ->
+                    GeoPoint(pt.lat, pt.lon)
+                })
+            }
+            mv.overlays.add(polyline)
+        }
+        mv.invalidate()
+    }
+
+    // ── Active recording trace: real-time Polyline during RECORDING ───────
+    // Only key on mapView identity — use snapshotFlow to reactively watch
+    // trackRecorderState changes without restarting the whole coroutine.
+    LaunchedEffect(mapView) {
+        val mv = mapView ?: return@LaunchedEffect
+        snapshotFlow { trackRecorderState }
+            .collect { state ->
+                val recState = state.state
+                val points = state.recordingPoints
+
+                if (recState == TrackRecorderState.RECORDING && points.isNotEmpty()) {
+                    val existing = mv.overlays.firstOrNull {
+                        (it as? Polyline)?.title == "track_recording"
+                    } as? Polyline
+                    if (existing != null) {
+                        existing.setPoints(points.map { GeoPoint(it.lat, it.lon) })
+                    } else {
+                        val polyline = Polyline().apply {
+                            title = "track_recording"
+                            outlinePaint.color = 0xFF_1565C0.toInt()
+                            outlinePaint.strokeWidth = 10f
+                            isVisible = true
+                            setPoints(points.map { GeoPoint(it.lat, it.lon) })
+                        }
+                        mv.overlays.add(polyline)
+                    }
+                    mv.invalidate()
+                } else {
+                    val removed = mv.overlays.removeAll {
+                        (it as? Polyline)?.title == "track_recording"
+                    }
+                    if (removed) mv.invalidate()
+                }
+            }
+    }
+
     // ── Double-back-to-exit state ─────────────────────────────────────────
     var lastBackAt by remember { mutableStateOf(0L) }
     var showExitBanner by remember { mutableStateOf(false) }
@@ -515,6 +600,7 @@ fun MapScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
+            .padding(bottom = 18.dp)
     ) {
         // ── Intercept system back when any fan is open ────────────────────
         if (anyFanExpanded) {
@@ -524,6 +610,11 @@ fun MapScreen(
         // ── Intercept system back when settings are open ──────────────────
         if (showSettings) {
             BackHandler { showSettings = false }
+        }
+
+        // ── Intercept system back when track history is open ─────────────
+        if (showTrackHistory) {
+            BackHandler { showTrackHistory = false }
         }
 
         // ── Otherwise require a second back press within 2 s to exit ───────
@@ -569,8 +660,6 @@ fun MapScreen(
                 depthBox = depthGrid?.boundingBox,
                 isobaths = isobaths,
                 appSettings = appSettings,
-                zone300OverlayVisible = zone300Overlay,
-                regulatedZoneOverlayVisible = regulatedZoneOverlay,
                 mapView = mapView,
                 navigationState = navigationState,
                 gpsIconState = gpsIconState,
@@ -583,54 +672,16 @@ fun MapScreen(
                 onMapViewReady = { mapView = it },
                 onRetry = { viewModel.loadCoastline() },
                 onOpenSettings = { showSettings = true },
-                onOpenTrackDrawer = { showTrackDrawer = !showTrackDrawer },
-                showTrackDrawer = showTrackDrawer,
-                showTrackHistory = showTrackHistory,
-                trackRecorderState = trackRecorderState,
-                trackSummaries = trackSummaries,
-                recoveryTrack = recoveryTrack,
-                onStartRecording = { trackViewModel.startRecording() },
-                onStopRecording = { trackViewModel.stopRecording() },
-                onViewTrackList = { showTrackHistory = true },
-                onDismissTrackHistory = { showTrackHistory = false },
-                onUpdateTrack = { id, name, comment, visible ->
-                    trackViewModel.updateTrack(id, name, comment, visible)
-                },
-                onDeleteTrack = { id -> trackViewModel.deleteTrack(id) },
-                onShareGpx = { id ->
-                    trackScope.launch {
-                        val track = trackViewModel.loadTrackDetail(id)
-                        if (track != null) {
-                            val gpx = track.toGpx()
-                            val file = java.io.File(context.cacheDir, "${id}.gpx")
-                            file.writeText(gpx)
-                            val uri = androidx.core.content.FileProvider.getUriForFile(
-                                context,
-                                "${context.packageName}.fileprovider",
-                                file
-                            )
-                            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                                type = "application/gpx+xml"
-                                putExtra(android.content.Intent.EXTRA_STREAM, uri)
-                                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                            context.startActivity(
-                                android.content.Intent.createChooser(intent, "Share GPX")
-                            )
-                        }
-                    }
-                },
-                onDiscardRecovery = { recoveryTrack?.let { trackViewModel.discardOrphanedCheckpoint(it) } },
-                onSaveRecovery = { recoveryTrack?.let { trackViewModel.saveOrphanedCheckpoint(it) } },
                 onToggleLowDepthWarning = viewModel::toggleLowDepthWarningVisibility,
                 onToggleDepthLayer = viewModel::toggleDepthLayerVisibility,
-                onToggleRegulatedZones = viewModel::toggleRegulatedZonesVisibility,
+                onToggleRegulatedZones = { viewModel.updateSettings { it.copy(regulatedZonesVisible = !it.regulatedZonesVisible) } },
                 onToggleZone300 = viewModel::toggleZone300Visibility,
-                isLandscape = isLandscape,
                 expandedFanId = expandedFanId,
                 onToggleFan = { id -> expandedFanId = if (expandedFanId == id) null else id },
                 showExitBanner = showExitBanner,
                 rasterProgress = rasterProgress,
+                recorderState = trackRecorderState,
+                onOpenTrackDrawer = { showTrackDrawer = true },
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(
@@ -693,73 +744,67 @@ fun MapScreen(
             )
         }
 
-        // ── TrackDrawer overlay (layer on top, like SettingsOverlay) ─────
-        if (showTrackDrawer) {
-            TrackDrawerOverlay(
-                isOpen = true,
-                recorderState = trackRecorderState,
-                onStartRecording = { trackViewModel.startRecording() },
-                onStopRecording = { trackViewModel.stopRecording() },
-                onViewTrackList = { showTrackHistory = true },
-                onDismiss = { showTrackDrawer = false }
-            )
-        }
+        // ── Track Drawer (overlay panel from left) ─────────────────────
+        TrackDrawerOverlay(
+            isOpen = showTrackDrawer,
+            recorderState = trackRecorderState,
+            onStartRecording = { viewModel.trackViewModel.manualStart() },
+            onStopRecording = { viewModel.trackViewModel.manualStop() },
+            onViewTrackList = { showTrackDrawer = false; showTrackHistory = true },
+            onDismiss = { showTrackDrawer = false }
+        )
 
-        // ── TrackHistory overlay ──────────────────────────────────────────
+        // ── Track History Overlay (full-screen) ────────────────────────
         if (showTrackHistory) {
             TrackHistoryOverlay(
                 trackSummaries = trackSummaries,
-                onUpdateTrack = { id, name, comment, visible ->
-                    trackViewModel.updateTrack(id, name, comment, visible)
+                onUpdateTrack = { id, name, comment, visibleOnMap ->
+                    viewModel.trackViewModel.updateTrack(id, name, comment, visibleOnMap)
                 },
-                onDeleteTrack = { id -> trackViewModel.deleteTrack(id) },
+                onDeleteTrack = { id ->
+                    viewModel.trackViewModel.deleteTrack(id)
+                },
                 onShareGpx = { id ->
-                    trackScope.launch {
-                        val track = trackViewModel.loadTrackDetail(id)
-                        if (track != null) {
-                            val gpx = track.toGpx()
-                            val file = java.io.File(context.cacheDir, "${id}.gpx")
-                            file.writeText(gpx)
-                            val uri = androidx.core.content.FileProvider.getUriForFile(
-                                context,
-                                "${context.packageName}.fileprovider",
-                                file
-                            )
-                            val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-                                type = "application/gpx+xml"
-                                putExtra(android.content.Intent.EXTRA_STREAM, uri)
-                                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                            }
-                            context.startActivity(
-                                android.content.Intent.createChooser(intent, "Share GPX")
-                            )
-                        }
-                    }
+                    shareTrackGpx(context, viewModel, id, coroutineScope)
                 },
                 onDismiss = { showTrackHistory = false }
             )
         }
+    }
+}
 
-        // ── Process-death recovery dialog ─────────────────────────────
-        recoveryTrack?.let { track ->
-            androidx.compose.material3.AlertDialog(
-                onDismissRequest = { trackViewModel.discardOrphanedCheckpoint(track) },
-                title = { androidx.compose.material3.Text("Unfinished Recording") },
-                text = { androidx.compose.material3.Text(
-                    "Found an unfinished recording from ${track.name}."
-                ) },
-                confirmButton = {
-                    androidx.compose.material3.TextButton(
-                        onClick = { trackViewModel.saveOrphanedCheckpoint(track) }
-                    ) { androidx.compose.material3.Text("Save") }
-                },
-                dismissButton = {
-                    androidx.compose.material3.TextButton(
-                        onClick = { trackViewModel.discardOrphanedCheckpoint(track) }
-                    ) { androidx.compose.material3.Text("Discard") }
-                }
-            )
+/**
+ * Share a track as a GPX file via Android's share intent.
+ * Writes the GPX XML to a temp file in context.filesDir/tracks/ and fires ACTION_SEND.
+ * Uses the provided [scope] (from rememberCoroutineScope) instead of a leaked scope.
+ */
+private fun shareTrackGpx(
+    context: android.content.Context,
+    viewModel: CoastlineViewModel,
+    trackId: String,
+    scope: CoroutineScope
+) {
+    scope.launch(Dispatchers.IO) {
+        val track = viewModel.trackViewModel.loadTrackSuspend(trackId) ?: return@launch
+
+        val gpx = GpxExporter.toGpx(track)
+        val gpxFile = java.io.File(context.filesDir, "tracks/${trackId}.gpx")
+        gpxFile.parentFile?.mkdirs()
+        gpxFile.writeText(gpx)
+
+        val uri = androidx.core.content.FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            gpxFile
+        )
+        val shareIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            type = "application/gpx+xml"
+            putExtra(android.content.Intent.EXTRA_STREAM, uri)
+            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
+        context.startActivity(
+            android.content.Intent.createChooser(shareIntent, "Share GPX")
+        )
     }
 }
 
@@ -778,7 +823,77 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
 // ── Right-edge control stack types ─────────────────────────────────────────
 
 /** Identifies a control in the right-edge stack. Add new entries when adding controls. */
-private enum class ControlId { SETTINGS, LAYER_FAN, ZOOM, MENU }
+private enum class ControlId { MENU, SETTINGS, LAYER_FAN, ZOOM }
+
+/** Vertical section within the SpaceBetween Column: TOP, MIDDLE, BOTTOM. */
+private enum class ControlSection { TOP, MIDDLE, BOTTOM }
+
+/**
+ * A control item in the right-edge control stack.
+ * @param id       Unique identifier matching [ControlId].
+ * @param isFan    True if this control can expand (a fan button).
+ * @param section  Vertical placement within the SpaceBetween Column.
+ * @param content  Composable content, receives [isExpanded] = (expandedFanId == id).
+ */
+private data class ControlItem(
+    val id: ControlId,
+    val isFan: Boolean = false,
+    val section: ControlSection,
+    val content: @Composable (isExpanded: Boolean) -> Unit
+)
+
+/**
+ * Renders a vertical section of the control stack with alpha fade for hidden
+ * controls. Unlike [AnimatedVisibility] (which collapses layout), this preserves
+ * the full layout footprint so the `SpaceBetween` column distribution never
+ * changes — the fan anchor button stays at its exact position regardless of
+ * whether non-fan controls (Settings top, Zoom bottom) are hidden.
+ * Must be called from within a [Column] (uses [ColumnScope.weight] for MIDDLE).
+ */
+@Composable
+private fun ColumnScope.ControlSectionContent(
+    section: ControlSection,
+    controls: List<ControlItem>,
+    expandedFanId: ControlId?,
+    anyFanOpen: Boolean
+) {
+    if (section == ControlSection.MIDDLE) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            controls.forEach { item ->
+                val isExpanded = expandedFanId == item.id
+                val visible = item.isFan || !anyFanOpen || isExpanded
+                val alpha by animateFloatAsState(
+                    targetValue = if (visible) 1f else 0f,
+                    animationSpec = tween(300)
+                )
+                Box(modifier = Modifier.alpha(alpha)) {
+                    item.content(isExpanded)
+                }
+            }
+        }
+    } else {
+        Column(
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            controls.forEach { item ->
+                val isExpanded = expandedFanId == item.id
+                val visible = item.isFan || !anyFanOpen || isExpanded
+                val alpha by animateFloatAsState(
+                    targetValue = if (visible) 1f else 0f,
+                    animationSpec = tween(300)
+                )
+                Box(modifier = Modifier.alpha(alpha)) {
+                    item.content(isExpanded)
+                }
+            }
+        }
+    }
+}
 
 @Composable
 private fun MapContent(
@@ -806,42 +921,19 @@ private fun MapContent(
     onMapViewReady: (MapView) -> Unit,
     onRetry: () -> Unit,
     onOpenSettings: () -> Unit,
-    onOpenTrackDrawer: () -> Unit = {},
-    showTrackDrawer: Boolean = false,
-    showTrackHistory: Boolean = false,
-    trackRecorderState: ykws.android.maro.data.track.TrackRecorderUiState = ykws.android.maro.data.track.TrackRecorderUiState(),
-    trackSummaries: List<ykws.android.maro.data.track.TrackSummary> = emptyList(),
-    recoveryTrack: ykws.android.maro.data.track.Track? = null,
-    onStartRecording: () -> Unit = {},
-    onStopRecording: () -> Unit = {},
-    onViewTrackList: () -> Unit = {},
-    onDismissTrackHistory: () -> Unit = {},
-    onUpdateTrack: (String, String?, String?, Boolean?) -> Unit = { _, _, _, _ -> },
-    onDeleteTrack: (String) -> Unit = {},
-    onShareGpx: (String) -> Unit = {},
-    onDiscardRecovery: () -> Unit = {},
-    onSaveRecovery: () -> Unit = {},
     onToggleZone300: () -> Unit,
-    zone300OverlayVisible: Boolean = false,
-    regulatedZoneOverlayVisible: Boolean = false,
     onToggleRegulatedZones: () -> Unit,
     onToggleLowDepthWarning: () -> Unit,
     onToggleDepthLayer: () -> Unit,
-    isLandscape: Boolean = false,
     expandedFanId: ControlId? = null,
     onToggleFan: (ControlId) -> Unit = {},
     showExitBanner: Boolean,
     rasterProgress: RasterProgress? = null,
+    recorderState: TrackRecorderUiState = TrackRecorderUiState(),
+    onOpenTrackDrawer: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier.clipToBounds()) {
-        // ── Compute top inset: full statusBars in landscape, -6dp in portrait ──
-        val density = LocalDensity.current
-        val topInset = with(density) {
-            val raw = WindowInsets.statusBars.getTop(this).toDp()
-            if (isLandscape) raw else (raw - 6.dp).coerceAtLeast(0.dp)
-        }
-
         // Memoize per state instance so panning (which does not change state) keeps a
         // stable list identity → no spurious overlay rebuilds.
         val allSegments = remember(state) {
@@ -852,12 +944,10 @@ private fun MapContent(
         }
         // Apply coastline visibility toggle
         val segments = if (appSettings.coastlineVisible) allSegments else emptyList()
-        // Apply zone300 visibility: user toggle OR auto-show overlay
-        val showZone300 = appSettings.zone300Visible || zone300OverlayVisible
-        val visibleZone300 = if (showZone300) zone300 else null
-        // Apply regulated zones visibility: user toggle OR auto-show overlay
-        val showRegZones = appSettings.regulatedZonesVisible || regulatedZoneOverlayVisible
-        val visibleRegulatedZones = if (showRegZones) {
+        // Apply zone300 visibility toggle
+        val visibleZone300 = if (appSettings.zone300Visible) zone300 else null
+        // Apply regulated zones visibility + boat size + category toggles
+        val visibleRegulatedZones = if (appSettings.regulatedZonesVisible) {
             filterRegulatedZones(regulatedZones, appSettings.boatSizeM) { appSettings.isCategoryVisible(it) }
         } else null
         // Apply low-depth (<1.5 m) warning visibility toggle
@@ -865,8 +955,6 @@ private fun MapContent(
         // Apply depth layer colour map + isobath contours visibility toggle
         val visibleDepthBitmap = if (appSettings.depthLayerVisible) depthBitmap else null
         val visibleIsobaths = if (appSettings.depthLayerVisible) isobaths else emptyList()
-
-        // ── Layer 0: OSMdroid map (fills entire Box) ───────────────────────
         CoastlineMapView(
             segments = segments,
             regulatedZones = visibleRegulatedZones,
@@ -886,193 +974,177 @@ private fun MapContent(
             modifier = Modifier.fillMaxSize()
         )
 
-        // ── Layer 0 overlays: cap (bottom), arrow (middle), marker (top) ──
-        // ── Layer 0 overlays: direction line + center marker ─────────────
+        // ── Direction line: thin dashed line from boat to map edge in heading direction ──
         val moving = navigationState.speedKnots != null || navigationState.demoSpeedKnots != null
         if (moving && appSettings.headingLineVisible) {
-            DirectionLine(modifier = Modifier.fillMaxSize())
+            DirectionLine(
+                modifier = Modifier.fillMaxSize()
+            )
         }
 
-        CapArrowOverlay(
-            zoomLevel = zoomLevel,
-            navigationState = navigationState,
-            showCapArrow = appSettings.capArrowVisible,
-            modifier = Modifier.fillMaxSize()
-        )
+        // ── Top-left icons: GPS + Earth/Water ─────────────────────────────
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .windowInsetsPadding(WindowInsets.statusBars)
+                .padding(start = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.Top
+        ) {
+            GpsStatusIcon(state = gpsIconState)
+            EarthWaterIcon(
+                emoji = if (isWater) "🌊" else "🏔️",
+                isActive = true,
+                activeColor = if (isWater) ComposeColor(AppConfig.statusEarthWaterWater) else ComposeColor(AppConfig.statusEarthWaterLand),
+                contentDescription = if (isWater) stringResource(R.string.side_water) else stringResource(R.string.side_land),
+            )
+            TrackStatusIcon(
+                recorderState = recorderState,
+                onClick = onOpenTrackDrawer
+            )
+        }
 
+        // ── Center position marker ────────────────────────────────────────
         CenterMarkerOverlay(
             isWater = isWater,
             zoomLevel = zoomLevel,
             distanceToShore = distanceToShore,
+            navigationState = navigationState,
+            showCapArrow = appSettings.capArrowVisible,
             modifier = Modifier.align(Alignment.Center)
         )
 
-        // ── Layer 1: 2-column overlay row (left fills, right content-sized) ──
-        Row(modifier = Modifier.fillMaxSize()) {
+        // ── Bottom overlay: loading / error ───────────────────────────────
+        //   Centred horizontally: clear the GPS status icon (~50dp = 44dp + 6dp
+        //   padding) on the left, and the right-edge control stack (~76dp = 64dp
+        //   button + 12dp margin) on the right. The overlay fills the space between.
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .padding(start = 56.dp, end = 76.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            if (rasterProgress != null && rasterProgress!!.globalProgress < 100) {
+                val rp = rasterProgress!!
+                LoadingOverlay(
+                    progress = GenerationProgress(rp.phase, rp.globalProgress),
+                    title = "Generating Layers"
+                )
+            }
+            if (state is CoastlineState.Error) {
+                ErrorOverlay(
+                    message = (state as CoastlineState.Error).message,
+                    onRetry = onRetry
+                )
+            }
+        }
 
-            // ── LEFT COLUMN: top + middle + btm ──────────────────────────
-            Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
-
-                // top zone: GPS status + EarthWater (statusBars minus 6dp)
-                Row(
-                    modifier = Modifier
-                        .padding(top = topInset, start = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
+        // ── "Press back again to exit" toast ──────────────────────────────
+        //   Shares the loading/error slot: bottom-centred, clear of the GPS
+        //   icon left (~56dp) and the right-edge control stack (~76dp).
+        if (showExitBanner) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+                    .padding(start = 56.dp, end = 76.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(28.dp),
+                    color = ComposeColor(AppConfig.uiSettingsToastBackground),
+                    shadowElevation = 8.dp
                 ) {
-                    GpsStatusIcon(state = gpsIconState)
-                    TrackStatusIcon(
-                        recorderState = trackRecorderState,
-                        onClick = onOpenTrackDrawer
+                    Text(
+                        text = stringResource(R.string.exit_press_back_again),
+                        color = ComposeColor.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(horizontal = 28.dp, vertical = 16.dp)
                     )
-                    EarthWaterIcon(
-                        emoji = if (isWater) "🌊" else "🏔️",
-                        isActive = true,
-                        activeColor = if (isWater) ComposeColor(AppConfig.statusEarthWaterWater) else ComposeColor(AppConfig.statusEarthWaterLand),
-                        contentDescription = if (isWater) stringResource(R.string.side_water) else stringResource(R.string.side_land),
-                    )
-                }
-
-                // middle zone: no overlay — map fills here
-                Spacer(modifier = Modifier.weight(1f))
-
-                // btm zone: tags + txt + overlays
-                // In landscape, clear the nav bar; in portrait, match cb's 6dp gap.
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .then(
-                            if (isLandscape) Modifier.windowInsetsPadding(WindowInsets.navigationBars)
-                            else Modifier.padding(bottom = 6.dp)
-                        )
-                ) {
-                    // Behind layer: regulated zone icons + info text
-                    Row(
-                        modifier = Modifier
-                            .align(Alignment.BottomStart)
-                            .padding(start = 6.dp)
-                    ) {
-                        RegulatedZoneWarningStrip(
-                            regulatedZones = visibleRegulatedZones,
-                            boatPosition = boatPosition,
-                            inZone300 = inZone300,
-                            modifier = Modifier.align(Alignment.Bottom)
-                        )
-                        if (appSettings.regulationInfoVisible) {
-                            RegulatedZoneInfoText(
-                                regulatedZones = visibleRegulatedZones,
-                                boatPosition = boatPosition,
-                                inZone300 = inZone300,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(start = 4.dp)
-                                    .align(Alignment.Bottom)
-                            )
-                        }
-                    }
-
-                    // Middle layer: loading/error overlay (conditional)
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .padding(start = 56.dp, end = 76.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (rasterProgress != null && rasterProgress!!.globalProgress < 100) {
-                            val rp = rasterProgress!!
-                            LoadingOverlay(
-                                progress = GenerationProgress(rp.phase, rp.globalProgress),
-                                title = "Generating Layers"
-                            )
-                        }
-                        if (state is CoastlineState.Error) {
-                            ErrorOverlay(
-                                message = (state as CoastlineState.Error).message,
-                                onRetry = onRetry
-                            )
-                        }
-                    }
-
-                    // Top layer: exit toast (conditional)
-                    if (showExitBanner) {
-                        Box(
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .fillMaxWidth()
-                                .padding(start = 56.dp, end = 76.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Surface(
-                                shape = RoundedCornerShape(14.dp),
-                                color = ComposeColor(AppConfig.uiSettingsToastBackground),
-                                shadowElevation = 8.dp
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.exit_press_back_again),
-                                    color = ComposeColor(AppConfig.uiSettingsToastText),
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(horizontal = 28.dp, vertical = 16.dp)
-                                )
-                            }
-                        }
-                    }
                 }
             }
+        }
 
-            // ── RIGHT COLUMN (ctrls): ct + cm + cb ───────────────────────
-            //   Width sized to content by the Row; horizontal padding only.
-            Column(
-                modifier = Modifier
-                    .fillMaxHeight()
-                    .padding(start = 12.dp, end = 6.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                val anyFanOpen = expandedFanId != null
-
-                // ct (controls top): Settings button + future
-                // statusBars inset minus 6dp — sits closer to the bar.
-                val ctAlpha by animateFloatAsState(
-                    targetValue = if (anyFanOpen) 0f else 1f,
-                    animationSpec = tween(300)
-                )
-                Column(
+        // ── Regulated zone icons + 300m badge + info text (bottom-left) ────
+        //   A Row with up to three children:
+        //     Left  — 300m speed badge (when inZone300)
+        //     Middle — vertical icon stack (44×44 dp each), most restrictive
+        //              (SPEED_LIMIT) at the bottom, informational at the top.
+        //              SPEED_LIMIT icons suppressed when in 300m zone.
+        //     Right — zone info text filling remaining width up to the zoom
+        //             +/- stack, with auto-wrapping instead of ellipsis.
+        //   Constrained to avoid overlapping the zoom stack (~82 dp from right).
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .padding(start = 6.dp)
+                .widthIn(max = (LocalConfiguration.current.screenWidthDp.dp - 82.dp))
+        ) {
+            RegulatedZoneWarningStrip(
+                regulatedZones = visibleRegulatedZones,
+                boatPosition = boatPosition,
+                inZone300 = inZone300,
+                modifier = Modifier.align(Alignment.Bottom)
+            )
+            if (appSettings.regulationInfoVisible) {
+                RegulatedZoneInfoText(
+                    regulatedZones = visibleRegulatedZones,
+                    boatPosition = boatPosition,
+                    inZone300 = inZone300,
                     modifier = Modifier
-                        .padding(top = topInset)
-                        .alpha(ctAlpha),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    // Menu (hamburger) button — above Settings
-                    MapControlButton(
-                        onClick = onOpenTrackDrawer,
-                        icon = {
-                            androidx.compose.material3.Text(
-                                text = "\u2630",
-                                color = ykws.android.maro.ui.map.ButtonColors.icon,
-                                fontSize = 24.sp
+                        .weight(1f)
+                        .padding(start = 4.dp)
+                        .align(Alignment.Bottom)
+                )
+            }
+        }
+
+        // ── Right-edge control stack ──────────────────────────────────────
+        //   Controls are defined as a [ControlItem] list, rendered in three
+        //   vertical sections (TOP / MIDDLE / BOTTOM) inside a SpaceBetween
+        //   Column. Non-fan controls hide when any fan is expanded (via
+        //   AnimatedVisibility), making the expanded fan's children stand out.
+        Column(
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .fillMaxHeight()
+                .windowInsetsPadding(WindowInsets.systemBars)
+                .padding(start = 12.dp, end = 6.dp),
+            verticalArrangement = Arrangement.SpaceBetween,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            // ── Build the control list ─────────────────────────────────
+            // Add new MIDDLE entries here when adding future fan/button controls.
+            val controls = remember(expandedFanId, appSettings, mapView) {
+                listOf(
+                    ControlItem(id = ControlId.MENU, section = ControlSection.TOP) {
+                        Button(
+                            onClick = onOpenTrackDrawer,
+                            modifier = Modifier.size(64.dp),
+                            shape = CircleShape,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = ButtonColors.bg
+                            ),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Menu,
+                                contentDescription = "Track menu",
+                                tint = ButtonColors.icon,
+                                modifier = Modifier.size(32.dp)
                             )
                         }
-                    )
-                    SettingsButton(onClick = onOpenSettings)
-                }
-
-                // cm (controls middle): fan buttons, fills remaining height
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.Center,
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    // Fan layout with built-in alpha fade for children
-                    val isExpanded = expandedFanId == ControlId.LAYER_FAN
-                    // Only the fan anchor fades when another fan is expanded;
-                    // the fan itself is always visible when it's the expanded one.
-                    val cmAlpha by animateFloatAsState(
-                        targetValue = if (anyFanOpen && !isExpanded) 0f else 1f,
-                        animationSpec = tween(300)
-                    )
-                    Box(modifier = Modifier.alpha(cmAlpha)) {
+                    },
+                    ControlItem(id = ControlId.SETTINGS, section = ControlSection.TOP) {
+                        SettingsButton(onClick = onOpenSettings)
+                    },
+                    ControlItem(id = ControlId.LAYER_FAN, isFan = true, section = ControlSection.MIDDLE) { isExpanded ->
                         FanLayout(
                             config = FanConfig(
                                 maxCount = 5,
@@ -1111,47 +1183,48 @@ private fun MapContent(
                                 }
                             }
                         )
-                    }
-                    // Future middle controls (2nd fan, etc.) can be added here
-                }
-
-                // cb (controls bottom): Zoom +/- buttons + future
-                // Bottom gap matches the right padding (6.dp).
-                val cbAlpha by animateFloatAsState(
-                    targetValue = if (anyFanOpen) 0f else 1f,
-                    animationSpec = tween(300)
-                )
-                Column(
-                    modifier = Modifier
-                        .padding(bottom = 6.dp)
-                        .alpha(cbAlpha),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    if (mapView != null) {
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            MapControlButton(
-                                onClick = {
-                                    val mv = mapView ?: return@MapControlButton
-                                    mv.controller.zoomIn()
-                                    onZoomChanged(mv.zoomLevelDouble)
-                                }
-                            ) { PlusIcon() }
-                            MapControlButton(
-                                onClick = {
-                                    val mv = mapView ?: return@MapControlButton
-                                    mv.controller.zoomOut()
-                                    onZoomChanged(mv.zoomLevelDouble)
-                                }
-                            ) { MinusIcon() }
+                    },
+                    ControlItem(id = ControlId.ZOOM, section = ControlSection.BOTTOM) {
+                        if (mapView != null) {
+                            Column(
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                MapControlButton(
+                                    onClick = {
+                                        val mv = mapView ?: return@MapControlButton
+                                        mv.controller.zoomIn()
+                                        onZoomChanged(mv.zoomLevelDouble)
+                                    }
+                                ) { PlusIcon() }
+                                MapControlButton(
+                                    onClick = {
+                                        val mv = mapView ?: return@MapControlButton
+                                        mv.controller.zoomOut()
+                                        onZoomChanged(mv.zoomLevelDouble)
+                                    }
+                                ) { MinusIcon() }
+                            }
+                        } else {
+                            Spacer(modifier = Modifier.height(136.dp))
                         }
                     }
-                    // Future bottom controls can be added here
-                }
+                )
             }
 
+            // ── Render each section ────────────────────────────────────
+            val anyFanOpen = expandedFanId != null
+            ControlSection.entries.forEach { section ->
+                val sectionControls = controls.filter { it.section == section }
+                if (sectionControls.isNotEmpty()) {
+                    ControlSectionContent(
+                        section = section,
+                        controls = sectionControls,
+                        expandedFanId = expandedFanId,
+                        anyFanOpen = anyFanOpen
+                    )
+                }
+            }
         }
     }
 }
@@ -1233,7 +1306,7 @@ private fun ErrorOverlay(
     ) {
         Text(
             text = stringResource(R.string.error_title),
-            color = ComposeColor(AppConfig.uiErrorText),
+            color = ComposeColor.White,
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold
         )
@@ -1260,31 +1333,6 @@ private fun ErrorOverlay(
     }
 }
 
-// ── Per-layer overlay reference tracking ──────────────────────────────────────
-
-/**
- * Holds persistent references to all [MapView] overlays per layer, plus the
- * last-known data state for dirty checking. Used by [CoastlineMapView] to
- * rebuild only the layer whose data actually changed — no blanket removeAll.
- */
-private class OverlayTracker {
-    val depth = mutableListOf<GroundOverlay>()
-    val lowDepth = mutableListOf<GroundOverlay>()
-    val isobaths = mutableListOf<Polyline>()
-    val regulatedZones = mutableListOf<Polygon>()
-    val zone300 = mutableListOf<Any>()
-    val coastline = mutableListOf<Any>()
-
-    var lastDepthBitmap: Bitmap? = null
-    var lastLowDepthBitmap: Bitmap? = null
-    var lastIsobaths: List<Isobath> = emptyList()
-    var lastRegulatedZones: RegulatedZoneSet? = null
-    var lastZone300: Zone300Data? = null
-    var lastSegments: List<CoastlineSegment> = emptyList()
-    var lastDepthBox: BoundingBox? = null
-    var lastZoom: Double = -1.0
-}
-
 // ── OSMdroid map view ───────────────────────────────────────────────────────
 
 @Composable
@@ -1308,9 +1356,17 @@ private fun CoastlineMapView(
 ) {
     val context = LocalContext.current
     val localMapView = remember { mutableStateOf<MapView?>(null) }
-    // Per-layer persistent overlay tracker — survives recompositions so we can
-    // selectively rebuild only layers whose input data actually changed.
-    val tracker = remember { OverlayTracker() }
+    // Rebuild overlays only when the data or a zoom-gate crossing changes — never on a
+    // center pan (osmdroid pans internally; a per-frame removeAll+redraw would jank).
+    val zoneVisible = zoomLevel >= ZONE_MIN_ZOOM
+    val depthVisible = zoomLevel >= DepthConstants.DEPTH_MAP_MIN_DRAW_ZOOM
+    val isobathVisible = zoomLevel >= DepthConstants.ISOBATH_MIN_DRAW_ZOOM
+    val shallowIsobathVisible = zoomLevel >= DepthConstants.SHALLOW_ISOBATH_MIN_ZOOM
+    val overlayKey = remember(
+        segments, regulatedZones, zone300, zoneVisible,
+        depthBitmap, lowDepthWarningBitmap, isobaths, depthVisible, isobathVisible, shallowIsobathVisible
+    ) { Any() }
+    val lastOverlayKey = remember { mutableStateOf<Any?>(null) }
 
     AndroidView(
         modifier = modifier,
@@ -1329,24 +1385,14 @@ private fun CoastlineMapView(
                 maxZoomLevel = 18.0
                 controller.setZoom(initialZoom)
                 controller.setCenter(GeoPoint(center.latitude, center.longitude))
-                // Draw all layers bottom-to-top; each appends to both mapView.overlays
-                // and the corresponding tracker list for later selective rebuild.
-                drawDepthMap(this, depthBitmap, depthBox, zoomLevel, tracker.depth)
-                drawLowDepthWarning(this, lowDepthWarningBitmap, depthBox, zoomLevel, tracker.lowDepth)
-                drawIsobaths(this, isobaths, zoomLevel, tracker.isobaths)
-                drawRegulatedZones(this, regulatedZones, zoomLevel, tracker.regulatedZones)
-                drawZone300(this, zone300, zoomLevel, tracker.zone300)
-                drawCoastline(this, segments, tracker.coastline)
-
-                // Seed last-known state so the first update call sees no changes.
-                tracker.lastDepthBitmap = depthBitmap
-                tracker.lastLowDepthBitmap = lowDepthWarningBitmap
-                tracker.lastIsobaths = isobaths
-                tracker.lastRegulatedZones = regulatedZones
-                tracker.lastZone300 = zone300
-                tracker.lastSegments = segments
-                tracker.lastDepthBox = depthBox
-                tracker.lastZoom = zoomLevel
+                drawDepthMap(this, depthBitmap, depthBox, zoomLevel)   // bottom: colour raster
+                drawLowDepthWarning(this, lowDepthWarningBitmap, depthBox, zoomLevel) // <1.5 m hazard
+                drawIsobaths(this, isobaths, zoomLevel)                // contours above raster
+                drawRegulatedZones(this, regulatedZones, zoomLevel)    // regulated zone fill + outline
+                drawZone300(this, zone300, zoomLevel)                  // 300 m band fill + line
+                drawCoastline(this, segments)                          // coastline on top
+                // Cone + dashed line are managed by LaunchedEffect below (not in factory) to avoid
+                // coupling their updates to the full overlay rebuild cycle.
 
                 // Force-sync the ViewModel zoom level to match the actual MapView
                 // zoom right after construction, so the boat marker immediately
@@ -1374,71 +1420,28 @@ private fun CoastlineMapView(
             }
         },
         update = { mapView ->
-            var dirty = false
-
-            // ── Zone300 layer ──────────────────────────────────────────────
-            if (zone300 !== tracker.lastZone300 || zoomLevel != tracker.lastZoom) {
-                mapView.overlays.removeAll(tracker.zone300)
-                tracker.zone300.clear()
-                drawZone300(mapView, zone300, zoomLevel, tracker.zone300)
-                tracker.lastZone300 = zone300
-                dirty = true
+            // Only when data/visibility changed — not on every pan recomposition.
+            if (lastOverlayKey.value !== overlayKey) {
+                lastOverlayKey.value = overlayKey
+                // Remove every data overlay (depth raster GroundOverlay, isobath/zone/coast
+                // Polylines, zone fill Polygons) so nothing is orphaned or accumulates, then
+                // rebuild bottom-to-top in z-order.
+                // DISABLED: cone and green line overlay exclusions (see more-dedebug subfeature)
+                mapView.overlays.removeAll {
+                    (it is Polyline || it is Polygon || it is GroundOverlay) &&
+                    (it !is Polyline || (it as Polyline).title != "zoneAheadOuter") &&
+                    (it !is Polygon || (it as Polygon).title != "zoneAheadCone") &&
+                    !((it as? Polyline)?.title?.startsWith("track_") == true)
+                }
+                drawDepthMap(mapView, depthBitmap, depthBox, zoomLevel)
+                drawLowDepthWarning(mapView, lowDepthWarningBitmap, depthBox, zoomLevel)
+                drawIsobaths(mapView, isobaths, zoomLevel)
+                drawRegulatedZones(mapView, regulatedZones, zoomLevel)
+                drawZone300(mapView, zone300, zoomLevel)
+                drawCoastline(mapView, segments)
+                // Cone + dashed line are managed by LaunchedEffect below
+                mapView.invalidate()
             }
-
-            // ── Regulated zones layer ──────────────────────────────────────
-            if (regulatedZones !== tracker.lastRegulatedZones || zoomLevel != tracker.lastZoom) {
-                mapView.overlays.removeAll(tracker.regulatedZones)
-                tracker.regulatedZones.clear()
-                drawRegulatedZones(mapView, regulatedZones, zoomLevel, tracker.regulatedZones)
-                tracker.lastRegulatedZones = regulatedZones
-                dirty = true
-            }
-
-            // ── Depth colour raster layer ──────────────────────────────────
-            if (depthBitmap !== tracker.lastDepthBitmap ||
-                depthBox !== tracker.lastDepthBox ||
-                zoomLevel != tracker.lastZoom
-            ) {
-                mapView.overlays.removeAll(tracker.depth)
-                tracker.depth.clear()
-                drawDepthMap(mapView, depthBitmap, depthBox, zoomLevel, tracker.depth)
-                tracker.lastDepthBitmap = depthBitmap
-                tracker.lastDepthBox = depthBox
-                dirty = true
-            }
-
-            // ── Low-depth warning layer ────────────────────────────────────
-            if (lowDepthWarningBitmap !== tracker.lastLowDepthBitmap ||
-                depthBox !== tracker.lastDepthBox ||
-                zoomLevel != tracker.lastZoom
-            ) {
-                mapView.overlays.removeAll(tracker.lowDepth)
-                tracker.lowDepth.clear()
-                drawLowDepthWarning(mapView, lowDepthWarningBitmap, depthBox, zoomLevel, tracker.lowDepth)
-                tracker.lastLowDepthBitmap = lowDepthWarningBitmap
-                dirty = true
-            }
-
-            // ── Isobaths layer ─────────────────────────────────────────────
-            if (isobaths !== tracker.lastIsobaths || zoomLevel != tracker.lastZoom) {
-                mapView.overlays.removeAll(tracker.isobaths)
-                tracker.isobaths.clear()
-                drawIsobaths(mapView, isobaths, zoomLevel, tracker.isobaths)
-                tracker.lastIsobaths = isobaths
-                dirty = true
-            }
-
-            // ── Coastline layer ────────────────────────────────────────────
-            if (segments !== tracker.lastSegments || zoomLevel != tracker.lastZoom) {
-                mapView.overlays.removeAll(tracker.coastline)
-                tracker.coastline.clear()
-                drawCoastline(mapView, segments, tracker.coastline)
-                tracker.lastSegments = segments
-                dirty = true
-            }
-
-            tracker.lastZoom = zoomLevel
-            if (dirty) mapView.invalidate()
         }
     )
 
@@ -1527,6 +1530,8 @@ private fun CenterMarkerOverlay(
     isWater: Boolean,
     zoomLevel: Double,
     distanceToShore: Double?,
+    navigationState: NavigationState = NavigationState(),
+    showCapArrow: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val drawableId = if (isWater) R.drawable.maro_marker else R.drawable.maro_dot_marker
@@ -1550,10 +1555,23 @@ private fun CenterMarkerOverlay(
 
     val finalSizeDp = ((baseDp * scaleFactor) * distMultiplier).dp
 
+    // ── Cap arrow: visual speed indicator ────────────────────────────────
+    val effectiveSpeedKn = navigationState.speedKnots ?: navigationState.demoSpeedKnots
+    val hasSpeed = effectiveSpeedKn != null && effectiveSpeedKn > CAP_MIN_SPEED_KNOTS
+    val showArrow = hasSpeed && showCapArrow
+    val arrowDp = if (showArrow) {
+        val baseArrowDp = (effectiveSpeedKn!! * CAP_DP_PER_KNOT).coerceIn(CAP_MIN_DP, CAP_MAX_DP)
+        (baseArrowDp * scaleFactor).dp
+    } else {
+        0.dp
+    }
+
     // The marker Box stays at Alignment.Center (map center) in the parent.
     // On water: the boat image is shifted down by half its height so its top-center
     // aligns with the map center (GPS position at the boat's bow).
     // On land:   the dot stays centered (no offset — a dot has no direction).
+    // The cap arrow remains at map center (unshifted), drawn from the canvas center
+    // upward so it emerges from the boat's top (now at map center).
     Box(modifier = modifier.size(finalSizeDp)) {
         // ── Boat/land marker ──────────────────────────────────────────────
         val yOffset = if (isWater) finalSizeDp / 2 else 0.dp
@@ -1565,61 +1583,41 @@ private fun CenterMarkerOverlay(
                 .offset(y = yOffset),
             contentScale = ContentScale.Fit
         )
-    }
-}
+        // ── Cap arrow — centered at map center, draws upward ──────────────
+        if (showArrow) {
+            val arrowColor = ComposeColor(AppConfig.mapNavigationArrowColor)
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val arrowLenPx = arrowDp.toPx()
+                val cX = size.width / 2
+                // Canvas is centered at map center, so its midpoint = map center.
+                // Arrow emerges from the boat's tip (now at map center) and extends upward.
+                val midY = size.height / 2
+                val endY = midY - arrowLenPx
 
-// ── Cap arrow overlay ────────────────────────────────────────────────────────
-
-/**
- * Speed indicator arrow drawn from the screen centre upward, above the direction
- * line but below the boat/dot marker. Length scales with speed (knots) and zoom
- * level, matching the marker's exponential zoom factor. Hidden below
- * [CAP_MIN_SPEED_KNOTS] or when the user disables it via [showCapArrow].
- */
-@Composable
-private fun CapArrowOverlay(
-    zoomLevel: Double,
-    navigationState: NavigationState,
-    showCapArrow: Boolean,
-    modifier: Modifier = Modifier
-) {
-    val effectiveSpeedKn = navigationState.speedKnots ?: navigationState.demoSpeedKnots
-    val hasSpeed = effectiveSpeedKn != null && effectiveSpeedKn > CAP_MIN_SPEED_KNOTS
-    if (!hasSpeed || !showCapArrow) return
-
-    val scaleFactor = 2.0.pow(ZOOM_EXPONENT * (zoomLevel - REF_ZOOM))
-    val baseArrowDp = (effectiveSpeedKn!! * CAP_DP_PER_KNOT).coerceIn(CAP_MIN_DP, CAP_MAX_DP)
-    val arrowDp = (baseArrowDp * scaleFactor).dp
-
-    val arrowColor = ComposeColor(AppConfig.mapNavigationArrowColor)
-    Canvas(modifier = modifier) {
-        val arrowLenPx = arrowDp.toPx()
-        val cX = size.width / 2
-        val midY = size.height / 2
-        val endY = midY - arrowLenPx
-
-        drawLine(
-            color = arrowColor,
-            start = Offset(cX, midY),
-            end = Offset(cX, endY),
-            strokeWidth = 2.25.dp.toPx(),
-            cap = StrokeCap.Round
-        )
-        val headLen = 9.dp.toPx()
-        val headSpread = 0.5f
-        val path = Path().apply {
-            moveTo(cX, endY)
-            lineTo(
-                cX - (headLen * sin(headSpread)).toFloat(),
-                endY + (headLen * cos(headSpread)).toFloat()
-            )
-            lineTo(
-                cX + (headLen * sin(headSpread)).toFloat(),
-                endY + (headLen * cos(headSpread)).toFloat()
-            )
-            close()
+                drawLine(
+                    color = arrowColor,
+                    start = Offset(cX, midY),
+                    end = Offset(cX, endY),
+                    strokeWidth = 2.25.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+                val headLen = 9.dp.toPx()
+                val headSpread = 0.5f
+                val path = Path().apply {
+                    moveTo(cX, endY)
+                    lineTo(
+                        cX - (headLen * sin(headSpread)).toFloat(),
+                        endY + (headLen * cos(headSpread)).toFloat()
+                    )
+                    lineTo(
+                        cX + (headLen * sin(headSpread)).toFloat(),
+                        endY + (headLen * cos(headSpread)).toFloat()
+                    )
+                    close()
+                }
+                drawPath(path, color = arrowColor)
+            }
         }
-        drawPath(path, color = arrowColor)
     }
 }
 
@@ -1799,8 +1797,7 @@ private fun SettingsOverlay(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.statusBars)
-                .padding(horizontal = 24.dp, vertical = 3.dp)
+                .padding(24.dp)
         ) {
             // ── Header row: title + close (back) button ───────────────────
             Row(
@@ -1821,14 +1818,14 @@ private fun SettingsOverlay(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.settings_back),
-                            tint = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                            tint = ComposeColor.White,
                             modifier = Modifier.size(24.dp)
                         )
                     }
                     Spacer(modifier = Modifier.width(16.dp))
                     Text(
                         text = stringResource(R.string.settings_title),
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                        color = ComposeColor.White,
                         fontSize = 24.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -1942,7 +1939,7 @@ private fun GeneralSettings(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = stringResource(R.string.settings_low_depth_warning_label),
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                        color = ComposeColor.White,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -1973,7 +1970,7 @@ private fun GeneralSettings(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(0.5.dp)
-                        .background(ComposeColor(AppConfig.uiSettingsDivider))
+                        .background(ComposeColor.White.copy(alpha = 0.1f))
                 )
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                     var warningExpanded by remember { mutableStateOf(false) }
@@ -1982,7 +1979,7 @@ private fun GeneralSettings(
                         expanded = warningExpanded,
                         onToggle = { warningExpanded = !warningExpanded },
                         labelStyle = TextStyle(
-                            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                            color = ComposeColor.White,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -2049,7 +2046,7 @@ private fun GeneralSettings(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = stringResource(R.string.settings_regulated_zones_label),
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                        color = ComposeColor.White,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -2079,7 +2076,7 @@ private fun GeneralSettings(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(0.5.dp)
-                        .background(ComposeColor(AppConfig.uiSettingsDivider))
+                        .background(ComposeColor.White.copy(alpha = 0.1f))
                 )
                 // Regulation info — collapsible toggle for info text panel
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
@@ -2088,7 +2085,7 @@ private fun GeneralSettings(
                         expanded = settings.regulationInfoExpanded,
                         onToggle = { onUpdateSettings { it.copy(regulationInfoExpanded = !it.regulationInfoExpanded) } },
                         labelStyle = TextStyle(
-                            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                            color = ComposeColor.White,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -2107,7 +2104,7 @@ private fun GeneralSettings(
                         ) {
                             Text(
                                 text = "Info text visible",
-                                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                                color = ComposeColor.White,
                                 fontSize = 14.sp
                             )
                             Switch(
@@ -2127,7 +2124,7 @@ private fun GeneralSettings(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(0.5.dp)
-                        .background(ComposeColor(AppConfig.uiSettingsDivider))
+                        .background(ComposeColor.White.copy(alpha = 0.1f))
                 )
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                     SettingsExpander(
@@ -2135,7 +2132,7 @@ private fun GeneralSettings(
                         expanded = settings.categoryFilterExpanded,
                         onToggle = { onUpdateSettings { it.copy(categoryFilterExpanded = !it.categoryFilterExpanded) } },
                         labelStyle = TextStyle(
-                            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                            color = ComposeColor.White,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -2149,7 +2146,7 @@ private fun GeneralSettings(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(0.5.dp)
-                        .background(ComposeColor(AppConfig.uiSettingsDivider))
+                        .background(ComposeColor.White.copy(alpha = 0.1f))
                 )
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                     SettingsExpander(
@@ -2157,7 +2154,7 @@ private fun GeneralSettings(
                         expanded = settings.boatSizeFilterExpanded,
                         onToggle = { onUpdateSettings { it.copy(boatSizeFilterExpanded = !it.boatSizeFilterExpanded) } },
                         labelStyle = TextStyle(
-                            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                            color = ComposeColor.White,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -2179,6 +2176,39 @@ private fun GeneralSettings(
             onCheckedChange = { visible ->
                 onUpdateSettings { it.copy(coastlineVisible = visible) }
             }
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // ── Track recording toggle ──────────────────────────────────
+        SettingsToggleRow(
+            label = "Track Recording",
+            description = "Enable boat track logging (GPS trace)",
+            checked = settings.trackEnabled,
+            onCheckedChange = { enabled ->
+                onUpdateSettings { it.copy(trackEnabled = enabled) }
+            }
+        )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // ── Track configuration (read-only, set via maro.properties) ──
+        SubSectionHeader(
+            title = "Track Configuration",
+            description = null
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        SettingsReadOnlyRow(
+            label = "Origin Latitude",
+            value = "%.5f°N".format(settings.trackOriginLat)
+        )
+        SettingsReadOnlyRow(
+            label = "Origin Longitude",
+            value = "%.5f°E".format(settings.trackOriginLon)
+        )
+        SettingsReadOnlyRow(
+            label = "Geofence Radius",
+            value = "%.0f m".format(settings.trackGeofenceRadiusM)
         )
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -2261,7 +2291,7 @@ private fun NavigationSettings(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = stringResource(R.string.settings_alert_gps_label),
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                        color = ComposeColor.White,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -2289,7 +2319,7 @@ private fun NavigationSettings(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(0.5.dp)
-                    .background(ComposeColor(AppConfig.uiSettingsDivider))
+                    .background(ComposeColor.White.copy(alpha = 0.1f))
             )
 
             // Auto-show Demo mode toggle
@@ -2303,7 +2333,7 @@ private fun NavigationSettings(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = stringResource(R.string.settings_alert_demo_label),
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                        color = ComposeColor.White,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -2332,7 +2362,7 @@ private fun NavigationSettings(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(0.5.dp)
-                        .background(ComposeColor(AppConfig.uiSettingsDivider))
+                        .background(ComposeColor.White.copy(alpha = 0.1f))
                 )
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                     var alertExpanded by remember { mutableStateOf(false) }
@@ -2341,7 +2371,7 @@ private fun NavigationSettings(
                         expanded = alertExpanded,
                         onToggle = { alertExpanded = !alertExpanded },
                         labelStyle = TextStyle(
-                            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                            color = ComposeColor.White,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -2393,7 +2423,7 @@ private fun NavigationSettings(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Speed zone alert (GPS)",
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                        color = ComposeColor.White,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -2421,7 +2451,7 @@ private fun NavigationSettings(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(0.5.dp)
-                    .background(ComposeColor(AppConfig.uiSettingsDivider))
+                    .background(ComposeColor.White.copy(alpha = 0.1f))
             )
 
             // Auto-show Demo mode toggle
@@ -2435,7 +2465,7 @@ private fun NavigationSettings(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "Speed zone alert (Demo)",
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                        color = ComposeColor.White,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -2449,90 +2479,6 @@ private fun NavigationSettings(
                 Switch(
                     checked = settings.speedZoneAutoShowDemo,
                     onCheckedChange = { on -> onUpdateSettings { it.copy(speedZoneAutoShowDemo = on) } },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                    )
-                )
-            }
-
-            // Thin divider between speed zone section and regulated zone section
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(0.5.dp)
-                    .background(ComposeColor(AppConfig.uiSettingsDivider))
-            )
-
-            // Regulated zone overlay auto-show GPS toggle
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Regulated zone alert (GPS)",
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = "Auto-show regulated zones when approaching a speed-enforced zone",
-                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = 13.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Switch(
-                    checked = settings.regulatedZoneAutoShowGps,
-                    onCheckedChange = { on -> onUpdateSettings { it.copy(regulatedZoneAutoShowGps = on) } },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                    )
-                )
-            }
-
-            // Thin divider between the two toggles
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(0.5.dp)
-                    .background(ComposeColor(AppConfig.uiSettingsDivider))
-            )
-
-            // Regulated zone overlay auto-show Demo toggle
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Regulated zone alert (Demo)",
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = "Auto-show regulated zones when panning toward a speed-enforced zone",
-                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = 13.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Switch(
-                    checked = settings.regulatedZoneAutoShowDemo,
-                    onCheckedChange = { on -> onUpdateSettings { it.copy(regulatedZoneAutoShowDemo = on) } },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
                         checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
@@ -2595,7 +2541,7 @@ private fun SystemSettings(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = stringResource(R.string.settings_gps_mode_label),
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                        color = ComposeColor.White,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -2625,7 +2571,7 @@ private fun SystemSettings(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(0.5.dp)
-                        .background(ComposeColor(AppConfig.uiSettingsDivider))
+                        .background(ComposeColor.White.copy(alpha = 0.1f))
                 )
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                     var gpsTuningExpanded by remember { mutableStateOf(false) }
@@ -2634,7 +2580,7 @@ private fun SystemSettings(
                         expanded = gpsTuningExpanded,
                         onToggle = { gpsTuningExpanded = !gpsTuningExpanded },
                         labelStyle = TextStyle(
-                            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                            color = ComposeColor.White,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium
                         )
@@ -2712,7 +2658,7 @@ private fun SystemSettings(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = stringResource(R.string.settings_idle_interval_label),
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                        color = ComposeColor.White,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -2751,7 +2697,7 @@ private fun SystemSettings(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(0.5.dp)
-                    .background(ComposeColor(AppConfig.uiSettingsDivider))
+                    .background(ComposeColor.White.copy(alpha = 0.1f))
             )
 
             // Advanced stop-detection thresholds expander
@@ -2850,9 +2796,9 @@ private fun SystemSettings(
                     onRegenerateRasters(selected)
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = ComposeColor(AppConfig.uiSettingsAccent)),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(8.dp)
             ) {
-                Text("Regenerate", color = ComposeColor(AppConfig.uiSettingsTextPrimary))
+                Text("Regenerate", color = ComposeColor.White)
             }
         }
 
@@ -2910,7 +2856,7 @@ private fun SettingsLanguageRow(
             ) {
                 Text(
                     text = label,
-                    color = if (selected) ComposeColor(AppConfig.uiSettingsTextPrimary) else ComposeColor(AppConfig.uiSettingsTextMuted),
+                    color = if (selected) ComposeColor.White else ComposeColor(AppConfig.uiSettingsTextMuted),
                     fontSize = 14.sp,
                     fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
                 )
@@ -2938,7 +2884,7 @@ private fun SettingsToggleRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = label,
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                color = ComposeColor.White,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium
             )
@@ -3010,7 +2956,7 @@ private fun SliderRowContent(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = label,
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                color = ComposeColor.White,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium
             )
@@ -3072,6 +3018,35 @@ private fun SubSectionHeader(title: String, description: String? = null) {
                 fontSize = 13.sp
             )
         }
+    }
+}
+
+/**
+ * A read-only settings row displaying a label and a value, styled to match
+ * the existing [SettingsToggleRow] but without interactive controls.
+ */
+@Composable
+private fun SettingsReadOnlyRow(label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(ComposeColor(0x1AFFFFFF))
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            color = ComposeColor.White,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium
+        )
+        Text(
+            text = value,
+            color = ComposeColor(0xFFB0BEC5),
+            fontSize = 14.sp
+        )
     }
 }
 
@@ -3151,7 +3126,7 @@ private fun SettingsFrequencyRow(
     ) {
         Text(
             text = stringResource(R.string.settings_freq_label),
-            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+            color = ComposeColor.White,
             fontSize = 16.sp,
             fontWeight = FontWeight.Medium
         )
@@ -3224,7 +3199,7 @@ private fun SettingsTextFieldRow(
     ) {
         Text(
             text = label,
-            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+            color = ComposeColor.White,
             fontSize = 16.sp,
             fontWeight = FontWeight.Medium,
             modifier = Modifier.width(100.dp)
@@ -3240,13 +3215,13 @@ private fun SettingsTextFieldRow(
                 .width(160.dp)
                 .height(48.dp),
             textStyle = androidx.compose.ui.text.TextStyle(
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                color = ComposeColor.White,
                 fontSize = 14.sp
             ),
             colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = ComposeColor(AppConfig.uiSettingsAccent),
                 unfocusedBorderColor = ComposeColor(AppConfig.uiSettingsInputBorder),
-                cursorColor = ComposeColor(AppConfig.uiSettingsTextPrimary)
+                cursorColor = ComposeColor.White
             )
         )
     }
@@ -3269,10 +3244,8 @@ private fun SettingsTextFieldRow(
  */
 private fun drawCoastline(
     mapView: MapView,
-    segments: List<CoastlineSegment>,
-    sink: MutableList<Any>
+    segments: List<CoastlineSegment>
 ) {
-    sink.clear()
     for (segment in segments) {
         val points = segment.points
         if (points.size < 2) continue
@@ -3288,42 +3261,34 @@ private fun drawCoastline(
             // Isolated offshore danger → vivid filled yellow disc with a black outline,
             // plus a black cross spreading a little past the circle. Distinct from green
             // islands / blue mainland and the magenta low-depth overlay.
-            val disc = Polygon().apply {
+            mapView.overlays.add(Polygon().apply {
                 setPoints(osmPoints)
                 fillPaint.color = AppConfig.mapHazardDiscFill   // vivid yellow (#FFE800) — full circle
                 fillPaint.isAntiAlias = true
                 outlinePaint.color = AppConfig.mapHazardOutline  // black circle around it
                 outlinePaint.strokeWidth = 6f
                 outlinePaint.isAntiAlias = true
-            }
-            mapView.overlays.add(disc)
-            sink.add(disc)
+            })
             val cLat = (osmPoints.minOf { it.latitude } + osmPoints.maxOf { it.latitude }) / 2.0
             val cLon = (osmPoints.minOf { it.longitude } + osmPoints.maxOf { it.longitude }) / 2.0
             // Outer black ring, concentric with the disc (~1.6× radius).
-            val outerRing = Polyline().apply {
+            mapView.overlays.add(Polyline().apply {
                 setPoints(osmPoints.map {
                     GeoPoint(cLat + (it.latitude - cLat) * 1.6, cLon + (it.longitude - cLon) * 1.6)
                 })
                 outlinePaint.apply { color = Color.BLACK; strokeWidth = 5f; isAntiAlias = true }
-            }
-            mapView.overlays.add(outerRing)
-            sink.add(outerRing)
+            })
             // Black cross centred on the marker, arms ~80% past the radius (just past the outer ring).
             val hLat = (osmPoints.maxOf { it.latitude } - osmPoints.minOf { it.latitude }) / 2.0 * 1.8
             val hLon = (osmPoints.maxOf { it.longitude } - osmPoints.minOf { it.longitude }) / 2.0 * 1.8
-            val crossH = Polyline().apply {
+            mapView.overlays.add(Polyline().apply {
                 setPoints(listOf(GeoPoint(cLat, cLon - hLon), GeoPoint(cLat, cLon + hLon)))
                 outlinePaint.apply { color = Color.BLACK; strokeWidth = 5f; isAntiAlias = true }
-            }
-            mapView.overlays.add(crossH)
-            sink.add(crossH)
-            val crossV = Polyline().apply {
+            })
+            mapView.overlays.add(Polyline().apply {
                 setPoints(listOf(GeoPoint(cLat - hLat, cLon), GeoPoint(cLat + hLat, cLon)))
                 outlinePaint.apply { color = Color.BLACK; strokeWidth = 5f; isAntiAlias = true }
-            }
-            mapView.overlays.add(crossV)
-            sink.add(crossV)
+            })
             continue
         }
 
@@ -3338,7 +3303,6 @@ private fun drawCoastline(
             }
         }
         mapView.overlays.add(polyline)
-        sink.add(polyline)
     }
 }
 
@@ -3445,13 +3409,7 @@ private fun drawZoneAheadCone(
  *
  * Must be drawn **before** [drawCoastline] so the coastline reads on top of the fill.
  */
-private fun drawZone300(
-    mapView: MapView,
-    zone: Zone300Data?,
-    zoomLevel: Double,
-    sink: MutableList<Any>
-) {
-    sink.clear()
+private fun drawZone300(mapView: MapView, zone: Zone300Data?, zoomLevel: Double) {
     if (zone == null || zoomLevel < ZONE_MIN_ZOOM) return
 
     // Fill (water only) — translucent red, no outline on the polygon itself.
@@ -3468,7 +3426,6 @@ private fun drawZone300(
             outlinePaint.strokeWidth = 0f
         }
         mapView.overlays.add(fill)
-        sink.add(fill)
     }
 
     // Red seaward boundary line (above the fill).
@@ -3484,7 +3441,6 @@ private fun drawZone300(
             }
         }
         mapView.overlays.add(redLine)
-        sink.add(redLine)
     }
 }
 
@@ -3527,10 +3483,8 @@ private fun regulatedZoneColor(type: RegulatedZoneType): RegulationZoneColor = w
 private fun drawRegulatedZones(
     mapView: MapView,
     zones: RegulatedZoneSet?,
-    zoomLevel: Double,
-    sink: MutableList<Polygon>
+    zoomLevel: Double
 ) {
-    sink.clear()
     if (zones == null || zoomLevel < REGULATED_ZONE_MIN_ZOOM) return
     for (zone in zones.zones) {
         if (zone.outerRing.size < 3) continue
@@ -3549,7 +3503,6 @@ private fun drawRegulatedZones(
             outlinePaint.isAntiAlias = true
         }
         mapView.overlays.add(fill)
-        sink.add(fill)
     }
 }
 
@@ -3567,13 +3520,7 @@ private const val DEPTH_OVERLAY_BANDS = 8
  * already linear in Mercator, so only latitude is split. Adjacent strips share pixel-row AND
  * latitude boundaries, so they tile exactly — no seam, no gap.
  */
-private fun addBandedOverlay(
-    mapView: MapView,
-    bitmap: Bitmap,
-    box: BoundingBox,
-    bands: Int,
-    sink: MutableList<GroundOverlay>
-) {
+private fun addBandedOverlay(mapView: MapView, bitmap: Bitmap, box: BoundingBox, bands: Int) {
     val w = bitmap.width
     val h = bitmap.height
     val n = bands.coerceIn(1, h)
@@ -3594,7 +3541,6 @@ private fun addBandedOverlay(
             )
         }
         mapView.overlays.add(overlay)
-        sink.add(overlay)
     }
 }
 
@@ -3606,16 +3552,9 @@ private fun addBandedOverlay(
  *
  * Added FIRST so the isobaths, 300 m band and coastline read on top.
  */
-private fun drawDepthMap(
-    mapView: MapView,
-    bitmap: Bitmap?,
-    box: BoundingBox?,
-    zoomLevel: Double,
-    sink: MutableList<GroundOverlay>
-) {
-    sink.clear()
+private fun drawDepthMap(mapView: MapView, bitmap: Bitmap?, box: BoundingBox?, zoomLevel: Double) {
     if (bitmap == null || box == null || zoomLevel < DepthConstants.DEPTH_MAP_MIN_DRAW_ZOOM) return
-    addBandedOverlay(mapView, bitmap, box, DEPTH_OVERLAY_BANDS, sink)
+    addBandedOverlay(mapView, bitmap, box, DEPTH_OVERLAY_BANDS)
 }
 
 /**
@@ -3624,16 +3563,9 @@ private fun drawDepthMap(
  * gate as [drawDepthMap]; the bitmap is transparent except the shallow cells, so it only tints
  * genuine grounding hazards.
  */
-private fun drawLowDepthWarning(
-    mapView: MapView,
-    bitmap: Bitmap?,
-    box: BoundingBox?,
-    zoomLevel: Double,
-    sink: MutableList<GroundOverlay>
-) {
-    sink.clear()
+private fun drawLowDepthWarning(mapView: MapView, bitmap: Bitmap?, box: BoundingBox?, zoomLevel: Double) {
     if (bitmap == null || box == null || zoomLevel < DepthConstants.DEPTH_MAP_MIN_DRAW_ZOOM) return
-    addBandedOverlay(mapView, bitmap, box, DEPTH_OVERLAY_BANDS, sink)
+    addBandedOverlay(mapView, bitmap, box, DEPTH_OVERLAY_BANDS)
 }
 
 /**
@@ -3642,13 +3574,7 @@ private fun drawLowDepthWarning(
  * 2 m contour appears only at [DepthConstants.SHALLOW_ISOBATH_MIN_ZOOM]+. "Round" contours
  * (10/20/30…m) read slightly bolder than the in-between lines.
  */
-private fun drawIsobaths(
-    mapView: MapView,
-    isobaths: List<Isobath>,
-    zoomLevel: Double,
-    sink: MutableList<Polyline>
-) {
-    sink.clear()
+private fun drawIsobaths(mapView: MapView, isobaths: List<Isobath>, zoomLevel: Double) {
     if (zoomLevel < DepthConstants.ISOBATH_MIN_DRAW_ZOOM) return
     for (iso in isobaths) {
         if (iso.depthM <= 2f && zoomLevel < DepthConstants.SHALLOW_ISOBATH_MIN_ZOOM) continue
@@ -3668,7 +3594,6 @@ private fun drawIsobaths(
                 }
             }
             mapView.overlays.add(poly)
-            sink.add(poly)
         }
     }
 }
@@ -3803,7 +3728,7 @@ private fun RegulationZoneCategoryIcon(
                 text = if (speedKn != null) "${speedKn.toInt()}" else "",
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary)
+                color = ComposeColor.White
             )
         } else {
             // Emoji Text for all non-speed categories
@@ -3919,7 +3844,7 @@ private fun RegulatedZoneInfoText(
                 text = if (keyInfo.isNotBlank()) "$emoji $name — $keyInfo" else "$emoji $name",
                 fontSize = 9.sp,
                 lineHeight = 14.sp,
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                color = ComposeColor.White,
             )
         }
     }
@@ -3961,7 +3886,7 @@ private fun RegulatedZoneCategoryToggles(
                                     .background(ComposeColor(AppConfig.uiSettingsDanger)),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text("10", color = ComposeColor(AppConfig.uiSettingsTextPrimary), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text("10", color = ComposeColor.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                         } else {
                             Text(item.emoji, fontSize = 18.sp)
@@ -3980,7 +3905,7 @@ private fun RegulatedZoneCategoryToggles(
                         }
                     }
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = item.label, color = ComposeColor(AppConfig.uiSettingsTextPrimary), fontSize = 14.sp)
+                    Text(text = item.label, color = ComposeColor.White, fontSize = 14.sp)
                 }
                 Switch(
                     checked = item.isVisible(settings),
@@ -4029,7 +3954,7 @@ private fun BoatSizeSlider(
         ) {
             Text(
                 text = "\uD83D\uDEA4 Boat length",
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                color = ComposeColor.White,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium
             )
