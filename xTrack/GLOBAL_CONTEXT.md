@@ -4,8 +4,8 @@
 - **Active Feature:** Ui_General
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-16
-- **Last Bake:** 2026-06-16 21:18 (Layout refactor: 2-column Row overlay, symmetric 6dp margins, orientation-aware top inset, removed ControlItem machinery)
-- **Branch:** feature/btn--colors
+- **Last Bake:** 2026-06-17 07:44 (Layer refactor: split CenterMarkerOverlay into 3 Compose layers cap/arrow/marker)
+- **Branch:** feature/map-layers
 ## Routing Map
 | Keyword | Feature File |
 |---|---|
@@ -43,7 +43,7 @@
 | Performance | Battery optimization, adaptive GPS tuning, compass gate, map refresh | 2026-05-20 00:00 | 2026-06-05 00:00 | active |
 | BakeNormalization | APK bake/build/deploy pipeline and prebake data processing | 2026-06-01 00:00 | 2026-06-05 00:00 | active |
 | DepthSafety | Danger depth alerts, shallow water grounding prevention, isobath precision | 2026-06-03 00:00 | 2026-06-05 00:00 | active |
-| Ui_General | App-lifecycle UX: back-to-exit guard, keep-screen-on wakelock, edge-to-edge rendering and WindowInsets management | 2026-06-08 16:43 | 2026-06-16 21:18 | active |
+| Ui_General | App-lifecycle UX: back-to-exit guard, keep-screen-on wakelock, edge-to-edge rendering and WindowInsets management | 2026-06-08 16:43 | 2026-06-17 07:44 | active |
 | Ui_Settings | Settings page UI, persistence, widgets, and UX enhancements | 2026-06-09 15:28 | 2026-06-09 19:42 | active |
 | **Navigation** | **Navigation aids — heading/speed arrow and direction line on map overlay** | **2026-06-10 08:40** | **2026-06-11 11:55** | **active** |
 | **RegulatedZones** | **Maritime regulatory zones — multi-source normalization (SHOM INSPIRE + IGN Natura 2000), sealed classification, 8-category icon mapping, keyword-driven display logic** | **2026-06-11 18:00** | **2026-06-12 22:37** | **active** |

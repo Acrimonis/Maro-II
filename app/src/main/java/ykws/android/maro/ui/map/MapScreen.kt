@@ -745,18 +745,23 @@ private fun MapContent(
             modifier = Modifier.fillMaxSize()
         )
 
-        // ── Layer 0 overlays: direction line + center marker ─────────────
+        // ── Layer 0 overlays: cap (bottom), arrow (middle), marker (top) ──
         val moving = navigationState.speedKnots != null || navigationState.demoSpeedKnots != null
         if (moving && appSettings.headingLineVisible) {
             DirectionLine(modifier = Modifier.fillMaxSize())
         }
 
+        CapArrowOverlay(
+            zoomLevel = zoomLevel,
+            navigationState = navigationState,
+            showCapArrow = appSettings.capArrowVisible,
+            modifier = Modifier.fillMaxSize()
+        )
+
         CenterMarkerOverlay(
             isWater = isWater,
             zoomLevel = zoomLevel,
             distanceToShore = distanceToShore,
-            navigationState = navigationState,
-            showCapArrow = appSettings.capArrowVisible,
             modifier = Modifier.align(Alignment.Center)
         )
 
@@ -1294,8 +1299,6 @@ private fun CenterMarkerOverlay(
     isWater: Boolean,
     zoomLevel: Double,
     distanceToShore: Double?,
-    navigationState: NavigationState = NavigationState(),
-    showCapArrow: Boolean = true,
     modifier: Modifier = Modifier
 ) {
     val drawableId = if (isWater) R.drawable.maro_marker else R.drawable.maro_dot_marker
@@ -1319,23 +1322,10 @@ private fun CenterMarkerOverlay(
 
     val finalSizeDp = ((baseDp * scaleFactor) * distMultiplier).dp
 
-    // ── Cap arrow: visual speed indicator ────────────────────────────────
-    val effectiveSpeedKn = navigationState.speedKnots ?: navigationState.demoSpeedKnots
-    val hasSpeed = effectiveSpeedKn != null && effectiveSpeedKn > CAP_MIN_SPEED_KNOTS
-    val showArrow = hasSpeed && showCapArrow
-    val arrowDp = if (showArrow) {
-        val baseArrowDp = (effectiveSpeedKn!! * CAP_DP_PER_KNOT).coerceIn(CAP_MIN_DP, CAP_MAX_DP)
-        (baseArrowDp * scaleFactor).dp
-    } else {
-        0.dp
-    }
-
     // The marker Box stays at Alignment.Center (map center) in the parent.
     // On water: the boat image is shifted down by half its height so its top-center
     // aligns with the map center (GPS position at the boat's bow).
     // On land:   the dot stays centered (no offset — a dot has no direction).
-    // The cap arrow remains at map center (unshifted), drawn from the canvas center
-    // upward so it emerges from the boat's top (now at map center).
     Box(modifier = modifier.size(finalSizeDp)) {
         // ── Boat/land marker ──────────────────────────────────────────────
         val yOffset = if (isWater) finalSizeDp / 2 else 0.dp
@@ -1347,41 +1337,61 @@ private fun CenterMarkerOverlay(
                 .offset(y = yOffset),
             contentScale = ContentScale.Fit
         )
-        // ── Cap arrow — centered at map center, draws upward ──────────────
-        if (showArrow) {
-            val arrowColor = ComposeColor(AppConfig.mapNavigationArrowColor)
-            Canvas(modifier = Modifier.fillMaxSize()) {
-                val arrowLenPx = arrowDp.toPx()
-                val cX = size.width / 2
-                // Canvas is centered at map center, so its midpoint = map center.
-                // Arrow emerges from the boat's tip (now at map center) and extends upward.
-                val midY = size.height / 2
-                val endY = midY - arrowLenPx
+    }
+}
 
-                drawLine(
-                    color = arrowColor,
-                    start = Offset(cX, midY),
-                    end = Offset(cX, endY),
-                    strokeWidth = 2.25.dp.toPx(),
-                    cap = StrokeCap.Round
-                )
-                val headLen = 9.dp.toPx()
-                val headSpread = 0.5f
-                val path = Path().apply {
-                    moveTo(cX, endY)
-                    lineTo(
-                        cX - (headLen * sin(headSpread)).toFloat(),
-                        endY + (headLen * cos(headSpread)).toFloat()
-                    )
-                    lineTo(
-                        cX + (headLen * sin(headSpread)).toFloat(),
-                        endY + (headLen * cos(headSpread)).toFloat()
-                    )
-                    close()
-                }
-                drawPath(path, color = arrowColor)
-            }
+// ── Cap arrow overlay ────────────────────────────────────────────────────────
+
+/**
+ * Speed indicator arrow drawn from the screen centre upward, above the direction
+ * line but below the boat/dot marker. Length scales with speed (knots) and zoom
+ * level, matching the marker's exponential zoom factor. Hidden below
+ * [CAP_MIN_SPEED_KNOTS] or when the user disables it via [showCapArrow].
+ */
+@Composable
+private fun CapArrowOverlay(
+    zoomLevel: Double,
+    navigationState: NavigationState,
+    showCapArrow: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val effectiveSpeedKn = navigationState.speedKnots ?: navigationState.demoSpeedKnots
+    val hasSpeed = effectiveSpeedKn != null && effectiveSpeedKn > CAP_MIN_SPEED_KNOTS
+    if (!hasSpeed || !showCapArrow) return
+
+    val scaleFactor = 2.0.pow(ZOOM_EXPONENT * (zoomLevel - REF_ZOOM))
+    val baseArrowDp = (effectiveSpeedKn!! * CAP_DP_PER_KNOT).coerceIn(CAP_MIN_DP, CAP_MAX_DP)
+    val arrowDp = (baseArrowDp * scaleFactor).dp
+
+    val arrowColor = ComposeColor(AppConfig.mapNavigationArrowColor)
+    Canvas(modifier = modifier) {
+        val arrowLenPx = arrowDp.toPx()
+        val cX = size.width / 2
+        val midY = size.height / 2
+        val endY = midY - arrowLenPx
+
+        drawLine(
+            color = arrowColor,
+            start = Offset(cX, midY),
+            end = Offset(cX, endY),
+            strokeWidth = 2.25.dp.toPx(),
+            cap = StrokeCap.Round
+        )
+        val headLen = 9.dp.toPx()
+        val headSpread = 0.5f
+        val path = Path().apply {
+            moveTo(cX, endY)
+            lineTo(
+                cX - (headLen * sin(headSpread)).toFloat(),
+                endY + (headLen * cos(headSpread)).toFloat()
+            )
+            lineTo(
+                cX + (headLen * sin(headSpread)).toFloat(),
+                endY + (headLen * cos(headSpread)).toFloat()
+            )
+            close()
         }
+        drawPath(path, color = arrowColor)
     }
 }
 
