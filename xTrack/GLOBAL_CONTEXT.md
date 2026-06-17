@@ -1,13 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** WorkflowImprovement
+- **Active Feature:** Ui_General
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-17
-- **Last Bake:** 2026-06-17 13:37 (Regulated zone overlay auto-show for speed enforcement — show+hide cycle verified)
+- **Last Bake:** 2026-06-17 13:57 (Decouple auto-show overlay state from user settings — both 300m and regulated zones use separate StateFlows)
 - **Branch:** feature/map-layers
-- **Last Bake:** 2026-06-17 14:28 (bake + commit + push on feature/ya-workflow-tweak — command dispatch refactor. Build: n/a — tracking/doc-only.)
-- **Branch:** feature/ya-workflow-tweak
 ## Routing Map
 | Keyword | Feature File |
 |---|---|

@@ -224,6 +224,14 @@ class CoastlineViewModel(
     private val _zoneSituation = MutableStateFlow<ZoneSituation?>(null)
     val zoneSituation: StateFlow<ZoneSituation?> = _zoneSituation.asStateFlow()
 
+    /** Auto-show overlay visibility for the 300m zone — separate from user toggle [AppSettings.zone300Visible]. */
+    private val _zone300OverlayVisible = MutableStateFlow(false)
+    val zone300OverlayVisible: StateFlow<Boolean> = _zone300OverlayVisible.asStateFlow()
+
+    /** Auto-show overlay visibility for regulated zones — separate from user toggle [AppSettings.regulatedZonesVisible]. */
+    private val _regulatedZoneOverlayVisible = MutableStateFlow(false)
+    val regulatedZoneOverlayVisible: StateFlow<Boolean> = _regulatedZoneOverlayVisible.asStateFlow()
+
     /** Elapsed realtime of the last settings persist during drag — throttles SharedPreferences writes + Compose recomposition from ~60 fps to ~1 Hz. */
     private var lastPersistMs = 0L
 
@@ -521,8 +529,8 @@ class CoastlineViewModel(
                 zone300AutoRevealed = bandDecision.autoRevealed
                 bandEnteredSinceReveal = bandDecision.zoneEntered
                 when (bandDecision.action) {
-                    AutoShowAction.REVEAL -> settingsManager.update { it.copy(zone300Visible = true) }
-                    AutoShowAction.HIDE -> settingsManager.update { it.copy(zone300Visible = false) }
+                    AutoShowAction.REVEAL -> _zone300OverlayVisible.value = true
+                    AutoShowAction.HIDE -> _zone300OverlayVisible.value = false
                     AutoShowAction.NONE -> {}
                 }
                 lastDistToZone = shore.distToZone
@@ -567,8 +575,8 @@ class CoastlineViewModel(
                         "revealed=${regDecision.action == AutoShowAction.REVEAL} " +
                         "hide=${regDecision.action == AutoShowAction.HIDE}")
                     when (regDecision.action) {
-                        AutoShowAction.REVEAL -> settingsManager.update { it.copy(regulatedZonesVisible = true) }
-                        AutoShowAction.HIDE   -> settingsManager.update { it.copy(regulatedZonesVisible = false) }
+                        AutoShowAction.REVEAL -> _regulatedZoneOverlayVisible.value = true
+                        AutoShowAction.HIDE   -> _regulatedZoneOverlayVisible.value = false
                         AutoShowAction.NONE   -> {}
                     }
                     lastDistToRegZone = shore.speedZoneQuery.distanceToBoundaryM

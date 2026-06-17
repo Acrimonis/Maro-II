@@ -198,6 +198,8 @@ fun MapScreen(
     val distanceToZone by viewModel.distanceToZone.collectAsState()
     val zone300 by viewModel.zone300.collectAsState()
     val zoneSituation by viewModel.zoneSituation.collectAsState()
+    val zone300Overlay by viewModel.zone300OverlayVisible.collectAsState()
+    val regulatedZoneOverlay by viewModel.regulatedZoneOverlayVisible.collectAsState()
     val appSettings by viewModel.settings.collectAsState()
     var mapView by remember { mutableStateOf<MapView?>(null) }
     var showSettings by remember { mutableStateOf(false) }
@@ -556,6 +558,8 @@ fun MapScreen(
                 depthBox = depthGrid?.boundingBox,
                 isobaths = isobaths,
                 appSettings = appSettings,
+                zone300OverlayVisible = zone300Overlay,
+                regulatedZoneOverlayVisible = regulatedZoneOverlay,
                 mapView = mapView,
                 navigationState = navigationState,
                 gpsIconState = gpsIconState,
@@ -685,6 +689,8 @@ private fun MapContent(
     onRetry: () -> Unit,
     onOpenSettings: () -> Unit,
     onToggleZone300: () -> Unit,
+    zone300OverlayVisible: Boolean = false,
+    regulatedZoneOverlayVisible: Boolean = false,
     onToggleRegulatedZones: () -> Unit,
     onToggleLowDepthWarning: () -> Unit,
     onToggleDepthLayer: () -> Unit,
@@ -713,10 +719,12 @@ private fun MapContent(
         }
         // Apply coastline visibility toggle
         val segments = if (appSettings.coastlineVisible) allSegments else emptyList()
-        // Apply zone300 visibility toggle
-        val visibleZone300 = if (appSettings.zone300Visible) zone300 else null
-        // Apply regulated zones visibility + boat size + category toggles
-        val visibleRegulatedZones = if (appSettings.regulatedZonesVisible) {
+        // Apply zone300 visibility: user toggle OR auto-show overlay
+        val showZone300 = appSettings.zone300Visible || zone300OverlayVisible
+        val visibleZone300 = if (showZone300) zone300 else null
+        // Apply regulated zones visibility: user toggle OR auto-show overlay
+        val showRegZones = appSettings.regulatedZonesVisible || regulatedZoneOverlayVisible
+        val visibleRegulatedZones = if (showRegZones) {
             filterRegulatedZones(regulatedZones, appSettings.boatSizeM) { appSettings.isCategoryVisible(it) }
         } else null
         // Apply low-depth (<1.5 m) warning visibility toggle
