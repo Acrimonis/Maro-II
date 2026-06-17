@@ -84,14 +84,15 @@ fun ArcAnchorButton(
                 }
             }
         }
-        // Badge OUTSIDE the circle clip — renders fully visible at top-right
-        if (activeLayerCount>0) {
-            Box(Modifier.size(18.dp).clip(CircleShape).background(ButtonColors.badgeBg).align(Alignment.TopEnd)) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("$activeLayerCount", color = ButtonColors.badgeText, fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
-                        style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false)))
-                }
+        // Badge OUTSIDE the circle clip — renders fully visible at top-right.
+        // Dimmed (inactive.alpha) when no layers are active (disabled).
+        val isEnabled = activeLayerCount > 0
+        val badgeAlpha = if (isEnabled) ButtonColors.badgeActiveAlpha else ButtonColors.badgeInactiveAlpha
+        Box(Modifier.size(18.dp).clip(CircleShape).background(ButtonColors.bg.copy(alpha = badgeAlpha)).align(Alignment.TopEnd)) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("$activeLayerCount", color = ButtonColors.badgeText.copy(alpha = badgeAlpha), fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
+                    style = TextStyle(platformStyle = PlatformTextStyle(includeFontPadding = false)))
             }
         }
     }

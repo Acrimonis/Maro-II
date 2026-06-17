@@ -181,13 +181,16 @@ fun FanLayout(
             }
 
             // Active badge — 18 dp circle at TopEnd, outside circle clip.
+            // Always shown when showActiveBadge is true; dimmed (inactive.alpha) when
+            // no children are active/visible (disabled state), full alpha when active.
             if (config.showActiveBadge) {
-                val badgeAlpha = if (config.isOpen) ButtonColors.badgeActiveAlpha else ButtonColors.badgeInactiveAlpha
+                val isEnabled = config.activeChildCount > 0
+                val badgeAlpha = if (isEnabled) ButtonColors.badgeActiveAlpha else ButtonColors.badgeInactiveAlpha
                 Box(
                     modifier = Modifier
                         .size(18.dp)
                         .clip(CircleShape)
-                        .background(ButtonColors.badgeBg.copy(alpha = badgeAlpha))
+                        .background(ButtonColors.bg.copy(alpha = badgeAlpha))
                         .align(Alignment.TopEnd)
                 ) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {

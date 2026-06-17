@@ -63,10 +63,6 @@ object AppConfig {
     var buttonActionIconInactiveAlpha: Float = 0.25f
         private set
 
-    /** ARGB colour for the badge circle fill on arc anchor and fan parent buttons (18 dp).
-     *  Default #CC16213E. Set via `ui.button.badge.background` in colors.properties. */
-    var uiButtonBadgeBackground: Int = 0xCC16213E.toInt()
-        private set
     /** ARGB colour for badge count text.
      *  Default #E0E0E0. Set via `ui.button.badge.text` in colors.properties. */
     var uiButtonBadgeText: Int = 0xFFE0E0E0.toInt()
@@ -464,7 +460,6 @@ object AppConfig {
             props.getProperty("ui.button.icon.inactive.alpha")?.toFloatOrNull()?.let {
                 buttonActionIconInactiveAlpha = it.coerceIn(0f, 1f)
             }
-            props.getProperty("ui.button.badge.background")?.let { parseColorOrNull(it) }?.let { uiButtonBadgeBackground = it }
             props.getProperty("ui.button.badge.text")?.let { parseColorOrNull(it) }?.let { uiButtonBadgeText = it }
             props.getProperty("ui.button.badge.active.alpha")?.toFloatOrNull()?.let { buttonBadgeActiveAlpha = it.coerceIn(0f, 1f) }
             props.getProperty("ui.button.badge.inactive.alpha")?.toFloatOrNull()?.let { buttonBadgeInactiveAlpha = it.coerceIn(0f, 1f) }

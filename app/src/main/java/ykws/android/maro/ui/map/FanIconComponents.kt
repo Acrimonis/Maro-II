@@ -36,8 +36,6 @@ object ButtonColors {
     val activeAlpha: Float get() = AppConfig.buttonActionIconActiveAlpha
     /** Alpha (0.0–1.0) for inactive/toggled-off icon state. */
     val inactiveAlpha: Float get() = AppConfig.buttonActionIconInactiveAlpha
-    /** Badge circle fill colour (18 dp). */
-    val badgeBg: ComposeColor get() = ComposeColor(AppConfig.uiButtonBadgeBackground)
     /** Badge count text colour. */
     val badgeText: ComposeColor get() = ComposeColor(AppConfig.uiButtonBadgeText)
     /** Badge alpha when the arc/fan is OPEN (expanded). */
