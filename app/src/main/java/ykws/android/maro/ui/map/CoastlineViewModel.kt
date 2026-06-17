@@ -305,6 +305,15 @@ class CoastlineViewModel(
     /** Current GPS acquisition mode — exposed for the GPS status icon on the map. */
     val acquisitionMode: StateFlow<AcquisitionMode> = _acquisitionMode.asStateFlow()
 
+    /**
+     * True when the GPS adaptive policy has classified the device as stationary
+     * (within [AppSettings.adaptiveDistanceM] of an anchor for [AppSettings.adaptiveWindowSec]).
+     * Used by zone auto-show and speed zone decisions instead of a hardcoded SOG threshold.
+     */
+    val isStopped: StateFlow<Boolean> = _acquisitionMode
+        .map { it == AcquisitionMode.IDLE }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
     /** True when the compass is needed for heading (no valid GPS course) — gates its registration. */
     private val _needsCompass = MutableStateFlow(true)
 
@@ -490,6 +499,7 @@ class CoastlineViewModel(
                     prevDist = lastDistToZone,
                     insideZone = shore.inZone,
                     sogKn = sogKn,
+                    isStopped = isStopped.value,
                     armed = zone300ManuallyHidden,
                     autoRevealed = zone300AutoRevealed,
                     zoneEntered = bandEnteredSinceReveal,
@@ -520,6 +530,7 @@ class CoastlineViewModel(
                         prevDist = lastDistToSpeedZone,
                         insideZone = shore.speedZoneQuery.insideAnyZone,
                         sogKn = sogKn,
+                        isStopped = isStopped.value,
                         armed = speedZoneManuallyHidden,
                         autoRevealed = speedZoneAutoRevealed,
                         zoneEntered = false,
@@ -1440,7 +1451,6 @@ internal typealias SpeedZoneDecision = AutoShowDecision
 
 private const val KNOTS_TO_MPS = 0.514444      // 1 knot = 0.514444 m/s
 private const val CLOSING_EPS_MPS = 0.05       // ignore closing speeds below ~0.1 kn for time-to-band
-private const val STOPPED_SPEED_KN = 1.0f      // at/below this SOG the boat is "stopped" → auto-hide, never reveal
 
 /**
  * Generalized pure function for zone proximity auto-reveal — replaces both [zone300Decision]
@@ -1472,6 +1482,7 @@ internal fun zoneAutoShowDecision(
     prevDist: Double?,
     insideZone: Boolean,
     sogKn: Float?,
+    isStopped: Boolean,
     armed: Boolean,
     autoRevealed: Boolean,
     zoneEntered: Boolean,
@@ -1481,7 +1492,6 @@ internal fun zoneAutoShowDecision(
 ): AutoShowDecision {
     val approaching = dist != null && prevDist != null && dist < prevDist
     val movingAway = dist != null && prevDist != null && dist > prevDist
-    val stopped = sogKn != null && sogKn <= STOPPED_SPEED_KN
     val entered = zoneEntered || (autoRevealed && dist != null && dist <= 0.0)
 
     if (!autoRevealed) {
@@ -1489,8 +1499,12 @@ internal fun zoneAutoShowDecision(
         val timeToZoneS =
             if (approaching && dist != null && dist > 0.0 && sogMps > CLOSING_EPS_MPS) dist / sogMps
             else Double.POSITIVE_INFINITY
-        val reveal = armed && approaching && dist != null && dist > 0.0 &&
+        val outsideReveal = armed && approaching && dist != null && dist > 0.0 &&
             (dist <= revealDistM || timeToZoneS <= revealTimeS)
+        // Re-show when inside the zone and non-compliant (was hidden by compliance)
+        val insideNonCompliant = config.hideOnCompliantInside &&
+            insideZone && sogKn != null && sogKn > config.regulatorySpeedKn
+        val reveal = outsideReveal || insideNonCompliant
         return AutoShowDecision(
             action = if (reveal) AutoShowAction.REVEAL else AutoShowAction.NONE,
             autoRevealed = reveal,
@@ -1498,24 +1512,28 @@ internal fun zoneAutoShowDecision(
         )
     }
 
-    val stoppedAndIdle = stopped && !approaching
-
     if (config.hideOnCompliantInside) {
-        // 300m band behavior: hide on compliant-inside, exited seaward, or retreated
+        // 300m band behavior: hide on compliant-inside, exited seaward, or retreated.
+        // Re-show when inside and non-compliant (was hidden by compliance).
         val compliantInside = insideZone && sogKn != null && sogKn <= config.regulatorySpeedKn
         val exitedSeaward = entered && dist != null && dist > 0.0 && movingAway
         val retreatedPastMargin = !entered && dist != null && dist > revealDistM && movingAway
-        val hide = stoppedAndIdle || compliantInside || exitedSeaward || retreatedPastMargin
+        val hide = compliantInside || exitedSeaward || retreatedPastMargin
+        val insideNonCompliant = insideZone && sogKn != null && sogKn > config.regulatorySpeedKn
         return AutoShowDecision(
-            action = if (hide) AutoShowAction.HIDE else AutoShowAction.NONE,
-            autoRevealed = !hide,
+            action = when {
+                hide -> AutoShowAction.HIDE
+                insideNonCompliant && !autoRevealed -> AutoShowAction.REVEAL
+                else -> AutoShowAction.NONE
+            },
+            autoRevealed = !hide || insideNonCompliant,
             zoneEntered = if (hide) false else entered
         )
     } else {
         // Speed zone behavior: hide only when stopped+idle or retreated past margin
         val effectivelyOutside = dist != null && dist > config.hysteresisM
         val retreatedPastMargin = effectivelyOutside && movingAway && dist != null && dist > revealDistM
-        val hide = stoppedAndIdle || retreatedPastMargin
+        val hide = isStopped && !approaching || retreatedPastMargin
         return AutoShowDecision(
             action = if (hide) AutoShowAction.HIDE else AutoShowAction.NONE,
             autoRevealed = !hide
@@ -1542,6 +1560,7 @@ internal fun zone300Decision(
     regKn: Double
 ): AutoShowDecision = zoneAutoShowDecision(
     dist = dist, prevDist = prevDist, insideZone = inZone, sogKn = sogKn,
+    isStopped = false,  // deprecated wrapper — callers should migrate to zoneAutoShowDecision
     armed = armed, autoRevealed = autoRevealed, zoneEntered = bandEntered,
     revealDistM = revealDistM, revealTimeS = revealTimeS,
     config = ZoneAutoShowConfig(hideOnCompliantInside = true, regulatorySpeedKn = regKn)
@@ -1565,6 +1584,7 @@ internal fun speedZoneDecision(
     hysteresisM: Double
 ): AutoShowDecision = zoneAutoShowDecision(
     dist = distToBoundary, prevDist = prevDist, insideZone = insideAnyZone, sogKn = sogKn,
+    isStopped = false,  // deprecated wrapper — callers should migrate to zoneAutoShowDecision
     armed = armed, autoRevealed = autoRevealed, zoneEntered = false,
     revealDistM = revealDistM, revealTimeS = revealTimeS,
     config = ZoneAutoShowConfig(hideOnCompliantInside = false, hysteresisM = hysteresisM)
