@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** Ui_General
+- **Active Feature:** ColorManagement
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-17
-- **Last Bake:** 2026-06-17 13:57 (Decouple auto-show overlay state from user settings — both 300m and regulated zones use separate StateFlows)
-- **Branch:** feature/map-layers
+- **Last Bake:** 2026-06-17 14:39 (Centralized all colors into colors.properties — fixed 46 hardcoded ComposeColor.White refs, synced 12 stale AppConfig defaults, consolidated zone.properties into maro.properties, added isobar width/color tokens)
+- **Branch:** feature/more-colors
 ## Routing Map
 | Keyword | Feature File |
 |---|---|
@@ -32,7 +32,7 @@
 
 | Feature | One-Liner | Created | Modified | Status |
 |---------|-----------|---------|----------|--------|
-| **ColorManagement** | **Centralised colour palette — all tokens in colors.properties with alias interpolation, documented in color-scheme.md** | **2026-06-16 14:05** | **2026-06-16 14:05** | **active** |
+| **ColorManagement** | **Centralised colour palette — all tokens in colors.properties with alias interpolation, documented in color-scheme.md** | **2026-06-16 14:05** | **2026-06-17 14:39** | **active** |
 | **Documentation** | **README, FAQs, setup guides, architecture docs, and plans cleanup** | **2026-06-11 06:42** | **2026-06-11 10:36** | **active** |
 | WorkflowImprovement | xTrack #command system, git shortcuts, #now/#list rename, trigger syntax, fuzzy matching, bootstrap, and memory bake lifecycle | 2026-06-03 00:00 | 2026-06-17 14:28 | active |
 | Zone300 | 300m zone generation from coastline with water-only constraint | 2026-05-20 00:00 | 2026-06-03 00:00 | active |

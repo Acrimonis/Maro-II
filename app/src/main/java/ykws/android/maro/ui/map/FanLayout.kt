@@ -192,7 +192,7 @@ fun FanLayout(
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
                             "${config.activeChildCount}",
-                            color = ComposeColor.White,
+                            color = ykws.android.maro.ui.map.ButtonColors.icon,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.Center,

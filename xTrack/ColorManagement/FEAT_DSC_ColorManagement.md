@@ -2,7 +2,7 @@
 name: ColorManagement
 status: active
 created: 2026-06-16 14:05
-modified: 2026-06-16 16:09
+modified: 2026-06-17 14:39
 active_subfeature: none
 ---
 
@@ -15,18 +15,23 @@ Every colour change must be reflected in `docs/color-scheme.md`.
 
 ## Subfeatures
 
-### Colour Taxonomy & Structure  [ ]
+### Colour Taxonomy & Structure  [x]
 
 Track the canonical colour taxonomy and ensure every new colour follows the naming convention.
 
 #### Todos
+- [x] Audit codebase for hardcoded `ComposeColor.White` — 48 refs found, 46 fixed, 2 kept as structural icon glyphs
+- [x] Identify stale AppConfig defaults — 12 synced to match colors.properties
+- [x] Identify orphaned zone.properties color fields — 4 removed, 3 isobar tokens added to colors.properties
+- [x] Centralize alpha/opacity values — boundary rule established, dead gradient fields removed, zone.properties merged into maro.properties and deleted
 - [ ] Maintain the taxonomy in `docs/color-scheme.md` as the single source of truth
-- [ ] Audit new colours for naming convention compliance
 
 #### Key Files
 - `app/src/main/assets/colors.properties`
 - `app/src/main/java/ykws/android/maro/config/AppConfig.kt`
 - `docs/color-scheme.md`
+- `plans/color-taxonomy-hardcoded-whites-audit.md`
+- `plans/color-taxonomy-alpha-values.md`
 
 ### Alias Interpolation  [x]
 
@@ -71,6 +76,8 @@ The `${key}` resolver in `AppConfig.init()` allows properties to reference each 
 - `xTrack/ColorManagement/FEAT_PLN_ColorManagement_btn-color-harmonization.md` — Button color harmonization
 - `xTrack/ColorManagement/FEAT_PLN_ColorManagement_button-colors-discussion.md` — Button colors discussion
 - `xTrack/ColorManagement/FEAT_PLN_ColorManagement_props-migration.md` — Color props migration plan
+- `plans/color-taxonomy-hardcoded-whites-audit.md` — Hardcoded ComposeColor.White audit and fix plan
+- `plans/color-taxonomy-alpha-values.md` — Alpha/opacity value centralization plan
 
 ## Colour Modification Prompt
 
