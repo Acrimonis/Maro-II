@@ -452,9 +452,9 @@ private fun TrackCardContent(
             }
         }
 
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(2.dp))
         HorizontalDivider(thickness = 0.5.dp, color = Color(AppConfig.uiSettingsDivider))
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(2.dp))
 
         // ── Editable name ───────────────────────────────────────────
         if (editingField == EditingField.NAME) {
@@ -535,22 +535,22 @@ private fun TrackCardContent(
             )
         }
 
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(2.dp))
         HorizontalDivider(thickness = 0.5.dp, color = Color(AppConfig.uiSettingsDivider))
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(2.dp))
 
         // ── Stats grid: 3-column × 2-row ───────────────────────────
         val totalSec = if (summary.endTimeMs != null)
             (summary.endTimeMs - summary.startTimeMs) / 1000 else 0L
         Row(modifier = Modifier.fillMaxWidth()) {
-            StatCell("Total", formatDuration(totalSec))
-            StatCell("Nav", formatDuration(summary.navigatingDurationSec))
-            StatCell("Avg", "${"%.1f".format(summary.averageSpeedMps * 1.94384f)} kn")
+            StatCell("Total", fmtDuration(totalSec))
+            StatCell("Nav", fmtDuration(summary.navigatingDurationSec))
+            StatCell("Avg", fmtSpeed(summary.averageSpeedMps))
         }
         Row(modifier = Modifier.fillMaxWidth()) {
-            StatCell("Dist", "${"%.2f".format(summary.distanceNm)} nm")
-            StatCell("Idle", formatDuration(summary.pausedDurationSec))
-            StatCell("Max", "${"%.1f".format(summary.fastestSpeedMps * 1.94384f)} kn")
+            StatCell("Dist", fmtDistance(summary.distanceNm))
+            StatCell("Idle", fmtDuration(summary.pausedDurationSec))
+            StatCell("Max", fmtSpeed(summary.fastestSpeedMps))
         }
     }
 }
@@ -636,8 +636,32 @@ private fun StatCell(label: String, value: String) {
     }
 }
 
-private fun formatDuration(totalSeconds: Long): String {
+/** Human-readable duration: "2 h 13 min" / "53 min" / "45 s". */
+private fun fmtDuration(totalSeconds: Long): String {
     val hours = totalSeconds / 3600
     val minutes = (totalSeconds % 3600) / 60
-    return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
+    val seconds = totalSeconds % 60
+    return when {
+        hours > 0 -> "${hours} h ${minutes} min"
+        minutes > 0 -> "${minutes} min"
+        else -> "${seconds} s"
+    }
+}
+
+/** Speed in knots with comma decimal: "5,2 kn". */
+private fun fmtSpeed(speedMps: Float): String {
+    val kn = speedMps * 1.94384f
+    return "${fmtDecimal(kn)} kn"
+}
+
+/** Distance in nautical miles with comma decimal: "4,2 nm". */
+private fun fmtDistance(distanceNm: Float): String {
+    return "${fmtDecimal(distanceNm)} nm"
+}
+
+/** Format a float with 1 decimal place using comma as separator: 4.2 → "4,2". */
+private fun fmtDecimal(value: Float): String {
+    val whole = value.toInt()
+    val tenth = ((value - whole) * 10).toInt().coerceIn(0, 9)
+    return "$whole,$tenth"
 }
