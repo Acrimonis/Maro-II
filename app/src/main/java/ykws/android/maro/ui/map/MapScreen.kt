@@ -607,7 +607,7 @@ fun MapScreen(
                 else 0.90f - (index.toFloat() / (total - 1).toFloat()) * 0.80f
             val alphaInt = (alphaFraction * 255).toInt().coerceIn(0, 255)
             val colorWithAlpha = (alphaInt shl 24) or baseRgb
-            val strokeWidth = if (index == 0) 10f else 6f
+            val strokeWidth = if (index == 0) 8f else 6f
 
             val polyline = org.osmdroid.views.overlay.Polyline().apply {
                 title = "track_hist_${summary.id}"
