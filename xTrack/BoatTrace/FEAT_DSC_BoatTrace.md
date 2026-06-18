@@ -128,6 +128,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 
 #### Docs
 - `plans/boat-trace-design-discussion.md` — full design & implementation plan (data model, state machine, UI components, design tokens)
+- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_TrackList_Design.md` — track list UI design (swipe-to-delete, inline snackbar, animation spec)
 
 ### hamburger-btn  [x]
 
@@ -186,3 +187,4 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 
 ## Docs
 - `plans/boat-trace-design-discussion.md` — final design and implementation plan
+- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_TrackList_Design.md` — track list UI requirements, animation design, component architecture

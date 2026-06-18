@@ -139,7 +139,8 @@ class TrackRepository(
                         distanceNm = track.distanceNm,
                         visibleOnMap = track.visibleOnMap,
                         navigatingDurationSec = track.navigatingDurationSec,
-                        pausedDurationSec = track.pausedDurationSec
+                        pausedDurationSec = track.pausedDurationSec,
+                        averageSpeedMps = track.averageSpeedMps
                     )
                 } catch (e: Exception) {
                     file.delete()

@@ -39,6 +39,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.track.TrackRecorderState
 import ykws.android.maro.data.track.TrackRecorderUiState
 
@@ -48,8 +49,8 @@ import ykws.android.maro.data.track.TrackRecorderUiState
  * Full-screen overlay with a scrim on the left 25% that closes on tap.
  * Styled to match the Settings overlay (same design tokens).
  *
- * @param isOpen         Whether the drawer is visible.
- * @param recorderState  Current recorder state from [TrackViewModel].
+ * @param isOpen           Whether the drawer is visible.
+ * @param recorderState    Current recorder state from [TrackViewModel].
  * @param onStartRecording Triggered when user taps Start.
  * @param onStopRecording  Triggered when user taps Stop.
  * @param onViewTrackList  Triggered when user taps "Track List".
@@ -92,7 +93,7 @@ fun TrackDrawerOverlay(
             ) {
                 ModalDrawerSheet(
                     modifier = Modifier.fillMaxSize(),
-                    drawerContainerColor = Color(0xFF1A1A2E)
+                    drawerContainerColor = Color(AppConfig.uiSettingsBackground)
                 ) {
                     Column(
                         modifier = Modifier
@@ -108,18 +109,18 @@ fun TrackDrawerOverlay(
                                 modifier = Modifier
                                     .size(48.dp)
                                     .clip(CircleShape)
-                                    .background(Color(0x33FFFFFF))
+                                    .background(Color(AppConfig.uiSettingsSwitchTrackInactive))
                             ) {
                                 Icon(
                                     imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                                     contentDescription = "Close",
-                                    tint = Color.White
+                                    tint = Color(AppConfig.uiSettingsTextPrimary)
                                 )
                             }
                             Spacer(Modifier.width(16.dp))
                             Text(
                                 text = "Maro II",
-                                color = Color.White,
+                                color = Color(AppConfig.uiSettingsTextPrimary),
                                 fontSize = 24.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -127,10 +128,10 @@ fun TrackDrawerOverlay(
 
                         Spacer(Modifier.height(24.dp))
 
-                        // ── Section header ──────────────────────────────────
+                        // ── Section header ──────────────────────────────
                         Text(
                             text = "TRACK RECORDING",
-                            color = Color(0xFF1565C0),
+                            color = Color(AppConfig.uiSettingsAccent),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.sp
@@ -139,14 +140,14 @@ fun TrackDrawerOverlay(
                         Spacer(Modifier.height(8.dp))
                         HorizontalDivider(
                             thickness = 0.5.dp,
-                            color = Color.White.copy(alpha = 0.1f)
+                            color = Color(AppConfig.uiSettingsDivider)
                         )
                         Spacer(Modifier.height(8.dp))
 
-                        // ── Track List menu item ───────────────────────────
+                        // ── Track List menu item ───────────────────────
                         Text(
                             text = "Track List",
-                            color = Color.White,
+                            color = Color(AppConfig.uiSettingsTextPrimary),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium,
                             modifier = Modifier
@@ -155,7 +156,7 @@ fun TrackDrawerOverlay(
                                 .padding(vertical = 6.dp)
                         )
 
-                        // ── Start/stop toggle row ──────────────────────────
+                        // ── Start/stop toggle row ──────────────────────
                         val isActive = recorderState.state == TrackRecorderState.RECORDING ||
                                 recorderState.state == TrackRecorderState.PAUSED
 
@@ -171,7 +172,7 @@ fun TrackDrawerOverlay(
                         ) {
                             Text(
                                 text = if (isActive) "Stop Tracking" else "Start Tracking",
-                                color = Color.White,
+                                color = Color(AppConfig.uiSettingsTextPrimary),
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Medium
                             )
@@ -182,10 +183,10 @@ fun TrackDrawerOverlay(
                                     if (checked) onStartRecording() else onStopRecording()
                                 },
                                 colors = SwitchDefaults.colors(
-                                    checkedThumbColor = Color(0xFF1565C0),
-                                    checkedTrackColor = Color(0xFF1565C0).copy(alpha = 0.4f),
-                                    uncheckedThumbColor = Color(0xFFB0BEC5),
-                                    uncheckedTrackColor = Color(0x33FFFFFF)
+                                    checkedThumbColor = Color(AppConfig.uiSettingsAccent),
+                                    checkedTrackColor = Color(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                                    uncheckedThumbColor = Color(AppConfig.uiSettingsTextMuted),
+                                    uncheckedTrackColor = Color(AppConfig.uiSettingsSwitchTrackInactive)
                                 )
                             )
                         }
@@ -198,7 +199,7 @@ fun TrackDrawerOverlay(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(12.dp))
-                                    .background(Color(0x1AFFFFFF))
+                                    .background(Color(AppConfig.uiSettingsCardBackground))
                                     .padding(horizontal = 16.dp, vertical = 10.dp),
                                 verticalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
@@ -230,12 +231,12 @@ private fun StatRow(label: String, value: String) {
     ) {
         Text(
             text = label,
-            color = Color(0xFFB0BEC5),
+            color = Color(AppConfig.uiSettingsTextMuted),
             fontSize = 13.sp
         )
         Text(
             text = value,
-            color = Color.White,
+            color = Color(AppConfig.uiSettingsTextPrimary),
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium
         )

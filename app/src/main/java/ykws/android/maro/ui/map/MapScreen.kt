@@ -821,6 +821,8 @@ fun MapScreen(
                     trackViewModel.updateTrack(id, name, comment, visible)
                 },
                 onDeleteTrack = { id -> trackViewModel.deleteTrack(id) },
+                onUndoDeleteTrack = { /* no-op: track was never actually removed from repo,
+                                          only visually hidden until Snackbar timeout */ },
                 onShareGpx = { id -> shareTrackGpx(context, trackViewModel, id, trackScope) },
                 onDismiss = { showTrackHistory = false }
             )
@@ -1162,13 +1164,7 @@ private fun MapContent(
                     // Menu (hamburger) button — above Settings
                     MapControlButton(
                         onClick = onOpenTrackDrawer,
-                        icon = {
-                            androidx.compose.material3.Text(
-                                text = "\u2630",
-                                color = ykws.android.maro.ui.map.ButtonColors.icon,
-                                fontSize = 24.sp
-                            )
-                        }
+                        icon = { HamburgerIcon() }
                     )
                     SettingsButton(onClick = onOpenSettings)
                 }
@@ -1823,6 +1819,44 @@ private fun SettingsButton(
 }
 
 
+
+/**
+ * Hamburger menu icon: three horizontal lines (classic menu button).
+ * Drawn with Canvas to match the app's icon family without material-icons-extended.
+ */
+@Composable
+private fun HamburgerIcon() {
+    androidx.compose.foundation.Canvas(modifier = Modifier.size(28.dp)) {
+        val stroke = size.width * 0.15f
+        val inset = size.width * 0.22f
+        val cy = size.height / 2f
+        val gap = size.height * 0.16f
+        // Top line
+        drawLine(
+            color = ButtonColors.icon,
+            start = Offset(inset, cy - gap),
+            end = Offset(size.width - inset, cy - gap),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
+        // Middle line
+        drawLine(
+            color = ButtonColors.icon,
+            start = Offset(inset, cy),
+            end = Offset(size.width - inset, cy),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
+        // Bottom line
+        drawLine(
+            color = ButtonColors.icon,
+            start = Offset(inset, cy + gap),
+            end = Offset(size.width - inset, cy + gap),
+            strokeWidth = stroke,
+            cap = StrokeCap.Round
+        )
+    }
+}
 
 /**
  * 5-state GPS indicator icon — placed top-left to the left of [EarthWaterIcon].

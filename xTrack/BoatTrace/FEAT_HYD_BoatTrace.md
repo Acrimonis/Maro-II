@@ -1,24 +1,21 @@
 # Hydration: BoatTrace
 
-**Last Bake:** 2026-06-17 21:22 UTC
+**Last Bake:** 2026-06-18 03:14 UTC
 **Status:** active
 **Active Subfeature:** verification
 
-## Session Summary (2026-06-17 19:04–21:22)
+## Session Summary (2026-06-18 03:01–03:14)
 
 **What happened:**
-- Full implementation completed on `feature/new-tracking`
-- All source files created + MapScreen integration with branch-aligned patterns
-- TrackDrawerOverlay at MapScreen level (like SettingsOverlay)
-- BackHandler for track history, extracted shareTrackGpx helper
-- Lazily initializing TrackRecorder so manual start/stop works without GPS
-- BUILD SUCCESSFUL
+- Refined StatCell layout: "title: value" inline format, title right-aligned, 11sp
+- Removed spacer between stat rows for compactness
+- Added averageSpeedMps to TrackSummary (proto #11), populated in rebuildIndex
+- Track card now shows 9 fields: date+time range, name, comment, Total/Nav/Avg/Dist/Idle/Max
 
 **State:**
-- 13 source files, 6 modified files, all compiling
-- Manual start/stop works; GPS auto-detection needs GPS flow connection
-- 5 test files still pending
+- All track list UI requirements implemented (R1-R26)
+- BUILD SUCCESSFUL
+- Changes staged on feature/new-tracking
 
 **Next step:**
-- Write test files (GeofenceCheckerTest, TrackRecorderTest, TrackRepositoryTest, TrackSerializerTest, TrackViewModelTest)
-- Wire GPS flow into TrackRecorder for real GPS auto-detection
+- Verification testing on device

@@ -54,7 +54,8 @@ data class TrackSummary(
     @ProtoNumber(7) val distanceNm: Float = 0f,
     @ProtoNumber(8) val visibleOnMap: Boolean = true,
     @ProtoNumber(9) val navigatingDurationSec: Long = 0,
-    @ProtoNumber(10) val pausedDurationSec: Long = 0
+    @ProtoNumber(10) val pausedDurationSec: Long = 0,
+    @ProtoNumber(11) val averageSpeedMps: Float = 0f
 )
 
 /**
