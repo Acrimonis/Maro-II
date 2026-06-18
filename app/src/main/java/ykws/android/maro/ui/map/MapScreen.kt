@@ -1285,36 +1285,36 @@ private fun MapContent(
                                 toggleChildren = true,
                                 showActiveBadge = true,
                                 activeChildCount = listOf(
+                                    appSettings.tracksVisible,
                                     appSettings.depthLayerVisible,
                                     appSettings.regulatedZonesVisible,
                                     appSettings.zone300Visible,
-                                    appSettings.lowDepthWarningVisible,
-                                    appSettings.tracksVisible
+                                    appSettings.lowDepthWarningVisible
                                 ).count { it }
                             ),
                             parent = { _: Boolean, _: Int -> ThreeStripeLayerIcon(alpha = 1f) },
                             onParentClick = { onToggleFan(ControlId.LAYER_FAN) },
                             children = listOf<@Composable (Boolean) -> Unit>(
+                                { isActive -> TrackLayerIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
                                 { isActive -> DepthBarIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
                                 { isActive -> RegulatedZoneIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
                                 { isActive -> DoubleCircleIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
-                                { isActive -> WarningTriangleIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
-                                { isActive -> TrackLayerIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) }
+                                { isActive -> WarningTriangleIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) }
                             ),
                             activeStates = listOf(
+                                appSettings.tracksVisible,
                                 appSettings.depthLayerVisible,
                                 appSettings.regulatedZonesVisible,
                                 appSettings.zone300Visible,
-                                appSettings.lowDepthWarningVisible,
-                                appSettings.tracksVisible
+                                appSettings.lowDepthWarningVisible
                             ),
                             onChildClick = { index: Int, _: Boolean ->
                                 when (index) {
-                                    0 -> onToggleDepthLayer()
-                                    1 -> onToggleRegulatedZones()
-                                    2 -> onToggleZone300()
-                                    3 -> onToggleLowDepthWarning()
-                                    4 -> onToggleTracks()
+                                    0 -> onToggleTracks()
+                                    1 -> onToggleDepthLayer()
+                                    2 -> onToggleRegulatedZones()
+                                    3 -> onToggleZone300()
+                                    4 -> onToggleLowDepthWarning()
                                 }
                             }
                         )
@@ -2105,7 +2105,7 @@ private fun SettingsOverlay(
                 when (page) {
                     0 -> GeneralSettings(settings, onUpdateSettings, displayScrollState)
                     1 -> NavigationSettings(settings, onUpdateSettings, navigationScrollState)
-                    2 -> SystemSettings(settings, onUpdateSettings, onGpsModeChange, onRegenerateRasters, systemScrollState)
+                    2 -> SystemSettings(settings, onUpdateSettings, onGpsModeChange, onRegenerateRasters, onDismiss, systemScrollState)
                 }
             }
 
@@ -2970,6 +2970,7 @@ private fun SystemSettings(
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
     onGpsModeChange: (Boolean) -> Unit,
     onRegenerateRasters: (List<RasterCache.Step>) -> Unit,
+    onDismiss: () -> Unit,
     scrollState: ScrollState
 ) {
     Column(
@@ -3023,7 +3024,10 @@ private fun SystemSettings(
                 Spacer(modifier = Modifier.width(16.dp))
                 Switch(
                     checked = settings.gpsMode,
-                    onCheckedChange = onGpsModeChange,
+                    onCheckedChange = { checked ->
+                        onGpsModeChange(checked)
+                        onDismiss()
+                    },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
                         checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),

@@ -221,6 +221,7 @@ fun TrackDrawerOverlay(
                                 checked = isActive,
                                 onCheckedChange = { checked ->
                                     if (checked) onStartRecording() else onStopRecording()
+                                    onDismiss()
                                 },
                                 colors = SwitchDefaults.colors(
                                     checkedThumbColor = if (recorderState.isMoving)
