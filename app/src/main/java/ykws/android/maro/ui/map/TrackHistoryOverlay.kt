@@ -3,13 +3,19 @@ package ykws.android.maro.ui.map
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
@@ -82,6 +88,8 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.data.track.TrackRecorderState
+import ykws.android.maro.data.track.TrackRecorderUiState
 import ykws.android.maro.data.track.TrackSummary
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -106,7 +114,9 @@ import kotlin.math.roundToInt
 @Composable
 fun TrackHistoryOverlay(
     trackSummaries: List<TrackSummary>,
+    liveTrackState: TrackRecorderUiState? = null,
     onUpdateTrack: (String, name: String?, comment: String?, visibleOnMap: Boolean?) -> Unit,
+    onUpdateLiveTrack: ((name: String?, comment: String?) -> Unit)? = null,
     onDeleteTrack: (String) -> Unit,
     onUndoDeleteTrack: (String) -> Unit,
     onShareGpx: (String) -> Unit,
@@ -187,6 +197,17 @@ fun TrackHistoryOverlay(
                     .padding(horizontal = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
+                // Live track card (index 0) when recording
+                if (liveTrackState != null && liveTrackState.state == TrackRecorderState.ON) {
+                    item(key = "__live__") {
+                        LiveTrackCard(
+                            liveState = liveTrackState,
+                            dateFormat = dateFormat,
+                            onUpdateMeta = onUpdateLiveTrack,
+                        )
+                    }
+                }
+
                 items(trackSummaries, key = { it.id }) { summary ->
                     SwipeToDeleteCard(
                         summary = summary,
@@ -417,6 +438,7 @@ private fun TrackCardContent(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(Color(AppConfig.uiSettingsCardBackground))
+            .padding(horizontal = 8.dp, vertical = 4.dp)
     ) {
         // ── Date + time range + action icons ────────────────────────
         val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.US) }
@@ -560,14 +582,226 @@ private fun TrackCardContent(
         val totalSec = if (summary.endTimeMs != null)
             (summary.endTimeMs - summary.startTimeMs) / 1000 else 0L
         Row(modifier = Modifier.fillMaxWidth()) {
-            StatCell("Total", fmtDuration(totalSec))
-            StatCell("Nav", fmtDuration(summary.navigatingDurationSec))
-            StatCell("Avg", fmtSpeed(summary.averageSpeedMps))
+            Box(Modifier.weight(1f)) { StatCell("Total", fmtDuration(totalSec)) }
+            Box(Modifier.weight(1f)) { StatCell("Nav", fmtDuration(summary.navigatingDurationSec)) }
+            Box(Modifier.weight(1f)) { StatCell("Avg", fmtKnFromMps(summary.averageSpeedMps)) }
         }
         Row(modifier = Modifier.fillMaxWidth()) {
-            StatCell("Dist", fmtDistance(summary.distanceNm))
-            StatCell("Idle", fmtDuration(summary.pausedDurationSec))
-            StatCell("Max", fmtSpeed(summary.fastestSpeedMps))
+            Box(Modifier.weight(1f)) { StatCell("Dist", fmtNm(summary.distanceNm)) }
+            Box(Modifier.weight(1f)) { StatCell("Idle", fmtDuration(summary.pausedDurationSec)) }
+            Box(Modifier.weight(1f)) { StatCell("Max", fmtKnFromMps(summary.fastestSpeedMps)) }
+        }
+    }
+}
+
+/**
+ * Live track card shown at the top of the track list while recording.
+ * Pulsing border + dot, editable name/comment, live stats.
+ */
+@Composable
+private fun LiveTrackCard(
+    liveState: TrackRecorderUiState,
+    dateFormat: SimpleDateFormat,
+    onUpdateMeta: ((name: String?, comment: String?) -> Unit)? = null
+) {
+    val dotColor = if (liveState.isMoving)
+        Color(AppConfig.statusTrackingDotRecording)
+    else
+        Color(AppConfig.statusTrackingDotIdle)
+
+    val borderColor = dotColor
+    val stateLabel = if (liveState.isMoving) "Recording" else "Idle"
+
+    // Pulsing animation for border and dot: 0.5 → 0.2 → 0.5
+    val infiniteTransition = rememberInfiniteTransition(label = "livePulse")
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.5f,
+        targetValue = 0.2f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 800),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "livePulseAlpha"
+    )
+
+    val startDate = remember(liveState.currentTrackId) {
+        liveState.currentTrackName ?: "Recording..."
+    }
+
+    // Inline editing state
+    var editingField by remember { mutableStateOf<EditingField?>(null) }
+    var nameField by remember(liveState.currentTrackId) {
+        mutableStateOf(TextFieldValue(liveState.currentTrackName ?: ""))
+    }
+    var commentField by remember(liveState.currentTrackId) {
+        mutableStateOf(TextFieldValue(""))
+    }
+    val keyboardController = LocalSoftwareKeyboardController.current
+    val nameFocus = remember { FocusRequester() }
+    val commentFocus = remember { FocusRequester() }
+
+    if (editingField != null) {
+        BackHandler {
+            when (editingField) {
+                EditingField.NAME -> {
+                    nameField = TextFieldValue(liveState.currentTrackName ?: "")
+                    editingField = null
+                }
+                EditingField.COMMENT -> {
+                    commentField = TextFieldValue("")
+                    editingField = null
+                }
+                null -> {}
+            }
+            keyboardController?.hide()
+        }
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color(AppConfig.uiSettingsCardBackground))
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .border(
+                BorderStroke(2.dp, borderColor.copy(alpha = pulseAlpha)),
+                RoundedCornerShape(12.dp)
+            )
+    ) {
+        // ── Date + "-> ..." + state label + pulsing dot ──────────
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "$startDate -> ...",
+                color = Color(AppConfig.uiSettingsTextMuted), fontSize = 11.sp
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stateLabel,
+                    color = Color(AppConfig.uiSettingsTextMuted), fontSize = 11.sp
+                )
+                Spacer(Modifier.width(6.dp))
+                Box(
+                    modifier = Modifier
+                        .size(14.dp)
+                        .clip(CircleShape)
+                        .background(dotColor.copy(alpha = pulseAlpha))
+                )
+            }
+        }
+
+        Spacer(Modifier.height(2.dp))
+        HorizontalDivider(
+            modifier = Modifier.padding(horizontal = 8.dp),
+            thickness = 0.5.dp, color = Color(AppConfig.uiSettingsDivider)
+        )
+        Spacer(Modifier.height(2.dp))
+
+        // ── Editable name ────────────────────────────────────────
+        if (editingField == EditingField.NAME) {
+            LaunchedEffect(Unit) { nameFocus.requestFocus() }
+            TextField(
+                value = nameField,
+                onValueChange = { nameField = it },
+                singleLine = true,
+                textStyle = androidx.compose.ui.text.TextStyle(
+                    color = Color(AppConfig.uiSettingsTextPrimary),
+                    fontSize = 15.sp, fontWeight = FontWeight.SemiBold
+                ),
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    focusedTextColor = Color(AppConfig.uiSettingsTextPrimary),
+                    unfocusedTextColor = Color(AppConfig.uiSettingsTextPrimary),
+                    cursorColor = Color(AppConfig.uiSettingsTextPrimary),
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent
+                ),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = {
+                    onUpdateMeta?.invoke(nameField.text, null)
+                    editingField = null
+                    keyboardController?.hide()
+                }),
+                modifier = Modifier.fillMaxWidth()
+                    .focusRequester(nameFocus)
+                    .heightIn(min = 0.dp)
+            )
+        } else {
+            Text(
+                text = liveState.currentTrackName ?: "Recording...",
+                color = Color(AppConfig.uiSettingsTextPrimary),
+                fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                    .clickable { editingField = EditingField.NAME }
+            )
+        }
+
+        // ── Editable comment ─────────────────────────────────────
+        if (editingField == EditingField.COMMENT) {
+            LaunchedEffect(Unit) { commentFocus.requestFocus() }
+            TextField(
+                value = commentField,
+                onValueChange = { commentField = it },
+                singleLine = false,
+                minLines = 1,
+                textStyle = androidx.compose.ui.text.TextStyle(
+                    color = Color(AppConfig.uiSettingsTextMuted), fontSize = 13.sp
+                ),
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    focusedTextColor = Color(AppConfig.uiSettingsTextMuted),
+                    unfocusedTextColor = Color(AppConfig.uiSettingsTextMuted),
+                    cursorColor = Color(AppConfig.uiSettingsTextPrimary),
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent
+                ),
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(onDone = {
+                    onUpdateMeta?.invoke(null, commentField.text)
+                    editingField = null
+                    keyboardController?.hide()
+                }),
+                modifier = Modifier.fillMaxWidth()
+                    .focusRequester(commentFocus)
+                    .heightIn(min = 0.dp)
+            )
+        } else {
+            val commentText = commentField.text
+            Text(
+                text = commentText.ifBlank { "Add a comment..." },
+                color = if (commentText.isBlank()) Color(AppConfig.uiSettingsTextMuted).copy(alpha = 0.4f)
+                        else Color(AppConfig.uiSettingsTextMuted),
+                fontSize = 13.sp, maxLines = 3,
+                modifier = Modifier.fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                    .clickable { editingField = EditingField.COMMENT }
+            )
+        }
+
+        Spacer(Modifier.height(2.dp))
+        HorizontalDivider(
+            modifier = Modifier.padding(horizontal = 8.dp),
+            thickness = 0.5.dp, color = Color(AppConfig.uiSettingsDivider)
+        )
+        Spacer(Modifier.height(2.dp))
+
+        // ── Live stats grid ────────────────────────────────────────
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Box(Modifier.weight(1f)) { StatCell("Total", fmtDuration(liveState.elapsedSeconds)) }
+            Box(Modifier.weight(1f)) { StatCell("Nav", fmtDuration(liveState.elapsedSeconds)) }
+            Box(Modifier.weight(1f)) { StatCell("Avg", fmtKn(liveState.avgSpeedKn)) }
+        }
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Box(Modifier.weight(1f)) { StatCell("Dist", fmtNm(liveState.distanceNm)) }
+            Box(Modifier.weight(1f)) { StatCell("Idle", fmtDuration(0)) }
+            Box(Modifier.weight(1f)) { StatCell("Max", fmtKn(liveState.maxSpeedKn)) }
         }
     }
 }
@@ -627,11 +861,11 @@ private fun ShareIcon() {
     }
 }
 
-/** Single cell in the 3-column stats grid: "Title: value" inline, title right-aligned. */
+/** Single cell in the 3-column stats grid: label (33%, right-aligned) + value (66%, left-aligned). */
 @Composable
 private fun StatCell(label: String, value: String) {
     Row(
-        modifier = Modifier.fillMaxWidth(0.33f),
+        modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
@@ -640,7 +874,7 @@ private fun StatCell(label: String, value: String) {
             fontSize = 11.sp,
             textAlign = TextAlign.End,
             maxLines = 1,
-            modifier = Modifier.fillMaxWidth(0.5f)
+            modifier = Modifier.weight(0.33f)
         )
         Spacer(Modifier.width(3.dp))
         Text(
@@ -648,38 +882,37 @@ private fun StatCell(label: String, value: String) {
             color = Color(AppConfig.uiSettingsTextPrimary),
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
-            maxLines = 1
+            maxLines = 1,
+            textAlign = TextAlign.Start,
+            modifier = Modifier.weight(0.66f)
         )
     }
 }
 
-/** Human-readable duration: "2 h 13 min" / "53 min" / "45 s". */
+/** Human-readable duration: "2h 30m 0s" / "32m 0s" — matches drawer format. */
 private fun fmtDuration(totalSeconds: Long): String {
     val hours = totalSeconds / 3600
     val minutes = (totalSeconds % 3600) / 60
     val seconds = totalSeconds % 60
-    return when {
-        hours > 0 -> "${hours} h ${minutes} min"
-        minutes > 0 -> "${minutes} min"
-        else -> "${seconds} s"
+    return if (hours > 0) {
+        "${hours}h ${minutes}m ${seconds}s"
+    } else {
+        "${minutes}m ${seconds}s"
     }
 }
 
-/** Speed in knots with comma decimal: "5,2 kn". */
-private fun fmtSpeed(speedMps: Float): String {
+/** Speed from mps in knots with 1 decimal: "5.1 kn" — matches drawer format. */
+private fun fmtKnFromMps(speedMps: Float): String {
     val kn = speedMps * 1.94384f
-    return "${fmtDecimal(kn)} kn"
+    return java.lang.String.format(java.util.Locale.US, "%.1f kn", kn)
 }
 
-/** Distance in nautical miles with comma decimal: "4,2 nm". */
-private fun fmtDistance(distanceNm: Float): String {
-    return "${fmtDecimal(distanceNm)} nm"
+/** Speed from knots with 1 decimal: "5.1 kn" — matches drawer format. */
+private fun fmtKn(kn: Float): String {
+    return java.lang.String.format(java.util.Locale.US, "%.1f kn", kn)
 }
 
-/** Format a float with 1 decimal place using comma as separator: 4.2 → "4,2". */
-private fun fmtDecimal(value: Float): String {
-    val rounded = (value * 10).roundToInt()
-    val whole = rounded / 10
-    val tenth = rounded % 10
-    return "$whole,$tenth"
+/** Distance in nm with 2 decimals: "4.20 nm" — matches drawer format. */
+private fun fmtNm(distanceNm: Float): String {
+    return java.lang.String.format(java.util.Locale.US, "%.2f nm", distanceNm)
 }

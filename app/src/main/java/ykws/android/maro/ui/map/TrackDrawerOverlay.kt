@@ -144,33 +144,19 @@ fun TrackDrawerOverlay(
                         )
                         Spacer(Modifier.height(8.dp))
 
-                        // ── Track List menu item ───────────────────────
-                        Text(
-                            text = "Track List",
-                            color = Color(AppConfig.uiSettingsTextPrimary),
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable(onClick = onViewTrackList)
-                                .padding(vertical = 6.dp)
-                        )
-
-                        // ── Start/stop toggle row ──────────────────────
+                        // ── Track List row with ON/OFF toggle ──────────
                         val isActive = recorderState.state == TrackRecorderState.ON
 
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable(onClick = {
-                                    if (isActive) onStopRecording() else onStartRecording()
-                                })
+                                .clickable(onClick = onViewTrackList)
                                 .padding(vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = if (isActive) "Stop Tracking" else "Start Tracking",
+                                text = "Track List",
                                 color = Color(AppConfig.uiSettingsTextPrimary),
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Medium
@@ -182,15 +168,21 @@ fun TrackDrawerOverlay(
                                     if (checked) onStartRecording() else onStopRecording()
                                 },
                                 colors = SwitchDefaults.colors(
-                                    checkedThumbColor = Color(AppConfig.uiSettingsAccent),
-                                    checkedTrackColor = Color(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                                    checkedThumbColor = if (recorderState.isMoving)
+                                        Color(AppConfig.statusTrackingHealthy)
+                                    else
+                                        Color(AppConfig.statusTrackingIdle),
+                                    checkedTrackColor = (if (recorderState.isMoving)
+                                        Color(AppConfig.statusTrackingHealthy)
+                                    else
+                                        Color(AppConfig.statusTrackingIdle)).copy(alpha = 0.4f),
                                     uncheckedThumbColor = Color(AppConfig.uiSettingsTextMuted),
                                     uncheckedTrackColor = Color(AppConfig.uiSettingsSwitchTrackInactive)
                                 )
                             )
                         }
 
-                        // ── Live stats card (only when recording/paused) ──
+                        // ── Live stats card (only when active) ──────────
                         if (isActive) {
                             Spacer(Modifier.height(2.dp))
 

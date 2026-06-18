@@ -133,6 +133,19 @@ class TrackRecorder(
         }
     }
 
+    /** Update the current track's name and/or comment in memory and checkpoint. */
+    fun updateCurrentTrackMeta(name: String? = null, comment: String? = null) {
+        val track = currentTrack ?: return
+        currentTrack = track.copy(
+            name = name ?: track.name,
+            comment = comment ?: track.comment
+        )
+        scope?.launch {
+            currentTrack?.let { repository.saveCheckpoint(it) }
+        }
+        Log.d(TAG, "updateCurrentTrackMeta: name=${currentTrack?.name} comment=${currentTrack?.comment}")
+    }
+
     /** Manually start recording (bypasses auto-detection). */
     fun startManual() {
         if (state != TrackRecorderState.OFF) {

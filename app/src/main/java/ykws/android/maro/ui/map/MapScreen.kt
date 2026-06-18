@@ -832,8 +832,12 @@ fun MapScreen(
         if (showTrackHistory) {
             TrackHistoryOverlay(
                 trackSummaries = trackSummaries,
+                liveTrackState = trackRecorderState,
                 onUpdateTrack = { id, name, comment, visible ->
                     trackViewModel.updateTrack(id, name, comment, visible)
+                },
+                onUpdateLiveTrack = { name, comment ->
+                    trackViewModel.updateLiveTrackMeta(name, comment)
                 },
                 onDeleteTrack = { id -> trackViewModel.deleteTrack(id) },
                 onUndoDeleteTrack = { /* no-op: track was never actually removed from repo,
@@ -1176,11 +1180,12 @@ private fun MapContent(
                         .alpha(ctAlpha),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Menu (hamburger) button — above Settings
+                    // Menu (hamburger) button — above Settings with spacing
                     MapControlButton(
                         onClick = onOpenTrackDrawer,
                         icon = { HamburgerIcon() }
                     )
+                    Spacer(modifier = Modifier.height(4.dp))
                     SettingsButton(onClick = onOpenSettings)
                 }
 
@@ -1841,7 +1846,7 @@ private fun SettingsButton(
  */
 @Composable
 private fun HamburgerIcon() {
-    androidx.compose.foundation.Canvas(modifier = Modifier.size(28.dp)) {
+    androidx.compose.foundation.Canvas(modifier = Modifier.size(36.dp)) {
         val stroke = size.width * 0.15f
         val inset = size.width * 0.22f
         val cy = size.height / 2f

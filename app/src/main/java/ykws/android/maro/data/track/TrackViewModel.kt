@@ -110,10 +110,11 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** Reload track summaries from repository. */
+    /** Reload track summaries from repository, newest first. */
     fun refreshSummaries() {
         viewModelScope.launch {
             _summaries.value = repository.listTracks()
+                .sortedByDescending { it.startTimeMs }
         }
     }
 
@@ -168,6 +169,11 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         if (orphans.isNotEmpty()) {
             _recoveryTrack.value = orphans.first()
         }
+    }
+
+    /** Update the active recording track's name and/or comment. Persisted to checkpoint. */
+    fun updateLiveTrackMeta(name: String? = null, comment: String? = null) {
+        recorder?.updateCurrentTrackMeta(name, comment)
     }
 
     override fun onCleared() {

@@ -3,7 +3,7 @@ name: BoatTrace
 status: active
 created: 2026-06-15 21:43
 modified: 2026-06-18 12:44
-active_subfeature: adaptive-isstill
+active_subfeature: none
 ---
 
 # Feature: BoatTrace
@@ -238,6 +238,17 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 
 #### Docs
 - `plans/boat-trace-design-discussion.md` — §5b (Hamburger + Drawer spec, lines 284-361)
+
+### tweaks  [ ]
+
+#### Todos
+- [ ] Clicking TrackStatusIcon opens the track drawer (currently works)
+- [ ] Add tooltip/label to tracking icon explaining current state
+- [ ] Review drawer layout for polish
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/TrackStatusIcon.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/TrackDrawerOverlay.kt`
 
 ## Todos
 
