@@ -62,6 +62,7 @@ import ykws.android.maro.data.track.TrackRecorderUiState
 @Composable
 fun TrackDrawerOverlay(
     isOpen: Boolean,
+    isDemoMode: Boolean = false,
     gpsMode: Boolean,
     onGpsModeChange: (Boolean) -> Unit,
     gpsToggleColor: Color,
@@ -217,25 +218,27 @@ fun TrackDrawerOverlay(
                                 fontWeight = FontWeight.Medium
                             )
 
-                            Switch(
-                                checked = isActive,
-                                onCheckedChange = { checked ->
-                                    if (checked) onStartRecording() else onStopRecording()
-                                    onDismiss()
-                                },
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = if (recorderState.isMoving)
-                                        Color(AppConfig.statusTrackingHealthy)
-                                    else
-                                        Color(AppConfig.statusTrackingIdle),
-                                    checkedTrackColor = (if (recorderState.isMoving)
-                                        Color(AppConfig.statusTrackingHealthy)
-                                    else
-                                        Color(AppConfig.statusTrackingIdle)).copy(alpha = 0.4f),
-                                    uncheckedThumbColor = Color(AppConfig.uiSettingsTextMuted),
-                                    uncheckedTrackColor = Color(AppConfig.uiSettingsSwitchTrackInactive)
+                            if (!isDemoMode) {
+                                Switch(
+                                    checked = isActive,
+                                    onCheckedChange = { checked ->
+                                        if (checked) onStartRecording() else onStopRecording()
+                                        onDismiss()
+                                    },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = if (recorderState.isMoving)
+                                            Color(AppConfig.statusTrackingHealthy)
+                                        else
+                                            Color(AppConfig.statusTrackingIdle),
+                                        checkedTrackColor = (if (recorderState.isMoving)
+                                            Color(AppConfig.statusTrackingHealthy)
+                                        else
+                                            Color(AppConfig.statusTrackingIdle)).copy(alpha = 0.4f),
+                                        uncheckedThumbColor = Color(AppConfig.uiSettingsTextMuted),
+                                        uncheckedTrackColor = Color(AppConfig.uiSettingsSwitchTrackInactive)
+                                    )
                                 )
-                            )
+                            }
                         }
 
                         // ── Live stats card (only when active) ──────────
