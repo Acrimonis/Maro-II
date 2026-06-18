@@ -36,9 +36,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.track.TrackRecorderState
 import ykws.android.maro.data.track.TrackRecorderUiState
@@ -59,6 +61,9 @@ import ykws.android.maro.data.track.TrackRecorderUiState
 @Composable
 fun TrackDrawerOverlay(
     isOpen: Boolean,
+    gpsMode: Boolean,
+    onGpsModeChange: (Boolean) -> Unit,
+    gpsToggleColor: Color,
     recorderState: TrackRecorderUiState,
     onStartRecording: () -> Unit,
     onStopRecording: () -> Unit,
@@ -126,22 +131,55 @@ fun TrackDrawerOverlay(
                             )
                         }
 
-                        Spacer(Modifier.height(24.dp))
+                        Spacer(Modifier.height(20.dp))
 
-                        // ── Section header ──────────────────────────────
+                        // ── POSITION SOURCE section ──────────────────────
                         Text(
-                            text = "TRACK RECORDING",
+                            text = "POSITION SOURCE",
                             color = Color(AppConfig.uiSettingsAccent),
-                            fontSize = 12.sp,
+                            fontSize = 17.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.sp
                         )
 
                         Spacer(Modifier.height(8.dp))
-                        HorizontalDivider(
-                            thickness = 0.5.dp,
-                            color = Color(AppConfig.uiSettingsDivider)
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 6.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = stringResource(R.string.settings_gps_mode_label),
+                                color = Color(AppConfig.uiSettingsTextPrimary),
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Switch(
+                                checked = gpsMode,
+                                onCheckedChange = onGpsModeChange,
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = gpsToggleColor,
+                                    checkedTrackColor = gpsToggleColor.copy(alpha = 0.4f),
+                                    uncheckedThumbColor = Color(AppConfig.uiSettingsTextMuted),
+                                    uncheckedTrackColor = Color(AppConfig.uiSettingsSwitchTrackInactive)
+                                )
+                            )
+                        }
+
+                        Spacer(Modifier.height(16.dp))
+
+                        // ── Section header ──────────────────────────────
+                        Text(
+                            text = "TRACK RECORDING",
+                            color = Color(AppConfig.uiSettingsAccent),
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
                         )
+
                         Spacer(Modifier.height(8.dp))
 
                         // ── Track List row with ON/OFF toggle ──────────

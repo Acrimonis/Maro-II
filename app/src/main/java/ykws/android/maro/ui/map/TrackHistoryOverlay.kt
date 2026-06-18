@@ -85,8 +85,10 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.track.TrackRecorderState
 import ykws.android.maro.data.track.TrackRecorderUiState
@@ -582,14 +584,14 @@ private fun TrackCardContent(
         val totalSec = if (summary.endTimeMs != null)
             (summary.endTimeMs - summary.startTimeMs) / 1000 else 0L
         Row(modifier = Modifier.fillMaxWidth()) {
-            Box(Modifier.weight(1f)) { StatCell("Total", fmtDuration(totalSec)) }
-            Box(Modifier.weight(1f)) { StatCell("Nav", fmtDuration(summary.navigatingDurationSec)) }
-            Box(Modifier.weight(1f)) { StatCell("Avg", fmtKnFromMps(summary.averageSpeedMps)) }
+            Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_total), fmtDuration(totalSec)) }
+            Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_nav), fmtDuration(summary.navigatingDurationSec)) }
+            Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_avg), fmtKnFromMps(summary.averageSpeedMps)) }
         }
         Row(modifier = Modifier.fillMaxWidth()) {
-            Box(Modifier.weight(1f)) { StatCell("Dist", fmtNm(summary.distanceNm)) }
-            Box(Modifier.weight(1f)) { StatCell("Idle", fmtDuration(summary.pausedDurationSec)) }
-            Box(Modifier.weight(1f)) { StatCell("Max", fmtKnFromMps(summary.fastestSpeedMps)) }
+            Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_dist), fmtNm(summary.distanceNm)) }
+            Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_idle), fmtDuration(summary.pausedDurationSec)) }
+            Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_max), fmtKnFromMps(summary.fastestSpeedMps)) }
         }
     }
 }
@@ -630,11 +632,11 @@ private fun LiveTrackCard(
 
     // Inline editing state
     var editingField by remember { mutableStateOf<EditingField?>(null) }
-    var nameField by remember(liveState.currentTrackId) {
+    var nameField by remember(liveState.currentTrackId, liveState.currentTrackName) {
         mutableStateOf(TextFieldValue(liveState.currentTrackName ?: ""))
     }
-    var commentField by remember(liveState.currentTrackId) {
-        mutableStateOf(TextFieldValue(""))
+    var commentField by remember(liveState.currentTrackId, liveState.currentTrackComment) {
+        mutableStateOf(TextFieldValue(liveState.currentTrackComment ?: ""))
     }
     val keyboardController = LocalSoftwareKeyboardController.current
     val nameFocus = remember { FocusRequester() }
@@ -662,11 +664,11 @@ private fun LiveTrackCard(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(Color(AppConfig.uiSettingsCardBackground))
-            .padding(horizontal = 8.dp, vertical = 4.dp)
             .border(
                 BorderStroke(2.dp, borderColor.copy(alpha = pulseAlpha)),
                 RoundedCornerShape(12.dp)
             )
+            .padding(horizontal = 8.dp, vertical = 4.dp)
     ) {
         // ── Date + "-> ..." + state label + pulsing dot ──────────
         Row(
@@ -794,14 +796,14 @@ private fun LiveTrackCard(
 
         // ── Live stats grid ────────────────────────────────────────
         Row(modifier = Modifier.fillMaxWidth()) {
-            Box(Modifier.weight(1f)) { StatCell("Total", fmtDuration(liveState.elapsedSeconds)) }
-            Box(Modifier.weight(1f)) { StatCell("Nav", fmtDuration(liveState.elapsedSeconds)) }
-            Box(Modifier.weight(1f)) { StatCell("Avg", fmtKn(liveState.avgSpeedKn)) }
+            Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_total), fmtDuration(liveState.elapsedSeconds)) }
+            Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_nav), fmtDuration(liveState.elapsedSeconds)) }
+            Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_avg), fmtKn(liveState.avgSpeedKn)) }
         }
         Row(modifier = Modifier.fillMaxWidth()) {
-            Box(Modifier.weight(1f)) { StatCell("Dist", fmtNm(liveState.distanceNm)) }
-            Box(Modifier.weight(1f)) { StatCell("Idle", fmtDuration(0)) }
-            Box(Modifier.weight(1f)) { StatCell("Max", fmtKn(liveState.maxSpeedKn)) }
+            Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_dist), fmtNm(liveState.distanceNm)) }
+            Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_idle), fmtDuration(0)) }
+            Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_max), fmtKn(liveState.maxSpeedKn)) }
         }
     }
 }

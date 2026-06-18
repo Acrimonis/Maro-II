@@ -4,7 +4,7 @@
 - **Active Feature:** BoatTrace
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-18
-- **Last Bake:** 2026-06-18 15:32 (BoatTrace — live track card, stats grid layout, name persistence. BUILD SUCCESSFUL)
+- **Last Bake:** 2026-06-18 16:59 (BoatTrace — suppressed auto-start paths, geofence-exit-only start trigger. Feature doc updated. BUILD SUCCESSFUL)
 - **Branch:** feature/new-tracking
 ## Routing Map
 | Keyword | Feature File |
@@ -53,7 +53,7 @@
 | **ArcLayout** | **Layer toggle arc menu — pure-Compose semicircle fan-out with layer toggles, FanLayout framework, fixed child centering using effectiveTheta=180/currentCount** | **2026-06-13 07:34** | **2026-06-14 14:50** | **active** |
 | **ZoneTile** | **Zone information tiles and map overlay rendering — zone-ahead cone/line, speed zone display, ETA, zone state management** | **2026-06-17 09:45** | **2026-06-17 09:45** | **active** |
 | **Zone300SpeedBadge** | **300m zone speed limit badge integrated into regulated zone icon stack as highest-priority SPEED_LIMIT entry** | **2026-06-14 17:42** | **2026-06-14 17:42** | **done** |
-| **BoatTrace** | **Boat movement tracking: record tracks from GPS fixes, persist, display on map with age-based opacity, GPX export, track history UI** | **2026-06-15 21:43** | **2026-06-18 12:44** | **active** |
+| **BoatTrace** | **Boat movement tracking: record tracks from GPS fixes, persist, display on map with age-based opacity, GPX export, track history UI** | **2026-06-15 21:43** | **2026-06-18 16:59** | **active** |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).

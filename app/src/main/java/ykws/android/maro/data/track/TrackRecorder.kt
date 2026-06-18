@@ -47,6 +47,7 @@ data class TrackRecorderUiState(
     val state: TrackRecorderState = TrackRecorderState.OFF,
     val currentTrackId: String? = null,
     val currentTrackName: String? = null,
+    val currentTrackComment: String? = null,
     val elapsedSeconds: Long = 0L,
     val pointCount: Int = 0,
     val maxSpeedKn: Float = 0f,
@@ -104,6 +105,8 @@ class TrackRecorder(
     private var speedCount: Int = 0
     private var debounceStartTime: Long? = null
     private var stopDebounceStartTime: Long? = null
+    /** Tracks whether the previous fix was inside the geofence, for exit detection. */
+    private var wasInsideGeofence: Boolean = false
 
     private val policy = AdaptiveGpsPolicy()
     private var scope: CoroutineScope? = null
@@ -140,6 +143,12 @@ class TrackRecorder(
             name = name ?: track.name,
             comment = comment ?: track.comment
         )
+        _uiState.update {
+            it.copy(
+                currentTrackName = currentTrack?.name,
+                currentTrackComment = currentTrack?.comment
+            )
+        }
         scope?.launch {
             currentTrack?.let { repository.saveCheckpoint(it) }
         }
@@ -168,46 +177,20 @@ class TrackRecorder(
 
         when (state) {
             TrackRecorderState.OFF -> {
-                // Auto-start: outside geofence AND moving (with debounce)
-                if (!insideGeofence && geofenceEnabled) {
-                    val mode = policy.onFix(
-                        nowMs = System.currentTimeMillis(),
-                        pos = fix.position,
-                        windowMs = adaptiveWindowMs,
-                        thresholdM = adaptiveThresholdM
-                    )
-                    if (mode == AcquisitionMode.ACTIVE) {
-                        val now = System.currentTimeMillis()
-                        if (debounceStartTime == null) {
-                            debounceStartTime = now
-                        } else if (now - debounceStartTime!! >= DEBOUNCE_MS) {
-                            debounceStartTime = null
-                            beginRecording(isManual = false, startFix = fix)
-                        }
-                    } else {
+                // Auto-start only on geofence exit (inside→outside transition).
+                // Manual toggle is the other start trigger (via startManual()).
+                if (geofenceEnabled && wasInsideGeofence && !insideGeofence) {
+                    val now = System.currentTimeMillis()
+                    if (debounceStartTime == null) {
+                        debounceStartTime = now
+                    } else if (now - debounceStartTime!! >= DEBOUNCE_MS) {
                         debounceStartTime = null
+                        beginRecording(isManual = false, startFix = fix)
                     }
+                } else {
+                    debounceStartTime = null
                 }
-                // If geofence disabled: start on movement alone
-                if (!geofenceEnabled) {
-                    val mode = policy.onFix(
-                        nowMs = System.currentTimeMillis(),
-                        pos = fix.position,
-                        windowMs = adaptiveWindowMs,
-                        thresholdM = adaptiveThresholdM
-                    )
-                    if (mode == AcquisitionMode.ACTIVE) {
-                        val now = System.currentTimeMillis()
-                        if (debounceStartTime == null) {
-                            debounceStartTime = now
-                        } else if (now - debounceStartTime!! >= DEBOUNCE_MS) {
-                            debounceStartTime = null
-                            beginRecording(isManual = false, startFix = fix)
-                        }
-                    } else {
-                        debounceStartTime = null
-                    }
-                }
+                wasInsideGeofence = insideGeofence
             }
 
             TrackRecorderState.ON -> {
@@ -415,6 +398,7 @@ class TrackRecorder(
         checkpointJob = null
         elapsedTimerJob = null
         scope = null
+        wasInsideGeofence = false
         policy.reset()
     }
 

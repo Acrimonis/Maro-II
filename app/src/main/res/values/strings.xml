@@ -136,4 +136,12 @@
     <string name="dash_speed_zone_limit">Limit %.0f kn</string>
     <string name="dash_eta_sec">ETA %d s</string>
     <string name="dash_eta_min_sec">ETA %1$d:%2$02d min</string>
+
+    <!-- Track history stats -->
+    <string name="track_stat_total">Total</string>
+    <string name="track_stat_nav">Nav</string>
+    <string name="track_stat_avg">Avg</string>
+    <string name="track_stat_dist">Dist</string>
+    <string name="track_stat_idle">Idle</string>
+    <string name="track_stat_max">Max</string>
 </resources>

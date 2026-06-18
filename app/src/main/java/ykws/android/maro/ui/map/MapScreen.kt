@@ -137,6 +137,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.withContext
 import ykws.android.maro.data.depth.DepthConstants
 import ykws.android.maro.data.depth.RasterCache
@@ -185,6 +186,7 @@ private const val GPS_ANIMATION_DURATION_MS = 600L
  * Portrait: map on top, dashboard bar at the bottom.
  */
 @SuppressLint("ClickableViewAccessibility")
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @Composable
 fun MapScreen(
     viewModel: CoastlineViewModel,
@@ -243,6 +245,18 @@ fun MapScreen(
             acquisitionMode == ykws.android.maro.data.location.AcquisitionMode.IDLE -> GpsIconState.IDLE
             else -> GpsIconState.HEALTHY
         }
+    }
+
+    // GPS toggle color matches the GPS status icon color for consistency.
+    val gpsToggleColor = remember(gpsIconState) {
+        val raw = when (gpsIconState) {
+            GpsIconState.DEMO -> AppConfig.statusGpsDemo
+            GpsIconState.ACQUIRING -> AppConfig.statusGpsAcquiring
+            GpsIconState.HEALTHY -> AppConfig.statusGpsHealthy
+            GpsIconState.IDLE -> AppConfig.statusGpsIdle
+            GpsIconState.STALE -> AppConfig.statusGpsStale
+        }
+        ComposeColor(raw)
     }
 
     // GPS permission launcher: on grant, enable GPS mode; on deny, stay in demo mode.
@@ -485,18 +499,24 @@ fun MapScreen(
     // In demo mode, a 1 Hz ticker keeps the AdaptiveGpsPolicy timer advancing even
     // when the map is stationary (no pan events → stall without ticker).
     // In GPS mode, the real location listener provides periodic fixes — no ticker needed.
-    LaunchedEffect(appSettings.gpsMode) {
-        val ticker = if (!appSettings.gpsMode) {
-            kotlinx.coroutines.flow.flow {
-                while (true) {
-                    emit(System.currentTimeMillis())
-                    kotlinx.coroutines.delay(1_000L)
+    // NOTE: LaunchedEffect(Unit) — NOT keyed on gpsMode. Toggling the position source
+    // must NOT tear down / restart the recorder (would kill active track recording).
+    // The ticker adapts dynamically via flatMapLatest; the combine lambda reads
+    // appSettings.gpsMode at each emission for position/speed/bearing selection.
+    LaunchedEffect(Unit) {
+        val ticker = snapshotFlow { appSettings.gpsMode }
+            .flatMapLatest { isGps ->
+                if (!isGps) {
+                    kotlinx.coroutines.flow.flow {
+                        while (true) {
+                            emit(System.currentTimeMillis())
+                            kotlinx.coroutines.delay(1_000L)
+                        }
+                    }
+                } else {
+                    kotlinx.coroutines.flow.flowOf(0L)
                 }
             }
-        } else {
-            // Emit once so combine has an initial value; GPS sources keep it alive.
-            kotlinx.coroutines.flow.flowOf(0L)
-        }
         val gpsFlow = kotlinx.coroutines.flow.combine(
             viewModel.gpsPosition,
             viewModel.mapCenter,
@@ -820,6 +840,9 @@ fun MapScreen(
         if (showTrackDrawer) {
             TrackDrawerOverlay(
                 isOpen = true,
+                gpsMode = appSettings.gpsMode,
+                onGpsModeChange = onGpsModeChange,
+                gpsToggleColor = gpsToggleColor,
                 recorderState = trackRecorderState,
                 onStartRecording = { trackViewModel.startRecording() },
                 onStopRecording = { trackViewModel.stopRecording() },

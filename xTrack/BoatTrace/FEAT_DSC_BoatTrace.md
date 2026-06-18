@@ -2,7 +2,7 @@
 name: BoatTrace
 status: active
 created: 2026-06-15 21:43
-modified: 2026-06-18 12:44
+modified: 2026-06-18 16:59
 active_subfeature: none
 ---
 
@@ -163,10 +163,13 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 
 #### Rules
 - `isMoving = !policy.isStill()` where `policy.isStill()` reads `AdaptiveGpsPolicy.lastMode == IDLE`
-- Tracking triggers are **manual only** (Start/Stop from drawer). `isStill()` is UI-only — does not auto-start/stop.
+- Tracking triggers are **manual only** (Start/Stop from drawer) **OR geofence exit** (inside→outside transition).
+- `isStill()` is UI-only — does not auto-start/stop.
 - RECORDING state persists through stationary periods — only point capture suspends
 - PAUSED state only entered via manual pause (drawer), not auto-detection
 - `isStill()` uses the 30s window via `AdaptiveGpsPolicy` — 30s of stillness before switching to IDLE
+- **No auto-start on movement alone** — even when geofence is disabled, user must start manually.
+- **Demo mode:** auto-start only on geofence exit, same as GPS mode. No speed-based auto-start.
 
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/TrackStatusIcon.kt`
@@ -255,7 +258,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 ## Rules
 - Feature-scoped plans go in `xTrack/[Feature]/FEAT_PLN_[Feature]_[topic].md`, NOT in `plans/`. The `plans/` directory is for cross-cutting or legacy plans only.
 - Tack points only recorded while speed > 2.5 kn (drifting threshold from Navigation feature)
-- IDLE→RECORDING transition requires speed > 2.5 kn sustained for **10 seconds**
+- IDLE→RECORDING transitions: **geofence exit** (inside→outside, 10s debounce) or **manual** (Start in drawer). Speed-based auto-start is NOT used.
 - Internal storage: **Protobuf binary** via `kotlinx-serialization-protobuf` — not JSON
 - Export format: **GPX 1.1** for compatibility with QGIS, Google Earth, OsmAnd, etc.
 - Tack metadata captured: name (auto-generated), comment, start/end time, paused duration, fastest speed, track color
@@ -263,7 +266,6 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 - Auto tack detection via configurable geofence (origin + radius from maro.properties)
 - `visibleOnMap: Boolean` on Tack data class — per-tack visibility toggle on map
 - Manual Start/Stop available in new tack drawer (hamburger icon)
-- Demo mode bypasses geofence — recording triggers on speed > 2.5 kn for 10s
 - `timeOffsetSec` (seconds since tack start) stored per point instead of absolute timestamp to save ~5 bytes/point
 - Tack recording runs on Dispatchers.Default, file I/O on Dispatchers.IO
 - 30s periodic checkpoint save during RECORDING for crash recovery
