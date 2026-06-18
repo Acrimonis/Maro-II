@@ -2,9 +2,9 @@
 
 ## Active Session Pointers
 - **Active Feature:** BoatTrace
-- **Active Subfeature:** tracking-status-n-triggers
+- **Active Subfeature:** adaptive-isstill
 - **Last Updated:** 2026-06-18
-- **Last Bake:** 2026-06-18 12:44 (BoatTrace — adaptive-isstill implemented: pure position-only AdaptiveGpsPolicy, Stop Detection settings, new UI section. BUILD SUCCESSFUL)
+- **Last Bake:** 2026-06-18 14:16 (BoatTrace — tracking icon redesign + demo mode ticker fix. BUILD SUCCESSFUL)
 - **Branch:** feature/new-tracking
 ## Routing Map
 | Keyword | Feature File |

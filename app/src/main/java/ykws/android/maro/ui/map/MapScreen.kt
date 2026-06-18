@@ -482,12 +482,27 @@ fun MapScreen(
         else (lowDepthWarningCached ?: lowDepthWarningBitmap)
 
     // ── Virtual GpsFix flow: feed TrackRecorder from existing ViewModel state ──
+    // In demo mode, a 1 Hz ticker keeps the AdaptiveGpsPolicy timer advancing even
+    // when the map is stationary (no pan events → stall without ticker).
+    // In GPS mode, the real location listener provides periodic fixes — no ticker needed.
     LaunchedEffect(appSettings.gpsMode) {
+        val ticker = if (!appSettings.gpsMode) {
+            kotlinx.coroutines.flow.flow {
+                while (true) {
+                    emit(System.currentTimeMillis())
+                    kotlinx.coroutines.delay(1_000L)
+                }
+            }
+        } else {
+            // Emit once so combine has an initial value; GPS sources keep it alive.
+            kotlinx.coroutines.flow.flowOf(0L)
+        }
         val gpsFlow = kotlinx.coroutines.flow.combine(
             viewModel.gpsPosition,
             viewModel.mapCenter,
-            viewModel.navigationState
-        ) { gpsPos, center, nav ->
+            viewModel.navigationState,
+            ticker
+        ) { gpsPos, center, nav, _ ->
             val isGps = appSettings.gpsMode
             val pos = gpsPos ?: center
             val speedKn = if (isGps) nav.speedKnots else nav.demoSpeedKnots
@@ -558,7 +573,7 @@ fun MapScreen(
                 val recState = state.state
                 val points = state.recordingPoints
 
-                if (recState == ykws.android.maro.data.track.TrackRecorderState.RECORDING && points.isNotEmpty()) {
+                if (recState == ykws.android.maro.data.track.TrackRecorderState.ON && points.isNotEmpty()) {
                     val existing = mv.overlays.firstOrNull {
                         (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording"
                     } as? org.osmdroid.views.overlay.Polyline

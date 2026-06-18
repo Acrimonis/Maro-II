@@ -5,16 +5,10 @@ package ykws.android.maro.data.track
  * Not serialized — these are live state machine events only.
  */
 sealed class TrackEvent {
-    /** Recording has started (IDLE → RECORDING). */
+    /** Recording has started (OFF → ON). */
     data object Started : TrackEvent()
 
-    /** Recording was paused (RECORDING → PAUSED). */
-    data object Paused : TrackEvent()
-
-    /** Recording was resumed (PAUSED → RECORDING). */
-    data object Resumed : TrackEvent()
-
-    /** Recording has stopped and track was saved (FINALIZING → IDLE). */
+    /** Recording has stopped and track was saved (ON → OFF). */
     data object Stopped : TrackEvent()
 
     /** A new point was captured during recording. */

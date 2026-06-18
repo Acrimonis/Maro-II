@@ -157,8 +157,7 @@ fun TrackDrawerOverlay(
                         )
 
                         // ── Start/stop toggle row ──────────────────────
-                        val isActive = recorderState.state == TrackRecorderState.RECORDING ||
-                                recorderState.state == TrackRecorderState.PAUSED
+                        val isActive = recorderState.state == TrackRecorderState.ON
 
                         Row(
                             modifier = Modifier
@@ -203,11 +202,7 @@ fun TrackDrawerOverlay(
                                     .padding(horizontal = 16.dp, vertical = 10.dp),
                                 verticalArrangement = Arrangement.spacedBy(6.dp)
                             ) {
-                                StatRow("State", when (recorderState.state) {
-                                    TrackRecorderState.RECORDING -> "\u25CF Recording"
-                                    TrackRecorderState.PAUSED -> "\u25CF Paused"
-                                    else -> "Idle"
-                                })
+                                StatRow("State", if (recorderState.isMoving) "\u25CF Recording" else "\u25CF Idle")
                                 StatRow("Elapsed", formatDuration(recorderState.elapsedSeconds))
                                 StatRow("Points", "${recorderState.pointCount}")
                                 StatRow("Distance", "${"%.2f".format(recorderState.distanceNm)} nm")

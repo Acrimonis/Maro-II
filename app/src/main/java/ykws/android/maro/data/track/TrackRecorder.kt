@@ -31,17 +31,20 @@ private const val TAG = "MaroII_Track"
 /** Duration (ms) speed must be above threshold before auto-start. */
 private const val DEBOUNCE_MS = 10_000L
 
+/** Duration (ms) inside geofence before auto-stop. */
+private const val STOP_DEBOUNCE_MS = 15_000L
+
 /** Interval (ms) between checkpoint saves during recording. */
 private const val CHECKPOINT_INTERVAL_MS = 30_000L
 
 /** The track recorder state machine states. */
-enum class TrackRecorderState { IDLE, RECORDING, PAUSED, FINALIZING }
+enum class TrackRecorderState { OFF, ON }
 
 /**
  * UI-friendly representation of the recorder's current status.
  */
 data class TrackRecorderUiState(
-    val state: TrackRecorderState = TrackRecorderState.IDLE,
+    val state: TrackRecorderState = TrackRecorderState.OFF,
     val currentTrackId: String? = null,
     val currentTrackName: String? = null,
     val elapsedSeconds: Long = 0L,
@@ -56,9 +59,12 @@ data class TrackRecorderUiState(
 /**
  * Coroutine-based track recording state machine.
  *
- * Uses [AdaptiveGpsPolicy] for movement/still detection with configurable
- * time window and distance threshold. Collects [GpsFix] flow, detects geofence
- * crossing, and manages the IDLE ↔ RECORDING ↔ PAUSED → FINALIZING → IDLE cycle.
+ * Two states: OFF (not tracking) and ON (tracking). Within ON, point capture
+ * is gated by [AdaptiveGpsPolicy.isStill] — when the boat is stationary,
+ * GPS fixes are received but not saved to the track.
+ *
+ * Auto-start on geofence exit (Port Salis) with 10s movement debounce.
+ * Auto-stop on geofence entrance with 15s debounce.
  *
  * @param repository              Track persistence layer.
  * @param geofenceOriginLat       Port Salis geofence origin latitude.
@@ -87,18 +93,17 @@ class TrackRecorder(
 
     // Internal mutable state
     @Volatile
-    private var state: TrackRecorderState = TrackRecorderState.IDLE
+    private var state: TrackRecorderState = TrackRecorderState.OFF
     private var currentTrack: Track? = null
     private var pointsSinceLastCheckpoint = 0
     private var recordingStartTimeMs = 0L
-    private var totalPausedDurationMs = 0L
-    private var pausedStartTimeMs: Long? = null
     private var cumulativeDistanceNm = 0f
     private var lastPointLat: Double? = null
     private var lastPointLon: Double? = null
     private var speedSumMps: Float = 0f
     private var speedCount: Int = 0
     private var debounceStartTime: Long? = null
+    private var stopDebounceStartTime: Long? = null
 
     private val policy = AdaptiveGpsPolicy()
     private var scope: CoroutineScope? = null
@@ -119,9 +124,9 @@ class TrackRecorder(
         startElapsedTimer()
     }
 
-    /** Stop the recorder — finalizes the current track if recording/paused. */
+    /** Stop the recorder — finalizes the current track if recording. */
     fun stop() {
-        if (state == TrackRecorderState.RECORDING || state == TrackRecorderState.PAUSED) {
+        if (state == TrackRecorderState.ON) {
             finalizeTrack()
         } else {
             cleanup()
@@ -130,8 +135,8 @@ class TrackRecorder(
 
     /** Manually start recording (bypasses auto-detection). */
     fun startManual() {
-        if (state != TrackRecorderState.IDLE) {
-            Log.d(TAG, "startManual: ignored — state=$state (not IDLE)")
+        if (state != TrackRecorderState.OFF) {
+            Log.d(TAG, "startManual: ignored — state=$state (not OFF)")
             return
         }
         policy.reset()
@@ -149,8 +154,8 @@ class TrackRecorder(
         )
 
         when (state) {
-            TrackRecorderState.IDLE -> {
-                // Auto-start: outside geofence AND moving
+            TrackRecorderState.OFF -> {
+                // Auto-start: outside geofence AND moving (with debounce)
                 if (!insideGeofence && geofenceEnabled) {
                     val mode = policy.onFix(
                         nowMs = System.currentTimeMillis(),
@@ -159,7 +164,6 @@ class TrackRecorder(
                         thresholdM = adaptiveThresholdM
                     )
                     if (mode == AcquisitionMode.ACTIVE) {
-                        // Debounce: must stay ACTIVE for DEBOUNCE_MS
                         val now = System.currentTimeMillis()
                         if (debounceStartTime == null) {
                             debounceStartTime = now
@@ -193,31 +197,23 @@ class TrackRecorder(
                 }
             }
 
-            TrackRecorderState.RECORDING -> {
-                Log.v(TAG, "processFix(RECORDING): speed=${fix.speedMps} pos=(${fix.position.latitude},${fix.position.longitude})")
+            TrackRecorderState.ON -> {
+                Log.v(TAG, "processFix(ON): speed=${fix.speedMps} pos=(${fix.position.latitude},${fix.position.longitude})")
                 addPoint(fix)
-            }
 
-            TrackRecorderState.PAUSED -> {
-                // Auto-resume: outside geofence AND moving
-                if (!insideGeofence && geofenceEnabled) {
-                    val mode = policy.onFix(
-                        nowMs = System.currentTimeMillis(),
-                        pos = fix.position,
-                        windowMs = adaptiveWindowMs,
-                        thresholdM = adaptiveThresholdM,
-                    )
-                    if (mode == AcquisitionMode.ACTIVE) {
-                        resumeRecording()
+                // Auto-stop: inside geofence with 15s debounce
+                if (geofenceEnabled && insideGeofence) {
+                    val now = System.currentTimeMillis()
+                    if (stopDebounceStartTime == null) {
+                        stopDebounceStartTime = now
+                    } else if (now - stopDebounceStartTime!! >= STOP_DEBOUNCE_MS) {
+                        stopDebounceStartTime = null
+                        Log.d(TAG, "processFix(ON): inside geofence for 15s → auto-stop")
+                        finalizeTrack()
                     }
+                } else {
+                    stopDebounceStartTime = null
                 }
-                if (!geofenceEnabled && fix.speedMps != null && fix.speedMps > 0f) {
-                    resumeRecording()
-                }
-            }
-
-            TrackRecorderState.FINALIZING -> {
-                // No-op: waiting for finalize to complete
             }
         }
     }
@@ -233,17 +229,17 @@ class TrackRecorder(
             trackPoints = mutableListOf()
         )
         recordingStartTimeMs = now
-        totalPausedDurationMs = 0L
         cumulativeDistanceNm = 0f
         speedSumMps = 0f
         speedCount = 0
         lastPointLat = null
         lastPointLon = null
         pointsSinceLastCheckpoint = 0
-        transitionTo(TrackRecorderState.RECORDING)
+        stopDebounceStartTime = null
+        transitionTo(TrackRecorderState.ON)
         _uiState.update {
             TrackRecorderUiState(
-                state = TrackRecorderState.RECORDING,
+                state = TrackRecorderState.ON,
                 currentTrackId = id,
                 currentTrackName = name,
                 isMoving = false
@@ -254,25 +250,6 @@ class TrackRecorder(
         startCheckpointJob()
 
         startFix?.let { addPoint(it) }
-    }
-
-    private fun pauseRecording() {
-        if (state != TrackRecorderState.RECORDING) return
-        pausedStartTimeMs = System.currentTimeMillis()
-        transitionTo(TrackRecorderState.PAUSED)
-        _uiState.update { it.copy(state = TrackRecorderState.PAUSED) }
-        _events.tryEmit(Paused)
-    }
-
-    private fun resumeRecording() {
-        if (state != TrackRecorderState.PAUSED) return
-        pausedStartTimeMs?.let {
-            totalPausedDurationMs += System.currentTimeMillis() - it
-        }
-        pausedStartTimeMs = null
-        transitionTo(TrackRecorderState.RECORDING)
-        _uiState.update { it.copy(state = TrackRecorderState.RECORDING) }
-        _events.tryEmit(Resumed)
     }
 
     private fun addPoint(fix: GpsFix) {
@@ -296,7 +273,7 @@ class TrackRecorder(
         if (!moving) return
 
         val now = System.currentTimeMillis()
-        val timeOffsetSec = ((now - recordingStartTimeMs - totalPausedDurationMs) / 1000).toInt()
+        val timeOffsetSec = ((now - recordingStartTimeMs) / 1000).toInt()
         val point = TrackPoint(
             lat = fix.position.latitude,
             lon = fix.position.longitude,
@@ -348,9 +325,7 @@ class TrackRecorder(
 
     private fun transitionTo(newState: TrackRecorderState) {
         state = newState
-        if (newState != TrackRecorderState.FINALIZING) {
-            _uiState.update { it.copy(state = newState) }
-        }
+        _uiState.update { it.copy(state = newState) }
     }
 
     private fun startCheckpointJob() {
@@ -378,7 +353,7 @@ class TrackRecorder(
                 val now = System.currentTimeMillis()
                 val elapsed = (now - lastTick) / 1000
                 lastTick = now
-                if (state == TrackRecorderState.RECORDING) {
+                if (state == TrackRecorderState.ON) {
                     _uiState.update { it.copy(elapsedSeconds = it.elapsedSeconds + elapsed) }
                 }
             }
@@ -387,8 +362,8 @@ class TrackRecorder(
 
     private fun finalizeTrack() {
         val track = currentTrack ?: return
-        transitionTo(TrackRecorderState.FINALIZING)
         stopCheckpointJob()
+        stopDebounceStartTime = null
 
         val avgMps = if (speedCount > 0) speedSumMps / speedCount else 0f
         val totalElapsedSec = if (recordingStartTimeMs > 0) {
@@ -396,10 +371,10 @@ class TrackRecorder(
         } else 0L
         val finalized = track.copy(
             endTimeMs = System.currentTimeMillis(),
-            pausedDurationSec = totalPausedDurationMs / 1000,
+            pausedDurationSec = 0,
             averageSpeedMps = avgMps,
             distanceNm = cumulativeDistanceNm,
-            navigatingDurationSec = totalElapsedSec - totalPausedDurationMs / 1000
+            navigatingDurationSec = totalElapsedSec
         )
         currentTrack = finalized
 
@@ -409,7 +384,7 @@ class TrackRecorder(
             _events.tryEmit(Stopped)
         }
 
-        transitionTo(TrackRecorderState.IDLE)
+        transitionTo(TrackRecorderState.OFF)
         currentTrack = null
         _uiState.update { TrackRecorderUiState() }
     }

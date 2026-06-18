@@ -52,8 +52,8 @@ Three paths — no speed threshold, no lastPos jump detection, no separate drift
 | Setting | Type | Range | Default | Notes |
 |---|---|---|---|---|
 | `stopDetectionEnabled` | boolean | on/off | true | Master toggle |
-| `stopDetectionTimeSec` | int | 10–90 | 45 | Replaces `adaptiveWindowSec` |
-| `stopDetectionDistanceM` | int | 10–30 | 15 | Replaces `adaptiveDistanceM` |
+| `stopDetectionTimeSec` | int | 15–60 | 30 | Replaces `adaptiveWindowSec` |
+| `stopDetectionDistanceM` | int | 10–30 | 20 | Replaces `adaptiveDistanceM` |
 | `stopDetectionDelayGps` | boolean | on/off | true | Whether to apply GPS dormancy when still |
 
 **Removed with no migration:**
@@ -105,22 +105,16 @@ SectionHeader: "Idle saving"                          ← strings.xml: settings_
 SectionHeader: "Stop detection"                       ← new string
   ┌─ Card Column (RoundedCornerShape 12dp) ───────────┐
   │ SettingsToggleRow: "Enable stop detection" [ON]   │  ← stopDetectionEnabled
-  │   Description: "Detect when boat is stationary.   │
-  │     Doing so will also allow to save battery on   │
-  │     GPS acquisition."                             │
-  │                                                   │
-  │ ── if stopDetectionEnabled == true ─────────────  │
-  │                                                   │
-  │   SettingsExpander: "Detection thresholds"         │  ← new label
-  │     SliderRowContent: "Adaptive time" 10-90s      │  ← stopDetectionTimeSec, default 45
-  │     SliderRowDivider                               │
-  │     SliderRowContent: "Adaptive distance" 10-30m   │  ← stopDetectionDistanceM, default 15
-  │                                                   │
-  │   Divider                                          │
-  │                                                   │
-  │   SettingsToggleRow: "Delay GPS when still" [ON]  │  ← stopDetectionDelayGps
-  │     Description: "Space out GPS fixes to save      │
-  │       battery when stopped"                        │
+  │   Description: "Detect when boat is stationary"   │
+  ├─ Divider ─────────────────────────────────────────┤
+  │ SettingsToggleRow: "Delay GPS when still"    [ON] │  ← stopDetectionDelayGps
+  │   Description: "Space out GPS fixes to save       │
+  │                 battery when stopped"              │
+  ├─ Divider ─────────────────────────────────────────┤
+  │ SettingsExpander: "Detection thresholds"           │  ← new label
+  │   SliderRowContent: "Adaptive time" 15-60s steps=8│  ← stopDetectionTimeSec
+  │   SliderRowDivider                                 │
+  │   SliderRowContent: "Adaptive distance" 10-30m     │  ← stopDetectionDistanceM
   └────────────────────────────────────────────────────┘
 ```
 
@@ -140,7 +134,7 @@ SectionHeader: "Stop detection"                       ← new string
 
 ### 3. `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt`
 - Remove fields: `adaptiveWindowSec`, `adaptiveDistanceM`, `adaptiveIdleIntervalSec`
-- Add fields: `stopDetectionEnabled: Boolean` (default true), `stopDetectionTimeSec: Int` (default 45), `stopDetectionDistanceM: Int` (default 15), `stopDetectionDelayGps: Boolean` (default true)
+- Add fields: `stopDetectionEnabled: Boolean` (default true), `stopDetectionTimeSec: Int` (default 30), `stopDetectionDistanceM: Int` (default 20), `stopDetectionDelayGps: Boolean` (default true)
 - Remove SharedPreferences keys: `KEY_ADAPTIVE_WINDOW_S`, `KEY_ADAPTIVE_DISTANCE_M`, `KEY_ADAPTIVE_IDLE_S`
 - Add SharedPreferences keys for new fields
 - No migration logic — old keys are simply not read anymore
