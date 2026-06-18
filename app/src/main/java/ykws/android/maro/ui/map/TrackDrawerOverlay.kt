@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -69,6 +70,7 @@ fun TrackDrawerOverlay(
     onStopRecording: () -> Unit,
     onViewTrackList: () -> Unit,
     onDismiss: () -> Unit,
+    onOpenSettings: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     AnimatedVisibility(
@@ -103,10 +105,11 @@ fun TrackDrawerOverlay(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 24.dp, vertical = 8.dp)
+                            .padding(start = 24.dp, top = 0.dp, end = 8.dp, bottom = 8.dp)
                     ) {
-                        // ── Header: back button + "Maro II" title ────────
+                        // ── Header: back button + "Maro II" title + Settings button ───
                         Row(
+                            modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             IconButton(
@@ -129,6 +132,20 @@ fun TrackDrawerOverlay(
                                 fontSize = 24.sp,
                                 fontWeight = FontWeight.Bold
                             )
+                            Spacer(Modifier.weight(1f))
+                            IconButton(
+                                onClick = onOpenSettings,
+                                modifier = Modifier
+                                    .size(64.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(AppConfig.uiSettingsSwitchTrackInactive))
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Settings,
+                                    contentDescription = "Settings",
+                                    tint = Color(AppConfig.uiSettingsTextPrimary)
+                                )
+                            }
                         }
 
                         Spacer(Modifier.height(20.dp))
@@ -142,7 +159,7 @@ fun TrackDrawerOverlay(
                             letterSpacing = 1.sp
                         )
 
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(2.dp))
 
                         Row(
                             modifier = Modifier
@@ -180,7 +197,7 @@ fun TrackDrawerOverlay(
                             letterSpacing = 1.sp
                         )
 
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(2.dp))
 
                         // ── Track List row with ON/OFF toggle ──────────
                         val isActive = recorderState.state == TrackRecorderState.ON

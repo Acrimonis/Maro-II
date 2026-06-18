@@ -725,7 +725,6 @@ fun MapScreen(
                 onZoomChanged = viewModel::updateZoomLevel,
                 onMapViewReady = { mapView = it },
                 onRetry = { viewModel.loadCoastline() },
-                onOpenSettings = { showSettings = true },
                 onOpenTrackDrawer = { showTrackDrawer = !showTrackDrawer },
                 showTrackDrawer = showTrackDrawer,
                 showTrackHistory = showTrackHistory,
@@ -847,7 +846,8 @@ fun MapScreen(
                 onStartRecording = { trackViewModel.startRecording() },
                 onStopRecording = { trackViewModel.stopRecording() },
                 onViewTrackList = { showTrackDrawer = false; showTrackHistory = true },
-                onDismiss = { showTrackDrawer = false }
+                onDismiss = { showTrackDrawer = false },
+                onOpenSettings = { showTrackDrawer = false; showSettings = true }
             )
         }
 
@@ -964,7 +964,6 @@ private fun MapContent(
     onZoomChanged: (Double) -> Unit,
     onMapViewReady: (MapView) -> Unit,
     onRetry: () -> Unit,
-    onOpenSettings: () -> Unit,
     onOpenTrackDrawer: () -> Unit = {},
     showTrackDrawer: Boolean = false,
     showTrackHistory: Boolean = false,
@@ -1203,13 +1202,11 @@ private fun MapContent(
                         .alpha(ctAlpha),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    // Menu (hamburger) button — above Settings with spacing
+                    // Menu (hamburger) button
                     MapControlButton(
                         onClick = onOpenTrackDrawer,
                         icon = { HamburgerIcon() }
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    SettingsButton(onClick = onOpenSettings)
                 }
 
                 // cm (controls middle): fan buttons, fills remaining height
@@ -1835,32 +1832,6 @@ private fun EarthWaterIcon(
         )
     }
 }
-
-// ── Settings button (top-right of map, matching zoom button style) ──────────
-
-@Composable
-private fun SettingsButton(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Button(
-        onClick = onClick,
-        modifier = modifier.size(64.dp),
-        shape = CircleShape,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = ButtonColors.bg
-        ),
-        contentPadding = PaddingValues(0.dp)
-    ) {
-        Icon(
-            imageVector = Icons.Default.Settings,
-            contentDescription = stringResource(R.string.map_settings),
-            tint = ButtonColors.icon,
-            modifier = Modifier.size(32.dp)
-        )
-    }
-}
-
 
 
 /**
