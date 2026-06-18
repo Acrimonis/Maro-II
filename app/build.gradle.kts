@@ -86,6 +86,7 @@ android {
         buildConfigField("int", "TRACKING_RENDER_NB", propInt("tracking.render.nb", 5).coerceIn(0, 20).toString())
         buildConfigField("int", "TRACKING_COLOR_ACTIVE", propInt("tracking.color.active", 0xFF1565C0.toInt()).toString())
         buildConfigField("int", "TRACKING_COLOR_HISTORY", propInt("tracking.color.history", 0xFF1565C0.toInt()).toString())
+        buildConfigField("int", "TRACKING_COLOR_HISTORY_END", propInt("tracking.color.historyEnd", 0xFF0000FF.toInt()).toString())
         buildConfigField("int", "TRACKING_COLOR_PINNED", propInt("tracking.color.pinned", 0xFF1565C0.toInt()).toString())
 
         // ── Stop detection GPS dormant percent from maro.properties ──────

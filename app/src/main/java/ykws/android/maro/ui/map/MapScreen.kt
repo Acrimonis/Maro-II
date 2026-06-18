@@ -550,7 +550,7 @@ fun MapScreen(
     // Track the set of currently-rendered track IDs to avoid full teardown+rebuild.
     val renderedTrackIds = remember { mutableStateOf(setOf<String>()) }
 
-    LaunchedEffect(mapView, appSettings.tracksVisible, appSettings.trackingRenderNb, appSettings.trackingColorHistory, trackSummaries) {
+    LaunchedEffect(mapView, appSettings.tracksVisible, appSettings.trackingRenderNb, appSettings.trackingColorHistory, appSettings.trackingColorHistoryEnd, trackSummaries) {
         val mv = mapView ?: return@LaunchedEffect
 
         // Determine desired track ID set
@@ -593,8 +593,9 @@ fun MapScreen(
             } else emptyList()
         } else emptyList()
 
-        val baseColor = appSettings.trackingColorHistory
-        val baseRgb = baseColor and 0x00FFFFFF
+        // RGB interpolation between historyStart (most recent) and historyEnd (oldest)
+        val startColor = appSettings.trackingColorHistory
+        val endColor = appSettings.trackingColorHistoryEnd
         val total = sortedDesired.size
 
         for ((index, summary) in sortedDesired.withIndex()) {
@@ -606,7 +607,11 @@ fun MapScreen(
             val alphaFraction = if (total <= 1) 0.90f
                 else 0.90f - (index.toFloat() / (total - 1).toFloat()) * 0.80f
             val alphaInt = (alphaFraction * 255).toInt().coerceIn(0, 255)
-            val colorWithAlpha = (alphaInt shl 24) or baseRgb
+            val t = if (total <= 1) 0f else index.toFloat() / (total - 1).toFloat()
+            val r = ((startColor shr 16 and 0xFF) * (1f - t) + (endColor shr 16 and 0xFF) * t).toInt().coerceIn(0, 255)
+            val g = ((startColor shr 8 and 0xFF) * (1f - t) + (endColor shr 8 and 0xFF) * t).toInt().coerceIn(0, 255)
+            val b = ((startColor and 0xFF) * (1f - t) + (endColor and 0xFF) * t).toInt().coerceIn(0, 255)
+            val colorWithAlpha = (alphaInt shl 24) or (r shl 16) or (g shl 8) or b
             val strokeWidth = if (index == 0) 8f else 6f
 
             val polyline = org.osmdroid.views.overlay.Polyline().apply {
@@ -2941,11 +2946,18 @@ private fun NavigationSettings(
                         onColorSelected = { c -> onUpdateSettings { it.copy(trackingColorActive = c) } }
                     )
 
-                    // History track color
+                    // History track start color (most recent)
                     ColorSwatchRow(
-                        label = "History tracks",
+                        label = "Start color",
                         color = settings.trackingColorHistory,
                         onColorSelected = { c -> onUpdateSettings { it.copy(trackingColorHistory = c) } }
+                    )
+
+                    // History track end color (oldest)
+                    ColorSwatchRow(
+                        label = "End color",
+                        color = settings.trackingColorHistoryEnd,
+                        onColorSelected = { c -> onUpdateSettings { it.copy(trackingColorHistoryEnd = c) } }
                     )
 
                     // Pinned track color

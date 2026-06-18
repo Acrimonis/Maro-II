@@ -4,7 +4,7 @@
 - **Active Feature:** BoatTrace
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-18
-- **Last Bake:** 2026-06-18 20:20 (BoatTrace — render-tracks subfeature planned, 10-step implementation plan with review findings incorporated)
+- **Last Bake:** 2026-06-18 20:48 (BoatTrace — render-tracks implemented, fixes: delete cleanup, stroke width 10→8, reorder fan, close drawer on actions)
 - **Branch:** feature/new-tracking
 ## Routing Map
 | Keyword | Feature File |

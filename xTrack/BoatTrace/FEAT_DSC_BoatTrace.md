@@ -2,7 +2,7 @@
 name: BoatTrace
 status: active
 created: 2026-06-15 21:43
-modified: 2026-06-18 20:20
+modified: 2026-06-18 20:48
 active_subfeature: none
 ---
 
@@ -286,3 +286,15 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 ## Docs
 - `plans/boat-trace-design-discussion.md` — final design and implementation plan
 - `xTrack/BoatTrace/FEAT_PLN_BoatTrace_TrackList_Design.md` — track list UI requirements, animation design, component architecture
+- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_render-tracks.md` — render-tracks implementation plan
+
+## Implemented
+
+**render-tracks** — Configurable track history rendering on the map overlay:
+- `tracking.render.nb` (0-20, default 5), `tracking.color.active`, `tracking.color.history`, `tracking.color.pinned` in maro.properties + BuildConfig + AppSettings
+- History tracks rendered with decreasing transparency 90%→10% across N tracks; most recent track thicker (10f vs 6f)
+- Incremental overlay diff (no full teardown+rebuild on trackSummaries changes) + LRU cache in TrackViewModel
+- `TrackLayerIcon` in FanLayout (5th layer button, maxCount 5→6)
+- Active recording track uses `tracking.color.active` instead of hardcoded 0xFF1565C0
+- Unified "Tracking" collapsible section in Navigation tab (recording settings + render settings with preset color picker)
+- Build: ✅ `assembleDebug` passes
