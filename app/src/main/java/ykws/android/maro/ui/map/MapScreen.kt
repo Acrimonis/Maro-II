@@ -771,6 +771,7 @@ fun MapScreen(
                 isLandscape = isLandscape,
                 expandedFanId = expandedFanId,
                 onToggleFan = { id -> expandedFanId = if (expandedFanId == id) null else id },
+                onDismissFan = { expandedFanId = null },
                 showExitBanner = showExitBanner,
                 rasterProgress = rasterProgress,
                 modifier = Modifier
@@ -987,6 +988,7 @@ private fun MapContent(
     onToggleDepthLayer: () -> Unit,
     isLandscape: Boolean = false,
     expandedFanId: ControlId? = null,
+    onDismissFan: () -> Unit = {},
     onToggleFan: (ControlId) -> Unit = {},
     showExitBanner: Boolean,
     rasterProgress: RasterProgress? = null,
@@ -1043,6 +1045,16 @@ private fun MapContent(
             onMapViewReady = onMapViewReady,
             modifier = Modifier.fillMaxSize()
         )
+
+        // ── Scrim: transparent full-screen tap catcher when any fan is expanded ──
+        //     Placed between MapView and overlay Row so it catches taps on empty
+        //     areas of the screen (passing through non-clickable overlays above),
+        //     but fan children, settings, and zoom buttons (in the Row above) still
+        //     consume their own taps. Generic — dismisses whatever fan is open via
+        //     onDismissFan(), works for any number of future fans.
+        if (expandedFanId != null) {
+            Box(modifier = Modifier.fillMaxSize().clickable { onDismissFan() })
+        }
 
         // ── Layer 0 overlays: cap (bottom), arrow (middle), marker (top) ──
         // ── Layer 0 overlays: direction line + center marker ─────────────

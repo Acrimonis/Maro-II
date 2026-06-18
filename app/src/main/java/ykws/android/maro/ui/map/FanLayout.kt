@@ -46,7 +46,10 @@ import kotlin.math.sin
  * - Children receive [isActive] to visually indicate toggle state.
  * - Fan stays open after child toggle ([FanConfig.stayOpenAfterToggle]).
  * - Active badge shown on parent when [FanConfig.showActiveBadge] is true.
- * - No scrim — closes on parent tap or external back handler.
+ * - Scrim dismiss: a transparent full-screen scrim is placed below the control
+ *   stack when any fan is expanded; tapping anywhere that isn't a fan child,
+ *   settings, or zoom button closes the fan. Also closes on parent anchor tap
+ *   or Android Back (handled externally by [MapContent]).
  *
  * Animation:
  * - Expand: staggered (70 ms per child), 280 ms tween, FastOutSlowIn.
@@ -181,15 +184,11 @@ fun FanLayout(
             }
 
             // Active badge — 18 dp circle at TopEnd, outside circle clip.
-            // Always shown when showActiveBadge is true; dimmed (inactive.alpha) when
-            // no children are active/visible (disabled state), full alpha when active.
+            // Always shown when showActiveBadge is true; always full color regardless of
+            // how many children are toggled on.
             if (config.showActiveBadge) {
-                val isEnabled = config.activeChildCount > 0
-                val badgeAlpha = if (isEnabled) ButtonColors.badgeActiveAlpha else ButtonColors.badgeInactiveAlpha
-                // Multiply by ButtonColors.bg.alpha to preserve the baked-in 80% opacity
-                // from ui.button.background=#CC16213E; copy(alpha=...) would replace it entirely.
-                val bgColor = ButtonColors.bg.copy(alpha = ButtonColors.bg.alpha * badgeAlpha)
-                val textColor = ButtonColors.badgeText.copy(alpha = badgeAlpha)
+                val bgColor = ButtonColors.bg
+                val textColor = ButtonColors.badgeText
                 Box(
                     modifier = Modifier
                         .size(18.dp)

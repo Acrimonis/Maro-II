@@ -1,10 +1,10 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** BoatTrace
+- **Active Feature:** ArcLayout
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-18
-- **Last Bake:** 2026-06-18 19:10 (Ui_Settings — Track Drawer Settings button, padding reduction, removed map-level Settings button. BUILD SUCCESSFUL)
+- **Last Bake:** 2026-06-18 19:36 (ArcLayout — scrim dismiss ported from feature/more-colors, badge dimming removed. MapScreen + FanLayout updated)
 - **Branch:** feature/new-tracking
 ## Routing Map
 | Keyword | Feature File |
@@ -50,7 +50,7 @@
 | Ui_Settings | Settings page UI, persistence, widgets, and UX enhancements | 2026-06-09 15:28 | 2026-06-18 19:10 | active |
 | **Navigation** | **Navigation aids — heading/speed arrow and direction line on map overlay** | **2026-06-10 08:40** | **2026-06-11 11:55** | **active** |
 | **RegulatedZones** | **Maritime regulatory zones — multi-source normalization (SHOM INSPIRE + IGN Natura 2000), sealed classification, 8-category icon mapping, keyword-driven display logic** | **2026-06-11 18:00** | **2026-06-12 22:37** | **active** |
-| **ArcLayout** | **Layer toggle arc menu — pure-Compose semicircle fan-out with layer toggles, FanLayout framework, fixed child centering using effectiveTheta=180/currentCount** | **2026-06-13 07:34** | **2026-06-14 14:50** | **active** |
+| **ArcLayout** | **Layer toggle arc menu — pure-Compose semicircle fan-out with layer toggles, FanLayout framework, fixed child centering, scrim dismiss on external tap** | **2026-06-13 07:34** | **2026-06-18 19:36** | **active** |
 | **ZoneTile** | **Zone information tiles and map overlay rendering — zone-ahead cone/line, speed zone display, ETA, zone state management** | **2026-06-17 09:45** | **2026-06-17 09:45** | **active** |
 | **Zone300SpeedBadge** | **300m zone speed limit badge integrated into regulated zone icon stack as highest-priority SPEED_LIMIT entry** | **2026-06-14 17:42** | **2026-06-14 17:42** | **done** |
 | **BoatTrace** | **Boat movement tracking: record tracks from GPS fixes, persist, display on map with age-based opacity, GPX export, track history UI** | **2026-06-15 21:43** | **2026-06-18 16:59** | **active** |
