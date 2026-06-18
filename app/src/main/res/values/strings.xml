@@ -62,14 +62,16 @@
     <string name="settings_fps_label">Map refresh rate</string>
     <string name="settings_fps_desc">Lower = less battery, less smooth animation</string>
     <string name="settings_idle_section_label">Stop detection</string>
-    <string name="settings_idle_section_desc">When the boat stops moving, GPS fixes space out to save battery; everything returns to normal as soon as you set off again</string>
-    <string name="settings_idle_interval_label">Idle duration</string>
-    <string name="settings_idle_interval_desc">Delay between two GPS fixes when stopped · longer = less battery</string>
-    <string name="settings_advanced_stop_label">Stop detection tuning</string>
+    <string name="settings_idle_section_desc">Detect when the boat is stationary and save battery by spacing out GPS fixes</string>
+    <string name="settings_stop_enable_label">Enable stop detection</string>
+    <string name="settings_stop_enable_desc">Detect when boat is stationary. Doing so will also allow to save battery on GPS acquisition.</string>
+    <string name="settings_stop_delay_label">Delay GPS when still</string>
+    <string name="settings_stop_delay_desc">Space out GPS fixes to save battery when stopped</string>
+    <string name="settings_stop_thresholds_label">Detection thresholds</string>
     <string name="settings_window_label">Adaptive time</string>
-    <string name="settings_window_desc">Time without moving before reducing GPS frequency</string>
+    <string name="settings_window_desc">How long the boat must stay within the adaptive distance before being considered stopped</string>
     <string name="settings_adaptive_dist_label">Adaptive distance</string>
-    <string name="settings_adaptive_dist_desc">Below this movement, you are considered \"stopped\"</string>
+    <string name="settings_adaptive_dist_desc">How far the boat can move within the adaptive time before being considered stopped</string>
     <string name="settings_section_advanced">Advanced</string>
     <string name="settings_alert_label">300 m zone alert</string>
     <string name="settings_alert_desc">Automatically re-shows the hidden 300 m zone when approaching the coast</string>

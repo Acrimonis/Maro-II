@@ -39,12 +39,12 @@ import ykws.android.maro.data.regulation.ZoneDisplayCategory
  *                             acquisition presets write this + [gpsActiveMinDistanceM]. Default 2.
  * @property gpsActiveMinDistanceM  GPS mode (moving): minimum metres of movement between fixes
  *                             (1–25). Default 5.
- * @property adaptiveWindowSec      Adaptive idle detector: seconds of sub-threshold movement before
- *                             dropping to the idle fix rate (15–60). Default 30.
- * @property adaptiveDistanceM      Adaptive idle detector: max displacement (m) still counted as
- *                             "stationary" (10–30). Default 20.
- * @property adaptiveIdleIntervalSec  Adaptive idle: seconds between fixes once stationary (4–15).
- *                             Default 6.
+ * @property stopDetectionEnabled   Master toggle for stop detection. When off, policy always ACTIVE.
+ * @property stopDetectionTimeSec   Seconds of sub-threshold movement before isStill() returns true
+ *                             (10–90). Default 45.
+ * @property stopDetectionDistanceM Max displacement (m) still counted as "stationary" (10–30).
+ *                             Default 15.
+ * @property stopDetectionDelayGps  When true, GPS fixes space out when isStill() (battery saving).
  * @property mapRefreshFps     GPS auto-follow re-render ceiling in frames/s (5–50). Lower = fewer
  *                             whole-map repaints = less battery. Default 25.
  * @property emodnetShallowCutoffM  EMODnet shallow cutoff (m): EMODnet point readings shallower
@@ -64,9 +64,10 @@ data class AppSettings(
     val recenterDelaySeconds: Int = 5,
     val gpsActiveIntervalSec: Int = 2,
     val gpsActiveMinDistanceM: Float = 5f,
-    val adaptiveWindowSec: Int = 30,
-    val adaptiveDistanceM: Int = 20,
-    val adaptiveIdleIntervalSec: Int = 6,
+    val stopDetectionEnabled: Boolean = true,
+    val stopDetectionTimeSec: Int = 45,
+    val stopDetectionDistanceM: Int = 15,
+    val stopDetectionDelayGps: Boolean = true,
     val mapRefreshFps: Int = 25,
     val mapCenterLat: Double = Double.NaN,
     val mapCenterLon: Double = Double.NaN,
@@ -217,9 +218,10 @@ class SettingsManager(
         recenterDelaySeconds = prefs.getInt(KEY_RECENTER_DELAY_S, 5),
         gpsActiveIntervalSec = prefs.getInt(KEY_GPS_INTERVAL_S, 2),
         gpsActiveMinDistanceM = prefs.getFloat(KEY_GPS_MIN_DISTANCE_M, 5f),
-        adaptiveWindowSec     = prefs.getInt(KEY_ADAPTIVE_WINDOW_S, 30),
-        adaptiveDistanceM     = prefs.getInt(KEY_ADAPTIVE_DISTANCE_M, 20),
-        adaptiveIdleIntervalSec = prefs.getInt(KEY_ADAPTIVE_IDLE_S, 6),
+        stopDetectionEnabled     = prefs.getBoolean(KEY_STOP_DETECTION_ENABLED, true),
+        stopDetectionTimeSec     = prefs.getInt(KEY_STOP_DETECTION_TIME_S, 45),
+        stopDetectionDistanceM   = prefs.getInt(KEY_STOP_DETECTION_DISTANCE_M, 15),
+        stopDetectionDelayGps    = prefs.getBoolean(KEY_STOP_DETECTION_DELAY_GPS, true),
         mapRefreshFps    = prefs.getInt(KEY_MAP_REFRESH_FPS, 25),
         mapCenterLat     = prefs.getFloat(KEY_MAP_CENTER_LAT, Float.NaN).toDouble(),
         mapCenterLon     = prefs.getFloat(KEY_MAP_CENTER_LON, Float.NaN).toDouble(),
@@ -294,9 +296,10 @@ class SettingsManager(
             .putInt(KEY_RECENTER_DELAY_S, updated.recenterDelaySeconds)
             .putInt(KEY_GPS_INTERVAL_S, updated.gpsActiveIntervalSec)
             .putFloat(KEY_GPS_MIN_DISTANCE_M, updated.gpsActiveMinDistanceM)
-            .putInt(KEY_ADAPTIVE_WINDOW_S, updated.adaptiveWindowSec)
-            .putInt(KEY_ADAPTIVE_DISTANCE_M, updated.adaptiveDistanceM)
-            .putInt(KEY_ADAPTIVE_IDLE_S, updated.adaptiveIdleIntervalSec)
+            .putBoolean(KEY_STOP_DETECTION_ENABLED, updated.stopDetectionEnabled)
+            .putInt(KEY_STOP_DETECTION_TIME_S, updated.stopDetectionTimeSec)
+            .putInt(KEY_STOP_DETECTION_DISTANCE_M, updated.stopDetectionDistanceM)
+            .putBoolean(KEY_STOP_DETECTION_DELAY_GPS, updated.stopDetectionDelayGps)
             .putInt(KEY_MAP_REFRESH_FPS, updated.mapRefreshFps)
             .putFloat(KEY_MAP_CENTER_LAT, updated.mapCenterLat.toFloat())
             .putFloat(KEY_MAP_CENTER_LON, updated.mapCenterLon.toFloat())
@@ -360,9 +363,10 @@ class SettingsManager(
         private const val KEY_RECENTER_DELAY_S = "recenter_delay_s"
         private const val KEY_GPS_INTERVAL_S = "gps_interval_s"
         private const val KEY_GPS_MIN_DISTANCE_M = "gps_min_distance_m"
-        private const val KEY_ADAPTIVE_WINDOW_S = "adaptive_window_s"
-        private const val KEY_ADAPTIVE_DISTANCE_M = "adaptive_distance_m"
-        private const val KEY_ADAPTIVE_IDLE_S = "adaptive_idle_s"
+        private const val KEY_STOP_DETECTION_ENABLED = "stop_detection_enabled"
+        private const val KEY_STOP_DETECTION_TIME_S = "stop_detection_time_s"
+        private const val KEY_STOP_DETECTION_DISTANCE_M = "stop_detection_distance_m"
+        private const val KEY_STOP_DETECTION_DELAY_GPS = "stop_detection_delay_gps"
         private const val KEY_MAP_REFRESH_FPS = "map_refresh_fps"
         private const val KEY_MAP_CENTER_LAT = "map_center_lat"
         private const val KEY_MAP_CENTER_LON = "map_center_lon"

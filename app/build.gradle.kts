@@ -81,6 +81,10 @@ android {
         buildConfigField("double", "TRACK_ORIGIN_LON", propDouble("track.originLon.default", 7.00).toString())
         buildConfigField("double", "TRACK_GEOFENCE_RADIUS_M", propDouble("track.geofenceRadiusM", 500.0).toString())
         buildConfigField("boolean", "TRACK_ENABLED_DEFAULT", propBool("track.enabled.default", false).toString())
+
+        // ── Stop detection GPS dormant percent from maro.properties ──────
+        buildConfigField("int", "STOP_DETECTION_GPS_DORMANT_PCT",
+            propInt("stopDetection.gpsDormantPct", 80).toString())
     }
 
     compileOptions {

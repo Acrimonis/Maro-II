@@ -1,5 +1,7 @@
 package ykws.android.maro.data.track
 
+import android.util.Log
+
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -24,8 +26,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.UUID
 
-/** Speed threshold in m/s (~1.55 kn) — below this the GPS wakespeed considers the boat stationary. */
-private const val WAKE_SPEED_MPS = 0.8f
+private const val TAG = "MaroII_Track"
 
 /** Duration (ms) speed must be above threshold before auto-start. */
 private const val DEBOUNCE_MS = 10_000L
@@ -48,7 +49,8 @@ data class TrackRecorderUiState(
     val maxSpeedKn: Float = 0f,
     val avgSpeedKn: Float = 0f,
     val distanceNm: Float = 0f,
-    val recordingPoints: List<TrackPoint> = emptyList()
+    val recordingPoints: List<TrackPoint> = emptyList(),
+    val isMoving: Boolean = false
 )
 
 /**
@@ -128,8 +130,12 @@ class TrackRecorder(
 
     /** Manually start recording (bypasses auto-detection). */
     fun startManual() {
-        if (state != TrackRecorderState.IDLE) return
+        if (state != TrackRecorderState.IDLE) {
+            Log.d(TAG, "startManual: ignored — state=$state (not IDLE)")
+            return
+        }
         policy.reset()
+        Log.d(TAG, "startManual: → beginRecording")
         beginRecording(isManual = true)
     }
 
@@ -149,10 +155,8 @@ class TrackRecorder(
                     val mode = policy.onFix(
                         nowMs = System.currentTimeMillis(),
                         pos = fix.position,
-                        speedMps = fix.speedMps,
                         windowMs = adaptiveWindowMs,
-                        thresholdM = adaptiveThresholdM,
-                        wakeSpeedMps = WAKE_SPEED_MPS
+                        thresholdM = adaptiveThresholdM
                     )
                     if (mode == AcquisitionMode.ACTIVE) {
                         // Debounce: must stay ACTIVE for DEBOUNCE_MS
@@ -172,10 +176,8 @@ class TrackRecorder(
                     val mode = policy.onFix(
                         nowMs = System.currentTimeMillis(),
                         pos = fix.position,
-                        speedMps = fix.speedMps,
                         windowMs = adaptiveWindowMs,
-                        thresholdM = adaptiveThresholdM,
-                        wakeSpeedMps = WAKE_SPEED_MPS
+                        thresholdM = adaptiveThresholdM
                     )
                     if (mode == AcquisitionMode.ACTIVE) {
                         val now = System.currentTimeMillis()
@@ -192,36 +194,8 @@ class TrackRecorder(
             }
 
             TrackRecorderState.RECORDING -> {
+                Log.v(TAG, "processFix(RECORDING): speed=${fix.speedMps} pos=(${fix.position.latitude},${fix.position.longitude})")
                 addPoint(fix)
-                // Auto-pause: inside geofence AND policy says IDLE
-                if (insideGeofence && geofenceEnabled) {
-                    val mode = policy.onFix(
-                        nowMs = System.currentTimeMillis(),
-                        pos = fix.position,
-                        speedMps = fix.speedMps,
-                        windowMs = adaptiveWindowMs,
-                        thresholdM = adaptiveThresholdM,
-                        wakeSpeedMps = WAKE_SPEED_MPS
-                    )
-                    if (mode == AcquisitionMode.IDLE) {
-                        // Inside geofence + still for window → finalize
-                        finalizeTrack()
-                    }
-                }
-                // Also check raw speed for pause (policy might not catch instant drops)
-                if (fix.speedMps != null && fix.speedMps < WAKE_SPEED_MPS && !insideGeofence) {
-                    val mode = policy.onFix(
-                        nowMs = System.currentTimeMillis(),
-                        pos = fix.position,
-                        speedMps = fix.speedMps,
-                        windowMs = adaptiveWindowMs,
-                        thresholdM = adaptiveThresholdM,
-                        wakeSpeedMps = WAKE_SPEED_MPS
-                    )
-                    if (mode == AcquisitionMode.IDLE) {
-                        pauseRecording()
-                    }
-                }
             }
 
             TrackRecorderState.PAUSED -> {
@@ -230,16 +204,14 @@ class TrackRecorder(
                     val mode = policy.onFix(
                         nowMs = System.currentTimeMillis(),
                         pos = fix.position,
-                        speedMps = fix.speedMps,
                         windowMs = adaptiveWindowMs,
                         thresholdM = adaptiveThresholdM,
-                        wakeSpeedMps = WAKE_SPEED_MPS
                     )
                     if (mode == AcquisitionMode.ACTIVE) {
                         resumeRecording()
                     }
                 }
-                if (!geofenceEnabled && fix.speedMps != null && fix.speedMps > WAKE_SPEED_MPS) {
+                if (!geofenceEnabled && fix.speedMps != null && fix.speedMps > 0f) {
                     resumeRecording()
                 }
             }
@@ -273,9 +245,11 @@ class TrackRecorder(
             TrackRecorderUiState(
                 state = TrackRecorderState.RECORDING,
                 currentTrackId = id,
-                currentTrackName = name
+                currentTrackName = name,
+                isMoving = false
             )
         }
+        Log.d(TAG, "beginRecording: id=$id name=$name isManual=$isManual startFix=${startFix != null}")
         _events.tryEmit(Started)
         startCheckpointJob()
 
@@ -303,6 +277,24 @@ class TrackRecorder(
 
     private fun addPoint(fix: GpsFix) {
         val track = currentTrack ?: return
+
+        // Feed the fix to the policy and let isStill() determine movement.
+        // No separate speed threshold — the policy handles it internally.
+        policy.onFix(
+            nowMs = System.currentTimeMillis(),
+            pos = fix.position,
+            windowMs = adaptiveWindowMs,
+            thresholdM = adaptiveThresholdM
+        )
+        val moving = !policy.isStill()
+        _uiState.update { it.copy(isMoving = moving) }
+
+        val speedKn = fix.speedMps?.let { it * 1.94384f }
+        Log.d(TAG, "addPoint: speed=${speedKn} kn isStill=${policy.isStill()} moving=$moving state=$state")
+
+        // Skip point capture when stationary (still tracking, just not recording points)
+        if (!moving) return
+
         val now = System.currentTimeMillis()
         val timeOffsetSec = ((now - recordingStartTimeMs - totalPausedDurationMs) / 1000).toInt()
         val point = TrackPoint(

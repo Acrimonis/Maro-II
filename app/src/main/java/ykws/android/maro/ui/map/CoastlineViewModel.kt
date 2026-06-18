@@ -323,7 +323,7 @@ class CoastlineViewModel(
 
     /**
      * True when the GPS adaptive policy has classified the device as stationary
-     * (within [AppSettings.adaptiveDistanceM] of an anchor for [AppSettings.adaptiveWindowSec]).
+     * (within [AppSettings.stopDetectionDistanceM] of an anchor for [AppSettings.stopDetectionTimeSec]).
      * Used by zone auto-show and speed zone decisions instead of a hardcoded SOG threshold.
      */
     val isStopped: StateFlow<Boolean> = _acquisitionMode
@@ -606,13 +606,16 @@ class CoastlineViewModel(
         val gpsParams = combine(
             enabled,
             settings.distinctUntilChangedBy {
-                Triple(it.gpsActiveIntervalSec, it.gpsActiveMinDistanceM, it.adaptiveIdleIntervalSec)
+                listOf(it.gpsActiveIntervalSec, it.gpsActiveMinDistanceM, it.stopDetectionEnabled, it.stopDetectionTimeSec, it.stopDetectionDistanceM, it.stopDetectionDelayGps)
             },
             _acquisitionMode
         ) { on, s, mode ->
-            val intervalMs =
-                if (mode == AcquisitionMode.IDLE) s.adaptiveIdleIntervalSec * 1_000L
-                else s.gpsActiveIntervalSec * 1_000L
+            val intervalMs = if (mode == AcquisitionMode.IDLE && s.stopDetectionDelayGps) {
+                // Dormant interval = adaptiveTime * gpsDormantPct / 100
+                s.stopDetectionTimeSec * 1000L * BuildConfig.STOP_DETECTION_GPS_DORMANT_PCT / 100
+            } else {
+                s.gpsActiveIntervalSec * 1_000L
+            }
             // Use gpsIdleMinDistanceM (default 0) when idle so tiny drifts update position.
             val distM = if (mode == AcquisitionMode.IDLE) s.gpsIdleMinDistanceM else s.gpsActiveMinDistanceM
             GpsParams(on, intervalMs, distM)
@@ -666,8 +669,8 @@ class CoastlineViewModel(
                 // Always-on adaptive cadence: drop to idle when effectively stationary.
                 val s = settings.value
                 _acquisitionMode.value = adaptivePolicy.onFix(
-                    now, fix.position, fix.speedMps,
-                    s.adaptiveWindowSec * 1_000L, s.adaptiveDistanceM.toDouble()
+                    now, fix.position,
+                    s.stopDetectionTimeSec * 1_000L, s.stopDetectionDistanceM.toDouble()
                 )
             }
             .catch { e ->

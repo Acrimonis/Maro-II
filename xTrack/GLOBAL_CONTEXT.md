@@ -2,9 +2,9 @@
 
 ## Active Session Pointers
 - **Active Feature:** BoatTrace
-- **Active Subfeature:** verification
+- **Active Subfeature:** tracking-status-n-triggers
 - **Last Updated:** 2026-06-18
-- **Last Bake:** 2026-06-18 03:01 (BoatTrace — track list UI redesign, swipe-to-delete, inline editing)
+- **Last Bake:** 2026-06-18 12:44 (BoatTrace — adaptive-isstill implemented: pure position-only AdaptiveGpsPolicy, Stop Detection settings, new UI section. BUILD SUCCESSFUL)
 - **Branch:** feature/new-tracking
 ## Routing Map
 | Keyword | Feature File |
@@ -53,7 +53,7 @@
 | **ArcLayout** | **Layer toggle arc menu — pure-Compose semicircle fan-out with layer toggles, FanLayout framework, fixed child centering using effectiveTheta=180/currentCount** | **2026-06-13 07:34** | **2026-06-14 14:50** | **active** |
 | **ZoneTile** | **Zone information tiles and map overlay rendering — zone-ahead cone/line, speed zone display, ETA, zone state management** | **2026-06-17 09:45** | **2026-06-17 09:45** | **active** |
 | **Zone300SpeedBadge** | **300m zone speed limit badge integrated into regulated zone icon stack as highest-priority SPEED_LIMIT entry** | **2026-06-14 17:42** | **2026-06-14 17:42** | **done** |
-| **BoatTrace** | **Boat movement tracking: record tracks from GPS fixes, persist, display on map with age-based opacity, GPX export, track history UI** | **2026-06-15 21:43** | **2026-06-17 15:30** | **active** |
+| **BoatTrace** | **Boat movement tracking: record tracks from GPS fixes, persist, display on map with age-based opacity, GPX export, track history UI** | **2026-06-15 21:43** | **2026-06-18 12:44** | **active** |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).

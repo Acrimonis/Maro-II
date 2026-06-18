@@ -61,6 +61,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -387,7 +388,7 @@ private fun TrackCardContent(
     var commentField by remember(summary.id) {
         mutableStateOf(TextFieldValue(summary.comment, TextRange(0, summary.comment.length)))
     }
-    val visible by remember(summary.id) { mutableStateOf(summary.visibleOnMap) }
+    val visible = summary.visibleOnMap
 
     val keyboardController = LocalSoftwareKeyboardController.current
     val nameFocus = remember { FocusRequester() }
@@ -416,7 +417,6 @@ private fun TrackCardContent(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(Color(AppConfig.uiSettingsCardBackground))
-            .padding(8.dp)
     ) {
         // ── Date + time range + action icons ────────────────────────
         val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.US) }
@@ -429,7 +429,7 @@ private fun TrackCardContent(
         val endTime = summary.endTimeMs?.let { timeFormat.format(Date(it)) }
 
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -453,7 +453,10 @@ private fun TrackCardContent(
         }
 
         Spacer(Modifier.height(2.dp))
-        HorizontalDivider(thickness = 0.5.dp, color = Color(AppConfig.uiSettingsDivider))
+        HorizontalDivider(
+            modifier = Modifier.padding(horizontal = 8.dp),
+            thickness = 0.5.dp, color = Color(AppConfig.uiSettingsDivider)
+        )
         Spacer(Modifier.height(2.dp))
 
         // ── Editable name ───────────────────────────────────────────
@@ -468,11 +471,13 @@ private fun TrackCardContent(
                     fontSize = 15.sp, fontWeight = FontWeight.SemiBold
                 ),
                 colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color(AppConfig.uiSettingsSwitchTrackInactive),
-                    unfocusedContainerColor = Color(AppConfig.uiSettingsCardBackground),
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
                     focusedTextColor = Color(AppConfig.uiSettingsTextPrimary),
                     unfocusedTextColor = Color(AppConfig.uiSettingsTextPrimary),
-                    cursorColor = Color(AppConfig.uiSettingsTextPrimary)
+                    cursorColor = Color(AppConfig.uiSettingsTextPrimary),
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent
                 ),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = {
@@ -480,7 +485,9 @@ private fun TrackCardContent(
                     editingField = null
                     keyboardController?.hide()
                 }),
-                modifier = Modifier.fillMaxWidth().focusRequester(nameFocus)
+                modifier = Modifier.fillMaxWidth()
+                    .focusRequester(nameFocus)
+                    .heightIn(min = 0.dp)
             )
         } else {
             Text(
@@ -489,8 +496,14 @@ private fun TrackCardContent(
                 fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth()
-                    .clickable { editingField = EditingField.NAME }
-                    .padding(vertical = 4.dp)
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                    .clickable {
+                        // Commit currently-edited field before switching
+                        if (editingField == EditingField.COMMENT) {
+                            onUpdateTrack(summary.id, null, commentField.text, null)
+                        }
+                        editingField = EditingField.NAME
+                    }
             )
         }
 
@@ -506,8 +519,8 @@ private fun TrackCardContent(
                     color = Color(AppConfig.uiSettingsTextMuted), fontSize = 13.sp
                 ),
                 colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color(AppConfig.uiSettingsSwitchTrackInactive),
-                    unfocusedContainerColor = Color(AppConfig.uiSettingsCardBackground),
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
                     focusedTextColor = Color(AppConfig.uiSettingsTextMuted),
                     unfocusedTextColor = Color(AppConfig.uiSettingsTextMuted),
                     cursorColor = Color(AppConfig.uiSettingsTextPrimary),
@@ -520,7 +533,8 @@ private fun TrackCardContent(
                     editingField = null
                     keyboardController?.hide()
                 }),
-                modifier = Modifier.fillMaxWidth().focusRequester(commentFocus)
+                modifier = Modifier.fillMaxWidth()
+                    .focusRequester(commentFocus)
                     .heightIn(min = 0.dp)
             )
         } else {
@@ -530,13 +544,16 @@ private fun TrackCardContent(
                         else Color(AppConfig.uiSettingsTextMuted),
                 fontSize = 13.sp, maxLines = 3,
                 modifier = Modifier.fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
                     .clickable { editingField = EditingField.COMMENT }
-                    .padding(vertical = 4.dp)
             )
         }
 
         Spacer(Modifier.height(2.dp))
-        HorizontalDivider(thickness = 0.5.dp, color = Color(AppConfig.uiSettingsDivider))
+        HorizontalDivider(
+            modifier = Modifier.padding(horizontal = 8.dp),
+            thickness = 0.5.dp, color = Color(AppConfig.uiSettingsDivider)
+        )
         Spacer(Modifier.height(2.dp))
 
         // ── Stats grid: 3-column × 2-row ───────────────────────────
@@ -661,7 +678,8 @@ private fun fmtDistance(distanceNm: Float): String {
 
 /** Format a float with 1 decimal place using comma as separator: 4.2 → "4,2". */
 private fun fmtDecimal(value: Float): String {
-    val whole = value.toInt()
-    val tenth = ((value - whole) * 10).toInt().coerceIn(0, 9)
+    val rounded = (value * 10).roundToInt()
+    val whole = rounded / 10
+    val tenth = rounded % 10
     return "$whole,$tenth"
 }

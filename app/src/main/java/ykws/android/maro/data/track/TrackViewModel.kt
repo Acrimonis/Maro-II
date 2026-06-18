@@ -53,8 +53,8 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
             geofenceOriginLon = settings.trackOriginLon,
             geofenceRadiusM = settings.trackGeofenceRadiusM,
             geofenceEnabled = settings.trackGeofenceEnabled,
-            adaptiveWindowMs = settings.adaptiveWindowSec * 1000L,
-            adaptiveThresholdM = settings.adaptiveDistanceM.toDouble()
+            adaptiveWindowMs = settings.stopDetectionTimeSec * 1000L,
+            adaptiveThresholdM = settings.stopDetectionDistanceM.toDouble()
         )
         recorder = rec
         rec.start(gpsFlow)
@@ -98,8 +98,8 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
             geofenceOriginLon = settings?.trackOriginLon ?: 7.00,
             geofenceRadiusM = settings?.trackGeofenceRadiusM ?: 500.0,
             geofenceEnabled = settings?.trackGeofenceEnabled ?: true,
-            adaptiveWindowMs = (settings?.adaptiveWindowSec ?: 30) * 1000L,
-            adaptiveThresholdM = (settings?.adaptiveDistanceM ?: 20).toDouble()
+            adaptiveWindowMs = (settings?.stopDetectionTimeSec ?: 45) * 1000L,
+            adaptiveThresholdM = (settings?.stopDetectionDistanceM ?: 15).toDouble()
         )
         rec.start(kotlinx.coroutines.flow.emptyFlow())
         recorder = rec

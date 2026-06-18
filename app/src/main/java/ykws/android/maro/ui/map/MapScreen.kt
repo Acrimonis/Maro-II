@@ -488,13 +488,13 @@ fun MapScreen(
             viewModel.mapCenter,
             viewModel.navigationState
         ) { gpsPos, center, nav ->
+            val isGps = appSettings.gpsMode
             val pos = gpsPos ?: center
-            val speedMs = if (appSettings.gpsMode) {
-                nav.speedKnots?.let { it * 0.514444f }
-            } else {
-                nav.demoSpeedKnots?.let { it * 0.514444f }
-            }
-            val bearing = if (appSettings.gpsMode) nav.bearingDeg else nav.demoBearingDeg
+            val speedKn = if (isGps) nav.speedKnots else nav.demoSpeedKnots
+            val speedMs = speedKn?.let { it * 0.514444f }
+            val bearing = if (isGps) nav.bearingDeg else nav.demoBearingDeg
+            android.util.Log.d("MaroII_Track",
+                "GPSflow: gpsPos=${gpsPos != null} demoSpeed=${nav.demoSpeedKnots} speedKn=$speedKn speedMs=$speedMs")
             ykws.android.maro.data.location.GpsFix(
                 position = pos,
                 bearingDeg = bearing,
@@ -2840,100 +2840,85 @@ private fun SystemSettings(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // ── Idle saving — moved from Navigation tab ─────────────────────
+        // ── Stop detection ──────────────────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_idle_section_label))
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Grouped card: idle interval slider + advanced expander
+        // Grouped card: enable toggle + delay toggle + thresholds expander
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
                 .background(ComposeColor(AppConfig.uiSettingsCardBackground))
         ) {
-            // Adaptive idle interval slider (inline, no separate card bg)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_idle_interval_label),
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_idle_interval_desc),
-                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = 13.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Text(
-                    text = stringResource(R.string.settings_value_seconds, settings.adaptiveIdleIntervalSec),
-                    color = ComposeColor(AppConfig.uiSettingsAccent),
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-            Slider(
-                value = settings.adaptiveIdleIntervalSec.toFloat(),
-                onValueChange = { v -> onUpdateSettings { it.copy(adaptiveIdleIntervalSec = v.roundToInt()) } },
-                valueRange = 4f..15f,
-                steps = 10,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .padding(bottom = 8.dp),
-                colors = SliderDefaults.colors(
-                    thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                    activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
-                    inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                )
+            // Enable stop detection toggle
+            SettingsToggleRow(
+                label = stringResource(R.string.settings_stop_enable_label),
+                description = stringResource(R.string.settings_stop_enable_desc),
+                checked = settings.stopDetectionEnabled,
+                onCheckedChange = { on -> onUpdateSettings { it.copy(stopDetectionEnabled = on) } }
             )
 
-            // Thin divider
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(0.5.dp)
-                    .background(ComposeColor(AppConfig.uiSettingsDivider))
-            )
+            // Conditional content: only shown when stop detection is enabled
+            if (settings.stopDetectionEnabled) {
+                // Thin divider
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(0.5.dp)
+                        .background(ComposeColor(AppConfig.uiSettingsDivider))
+                )
 
-            // Advanced stop-detection thresholds expander
-            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                var adaptiveAdvanced by remember { mutableStateOf(false) }
-                SettingsExpander(
-                    label = stringResource(R.string.settings_advanced_stop_label),
-                    expanded = adaptiveAdvanced,
-                    onToggle = { adaptiveAdvanced = !adaptiveAdvanced }
-                ) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    SettingsSliderGroup {
-                        SliderRowContent(
-                            label = stringResource(R.string.settings_window_label),
-                            description = stringResource(R.string.settings_window_desc),
-                            valueLabel = stringResource(R.string.settings_value_seconds, settings.adaptiveWindowSec),
-                            value = settings.adaptiveWindowSec.toFloat(),
-                            valueRange = 15f..60f,
-                            steps = 8,
-                            onValueChange = { v -> onUpdateSettings { it.copy(adaptiveWindowSec = (v / 5f).roundToInt() * 5) } }
-                        )
-                        SliderRowDivider()
-                        SliderRowContent(
-                            label = stringResource(R.string.settings_adaptive_dist_label),
-                            description = stringResource(R.string.settings_adaptive_dist_desc),
-                            valueLabel = stringResource(R.string.settings_value_meters, settings.adaptiveDistanceM),
-                            value = settings.adaptiveDistanceM.toFloat(),
-                            valueRange = 10f..30f,
-                            steps = 3,
-                            onValueChange = { v -> onUpdateSettings { it.copy(adaptiveDistanceM = (v / 5f).roundToInt() * 5) } }
-                        )
+                // Detection thresholds expander
+                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    var adaptiveAdvanced by remember { mutableStateOf(false) }
+                    SettingsExpander(
+                        label = stringResource(R.string.settings_stop_thresholds_label),
+                        expanded = adaptiveAdvanced,
+                        onToggle = { adaptiveAdvanced = !adaptiveAdvanced }
+                    ) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        SettingsSliderGroup {
+                            SliderRowContent(
+                                label = stringResource(R.string.settings_window_label),
+                                description = stringResource(R.string.settings_window_desc),
+                                valueLabel = stringResource(R.string.settings_value_seconds, settings.stopDetectionTimeSec),
+                                value = settings.stopDetectionTimeSec.toFloat(),
+                                valueRange = 10f..90f,
+                                steps = 15,
+                                onValueChange = { v -> onUpdateSettings { it.copy(stopDetectionTimeSec = (v / 5f).roundToInt() * 5) } }
+                            )
+                            SliderRowDivider()
+                            SliderRowContent(
+                                label = stringResource(R.string.settings_adaptive_dist_label),
+                                description = stringResource(R.string.settings_adaptive_dist_desc),
+                                valueLabel = stringResource(R.string.settings_value_meters, settings.stopDetectionDistanceM),
+                                value = settings.stopDetectionDistanceM.toFloat(),
+                                valueRange = 10f..30f,
+                                steps = 3,
+                                onValueChange = { v -> onUpdateSettings { it.copy(stopDetectionDistanceM = (v / 5f).roundToInt() * 5) } }
+                            )
+                        }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Thin divider
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(0.5.dp)
+                        .background(ComposeColor(AppConfig.uiSettingsDivider))
+                )
+
+                // Delay GPS when still toggle
+                SettingsToggleRow(
+                    label = stringResource(R.string.settings_stop_delay_label),
+                    description = stringResource(R.string.settings_stop_delay_desc),
+                    checked = settings.stopDetectionDelayGps,
+                    onCheckedChange = { on -> onUpdateSettings { it.copy(stopDetectionDelayGps = on) } }
+                )
             }
         }
 

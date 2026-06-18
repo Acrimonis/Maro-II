@@ -61,14 +61,16 @@
     <string name="settings_fps_label">Taux de rafraîchissement carte</string>
     <string name="settings_fps_desc">Plus bas = moins de batterie, animation moins fluide</string>
     <string name="settings_idle_section_label">Détection d\'arrêt</string>
-    <string name="settings_idle_section_desc">Quand le bateau ne bouge plus, les positions GPS s\'espacent pour économiser la batterie ; tout revient à la normale dès que vous repartez</string>
-    <string name="settings_idle_interval_label">Durée d\'inactivité</string>
-    <string name="settings_idle_interval_desc">Délai entre deux positions GPS à l\'arrêt · plus long = moins de batterie</string>
-    <string name="settings_advanced_stop_label">Réglages détection d\'arrêt</string>
+    <string name="settings_idle_section_desc">Détecter quand le bateau est à l\'arrêt et économiser la batterie en espaçant les fixes GPS</string>
+    <string name="settings_stop_enable_label">Activer la détection d\'arrêt</string>
+    <string name="settings_stop_enable_desc">Détecter quand le bateau est à l\'arrêt. Cela permet aussi d\'économiser la batterie sur l\'acquisition GPS.</string>
+    <string name="settings_stop_delay_label">Espacer le GPS à l\'arrêt</string>
+    <string name="settings_stop_delay_desc">Espacer les fixes GPS pour économiser la batterie quand le bateau est arrêté</string>
+    <string name="settings_stop_thresholds_label">Seuils de détection</string>
     <string name="settings_window_label">Temps adaptatif</string>
-    <string name="settings_window_desc">Temps sans bouger avant de réduire la fréquence GPS</string>
+    <string name="settings_window_desc">Combien de temps le bateau doit rester dans la distance adaptative avant d\'être considéré à l\'arrêt</string>
     <string name="settings_adaptive_dist_label">Distance adaptative</string>
-    <string name="settings_adaptive_dist_desc">En dessous de ce déplacement, vous êtes considéré « à l\'arrêt »</string>
+    <string name="settings_adaptive_dist_desc">Jusqu\'où le bateau peut se déplacer dans le temps adaptatif avant d\'être considéré à l\'arrêt</string>
     <string name="settings_section_advanced">Avancé</string>
     <string name="settings_alert_label">Alerte zone 300 m</string>
     <string name="settings_alert_desc">Réaffiche automatiquement la zone des 300 m masquée à l\'approche de la côte</string>

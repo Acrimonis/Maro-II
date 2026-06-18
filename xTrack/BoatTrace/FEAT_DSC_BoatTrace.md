@@ -2,8 +2,8 @@
 name: BoatTrace
 status: active
 created: 2026-06-15 21:43
-modified: 2026-06-17 21:45
-active_subfeature: verification
+modified: 2026-06-18 12:44
+active_subfeature: tracking-status-n-triggers
 ---
 
 # Feature: BoatTrace
@@ -130,6 +130,82 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 - `plans/boat-trace-design-discussion.md` — full design & implementation plan (data model, state machine, UI components, design tokens)
 - `xTrack/BoatTrace/FEAT_PLN_BoatTrace_TrackList_Design.md` — track list UI design (swipe-to-delete, inline snackbar, animation spec)
 
+### track-list  [ ]
+
+#### Todos
+- [ ] Review and refine track card layout per design spec
+- [ ] Verify swipe-to-delete, inline snackbar, undo animations
+- [ ] Verify inline editing (auto-focus, field-switch commit, back-to-revert)
+- [ ] Verify human-readable formatting (comma decimal, durations)
+- [ ] Verify compact padding and flush-left stats grid
+- [ ] E2E: Create test tracks, verify all card fields display correctly
+
+#### Rules
+- Track list UI must follow FEAT_PLN_BoatTrace_TrackList_Design.md spec
+- Styling must match Settings overlay patterns (AppConfig tokens)
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt`
+
+#### Docs
+- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_TrackList_Design.md` — track list UI design and 26 requirements
+
+### tracking-status-n-triggers  [x]
+
+#### Todos
+- [x] Define 3-state tracking indicator: Not tracking / Tracking moving / Tracking idle
+- [x] **AdaptiveGpsPolicy**: Add `isStill(): Boolean` public accessor — stores last `onFix()` return mode, non-mutating read
+- [x] **TrackRecorder**: Remove auto-transition RECORDING→PAUSED on stationary. Stay in RECORDING, gate point capture on `!policy.isStill()`
+- [x] **TrackRecorderUiState**: Add `val isMoving: Boolean = !policy.isStill()`
+- [x] **TrackStatusIcon**: Map states: IDLE/FINALIZING→White dimmed, RECORDING+isMoving→Green, RECORDING+!isMoving→Blue, PAUSED→Blue
+- [x] **TrackStatusIcon**: Update docs and color mapping to match new state model
+- [ ] Verify icon visually matches GPS and EarthWater icons in the status row
+
+#### Rules
+- `isMoving = !policy.isStill()` where `policy.isStill()` reads `AdaptiveGpsPolicy.lastMode == IDLE`
+- Tracking triggers are **manual only** (Start/Stop from drawer). `isStill()` is UI-only — does not auto-start/stop.
+- RECORDING state persists through stationary periods — only point capture suspends
+- PAUSED state only entered via manual pause (drawer), not auto-detection
+- `isStill()` uses the 30s window via `AdaptiveGpsPolicy` — 30s of stillness before switching to IDLE
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/TrackStatusIcon.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/TrackDrawerOverlay.kt`
+- `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt`
+- `app/src/main/java/ykws/android/maro/data/track/TrackViewModel.kt`
+
+#### Docs
+
+### adaptive-isstill  [x]
+
+#### Todos
+- [x] Review plan: `xTrack/BoatTrace/FEAT_PLN_BoatTrace_adaptive-isstill.md`
+- [x] Simplify AdaptiveGpsPolicy — pure position-only algorithm (remove wakeSpeedMps, lastPos, drift logic)
+- [x] Replace settings in SettingsManager.kt: remove adaptiveWindowSec, adaptiveDistanceM, adaptiveIdleIntervalSec; add stopDetectionEnabled, stopDetectionTimeSec, stopDetectionDistanceM, stopDetectionDelayGps
+- [x] Replace settings UI in MapScreen.kt: remove "Idle saving" section, add new "Stop detection" section with toggles + sliders
+- [x] Update CoastlineViewModel.kt: fix onFix() call, replace idle interval with dormant percentage logic
+- [x] Add stopDetection.gpsDormantPct to maro.properties
+- [x] Update strings.xml + values-fr/strings.xml (replace old strings, add new)
+- [x] assembleDebug passes
+
+#### Rules
+- Defaults: stopDetectionTimeSec=45 (range 10-90), stopDetectionDistanceM=15 (range 10-30)
+- `isStill()` returns `true` iff boat hasn't moved > adaptiveDistance in the last adaptiveTime
+- GPS dormant interval = `stopDetectionTimeSec * gpsDormantPct / 100`
+- Must enforce `gpsDormantPct < 100` at config validation
+- Position-only algorithm — no speed input to onFix()
+- Re-anchor on displacement >= adaptiveDistance to allow subsequent stillness detection
+- Old settings are **completely removed** — no migration, no fallback
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/data/location/AdaptiveGpsPolicy.kt`
+- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt`
+- `app/src/main/assets/maro.properties`
+- `app/build.gradle.kts`
+
+#### Docs
+- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_adaptive-isstill.md` — full plan
+
 ### hamburger-btn  [x]
 
 #### Todos
@@ -166,6 +242,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 ## Todos
 
 ## Rules
+- Feature-scoped plans go in `xTrack/[Feature]/FEAT_PLN_[Feature]_[topic].md`, NOT in `plans/`. The `plans/` directory is for cross-cutting or legacy plans only.
 - Tack points only recorded while speed > 2.5 kn (drifting threshold from Navigation feature)
 - IDLE→RECORDING transition requires speed > 2.5 kn sustained for **10 seconds**
 - Internal storage: **Protobuf binary** via `kotlinx-serialization-protobuf` — not JSON
