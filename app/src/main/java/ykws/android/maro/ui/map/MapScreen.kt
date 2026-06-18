@@ -87,11 +87,15 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Size
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.border
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
@@ -542,51 +546,85 @@ fun MapScreen(
         trackViewModel.startRecorder(gpsFlow, appSettings)
     }
 
-    // ── Track overlay: manage osmdroid Polyline for visible saved tracks ─────
-    LaunchedEffect(mapView, trackSummaries) {
+    // ── Track overlay: incremental diff for history tracks with fading transparency ──
+    // Track the set of currently-rendered track IDs to avoid full teardown+rebuild.
+    val renderedTrackIds = remember { mutableStateOf(setOf<String>()) }
+
+    LaunchedEffect(mapView, appSettings.tracksVisible, appSettings.trackingRenderNb, appSettings.trackingColorHistory) {
         val mv = mapView ?: return@LaunchedEffect
 
-        // Determine visible track IDs
-        val visibleIds = trackSummaries
-            .filter { it.visibleOnMap }
-            .map { it.id }
-            .toSet()
+        // Determine desired track ID set
+        val desiredIds = if (appSettings.tracksVisible) {
+            val nbToRender = appSettings.trackingRenderNb.coerceIn(0, 20)
+            if (nbToRender > 0) {
+                trackSummaries
+                    .filter { it.visibleOnMap }
+                    .sortedByDescending { it.startTimeMs }
+                    .take(nbToRender)
+                    .map { it.id }
+                    .toSet()
+            } else emptySet()
+        } else emptySet()
 
-        // Remove track overlays that are no longer visible
-        val existingTrackOverlays = mv.overlays.filter { overlay ->
-            (overlay as? org.osmdroid.views.overlay.Polyline)?.title?.startsWith("track_") == true
-        }
-        val toRemove = existingTrackOverlays.filter { overlay ->
-            val id = (overlay as org.osmdroid.views.overlay.Polyline).title?.removePrefix("track_") ?: ""
-            id !in visibleIds
+        val currentIds = renderedTrackIds.value
+        if (currentIds == desiredIds) return@LaunchedEffect // nothing changed
+
+        // Remove stale overlays
+        val toRemove = mv.overlays.filter { overlay ->
+            (overlay as? org.osmdroid.views.overlay.Polyline)?.title?.startsWith("track_hist_") == true
+        }.filter { overlay ->
+            val id = (overlay as org.osmdroid.views.overlay.Polyline).title?.removePrefix("track_hist_") ?: ""
+            id !in desiredIds
         }
         mv.overlays.removeAll(toRemove)
 
-        // Add or update overlays for visible tracks
+        // Determine which new overlays to add
         val existingIds = mv.overlays.filterIsInstance<org.osmdroid.views.overlay.Polyline>()
-            .mapNotNull { it.title?.removePrefix("track_") }
+            .mapNotNull { it.title?.removePrefix("track_hist_") }
             .toSet()
-        val newIds = visibleIds - existingIds
 
-        for (id in newIds) {
-            val track = trackViewModel.loadTrackDetail(id) ?: continue
-            if (track.id != id || track.trackPoints.isEmpty()) continue
+        val sortedDesired = if (appSettings.tracksVisible) {
+            val nbToRender = appSettings.trackingRenderNb.coerceIn(0, 20)
+            if (nbToRender > 0) {
+                trackSummaries
+                    .filter { it.visibleOnMap }
+                    .sortedByDescending { it.startTimeMs }
+                    .take(nbToRender)
+            } else emptyList()
+        } else emptyList()
+
+        val baseColor = appSettings.trackingColorHistory
+        val baseRgb = baseColor and 0x00FFFFFF
+        val total = sortedDesired.size
+
+        for ((index, summary) in sortedDesired.withIndex()) {
+            if (summary.id in existingIds) continue // already rendered
+
+            val track = trackViewModel.loadTrackDetailCached(summary.id) ?: continue
+            if (track.trackPoints.isEmpty()) continue
+
+            val alphaFraction = if (total <= 1) 0.90f
+                else 0.90f - (index.toFloat() / (total - 1).toFloat()) * 0.80f
+            val alphaInt = (alphaFraction * 255).toInt().coerceIn(0, 255)
+            val colorWithAlpha = (alphaInt shl 24) or baseRgb
+            val strokeWidth = if (index == 0) 10f else 6f
 
             val polyline = org.osmdroid.views.overlay.Polyline().apply {
-                title = "track_$id"
-                outlinePaint.color = track.trackColorArgb
-                outlinePaint.strokeWidth = 8f
+                title = "track_hist_${summary.id}"
+                outlinePaint.color = colorWithAlpha
+                outlinePaint.strokeWidth = strokeWidth
                 setPoints(track.trackPoints.map { pt ->
                     org.osmdroid.util.GeoPoint(pt.lat, pt.lon)
                 })
             }
             mv.overlays.add(polyline)
         }
+        renderedTrackIds.value = desiredIds
         mv.invalidate()
     }
 
     // ── Active recording trace: real-time Polyline during RECORDING ─────────
-    LaunchedEffect(mapView) {
+    LaunchedEffect(mapView, appSettings.trackingColorActive) {
         val mv = mapView ?: return@LaunchedEffect
         androidx.compose.runtime.snapshotFlow { trackRecorderState }
             .collect { state ->
@@ -602,7 +640,7 @@ fun MapScreen(
                     } else {
                         val polyline = org.osmdroid.views.overlay.Polyline().apply {
                             title = "track_recording"
-                            outlinePaint.color = 0xFF_1565C0.toInt()
+                            outlinePaint.color = appSettings.trackingColorActive
                             outlinePaint.strokeWidth = 10f
                             isVisible = true
                             setPoints(points.map { org.osmdroid.util.GeoPoint(it.lat, it.lon) })
@@ -768,6 +806,7 @@ fun MapScreen(
                 onToggleDepthLayer = viewModel::toggleDepthLayerVisibility,
                 onToggleRegulatedZones = viewModel::toggleRegulatedZonesVisibility,
                 onToggleZone300 = viewModel::toggleZone300Visibility,
+                onToggleTracks = viewModel::toggleTracksVisibility,
                 isLandscape = isLandscape,
                 expandedFanId = expandedFanId,
                 onToggleFan = { id -> expandedFanId = if (expandedFanId == id) null else id },
@@ -986,6 +1025,7 @@ private fun MapContent(
     onToggleRegulatedZones: () -> Unit,
     onToggleLowDepthWarning: () -> Unit,
     onToggleDepthLayer: () -> Unit,
+    onToggleTracks: () -> Unit = {},
     isLandscape: Boolean = false,
     expandedFanId: ControlId? = null,
     onDismissFan: () -> Unit = {},
@@ -1238,8 +1278,8 @@ private fun MapContent(
                     Box(modifier = Modifier.alpha(cmAlpha)) {
                         FanLayout(
                             config = FanConfig(
-                                maxCount = 5,
-                                currentCount = 4,
+                                maxCount = 6,
+                                currentCount = 5,
                                 direction = FanDirection.LEFT,
                                 isOpen = isExpanded,
                                 toggleChildren = true,
@@ -1248,7 +1288,8 @@ private fun MapContent(
                                     appSettings.depthLayerVisible,
                                     appSettings.regulatedZonesVisible,
                                     appSettings.zone300Visible,
-                                    appSettings.lowDepthWarningVisible
+                                    appSettings.lowDepthWarningVisible,
+                                    appSettings.tracksVisible
                                 ).count { it }
                             ),
                             parent = { _: Boolean, _: Int -> ThreeStripeLayerIcon(alpha = 1f) },
@@ -1257,13 +1298,15 @@ private fun MapContent(
                                 { isActive -> DepthBarIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
                                 { isActive -> RegulatedZoneIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
                                 { isActive -> DoubleCircleIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
-                                { isActive -> WarningTriangleIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) }
+                                { isActive -> WarningTriangleIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
+                                { isActive -> TrackLayerIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) }
                             ),
                             activeStates = listOf(
                                 appSettings.depthLayerVisible,
                                 appSettings.regulatedZonesVisible,
                                 appSettings.zone300Visible,
-                                appSettings.lowDepthWarningVisible
+                                appSettings.lowDepthWarningVisible,
+                                appSettings.tracksVisible
                             ),
                             onChildClick = { index: Int, _: Boolean ->
                                 when (index) {
@@ -1271,6 +1314,7 @@ private fun MapContent(
                                     1 -> onToggleRegulatedZones()
                                     2 -> onToggleZone300()
                                     3 -> onToggleLowDepthWarning()
+                                    4 -> onToggleTracks()
                                 }
                             }
                         )
@@ -2719,6 +2763,202 @@ private fun NavigationSettings(
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+
+        // ── Tracking section (collapsible) ──────────────────────────────────────
+        SectionHeader(title = "Tracking")
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(ComposeColor(AppConfig.uiSettingsCardBackground))
+        ) {
+            var trackingExpanded by remember { mutableStateOf(false) }
+            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                SettingsExpander(
+                    label = "Tracking",
+                    expanded = trackingExpanded,
+                    onToggle = { trackingExpanded = !trackingExpanded },
+                    labelStyle = TextStyle(
+                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                ) {
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    // ── Recording subsection ──────────────────────────────────
+                    Text(
+                        text = "Recording",
+                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+
+                    // Track enabled toggle
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Enable track recording",
+                            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                            fontSize = 14.sp
+                        )
+                        Switch(
+                            checked = settings.trackEnabled,
+                            onCheckedChange = { on -> onUpdateSettings { it.copy(trackEnabled = on) } },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                                checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                                uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
+                                uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                            )
+                        )
+                    }
+
+                    if (settings.trackEnabled) {
+                        // Geofence enabled toggle
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Geofence auto-start",
+                                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                                fontSize = 14.sp
+                            )
+                            Switch(
+                                checked = settings.trackGeofenceEnabled,
+                                onCheckedChange = { on -> onUpdateSettings { it.copy(trackGeofenceEnabled = on) } },
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                                    checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                                    uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
+                                    uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                                )
+                            )
+                        }
+
+                        // Geofence origin lat
+                        SettingsSliderRow(
+                            label = "Geofence origin lat",
+                            description = "Latitude of Port Salis",
+                            valueLabel = "%.3f".format(settings.trackOriginLat),
+                            value = settings.trackOriginLat.toFloat(),
+                            valueRange = 43.0f..44.0f,
+                            steps = 100,
+                            onValueChange = { v -> onUpdateSettings { it.copy(trackOriginLat = v.toDouble()) } }
+                        )
+
+                        // Geofence origin lon
+                        SettingsSliderRow(
+                            label = "Geofence origin lon",
+                            description = "Longitude of Port Salis",
+                            valueLabel = "%.3f".format(settings.trackOriginLon),
+                            value = settings.trackOriginLon.toFloat(),
+                            valueRange = 6.5f..7.5f,
+                            steps = 100,
+                            onValueChange = { v -> onUpdateSettings { it.copy(trackOriginLon = v.toDouble()) } }
+                        )
+
+                        // Geofence radius
+                        SettingsSliderRow(
+                            label = "Geofence radius (m)",
+                            description = "Auto-start/stop detection radius",
+                            valueLabel = "%.0f m".format(settings.trackGeofenceRadiusM),
+                            value = settings.trackGeofenceRadiusM.toFloat(),
+                            valueRange = 100f..2000f,
+                            steps = 36,
+                            onValueChange = { v -> onUpdateSettings { it.copy(trackGeofenceRadiusM = v.toDouble()) } }
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // ── Render subsection ─────────────────────────────────────
+                    Text(
+                        text = "Render",
+                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+
+                    // Tracks layer visibility toggle
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Show tracks on map",
+                            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                            fontSize = 14.sp
+                        )
+                        Switch(
+                            checked = settings.tracksVisible,
+                            onCheckedChange = { on -> onUpdateSettings { it.copy(tracksVisible = on) } },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                                checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                                uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
+                                uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                            )
+                        )
+                    }
+
+                    // History layers count slider
+                    SettingsSliderRow(
+                        label = "History layers",
+                        description = "Number of recent tracks to render (0-20)",
+                        valueLabel = "%d".format(settings.trackingRenderNb),
+                        value = settings.trackingRenderNb.toFloat(),
+                        valueRange = 0f..20f,
+                        steps = 20,
+                        onValueChange = { v ->
+                            onUpdateSettings { it.copy(trackingRenderNb = v.roundToInt().coerceIn(0, 20)) }
+                        }
+                    )
+
+                    // Color swatches for active/history/pinned
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Colors",
+                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+
+                    // Active track color
+                    ColorSwatchRow(
+                        label = "Active track",
+                        color = settings.trackingColorActive,
+                        onColorSelected = { c -> onUpdateSettings { it.copy(trackingColorActive = c) } }
+                    )
+
+                    // History track color
+                    ColorSwatchRow(
+                        label = "History tracks",
+                        color = settings.trackingColorHistory,
+                        onColorSelected = { c -> onUpdateSettings { it.copy(trackingColorHistory = c) } }
+                    )
+
+                    // Pinned track color
+                    ColorSwatchRow(
+                        label = "Pinned tracks (reserved)",
+                        color = settings.trackingColorPinned,
+                        onColorSelected = { c -> onUpdateSettings { it.copy(trackingColorPinned = c) } }
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
@@ -3281,6 +3521,106 @@ private fun SettingsExpander(
                 content()
             }
         }
+    }
+}
+
+/**
+ * A row showing a color swatch with a label and a "pick" button.
+ * Tapping the swatch opens a simple color dialog with preset palette.
+ * TODO: Replace with Canvas-based HSV color picker for richer selection.
+ */
+@Composable
+private fun ColorSwatchRow(
+    label: String,
+    color: Int,
+    onColorSelected: (Int) -> Unit
+) {
+    var showPicker by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+            fontSize = 14.sp
+        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            // Color swatch
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(ComposeColor(color))
+                    .clickable { showPicker = true }
+                    .border(1.dp, ComposeColor(AppConfig.uiSettingsDivider), RoundedCornerShape(6.dp))
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Pick",
+                color = ComposeColor(AppConfig.uiSettingsAccent),
+                fontSize = 13.sp,
+                modifier = Modifier.clickable { showPicker = true }
+            )
+        }
+    }
+
+    if (showPicker) {
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { showPicker = false },
+            title = { Text("Pick $label color") },
+            text = {
+                Column {
+                    val presets = listOf(
+                        0xFF1565C0.toInt(), // Blue
+                        0xFFD32F2F.toInt(), // Red
+                        0xFF388E3C.toInt(), // Green
+                        0xFFF57C00.toInt(), // Orange
+                        0xFF7B1FA2.toInt(), // Purple
+                        0xFF00796B.toInt(), // Teal
+                        0xFF5D4037.toInt(), // Brown
+                        0xFF000000.toInt(), // Black
+                        0xFFFFFFFF.toInt(), // White
+                        0xFFBDBDBD.toInt(), // Grey
+                        0xFFFFF176.toInt(), // Yellow
+                        0xFF4FC3F7.toInt()  // Light Blue
+                    )
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(4),
+                        modifier = Modifier.height(150.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(presets) { presetColor ->
+                            Box(
+                                modifier = Modifier
+                                    .size(48.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(ComposeColor(presetColor))
+                                    .border(
+                                        width = if (presetColor == color) 3.dp else 1.dp,
+                                        color = if (presetColor == color) ComposeColor(AppConfig.uiSettingsAccent)
+                                            else ComposeColor(AppConfig.uiSettingsDivider),
+                                        shape = RoundedCornerShape(8.dp)
+                                    )
+                                    .clickable {
+                                        onColorSelected(presetColor)
+                                        showPicker = false
+                                    }
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { showPicker = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 

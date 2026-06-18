@@ -227,3 +227,32 @@ fun DoubleCircleIcon(alpha: Float) {
 fun DepthBarIcon(alpha: Float) {
     ThreeStripeLayerIcon(alpha = alpha)
 }
+
+/**
+ * Icon: route trace line (tracks overlay toggle).
+ * Two connected dots with a connecting line — represents a track trace on the map.
+ *
+ * @param alpha Opacity (1.0 = active, 0.25 = inactive).
+ */
+@Composable
+fun TrackLayerIcon(alpha: Float) {
+    Canvas(modifier = Modifier.size(ICON_SIZE_DP.dp)) {
+        val w = size.width; val h = size.height
+        val dotRadius = w * 0.08f
+        val startX = w * 0.25f; val endX = w * 0.75f
+        val midY = h * 0.5f
+        // Connecting line
+        drawLine(
+            color = ButtonColors.icon,
+            start = Offset(startX + dotRadius, midY),
+            end = Offset(endX - dotRadius, midY),
+            strokeWidth = w * 0.08f,
+            cap = StrokeCap.Round,
+            alpha = alpha
+        )
+        // Start dot
+        drawCircle(ButtonColors.icon, dotRadius, Offset(startX, midY), alpha)
+        // End dot (slightly larger)
+        drawCircle(ButtonColors.icon, dotRadius * 1.3f, Offset(endX, midY), alpha)
+    }
+}

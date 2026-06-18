@@ -82,6 +82,12 @@ android {
         buildConfigField("double", "TRACK_GEOFENCE_RADIUS_M", propDouble("track.geofenceRadiusM", 500.0).toString())
         buildConfigField("boolean", "TRACK_ENABLED_DEFAULT", propBool("track.enabled.default", false).toString())
 
+        // ── Track rendering defaults from maro.properties ──────────
+        buildConfigField("int", "TRACKING_RENDER_NB", propInt("tracking.render.nb", 5).coerceIn(0, 20).toString())
+        buildConfigField("int", "TRACKING_COLOR_ACTIVE", propInt("tracking.color.active", 0xFF1565C0.toInt()).toString())
+        buildConfigField("int", "TRACKING_COLOR_HISTORY", propInt("tracking.color.history", 0xFF1565C0.toInt()).toString())
+        buildConfigField("int", "TRACKING_COLOR_PINNED", propInt("tracking.color.pinned", 0xFF1565C0.toInt()).toString())
+
         // ── Stop detection GPS dormant percent from maro.properties ──────
         buildConfigField("int", "STOP_DETECTION_GPS_DORMANT_PCT",
             propInt("stopDetection.gpsDormantPct", 80).toString())

@@ -118,11 +118,38 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // ── LRU track detail cache for overlay rendering ────────────────────
+    // Prevents repeated protobuf deserialization when refreshing the map overlay.
+    private val trackDetailCache = object : LinkedHashMap<String, Track>(32, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Track>): Boolean =
+            size > 30
+    }
+
+    /** Load a full track by ID with LRU caching. */
+    suspend fun loadTrackDetailCached(id: String): Track? {
+        synchronized(trackDetailCache) {
+            trackDetailCache[id]?.let { return it }
+        }
+        val track = loadTrackDetail(id)
+        if (track != null) {
+            synchronized(trackDetailCache) {
+                trackDetailCache[id] = track
+            }
+        }
+        return track
+    }
+
+    /** Invalidate a single cache entry (call after update/delete). */
+    fun invalidateTrackCache(id: String) {
+        synchronized(trackDetailCache) { trackDetailCache.remove(id) }
+    }
+
     /** Load a full track by ID for detail view. */
     suspend fun loadTrackDetail(id: String): Track? = repository.load(id)
 
     /** Delete a track by ID. */
     fun deleteTrack(id: String) {
+        invalidateTrackCache(id)
         viewModelScope.launch {
             repository.delete(id)
             refreshSummaries()
@@ -131,6 +158,7 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Update track metadata. */
     fun updateTrack(id: String, name: String? = null, comment: String? = null, visibleOnMap: Boolean? = null) {
+        invalidateTrackCache(id)
         viewModelScope.launch {
             repository.updateMetadata(id, name, comment, visibleOnMap)
             refreshSummaries()

@@ -2,7 +2,7 @@
 name: BoatTrace
 status: active
 created: 2026-06-15 21:43
-modified: 2026-06-18 16:59
+modified: 2026-06-18 20:20
 active_subfeature: none
 ---
 
@@ -252,6 +252,14 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/TrackStatusIcon.kt`
 - `app/src/main/java/ykws/android/maro/ui/map/TrackDrawerOverlay.kt`
+
+### render-tracks  [ ]
+
+#### Todos
+
+#### Rules
+
+#### Key Files
 
 ## Todos
 

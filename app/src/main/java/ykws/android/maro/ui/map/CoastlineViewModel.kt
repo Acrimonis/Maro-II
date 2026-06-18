@@ -883,6 +883,13 @@ class CoastlineViewModel(
     }
 
     /**
+     * Toggle the tracks overlay layer visibility on/off.
+     */
+    fun toggleTracksVisibility() {
+        settingsManager.update { it.copy(tracksVisible = !it.tracksVisible) }
+    }
+
+    /**
      * Called whenever the user pans the map or GPS delivers a fix.
      *
      * Records the new center cheaply on the UI thread and persists it so the

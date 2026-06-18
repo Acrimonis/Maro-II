@@ -1,10 +1,10 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** ArcLayout
+- **Active Feature:** BoatTrace
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-18
-- **Last Bake:** 2026-06-18 19:36 (ArcLayout — scrim dismiss ported from feature/more-colors, badge dimming removed. MapScreen + FanLayout updated)
+- **Last Bake:** 2026-06-18 20:20 (BoatTrace — render-tracks subfeature planned, 10-step implementation plan with review findings incorporated)
 - **Branch:** feature/new-tracking
 ## Routing Map
 | Keyword | Feature File |
@@ -53,7 +53,7 @@
 | **ArcLayout** | **Layer toggle arc menu — pure-Compose semicircle fan-out with layer toggles, FanLayout framework, fixed child centering, scrim dismiss on external tap** | **2026-06-13 07:34** | **2026-06-18 19:36** | **active** |
 | **ZoneTile** | **Zone information tiles and map overlay rendering — zone-ahead cone/line, speed zone display, ETA, zone state management** | **2026-06-17 09:45** | **2026-06-17 09:45** | **active** |
 | **Zone300SpeedBadge** | **300m zone speed limit badge integrated into regulated zone icon stack as highest-priority SPEED_LIMIT entry** | **2026-06-14 17:42** | **2026-06-14 17:42** | **done** |
-| **BoatTrace** | **Boat movement tracking: record tracks from GPS fixes, persist, display on map with age-based opacity, GPX export, track history UI** | **2026-06-15 21:43** | **2026-06-18 16:59** | **active** |
+| **BoatTrace** | **Boat movement tracking: record tracks from GPS fixes, persist, display on map with configurable render layers, GPX export, track history UI** | **2026-06-15 21:43** | **2026-06-18 20:20** | **active** |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).

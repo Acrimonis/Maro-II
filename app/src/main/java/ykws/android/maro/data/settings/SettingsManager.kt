@@ -164,7 +164,17 @@ data class AppSettings(
     /** Geofence radius in metres for auto start/stop. */
     val trackGeofenceRadiusM: Double = BuildConfig.TRACK_GEOFENCE_RADIUS_M,
     /** When false, recording starts on movement alone (no geofence check). */
-    val trackGeofenceEnabled: Boolean = true
+    val trackGeofenceEnabled: Boolean = true,
+    /** Whether the tracks overlay layer is visible on the map. */
+    val tracksVisible: Boolean = true,
+    /** Number of historical tracks to render on the map (0-20). */
+    val trackingRenderNb: Int = BuildConfig.TRACKING_RENDER_NB,
+    /** ARGB color for the active recording track. */
+    val trackingColorActive: Int = BuildConfig.TRACKING_COLOR_ACTIVE,
+    /** ARGB color for historical tracks. */
+    val trackingColorHistory: Int = BuildConfig.TRACKING_COLOR_HISTORY,
+    /** ARGB color for pinned tracks (reserved for future use). */
+    val trackingColorPinned: Int = BuildConfig.TRACKING_COLOR_PINNED
 ) {
     /** Check whether a [ZoneDisplayCategory] is enabled in the current settings. */
     fun isCategoryVisible(cat: ZoneDisplayCategory): Boolean = when (cat) {
@@ -267,7 +277,12 @@ class SettingsManager(
         trackOriginLat = prefs.getFloat(KEY_TRACK_ORIGIN_LAT, BuildConfig.TRACK_ORIGIN_LAT.toFloat()).toDouble(),
         trackOriginLon = prefs.getFloat(KEY_TRACK_ORIGIN_LON, BuildConfig.TRACK_ORIGIN_LON.toFloat()).toDouble(),
         trackGeofenceRadiusM = prefs.getFloat(KEY_TRACK_GEOFENCE_RADIUS_M, BuildConfig.TRACK_GEOFENCE_RADIUS_M.toFloat()).toDouble(),
-        trackGeofenceEnabled = prefs.getBoolean(KEY_TRACK_GEOFENCE_ENABLED, true)
+        trackGeofenceEnabled = prefs.getBoolean(KEY_TRACK_GEOFENCE_ENABLED, true),
+        tracksVisible = prefs.getBoolean(KEY_TRACKS_VISIBLE, true),
+        trackingRenderNb = prefs.getInt(KEY_TRACKING_RENDER_NB, BuildConfig.TRACKING_RENDER_NB).coerceIn(0, 20),
+        trackingColorActive = prefs.getInt(KEY_TRACKING_COLOR_ACTIVE, BuildConfig.TRACKING_COLOR_ACTIVE),
+        trackingColorHistory = prefs.getInt(KEY_TRACKING_COLOR_HISTORY, BuildConfig.TRACKING_COLOR_HISTORY),
+        trackingColorPinned = prefs.getInt(KEY_TRACKING_COLOR_PINNED, BuildConfig.TRACKING_COLOR_PINNED)
     )
 
     /**
@@ -346,6 +361,11 @@ class SettingsManager(
             .putFloat(KEY_TRACK_ORIGIN_LON, updated.trackOriginLon.toFloat())
             .putFloat(KEY_TRACK_GEOFENCE_RADIUS_M, updated.trackGeofenceRadiusM.toFloat())
             .putBoolean(KEY_TRACK_GEOFENCE_ENABLED, updated.trackGeofenceEnabled)
+            .putBoolean(KEY_TRACKS_VISIBLE, updated.tracksVisible)
+            .putInt(KEY_TRACKING_RENDER_NB, updated.trackingRenderNb)
+            .putInt(KEY_TRACKING_COLOR_ACTIVE, updated.trackingColorActive)
+            .putInt(KEY_TRACKING_COLOR_HISTORY, updated.trackingColorHistory)
+            .putInt(KEY_TRACKING_COLOR_PINNED, updated.trackingColorPinned)
             .apply()
     }
 
@@ -413,6 +433,11 @@ class SettingsManager(
         private const val KEY_TRACK_ORIGIN_LON = "track_origin_lon"
         private const val KEY_TRACK_GEOFENCE_RADIUS_M = "track_geofence_radius_m"
         private const val KEY_TRACK_GEOFENCE_ENABLED = "track_geofence_enabled"
+        private const val KEY_TRACKS_VISIBLE = "tracks_visible"
+        private const val KEY_TRACKING_RENDER_NB = "tracking_render_nb"
+        private const val KEY_TRACKING_COLOR_ACTIVE = "tracking_color_active"
+        private const val KEY_TRACKING_COLOR_HISTORY = "tracking_color_history"
+        private const val KEY_TRACKING_COLOR_PINNED = "tracking_color_pinned"
         private const val KEY_PREFS_VERSION = "prefs_version"
         private const val CURRENT_VERSION = 2
     }
