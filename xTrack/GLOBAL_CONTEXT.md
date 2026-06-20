@@ -3,8 +3,8 @@
 ## Active Session Pointers
 - **Active Feature:** BoatTrace
 - **Active Subfeature:** none
-- **Last Updated:** 2026-06-18
-- **Last Bake:** 2026-06-18 20:48 (BoatTrace — render-tracks implemented, fixes: delete cleanup, stroke width 10→8, reorder fan, close drawer on actions)
+- **Last Updated:** 2026-06-20
+- **Last Bake:** 2026-06-20 09:00 (BoatTrace — documentation cleanup: created FEAT_DOC_BoatTrace_decisions.md, stripped completed todos, condensed Implemented section, removed deprecated terminology)
 - **Branch:** feature/new-tracking
 ## Routing Map
 | Keyword | Feature File |

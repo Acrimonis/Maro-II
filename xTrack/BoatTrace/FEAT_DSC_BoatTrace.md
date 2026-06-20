@@ -2,110 +2,36 @@
 name: BoatTrace
 status: active
 created: 2026-06-15 21:43
-modified: 2026-06-18 20:48
+modified: 2026-06-20 09:00
 active_subfeature: none
 ---
 
 # Feature: BoatTrace
 
 **Description:**
-Trace the boat's movement (position, speed) during active navigation. One trace = one 'tack' (Port Salis → Port Salis). Tacking pauses when boat is stationary. Tacks are persisted as protobuf binary and recallable — their polylines can be displayed on the map overlay.
+Trace the boat's movement (position, speed) during active navigation. One trace = one 'track' (Port Salis → Port Salis). Point capture suspends when stationary via `isStill()` gate, but the recording state stays ON. Tracks persisted as protobuf binary and recallable — their polylines display on the map overlay.
 
 ## Subfeatures
 
 ### design  [x]
-
-
-#### Todos
-- [x] Define Tack and TackPoint data models
-- [x] Design auto-detection of tack start/end (Port Salis geofence)
-- [x] Design tack recording pipeline (GpsFix -> TackRepository)
-- [x] Design persistence strategy (protobuf binary via kotlinx-serialization-protobuf)
-- [x] Design tack recall UI (list + map display)
-- [x] Design decisions on storage format (protobuf + GPX export), metadata (name, description, color), real-time drawing, per-phase testing
-- [x] Document design decisions
-
 #### Docs
 - `plans/boat-trace-design-discussion.md` — final design and implementation plan
 
 ### data-model  [x]
 
-#### Todos
-- [x] Add `tack.originLat`, `tack.originLon`, `tack.geofenceRadiusM`, `tack.enabled.default` to `maro.properties`
-- [x] Add BuildConfig fields for tack defaults in `app/build.gradle.kts`
-- [x] Add tack fields to `AppSettings` in `data/settings/SettingsManager.kt`
-- [x] Create `data/tack/TackPoint.kt` — `@Serializable @ProtoNumber data class TackPoint(lat, lon, speedMps?, bearingDeg?, timeOffsetSec)`
-- [x] Create `data/tack/Tack.kt` — `@Serializable @ProtoNumber data class Tack(id, name, comment, startTimeMs, endTimeMs?, pausedDurationSec, fastestSpeedMps, trackColorArgb, tackPoints)` + `TackSummary`
-- [x] Create `data/tack/TackEvent.kt` — `sealed class TackEvent(Started, Paused, Resumed, Stopped, PointCaptured)`
-- [x] Add `timestampEpochMs: Long` field to `GpsFix` in `data/location/GpsLocationSource.kt`
-- [x] **Test:** Protobuf round-trip encode/decode for TackPoint and Tack
-- [x] **Test:** `assembleDebug` passes
-
-#### Rules
-
-#### Key Files
-
-#### Docs
-
 ### recorder  [x]
 
-#### Todos
-- [x] Create `data/tack/TackGeofenceChecker.kt` — Haversine distance calculation, `isInsideGeofence(pos, origin, radiusM): Boolean`
-- [x] Create `data/tack/TackRecorder.kt` — coroutine state machine: IDLE -> RECORDING <-> PAUSED -> FINALIZING -> IDLE
-- [x] Create `data/tack/TackRepository.kt` — protobuf file CRUD on Dispatchers.IO (save, load, list, delete, update)
-- [x] Create `data/tack/TackViewModel.kt` — StateFlow<TackUiState> bridge
-- [x] Implement continuous tack stats accumulation: `runningMaxSpeedKn`, `cumulativeDistanceNm`, `speedSum`/`speedCount`
-- [x] Implement process-death recovery: scan for orphaned `.bin` checkpoints on startup
-- [x] **Test:** TackGeofenceChecker — inside, outside, edge at exact radius
-- [x] **Test:** TackRecorder state machine — mock GpsFix flow, verify all transitions (incl. race safety)
-- [x] **Test:** TackRepository — save, list, load, delete, verify files on disk
-- [x] **Test:** `assembleDebug` passes
-
 #### Rules
-- Tack points recorded only when speed > 2.5 kn (matching Navigation cap arrow threshold)
-- IDLE→RECORDING transition requires speed > 2.5 kn sustained for **10 seconds** (debounce against GPS glitches)
+- Track points recorded only when speed > 2.5 kn (matching Navigation cap arrow threshold)
+- OFF→ON transition: geofence exit (inside→outside, 10s debounce) or manual Start in drawer
 - Internal storage: protobuf binary via kotlinx-serialization-protobuf, not JSON
-- Tack recording runs on Dispatchers.Default, file I/O on Dispatchers.IO
-- 30s periodic checkpoint save during RECORDING state for crash recovery
-- In demo mode, geofence check is bypassed — recording triggers on speed > 2.5 kn for 10s
+- Track recording runs on Dispatchers.Default, file I/O on Dispatchers.IO
+- 30s periodic checkpoint save during ON state for crash recovery
+- In demo mode, geofence check is bypassed — triggers on speed > 2.5 kn for 10s (manual also available)
 - State machine is single-threaded (single coroutine collector) — no race between manual & auto triggers
-- Tack stats (`distanceNm`, `maxSpeedKn`, `avgSpeedKn`) accumulated continuously in memory during recording, written to protobuf at finalize
-
-#### Key Files
-
-#### Docs
+- Track stats (`distanceNm`, `maxSpeedKn`, `avgSpeedKn`) accumulated continuously in memory during recording, written to protobuf at finalize
 
 ### ui-integration  [x]
-
-#### Todos
-- [x] Wire TrackRecorder into `ui/map/CoastlineViewModel.kt` (collect GpsFix flow)
-- [x] Create standalone track overlay logic — one osmdroid Polyline per visible track (tagged "track\_"), managed by LaunchedEffect outside CoastlineMapView
-- [x] Protect track Polylines from CoastlineMapView cleanup (exclude by "track\_" title prefix)
-- [x] Implement lazy loading: tracks loaded from protobuf only when visibleOnMap toggled on
-- [x] Add Tack settings section (Settings -> General -> Tack) with enable toggle, origin lat/lon, radius
-- [x] Create `TackStatusIcon` composable — 👣 in top-left icon row
-- [x] Create new **Tack Drawer** (hamburger icon) — contains "Tack List" shortcut + Start/Stop Recording button
-- [x] Implement auto-naming of tacks (format: `"yyyy-MM-dd HH:mm"`)
-- [x] Create `ui/tack/TackHistoryOverlay.kt` — full-page LazyColumn with tack cards:
-  - Card shows: date start, name (editable), description (editable), max speed, distance
-  - In-place edit: tap name/description → inline TextField → Done commits to protobuf
-  - Visibility toggle: 👁️ button per tack to show/hide trace on map
-  - Swipe-to-delete with confirmation dialog
-  - GPX share button per card
-- [x] Add `visibleOnMap: Boolean` field to `Tack` and `TackSummary` data classes (default true)
-- [x] Implement `TackViewModel.updateTack(id, name, comment)` + `setTackVisibility(id, visible)`
-- [x] Create `res/xml/provider_paths.xml` + register `<provider>` in AndroidManifest.xml
-- [x] Add GPX export function (`Tack.toGpx(): String`) + share intent via FileProvider
-- [x] **Test:** TackViewModel StateFlow emits correct states during mock recording
-- [x] **Test:** GPX export — validate XML structure against GPX 1.1 (trkpt, name, time, speed, course)
-- [x] **Test:** No regression in existing map tests
-- [x] **Test:** `assembleDebug` passes
-
-#### Rules
-
-#### Key Files
-
-#### Docs
 
 ### verification  [ ]
 
@@ -152,24 +78,13 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 
 ### tracking-status-n-triggers  [x]
 
-#### Todos
-- [x] Define 3-state tracking indicator: Not tracking / Tracking moving / Tracking idle
-- [x] **AdaptiveGpsPolicy**: Add `isStill(): Boolean` public accessor — stores last `onFix()` return mode, non-mutating read
-- [x] **TrackRecorder**: Remove auto-transition RECORDING→PAUSED on stationary. Stay in RECORDING, gate point capture on `!policy.isStill()`
-- [x] **TrackRecorderUiState**: Add `val isMoving: Boolean = !policy.isStill()`
-- [x] **TrackStatusIcon**: Map states: IDLE/FINALIZING→White dimmed, RECORDING+isMoving→Green, RECORDING+!isMoving→Blue, PAUSED→Blue
-- [x] **TrackStatusIcon**: Update docs and color mapping to match new state model
-- [ ] Verify icon visually matches GPS and EarthWater icons in the status row
-
 #### Rules
 - `isMoving = !policy.isStill()` where `policy.isStill()` reads `AdaptiveGpsPolicy.lastMode == IDLE`
-- Tracking triggers are **manual only** (Start/Stop from drawer) **OR geofence exit** (inside→outside transition).
+- Tracking triggers: **manual** (Start/Stop from drawer) **OR geofence exit** (inside→outside).
 - `isStill()` is UI-only — does not auto-start/stop.
-- RECORDING state persists through stationary periods — only point capture suspends
-- PAUSED state only entered via manual pause (drawer), not auto-detection
-- `isStill()` uses the 30s window via `AdaptiveGpsPolicy` — 30s of stillness before switching to IDLE
-- **No auto-start on movement alone** — even when geofence is disabled, user must start manually.
-- **Demo mode:** auto-start only on geofence exit, same as GPS mode. No speed-based auto-start.
+- ON state persists through stationary periods — only point capture suspends
+- `isStill()` uses the 30s window via `AdaptiveGpsPolicy` — 30s stillness before switching to IDLE
+- **No auto-start on movement alone** — even when geofence disabled, manual start required.
 
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/TrackStatusIcon.kt`
@@ -177,19 +92,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 - `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt`
 - `app/src/main/java/ykws/android/maro/data/track/TrackViewModel.kt`
 
-#### Docs
-
 ### adaptive-isstill  [x]
-
-#### Todos
-- [x] Review plan: `xTrack/BoatTrace/FEAT_PLN_BoatTrace_adaptive-isstill.md`
-- [x] Simplify AdaptiveGpsPolicy — pure position-only algorithm (remove wakeSpeedMps, lastPos, drift logic)
-- [x] Replace settings in SettingsManager.kt: remove adaptiveWindowSec, adaptiveDistanceM, adaptiveIdleIntervalSec; add stopDetectionEnabled, stopDetectionTimeSec, stopDetectionDistanceM, stopDetectionDelayGps
-- [x] Replace settings UI in MapScreen.kt: remove "Idle saving" section, add new "Stop detection" section with toggles + sliders
-- [x] Update CoastlineViewModel.kt: fix onFix() call, replace idle interval with dormant percentage logic
-- [x] Add stopDetection.gpsDormantPct to maro.properties
-- [x] Update strings.xml + values-fr/strings.xml (replace old strings, add new)
-- [x] assembleDebug passes
 
 #### Rules
 - Defaults: stopDetectionTimeSec=45 (range 10-90), stopDetectionDistanceM=15 (range 10-30)
@@ -211,22 +114,6 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 
 ### hamburger-btn  [x]
 
-#### Todos
-- [x] Add hamburger `Button` with `Icons.Default.Menu` matching `MapControlButton` style (64dp, round, `ButtonColors.bg`/`ButtonColors.icon`)
-- [x] Wire hamburger onClick to open TrackDrawerOverlay
-- [x] Hamburger always visible — unconditional render
-- [x] Top-aligned with status icons (`Alignment.Top` in Row)
-- [x] Drawer title: "Maro II" (24sp Bold White)
-- [x] Scrim on right 25% only (click to dismiss)
-- [x] Drawer panel at 75% width with Settings-styled layout
-- [x] Tight spacing (Settings-like): 8dp outer, 6dp items, 2dp gaps
-- [x] Dynamic "Start Tracking" / "Stop Tracking" text
-- [x] Stats card with grey background (`0x1AFFFFFF`, RoundedCornerShape 12dp)
-- [x] TrackHistoryOverlay status bar padding
-- [x] Real-time data via AnimatedVisibility (no outer if-guard)
-- [x] BackHandler + back button to close drawer
-- [ ] Verify: hamburger appears in top-left, opens TrackDrawer with controls
-
 #### Rules
 - Hamburger always visible in the top-left icon row (first position)
 - Hamburger styled as 64dp round Button with `ButtonColors.bg` and `ButtonColors.icon`
@@ -242,44 +129,41 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 #### Docs
 - `plans/boat-trace-design-discussion.md` — §5b (Hamburger + Drawer spec, lines 284-361)
 
-### tweaks  [ ]
-
-#### Todos
-- [ ] Clicking TrackStatusIcon opens the track drawer (currently works)
-- [ ] Add tooltip/label to tracking icon explaining current state
-- [ ] Review drawer layout for polish
-
+### tweaks  [x]
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/TrackStatusIcon.kt`
 - `app/src/main/java/ykws/android/maro/ui/map/TrackDrawerOverlay.kt`
 
-### render-tracks  [ ]
-
-#### Todos
-
-#### Rules
-
+### render-tracks  [x]
 #### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/FanIconComponents.kt`
+- `app/src/main/java/ykws/android/maro/data/track/TrackViewModel.kt`
 
 ## Todos
+- [ ] E2E verification on device (build + deploy, run all test scenarios)
+- [ ] Track list UI polish per design spec (FEAT_PLN_BoatTrace_TrackList_Design.md)
+- [ ] Verify hamburger appears in top-left, opens TrackDrawer with controls
+- [ ] Verify TrackStatusIcon visually matches GPS and EarthWater icons
+- [ ] Add tooltip/label to TrackStatusIcon explaining current state
+- [ ] Review drawer layout for polish
 
 ## Rules
 - Feature-scoped plans go in `xTrack/[Feature]/FEAT_PLN_[Feature]_[topic].md`, NOT in `plans/`. The `plans/` directory is for cross-cutting or legacy plans only.
-- Tack points only recorded while speed > 2.5 kn (drifting threshold from Navigation feature)
-- IDLE→RECORDING transitions: **geofence exit** (inside→outside, 10s debounce) or **manual** (Start in drawer). Speed-based auto-start is NOT used.
+- Track points only recorded while speed > 2.5 kn (drifting threshold from Navigation feature)
+- OFF→ON transitions: **geofence exit** (inside→outside, 10s debounce) or **manual** (Start in drawer). No speed-based auto-start.
 - Internal storage: **Protobuf binary** via `kotlinx-serialization-protobuf` — not JSON
 - Export format: **GPX 1.1** for compatibility with QGIS, Google Earth, OsmAnd, etc.
-- Tack metadata captured: name (auto-generated), comment, start/end time, paused duration, fastest speed, track color
-- Real-time trace: `Polyline.setPoints()` on active overlay, no recreation
-- Auto tack detection via configurable geofence (origin + radius from maro.properties)
-- `visibleOnMap: Boolean` on Tack data class — per-tack visibility toggle on map
-- Manual Start/Stop available in new tack drawer (hamburger icon)
-- `timeOffsetSec` (seconds since tack start) stored per point instead of absolute timestamp to save ~5 bytes/point
-- Tack recording runs on Dispatchers.Default, file I/O on Dispatchers.IO
-- 30s periodic checkpoint save during RECORDING for crash recovery
-- Tack stats (`distanceNm`, `maxSpeedKn`, `avgSpeedKn`) accumulated continuously in TackRecorder, written at finalize
-- `index.json` rebuilt by scanning `.bin` files on startup if missing or corrupted
-- Swipe-to-delete on TackHistoryOverlay with confirmation dialog
+- Track metadata: name (auto-generated `yyyy-MM-dd HH:mm`), comment, start/end time, fastest speed, track color, distance
+- Recording lifecycle: ON state persists through stationary — only point capture suspends via `isStill()` gate
+- Auto-start on **geofence exit** only (Port Salis origin + configurable radius)
+- `visibleOnMap: Boolean` on Track data class — per-track visibility toggle
+- Manual Start/Stop in track drawer (hamburger icon)
+- `timeOffsetSec` per point instead of absolute timestamp — saves ~5 bytes/pt
+- Recording on Dispatchers.Default, file I/O on Dispatchers.IO
+- 30s periodic checkpoint save during ON state for crash recovery
+- Track stats (`distanceNm`, `maxSpeedKn`, `avgSpeedKn`) accumulated in-memory, written at finalize
+- Index rebuilt by scanning `.bin` files on startup if missing or corrupted
+- Swipe-to-delete on TrackHistoryOverlay with snackbar undo
 
 ## Key Files
 
@@ -287,14 +171,26 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 - `plans/boat-trace-design-discussion.md` — final design and implementation plan
 - `xTrack/BoatTrace/FEAT_PLN_BoatTrace_TrackList_Design.md` — track list UI requirements, animation design, component architecture
 - `xTrack/BoatTrace/FEAT_PLN_BoatTrace_render-tracks.md` — render-tracks implementation plan
+- `xTrack/BoatTrace/FEAT_DOC_BoatTrace_decisions.md` — comprehensive functional/architectural decisions record (7 categories, 40+ decisions)
 
 ## Implemented
 
-**render-tracks** — Configurable track history rendering on the map overlay:
-- `tracking.render.nb` (0-20, default 5), `tracking.color.active`, `tracking.color.history`, `tracking.color.pinned` in maro.properties + BuildConfig + AppSettings
-- History tracks rendered with decreasing transparency 90%→10% across N tracks; most recent track thicker (10f vs 6f)
-- Incremental overlay diff (no full teardown+rebuild on trackSummaries changes) + LRU cache in TrackViewModel
-- `TrackLayerIcon` in FanLayout (5th layer button, maxCount 5→6)
-- Active recording track uses `tracking.color.active` instead of hardcoded 0xFF1565C0
-- Unified "Tracking" collapsible section in Navigation tab (recording settings + render settings with preset color picker)
-- Build: ✅ `assembleDebug` passes
+**Data model:** `Track`/`TrackPoint` protobuf with `@ProtoNumber`, `TrackSummary` lightweight index. Relative `timeOffsetSec` per point (~5 bytes saved). `visibleOnMap: Boolean` per-track. `distanceNm` accumulated in-memory, written at finalize.
+
+**Recorder:** Coroutine state machine **OFF ⇄ ON** with geofence auto-detect (Port Salis, Haversine) + manual Start/Stop. Speed gate > 2.5 kn. `isStill()` via `AdaptiveGpsPolicy` position-only algorithm (anchor + time window). Process-death recovery with orphan checkpoint detection. `TrackRecordingService` foreground notification.
+
+**Persistence:** `TrackRepository` — protobuf CRUD on `Dispatchers.IO`, 30s checkpoint saves, index rebuild on corruption. GPX 1.1 export via `FileProvider` share intent.
+
+**Map rendering:** Active track polyline (`track_recording`, 10f, `tracking.color.active`). History tracks: `tracking.render.nb` (0-20), transparency RangeSlider, color gradient `pastFrom→pastTo` with linear RGB interpolation. `pinnedFrom/To` infrastructure only. Incremental overlay diff (`renderedTrackIds` set). First history track thicker (8f vs 6f). Track polylines tagged `track_` prefix survive CoastlineMapView cleanup.
+
+**Layer toggle:** `TrackLayerIcon` in FanLayout (index 0). Controlled by `tracking.tracksVisible` (default true).
+
+**TrackViewModel:** `StateFlow<TrackRecorderUiState>` bridge. LRU detail cache (`LinkedHashMap`, max 30). Track list sorted by `startTimeMs` desc. Auto-naming `yyyy-MM-dd HH:mm`.
+
+**UI:** `TrackStatusIcon` — 3 states (OFF dimmed, ON+moving green+red dot, ON+idle blue+blue dot), click toggles recording. `TrackDrawerOverlay` — right panel (75% width), hamburger always visible (36dp), unified ON/OFF switch + Track List. `TrackHistoryOverlay` — LazyColumn with inline editing, visibility toggle, swipe-to-delete with snackbar undo, GPX share. `LiveTrackCard` at position 0 during recording with pulsing border.
+
+**Settings:** Unified Tracking section in General → Display → Layers card; 3 expandable subsections (Number of tracks, Transparency RangeSlider, Colors). Canvas HSV color pickers (Active single, Past from→to, Pinned from→to).
+
+**Stop detection (`AdaptiveGpsPolicy`):** Position-only algorithm. Settings: `stopDetectionEnabled`, `stopDetectionTimeSec` (15-60, default 45), `stopDetectionDistanceM` (10-30, default 15), `stopDetectionDelayGps`. GPS dormant interval = `stopDetectionTimeSec * gpsDormantPct / 100` (80%, enforced <100). Old settings fully removed.
+
+**Build:** ✅ `assembleDebug` passes

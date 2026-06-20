@@ -62,7 +62,6 @@ import ykws.android.maro.data.track.TrackRecorderUiState
 @Composable
 fun TrackDrawerOverlay(
     isOpen: Boolean,
-    isDemoMode: Boolean = false,
     gpsMode: Boolean,
     onGpsModeChange: (Boolean) -> Unit,
     gpsToggleColor: Color,
@@ -212,14 +211,13 @@ fun TrackDrawerOverlay(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = "Track List",
+                                text = "Track List...",
                                 color = Color(AppConfig.uiSettingsTextPrimary),
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Medium
                             )
 
-                            if (!isDemoMode) {
-                                Switch(
+                            Switch(
                                     checked = isActive,
                                     onCheckedChange = { checked ->
                                         if (checked) onStartRecording() else onStopRecording()
@@ -238,7 +236,6 @@ fun TrackDrawerOverlay(
                                         uncheckedTrackColor = Color(AppConfig.uiSettingsSwitchTrackInactive)
                                     )
                                 )
-                            }
                         }
 
                         // ── Live stats card (only when active) ──────────

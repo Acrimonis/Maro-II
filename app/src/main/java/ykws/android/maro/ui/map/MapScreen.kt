@@ -887,7 +887,6 @@ fun MapScreen(
         if (showTrackDrawer) {
             TrackDrawerOverlay(
                 isOpen = true,
-                isDemoMode = !appSettings.gpsMode,
                 gpsMode = appSettings.gpsMode,
                 onGpsModeChange = onGpsModeChange,
                 gpsToggleColor = gpsToggleColor,
@@ -1142,13 +1141,10 @@ private fun MapContent(
                     GpsStatusIcon(state = gpsIconState)
                     TrackStatusIcon(
                         recorderState = trackRecorderState,
-                        onClick = if (appSettings.gpsMode) onOpenTrackDrawer
-                        else {
-                            if (trackRecorderState.state == ykws.android.maro.data.track.TrackRecorderState.ON)
-                                onStopRecording
-                            else
-                                onStartRecording
-                        }
+                        onClick = if (trackRecorderState.state == ykws.android.maro.data.track.TrackRecorderState.ON)
+                            onStopRecording
+                        else
+                            onStartRecording
                     )
                     EarthWaterIcon(
                         emoji = if (isWater) "🌊" else "🏔️",
