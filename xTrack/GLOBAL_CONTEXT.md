@@ -2,7 +2,7 @@
 
 ## Active Session Pointers
 - **Active Feature:** BoatTrace
-- **Active Subfeature:** none
+- **Active Subfeature:** mtrack-setting-opacity
 - **Last Updated:** 2026-06-20
 - **Last Bake:** 2026-06-17 17:12 (WorkflowImprovement — §8 Mode Handoff Protocol + adapter cleanup)
 - **Branch:** feature/trace-fixes
@@ -63,7 +63,7 @@
 - Auto-refine rule wording for clarity and conciseness on `#rule` add.
 - Use apk-build.bat to build APK (runs gradlew assembleDebug).
 - **NO auto git commit/push** — `git add` only when directed; wait for user to say "commit" or "push" before executing those commands (per AGENTS.md §5).
-- **Do not switch to Code mode to implement until explicitly instructed.** Discuss/design in Architect mode first, wait for user's go-ahead before switching.
+- **🔴 MODE LOCK: Do not switch to Code mode or invoke `#implement` pipeline without explicit user go-ahead (`#implement` tag or "go ahead" / "implement now").** Never suggest "ready for #implement" — it implies permission. Architect mode stays in Architect until user explicitly directs otherwise.
 
 ## Global Todos
 - [ ] Validate the intermittent Overpass-outage theory — confirm the coastline OSM fetch failures are transient (succeeded 13:52, failing ~16:52 on 2026-06-08), not a persistent network / cert / IPv6 block. Quick checks: retry `bake-coastline` later; `curl -sk https://overpass-api.de/api/status`; race other mirrors.

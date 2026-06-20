@@ -90,8 +90,8 @@ android {
         buildConfigField("int", "TRACKING_COLOR_PINNED", propInt("tracking.color.pinned", 0xFF1565C0.toInt()).toString())
         buildConfigField("int", "TRACKING_COLOR_PAST_FROM", propInt("tracking.color.pastFrom", 0xFF1565C0.toInt()).toString())
         buildConfigField("int", "TRACKING_COLOR_PAST_TO", propInt("tracking.color.pastTo", 0xFF0000FF.toInt()).toString())
-        buildConfigField("int", "TRACKING_TRANSPARENCY_FROM", propInt("tracking.transparency.from", 100).toString())
-        buildConfigField("int", "TRACKING_TRANSPARENCY_TO", propInt("tracking.transparency.to", 30).toString())
+        buildConfigField("int", "TRACKING_TRANSPARENCY_FROM", propInt("tracking.transparency.from", 20).toString())
+        buildConfigField("int", "TRACKING_TRANSPARENCY_TO", propInt("tracking.transparency.to", 80).toString())
         buildConfigField("int", "TRACKING_COLOR_PINNED_FROM", propInt("tracking.color.pinnedFrom", 0xFF1565C0.toInt()).toString())
         buildConfigField("int", "TRACKING_COLOR_PINNED_TO", propInt("tracking.color.pinnedTo", 0xFF1565C0.toInt()).toString())
 
