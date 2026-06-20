@@ -2,7 +2,7 @@
 name: UI_Map
 status: active
 created: 2026-06-07 00:00
-modified: 2026-06-14 19:39
+modified: 2026-06-20 09:56
 active_subfeature: boat-center
 ---
 
@@ -247,6 +247,33 @@ Allow manual two-finger rotation of the map in demo mode, and derive the heading
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `CenterMarkerOverlay` decoupled Image + Canvas
 
+### decenter-map  [ ]
+
+Shift the boat position from screen centre to the lower third of the viewport when the boat is moving, giving proportionally more screen area ahead. Implemented via a dual-offset approach: shift the osmdroid `setCenter` target upward in geo-space (so the forward area moves into view), and shift the `CenterMarkerOverlay` composable downward in screen-space to realign the boat icon with its true geo-position.
+
+#### Todos
+- [ ] Design and agree on the dynamic offset behaviour (speed threshold, max fraction, smooth animation)
+- [ ] Implement map centre offset in GPS auto-follow path — adjust `setCenter`/`animateTo` target by projecting boat+offset to geo, using `mv.projection.toPixels`/`fromPixels`
+- [ ] Implement `CenterMarkerOverlay` downward screen offset — `Modifier.offset(y = offsetFraction * height)` to align boat icon with its true position
+- [ ] Animate offset transitions smoothly (0 ↔ maxOffset) over 500–800 ms when boat crosses speed threshold
+- [ ] Suppress offset when: stationary, demo mode, heading unknown, or manual pan override (auto-follow suppressed)
+- [ ] Verify overlays (Dashboard, control stack) remain fixed — they should NOT move with the map
+- [ ] Verify tile loading at edges — osmdroid's default tile margin may show grey if offset is large
+- [ ] Build + on-device verification
+
+#### Rules
+- Offset applies only in GPS auto-follow mode with meaningful speed (>5 kn); linearly ramps 0→max between 5–15 kn
+- Max offset fraction: 0.25 (lower quarter) — configurable
+- Dual correction: map centre shifts upward in geo-space, boat icon shifts downward in screen-space
+- Overlay controls must remain at fixed screen positions — only map content and boat marker move
+- Manual pan (auto-follow suppressed) disables offset; re-engage re-enables
+- Smooth tween animation on offset change, not snapping
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — GPS auto-follow `LaunchedEffect`, `CenterMarkerOverlay` modifier, `MapContent` layout
+- `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — speed state exposure for dynamic offset decision
+- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — optional offset toggle / max-offset setting
+
 ## Todos
 
 ## Rules
@@ -261,3 +288,5 @@ Allow manual two-finger rotation of the map in demo mode, and derive the heading
 - `xTrack/UI_Map/FEAT_PLN_UI_Map_overlay-layout-inventory.md` — Map overlay layout inventory
 - `xTrack/UI_Map/FEAT_PLN_UI_Map_overlay-layout-rationalization.md` — Map overlay layout rationalization
 - `xTrack/UI_Map/FEAT_PLN_UI_Map_icon-rendering-overhaul.md` — Icon rendering overhaul plan
+- `xTrack/UI_Map/FEAT_PLN_UI_Map_decenter-map-discussion.md` — Decenter map: dynamic downward offset analysis and design discussion
+- `docs/map-lib-migration-plan.md` — Full migration plan: osmdroid → MapLibre GL, with CameraOptions.padding for decenter and pitch for tilt

@@ -1,18 +1,16 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** WorkflowImprovement
-- **Active Subfeature:** hard rules
+- **Active Feature:** UI_Map
+- **Active Subfeature:** boat-center
 - **Last Updated:** 2026-06-20
-- **Last Bake:** 2026-06-20 10:53 (Core Directives promotion + AGENTS.md token optimization — 207→149 lines, 28% reduction)
-- **Branch:** feature/workflow-ya-improvment
+- **Last Bake:** 2026-06-17 17:12 (WorkflowImprovement — §8 Mode Handoff Protocol + adapter cleanup)
+- **Branch:** feature/boat-marker-and-colors
 ## Routing Map
 | Keyword | Feature File |
 |---|---|
 | documentation, docs, readme, faq, setup, git_workflow, maro_architecture, plans | xTrack/Documentation/FEAT_DSC_Documentation.md |
 | workflow, clinerules, xtrack, commands, memory, #doc, doccommands | xTrack/WorkflowImprovement/FEAT_DSC_WorkflowImprovement.md |
-| checkdev, dev-branch, remote status, branch health | xTrack/CheckDev/FEAT_DSC_CheckDev.md |
-| health, diagnostics, telemetry, crash, monitor | xTrack/Health/FEAT_DSC_Health.md |
 | zone300, zone, 300 | xTrack/Zone300/FEAT_DSC_Zone300.md |
 | depth, bathymetry, depthmapping, baro, seafloor, soundings, litto3d, shom, emodnet | xTrack/DepthMapping/FEAT_DSC_DepthMapping.md |
 | coastline, trait de côte, fourmigue, hazard, obstruction, balisage, danger_isole, aton, seamark, lighthouse, reef | xTrack/Coastline/FEAT_DSC_Coastline.md |
@@ -29,7 +27,6 @@
 | color, colour, color management, color-scheme, colors.properties, colour palette, colour scheme, colours, theme | xTrack/ColorManagement/FEAT_DSC_ColorManagement.md |
 | zonetile, zone tile, zone info, zone ahead, zone cone, speed zone, speed zone display | xTrack/ZoneTile/FEAT_DSC_ZoneTile.md |
 | zone300speed, 300m badge, speed badge, 300m speed | xTrack/Zone300SpeedBadge/FEAT_DSC_Zone300SpeedBadge.md |
-| boat, trace, trip, boat-trace, boat-tracing, track, recording, port-salis, journey | xTrack/BoatTrace/FEAT_DSC_BoatTrace.md |
 
 ## Feature Summaries
 
@@ -37,7 +34,7 @@
 |---------|-----------|---------|----------|--------|
 | **ColorManagement** | **Centralised colour palette — all tokens in colors.properties with alias interpolation, documented in color-scheme.md** | **2026-06-16 14:05** | **2026-06-17 14:39** | **active** |
 | **Documentation** | **README, FAQs, setup guides, architecture docs, and plans cleanup** | **2026-06-11 06:42** | **2026-06-11 10:36** | **active** |
-| WorkflowImprovement | xTrack #command system, git shortcuts, #now/#list rename, trigger syntax, fuzzy matching, bootstrap, memory bake lifecycle, mode handoff protocol, and Core Directives promotion | 2026-06-03 00:00 | 2026-06-20 10:42 | active |
+| WorkflowImprovement | xTrack #command system, git shortcuts, #now/#list rename, trigger syntax, fuzzy matching, bootstrap, memory bake lifecycle, and mode handoff protocol | 2026-06-03 00:00 | 2026-06-17 17:12 | active |
 | Zone300 | 300m zone generation from coastline with water-only constraint | 2026-05-20 00:00 | 2026-06-03 00:00 | active |
 | DepthMapping | Bathymetry / depth mapping from Litto3D, SHOM, EMODnet sources | 2026-05-10 00:00 | 2026-06-10 12:13 | active |
 | Coastline | Coastline extraction, spatial indexing, isOnWater determination | 2026-05-10 00:00 | 2026-06-05 00:00 | active |
@@ -49,23 +46,20 @@
 | DepthSafety | Danger depth alerts, shallow water grounding prevention, isobath precision | 2026-06-03 00:00 | 2026-06-05 00:00 | active |
 | Ui_General | App-lifecycle UX: back-to-exit guard, keep-screen-on wakelock, edge-to-edge rendering and WindowInsets management | 2026-06-08 16:43 | 2026-06-17 13:37 | active |
 | Ui_General | App-lifecycle UX: back-to-exit guard, keep-screen-on wakelock, edge-to-edge rendering and WindowInsets management | 2026-06-08 16:43 | 2026-06-16 21:18 | active |
-| Ui_Settings | Settings page UI, persistence, widgets, and UX enhancements | 2026-06-09 15:28 | 2026-06-18 19:10 | active |
+| Ui_Settings | Settings page UI, persistence, widgets, and UX enhancements | 2026-06-09 15:28 | 2026-06-09 19:42 | active |
 | **Navigation** | **Navigation aids — heading/speed arrow and direction line on map overlay** | **2026-06-10 08:40** | **2026-06-11 11:55** | **active** |
 | **RegulatedZones** | **Maritime regulatory zones — multi-source normalization (SHOM INSPIRE + IGN Natura 2000), sealed classification, 8-category icon mapping, keyword-driven display logic** | **2026-06-11 18:00** | **2026-06-12 22:37** | **active** |
-| **ArcLayout** | **Layer toggle arc menu — pure-Compose semicircle fan-out with layer toggles, FanLayout framework, fixed child centering, scrim dismiss on external tap** | **2026-06-13 07:34** | **2026-06-18 19:36** | **active** |
+| **ArcLayout** | **Layer toggle arc menu — pure-Compose semicircle fan-out with layer toggles, FanLayout framework, fixed child centering using effectiveTheta=180/currentCount** | **2026-06-13 07:34** | **2026-06-14 14:50** | **active** |
 | **ZoneTile** | **Zone information tiles and map overlay rendering — zone-ahead cone/line, speed zone display, ETA, zone state management** | **2026-06-17 09:45** | **2026-06-17 09:45** | **active** |
 | **Zone300SpeedBadge** | **300m zone speed limit badge integrated into regulated zone icon stack as highest-priority SPEED_LIMIT entry** | **2026-06-14 17:42** | **2026-06-14 17:42** | **done** |
-| **BoatTrace** | **Boat movement tracking: record tracks from GPS fixes, persist, display on map with configurable render layers, GPX export, track history UI** | **2026-06-15 21:43** | **2026-06-18 20:20** | **active** |
-| **CheckDev** | **Dev-branch health monitoring — remote branch state, ahead/behind analysis, workflow hygiene validation** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
-| **Health** | **Application health monitoring — diagnostics, crash reporting, memory/performance telemetry** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).
 - `adb.exe` is in the computer PATH — use `adb` directly without full path qualifier.
 - Auto-refine rule wording for clarity and conciseness on `#rule` add.
 - Use apk-build.bat to build APK (runs gradlew assembleDebug).
-- **Hard rules enforced in AGENTS.md Core Directives.** Key: 🎯 DIRECT RESPONSE | ⛔ SCOPE LOCK | 🔴 MODE LOCK | 🔴 NO GIT WRITES | 🔴 NO BRANCH | 🗣️ CONCISE | 🔴 WRITE-ONCE | 🔴 NO BINARY READS | 🔴 NEVER ASSUME | 📋 TASK COMPLETION. Refer to AGENTS.md for full text of each rule.
-- **You are an AI assistant with adb in PATH and full access to logcat.** Retrieve logcat yourself if needed for debugging. Do not ask the user to run adb/logcat commands.
+- **NO auto git commit/push** — `git add` only when directed; wait for user to say "commit" or "push" before executing those commands (per AGENTS.md §5).
+- **Do not switch to Code mode to implement until explicitly instructed.** Discuss/design in Architect mode first, wait for user's go-ahead before switching.
 
 ## Global Todos
 - [ ] Validate the intermittent Overpass-outage theory — confirm the coastline OSM fetch failures are transient (succeeded 13:52, failing ~16:52 on 2026-06-08), not a persistent network / cert / IPv6 block. Quick checks: retry `bake-coastline` later; `curl -sk https://overpass-api.de/api/status`; race other mirrors.
