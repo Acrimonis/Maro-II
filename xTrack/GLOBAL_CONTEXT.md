@@ -2,7 +2,7 @@
 
 ## Active Session Pointers
 - **Active Feature:** BoatTrace
-- **Active Subfeature:** mtrack-setting-opacity
+- **Active Subfeature:** none
 - **Active Feature:** WorkflowAmbiguityFix
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-20
