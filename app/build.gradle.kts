@@ -75,6 +75,23 @@ android {
         buildConfigField("double", "SPEED_ZONE_DISTANCE_OUT_OF_ZONE_INFO_M",
             propDouble("speedZone.distanceOutOfZoneInfoM", 200.0)
                 .coerceAtLeast(10.0).toString())
+
+        // ── Track recording defaults from maro.properties ──────────
+        buildConfigField("double", "TRACK_ORIGIN_LAT", propDouble("track.originLat.default", 43.55).toString())
+        buildConfigField("double", "TRACK_ORIGIN_LON", propDouble("track.originLon.default", 7.00).toString())
+        buildConfigField("double", "TRACK_GEOFENCE_RADIUS_M", propDouble("track.geofenceRadiusM", 500.0).toString())
+        buildConfigField("boolean", "TRACK_ENABLED_DEFAULT", propBool("track.enabled.default", false).toString())
+
+        // ── Track rendering defaults from maro.properties ──────────
+        buildConfigField("int", "TRACKING_RENDER_NB", propInt("tracking.render.nb", 5).coerceIn(0, 20).toString())
+        buildConfigField("int", "TRACKING_COLOR_ACTIVE", propInt("tracking.color.active", 0xFF1565C0.toInt()).toString())
+        buildConfigField("int", "TRACKING_COLOR_HISTORY", propInt("tracking.color.history", 0xFF1565C0.toInt()).toString())
+        buildConfigField("int", "TRACKING_COLOR_HISTORY_END", propInt("tracking.color.historyEnd", 0xFF0000FF.toInt()).toString())
+        buildConfigField("int", "TRACKING_COLOR_PINNED", propInt("tracking.color.pinned", 0xFF1565C0.toInt()).toString())
+
+        // ── Stop detection GPS dormant percent from maro.properties ──────
+        buildConfigField("int", "STOP_DETECTION_GPS_DORMANT_PCT",
+            propInt("stopDetection.gpsDormantPct", 80).toString())
     }
 
     compileOptions {

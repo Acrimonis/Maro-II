@@ -50,8 +50,11 @@ You are executing a 100% Greenfield rewrite in a fresh workspace, using the lega
 - **Error Back-off:** If a compilation or Gradle error persists for 2 consecutive autonomous attempts, halt immediately, present the log, and ask for developer guidance. Do not enter automated repair loops.
 - **Design Deviation Gate:** Await explicit user approval before introducing new external dependencies, third-party libraries, or altering the core data flow.
 
-# 5. Git Operations
-- **NO Auto Commit/Push:** NEVER run `git commit` or `git push` without explicit user instruction. Stage changes with `git add` only when directed. Wait for the user to say "commit" or "push" before executing those commands.
+# 5. Git Operations — STRICT
+- **🔴 ABSOLUTE RULE: No agent may `git commit` or `git push` without the user explicitly saying so.** `git add` may be used to stage, but only after user confirms they want a commit prepared. Even `#commit` requires confirmation unless the user chains it with other commands showing clear intent (e.g. `#bake #commit #implement`).
+- **`#push` is NEVER automatic** — always ask for confirmation.
+- Feature work lives on `feature/*` branches; merges to `develop`/`main` are done via pull request only.
+- **Exception:** `new_task(mode=code, ...)` subtasks may commit within their scope since results return to the parent.
 
 # 6. Spatial Engine Constraints
 - See `docs/MARO_ARCHITECTURE.md` for Maro-II spatial engine constraints (bounding box, memory-mapped I/O, async rendering).
@@ -84,6 +87,17 @@ You are executing a 100% Greenfield rewrite in a fresh workspace, using the lega
       - **Attach Doc:** `#doc attach [name]` — fuzzy-resolve against `docs/**/*.md`, `xTrack/*/FEAT_DOC_*.md`, and `xTrack/*/FEAT_PLN_*.md`, add the relative path to the active feature's `## Docs` with a brief description. Skip if present. Bare `#doc attach`: run `#doc list` and prompt which to attach.
       - **Detach Doc:** `#doc detach [name]` — fuzzy-resolve against the active feature's `## Docs` entries, remove it. Bare `#doc detach`: show `## Docs` and prompt which to detach.
       - **Audit Docs:** `#doc audit` — scan all `docs/**/*.md` (recursive), `xTrack/*/FEAT_DOC_*.md`, and `xTrack/*/FEAT_PLN_*.md` and report: (a) docs missing `<!-- scope: ... -->` tag, (b) orphan docs (attached to no feature via `## Docs` / `#### Docs` in any `xTrack/*/FEAT_DSC_*.md`, and not `README.md`), (c) docs with invalid scope (not one of core|onboarding|feature|reference|archived). Print findings grouped by severity. Does NOT auto-fix — for manual cleanup.
+      - **Update Docs:** `#doc update` — refresh the active feature's documentation to match current implementation reality. 9-step pipeline:
+        (1) Harvest decisions from all FEAT_PLN_* files + source code, extract with rationale and file references
+        (2) Cross-reference plans vs actual source — capture what was built, not what was planned
+        (3) Create/update FEAT_DOC_[Feature]_decisions.md grouped by category
+        (4) Rewrite ## Implemented as concise current-state bullet groups — no historical language
+        (5) Strip completed [x] todo lists from subfeatures (redundant with Implemented + decisions doc)
+        (6) Move unchecked items from completed subfeatures to parent ## Todos
+        (7) Remove deprecated terminology (old state names, stale naming mismatches)
+        (8) Strip empty #### Rules, #### Key Files, #### Docs sections
+        (9) Update hydration, bump modified date, #bake
+        Target: ~60% line reduction on the feature doc.
   12. **Repository Doctor (`#doctor`):** Lint the xTrack stack for drift; print findings grouped by severity. With `#doctor fix`, auto-repair the safe classes and report the rest. Checks: (a) duplicate/overlapping Routing Map rows; (b) duplicate or near-duplicate rules (global or per-feature); (c) stale `active_subfeature` (front-matter names a non-focused or non-existent subfeature); (d) non-`YYYY-MM-DD HH:mm` dates; (e) `status` vs completion (all subfeatures `[x]` but `status` ≠ `done`); (f) malformed sections (e.g. a non-`###` line directly under `## Subfeatures`); (g) orphan docs (in `docs/**` or `xTrack/*/FEAT_DOC_*`/`xTrack/*/FEAT_PLN_*`, attached to no feature, not `README`); (h) routing rows → missing files, or feature files with no routing row; (i) Feature Summaries table rows with no matching `xTrack/*/FEAT_DSC_` file (or vice versa). Auto-fixable: dedupe routing rows, normalize dates, reset stale `active_subfeature`, sync Feature Summaries ↔ FEAT_DSC_ files. Report-only: malformed sections, orphan docs, status/rule-dedupe judgment calls. `#bake` runs the auto-fix subset first.
   13. **Current Context (`#now`):** If the user states `#now` (aliases `#context`, `#here`, `#feat`, `#feature`), print a lightweight orientation block (not the full `#status` dashboard): the active feature from `xTrack/GLOBAL_CONTEXT.md` (name + `status` + `one_liner` from the `## Feature Summaries` table), the `active_subfeature`, the **working context** (current working directory only), and `Last Bake`. Then list all subfeatures of the active feature, marking the active subfeature with `← focused` if one is selected. Do NOT fetch or display git branch or worktrees. (`#list` lists all features; `#status` is the full single-feature dashboard.)
   14. **Session Diff (`#status diff`):** If the user states `#status diff [name]`, fuzzy-resolve `[name]` against existing features and show what changed since the last `#bake` of that feature. Read the feature's hydration file `xTrack/[Feature]/FEAT_HYD_[Feature].md` as the baseline, then compare with the current feature file to report:
@@ -105,8 +119,8 @@ You are executing a 100% Greenfield rewrite in a fresh workspace, using the lega
       c. **Report:** After processing all conflicts, print summary: *"Resolved [N] files automatically. [M] files need manual attention: [list]"*
       d. **User completes** remaining manual resolutions, runs `git rebase --continue`, then `#push`.
       e. **Safety:** If `## OwnedFiles` is empty/missing for the active feature, the AI guesses by scanning the feature's description, todos, and `## Key Files`. If confidence is low or the conflict touches critical infrastructure (build files, protos, `xTrack/`), prompt the user instead of auto-resolving.
-      f. **Feature Template:** Every `FEAT_DSC_[Feature].md` may include a `## OwnedFiles` section (parent-level, below `## Docs`) listing source files that the feature explicitly owns for auto-resolution purposes. This is separate from `## Key Files` (which lists important references regardless of ownership).
-  16. **Implementation Pipeline (`#implement`):** If the user states `#implement` (bare or `#implement [feature]`), execute the full implementation pipeline: switch to Code → implement + build → switch to Ask → feature coverage review + code health review (one pass each, no looping) → switch to Architect → report summary. Error back-off (§4) applies per-step within Code's build loop. No git auto-write (§5) — Code stages but does not commit. No Code↔Ask ping-pong (each review is a single pass, issues go to Architect).
+      f. **Feature Template:** Every `FEAT_DSC_[Feature].md` may include a `## OwnedFiles` section (parent-level, below `## Docs`) listing source files that the feature explicitly owns for auto-resolution purposes. This is separate from `## Key Files` (which lists important references regardless of ownership), a `## Implemented` where we keep track of implemented features..
+  16. **Implementation Pipeline (`#implement`):** If the user states `#implement` (bare or `#implement [feature]`), execute the full implementation pipeline: switch to Code → implement + build → switch to Ask → feature coverage review + code health review (one pass each, no looping) → switch to Architect → write a very short bullet point lists summary of the features implemented in the section `## Implemented` of `FEAT_DSC_[Feature].md` → report summary. Error back-off (§4) applies per-step within Code's build loop. No git auto-write (§5) — Code stages but does not commit. No Code↔Ask ping-pong (each review is a single pass, issues go to Architect).
 
 # 8. Mode Handoff Protocol
 

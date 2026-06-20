@@ -2,7 +2,7 @@
 name: Ui_Settings
 status: active
 created: 2026-06-09 15:28
-modified: 2026-06-11 17:50
+modified: 2026-06-18 19:10
 active_subfeature: none
 ---
 
@@ -95,6 +95,19 @@ active_subfeature: none
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
 
+### track-drawer-settings-btn  [x]
+
+#### Todos
+- [x] Add Settings gear button to Track Drawer header row, right-aligned
+- [x] Resize to 64dp IconButton matching map button sizing
+- [x] Reduce drawer padding: right 24dp→8dp, top 8dp→0dp, below-title spacers 8dp→2dp
+- [x] Remove redundant map-level Settings button and its `MapContent` parameter
+- [x] BUILD SUCCESSFUL
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/TrackDrawerOverlay.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
+
 ## Todos
 
 ## Rules
@@ -113,3 +126,4 @@ active_subfeature: none
 - `xTrack/Ui_Settings/FEAT_PLN_Ui_Settings_vertical-padding.md` — Vertical padding discussion
 - `xTrack/Ui_Settings/FEAT_PLN_Ui_Settings_landscape-font-sizing.md` — Landscape font sizing discussion
 - `xTrack/Ui_Settings/FEAT_PLN_Ui_Settings_zoneconfig-to-appconfig.md` — ZoneConfig to AppConfig rename
+- `xTrack/Ui_Settings/FEAT_PLN_Ui_Settings_track-drawer-settings-btn.md` — Settings button in Track Drawer header row

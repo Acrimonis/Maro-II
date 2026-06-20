@@ -2,8 +2,8 @@
 name: ArcLayout
 status: active
 created: 2026-06-13 07:34
-modified: 2026-06-14 18:53
-active_subfeature: fan-migration
+modified: 2026-06-18 19:36
+active_subfeature: none
 ---
 
 **Description:** Replace the two isolated layer toggle buttons on the map's right-edge control stack with a single anchor button that fans out into a pure-Compose arc menu to the left, exposing 4 layer toggles (low depth warning, 300m zone, depth layer, regulated zones) as a cohesive multi-toggle control.
@@ -63,7 +63,7 @@ active_subfeature: fan-migration
 - **Toggle mode:** children receive per-child activeStates; active=alpha 1.0, inactive=alpha 0.25
 - **Active badge:** 18 dp blue circle at TopEnd of parent, bold white text
 - **Animation:** 70ms stagger expand, 200ms simultaneous collapse
-- **No scrim** — close on parent tap or BackHandler
+- **No scrim** — close on parent tap or BackHandler ~~(superseded by scrim-dismiss — scrim now at MapContent level, FanLayout itself still doesn't manage a scrim)~~
 
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/FanConfig.kt`
@@ -78,6 +78,22 @@ active_subfeature: fan-migration
 - `plans/fanlayout-extension-discussion.md` — toggle + badge + animation design
 - `plans/fanlayout-equidistance-rule.md` — equidistance geometry rule
 - `plans/fanlayout-child-centering-rule.md` — child button centering design rule
+
+### scrim-dismiss  [x]
+
+#### Todos
+- [x] Add transparent full-screen scrim in `MapContent()` Box between MapView and overlay Row
+- [x] Scrim onClick → close fan via generic `onDismissFan()` callback
+- [x] Fix badge dimming: badge always shows full color regardless of how many children are toggled on
+
+#### Rules
+- Scrim is invisible (no background) — just catches taps, no visual dimming
+- Placed between MapView and overlay Row so fan children, settings, zoom still consume their own taps
+- Generic `onDismissFan()` works for any number of future fans
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — scrim in `MapContent()` + `onDismissFan` parameter
+- `app/src/main/java/ykws/android/maro/ui/map/FanLayout.kt` — KDoc updated, badge no longer dims
 
 ### hide-fix  [ ]
 

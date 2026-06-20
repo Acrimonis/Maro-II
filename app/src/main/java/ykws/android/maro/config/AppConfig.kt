@@ -206,6 +206,28 @@ object AppConfig {
     var statusEarthWaterInactive: Int = 0xEEFFFFFF.toInt()
         private set
 
+    /** Tracking icon HEALTHY state (ON + moving, recording) colour. Default #CC4CAF50. Set via `status.tracking.healthy` in colors.properties. */
+    var statusTrackingHealthy: Int = 0xCC4CAF50.toInt()
+        private set
+    /** Tracking icon IDLE state (ON + stationary, not recording) colour. Default #FF1565C0. Set via `status.tracking.idle` in colors.properties. */
+    var statusTrackingIdle: Int = 0xFF1565C0.toInt()
+        private set
+    /** Tracking icon OFF state (not tracking) colour. Default #FFFFFFFF. Set via `status.tracking.off` in colors.properties. */
+    var statusTrackingOff: Int = 0xFFFFFFFF.toInt()
+        private set
+    /** Tracking icon dot colour when recording (moving). Default #FFF44336 (red). Set via `status.tracking.dot.recording` in colors.properties. */
+    var statusTrackingDotRecording: Int = 0xFFF44336.toInt()
+        private set
+    /** Tracking icon dot colour when idle (stationary). Default #CCFFFFFF (white 80%). Set via `status.tracking.dot.idle` in colors.properties. */
+    var statusTrackingDotIdle: Int = 0xCCFFFFFF.toInt()
+        private set
+    /** Tracking icon active-state background alpha (0.0–1.0). Default 0.75. Set via `status.tracking.alpha.active` in colors.properties. */
+    var statusTrackingAlphaActive: Float = 0.75f
+        private set
+    /** Tracking icon dimmed-state background alpha (0.0–1.0). Default 0.50. Set via `status.tracking.alpha.dimmed` in colors.properties. */
+    var statusTrackingAlphaDimmed: Float = 0.50f
+        private set
+
     // ── Dashboard depth readout tints ─────────────────────────────────────────
     /** Dashboard depth readout collision tint. Default #FFEF5350. Set via `ui.dashboard.readout.collision` in colors.properties. */
     var uiDashboardReadoutCollision: Int = 0xFFEF5350.toInt()
@@ -508,6 +530,14 @@ object AppConfig {
             props.getProperty("status.gps.stale")?.let { parseColorOrNull(it) }?.let { statusGpsStale = it }
             props.getProperty("status.gps.alpha.active")?.toFloatOrNull()?.let { statusGpsAlphaActive = it.coerceIn(0f, 1f) }
             props.getProperty("status.gps.alpha.dimmed")?.toFloatOrNull()?.let { statusGpsAlphaDimmed = it.coerceIn(0f, 1f) }
+
+            props.getProperty("status.tracking.healthy")?.let { parseColorOrNull(it) }?.let { statusTrackingHealthy = it }
+            props.getProperty("status.tracking.idle")?.let { parseColorOrNull(it) }?.let { statusTrackingIdle = it }
+            props.getProperty("status.tracking.off")?.let { parseColorOrNull(it) }?.let { statusTrackingOff = it }
+            props.getProperty("status.tracking.dot.recording")?.let { parseColorOrNull(it) }?.let { statusTrackingDotRecording = it }
+            props.getProperty("status.tracking.dot.idle")?.let { parseColorOrNull(it) }?.let { statusTrackingDotIdle = it }
+            props.getProperty("status.tracking.alpha.active")?.toFloatOrNull()?.let { statusTrackingAlphaActive = it.coerceIn(0f, 1f) }
+            props.getProperty("status.tracking.alpha.dimmed")?.toFloatOrNull()?.let { statusTrackingAlphaDimmed = it.coerceIn(0f, 1f) }
 
             props.getProperty("status.earthWater.water")?.let { parseColorOrNull(it) }?.let { statusEarthWaterWater = it }
             props.getProperty("status.earthWater.land")?.let { parseColorOrNull(it) }?.let { statusEarthWaterLand = it }

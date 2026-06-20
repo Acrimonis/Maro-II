@@ -39,12 +39,12 @@ import ykws.android.maro.data.regulation.ZoneDisplayCategory
  *                             acquisition presets write this + [gpsActiveMinDistanceM]. Default 2.
  * @property gpsActiveMinDistanceM  GPS mode (moving): minimum metres of movement between fixes
  *                             (1–25). Default 5.
- * @property adaptiveWindowSec      Adaptive idle detector: seconds of sub-threshold movement before
- *                             dropping to the idle fix rate (15–60). Default 30.
- * @property adaptiveDistanceM      Adaptive idle detector: max displacement (m) still counted as
- *                             "stationary" (10–30). Default 20.
- * @property adaptiveIdleIntervalSec  Adaptive idle: seconds between fixes once stationary (4–15).
- *                             Default 6.
+ * @property stopDetectionEnabled   Master toggle for stop detection. When off, policy always ACTIVE.
+ * @property stopDetectionTimeSec   Seconds of sub-threshold movement before isStill() returns true
+ *                             (10–90). Default 45.
+ * @property stopDetectionDistanceM Max displacement (m) still counted as "stationary" (10–30).
+ *                             Default 15.
+ * @property stopDetectionDelayGps  When true, GPS fixes space out when isStill() (battery saving).
  * @property mapRefreshFps     GPS auto-follow re-render ceiling in frames/s (5–50). Lower = fewer
  *                             whole-map repaints = less battery. Default 25.
  * @property emodnetShallowCutoffM  EMODnet shallow cutoff (m): EMODnet point readings shallower
@@ -64,9 +64,10 @@ data class AppSettings(
     val recenterDelaySeconds: Int = 5,
     val gpsActiveIntervalSec: Int = 2,
     val gpsActiveMinDistanceM: Float = 5f,
-    val adaptiveWindowSec: Int = 30,
-    val adaptiveDistanceM: Int = 20,
-    val adaptiveIdleIntervalSec: Int = 6,
+    val stopDetectionEnabled: Boolean = true,
+    val stopDetectionTimeSec: Int = 45,
+    val stopDetectionDistanceM: Int = 15,
+    val stopDetectionDelayGps: Boolean = true,
     val mapRefreshFps: Int = 25,
     val mapCenterLat: Double = Double.NaN,
     val mapCenterLon: Double = Double.NaN,
@@ -153,7 +154,29 @@ data class AppSettings(
      */
     /** Demo mode: rotate map heading-up (pan-direction-derived bearing) instead of north-up. */
     val demoHeadingUp: Boolean = false,
-    val gpsIdleMinDistanceM: Float = 0f
+    val gpsIdleMinDistanceM: Float = 0f,
+    /** Enable track recording. */
+    val trackEnabled: Boolean = BuildConfig.TRACK_ENABLED_DEFAULT,
+    /** Geofence origin latitude for auto start/stop (Port Salis). */
+    val trackOriginLat: Double = BuildConfig.TRACK_ORIGIN_LAT,
+    /** Geofence origin longitude for auto start/stop (Port Salis). */
+    val trackOriginLon: Double = BuildConfig.TRACK_ORIGIN_LON,
+    /** Geofence radius in metres for auto start/stop. */
+    val trackGeofenceRadiusM: Double = BuildConfig.TRACK_GEOFENCE_RADIUS_M,
+    /** When false, recording starts on movement alone (no geofence check). */
+    val trackGeofenceEnabled: Boolean = true,
+    /** Whether the tracks overlay layer is visible on the map. */
+    val tracksVisible: Boolean = true,
+    /** Number of historical tracks to render on the map (0-20). */
+    val trackingRenderNb: Int = BuildConfig.TRACKING_RENDER_NB,
+    /** ARGB color for the active recording track. */
+    val trackingColorActive: Int = BuildConfig.TRACKING_COLOR_ACTIVE,
+    /** ARGB color for historical tracks. */
+    val trackingColorHistory: Int = BuildConfig.TRACKING_COLOR_HISTORY,
+    /** ARGB end color for history track gradient (oldest track). */
+    val trackingColorHistoryEnd: Int = BuildConfig.TRACKING_COLOR_HISTORY_END,
+    /** ARGB color for pinned tracks (reserved for future use). */
+    val trackingColorPinned: Int = BuildConfig.TRACKING_COLOR_PINNED
 ) {
     /** Check whether a [ZoneDisplayCategory] is enabled in the current settings. */
     fun isCategoryVisible(cat: ZoneDisplayCategory): Boolean = when (cat) {
@@ -207,9 +230,10 @@ class SettingsManager(
         recenterDelaySeconds = prefs.getInt(KEY_RECENTER_DELAY_S, 5),
         gpsActiveIntervalSec = prefs.getInt(KEY_GPS_INTERVAL_S, 2),
         gpsActiveMinDistanceM = prefs.getFloat(KEY_GPS_MIN_DISTANCE_M, 5f),
-        adaptiveWindowSec     = prefs.getInt(KEY_ADAPTIVE_WINDOW_S, 30),
-        adaptiveDistanceM     = prefs.getInt(KEY_ADAPTIVE_DISTANCE_M, 20),
-        adaptiveIdleIntervalSec = prefs.getInt(KEY_ADAPTIVE_IDLE_S, 6),
+        stopDetectionEnabled     = prefs.getBoolean(KEY_STOP_DETECTION_ENABLED, true),
+        stopDetectionTimeSec     = prefs.getInt(KEY_STOP_DETECTION_TIME_S, 45),
+        stopDetectionDistanceM   = prefs.getInt(KEY_STOP_DETECTION_DISTANCE_M, 15),
+        stopDetectionDelayGps    = prefs.getBoolean(KEY_STOP_DETECTION_DELAY_GPS, true),
         mapRefreshFps    = prefs.getInt(KEY_MAP_REFRESH_FPS, 25),
         mapCenterLat     = prefs.getFloat(KEY_MAP_CENTER_LAT, Float.NaN).toDouble(),
         mapCenterLon     = prefs.getFloat(KEY_MAP_CENTER_LON, Float.NaN).toDouble(),
@@ -250,7 +274,18 @@ class SettingsManager(
         speedZoneAutoShowDemo = prefs.getBoolean(KEY_SPEED_ZONE_AUTOSHOW_DEMO, true),
         regulatedZoneAutoShowGps = prefs.getBoolean(KEY_REGULATED_ZONE_AUTOSHOW_GPS, true),
         regulatedZoneAutoShowDemo = prefs.getBoolean(KEY_REGULATED_ZONE_AUTOSHOW_DEMO, true),
-        gpsIdleMinDistanceM = prefs.getFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, 0f)
+        gpsIdleMinDistanceM = prefs.getFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, 0f),
+        trackEnabled = prefs.getBoolean(KEY_TRACK_ENABLED, BuildConfig.TRACK_ENABLED_DEFAULT),
+        trackOriginLat = prefs.getFloat(KEY_TRACK_ORIGIN_LAT, BuildConfig.TRACK_ORIGIN_LAT.toFloat()).toDouble(),
+        trackOriginLon = prefs.getFloat(KEY_TRACK_ORIGIN_LON, BuildConfig.TRACK_ORIGIN_LON.toFloat()).toDouble(),
+        trackGeofenceRadiusM = prefs.getFloat(KEY_TRACK_GEOFENCE_RADIUS_M, BuildConfig.TRACK_GEOFENCE_RADIUS_M.toFloat()).toDouble(),
+        trackGeofenceEnabled = prefs.getBoolean(KEY_TRACK_GEOFENCE_ENABLED, true),
+        tracksVisible = prefs.getBoolean(KEY_TRACKS_VISIBLE, true),
+        trackingRenderNb = prefs.getInt(KEY_TRACKING_RENDER_NB, BuildConfig.TRACKING_RENDER_NB).coerceIn(0, 20),
+        trackingColorActive = prefs.getInt(KEY_TRACKING_COLOR_ACTIVE, BuildConfig.TRACKING_COLOR_ACTIVE),
+        trackingColorHistory = prefs.getInt(KEY_TRACKING_COLOR_HISTORY, BuildConfig.TRACKING_COLOR_HISTORY),
+        trackingColorHistoryEnd = prefs.getInt(KEY_TRACKING_COLOR_HISTORY_END, BuildConfig.TRACKING_COLOR_HISTORY_END),
+        trackingColorPinned = prefs.getInt(KEY_TRACKING_COLOR_PINNED, BuildConfig.TRACKING_COLOR_PINNED)
     )
 
     /**
@@ -279,9 +314,10 @@ class SettingsManager(
             .putInt(KEY_RECENTER_DELAY_S, updated.recenterDelaySeconds)
             .putInt(KEY_GPS_INTERVAL_S, updated.gpsActiveIntervalSec)
             .putFloat(KEY_GPS_MIN_DISTANCE_M, updated.gpsActiveMinDistanceM)
-            .putInt(KEY_ADAPTIVE_WINDOW_S, updated.adaptiveWindowSec)
-            .putInt(KEY_ADAPTIVE_DISTANCE_M, updated.adaptiveDistanceM)
-            .putInt(KEY_ADAPTIVE_IDLE_S, updated.adaptiveIdleIntervalSec)
+            .putBoolean(KEY_STOP_DETECTION_ENABLED, updated.stopDetectionEnabled)
+            .putInt(KEY_STOP_DETECTION_TIME_S, updated.stopDetectionTimeSec)
+            .putInt(KEY_STOP_DETECTION_DISTANCE_M, updated.stopDetectionDistanceM)
+            .putBoolean(KEY_STOP_DETECTION_DELAY_GPS, updated.stopDetectionDelayGps)
             .putInt(KEY_MAP_REFRESH_FPS, updated.mapRefreshFps)
             .putFloat(KEY_MAP_CENTER_LAT, updated.mapCenterLat.toFloat())
             .putFloat(KEY_MAP_CENTER_LON, updated.mapCenterLon.toFloat())
@@ -323,6 +359,17 @@ class SettingsManager(
             .putBoolean(KEY_REGULATED_ZONE_AUTOSHOW_GPS, updated.regulatedZoneAutoShowGps)
             .putBoolean(KEY_REGULATED_ZONE_AUTOSHOW_DEMO, updated.regulatedZoneAutoShowDemo)
             .putFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, updated.gpsIdleMinDistanceM)
+            .putBoolean(KEY_TRACK_ENABLED, updated.trackEnabled)
+            .putFloat(KEY_TRACK_ORIGIN_LAT, updated.trackOriginLat.toFloat())
+            .putFloat(KEY_TRACK_ORIGIN_LON, updated.trackOriginLon.toFloat())
+            .putFloat(KEY_TRACK_GEOFENCE_RADIUS_M, updated.trackGeofenceRadiusM.toFloat())
+            .putBoolean(KEY_TRACK_GEOFENCE_ENABLED, updated.trackGeofenceEnabled)
+            .putBoolean(KEY_TRACKS_VISIBLE, updated.tracksVisible)
+            .putInt(KEY_TRACKING_RENDER_NB, updated.trackingRenderNb)
+            .putInt(KEY_TRACKING_COLOR_ACTIVE, updated.trackingColorActive)
+            .putInt(KEY_TRACKING_COLOR_HISTORY, updated.trackingColorHistory)
+            .putInt(KEY_TRACKING_COLOR_HISTORY_END, updated.trackingColorHistoryEnd)
+            .putInt(KEY_TRACKING_COLOR_PINNED, updated.trackingColorPinned)
             .apply()
     }
 
@@ -340,9 +387,10 @@ class SettingsManager(
         private const val KEY_RECENTER_DELAY_S = "recenter_delay_s"
         private const val KEY_GPS_INTERVAL_S = "gps_interval_s"
         private const val KEY_GPS_MIN_DISTANCE_M = "gps_min_distance_m"
-        private const val KEY_ADAPTIVE_WINDOW_S = "adaptive_window_s"
-        private const val KEY_ADAPTIVE_DISTANCE_M = "adaptive_distance_m"
-        private const val KEY_ADAPTIVE_IDLE_S = "adaptive_idle_s"
+        private const val KEY_STOP_DETECTION_ENABLED = "stop_detection_enabled"
+        private const val KEY_STOP_DETECTION_TIME_S = "stop_detection_time_s"
+        private const val KEY_STOP_DETECTION_DISTANCE_M = "stop_detection_distance_m"
+        private const val KEY_STOP_DETECTION_DELAY_GPS = "stop_detection_delay_gps"
         private const val KEY_MAP_REFRESH_FPS = "map_refresh_fps"
         private const val KEY_MAP_CENTER_LAT = "map_center_lat"
         private const val KEY_MAP_CENTER_LON = "map_center_lon"
@@ -384,6 +432,17 @@ class SettingsManager(
         private const val KEY_REGULATED_ZONE_AUTOSHOW_GPS = "regulated_zone_autoshow_gps"
         private const val KEY_REGULATED_ZONE_AUTOSHOW_DEMO = "regulated_zone_autoshow_demo"
         private const val KEY_GPS_IDLE_MIN_DISTANCE_M = "gps_idle_min_distance_m"
+        private const val KEY_TRACK_ENABLED = "track_enabled"
+        private const val KEY_TRACK_ORIGIN_LAT = "track_origin_lat"
+        private const val KEY_TRACK_ORIGIN_LON = "track_origin_lon"
+        private const val KEY_TRACK_GEOFENCE_RADIUS_M = "track_geofence_radius_m"
+        private const val KEY_TRACK_GEOFENCE_ENABLED = "track_geofence_enabled"
+        private const val KEY_TRACKS_VISIBLE = "tracks_visible"
+        private const val KEY_TRACKING_RENDER_NB = "tracking_render_nb"
+        private const val KEY_TRACKING_COLOR_ACTIVE = "tracking_color_active"
+        private const val KEY_TRACKING_COLOR_HISTORY = "tracking_color_history"
+        private const val KEY_TRACKING_COLOR_HISTORY_END = "tracking_color_history_end"
+        private const val KEY_TRACKING_COLOR_PINNED = "tracking_color_pinned"
         private const val KEY_PREFS_VERSION = "prefs_version"
         private const val CURRENT_VERSION = 2
     }

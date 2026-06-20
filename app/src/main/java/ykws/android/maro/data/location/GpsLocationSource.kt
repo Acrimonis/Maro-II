@@ -31,7 +31,8 @@ data class GpsFix(
     val bearingDeg: Float?,
     val hasCourse: Boolean,
     val speedMps: Float?,
-    val hasLock: Boolean = true
+    val hasLock: Boolean = true,
+    val timestampEpochMs: Long = System.currentTimeMillis()
 )
 
 /**
@@ -64,11 +65,13 @@ class GpsLocationSource(private val context: Context) {
         var lastGpsProviderPos: LatLng? = null
         var lastGpsProviderMs = 0L
         var lastSatelliteCount = 0
+        var lastTimestamp = System.currentTimeMillis()
 
         /** Emit a [GpsFix] from a raw [Location], tracking lock state. */
         fun emitFix(loc: Location, lock: Boolean = true) {
             val pos = LatLng(loc.latitude, loc.longitude)
             lastKnownPosition = pos
+            val nowMs = System.currentTimeMillis()
             val moving = loc.hasBearing() && loc.hasSpeed() && loc.speed > MIN_SPEED_MPS
             trySend(
                 GpsFix(
@@ -76,9 +79,11 @@ class GpsLocationSource(private val context: Context) {
                     bearingDeg = if (moving) loc.bearing else null,
                     hasCourse = moving,
                     speedMps = if (loc.hasSpeed()) loc.speed else null,
-                    hasLock = lock
+                    hasLock = lock,
+                    timestampEpochMs = nowMs
                 )
             )
+            lastTimestamp = nowMs
         }
 
         /** Emit a no-lock signal at the last known position. */
@@ -90,7 +95,8 @@ class GpsLocationSource(private val context: Context) {
                     bearingDeg = null,
                     hasCourse = false,
                     speedMps = null,
-                    hasLock = false
+                    hasLock = false,
+                    timestampEpochMs = lastTimestamp
                 )
             )
         }
