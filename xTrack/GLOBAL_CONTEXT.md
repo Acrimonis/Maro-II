@@ -1,8 +1,8 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** WorkflowImprovement
-- **Active Subfeature:** hard rules
+- **Active Feature:** BoatTrace
+- **Active Subfeature:** none
 - **Last Updated:** 2026-06-20
 - **Last Bake:** 2026-06-20 10:53 (Core Directives promotion + AGENTS.md token optimization — 207→149 lines, 28% reduction)
 - **Branch:** feature/workflow-ya-improvment

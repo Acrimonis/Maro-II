@@ -189,8 +189,10 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 
 **UI:** `TrackStatusIcon` — 3 states (OFF dimmed, ON+moving green+red dot, ON+idle blue+blue dot), click toggles recording. `TrackDrawerOverlay` — right panel (75% width), hamburger always visible (36dp), unified ON/OFF switch + Track List. `TrackHistoryOverlay` — LazyColumn with inline editing, visibility toggle, swipe-to-delete with snackbar undo, GPX share. `LiveTrackCard` at position 0 during recording with pulsing border.
 
-**Settings:** Unified Tracking section in General → Display → Layers card; 3 expandable subsections (Number of tracks, Transparency RangeSlider, Colors). Canvas HSV color pickers (Active single, Past from→to, Pinned from→to).
+**Settings:** Unified Tracking section in General → Display → Layers card; 3 expandable subsections (Number of tracks, Opacity RangeSlider, Colors). Canvas HSV color pickers (Active single, Past from→to, Pinned from→to). Opacity renamed from "Transparency" — 0=invisible, 100=opaque. Newest track gets `trackingOpacityNewest`, oldest gets `trackingOpacityOldest`. Past/pinned colors + opacity fields persisted to SharedPreferences (6 fields previously in-memory only).
 
 **Stop detection (`AdaptiveGpsPolicy`):** Position-only algorithm. Settings: `stopDetectionEnabled`, `stopDetectionTimeSec` (15-60, default 45), `stopDetectionDistanceM` (10-30, default 15), `stopDetectionDelayGps`. GPS dormant interval = `stopDetectionTimeSec * gpsDormantPct / 100` (80%, enforced <100). Old settings fully removed.
+
+**Settings fix (2026-06-20):** Added persistence for 6 tracking fields (`trackingColorPastFrom/To`, `trackingOpacityNewest/Oldest`, `trackingColorPinnedFrom/To`) — were StateFlow-only, reverted to BuildConfig defaults on restart. Renamed `trackingTransparencyFrom/To` → `trackingOpacityNewest/Oldest` with clarified semantics. Fixed From/To swap in interpolation (was: newest→To, oldest→From). Removed duplicate "Number of tracks" inner label. Added explanatory comments in Settings data class and MapScreen UI.
 
 **Build:** ✅ `assembleDebug` passes

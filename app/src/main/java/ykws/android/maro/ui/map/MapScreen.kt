@@ -535,7 +535,7 @@ fun MapScreen(
     // Track the set of currently-rendered track IDs to avoid full teardown+rebuild.
     val renderedTrackIds = remember { mutableStateOf(setOf<String>()) }
 
-    LaunchedEffect(mapView, appSettings.tracksVisible, appSettings.trackingRenderNb, appSettings.trackingColorPastFrom, appSettings.trackingColorPastTo, appSettings.trackingTransparencyFrom, appSettings.trackingTransparencyTo, trackSummaries) {
+    LaunchedEffect(mapView, appSettings.tracksVisible, appSettings.trackingRenderNb, appSettings.trackingColorPastFrom, appSettings.trackingColorPastTo, appSettings.trackingOpacityNewest, appSettings.trackingOpacityOldest, trackSummaries) {
         val mv = mapView ?: return@LaunchedEffect
 
         // Determine desired track ID set
@@ -586,10 +586,12 @@ fun MapScreen(
             val track = trackViewModel.loadTrackDetailCached(summary.id) ?: continue
             if (track.trackPoints.isEmpty()) continue
 
-            val alphaMin = appSettings.trackingTransparencyFrom / 100f
-            val alphaMax = appSettings.trackingTransparencyTo / 100f
+            // Opacity interpolation: newest track gets opacityNewest, oldest gets opacityOldest.
+            // 0 = fully invisible, 100 = fully opaque.
+            val alphaNewest = appSettings.trackingOpacityNewest / 100f
+            val alphaOldest = appSettings.trackingOpacityOldest / 100f
             val t = if (total <= 1) 0f else index.toFloat() / (total - 1).toFloat()
-            val alphaFraction = alphaMax - t * (alphaMax - alphaMin)
+            val alphaFraction = alphaNewest - t * (alphaNewest - alphaOldest)
             val alphaInt = (alphaFraction * 255).toInt().coerceIn(0, 255)
 
             // Color interpolation: pastFrom (newest) → pastTo (oldest)
@@ -2433,7 +2435,7 @@ private fun GeneralSettings(
                     ) {
                         Spacer(Modifier.height(8.dp))
                         SettingsSliderRow(
-                            label = "Number of tracks",
+                            label = "",
                             description = "Recent tracks to render (0-20)",
                             valueLabel = "%d".format(settings.trackingRenderNb),
                             value = settings.trackingRenderNb.toFloat(),
@@ -2451,7 +2453,7 @@ private fun GeneralSettings(
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                     var transExpanded by remember { mutableStateOf(false) }
                     SettingsExpander(
-                        label = "Transparency",
+                        label = "Opacity",
                         expanded = transExpanded,
                         onToggle = { transExpanded = !transExpanded },
                         labelStyle = TextStyle(
@@ -2468,18 +2470,24 @@ private fun GeneralSettings(
                                 .padding(horizontal = 16.dp, vertical = 12.dp)
                         ) {
                             Text(
-                                text = "%d%% - %d%%".format(settings.trackingTransparencyFrom, settings.trackingTransparencyTo),
+                                text = "Newest %d%%  –  Oldest %d%%".format(settings.trackingOpacityNewest, settings.trackingOpacityOldest),
                                 color = ComposeColor(AppConfig.uiSettingsAccent),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold
                             )
+                            Text(
+                                text = "Left thumb = newest track, right thumb = oldest. Higher % = more opaque.",
+                                color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                                fontSize = 12.sp
+                            )
+                            Spacer(Modifier.height(6.dp))
                             RangeSlider(
-                                value = settings.trackingTransparencyFrom.toFloat()..settings.trackingTransparencyTo.toFloat(),
+                                value = settings.trackingOpacityNewest.toFloat()..settings.trackingOpacityOldest.toFloat(),
                                 onValueChange = { range: ClosedFloatingPointRange<Float> ->
                                     onUpdateSettings {
                                         it.copy(
-                                            trackingTransparencyFrom = range.start.roundToInt(),
-                                            trackingTransparencyTo = range.endInclusive.roundToInt()
+                                            trackingOpacityNewest = range.start.roundToInt(),
+                                            trackingOpacityOldest = range.endInclusive.roundToInt()
                                         )
                                     }
                                 },
@@ -2514,8 +2522,14 @@ private fun GeneralSettings(
                             modifier = Modifier.fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(ComposeColor(AppConfig.uiSettingsCardBackground))
-                                .padding(horizontal = 16.dp, vertical = 8.dp)
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
                         ) {
+                            Text(
+                                text = "Past tracks: color gradient from newest (From) to oldest (To). Pinned: reserved for future use.",
+                                color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                                fontSize = 12.sp
+                            )
+                            Spacer(Modifier.height(8.dp))
                             ColorSwatchRow(
                                 label = "Active track",
                                 color = settings.trackingColorActive,

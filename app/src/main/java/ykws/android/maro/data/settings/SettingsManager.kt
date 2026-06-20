@@ -177,17 +177,37 @@ data class AppSettings(
     val trackingColorHistoryEnd: Int = BuildConfig.TRACKING_COLOR_HISTORY_END,
     /** ARGB color for pinned tracks (reserved for future use). */
     val trackingColorPinned: Int = BuildConfig.TRACKING_COLOR_PINNED,
-    /** ARGB start color for past track gradient (newest track). */
+    /**
+     * ARGB start color for past track gradient (newest track).
+     * Interpolates toward [trackingColorPastTo] for older tracks.
+     */
     val trackingColorPastFrom: Int = BuildConfig.TRACKING_COLOR_PAST_FROM,
-    /** ARGB end color for past track gradient (oldest track). */
+    /**
+     * ARGB end color for past track gradient (oldest track).
+     * Interpolated from [trackingColorPastFrom] for newer tracks.
+     */
     val trackingColorPastTo: Int = BuildConfig.TRACKING_COLOR_PAST_TO,
-    /** Min transparency % (0-100) for newest past track. */
-    val trackingTransparencyFrom: Int = BuildConfig.TRACKING_TRANSPARENCY_FROM,
-    /** Max transparency % (0-100) for oldest past track. */
-    val trackingTransparencyTo: Int = BuildConfig.TRACKING_TRANSPARENCY_TO,
-    /** ARGB start color for pinned track gradient. */
+    /**
+     * Opacity % (0-100) for the NEWEST past track.
+     * 0 = fully invisible, 100 = fully opaque.
+     * Higher value = newest track more visible.
+     */
+    val trackingOpacityNewest: Int = BuildConfig.TRACKING_TRANSPARENCY_FROM,
+    /**
+     * Opacity % (0-100) for the OLDEST past track.
+     * 0 = fully invisible, 100 = fully opaque.
+     * Lower value = oldest track more faded.
+     */
+    val trackingOpacityOldest: Int = BuildConfig.TRACKING_TRANSPARENCY_TO,
+    /**
+     * ARGB start color for pinned track gradient.
+     * Reserved for future use — pinned tracks not yet implemented.
+     */
     val trackingColorPinnedFrom: Int = BuildConfig.TRACKING_COLOR_PINNED_FROM,
-    /** ARGB end color for pinned track gradient. */
+    /**
+     * ARGB end color for pinned track gradient.
+     * Reserved for future use — pinned tracks not yet implemented.
+     */
     val trackingColorPinnedTo: Int = BuildConfig.TRACKING_COLOR_PINNED_TO
 ) {
     /** Check whether a [ZoneDisplayCategory] is enabled in the current settings. */
@@ -297,7 +317,13 @@ class SettingsManager(
         trackingColorActive = prefs.getInt(KEY_TRACKING_COLOR_ACTIVE, BuildConfig.TRACKING_COLOR_ACTIVE),
         trackingColorHistory = prefs.getInt(KEY_TRACKING_COLOR_HISTORY, BuildConfig.TRACKING_COLOR_HISTORY),
         trackingColorHistoryEnd = prefs.getInt(KEY_TRACKING_COLOR_HISTORY_END, BuildConfig.TRACKING_COLOR_HISTORY_END),
-        trackingColorPinned = prefs.getInt(KEY_TRACKING_COLOR_PINNED, BuildConfig.TRACKING_COLOR_PINNED)
+        trackingColorPinned = prefs.getInt(KEY_TRACKING_COLOR_PINNED, BuildConfig.TRACKING_COLOR_PINNED),
+        trackingColorPastFrom = prefs.getInt(KEY_TRACKING_COLOR_PAST_FROM, BuildConfig.TRACKING_COLOR_PAST_FROM),
+        trackingColorPastTo = prefs.getInt(KEY_TRACKING_COLOR_PAST_TO, BuildConfig.TRACKING_COLOR_PAST_TO),
+        trackingOpacityNewest = prefs.getInt(KEY_TRACKING_OPACITY_NEWEST, BuildConfig.TRACKING_TRANSPARENCY_FROM),
+        trackingOpacityOldest = prefs.getInt(KEY_TRACKING_OPACITY_OLDEST, BuildConfig.TRACKING_TRANSPARENCY_TO),
+        trackingColorPinnedFrom = prefs.getInt(KEY_TRACKING_COLOR_PINNED_FROM, BuildConfig.TRACKING_COLOR_PINNED_FROM),
+        trackingColorPinnedTo = prefs.getInt(KEY_TRACKING_COLOR_PINNED_TO, BuildConfig.TRACKING_COLOR_PINNED_TO)
     )
 
     /**
@@ -382,6 +408,12 @@ class SettingsManager(
             .putInt(KEY_TRACKING_COLOR_HISTORY, updated.trackingColorHistory)
             .putInt(KEY_TRACKING_COLOR_HISTORY_END, updated.trackingColorHistoryEnd)
             .putInt(KEY_TRACKING_COLOR_PINNED, updated.trackingColorPinned)
+            .putInt(KEY_TRACKING_COLOR_PAST_FROM, updated.trackingColorPastFrom)
+            .putInt(KEY_TRACKING_COLOR_PAST_TO, updated.trackingColorPastTo)
+            .putInt(KEY_TRACKING_OPACITY_NEWEST, updated.trackingOpacityNewest)
+            .putInt(KEY_TRACKING_OPACITY_OLDEST, updated.trackingOpacityOldest)
+            .putInt(KEY_TRACKING_COLOR_PINNED_FROM, updated.trackingColorPinnedFrom)
+            .putInt(KEY_TRACKING_COLOR_PINNED_TO, updated.trackingColorPinnedTo)
             .apply()
     }
 
@@ -455,6 +487,12 @@ class SettingsManager(
         private const val KEY_TRACKING_COLOR_HISTORY = "tracking_color_history"
         private const val KEY_TRACKING_COLOR_HISTORY_END = "tracking_color_history_end"
         private const val KEY_TRACKING_COLOR_PINNED = "tracking_color_pinned"
+        private const val KEY_TRACKING_COLOR_PAST_FROM = "tracking_color_past_from"
+        private const val KEY_TRACKING_COLOR_PAST_TO = "tracking_color_past_to"
+        private const val KEY_TRACKING_OPACITY_NEWEST = "tracking_opacity_newest"
+        private const val KEY_TRACKING_OPACITY_OLDEST = "tracking_opacity_oldest"
+        private const val KEY_TRACKING_COLOR_PINNED_FROM = "tracking_color_pinned_from"
+        private const val KEY_TRACKING_COLOR_PINNED_TO = "tracking_color_pinned_to"
         private const val KEY_PREFS_VERSION = "prefs_version"
         private const val CURRENT_VERSION = 2
     }
