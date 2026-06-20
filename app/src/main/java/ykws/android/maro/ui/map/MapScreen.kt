@@ -535,7 +535,7 @@ fun MapScreen(
     // Track the set of currently-rendered track IDs to avoid full teardown+rebuild.
     val renderedTrackIds = remember { mutableStateOf(setOf<String>()) }
 
-    LaunchedEffect(mapView, appSettings.tracksVisible, appSettings.trackingRenderNb, appSettings.trackingColorPastFrom, appSettings.trackingColorPastTo, appSettings.trackingOpacityNewest, appSettings.trackingOpacityOldest, trackSummaries) {
+    LaunchedEffect(mapView, showSettings, appSettings.tracksVisible, appSettings.trackingRenderNb, appSettings.trackingColorPastFrom, appSettings.trackingColorPastTo, appSettings.trackingTransparencyNewest, appSettings.trackingTransparencyOldest, trackSummaries) {
         val mv = mapView ?: return@LaunchedEffect
 
         // Determine desired track ID set
@@ -551,22 +551,12 @@ fun MapScreen(
             } else emptySet()
         } else emptySet()
 
-        val currentIds = renderedTrackIds.value
-        if (currentIds == desiredIds) return@LaunchedEffect // nothing changed
-
-        // Remove stale overlays
+        // Remove all existing track history overlays — rebuild from scratch
+        // so opacity, color, and count changes always take effect.
         val toRemove = mv.overlays.filter { overlay ->
             (overlay as? org.osmdroid.views.overlay.Polyline)?.title?.startsWith("track_hist_") == true
-        }.filter { overlay ->
-            val id = (overlay as org.osmdroid.views.overlay.Polyline).title?.removePrefix("track_hist_") ?: ""
-            id !in desiredIds
         }
         mv.overlays.removeAll(toRemove)
-
-        // Determine which new overlays to add
-        val existingIds = mv.overlays.filterIsInstance<org.osmdroid.views.overlay.Polyline>()
-            .mapNotNull { it.title?.removePrefix("track_hist_") }
-            .toSet()
 
         val sortedDesired = if (appSettings.tracksVisible) {
             val nbToRender = appSettings.trackingRenderNb.coerceIn(0, 20)
@@ -581,15 +571,13 @@ fun MapScreen(
         val total = sortedDesired.size
 
         for ((index, summary) in sortedDesired.withIndex()) {
-            if (summary.id in existingIds) continue // already rendered
-
             val track = trackViewModel.loadTrackDetailCached(summary.id) ?: continue
             if (track.trackPoints.isEmpty()) continue
 
-            // Opacity interpolation: newest track gets opacityNewest, oldest gets opacityOldest.
-            // 0 = fully invisible, 100 = fully opaque.
-            val alphaNewest = appSettings.trackingOpacityNewest / 100f
-            val alphaOldest = appSettings.trackingOpacityOldest / 100f
+            // Transparency interpolation: newest track gets transparencyNewest, oldest gets transparencyOldest.
+            // 0% = fully opaque, 100% = fully invisible. Convert to alpha for rendering.
+            val alphaNewest = (100 - appSettings.trackingTransparencyNewest) / 100f
+            val alphaOldest = (100 - appSettings.trackingTransparencyOldest) / 100f
             val t = if (total <= 1) 0f else index.toFloat() / (total - 1).toFloat()
             val alphaFraction = alphaNewest - t * (alphaNewest - alphaOldest)
             val alphaInt = (alphaFraction * 255).toInt().coerceIn(0, 255)
@@ -2468,20 +2456,20 @@ private fun GeneralSettings(
                             )
                             Spacer(Modifier.height(6.dp))
 
-                            // Opacity
+                            // Transparency
                             Text(
-                                text = "Opacity",
+                                text = "Transparency",
                                 color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium
                             )
                             Text(
-                                text = "Left thumb = newest track, right thumb = oldest. Higher % = more opaque.",
+                                text = "Left thumb = newest track, right thumb = oldest. 0% = opaque, 100% = invisible.",
                                 color = ComposeColor(AppConfig.uiSettingsTextMuted),
                                 fontSize = 12.sp
                             )
                             Text(
-                                text = "Newest %d%%  –  Oldest %d%%".format(settings.trackingOpacityNewest, settings.trackingOpacityOldest),
+                                text = "Newest %d%%  –  Oldest %d%%".format(settings.trackingTransparencyNewest, settings.trackingTransparencyOldest),
                                 color = ComposeColor(AppConfig.uiSettingsAccent),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
@@ -2489,12 +2477,12 @@ private fun GeneralSettings(
                                 modifier = Modifier.fillMaxWidth()
                             )
                             RangeSlider(
-                                value = settings.trackingOpacityNewest.toFloat()..settings.trackingOpacityOldest.toFloat(),
+                                value = settings.trackingTransparencyNewest.toFloat()..settings.trackingTransparencyOldest.toFloat(),
                                 onValueChange = { range: ClosedFloatingPointRange<Float> ->
                                     onUpdateSettings {
                                         it.copy(
-                                            trackingOpacityNewest = range.start.roundToInt(),
-                                            trackingOpacityOldest = range.endInclusive.roundToInt()
+                                            trackingTransparencyNewest = range.start.roundToInt(),
+                                            trackingTransparencyOldest = range.endInclusive.roundToInt()
                                         )
                                     }
                                 },
@@ -2507,14 +2495,7 @@ private fun GeneralSettings(
                                 )
                             )
 
-                            Spacer(Modifier.height(6.dp))
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(1.dp)
-                                    .background(ComposeColor(AppConfig.uiSettingsDivider))
-                            )
-                            Spacer(Modifier.height(6.dp))
+                            Spacer(Modifier.height(8.dp))
 
                             // Colors
                             Text(
@@ -3505,8 +3486,8 @@ private fun ColorSwatchRow(
             // Color swatch
             Box(
                 modifier = Modifier
-                    .size(28.dp)
-                    .clip(RoundedCornerShape(6.dp))
+                    .size(24.dp)
+                    .clip(RoundedCornerShape(4.dp))
                     .background(ComposeColor(color))
                     .clickable { showPicker = true }
                     .border(1.dp, ComposeColor(AppConfig.uiSettingsDivider), RoundedCornerShape(6.dp))
@@ -3564,7 +3545,7 @@ private fun ColorPickerDialog(
             Column {
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(4),
-                    modifier = Modifier.height(150.dp),
+                    modifier = Modifier.height(160.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
