@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** BoatTrace
-- **Active Subfeature:** none
+- **Active Feature:** WorkflowImprovement
+- **Active Subfeature:** hard rules
 - **Last Updated:** 2026-06-20
-- **Last Bake:** 2026-06-20 09:00 (BoatTrace — documentation cleanup: created FEAT_DOC_BoatTrace_decisions.md, stripped completed todos, condensed Implemented section, removed deprecated terminology)
-- **Branch:** feature/new-tracking
+- **Last Bake:** 2026-06-20 10:53 (Core Directives promotion + AGENTS.md token optimization — 207→149 lines, 28% reduction)
+- **Branch:** feature/workflow-ya-improvment
 ## Routing Map
 | Keyword | Feature File |
 |---|---|
@@ -35,7 +35,7 @@
 |---------|-----------|---------|----------|--------|
 | **ColorManagement** | **Centralised colour palette — all tokens in colors.properties with alias interpolation, documented in color-scheme.md** | **2026-06-16 14:05** | **2026-06-17 14:39** | **active** |
 | **Documentation** | **README, FAQs, setup guides, architecture docs, and plans cleanup** | **2026-06-11 06:42** | **2026-06-11 10:36** | **active** |
-| WorkflowImprovement | xTrack #command system, git shortcuts, #now/#list rename, trigger syntax, fuzzy matching, bootstrap, memory bake lifecycle, and mode handoff protocol | 2026-06-03 00:00 | 2026-06-17 17:12 | active |
+| WorkflowImprovement | xTrack #command system, git shortcuts, #now/#list rename, trigger syntax, fuzzy matching, bootstrap, memory bake lifecycle, mode handoff protocol, and Core Directives promotion | 2026-06-03 00:00 | 2026-06-20 10:42 | active |
 | Zone300 | 300m zone generation from coastline with water-only constraint | 2026-05-20 00:00 | 2026-06-03 00:00 | active |
 | DepthMapping | Bathymetry / depth mapping from Litto3D, SHOM, EMODnet sources | 2026-05-10 00:00 | 2026-06-10 12:13 | active |
 | Coastline | Coastline extraction, spatial indexing, isOnWater determination | 2026-05-10 00:00 | 2026-06-05 00:00 | active |
@@ -60,8 +60,7 @@
 - `adb.exe` is in the computer PATH — use `adb` directly without full path qualifier.
 - Auto-refine rule wording for clarity and conciseness on `#rule` add.
 - Use apk-build.bat to build APK (runs gradlew assembleDebug).
-- **NO auto git commit/push** — `git add` only when directed; wait for user to say "commit" or "push" before executing those commands (per AGENTS.md §5).
-- **Architect mode must not switch to Code mode without explicit user go-ahead.** Always ask before switching. Discuss/design in Architect mode first. Only switch when the user says something like "implement", "code", "switch to code", or explicitly approves a plan and says to implement.
+- **Hard rules enforced in AGENTS.md Core Directives.** Key: 🎯 DIRECT RESPONSE | ⛔ SCOPE LOCK | 🔴 MODE LOCK | 🔴 NO GIT WRITES | 🔴 NO BRANCH | 🗣️ CONCISE | 🔴 WRITE-ONCE | 🔴 NO BINARY READS | 🔴 NEVER ASSUME | 📋 TASK COMPLETION. Refer to AGENTS.md for full text of each rule.
 - **You are an AI assistant with adb in PATH and full access to logcat.** Retrieve logcat yourself if needed for debugging. Do not ask the user to run adb/logcat commands.
 
 ## Global Todos
