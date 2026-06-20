@@ -1,7 +1,7 @@
 name: BoatTrace
 status: active
 created: 2026-06-15 21:43
-modified: 2026-06-20 14:29
+modified: 2026-06-20 15:15
 active_subfeature: none
 ---
 
@@ -165,6 +165,26 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
 - `app/build.gradle.kts`
 
+### gps-line-acquisition  [x]
+
+#### Todos
+- [ ] Remove passive listener from GpsLocationSource (fix 1 — ordering)
+- [ ] Add implied-speed spike gate to TrackRecorder.addPoint() (fix 2 — outliers)
+- [ ] Build: assembleDebug
+
+#### Rules
+- MAX_REALISTIC_SPEED_KN = 50.0 — hard cap; any fix implying faster travel is discarded
+- Spike rejection uses fix.timestampEpochMs (GPS epoch), not System wall clock
+- AdaptiveGpsPolicy still receives every fix (including spikes) for stillness detection
+- lastValidPoint* tracks last recorded point, separate from lastPointLat/Lon (Haversine distance accumulators)
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/data/location/GpsLocationSource.kt`
+- `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt`
+
+#### Docs
+- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_gps-line-acquisition.md`
+
 ## Todos
 - [ ] E2E verification on device (build + deploy, run all test scenarios)
 - [ ] Track list UI polish per design spec (FEAT_PLN_BoatTrace_TrackList_Design.md)
@@ -198,6 +218,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 - `xTrack/BoatTrace/FEAT_PLN_BoatTrace_TrackList_Design.md` — track list UI requirements, animation design, component architecture
 - `xTrack/BoatTrace/FEAT_PLN_BoatTrace_render-tracks.md` — render-tracks implementation plan
 - `xTrack/BoatTrace/FEAT_DOC_BoatTrace_decisions.md` — comprehensive functional/architectural decisions record (7 categories, 40+ decisions)
+- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_gps-line-acquisition.md` — GPS point acquisition: outlier rejection (speed gate) + passive listener removal (ordering fix)
 
 ## Implemented
 
@@ -222,5 +243,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 **Settings fix (2026-06-20):** Added persistence for 6 tracking fields (`trackingColorPastFrom/To`, `trackingOpacityNewest/Oldest`, `trackingColorPinnedFrom/To`) — were StateFlow-only, reverted to BuildConfig defaults on restart. Renamed `trackingTransparencyFrom/To` → `trackingOpacityNewest/Oldest` with clarified semantics. Fixed From/To swap in interpolation (was: newest→To, oldest→From). Removed duplicate "Number of tracks" inner label. Added explanatory comments in Settings data class and MapScreen UI.
 
 **mtrack-setting-opacity (2026-06-20):** Renamed `trackingOpacityNewest/Oldest` → `trackingTransparencyNewest/Oldest` with inverted semantics (0%=opaque, 100%=invisible). New SharedPreferences keys `tracking_transparency_newest/oldest` — clean break, no migration from old opacity keys. BuildConfig defaults: `TRACKING_TRANSPARENCY_FROM` 100→20, `_TO` 30→80. Rendering: `alpha = (100 - transparency) / 100f`. UI label "Opacity" → "Transparency", description updated. Replaced 0.5dp hairline divider with 8dp spacer per settings-page-rules R2.
+
+**gps-line-acquisition (2026-06-20):** Removed `PASSIVE_PROVIDER` listener from `GpsLocationSource` — dual listeners racing on one `callbackFlow` caused zigzag artifacts on the active track polyline. Added implied-speed spike gate to `TrackRecorder.addPoint()`: fixes implying >50 kn travel from last valid recorded point are discarded as GPS multipath outliers (uses `fix.timestampEpochMs`, not wall clock). `AdaptiveGpsPolicy` still sees all fixes for stillness detection.
 
 **Build:** ✅ `assembleDebug` passes

@@ -37,6 +37,9 @@ private const val STOP_DEBOUNCE_MS = 15_000L
 /** Interval (ms) between checkpoint saves during recording. */
 private const val CHECKPOINT_INTERVAL_MS = 30_000L
 
+/** Maximum realistic speed (kn) for a recreational boat — fixes implying faster travel are discarded as GPS spikes. */
+private const val MAX_REALISTIC_SPEED_KN = 50.0
+
 /** The track recorder state machine states. */
 enum class TrackRecorderState { OFF, ON }
 
@@ -101,6 +104,10 @@ class TrackRecorder(
     private var cumulativeDistanceNm = 0f
     private var lastPointLat: Double? = null
     private var lastPointLon: Double? = null
+    /** Tracks the last *recorded* point for implied-speed spike rejection (separate from Haversine accumulators). */
+    private var lastValidPointLat: Double? = null
+    private var lastValidPointLon: Double? = null
+    private var lastValidPointTimeMs: Long = 0L
     private var speedSumMps: Float = 0f
     private var speedCount: Int = 0
     private var debounceStartTime: Long? = null
@@ -230,6 +237,9 @@ class TrackRecorder(
         speedCount = 0
         lastPointLat = null
         lastPointLon = null
+        lastValidPointLat = null
+        lastValidPointLon = null
+        lastValidPointTimeMs = 0L
         pointsSinceLastCheckpoint = 0
         stopDebounceStartTime = null
         transitionTo(TrackRecorderState.ON)
@@ -268,6 +278,23 @@ class TrackRecorder(
         // Skip point capture when stationary (still tracking, just not recording points)
         if (!moving) return
 
+        // ── Outlier rejection: implied speed vs last valid recorded point ────
+        if (lastValidPointLat != null && lastValidPointLon != null && lastValidPointTimeMs > 0L) {
+            val distM = TrackGeofenceChecker.distanceM(
+                lastValidPointLat!!, lastValidPointLon!!,
+                fix.position.latitude, fix.position.longitude
+            )
+            val timeDeltaSec = (fix.timestampEpochMs - lastValidPointTimeMs) / 1000.0
+            if (timeDeltaSec > 0.0) {
+                val impliedSpeedKn = (distM / timeDeltaSec) * 1.94384
+                if (impliedSpeedKn > MAX_REALISTIC_SPEED_KN) {
+                    Log.w(TAG, "Spike rejected: dist=${"%.1f".format(distM)}m dt=${"%.1f".format(timeDeltaSec)}s " +
+                            "implied=${"%.1f".format(impliedSpeedKn)}kn > ${MAX_REALISTIC_SPEED_KN}kn")
+                    return // discard this GPS spike
+                }
+            }
+        }
+
         val now = System.currentTimeMillis()
         val timeOffsetSec = ((now - recordingStartTimeMs) / 1000).toInt()
         val point = TrackPoint(
@@ -297,6 +324,11 @@ class TrackRecorder(
         }
         lastPointLat = point.lat
         lastPointLon = point.lon
+
+        // Update valid-point tracker for spike rejection
+        lastValidPointLat = point.lat
+        lastValidPointLon = point.lon
+        lastValidPointTimeMs = fix.timestampEpochMs
 
         // Rebuild track with new point appended (immutable list)
         currentTrack = track.copy(
