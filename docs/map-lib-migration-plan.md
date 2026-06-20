@@ -3,7 +3,7 @@
 
 > **Status:** Design decisions finalised · **Target library:** `org.maplibre.gl:maplibre-android-sdk:11.x`
 > **License:** BSD-3 (fully open, no API key required)
-> **Codebase snapshot:** 2026-06-20 (post-pull `origin/develop`). Up to date with track recording feature; osmdroid still in use. No MapLibre dependency added yet.
+> **Codebase snapshot:** 2026-06-20 (post-pull #2). MapScreen refactored: overlay rendering extracted to `MapOverlayRenderer.kt`, `OverlayTracker` standalone, `RegulatedZoneComponents.kt` for Compose zone UI. Track recording feature in code. No MapLibre dependency added yet.
 
 ---
 
@@ -27,7 +27,9 @@
 16. [Step 13 — Decenter + Tilt Settings UI](#step-13--decenter--tilt-settings-ui)
 17. [Compose Layer (Untouched)](#compose-layer-untouched)
 18. [Migration Order & Rollback Strategy](#migration-order--rollback-strategy)
-19. [Open Questions](#open-questions)
+19. [Design Decisions (Confirmed)](#design-decisions-confirmed)
+20. [Tilt Feature Specification](#tilt-feature-specification-mvp-manual-only)
+21. [Final Migration Execution Order](#final-migration-execution-order)
 
 ---
 
@@ -39,8 +41,8 @@
 |---|---|
 | **No viewport offset API** — geo-centre and viewport centre are always the same pixel | Cannot decenter the boat to the lower third without making the MapView physically taller, wasting ~50% tile rendering |
 | **No tilt/perspective** — strictly 2D top-down | No look-ahead 3D effect, no GPS-style perspective |
-| **GroundOverlay Mercator distortion** — requires 8-band splitting hack ([`addBandedOverlay`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:3422)) | Extra code complexity, fragile workaround |
-| **Imperative overlay API** — `mapView.overlays.add()` / `removeAll()` with manual dirty tracking ([`OverlayTracker`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1122)) | Fragile, easy to introduce overlay leaks |
+| **GroundOverlay Mercator distortion** — requires 8-band splitting hack in [`MapOverlayRenderer.addBandedOverlay()`](app/src/main/java/ykws/android/maro/ui/map/MapOverlayRenderer.kt) | Extra code complexity, fragile workaround |
+| **Imperative overlay API** — `mapView.overlays.add()` / `removeAll()` with manual dirty tracking via [`OverlayTracker`](app/src/main/java/ykws/android/maro/ui/map/OverlayTracker.kt) | Fragile, easy to introduce overlay leaks |
 
 ### What MapLibre GL provides
 
@@ -56,32 +58,40 @@
 
 ## 2. Architecture Overview
 
-### Before (osmdroid)
+### Current file structure (post-refactor)
+
+| File | Role | LOC |
+|---|---|---|
+| [`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt) | Compose layout, `AndroidView` wrapper, camera, track overlays, settings UI | ~3795 |
+| [`MapOverlayRenderer.kt`](app/src/main/java/ykws/android/maro/ui/map/MapOverlayRenderer.kt) | **All osmdroid overlay drawing** — coastlines, depth, isobaths, zones, banded overlays | ~343 |
+| [`OverlayTracker.kt`](app/src/main/java/ykws/android/maro/ui/map/OverlayTracker.kt) | Overlay reference lists + dirty-check fields | ~35 |
+| [`RegulatedZoneComponents.kt`](app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneComponents.kt) | Compose zone icon stack, info panel, category toggles, boat size slider | ~505 |
+| [`TrackDrawerOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/TrackDrawerOverlay.kt) | Compose track recording drawer panel | ~299 |
+| [`TrackHistoryOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt) | Compose track history list overlay | ~921 |
+| [`TrackStatusIcon.kt`](app/src/main/java/ykws/android/maro/ui/map/TrackStatusIcon.kt) | Compose track status indicator icon | ~117 |
+
+### Before (osmdroid — logical layers)
 
 ```
 MapScreen (Compose Box)
 └── MapContent (Box, clipToBounds)
     ├── CoastlineMapView (AndroidView → osmdroid MapView)
     │   ├── Tiles (MAPNIK raster)
-    │   ├── GroundOverlay ×8 (depth colour)
-    │   ├── GroundOverlay ×8 (low-depth warning)
-    │   ├── Polyline[20-50] (isobaths)
-    │   ├── Polygon[N] (regulated zones)
-    │   ├── Polygon + Polyline (zone300)
-    │   ├── Polyline[N] (coastline)
-    │   ├── Polyline (active recording trace)     ← NEW in 2026-06 pull
-    │   └── Polyline[0-20] (history tracks)        ← NEW in 2026-06 pull
+    │   ├── GroundOverlay ×8 (depth colour)          ← MapOverlayRenderer
+    │   ├── GroundOverlay ×8 (low-depth warning)      ← MapOverlayRenderer
+    │   ├── Polyline[20-50] (isobaths)                ← MapOverlayRenderer
+    │   ├── Polygon[N] (regulated zones)              ← MapOverlayRenderer
+    │   ├── Polygon + Polyline (zone300)              ← MapOverlayRenderer
+    │   ├── Polyline[N] (coastline)                   ← MapOverlayRenderer
+    │   ├── Polyline (active recording trace)         ← MapScreen LaunchedEffect
+    │   └── Polyline[0-20] (history tracks)            ← MapScreen LaunchedEffect
     ├── DirectionLine (Compose Canvas)
     ├── CapArrowOverlay (Compose Canvas)
     ├── CenterMarkerOverlay (Compose Image)
     ├── Row (overlay controls: dashboard, buttons, settings)
-    └── TrackDrawerOverlay / TrackHistoryOverlay   ← NEW in 2026-06 pull
+    ├── TrackDrawerOverlay / TrackHistoryOverlay       ← Compose only
+    └── RegulatedZoneComponents (icon stack)           ← Compose only
 ```
-
-**Track overlay detail (current osmdroid):**
-- **Active recording trace:** Single `Polyline` titled `"track_recording"` managed by a `LaunchedEffect` collecting [`TrackRecorderUiState.recordingPoints`](app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt:56) — set via `mv.overlays` directly (not through `OverlayTracker`).
-- **History tracks:** `Polyline` objects titled `"track_hist_{id}"` managed by a separate `LaunchedEffect` diffing [`trackSummaries`](app/src/main/java/ykws/android/maro/data/track/TrackViewModel.kt:30) against `renderedTrackIds` — fade-opacity gradient from newest (full opacity) to oldest (dimmed), ARGB colors from `trackingColorPastFrom` → `trackingColorPastTo`.
-- Both use `mv.overlays` directly — no `OverlayTracker` involvement.
 
 ### After (MapLibre GL)
 
@@ -96,16 +106,30 @@ MapScreen (Compose Box)
     │   ├── FillLayer + LineLayer (regulated zones)
     │   ├── FillLayer + LineLayer (zone300)
     │   ├── LineLayer (coastline)
-    │   ├── LineLayer (active recording trace)     ← Step 9
-    │   └── LineLayer[N] (history tracks)           ← Step 9
-    ├── DirectionLine (Compose Canvas)              ← UNCHANGED
-    ├── CapArrowOverlay (Compose Canvas)            ← UNCHANGED
-    ├── CenterMarkerOverlay (Compose Image)         ← UNCHANGED
-    ├── Row (overlay controls)                      ← UNCHANGED
-    └── TrackDrawerOverlay / TrackHistoryOverlay    ← UNCHANGED (Compose only)
+    │   ├── LineLayer (active recording trace)
+    │   └── LineLayer[N] (history tracks)
+    ├── DirectionLine (Compose Canvas)                  ← UNCHANGED
+    ├── CapArrowOverlay (Compose Canvas)                ← UNCHANGED
+    ├── CenterMarkerOverlay (Compose Image)             ← UNCHANGED
+    ├── Row (overlay controls)                          ← UNCHANGED
+    ├── TrackDrawerOverlay / TrackHistoryOverlay        ← UNCHANGED
+    └── RegulatedZoneComponents                         ← UNCHANGED
 ```
 
-**Key insight:** The Compose layer stack above the map is completely untouched. Only the internal rendering of `CoastlineMapView` changes.
+**Primary migration targets:**
+- [`MapOverlayRenderer.kt`](app/src/main/java/ykws/android/maro/ui/map/MapOverlayRenderer.kt) — all osmdroid overlay drawing → replaced by MapLibre style layers
+- [`OverlayTracker.kt`](app/src/main/java/ykws/android/maro/ui/map/OverlayTracker.kt) — obsolete → deleted
+- [`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt) — camera, track overlays, zoom buttons → rewritten with MapLibre APIs
+
+**Layer insertion order:** All `addLayerBelow`/`addLayerAbove` calls must execute in correct dependency order (e.g., `"coastline-layer"` must exist before `addLayerBelow(..., "coastline-layer")` is called). The current per-step pseudo-code shows ideal ordering but during incremental migration (Steps 3–9), layers may be inserted in different order. Recommendation: add all layers in `onMapReady` after style loads, then update data per step.
+
+**Camera listener migration:** osmdroid `MapListener` (center/zoom change callbacks in `CoastlineMapView`) must be replaced with MapLibre `OnCameraChangeListener`:
+```kotlin
+map.addOnCameraChangeListener { cameraState ->
+    onCenterChanged(cameraState.center.latitude, cameraState.center.longitude)
+    onZoomChanged(cameraState.zoom)
+}
+```
 
 ### Data flow
 
@@ -124,7 +148,7 @@ MapContent (Compose)
     └── (Compose overlays: markers, dashboard, controls, track UI) ← UNCHANGED
 ```
 
-The ViewModel layer (`CoastlineViewModel`, `DepthViewModel`, **`TrackViewModel`**) is **unchanged**. Only `MapScreen.kt` composables need rewriting.
+The ViewModel layer (`CoastlineViewModel`, `DepthViewModel`, `TrackViewModel`) is **unchanged**. Only `MapScreen.kt`, `MapOverlayRenderer.kt`, and `OverlayTracker.kt` need rewriting/replacing.
 
 ---
 
@@ -159,7 +183,7 @@ MapLibre does not require additional permissions beyond what the app already dec
 
 ## 4. Step 1 — MapView Setup
 
-### Current ([`MapScreen.kt:1142-1226`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1142))
+### Current ([`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt) — `CoastlineMapView` composable)
 
 ```kotlin
 @Composable
@@ -200,11 +224,11 @@ private fun CoastlineMapView(
                 maxZoomLevel = 18.0
                 controller.setZoom(initialZoom)
                 controller.setCenter(GeoPoint(center.latitude, center.longitude))
-                // ... overlays added here ...
+                // ... overlays added here via MapOverlayRenderer functions ...
             }
         },
         update = { mapView ->
-            // ... dirty-check overlay updates ...
+            // ... dirty-check overlay updates via OverlayTracker ...
         }
     )
 }
@@ -277,12 +301,13 @@ private fun MapLibreMapView(
 - `setTileSource` → style JSON with `"osm"` raster source
 - `Configuration.getInstance()` removed (MapLibre handles tile caching internally)
 - `controller.setCenter/setZoom` → `getMapAsync` + style-based camera
+- `OverlayTracker` instantiation removed — not needed
 
 ---
 
 ## 5. Step 2 — Camera: GPS Auto-Follow + Decenter + Tilt
 
-### Current ([`MapScreen.kt:314-341`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:314))
+### Current ([`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt) — GPS auto-follow `LaunchedEffect`)
 
 ```kotlin
 LaunchedEffect(...) {
@@ -304,8 +329,6 @@ LaunchedEffect(...) {
 
 ```kotlin
 // ── Offset fraction for decenter ─────────────────────────────────────────
-// 0.0 = centred, 0.25 = boat at lower quarter.
-// Gradual ramp: 0 at 5 kn → maxOffset at 15 kn.
 val decenterOffsetFraction by remember {
     derivedStateOf {
         val speed = navigationState.speedKnots ?: navigationState.demoSpeedKnots ?: 0.0
@@ -315,7 +338,6 @@ val decenterOffsetFraction by remember {
 }
 
 // ── Tilt angle for perspective ──────────────────────────────────────────
-// 0° = top-down, 45° = isometric. Ramp with speed.
 val tiltDeg by remember {
     derivedStateOf {
         val speed = navigationState.speedKnots ?: navigationState.demoSpeedKnots ?: 0.0
@@ -369,10 +391,10 @@ Add to [`SettingsManager.kt`](app/src/main/java/ykws/android/maro/data/settings/
 ```kotlin
 data class AppSettings(
     // ... existing fields (track recording, auto-show, etc. already in code) ...
-    val decenterEnabled: Boolean = true,
-    val decenterMaxFraction: Float = 0.25f,   // 0%–40%
-    val perspectiveViewEnabled: Boolean = false,  // default OFF
-    val perspectiveMaxTiltDeg: Float = 50f,   // 0°–85°
+    val decenterEnabled: Boolean = false,        // OFF by default per design decision #5
+    val decenterMaxFraction: Float = 0.25f,      // 0%–40%
+    val perspectiveViewEnabled: Boolean = false, // MVP: Boolean toggle; §20 TiltMode enum deferred
+    val perspectiveMaxTiltDeg: Float = 50f,      // 0°–85°
 )
 ```
 
@@ -382,7 +404,7 @@ Add toggles in Settings → Display / Navigation tab.
 
 ## 6. Step 3 — Depth Colour Raster Overlay
 
-### Current ([`addBandedOverlay`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:3422), [`drawDepthMap`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:3461))
+### Current ([`MapOverlayRenderer.kt`](app/src/main/java/ykws/android/maro/ui/map/MapOverlayRenderer.kt) — `addBandedOverlay()` + `drawDepthMap()`)
 
 - Splits the pre-rendered depth bitmap into 8 horizontal strips
 - Creates 8 `GroundOverlay` objects pinned at true latitudes
@@ -390,31 +412,7 @@ Add toggles in Settings → Display / Navigation tab.
 
 ### Target (MapLibre)
 
-```kotlin
-private fun addDepthLayer(map: MapLibreMap, bitmap: Bitmap, boundingBox: BoundingBox) {
-    // Add the bitmap as an image source
-    map.style?.addImage("depth-raster", bitmap)
-
-    // Add raster source pinned to the bounding box
-    map.style?.addSource(
-        RasterSource("depth-source", TileSet("tileset")).apply {
-            setBounds(boundingBox)
-        }
-    )
-
-    // Add raster layer above base tiles
-    map.style?.addLayer(
-        RasterLayer("depth-layer", "depth-source").apply {
-            setProperties(
-                PropertyFactory.rasterOpacity(0.8f),
-                PropertyFactory.visibility(Property.VISIBLE)
-            )
-        }
-    )
-}
-```
-
-**Actually**, for a pre-rendered bitmap that covers a specific bounding box (not tiled), use `ImageSource`:
+For a pre-rendered bitmap covering a specific bounding box, use `ImageSource`:
 
 ```kotlin
 private fun addDepthLayer(map: MapLibreMap, bitmap: Bitmap, bbox: BoundingBox) {
@@ -440,7 +438,7 @@ private fun addDepthLayer(map: MapLibreMap, bitmap: Bitmap, bbox: BoundingBox) {
 
 ## 7. Step 4 — Low-Depth Warning Overlay
 
-### Current ([`drawLowDepthWarning`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:3479))
+### Current ([`MapOverlayRenderer.kt`](app/src/main/java/ykws/android/maro/ui/map/MapOverlayRenderer.kt) — `drawLowDepthWarning()`)
 
 Same 8-band GroundOverlay pattern as depth map.
 
@@ -465,7 +463,7 @@ map.style?.addLayerBelow(
 
 ## 8. Step 5 — Isobaths Vector Layer
 
-### Current ([`drawIsobaths`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:3497))
+### Current ([`MapOverlayRenderer.kt`](app/src/main/java/ykws/android/maro/ui/map/MapOverlayRenderer.kt) — `drawIsobaths()`)
 
 Creates `Polyline` objects for each isobath contour. Each polyline is added to `mapView.overlays`.
 
@@ -514,7 +512,7 @@ private fun updateIsobaths(map: MapLibreMap, isobaths: List<Isobath>) {
 
 ## 9. Step 6 — Coastline Vector Layer
 
-### Current ([`drawCoastline`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:3122))
+### Current ([`MapOverlayRenderer.kt`](app/src/main/java/ykws/android/maro/ui/map/MapOverlayRenderer.kt) — `drawCoastline()`)
 
 - Creates `Polyline` per coastline segment + dot/ring markers for islands/obstructions
 
@@ -545,9 +543,9 @@ private fun updateCoastline(map: MapLibreMap, segments: List<CoastlineSegment>) 
 
 ## 10. Step 7 — Regulated Zones Vector Layer
 
-### Current ([`drawRegulatedZones`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:3376))
+### Current ([`MapOverlayRenderer.kt`](app/src/main/java/ykws/android/maro/ui/map/MapOverlayRenderer.kt) — `drawRegulatedZones()`)
 
-Creates `Polygon` objects for each regulated zone, with support for holes (island interiors).
+Creates `Polygon` objects for each regulated zone, with support for holes (island interiors). Uses color from `regulatedZoneColor()` function (also in `MapOverlayRenderer.kt`).
 
 ### Target
 
@@ -593,11 +591,13 @@ map.style?.addLayer(
 )
 ```
 
+The [`RegulatedZoneComponents.kt`](app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneComponents.kt) file (icon stack, info panel, category toggles) is **pure Compose** — untouched by migration.
+
 ---
 
 ## 11. Step 8 — Zone300 Vector Layer
 
-### Current ([`drawZone300`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:3300))
+### Current ([`MapOverlayRenderer.kt`](app/src/main/java/ykws/android/maro/ui/map/MapOverlayRenderer.kt) — `drawZone300()`)
 
 Creates `Polygon` for fill + `Polyline` for border.
 
@@ -625,75 +625,17 @@ map.style?.addLayer(LineLayer("zone300-border", "zone300").apply {
 
 ## 12. Step 9 — Track Recording Vector Layer
 
-**Added in 2026-06-20 pull** — this layer does not appear in the original migration plan scope. It must be migrated alongside the other overlays.
+### Current ([`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt) — two `LaunchedEffect` blocks)
 
-### Current ([`MapScreen.kt:550-662`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:550))
+Two separate `LaunchedEffect` blocks manage track polylines directly on `mv.overlays` (not through `OverlayTracker`):
 
-Two separate `LaunchedEffect` blocks manage track polylines directly on `mv.overlays`:
+**History tracks:** Diff-based update using `renderedTrackIds` set — removes outdated `"track_hist_{id}"` polylines, adds new ones with fade-gradient opacity (newest→oldest), color interpolation from `trackingColorPastFrom` → `trackingColorPastTo`.
 
-**History tracks** (lines 550-631):
-```kotlin
-val renderedTrackIds = remember { mutableStateOf(setOf<String>()) }
-
-LaunchedEffect(mapView, appSettings.tracksVisible, appSettings.trackingRenderNb, ...) {
-    val mv = mapView ?: return@LaunchedEffect
-    val desiredIds = /* compute set of track IDs to render */
-    
-    // Diff: remove outdated, add new
-    val toRemove = mv.overlays.filter { overlay ->
-        (overlay as? Polyline)?.title?.startsWith("track_hist_") == true
-    }.filter { /* id not in desiredIds */ }
-    mv.overlays.removeAll(toRemove)
-    
-    // Add new polylines with fade gradient (newest→oldest color interpolation)
-    val polyline = Polyline().apply {
-        title = "track_hist_${summary.id}"
-        outlinePaint.color = /* interpolated ARGB */ 
-        setPoints(track.trackPoints.map { GeoPoint(it.lat, it.lon) })
-    }
-    mv.overlays.add(polyline)
-    renderedTrackIds.value = desiredIds
-    mv.invalidate()
-}
-```
-
-**Active recording trace** (lines 634-662):
-```kotlin
-LaunchedEffect(mapView, appSettings.trackingColorActive) {
-    val mv = mapView ?: return@LaunchedEffect
-    snapshotFlow { trackRecorderState }.collect { state ->
-        if (recState == ON && points.isNotEmpty()) {
-            val existing = mv.overlays.firstOrNull {
-                (it as? Polyline)?.title == "track_recording"
-            } as? Polyline
-            if (existing != null) {
-                existing.setPoints(points.map { GeoPoint(it.lat, it.lon) })
-                mv.invalidate()
-            } else {
-                val polyline = Polyline().apply {
-                    title = "track_recording"
-                    outlinePaint.color = appSettings.trackingColorActive
-                    outlinePaint.strokeWidth = 10f
-                    setPoints(points.map { GeoPoint(it.lat, it.lon) })
-                }
-                mv.overlays.add(polyline)
-                mv.invalidate()
-            }
-        } else {
-            mv.overlays.removeAll { 
-                (it as? Polyline)?.title == "track_recording"
-            }
-            mv.invalidate()
-        }
-    }
-}
-```
+**Active recording trace:** `snapshotFlow { trackRecorderState }` — updates existing `"track_recording"` polyline or creates/removes it based on `TrackRecorderState.ON`.
 
 ### Target (MapLibre)
 
-**Approach:** Use two separate layer sources to match the osmdroid split:
-
-**History tracks** — single `GeoJSONSource` updated with all visible track geometries; `LineLayer` with data-driven color from a track-ID property:
+**History tracks** — single `GeoJSONSource` updated with all visible track geometries; `LineLayer` with per-feature properties:
 
 ```kotlin
 private fun updateTrackOverlays(
@@ -708,9 +650,7 @@ private fun updateTrackOverlays(
     if (!map.isStyleLoaded) return
     
     val features = visibleTracks.mapIndexed { index, track ->
-        val coords = track.trackPoints.map { 
-            listOf(it.lon, it.lat) 
-        }
+        val coords = track.trackPoints.map { listOf(it.lon, it.lat) }
         val t = if (visibleTracks.size <= 1) 0f 
                 else index.toFloat() / (visibleTracks.size - 1).toFloat()
         val alpha = (transparencyFrom + (transparencyTo - transparencyFrom) * t) / 100f
@@ -747,17 +687,16 @@ private fun updateTrackOverlays(
 **Active recording trace** — separate `GeoJSONSource` updated in real-time via `snapshotFlow`:
 
 ```kotlin
-// In MapLibreMapView composable or a sibling LaunchedEffect:
 LaunchedEffect(mapLibreMap, appSettings.trackingColorActive) {
     val map = mapLibreMap ?: return@LaunchedEffect
     snapshotFlow { trackRecorderState }.collect { state ->
         val source = map.style?.getSource("track-recording") as? GeoJSONSource
         if (state.state == TrackRecorderState.ON && state.recordingPoints.isNotEmpty()) {
             val coords = state.recordingPoints.map { listOf(it.lon, it.lat) }
-            val geoJson = """{"type":"FeatureCollection","features":[{"type":"Feature","geometry":{"type":"LineString","coordinates":[${coords.joinToString(",") { "[${it[0]},${it[1]}]" }}]}}]}"""
+            val geoJson = """{"type":"Feature","geometry":{"type":"LineString","coordinates":[${coords.joinToString(",") { "[${it[0]},${it[1]}]" }}]}}"""
             
             if (source != null) {
-                source.setGeoJSON(geoJson)
+                source.setGeoJSON(Feature.fromJson(geoJson))
             } else {
                 map.style?.addSource(GeoJSONSource("track-recording", geoJson))
                 map.style?.addLayerAbove(
@@ -772,7 +711,6 @@ LaunchedEffect(mapLibreMap, appSettings.trackingColorActive) {
                 )
             }
         } else {
-            // Remove source when not recording
             map.style?.removeLayer("track-recording-layer")
             map.style?.removeSource("track-recording")
         }
@@ -780,22 +718,20 @@ LaunchedEffect(mapLibreMap, appSettings.trackingColorActive) {
 }
 ```
 
-**Note:** The [`TrackDrawerOverlay`](app/src/main/java/ykws/android/maro/ui/map/TrackDrawerOverlay.kt) and [`TrackHistoryOverlay`](app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt) are pure Compose overlays — they sit above the map and are **untouched** by the migration.
+**Note:** [`TrackDrawerOverlay`](app/src/main/java/ykws/android/maro/ui/map/TrackDrawerOverlay.kt) and [`TrackHistoryOverlay`](app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt) are pure Compose — **untouched** by the migration.
 
-**Settings fields already in code** (in [`AppSettings`](app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt:158-191)):
-- `trackEnabled`, `trackOriginLat/Lon`, `trackGeofenceRadiusM/Enabled`
-- `tracksVisible`, `trackingRenderNb` (0–20)
-- `trackingColorActive`, `trackingColorHistory/End`, `trackingColorPinned`
-- `trackingColorPastFrom/To`, `trackingTransparencyFrom/To`
-- `trackingColorPinnedFrom/To`
+**Settings fields already in code** ([`AppSettings`](app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt)):
+- `trackEnabled`, `tracksVisible`, `trackingRenderNb` (0–20)
+- `trackingColorActive`, `trackingColorPastFrom/To`, `trackingTransparencyFrom/To`
+- `trackingColorPinnedFrom/To`, `trackingColorHistory/End`, `trackingColorPinned`
 
-No migration-specific changes needed for these — MapLibre consumes the same settings.
+No migration-specific changes needed — MapLibre consumes the same settings.
 
 ---
 
 ## 13. Step 10 — Two-Finger Rotation (Remove)
 
-### Current ([`MapScreen.kt:264-305`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:264))
+### Current ([`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt) — `setOnTouchListener` block)
 
 ```kotlin
 var lastAngleDeg = 0f
@@ -815,7 +751,7 @@ mv.setOnTouchListener { _, ev ->
 
 ## 14. Step 11 — Zoom Buttons
 
-### Current ([`MapScreen.kt:988-1000`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:988))
+### Current ([`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt))
 
 ```kotlin
 mv.controller.zoomIn()
@@ -842,31 +778,41 @@ map.setCamera(
 
 ## 15. Step 12 — OverlayTracker (Remove)
 
-### Current ([`MapScreen.kt:1122-1138`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1122))
+### Current ([`OverlayTracker.kt`](app/src/main/java/ykws/android/maro/ui/map/OverlayTracker.kt) — standalone file, 35 lines)
 
 ```kotlin
-private class OverlayTracker {
+class OverlayTracker {
     val depth = mutableListOf<GroundOverlay>()
     val lowDepth = mutableListOf<GroundOverlay>()
     val isobaths = mutableListOf<Polyline>()
     val regulatedZones = mutableListOf<Polygon>()
     val zone300 = mutableListOf<Any>()
     val coastline = mutableListOf<Any>()
-    // ... dirty-check fields ...
+
+    var lastDepthBitmap: Bitmap? = null
+    var lastLowDepthBitmap: Bitmap? = null
+    var lastIsobaths: List<Isobath> = emptyList()
+    var lastRegulatedZones: RegulatedZoneSet? = null
+    var lastZone300: Zone300Data? = null
+    var lastSegments: List<CoastlineSegment> = emptyList()
+    var lastDepthBox: BoundingBox? = null
+    var lastZoom: Double = -1.0
 }
 ```
 
+Used by `CoastlineMapView` in `MapScreen.kt` to rebuild only layers whose data changed. Track recording overlays manage `mv.overlays` directly — never used `OverlayTracker`.
+
 ### Target
 
-**Delete the entire class.** MapLibre manages layers declaratively through the style system. Layer visibility and data updates are handled via `style?.getLayer(id)?.isVisible = ...` and `GeoJSONSource.setGeoJSON(...)` — no manual overlay tracking needed.
+**Delete the entire file.** MapLibre manages layers declaratively through the style system. Layer visibility and data updates are handled via `style?.getLayer(id)?.isVisible = ...` and `GeoJSONSource.setGeoJSON(...)` — no manual overlay tracking needed.
 
-**Note:** The track recording overlays (active trace + history) never used `OverlayTracker` — they manage `mv.overlays` directly via `LaunchedEffect` blocks (see [Step 9](#step-9--track-recording-vector-layer)). They will also use their own `GeoJSONSource` sources in MapLibre, separate from the tracker.
+Also remove the `tracker` instantiation and all dirty-check logic from `CoastlineMapView` in `MapScreen.kt`.
 
 ---
 
 ## 16. Step 13 — Decenter + Tilt Settings UI
 
-**Not yet implemented in codebase.** These settings fields do not exist in [`AppSettings`](app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt:54-192).
+**Not yet implemented in codebase.** These settings fields do not exist in [`AppSettings`](app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt).
 
 Add to Settings (Display tab) in [`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt):
 
@@ -908,24 +854,25 @@ if (appSettings.perspectiveViewEnabled) {
 
 ## 17. Compose Layer (Untouched)
 
-The following Compose-only layers stay **exactly as they are** — they sit in the `Row` overlay and are independent of the map rendering library:
+The following Compose-only layers stay **exactly as they are** — they are independent of the map rendering library:
 
 | Layer | File | Status |
 |---|---|---|
 | [`DashboardPanel`](app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt) | Separate file | ✅ Untouched |
-| [`DirectionLine`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:760) | Inline composable | ✅ Untouched |
-| [`CapArrowOverlay`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:763) | Inline composable | ✅ Untouched |
-| [`CenterMarkerOverlay`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:770) | Inline composable | ✅ Untouched |
+| `DirectionLine` | Inline in `MapScreen.kt` | ✅ Untouched |
+| `CapArrowOverlay` | Inline in `MapScreen.kt` | ✅ Untouched |
+| `CenterMarkerOverlay` | Inline in `MapScreen.kt` | ✅ Untouched |
 | [`FanLayout`](app/src/main/java/ykws/android/maro/ui/map/FanLayout.kt) | Separate file | ✅ Untouched |
-| [`MapControlButton`](app/src/main/java/ykws/android/maro/ui/map/FanIconComponents.kt) | Separate file | ✅ Untouched |
+| [`MapControlButton` / `FanIconComponents`](app/src/main/java/ykws/android/maro/ui/map/FanIconComponents.kt) | Separate file | ✅ Untouched |
 | [`TrackStatusIcon`](app/src/main/java/ykws/android/maro/ui/map/TrackStatusIcon.kt) | Separate file | ✅ Untouched |
 | [`TrackDrawerOverlay`](app/src/main/java/ykws/android/maro/ui/map/TrackDrawerOverlay.kt) | Separate file | ✅ Untouched |
 | [`TrackHistoryOverlay`](app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt) | Separate file | ✅ Untouched |
-| Settings overlay | Inline | ✅ Untouched |
-| Loading/error overlays | Inline | ✅ Untouched |
-| Exit banner | Inline | ✅ Untouched |
+| [`RegulatedZoneComponents`](app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneComponents.kt) | Separate file | ✅ Untouched |
+| Settings overlay | Inline in `MapScreen.kt` | ✅ Untouched |
+| Loading/error overlays | Inline in `MapScreen.kt` | ✅ Untouched |
+| Exit banner | Inline in `MapScreen.kt` | ✅ Untouched |
 
-**Total Compose LOC untouched:** ~3800 out of ~5400 in `MapScreen.kt` + separate files (including ~1400 LOC of track recording UI).
+**Total Compose LOC untouched:** ~4600 across `MapScreen.kt` Compose inline (~2800) + separate files (~1800).
 
 ---
 
@@ -935,26 +882,26 @@ The following Compose-only layers stay **exactly as they are** — they sit in t
 
 Each step is independently testable — build and run after each.
 
-| Step | What changes | Can build? | Risky? |
-|---|---|---|---|
-| 1 | Add MapLibre dependency, create `MapLibreMapView` composable alongside existing `CoastlineMapView` | ✅ | Low |
-| 2 | Wire camera (GPS auto-follow) — decenter + tilt are optional at this point | ✅ | Medium |
-| 3 | Depth raster overlay | ✅ | Medium |
-| 4 | Low-depth warning overlay | ✅ | Medium |
-| 5 | Isobaths vector layer | ✅ | Medium |
-| 6 | Coastline vector layer | ✅ | Medium |
-| 7 | Regulated zones vector layer | ✅ | Medium |
-| 8 | Zone300 vector layer | ✅ | Medium |
-| 9 | Track recording vector layer (active trace + history) | ✅ | Medium |
-| 10 | **Cutover**: replace `CoastlineMapView` with `MapLibreMapView` in `MapContent`, delete osmdroid code | ✅ | High |
-| 11 | Remove two-finger rotation (no longer needed) | ✅ | Low |
-| 12 | Remove `OverlayTracker` class | ✅ | Low |
-| 13 | Remove osmdroid dependency from `build.gradle.kts` | ✅ | Low |
-| 14 | Add decenter + tilt settings UI | ✅ | Low |
+| Step | What changes | Files affected | Can build? | Risky? |
+|---|---|---|---|---|
+| 1 | Add MapLibre dependency, create `MapLibreMapView` composable alongside existing `CoastlineMapView` | `build.gradle.kts`, `libs.versions.toml`, `MapScreen.kt` | ✅ | Low |
+| 2 | Wire camera (GPS auto-follow) — decenter + tilt are optional at this point | `MapScreen.kt` | ✅ | Medium |
+| 3 | Depth raster overlay | New MapLibre source/layer code in `MapScreen.kt` | ✅ | Medium |
+| 4 | Low-depth warning overlay | `MapScreen.kt` | ✅ | Medium |
+| 5 | Isobaths vector layer | `MapScreen.kt` | ✅ | Medium |
+| 6 | Coastline vector layer | `MapScreen.kt` | ✅ | Medium |
+| 7 | Regulated zones vector layer | `MapScreen.kt` | ✅ | Medium |
+| 8 | Zone300 vector layer | `MapScreen.kt` | ✅ | Medium |
+| 9 | Track recording vector layer | `MapScreen.kt` | ✅ | Medium |
+| 10 | **Cutover**: replace `CoastlineMapView` → `MapLibreMapView` in `MapContent`. Delete `MapOverlayRenderer.kt` **only after** confirming MapLibreMapView is stable — both composables coexist until verified, then osmdroid code removed. | `MapScreen.kt`, delete `MapOverlayRenderer.kt` | ✅ | High |
+| 11 | Remove two-finger rotation | `MapScreen.kt` | ✅ | Low |
+| 12 | Remove `OverlayTracker` class | Delete `OverlayTracker.kt` | ✅ | Low |
+| 13 | Remove osmdroid dependency | `build.gradle.kts`, `libs.versions.toml` | ✅ | Low |
+| 14 | Add decenter + tilt settings UI (MVP: `Boolean` toggle for perspective, slider for decenter fraction; §20 `TiltMode` enum deferred to future AUTOMATIC) | `MapScreen.kt`, `SettingsManager.kt` | ✅ | Low |
 
 ### Rollback
 
-Because `CoastlineMapView` and `MapLibreMapView` coexist during development (Step 1–8), rollback at any point means:
+Because `CoastlineMapView` and `MapLibreMapView` coexist during development (Step 1–9), rollback at any point means:
 
 ```kotlin
 // MapContent:
@@ -973,14 +920,16 @@ All open questions have been resolved:
 
 | # | Question | Decision |
 |---|---|---|
-| 1 | **Tile source** | **OSM raster tiles** (same as current). Zero visual change. Vector tiles too CPU-heavy for mid-range phones. OpenSeaMap overlay a future addition. |
+| 1 | **Tile source** | **OSM raster tiles** (same as current). Zero visual change. |
 | 2 | **Offline MBTiles** | **Skip for now.** Online-only. Add only if users request it. |
 | 3 | **Depth bitmap approach** | **Unchanged.** Existing `DepthBitmap.kt` feeds MapLibre's `ImageSource`. 8-band `addBandedOverlay` hack eliminated. |
-| 4 | **Tilt default** | **OFF by default.** Opt-in via Settings → Display → Map tilting. Three-state: OFF / MANUAL / AUTOMATIC (future). |
+| 4 | **Tilt default** | **OFF by default.** Opt-in via Settings → Display. Three-state: OFF / MANUAL / AUTOMATIC (future). |
 | 5 | **Decenter default** | **OFF by default.** When enabled: 25% max offset, gradual ramp 5–15 kn. |
 | 6 | **Demo mode** | **Both GPS and demo mode** — pan-derived speed drives decenter/tilt ramps. |
 | 7 | **Compose binding** | **Raw `AndroidView(MapView)`** — stable, no community dependency risk. |
 | 8 | **Track recording** | Same as current — `TrackViewModel` drives both active trace and history overlays. Separate `GeoJSONSource` per mode, color/opacity from existing `AppSettings` fields. |
+| 9 | **MapOverlayRenderer** | **Replaced entirely.** All osmdroid drawing functions become MapLibre style layers. File deleted at cutover (Step 10). |
+| 10 | **RegulatedZoneComponents** | **Untouched.** Pure Compose — icon stack, info panel, category toggles, boat size slider. |
 
 ---
 
@@ -1036,8 +985,6 @@ TiltMode.AUTOMATIC -> {
 }
 ```
 
-Settings gains: speed range slider (min/max) + max tilt angle slider.
-
 ---
 
 ## 21. Final Migration Execution Order
@@ -1053,9 +1000,9 @@ Settings gains: speed range slider (min/max) + max tilt angle slider.
 | 7 | Regulated zones vector layer | Step 1 |
 | 8 | Zone300 vector layer | Step 1 |
 | 9 | Track recording vector layer (active trace + history, separate GeoJSONSources) | Step 1 |
-| 10 | **Cutover**: replace `CoastlineMapView` → `MapLibreMapView` in `MapContent` | Steps 2–9 |
+| 10 | **Cutover**: replace `CoastlineMapView` → `MapLibreMapView` + delete `MapOverlayRenderer.kt` | Steps 2–9 |
 | 11 | Remove two-finger rotation listener | Step 10 |
-| 12 | Remove `OverlayTracker` class | Step 10 |
+| 12 | Delete `OverlayTracker.kt` + remove all tracker references in `MapScreen.kt` | Step 10 |
 | 13 | Remove osmdroid dependency | Step 10 |
 | 14 | Tilt Settings UI (OFF/MANUAL selector + slider with live preview + reset button) | Step 2 |
 
