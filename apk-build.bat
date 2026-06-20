@@ -13,5 +13,5 @@ if %ERRORLEVEL% NEQ 0 (
 )
 echo ======================================
 echo  Build successful -^> app\build\outputs\apk\debug\app-debug.apk
-echo  Deploy: apk-deploy.bat
+echo  Deploy: apk-deploy.bat (build + push) or apk-push.bat (push only)
 echo ======================================

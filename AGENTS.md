@@ -1,152 +1,149 @@
 # AGENTS.md
 
-> **Canonical agent rulebook for the Maro-II project — the single source of truth.**
-> Written to the open [AGENTS.md](https://agents.md) standard, read natively by most
-> AI coding agents. Vendor-specific files are thin adapters that point here —
-> **edit rules in this file only:**
->
-> | Adapter | Mechanism |
-> |---|---|
-> | `CLAUDE.md` | `@AGENTS.md` import (Claude Code) |
-> | `.clinerules` | pointer to this file (Cline) |
-> | `.claude/skills/xtrack/` | executes the `#`-command system specified in § 7b |
->
-> Section numbers (3, 6, 7a, 7b, …) are referenced from other docs — keep them stable.
+> **Canonical rulebook for Maro-II — single source of truth.**
+> Adapters: `CLAUDE.md` = `@AGENTS.md` import | `.clinerules` = pointer | `.claude/skills/xtrack/` = #-commands
+> Section numbers (3, 6, 7a, 7b, …) stable — referenced from other docs.
 
 # Core Directives & Communication Style
-- Be concise. Provide to-the-point answers with zero verbosity, fluff, or extrapolation.
-- Answer the prompt directly. Do not suggest next steps or advance the conversation — wait for the user to drive.
-- Never make assumptions about the broader architecture outside the immediate task scope.
-- Do not implement unrequested features. If new capabilities are needed, discuss first.
-- **Explain/Discuss Gate:** If a user prompt ends with "explain" or "discuss" (any casing), the response must be explanation/discussion only — no code edits, file writes, or tool-based modifications are allowed. Treat these as read-only Q&A. **Exceptions:** (a) exactly one `xTrack/[ActiveFeature]/FEAT_PLN_[Feature]_[topic].md` file may be created to capture the discussion, auto-attached to the active feature's `## Docs`; (b) context-changing xTrack commands (`#focus`, `#sub`, `#sub out`) are permitted during discussion — follow them automatically.
-- **🔴 ABSOLUTE RULE: NEVER write to `develop` or `main` — no pushes, no force-pushes, no reverts, no direct commits. Any operation that modifies these branches is forbidden.** Feature work lives on `feature/*` branches; merges to `develop`/`main` are done via pull request only.
-- You are allowed to challenge what I say; push back on bad ideas being clear on why, but in fine defer to my judgement.
-- At the end of task, provide a concise bullet summary of changes. Include a brief ELI16 summary.
+
+- **🎯 DIRECT RESPONSE: Answer only what was asked, then stop.**
+  DO NOT suggest next steps, ask follow-ups, or extend the conversation.
+  EXCEPTION: IF the prior interaction reached natural conclusion
+  (user said "done", "goodbye", "that's all", or topic clearly exhausted) →
+  THEN you MAY add 1 high-level future-direction bullet at the very end.
+
+- **⛔ SCOPE LOCK: Zero scope creep.**
+  IF the prompt doesn't explicitly request it → do NOT implement it.
+  IF you spot an adjacent opportunity → log it as a post-task suggestion,
+  never as code in the current delivery. Unrequested features are defects.
+
+- **🔴 MODE LOCK: Do not switch to Code or implement without explicit go-ahead.**
+  Architect mode is for discussion/design. Code mode is for execution only.
+  IF the user hasn't said "implement", "go ahead", "switch to Code", or similar →
+  stay in discussion mode. Unauthorized mode switches are workflow violations.
+
+- **🔴 ABSOLUTE RULE: No agent may execute `git add`, `git commit`, `git push`,
+  `git merge`, or `git rebase` without the user's explicit, unambiguous go-ahead.**
+  Committing inside `new_task(Code)` subtasks is NOT exempt — see §5.
+  **Read-only git queries (`git status`, `git log`, `git branch`, `git diff`, `git fetch`) are always permitted in any mode.**
+
+- **🔴 ABSOLUTE RULE: NEVER write to `develop` or `main` — no pushes,
+  no force-pushes, no reverts, no direct commits. Any operation that modifies
+  these branches is forbidden.** Feature work lives on `feature/*` branches;
+  merges to `develop`/`main` are done via pull request only.
+
+- **🗣️ CONCISE: Minimum viable communication.**
+  Say what must be said — nothing more. Zero fluff, zero extrapolation,
+  zero speculative prose. IF a sentence doesn't carry signal → cut it.
+
+- **🔴 NEVER ASSUME: Do not assume broader architecture outside task scope.**
+  IF the prompt doesn't reference a system, component, or pattern →
+  do NOT fabricate assumptions about it. Stick to what's stated.
+
+- **🔴 WRITE-ONCE: Write each source file exactly once per task.**
+  No edit-after-write cycles. No save-compile-rewrite loops.
+  IF a file needs changing → combine all edits into a single write.
+  Every sequential edit invalidates the prompt cache and costs tokens.
+  Exception: Explain/Discuss Gate (see below).
+
+- **🔴 NO BINARY READS: Never open, read, or search `.bin`, `.tif`, `.xyz`,
+  `.nc` files.** Treat spatial data files as opaque blobs.
+  Read metadata and parsing code only.
+
+- **📋 TASK COMPLETION: Summarize only if it adds information.**
+  IF the response already answered clearly and concisely → stop.
+  No summary needed. IF the task involved multi-step changes, code modifications,
+  or non-obvious decisions → emit:
+  1. Bullet list of what changed (files touched, logic altered, config).
+  2. ELI16 explanation — one or two plain-language sentences explaining the
+     *purpose* of the change. Strip Android/Kotlin jargon where possible.
+     IF a Java-backend analogy maps cleanly → use it.
+
+- You may challenge ideas, but defer to my judgement.
+
+- **Explain/Discuss Gate:** Prompt ending with "explain"/"discuss" → discussion only,
+  no code edits/tool modifications. Exceptions: (a) one `FEAT_PLN_` file may capture
+  the discussion; (b) `#focus`/`#sub`/`#sub out` permitted during discussion.
 
 # Developer Profile & Architectural Translation
-- The user is a Senior Java Backend Developer new to Android/Kotlin. Explanations may relate to Spring or Quarkus concepts.
-- Map Jetpack ViewModels/Repositories to Spring Beans/Services, and StateFlow to reactive streams/pub-sub.
-- Bridge Java to Kotlin: Highlight idiomatic Kotlin replacements for Java patterns (coroutines for thread pools, data classes for POJOs/Lombok, functional collections).
-- **Async Rule:** Run all asynchronous operations or thread shifting using Kotlin Coroutines and Flow; do not spin up raw threads or executors.
+- User: Senior Java backend dev → Android/Kotlin. Map ViewModels/Repos ↔ Spring Beans/Services, StateFlow ↔ reactive streams. Highlight idiomatic Kotlin (coroutines, data classes, functional collections).
+- **Async Rule:** Kotlin Coroutines + Flow only — no raw threads or executors.
 
 # 1. Modern Android Development (MAD) Replication Rule
 - **Rewrite on Replication:** When replicating or porting an existing legacy feature (Activity, Fragment, XML layout), rewrite it entirely using MAD patterns: Jetpack Compose UI + ViewModel + StateFlow + Coroutines/Flow. Do not copy-paste legacy patterns. Do not reuse legacy layout files, Activities, or Fragments.
 
 # 2. Isolated Greenfield Component Extraction
 You are executing a 100% Greenfield rewrite in a fresh workspace, using the legacy repository purely as a static reference.
-- **Extraction Sequence:** Port functionalities one isolated component at a time:
-  1. **Domain Extraction:** Isolate processing logic, strip Android framework dependencies, and map to pure Kotlin structures or clean data repositories.
-  2. **Reactive State Bridge:** Encapsulate business logic within a Jetpack ViewModel, exposing immutable UI states via Kotlin `StateFlow`. Use Coroutines/Flow for async execution.
-  3. **Stateless UI Composition:** Construct pure, stateless Jetpack Compose views that bind directly to the ViewModel's state.
+- **Extraction Sequence:** Port one component at a time: (1) domain logic isolated as pure Kotlin, (2) ViewModel with StateFlow/Coroutines, (3) stateless Compose UI bound to ViewModel state.
 
 # 3. Token & Prompt-Cache Optimization (Strict Operational Enforcement)
-- **Zero-Piecemeal Writes:** Write each source file exactly once per task. No edit-after-write, no save-compile-rewrite cycles. Exception: Explain/Discuss Gate (see §1).
 - **Cache Optimization:** Group changes into bulk writes across multiple files. Avoid unrelated task switching mid-session. Every sequential edit invalidates the prefix-cache and multiplies token cost.
 - **Strict Context Isolation:** Open only the files the user asks for or that directly import the target class. For context, read interfaces/public methods, not full implementations.
-- **Binary & Media Asset Exclusion:** You are STRICTLY FORBIDDEN from opening, reading, or printing the contents of raw spatial data files (`*.bin`, `*.tif`, `*.xyz`, `*.nc`) inside the chat window. Treat these as black boxes — read only metadata or parsing code. Never search across files matching these extensions.
 
 # 4. Loop Control & Feedback Guardrails
-- **Max Iteration Cap:** Limit autonomous agent loops to a maximum of 3–5 consecutive turns per task. Force a manual checkpoint/user confirmation once this limit is reached.
-- **Error Back-off:** If a compilation or Gradle error persists for 2 consecutive autonomous attempts, halt immediately, present the log, and ask for developer guidance. Do not enter automated repair loops.
-- **Design Deviation Gate:** Await explicit user approval before introducing new external dependencies, third-party libraries, or altering the core data flow.
+- **Max Iteration Cap:** Limit autonomous agent loops to 3–5 consecutive turns per task, then force checkpoint.
+- **Error Back-off:** If compilation/Gradle error persists 2 consecutive attempts, halt and ask developer.
+- **Design Deviation Gate:** Await explicit approval before new dependencies, third-party libraries, or data flow changes.
 
 # 5. Git Operations — STRICT
-- **🔴 ABSOLUTE RULE: No agent may `git commit` or `git push` without the user explicitly saying so.** `git add` may be used to stage, but only after user confirms they want a commit prepared. Even `#commit` requires confirmation unless the user chains it with other commands showing clear intent (e.g. `#bake #commit #implement`).
+- **🔴 ABSOLUTE RULE: No agent may execute `git add`, `git commit`, `git push`, `git merge`, or `git rebase` without the user's explicit, unambiguous go-ahead.** This applies to ALL modes and ALL subtasks — including `new_task(mode=code, ...)` subtasks. No exception. **Read-only git queries (`git status`, `git log`, `git branch`, `git diff`, `git fetch`) are always permitted in any mode.**
+- **`#commit` ALWAYS requires confirmation.** Even when chained with other commands (e.g. `#bake #commit #implement`), the agent MUST pause at `#commit` and ask the user before executing. Chained commands do NOT constitute implicit consent.
 - **`#push` is NEVER automatic** — always ask for confirmation.
+- **`git add` may be used to stage** but only after the user confirms they want a commit prepared. Do not stage preemptively.
 - Feature work lives on `feature/*` branches; merges to `develop`/`main` are done via pull request only.
-- **Exception:** `new_task(mode=code, ...)` subtasks may commit within their scope since results return to the parent.
 
 # 6. Spatial Engine Constraints
 - See `docs/MARO_ARCHITECTURE.md` for Maro-II spatial engine constraints (bounding box, memory-mapped I/O, async rendering).
 
 # 7a. xTrack — Stack, Bootstrap & Lifecycle
-- **The Memory Stack Layout:** The context footprint spans `xTrack/` (feature subdirectories + `GLOBAL_CONTEXT.md`). It utilizes `xTrack/GLOBAL_CONTEXT.md` (root routing table + feature summaries + global todos + global instructions), `xTrack/[Feature]/FEAT_DSC_[Feature].md` (feature epics, each with a YAML front-matter header), and `xTrack/[Feature]/FEAT_HYD_[Feature].md` (per-feature micro session transactional state). If `xTrack/` does not exist when any tracking or focus command is issued, auto-create the directory and initialize `GLOBAL_CONTEXT.md` and the feature file; per-feature hydration files (`xTrack/[Feature]/FEAT_HYD_[Feature].md`) are created lazily on first `#bake` of a feature.
-- **The Read-and-Route Protocol (Turn 1):** On the first turn of any new session, assess the user's intent. If the request is self-contained (e.g., explaining a function, a quick edit unrelated to features), skip hydration and answer directly. If the request hints at continuing prior work or is ambiguous about scope, read `xTrack/GLOBAL_CONTEXT.md`, match the intent against the routing table, open the corresponding `xTrack/[X]/FEAT_DSC_[X].md`, and read its hydration `xTrack/[X]/FEAT_HYD_[X].md` if present. If no clear match exists or xTrack/ is uninitialized, ask a brief scoping question: (a) working on an existing feature? (b) following up on the last session? (c) starting something new?
+- **Memory Stack:** Context footprint: `xTrack/` (features) + `GLOBAL_CONTEXT.md` (routing), `xTrack/[Feature]/FEAT_DSC_[Feature].md` (epics), `xTrack/[Feature]/FEAT_HYD_[Feature].md` (session state). Auto-create on first `#track`/`#focus`.
+- **Turn 1 Protocol:** Self-contained request → answer directly. Ambiguous/continuing work → read `GLOBAL_CONTEXT.md`, match intent against Routing Map, open matching feature file + hydration. No match → ask scoping question.
 
 # 7b. xTrack — Command Reference
-- **Autonomous Feature Tracking Triggers:** You must automatically intercept `#`-prefixed command patterns to manage `xTrack/` files autonomously.
-- **Fuzzy Resolution Protocol:** All name-based lookups follow a cascade: (1) exact case-insensitive match → accept silently; (2) substring match (query inside a candidate or vice-versa) — unique → accept, multiple → confirm (offer the matches); (3) otherwise nearest by approximate character-edit distance — an obvious near-miss (≈1–2 edits) → confirm ("did you mean *X*?"), several similarly close → present the top few and ask, nothing close → reject. Treat edit distance as a guide, not a hard threshold; when unsure, confirm rather than guess. On reject, offer `#track` (features) / `#help` (commands) / `#doc list` (docs). Referenced as "fuzzy-resolve" throughout.
-- **Feature File Front-Matter:** Every `xTrack/[Feature]/FEAT_DSC_[Feature].md` opens with a YAML front-matter block — the machine-readable header for status/dates (the prose body holds description, subfeatures, todos, rules, docs). Fields: `name`, `status` (active|paused|done), `created`, `modified` (both `YYYY-MM-DD HH:mm`, UTC), `active_subfeature`. The `one_liner` and subfeature completion tracking are maintained in the `## Feature Summaries` table in `GLOBAL_CONTEXT.md`, not in the feature file front-matter. `#list` reads the Feature Summaries table directly from `GLOBAL_CONTEXT.md`; `#status` reads front-matter + body.
-  1. **Status Dashboard (`#list`):** If the user states `#list` (alias `#features`), read the `## Feature Summaries` table directly from `xTrack/GLOBAL_CONTEXT.md` — no per-file reads needed. Print a compact table: feature name, one-liner, created, modified (with time), status. Sort by `modified` descending (newest first). Do NOT expand subfeature checklists — that belongs to `#status`. Clearly highlight the active feature row (e.g., bold name + `← active` marker).
-  2. **Active Focus Pivot:** If the user states `#focus [name]` (e.g., `#focus ShoreDistance`), fuzzy-resolve the name against existing features, open that feature file, update the `Active Session Pointers` section in `xTrack/GLOBAL_CONTEXT.md`, and constrain operational context to that epic block. If `[name]` is omitted (bare `#focus`), list existing features and prompt the user to pick one. Sub-commands: `#focus sub [name]` (focus a subfeature, moved from `#sub focus`), `#focus out` (exit subfeature focus, moved from `#sub out`).
-  3. **New Epic Feature:** If the user states `#track [name]` (e.g., `#track ShoreDistance`), fuzzy-resolve against existing features. If no match, create `xTrack/[name]/` directory and `xTrack/[name]/FEAT_DSC_[name].md` from the feature template — a **YAML front-matter** header (`name`, `status: active`, `created`, `modified` = `created`, `active_subfeature: none`) followed by `**Description:**` and the section skeleton — then open `xTrack/GLOBAL_CONTEXT.md`, append a matching keyword-to-path row to the Routing Map table, and add a row to the `## Feature Summaries` table with a derived `one_liner` (a single concise sentence capturing the feature's purpose). If the input is a descriptive phrase rather than PascalCase, derive a clean feature name (functional or technical scope) and confirm before creating.
-  4. **Task Decomposition:** If the user states `#sub [name]` (e.g., `#sub KDTree Index`), fuzzy-resolve against existing subfeatures in the active feature file. If no match, locate the active feature file in `xTrack/[Feature]/`, find or initialize the `## Subfeatures` markdown block, and insert the subfeature as an H3 subsection (`### name  [ ]`) with nested `#### Todos`, `#### Rules`, and `#### Key Files` sub-sections.
-  4a. **Subfeature Focus:** If the user states `#focus sub [name]`, fuzzy-resolve `[name]` against subfeatures in the active feature file. If matched, set `**Active Subfeature:** [name]` in the feature file header. All subsequent bare `#todo`, `#rule`, `#doc`, and `#doc attach` commands target the active subfeature's subsection. If no match, list existing subfeatures and ask to pick one or `#sub [name]` to create.
-  4b. **Subfeature Exit:** If the user states `#focus out`, clear the `**Active Subfeature:**` pointer. All subsequent commands return to targeting the parent feature level. If the user states `#sub` (bare), list subfeatures with `← focused` marker on the active one.
-  5. **Memory Bake:** If the user states `#bake`: (1) update subfeature checkmarks in the current feature file; (2) update the feature's row in the `## Feature Summaries` table in `GLOBAL_CONTEXT.md` (recompute one_liner if needed, bump modified date); (3) — only if the feature was actually modified this session — set `modified` in its front-matter to the current `YYYY-MM-DD HH:mm` (UTC); (4) create or overwrite the per-feature hydration file `xTrack/[Feature]/FEAT_HYD_[Feature].md` with a ~200-word micro-state summary (state, target files, next step) and update `**Last Bake:**` in `xTrack/GLOBAL_CONTEXT.md`; (5) prompt the user to clear the workspace. Per-feature hydration means baking one feature never clobbers another's resume state (safe under parallel sessions). Also triggered by user closing phrases ("done", "goodbye", "end", "that's all") or task completion with conversation winding down.
-  6. **Todo Tracking:** Three tiers: (1) `#todo` (bare) — list todos for the active scope (subfeature if focused, else parent feature). (2) `#todo [description]` — fuzzy-match the description against existing subfeatures; if matched, offer to nest under that subfeature, otherwise append `- [ ] [description]` to the active scope's `#### Todos` (subfeature) or `## Todos` (parent feature). (3) `#todo [target]: [description]` — if `target` is `global`, append to `xTrack/GLOBAL_CONTEXT.md` `## Global Todos`; if `target` is `parent`, append one level up (to parent feature if sub focused, to global if feature focused); otherwise fuzzy-resolve `target` against existing features and write to that feature's active scope. If unrecognized, ask: (a) `#track` it, (b) use global, (c) cancel.
-  7. **Context Rules:** Three tiers: (1) `#rule` (bare) — list rules for the active scope (subfeature if focused, else parent feature). (2) `#rule [text]` — append the text to the active scope's `#### Rules` (subfeature) or `## Rules` (parent feature). (3) `#rule [target]: [text]` — if `target` is `global`, append to `xTrack/GLOBAL_CONTEXT.md` `## Global Rules`; if `target` is `parent`, append one level up; otherwise fuzzy-resolve `target` against existing features. If unrecognized, ask: (a) `#track` it, (b) use global, (c) cancel.
-  8. **Command Reference:** If the user states `#help` (bare), read and print `docs/cmd_help.md` as a code block. If the user states `#help [cmd]`, scan `docs/cmd_help_*.md` filenames, strip `cmd_help_` prefix and `.md` suffix, fuzzy-resolve `[cmd]` against remaining names, and read the matching file. For sub-commands (`status diff`, `doc audit`), read the parent command file. If no match, try `docs/cmd_help_git.md` as fallback; if still no match, print the reference table and suggest closest match. `docs/cmd_help*.md` files must be kept in sync with commands.
-  9. **Active Feature Status:** If the user states `#status` (bare), read the active feature from `xTrack/GLOBAL_CONTEXT.md`, open that feature file (front-matter + body), and print a detailed single-feature dashboard: feature name + one_liner (from the `## Feature Summaries` table in `GLOBAL_CONTEXT.md`) + status/dates. If a subfeature is focused, read and expand only that subfeature's section (### header + nested todos/rules/key-files/docs) — omit the rest of the subfeature checklist to save tokens. If no subfeature is focused, print the full subfeature checklist (all items with completion status) plus all parent-level todos, rules, and docs. If the user states `#status [name]`, fuzzy-resolve `[name]` against existing features and print the same detailed dashboard for the named feature instead of the active one. If all subfeatures, todos, and rules are complete, append `All clear. #bake to snapshot.`
-  10. **Cross-Feature Mention Intercept:** If the user mentions a feature name (not the active one) in conversation, fuzzy-resolve against existing features and intercept with options: (a) switch focus to that feature, (b) add a todo to that feature, (c) bake current session + restart fresh on that feature, (d) ignore. For mentions that don't match any existing feature: (a) create as new feature, (b) add as todo to current feature, (c) add as subfeature to current feature, (d) ignore.
-  11. **Documentation Command System (`#doc`):** A parallel sub-command system for documentation management. All `#doc` commands use fuzzy-resolve with confirmation when ambiguous. Docs attach to a feature's `## Docs` section (subfeature `#### Docs` when focused) — kept distinct from `## Key Files`, which lists source files.
-      - **Bare `#doc`:** read the active scope's `## Docs` (subfeature's `#### Docs` if focused) and display the attached docs.
-      - **Create Doc:** `#doc create [name]` — prompt: "Feature-scoped or cross-cutting?" If feature-scoped, create `xTrack/[ActiveFeature]/FEAT_DOC_[name].md`; if cross-cutting, create `docs/[name].md`. For cross-cutting, prompt for a scope tag: (a) core, (b) onboarding, (c) reference, (d) archived. Write `<!-- scope: [chosen] -->` as line 1 and `# [name]` as the title on line 3. Feature-scoped docs use `<!-- scope: feature -->`.
-      - **List Docs:** `#doc list` — scan `docs/**/*.md` (recursive), `xTrack/*/FEAT_DOC_*.md`, and `xTrack/*/FEAT_PLN_*.md`, reading the first ~5 lines of each for the `<!-- scope: ... -->` tag and the first `#` heading (tolerant of a leading blank line or BOM). Also scan every `xTrack/*/FEAT_DSC_*.md` for `## Docs` (parent) and `#### Docs` (subfeature) sections to determine which feature/subfeature each doc is attached to. Print a table grouped by source: `DOC` (xTrack/*/FEAT_DOC_), `PLN` (xTrack/*/FEAT_PLN_), `docs/` (cross-cutting reference). Include `README.md` as implicit `scope: core`.
-      - **Read Doc:** `#doc read [name]` — fuzzy-resolve against `docs/**`, `xTrack/*/FEAT_DOC_*`, and `xTrack/*/FEAT_PLN_*` filenames (`.md` optional). Read into context; print filename, scope, line count.
-      - **Attach Doc:** `#doc attach [name]` — fuzzy-resolve against `docs/**/*.md`, `xTrack/*/FEAT_DOC_*.md`, and `xTrack/*/FEAT_PLN_*.md`, add the relative path to the active feature's `## Docs` with a brief description. Skip if present. Bare `#doc attach`: run `#doc list` and prompt which to attach.
-      - **Detach Doc:** `#doc detach [name]` — fuzzy-resolve against the active feature's `## Docs` entries, remove it. Bare `#doc detach`: show `## Docs` and prompt which to detach.
-      - **Audit Docs:** `#doc audit` — scan all `docs/**/*.md` (recursive), `xTrack/*/FEAT_DOC_*.md`, and `xTrack/*/FEAT_PLN_*.md` and report: (a) docs missing `<!-- scope: ... -->` tag, (b) orphan docs (attached to no feature via `## Docs` / `#### Docs` in any `xTrack/*/FEAT_DSC_*.md`, and not `README.md`), (c) docs with invalid scope (not one of core|onboarding|feature|reference|archived). Print findings grouped by severity. Does NOT auto-fix — for manual cleanup.
-      - **Update Docs:** `#doc update` — refresh the active feature's documentation to match current implementation reality. 9-step pipeline:
-        (1) Harvest decisions from all FEAT_PLN_* files + source code, extract with rationale and file references
-        (2) Cross-reference plans vs actual source — capture what was built, not what was planned
-        (3) Create/update FEAT_DOC_[Feature]_decisions.md grouped by category
-        (4) Rewrite ## Implemented as concise current-state bullet groups — no historical language
-        (5) Strip completed [x] todo lists from subfeatures (redundant with Implemented + decisions doc)
-        (6) Move unchecked items from completed subfeatures to parent ## Todos
-        (7) Remove deprecated terminology (old state names, stale naming mismatches)
-        (8) Strip empty #### Rules, #### Key Files, #### Docs sections
-        (9) Update hydration, bump modified date, #bake
-        Target: ~60% line reduction on the feature doc.
-  12. **Repository Doctor (`#doctor`):** Lint the xTrack stack for drift; print findings grouped by severity. With `#doctor fix`, auto-repair the safe classes and report the rest. Checks: (a) duplicate/overlapping Routing Map rows; (b) duplicate or near-duplicate rules (global or per-feature); (c) stale `active_subfeature` (front-matter names a non-focused or non-existent subfeature); (d) non-`YYYY-MM-DD HH:mm` dates; (e) `status` vs completion (all subfeatures `[x]` but `status` ≠ `done`); (f) malformed sections (e.g. a non-`###` line directly under `## Subfeatures`); (g) orphan docs (in `docs/**` or `xTrack/*/FEAT_DOC_*`/`xTrack/*/FEAT_PLN_*`, attached to no feature, not `README`); (h) routing rows → missing files, or feature files with no routing row; (i) Feature Summaries table rows with no matching `xTrack/*/FEAT_DSC_` file (or vice versa). Auto-fixable: dedupe routing rows, normalize dates, reset stale `active_subfeature`, sync Feature Summaries ↔ FEAT_DSC_ files. Report-only: malformed sections, orphan docs, status/rule-dedupe judgment calls. `#bake` runs the auto-fix subset first.
-  13. **Current Context (`#now`):** If the user states `#now` (aliases `#context`, `#here`, `#feat`, `#feature`), print a lightweight orientation block (not the full `#status` dashboard): the active feature from `xTrack/GLOBAL_CONTEXT.md` (name + `status` + `one_liner` from the `## Feature Summaries` table), the `active_subfeature`, the **working context** (current working directory only), and `Last Bake`. Then list all subfeatures of the active feature, marking the active subfeature with `← focused` if one is selected. Do NOT fetch or display git branch or worktrees. (`#list` lists all features; `#status` is the full single-feature dashboard.)
-  14. **Session Diff (`#status diff`):** If the user states `#status diff [name]`, fuzzy-resolve `[name]` against existing features and show what changed since the last `#bake` of that feature. Read the feature's hydration file `xTrack/[Feature]/FEAT_HYD_[Feature].md` as the baseline, then compare with the current feature file to report:
-      - Subfeatures toggled (`[ ]` ↔ `[x]`) since last bake
-      - New/removed todos
-      - New/removed rules
-      - New/removed key files
-      - New/removed docs
-      - Changed front-matter fields (status, dates)
-      If hydration is missing (never baked), print `No hydration snapshot found — run #bake first.` If `[name]` is omitted, diff the active feature.
-  15. **AI-Assisted Merge Conflict Resolution (`#merge`):** When the user states `#merge` (bare or `#merge [branch]`), execute the standard rebase + force-push but intercept conflicts with AI-assisted resolution:
-      a. **Pre-rebase:** Read all active `FEAT_DSC_*.md` files to build a `path → feature` ownership map from their `## OwnedFiles` sections. Also read `## Key Files` as a secondary hint.
-      b. **On conflict (git pauses mid-rebase):** For each conflicted file:
-         - If listed in the active feature's `## OwnedFiles` → accept `theirs` (feature branch wins). `git add` the file silently.
-         - If listed in another feature's `## OwnedFiles` → accept `ours` (develop wins). `git add` the file silently.
-         - If unowned but matches no feature's `## OwnedFiles` → AI inspects hunk symbols (function names, class names) against the active feature's scope. Symbols matching the active feature → keep `theirs`; otherwise → keep `ours`. `git add` resolved hunks.
-         - If ambiguous (low confidence, overlapping same-line edits, binary files, build config) → leave conflicted, flag for manual review.
-         - **xTrack tracking files** (`GLOBAL_CONTEXT.md`, `FEAT_DSC_*.md`) → special merge: dedupe Routing Map, keep both features' rows, merge subfeature lists, update Active Pointer to current branch. Do NOT auto-resolve — flag for AI-assisted merge with a summary of what changed on each side.
-      c. **Report:** After processing all conflicts, print summary: *"Resolved [N] files automatically. [M] files need manual attention: [list]"*
-      d. **User completes** remaining manual resolutions, runs `git rebase --continue`, then `#push`.
-      e. **Safety:** If `## OwnedFiles` is empty/missing for the active feature, the AI guesses by scanning the feature's description, todos, and `## Key Files`. If confidence is low or the conflict touches critical infrastructure (build files, protos, `xTrack/`), prompt the user instead of auto-resolving.
-      f. **Feature Template:** Every `FEAT_DSC_[Feature].md` may include a `## OwnedFiles` section (parent-level, below `## Docs`) listing source files that the feature explicitly owns for auto-resolution purposes. This is separate from `## Key Files` (which lists important references regardless of ownership), a `## Implemented` where we keep track of implemented features..
-  16. **Implementation Pipeline (`#implement`):** If the user states `#implement` (bare or `#implement [feature]`), execute the full implementation pipeline: switch to Code → implement + build → switch to Ask → feature coverage review + code health review (one pass each, no looping) → switch to Architect → write a very short bullet point lists summary of the features implemented in the section `## Implemented` of `FEAT_DSC_[Feature].md` → report summary. Error back-off (§4) applies per-step within Code's build loop. No git auto-write (§5) — Code stages but does not commit. No Code↔Ask ping-pong (each review is a single pass, issues go to Architect).
+Intercept `#`-prefix. All name lookups use fuzzy-resolve cascade (exact → substring → edit-distance → reject — stop on first unique match).
+
+**Feature File FM:** YAML: `name`, `status`, `created`, `modified` (YYYY-MM-DD HH:mm UTC), `active_subfeature`.
+
+| #cmd | Action |
+|------|--------|
+| `#list` | Dashboard of all features from GLOBAL_CONTEXT.md Feature Summaries table |
+| `#focus [name]` | Pivot active feature; bare=prompt pick. Sub: `#focus sub [name]` / `#focus out` |
+| `#track [name]` | Create new feature file + GLOBAL_CONTEXT.md routing/summary rows |
+| `#sub [name]` | Decompose subfeature under active feature; bare=list with focus marker |
+| `#bake` | Snapshot: update checkmarks, feature summary, front-matter date, hydration file |
+| `#todo` | Bare=list, `[desc]`=append, `[target]:[desc]`=cross-feature. Same 3-tier for `#rule` |
+| `#rule` | Same 3-tier as `#todo`. Global/parent/feature routing by target |
+| `#doc` | Sub-commands: create, list, read, attach, detach, audit, update. Docs attach to `## Docs` |
+| `#status` | Dashboard of active/named feature. `#status diff` for changes since last bake |
+| `#now` | Lightweight orientation: active feature, subfeature, CWD, Last Bake |
+| `#help [cmd]` | Lazy-load `docs/cmd_help_[cmd].md`. Bare=print reference table |
+| `#doctor` | Lint xTrack (a-j checks); `#doctor fix` auto-repairs safe classes |
+| `#merge [branch]` | Rebase+force-push with AI conflict resolution via `## OwnedFiles` |
+| `#implement` | Pipeline: Code→implement+build → Ask→review → Architect→report+## Implemented |
+
+Full detail per command in `docs/cmd_help_*.md` — loaded by `#help`. See `docs/cmd_help.md` for the complete reference table.
 
 # 8. Mode Handoff Protocol
 
-Every mode MUST follow this protocol at task completion to ensure control returns to Architect for reporting and next-step planning.
+Every mode follows this protocol at completion to return control to Architect.
 
 ## 8a. Agent-Specific Adapter Files
-
-Files under `.claude/`, `.clinerules`, and `CLAUDE.md` are **thin adapters only** — they MUST NOT duplicate rules or instructions. Each adapter file's sole purpose is to redirect the agent to `AGENTS.md` (the canonical rulebook). If you are in a mode that loads one of these files, read `AGENTS.md` for all rules, commands, and protocols. Any specific info found in adapter files beyond the redirect is stale — ignore it and flag for cleanup.
+`.claude/`, `.clinerules`, `CLAUDE.md` are thin adapters — pointer to this file only. Any info beyond redirect is stale — ignore and flag.
 
 ## 8b. Handoff Rules by Mode
 
 | Entered via | Mode | On completion |
 |---|---|---|
-| Direct user session (any mode) | **Code** | Call `switch_mode("architect", "Implementation complete — report: [what was built, build status, files changed, any issues]")`. Do NOT stay in Code mode after finishing a delegated task. |
-| Direct user session (any mode) | **Ask** | Call `switch_mode("architect", "Review complete — findings: [scope coverage, code health observations]")`. Do NOT stay in Ask mode after finishing a review. |
-| Direct user session (any mode) | **Debug** | Call `switch_mode("architect", "Investigation complete — findings: [root cause, evidence, recommendations]")`. Do NOT stay in Debug mode after investigation. |
-| Direct user session (any mode) | **Architect** | No handoff needed — this is the home base. Produce a summary, then wait for user direction. |
-| `new_task(mode=code, ...)` from Orchestrator | **Code** | Auto-returns by design (subtask completes, parent Orchestrator resumes). No explicit `switch_mode` needed. |
-| `#implement` pipeline | **Code → Ask → Architect** | Follow the pipeline as specified in §7b.16. Each hop uses `switch_mode` with a summary payload. |
-| User asks for implementation without `#implement` | **Architect** | Use `new_task(mode=code, ...)` with the plan file path in `message` and an executable checklist in `todos`. Code reads from disk — no context dump. |
+| Direct user session | **Code** | `switch_mode("architect", report)` |
+| Direct user session | **Ask** | `switch_mode("architect", findings)` |
+| Direct user session | **Debug** | `switch_mode("architect", root cause + evidence)` |
+| Direct user session | **Architect** | No handoff — home base. Summarize, wait for direction. |
+| `new_task(Code)` from Orchestrator | **Code** | Auto-returns (parent Orchestrator resumes) |
+| `#implement` pipeline | **Code → Ask → Architect** | Per §7b.16, each hop with summary payload |
+| User asks implementation without `#implement` | **Architect** | `new_task(mode=code, ...)` with plan path + todos |
 
 ## 8c. Summary Payload Format
-
-When calling `switch_mode`, include a concise summary in the reason field:
-- **Code:** what was implemented, build status (pass/fail), files changed, deviations from plan
-- **Ask:** scope covered, code health observations (spaghetti, factorization, maintenance issues)
+When calling `switch_mode`, include 1-3 bullet summary in the reason field:
+- **Code:** what was implemented, build status, files changed, deviations
+- **Ask:** scope covered, code health observations (spaghetti, factorization, maintenance)
 - **Debug:** root cause, evidence, fix/non-fix recommendation
-
-Keep summaries under 3 bullet points. The receiving Architect uses this to decide next steps without re-reading the full implementation context.
