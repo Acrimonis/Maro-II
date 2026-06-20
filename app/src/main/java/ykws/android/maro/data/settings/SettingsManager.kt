@@ -176,7 +176,19 @@ data class AppSettings(
     /** ARGB end color for history track gradient (oldest track). */
     val trackingColorHistoryEnd: Int = BuildConfig.TRACKING_COLOR_HISTORY_END,
     /** ARGB color for pinned tracks (reserved for future use). */
-    val trackingColorPinned: Int = BuildConfig.TRACKING_COLOR_PINNED
+    val trackingColorPinned: Int = BuildConfig.TRACKING_COLOR_PINNED,
+    /** ARGB start color for past track gradient (newest track). */
+    val trackingColorPastFrom: Int = BuildConfig.TRACKING_COLOR_PAST_FROM,
+    /** ARGB end color for past track gradient (oldest track). */
+    val trackingColorPastTo: Int = BuildConfig.TRACKING_COLOR_PAST_TO,
+    /** Min transparency % (0-100) for newest past track. */
+    val trackingTransparencyFrom: Int = BuildConfig.TRACKING_TRANSPARENCY_FROM,
+    /** Max transparency % (0-100) for oldest past track. */
+    val trackingTransparencyTo: Int = BuildConfig.TRACKING_TRANSPARENCY_TO,
+    /** ARGB start color for pinned track gradient. */
+    val trackingColorPinnedFrom: Int = BuildConfig.TRACKING_COLOR_PINNED_FROM,
+    /** ARGB end color for pinned track gradient. */
+    val trackingColorPinnedTo: Int = BuildConfig.TRACKING_COLOR_PINNED_TO
 ) {
     /** Check whether a [ZoneDisplayCategory] is enabled in the current settings. */
     fun isCategoryVisible(cat: ZoneDisplayCategory): Boolean = when (cat) {
