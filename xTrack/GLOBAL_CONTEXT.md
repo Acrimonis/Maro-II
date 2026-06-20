@@ -3,6 +3,8 @@
 ## Active Session Pointers
 - **Active Feature:** BoatTrace
 - **Active Subfeature:** mtrack-setting-opacity
+- **Active Feature:** WorkflowAmbiguityFix
+- **Active Subfeature:** none
 - **Last Updated:** 2026-06-20
 - **Last Bake:** 2026-06-17 17:12 (WorkflowImprovement — §8 Mode Handoff Protocol + adapter cleanup)
 - **Branch:** feature/trace-fixes
@@ -28,6 +30,7 @@
 | zonetile, zone tile, zone info, zone ahead, zone cone, speed zone, speed zone display | xTrack/ZoneTile/FEAT_DSC_ZoneTile.md |
 | zone300speed, 300m badge, speed badge, 300m speed | xTrack/Zone300SpeedBadge/FEAT_DSC_Zone300SpeedBadge.md |
 | boat, trace, trip, boat-trace, boat-tracing, track, recording, port-salis, journey | xTrack/BoatTrace/FEAT_DSC_BoatTrace.md |
+| workflow, rules, ambiguity, merge, agents, gitops | xTrack/WorkflowAmbiguityFix/FEAT_DSC_WorkflowAmbiguityFix.md |
 
 ## Feature Summaries
 
@@ -56,6 +59,7 @@
 | **BoatTrace** | **Boat movement tracking: record tracks from GPS fixes, persist, display on map with configurable render layers, GPX export, track history UI** | **2026-06-15 21:43** | **2026-06-18 20:20** | **active** |
 | **CheckDev** | **Dev-branch health monitoring — remote branch state, ahead/behind analysis, workflow hygiene validation** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
 | **Health** | **Application health monitoring — diagnostics, crash reporting, memory/performance telemetry** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
+| **WorkflowAmbiguityFix** | **Eliminate ambiguity between AGENTS.md rules — #merge direction, §5 reinforcement, command doc alignment** | **2026-06-20 14:51** | **2026-06-20 14:51** | **active** |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).

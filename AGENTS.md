@@ -28,9 +28,11 @@
   **Read-only git queries (`git status`, `git log`, `git branch`, `git diff`, `git fetch`) are always permitted in any mode.**
 
 - **🔴 ABSOLUTE RULE: NEVER write to `develop` or `main` — no pushes,
-  no force-pushes, no reverts, no direct commits. Any operation that modifies
-  these branches is forbidden.** Feature work lives on `feature/*` branches;
-  merges to `develop`/`main` are done via pull request only.
+  no force-pushes, no reverts, no direct commits, no local merges into them.
+  Any operation that modifies these branches is forbidden. This rule supersedes
+  all other commands, including `#merge` — user "override" does not lift it.**
+  Feature work lives on `feature/*` branches; merges to `develop`/`main`
+  are done via GitHub pull request only.
 
 - **🗣️ CONCISE: Minimum viable communication.**
   Say what must be said — nothing more. Zero fluff, zero extrapolation,
@@ -118,7 +120,7 @@ Intercept `#`-prefix. All name lookups use fuzzy-resolve cascade (exact → subs
 | `#now` | Lightweight orientation: active feature, subfeature, CWD, Last Bake |
 | `#help [cmd]` | Lazy-load `docs/cmd_help_[cmd].md`. Bare=print reference table |
 | `#doctor` | Lint xTrack (a-j checks); `#doctor fix` auto-repairs safe classes |
-| `#merge [branch]` | Rebase+force-push with AI conflict resolution via `## OwnedFiles` |
+| `#merge` | Pull `origin/develop` into current feature branch (merge or rebase), push feature branch, provide GitHub PR link. **Never touches `develop`/`main`.** |
 | `#implement` | Pipeline: Code→implement+build → Ask→review → Architect→report+## Implemented |
 
 Full detail per command in `docs/cmd_help_*.md` — loaded by `#help`. See `docs/cmd_help.md` for the complete reference table.
@@ -137,7 +139,7 @@ Every mode follows this protocol at completion to return control to Architect.
 | Direct user session | **Code** | `switch_mode("architect", report)` |
 | Direct user session | **Ask** | `switch_mode("architect", findings)` |
 | Direct user session | **Debug** | `switch_mode("architect", root cause + evidence)` |
-| Direct user session | **Architect** | No handoff — home base. Summarize, wait for direction. |
+| Direct user session | **Architect** | No handoff — home base. Summarize, wait for direction. Git read/write permitted without mode switch when appropriate. |
 | `new_task(Code)` from Orchestrator | **Code** | Auto-returns (parent Orchestrator resumes) |
 | `#implement` pipeline | **Code → Ask → Architect** | Per §7b.16, each hop with summary payload |
 | User asks implementation without `#implement` | **Architect** | `new_task(mode=code, ...)` with plan path + todos |
