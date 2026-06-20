@@ -2,6 +2,7 @@ package ykws.android.maro
 
 import android.content.Context
 import android.content.ContextWrapper
+import android.content.Intent
 import android.content.res.Configuration
 import android.content.res.Resources
 import android.graphics.drawable.ColorDrawable
@@ -110,6 +111,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+
+        // Start the foreground service to keep the app alive when backgrounded.
+        // The service shows a persistent "Maro II — Ready" notification.
+        startForegroundService(Intent(this, ykws.android.maro.data.track.TrackRecordingService::class.java))
     }
 }
 
