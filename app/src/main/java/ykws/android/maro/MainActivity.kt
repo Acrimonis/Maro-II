@@ -24,6 +24,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.util.Locale
@@ -72,7 +73,9 @@ class MainActivity : ComponentActivity() {
                 LocalContext provides localizedContext,
                 LocalConfiguration provides localizedContext.resources.configuration
             ) {
-                MaterialTheme(colorScheme = darkColorScheme()) {
+                MaterialTheme(colorScheme = darkColorScheme(
+                    primary = Color(0xFF1565C0) // Blue — matches AppConfig.uiSettingsAccent
+                )) {
                     Surface(
                         modifier = Modifier.fillMaxSize(),
                         color = MaterialTheme.colorScheme.background

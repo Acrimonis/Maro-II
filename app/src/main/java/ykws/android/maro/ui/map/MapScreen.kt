@@ -3535,7 +3535,11 @@ private fun ColorPickerDialog(
             0xFFFFFFFF.toInt(), // White
             0xFFBDBDBD.toInt(), // Grey
             0xFFFFF176.toInt(), // Yellow
-            0xFF4FC3F7.toInt()  // Light Blue
+            0xFF4FC3F7.toInt(), // Light Blue
+            0xFF00BCD4.toInt(), // Cyan
+            0xFFCDDC39.toInt(), // Lime
+            0xFFE91E63.toInt(), // Pink
+            0xFF3F51B5.toInt()  // Indigo
         )
     }
     androidx.compose.material3.AlertDialog(
@@ -3545,7 +3549,7 @@ private fun ColorPickerDialog(
             Column {
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(4),
-                    modifier = Modifier.height(160.dp),
+                    modifier = Modifier.height(216.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {

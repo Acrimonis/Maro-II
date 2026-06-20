@@ -1,8 +1,8 @@
 name: BoatTrace
 status: active
 created: 2026-06-15 21:43
-modified: 2026-06-20 13:40
-active_subfeature: mtrack-setting-opacity
+modified: 2026-06-20 14:29
+active_subfeature: none
 ---
 
 # Feature: BoatTrace
