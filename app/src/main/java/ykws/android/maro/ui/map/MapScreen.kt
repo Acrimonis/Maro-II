@@ -535,7 +535,7 @@ fun MapScreen(
     // Track the set of currently-rendered track IDs to avoid full teardown+rebuild.
     val renderedTrackIds = remember { mutableStateOf(setOf<String>()) }
 
-    LaunchedEffect(mapView, appSettings.tracksVisible, appSettings.trackingRenderNb, appSettings.trackingColorPastFrom, appSettings.trackingColorPastTo, appSettings.trackingTransparencyFrom, appSettings.trackingTransparencyTo, trackSummaries) {
+    LaunchedEffect(mapView, appSettings.tracksVisible, appSettings.trackingRenderNb, appSettings.trackingColorPastFrom, appSettings.trackingColorPastTo, appSettings.trackingOpacityNewest, appSettings.trackingOpacityOldest, trackSummaries) {
         val mv = mapView ?: return@LaunchedEffect
 
         // Determine desired track ID set
@@ -586,10 +586,12 @@ fun MapScreen(
             val track = trackViewModel.loadTrackDetailCached(summary.id) ?: continue
             if (track.trackPoints.isEmpty()) continue
 
-            val alphaMin = appSettings.trackingTransparencyFrom / 100f
-            val alphaMax = appSettings.trackingTransparencyTo / 100f
+            // Opacity interpolation: newest track gets opacityNewest, oldest gets opacityOldest.
+            // 0 = fully invisible, 100 = fully opaque.
+            val alphaNewest = appSettings.trackingOpacityNewest / 100f
+            val alphaOldest = appSettings.trackingOpacityOldest / 100f
             val t = if (total <= 1) 0f else index.toFloat() / (total - 1).toFloat()
-            val alphaFraction = alphaMax - t * (alphaMax - alphaMin)
+            val alphaFraction = alphaNewest - t * (alphaNewest - alphaOldest)
             val alphaInt = (alphaFraction * 255).toInt().coerceIn(0, 255)
 
             // Color interpolation: pastFrom (newest) → pastTo (oldest)
@@ -2165,12 +2167,7 @@ private fun GeneralSettings(
                     SettingsExpander(
                         label = "Warning settings",
                         expanded = warningExpanded,
-                        onToggle = { warningExpanded = !warningExpanded },
-                        labelStyle = TextStyle(
-                            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium
-                        )
+                        onToggle = { warningExpanded = !warningExpanded }
                     ) {
                         Spacer(modifier = Modifier.height(8.dp))
                         SettingsSliderGroup {
@@ -2271,12 +2268,7 @@ private fun GeneralSettings(
                     SettingsExpander(
                         label = "Regulation info",
                         expanded = settings.regulationInfoExpanded,
-                        onToggle = { onUpdateSettings { it.copy(regulationInfoExpanded = !it.regulationInfoExpanded) } },
-                        labelStyle = TextStyle(
-                            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium
-                        )
+                        onToggle = { onUpdateSettings { it.copy(regulationInfoExpanded = !it.regulationInfoExpanded) } }
                     ) {
                         Spacer(Modifier.height(8.dp))
                         Column(
@@ -2325,12 +2317,7 @@ private fun GeneralSettings(
                     SettingsExpander(
                         label = "Categories",
                         expanded = settings.categoryFilterExpanded,
-                        onToggle = { onUpdateSettings { it.copy(categoryFilterExpanded = !it.categoryFilterExpanded) } },
-                        labelStyle = TextStyle(
-                            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium
-                        )
+                        onToggle = { onUpdateSettings { it.copy(categoryFilterExpanded = !it.categoryFilterExpanded) } }
                     ) {
                         Spacer(modifier = Modifier.height(8.dp))
                         RegulatedZoneCategoryToggles(settings, onUpdateSettings)
@@ -2347,12 +2334,7 @@ private fun GeneralSettings(
                     SettingsExpander(
                         label = "Boat size",
                         expanded = settings.boatSizeFilterExpanded,
-                        onToggle = { onUpdateSettings { it.copy(boatSizeFilterExpanded = !it.boatSizeFilterExpanded) } },
-                        labelStyle = TextStyle(
-                            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium
-                        )
+                        onToggle = { onUpdateSettings { it.copy(boatSizeFilterExpanded = !it.boatSizeFilterExpanded) } }
                     ) {
                         Spacer(modifier = Modifier.height(8.dp))
                         BoatSizeSlider(settings, onUpdateSettings)
@@ -2417,69 +2399,102 @@ private fun GeneralSettings(
             }
 
             if (settings.tracksVisible) {
-                // Number of tracks
-                Box(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(ComposeColor(AppConfig.uiSettingsDivider)))
-                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    var nbExpanded by remember { mutableStateOf(false) }
-                    SettingsExpander(
-                        label = "Number of tracks",
-                        expanded = nbExpanded,
-                        onToggle = { nbExpanded = !nbExpanded },
-                        labelStyle = TextStyle(
-                            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    ) {
-                        Spacer(Modifier.height(8.dp))
-                        SettingsSliderRow(
-                            label = "Number of tracks",
-                            description = "Recent tracks to render (0-20)",
-                            valueLabel = "%d".format(settings.trackingRenderNb),
-                            value = settings.trackingRenderNb.toFloat(),
-                            valueRange = 0f..20f,
-                            steps = 20,
-                            onValueChange = { v ->
-                                onUpdateSettings { it.copy(trackingRenderNb = v.roundToInt().coerceIn(0, 20)) }
-                            }
-                        )
-                    }
-                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(0.5.dp)
+                        .background(ComposeColor(AppConfig.uiSettingsDivider))
+                )
 
-                // Transparency
-                Box(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(ComposeColor(AppConfig.uiSettingsDivider)))
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    var transExpanded by remember { mutableStateOf(false) }
+                    var trackSettingsExpanded by remember { mutableStateOf(false) }
                     SettingsExpander(
-                        label = "Transparency",
-                        expanded = transExpanded,
-                        onToggle = { transExpanded = !transExpanded },
-                        labelStyle = TextStyle(
-                            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium
-                        )
+                        label = "Track settings",
+                        expanded = trackSettingsExpanded,
+                        onToggle = { trackSettingsExpanded = !trackSettingsExpanded }
                     ) {
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(4.dp))
                         Column(
                             modifier = Modifier.fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(ComposeColor(AppConfig.uiSettingsCardBackground))
-                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                                .padding(horizontal = 16.dp, vertical = 4.dp)
                         ) {
+                            // Number of tracks
                             Text(
-                                text = "%d%% - %d%%".format(settings.trackingTransparencyFrom, settings.trackingTransparencyTo),
+                                text = "Number of tracks",
+                                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Recent tracks to render (0-20)",
+                                    color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                                    fontSize = 13.sp,
+                                    modifier = Modifier.weight(1f)
+                                )
+                                Text(
+                                    text = "%d".format(settings.trackingRenderNb),
+                                    color = ComposeColor(AppConfig.uiSettingsAccent),
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Slider(
+                                value = settings.trackingRenderNb.toFloat(),
+                                onValueChange = { v ->
+                                    onUpdateSettings { it.copy(trackingRenderNb = v.roundToInt().coerceIn(0, 20)) }
+                                },
+                                valueRange = 0f..20f,
+                                steps = 20,
+                                colors = SliderDefaults.colors(
+                                    thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                                    activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
+                                    inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                                )
+                            )
+
+                            Spacer(Modifier.height(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(1.dp)
+                                    .background(ComposeColor(AppConfig.uiSettingsDivider))
+                            )
+                            Spacer(Modifier.height(6.dp))
+
+                            // Opacity
+                            Text(
+                                text = "Opacity",
+                                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = "Left thumb = newest track, right thumb = oldest. Higher % = more opaque.",
+                                color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                                fontSize = 12.sp
+                            )
+                            Text(
+                                text = "Newest %d%%  –  Oldest %d%%".format(settings.trackingOpacityNewest, settings.trackingOpacityOldest),
                                 color = ComposeColor(AppConfig.uiSettingsAccent),
                                 fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.End,
+                                modifier = Modifier.fillMaxWidth()
                             )
                             RangeSlider(
-                                value = settings.trackingTransparencyFrom.toFloat()..settings.trackingTransparencyTo.toFloat(),
+                                value = settings.trackingOpacityNewest.toFloat()..settings.trackingOpacityOldest.toFloat(),
                                 onValueChange = { range: ClosedFloatingPointRange<Float> ->
                                     onUpdateSettings {
                                         it.copy(
-                                            trackingTransparencyFrom = range.start.roundToInt(),
-                                            trackingTransparencyTo = range.endInclusive.roundToInt()
+                                            trackingOpacityNewest = range.start.roundToInt(),
+                                            trackingOpacityOldest = range.endInclusive.roundToInt()
                                         )
                                     }
                                 },
@@ -2491,38 +2506,34 @@ private fun GeneralSettings(
                                     inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
                                 )
                             )
-                        }
-                    }
-                }
 
-                // Colors
-                Box(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(ComposeColor(AppConfig.uiSettingsDivider)))
-                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    var colorsExpanded by remember { mutableStateOf(false) }
-                    SettingsExpander(
-                        label = "Colors",
-                        expanded = colorsExpanded,
-                        onToggle = { colorsExpanded = !colorsExpanded },
-                        labelStyle = TextStyle(
-                            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    ) {
-                        Spacer(Modifier.height(8.dp))
-                        Column(
-                            modifier = Modifier.fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(ComposeColor(AppConfig.uiSettingsCardBackground))
-                                .padding(horizontal = 16.dp, vertical = 8.dp)
-                        ) {
+                            Spacer(Modifier.height(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(1.dp)
+                                    .background(ComposeColor(AppConfig.uiSettingsDivider))
+                            )
+                            Spacer(Modifier.height(6.dp))
+
+                            // Colors
+                            Text(
+                                text = "Colors",
+                                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = "Past tracks: color gradient from newest (From) to oldest (To). Pinned: reserved for future use.",
+                                color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                                fontSize = 12.sp
+                            )
                             ColorSwatchRow(
                                 label = "Active track",
                                 color = settings.trackingColorActive,
                                 onColorSelected = { c -> onUpdateSettings { it.copy(trackingColorActive = c) } },
                                 showPickLabel = false
                             )
-                            Box(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(ComposeColor(AppConfig.uiSettingsDivider)))
                             ColorSwatchPairRow(
                                 label = "Past tracks",
                                 fromColor = settings.trackingColorPastFrom,
@@ -2530,7 +2541,6 @@ private fun GeneralSettings(
                                 onFromColorSelected = { c -> onUpdateSettings { it.copy(trackingColorPastFrom = c) } },
                                 onToColorSelected = { c -> onUpdateSettings { it.copy(trackingColorPastTo = c) } }
                             )
-                            Box(modifier = Modifier.fillMaxWidth().height(0.5.dp).background(ComposeColor(AppConfig.uiSettingsDivider)))
                             ColorSwatchPairRow(
                                 label = "Pinned tracks",
                                 fromColor = settings.trackingColorPinnedFrom,
@@ -2541,6 +2551,7 @@ private fun GeneralSettings(
                         }
                     }
                 }
+                Spacer(Modifier.height(8.dp))
             }
         }
 
@@ -2702,12 +2713,7 @@ private fun NavigationSettings(
                     SettingsExpander(
                         label = "Alert settings",
                         expanded = alertExpanded,
-                        onToggle = { alertExpanded = !alertExpanded },
-                        labelStyle = TextStyle(
-                            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium
-                        )
+                        onToggle = { alertExpanded = !alertExpanded }
                     ) {
                         Spacer(modifier = Modifier.height(8.dp))
                         SettingsSliderGroup {
@@ -2998,12 +3004,7 @@ private fun SystemSettings(
                     SettingsExpander(
                         label = "GPS tuning",
                         expanded = gpsTuningExpanded,
-                        onToggle = { gpsTuningExpanded = !gpsTuningExpanded },
-                        labelStyle = TextStyle(
-                            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium
-                        )
+                        onToggle = { gpsTuningExpanded = !gpsTuningExpanded }
                     ) {
                         Spacer(modifier = Modifier.height(8.dp))
                         SettingsFrequencyRow(
@@ -3282,7 +3283,7 @@ private fun SettingsToggleRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(ComposeColor(AppConfig.uiSettingsCardBackground))
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -3336,7 +3337,7 @@ private fun SettingsSliderGroup(content: @Composable () -> Unit) {
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(ComposeColor(AppConfig.uiSettingsCardBackground))
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .padding(horizontal = 16.dp, vertical = 6.dp)
     ) {
         content()
     }
@@ -3436,9 +3437,9 @@ private fun SettingsExpander(
     expanded: Boolean,
     onToggle: () -> Unit,
     labelStyle: TextStyle = TextStyle(
-        color = ComposeColor(AppConfig.uiDashboardTextMuted),
-        fontSize = 13.sp,
-        fontWeight = FontWeight.SemiBold
+        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+        fontSize = 14.sp,
+        fontWeight = FontWeight.Medium
     ),
     content: @Composable () -> Unit
 ) {
@@ -3491,7 +3492,7 @@ private fun ColorSwatchRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(vertical = 2.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -3613,7 +3614,7 @@ private fun ColorSwatchPairRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .padding(vertical = 2.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
