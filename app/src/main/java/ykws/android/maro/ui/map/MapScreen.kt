@@ -1,6 +1,7 @@
 
 package ykws.android.maro.ui.map
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.data.track.TrackRecordingService
 import ykws.android.maro.data.track.toGpx
 
 import android.Manifest
@@ -8,6 +9,7 @@ import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.SystemClock
 import android.view.MotionEvent
@@ -639,6 +641,32 @@ fun MapScreen(
             }
     }
 
+    // ── Foreground notification updates ────────────────────────────────────
+    // Sends recording stats to TrackRecordingService every ~5s while recording.
+    // When recording stops, sends one final update to revert to "Ready".
+    LaunchedEffect(trackRecorderState) {
+        val state = trackRecorderState
+        val intent = Intent(context, TrackRecordingService::class.java).apply {
+            action = TrackRecordingService.ACTION_UPDATE
+            putExtra(TrackRecordingService.EXTRA_IS_DEMO, !appSettings.gpsMode)
+        }
+        if (state.state == ykws.android.maro.data.track.TrackRecorderState.ON) {
+            // Send updates periodically while recording
+            while (true) {
+                intent.putExtra(TrackRecordingService.EXTRA_RECORDING, true)
+                intent.putExtra(TrackRecordingService.EXTRA_SPEED_KN, state.currentSpeedKn)
+                intent.putExtra(TrackRecordingService.EXTRA_ELAPSED_SEC, state.elapsedSeconds)
+                intent.putExtra(TrackRecordingService.EXTRA_DISTANCE_NM, state.distanceNm)
+                context.startService(intent)
+                kotlinx.coroutines.delay(5_000L)
+            }
+        } else {
+            // Not recording — one update to show "Ready"
+            intent.putExtra(TrackRecordingService.EXTRA_RECORDING, false)
+            context.startService(intent)
+        }
+    }
+
     // The map centre drives BOTH layers: coastline (distance/zone) and depth-at-centre.
     val onCenterChanged: (Double, Double) -> Unit = remember(viewModel, depthViewModel) {
         { lat, lon ->
@@ -693,6 +721,7 @@ fun MapScreen(
         BackHandler(enabled = !showSettings && !showTrackHistory && !anyFanExpanded) {
             val now = SystemClock.elapsedRealtime()
             if (now - lastBackAt <= 2_000L) {
+                context.stopService(Intent(context, ykws.android.maro.data.track.TrackRecordingService::class.java))
                 context.findActivity()?.finishAffinity()
             } else {
                 lastBackAt = now

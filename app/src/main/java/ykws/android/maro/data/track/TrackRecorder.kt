@@ -53,6 +53,7 @@ data class TrackRecorderUiState(
     val currentTrackComment: String? = null,
     val elapsedSeconds: Long = 0L,
     val pointCount: Int = 0,
+    val currentSpeedKn: Float = 0f,
     val maxSpeedKn: Float = 0f,
     val avgSpeedKn: Float = 0f,
     val distanceNm: Float = 0f,
@@ -306,14 +307,15 @@ class TrackRecorder(
         )
 
         // Accumulate stats
-        fix.speedMps?.let { mps ->
+        val latestSpeedKn = fix.speedMps?.let { mps ->
             speedSumMps += mps
             speedCount++
             val speedKn = mps * 1.94384f
             if (speedKn > _uiState.value.maxSpeedKn) {
                 _uiState.update { it.copy(maxSpeedKn = speedKn) }
             }
-        }
+            speedKn
+        } ?: _uiState.value.currentSpeedKn
 
         // Haversine distance increment
         if (lastPointLat != null && lastPointLon != null) {
@@ -344,6 +346,7 @@ class TrackRecorder(
         _uiState.update {
             it.copy(
                 pointCount = it.pointCount + 1,
+                currentSpeedKn = latestSpeedKn,
                 distanceNm = cumulativeDistanceNm,
                 avgSpeedKn = avgKn,
                 recordingPoints = track.trackPoints
