@@ -11,5 +11,6 @@ Convenience wrappers over standard git. **🔴 See [`docs/GIT_WORKFLOW.md`](docs
   #cherry [target]    list unpushed commits, interactive pick to cherry-pick to [target].
   #copy [target]      alias for #cherry.
   #rename [branch]    git branch -m [branch].
-  #merge              rebase + force-push; AI auto-resolves conflicts via feature ownership (## OwnedFiles). 🚫 refuses on develop/main.
-  #merge [branch]     rebase onto [branch] + force-push; AI auto-resolves. 🚫 refuses on develop/main.
+  #merge              Pull origin/develop into current feature branch (merge/rebase),
+                      resolve conflicts, push feature branch, provide GitHub PR link.
+                      🔴 NEVER writes to develop/main — PR handles integration.
