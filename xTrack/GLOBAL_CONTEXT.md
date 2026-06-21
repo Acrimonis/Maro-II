@@ -2,7 +2,7 @@
 
 ## Active Session Pointers
 - **Active Feature:** BoatTrace
-- **Active Subfeature:** gps-background
+- **Active Subfeature:** track-list
 - **Active Feature:** WorkflowAmbiguityFix
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-20
