@@ -257,6 +257,13 @@ class CoastlineViewModel(
     private val _gpsStale = MutableStateFlow(false)
     val gpsStale: StateFlow<Boolean> = _gpsStale.asStateFlow()
 
+    /** True when dead reckoning is actively extrapolating position during GPS dropout. */
+    private val _isEstimating = MutableStateFlow(false)
+    val isEstimating: StateFlow<Boolean> = _isEstimating.asStateFlow()
+
+    /** Force-reconnect trigger: when true, gpsParams uses 0ms/0m for fastest re-acquisition. */
+    private val _forceReconnect = MutableStateFlow(false)
+
     /** Foreground gate: GPS/compass collectors run only while true (set by the screen lifecycle). */
     private val _gpsActive = MutableStateFlow(false)
 
@@ -267,6 +274,16 @@ class CoastlineViewModel(
     private var lastFixMs = 0L
     /** Stale-fix watchdog: the timeout job — cancelled and re-armed on each valid fix. */
     private var staleWatchdogJob: Job? = null
+
+    /** Last known position + motion vector for dead reckoning during GPS dropouts. */
+    private data class DeadReckoningState(
+        val position: LatLng,
+        val bearingDeg: Float,
+        val speedMps: Float,
+        val timestampElapsedMs: Long
+    )
+    private var deadReckoningState: DeadReckoningState? = null
+    private var deadReckoningJob: Job? = null
 
     // ── Demo-mode pan speed tracking ──────────────────────────────────────────
     private var lastPanLat = 0.0
@@ -608,16 +625,20 @@ class CoastlineViewModel(
             settings.distinctUntilChangedBy {
                 listOf(it.gpsActiveIntervalSec, it.gpsActiveMinDistanceM, it.stopDetectionEnabled, it.stopDetectionTimeSec, it.stopDetectionDistanceM, it.stopDetectionDelayGps)
             },
-            _acquisitionMode
-        ) { on, s, mode ->
-            val intervalMs = if (mode == AcquisitionMode.IDLE && s.stopDetectionDelayGps) {
-                // Dormant interval = adaptiveTime * gpsDormantPct / 100
-                s.stopDetectionTimeSec * 1000L * BuildConfig.STOP_DETECTION_GPS_DORMANT_PCT / 100
-            } else {
-                s.gpsActiveIntervalSec * 1_000L
+            _acquisitionMode,
+            _forceReconnect
+        ) { on, s, mode, forceReconnect ->
+            val intervalMs = when {
+                forceReconnect -> 0L
+                mode == AcquisitionMode.IDLE && s.stopDetectionDelayGps ->
+                    s.stopDetectionTimeSec * 1000L * BuildConfig.STOP_DETECTION_GPS_DORMANT_PCT / 100
+                else -> s.gpsActiveIntervalSec * 1_000L
             }
-            // Use gpsIdleMinDistanceM (default 0) when idle so tiny drifts update position.
-            val distM = if (mode == AcquisitionMode.IDLE) s.gpsIdleMinDistanceM else s.gpsActiveMinDistanceM
+            val distM = when {
+                forceReconnect -> 0f
+                mode == AcquisitionMode.IDLE -> s.gpsIdleMinDistanceM
+                else -> s.gpsActiveMinDistanceM
+            }
             GpsParams(on, intervalMs, distM)
         }.distinctUntilChanged()
 
@@ -632,20 +653,26 @@ class CoastlineViewModel(
                 _gpsPosition.value = fix.position
                 updateMapCenter(fix.position.latitude, fix.position.longitude)
 
-                // ── Stale-fix watchdog ─────────────────────────────────
-                // Every valid fix: clear stale flag, arm a timeout that sets stale if no
-                // further fix arrives within GPS_STALE_TIMEOUT_MS. Also reset on hasLock = true.
+                // ── Stale-fix watchdog + dead reckoning ─────────────────
                 if (fix.hasLock) {
+                    deadReckoningJob?.cancel()
+                    deadReckoningJob = null
+                    _isEstimating.value = false
+                    _forceReconnect.value = false
                     _gpsStale.value = false
                     lastFixMs = now
                     staleWatchdogJob?.cancel()
                     staleWatchdogJob = viewModelScope.launch {
                         delay(GPS_STALE_TIMEOUT_MS)
                         _gpsStale.value = true
+                        _forceReconnect.value = true
+                        startDeadReckoning()
                     }
                 } else {
-                    // No satellite lock → immediately stale
+                    // No satellite lock → immediately stale + start dead reckoning
                     _gpsStale.value = true
+                    _forceReconnect.value = true
+                    startDeadReckoning()
                 }
 
                 // Atomic update: bearing + speed written in a single snapshot so
@@ -659,6 +686,16 @@ class CoastlineViewModel(
                         current.bearingDeg
                     }
                     current.copy(bearingDeg = newBearing, speedKnots = newSpeed)
+                }
+
+                // Save dead reckoning state when we have valid course+speed
+                if (fix.hasCourse && fix.bearingDeg != null && fix.speedMps != null && fix.speedMps > 0f) {
+                    deadReckoningState = DeadReckoningState(
+                        position = fix.position,
+                        bearingDeg = fix.bearingDeg,
+                        speedMps = fix.speedMps,
+                        timestampElapsedMs = now
+                    )
                 }
                 if (fix.hasCourse && fix.bearingDeg != null) {
                     lastGpsBearingMs = now
@@ -744,6 +781,50 @@ class CoastlineViewModel(
                 }
             }
             .launchIn(viewModelScope)
+
+        // Also clear DR state when leaving GPS mode
+        settings.map { it.gpsMode }
+            .distinctUntilChanged()
+            .onEach { on ->
+                if (!on) {
+                    deadReckoningJob?.cancel()
+                    deadReckoningJob = null
+                    deadReckoningState = null
+                    _isEstimating.value = false
+                    _forceReconnect.value = false
+                }
+            }
+            .launchIn(viewModelScope)
+    }
+
+    /**
+     * Starts a dead-reckoning coroutine that extrapolates position from the last known
+     * course and speed, updating [_gpsPosition], map center, and [_navigationState] bearing
+     * every [DEAD_RECKONING_INTERVAL_MS] for up to [DEAD_RECKONING_MAX_MS].
+     */
+    private fun startDeadReckoning() {
+        deadReckoningJob?.cancel()
+        val state = deadReckoningState ?: return
+        _isEstimating.value = true
+        deadReckoningJob = viewModelScope.launch {
+            val startMs = state.timestampElapsedMs
+            var elapsedMs = 0L
+            while (isActive && elapsedMs < DEAD_RECKONING_MAX_MS) {
+                val elapsedSec = (SystemClock.elapsedRealtime() - startMs) / 1000f
+                val distM = (state.speedMps * elapsedSec).toDouble()
+                val estimatedPos = SpatialOperations.pointAlongBearing(
+                    state.position.latitude, state.position.longitude,
+                    state.bearingDeg.toDouble(),
+                    distM
+                )
+                _gpsPosition.value = estimatedPos
+                updateMapCenter(estimatedPos.latitude, estimatedPos.longitude)
+                _navigationState.update { it.copy(bearingDeg = state.bearingDeg) }
+                delay(DEAD_RECKONING_INTERVAL_MS)
+                elapsedMs += DEAD_RECKONING_INTERVAL_MS
+            }
+            _isEstimating.value = false
+        }
     }
 
     /**
@@ -1416,6 +1497,12 @@ class CoastlineViewModel(
          * (6 s) with a small buffer, without being so short that a slow fix rate triggers false alerts.
          */
         private const val GPS_STALE_TIMEOUT_MS = 5_000L
+
+        /** Dead reckoning: interval between extrapolated position updates (ms). */
+        private const val DEAD_RECKONING_INTERVAL_MS = 500L
+
+        /** Dead reckoning: maximum duration before falling back to LOST (ms). */
+        private const val DEAD_RECKONING_MAX_MS = 30_000L
 
         /**
          * Factory for [CoastlineViewModel] — required because the primary constructor
