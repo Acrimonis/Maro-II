@@ -73,7 +73,7 @@ sequenceDiagram
 
 **File:** [`app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt)
 
-- Add a `LaunchedEffect` keyed on `trackRecorderState` that sends update intents to the service
+- Add a `LaunchedEffect` keyed on `trackRecorderState` AND `appSettings.gpsMode` that sends update intents to the service — ensures the notification demo suffix updates when switching GPS↔demo even while not recording.
 - When `recorderState.state == ON`: build intent with `currentSpeedKn`, `elapsedSeconds`, `distanceNm` extras
 - When `recorderState.state == OFF`: build intent with `recording = false`
 - Throttle updates to 5s intervals via `delay(5_000)` and a last-sent timestamp guard
