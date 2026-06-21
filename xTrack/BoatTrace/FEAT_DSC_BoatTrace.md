@@ -1,8 +1,8 @@
 name: BoatTrace
 status: active
 created: 2026-06-15 21:43
-modified: 2026-06-21 08:45
-active_subfeature: gps-background
+modified: 2026-06-21 09:15
+active_subfeature: track-list
 ---
 
 # Feature: BoatTrace

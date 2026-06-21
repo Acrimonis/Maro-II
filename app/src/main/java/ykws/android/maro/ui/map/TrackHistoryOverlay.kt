@@ -1,5 +1,6 @@
 package ykws.android.maro.ui.map
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
@@ -113,6 +114,7 @@ import kotlin.math.roundToInt
  * - IME Done → commit, Back → revert to original
  * - Only one field editable per card at a time
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun TrackHistoryOverlay(
     trackSummaries: List<TrackSummary>,
@@ -213,6 +215,7 @@ fun TrackHistoryOverlay(
                 items(trackSummaries, key = { it.id }) { summary ->
                     SwipeToDeleteCard(
                         summary = summary,
+                        modifier = Modifier.animateItemPlacement(),
                         dateFormat = dateFormat,
                         onUpdateTrack = onUpdateTrack,
                         onShareGpx = onShareGpx,
@@ -237,6 +240,7 @@ private enum class ItemState { CARD, SNACKBAR, DELETED }
 @Composable
 private fun SwipeToDeleteCard(
     summary: TrackSummary,
+    modifier: Modifier = Modifier,
     dateFormat: SimpleDateFormat,
     onUpdateTrack: (String, name: String?, comment: String?, visibleOnMap: Boolean?) -> Unit,
     onShareGpx: (String) -> Unit,
@@ -263,10 +267,11 @@ private fun SwipeToDeleteCard(
 
     var cardDismissed by remember { mutableStateOf(false) }
 
-    Column(modifier = Modifier.animateContentSize(animationSpec = tween(300))) {
+    Column(modifier = modifier.animateContentSize(animationSpec = tween(300))) {
         // ── Card layer ─────────────────────────────────────────────────
         AnimatedVisibility(
             visible = state == ItemState.CARD,
+            enter = slideInHorizontally(animationSpec = tween(250)) { it },
             exit = slideOutHorizontally(animationSpec = tween(250)) { it }
                 + fadeOut(animationSpec = tween(150))
         ) {
@@ -362,7 +367,7 @@ private fun SnackbarSlot(trackName: String, onUndo: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .heightIn(min = 48.dp, max = 80.dp)
+            .heightIn(min = 48.dp, max = 96.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(bgColor)
             .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -372,7 +377,7 @@ private fun SnackbarSlot(trackName: String, onUndo: () -> Unit) {
         Text(
             text = "\u201C$trackName\u201D deleted",
             color = Color(AppConfig.uiSettingsTextPrimary),
-            fontSize = 14.sp, maxLines = 3, overflow = TextOverflow.Ellipsis,
+            fontSize = 14.sp, maxLines = 3,
             modifier = Modifier.weight(1f)
         )
         Spacer(modifier = Modifier.width(8.dp))
