@@ -1,8 +1,8 @@
 name: BoatTrace
 status: active
 created: 2026-06-15 21:43
-modified: 2026-06-20 14:29
-active_subfeature: none
+modified: 2026-06-21 08:45
+active_subfeature: gps-background
 ---
 
 # Feature: BoatTrace
@@ -165,6 +165,52 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
 - `app/build.gradle.kts`
 
+### gps-background  [x]
+
+#### Todos
+- [ ] Update TrackRecordingService: intent-driven notification updates, two notification modes (Ready / Recording with live stats)
+- [ ] Start service from MainActivity.onCreate, stop on double-back exit
+- [ ] Send periodic notification updates from MapScreen (5s throttle) with recording state, speed, elapsed, distance
+- [ ] Demo mode: show "(Demo)" suffix, skip GPS dependency
+- [ ] Build: assembleDebug
+
+#### Rules
+- Service always runs while app is open — not just during recording
+- Non-recording notification: "Maro II — Ready" (IMPORTANCE_LOW, silent, ongoing)
+- Recording notification: "Maro II — Recording • {speed} kn • {elapsed} • {distance} nm"
+- Demo mode (!gpsMode): add "(Demo)" to ready notification
+- Updates via startService(intent) with ACTION_UPDATE + extras — throttled to 5s
+- START_STICKY: service restarts if killed, rebuilds ready notification
+- Stop service only on explicit app exit (double-back)
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/data/track/TrackRecordingService.kt`
+- `app/src/main/java/ykws/android/maro/MainActivity.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
+
+#### Docs
+- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_gps-background.md`
+
+### gps-line-acquisition  [x]
+
+#### Todos
+- [ ] Remove passive listener from GpsLocationSource (fix 1 — ordering)
+- [ ] Add implied-speed spike gate to TrackRecorder.addPoint() (fix 2 — outliers)
+- [ ] Build: assembleDebug
+
+#### Rules
+- MAX_REALISTIC_SPEED_KN = 50.0 — hard cap; any fix implying faster travel is discarded
+- Spike rejection uses fix.timestampEpochMs (GPS epoch), not System wall clock
+- AdaptiveGpsPolicy still receives every fix (including spikes) for stillness detection
+- lastValidPoint* tracks last recorded point, separate from lastPointLat/Lon (Haversine distance accumulators)
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/data/location/GpsLocationSource.kt`
+- `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt`
+
+#### Docs
+- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_gps-line-acquisition.md`
+
 ## Todos
 - [ ] E2E verification on device (build + deploy, run all test scenarios)
 - [ ] Track list UI polish per design spec (FEAT_PLN_BoatTrace_TrackList_Design.md)
@@ -198,6 +244,8 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 - `xTrack/BoatTrace/FEAT_PLN_BoatTrace_TrackList_Design.md` — track list UI requirements, animation design, component architecture
 - `xTrack/BoatTrace/FEAT_PLN_BoatTrace_render-tracks.md` — render-tracks implementation plan
 - `xTrack/BoatTrace/FEAT_DOC_BoatTrace_decisions.md` — comprehensive functional/architectural decisions record (7 categories, 40+ decisions)
+- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_gps-line-acquisition.md` — GPS point acquisition: outlier rejection (speed gate) + passive listener removal (ordering fix)
+- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_gps-background.md` — Persistent foreground service: always-on notification with live recording stats, demo-aware
 
 ## Implemented
 
@@ -222,5 +270,9 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 **Settings fix (2026-06-20):** Added persistence for 6 tracking fields (`trackingColorPastFrom/To`, `trackingOpacityNewest/Oldest`, `trackingColorPinnedFrom/To`) — were StateFlow-only, reverted to BuildConfig defaults on restart. Renamed `trackingTransparencyFrom/To` → `trackingOpacityNewest/Oldest` with clarified semantics. Fixed From/To swap in interpolation (was: newest→To, oldest→From). Removed duplicate "Number of tracks" inner label. Added explanatory comments in Settings data class and MapScreen UI.
 
 **mtrack-setting-opacity (2026-06-20):** Renamed `trackingOpacityNewest/Oldest` → `trackingTransparencyNewest/Oldest` with inverted semantics (0%=opaque, 100%=invisible). New SharedPreferences keys `tracking_transparency_newest/oldest` — clean break, no migration from old opacity keys. BuildConfig defaults: `TRACKING_TRANSPARENCY_FROM` 100→20, `_TO` 30→80. Rendering: `alpha = (100 - transparency) / 100f`. UI label "Opacity" → "Transparency", description updated. Replaced 0.5dp hairline divider with 8dp spacer per settings-page-rules R2.
+
+**gps-line-acquisition (2026-06-20):** Removed `PASSIVE_PROVIDER` listener from `GpsLocationSource` — dual listeners racing on one `callbackFlow` caused zigzag artifacts on the active track polyline. Added implied-speed spike gate to `TrackRecorder.addPoint()`: fixes implying >50 kn travel from last valid recorded point are discarded as GPS multipath outliers (uses `fix.timestampEpochMs`, not wall clock). `AdaptiveGpsPolicy` still sees all fixes for stillness detection.
+
+**gps-background (2026-06-20):** Rewrote `TrackRecordingService` as always-on foreground service — started in `MainActivity.onCreate`, stopped on double-back exit from `MapScreen`. Intent-driven notification updates (5s throttle) with live recording stats. Added `currentSpeedKn` to `TrackRecorderUiState`. Two notification modes: "Maro II — Ready" (or "Ready (Demo)") and "Maro II — Recording • {speed} kn • {elapsed} • {distance} nm" (or "Recording (Demo)"). Demo suffix on both states.
 
 **Build:** ✅ `assembleDebug` passes

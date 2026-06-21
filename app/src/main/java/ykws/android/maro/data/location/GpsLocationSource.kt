@@ -42,13 +42,16 @@ data class GpsFix(
  * `ACCESS_FINE_LOCATION` before collecting; if the permission is missing/revoked
  * the flow closes with [SecurityException].
  *
+ * Single [LocationManager.GPS_PROVIDER] listener ensures strict FIFO ordering
+ * of GPS fixes. The passive provider was removed — it introduced ordering races
+ * (two producers feeding one callbackFlow) that caused zigzag artifacts on the
+ * active track polyline.
+ *
  * ## Improvements over the legacy version
  * 1. **GNSS status monitoring** — [GnssStatus.Callback] tracks satellite count and sets
  *    [GpsFix.hasLock] to false when it drops below [MIN_SATELLITES_FOR_LOCK].
  * 2. **Provider status handling** — [onStatusChanged] reacts to
  *    [LocationProvider.TEMPORARILY_UNAVAILABLE]/[OUT_OF_SERVICE] by emitting a no-lock signal.
- * 3. **Passive provider supplement** — [PASSIVE_PROVIDER] alongside GPS_PROVIDER so the flow
- *    receives fixes requested by other apps at zero battery cost.
  */
 class GpsLocationSource(private val context: Context) {
 
@@ -62,8 +65,6 @@ class GpsLocationSource(private val context: Context) {
     ): Flow<GpsFix> = callbackFlow {
         val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
         var lastKnownPosition: LatLng? = null
-        var lastGpsProviderPos: LatLng? = null
-        var lastGpsProviderMs = 0L
         var lastSatelliteCount = 0
         var lastTimestamp = System.currentTimeMillis()
 
@@ -124,8 +125,6 @@ class GpsLocationSource(private val context: Context) {
             override fun onLocationChanged(loc: Location) {
                 if (loc.provider == LocationManager.GPS_PROVIDER) {
                     emitFix(loc, lock = true)
-                    lastGpsProviderPos = LatLng(loc.latitude, loc.longitude)
-                    lastGpsProviderMs = android.os.SystemClock.elapsedRealtime()
                 }
             }
 
@@ -151,33 +150,13 @@ class GpsLocationSource(private val context: Context) {
             }
         }
 
-        // ── Passive listener (free supplements from other apps' GPS requests) ──
-        @Suppress("DEPRECATION")
-        val passiveListener = object : LocationListener {
-            override fun onLocationChanged(loc: Location) {
-                if (loc.provider == LocationManager.GPS_PROVIDER) {
-                    val pos = LatLng(loc.latitude, loc.longitude)
-                    val elapsed = android.os.SystemClock.elapsedRealtime() - lastGpsProviderMs
-                    if (lastGpsProviderPos != null &&
-                        haversineApprox(lastGpsProviderPos!!, pos) < 1.0 &&
-                        elapsed < 2_000L
-                    ) return
-                }
-                emitFix(loc, lock = true)
-            }
-        }
-
         try {
             lm.requestLocationUpdates(
                 LocationManager.GPS_PROVIDER, minIntervalMs, minDistanceM, listener
             )
-            lm.requestLocationUpdates(
-                LocationManager.PASSIVE_PROVIDER, 0L, 0f, passiveListener
-            )
 
             awaitClose {
                 lm.removeUpdates(listener)
-                lm.removeUpdates(passiveListener)
                 lm.unregisterGnssStatusCallback(gnssCallback)
             }
         } catch (e: SecurityException) {
@@ -191,17 +170,5 @@ class GpsLocationSource(private val context: Context) {
 
         /** Minimum satellites for a usable GPS lock. */
         const val MIN_SATELLITES_FOR_LOCK = 4
-
-        /** Quick haversine approximation for passive-fix dedup. */
-        private fun haversineApprox(a: LatLng, b: LatLng): Double {
-            val dLat = Math.toRadians(b.latitude - a.latitude)
-            val dLon = Math.toRadians(b.longitude - a.longitude)
-            val sinDLat = kotlin.math.sin(dLat / 2.0)
-            val sinDLon = kotlin.math.sin(dLon / 2.0)
-            val lat1Rad = Math.toRadians(a.latitude)
-            val lat2Rad = Math.toRadians(b.latitude)
-            val aVal = sinDLat * sinDLat + kotlin.math.cos(lat1Rad) * kotlin.math.cos(lat2Rad) * sinDLon * sinDLon
-            return 6_371_000.0 * 2.0 * kotlin.math.atan2(kotlin.math.sqrt(aVal), kotlin.math.sqrt(1.0 - aVal))
-        }
     }
 }
