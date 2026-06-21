@@ -56,7 +56,7 @@ class TrackRecordingService : Service() {
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 CHANNEL_NAME,
-                NotificationManager.IMPORTANCE_LOW
+                NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
                 description = CHANNEL_DESC
                 setSound(null, null)
@@ -110,7 +110,7 @@ class TrackRecordingService : Service() {
     }
 
     companion object {
-        private const val CHANNEL_ID = "track_recording"
+        private const val CHANNEL_ID = "maro_persistent"
         private const val CHANNEL_NAME = "Maro II"
         private const val CHANNEL_DESC = "Persistent notification while Maro II is running"
         private const val NOTIFICATION_ID = 1001

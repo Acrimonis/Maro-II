@@ -644,11 +644,12 @@ fun MapScreen(
     // ── Foreground notification updates ────────────────────────────────────
     // Sends recording stats to TrackRecordingService every ~5s while recording.
     // When recording stops, sends one final update to revert to "Ready".
-    LaunchedEffect(trackRecorderState) {
+    LaunchedEffect(trackRecorderState, appSettings.gpsMode) {
         val state = trackRecorderState
+        val isDemo = !appSettings.gpsMode
         val intent = Intent(context, TrackRecordingService::class.java).apply {
             action = TrackRecordingService.ACTION_UPDATE
-            putExtra(TrackRecordingService.EXTRA_IS_DEMO, !appSettings.gpsMode)
+            putExtra(TrackRecordingService.EXTRA_IS_DEMO, isDemo)
         }
         if (state.state == ykws.android.maro.data.track.TrackRecorderState.ON) {
             // Send updates periodically while recording
@@ -2173,12 +2174,7 @@ private fun GeneralSettings(
 
             // Warning sliders — collapsible, only visible when warning is on
             if (settings.lowDepthWarningVisible) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(0.5.dp)
-                        .background(ComposeColor(AppConfig.uiSettingsDivider))
-                )
+                Spacer(Modifier.height(8.dp))
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                     var warningExpanded by remember { mutableStateOf(false) }
                     SettingsExpander(
@@ -2274,12 +2270,7 @@ private fun GeneralSettings(
             }
 
             if (settings.regulatedZonesVisible) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(0.5.dp)
-                        .background(ComposeColor(AppConfig.uiSettingsDivider))
-                )
+                Spacer(Modifier.height(8.dp))
                 // Regulation info — collapsible toggle for info text panel
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                     SettingsExpander(
@@ -2324,12 +2315,7 @@ private fun GeneralSettings(
                         }
                     }
                 }
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(0.5.dp)
-                        .background(ComposeColor(AppConfig.uiSettingsDivider))
-                )
+                Spacer(Modifier.height(8.dp))
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                     SettingsExpander(
                         label = "Categories",
@@ -2341,12 +2327,7 @@ private fun GeneralSettings(
                     }
                 }
                 // Boat size in its own collapsible
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(0.5.dp)
-                        .background(ComposeColor(AppConfig.uiSettingsDivider))
-                )
+                Spacer(Modifier.height(8.dp))
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                     SettingsExpander(
                         label = "Boat size",
@@ -2416,12 +2397,7 @@ private fun GeneralSettings(
             }
 
             if (settings.tracksVisible) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(0.5.dp)
-                        .background(ComposeColor(AppConfig.uiSettingsDivider))
-                )
+                Spacer(Modifier.height(8.dp))
 
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                     var trackSettingsExpanded by remember { mutableStateOf(false) }
@@ -2669,12 +2645,7 @@ private fun NavigationSettings(
             }
 
             // Thin divider between the two toggles
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(0.5.dp)
-                    .background(ComposeColor(AppConfig.uiSettingsDivider))
-            )
+            Spacer(Modifier.height(8.dp))
 
             // Auto-show Demo mode toggle
             Row(
@@ -2712,12 +2683,7 @@ private fun NavigationSettings(
 
             // Alert sliders — collapsible, only visible when either auto-show is on
             if (settings.zone300AutoShowGps || settings.zone300AutoShowDemo) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(0.5.dp)
-                        .background(ComposeColor(AppConfig.uiSettingsDivider))
-                )
+                Spacer(Modifier.height(8.dp))
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                     var alertExpanded by remember { mutableStateOf(false) }
                     SettingsExpander(
@@ -2796,12 +2762,7 @@ private fun NavigationSettings(
             }
 
             // Thin divider between the two toggles
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(0.5.dp)
-                    .background(ComposeColor(AppConfig.uiSettingsDivider))
-            )
+            Spacer(Modifier.height(8.dp))
 
             // Auto-show Demo mode toggle
             Row(
@@ -2838,12 +2799,7 @@ private fun NavigationSettings(
             }
 
             // Thin divider between speed zone section and regulated zone section
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(0.5.dp)
-                    .background(ComposeColor(AppConfig.uiSettingsDivider))
-            )
+            Spacer(Modifier.height(8.dp))
 
             // Regulated zone overlay auto-show GPS toggle
             Row(
@@ -2880,12 +2836,7 @@ private fun NavigationSettings(
             }
 
             // Thin divider between the two toggles
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(0.5.dp)
-                    .background(ComposeColor(AppConfig.uiSettingsDivider))
-            )
+            Spacer(Modifier.height(8.dp))
 
             // Regulated zone overlay auto-show Demo toggle
             Row(
@@ -3003,12 +2954,7 @@ private fun SystemSettings(
             // GPS sub-settings — collapsible, only visible when GPS mode is on
             if (settings.gpsMode) {
                 // Thin divider separating the toggle from the expander
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(0.5.dp)
-                        .background(ComposeColor(AppConfig.uiSettingsDivider))
-                )
+                Spacer(Modifier.height(8.dp))
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                     var gpsTuningExpanded by remember { mutableStateOf(false) }
                     SettingsExpander(
@@ -3090,12 +3036,7 @@ private fun SystemSettings(
             // Conditional content: only shown when stop detection is enabled
             if (settings.stopDetectionEnabled) {
                 // Thin divider
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(0.5.dp)
-                        .background(ComposeColor(AppConfig.uiSettingsDivider))
-                )
+                Spacer(Modifier.height(8.dp))
 
                 // Detection thresholds expander
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
@@ -3133,12 +3074,7 @@ private fun SystemSettings(
                 Spacer(modifier = Modifier.height(4.dp))
 
                 // Thin divider
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(0.5.dp)
-                        .background(ComposeColor(AppConfig.uiSettingsDivider))
-                )
+                Spacer(Modifier.height(8.dp))
 
                 // Delay GPS when still toggle
                 SettingsToggleRow(
@@ -3502,7 +3438,7 @@ private fun ColorSwatchRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 2.dp),
+            .padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -3628,7 +3564,7 @@ private fun ColorSwatchPairRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 2.dp),
+            .padding(vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {

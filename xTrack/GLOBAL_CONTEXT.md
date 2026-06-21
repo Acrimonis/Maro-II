@@ -2,11 +2,11 @@
 
 ## Active Session Pointers
 - **Active Feature:** BoatTrace
-- **Active Subfeature:** none
+- **Active Subfeature:** gps-background
 - **Active Feature:** WorkflowAmbiguityFix
 - **Active Subfeature:** none
 - **Last Updated:** 2026-06-20
-- **Last Bake:** 2026-06-17 17:12 (WorkflowImprovement — §8 Mode Handoff Protocol + adapter cleanup)
+- **Last Bake:** 2026-06-21 08:45 (BoatTrace — gps-background: notification demo/GPS toggle fix)
 - **Branch:** feature/trace-fixes
 ## Routing Map
 | Keyword | Feature File |
