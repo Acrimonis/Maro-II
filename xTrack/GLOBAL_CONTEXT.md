@@ -1,10 +1,10 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** BoatTrace
-- **Active Subfeature:** track now demo
-- **Last Updated:** 2026-06-22 10:48
-- **Last Bake:** 2026-06-22 10:48 (BoatTrace — spike-rejection-v2: 4-gate algorithm)
+- **Active Feature:** ui-small-potatoes
+- **Active Subfeature:** small potatoes
+- **Last Updated:** 2026-06-22 14:20
+- **Last Bake:** 2026-06-22 14:20 (ui-small-potatoes — remove track toggle + danger icon redesign)
 - **Branch:** feature/dev
 ## Routing Map
 | Keyword | Feature File |
@@ -29,6 +29,7 @@
 | zone300speed, 300m badge, speed badge, 300m speed | xTrack/Zone300SpeedBadge/FEAT_DSC_Zone300SpeedBadge.md |
 | boat, trace, trip, boat-trace, boat-tracing, track, recording, port-salis, journey | xTrack/BoatTrace/FEAT_DSC_BoatTrace.md |
 | workflow, rules, ambiguity, merge, agents, gitops | xTrack/WorkflowAmbiguityFix/FEAT_DSC_WorkflowAmbiguityFix.md |
+| ui, tweaks, polish, small-potatoes, ui-small-potatoes, small potatoes | xTrack/ui-small-potatoes/FEAT_DSC_ui-small-potatoes.md |
 
 ## Feature Summaries
 
@@ -47,17 +48,17 @@
 | BakeNormalization | APK bake/build/deploy pipeline and prebake data processing | 2026-06-01 00:00 | 2026-06-05 00:00 | active |
 | DepthSafety | Danger depth alerts, shallow water grounding prevention, isobath precision | 2026-06-03 00:00 | 2026-06-05 00:00 | active |
 | Ui_General | App-lifecycle UX: back-to-exit guard, keep-screen-on wakelock, edge-to-edge rendering and WindowInsets management | 2026-06-08 16:43 | 2026-06-17 13:37 | active |
-| Ui_General | App-lifecycle UX: back-to-exit guard, keep-screen-on wakelock, edge-to-edge rendering and WindowInsets management | 2026-06-08 16:43 | 2026-06-16 21:18 | active |
 | Ui_Settings | Settings page UI, persistence, widgets, and UX enhancements | 2026-06-09 15:28 | 2026-06-09 19:42 | active |
 | **Navigation** | **Navigation aids — heading/speed arrow and direction line on map overlay** | **2026-06-10 08:40** | **2026-06-11 11:55** | **active** |
 | **RegulatedZones** | **Maritime regulatory zones — multi-source normalization (SHOM INSPIRE + IGN Natura 2000), sealed classification, 8-category icon mapping, keyword-driven display logic** | **2026-06-11 18:00** | **2026-06-12 22:37** | **active** |
 | **ArcLayout** | **Layer toggle arc menu — pure-Compose semicircle fan-out with layer toggles, FanLayout framework, fixed child centering using effectiveTheta=180/currentCount** | **2026-06-13 07:34** | **2026-06-14 14:50** | **active** |
 | **ZoneTile** | **Zone information tiles and map overlay rendering — zone-ahead cone/line, speed zone display, ETA, zone state management** | **2026-06-17 09:45** | **2026-06-17 09:45** | **active** |
 | **Zone300SpeedBadge** | **300m zone speed limit badge integrated into regulated zone icon stack as highest-priority SPEED_LIMIT entry** | **2026-06-14 17:42** | **2026-06-14 17:42** | **done** |
-| **BoatTrace** | **Boat movement tracking: record tracks from GPS fixes, persist, display on map with configurable render layers, GPX export, track history UI** | **2026-06-15 21:43** | **2026-06-18 20:20** | **active** |
+| **BoatTrace** | **Boat movement tracking: record tracks from GPS fixes, persist, display on map with configurable render layers, GPX export, track history UI** | **2026-06-15 21:43** | **2026-06-22 10:48** | **active** |
 | **CheckDev** | **Dev-branch health monitoring — remote branch state, ahead/behind analysis, workflow hygiene validation** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
 | **Health** | **Application health monitoring — diagnostics, crash reporting, memory/performance telemetry** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
 | **WorkflowAmbiguityFix** | **Eliminate ambiguity between AGENTS.md rules — #merge direction, §5 reinforcement, command doc alignment** | **2026-06-20 14:51** | **2026-06-20 14:51** | **active** |
+| **ui-small-potatoes** | **UI polish, refinements, and small fixes across the app** | **2026-06-22 13:50** | **2026-06-22 14:20** | **active** |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).

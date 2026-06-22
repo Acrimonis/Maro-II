@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
@@ -83,19 +84,23 @@ fun WarningTriangleIcon(alpha: Float) {
             lineTo(w * 0.04f, h * 0.88f)
             close()
         }
-        drawPath(path = triangle, color = ButtonColors.icon, alpha = alpha)
+        // White filled triangle
+        drawPath(path = triangle, color = ComposeColor.White, alpha = alpha)
+        // Punch out transparent "!" (stem + dot) using BlendMode.Clear
         drawRoundRect(
             color = ComposeColor.White,
             topLeft = Offset(w * 0.455f, h * 0.34f),
             size = Size(w * 0.09f, h * 0.28f),
             cornerRadius = CornerRadius(3f, 3f),
-            alpha = alpha
+            alpha = alpha,
+            blendMode = BlendMode.Clear
         )
         drawCircle(
             color = ComposeColor.White,
             radius = w * 0.055f,
             center = Offset(w * 0.50f, h * 0.74f),
-            alpha = alpha
+            alpha = alpha,
+            blendMode = BlendMode.Clear
         )
     }
 }

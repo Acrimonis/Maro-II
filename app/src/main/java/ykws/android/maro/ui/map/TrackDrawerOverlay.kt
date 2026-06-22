@@ -199,9 +199,7 @@ fun TrackDrawerOverlay(
 
                         Spacer(Modifier.height(2.dp))
 
-                        // ── Track List row with ON/OFF toggle ──────────
-                        val isActive = recorderState.state == TrackRecorderState.ON
-
+                        // ── Track List row ─────────────────────────────
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -216,30 +214,10 @@ fun TrackDrawerOverlay(
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Medium
                             )
-
-                            Switch(
-                                    checked = isActive,
-                                    onCheckedChange = { checked ->
-                                        if (checked) onStartRecording() else onStopRecording()
-                                        onDismiss()
-                                    },
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor = if (recorderState.isMoving)
-                                            Color(AppConfig.statusTrackingHealthy)
-                                        else
-                                            Color(AppConfig.statusTrackingIdle),
-                                        checkedTrackColor = (if (recorderState.isMoving)
-                                            Color(AppConfig.statusTrackingHealthy)
-                                        else
-                                            Color(AppConfig.statusTrackingIdle)).copy(alpha = 0.4f),
-                                        uncheckedThumbColor = Color(AppConfig.uiSettingsTextMuted),
-                                        uncheckedTrackColor = Color(AppConfig.uiSettingsSwitchTrackInactive)
-                                    )
-                                )
                         }
 
-                        // ── Live stats card (only when active) ──────────
-                        if (isActive) {
+                        // ── Live stats card (only when recording) ──────
+                        if (recorderState.state == TrackRecorderState.ON) {
                             Spacer(Modifier.height(2.dp))
 
                             Column(
