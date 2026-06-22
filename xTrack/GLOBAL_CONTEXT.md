@@ -1,9 +1,9 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** BoatTrace
-- **Active Subfeature:** track now demo
-- **Last Updated:** 2026-06-22 10:48
+- **Active Feature:** UiTweaks
+- **Active Subfeature:** none
+- **Last Updated:** 2026-06-22 13:50
 - **Last Bake:** 2026-06-22 10:48 (BoatTrace — spike-rejection-v2: 4-gate algorithm)
 - **Branch:** feature/dev
 ## Routing Map
@@ -29,6 +29,7 @@
 | zone300speed, 300m badge, speed badge, 300m speed | xTrack/Zone300SpeedBadge/FEAT_DSC_Zone300SpeedBadge.md |
 | boat, trace, trip, boat-trace, boat-tracing, track, recording, port-salis, journey | xTrack/BoatTrace/FEAT_DSC_BoatTrace.md |
 | workflow, rules, ambiguity, merge, agents, gitops | xTrack/WorkflowAmbiguityFix/FEAT_DSC_WorkflowAmbiguityFix.md |
+| ui, tweaks, polish, ui-tweaks, uitweaks, ui tweaks | xTrack/ui-tweaks/FEAT_DSC_ui-tweaks.md |
 
 ## Feature Summaries
 
@@ -58,6 +59,7 @@
 | **CheckDev** | **Dev-branch health monitoring — remote branch state, ahead/behind analysis, workflow hygiene validation** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
 | **Health** | **Application health monitoring — diagnostics, crash reporting, memory/performance telemetry** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
 | **WorkflowAmbiguityFix** | **Eliminate ambiguity between AGENTS.md rules — #merge direction, §5 reinforcement, command doc alignment** | **2026-06-20 14:51** | **2026-06-20 14:51** | **active** |
+| **ui-tweaks** | **UI polish, refinements, and small fixes across the app** | **2026-06-22 13:50** | **2026-06-22 13:53** | **active** |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).
