@@ -3030,16 +3030,77 @@ private fun SystemSettings(
                 .background(ComposeColor(AppConfig.uiSettingsCardBackground))
         ) {
             // Enable stop detection toggle
-            SettingsToggleRow(
-                label = stringResource(R.string.settings_stop_enable_label),
-                description = stringResource(R.string.settings_stop_enable_desc),
-                checked = settings.stopDetectionEnabled,
-                onCheckedChange = { on -> onUpdateSettings { it.copy(stopDetectionEnabled = on) } }
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_stop_enable_label),
+                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_stop_enable_desc),
+                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        fontSize = 13.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Switch(
+                    checked = settings.stopDetectionEnabled,
+                    onCheckedChange = { on -> onUpdateSettings { it.copy(stopDetectionEnabled = on) } },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                    )
+                )
+            }
 
             // Conditional content: only shown when stop detection is enabled
             if (settings.stopDetectionEnabled) {
-                // Thin divider
+                Spacer(Modifier.height(8.dp))
+
+                // Delay GPS when still toggle
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.settings_stop_delay_label),
+                            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_stop_delay_desc),
+                            color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                            fontSize = 13.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Switch(
+                        checked = settings.stopDetectionDelayGps,
+                        onCheckedChange = { on -> onUpdateSettings { it.copy(stopDetectionDelayGps = on) } },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                            checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                            uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
+                            uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                        )
+                    )
+                }
+
                 Spacer(Modifier.height(8.dp))
 
                 // Detection thresholds expander
@@ -3074,19 +3135,6 @@ private fun SystemSettings(
                         }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                // Thin divider
-                Spacer(Modifier.height(8.dp))
-
-                // Delay GPS when still toggle
-                SettingsToggleRow(
-                    label = stringResource(R.string.settings_stop_delay_label),
-                    description = stringResource(R.string.settings_stop_delay_desc),
-                    checked = settings.stopDetectionDelayGps,
-                    onCheckedChange = { on -> onUpdateSettings { it.copy(stopDetectionDelayGps = on) } }
-                )
             }
         }
 
