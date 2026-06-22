@@ -189,6 +189,9 @@ object AppConfig {
     /** GPS icon STALE state background colour. Default #F44336. Set via `status.gps.stale` in colors.properties. */
     var statusGpsStale: Int = 0xFFF44336.toInt()
         private set
+    /** GPS icon ESTIMATING state background colour (dead reckoning). Default #FFB300 (amber). Set via `status.gps.estimating` in colors.properties. */
+    var statusGpsEstimating: Int = 0xFFFFB300.toInt()
+        private set
     /** GPS icon active-state background alpha (0.0–1.0). Default 0.75. Set via `status.gps.alpha.active` in colors.properties. */
     var statusGpsAlphaActive: Float = 0.75f
         private set
@@ -528,6 +531,7 @@ object AppConfig {
             props.getProperty("status.gps.healthy")?.let { parseColorOrNull(it) }?.let { statusGpsHealthy = it }
             props.getProperty("status.gps.idle")?.let { parseColorOrNull(it) }?.let { statusGpsIdle = it }
             props.getProperty("status.gps.stale")?.let { parseColorOrNull(it) }?.let { statusGpsStale = it }
+            props.getProperty("status.gps.estimating")?.let { parseColorOrNull(it) }?.let { statusGpsEstimating = it }
             props.getProperty("status.gps.alpha.active")?.toFloatOrNull()?.let { statusGpsAlphaActive = it.coerceIn(0f, 1f) }
             props.getProperty("status.gps.alpha.dimmed")?.toFloatOrNull()?.let { statusGpsAlphaDimmed = it.coerceIn(0f, 1f) }
 

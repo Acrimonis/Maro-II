@@ -220,6 +220,7 @@ fun MapScreen(
     val gpsPosition by viewModel.gpsPosition.collectAsState()
     val gpsStale by viewModel.gpsStale.collectAsState()
     val acquisitionMode by viewModel.acquisitionMode.collectAsState()
+    val isEstimating by viewModel.isEstimating.collectAsState()
     // Effective heading for the zone-ahead cone:
     // GPS mode → GPS bearing (COG/compass, boat faces direction of travel)
     // Demo mode → 0° = north (boat marker always points up/top of map).
@@ -227,11 +228,12 @@ fun MapScreen(
     val effectiveHeadingDeg = if (appSettings.gpsMode) navigationState.bearingDeg.toDouble()
         else navigationState.demoBearingDeg?.toDouble() ?: 0.0
 
-    // Derive the GPS icon state from ViewModel state (5-state model).
-    val gpsIconState = remember(appSettings.gpsMode, gpsPosition, gpsStale, acquisitionMode) {
+    // Derive the GPS icon state from ViewModel state (6-state model).
+    val gpsIconState = remember(appSettings.gpsMode, gpsPosition, gpsStale, acquisitionMode, isEstimating) {
         when {
             !appSettings.gpsMode -> GpsIconState.DEMO
             gpsPosition == null -> GpsIconState.ACQUIRING
+            isEstimating -> GpsIconState.ESTIMATING
             gpsStale -> GpsIconState.STALE
             acquisitionMode == ykws.android.maro.data.location.AcquisitionMode.IDLE -> GpsIconState.IDLE
             else -> GpsIconState.HEALTHY
@@ -246,6 +248,7 @@ fun MapScreen(
             GpsIconState.HEALTHY -> AppConfig.statusGpsHealthy
             GpsIconState.IDLE -> AppConfig.statusGpsIdle
             GpsIconState.STALE -> AppConfig.statusGpsStale
+            GpsIconState.ESTIMATING -> AppConfig.statusGpsEstimating
         }
         ComposeColor(raw)
     }
@@ -1924,7 +1927,7 @@ private fun HamburgerIcon() {
  * - [IDLE]: GPS fix but stationary (reduced cadence), cyan background
  * - [STALE]: GPS lost / hasLock false / error, red background
  */
-private enum class GpsIconState { DEMO, ACQUIRING, HEALTHY, IDLE, STALE }
+private enum class GpsIconState { DEMO, ACQUIRING, HEALTHY, IDLE, STALE, ESTIMATING }
 
 @Composable
 private fun GpsStatusIcon(
@@ -1944,6 +1947,7 @@ private fun GpsStatusIcon(
         GpsIconState.HEALTHY -> { baseColor = ComposeColor(AppConfig.statusGpsHealthy); bgAlpha = AppConfig.statusGpsAlphaActive; contentAlpha = 1f }
         GpsIconState.IDLE -> { baseColor = ComposeColor(AppConfig.statusGpsIdle); bgAlpha = AppConfig.statusGpsAlphaActive; contentAlpha = 1f }
         GpsIconState.STALE -> { baseColor = ComposeColor(AppConfig.statusGpsStale); bgAlpha = AppConfig.statusGpsAlphaActive; contentAlpha = 1f }
+        GpsIconState.ESTIMATING -> { baseColor = ComposeColor(AppConfig.statusGpsEstimating); bgAlpha = AppConfig.statusGpsAlphaActive; contentAlpha = 1f }
     }
     Box(
         modifier = modifier

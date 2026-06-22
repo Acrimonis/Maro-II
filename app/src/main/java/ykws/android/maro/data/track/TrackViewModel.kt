@@ -49,6 +49,7 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         stopRecorder()
         val rec = TrackRecorder(
             repository = repository,
+            gpsMode = settings.gpsMode,
             geofenceOriginLat = settings.trackOriginLat,
             geofenceOriginLon = settings.trackOriginLon,
             geofenceRadiusM = settings.trackGeofenceRadiusM,
@@ -94,6 +95,7 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
     private fun initRecorder(settings: ykws.android.maro.data.settings.AppSettings? = null) {
         val rec = TrackRecorder(
             repository = repository,
+            gpsMode = settings?.gpsMode ?: true,
             geofenceOriginLat = settings?.trackOriginLat ?: 43.55,
             geofenceOriginLon = settings?.trackOriginLon ?: 7.00,
             geofenceRadiusM = settings?.trackGeofenceRadiusM ?: 500.0,
