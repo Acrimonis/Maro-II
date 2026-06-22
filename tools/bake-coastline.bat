@@ -1,8 +1,14 @@
 @echo off
-REM Bake the coastline + 300 m band (OSM fetch -> assemble -> band) into the gitignored
-REM data\app-assets\coastlines\<region>.bin that the app actually loads. Needs network (Overpass).
-REM Run from the repo root (apk-bake.bat does). Band-only refresh (no network): tools\bake-zone300.bat.
+REM Bake the coastline + 300 m band (OSM fetch). Needs network (Overpass).
+REM Output goes to D:\.src\.data\coastlines\ — the shared master copy.
+setlocal
 echo [bake-coastline] Fetching OSM from Overpass + building coastline + 300 m band...
-echo                  ^(network step -- can take 30s to a few minutes; Gradle shows a spinner, no byte progress^)
+echo                  (network step -- can take 30s to a few minutes)
+
 call gradlew testDebugUnitTest --tests "*Zone300AssetBaker*" -Dmaro.bake=true --rerun-tasks
-exit /b %ERRORLEVEL%
+if %ERRORLEVEL% NEQ 0 exit /b %ERRORLEVEL%
+
+if not exist "D:\.src\.data\coastlines" mkdir "D:\.src\.data\coastlines"
+copy /Y "data\app-assets\coastlines\*" "D:\.src\.data\coastlines\" >nul
+echo [bake-coastline] Archived to D:\.src\.data\coastlines
+endlocal

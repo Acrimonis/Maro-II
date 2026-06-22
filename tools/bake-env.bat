@@ -1,11 +1,12 @@
 @echo off
 REM -- Bake region / clip env (single source = the coastline) --------------------
 REM The GDAL .asc clip box is the depth-zone ENVELOPE (coastline bbox + 6 NM), emitted by
-REM bake-coastline as a text sidecar  data\app-assets\coastlines\<region>.bbox = "latS latN lonW lonE".
+REM bake-coastline as a text sidecar. The master copy lives in D:\.src\.data\coastlines\.
 REM Nothing hardcoded: the box follows the real coast. If the sidecar is missing, bake the coastline
 REM first (bake-depth auto-runs it). No setlocal -- callers (bake-emodnet/litto3d) consume REGION/W/S/E/N.
-set "REGION=nice-frejus"
-set "BBOX=%~dp0..\data\app-assets\coastlines\%REGION%.bbox"
+set "REGION=nice-menton"
+set "SHARED=D:\.src\.data\coastlines"
+set "BBOX=%SHARED%\%REGION%.bbox"
 if not exist "%BBOX%" (
   echo [bake-env] ERROR: clip envelope sidecar missing:
   echo            %BBOX%
