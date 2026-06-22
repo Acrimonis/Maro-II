@@ -11,6 +11,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -74,8 +75,6 @@ import kotlin.math.roundToInt
  * swipe-to-delete, following the track-list paradigm from
  * `FEAT_PLN_BoatTrace_TrackList_Design.md`.
  *
- * **P8:** Each row has an explicit **Edit** button. Tap-on-row no longer edits.
- *
  * **Swipe-to-delete lifecycle:**
  * 1. Swipe card left → card slides out left, snackbar slides in from right
  * 2. Snackbar is inline (same list slot), "{name} deleted" + Undo button
@@ -87,8 +86,7 @@ import kotlin.math.roundToInt
  * "Create First Marker" button.
  *
  * @param markers              List of all user markers.
- * @param onTapMarker          Called when user taps a marker card → opens drawer in viewing mode.
- * @param onEditMarker         Called when user taps Edit button → opens wizard in edit mode.
+ * @param onTapMarker          Called when user taps a marker card → opens drawer in edit mode.
  * @param onSoftDeleteMarker   Called to soft-delete a marker (UI removal, undoable).
  * @param onUndoDeleteMarker   Called to undo a soft-delete.
  * @param onPermanentDelete    Called to permanently delete a marker.
@@ -101,7 +99,6 @@ import kotlin.math.roundToInt
 fun MarkerManagementOverlay(
     markers: List<UserMarker>,
     onTapMarker: (String) -> Unit,
-    onEditMarker: (String) -> Unit = {},
     onSoftDeleteMarker: (String) -> Unit,
     onUndoDeleteMarker: (String) -> Unit,
     onPermanentDelete: (String) -> Unit,
@@ -221,9 +218,8 @@ fun MarkerManagementOverlay(
                     items(markers, key = { it.id }) { marker ->
                         SwipeToDeleteMarkerCard(
                             marker = marker,
-                            modifier = Modifier.animateItem(),
+                            modifier = Modifier.animateItemPlacement(),
                             onTap = { onTapMarker(marker.id) },
-                            onEdit = { onEditMarker(marker.id) },
                             onDelete = {
                                 pendingDeletes.add(marker.id)
                                 onSoftDeleteMarker(marker.id)
@@ -255,7 +251,6 @@ private fun SwipeToDeleteMarkerCard(
     marker: UserMarker,
     modifier: Modifier = Modifier,
     onTap: () -> Unit,
-    onEdit: () -> Unit,
     onDelete: () -> Unit,
     onUndo: () -> Unit,
     onPermanentDelete: () -> Unit
@@ -318,8 +313,9 @@ private fun SwipeToDeleteMarkerCard(
                         } else Modifier
                     )
                     .clip(RoundedCornerShape(12.dp))
+                    .clickable(onClick = onTap)
             ) {
-                MarkerCardContent(marker, onTap = onTap, onEdit = onEdit)
+                MarkerCardContent(marker)
             }
         }
 
@@ -376,11 +372,7 @@ private fun SwipeToDeleteMarkerCard(
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun MarkerCardContent(
-    marker: UserMarker,
-    onTap: () -> Unit,
-    onEdit: () -> Unit
-) {
+private fun MarkerCardContent(marker: UserMarker) {
     val geometryDesc = when (val g = marker.geometry) {
         is MarkerGeometry.Pin -> "Pin"
         is MarkerGeometry.Circle -> "Circle \u00B7 ${g.radiusM.toLong()} m"
@@ -390,7 +382,7 @@ private fun MarkerCardContent(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(AppConfig.uiCardBackground))
+            .background(Color(AppConfig.uiSettingsCardBackground))
             .padding(horizontal = 12.dp, vertical = 10.dp)
     ) {
         Row(
@@ -412,23 +404,6 @@ private fun MarkerCardContent(
                     text = geometryDesc,
                     color = Color(AppConfig.uiSettingsTextMuted),
                     fontSize = 12.sp
-                )
-            }
-            // P8: Explicit Edit button
-            Button(
-                onClick = onEdit,
-                modifier = Modifier.height(34.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(AppConfig.buttonActionBgColor)
-                ),
-                shape = RoundedCornerShape(6.dp),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
-            ) {
-                Text(
-                    "Edit",
-                    color = Color(AppConfig.buttonActionIconColor),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium
                 )
             }
         }
@@ -457,7 +432,7 @@ private fun MarkerCardContent(
 
 @Composable
 private fun MarkerSnackbarSlot(markerName: String, onUndo: () -> Unit) {
-    val bgColor = Color(AppConfig.uiCardBackground)
+    val bgColor = Color(AppConfig.uiSettingsCardBackground)
         .copy(alpha = 0.102f * 0.75f)
 
     Row(
