@@ -2,12 +2,10 @@
 
 ## Active Session Pointers
 - **Active Feature:** BoatTrace
-- **Active Subfeature:** track-list
-- **Active Feature:** WorkflowAmbiguityFix
-- **Active Subfeature:** none
-- **Last Updated:** 2026-06-20
-- **Last Bake:** 2026-06-21 08:45 (BoatTrace — gps-background: notification demo/GPS toggle fix)
-- **Branch:** feature/trace-fixes
+- **Active Subfeature:** track now demo
+- **Last Updated:** 2026-06-22 10:48
+- **Last Bake:** 2026-06-22 10:48 (BoatTrace — spike-rejection-v2: 4-gate algorithm)
+- **Branch:** feature/dev
 ## Routing Map
 | Keyword | Feature File |
 |---|---|

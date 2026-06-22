@@ -1,41 +1,31 @@
 # BoatTrace — Hydration Snapshot
 
-**Baked at:** 2026-06-21 08:45 UTC
+**Baked at:** 2026-06-22 10:48 UTC
+**Active Subfeature:** track now demo (done)
 
 ## Session Summary
 
-Completed gps-background, settings-page-rules, gps-line-acquisition subfeatures.
+Spike rejection v2 — four-gate algorithm replacing 50kn hard cap.
 
-### gps-line-acquisition (2026-06-20)
-- Removed PASSIVE_PROVIDER listener from GpsLocationSource — dual listener race caused zigzag ordering on active track polyline
-- Added 50 kn implied-speed spike gate to TrackRecorder.addPoint() — rejects GPS multipath spikes
+### spike-rejection-v2 (2026-06-22)
+- Replaced single 50kn hard cap with 4-gate algorithm: GPS recovery, context cap (32/120kn), direction multiplier (sea only), acceleration gate (10/30kn/s)
+- Land/sea auto-detection from GPS speed history
+- Demo mode bypasses all gates
+- 8 new constants, 7 new fields, 4 helper methods — self-contained in TrackRecorder.kt
 
-### gps-background (2026-06-20)
-- Rewrote TrackRecordingService as always-on foreground service (specialUse type)
-- Started in MainActivity.onCreate, stopped on double-back exit via MapScreen BackHandler
-- Notification: "Maro II — Ready" (or "Ready (Demo)") / "Maro II — Recording • {speed} kn • {elapsed} • {dist} nm" (or "Recording (Demo)")
-- Added currentSpeedKn to TrackRecorderUiState
-- MapScreen LaunchedEffect sends notification updates every 5s during recording
-- Channel maro_persistent with IMPORTANCE_DEFAULT
-- Notifications updates re-fire on GPS↔demo toggle (LaunchedEffect keyed on both trackRecorderState + gpsMode)
-- Fixed: Android 14 FGS permissions — specialUse + FOREGROUND_SERVICE_SPECIAL_USE
+### demo-track-fix (2026-06-21)
+- Fixed `recordingPoints` off-by-one in `TrackRecorder.addPoint()`
+- Added `gpsMode` constructor parameter, bypassed stillness gate in demo mode
 
-### settings-page-rules (2026-06-20)
-- ColorSwatchRow/ColorSwatchPairRow padding: 2dp → 8dp
-- Replaced 13 hairline divider Boxes with Spacer(8.dp)
-- SettingsExpander labels and SettingsToggleRow usage were already compliant
-- Removed dead FOREGROUND_SERVICE_LOCATION from manifest
+### drift-on-idle (2026-06-22)
+- Clear `deadReckoningState = null` on IDLE transition
 
 ## Key Files Modified
-- GpsLocationSource.kt — removed passive listener
-- TrackRecorder.kt — currentSpeedKn, spike gate
-- TrackRecordingService.kt — full rewrite
-- MainActivity.kt — startForegroundService
-- MapScreen.kt — LaunchedEffect, BackHandler stopService, settings rendering rules
-- AndroidManifest.xml — specialUse, FOREGROUND_SERVICE_SPECIAL_USE, removed FOREGROUND_SERVICE_LOCATION
+- TrackRecorder.kt — spike-rejection-v2 (main), gpsMode param, stillness gate, off-by-one fix
+- TrackViewModel.kt — pass settings.gpsMode
+- CoastlineViewModel.kt — clear deadReckoningState on IDLE
 
 ## Next Steps
-- [ ] E2E verification on device
+- [ ] Deploy APK and E2E verify demo track recording
+- [ ] E2E verify GPS real-world track recording
 - [ ] Track list UI polish per FEAT_PLN_BoatTrace_TrackList_Design.md
-- [ ] settings-page-rules R4 font tokens (deferred)
-- [ ] Commit pending changes

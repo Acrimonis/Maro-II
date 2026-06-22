@@ -20,11 +20,14 @@ import kotlinx.coroutines.launch
 import ykws.android.maro.data.location.AcquisitionMode
 import ykws.android.maro.data.location.AdaptiveGpsPolicy
 import ykws.android.maro.data.location.GpsFix
+import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.track.TrackEvent.*
+import ykws.android.maro.spatial.SpatialOperations
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.UUID
+import kotlin.math.abs
 
 private const val TAG = "MaroII_Track"
 
@@ -37,8 +40,24 @@ private const val STOP_DEBOUNCE_MS = 15_000L
 /** Interval (ms) between checkpoint saves during recording. */
 private const val CHECKPOINT_INTERVAL_MS = 30_000L
 
-/** Maximum realistic speed (kn) for a recreational boat — fixes implying faster travel are discarded as GPS spikes. */
-private const val MAX_REALISTIC_SPEED_KN = 50.0
+/** Maximum hull speed for a recreational boat (kn). */
+private const val BOAT_MAX_SPEED_KN = 32.0
+/** Maximum plausible speed on land (kn) — covers highway driving. */
+private const val LAND_MAX_SPEED_KN = 120.0
+/** Max acceleration at sea (kn/s) — boats don't teleport. */
+private const val MAX_ACCEL_KN_PER_SEC_SEA = 10.0
+/** Max acceleration on land (kn/s) — cars can launch harder. */
+private const val MAX_ACCEL_KN_PER_SEC_LAND = 30.0
+/** Course deviation considered "aligned" with bearing (degrees). */
+private const val COURSE_ALIGNED_DEG = 30.0
+/** Speed cap multiplier when bearing is aligned with recent course. */
+private const val COURSE_ALIGNED_MULTIPLIER = 1.5
+/** Speed cap multiplier when bearing is sideways to recent course. */
+private const val COURSE_SIDEWAYS_MULTIPLIER = 0.5
+/** Consecutive rejections before switching to land mode. */
+private const val LAND_DETECTION_REJECTIONS = 5
+/** Consecutive accepted fixes ≤32 kn before switching back to sea. */
+private const val SEA_RECOVERY_CONSECUTIVE = 10
 
 /** The track recorder state machine states. */
 enum class TrackRecorderState { OFF, ON }
@@ -116,6 +135,22 @@ class TrackRecorder(
     private var stopDebounceStartTime: Long? = null
     /** Tracks whether the previous fix was inside the geofence, for exit detection. */
     private var wasInsideGeofence: Boolean = false
+
+    // ── Spike rejection v2 fields ──
+    /** Course over ground computed from last 2–3 accepted positions (degrees). */
+    private var lastValidCourseDeg: Double? = null
+    /** Sliding window of last 3 accepted positions for course calculation. */
+    private val courseHistory = ArrayDeque<Pair<Double, Double>>(3)
+    /** Speed (kn) of the last accepted fix — used for acceleration gate. */
+    private var lastValidSpeedKn: Double = 0.0
+    /** Consecutive GPS fixes rejected by any gate. */
+    private var consecutiveRejections: Int = 0
+    /** Counter of consecutive accepted fixes at sea speed — builds confidence for sea recovery. */
+    private var seaConfidenceCounter: Int = 0
+    /** True when auto-detection determines we're on land (car mode). */
+    private var isOnLand: Boolean = false
+    /** Previous fix's lock state — used to detect GPS recovery transitions. */
+    private var lastHadLock: Boolean = true
 
     private val policy = AdaptiveGpsPolicy()
     private var scope: CoroutineScope? = null
@@ -242,6 +277,13 @@ class TrackRecorder(
         lastValidPointLat = null
         lastValidPointLon = null
         lastValidPointTimeMs = 0L
+        lastValidCourseDeg = null
+        courseHistory.clear()
+        lastValidSpeedKn = 0.0
+        consecutiveRejections = 0
+        seaConfidenceCounter = 0
+        isOnLand = false
+        lastHadLock = true
         pointsSinceLastCheckpoint = 0
         stopDebounceStartTime = null
         transitionTo(TrackRecorderState.ON)
@@ -280,22 +322,70 @@ class TrackRecorder(
         // Skip point capture when stationary (still tracking, just not recording points)
         if (!moving && gpsMode) return
 
-        // ── Outlier rejection: implied speed vs last valid recorded point ────
-        if (lastValidPointLat != null && lastValidPointLon != null && lastValidPointTimeMs > 0L) {
-            val distM = TrackGeofenceChecker.distanceM(
-                lastValidPointLat!!, lastValidPointLon!!,
-                fix.position.latitude, fix.position.longitude
-            )
-            val timeDeltaSec = (fix.timestampEpochMs - lastValidPointTimeMs) / 1000.0
-            if (timeDeltaSec > 0.0) {
-                val impliedSpeedKn = (distM / timeDeltaSec) * 1.94384
-                if (impliedSpeedKn > MAX_REALISTIC_SPEED_KN) {
-                    Log.w(TAG, "Spike rejected: dist=${"%.1f".format(distM)}m dt=${"%.1f".format(timeDeltaSec)}s " +
-                            "implied=${"%.1f".format(impliedSpeedKn)}kn > ${MAX_REALISTIC_SPEED_KN}kn")
-                    return // discard this GPS spike
+        // ── Spike rejection v2: four-gate algorithm (GPS mode only) ────
+        if (gpsMode) {
+            // Gate 0: GPS recovery — skip all checks when lock transitions false→true
+            if (!lastHadLock && fix.hasLock) {
+                lastHadLock = true
+                captureAcceptedPoint(fix)
+                return
+            }
+            lastHadLock = fix.hasLock
+
+            // Need at least one valid point for gates 1-3
+            if (lastValidPointLat != null && lastValidPointLon != null && lastValidPointTimeMs > 0L) {
+                val lastValidPos = LatLng(lastValidPointLat!!, lastValidPointLon!!)
+                val distM = SpatialOperations.haversine(lastValidPos, fix.position)
+                val timeDeltaSec = (fix.timestampEpochMs - lastValidPointTimeMs) / 1000.0
+                if (timeDeltaSec > 0.0) {
+                    val impliedSpeedKn = (distM / timeDeltaSec) * 1.94384
+
+                    // Gate 1: Context speed cap
+                    val baseCap = if (isOnLand) LAND_MAX_SPEED_KN else BOAT_MAX_SPEED_KN
+
+                    // Gate 2: Direction (sea only)
+                    val effectiveCap = if (!isOnLand && lastValidCourseDeg != null) {
+                        val bearingToFix = SpatialOperations.initialBearing(lastValidPos, fix.position)
+                        val delta = angularDistance(bearingToFix, lastValidCourseDeg!!)
+                        when {
+                            delta <= COURSE_ALIGNED_DEG -> baseCap * COURSE_ALIGNED_MULTIPLIER
+                            else -> baseCap * COURSE_SIDEWAYS_MULTIPLIER
+                        }
+                    } else {
+                        baseCap  // land mode or no course history → neutral
+                    }
+
+                    if (impliedSpeedKn > effectiveCap) {
+                        logRejection("speed cap", impliedSpeedKn, effectiveCap)
+                        consecutiveRejections++
+                        checkLandDetection(fix)
+                        return
+                    }
+
+                    // Gate 3: Acceleration
+                    val currentSpeedKn = fix.speedMps?.let { it * 1.94384 } ?: impliedSpeedKn
+                    val accelKnPerSec = abs(currentSpeedKn - lastValidSpeedKn) / timeDeltaSec
+                    val accelLimit = if (isOnLand) MAX_ACCEL_KN_PER_SEC_LAND else MAX_ACCEL_KN_PER_SEC_SEA
+
+                    if (accelKnPerSec > accelLimit) {
+                        logRejection("acceleration", accelKnPerSec, accelLimit)
+                        consecutiveRejections++
+                        return
+                    }
+
+                    // Accepted — reset rejection counter
+                    consecutiveRejections = 0
                 }
             }
         }
+
+        // ── Capture accepted point ──
+        captureAcceptedPoint(fix)
+    }
+
+    /** Record an accepted fix into the track (stats, UI, course history). */
+    private fun captureAcceptedPoint(fix: GpsFix) {
+        val track = currentTrack ?: return
 
         val now = System.currentTimeMillis()
         val timeOffsetSec = ((now - recordingStartTimeMs) / 1000).toInt()
@@ -353,6 +443,11 @@ class TrackRecorder(
                 recordingPoints = currentTrack!!.trackPoints
             )
         }
+
+        // Update spike-rejection trackers
+        val acceptedSpeedKn = fix.speedMps?.let { it * 1.94384 } ?: _uiState.value.currentSpeedKn.toDouble()
+        lastValidSpeedKn = acceptedSpeedKn
+        updateCourseHistory(fix.position)
     }
 
     private fun transitionTo(newState: TrackRecorderState) {
@@ -424,6 +519,58 @@ class TrackRecorder(
     private fun formatTimestamp(epochMs: Long): String {
         val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US)
         return sdf.format(Date(epochMs))
+    }
+
+    // ── Spike rejection v2 helpers ──
+
+    /** Angular distance between two bearings in degrees (0–180). */
+    private fun angularDistance(a: Double, b: Double): Double {
+        val d = abs(a - b) % 360.0
+        return if (d > 180.0) 360.0 - d else d
+    }
+
+    /** Log a rejection with formatted values. */
+    private fun logRejection(gate: String, value: Double, limit: Double) {
+        Log.w(TAG, "Spike rejected ($gate): value=${"%.1f".format(value)} limit=${"%.1f".format(limit)}")
+    }
+
+    /** Auto-detect land/sea context from rejection patterns. */
+    private fun checkLandDetection(fix: GpsFix) {
+        if (consecutiveRejections >= LAND_DETECTION_REJECTIONS) {
+            val gpsSpeedKn = fix.speedMps?.let { it * 1.94384 } ?: 0.0
+            if (gpsSpeedKn > BOAT_MAX_SPEED_KN) {
+                isOnLand = true
+                consecutiveRejections = 0
+                lastValidCourseDeg = null  // reset course — direction check now off
+            }
+        }
+        if (isOnLand && consecutiveRejections == 0) {
+            val gpsSpeedKn = fix.speedMps?.let { it * 1.94384 } ?: 0.0
+            if (gpsSpeedKn <= BOAT_MAX_SPEED_KN) {
+                seaConfidenceCounter++
+                if (seaConfidenceCounter >= SEA_RECOVERY_CONSECUTIVE) {
+                    isOnLand = false
+                    seaConfidenceCounter = 0
+                }
+            } else {
+                seaConfidenceCounter = 0
+            }
+        }
+    }
+
+    /** Update sliding course history from an accepted position. */
+    private fun updateCourseHistory(pos: LatLng) {
+        if (isOnLand) return  // don't track course on land
+        courseHistory.addLast(pos.latitude to pos.longitude)
+        if (courseHistory.size > 3) courseHistory.removeFirst()
+        if (courseHistory.size >= 2) {
+            val first = courseHistory.first()
+            val last = courseHistory.last()
+            lastValidCourseDeg = SpatialOperations.initialBearing(
+                LatLng(first.first, first.second),
+                LatLng(last.first, last.second)
+            )
+        }
     }
 
     private fun cleanup() {
