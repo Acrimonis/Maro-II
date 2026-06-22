@@ -5,7 +5,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,9 +22,6 @@ import ykws.android.maro.spatial.MarkerMatcher
 import ykws.android.maro.spatial.MatchResult
 import ykws.android.maro.spatial.ProximityConfig
 import ykws.android.maro.spatial.TieredMatchResult
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 import java.util.UUID
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -37,13 +33,10 @@ sealed class MarkerDrawerState {
     /** Drawer is hidden. */
     data object Hidden : MarkerDrawerState()
 
-    /** Creating a new marker (now driven by wizard). */
+    /** Creating a new marker. */
     data object Creating : MarkerDrawerState()
 
-    /** Viewing an existing marker's details (read-only, with Edit/Close buttons). */
-    data class Viewing(val markerId: String) : MarkerDrawerState()
-
-    /** Editing an existing marker by ID (now driven by wizard). */
+    /** Editing an existing marker by ID. */
     data class Editing(val markerId: String) : MarkerDrawerState()
 
     /** Showing "where am I?" match results. */
@@ -57,31 +50,24 @@ sealed class MarkerDrawerState {
 /** Which geometry type is being created/edited. */
 enum class MarkerType { PIN, CIRCLE, CORRIDOR }
 
-/** Wizard step for the create/edit flow. */
-sealed class WizardStep {
-    data object TypeSelect : WizardStep()
-    data object Position : WizardStep()        // Pin center / Circle center / Corridor P1
-    data object PositionP2 : WizardStep()      // Corridor P2 only
-    data object Radius : WizardStep()          // Circle / Corridor
-    data object Proximity : WizardStep()       // All types
-    data object Title : WizardStep()           // All types
-    data object Description : WizardStep()     // All types
-}
+/** Sub-phase for corridor 2nd-point placement flow. */
+enum class CorridorPhase { P1, SET_P2, CONFIRM }
 
 /**
  * Mutable form state for marker creation/editing.
- * Hosted inside [MarkersViewModel] and observed by wizard steps.
+ * Hosted inside [MarkersViewModel] and observed by [MarkerDrawer].
  */
 data class CreateFormState(
     val name: String = "",
     val type: MarkerType = MarkerType.PIN,
     val position: LatLng? = null,         // pin position / circle centre / corridor p1
-    val radiusM: Double = 200.0,
+    val radiusM: Double = 500.0,
     val widthM: Double = 300.0,
     val proximityOverrideM: String = "",  // empty = use computed default
     val description: String = "",
-    // Corridor 2nd-point
-    val corridorP2: LatLng? = null
+    // Corridor 2nd-point flow
+    val corridorP2: LatLng? = null,
+    val corridorPhase: CorridorPhase = CorridorPhase.P1
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -91,8 +77,8 @@ data class CreateFormState(
 /**
  * StateFlow bridge for user-defined markers.
  *
- * Owns marker CRUD, visibility toggle, drawer state, wizard step navigation,
- * and on-demand "where am I?" match resolution.  Injects coastline data from
+ * Owns marker CRUD, visibility toggle, drawer state, and on-demand
+ * "where am I?" match resolution.  Injects coastline data from
  * [CoastlineViewModel] for land-blocking; all compute-intensive work
  * runs on [Dispatchers.Default].
  */
@@ -131,34 +117,6 @@ class MarkersViewModel(
     private val _drawerState = MutableStateFlow<MarkerDrawerState>(MarkerDrawerState.Hidden)
     val drawerState: StateFlow<MarkerDrawerState> = _drawerState.asStateFlow()
 
-    /** Current wizard step (null when wizard is not active). */
-    private val _wizardStep = MutableStateFlow<WizardStep?>(null)
-    val wizardStep: StateFlow<WizardStep?> = _wizardStep.asStateFlow()
-
-    /** One-shot request to centre the map on a given position (edit mode). */
-    private val _mapCenterRequest = MutableStateFlow<LatLng?>(null)
-    val mapCenterRequest: StateFlow<LatLng?> = _mapCenterRequest.asStateFlow()
-
-    /** Gate that suspends form position tracking during animateTo (prevents
-     *  intermediate mapCenter values from overwriting form position/P2). */
-    private val _suspendTracking = MutableStateFlow(false)
-    val suspendTracking: StateFlow<Boolean> = _suspendTracking.asStateFlow()
-
-    /** Wizard animation direction: true = forward (Next), false = backward (Previous). */
-    var wizardForward = true
-        private set
-
-    /** ID of the marker being edited via wizard, or null for creation. */
-    private var editingMarkerId: String? = null
-
-    /** ID of the last saved marker (for post-save undo Snackbar). */
-    private val _lastSavedMarkerId = MutableStateFlow<String?>(null)
-    val lastSavedMarkerId: StateFlow<String?> = _lastSavedMarkerId.asStateFlow()
-
-    /** ID of the currently selected marker (for map highlighting). */
-    private val _selectedMarkerId = MutableStateFlow<String?>(null)
-    val selectedMarkerId: StateFlow<String?> = _selectedMarkerId.asStateFlow()
-
     /** Result of the last "where am I?" query. */
     private val _matchResult = MutableStateFlow<TieredMatchResult?>(null)
     val matchResult: StateFlow<TieredMatchResult?> = _matchResult.asStateFlow()
@@ -166,14 +124,6 @@ class MarkersViewModel(
     /** Mutable form state for creation/editing (lives here so it survives drawer close). */
     private val _createForm = MutableStateFlow(CreateFormState())
     val createForm: StateFlow<CreateFormState> = _createForm.asStateFlow()
-
-    /** Date formatter for default title/description (thread-safe via ThreadLocal). */
-    private val dateFormat = ThreadLocal.withInitial {
-        SimpleDateFormat("EEE, dd MMM yy", Locale.US)
-    }
-    private val dateTimeFormat = ThreadLocal.withInitial {
-        SimpleDateFormat("EEE, dd MMM yy 'at' HH:mm", Locale.US)
-    }
 
     // ── Coastline data (injected by the screen) ───────────────────────────
     /** Set by [MapScreen] when coastline is ready. Used by land-blocking engine. */
@@ -196,17 +146,17 @@ class MarkersViewModel(
         settingsManager.update { it.copy(userMarkersVisible = !current) }
     }
 
-    /** Shows the user markers layer if not already visible (no-op if visible). */
-    fun showLayer() {
-        if (!userMarkersVisible.value) toggleVisibility()
-    }
-
     // ── Drawer control ────────────────────────────────────────────────────
 
-    /** Opens drawer in viewing mode for the marker with [markerId]. */
+    /** Opens drawer in creation mode. [initialPos] seeds the pin/circle centre/corridor p1. */
+    fun openCreateDrawer(initialPos: LatLng) {
+        _createForm.value = CreateFormState(position = initialPos)
+        _drawerState.value = MarkerDrawerState.Creating
+    }
+
+    /** Opens drawer in editing mode, pre-filling from the marker with [markerId]. */
     fun openEditDrawer(markerId: String) {
         val marker = _markers.value.find { it.id == markerId } ?: return
-        _selectedMarkerId.value = markerId
         val pos = when (val g = marker.geometry) {
             is MarkerGeometry.Pin -> g.position
             is MarkerGeometry.Circle -> g.center
@@ -217,7 +167,7 @@ class MarkersViewModel(
             is MarkerGeometry.Circle -> MarkerType.CIRCLE
             is MarkerGeometry.Corridor -> MarkerType.CORRIDOR
         }
-        val radiusM = (marker.geometry as? MarkerGeometry.Circle)?.radiusM ?: 200.0
+        val radiusM = (marker.geometry as? MarkerGeometry.Circle)?.radiusM ?: 500.0
         val widthM = (marker.geometry as? MarkerGeometry.Corridor)?.widthM ?: 300.0
         val corridorP2 = (marker.geometry as? MarkerGeometry.Corridor)?.p2
 
@@ -229,169 +179,39 @@ class MarkersViewModel(
             widthM = widthM,
             proximityOverrideM = marker.proximityOverrideM?.toString() ?: "",
             description = marker.description,
-            corridorP2 = corridorP2
+            corridorP2 = corridorP2,
+            corridorPhase = if (corridorP2 != null) CorridorPhase.CONFIRM else CorridorPhase.P1
         )
-        _drawerState.value = MarkerDrawerState.Viewing(markerId)
+        _drawerState.value = MarkerDrawerState.Editing(markerId)
     }
 
     /** Closes the drawer. */
     fun closeDrawer() {
         _drawerState.value = MarkerDrawerState.Hidden
-        _wizardStep.value = null
-        editingMarkerId = null
-        _selectedMarkerId.value = null
-    }
-
-    // ── Wizard state machine ──────────────────────────────────────────────
-
-    /** Returns the ordered list of steps for the given marker type. */
-    private fun stepSequenceFor(type: MarkerType): List<WizardStep> = when (type) {
-        MarkerType.PIN -> listOf(
-            WizardStep.TypeSelect, WizardStep.Position,
-            WizardStep.Proximity, WizardStep.Title, WizardStep.Description
-        )
-        MarkerType.CIRCLE -> listOf(
-            WizardStep.TypeSelect, WizardStep.Position,
-            WizardStep.Radius, WizardStep.Proximity, WizardStep.Title, WizardStep.Description
-        )
-        MarkerType.CORRIDOR -> listOf(
-            WizardStep.TypeSelect, WizardStep.Position,
-            WizardStep.PositionP2, WizardStep.Radius,
-            WizardStep.Proximity, WizardStep.Title, WizardStep.Description
-        )
-    }
-
-    /** Begin wizard in creation mode with optional [initialType] and [initialPos]. */
-    fun startWizard(initialType: MarkerType = MarkerType.PIN, initialPos: LatLng? = null) {
-        showLayer()
-        editingMarkerId = null
-        val now = Date()
-        _createForm.value = CreateFormState(
-            type = initialType,
-            position = initialPos,
-            radiusM = 200.0,
-            name = dateFormat.get()!!.format(now),
-            description = dateTimeFormat.get()!!.format(now)
-        )
-        wizardForward = true
-        _wizardStep.value = WizardStep.TypeSelect
-        _drawerState.value = MarkerDrawerState.Creating
-    }
-
-    /** Begin wizard in edit mode, pre-filled with the marker identified by [markerId]. */
-    fun startWizard(markerId: String) {
-        val marker = _markers.value.find { it.id == markerId } ?: return
-        editingMarkerId = markerId
-        // Populate form from marker if not already populated by Viewing → Edit flow
-        if (_createForm.value.position == null || _createForm.value.name != marker.name) {
-            val pos = when (val g = marker.geometry) {
-                is MarkerGeometry.Pin -> g.position
-                is MarkerGeometry.Circle -> g.center
-                is MarkerGeometry.Corridor -> g.p1
-            }
-            val type = when (marker.geometry) {
-                is MarkerGeometry.Pin -> MarkerType.PIN
-                is MarkerGeometry.Circle -> MarkerType.CIRCLE
-                is MarkerGeometry.Corridor -> MarkerType.CORRIDOR
-            }
-            val radiusM = (marker.geometry as? MarkerGeometry.Circle)?.radiusM ?: 200.0
-            val widthM = (marker.geometry as? MarkerGeometry.Corridor)?.widthM ?: 300.0
-            val corridorP2 = (marker.geometry as? MarkerGeometry.Corridor)?.p2
-            _createForm.value = CreateFormState(
-                name = marker.name,
-                type = type,
-                position = pos,
-                radiusM = radiusM,
-                widthM = widthM,
-                proximityOverrideM = marker.proximityOverrideM?.toString() ?: "",
-                description = marker.description,
-                corridorP2 = corridorP2
-            )
-        }
-        wizardForward = true
-        val seq = stepSequenceFor(_createForm.value.type)
-        // Skip TypeSelect — edit already knows the type; jump to Position step
-        _wizardStep.value = seq[1]
-        // Emit one-shot map-centre request so MapScreen animates to the marker
-        _mapCenterRequest.value = _createForm.value.position
-        _drawerState.value = MarkerDrawerState.Editing(markerId)
-    }
-
-    /** Advance to the next wizard step. */
-    fun wizardNext() {
-        val current = _wizardStep.value ?: return
-        val seq = stepSequenceFor(_createForm.value.type)
-        val idx = seq.indexOf(current)
-        if (idx < 0 || idx >= seq.lastIndex) return
-        wizardForward = true
-        _wizardStep.value = seq[idx + 1]
-        recenterMapOnStep(seq[idx + 1])
-    }
-
-    /** Go back to the previous wizard step. */
-    fun wizardPrevious() {
-        val current = _wizardStep.value ?: return
-        val seq = stepSequenceFor(_createForm.value.type)
-        val idx = seq.indexOf(current)
-        if (idx <= 0) return
-        wizardForward = false
-        _wizardStep.value = seq[idx - 1]
-        recenterMapOnStep(seq[idx - 1])
-    }
-
-    /** During edit mode, recenter the map when entering a position step. */
-    private fun recenterMapOnStep(step: WizardStep) {
-        if (editingMarkerId == null) return  // only during edit
-        val form = _createForm.value
-        // Suspend form tracking so animateTo intermediate mapCenter values
-        // don't overwrite the position we just restored from the marker.
-        _suspendTracking.value = true
-        viewModelScope.launch {
-            delay(600L)
-            _suspendTracking.value = false
-        }
-        when (step) {
-            is WizardStep.Position -> _mapCenterRequest.value = form.position  // P1
-            is WizardStep.PositionP2 -> _mapCenterRequest.value = form.corridorP2  // P2
-            else -> { /* no recenter for non-position steps */ }
-        }
-    }
-
-    /** Cancel wizard — discard form, close drawer, reset form state. */
-    fun wizardCancel() {
-        _wizardStep.value = null
-        editingMarkerId = null
-        _selectedMarkerId.value = null
-        _createForm.value = CreateFormState()
-        _drawerState.value = MarkerDrawerState.Hidden
-    }
-
-    /** Finish early — save immediately with defaults for remaining steps. */
-    fun wizardFinish() {
-        val form = _createForm.value
-        // Corridor requires P2; block finish if P2 not set
-        if (form.type == MarkerType.CORRIDOR && form.corridorP2 == null) return
-
-        if (editingMarkerId != null) {
-            updateMarker(editingMarkerId!!)
-        } else {
-            saveMarker()
-        }
-        _wizardStep.value = null
-        editingMarkerId = null
-        _selectedMarkerId.value = null
-    }
-
-    /** Whether Finish is allowed at the current step (corridor needs P2). */
-    fun canFinish(): Boolean {
-        val form = _createForm.value
-        return form.type != MarkerType.CORRIDOR || form.corridorP2 != null
     }
 
     // ── Form mutations ────────────────────────────────────────────────────
 
     fun updateForm(transform: (CreateFormState) -> CreateFormState) {
         _createForm.value = transform(_createForm.value)
+    }
+
+    // ── Corridor 2nd-point flow ───────────────────────────────────────────
+
+    /** Sets p2 for corridor and moves to CONFIRM phase. */
+    fun setCorridorP2(p2: LatLng) {
+        _createForm.value = _createForm.value.copy(
+            corridorP2 = p2,
+            corridorPhase = CorridorPhase.CONFIRM
+        )
+    }
+
+    /** Goes back from CONFIRM to SET_P2 to reposition p2. */
+    fun backToCorridorP1() {
+        _createForm.value = _createForm.value.copy(
+            corridorP2 = null,
+            corridorPhase = CorridorPhase.P1
+        )
     }
 
     // ── CRUD ──────────────────────────────────────────────────────────────
@@ -425,7 +245,6 @@ class MarkersViewModel(
             withContext(Dispatchers.IO) { repo.add(marker) }
             _markers.value = withContext(Dispatchers.IO) { repo.loadAll() }
             _drawerState.value = MarkerDrawerState.Hidden
-            _lastSavedMarkerId.value = marker.id
         }
     }
 
@@ -467,52 +286,6 @@ class MarkersViewModel(
             _markers.value = withContext(Dispatchers.IO) { repo.loadAll() }
             _drawerState.value = MarkerDrawerState.Hidden
         }
-    }
-
-    // ── Soft-delete for management page undo ──────────────────────────────
-
-    /** Set of marker IDs pending deletion (not yet persisted). */
-    val pendingDeletes: MutableSet<String> = mutableSetOf()
-
-    /** Soft-delete: mark for deletion but keep in list so the inline snackbar stays composed. */
-    fun softDeleteMarker(markerId: String) {
-        pendingDeletes.add(markerId)
-        // Keep marker in _markers — the SwipeToDeleteMarkerCard composable
-        // transitions to SNACKBAR state and must remain in the LazyColumn.
-    }
-
-    /** Undo a soft-delete: remove from pending set. Marker was never removed from list. */
-    fun undoDeleteMarker(markerId: String) {
-        pendingDeletes.remove(markerId)
-    }
-
-    /** Commit all pending soft-deletes to persistent storage. */
-    fun commitPendingDeletes() {
-        if (pendingDeletes.isEmpty()) return
-        val ids = pendingDeletes.toSet()
-        pendingDeletes.clear()
-        viewModelScope.launch {
-            withContext(Dispatchers.IO) {
-                ids.forEach { id -> repo.delete(id) }
-            }
-            _markers.value = withContext(Dispatchers.IO) { repo.loadAll() }
-        }
-    }
-
-    // ── Post-save undo (Snackbar) ─────────────────────────────────────────
-
-    /** Dismiss the last-saved-marker Snackbar without undoing. */
-    fun dismissLastSaved() {
-        _lastSavedMarkerId.value = null
-    }
-
-    /** Undo the last created marker (soft-delete for Snackbar undo). */
-    fun undoCreateMarker() {
-        val id = _lastSavedMarkerId.value ?: return
-        _lastSavedMarkerId.value = null
-        softDeleteMarker(id)
-        // Commit immediately (no management-page undo chain)
-        commitPendingDeletes()
     }
 
     // ── "Where am I?" on-demand match ─────────────────────────────────────

@@ -168,7 +168,6 @@ import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.data.markers.UserMarkerRepository
 import ykws.android.maro.spatial.SpatialOperations
-import ykws.android.maro.spatial.TieredMatchResult
 import ykws.android.maro.ui.map.MarkersViewModel
 import ykws.android.maro.ui.map.MarkerDrawer
 
@@ -483,11 +482,13 @@ fun MapScreen(
         value = repo.zoneSet.value
     }
 
-    // ── User markers: load JSON on first composition ────────────────────────────────
-    val userMarkers by produceState<List<UserMarker>>(initialValue = emptyList()) {
-        val markersDir = java.io.File(context.filesDir, "markers")
-        val repo = UserMarkerRepository(markersDir)
-        value = repo.loadAll()
+    // ── User markers: from MarkersViewModel ─────────────────────────────────────────
+    val userMarkers by markersViewModel.markers.collectAsState()
+
+    // Wire coastline data into MarkersViewModel for land-blocking when ready
+    if (coastlineReady) {
+        val data = (state as CoastlineState.Ready).data
+        markersViewModel.coastlineData = data
     }
 
     // ── Raster cache reads (no lazy auto-trigger; only settings button triggers generation) ──
@@ -930,7 +931,8 @@ fun MapScreen(
                 onZoomChanged = viewModel::updateZoomLevel,
                 onMapViewReady = { mapView = it },
                 markers = userMarkers,
-                onToggleUserMarkers = { viewModel.updateSettings { it.copy(userMarkersVisible = !it.userMarkersVisible) } },
+                onToggleUserMarkers = { markersViewModel.toggleVisibility() },
+                onAddPin = { center -> markersViewModel.openCreateDrawer(center) },
                 onRetry = { viewModel.loadCoastline() },
                 onOpenTrackDrawer = { showTrackDrawer = !showTrackDrawer },
                 showTrackDrawer = showTrackDrawer,
@@ -1109,7 +1111,8 @@ fun MapScreen(
                 onViewTrackList = { showTrackDrawer = false; showTrackHistory = true },
                 onManageMarkers = {
                     showTrackDrawer = false
-                    showMarkerManagement = true
+                    val center = mapCenter
+                    markersViewModel.openCreateDrawer(center)
                 },
                 onDismiss = { showTrackDrawer = false },
                 onOpenSettings = { showTrackDrawer = false; showSettings = true }
@@ -1145,71 +1148,17 @@ fun MapScreen(
             )
         }
 
-        // ── Marker management overlay (P8: composed BEFORE drawer so drawer renders on top) ──
-        if (showMarkerManagement) {
-            val mgmtMarkers by markersViewModel.markers.collectAsState()
-            MarkerManagementOverlay(
-                markers = mgmtMarkers,
-                onTapMarker = { id -> markersViewModel.openEditDrawer(id) },
-                onEditMarker = { id ->
-                    showMarkerManagement = false
-                    markersViewModel.startWizard(id)
-                },
-                onSoftDeleteMarker = { id -> markersViewModel.softDeleteMarker(id) },
-                onUndoDeleteMarker = { id -> markersViewModel.undoDeleteMarker(id) },
-                onPermanentDelete = { id -> markersViewModel.deleteMarker(id) },
-                onCommitPendingDeletes = { markersViewModel.commitPendingDeletes() },
-                onCreateFirst = {
-                    showMarkerManagement = false
-                    markersViewModel.startWizard(initialPos = mapCenter)
-                },
-                onDismiss = { showMarkerManagement = false }
-            )
-        }
-
-        // ── Marker drawer overlay (Viewing/MatchResult only — Creating/Editing use WizardDrawer) ──
+        // ── Marker drawer overlay (creation/edit/match results) ──────────
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val markerIsLandscape = maxWidth > maxHeight
             val drawerState by markersViewModel.drawerState.collectAsState()
-            if (drawerState is MarkerDrawerState.Viewing || drawerState is MarkerDrawerState.MatchResult) {
-                Box(
-                    modifier = Modifier
-                        .align(if (markerIsLandscape) Alignment.CenterStart else Alignment.BottomCenter)
-                ) {
-                    MarkerDrawer(
-                        viewModel = markersViewModel,
-                        isLandscape = markerIsLandscape,
-                        onClose = { markersViewModel.closeDrawer() },
-                        boatPosition = gpsPosition ?: mapCenter
-                    )
-                }
-            }
-        }
-
-        // ── Post-save undo Snackbar (P5) ────────────────────────────────
-        val lastSavedId by markersViewModel.lastSavedMarkerId.collectAsState()
-        val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
-        lastSavedId?.let { id ->
-            val savedMarker = userMarkers.find { it.id == id }
-            LaunchedEffect(id) {
-                val result = snackbarHostState.showSnackbar(
-                    message = "Marker \"${savedMarker?.name ?: "Unknown"}\" created",
-                    actionLabel = "Undo",
-                    duration = androidx.compose.material3.SnackbarDuration.Short
+            if (drawerState !is MarkerDrawerState.Hidden) {
+                MarkerDrawer(
+                    viewModel = markersViewModel,
+                    isLandscape = markerIsLandscape,
+                    onClose = { markersViewModel.closeDrawer() }
                 )
-                if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
-                    markersViewModel.undoCreateMarker()
-                } else {
-                    markersViewModel.dismissLastSaved()
-                }
             }
-        }
-        Box(modifier = Modifier.fillMaxSize()) {
-            // SnackbarHost positioned at bottom, above dashboard/wizard area
-            androidx.compose.material3.SnackbarHost(
-                hostState = snackbarHostState,
-                modifier = Modifier.align(Alignment.BottomCenter)
-            )
         }
 
         // ── Process-death recovery dialog ─────────────────────────────
@@ -1307,6 +1256,7 @@ private fun MapContent(
     onMapViewReady: (MapView) -> Unit,
     markers: List<UserMarker> = emptyList(),
     onToggleUserMarkers: () -> Unit = {},
+    onAddPin: (LatLng) -> Unit = {},
     onRetry: () -> Unit,
     onOpenTrackDrawer: () -> Unit = {},
     showTrackDrawer: Boolean = false,
@@ -1613,7 +1563,7 @@ private fun MapContent(
                                     appSettings.regulatedZonesVisible,
                                     appSettings.zone300Visible,
                                     appSettings.lowDepthWarningVisible,
-                                    markerLayerVisible
+                                    appSettings.userMarkersVisible
                                 ).count { it }
                             ),
                             parent = { _: Boolean, _: Int -> ThreeStripeLayerIcon(alpha = 1f) },
@@ -1624,7 +1574,7 @@ private fun MapContent(
                                 { isActive -> RegulatedZoneIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
                                 { isActive -> DoubleCircleIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
                                 { isActive -> WarningTriangleIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
-                                { isActive -> LocationOnIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) }
+                                { isActive -> OutlinedPinIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) }
                             ),
                             activeStates = listOf(
                                 appSettings.tracksVisible,
@@ -1632,7 +1582,7 @@ private fun MapContent(
                                 appSettings.regulatedZonesVisible,
                                 appSettings.zone300Visible,
                                 appSettings.lowDepthWarningVisible,
-                                markerLayerVisible
+                                appSettings.userMarkersVisible
                             ),
                             onChildClick = { index: Int, _: Boolean ->
                                 when (index) {
@@ -1647,14 +1597,16 @@ private fun MapContent(
                         )
                     }
 
-                    // Add Zone button (same size/style as FanLayout buttons, opens wizard at TypeSelect)
+                    // Add Pin button — below FanLayout anchor, grouped with it
                     Spacer(modifier = Modifier.height(6.dp))
                     MapControlButton(
-                        onClick = { onAddZone(mapCenter) },
-                        modifier = Modifier.alpha(if (anyFanOpen) 0f else 1f)
-                    ) {
-                        AddLocationAltIcon()
-                    }
+                        onClick = {
+                            // Create unconfirmed pin at current map center
+                            onAddPin(mapCenter)
+                        },
+                        modifier = Modifier.size(48.dp),
+                        icon = { FilledPinIcon() }
+                    )
                 }
 
                 // cb (controls bottom): Zoom +/- buttons + future

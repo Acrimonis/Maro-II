@@ -62,7 +62,7 @@ import ykws.android.maro.data.track.TrackRecorderUiState
  * @param onStopRecording   Triggered when user taps Stop.
  * @param onViewTrackList   Triggered when user taps "Track List".
  * @param onManageMarkers   Triggered when user taps "Manage Markers".
- * @param onDismiss         Triggered to close the panel.
+ * @param onDismiss         Triggered to close the drawer.
  */
 @Composable
 fun MenuDrawerOverlay(
@@ -265,6 +265,8 @@ fun MenuDrawerOverlay(
                         Spacer(Modifier.height(16.dp))
 
                         // ── MARKERS section ─────────────────────────────
+                        HorizontalDivider(color = Color(AppConfig.uiSettingsAccent).copy(alpha = 0.3f))
+                        Spacer(Modifier.height(12.dp))
                         Text(
                             text = "MARKERS",
                             color = Color(AppConfig.uiSettingsAccent),
@@ -272,37 +274,21 @@ fun MenuDrawerOverlay(
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.sp
                         )
-
-                        Spacer(Modifier.height(8.dp))
-
-                        Column(
+                        Spacer(Modifier.height(2.dp))
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color(AppConfig.uiCardBackground))
-                                .padding(horizontal = 16.dp, vertical = 10.dp)
+                                .clickable(onClick = onManageMarkers)
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(min = 48.dp)
-                                    .clickable(onClick = onManageMarkers),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = "Manage Markers",
-                                    color = Color(AppConfig.uiSettingsTextPrimary),
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                    contentDescription = "Manage markers",
-                                    tint = Color(AppConfig.uiSettingsTextMuted),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
+                            Text(
+                                text = "Manage Markers...",
+                                color = Color(AppConfig.uiSettingsTextPrimary),
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium
+                            )
                         }
                     }
                 }
