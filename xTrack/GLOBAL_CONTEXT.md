@@ -2,10 +2,10 @@
 
 ## Active Session Pointers
 - **Active Feature:** GPS
-- **Active Subfeature:** troubleshoot-gps-turns
-- **Last Updated:** 2026-06-22 16:52
-- **Last Bake:** 2026-06-22 16:52 (GPS — troubleshoot-gps-turns: spike rejection lock-in fix, stale-fix timeout 10s)
-- **Branch:** feature/gps
+- **Active Subfeature:** track-simplification
+- **Last Updated:** 2026-06-22 19:51
+- **Last Bake:** 2026-06-22 19:51 (GPS — track-simplification: single-pass compound-importance implemented, timeOffsetMs added)
+- **Branch:** feature/gps-optim
 ## Routing Map
 | Keyword | Feature File |
 |---|---|
