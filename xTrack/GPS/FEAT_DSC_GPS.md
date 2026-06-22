@@ -2,8 +2,8 @@
 name: GPS
 status: active
 created: 2026-06-07 00:00
-modified: 2026-06-11 14:00
-active_subfeature: none
+modified: 2026-06-22 16:52
+active_subfeature: troubleshoot-gps-turns
 ---
 
 # Feature: GpsPlugin
@@ -78,6 +78,25 @@ ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 
 #### Docs
 - `plans/gps-loss-investigation.md` — investigation report
+
+### troubleshoot-gps-turns  [ ]
+
+#### Todos
+- [ ] Investigate spike rejection lock-in on sharp turns: Gate 2 uses `lastValidCourseDeg`/`lastValidPointLat/Lon` that only update on accepted points — rejected turns lock out all subsequent fixes in new direction
+- [ ] Investigate GPS-loss recovery without Gate 0: if no `emitNoLock()` arrives before GPS recovers, `lastHadLock` stays `true`, Gate 0 doesn't fire, recovery fix goes through Gates 1-3 and may be rejected
+- [ ] Design fix: rejected points should update reference state (position + course) after N consecutive rejections in same direction, or use a timeout
+- [ ] Design fix: add a stale-fix timeout that resets spike rejection state when no fix received for > N seconds
+- [ ] Implement fix
+- [ ] Build (apk-build.bat) + on-device verification with sharp turns and GPS shadow zones
+
+#### Rules
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt` — spike rejection v2 (Gates 0-3), `captureAcceptedPoint`, `updateCourseHistory`
+- `app/src/main/java/ykws/android/maro/data/location/GpsLocationSource.kt` — `GpsFix.hasLock`, `emitNoLock`, GNSS status monitoring
+
+#### Docs
+- `xTrack/GPS/FEAT_PLN_GPS_troubleshoot-gps-turns.md` — investigation & fix plan
 
 ### validation-idle  [ ]
 

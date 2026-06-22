@@ -39,6 +39,8 @@ private const val STOP_DEBOUNCE_MS = 15_000L
 
 /** Interval (ms) between checkpoint saves during recording. */
 private const val CHECKPOINT_INTERVAL_MS = 30_000L
+/** Timeout (ms) after last accepted fix before spike rejection resets — prevents lock-in on sharp turns and silent GPS recovery. */
+private const val STALE_FIX_TIMEOUT_MS = 10_000L
 
 /** Maximum hull speed for a recreational boat (kn). */
 private const val BOAT_MAX_SPEED_KN = 32.0
@@ -151,6 +153,8 @@ class TrackRecorder(
     private var isOnLand: Boolean = false
     /** Previous fix's lock state — used to detect GPS recovery transitions. */
     private var lastHadLock: Boolean = true
+    /** Timestamp of the last accepted fix (ms) — used for stale-fix timeout reset. */
+    private var lastAcceptedTimeMs: Long = 0L
 
     private val policy = AdaptiveGpsPolicy()
     private var scope: CoroutineScope? = null
@@ -284,6 +288,7 @@ class TrackRecorder(
         seaConfidenceCounter = 0
         isOnLand = false
         lastHadLock = true
+        lastAcceptedTimeMs = System.currentTimeMillis()
         pointsSinceLastCheckpoint = 0
         stopDebounceStartTime = null
         transitionTo(TrackRecorderState.ON)
@@ -324,6 +329,16 @@ class TrackRecorder(
 
         // ── Spike rejection v2: four-gate algorithm (GPS mode only) ────
         if (gpsMode) {
+            // Timeout reset: if no fix accepted for >STALE_FIX_TIMEOUT_MS, accept unconditionally.
+            // Prevents lock-in after sharp turns (stale lastValidPoint/Course) and silent GPS
+            // recovery where no emitNoLock fired (lastHadLock stayed true, Gate 0 missed).
+            if (lastAcceptedTimeMs > 0L && System.currentTimeMillis() - lastAcceptedTimeMs > STALE_FIX_TIMEOUT_MS) {
+                Log.w(TAG, "Spike reset: ${(System.currentTimeMillis() - lastAcceptedTimeMs) / 1000}s since last accepted fix — accepting unconditionally")
+                lastHadLock = fix.hasLock
+                captureAcceptedPoint(fix)
+                return
+            }
+
             // Gate 0: GPS recovery — skip all checks when lock transitions false→true
             if (!lastHadLock && fix.hasLock) {
                 lastHadLock = true
@@ -422,6 +437,7 @@ class TrackRecorder(
         lastValidPointLat = point.lat
         lastValidPointLon = point.lon
         lastValidPointTimeMs = fix.timestampEpochMs
+        lastAcceptedTimeMs = System.currentTimeMillis()
 
         // Rebuild track with new point appended (immutable list)
         currentTrack = track.copy(
