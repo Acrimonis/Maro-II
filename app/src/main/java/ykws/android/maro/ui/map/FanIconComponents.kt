@@ -141,3 +141,56 @@ fun TrackLayerIcon(alpha: Float) {
         modifier = Modifier.size(ButtonColors.iconSizeDp.dp).alpha(alpha)
     )
 }
+
+/**
+ * Icon: filled pin (Add Pin button). Drawn with [Canvas].
+ * A filled drop-pin shape — distinct from the outlined toggle pin.
+ */
+@Composable
+fun FilledPinIcon() {
+    Canvas(modifier = Modifier.size(ICON_SIZE_DP.dp)) {
+        val w = size.width; val h = size.height
+        val cx = w / 2f; val cy = h * 0.38f; val r = w * 0.28f
+        // Circle (pin head) — filled
+        drawCircle(ButtonColors.icon, r, Offset(cx, cy))
+        // Stem (triangle pointing down)
+        val stemTop = cy + r * 0.7f
+        val stemBot = h * 0.92f
+        val stemHalfW = w * 0.12f
+        val path = Path().apply {
+            moveTo(cx - stemHalfW, stemTop)
+            lineTo(cx + stemHalfW, stemTop)
+            lineTo(cx, stemBot)
+            close()
+        }
+        drawPath(path, ButtonColors.icon)
+    }
+}
+
+/**
+ * Icon: outlined pin (user markers layer toggle in FanLayout).
+ * Distinct from [FilledPinIcon] — outline-only stroke.
+ *
+ * @param alpha Opacity (1.0 = active, 0.25 = inactive).
+ */
+@Composable
+fun OutlinedPinIcon(alpha: Float) {
+    Canvas(modifier = Modifier.size(ICON_SIZE_DP.dp)) {
+        val w = size.width; val h = size.height
+        val cx = w / 2f; val cy = h * 0.38f; val r = w * 0.28f
+        val strokeW = w * 0.10f
+        // Circle (pin head) — stroked
+        drawCircle(ButtonColors.icon, r, Offset(cx, cy), alpha, style = Stroke(strokeW))
+        // Stem (triangle pointing down) — stroked
+        val stemTop = cy + r * 0.7f
+        val stemBot = h * 0.92f
+        val stemHalfW = w * 0.12f
+        val path = Path().apply {
+            moveTo(cx - stemHalfW, stemTop)
+            lineTo(cx + stemHalfW, stemTop)
+            lineTo(cx, stemBot)
+            close()
+        }
+        drawPath(path, ButtonColors.icon, alpha, style = Stroke(strokeW, cap = StrokeCap.Round))
+    }
+}

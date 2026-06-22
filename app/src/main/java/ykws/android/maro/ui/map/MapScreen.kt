@@ -165,6 +165,8 @@ import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.data.markers.UserMarkerRepository
 import ykws.android.maro.spatial.SpatialOperations
+import ykws.android.maro.ui.map.MarkersViewModel
+import ykws.android.maro.ui.map.MarkerDrawer
 
 /** GPS-follow animation: minimum displacement (m) to trigger a glide instead of snap. */
 private const val GPS_ANIMATION_MIN_MOVE_M = 3.0
@@ -245,6 +247,8 @@ fun MapScreen(
     var showTrackHistory by remember { mutableStateOf(false) }
     val trackViewModel: ykws.android.maro.data.track.TrackViewModel =
         androidx.lifecycle.viewmodel.compose.viewModel()
+    val markersViewModel: MarkersViewModel =
+        androidx.lifecycle.viewmodel.compose.viewModel(factory = MarkersViewModel.Factory)
     val trackRecorderState by trackViewModel.uiState.collectAsState()
     val trackSummaries by trackViewModel.summaries.collectAsState()
     val recoveryTrack by trackViewModel.recoveryTrack.collectAsState()
@@ -474,11 +478,13 @@ fun MapScreen(
         value = repo.zoneSet.value
     }
 
-    // ── User markers: load JSON on first composition ────────────────────────────────
-    val userMarkers by produceState<List<UserMarker>>(initialValue = emptyList()) {
-        val markersDir = java.io.File(context.filesDir, "markers")
-        val repo = UserMarkerRepository(markersDir)
-        value = repo.loadAll()
+    // ── User markers: from MarkersViewModel ─────────────────────────────────────────
+    val userMarkers by markersViewModel.markers.collectAsState()
+
+    // Wire coastline data into MarkersViewModel for land-blocking when ready
+    if (coastlineReady) {
+        val data = (state as CoastlineState.Ready).data
+        markersViewModel.coastlineData = data
     }
 
     // ── Raster cache reads (no lazy auto-trigger; only settings button triggers generation) ──
@@ -848,7 +854,8 @@ fun MapScreen(
                 onZoomChanged = viewModel::updateZoomLevel,
                 onMapViewReady = { mapView = it },
                 markers = userMarkers,
-                onToggleUserMarkers = { viewModel.updateSettings { it.copy(userMarkersVisible = !it.userMarkersVisible) } },
+                onToggleUserMarkers = { markersViewModel.toggleVisibility() },
+                onAddPin = { center -> markersViewModel.openCreateDrawer(center) },
                 onRetry = { viewModel.loadCoastline() },
                 onOpenTrackDrawer = { showTrackDrawer = !showTrackDrawer },
                 showTrackDrawer = showTrackDrawer,
@@ -973,6 +980,11 @@ fun MapScreen(
                 onStartRecording = { trackViewModel.startRecording() },
                 onStopRecording = { trackViewModel.stopRecording() },
                 onViewTrackList = { showTrackDrawer = false; showTrackHistory = true },
+                onManageMarkers = {
+                    showTrackDrawer = false
+                    val center = mapCenter
+                    markersViewModel.openCreateDrawer(center)
+                },
                 onDismiss = { showTrackDrawer = false },
                 onOpenSettings = { showTrackDrawer = false; showSettings = true }
             )
@@ -1005,6 +1017,19 @@ fun MapScreen(
                 trackingColorPinnedFrom = appSettings.trackingColorPinnedFrom,
                 trackingColorPinnedTo = appSettings.trackingColorPinnedTo
             )
+        }
+
+        // ── Marker drawer overlay (creation/edit/match results) ──────────
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val markerIsLandscape = maxWidth > maxHeight
+            val drawerState by markersViewModel.drawerState.collectAsState()
+            if (drawerState !is MarkerDrawerState.Hidden) {
+                MarkerDrawer(
+                    viewModel = markersViewModel,
+                    isLandscape = markerIsLandscape,
+                    onClose = { markersViewModel.closeDrawer() }
+                )
+            }
         }
 
         // ── Process-death recovery dialog ─────────────────────────────
@@ -1102,6 +1127,7 @@ private fun MapContent(
     onMapViewReady: (MapView) -> Unit,
     markers: List<UserMarker> = emptyList(),
     onToggleUserMarkers: () -> Unit = {},
+    onAddPin: (LatLng) -> Unit = {},
     onRetry: () -> Unit,
     onOpenTrackDrawer: () -> Unit = {},
     showTrackDrawer: Boolean = false,
@@ -1394,7 +1420,7 @@ private fun MapContent(
                         FanLayout(
                             config = FanConfig(
                                 maxCount = 6,
-                                currentCount = 5,
+                                currentCount = 6,
                                 direction = FanDirection.LEFT,
                                 isOpen = isExpanded,
                                 toggleChildren = true,
@@ -1404,7 +1430,8 @@ private fun MapContent(
                                     appSettings.depthLayerVisible,
                                     appSettings.regulatedZonesVisible,
                                     appSettings.zone300Visible,
-                                    appSettings.lowDepthWarningVisible
+                                    appSettings.lowDepthWarningVisible,
+                                    appSettings.userMarkersVisible
                                 ).count { it }
                             ),
                             parent = { _: Boolean, _: Int -> ThreeStripeLayerIcon(alpha = 1f) },
@@ -1414,14 +1441,16 @@ private fun MapContent(
                                 { isActive -> DepthBarIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
                                 { isActive -> RegulatedZoneIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
                                 { isActive -> DoubleCircleIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
-                                { isActive -> WarningTriangleIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) }
+                                { isActive -> WarningTriangleIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
+                                { isActive -> OutlinedPinIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) }
                             ),
                             activeStates = listOf(
                                 appSettings.tracksVisible,
                                 appSettings.depthLayerVisible,
                                 appSettings.regulatedZonesVisible,
                                 appSettings.zone300Visible,
-                                appSettings.lowDepthWarningVisible
+                                appSettings.lowDepthWarningVisible,
+                                appSettings.userMarkersVisible
                             ),
                             onChildClick = { index: Int, _: Boolean ->
                                 when (index) {
@@ -1430,11 +1459,22 @@ private fun MapContent(
                                     2 -> onToggleRegulatedZones()
                                     3 -> onToggleZone300()
                                     4 -> onToggleLowDepthWarning()
+                                    5 -> onToggleUserMarkers()
                                 }
                             }
                         )
                     }
-                    // Future middle controls (2nd fan, etc.) can be added here
+
+                    // Add Pin button — below FanLayout anchor, grouped with it
+                    Spacer(modifier = Modifier.height(6.dp))
+                    MapControlButton(
+                        onClick = {
+                            // Create unconfirmed pin at current map center
+                            onAddPin(mapCenter)
+                        },
+                        modifier = Modifier.size(48.dp),
+                        icon = { FilledPinIcon() }
+                    )
                 }
 
                 // cb (controls bottom): Zoom +/- buttons + future

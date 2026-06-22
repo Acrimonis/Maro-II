@@ -56,10 +56,11 @@ import ykws.android.maro.data.track.TrackRecorderUiState
  *
  * @param isOpen           Whether the drawer is visible.
  * @param recorderState    Current recorder state from [TrackViewModel].
- * @param onStartRecording Triggered when user taps Start.
- * @param onStopRecording  Triggered when user taps Stop.
- * @param onViewTrackList  Triggered when user taps "Track List".
- * @param onDismiss        Triggered to close the drawer.
+ * @param onStartRecording  Triggered when user taps Start.
+ * @param onStopRecording   Triggered when user taps Stop.
+ * @param onViewTrackList   Triggered when user taps "Track List".
+ * @param onManageMarkers   Triggered when user taps "Manage Markers".
+ * @param onDismiss         Triggered to close the drawer.
  */
 @Composable
 fun TrackDrawerOverlay(
@@ -71,6 +72,7 @@ fun TrackDrawerOverlay(
     onStartRecording: () -> Unit,
     onStopRecording: () -> Unit,
     onViewTrackList: () -> Unit,
+    onManageMarkers: () -> Unit = {},
     onDismiss: () -> Unit,
     onOpenSettings: () -> Unit = {},
     modifier: Modifier = Modifier
@@ -254,6 +256,35 @@ fun TrackDrawerOverlay(
                                     StatRow("Avg Speed", "${"%.1f".format(recorderState.avgSpeedKn)} kn")
                                 }
                             }
+                        }
+
+                        Spacer(Modifier.height(16.dp))
+
+                        // ── MARKERS section ─────────────────────────────
+                        HorizontalDivider(color = Color(AppConfig.uiSettingsAccent).copy(alpha = 0.3f))
+                        Spacer(Modifier.height(12.dp))
+                        Text(
+                            text = "MARKERS",
+                            color = Color(AppConfig.uiSettingsAccent),
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(onClick = onManageMarkers)
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = "Manage Markers...",
+                                color = Color(AppConfig.uiSettingsTextPrimary),
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium
+                            )
                         }
                     }
                 }
