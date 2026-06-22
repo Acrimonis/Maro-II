@@ -540,54 +540,41 @@ fun MapScreen(
     // Track the set of currently-rendered track IDs to avoid full teardown+rebuild.
     val renderedTrackIds = remember { mutableStateOf(setOf<String>()) }
 
-    LaunchedEffect(mapView, showSettings, appSettings.tracksVisible, appSettings.trackingRenderNb, appSettings.trackingColorPastFrom, appSettings.trackingColorPastTo, appSettings.trackingTransparencyNewest, appSettings.trackingTransparencyOldest, trackSummaries) {
+    LaunchedEffect(mapView, showSettings, appSettings.tracksVisible, appSettings.trackingRenderNb, appSettings.trackingColorPastFrom, appSettings.trackingColorPastTo, appSettings.trackingTransparencyNewest, appSettings.trackingTransparencyOldest, appSettings.trackingColorPinnedFrom, appSettings.trackingColorPinnedTo, appSettings.trackingTransparencyPinnedNewest, appSettings.trackingTransparencyPinnedOldest, trackSummaries) {
         val mv = mapView ?: return@LaunchedEffect
 
-        // Determine desired track ID set
-        val desiredIds = if (appSettings.tracksVisible) {
-            val nbToRender = appSettings.trackingRenderNb.coerceIn(0, 20)
-            if (nbToRender > 0) {
-                trackSummaries
-                    .filter { it.visibleOnMap }
-                    .sortedByDescending { it.startTimeMs }
-                    .take(nbToRender)
-                    .map { it.id }
-                    .toSet()
-            } else emptySet()
-        } else emptySet()
-
-        // Remove all existing track history overlays — rebuild from scratch
-        // so opacity, color, and count changes always take effect.
+        // Remove all existing track history + pinned overlays — rebuild from scratch
         val toRemove = mv.overlays.filter { overlay ->
-            (overlay as? org.osmdroid.views.overlay.Polyline)?.title?.startsWith("track_hist_") == true
+            val title = (overlay as? org.osmdroid.views.overlay.Polyline)?.title ?: ""
+            title.startsWith("track_hist_") || title.startsWith("track_pinned_")
         }
         mv.overlays.removeAll(toRemove)
 
-        val sortedDesired = if (appSettings.tracksVisible) {
-            val nbToRender = appSettings.trackingRenderNb.coerceIn(0, 20)
-            if (nbToRender > 0) {
-                trackSummaries
-                    .filter { it.visibleOnMap }
-                    .sortedByDescending { it.startTimeMs }
-                    .take(nbToRender)
-            } else emptyList()
-        } else emptyList()
+        if (!appSettings.tracksVisible) {
+            renderedTrackIds.value = emptySet()
+            mv.invalidate()
+            return@LaunchedEffect
+        }
 
-        val total = sortedDesired.size
+        // Split summaries into pinned and history (unpinned)
+        val pinnedSummaries = trackSummaries.filter { it.pinned }.sortedByDescending { it.startTimeMs }
+        val historySummaries = trackSummaries.filter { !it.pinned }.sortedByDescending { it.startTimeMs }
+            .take(appSettings.trackingRenderNb.coerceIn(0, 20))
 
-        for ((index, summary) in sortedDesired.withIndex()) {
+        val desiredIds = mutableSetOf<String>()
+
+        // ── Render history tracks (bottom z-order) ──────────────────────
+        val historyTotal = historySummaries.size
+        for ((index, summary) in historySummaries.withIndex()) {
             val track = trackViewModel.loadTrackDetailCached(summary.id) ?: continue
             if (track.trackPoints.isEmpty()) continue
 
-            // Transparency interpolation: newest track gets transparencyNewest, oldest gets transparencyOldest.
-            // 0% = fully opaque, 100% = fully invisible. Convert to alpha for rendering.
             val alphaNewest = (100 - appSettings.trackingTransparencyNewest) / 100f
             val alphaOldest = (100 - appSettings.trackingTransparencyOldest) / 100f
-            val t = if (total <= 1) 0f else index.toFloat() / (total - 1).toFloat()
+            val t = if (historyTotal <= 1) 0f else index.toFloat() / (historyTotal - 1).toFloat()
             val alphaFraction = alphaNewest - t * (alphaNewest - alphaOldest)
             val alphaInt = (alphaFraction * 255).toInt().coerceIn(0, 255)
 
-            // Color interpolation: pastFrom (newest) → pastTo (oldest)
             val startColor = appSettings.trackingColorPastFrom
             val endColor = appSettings.trackingColorPastTo
             val r = ((startColor shr 16 and 0xFF) * (1f - t) + (endColor shr 16 and 0xFF) * t).toInt().coerceIn(0, 255)
@@ -605,7 +592,40 @@ fun MapScreen(
                 })
             }
             mv.overlays.add(polyline)
+            desiredIds.add(summary.id)
         }
+
+        // ── Render pinned tracks (middle z-order, on top of history) ───
+        val pinnedTotal = pinnedSummaries.size
+        for ((index, summary) in pinnedSummaries.withIndex()) {
+            val track = trackViewModel.loadTrackDetailCached(summary.id) ?: continue
+            if (track.trackPoints.isEmpty()) continue
+
+            val alphaNewest = (100 - appSettings.trackingTransparencyPinnedNewest) / 100f
+            val alphaOldest = (100 - appSettings.trackingTransparencyPinnedOldest) / 100f
+            val t = if (pinnedTotal <= 1) 0f else index.toFloat() / (pinnedTotal - 1).toFloat()
+            val alphaFraction = alphaNewest - t * (alphaNewest - alphaOldest)
+            val alphaInt = (alphaFraction * 255).toInt().coerceIn(0, 255)
+
+            val startColor = appSettings.trackingColorPinnedFrom
+            val endColor = appSettings.trackingColorPinnedTo
+            val r = ((startColor shr 16 and 0xFF) * (1f - t) + (endColor shr 16 and 0xFF) * t).toInt().coerceIn(0, 255)
+            val g = ((startColor shr 8 and 0xFF) * (1f - t) + (endColor shr 8 and 0xFF) * t).toInt().coerceIn(0, 255)
+            val b = ((startColor and 0xFF) * (1f - t) + (endColor and 0xFF) * t).toInt().coerceIn(0, 255)
+            val colorWithAlpha = (alphaInt shl 24) or (r shl 16) or (g shl 8) or b
+
+            val polyline = org.osmdroid.views.overlay.Polyline().apply {
+                title = "track_pinned_${summary.id}"
+                outlinePaint.color = colorWithAlpha
+                outlinePaint.strokeWidth = 6f
+                setPoints(track.trackPoints.map { pt ->
+                    org.osmdroid.util.GeoPoint(pt.lat, pt.lon)
+                })
+            }
+            mv.overlays.add(polyline)
+            desiredIds.add(summary.id)
+        }
+
         renderedTrackIds.value = desiredIds
         mv.invalidate()
     }
@@ -788,8 +808,9 @@ fun MapScreen(
                 onStopRecording = { trackViewModel.stopRecording() },
                 onViewTrackList = { showTrackHistory = true },
                 onDismissTrackHistory = { showTrackHistory = false },
-                onUpdateTrack = { id, name, comment, visible ->
-                    trackViewModel.updateTrack(id, name, comment, visible)
+                onUpdateTrack = { id, name, comment, pinned ->
+                    if (pinned != null) trackViewModel.setPinned(id, pinned)
+                    else trackViewModel.updateTrack(id, name, comment)
                 },
                 onDeleteTrack = { id -> trackViewModel.deleteTrack(id) },
                 onShareGpx = { id ->
@@ -911,8 +932,9 @@ fun MapScreen(
             TrackHistoryOverlay(
                 trackSummaries = trackSummaries,
                 liveTrackState = trackRecorderState,
-                onUpdateTrack = { id, name, comment, visible ->
-                    trackViewModel.updateTrack(id, name, comment, visible)
+                onUpdateTrack = { id, name, comment, pinned ->
+                    if (pinned != null) trackViewModel.setPinned(id, pinned)
+                    else trackViewModel.updateTrack(id, name, comment)
                 },
                 onUpdateLiveTrack = { name, comment ->
                     trackViewModel.updateLiveTrackMeta(name, comment)
@@ -2417,9 +2439,9 @@ private fun GeneralSettings(
                                 .background(ComposeColor(AppConfig.uiSettingsCardBackground))
                                 .padding(horizontal = 16.dp, vertical = 4.dp)
                         ) {
-                            // Number of tracks
+                            // Number of history tracks
                             Text(
-                                text = "Number of tracks",
+                                text = "Number of history tracks",
                                 color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium
@@ -2430,7 +2452,7 @@ private fun GeneralSettings(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "Recent tracks to render (0-20)",
+                                    text = "Recent unpinned tracks (0-20)",
                                     color = ComposeColor(AppConfig.uiSettingsTextMuted),
                                     fontSize = 13.sp,
                                     modifier = Modifier.weight(1f)
@@ -2465,15 +2487,15 @@ private fun GeneralSettings(
                             )
                             Spacer(Modifier.height(6.dp))
 
-                            // Transparency
+                            // History transparency
                             Text(
-                                text = "Transparency",
+                                text = "History transparency",
                                 color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium
                             )
                             Text(
-                                text = "Left thumb = newest track, right thumb = oldest. 0% = opaque, 100% = invisible.",
+                                text = "Left thumb = newest, right thumb = oldest. 0% = opaque, 100% = invisible.",
                                 color = ComposeColor(AppConfig.uiSettingsTextMuted),
                                 fontSize = 12.sp
                             )
@@ -2504,6 +2526,54 @@ private fun GeneralSettings(
                                 )
                             )
 
+                            Spacer(Modifier.height(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(1.dp)
+                                    .background(ComposeColor(AppConfig.uiSettingsDivider))
+                            )
+                            Spacer(Modifier.height(6.dp))
+
+                            // Pinned transparency
+                            Text(
+                                text = "Pinned transparency",
+                                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                            Text(
+                                text = "Pinned tracks always render on the map. 0% = opaque, 100% = invisible.",
+                                color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                                fontSize = 12.sp
+                            )
+                            Text(
+                                text = "Newest %d%%  –  Oldest %d%%".format(settings.trackingTransparencyPinnedNewest, settings.trackingTransparencyPinnedOldest),
+                                color = ComposeColor(AppConfig.uiSettingsAccent),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.End,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            RangeSlider(
+                                value = settings.trackingTransparencyPinnedNewest.toFloat()..settings.trackingTransparencyPinnedOldest.toFloat(),
+                                onValueChange = { range: ClosedFloatingPointRange<Float> ->
+                                    onUpdateSettings {
+                                        it.copy(
+                                            trackingTransparencyPinnedNewest = range.start.roundToInt(),
+                                            trackingTransparencyPinnedOldest = range.endInclusive.roundToInt()
+                                        )
+                                    }
+                                },
+                                valueRange = 0f..100f,
+                                steps = 19,
+                                colors = SliderDefaults.colors(
+                                    thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                                    activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
+                                    inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                                )
+                            )
+
                             Spacer(Modifier.height(8.dp))
 
                             // Colors
@@ -2514,7 +2584,7 @@ private fun GeneralSettings(
                                 fontWeight = FontWeight.Medium
                             )
                             Text(
-                                text = "Past tracks: color gradient from newest (From) to oldest (To). Pinned: reserved for future use.",
+                                text = "Past tracks: color gradient from newest (From) to oldest (To).",
                                 color = ComposeColor(AppConfig.uiSettingsTextMuted),
                                 fontSize = 12.sp
                             )

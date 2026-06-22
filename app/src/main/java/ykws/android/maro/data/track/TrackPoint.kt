@@ -10,7 +10,8 @@ import kotlinx.serialization.protobuf.ProtoNumber
  * @property lon           WGS84 longitude (°E).
  * @property speedMps      Speed over ground (m/s) at this point, or null if unknown.
  * @property bearingDeg    Course over ground (degrees, 0–360) at this point, or null.
- * @property timeOffsetSec Seconds since track start (relative offset saves ~5 bytes/point vs absolute timestamp).
+ * @property timeOffsetSec Seconds since track start (relative offset, kept for backward compat).
+ * @property timeOffsetMs  Milliseconds since track start, monotonically increasing (guaranteed unique).
  */
 @Serializable
 data class TrackPoint(
@@ -18,5 +19,6 @@ data class TrackPoint(
     @ProtoNumber(2) val lon: Double,
     @ProtoNumber(3) val speedMps: Float? = null,
     @ProtoNumber(4) val bearingDeg: Float? = null,
-    @ProtoNumber(5) val timeOffsetSec: Int = 0
+    @ProtoNumber(5) val timeOffsetSec: Int = 0,
+    @ProtoNumber(15) val timeOffsetMs: Long = 0L
 )

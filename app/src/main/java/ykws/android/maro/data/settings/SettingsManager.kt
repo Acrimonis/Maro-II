@@ -188,27 +188,41 @@ data class AppSettings(
      */
     val trackingColorPastTo: Int = BuildConfig.TRACKING_COLOR_PAST_TO,
     /**
-     * Transparency % (0-100) for the NEWEST past track.
+     * Transparency % (0-100) for the NEWEST past (history) track.
      * 0 = fully opaque, 100 = fully invisible.
      * Lower value = newest track more visible.
      */
     val trackingTransparencyNewest: Int = BuildConfig.TRACKING_TRANSPARENCY_FROM,
     /**
-     * Transparency % (0-100) for the OLDEST past track.
+     * Transparency % (0-100) for the OLDEST past (history) track.
      * 0 = fully opaque, 100 = fully invisible.
      * Higher value = oldest track more faded.
      */
     val trackingTransparencyOldest: Int = BuildConfig.TRACKING_TRANSPARENCY_TO,
     /**
+     * Transparency % (0-100) for the NEWEST pinned track.
+     * 0 = fully opaque, 100 = fully invisible.
+     */
+    val trackingTransparencyPinnedNewest: Int = BuildConfig.TRACKING_TRANSPARENCY_PINNED_FROM,
+    /**
+     * Transparency % (0-100) for the OLDEST pinned track.
+     * 0 = fully opaque, 100 = fully invisible.
+     */
+    val trackingTransparencyPinnedOldest: Int = BuildConfig.TRACKING_TRANSPARENCY_PINNED_TO,
+    /**
      * ARGB start color for pinned track gradient.
-     * Reserved for future use — pinned tracks not yet implemented.
      */
     val trackingColorPinnedFrom: Int = BuildConfig.TRACKING_COLOR_PINNED_FROM,
     /**
      * ARGB end color for pinned track gradient.
-     * Reserved for future use — pinned tracks not yet implemented.
      */
-    val trackingColorPinnedTo: Int = BuildConfig.TRACKING_COLOR_PINNED_TO
+    val trackingColorPinnedTo: Int = BuildConfig.TRACKING_COLOR_PINNED_TO,
+    /** Enable track point simplification at finalize (Douglas-Peucker + speed-aware). */
+    val trackSimplifyEnabled: Boolean = true,
+    /** Douglas-Peucker spatial tolerance (metres). */
+    val trackSimplifyEpsilonM: Double = 3.0,
+    /** Speed deviation threshold for reinsertion during simplification (knots). */
+    val trackSimplifySpeedDeltaKn: Double = 3.0
 ) {
     /** Check whether a [ZoneDisplayCategory] is enabled in the current settings. */
     fun isCategoryVisible(cat: ZoneDisplayCategory): Boolean = when (cat) {
@@ -322,8 +336,13 @@ class SettingsManager(
         trackingColorPastTo = prefs.getInt(KEY_TRACKING_COLOR_PAST_TO, BuildConfig.TRACKING_COLOR_PAST_TO),
         trackingTransparencyNewest = prefs.getInt(KEY_TRACKING_TRANSPARENCY_NEWEST, BuildConfig.TRACKING_TRANSPARENCY_FROM),
         trackingTransparencyOldest = prefs.getInt(KEY_TRACKING_TRANSPARENCY_OLDEST, BuildConfig.TRACKING_TRANSPARENCY_TO),
+        trackingTransparencyPinnedNewest = prefs.getInt(KEY_TRACKING_TRANSPARENCY_PINNED_NEWEST, BuildConfig.TRACKING_TRANSPARENCY_PINNED_FROM),
+        trackingTransparencyPinnedOldest = prefs.getInt(KEY_TRACKING_TRANSPARENCY_PINNED_OLDEST, BuildConfig.TRACKING_TRANSPARENCY_PINNED_TO),
         trackingColorPinnedFrom = prefs.getInt(KEY_TRACKING_COLOR_PINNED_FROM, BuildConfig.TRACKING_COLOR_PINNED_FROM),
-        trackingColorPinnedTo = prefs.getInt(KEY_TRACKING_COLOR_PINNED_TO, BuildConfig.TRACKING_COLOR_PINNED_TO)
+        trackingColorPinnedTo = prefs.getInt(KEY_TRACKING_COLOR_PINNED_TO, BuildConfig.TRACKING_COLOR_PINNED_TO),
+        trackSimplifyEnabled = prefs.getBoolean(KEY_TRACK_SIMPLIFY_ENABLED, true),
+        trackSimplifyEpsilonM = prefs.getFloat(KEY_TRACK_SIMPLIFY_EPSILON_M, 3.0f).toDouble(),
+        trackSimplifySpeedDeltaKn = prefs.getFloat(KEY_TRACK_SIMPLIFY_SPEED_DELTA_KN, 3.0f).toDouble()
     )
 
     /**
@@ -412,8 +431,13 @@ class SettingsManager(
             .putInt(KEY_TRACKING_COLOR_PAST_TO, updated.trackingColorPastTo)
             .putInt(KEY_TRACKING_TRANSPARENCY_NEWEST, updated.trackingTransparencyNewest)
             .putInt(KEY_TRACKING_TRANSPARENCY_OLDEST, updated.trackingTransparencyOldest)
+            .putInt(KEY_TRACKING_TRANSPARENCY_PINNED_NEWEST, updated.trackingTransparencyPinnedNewest)
+            .putInt(KEY_TRACKING_TRANSPARENCY_PINNED_OLDEST, updated.trackingTransparencyPinnedOldest)
             .putInt(KEY_TRACKING_COLOR_PINNED_FROM, updated.trackingColorPinnedFrom)
             .putInt(KEY_TRACKING_COLOR_PINNED_TO, updated.trackingColorPinnedTo)
+            .putBoolean(KEY_TRACK_SIMPLIFY_ENABLED, updated.trackSimplifyEnabled)
+            .putFloat(KEY_TRACK_SIMPLIFY_EPSILON_M, updated.trackSimplifyEpsilonM.toFloat())
+            .putFloat(KEY_TRACK_SIMPLIFY_SPEED_DELTA_KN, updated.trackSimplifySpeedDeltaKn.toFloat())
             .apply()
     }
 
@@ -491,8 +515,13 @@ class SettingsManager(
         private const val KEY_TRACKING_COLOR_PAST_TO = "tracking_color_past_to"
         private const val KEY_TRACKING_TRANSPARENCY_NEWEST = "tracking_transparency_newest"
         private const val KEY_TRACKING_TRANSPARENCY_OLDEST = "tracking_transparency_oldest"
+        private const val KEY_TRACKING_TRANSPARENCY_PINNED_NEWEST = "tracking_transparency_pinned_newest"
+        private const val KEY_TRACKING_TRANSPARENCY_PINNED_OLDEST = "tracking_transparency_pinned_oldest"
         private const val KEY_TRACKING_COLOR_PINNED_FROM = "tracking_color_pinned_from"
         private const val KEY_TRACKING_COLOR_PINNED_TO = "tracking_color_pinned_to"
+        private const val KEY_TRACK_SIMPLIFY_ENABLED = "track_simplify_enabled"
+        private const val KEY_TRACK_SIMPLIFY_EPSILON_M = "track_simplify_epsilon_m"
+        private const val KEY_TRACK_SIMPLIFY_SPEED_DELTA_KN = "track_simplify_speed_delta_kn"
         private const val KEY_PREFS_VERSION = "prefs_version"
         private const val CURRENT_VERSION = 2
     }

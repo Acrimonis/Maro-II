@@ -55,7 +55,10 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
             geofenceRadiusM = settings.trackGeofenceRadiusM,
             geofenceEnabled = settings.trackGeofenceEnabled,
             adaptiveWindowMs = settings.stopDetectionTimeSec * 1000L,
-            adaptiveThresholdM = settings.stopDetectionDistanceM.toDouble()
+            adaptiveThresholdM = settings.stopDetectionDistanceM.toDouble(),
+            simplifyEnabled = settings.trackSimplifyEnabled,
+            simplifyEpsilonM = settings.trackSimplifyEpsilonM,
+            simplifySpeedDeltaKn = settings.trackSimplifySpeedDeltaKn
         )
         recorder = rec
         rec.start(gpsFlow)
@@ -101,7 +104,10 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
             geofenceRadiusM = settings?.trackGeofenceRadiusM ?: 500.0,
             geofenceEnabled = settings?.trackGeofenceEnabled ?: true,
             adaptiveWindowMs = (settings?.stopDetectionTimeSec ?: 45) * 1000L,
-            adaptiveThresholdM = (settings?.stopDetectionDistanceM ?: 15).toDouble()
+            adaptiveThresholdM = (settings?.stopDetectionDistanceM ?: 15).toDouble(),
+            simplifyEnabled = settings?.trackSimplifyEnabled ?: true,
+            simplifyEpsilonM = settings?.trackSimplifyEpsilonM ?: 3.0,
+            simplifySpeedDeltaKn = settings?.trackSimplifySpeedDeltaKn ?: 3.0
         )
         rec.start(kotlinx.coroutines.flow.emptyFlow())
         recorder = rec
@@ -159,10 +165,19 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /** Update track metadata. */
-    fun updateTrack(id: String, name: String? = null, comment: String? = null, visibleOnMap: Boolean? = null) {
+    fun updateTrack(id: String, name: String? = null, comment: String? = null) {
         invalidateTrackCache(id)
         viewModelScope.launch {
-            repository.updateMetadata(id, name, comment, visibleOnMap)
+            repository.updateMetadata(id, name, comment)
+            refreshSummaries()
+        }
+    }
+
+    /** Toggle the pinned flag on a track. */
+    fun setPinned(id: String, pinned: Boolean) {
+        invalidateTrackCache(id)
+        viewModelScope.launch {
+            repository.setPinned(id, pinned)
             refreshSummaries()
         }
     }
