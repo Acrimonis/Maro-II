@@ -67,15 +67,20 @@ class TrackRepository(
         updateIndex()
     }
 
-    /** Update track metadata (name, comment, visibility). */
-    suspend fun updateMetadata(id: String, name: String? = null, comment: String? = null, visibleOnMap: Boolean? = null) {
+    /** Update track metadata (name, comment). */
+    suspend fun updateMetadata(id: String, name: String? = null, comment: String? = null) {
         val track = load(id) ?: return
         val updated = track.copy(
             name = name ?: track.name,
-            comment = comment ?: track.comment,
-            visibleOnMap = visibleOnMap ?: track.visibleOnMap
+            comment = comment ?: track.comment
         )
         save(updated)
+    }
+
+    /** Set the pinned flag on a track. */
+    suspend fun setPinned(id: String, pinned: Boolean) {
+        val track = load(id) ?: return
+        save(track.copy(pinned = pinned))
     }
 
     /** Save a mid-recording checkpoint (fast: writes only current state). */
@@ -140,7 +145,8 @@ class TrackRepository(
                         visibleOnMap = track.visibleOnMap,
                         navigatingDurationSec = track.navigatingDurationSec,
                         pausedDurationSec = track.pausedDurationSec,
-                        averageSpeedMps = track.averageSpeedMps
+                        averageSpeedMps = track.averageSpeedMps,
+                        pinned = track.pinned
                     )
                 } catch (e: Exception) {
                     file.delete()

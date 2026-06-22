@@ -92,8 +92,10 @@ android {
         buildConfigField("int", "TRACKING_COLOR_PAST_TO", propInt("tracking.color.pastTo", 0xFF0000FF.toInt()).toString())
         buildConfigField("int", "TRACKING_TRANSPARENCY_FROM", propInt("tracking.transparency.from", 20).toString())
         buildConfigField("int", "TRACKING_TRANSPARENCY_TO", propInt("tracking.transparency.to", 80).toString())
-        buildConfigField("int", "TRACKING_COLOR_PINNED_FROM", propInt("tracking.color.pinnedFrom", 0xFF1565C0.toInt()).toString())
-        buildConfigField("int", "TRACKING_COLOR_PINNED_TO", propInt("tracking.color.pinnedTo", 0xFF1565C0.toInt()).toString())
+        buildConfigField("int", "TRACKING_TRANSPARENCY_PINNED_FROM", propInt("tracking.transparency.pinnedFrom", 0).toString())
+        buildConfigField("int", "TRACKING_TRANSPARENCY_PINNED_TO", propInt("tracking.transparency.pinnedTo", 20).toString())
+        buildConfigField("int", "TRACKING_COLOR_PINNED_FROM", propInt("tracking.color.pinnedFrom", 0xFFFF6F00.toInt()).toString())
+        buildConfigField("int", "TRACKING_COLOR_PINNED_TO", propInt("tracking.color.pinnedTo", 0xFFFF8F00.toInt()).toString())
 
         // ── Stop detection GPS dormant percent from maro.properties ──────
         buildConfigField("int", "STOP_DETECTION_GPS_DORMANT_PCT",

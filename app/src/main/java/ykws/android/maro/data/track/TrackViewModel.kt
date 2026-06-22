@@ -159,10 +159,19 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /** Update track metadata. */
-    fun updateTrack(id: String, name: String? = null, comment: String? = null, visibleOnMap: Boolean? = null) {
+    fun updateTrack(id: String, name: String? = null, comment: String? = null) {
         invalidateTrackCache(id)
         viewModelScope.launch {
-            repository.updateMetadata(id, name, comment, visibleOnMap)
+            repository.updateMetadata(id, name, comment)
+            refreshSummaries()
+        }
+    }
+
+    /** Toggle the pinned flag on a track. */
+    fun setPinned(id: String, pinned: Boolean) {
+        invalidateTrackCache(id)
+        viewModelScope.launch {
+            repository.setPinned(id, pinned)
             refreshSummaries()
         }
     }
