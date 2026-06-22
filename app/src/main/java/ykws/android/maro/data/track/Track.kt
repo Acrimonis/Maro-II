@@ -18,7 +18,7 @@ import kotlinx.serialization.protobuf.ProtoNumber
  * @property averageSpeedMps      Average speed (m/s) over the entire track (excluding pauses).
  * @property trackColorArgb       ARGB colour for the polyline on the map (default amber 0xFFFF6F00).
  * @property trackPoints          The GPS polyline points.
- * @property visibleOnMap         Whether this track's polyline is drawn on the map.
+ * @property pinned               Whether this track is pinned (always renders on map regardless of history count).
  * @property distanceNm           Cumulative distance in nautical miles.
  * @property navigatingDurationSec Total time actually under way (computed = elapsedWallClockSec - pausedDurationSec).
  */
@@ -36,7 +36,8 @@ data class Track(
     @ProtoNumber(10) val trackPoints: List<TrackPoint> = emptyList(),
     @ProtoNumber(11) val visibleOnMap: Boolean = true,
     @ProtoNumber(12) val distanceNm: Float = 0f,
-    @ProtoNumber(13) val navigatingDurationSec: Long = 0
+    @ProtoNumber(13) val navigatingDurationSec: Long = 0,
+    @ProtoNumber(14) val pinned: Boolean = false
 )
 
 /**
@@ -55,7 +56,8 @@ data class TrackSummary(
     @ProtoNumber(8) val visibleOnMap: Boolean = true,
     @ProtoNumber(9) val navigatingDurationSec: Long = 0,
     @ProtoNumber(10) val pausedDurationSec: Long = 0,
-    @ProtoNumber(11) val averageSpeedMps: Float = 0f
+    @ProtoNumber(11) val averageSpeedMps: Float = 0f,
+    @ProtoNumber(12) val pinned: Boolean = false
 )
 
 /**

@@ -3,8 +3,8 @@
 ## Active Session Pointers
 - **Active Feature:** BoatTrace
 - **Active Subfeature:** pinned-tracks
-- **Last Updated:** 2026-06-22 15:18
-- **Last Bake:** 2026-06-22 15:20 (BoatTrace — pinned-tracks design: pin-icon, separate transparency, z-order)
+- **Last Updated:** 2026-06-22 16:54
+- **Last Bake:** 2026-06-22 16:54 (BoatTrace — pinned-tracks implemented: pin icon, rendering split, pinned transparency, fan button fix)
 - **Branch:** feature/tracks-list
 ## Routing Map
 | Keyword | Feature File |

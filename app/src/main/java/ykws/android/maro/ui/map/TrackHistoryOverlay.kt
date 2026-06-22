@@ -119,7 +119,7 @@ import kotlin.math.roundToInt
 fun TrackHistoryOverlay(
     trackSummaries: List<TrackSummary>,
     liveTrackState: TrackRecorderUiState? = null,
-    onUpdateTrack: (String, name: String?, comment: String?, visibleOnMap: Boolean?) -> Unit,
+    onUpdateTrack: (String, name: String?, comment: String?, pinned: Boolean?) -> Unit,
     onUpdateLiveTrack: ((name: String?, comment: String?) -> Unit)? = null,
     onDeleteTrack: (String) -> Unit,
     onUndoDeleteTrack: (String) -> Unit,
@@ -242,7 +242,7 @@ private fun SwipeToDeleteCard(
     summary: TrackSummary,
     modifier: Modifier = Modifier,
     dateFormat: SimpleDateFormat,
-    onUpdateTrack: (String, name: String?, comment: String?, visibleOnMap: Boolean?) -> Unit,
+    onUpdateTrack: (String, name: String?, comment: String?, pinned: Boolean?) -> Unit,
     onShareGpx: (String) -> Unit,
     onDelete: () -> Unit,
     onUndo: () -> Unit,
@@ -401,7 +401,7 @@ private fun SnackbarSlot(trackName: String, onUndo: () -> Unit) {
 private fun TrackCardContent(
     summary: TrackSummary,
     dateFormat: SimpleDateFormat,
-    onUpdateTrack: (String, name: String?, comment: String?, visibleOnMap: Boolean?) -> Unit,
+    onUpdateTrack: (String, name: String?, comment: String?, pinned: Boolean?) -> Unit,
     onShareGpx: (String) -> Unit
 ) {
     // Original values for revert-on-back
@@ -416,7 +416,7 @@ private fun TrackCardContent(
     var commentField by remember(summary.id) {
         mutableStateOf(TextFieldValue(summary.comment, TextRange(0, summary.comment.length)))
     }
-    val visible = summary.visibleOnMap
+    val pinned = summary.pinned
 
     val keyboardController = LocalSoftwareKeyboardController.current
     val nameFocus = remember { FocusRequester() }
@@ -469,10 +469,10 @@ private fun TrackCardContent(
             )
             Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 IconButton(
-                    onClick = { onUpdateTrack(summary.id, null, null, !visible) },
+                    onClick = { onUpdateTrack(summary.id, null, null, !pinned) },
                     modifier = Modifier.size(36.dp)
                 ) {
-                    if (visible) VisibilityIcon(1f) else VisibilityOffIcon(0.5f)
+                    PinIcon(pinned)
                 }
                 IconButton(
                     onClick = { onShareGpx(summary.id) },
@@ -819,33 +819,21 @@ private enum class EditingField { NAME, COMMENT }
 // ── Canvas icon composables (28dp, matching ICON_SIZE_DP) ───────────────────
 
 @Composable
-private fun VisibilityIcon(alpha: Float) {
+private fun PinIcon(pinned: Boolean) {
     Canvas(modifier = Modifier.size(28.dp)) {
         val w = size.width; val h = size.height; val c = ButtonColors.icon
-        val cx = w / 2f; val cy = h / 2f; val rx = w * 0.40f; val ry = h * 0.22f
-        drawArc(c, -180f, 180f, false, alpha = alpha,
-            topLeft = Offset(cx - rx, cy - ry), size = Size(rx * 2, ry * 2),
-            style = Stroke(w * 0.12f))
-        drawArc(c, 0f, 180f, false, alpha = alpha,
-            topLeft = Offset(cx - rx, cy - ry), size = Size(rx * 2, ry * 2),
-            style = Stroke(w * 0.12f))
-        drawCircle(c, w * 0.08f, Offset(cx, cy), alpha)
-    }
-}
-
-@Composable
-private fun VisibilityOffIcon(alpha: Float) {
-    Canvas(modifier = Modifier.size(28.dp)) {
-        val w = size.width; val h = size.height; val c = ButtonColors.icon
-        val cx = w / 2f; val cy = h / 2f; val rx = w * 0.40f; val ry = h * 0.22f
-        drawArc(c, -180f, 180f, false, alpha = alpha,
-            topLeft = Offset(cx - rx, cy - ry), size = Size(rx * 2, ry * 2),
-            style = Stroke(w * 0.12f))
-        drawArc(c, 0f, 180f, false, alpha = alpha,
-            topLeft = Offset(cx - rx, cy - ry), size = Size(rx * 2, ry * 2),
-            style = Stroke(w * 0.12f))
-        drawLine(c, Offset(w * 0.15f, h * 0.85f), Offset(w * 0.85f, h * 0.15f),
-            w * 0.10f, cap = StrokeCap.Round, alpha = alpha)
+        val cx = w / 2f
+        val alpha = if (pinned) 1f else 0.4f
+        // Pin head (circle)
+        drawCircle(c, w * 0.16f, Offset(cx, h * 0.28f), alpha)
+        // Pin body (triangle)
+        val path = androidx.compose.ui.graphics.Path().apply {
+            moveTo(cx - w * 0.18f, h * 0.38f)
+            lineTo(cx + w * 0.18f, h * 0.38f)
+            lineTo(cx, h * 0.88f)
+            close()
+        }
+        drawPath(path, c, alpha = alpha)
     }
 }
 

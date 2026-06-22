@@ -1,7 +1,7 @@
 name: BoatTrace
 status: active
 created: 2026-06-15 21:43
-modified: 2026-06-22 15:20
+modified: 2026-06-22 16:54
 active_subfeature: pinned-tracks
 ---
 
@@ -187,7 +187,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 
 ### track now demo  [x]
 
-### pinned-tracks  [ ]
+### pinned-tracks  [x]
 
 **Purpose:** Replace the per-track visibility eye-icon with a pin-icon in the track list. Pinned tracks always render on map with their own color gradient + transparency. History (unpinned) tracks still render via `trackingRenderNb` count slider.
 
@@ -292,3 +292,5 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 **spike-rejection-v2 (2026-06-22):** Four-gate algorithm replacing 50kn hard cap. Gate 0: GPS recovery (`hasLock` false→true). Gate 1: context-aware speed cap (32kn sea / 120kn land, auto-detected). Gate 2: course-aware direction multiplier (sea only, ±30° → ×1.5/×0.5). Gate 3: acceleration gate (10kn/s sea / 30kn/s land). Demo mode bypasses all. Self-contained in `TrackRecorder.kt`.
 
 **Build:** ✅ `assembleDebug` passes
+
+**pinned-tracks (2026-06-22):** Replaced eye-icon with pin-icon in TrackHistoryOverlay track card. Pin toggle → `TrackViewModel.setPinned()` → `TrackRepository.setPinned()`. Added `pinned: Boolean` to Track protobuf (ProtoNumber 14) and TrackSummary (ProtoNumber 12). Map rendering split: pinned tracks always render, history tracks capped by `trackingRenderNb`. Z-order: active > pinned > history. Pinned transparency defaults 0%→20% (amber→orange). Settings UI: "Number of history tracks" / "History transparency" / "Pinned transparency" RangeSliders. Fan button `mv.invalidate()` fix for toggle-off.
