@@ -28,6 +28,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -92,6 +93,7 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -245,6 +247,7 @@ fun MapScreen(
     var expandedFanId by remember { mutableStateOf<ControlId?>(null) }
     var showTrackDrawer by remember { mutableStateOf(false) }
     var showTrackHistory by remember { mutableStateOf(false) }
+    var showMarkerManagement by remember { mutableStateOf(false) }
     val trackViewModel: ykws.android.maro.data.track.TrackViewModel =
         androidx.lifecycle.viewmodel.compose.viewModel()
     val markersViewModel: MarkersViewModel =
@@ -797,8 +800,13 @@ fun MapScreen(
             BackHandler { showTrackHistory = false }
         }
 
+        // ── Intercept system back when marker management is open ───────────
+        if (showMarkerManagement) {
+            BackHandler { showMarkerManagement = false }
+        }
+
         // ── Otherwise require a second back press within 2 s to exit ───────
-        BackHandler(enabled = !showSettings && !showTrackHistory && !anyFanExpanded) {
+        BackHandler(enabled = !showSettings && !showTrackHistory && !showMarkerManagement && !anyFanExpanded) {
             val now = SystemClock.elapsedRealtime()
             if (now - lastBackAt <= 2_000L) {
                 context.stopService(Intent(context, ykws.android.maro.data.track.TrackRecordingService::class.java))
@@ -856,6 +864,11 @@ fun MapScreen(
                 markers = userMarkers,
                 onToggleUserMarkers = { markersViewModel.toggleVisibility() },
                 onAddPin = { center -> markersViewModel.openCreateDrawer(center) },
+                onMarkerTap = { id -> markersViewModel.openEditDrawer(id) },
+                onWhereAmI = {
+                    val boatPos = gpsPosition ?: mapCenter
+                    markersViewModel.whereAmI(boatPos)
+                },
                 onRetry = { viewModel.loadCoastline() },
                 onOpenTrackDrawer = { showTrackDrawer = !showTrackDrawer },
                 showTrackDrawer = showTrackDrawer,
@@ -982,8 +995,7 @@ fun MapScreen(
                 onViewTrackList = { showTrackDrawer = false; showTrackHistory = true },
                 onManageMarkers = {
                     showTrackDrawer = false
-                    val center = mapCenter
-                    markersViewModel.openCreateDrawer(center)
+                    showMarkerManagement = true
                 },
                 onDismiss = { showTrackDrawer = false },
                 onOpenSettings = { showTrackDrawer = false; showSettings = true }
@@ -1030,6 +1042,24 @@ fun MapScreen(
                     onClose = { markersViewModel.closeDrawer() }
                 )
             }
+        }
+
+        // ── Marker management overlay ─────────────────────────────────────
+        if (showMarkerManagement) {
+            val mgmtMarkers by markersViewModel.markers.collectAsState()
+            MarkerManagementOverlay(
+                markers = mgmtMarkers,
+                onTapMarker = { id -> markersViewModel.openEditDrawer(id) },
+                onSoftDeleteMarker = { id -> markersViewModel.softDeleteMarker(id) },
+                onUndoDeleteMarker = { id -> markersViewModel.undoDeleteMarker(id) },
+                onPermanentDelete = { id -> markersViewModel.deleteMarker(id) },
+                onCommitPendingDeletes = { markersViewModel.commitPendingDeletes() },
+                onCreateFirst = {
+                    showMarkerManagement = false
+                    markersViewModel.openCreateDrawer(mapCenter)
+                },
+                onDismiss = { showMarkerManagement = false }
+            )
         }
 
         // ── Process-death recovery dialog ─────────────────────────────
@@ -1128,6 +1158,8 @@ private fun MapContent(
     markers: List<UserMarker> = emptyList(),
     onToggleUserMarkers: () -> Unit = {},
     onAddPin: (LatLng) -> Unit = {},
+    onMarkerTap: (String) -> Unit = {},
+    onWhereAmI: () -> Unit = {},
     onRetry: () -> Unit,
     onOpenTrackDrawer: () -> Unit = {},
     showTrackDrawer: Boolean = false,
@@ -1223,12 +1255,63 @@ private fun MapContent(
 
         // ── Layer -1: User markers (below boat/arrow) ────────────────────
         if (appSettings.userMarkersVisible && markers.isNotEmpty()) {
-            MarkerOverlay(
-                markers = markers,
-                mapView = mapView,
-                proximityZoneMultiplier = AppConfig.markerProximityZoneMultiplier,
-                modifier = Modifier.fillMaxSize()
-            )
+            val mv = mapView
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .then(
+                        if (mv != null) {
+                            Modifier.pointerInput(markers, mv) {
+                                detectTapGestures { offset ->
+                                    // Hit-test: check each marker's pixel position
+                                    val proj = mv.projection
+                                    for (marker in markers) {
+                                        val (px, py) = when (val g = marker.geometry) {
+                                            is ykws.android.maro.data.model.markers.MarkerGeometry.Pin -> {
+                                                val pt = android.graphics.Point()
+                                                proj.toPixels(
+                                                    org.osmdroid.util.GeoPoint(g.position.latitude, g.position.longitude),
+                                                    pt
+                                                )
+                                                Pair(pt.x.toFloat(), pt.y.toFloat())
+                                            }
+                                            is ykws.android.maro.data.model.markers.MarkerGeometry.Circle -> {
+                                                val pt = android.graphics.Point()
+                                                proj.toPixels(
+                                                    org.osmdroid.util.GeoPoint(g.center.latitude, g.center.longitude),
+                                                    pt
+                                                )
+                                                Pair(pt.x.toFloat(), pt.y.toFloat())
+                                            }
+                                            is ykws.android.maro.data.model.markers.MarkerGeometry.Corridor -> {
+                                                val pt = android.graphics.Point()
+                                                proj.toPixels(
+                                                    org.osmdroid.util.GeoPoint(g.p1.latitude, g.p1.longitude),
+                                                    pt
+                                                )
+                                                Pair(pt.x.toFloat(), pt.y.toFloat())
+                                            }
+                                        }
+                                        val hitRadius = 24.dp.toPx() // generous tap target
+                                        val dx = offset.x - px
+                                        val dy = offset.y - py
+                                        if (dx * dx + dy * dy <= hitRadius * hitRadius) {
+                                            onMarkerTap(marker.id)
+                                            return@detectTapGestures
+                                        }
+                                    }
+                                }
+                            }
+                        } else Modifier
+                    )
+            ) {
+                MarkerOverlay(
+                    markers = markers,
+                    mapView = mapView,
+                    proximityZoneMultiplier = AppConfig.markerProximityZoneMultiplier,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
         }
 
         // ── Layer 0 overlays: cap (bottom), arrow (middle), marker (top) ──
@@ -1249,6 +1332,7 @@ private fun MapContent(
             isWater = isWater,
             zoomLevel = zoomLevel,
             distanceToShore = distanceToShore,
+            onClick = { onWhereAmI() },
             modifier = Modifier.align(Alignment.Center)
         )
 
@@ -1877,6 +1961,7 @@ private fun CenterMarkerOverlay(
     isWater: Boolean,
     zoomLevel: Double,
     distanceToShore: Double?,
+    onClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val drawableId = if (isWater) R.drawable.maro_marker else R.drawable.maro_dot_marker
@@ -1904,7 +1989,11 @@ private fun CenterMarkerOverlay(
     // On water: the boat image is shifted down by half its height so its top-center
     // aligns with the map center (GPS position at the boat's bow).
     // On land:   the dot stays centered (no offset — a dot has no direction).
-    Box(modifier = modifier.size(finalSizeDp)) {
+    Box(
+        modifier = modifier
+            .size(finalSizeDp)
+            .clickable(onClick = onClick)
+    ) {
         // ── Boat/land marker ──────────────────────────────────────────────
         val yOffset = if (isWater) finalSizeDp / 2 else 0.dp
         Image(
