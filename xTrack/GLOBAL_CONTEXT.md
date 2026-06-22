@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** ui-small-potatoes
-- **Active Subfeature:** small potatoes
-- **Last Updated:** 2026-06-22 14:20
-- **Last Bake:** 2026-06-22 14:20 (ui-small-potatoes — remove track toggle + danger icon redesign)
-- **Branch:** feature/dev
+- **Active Feature:** Markers
+- **Active Subfeature:** none
+- **Last Updated:** 2026-06-22
+- **Last Bake:** 2026-06-22 12:17 (Markers — plan evaluation complete, 7 gaps resolved)
+- **Branch:** feature/markers
 ## Routing Map
 | Keyword | Feature File |
 |---|---|
@@ -29,7 +29,11 @@
 | zone300speed, 300m badge, speed badge, 300m speed | xTrack/Zone300SpeedBadge/FEAT_DSC_Zone300SpeedBadge.md |
 | boat, trace, trip, boat-trace, boat-tracing, track, recording, port-salis, journey | xTrack/BoatTrace/FEAT_DSC_BoatTrace.md |
 | workflow, rules, ambiguity, merge, agents, gitops | xTrack/WorkflowAmbiguityFix/FEAT_DSC_WorkflowAmbiguityFix.md |
+<<<<<<< Updated upstream
 | ui, tweaks, polish, small-potatoes, ui-small-potatoes, small potatoes | xTrack/ui-small-potatoes/FEAT_DSC_ui-small-potatoes.md |
+=======
+| marker, markers, pin, user marker, user-markers, dropped pin, user zone, corridor, where am i, marker zone, circle marker | xTrack/Markers/FEAT_DSC_Markers.md |
+>>>>>>> Stashed changes
 
 ## Feature Summaries
 
@@ -58,7 +62,11 @@
 | **CheckDev** | **Dev-branch health monitoring — remote branch state, ahead/behind analysis, workflow hygiene validation** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
 | **Health** | **Application health monitoring — diagnostics, crash reporting, memory/performance telemetry** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
 | **WorkflowAmbiguityFix** | **Eliminate ambiguity between AGENTS.md rules — #merge direction, §5 reinforcement, command doc alignment** | **2026-06-20 14:51** | **2026-06-20 14:51** | **active** |
+<<<<<<< Updated upstream
 | **ui-small-potatoes** | **UI polish, refinements, and small fixes across the app** | **2026-06-22 13:50** | **2026-06-22 14:20** | **active** |
+=======
+| **Markers** | **User-defined map markers (Pin, Circle, Corridor) with sea-distance-gated proximity matching and on-demand "where am I?" query** | **2026-06-22 11:52** | **2026-06-22 12:37** | **active** |
+>>>>>>> Stashed changes
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).
