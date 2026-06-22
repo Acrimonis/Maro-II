@@ -142,7 +142,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.withContext
@@ -163,6 +162,8 @@ import ykws.android.maro.data.model.Zone300Data
 import ykws.android.maro.data.regulation.RegulatedZoneSet
 import ykws.android.maro.data.regulation.RegulatedZonesRepository
 import ykws.android.maro.data.settings.AppSettings
+import ykws.android.maro.data.model.markers.UserMarker
+import ykws.android.maro.data.markers.UserMarkerRepository
 import ykws.android.maro.spatial.SpatialOperations
 
 /** GPS-follow animation: minimum displacement (m) to trigger a glide instead of snap. */
@@ -220,7 +221,7 @@ internal fun computeTrackPolylineAppearance(
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @Composable
 fun MapScreen(
-    viewModel: NavigationViewModel,
+    viewModel: CoastlineViewModel,
     depthViewModel: DepthViewModel,
     modifier: Modifier = Modifier
 ) {
@@ -268,7 +269,7 @@ fun MapScreen(
     val effectiveHeadingDeg = if (appSettings.gpsMode) navigationState.bearingDeg.toDouble()
         else navigationState.demoBearingDeg?.toDouble() ?: 0.0
 
-    // Derive the GPS icon state from NavigationViewModel state (6-state model).
+    // Derive the GPS icon state from ViewModel state (6-state model).
     val gpsIconState = remember(appSettings.gpsMode, gpsPosition, gpsStale, acquisitionMode, isEstimating) {
         when {
             !appSettings.gpsMode -> GpsIconState.DEMO
@@ -473,6 +474,13 @@ fun MapScreen(
         value = repo.zoneSet.value
     }
 
+    // ── User markers: load JSON on first composition ────────────────────────────────
+    val userMarkers by produceState<List<UserMarker>>(initialValue = emptyList()) {
+        val markersDir = java.io.File(context.filesDir, "markers")
+        val repo = UserMarkerRepository(markersDir)
+        value = repo.loadAll()
+    }
+
     // ── Raster cache reads (no lazy auto-trigger; only settings button triggers generation) ──
     val rasterProgress by depthViewModel.rasterProgress.collectAsState()
     val generatingStep by depthViewModel.generatingStep.collectAsState()
@@ -551,85 +559,77 @@ fun MapScreen(
                     kotlinx.coroutines.flow.flowOf(0L)
                 }
             }
-        val sampleFlow = kotlinx.coroutines.flow.combine(
+        val gpsFlow = kotlinx.coroutines.flow.combine(
             viewModel.gpsPosition,
             viewModel.mapCenter,
             viewModel.navigationState,
-            viewModel.isEstimating,
             ticker
-        ) { gpsPos, center, nav, estimating, _ ->
-            // Dead reckoning extrapolates display position only —
-            // never feed extrapolated positions into track recording.
-            if (estimating) return@combine null
+        ) { gpsPos, center, nav, _ ->
             val isGps = appSettings.gpsMode
             val pos = gpsPos ?: center
             val speedKn = if (isGps) nav.speedKnots else nav.demoSpeedKnots
             val speedMs = speedKn?.let { it * 0.514444f }
             val bearing = if (isGps) nav.bearingDeg else nav.demoBearingDeg
             android.util.Log.d("MaroII_Track",
-                "TrackSample: gpsPos=${gpsPos != null} demoSpeed=${nav.demoSpeedKnots} speedKn=$speedKn speedMs=$speedMs")
-            ykws.android.maro.data.track.TrackSample(
+                "GPSflow: gpsPos=${gpsPos != null} demoSpeed=${nav.demoSpeedKnots} speedKn=$speedKn speedMs=$speedMs")
+            ykws.android.maro.data.location.GpsFix(
                 position = pos,
-                speedMps = speedMs,
                 bearingDeg = bearing,
-                hasLock = isGps,
+                hasCourse = speedMs != null && speedMs > 0.5f,
+                speedMps = speedMs,
+                hasLock = true,
                 timestampEpochMs = System.currentTimeMillis()
             )
-        }.filterNotNull()
-        trackViewModel.setStoppedSource(viewModel.isStopped)
-        trackViewModel.startRecorder(sampleFlow, appSettings)
-
-        // Periodic demo position feed: when GPS is off, re-feed the map center
-        // every second so the adaptive policy timer advances toward IDLE even
-        // when the user has stopped dragging (feedDemoPosition from onCenterChanged
-        // only fires on actual scroll events).
-        while (true) {
-            if (!appSettings.gpsMode) {
-                val center = viewModel.mapCenter.value
-                if (center != null) {
-                    viewModel.feedDemoPosition(center.latitude, center.longitude)
-                }
-            }
-            kotlinx.coroutines.delay(1_000L)
         }
+        trackViewModel.startRecorder(gpsFlow, appSettings)
     }
 
     // ── Track overlay: incremental diff for history tracks with fading transparency ──
     // Track the set of currently-rendered track IDs to avoid full teardown+rebuild.
     val renderedTrackIds = remember { mutableStateOf(setOf<String>()) }
 
-    LaunchedEffect(mapView, showSettings, appSettings.tracksVisible, appSettings.trackingRenderNb, appSettings.trackingColorPastFrom, appSettings.trackingColorPastTo, appSettings.trackingTransparencyNewest, appSettings.trackingTransparencyOldest, appSettings.trackingColorPinnedFrom, appSettings.trackingColorPinnedTo, appSettings.trackingTransparencyPinnedNewest, appSettings.trackingTransparencyPinnedOldest, trackSummaries) {
+    LaunchedEffect(mapView, showSettings, appSettings.tracksVisible, appSettings.trackingRenderNb, appSettings.trackingColorPastFrom, appSettings.trackingColorPastTo, appSettings.trackingTransparencyNewest, appSettings.trackingTransparencyOldest, trackSummaries) {
         val mv = mapView ?: return@LaunchedEffect
 
-        // Remove all existing track history + pinned overlays — rebuild from scratch
+        // Determine desired track ID set
+        val desiredIds = if (appSettings.tracksVisible) {
+            val nbToRender = appSettings.trackingRenderNb.coerceIn(0, 20)
+            if (nbToRender > 0) {
+                trackSummaries
+                    .filter { it.visibleOnMap }
+                    .sortedByDescending { it.startTimeMs }
+                    .take(nbToRender)
+                    .map { it.id }
+                    .toSet()
+            } else emptySet()
+        } else emptySet()
+
+        // Remove all existing track history overlays — rebuild from scratch
+        // so opacity, color, and count changes always take effect.
         val toRemove = mv.overlays.filter { overlay ->
-            val title = (overlay as? org.osmdroid.views.overlay.Polyline)?.title ?: ""
-            title.startsWith("track_hist_") || title.startsWith("track_pinned_")
+            (overlay as? org.osmdroid.views.overlay.Polyline)?.title?.startsWith("track_hist_") == true
         }
         mv.overlays.removeAll(toRemove)
 
-        if (!appSettings.tracksVisible) {
-            renderedTrackIds.value = emptySet()
-            mv.invalidate()
-            return@LaunchedEffect
-        }
+        val sortedDesired = if (appSettings.tracksVisible) {
+            val nbToRender = appSettings.trackingRenderNb.coerceIn(0, 20)
+            if (nbToRender > 0) {
+                trackSummaries
+                    .filter { it.visibleOnMap }
+                    .sortedByDescending { it.startTimeMs }
+                    .take(nbToRender)
+            } else emptyList()
+        } else emptyList()
 
-        // Split summaries into pinned and history (unpinned)
-        val pinnedSummaries = trackSummaries.filter { it.pinned }.sortedByDescending { it.startTimeMs }
-        val historySummaries = trackSummaries.filter { !it.pinned }.sortedByDescending { it.startTimeMs }
-            .take(appSettings.trackingRenderNb.coerceIn(0, 20))
+        val total = sortedDesired.size
 
-        val desiredIds = mutableSetOf<String>()
-
-        // ── Render history tracks (bottom z-order) ──────────────────────
-        val historyTotal = historySummaries.size
-        for ((index, summary) in historySummaries.withIndex()) {
+        for ((index, summary) in sortedDesired.withIndex()) {
             val track = trackViewModel.loadTrackDetailCached(summary.id) ?: continue
             if (track.trackPoints.isEmpty()) continue
 
             val appearance = computeTrackPolylineAppearance(
                 index = index,
-                total = historyTotal,
+                total = total,
                 transparencyNewest = appSettings.trackingTransparencyNewest,
                 transparencyOldest = appSettings.trackingTransparencyOldest,
                 colorFrom = appSettings.trackingColorPastFrom,
@@ -646,9 +646,7 @@ fun MapScreen(
                 })
             }
             mv.overlays.add(polyline)
-            desiredIds.add(summary.id)
         }
-
         // ── Render pinned tracks (middle z-order, on top of history) ───
         val pinnedTotal = pinnedSummaries.size
         for ((index, summary) in pinnedSummaries.withIndex()) {
@@ -681,26 +679,31 @@ fun MapScreen(
         mv.invalidate()
     }
 
-    // ── Active recording trace: incremental polyline via newPoint stream ────
-    // Polyline lifecycle (create/remove) driven by recorder state snapshot.
+    // ── Active recording trace: real-time Polyline during RECORDING ─────────
     LaunchedEffect(mapView, appSettings.trackingColorActive) {
         val mv = mapView ?: return@LaunchedEffect
-        androidx.compose.runtime.snapshotFlow { trackRecorderState.state }
-            .collect { recState ->
-                if (recState == ykws.android.maro.data.track.TrackRecorderState.ON) {
+        androidx.compose.runtime.snapshotFlow { trackRecorderState }
+            .collect { state ->
+                val recState = state.state
+                val points = state.recordingPoints
+
+                if (recState == ykws.android.maro.data.track.TrackRecorderState.ON && points.isNotEmpty()) {
                     val existing = mv.overlays.firstOrNull {
                         (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording"
-                    }
-                    if (existing == null) {
+                    } as? org.osmdroid.views.overlay.Polyline
+                    if (existing != null) {
+                        existing.setPoints(points.map { org.osmdroid.util.GeoPoint(it.lat, it.lon) })
+                    } else {
                         val polyline = org.osmdroid.views.overlay.Polyline().apply {
                             title = "track_recording"
                             outlinePaint.color = appSettings.trackingColorActive
                             outlinePaint.strokeWidth = 10f
                             isVisible = true
+                            setPoints(points.map { org.osmdroid.util.GeoPoint(it.lat, it.lon) })
                         }
                         mv.overlays.add(polyline)
-                        mv.invalidate()
                     }
+                    mv.invalidate()
                 } else {
                     val removed = mv.overlays.removeAll {
                         (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording"
@@ -708,20 +711,6 @@ fun MapScreen(
                     if (removed) mv.invalidate()
                 }
             }
-    }
-
-    // ── Incremental point appending: observe newPoint stream for live polyline ─┐
-    // Keyed on recorder state so a stop→restart cycle re-obtains the new SharedFlow.
-    LaunchedEffect(mapView, trackRecorderState.state) {
-        val mv = mapView ?: return@LaunchedEffect
-        val stream = trackViewModel.newPointStream ?: return@LaunchedEffect
-        stream.collect { point ->
-            val polyline = mv.overlays.firstOrNull {
-                (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording"
-            } as? org.osmdroid.views.overlay.Polyline ?: return@collect
-            polyline.addPoint(org.osmdroid.util.GeoPoint(point.lat, point.lon))
-            mv.invalidate()
-        }
     }
 
     // ── Foreground notification updates ────────────────────────────────────
@@ -752,15 +741,10 @@ fun MapScreen(
     }
 
     // The map centre drives BOTH layers: coastline (distance/zone) and depth-at-centre.
-    // Also feeds into adaptive stop detection in demo mode.
-    val onCenterChanged: (Double, Double) -> Unit = remember(viewModel, depthViewModel, appSettings) {
+    val onCenterChanged: (Double, Double) -> Unit = remember(viewModel, depthViewModel) {
         { lat, lon ->
             viewModel.updateMapCenter(lat, lon)
             depthViewModel.updateMapCenter(lat, lon)
-            // In demo mode, feed map center into adaptive policy for stop detection
-            if (!appSettings.gpsMode) {
-                viewModel.feedDemoPosition(lat, lon)
-            }
         }
     }
 
@@ -863,6 +847,8 @@ fun MapScreen(
                 onCenterChanged = onCenterChanged,
                 onZoomChanged = viewModel::updateZoomLevel,
                 onMapViewReady = { mapView = it },
+                markers = userMarkers,
+                onToggleUserMarkers = { viewModel.updateSettings { it.copy(userMarkersVisible = !it.userMarkersVisible) } },
                 onRetry = { viewModel.loadCoastline() },
                 onOpenTrackDrawer = { showTrackDrawer = !showTrackDrawer },
                 showTrackDrawer = showTrackDrawer,
@@ -874,9 +860,8 @@ fun MapScreen(
                 onStopRecording = { trackViewModel.stopRecording() },
                 onViewTrackList = { showTrackHistory = true },
                 onDismissTrackHistory = { showTrackHistory = false },
-                onUpdateTrack = { id, name, comment, pinned ->
-                    if (pinned != null) trackViewModel.setPinned(id, pinned)
-                    else trackViewModel.updateTrack(id, name, comment)
+                onUpdateTrack = { id, name, comment, visible ->
+                    trackViewModel.updateTrack(id, name, comment, visible)
                 },
                 onDeleteTrack = { id -> trackViewModel.deleteTrack(id) },
                 onShareGpx = { id ->
@@ -970,7 +955,6 @@ fun MapScreen(
                 navigationScrollState = navigationScrollState,
                 systemScrollState = systemScrollState,
                 onRegenerateRasters = { steps ->
-                    showSettings = false
                     val waterTest: (Double, Double) -> Boolean =
                         if (state is CoastlineState.Ready) viewModel::isOnWater else { _, _ -> true }
                     depthViewModel.generateRasterLayers(context, steps, appSettings, waterTest)
@@ -999,9 +983,8 @@ fun MapScreen(
             TrackHistoryOverlay(
                 trackSummaries = trackSummaries,
                 liveTrackState = trackRecorderState,
-                onUpdateTrack = { id, name, comment, pinned ->
-                    if (pinned != null) trackViewModel.setPinned(id, pinned)
-                    else trackViewModel.updateTrack(id, name, comment)
+                onUpdateTrack = { id, name, comment, visible ->
+                    trackViewModel.updateTrack(id, name, comment, visible)
                 },
                 onUpdateLiveTrack = { name, comment ->
                     trackViewModel.updateLiveTrackMeta(name, comment)
@@ -1117,6 +1100,8 @@ private fun MapContent(
     onCenterChanged: (Double, Double) -> Unit,
     onZoomChanged: (Double) -> Unit,
     onMapViewReady: (MapView) -> Unit,
+    markers: List<UserMarker> = emptyList(),
+    onToggleUserMarkers: () -> Unit = {},
     onRetry: () -> Unit,
     onOpenTrackDrawer: () -> Unit = {},
     showTrackDrawer: Boolean = false,
@@ -1197,10 +1182,28 @@ private fun MapContent(
             onCenterChanged = onCenterChanged,
             onZoomChanged = onZoomChanged,
             onMapViewReady = onMapViewReady,
-            expandedFanId = expandedFanId,
-            onDismissFan = onDismissFan,
             modifier = Modifier.fillMaxSize()
         )
+
+        // ── Scrim: transparent full-screen tap catcher when any fan is expanded ──
+        //     Placed between MapView and overlay Row so it catches taps on empty
+        //     areas of the screen (passing through non-clickable overlays above),
+        //     but fan children, settings, and zoom buttons (in the Row above) still
+        //     consume their own taps. Generic — dismisses whatever fan is open via
+        //     onDismissFan(), works for any number of future fans.
+        if (expandedFanId != null) {
+            Box(modifier = Modifier.fillMaxSize().clickable { onDismissFan() })
+        }
+
+        // ── Layer -1: User markers (below boat/arrow) ────────────────────
+        if (appSettings.userMarkersVisible && markers.isNotEmpty()) {
+            MarkerOverlay(
+                markers = markers,
+                mapView = mapView,
+                proximityZoneMultiplier = AppConfig.markerProximityZoneMultiplier,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
 
         // ── Layer 0 overlays: cap (bottom), arrow (middle), marker (top) ──
         // ── Layer 0 overlays: direction line + center marker ─────────────
@@ -1615,8 +1618,6 @@ private fun CoastlineMapView(
     onCenterChanged: (Double, Double) -> Unit = { _, _ -> },
     onZoomChanged: (Double) -> Unit = {},
     onMapViewReady: (MapView) -> Unit = {},
-    expandedFanId: ControlId? = null,
-    onDismissFan: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -1687,14 +1688,6 @@ private fun CoastlineMapView(
             }
         },
         update = { mapView ->
-            // ── Fan dismiss: close any expanded fan on map touch, pass through to map ──
-            mapView.setOnTouchListener { _, event ->
-                if (event.action == android.view.MotionEvent.ACTION_DOWN && expandedFanId != null) {
-                    onDismissFan()
-                }
-                false // never consume — let MapView handle pan/zoom
-            }
-
             var dirty = false
 
             // ── Zone300 layer ──────────────────────────────────────────────
@@ -2517,9 +2510,9 @@ private fun GeneralSettings(
                                 .border(1.dp, ComposeColor(0x40FFFFFF), RoundedCornerShape(12.dp))
                                 .padding(horizontal = 16.dp, vertical = 12.dp)
                         ) {
-                            // Number of history tracks
+                            // Number of tracks
                             Text(
-                                text = "Number of history tracks",
+                                text = "Number of tracks",
                                 color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium
@@ -2530,7 +2523,7 @@ private fun GeneralSettings(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "Recent unpinned tracks (0-20)",
+                                    text = "Recent tracks to render (0-20)",
                                     color = ComposeColor(AppConfig.uiSettingsTextMuted),
                                     fontSize = 13.sp,
                                     modifier = Modifier.weight(1f)
@@ -2565,15 +2558,15 @@ private fun GeneralSettings(
                             )
                             Spacer(Modifier.height(6.dp))
 
-                            // History transparency
+                            // Transparency
                             Text(
-                                text = "History transparency",
+                                text = "Transparency",
                                 color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium
                             )
                             Text(
-                                text = "Left thumb = newest, right thumb = oldest. 0% = opaque, 100% = invisible.",
+                                text = "Left thumb = newest track, right thumb = oldest. 0% = opaque, 100% = invisible.",
                                 color = ComposeColor(AppConfig.uiSettingsTextMuted),
                                 fontSize = 12.sp
                             )
@@ -2604,6 +2597,7 @@ private fun GeneralSettings(
                                 )
                             )
 
+<<<<<<< HEAD
                             Spacer(Modifier.height(6.dp))
                             Box(
                                 modifier = Modifier
@@ -2660,6 +2654,9 @@ private fun GeneralSettings(
                                     .background(ComposeColor(0x26FFFFFF))
                             )
                             Spacer(Modifier.height(6.dp))
+=======
+                            Spacer(Modifier.height(8.dp))
+>>>>>>> 97be575 (Markers Phase D: map overlay rendering — Pin/Circle/Corridor Canvas + proximity preview)
 
                             // Colors
                             Text(
@@ -2669,7 +2666,7 @@ private fun GeneralSettings(
                                 fontWeight = FontWeight.Medium
                             )
                             Text(
-                                text = "Past tracks: color gradient from newest (From) to oldest (To).",
+                                text = "Past tracks: color gradient from newest (From) to oldest (To). Pinned: reserved for future use.",
                                 color = ComposeColor(AppConfig.uiSettingsTextMuted),
                                 fontSize = 12.sp
                             )
@@ -3187,6 +3184,7 @@ private fun SystemSettings(
                 .background(ComposeColor(AppConfig.uiCardBackground))
         ) {
             // Enable stop detection toggle
+<<<<<<< HEAD
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -3258,6 +3256,18 @@ private fun SystemSettings(
                     )
                 }
 
+=======
+            SettingsToggleRow(
+                label = stringResource(R.string.settings_stop_enable_label),
+                description = stringResource(R.string.settings_stop_enable_desc),
+                checked = settings.stopDetectionEnabled,
+                onCheckedChange = { on -> onUpdateSettings { it.copy(stopDetectionEnabled = on) } }
+            )
+
+            // Conditional content: only shown when stop detection is enabled
+            if (settings.stopDetectionEnabled) {
+                // Thin divider
+>>>>>>> 97be575 (Markers Phase D: map overlay rendering — Pin/Circle/Corridor Canvas + proximity preview)
                 Spacer(Modifier.height(8.dp))
 
                 // Detection thresholds expander
@@ -3292,7 +3302,23 @@ private fun SystemSettings(
                         }
                     }
                 }
+<<<<<<< HEAD
                 Spacer(Modifier.height(16.dp))
+=======
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Thin divider
+                Spacer(Modifier.height(8.dp))
+
+                // Delay GPS when still toggle
+                SettingsToggleRow(
+                    label = stringResource(R.string.settings_stop_delay_label),
+                    description = stringResource(R.string.settings_stop_delay_desc),
+                    checked = settings.stopDetectionDelayGps,
+                    onCheckedChange = { on -> onUpdateSettings { it.copy(stopDetectionDelayGps = on) } }
+                )
+>>>>>>> 97be575 (Markers Phase D: map overlay rendering — Pin/Circle/Corridor Canvas + proximity preview)
             }
         }
 
