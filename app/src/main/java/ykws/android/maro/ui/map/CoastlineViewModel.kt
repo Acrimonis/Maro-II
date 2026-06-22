@@ -709,6 +709,10 @@ class CoastlineViewModel(
                     now, fix.position,
                     s.stopDetectionTimeSec * 1_000L, s.stopDetectionDistanceM.toDouble()
                 )
+                // NEW: invalidate dead reckoning state when boat goes idle (stopped)
+                if (_acquisitionMode.value == AcquisitionMode.IDLE) {
+                    deadReckoningState = null
+                }
             }
             .catch { e ->
                 if (e is SecurityException) {

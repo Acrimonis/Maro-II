@@ -82,6 +82,7 @@ data class TrackRecorderUiState(
  */
 class TrackRecorder(
     private val repository: TrackRepository,
+    private val gpsMode: Boolean = true,
     private val geofenceOriginLat: Double = 43.55,
     private val geofenceOriginLon: Double = 7.00,
     private val geofenceRadiusM: Double = 500.0,
@@ -277,7 +278,7 @@ class TrackRecorder(
         Log.d(TAG, "addPoint: speed=${speedKn} kn isStill=${policy.isStill()} moving=$moving state=$state")
 
         // Skip point capture when stationary (still tracking, just not recording points)
-        if (!moving) return
+        if (!moving && gpsMode) return
 
         // ── Outlier rejection: implied speed vs last valid recorded point ────
         if (lastValidPointLat != null && lastValidPointLon != null && lastValidPointTimeMs > 0L) {
@@ -349,7 +350,7 @@ class TrackRecorder(
                 currentSpeedKn = latestSpeedKn,
                 distanceNm = cumulativeDistanceNm,
                 avgSpeedKn = avgKn,
-                recordingPoints = track.trackPoints
+                recordingPoints = currentTrack!!.trackPoints
             )
         }
     }
