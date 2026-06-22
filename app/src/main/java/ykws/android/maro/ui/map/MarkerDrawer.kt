@@ -568,6 +568,7 @@ private fun EditContent(viewModel: MarkersViewModel, markerId: String, onClose: 
 @Composable
 private fun MatchResultContent(viewModel: MarkersViewModel, onClose: () -> Unit) {
     val result by viewModel.matchResult.collectAsState()
+    val allMarkers by viewModel.markers.collectAsState()
     val scrollState = rememberScrollState()
 
     Column(
@@ -582,11 +583,32 @@ private fun MatchResultContent(viewModel: MarkersViewModel, onClose: () -> Unit)
 
         val matches = result?.matches ?: emptyList()
         if (matches.isEmpty()) {
-            Text(
-                "No markers nearby",
-                color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                fontSize = 14.sp
-            )
+            if (allMarkers.isEmpty()) {
+                Text(
+                    "No markers placed yet",
+                    color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                    fontSize = 14.sp
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Create a marker first, then tap the boat icon to find nearby markers.",
+                    color = ComposeColor(AppConfig.uiSettingsTextMuted).copy(alpha = 0.6f),
+                    fontSize = 12.sp
+                )
+            } else {
+                Text(
+                    "No markers in range",
+                    color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    "Land may be blocking all markers, or you are too far away. Try moving closer or checking from a different position.",
+                    color = ComposeColor(AppConfig.uiSettingsTextMuted).copy(alpha = 0.6f),
+                    fontSize = 12.sp
+                )
+            }
         } else {
             matches.forEach { match ->
                 MatchResultRow(match, indent = 0)

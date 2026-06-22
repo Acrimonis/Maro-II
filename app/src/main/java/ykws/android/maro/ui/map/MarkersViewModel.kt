@@ -288,6 +288,39 @@ class MarkersViewModel(
         }
     }
 
+    // ── Soft-delete for management page undo ──────────────────────────────
+
+    /** Set of marker IDs pending deletion (not yet persisted). */
+    val pendingDeletes: MutableSet<String> = mutableSetOf()
+
+    /** Soft-delete: remove from UI but allow undo. */
+    fun softDeleteMarker(markerId: String) {
+        pendingDeletes.add(markerId)
+        _markers.value = _markers.value.filter { it.id != markerId }
+    }
+
+    /** Undo a soft-delete: restore the marker to the UI. */
+    fun undoDeleteMarker(markerId: String) {
+        pendingDeletes.remove(markerId)
+        // Reload from repo — the marker was never actually deleted
+        viewModelScope.launch {
+            _markers.value = withContext(Dispatchers.IO) { repo.loadAll() }
+        }
+    }
+
+    /** Commit all pending soft-deletes to persistent storage. */
+    fun commitPendingDeletes() {
+        if (pendingDeletes.isEmpty()) return
+        val ids = pendingDeletes.toSet()
+        pendingDeletes.clear()
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                ids.forEach { id -> repo.delete(id) }
+            }
+            _markers.value = withContext(Dispatchers.IO) { repo.loadAll() }
+        }
+    }
+
     // ── "Where am I?" on-demand match ─────────────────────────────────────
 
     /**
