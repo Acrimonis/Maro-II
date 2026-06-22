@@ -2,7 +2,7 @@ name: BoatTrace
 status: active
 created: 2026-06-15 21:43
 modified: 2026-06-22 10:50
-active_subfeature: track now demo
+active_subfeature: ai-it
 ---
 
 # Feature: BoatTrace
@@ -186,6 +186,8 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 - `xTrack/BoatTrace/FEAT_PLN_BoatTrace_gps-line-acquisition.md`
 
 ### track now demo  [x]
+
+### ai-it  [ ]
 
 ## Todos
 - [ ] E2E verification on device (build + deploy, run all test scenarios)
