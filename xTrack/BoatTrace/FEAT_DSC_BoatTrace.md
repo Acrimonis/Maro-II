@@ -1,8 +1,8 @@
 name: BoatTrace
 status: active
 created: 2026-06-15 21:43
-modified: 2026-06-22 10:50
-active_subfeature: track now demo
+modified: 2026-06-22 15:20
+active_subfeature: pinned-tracks
 ---
 
 # Feature: BoatTrace
@@ -187,6 +187,41 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 
 ### track now demo  [x]
 
+### pinned-tracks  [ ]
+
+**Purpose:** Replace the per-track visibility eye-icon with a pin-icon in the track list. Pinned tracks always render on map with their own color gradient + transparency. History (unpinned) tracks still render via `trackingRenderNb` count slider.
+
+#### Todos
+- [ ] Add `pinned: Boolean` to Track protobuf (default false) — replaces `visibleOnMap`
+- [ ] Add `TrackRepository.setPinned(trackId, pinned)` for protobuf persistence
+- [ ] Add `trackingTransparencyPinnedNewest/Oldest` to AppSettings, BuildConfig, SharedPreferences (defaults 0%→20%)
+- [ ] Replace eye-icon with pin-icon toggle in TrackHistoryOverlay track card; persist on tap
+- [ ] Add pinned transparency RangeSlider to settings UI (alongside existing history transparency)
+- [ ] Relabel settings: "Number of tracks" → "Number of history tracks", "Transparency" → "History transparency"
+- [ ] Update MapScreen rendering: split pinned vs history, compute alpha separately per group
+- [ ] Z-order: active > pinned > past (pinned polylines between active and history)
+- [ ] Update TrackViewModel: expose `pinnedTracks` / `historyTracks` filtered lists
+- [ ] Build + deploy + E2E verify
+
+#### Rules
+- **Pin replaces eye-icon** — pin is the sole per-track map-visibility control
+- **`trackingRenderNb` applies to history only** — pinned tracks always render regardless of count
+- Pinned transparency defaults: **0%→20%** (more opaque than history's 20%→80%)
+- Same alpha formula for all: `alpha = (100 - transparency) / 100f`
+- Z-order: active > pinned > past
+- Color infrastructure (`trackingColorPinnedFrom→To`) already exists — only transparency keys are new
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt` — eye→pin icon swap
+- `app/src/main/java/ykws/android/maro/data/track/TrackViewModel.kt` — pinned/history split
+- `app/src/main/java/ykws/android/maro/data/track/TrackRepository.kt` — setPinned()
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — rendering split + settings UI
+- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — new transparency keys
+- `app/build.gradle.kts` — BuildConfig defaults (TRACKING_TRANSPARENCY_PINNED_FROM/TO)
+
+#### Docs
+- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_pinned-tracks.md` — full design & implementation plan
+
 ## Todos
 - [ ] E2E verification on device (build + deploy, run all test scenarios)
 - [ ] Track list UI polish per design spec (FEAT_PLN_BoatTrace_TrackList_Design.md)
@@ -222,6 +257,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 - `xTrack/BoatTrace/FEAT_PLN_BoatTrace_gps-background.md` — Persistent foreground service: always-on notification with live recording stats, demo-aware
 - `xTrack/BoatTrace/FEAT_PLN_BoatTrace_spike-rejection-v2.md` — Spike rejection v2: 4-gate algorithm design plan
 - `xTrack/BoatTrace/FEAT_PLN_BoatTrace_adaptive-isstill.md` — adaptive GPS stillness detection plan
+- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_pinned-tracks.md` — Pinned tracks: replace eye-icon with pin-icon, separate transparency, z-order
 
 ## Implemented
 

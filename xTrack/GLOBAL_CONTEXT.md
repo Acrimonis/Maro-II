@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** ui-small-potatoes
-- **Active Subfeature:** small potatoes
-- **Last Updated:** 2026-06-22 14:20
-- **Last Bake:** 2026-06-22 14:20 (ui-small-potatoes — remove track toggle + danger icon redesign)
-- **Branch:** feature/dev
+- **Active Feature:** BoatTrace
+- **Active Subfeature:** pinned-tracks
+- **Last Updated:** 2026-06-22 15:18
+- **Last Bake:** 2026-06-22 15:20 (BoatTrace — pinned-tracks design: pin-icon, separate transparency, z-order)
+- **Branch:** feature/tracks-list
 ## Routing Map
 | Keyword | Feature File |
 |---|---|
@@ -65,7 +65,7 @@
 - `adb.exe` is in the computer PATH — use `adb` directly without full path qualifier.
 - Auto-refine rule wording for clarity and conciseness on `#rule` add.
 - Use apk-build.bat to build APK (runs gradlew assembleDebug).
-- **NO auto git commit/push** — `git add` only when directed; wait for user to say "commit" or "push" before executing those commands (per AGENTS.md §5).
+- **Git operations allowed in Architect mode on user confirmation** — `git add`, `git commit`, `git checkout -b` permitted when user explicitly confirms (e.g., `#commit`). `git push`, `git merge`, `git rebase` still require separate confirmation per AGENTS.md §5. Never touch `develop`/`main` branches.
 - **🔴 MODE LOCK: Do not switch to Code mode or invoke `#implement` pipeline without explicit user go-ahead (`#implement` tag or "go ahead" / "implement now").** Never suggest "ready for #implement" — it implies permission. Architect mode stays in Architect until user explicitly directs otherwise.
 
 ## Global Todos
