@@ -99,6 +99,9 @@ data class TrackRecorderUiState(
  * @param geofenceEnabled         When false, recording starts on movement alone.
  * @param adaptiveWindowMs        Adaptive idle window (ms) — how long the boat must stay still before pausing.
  * @param adaptiveThresholdM      Adaptive displacement threshold (m) — max movement still counted as stationary.
+ * @param simplifyEnabled         When true, simplify track points on finalize (Douglas-Peucker + speed-aware).
+ * @param simplifyEpsilonM        Douglas-Peucker tolerance (metres). Lower = more points kept.
+ * @param simplifySpeedDeltaKn    Speed deviation threshold (knots) to re-insert a point during simplification.
  * @param dispatcher              Coroutine dispatcher for the state machine loop.
  */
 class TrackRecorder(
@@ -110,6 +113,9 @@ class TrackRecorder(
     private val geofenceEnabled: Boolean = true,
     private val adaptiveWindowMs: Long = 30_000L,
     private val adaptiveThresholdM: Double = 20.0,
+    private val simplifyEnabled: Boolean = true,
+    private val simplifyEpsilonM: Double = 3.0,
+    private val simplifySpeedDeltaKn: Double = 3.0,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default
 ) {
     private val _uiState = MutableStateFlow(TrackRecorderUiState())
@@ -155,6 +161,8 @@ class TrackRecorder(
     private var lastHadLock: Boolean = true
     /** Timestamp of the last accepted fix (ms) — used for stale-fix timeout reset. */
     private var lastAcceptedTimeMs: Long = 0L
+    /** Last assigned timeOffsetMs — ensures monotonic uniqueness even when fixes share the same ms. */
+    private var lastTimeOffsetMs: Long = 0L
 
     private val policy = AdaptiveGpsPolicy()
     private var scope: CoroutineScope? = null
@@ -289,6 +297,7 @@ class TrackRecorder(
         isOnLand = false
         lastHadLock = true
         lastAcceptedTimeMs = System.currentTimeMillis()
+        lastTimeOffsetMs = 0L
         pointsSinceLastCheckpoint = 0
         stopDebounceStartTime = null
         transitionTo(TrackRecorderState.ON)
@@ -404,12 +413,16 @@ class TrackRecorder(
 
         val now = System.currentTimeMillis()
         val timeOffsetSec = ((now - recordingStartTimeMs) / 1000).toInt()
+        val rawMs = now - recordingStartTimeMs
+        val timeOffsetMs = if (rawMs <= lastTimeOffsetMs) lastTimeOffsetMs + 1 else rawMs
+        lastTimeOffsetMs = timeOffsetMs
         val point = TrackPoint(
             lat = fix.position.latitude,
             lon = fix.position.longitude,
             speedMps = fix.speedMps,
             bearingDeg = fix.bearingDeg,
-            timeOffsetSec = timeOffsetSec
+            timeOffsetSec = timeOffsetSec,
+            timeOffsetMs = timeOffsetMs
         )
 
         // Accumulate stats
@@ -512,7 +525,19 @@ class TrackRecorder(
         val totalElapsedSec = if (recordingStartTimeMs > 0) {
             (System.currentTimeMillis() - recordingStartTimeMs) / 1000
         } else 0L
+        val simplifiedPoints = if (simplifyEnabled && track.trackPoints.size >= 3) {
+            try {
+                val result = TrackSimplifier.simplify(track.trackPoints, simplifyEpsilonM, simplifySpeedDeltaKn)
+                result
+            } catch (e: Exception) {
+                Log.w(TAG, "finalizeTrack: simplification failed — saving raw points (${track.trackPoints.size})", e)
+                track.trackPoints
+            }
+        } else {
+            track.trackPoints
+        }
         val finalized = track.copy(
+            trackPoints = simplifiedPoints,
             endTimeMs = System.currentTimeMillis(),
             pausedDurationSec = 0,
             averageSpeedMps = avgMps,
