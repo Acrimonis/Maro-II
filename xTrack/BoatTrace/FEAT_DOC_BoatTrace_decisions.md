@@ -238,6 +238,20 @@
 
 ## 7. Tech Stack Decisions
 
+### 7.8 Demo-Mode Point Capture (2026-06-21)
+- **Decision:** Bypass `AdaptiveGpsPolicy` stillness gate in demo mode via `gpsMode` flag on `TrackRecorder`.
+- **Rationale:** In demo mode, the user explicitly pressed Record — every 1 Hz tick should capture a point regardless of pan speed. The 20m/30s stillness threshold designed for GPS mode prevents point capture at normal demo pan speeds (<20m/tick). The `gpsMode` flag makes the gate conditional: `if (!moving && gpsMode) return`.
+- **Filed:** [`TrackRecorder.kt`](app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt:85,281), [`TrackViewModel.kt`](app/src/main/java/ykws/android/maro/data/track/TrackViewModel.kt:52)
+
+### 7.9 recordingPoints Off-by-One (2026-06-21)
+- **Decision:** Use `currentTrack!!.trackPoints` (post-append) instead of `track.trackPoints` (pre-append) for `recordingPoints` in `TrackRecorderUiState`.
+- **Rationale:** The polyline renderer reads `recordingPoints` to display the active track; the pre-append list is empty after the first point, causing a 1-tick rendering delay. Post-append ensures the polyline appears immediately.
+- **Filed:** [`TrackRecorder.kt`](app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt:353)
+
+---
+
+## 8. Tech Stack Summary
+
 | Decision | Choice | Rationale |
 |---|---|---|
 | Serialization | `kotlinx-serialization-protobuf` | Binary efficiency, version-tolerant schema |
