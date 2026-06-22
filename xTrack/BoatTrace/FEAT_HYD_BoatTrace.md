@@ -1,31 +1,32 @@
 # BoatTrace — Hydration Snapshot
 
-**Baked at:** 2026-06-22 10:48 UTC
-**Active Subfeature:** track now demo (done)
+**Baked at:** 2026-06-22 13:20 UTC
+**Active Subfeature:** pinned-tracks (design)
 
 ## Session Summary
 
-Spike rejection v2 — four-gate algorithm replacing 50kn hard cap.
+Pinned tracks design finalised — replace eye-icon visibility toggle with pin-icon, separate transparency for pinned tracks, z-order decisions.
 
-### spike-rejection-v2 (2026-06-22)
-- Replaced single 50kn hard cap with 4-gate algorithm: GPS recovery, context cap (32/120kn), direction multiplier (sea only), acceleration gate (10/30kn/s)
-- Land/sea auto-detection from GPS speed history
-- Demo mode bypasses all gates
-- 8 new constants, 7 new fields, 4 helper methods — self-contained in TrackRecorder.kt
+### pinned-tracks design (2026-06-22)
+- **Pin replaces eye-icon** in TrackHistoryOverlay track card
+- **Separate transparency:** `trackingTransparencyPinnedNewest→Oldest` (defaults 0%→20%), history keeps existing 20%→80%
+- **`trackingRenderNb` renamed** → applies to history only; pinned always render
+- **Z-order:** active > pinned > past
+- **No new color keys needed** — `trackingColorPinnedFrom→To` already wired
+- **New protobuf field:** `pinned: Boolean` replacing `visibleOnMap`
+- Full design captured in `FEAT_PLN_BoatTrace_pinned-tracks.md`
 
-### demo-track-fix (2026-06-21)
-- Fixed `recordingPoints` off-by-one in `TrackRecorder.addPoint()`
-- Added `gpsMode` constructor parameter, bypassed stillness gate in demo mode
+### previous (spike-rejection-v2, demo-track-fix, drift-on-idle)
+- Spike rejection v2: 4-gate algorithm in TrackRecorder.kt
+- Demo track off-by-one fix + stillness gate bypass
+- Dead reckoning state cleared on IDLE
 
-### drift-on-idle (2026-06-22)
-- Clear `deadReckoningState = null` on IDLE transition
-
-## Key Files Modified
-- TrackRecorder.kt — spike-rejection-v2 (main), gpsMode param, stillness gate, off-by-one fix
-- TrackViewModel.kt — pass settings.gpsMode
-- CoastlineViewModel.kt — clear deadReckoningState on IDLE
+## Key Files Modified (this session)
+- xTrack/BoatTrace/FEAT_PLN_BoatTrace_pinned-tracks.md — created (full design plan)
+- xTrack/BoatTrace/FEAT_DSC_BoatTrace.md — pinned-tracks subfeature added + finalised
+- xTrack/GLOBAL_CONTEXT.md — focus BoatTrace, subfeature pinned-tracks
 
 ## Next Steps
-- [ ] Deploy APK and E2E verify demo track recording
-- [ ] E2E verify GPS real-world track recording
+- [ ] Implement pinned-tracks per FEAT_PLN_BoatTrace_pinned-tracks.md (8 steps)
+- [ ] Deploy APK and E2E verify demo track recording (from spike-rejection-v2)
 - [ ] Track list UI polish per FEAT_PLN_BoatTrace_TrackList_Design.md
