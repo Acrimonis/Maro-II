@@ -1,5 +1,5 @@
 View:     #now                 current context: active feature + subs list + working path [alias #context #here #feat #feature]
-          #list                compact feature table (from GLOBAL_CONTEXT.md summaries) [alias #features]
+          #list                compact feature table with Modified column, sorted by Modified desc (from GLOBAL_CONTEXT.md summaries) [alias #features]
           #status              feature details (active, subfeature-scoped when focused)
           #status [name]       feature details (named)
           #status diff [name]  changes since last #bake (active/named)
