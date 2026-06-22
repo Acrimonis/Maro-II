@@ -76,6 +76,22 @@ object AppConfig {
     var buttonBadgeInactiveAlpha: Float = 0.25f
         private set
 
+    /** Semantic danger colour (red). Default #CCB71C1C. Set via `semantic.danger` in colors.properties. */
+    var semanticDanger: Int = 0xCCB71C1C.toInt()
+        private set
+    /** Semantic caution colour (amber). Default #CCEF6C00. Set via `semantic.caution` in colors.properties. */
+    var semanticCaution: Int = 0xCCEF6C00.toInt()
+        private set
+    /** Semantic compliant colour (green). Default #CC4CAF50. Set via `semantic.compliant` in colors.properties. */
+    var semanticCompliant: Int = 0xCC4CAF50.toInt()
+        private set
+    /** Semantic info colour (blue). Default #FF1565C0. Set via `semantic.info` in colors.properties. */
+    var semanticInfo: Int = 0xFF1565C0.toInt()
+        private set
+    /** Semantic inactive colour (white-transparent). Default #33FFFFFF. Set via `semantic.inactive` in colors.properties. */
+    var semanticInactive: Int = 0x33FFFFFF.toInt()
+        private set
+
     // ── Colors from colors.properties ────────────────────────────────────────
 
     /** Dashboard background. Default #1A1A2E. Set via `ui.dashboard.background` in colors.properties. */
@@ -99,32 +115,32 @@ object AppConfig {
     /** Dashboard status error (critical alert, failure). Default #CCB71C1C (dark red, 80% opacity). Set via `ui.dashboard.status.error` in colors.properties. */
     var uiDashboardStatusError: Int = 0xCCB71C1C.toInt()
         private set
-    /** Dashboard status neutral (informational). Default #AA4FC3F7 (cyan, 67% alpha). Set via `ui.dashboard.status.neutral` in colors.properties. */
-    var uiDashboardStatusNeutral: Int = 0xAA4FC3F7.toInt()
+    /** Dashboard status neutral (informational). Default from semantic.info = #FF1565C0 (blue). Set via `ui.dashboard.status.neutral` in colors.properties. */
+    var uiDashboardStatusNeutral: Int = 0xFF1565C0.toInt()
         private set
-    /** Dashboard status absent (no-data, placeholder). Default #AA37474F (blue-grey, 67% alpha). Set via `ui.dashboard.status.absent` in colors.properties. */
-    var uiDashboardStatusAbsent: Int = 0xAA37474F.toInt()
+    /** Dashboard status absent (no-data, placeholder). Default from semantic.inactive = #33FFFFFF (white 20%). Set via `ui.dashboard.status.absent` in colors.properties. */
+    var uiDashboardStatusAbsent: Int = 0x33FFFFFF.toInt()
         private set
     /** Dashboard zone speed-safe. Default #CC4CAF50 (alias of ${ui.dashboard.status.success}). Set via `ui.dashboard.zone.safe` in colors.properties. */
     var uiDashboardZoneSafe: Int = 0xCC4CAF50.toInt()
         private set
-    /** Dashboard zone speed-caution. Default #EF6C00. Set via `ui.dashboard.zone.caution` in colors.properties. */
-    var uiDashboardZoneCaution: Int = 0xFFEF6C00.toInt()
+    /** Dashboard zone speed-caution. Default from semantic.caution = #CCEF6C00 (amber 80%). Set via `ui.dashboard.zone.caution` in colors.properties. */
+    var uiDashboardZoneCaution: Int = 0xCCEF6C00.toInt()
         private set
-    /** Dashboard zone speed-danger. Default #C62828. Set via `ui.dashboard.zone.danger` in colors.properties. */
-    var uiDashboardZoneDanger: Int = 0xFFC62828.toInt()
+    /** Dashboard zone speed-danger. Default from semantic.danger = #CCB71C1C (red 80%). Set via `ui.dashboard.zone.danger` in colors.properties. */
+    var uiDashboardZoneDanger: Int = 0xCCB71C1C.toInt()
         private set
     /** Dashboard zone speed-compliant. Default #CC4CAF50 (alias of ${ui.dashboard.status.success}). Set via `ui.dashboard.zone.compliant` in colors.properties. */
     var uiDashboardZoneCompliant: Int = 0xCC4CAF50.toInt()
         private set
-    /** Dashboard zone normal. Default #AA37474F (alias of ${ui.dashboard.status.absent}). Set via `ui.dashboard.zone.normal` in colors.properties. */
-    var uiDashboardZoneNormal: Int = 0xAA37474F.toInt()
+    /** Dashboard zone normal. Default from semantic.inactive = #33FFFFFF (white 20%). Set via `ui.dashboard.zone.normal` in colors.properties. */
+    var uiDashboardZoneNormal: Int = 0x33FFFFFF.toInt()
         private set
-    /** Dashboard zone danger-dark. Default #B71C1C. Set via `ui.dashboard.zone.dangerDark` in colors.properties. */
-    var uiDashboardZoneDangerDark: Int = 0xFFB71C1C.toInt()
+    /** Dashboard zone danger-dark. Default from semantic.danger = #CCB71C1C (red 80%). Set via `ui.dashboard.zone.dangerDark` in colors.properties. */
+    var uiDashboardZoneDangerDark: Int = 0xCCB71C1C.toInt()
         private set
-    /** Dashboard distance entry (amber). Default #E65100. Set via `ui.dashboard.distance.entry` in colors.properties. */
-    var uiDashboardDistanceEntry: Int = 0xFFE65100.toInt()
+    /** Dashboard distance entry (amber). Default from semantic.caution = #CCEF6C00 (amber 80%). Set via `ui.dashboard.distance.entry` in colors.properties. */
+    var uiDashboardDistanceEntry: Int = 0xCCEF6C00.toInt()
         private set
     /** Dashboard distance exit (green). Default #CC4CAF50 (alias of ${ui.dashboard.status.success}). Set via `ui.dashboard.distance.exit` in colors.properties. */
     var uiDashboardDistanceExit: Int = 0xCC4CAF50.toInt()
@@ -174,11 +190,11 @@ object AppConfig {
     var overlayLowDepthMinOpacity: Int = 25
         private set
 
-    /** GPS icon DEMO state background colour. Default #FFFFFF. Set via `status.gps.demo` in colors.properties. */
-    var statusGpsDemo: Int = 0xFFFFFFFF.toInt()
+    /** GPS icon DEMO state background colour. Default from semantic.inactive = #33FFFFFF (white 20%). Set via `status.gps.demo` in colors.properties. */
+    var statusGpsDemo: Int = 0x33FFFFFF.toInt()
         private set
-    /** GPS icon ACQUIRING state background colour. Default #FFA726. Set via `status.gps.acquiring` in colors.properties. */
-    var statusGpsAcquiring: Int = 0xFFFFA726.toInt()
+    /** GPS icon ACQUIRING state background colour. Default from semantic.caution = #CCEF6C00 (amber 80%). Set via `status.gps.acquiring` in colors.properties. */
+    var statusGpsAcquiring: Int = 0xCCEF6C00.toInt()
         private set
     /** GPS icon HEALTHY state background colour. Default #CC4CAF50 (alias of ${ui.dashboard.status.success}). Set via `status.gps.healthy` in colors.properties. */
     var statusGpsHealthy: Int = 0xCC4CAF50.toInt()
@@ -186,8 +202,8 @@ object AppConfig {
     /** GPS icon IDLE state background colour. Default #1565C0. Set via `status.gps.idle` in colors.properties. */
     var statusGpsIdle: Int = 0xFF1565C0.toInt()
         private set
-    /** GPS icon STALE state background colour. Default #F44336. Set via `status.gps.stale` in colors.properties. */
-    var statusGpsStale: Int = 0xFFF44336.toInt()
+    /** GPS icon STALE state background colour. Default from semantic.danger = #CCB71C1C (red 80%). Set via `status.gps.stale` in colors.properties. */
+    var statusGpsStale: Int = 0xCCB71C1C.toInt()
         private set
     /** GPS icon ESTIMATING state background colour (dead reckoning). Default #FFB300 (amber). Set via `status.gps.estimating` in colors.properties. */
     var statusGpsEstimating: Int = 0xFFFFB300.toInt()
@@ -205,8 +221,8 @@ object AppConfig {
     /** EarthWater icon land-state colour. Default #CC4CAF50 (alias of ${ui.dashboard.status.success}). Set via `status.earthWater.land` in colors.properties. */
     var statusEarthWaterLand: Int = 0xCC4CAF50.toInt()
         private set
-    /** EarthWater icon inactive-state colour. Default #EEFFFFFF. Set via `status.earthWater.inactive` in colors.properties. */
-    var statusEarthWaterInactive: Int = 0xEEFFFFFF.toInt()
+    /** EarthWater icon inactive-state colour. Default from semantic.inactive = #33FFFFFF (white 20%). Set via `status.earthWater.inactive` in colors.properties. */
+    var statusEarthWaterInactive: Int = 0x33FFFFFF.toInt()
         private set
 
     /** Tracking icon HEALTHY state (ON + moving, recording) colour. Default #CC4CAF50. Set via `status.tracking.healthy` in colors.properties. */
@@ -215,14 +231,14 @@ object AppConfig {
     /** Tracking icon IDLE state (ON + stationary, not recording) colour. Default #FF1565C0. Set via `status.tracking.idle` in colors.properties. */
     var statusTrackingIdle: Int = 0xFF1565C0.toInt()
         private set
-    /** Tracking icon OFF state (not tracking) colour. Default #FFFFFFFF. Set via `status.tracking.off` in colors.properties. */
-    var statusTrackingOff: Int = 0xFFFFFFFF.toInt()
+    /** Tracking icon OFF state (not tracking) colour. Default from semantic.inactive = #33FFFFFF (white 20%). Set via `status.tracking.off` in colors.properties. */
+    var statusTrackingOff: Int = 0x33FFFFFF.toInt()
         private set
-    /** Tracking icon dot colour when recording (moving). Default #FFF44336 (red). Set via `status.tracking.dot.recording` in colors.properties. */
-    var statusTrackingDotRecording: Int = 0xFFF44336.toInt()
+    /** Tracking icon dot colour when recording (moving). Default from semantic.danger = #CCB71C1C (red 80%). Set via `status.tracking.dot.recording` in colors.properties. */
+    var statusTrackingDotRecording: Int = 0xCCB71C1C.toInt()
         private set
-    /** Tracking icon dot colour when idle (stationary). Default #CCFFFFFF (white 80%). Set via `status.tracking.dot.idle` in colors.properties. */
-    var statusTrackingDotIdle: Int = 0xCCFFFFFF.toInt()
+    /** Tracking icon dot colour when idle (stationary). Default from semantic.inactive = #33FFFFFF (white 20%). Set via `status.tracking.dot.idle` in colors.properties. */
+    var statusTrackingDotIdle: Int = 0x33FFFFFF.toInt()
         private set
     /** Tracking icon active-state background alpha (0.0–1.0). Default 0.75. Set via `status.tracking.alpha.active` in colors.properties. */
     var statusTrackingAlphaActive: Float = 0.75f
@@ -232,14 +248,14 @@ object AppConfig {
         private set
 
     // ── Dashboard depth readout tints ─────────────────────────────────────────
-    /** Dashboard depth readout collision tint. Default #FFEF5350. Set via `ui.dashboard.readout.collision` in colors.properties. */
-    var uiDashboardReadoutCollision: Int = 0xFFEF5350.toInt()
+    /** Dashboard depth readout collision tint. Default from semantic.danger = #CCB71C1C (red 80%). Set via `ui.dashboard.readout.collision` in colors.properties. */
+    var uiDashboardReadoutCollision: Int = 0xCCB71C1C.toInt()
         private set
-    /** Dashboard depth readout shallow tint. Default #FFFFB74D. Set via `ui.dashboard.readout.shallow` in colors.properties. */
-    var uiDashboardReadoutShallow: Int = 0xFFFFB74D.toInt()
+    /** Dashboard depth readout shallow tint. Default from semantic.caution = #CCEF6C00 (amber 80%). Set via `ui.dashboard.readout.shallow` in colors.properties. */
+    var uiDashboardReadoutShallow: Int = 0xCCEF6C00.toInt()
         private set
-    /** Dashboard depth readout deep tint. Default #FF4FC3F7. Set via `ui.dashboard.readout.deep` in colors.properties. */
-    var uiDashboardReadoutDeep: Int = 0xFF4FC3F7.toInt()
+    /** Dashboard depth readout deep tint. Default from semantic.info = #FF1565C0 (blue). Set via `ui.dashboard.readout.deep` in colors.properties. */
+    var uiDashboardReadoutDeep: Int = 0xFF1565C0.toInt()
         private set
 
     // ── Settings panel colours ────────────────────────────────────────────────
@@ -270,19 +286,19 @@ object AppConfig {
     /** Settings panel footer text colour. Default #FF546E7A. Set via `ui.settings.footer.text` in colors.properties. */
     var uiSettingsFooterText: Int = 0xFF546E7A.toInt()
         private set
-    /** Settings panel danger/delete colour. Default #FFE53935. Set via `ui.settings.danger` in colors.properties. */
-    var uiSettingsDanger: Int = 0xFFE53935.toInt()
+    /** Settings panel danger/delete colour. Default from semantic.danger = #CCB71C1C (red 80%). Set via `ui.settings.danger` in colors.properties. */
+    var uiSettingsDanger: Int = 0xCCB71C1C.toInt()
         private set
 
     // ── Regulated zone type colours ───────────────────────────────────────────
     /** Regulated zone speed-limit colour. Default #FF1565C0. Set via `regulatedZone.type.speedLimit` in colors.properties. */
     var regulatedZoneTypeSpeedLimit: Int = 0xFF1565C0.toInt()
         private set
-    /** Regulated zone anchoring-prohibited colour. Default #FFFF8F00. Set via `regulatedZone.type.anchoringProhibited` in colors.properties. */
-    var regulatedZoneTypeAnchoringProhibited: Int = 0xFFFF8F00.toInt()
+    /** Regulated zone anchoring-prohibited colour. Default from semantic.caution = #CCEF6C00 (amber 80%). Set via `regulatedZone.type.anchoringProhibited` in colors.properties. */
+    var regulatedZoneTypeAnchoringProhibited: Int = 0xCCEF6C00.toInt()
         private set
-    /** Regulated zone access-prohibited colour. Default #FFE53935. Set via `regulatedZone.type.accessProhibited` in colors.properties. */
-    var regulatedZoneTypeAccessProhibited: Int = 0xFFE53935.toInt()
+    /** Regulated zone access-prohibited colour. Default from semantic.danger = #CCB71C1C (red 80%). Set via `regulatedZone.type.accessProhibited` in colors.properties. */
+    var regulatedZoneTypeAccessProhibited: Int = 0xCCB71C1C.toInt()
         private set
     /** Regulated zone environmental colour. Default #CC4CAF50 (alias of ${ui.dashboard.status.success}). Set via `regulatedZone.type.environmental` in colors.properties. */
     var regulatedZoneTypeEnvironmental: Int = 0xCC4CAF50.toInt()
@@ -330,8 +346,8 @@ object AppConfig {
     /** Progress overlay track colour. Default #401565C0. Set via `ui.progress.track` in colors.properties. */
     var uiProgressTrack: Int = 0x401565C0.toInt()
         private set
-    /** Error card background colour. Default #CCC62828. Set via `ui.error.card` in colors.properties. */
-    var uiErrorCard: Int = 0xCCC62828.toInt()
+    /** Error card background colour. Default from semantic.danger = #CCB71C1C (red 80%). Set via `ui.error.card` in colors.properties. */
+    var uiErrorCard: Int = 0xCCB71C1C.toInt()
         private set
     /** Error card text colour. Default #EEFFFFFF. Set via `ui.error.text` in colors.properties. */
     var uiErrorText: Int = 0xEEFFFFFF.toInt()
@@ -339,8 +355,8 @@ object AppConfig {
     /** Error card button background. Default #FFFFFFFF. Set via `ui.error.button.background` in colors.properties. */
     var uiErrorButtonBackground: Int = 0xFFFFFFFF.toInt()
         private set
-    /** Error card button text. Default #FFC62828. Set via `ui.error.button.text` in colors.properties. */
-    var uiErrorButtonText: Int = 0xFFC62828.toInt()
+    /** Error card button text. Default from semantic.danger = #CCB71C1C (red 80%). Set via `ui.error.button.text` in colors.properties. */
+    var uiErrorButtonText: Int = 0xCCB71C1C.toInt()
         private set
 
     // ── Depth colour ramp endpoints ───────────────────────────────────────────
@@ -488,6 +504,13 @@ object AppConfig {
             props.getProperty("ui.button.badge.text")?.let { parseColorOrNull(it) }?.let { uiButtonBadgeText = it }
             props.getProperty("ui.button.badge.active.alpha")?.toFloatOrNull()?.let { buttonBadgeActiveAlpha = it.coerceIn(0f, 1f) }
             props.getProperty("ui.button.badge.inactive.alpha")?.toFloatOrNull()?.let { buttonBadgeInactiveAlpha = it.coerceIn(0f, 1f) }
+
+            // ── Semantic colours ──────────────────────────────────────────────────
+            props.getProperty("semantic.danger")?.let { parseColorOrNull(it) }?.let { semanticDanger = it }
+            props.getProperty("semantic.caution")?.let { parseColorOrNull(it) }?.let { semanticCaution = it }
+            props.getProperty("semantic.compliant")?.let { parseColorOrNull(it) }?.let { semanticCompliant = it }
+            props.getProperty("semantic.info")?.let { parseColorOrNull(it) }?.let { semanticInfo = it }
+            props.getProperty("semantic.inactive")?.let { parseColorOrNull(it) }?.let { semanticInactive = it }
 
             // ── Colors from colors.properties ────────────────────────────────────
             props.getProperty("ui.dashboard.background")?.let { parseColorOrNull(it) }?.let { uiDashboardBackground = it }

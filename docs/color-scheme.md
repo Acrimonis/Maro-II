@@ -11,6 +11,31 @@
 
 ---
 
+## 0. Semantic Taxonomy
+
+All status/dashboard/icon colours derive from **5 universal semantic tokens** defined
+at the top of `colors.properties`. Every component references these base tokens via
+`${semantic.*}` aliases.
+
+| Token | Value | Swatch | Meaning |
+|-------|-------|--------|---------|
+| `semantic.danger` | `#CCB71C1C` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#B71C1C;opacity:0.8;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Error, delete, blocked, stale |
+| `semantic.caution` | `#CCEF6C00` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#EF6C00;opacity:0.8;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Warning, unconfirmed, borderline, acquiring |
+| `semantic.compliant` | `#CC4CAF50` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#4CAF50;opacity:0.8;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | OK, safe, inside zone, on-water, healthy |
+| `semantic.info` | `#FF1565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Normal, navigation, brand primary, idle |
+| `semantic.inactive` | `#33FFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;opacity:0.2;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Disabled, dimmed, off, no-data, absent |
+
+All downstream tokens in this document resolve to one of these 5 base colours via
+`${semantic.*}` alias chains. Change a semantic token → every component updates at
+once with a single edit.
+
+**Alias chain example:**
+```
+semantic.compliant → ui.dashboard.status.success → status.gps.healthy → #CC4CAF50
+```
+
+---
+
 ## 1. Dashboard Palette
 
 **Property prefix:** `ui.dashboard.*`
