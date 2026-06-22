@@ -92,6 +92,13 @@ object AppConfig {
     var semanticInactive: Int = 0x33FFFFFF.toInt()
         private set
 
+    /** Default proximity range (m) for Pin-type user markers. Set via `marker.proximity.pin_m` in maro.properties. */
+    var markerProximityPinM: Double = 200.0
+        private set
+    /** Default proximity multiplier for Circle/Corridor user markers. Set via `marker.proximity.zone_multiplier` in maro.properties. */
+    var markerProximityZoneMultiplier: Double = 3.0
+        private set
+
     // ── Colors from colors.properties ────────────────────────────────────────
 
     /** Dashboard background. Default #1A1A2E. Set via `ui.dashboard.background` in colors.properties. */
@@ -480,6 +487,13 @@ object AppConfig {
             }
             props.getProperty("speedZone.hysteresisM")?.toDoubleOrNull()?.let {
                 speedZoneHysteresisM = it.coerceIn(0.0, 50.0)
+            }
+            // ── User marker proximity defaults ──────────────────────────────────
+            props.getProperty("marker.proximity.pin_m")?.toDoubleOrNull()?.let {
+                markerProximityPinM = it.coerceAtLeast(0.0)
+            }
+            props.getProperty("marker.proximity.zone_multiplier")?.toDoubleOrNull()?.let {
+                markerProximityZoneMultiplier = it.coerceIn(0.0, 20.0)
             }
             for (src in DepthSource.entries) {
                 val key = src.name.lowercase()

@@ -105,6 +105,12 @@ android {
         // ── Stop detection GPS dormant percent from maro.properties ──────
         buildConfigField("int", "STOP_DETECTION_GPS_DORMANT_PCT",
             propInt("stopDetection.gpsDormantPct", 80).toString())
+
+        // ── User marker proximity defaults from maro.properties ──────────
+        buildConfigField("double", "MARKER_PROXIMITY_PIN_M",
+            propDouble("marker.proximity.pin_m", 200.0).toString())
+        buildConfigField("double", "MARKER_PROXIMITY_ZONE_MULTIPLIER",
+            propDouble("marker.proximity.zone_multiplier", 3.0).toString())
     }
 
     compileOptions {

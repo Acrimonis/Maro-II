@@ -119,6 +119,54 @@ object SpatialOperations {
         )
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // Segment–segment intersection
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Tests whether two line segments **p1→p2** and **q1→q2** intersect.
+     *
+     * Uses a local planar projection centred at the midpoint of all four points
+     * and the standard cross-product parameter test. Parallel / collinear segments
+     * (cross product < 1e-12) are treated as non-intersecting.
+     *
+     * This is the public Boolean sibling of the private `segmentIntersectionDistance`
+     * in [SpeedZoneIndex] — same math, stripped of the haversine distance return.
+     *
+     * @return `true` if the segments intersect at a point strictly interior to
+     *         both (0 < t < 1, 0 < u < 1) or at an endpoint shared by both.
+     */
+    fun segmentsIntersect(p1: LatLng, p2: LatLng, q1: LatLng, q2: LatLng): Boolean {
+        val midLat = (p1.latitude + p2.latitude + q1.latitude + q2.latitude) / 4.0
+        val mPerDegLat = EARTH_RADIUS_M * PI / 180.0
+        val mPerDegLon = mPerDegLat * cos(Math.toRadians(midLat))
+
+        fun toProj(p: LatLng) = Pair(p.longitude * mPerDegLon, p.latitude * mPerDegLat)
+
+        val (p1x, p1y) = toProj(p1)
+        val (p2x, p2y) = toProj(p2)
+        val (q1x, q1y) = toProj(q1)
+        val (q2x, q2y) = toProj(q2)
+
+        val rx = p2x - p1x
+        val ry = p2y - p1y
+        val sx = q2x - q1x
+        val sy = q2y - q1y
+
+        val crossRS = rx * sy - ry * sx
+
+        // Parallel or collinear — treat as no intersection
+        if (abs(crossRS) < 1e-12) return false
+
+        val qpx = q1x - p1x
+        val qpy = q1y - p1y
+
+        val t = (qpx * sy - qpy * sx) / crossRS
+        val u = (qpx * ry - qpy * rx) / crossRS
+
+        return t in 0.0..1.0 && u in 0.0..1.0
+    }
+
     /**
      * Signed side of point [p] relative to the directed segment [a]→[b].
      *
