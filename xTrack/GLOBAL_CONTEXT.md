@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** BoatTrace
-- **Active Subfeature:** pinned-tracks
-- **Last Updated:** 2026-06-22 16:54
-- **Last Bake:** 2026-06-22 16:54 (BoatTrace — pinned-tracks implemented: pin icon, rendering split, pinned transparency, fan button fix)
-- **Branch:** feature/tracks-list
+- **Active Feature:** GPS
+- **Active Subfeature:** troubleshoot-gps-turns
+- **Last Updated:** 2026-06-22 16:52
+- **Last Bake:** 2026-06-22 16:52 (GPS — troubleshoot-gps-turns: spike rejection lock-in fix, stale-fix timeout 10s)
+- **Branch:** feature/gps
 ## Routing Map
 | Keyword | Feature File |
 |---|---|
