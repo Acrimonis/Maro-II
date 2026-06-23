@@ -26,6 +26,7 @@
   `git merge`, or `git rebase` without the user's explicit, unambiguous go-ahead.**
   Committing inside `new_task(Code)` subtasks is NOT exempt — see §5.
   **Read-only git queries (`git status`, `git log`, `git branch`, `git diff`, `git fetch`) are always permitted in any mode.**
+  **Exception:** `#commit`, `#push`, `#merge`, and all git-related `#`-commands are self-contained confirmations — the user's explicit invocation of the command constitutes the go-ahead. No additional confirmation prompt is required.
 
 - **🔴 ABSOLUTE RULE: NEVER write to `develop` or `main` — no pushes,
   no force-pushes, no reverts, no direct commits, no local merges into them.
@@ -89,9 +90,8 @@ You are executing a 100% Greenfield rewrite in a fresh workspace, using the lega
 
 # 5. Git Operations — STRICT
 - **🔴 ABSOLUTE RULE: No agent may execute `git add`, `git commit`, `git push`, `git merge`, or `git rebase` without the user's explicit, unambiguous go-ahead.** This applies to ALL modes and ALL subtasks — including `new_task(mode=code, ...)` subtasks. No exception. **Read-only git queries (`git status`, `git log`, `git branch`, `git diff`, `git fetch`) are always permitted in any mode.**
-- **`#commit` ALWAYS requires confirmation.** Even when chained with other commands (e.g. `#bake #commit #implement`), the agent MUST pause at `#commit` and ask the user before executing. Chained commands do NOT constitute implicit consent.
-- **`#push` is NEVER automatic** — always ask for confirmation.
-- **`git add` may be used to stage** but only after the user confirms they want a commit prepared. Do not stage preemptively.
+- **`#commit`, `#push`, `#merge` are self-contained confirmations.** The user's explicit invocation of the `#`-command constitutes the go-ahead — no additional confirmation prompt is required. When chained (e.g. `#bake #commit #implement`), each `#`-command is independently self-confirming.
+- **`git add` may be used to stage** when preparing a `#commit`. Do not stage preemptively without a `#commit` command.
 - Feature work lives on `feature/*` branches; merges to `develop`/`main` are done via pull request only.
 
 # 6. Spatial Engine Constraints

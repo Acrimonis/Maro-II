@@ -65,7 +65,7 @@
 - `adb.exe` is in the computer PATH — use `adb` directly without full path qualifier.
 - Auto-refine rule wording for clarity and conciseness on `#rule` add.
 - Use apk-build.bat to build APK (runs gradlew assembleDebug).
-- **Git operations allowed in Architect mode on user confirmation** — `git add`, `git commit`, `git checkout -b` permitted when user explicitly confirms (e.g., `#commit`). `git push`, `git merge`, `git rebase` still require separate confirmation per AGENTS.md §5. Never touch `develop`/`main` branches.
+- **Git operations allowed on `#`-command invocation** — `#commit`, `#push`, `#merge`, `#checkout` are self-contained confirmations; the command invocation is the go-ahead. Never touch `develop`/`main` branches.
 - **🔴 MODE LOCK: Do not switch to Code mode or invoke `#implement` pipeline without explicit user go-ahead (`#implement` tag or "go ahead" / "implement now").** Never suggest "ready for #implement" — it implies permission. Architect mode stays in Architect until user explicitly directs otherwise.
 
 ## Global Todos
