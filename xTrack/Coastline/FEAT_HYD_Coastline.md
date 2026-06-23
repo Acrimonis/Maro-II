@@ -1,4 +1,4 @@
-# Coastline — Session Hydration (2026-06-22 20:52)
+# Coastline — Session Hydration (2026-06-23 07:08)
 
 ## Active Session
 - **Subfeature:** extend-to-menton
@@ -6,21 +6,18 @@
 - **Plan:** plans/extend-coastline-to-menton.md
 
 ## Completed
-- Coastline eastern bound extended: 6.70°E – 7.55°E (Nice–Menton)
-- Region ID consolidated: "nice-frejus" → "nice-menton", single source via BuildConfig.REGION_ID
-- OOM crash fixed: DepthSerializer.deserialize() now accepts InputStream, avoids double memory
-- AdaptiveGpsPolicyTest fixed: removed stale speed parameter from onFix() calls
-- Settings "Regenerate" button: now closes settings sheet before raster rebuild
-- Unified data architecture: all data lives in D:\.src\.data\, apk-deploy.bat syncs to data/app-assets/
-- Litto3D tiles migrated: tools/litto3d_tiles/ → D:\.src\.data\litto3d/
-- EMODnet cache: D:\.src\.data\emodnet\
-- Bake scripts simplified: no robocopy, no delayed expansion, pure copy commands
-- .gitignore: removed tools/litto3d_tiles/
-- Batch file corruption fixed: LF→CRLF line endings across all 17 .bat files (root cause of 'M'/'tlocal'/'ll' errors)
-- bake-litto3d.bat: %%→% everywhere, %D:\.tmp%→D:\.tmp path fix
-- _bake_litto3d_temp.bat: %%→% everywhere
-- apk-bake.bat: if...else dispatch, if defined FRESH guards (no literal %FRESH% passthrough)
-- bake-depth.bat: set "FRESH="→set FRESH= (undefine vs define-as-empty)
+- Eastern bound: 7.31°E → 7.55°E (Nice–Menton) in gradle.properties
+- Region ID: "nice-frejus" → "nice-menton", single source via BuildConfig.REGION_ID
+- All Kotlin data repos consume BuildConfig.REGION_ID (CoastlineGenerator, DepthRepository, RegulatedZonesRepository, RegulatedZone)
+- Data storage: Litto3D tiles + EMODnet cache moved to D:\.src\.data\
+- apk-deploy.bat syncs D:\.src\.data\ → data/app-assets\ before build
+- OOM fix: DepthSerializer uses InputStream (no double memory)
+- Batch files: LF→CRLF fix, %% escaping, if/else dispatch in apk-bake.bat
+- Test files: ~8 updated to "nice-menton" region ID
+- AdaptiveGpsPolicyTest: removed stale speed parameter
+- UI: "Côte" / "Bande" button labels on map
+- .gitignore: removed tools/litto3d_tiles/ exclusion
+- Commit: 635ca5a — 29 files, +148/−64
 
 ## Baked Assets (D:\.src\.data\)
 - coastlines/nice-menton.bin + .bbox ✅
@@ -30,14 +27,16 @@
 - regulated-zones/nice-menton.bin ✅
 
 ## Pending
-- ~~User to run: apk-bake.bat all → apk-deploy.bat~~ ✅ batch errors fixed, Gradle processDebugResources file-locking is pre-existing
-- Verify Litto3D shallow layer visible on device
+- Hazard donut rendering validation on device (Zone300 winding check)
+- Shom Aton WFS GetCapabilities (live hazard fetch blocked on endpoint confirmation)
 
 ## Key Files
 - gradle.properties — maro.region.lonEast=7.55, maro.region.id=nice-menton
 - app/build.gradle.kts — BuildConfig.REGION_ID
 - app/src/main/java/ykws/android/maro/data/depth/DepthSerializer.kt — InputStream deserialize
-- app/src/main/java/ykws/android/maro/data/depth/DepthRepository.kt — stream-based readBundled
-- tools/bake-*.bat — all output to D:\.src\.data\
-- apk-deploy.bat — sync D:\.src\.data\ → data\app-assets\ before build
-- apk-bake.bat — if...else dispatch with if defined FRESH guards
+- app/src/main/java/ykws/android/maro/data/depth/DepthRepository.kt — BuildConfig.REGION_ID default
+- app/src/main/java/ykws/android/maro/data/coastline/CoastlineGenerator.kt — BuildConfig.REGION_ID default
+- app/src/main/java/ykws/android/maro/data/regulation/RegulatedZonesRepository.kt — BuildConfig.REGION_ID default
+- tools/bake-*.bat — D:\.src\.data\ output
+- apk-deploy.bat — sync D:\.src\.data\ → data\app-assets\
+- apk-bake.bat — if/else dispatch with if defined FRESH guards
