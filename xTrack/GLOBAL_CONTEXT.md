@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** GPS
-- **Active Subfeature:** track-simplification
-- **Last Updated:** 2026-06-22 19:51
-- **Last Bake:** 2026-06-22 19:51 (GPS — track-simplification: single-pass compound-importance implemented, timeOffsetMs added)
-- **Branch:** feature/gps-optim
+- **Active Feature:** Coastline
+- **Active Subfeature:** extend-to-menton
+- **Last Updated:** 2026-06-22
+- **Last Bake:** 2026-06-22 20:52 (Coastline — batch file corruption fixed: LF→CRLF across 17 .bat files, bake-litto3d %%→% fix, apk-bake if...else dispatch, apk-bake.bat all runs clean)
+- **Branch:** feature/extend-coastline
 ## Routing Map
 | Keyword | Feature File |
 |---|---|
@@ -40,7 +40,7 @@
 | WorkflowImprovement | xTrack #command system, git shortcuts, #now/#list rename, trigger syntax, fuzzy matching, bootstrap, memory bake lifecycle, and mode handoff protocol | 2026-06-03 00:00 | 2026-06-17 17:12 | active |
 | Zone300 | 300m zone generation from coastline with water-only constraint | 2026-05-20 00:00 | 2026-06-03 00:00 | active |
 | DepthMapping | Bathymetry / depth mapping from Litto3D, SHOM, EMODnet sources | 2026-05-10 00:00 | 2026-06-10 12:13 | active |
-| Coastline | Coastline extraction, spatial indexing, isOnWater determination | 2026-05-10 00:00 | 2026-06-05 00:00 | active |
+| Coastline | Coastline extraction, spatial indexing, isOnWater, hazard rings, unified data store | 2026-05-10 00:00 | 2026-06-22 20:52 | active |
 | Ui_Dashboard | Main dashboard UI layout and HUD information display | 2026-05-15 00:00 | 2026-06-15 08:29 | active |
 | GPS | GPS plugin with demo mode, heading/COG compass, geolocation | 2026-05-10 00:00 | 2026-06-11 14:00 | active |
 | UI_Map | Map rendering, depth color layer, orientation overlay, boat marker offset | 2026-05-10 00:00 | 2026-06-14 19:39 | active |

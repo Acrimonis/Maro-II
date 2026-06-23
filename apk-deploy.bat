@@ -1,48 +1,35 @@
 @echo off
-setlocal enabledelayedexpansion
-
-REM ===================================================
-REM  Maro II APK Deploy Script (orchestrator)
-REM  Builds the debug APK, then pushes to device.
-REM  If build fails, push is skipped.
-REM ===================================================
-
-set "APP_NAME=Maro II"
-set "EXIT_CODE=0"
-
+REM Maro II APK Deploy: sync D:\.src\.data -> data\app-assets, build, push.
 echo.
 echo  /====================================================\
-echo  ^|           !APP_NAME! - APK Deploy Tool              ^|
+echo  ^|           Maro II - APK Deploy Tool                 ^|
 echo  \====================================================/
 echo.
 
-REM --- Step 1: Build ---
-echo  [1/2] Building APK...
-echo.
+echo  [0/3] Syncing data from D:\.src\.data ...
+for %%D in (coastlines depth regulated-zones) do (
+    if exist "D:\.src\.data\%%D\*" (
+        if not exist "data\app-assets\%%D" mkdir "data\app-assets\%%D"
+        copy /Y "D:\.src\.data\%%D\*" "data\app-assets\%%D\" >nul
+    )
+)
+echo  [OK] Data synced.
+
+echo  [1/3] Building APK...
 call "%~dp0apk-build.bat"
-if !ERRORLEVEL! NEQ 0 (
-    echo  [ERROR] Build failed with exit code !ERRORLEVEL!.
-    echo          Aborting deploy. Fix the build error and try again.
-    set "EXIT_CODE=!ERRORLEVEL!"
+if errorlevel 1 (
+    echo  [ERROR] Build failed.
     goto :end
 )
-
 echo  [OK] Build succeeded.
 
-REM --- Step 2: Push ---
-echo  [2/2] Pushing APK to device...
-echo.
+echo  [2/3] Pushing APK to device...
 call "%~dp0apk-push.bat"
-set "EXIT_CODE=!ERRORLEVEL!"
+if errorlevel 1 (
+    echo  Maro II - Deploy FAILED.
+) else (
+    echo  Maro II - Deploy completed successfully.
+)
 
 :end
-echo.
 echo ======================================
-if !EXIT_CODE! EQU 0 (
-    echo  !APP_NAME! - Deploy completed successfully!
-) else (
-    echo  !APP_NAME! - Deploy FAILED (exit code: !EXIT_CODE!)
-)
-echo ======================================
-echo.
-exit /b !EXIT_CODE!
