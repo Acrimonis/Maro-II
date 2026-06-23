@@ -10,7 +10,7 @@ if /i "%~1"=="--fresh" powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp
 if not exist "%TILES%\*.asc" (echo No .asc tiles in %TILES% - run fetch_litto3d_paca.ps1 first. & exit /b 1)
 if not exist "%SHARED%" mkdir "%SHARED%"
 if not exist "%WORK%" mkdir "%WORK%"
-if exist "%SHARED%\litto3d-%REGION%.asc.gz" (echo [bake-litto3d] Already baked -> %SHARED%\litto3d-%REGION%.asc.gz & goto :eof)
+if exist "%SHARED%\litto3d-%REGION%.asc.gz" (echo [bake-litto3d] Already baked -^> %SHARED%\litto3d-%REGION%.asc.gz & goto :eof)
 echo [1/3] Building VRT mosaic...
 gdalbuildvrt -a_srs EPSG:2154 "%WORK%\mosaic.vrt" "%TILES%\*.asc" || (echo gdalbuildvrt failed & exit /b 1)
 echo [2/3] Reprojecting + clipping...
@@ -20,5 +20,5 @@ gdal_translate -of AAIGrid -co FORCE_CELLSIZE=TRUE "%WORK%\litto3d.tif" "%SHARED
 echo [4/4] gzip...
 powershell -NoProfile -Command "$i=[IO.File]::OpenRead('%SHARED%\litto3d-%REGION%.asc');$o=[IO.File]::Create('%SHARED%\litto3d-%REGION%.asc.gz');$g=New-Object IO.Compression.GZipStream($o,[IO.Compression.CompressionMode]::Compress);$i.CopyTo($g);$g.Dispose();$o.Dispose();$i.Dispose()" || (echo gzip failed & exit /b 1)
 del "%SHARED%\litto3d-%REGION%.asc"
-echo Done -> %SHARED%\litto3d-%REGION%.asc.gz
+echo Done -^> %SHARED%\litto3d-%REGION%.asc.gz
 endlocal

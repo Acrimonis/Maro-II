@@ -22,55 +22,55 @@ class AdaptiveGpsPolicyTest {
     @Test
     fun `first fix is ACTIVE`() {
         val policy = AdaptiveGpsPolicy()
-        assertEquals(AcquisitionMode.ACTIVE, policy.onFix(0, p(0.0), 0f, window, threshold))
+        assertEquals(AcquisitionMode.ACTIVE, policy.onFix(0, p(0.0), window, threshold))
     }
 
     @Test
     fun `stays ACTIVE until the full quiet window elapses, then IDLE`() {
         val policy = AdaptiveGpsPolicy()
-        policy.onFix(0, p(0.0), 0f, window, threshold)                         // anchor @ t=0
-        assertEquals(AcquisitionMode.ACTIVE, policy.onFix(10_000, p(2.0), 0f, window, threshold))
-        assertEquals(AcquisitionMode.ACTIVE, policy.onFix(29_000, p(3.0), 0f, window, threshold))
+        policy.onFix(0, p(0.0), window, threshold)                         // anchor @ t=0
+        assertEquals(AcquisitionMode.ACTIVE, policy.onFix(10_000, p(2.0), window, threshold))
+        assertEquals(AcquisitionMode.ACTIVE, policy.onFix(29_000, p(3.0), window, threshold))
         // 30 s of staying within 20 m of the anchor → drop to idle.
-        assertEquals(AcquisitionMode.IDLE, policy.onFix(30_000, p(4.0), 0f, window, threshold))
+        assertEquals(AcquisitionMode.IDLE, policy.onFix(30_000, p(4.0), window, threshold))
     }
 
     @Test
-    fun `speed above wake threshold immediately wakes from IDLE`() {
+    fun `displacement beyond threshold immediately wakes from IDLE`() {
         val policy = AdaptiveGpsPolicy()
-        policy.onFix(0, p(0.0), 0f, window, threshold)
-        assertEquals(AcquisitionMode.IDLE, policy.onFix(30_000, p(1.0), 0f, window, threshold))
-        // A fix faster than 0.8 m/s → ACTIVE at once.
-        assertEquals(AcquisitionMode.ACTIVE, policy.onFix(36_000, p(2.0), 1.0f, window, threshold))
+        policy.onFix(0, p(0.0), window, threshold)
+        assertEquals(AcquisitionMode.IDLE, policy.onFix(30_000, p(1.0), window, threshold))
+        // A fix ≥ 20 m from the anchor → ACTIVE at once (displacement-based wake, re-anchors).
+        assertEquals(AcquisitionMode.ACTIVE, policy.onFix(36_000, p(25.0), window, threshold))
     }
 
     @Test
     fun `a jump beyond threshold between fixes wakes from IDLE`() {
         val policy = AdaptiveGpsPolicy()
-        policy.onFix(0, p(0.0), 0f, window, threshold)
-        assertEquals(AcquisitionMode.IDLE, policy.onFix(30_000, p(1.0), 0f, window, threshold))
+        policy.onFix(0, p(0.0), window, threshold)
+        assertEquals(AcquisitionMode.IDLE, policy.onFix(30_000, p(1.0), window, threshold))
         // p(1) → p(35) is ~34 m ≥ 20 m → ACTIVE.
-        assertEquals(AcquisitionMode.ACTIVE, policy.onFix(36_000, p(35.0), 0f, window, threshold))
+        assertEquals(AcquisitionMode.ACTIVE, policy.onFix(36_000, p(35.0), window, threshold))
     }
 
     @Test
     fun `slow drift beyond the radius re-anchors and stays ACTIVE past the window`() {
         val policy = AdaptiveGpsPolicy()
-        policy.onFix(0, p(0.0), 0f, window, threshold)                         // anchor @ t=0
-        policy.onFix(10_000, p(15.0), 0f, window, threshold)                   // 15 m from anchor (< 20)
+        policy.onFix(0, p(0.0), window, threshold)                         // anchor @ t=0
+        policy.onFix(10_000, p(15.0), window, threshold)                   // 15 m from anchor (< 20)
         // 25 m from the original anchor (jump of 10 m, so no per-fix wake) → re-anchor @ t=20s.
-        assertEquals(AcquisitionMode.ACTIVE, policy.onFix(20_000, p(25.0), 0f, window, threshold))
+        assertEquals(AcquisitionMode.ACTIVE, policy.onFix(20_000, p(25.0), window, threshold))
         // 20 s later, still only 5 m from the NEW anchor, but the window restarted at 20s → ACTIVE.
-        assertEquals(AcquisitionMode.ACTIVE, policy.onFix(40_000, p(30.0), 0f, window, threshold))
+        assertEquals(AcquisitionMode.ACTIVE, policy.onFix(40_000, p(30.0), window, threshold))
     }
 
     @Test
     fun `reset clears state so the next fix re-anchors`() {
         val policy = AdaptiveGpsPolicy()
-        policy.onFix(0, p(0.0), 0f, window, threshold)
-        assertEquals(AcquisitionMode.IDLE, policy.onFix(30_000, p(1.0), 0f, window, threshold))
+        policy.onFix(0, p(0.0), window, threshold)
+        assertEquals(AcquisitionMode.IDLE, policy.onFix(30_000, p(1.0), window, threshold))
         policy.reset()
         // First fix after reset is treated as a fresh anchor → ACTIVE even at a late clock.
-        assertEquals(AcquisitionMode.ACTIVE, policy.onFix(60_000, p(1.0), 0f, window, threshold))
+        assertEquals(AcquisitionMode.ACTIVE, policy.onFix(60_000, p(1.0), window, threshold))
     }
 }

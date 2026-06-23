@@ -47,8 +47,11 @@ object DepthSerializer {
         return b.build().toByteArray()
     }
 
-    fun deserialize(bytes: ByteArray): DepthGrid {
-        val p = DepthProtos.DepthCache.parseFrom(bytes)
+    /** Convenience overload — wraps [bytes] in a [java.io.ByteArrayInputStream]. */
+    fun deserialize(bytes: ByteArray): DepthGrid = deserialize(java.io.ByteArrayInputStream(bytes))
+
+    fun deserialize(input: java.io.InputStream): DepthGrid {
+        val p = DepthProtos.DepthCache.parseFrom(input)
         val n = p.rows * p.cols
 
         val depths = FloatArray(n) { p.getDepths(it) }

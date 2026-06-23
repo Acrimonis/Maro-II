@@ -22,7 +22,7 @@ class Zone300BandRefreshTest {
             System.getProperty("maro.bake") == "true"
         )
         runBlocking {
-            val region = CoastlineGenerator.REGION_ID
+            val region = "nice-menton"
             val repoDir = System.getProperty("maro.repoDir")?.let { File(it) } ?: File("..")
             val binFile = File(repoDir, "data/app-assets/coastlines/$region.bin")
             Assume.assumeTrue(

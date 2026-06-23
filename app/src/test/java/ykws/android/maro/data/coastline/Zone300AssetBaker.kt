@@ -42,7 +42,7 @@ class Zone300AssetBaker {
             System.getProperty("maro.bake") == "true"
         )
         runBlocking {
-            val regionId = CoastlineGenerator.REGION_ID
+            val regionId = "nice-menton"
             val data = CoastlineGenerator().generate(regionId)
 
             // Build the band with the SAME classifier the app uses: containment isWater, with the

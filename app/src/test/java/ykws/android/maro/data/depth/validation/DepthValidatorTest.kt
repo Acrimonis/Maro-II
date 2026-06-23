@@ -17,7 +17,7 @@ class DepthValidatorTest {
     private val bbox = BoundingBox(latSouth = 43.50, latNorth = 43.54, lonWest = 7.00, lonEast = 7.06)
 
     private fun uniformGrid(value: Float, datum: DepthDatum = DepthDatum.LAT): DepthGrid {
-        val m = MutableDepthGrid.empty("nice-frejus", bbox, 1500.0, datum)
+        val m = MutableDepthGrid.empty("nice-menton", bbox, 1500.0, datum)
         for (r in 0 until m.rows) for (c in 0 until m.cols)
             m.set(r, c, value, DepthSource.EMODNET, DepthSource.EMODNET.seedConfidence)
         return m.toImmutable(null, 0L, "test")

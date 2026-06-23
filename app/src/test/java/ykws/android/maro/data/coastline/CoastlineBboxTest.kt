@@ -17,7 +17,7 @@ class CoastlineBboxTest {
     @Test
     fun `emit bbox sidecar from existing coastline asset`() {
         Assume.assumeTrue("Set -Dmaro.bake=true to emit the bbox sidecar.", System.getProperty("maro.bake") == "true")
-        val region = CoastlineGenerator.REGION_ID
+        val region = "nice-menton"
         val repoDir = System.getProperty("maro.repoDir")?.let { File(it) } ?: File("..")
         val bin = File(repoDir, "data/app-assets/coastlines/$region.bin")
         Assume.assumeTrue(

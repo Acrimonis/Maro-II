@@ -21,9 +21,14 @@ android {
         // overridable with -Pmaro.region.lonWest=…). Exposed to Kotlin so CoastlineGenerator and the
         // derived depth envelope read ONE definition; the bake scripts read the same props via bake-env.bat.
         val regionLonWest = (project.findProperty("maro.region.lonWest") as String?)?.toDouble() ?: 6.70
-        val regionLonEast = (project.findProperty("maro.region.lonEast") as String?)?.toDouble() ?: 7.31
+        val regionLonEast = (project.findProperty("maro.region.lonEast") as String?)?.toDouble() ?: 7.55
         buildConfigField("double", "REGION_LON_WEST", regionLonWest.toString())
         buildConfigField("double", "REGION_LON_EAST", regionLonEast.toString())
+
+        // Region identifier — single source for coastline, depth, and regulated-zone cache namespaces.
+        // Changing this invalidates all baked .bin caches; consumed via BuildConfig.REGION_ID.
+        val regionId = project.findProperty("maro.region.id") as String? ?: "nice-frejus"
+        buildConfigField("String", "REGION_ID", "\"$regionId\"")
 
         // ── Layer default visibility from maro.properties ─────────────────
         val maroProps = mutableMapOf<String, String>()

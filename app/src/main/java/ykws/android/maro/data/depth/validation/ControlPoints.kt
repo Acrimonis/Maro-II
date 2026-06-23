@@ -20,7 +20,7 @@ data class ControlPoint(
 )
 
 /**
- * Region control-point fixtures for `nice-frejus`.
+ * Region control-point fixtures for `nice-menton`.
  *
  * Depths are **cross-checked live against the EMODnet REST `/depth_sample` API** (each cites the
  * underlying SeaDataNet survey) and against the baked EMODnet + Litto3D rasters for coverage, on

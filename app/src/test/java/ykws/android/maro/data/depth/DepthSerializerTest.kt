@@ -18,7 +18,7 @@ class DepthSerializerTest {
     private val bbox = BoundingBox(latSouth = 43.50, latNorth = 43.54, lonWest = 7.00, lonEast = 7.06)
 
     private fun sampleGrid(): MutableDepthGrid {
-        val m = MutableDepthGrid.empty("nice-frejus", bbox, 1500.0, DepthDatum.LAT)
+        val m = MutableDepthGrid.empty("nice-menton", bbox, 1500.0, DepthDatum.LAT)
         // Fill with a gradient, leaving cell (0,0) as NaN NoData.
         var v = 1.0f
         for (r in 0 until m.rows) for (c in 0 until m.cols) {

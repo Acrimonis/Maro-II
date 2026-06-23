@@ -1,5 +1,6 @@
 package ykws.android.maro.data.regulation
 
+import ykws.android.maro.BuildConfig
 import android.content.Context
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,7 +21,7 @@ import kotlinx.coroutines.flow.asStateFlow
  * a `LaunchedEffect` in the composable).
  */
 class RegulatedZonesRepository(
-    private val regionId: String = "nice-frejus"
+    private val regionId: String = BuildConfig.REGION_ID
 ) {
     private val _zoneSet = MutableStateFlow<RegulatedZoneSet?>(null)
     val zoneSet: StateFlow<RegulatedZoneSet?> = _zoneSet.asStateFlow()

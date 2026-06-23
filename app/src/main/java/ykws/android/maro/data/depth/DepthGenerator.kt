@@ -1,5 +1,6 @@
 package ykws.android.maro.data.depth
 
+import ykws.android.maro.BuildConfig
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -33,7 +34,7 @@ class DepthGenerator(
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) {
     suspend fun generate(
-        regionId: String = DepthConstants.REGION_ID,
+        regionId: String = BuildConfig.REGION_ID,
         bbox: BoundingBox,
         deepSources: List<SourceRaster> = emptyList(),
         shallowSource: SourceRaster? = null,

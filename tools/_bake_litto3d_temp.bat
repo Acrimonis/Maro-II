@@ -8,4 +8,4 @@ gdalwarp -s_srs EPSG:2154 -t_srs EPSG:4326 -te %W% %S% %E% %N% -tr 0.00005 0.000
 gdal_translate -of AAIGrid -co FORCE_CELLSIZE=TRUE "D:\.tmp\litto3d\litto3d.tif" "D:\.src\.data\depth\litto3d-%REGION%.asc" || (echo gdal_translate failed & exit /b 1)
 powershell -NoProfile -Command "$i=[IO.File]::OpenRead('D:\.src\.data\depth\litto3d-%REGION%.asc');$o=[IO.File]::Create('D:\.src\.data\depth\litto3d-%REGION%.asc.gz');$g=New-Object IO.Compression.GZipStream($o,[IO.Compression.CompressionMode]::Compress);$i.CopyTo($g);$g.Dispose();$o.Dispose();$i.Dispose()" || (echo gzip failed & exit /b 1)
 del "D:\.src\.data\depth\litto3d-%REGION%.asc"
-echo Done -> D:\.src\.data\depth\litto3d-%REGION%.asc.gz
+echo Done -^> D:\.src\.data\depth\litto3d-%REGION%.asc.gz

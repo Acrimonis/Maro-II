@@ -1,5 +1,6 @@
 package ykws.android.maro.data.coastline
 
+import ykws.android.maro.BuildConfig
 import android.content.Context
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -131,9 +132,9 @@ class CoastlineRepository(
      *   2. On cache miss: fetch from OSM, run the generation pipeline,
      *      persist to Protobuf cache, then return
      *
-     * @param regionId Region identifier (e.g. "nice-frejus").
+     * @param regionId Region identifier (e.g. "nice-menton").
      */
-    suspend fun loadCoastline(regionId: String = CoastlineGenerator.REGION_ID) {
+    suspend fun loadCoastline(regionId: String = BuildConfig.REGION_ID) {
         _state.value = CoastlineState.Loading
         _progress.value = GenerationProgress("", 0)
 
@@ -298,7 +299,7 @@ class CoastlineRepository(
      *
      * This is called by the "Régénérer" button.
      */
-    suspend fun refreshCoastline(regionId: String = CoastlineGenerator.REGION_ID) {
+    suspend fun refreshCoastline(regionId: String = BuildConfig.REGION_ID) {
         withContext(ioDispatcher) { deleteCacheFile(regionId) }
         loadCoastline(regionId)
     }

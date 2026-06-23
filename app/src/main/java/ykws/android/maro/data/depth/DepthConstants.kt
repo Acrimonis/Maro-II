@@ -5,8 +5,6 @@ package ykws.android.maro.data.depth
  * model, and view model. See DepthMappingPlan.md § 9.
  */
 object DepthConstants {
-    const val REGION_ID = "nice-frejus"
-
     const val GRID_RES_M = 25.0
     const val SHALLOW_TIER_MAX_M = 10.0       // Litto3D authoritative ceiling (constraint #4)
     const val COLLISION_MAX_DEPTH_M = 5.0
