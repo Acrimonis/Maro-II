@@ -111,12 +111,13 @@ All buttons use the same style as Settings/Language page buttons (`RoundedCorner
 - Position tracks map center continuously (existing `LaunchedEffect` in `MapScreen.kt`)
 
 #### Slider Steps (Radius, Proximity)
-- Material3 `Slider` with value label (e.g., "250 m")
+- Card-style layout matching Settings page sliders ([`BoatSizeSlider`](app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneComponents.kt:377)): rounded 12dp card background (`uiSettingsCardBackground`), title + value in a row, `uiSettingsAccent` colors
 - Radius: 0 → 500m, step 5m, default 200m
 - Proximity: 0 → 500m, step 5m
   - Pin default: 200m
   - Circle default: radius (not radius×3)
   - Corridor default: width (not width×3)
+- **Real-time rendering:** Radius and proximity changes update the unconfirmed marker overlay instantly. Proximity override value passed to unconfirmed marker so `MarkerOverlay` renders the correct preview circle.
 
 #### Text Input Steps (Title, Description)
 - `OutlinedTextField`, single-line for title, multi-line for description
@@ -191,7 +192,12 @@ Slide animation between steps using `AnimatedContent`:
 
 ### 2.9 Edit Mode (Q2)
 
-Wizard used for **both** Create and Edit. When editing, steps are pre-filled with existing marker data. Type change seamlessly adds/removes steps while preserving accumulated values. Position steps still show — user can reposition via map drag.
+Wizard used for **both** Create and Edit. When editing, steps are pre-filled with existing marker data.
+
+**Edit-specific behavior:**
+- **Skip TypeSelect:** Wizard starts at the Position step (not TypeSelect) — type is already known. For Corridor, starts at Position (P1), with P2 also pre-filled.
+- **Center map on marker:** On edit start, map animates to the existing marker position via `mapCenterRequest` StateFlow observed by MapScreen.
+- **Preserve values:** All slider/text fields pre-filled. User can Next through unchanged or modify.
 
 ### 2.10 Finish Behavior (Q4)
 
