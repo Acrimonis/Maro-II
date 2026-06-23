@@ -49,6 +49,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.systemBars
@@ -164,9 +165,11 @@ import ykws.android.maro.data.model.Zone300Data
 import ykws.android.maro.data.regulation.RegulatedZoneSet
 import ykws.android.maro.data.regulation.RegulatedZonesRepository
 import ykws.android.maro.data.settings.AppSettings
+import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.data.markers.UserMarkerRepository
 import ykws.android.maro.spatial.SpatialOperations
+import ykws.android.maro.spatial.TieredMatchResult
 import ykws.android.maro.ui.map.MarkersViewModel
 import ykws.android.maro.ui.map.MarkerDrawer
 
@@ -483,6 +486,7 @@ fun MapScreen(
 
     // ── User markers: from MarkersViewModel ─────────────────────────────────────────
     val userMarkers by markersViewModel.markers.collectAsState()
+    val markerLayerVisible by markersViewModel.userMarkersVisible.collectAsState()
 
     // Wire coastline data into MarkersViewModel for land-blocking when ready
     if (coastlineReady) {
@@ -832,6 +836,55 @@ fun MapScreen(
             val portraitDashboardHeight = maxWidth * 3 / 5
             val landscapeDashboardWidth = maxHeight * 100 / 100
 
+            // ── F2: Build synthetic unconfirmed marker for overlay preview ─────
+            val createForm by markersViewModel.createForm.collectAsState()
+            val drawerState by markersViewModel.drawerState.collectAsState()
+            val wizardStep by markersViewModel.wizardStep.collectAsState()
+            val unconfirmedMarker: UserMarker? = when (drawerState) {
+                is MarkerDrawerState.Creating, is MarkerDrawerState.Editing -> {
+                    val pos = createForm.position
+                    if (pos != null) {
+                        val geometry = when (createForm.type) {
+                            MarkerType.PIN -> MarkerGeometry.Pin(pos)
+                            MarkerType.CIRCLE -> MarkerGeometry.Circle(pos, createForm.radiusM.coerceAtLeast(1.0))
+                            MarkerType.CORRIDOR -> {
+                                val p2 = createForm.corridorP2
+                                if (p2 != null) MarkerGeometry.Corridor(pos, p2, createForm.widthM.coerceAtLeast(1.0))
+                                // During PositionP2 step, show synthetic corridor using p1 + mapCenter as p2
+                                else if (wizardStep is WizardStep.PositionP2)
+                                    MarkerGeometry.Corridor(pos, mapCenter, createForm.widthM.coerceAtLeast(1.0))
+                                else MarkerGeometry.Pin(pos) // P1 phase: show as pin until p2 set
+                            }
+                        }
+                        UserMarker(
+                            id = "__unconfirmed__",
+                            name = createForm.name.ifBlank { "New Marker" },
+                            geometry = geometry,
+                            description = createForm.description,
+                            confirmed = false
+                        )
+                    } else null
+                }
+                else -> null
+            }
+
+            // ── F3: During Creating/Editing, track map center for marker position ──
+            LaunchedEffect(drawerState, wizardStep, mapCenter) {
+                if (drawerState is MarkerDrawerState.Creating || drawerState is MarkerDrawerState.Editing) {
+                    val ws = markersViewModel.wizardStep.value
+                    // Track position during Position step, or set corridor P2 during PositionP2
+                    when (ws) {
+                        is WizardStep.Position -> {
+                            markersViewModel.updateForm { it.copy(position = mapCenter) }
+                        }
+                        is WizardStep.PositionP2 -> {
+                            markersViewModel.updateForm { it.copy(corridorP2 = mapCenter) }
+                        }
+                        else -> { /* no-op: position frozen outside position steps */ }
+                    }
+                }
+            }
+
             // Map fills the box, padded to leave room for the dashboard overlay.
             // Stable composition slot — never inside an if/else branch.
             MapContent(
@@ -861,9 +914,11 @@ fun MapScreen(
                 onCenterChanged = onCenterChanged,
                 onZoomChanged = viewModel::updateZoomLevel,
                 onMapViewReady = { mapView = it },
-                markers = userMarkers,
+                markerLayerVisible = markerLayerVisible,
                 onToggleUserMarkers = { markersViewModel.toggleVisibility() },
-                onAddPin = { center -> markersViewModel.openCreateDrawer(center) },
+                onAddPin = { center -> markersViewModel.startWizard(MarkerType.PIN, center) },
+                onAddCircle = { center -> markersViewModel.startWizard(MarkerType.CIRCLE, center) },
+                onAddCorridor = { center -> markersViewModel.startWizard(MarkerType.CORRIDOR, center) },
                 onMarkerTap = { id -> markersViewModel.openEditDrawer(id) },
                 onWhereAmI = {
                     val boatPos = gpsPosition ?: mapCenter
@@ -928,7 +983,41 @@ fun MapScreen(
                     )
             )
 
-            // Dashboard overlaid on top, positioned via alignment.
+            // Dashboard / Wizard overlaid on top, positioned via alignment.
+            val imeBottom = WindowInsets.ime.getBottom(LocalDensity.current)
+            val imeHeightDp = with(LocalDensity.current) { imeBottom.toDp() }
+            val keyboardOffsetDp = 0.dp - imeHeightDp
+
+            if (drawerState is MarkerDrawerState.Creating || drawerState is MarkerDrawerState.Editing) {
+                // Wizard replaces dashboard when creating/editing
+                if (isLandscape) {
+                    Box(modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .width(landscapeDashboardWidth)
+                        .fillMaxHeight()
+                    ) {
+                        WizardDrawer(
+                            viewModel = markersViewModel,
+                            isLandscape = true,
+                            onCancel = { markersViewModel.wizardCancel() }
+                        )
+                    }
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .height(portraitDashboardHeight)
+                            .offset(y = keyboardOffsetDp)
+                    ) {
+                        WizardDrawer(
+                            viewModel = markersViewModel,
+                            isLandscape = false,
+                            onCancel = { markersViewModel.wizardCancel() }
+                        )
+                    }
+                }
+            } else {
         if (isLandscape) {
             DashboardPanel(
                 state = state,
@@ -958,6 +1047,21 @@ fun MapScreen(
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
                     .height(portraitDashboardHeight)
+            )
+        }
+            }
+
+        // ── Marker overlays (OSMdroid native, via LaunchedEffect) ─────
+        if (markerLayerVisible) {
+            val matchResult by markersViewModel.matchResult.collectAsState()
+            val drawerStateForOverlay by markersViewModel.drawerState.collectAsState()
+            MarkerOverlay(
+                markers = userMarkers,
+                mapView = mapView,
+                proximityZoneMultiplier = AppConfig.markerProximityZoneMultiplier,
+                unconfirmedMarker = unconfirmedMarker,
+                onMarkerTap = { id -> markersViewModel.openEditDrawer(id) },
+                matchResult = if (drawerStateForOverlay is MarkerDrawerState.MatchResult) matchResult else null
             )
         }
         }
@@ -1031,34 +1135,65 @@ fun MapScreen(
             )
         }
 
-        // ── Marker drawer overlay (creation/edit/match results) ──────────
-        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-            val markerIsLandscape = maxWidth > maxHeight
-            val drawerState by markersViewModel.drawerState.collectAsState()
-            if (drawerState !is MarkerDrawerState.Hidden) {
-                MarkerDrawer(
-                    viewModel = markersViewModel,
-                    isLandscape = markerIsLandscape,
-                    onClose = { markersViewModel.closeDrawer() }
-                )
-            }
-        }
-
-        // ── Marker management overlay ─────────────────────────────────────
+        // ── Marker management overlay (P8: composed BEFORE drawer so drawer renders on top) ──
         if (showMarkerManagement) {
             val mgmtMarkers by markersViewModel.markers.collectAsState()
             MarkerManagementOverlay(
                 markers = mgmtMarkers,
                 onTapMarker = { id -> markersViewModel.openEditDrawer(id) },
+                onEditMarker = { id ->
+                    showMarkerManagement = false
+                    markersViewModel.startWizard(id)
+                },
                 onSoftDeleteMarker = { id -> markersViewModel.softDeleteMarker(id) },
                 onUndoDeleteMarker = { id -> markersViewModel.undoDeleteMarker(id) },
                 onPermanentDelete = { id -> markersViewModel.deleteMarker(id) },
                 onCommitPendingDeletes = { markersViewModel.commitPendingDeletes() },
                 onCreateFirst = {
                     showMarkerManagement = false
-                    markersViewModel.openCreateDrawer(mapCenter)
+                    markersViewModel.startWizard(initialPos = mapCenter)
                 },
                 onDismiss = { showMarkerManagement = false }
+            )
+        }
+
+        // ── Marker drawer overlay (Viewing/MatchResult only — Creating/Editing use WizardDrawer) ──
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val markerIsLandscape = maxWidth > maxHeight
+            val drawerState by markersViewModel.drawerState.collectAsState()
+            if (drawerState is MarkerDrawerState.Viewing || drawerState is MarkerDrawerState.MatchResult) {
+                MarkerDrawer(
+                    viewModel = markersViewModel,
+                    isLandscape = markerIsLandscape,
+                    onClose = { markersViewModel.closeDrawer() },
+                    boatPosition = gpsPosition ?: mapCenter
+                )
+            }
+        }
+
+        // ── Post-save undo Snackbar (P5) ────────────────────────────────
+        val lastSavedId by markersViewModel.lastSavedMarkerId.collectAsState()
+        val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
+        lastSavedId?.let { id ->
+            val savedMarker = userMarkers.find { it.id == id }
+            LaunchedEffect(id) {
+                val result = snackbarHostState.showSnackbar(
+                    message = "Marker \"${savedMarker?.name ?: "Unknown"}\" created",
+                    actionLabel = "Undo",
+                    duration = androidx.compose.material3.SnackbarDuration.Short
+                )
+                if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
+                    markersViewModel.undoCreateMarker()
+                } else {
+                    markersViewModel.dismissLastSaved()
+                }
+            }
+        }
+        Box(modifier = Modifier.fillMaxSize()) {
+            // SnackbarHost positioned at bottom, above dashboard/wizard area
+            androidx.compose.material3.SnackbarHost(
+                hostState = snackbarHostState,
+                modifier = Modifier.align(Alignment.BottomCenter)
             )
         }
 
@@ -1155,9 +1290,11 @@ private fun MapContent(
     onCenterChanged: (Double, Double) -> Unit,
     onZoomChanged: (Double) -> Unit,
     onMapViewReady: (MapView) -> Unit,
-    markers: List<UserMarker> = emptyList(),
+    markerLayerVisible: Boolean = true,
     onToggleUserMarkers: () -> Unit = {},
     onAddPin: (LatLng) -> Unit = {},
+    onAddCircle: (LatLng) -> Unit = {},
+    onAddCorridor: (LatLng) -> Unit = {},
     onMarkerTap: (String) -> Unit = {},
     onWhereAmI: () -> Unit = {},
     onRetry: () -> Unit,
@@ -1251,67 +1388,6 @@ private fun MapContent(
         //     onDismissFan(), works for any number of future fans.
         if (expandedFanId != null) {
             Box(modifier = Modifier.fillMaxSize().clickable { onDismissFan() })
-        }
-
-        // ── Layer -1: User markers (below boat/arrow) ────────────────────
-        if (appSettings.userMarkersVisible && markers.isNotEmpty()) {
-            val mv = mapView
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .then(
-                        if (mv != null) {
-                            Modifier.pointerInput(markers, mv) {
-                                detectTapGestures { offset ->
-                                    // Hit-test: check each marker's pixel position
-                                    val proj = mv.projection
-                                    for (marker in markers) {
-                                        val (px, py) = when (val g = marker.geometry) {
-                                            is ykws.android.maro.data.model.markers.MarkerGeometry.Pin -> {
-                                                val pt = android.graphics.Point()
-                                                proj.toPixels(
-                                                    org.osmdroid.util.GeoPoint(g.position.latitude, g.position.longitude),
-                                                    pt
-                                                )
-                                                Pair(pt.x.toFloat(), pt.y.toFloat())
-                                            }
-                                            is ykws.android.maro.data.model.markers.MarkerGeometry.Circle -> {
-                                                val pt = android.graphics.Point()
-                                                proj.toPixels(
-                                                    org.osmdroid.util.GeoPoint(g.center.latitude, g.center.longitude),
-                                                    pt
-                                                )
-                                                Pair(pt.x.toFloat(), pt.y.toFloat())
-                                            }
-                                            is ykws.android.maro.data.model.markers.MarkerGeometry.Corridor -> {
-                                                val pt = android.graphics.Point()
-                                                proj.toPixels(
-                                                    org.osmdroid.util.GeoPoint(g.p1.latitude, g.p1.longitude),
-                                                    pt
-                                                )
-                                                Pair(pt.x.toFloat(), pt.y.toFloat())
-                                            }
-                                        }
-                                        val hitRadius = 24.dp.toPx() // generous tap target
-                                        val dx = offset.x - px
-                                        val dy = offset.y - py
-                                        if (dx * dx + dy * dy <= hitRadius * hitRadius) {
-                                            onMarkerTap(marker.id)
-                                            return@detectTapGestures
-                                        }
-                                    }
-                                }
-                            }
-                        } else Modifier
-                    )
-            ) {
-                MarkerOverlay(
-                    markers = markers,
-                    mapView = mapView,
-                    proximityZoneMultiplier = AppConfig.markerProximityZoneMultiplier,
-                    modifier = Modifier.fillMaxSize()
-                )
-            }
         }
 
         // ── Layer 0 overlays: cap (bottom), arrow (middle), marker (top) ──
@@ -1515,7 +1591,7 @@ private fun MapContent(
                                     appSettings.regulatedZonesVisible,
                                     appSettings.zone300Visible,
                                     appSettings.lowDepthWarningVisible,
-                                    appSettings.userMarkersVisible
+                                    markerLayerVisible
                                 ).count { it }
                             ),
                             parent = { _: Boolean, _: Int -> ThreeStripeLayerIcon(alpha = 1f) },
@@ -1534,7 +1610,7 @@ private fun MapContent(
                                 appSettings.regulatedZonesVisible,
                                 appSettings.zone300Visible,
                                 appSettings.lowDepthWarningVisible,
-                                appSettings.userMarkersVisible
+                                markerLayerVisible
                             ),
                             onChildClick = { index: Int, _: Boolean ->
                                 when (index) {
@@ -1549,16 +1625,49 @@ private fun MapContent(
                         )
                     }
 
-                    // Add Pin button — below FanLayout anchor, grouped with it
+                    // P1/I1: Three type-shortcut buttons (36dp each, stacked vertically)
                     Spacer(modifier = Modifier.height(6.dp))
-                    MapControlButton(
-                        onClick = {
-                            // Create unconfirmed pin at current map center
-                            onAddPin(mapCenter)
-                        },
-                        modifier = Modifier.size(48.dp),
-                        icon = { FilledPinIcon() }
-                    )
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        // Pin shortcut
+                        Button(
+                            onClick = { onAddPin(mapCenter) },
+                            modifier = Modifier.size(36.dp),
+                            shape = CircleShape,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = ButtonColors.bg
+                            ),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            ShortcutPinIcon()
+                        }
+                        // Circle shortcut
+                        Button(
+                            onClick = { onAddCircle(mapCenter) },
+                            modifier = Modifier.size(36.dp),
+                            shape = CircleShape,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = ButtonColors.bg
+                            ),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            ShortcutCircleIcon()
+                        }
+                        // Corridor shortcut
+                        Button(
+                            onClick = { onAddCorridor(mapCenter) },
+                            modifier = Modifier.size(36.dp),
+                            shape = CircleShape,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = ButtonColors.bg
+                            ),
+                            contentPadding = PaddingValues(0.dp)
+                        ) {
+                            ShortcutCorridorIcon()
+                        }
+                    }
                 }
 
                 // cb (controls bottom): Zoom +/- buttons + future
