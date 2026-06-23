@@ -1,277 +1,412 @@
 package ykws.android.maro.ui.map
 
-import androidx.compose.foundation.Canvas
+import android.graphics.Bitmap
+import android.graphics.Canvas
+import android.graphics.DashPathEffect
+import android.graphics.Paint
+import android.graphics.drawable.BitmapDrawable
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalContext
+import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.MapEventsOverlay
+import org.osmdroid.views.overlay.Marker
+import org.osmdroid.views.overlay.Polyline
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.spatial.SpatialOperations
+import ykws.android.maro.spatial.MatchResult
+import ykws.android.maro.spatial.TieredMatchResult
 import kotlin.math.*
 
-/**
- * Proximity range preview colour — cyan #4FC3F7 at ~30% alpha.
- * Only shown for unconfirmed markers during creation/edit.
- */
-private val PROXIMITY_PREVIEW_COLOR = Color(0x4D4FC3F7)
+// ── Constants ─────────────────────────────────────────────────────────────────
 
-/** Earth radius in metres (WGS84 mean radius) — used for destination-point calculation. */
+/** Earth radius in metres (WGS84 mean radius). */
 private const val EARTH_RADIUS_M = 6_371_000.0
 
-/** Number of sample points on a circle circumference for dashed-circle rendering. */
+/** Number of sample points on a circle circumference. */
 private const val CIRCLE_SAMPLES = 72
 
-/** Number of sample points along a corridor centerline for dashed parallel lines. */
+/** Number of sample points along a corridor centerline. */
 private const val CORRIDOR_SAMPLES = 20
 
+/** OSMdroid overlay title prefix for identification/cleanup. */
+private const val OVERLAY_PREFIX = "marker_"
+
+/** Marker dot radius in dp (converted to px at ~48dp density). */
+private const val DOT_RADIUS_DP = 6
+
+/** Geo-distance threshold (metres) for tap-to-select on map. */
+private const val TAP_THRESHOLD_M = 50.0
+
+/** Confirmed marker colour (semantic.info blue). */
+private val COLOR_CONFIRMED = AppConfig.semanticInfo
+
+/** Unconfirmed marker colour (semantic.caution amber). */
+private val COLOR_UNCONFIRMED = AppConfig.semanticCaution
+
+/** Proximity preview colour — cyan #4FC3F7 at ~30% alpha. */
+private val COLOR_PROXIMITY_PREVIEW = 0x4D4FC3F7.toInt()
+
+/** Alpha for dimmed (non-matched) markers during match-result highlighting (30%). */
+private const val DIMMED_ALPHA_FRACTION = 0.30f
+
+/** Brighter stroke multiplier for matched markers (3dp → 5dp ≈ 1.67×). */
+private const val MATCHED_STROKE_MULTIPLIER = 1.67f
+
+// ── Public composable ─────────────────────────────────────────────────────────
+
 /**
- * Composable overlay that renders all user-defined markers as a Canvas layer
- * on the map. Renders **below** the boat marker and heading/speed arrow in z-order.
+ * Composable that renders user-defined markers as OSMdroid native overlays
+ * ([Polyline] + [Marker]) added to [mapView.overlays] via [LaunchedEffect].
  *
- * Marker rendering (no name labels — UI review R7):
- * - **Pin:** filled dot at position
- * - **Circle:** dashed circle at [MarkerGeometry.Circle.radiusM], filled dot at center
- * - **Corridor:** two parallel dashed lines at ±[MarkerGeometry.Corridor.widthM]/2
- *   from the p1→p2 centerline, filled dots at p1 and p2
+ * Marker rendering:
+ * - **Pin:** [Marker] at geo position with a filled-circle icon.
+ * - **Circle:** [Polyline] as closed polygon (72 pts) + center [Marker].
+ * - **Corridor:** Two [Polyline]s for parallel lines at ±width/2,
+ *   one [Polyline] for centerline (thinner), [Marker] at p1 and p2.
  *
- * Colour: [AppConfig.semanticInfo] when confirmed, [AppConfig.semanticCaution] when unconfirmed.
+ * **Proximity preview:** thinner [Polyline] for unconfirmed markers only,
+ * drawn in cyan at lower alpha.
  *
- * **Proximity range preview** (UI review G4): during creation/edit ([UserMarker.confirmed] == false):
- * - Circle: second thinner dashed circle at radiusM × [proximityZoneMultiplier], cyan ~30%
- * - Corridor: parallel lines at ±(widthM × [proximityZoneMultiplier])/2, cyan ~30%
- * - Pin: no proximity preview (pin is a point)
+ * **Marker tap (P10):** Registers a [MapEventsOverlay] with
+ * [onSingleTapConfirmedHelper]; on tap, finds the nearest confirmed Pin marker
+ * within [TAP_THRESHOLD_M] and calls [onMarkerTap] with its ID.
  *
- * @param markers           List of all user markers to render.
- * @param mapView           The OSMdroid MapView for geo→pixel projection; null → nothing drawn.
- * @param proximityZoneMultiplier  Multiplier for proximity range preview (default 3.0 from maro.properties).
- * @param modifier          Compose modifier — should be [Modifier.fillMaxSize()].
+ * **Match result highlighting (P6):** When [matchResult] is non-null, matched
+ * markers render brighter/thicker; non-matched markers render dimmed (lower alpha).
+ *
+ * Lifecycle: [LaunchedEffect] removes old overlays tagged with [OVERLAY_PREFIX],
+ * adds new ones, then calls [MapView.invalidate].
+ *
+ * @param markers                List of all confirmed user markers to render.
+ * @param mapView                The OSMdroid [MapView]; null → nothing drawn.
+ * @param proximityZoneMultiplier Multiplier for proximity range preview.
+ * @param modifier               Compose modifier (unused — overlays go to mapView).
+ * @param unconfirmedMarker      Optional unconfirmed marker being created/edited.
+ * @param onMarkerTap            Called when a confirmed marker is tapped on the map.
+ * @param matchResult            Optional tiered match result for marker highlighting.
  */
 @Composable
 fun MarkerOverlay(
     markers: List<UserMarker>,
     mapView: MapView?,
     proximityZoneMultiplier: Double = 3.0,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    unconfirmedMarker: UserMarker? = null,
+    onMarkerTap: (String) -> Unit = {},
+    matchResult: TieredMatchResult? = null
 ) {
     val mv = mapView ?: return
-    val projection = mv.projection
+    val context = LocalContext.current
 
-    Canvas(modifier = modifier) {
-        val canvasWidth = size.width
-        val canvasHeight = size.height
+    // Helper to remove all marker overlays
+    fun removeAllMarkerOverlays() {
+        val toRemove = mv.overlays.filter { overlay ->
+            (overlay as? Polyline)?.title?.startsWith(OVERLAY_PREFIX) == true ||
+            (overlay as? Marker)?.title?.startsWith(OVERLAY_PREFIX) == true
+        }
+        mv.overlays.removeAll(toRemove)
+    }
 
-        // Pixel density for dp→px conversion
-        val density = 1f // Canvas already in px space
+    // ── P6: Build set of matched marker IDs for highlighting ──────────────────
+    val matchedIds: Set<String> = if (matchResult != null) {
+        val ids = mutableSetOf<String>()
+        fun collectIds(results: List<MatchResult>) {
+            for (r in results) {
+                when (r) {
+                    is MatchResult.ZoneMatch -> {
+                        ids.add(r.marker.id)
+                        collectIds(r.children)
+                    }
+                    is MatchResult.ProximityMatch -> ids.add(r.marker.id)
+                    is MatchResult.NoMatch -> {}
+                }
+            }
+        }
+        collectIds(matchResult.matches)
+        ids
+    } else emptySet()
 
-        for (marker in markers) {
+    DisposableEffect(markers, unconfirmedMarker, mv, matchResult) {
+        // ── Remove old marker overlays, then add new ones ─────────────────────
+        removeAllMarkerOverlays()
+
+        // Build combined marker list: confirmed markers + optional unconfirmed
+        val allMarkers = if (unconfirmedMarker != null) {
+            markers + unconfirmedMarker
+        } else {
+            markers
+        }
+
+        val dotBitmap = createDotBitmap(COLOR_CONFIRMED)
+
+        for (marker in allMarkers) {
             val confirmed = marker.confirmed
-            val baseColor = if (confirmed)
-                Color(AppConfig.semanticInfo)
-            else
-                Color(AppConfig.semanticCaution)
+            val isMatched = matchResult != null && matchedIds.contains(marker.id)
+            // Unconfirmed: always unconfirmed colour. Confirmed + not matched + has result: dim.
+            val baseColor = when {
+                !confirmed -> COLOR_UNCONFIRMED
+                matchResult != null && !isMatched -> dimColor(COLOR_CONFIRMED, DIMMED_ALPHA_FRACTION)
+                else -> COLOR_CONFIRMED
+            }
+            val strokeMultiplier = if (matchResult != null && isMatched) MATCHED_STROKE_MULTIPLIER else 1.0f
 
             when (val geom = marker.geometry) {
                 is MarkerGeometry.Pin -> {
-                    val dot = geoToPixel(geom.position, projection) ?: continue
-                    // Skip if off-screen
-                    if (!isOnScreen(dot, canvasWidth, canvasHeight)) continue
-
-                    drawCircle(
-                        color = baseColor,
-                        radius = 5.dp.toPx(),
-                        center = dot
-                    )
+                    addPinOverlay(mv, geom, marker.id, baseColor, dotBitmap)
                 }
 
                 is MarkerGeometry.Circle -> {
-                    val centerPx = geoToPixel(geom.center, projection) ?: continue
-
-                    // Draw dashed circle at radiusM
-                    val circlePoints = sampleCircle(
-                        geom.center, geom.radiusM, projection, CIRCLE_SAMPLES
-                    )
-                    if (circlePoints.size >= 2) {
-                        drawCirclePolyline(circlePoints, baseColor, 2.dp.toPx())
-                    }
-
-                    // Filled dot at center (if on screen)
-                    if (isOnScreen(centerPx, canvasWidth, canvasHeight)) {
-                        drawCircle(
-                            color = baseColor,
-                            radius = 5.dp.toPx(),
-                            center = centerPx
-                        )
-                    }
+                    addCircleOverlay(mv, geom, marker.id, baseColor, dotBitmap, strokeMultiplier)
 
                     // Proximity range preview for unconfirmed circles
                     if (!confirmed) {
-                        val previewRadiusM = geom.radiusM * proximityZoneMultiplier
-                        val previewPoints = sampleCircle(
-                            geom.center, previewRadiusM, projection, CIRCLE_SAMPLES
+                        val previewRadiusM = marker.proximityOverrideM
+                            ?: (geom.radiusM * proximityZoneMultiplier)
+                        addCirclePolyline(
+                            mv, geom.center, previewRadiusM,
+                            "$OVERLAY_PREFIX${marker.id}_prox",
+                            COLOR_PROXIMITY_PREVIEW, 2f
                         )
-                        if (previewPoints.size >= 2) {
-                            drawCirclePolyline(
-                                previewPoints,
-                                PROXIMITY_PREVIEW_COLOR,
-                                1.dp.toPx()
-                            )
-                        }
                     }
                 }
 
                 is MarkerGeometry.Corridor -> {
-                    val p1Px = geoToPixel(geom.p1, projection) ?: continue
-                    val p2Px = geoToPixel(geom.p2, projection) ?: continue
-
-                    val halfW = geom.widthM / 2.0
-
-                    // Compute the perpendicular offset direction in screen space
-                    val dx = p2Px.x - p1Px.x
-                    val dy = p2Px.y - p1Px.y
-                    val segLenPx = sqrt(dx * dx + dy * dy)
-                    if (segLenPx == 0f) continue
-
-                    // Unit perpendicular (rotated 90° CCW)
-                    val perpX = -dy / segLenPx
-                    val perpY = dx / segLenPx
-
-                    // Sample points along centerline in geo space, convert to pixel
-                    val geoPoints = sampleCorridorCenterline(geom.p1, geom.p2, CORRIDOR_SAMPLES)
-                    val centerPxList = geoPoints.mapNotNull { geoToPixel(it, projection) }
-                    if (centerPxList.size < 2) continue
-
-                    // Compute offset for half-width in pixels (approximate: use midpoint scale)
-                    val midIdx = centerPxList.size / 2
-                    val midPx = centerPxList[midIdx]
-                    val midGeo = geoPoints[midIdx]
-                    val widthPx = metersToPixels(geom.widthM, midGeo, projection, segLenPx,
-                        SpatialOperations.haversine(geom.p1, geom.p2))
-                    val halfWPx = widthPx / 2f
-
-                    // Draw two parallel dashed lines at ±half-width
-                    val line1 = centerPxList.map { Offset(it.x + perpX * halfWPx, it.y + perpY * halfWPx) }
-                    val line2 = centerPxList.map { Offset(it.x - perpX * halfWPx, it.y - perpY * halfWPx) }
-
-                    drawPolyline(line1, baseColor, 2.dp.toPx())
-                    drawPolyline(line2, baseColor, 2.dp.toPx())
-
-                    // Filled dots at p1 and p2
-                    if (isOnScreen(p1Px, canvasWidth, canvasHeight)) {
-                        drawCircle(color = baseColor, radius = 5.dp.toPx(), center = p1Px)
-                    }
-                    if (isOnScreen(p2Px, canvasWidth, canvasHeight)) {
-                        drawCircle(color = baseColor, radius = 5.dp.toPx(), center = p2Px)
-                    }
+                    addCorridorOverlay(mv, geom, marker.id, baseColor, dotBitmap, confirmed, strokeMultiplier)
 
                     // Proximity range preview for unconfirmed corridors
                     if (!confirmed) {
-                        val previewHalfWPx = halfWPx * proximityZoneMultiplier.toFloat()
-                        val previewLine1 = centerPxList.map {
-                            Offset(it.x + perpX * previewHalfWPx, it.y + perpY * previewHalfWPx)
-                        }
-                        val previewLine2 = centerPxList.map {
-                            Offset(it.x - perpX * previewHalfWPx, it.y - perpY * previewHalfWPx)
-                        }
-                        drawPolyline(previewLine1, PROXIMITY_PREVIEW_COLOR, 1.dp.toPx())
-                        drawPolyline(previewLine2, PROXIMITY_PREVIEW_COLOR, 1.dp.toPx())
+                        val proximityM = marker.proximityOverrideM
+                            ?: (geom.widthM * proximityZoneMultiplier)
+                        addCorridorParallels(
+                            mv, geom.p1, geom.p2, proximityM / 2.0,
+                            "$OVERLAY_PREFIX${marker.id}_prox",
+                            COLOR_PROXIMITY_PREVIEW, 2f
+                        )
                     }
                 }
             }
         }
-    }
-}
 
-// ── Geo ↔ pixel helpers ─────────────────────────────────────────────────────────
+        // ── P10: MapEventsOverlay for tap-to-select confirmed markers ──────────
+        val tapOverlay = MapEventsOverlay(object : MapEventsReceiver {
+            override fun singleTapConfirmedHelper(p: GeoPoint): Boolean {
+                val tapPoint = LatLng(p.latitude, p.longitude)
+                var nearestId: String? = null
+                var nearestDist = Double.MAX_VALUE
 
-/** Convert a [LatLng] to a Compose [Offset] (pixel position on the Canvas). */
-private fun geoToPixel(point: LatLng, projection: org.osmdroid.views.Projection): Offset? {
-    return try {
-        val pt = android.graphics.Point()
-        projection.toPixels(GeoPoint(point.latitude, point.longitude), pt)
-        Offset(pt.x.toFloat(), pt.y.toFloat())
-    } catch (_: Exception) {
-        null
-    }
-}
+                for (marker in markers) {
+                    if (!marker.confirmed) continue
+                    val markerPos = when (val g = marker.geometry) {
+                        is MarkerGeometry.Pin -> g.position
+                        is MarkerGeometry.Circle -> g.center
+                        is MarkerGeometry.Corridor -> LatLng(
+                            (g.p1.latitude + g.p2.latitude) / 2.0,
+                            (g.p1.longitude + g.p2.longitude) / 2.0
+                        )
+                    }
+                    val dist = SpatialOperations.haversine(tapPoint, markerPos)
+                    if (dist < nearestDist && dist < TAP_THRESHOLD_M) {
+                        nearestDist = dist
+                        nearestId = marker.id
+                    }
+                }
 
-/** True if [pt] is within the screen bounds (with some margin). */
-private fun isOnScreen(pt: Offset, canvasW: Float, canvasH: Float): Boolean {
-    val margin = 50f
-    return pt.x >= -margin && pt.x <= canvasW + margin &&
-           pt.y >= -margin && pt.y <= canvasH + margin
-}
+                nearestId?.let { onMarkerTap(it) }
+                return nearestId != null // true = consumed, false = propagate
+            }
 
-/**
- * Approximate conversion from metres to pixels at a given geographic position.
- * Uses the inverse of the scale at [refGeo] computed from the projection.
- */
-private fun metersToPixels(
-    meters: Double,
-    refGeo: LatLng,
-    projection: org.osmdroid.views.Projection,
-    fallbackSegLenPx: Float,
-    fallbackSegLenM: Double
-): Float {
-    // Use the ratio: pixelsPerMeter = segmentLengthPx / segmentLengthM
-    return if (fallbackSegLenM > 0.0) {
-        (meters * fallbackSegLenPx / fallbackSegLenM).toFloat()
-    } else {
-        // Fallback: use projection scale at reference point
-        val pt = android.graphics.Point()
-        val dLat = meters / (EARTH_RADIUS_M * PI / 180.0)
-        try {
-            projection.toPixels(
-                GeoPoint(refGeo.latitude + dLat, refGeo.longitude),
-                pt
-            )
-            val pt0 = android.graphics.Point()
-            projection.toPixels(
-                GeoPoint(refGeo.latitude, refGeo.longitude),
-                pt0
-            )
-            abs(pt.y - pt0.y).toFloat()
-        } catch (_: Exception) {
-            0f
+            override fun longPressHelper(p: GeoPoint): Boolean = false
+        })
+        mv.overlays.add(tapOverlay)
+
+        mv.invalidate()
+
+        onDispose {
+            removeAllMarkerOverlays()
+            // Remove the tap overlay
+            mv.overlays.removeAll { it is MapEventsOverlay }
+            mv.invalidate()
         }
     }
 }
 
-// ── Geometry sampling ────────────────────────────────────────────────────────────
+// ── Overlay builders ──────────────────────────────────────────────────────────
 
-/**
- * Sample [count] points on a circle of radius [radiusM] around [center].
- * Returns screen-space [Offset] list.
- */
+/** Add a pin [Marker] at [geom.position]. */
+private fun addPinOverlay(
+    mv: MapView,
+    geom: MarkerGeometry.Pin,
+    markerId: String,
+    color: Int,
+    dotBitmap: Bitmap
+) {
+    val geo = GeoPoint(geom.position.latitude, geom.position.longitude)
+    val marker = Marker(mv).apply {
+        position = geo
+        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+        icon = BitmapDrawable(mv.context.resources, if (color == COLOR_CONFIRMED) dotBitmap else createDotBitmap(color))
+        title = "${OVERLAY_PREFIX}pin_$markerId"
+    }
+    mv.overlays.add(marker)
+}
+
+/** Add a circle [Polyline] (closed polygon) + center [Marker]. */
+private fun addCircleOverlay(
+    mv: MapView,
+    geom: MarkerGeometry.Circle,
+    markerId: String,
+    color: Int,
+    dotBitmap: Bitmap,
+    strokeMultiplier: Float = 1.0f
+) {
+    // Circle outline as closed Polyline
+    val strokeW = 4f * strokeMultiplier
+    addCirclePolyline(mv, geom.center, geom.radiusM, "${OVERLAY_PREFIX}circle_$markerId", color, strokeW)
+
+    // Center dot
+    val centerGeo = GeoPoint(geom.center.latitude, geom.center.longitude)
+    val centerMarker = Marker(mv).apply {
+        position = centerGeo
+        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+        icon = BitmapDrawable(mv.context.resources, if (color == COLOR_CONFIRMED) dotBitmap else createDotBitmap(color))
+        title = "${OVERLAY_PREFIX}circle_center_$markerId"
+    }
+    mv.overlays.add(centerMarker)
+}
+
+/** Add corridor overlays: two parallel lines, centerline, p1/p2 markers. */
+private fun addCorridorOverlay(
+    mv: MapView,
+    geom: MarkerGeometry.Corridor,
+    markerId: String,
+    color: Int,
+    dotBitmap: Bitmap,
+    confirmed: Boolean,
+    strokeMultiplier: Float = 1.0f
+) {
+    val halfW = geom.widthM / 2.0
+
+    // Centerline (thinner, solid for confirmed, dashed for unconfirmed)
+    val centerline = buildPolyline(
+        sampleCenterline(geom.p1, geom.p2, CORRIDOR_SAMPLES),
+        "${OVERLAY_PREFIX}corr_center_$markerId",
+        color and 0x00FFFFFF or 0x80000000.toInt(), // 50% alpha
+        2f * strokeMultiplier
+    )
+    if (confirmed) {
+        centerline.outlinePaint.pathEffect = null // solid
+    }
+    mv.overlays.add(centerline)
+
+    // Two parallel lines at ±halfW
+    addCorridorParallels(mv, geom.p1, geom.p2, halfW, "${OVERLAY_PREFIX}corr_$markerId", color, 4f * strokeMultiplier)
+
+    // p1 Marker
+    val p1Geo = GeoPoint(geom.p1.latitude, geom.p1.longitude)
+    mv.overlays.add(Marker(mv).apply {
+        position = p1Geo
+        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+        icon = BitmapDrawable(mv.context.resources, if (color == COLOR_CONFIRMED) dotBitmap else createDotBitmap(color))
+        title = "${OVERLAY_PREFIX}corr_p1_$markerId"
+    })
+
+    // p2 Marker
+    val p2Geo = GeoPoint(geom.p2.latitude, geom.p2.longitude)
+    mv.overlays.add(Marker(mv).apply {
+        position = p2Geo
+        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+        icon = BitmapDrawable(mv.context.resources, if (color == COLOR_CONFIRMED) dotBitmap else createDotBitmap(color))
+        title = "${OVERLAY_PREFIX}corr_p2_$markerId"
+    })
+}
+
+// ── Polyline helpers ──────────────────────────────────────────────────────────
+
+/** Add a circle as a closed [Polyline] with [radiusM] around [center]. */
+private fun addCirclePolyline(
+    mv: MapView,
+    center: LatLng,
+    radiusM: Double,
+    title: String,
+    color: Int,
+    strokeWidth: Float
+) {
+    val points = sampleCircle(center, radiusM, CIRCLE_SAMPLES)
+    if (points.size < 3) return
+    // Close the polygon by appending the first point
+    val closed = points + points.first()
+    val polyline = buildPolyline(closed, title, color, strokeWidth)
+    mv.overlays.add(polyline)
+}
+
+/** Add two parallel [Polyline]s offset by [halfWidthM] from the centerline. */
+private fun addCorridorParallels(
+    mv: MapView,
+    p1: LatLng,
+    p2: LatLng,
+    halfWidthM: Double,
+    titleBase: String,
+    color: Int,
+    strokeWidth: Float
+) {
+    val centerPts = sampleCenterline(p1, p2, CORRIDOR_SAMPLES)
+    if (centerPts.size < 2) return
+
+    val bearing = SpatialOperations.initialBearing(p1, p2)
+    val perpLeft = (bearing + 90.0) % 360.0
+    val perpRight = (bearing - 90.0 + 360.0) % 360.0
+
+    val leftPts = centerPts.map { destinationPoint(it, halfWidthM, perpLeft) }
+    val rightPts = centerPts.map { destinationPoint(it, halfWidthM, perpRight) }
+
+    mv.overlays.add(buildPolyline(leftPts, "${titleBase}_left", color, strokeWidth))
+    mv.overlays.add(buildPolyline(rightPts, "${titleBase}_right", color, strokeWidth))
+}
+
+/** Build a dashed [Polyline] with the given [geoPoints], [title], [color], and [strokeWidth]. */
+private fun buildPolyline(
+    geoPoints: List<LatLng>,
+    title: String,
+    color: Int,
+    strokeWidth: Float
+): Polyline {
+    return Polyline().apply {
+        this.title = title
+        outlinePaint.color = color
+        outlinePaint.strokeWidth = strokeWidth
+        outlinePaint.pathEffect = DashPathEffect(floatArrayOf(12f, 8f), 0f)
+        outlinePaint.strokeCap = Paint.Cap.ROUND
+        outlinePaint.isAntiAlias = true
+        setPoints(geoPoints.map { GeoPoint(it.latitude, it.longitude) })
+    }
+}
+
+// ── Geometry sampling ─────────────────────────────────────────────────────────
+
+/** Sample [count] points on a circle of radius [radiusM] around [center]. */
 private fun sampleCircle(
     center: LatLng,
     radiusM: Double,
-    projection: org.osmdroid.views.Projection,
     count: Int
-): List<Offset> {
-    val result = mutableListOf<Offset>()
+): List<LatLng> {
+    val result = mutableListOf<LatLng>()
     for (i in 0 until count) {
         val bearingDeg = i * 360.0 / count
-        val pt = destinationPoint(center, radiusM, bearingDeg)
-        val px = geoToPixel(pt, projection) ?: continue
-        result.add(px)
+        result.add(destinationPoint(center, radiusM, bearingDeg))
     }
     return result
 }
 
-/**
- * Sample [count] evenly-spaced points along the centerline from [p1] to [p2]
- * (inclusive of endpoints). Returns geographic [LatLng] positions.
- */
-private fun sampleCorridorCenterline(
+/** Sample [count] evenly-spaced points along the centerline from [p1] to [p2] (inclusive). */
+private fun sampleCenterline(
     p1: LatLng,
     p2: LatLng,
     count: Int
@@ -287,10 +422,7 @@ private fun sampleCorridorCenterline(
     return result
 }
 
-/**
- * Compute the destination point given a start point, distance in metres,
- * and bearing in degrees (0° = north, clockwise).
- */
+/** Compute the destination point given start, distance in metres, and bearing in degrees. */
 private fun destinationPoint(start: LatLng, distanceM: Double, bearingDeg: Double): LatLng {
     val dR = distanceM / EARTH_RADIUS_M
     val br = Math.toRadians(bearingDeg)
@@ -303,54 +435,31 @@ private fun destinationPoint(start: LatLng, distanceM: Double, bearingDeg: Doubl
     return LatLng(Math.toDegrees(lat2), Math.toDegrees(lon2))
 }
 
-// ── Canvas drawing helpers ──────────────────────────────────────────────────────
+// ── Bitmap helpers ────────────────────────────────────────────────────────────
 
-/** Draw a polyline from a list of pixel offsets with a dashed stroke. */
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPolyline(
-    points: List<Offset>,
-    color: Color,
-    strokeWidth: Float
-) {
-    if (points.size < 2) return
-    val path = androidx.compose.ui.graphics.Path().apply {
-        moveTo(points[0].x, points[0].y)
-        for (i in 1 until points.size) {
-            lineTo(points[i].x, points[i].y)
-        }
+/**
+ * Create a simple filled-circle [Bitmap] to use as a marker icon.
+ * Cached statically for the confirmed color to avoid repeated allocations.
+ */
+private fun createDotBitmap(color: Int): Bitmap {
+    val radiusPx = (DOT_RADIUS_DP * 3f).toInt() // scale for density ~3x
+    val size = radiusPx * 2 + 4 // padding
+    val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    val paint = Paint().apply {
+        this.color = color
+        isAntiAlias = true
+        style = Paint.Style.FILL
     }
-    drawPath(
-        path = path,
-        color = color,
-        style = Stroke(
-            width = strokeWidth,
-            cap = StrokeCap.Round,
-            pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 8f), 0f)
-        )
-    )
+    canvas.drawCircle(size / 2f, size / 2f, radiusPx.toFloat(), paint)
+    return bitmap
 }
 
-/** Draw a closed circular polyline (for dashed circle rendering). */
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawCirclePolyline(
-    points: List<Offset>,
-    color: Color,
-    strokeWidth: Float
-) {
-    if (points.size < 3) return
-    val path = androidx.compose.ui.graphics.Path().apply {
-        moveTo(points[0].x, points[0].y)
-        for (i in 1 until points.size) {
-            lineTo(points[i].x, points[i].y)
-        }
-        close()
-    }
-    drawPath(
-        path = path,
-        color = color,
-        style = Stroke(
-            width = strokeWidth,
-            cap = StrokeCap.Round,
-            pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 8f), 0f)
-        )
-    )
+/**
+ * Dim an ARGB colour by reducing its alpha channel to [alphaFraction] of the original.
+ * E.g. alphaFraction=0.25f → 25% alpha, other channels unchanged.
+ */
+private fun dimColor(color: Int, alphaFraction: Float): Int {
+    val newAlpha = ((color ushr 24) * alphaFraction).toInt().coerceIn(0, 255)
+    return (newAlpha shl 24) or (color and 0x00FFFFFF)
 }
-
