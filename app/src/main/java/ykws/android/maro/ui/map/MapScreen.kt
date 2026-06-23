@@ -860,6 +860,7 @@ fun MapScreen(
                             name = createForm.name.ifBlank { "New Marker" },
                             geometry = geometry,
                             description = createForm.description,
+                            proximityOverrideM = createForm.proximityOverrideM.toDoubleOrNull(),
                             confirmed = false
                         )
                     } else null
@@ -867,8 +868,22 @@ fun MapScreen(
                 else -> null
             }
 
+            // ── F2: On edit start, animate map to the existing marker position ──
+            val mapCenterRequest by markersViewModel.mapCenterRequest.collectAsState()
+            LaunchedEffect(mapCenterRequest) {
+                val target = mapCenterRequest ?: return@LaunchedEffect
+                val mv = mapView ?: return@LaunchedEffect
+                mv.controller.animateTo(org.osmdroid.util.GeoPoint(target.latitude, target.longitude))
+            }
+
             // ── F3: During Creating/Editing, track map center for marker position ──
-            LaunchedEffect(drawerState, wizardStep, mapCenter) {
+            // wizardStep intentionally NOT a key — prevents premature form overwrite
+            // when recenterMapOnStep triggers map animation (mapCenter hasn't moved yet).
+            // suspendTracking gate prevents animateTo intermediate values from
+            // corrupting the restored marker position during edit recenter.
+            val suspendTracking by markersViewModel.suspendTracking.collectAsState()
+            LaunchedEffect(drawerState, mapCenter, suspendTracking) {
+                if (suspendTracking) return@LaunchedEffect
                 if (drawerState is MarkerDrawerState.Creating || drawerState is MarkerDrawerState.Editing) {
                     val ws = markersViewModel.wizardStep.value
                     // Track position during Position step, or set corridor P2 during PositionP2
@@ -916,9 +931,7 @@ fun MapScreen(
                 onMapViewReady = { mapView = it },
                 markerLayerVisible = markerLayerVisible,
                 onToggleUserMarkers = { markersViewModel.toggleVisibility() },
-                onAddPin = { center -> markersViewModel.startWizard(MarkerType.PIN, center) },
-                onAddCircle = { center -> markersViewModel.startWizard(MarkerType.CIRCLE, center) },
-                onAddCorridor = { center -> markersViewModel.startWizard(MarkerType.CORRIDOR, center) },
+                onAddZone = { center -> markersViewModel.startWizard(initialPos = center) },
                 onMarkerTap = { id -> markersViewModel.openEditDrawer(id) },
                 onWhereAmI = {
                     val boatPos = gpsPosition ?: mapCenter
@@ -1061,7 +1074,8 @@ fun MapScreen(
                 proximityZoneMultiplier = AppConfig.markerProximityZoneMultiplier,
                 unconfirmedMarker = unconfirmedMarker,
                 onMarkerTap = { id -> markersViewModel.openEditDrawer(id) },
-                matchResult = if (drawerStateForOverlay is MarkerDrawerState.MatchResult) matchResult else null
+                matchResult = if (drawerStateForOverlay is MarkerDrawerState.MatchResult) matchResult else null,
+                markerZonesVisible = appSettings.markerZonesVisible
             )
         }
         }
@@ -1292,9 +1306,7 @@ private fun MapContent(
     onMapViewReady: (MapView) -> Unit,
     markerLayerVisible: Boolean = true,
     onToggleUserMarkers: () -> Unit = {},
-    onAddPin: (LatLng) -> Unit = {},
-    onAddCircle: (LatLng) -> Unit = {},
-    onAddCorridor: (LatLng) -> Unit = {},
+    onAddZone: (LatLng) -> Unit = {},
     onMarkerTap: (String) -> Unit = {},
     onWhereAmI: () -> Unit = {},
     onRetry: () -> Unit,
@@ -1626,48 +1638,12 @@ private fun MapContent(
                         )
                     }
 
-                    // P1/I1: Three type-shortcut buttons (36dp each, stacked vertically)
+                    // Add Zone button (same size/style as FanLayout buttons, opens wizard at TypeSelect)
                     Spacer(modifier = Modifier.height(6.dp))
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally
+                    MapControlButton(
+                        onClick = { onAddZone(mapCenter) }
                     ) {
-                        // Pin shortcut
-                        Button(
-                            onClick = { onAddPin(mapCenter) },
-                            modifier = Modifier.size(36.dp),
-                            shape = CircleShape,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = ButtonColors.bg
-                            ),
-                            contentPadding = PaddingValues(0.dp)
-                        ) {
-                            ShortcutPinIcon()
-                        }
-                        // Circle shortcut
-                        Button(
-                            onClick = { onAddCircle(mapCenter) },
-                            modifier = Modifier.size(36.dp),
-                            shape = CircleShape,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = ButtonColors.bg
-                            ),
-                            contentPadding = PaddingValues(0.dp)
-                        ) {
-                            ShortcutCircleIcon()
-                        }
-                        // Corridor shortcut
-                        Button(
-                            onClick = { onAddCorridor(mapCenter) },
-                            modifier = Modifier.size(36.dp),
-                            shape = CircleShape,
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = ButtonColors.bg
-                            ),
-                            contentPadding = PaddingValues(0.dp)
-                        ) {
-                            ShortcutCorridorIcon()
-                        }
+                        FilledPinIcon()
                     }
                 }
 

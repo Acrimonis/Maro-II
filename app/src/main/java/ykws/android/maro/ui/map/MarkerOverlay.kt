@@ -51,8 +51,8 @@ private val COLOR_CONFIRMED = AppConfig.semanticInfo
 /** Unconfirmed marker colour (semantic.caution amber). */
 private val COLOR_UNCONFIRMED = AppConfig.semanticCaution
 
-/** Proximity preview colour — cyan #4FC3F7 at ~30% alpha. */
-private val COLOR_PROXIMITY_PREVIEW = 0x4D4FC3F7.toInt()
+/** Proximity preview colour — cyan #4FC3F7 at ~50% alpha (was 30%, too faint with dash). */
+private val COLOR_PROXIMITY_PREVIEW = 0x804FC3F7.toInt()
 
 /** Alpha for dimmed (non-matched) markers during match-result highlighting (30%). */
 private const val DIMMED_ALPHA_FRACTION = 0.30f
@@ -101,7 +101,8 @@ fun MarkerOverlay(
     modifier: Modifier = Modifier,
     unconfirmedMarker: UserMarker? = null,
     onMarkerTap: (String) -> Unit = {},
-    matchResult: TieredMatchResult? = null
+    matchResult: TieredMatchResult? = null,
+    markerZonesVisible: Boolean = true
 ) {
     val mv = mapView ?: return
     val context = LocalContext.current
@@ -138,9 +139,10 @@ fun MarkerOverlay(
         // ── Remove old marker overlays, then add new ones ─────────────────────
         removeAllMarkerOverlays()
 
-        // Build combined marker list: confirmed markers + optional unconfirmed
+        // Build combined marker list: unconfirmed first (renders underneath)
+        // so the original confirmed marker stays visible on top during edit.
         val allMarkers = if (unconfirmedMarker != null) {
-            markers + unconfirmedMarker
+            listOf(unconfirmedMarker) + markers
         } else {
             markers
         }
@@ -158,13 +160,34 @@ fun MarkerOverlay(
             }
             val strokeMultiplier = if (matchResult != null && isMatched) MATCHED_STROKE_MULTIPLIER else 1.0f
 
+            // Zone shapes gated by markerZonesVisible for confirmed markers;
+            // unconfirmed (creating/editing) always show full geometry.
+            val drawZones = !confirmed || markerZonesVisible
+
             when (val geom = marker.geometry) {
                 is MarkerGeometry.Pin -> {
                     addPinOverlay(mv, geom, marker.id, baseColor, dotBitmap)
+
+                    // Proximity range preview for unconfirmed pins
+                    if (!confirmed) {
+                        val previewRadiusM = marker.proximityOverrideM
+                            ?: AppConfig.markerProximityPinM
+                        addCirclePolyline(
+                            mv, geom.position, previewRadiusM,
+                            "$OVERLAY_PREFIX${marker.id}_prox",
+                            COLOR_PROXIMITY_PREVIEW, 2f,
+                            dashed = false
+                        )
+                    }
                 }
 
                 is MarkerGeometry.Circle -> {
-                    addCircleOverlay(mv, geom, marker.id, baseColor, dotBitmap, strokeMultiplier)
+                    if (drawZones) {
+                        addCircleOverlay(mv, geom, marker.id, baseColor, dotBitmap, strokeMultiplier)
+                    } else {
+                        // Center dot only
+                        addPinOverlay(mv, MarkerGeometry.Pin(geom.center), marker.id, baseColor, dotBitmap)
+                    }
 
                     // Proximity range preview for unconfirmed circles
                     if (!confirmed) {
@@ -173,22 +196,45 @@ fun MarkerOverlay(
                         addCirclePolyline(
                             mv, geom.center, previewRadiusM,
                             "$OVERLAY_PREFIX${marker.id}_prox",
-                            COLOR_PROXIMITY_PREVIEW, 2f
+                            COLOR_PROXIMITY_PREVIEW, 2f,
+                            dashed = false
                         )
                     }
                 }
 
                 is MarkerGeometry.Corridor -> {
-                    addCorridorOverlay(mv, geom, marker.id, baseColor, dotBitmap, confirmed, strokeMultiplier)
+                    if (drawZones) {
+                        addCorridorOverlay(mv, geom, marker.id, baseColor, dotBitmap, confirmed, strokeMultiplier)
+                    } else {
+                        // p1/p2 dots only
+                        addPinOverlay(mv, MarkerGeometry.Pin(geom.p1), "${marker.id}_p1", baseColor, dotBitmap)
+                        addPinOverlay(mv, MarkerGeometry.Pin(geom.p2), "${marker.id}_p2", baseColor, dotBitmap)
+                    }
 
                     // Proximity range preview for unconfirmed corridors
                     if (!confirmed) {
                         val proximityM = marker.proximityOverrideM
                             ?: (geom.widthM * proximityZoneMultiplier)
+                        val halfProx = proximityM / 2.0
+                        // Parallel lines at ±halfProx (dashed stadium shape)
                         addCorridorParallels(
-                            mv, geom.p1, geom.p2, proximityM / 2.0,
+                            mv, geom.p1, geom.p2, halfProx,
                             "$OVERLAY_PREFIX${marker.id}_prox",
-                            COLOR_PROXIMITY_PREVIEW, 2f
+                            COLOR_PROXIMITY_PREVIEW, 2f,
+                            dashed = true
+                        )
+                        // Circular endcaps at p1 and p2 (rounded ends of the proximity stadium)
+                        addCirclePolyline(
+                            mv, geom.p1, halfProx,
+                            "$OVERLAY_PREFIX${marker.id}_prox_cap_p1",
+                            COLOR_PROXIMITY_PREVIEW, 2f,
+                            dashed = true
+                        )
+                        addCirclePolyline(
+                            mv, geom.p2, halfProx,
+                            "$OVERLAY_PREFIX${marker.id}_prox_cap_p2",
+                            COLOR_PROXIMITY_PREVIEW, 2f,
+                            dashed = true
                         )
                     }
                 }
@@ -337,13 +383,14 @@ private fun addCirclePolyline(
     radiusM: Double,
     title: String,
     color: Int,
-    strokeWidth: Float
+    strokeWidth: Float,
+    dashed: Boolean = true
 ) {
     val points = sampleCircle(center, radiusM, CIRCLE_SAMPLES)
     if (points.size < 3) return
     // Close the polygon by appending the first point
     val closed = points + points.first()
-    val polyline = buildPolyline(closed, title, color, strokeWidth)
+    val polyline = buildPolyline(closed, title, color, strokeWidth, dashed)
     mv.overlays.add(polyline)
 }
 
@@ -355,7 +402,8 @@ private fun addCorridorParallels(
     halfWidthM: Double,
     titleBase: String,
     color: Int,
-    strokeWidth: Float
+    strokeWidth: Float,
+    dashed: Boolean = true
 ) {
     val centerPts = sampleCenterline(p1, p2, CORRIDOR_SAMPLES)
     if (centerPts.size < 2) return
@@ -367,22 +415,26 @@ private fun addCorridorParallels(
     val leftPts = centerPts.map { destinationPoint(it, halfWidthM, perpLeft) }
     val rightPts = centerPts.map { destinationPoint(it, halfWidthM, perpRight) }
 
-    mv.overlays.add(buildPolyline(leftPts, "${titleBase}_left", color, strokeWidth))
-    mv.overlays.add(buildPolyline(rightPts, "${titleBase}_right", color, strokeWidth))
+    mv.overlays.add(buildPolyline(leftPts, "${titleBase}_left", color, strokeWidth, dashed))
+    mv.overlays.add(buildPolyline(rightPts, "${titleBase}_right", color, strokeWidth, dashed))
 }
 
-/** Build a dashed [Polyline] with the given [geoPoints], [title], [color], and [strokeWidth]. */
+/** Build a [Polyline] with the given [geoPoints], [title], [color], and [strokeWidth].
+ *  [dashed] = true → DashPathEffect; false → solid line (used for proximity previews). */
 private fun buildPolyline(
     geoPoints: List<LatLng>,
     title: String,
     color: Int,
-    strokeWidth: Float
+    strokeWidth: Float,
+    dashed: Boolean = true
 ): Polyline {
     return Polyline().apply {
         this.title = title
         outlinePaint.color = color
         outlinePaint.strokeWidth = strokeWidth
-        outlinePaint.pathEffect = DashPathEffect(floatArrayOf(12f, 8f), 0f)
+        if (dashed) {
+            outlinePaint.pathEffect = DashPathEffect(floatArrayOf(12f, 8f), 0f)
+        }
         outlinePaint.strokeCap = Paint.Cap.ROUND
         outlinePaint.isAntiAlias = true
         setPoints(geoPoints.map { GeoPoint(it.latitude, it.longitude) })
