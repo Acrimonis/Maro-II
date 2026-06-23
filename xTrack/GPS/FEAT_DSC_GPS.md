@@ -2,8 +2,8 @@
 name: GPS
 status: active
 created: 2026-06-07 00:00
-modified: 2026-06-22 19:51
-active_subfeature: track-simplification
+modified: 2026-06-23 08:09
+active_subfeature:
 ---
 
 # Feature: GpsPlugin
@@ -133,6 +133,26 @@ ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 
 #### Docs
 
+### fix-track-extrapolation  [x]
+
+#### Todos
+- [ ] Investigate: dead-reckoning extrapolated positions leaking into track recording via MapScreen.kt combine flow
+- [ ] Design fix: prevent extrapolated GpsFix objects from reaching TrackRecorder.addPoint()
+- [ ] Implement fix
+- [ ] Build (apk-build.bat) + on-device verification: stop boat, confirm no extrapolated spikes in recorded track
+
+#### Rules
+- Dead reckoning extrapolation is for display only — must not leak into persistent track recording.
+- TrackRecorder must only receive real GPS fixes with actual satellite lock.
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — combine flow that feeds GpsFix to TrackRecorder (line 514-536)
+- `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — startDeadReckoning(), _isEstimating, _gpsPosition
+- `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt` — addPoint() receives GpsFix with hasLock=true
+
+#### Docs
+- `xTrack/GPS/FEAT_PLN_GPS_fix-track-extrapolation.md` — analysis & fix plan
+
 ## Todos
 
 
@@ -152,6 +172,8 @@ ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 - `xTrack/GPS/FEAT_PLN_GPS_loss-fix-plan.md` — GPS loss fix plan
 
 ## Implemented
+
+**fix-track-extrapolation (2026-06-23):** Gated dead-reckoning extrapolated positions from leaking into track recording. Added `isEstimating` to `combine` inputs in `MapScreen.kt:514`, guard `if (estimating) return@combine null` before `GpsFix` creation, plus `filterNotNull()` downstream. Dead reckoning updates `_gpsPosition` for display only; track recording now only receives real GPS fixes with actual satellite lock. 1 file, 3 lines, no new dependencies. Build: ✅.
 
 **troubleshoot-gps-turns (2026-06-22):** Spike rejection lock-in fix — added `STALE_FIX_TIMEOUT_MS` (10s), `lastAcceptedTimeMs` field, timeout check before Gates 0-3 in `TrackRecorder.addPoint()`. Breaks lock-in on sharp turns (stale `lastValidCourseDeg`/`lastValidPoint`) and silent GPS recovery (no `emitNoLock` → Gate 0 missed). BuildConfig:`tracking.checkpointIntervalMs=30000`, `tracking.staleFixTimeoutMs=10000` in `maro.properties`.
 

@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** Coastline
-- **Active Subfeature:** extend-to-menton
+- **Active Feature:** GPS
+- **Active Subfeature:** fix-track-extrapolation
 - **Last Updated:** 2026-06-23
-- **Last Bake:** 2026-06-23 07:08 (Coastline — extend-to-menton complete: 7.55°E bound, BuildConfig.REGION_ID, D:\.src\.data\ storage, OOM fix, batch file repairs, 29 files committed in 635ca5a)
-- **Branch:** feature/extend-coastline
+- **Last Bake:** 2026-06-23 08:09 (GPS — fix-track-extrapolation: dead-reckoning positions gated from track recording via isEstimating guard in MapScreen.kt combine. 1 file, 3 lines. Build ✅)
+- **Branch:** feature/ya-gps-fix
 ## Routing Map
 | Keyword | Feature File |
 |---|---|
@@ -42,7 +42,7 @@
 | DepthMapping | Bathymetry / depth mapping from Litto3D, SHOM, EMODnet sources | 2026-05-10 00:00 | 2026-06-10 12:13 | active |
 | Coastline | Coastline extraction, spatial indexing, isOnWater, hazard rings, unified data store; eastern bound extended to Menton (7.55°E), single region ID via BuildConfig | 2026-05-10 00:00 | 2026-06-23 07:08 | active |
 | Ui_Dashboard | Main dashboard UI layout and HUD information display | 2026-05-15 00:00 | 2026-06-15 08:29 | active |
-| GPS | GPS plugin with demo mode, heading/COG compass, geolocation | 2026-05-10 00:00 | 2026-06-11 14:00 | active |
+| GPS | GPS plugin with demo mode, heading/COG compass, geolocation | 2026-05-10 00:00 | 2026-06-23 08:09 | active |
 | UI_Map | Map rendering, depth color layer, orientation overlay, boat marker offset | 2026-05-10 00:00 | 2026-06-14 19:39 | active |
 | Performance | Battery optimization, adaptive GPS tuning, compass gate, map refresh | 2026-05-20 00:00 | 2026-06-05 00:00 | active |
 | BakeNormalization | APK bake/build/deploy pipeline and prebake data processing | 2026-06-01 00:00 | 2026-06-05 00:00 | active |
@@ -65,7 +65,7 @@
 - `adb.exe` is in the computer PATH — use `adb` directly without full path qualifier.
 - Auto-refine rule wording for clarity and conciseness on `#rule` add.
 - Use apk-build.bat to build APK (runs gradlew assembleDebug).
-- **Git operations allowed in Architect mode on user confirmation** — `git add`, `git commit`, `git checkout -b` permitted when user explicitly confirms (e.g., `#commit`). `git push`, `git merge`, `git rebase` still require separate confirmation per AGENTS.md §5. Never touch `develop`/`main` branches.
+- **Git operations allowed on `#`-command invocation** — `#commit`, `#push`, `#merge`, `#checkout` are self-contained confirmations; the command invocation is the go-ahead. Never touch `develop`/`main` branches.
 - **🔴 MODE LOCK: Do not switch to Code mode or invoke `#implement` pipeline without explicit user go-ahead (`#implement` tag or "go ahead" / "implement now").** Never suggest "ready for #implement" — it implies permission. Architect mode stays in Architect until user explicitly directs otherwise.
 
 ## Global Todos
