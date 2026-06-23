@@ -2,8 +2,8 @@
 name: Markers
 status: active
 created: 2026-06-22 11:52
-modified: 2026-06-22 13:44
-active_subfeature: none
+modified: 2026-06-23 08:33
+active_subfeature: create-zones-flow
 ---
 
 # Feature: Markers
@@ -21,7 +21,6 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Sea-di
 ### creation-ui  [x]
 ### management-page  [x]
 ### create-zones-flow  [ ]
-### menu-markers-normalization  [x]
 
 ## Key Files
 - `app/src/main/java/ykws/android/maro/data/model/markers/UserMarker.kt`
