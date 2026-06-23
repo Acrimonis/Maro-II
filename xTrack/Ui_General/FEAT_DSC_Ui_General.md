@@ -2,10 +2,8 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-06-17 13:37
-active_subfeature: none
-modified: 2026-06-17 13:57
-active_subfeature: SVSpacing
+modified: 2026-06-23 15:28
+active_subfeature: fan tweak
 ---
 
 # Feature: Ui_General
@@ -150,6 +148,30 @@ Adjust vertical spacing between buttons in the right-edge control stack for impr
 - `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — `regulatedZoneAutoShowGps`/`regulatedZoneAutoShowDemo` fields
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — settings toggles, `onToggleRegulatedZones` wiring
 - `plans/speed-enforcement-zone-auto-show-plan.md` — design plan
+
+### fan tweak  [x]
+
+**Focus:** Remove the transparent scrim that intercepts taps when the fan is expanded. Instead, let the MapView itself detect the tap, dismiss the fan, and process the touch normally — so a single tap both closes the fan AND pans/zooms the map.
+
+**Design:** The scrim (`Modifier.clickable`) at `MapContent` level consumed all touches before they reached the osmdroid `MapView`. By replacing it with an Android `View.OnTouchListener` set directly on the `MapView`, we can observe `ACTION_DOWN`, call `onDismissFan()`, and return `false` — the unconsumed event flows to `MapView.onTouchEvent` for normal pan/zoom. This is the only reliable pass-through path across the Compose→AndroidView boundary.
+
+#### Todos
+- [x] Remove scrim `Box(Modifier.fillMaxSize().clickable { onDismissFan() })` from `MapContent()` (line ~1138)
+- [x] Add `expandedFanId: ControlId?` and `onDismissFan: () -> Unit` parameters to `CoastlineMapView()`
+- [x] In `CoastlineMapView.update` block: `mapView.setOnTouchListener { _, event -> if (event.action == MotionEvent.ACTION_DOWN && expandedFanId != null) onDismissFan(); false }`
+- [x] Thread `expandedFanId` and `onDismissFan` from `MapContent` call site through to `CoastlineMapView`
+- [x] Build & verify: BUILD SUCCESSFUL
+
+#### Implemented
+- [`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1129) — scrim removed (was lines 1132-1140), `CoastlineMapView` gains `expandedFanId`/`onDismissFan` params, `update` block sets `setOnTouchListener` gated on `ACTION_DOWN`, call site threads both params. 1 file, 4 touch points. Build ✅.
+
+#### Rules
+- `setOnTouchListener` returning `false` is mandatory — never consume, always let MapView handle
+- Gate only on `ACTION_DOWN` to avoid calling `onDismissFan()` on every MOVE event
+- Fan child buttons (arc buttons rendered by `FanLayout`) are Compose overlays on top of `AndroidView` — they consume their own taps first, so toggling a layer button still works without dismissing
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `MapContent()` (remove scrim, thread params), `CoastlineMapView()` (add params, set touch listener)
 
 ## Todos
 
