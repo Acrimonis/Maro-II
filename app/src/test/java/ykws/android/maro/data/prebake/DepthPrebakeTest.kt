@@ -24,7 +24,7 @@ class DepthPrebakeTest {
     fun prebakeDepth() {
         Assume.assumeTrue("set -Dmaro.prebake=true to run", System.getProperty("maro.prebake") == "true")
 
-        val region = DepthConstants.REGION_ID
+        val region = "nice-menton"
         // All baked data lives in the gitignored data/app-assets tree (packaged via the build's asset
         // srcDir); resolve via maro.repoDir so the test CWD (app/) doesn't matter.
         val repoDir = System.getProperty("maro.repoDir")?.let { File(it) } ?: File("..")

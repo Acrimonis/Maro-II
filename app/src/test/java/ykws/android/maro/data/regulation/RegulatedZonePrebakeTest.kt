@@ -24,7 +24,7 @@ class RegulatedZonePrebakeTest {
             System.getProperty("maro.prebake") == "true"
         )
 
-        val region = "nice-frejus"
+        val region = "nice-menton"
 
         // Resolve repo root — the test CWD is typically app/, fall back to parent.
         val repoDir = System.getProperty("maro.repoDir")?.let { File(it) } ?: File("..")

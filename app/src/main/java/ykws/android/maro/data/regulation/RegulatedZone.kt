@@ -1,5 +1,6 @@
 package ykws.android.maro.data.regulation
 
+import ykws.android.maro.BuildConfig
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoNumber
 import ykws.android.maro.data.model.LatLng
@@ -186,14 +187,14 @@ data class RegulatedZone(
 /**
  * Metadata describing the regulation data set provenance.
  *
- * @property regionId         Region identifier, default "nice-frejus"
+ * @property regionId         Region identifier, default "nice-menton"
  * @property fetchTimestampMs Epoch millis when the data was fetched
  * @property sourceCount      Number of distinct sources that contributed zones
  * @property totalZones       Total number of zones in the set
  */
 @Serializable
 data class RegulationMetadata(
-    @ProtoNumber(1) val regionId: String = "nice-frejus",
+    @ProtoNumber(1) val regionId: String = BuildConfig.REGION_ID,
     @ProtoNumber(2) val fetchTimestampMs: Long,
     @ProtoNumber(3) val sourceCount: Int,
     @ProtoNumber(4) val totalZones: Int

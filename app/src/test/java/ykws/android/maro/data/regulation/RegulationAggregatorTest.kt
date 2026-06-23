@@ -163,7 +163,7 @@ class RegulationAggregatorTest {
         )
         assertEquals(2, result.metadata.sourceCount)
         assertEquals(2, result.metadata.totalZones)
-        assertEquals("nice-frejus", result.metadata.regionId)
+        assertEquals("nice-menton", result.metadata.regionId)
     }
 
     @Test

@@ -50,7 +50,7 @@ class SpeedZoneBuilderTest {
     private fun makeZoneSet(zones: List<RegulatedZone>) = RegulatedZoneSet(
         zones = zones,
         metadata = RegulationMetadata(
-            regionId = "nice-frejus",
+            regionId = "nice-menton",
             fetchTimestampMs = 0L,
             sourceCount = zones.distinctBy { it.source }.size.coerceAtLeast(1),
             totalZones = zones.size

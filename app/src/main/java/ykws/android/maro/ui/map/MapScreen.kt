@@ -904,6 +904,7 @@ fun MapScreen(
                 navigationScrollState = navigationScrollState,
                 systemScrollState = systemScrollState,
                 onRegenerateRasters = { steps ->
+                    showSettings = false
                     val waterTest: (Double, Double) -> Boolean =
                         if (state is CoastlineState.Ready) viewModel::isOnWater else { _, _ -> true }
                     depthViewModel.generateRasterLayers(context, steps, appSettings, waterTest)

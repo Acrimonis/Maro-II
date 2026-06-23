@@ -1,5 +1,6 @@
 package ykws.android.maro.data.depth
 
+import ykws.android.maro.BuildConfig
 import android.content.Context
 import android.os.SystemClock
 import android.util.Log
@@ -44,7 +45,7 @@ class DepthRepository(
     }
 
     /** Loads the bundled prebaked depth grid from `assets/depth/<regionId>.bin`. */
-    suspend fun loadDepth(regionId: String = DepthConstants.REGION_ID) {
+    suspend fun loadDepth(regionId: String = BuildConfig.REGION_ID) {
         _state.value = DepthState.Loading
         _progress.value = GenerationProgress("", 0)
         val loaded = withContext(ioDispatcher) { readBundled(regionId) }
@@ -57,11 +58,11 @@ class DepthRepository(
     }
 
     /** Re-reads the bundled prebaked grid (no on-device generation). */
-    suspend fun refreshDepth(regionId: String = DepthConstants.REGION_ID) = loadDepth(regionId)
+    suspend fun refreshDepth(regionId: String = BuildConfig.REGION_ID) = loadDepth(regionId)
 
     /** Loads the prebaked grid from bundled assets without touching UI state. Idempotent — safe to
      *  call even when the grid is already loaded (returns the cached instance). */
-    suspend fun loadGridFromAssets(regionId: String = DepthConstants.REGION_ID): DepthGrid? {
+    suspend fun loadGridFromAssets(regionId: String = BuildConfig.REGION_ID): DepthGrid? {
         val cached = grid
         if (cached != null) return cached
         return withContext(ioDispatcher) { readBundled(regionId) }
@@ -69,11 +70,10 @@ class DepthRepository(
 
     private fun readBundled(regionId: String): DepthGrid? = try {
         assets?.open("depth/$regionId.bin")?.use { stream ->
-            val raw = stream.readBytes()
             val t0 = SystemClock.elapsedRealtime()
-            val grid = DepthSerializer.deserialize(raw)
+            val grid = DepthSerializer.deserialize(stream)
             val elapsed = SystemClock.elapsedRealtime() - t0
-            Log.d("Perf", "DepthGridLoad: ${elapsed}ms rows=${grid.rows} cols=${grid.cols} cells=${grid.rows * grid.cols} fileSizeKB=${raw.size / 1024}")
+            Log.d("Perf", "DepthGridLoad: ${elapsed}ms rows=${grid.rows} cols=${grid.cols} cells=${grid.rows * grid.cols}")
             grid
         }
     } catch (_: Exception) {

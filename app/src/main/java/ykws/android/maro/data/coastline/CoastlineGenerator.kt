@@ -45,7 +45,7 @@ class CoastlineGenerator(
     companion object {
         private const val EARTH_RADIUS_M = 6_371_000.0
 
-        // Zone réglementaire Nice–Fréjus — SINGLE SOURCE: the W/E coastline-point longitudes come from
+        // Zone réglementaire Nice–Menton — SINGLE SOURCE: the W/E coastline-point longitudes come from
         // gradle props (maro.region.lonWest/lonEast) via BuildConfig. The coastline clips E/W to these;
         // the depth zone derives as coast + 6 NM. No other box redefines the corridor.
         val LON_WEST = BuildConfig.REGION_LON_WEST
@@ -58,9 +58,6 @@ class CoastlineGenerator(
         const val BBOX_LAT_MAX = 43.80
         val BBOX_LON_MIN = LON_WEST - FETCH_LON_MARGIN_DEG
         val BBOX_LON_MAX = LON_EAST + FETCH_LON_MARGIN_DEG
-
-        // Default region identifier for this generator
-        const val REGION_ID = "nice-frejus"
 
         private const val MATCH_THRESHOLD_M = 25.0
 
@@ -109,7 +106,7 @@ class CoastlineGenerator(
      *                   depuis le thread du coroutine scope parent.
      */
     suspend fun generate(
-        regionId: String = REGION_ID,
+        regionId: String = BuildConfig.REGION_ID,
         onProgress: (phase: String, progress: Int) -> Unit = { _, _ -> }
     ): CoastlineData = withContext(Dispatchers.IO) {
         onProgress("Démarrage", 0)
@@ -130,7 +127,7 @@ class CoastlineGenerator(
     internal fun buildFromElements(
         rawWays: List<JsonObject>,
         seamarkNodes: List<JsonObject>,
-        regionId: String = REGION_ID,
+        regionId: String = BuildConfig.REGION_ID,
         onProgress: (phase: String, progress: Int) -> Unit = { _, _ -> }
     ): CoastlineData {
         onProgress("Assemblage", 25)

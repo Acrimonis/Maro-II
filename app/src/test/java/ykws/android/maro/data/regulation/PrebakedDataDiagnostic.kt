@@ -18,7 +18,7 @@ class PrebakedDataDiagnostic {
     @Test
     fun `dump prebaked regulated zone centroids with descriptions`() {
         val repoDir = File(System.getProperty("maro.repoDir") ?: "..")
-        val binFile = File(repoDir, "data/app-assets/regulated-zones/nice-frejus.bin")
+        val binFile = File(repoDir, "data/app-assets/regulated-zones/nice-menton.bin")
 
         if (!binFile.exists()) {
             println("[DIAG] Prebaked .bin not found at ${binFile.absolutePath}")

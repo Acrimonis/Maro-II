@@ -10,7 +10,7 @@ package ykws.android.maro.data.model
  * @property mainland The main continuous coastline polyline (open, water on right).
  * @property islands Zero or more island polylines (closed rings, water on right = exterior).
  * @property metadata Generation metadata.
- * @property regionId Identifier for this coastline region (e.g. "nice-frejus").
+ * @property regionId Identifier for this coastline region (e.g. "nice-menton").
  * @property boundingBox Geographic extent of this coastline dataset.
  * @property zone300 Precomputed 300 m regulatory band geometry, or `null` if not
  *                   yet built (progressive load) or absent from a pre-feature cache.

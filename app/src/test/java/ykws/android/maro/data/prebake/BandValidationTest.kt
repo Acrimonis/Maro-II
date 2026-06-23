@@ -16,7 +16,7 @@ class BandValidationTest {
 
     @Test
     fun `prebaked 300m band stays within band distance of the coast (no cap spikes)`() {
-        val f = File("src/main/assets/coastline/nice-frejus.bin")
+        val f = File("src/main/assets/coastline/nice-menton.bin")
         Assume.assumeTrue("no prebaked asset", f.exists())
         val data = CoastlineSerializer.deserialize(f.readBytes())
         val zone = data.zone300
@@ -59,7 +59,7 @@ class BandValidationTest {
      */
     @Test
     fun `prebaked 300m band - no seaward vertex pinches toward the coast`() {
-        val f = File("src/main/assets/coastline/nice-frejus.bin")
+        val f = File("src/main/assets/coastline/nice-menton.bin")
         Assume.assumeTrue("no prebaked asset", f.exists())
         val data = CoastlineSerializer.deserialize(f.readBytes())
         val zone = data.zone300
