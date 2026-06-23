@@ -1,23 +1,18 @@
 # Hydration: Ui_General
 
-**Session:** Decouple auto-show overlay state from user settings — both 300m zone and regulated zones.
+**Session:** Fan tweak — scrim removal + map touch pass-through dismiss.
 
 **State:**
-- `reg speed zone [x]` — regulated zone overlay auto-show for speed enforcement (completed this session)
-- `reg speed zone` — also covered: decouple auto-show overlay from user toggle (`_regulatedZoneOverlayVisible` StateFlow)
-- 300m zone auto-show also decoupled: `_zone300OverlayVisible` StateFlow (separate from `zone300Visible`)
+- `fan tweak [x]` — removed transparent scrim, added MapView.setOnTouchListener for pass-through dismiss
 
 **What happened this session:**
-- Added `_regulatedZoneOverlayVisible` StateFlow to CoastlineViewModel; auto-show writes to it instead of `regulatedZonesVisible` in AppSettings.
-- MapScreen render gate: `appSettings.regulatedZonesVisible || regulatedZoneOverlayVisible`.
-- Added `_zone300OverlayVisible` StateFlow for the 300m zone — same decoupling.
-- MapScreen render gate for 300m: `appSettings.zone300Visible || zone300OverlayVisible`.
-- Both auto-shows now control their own overlay state independently. Settings toggles and fan buttons always reflect user intent, never auto-show state.
+- Removed the transparent `Box(Modifier.clickable { onDismissFan() })` scrim from `MapContent()` (was between MapView and overlay Row).
+- Added `expandedFanId: ControlId?` and `onDismissFan: () -> Unit` params to `CoastlineMapView()`.
+- In `CoastlineMapView.update` block: `mapView.setOnTouchListener` — on `ACTION_DOWN` with fan open, calls `onDismissFan()`, returns `false` so MapView processes the touch for pan/zoom.
+- Threaded both params from `MapContent` call site.
 - BUILD SUCCESSFUL.
 
 **Key Files:**
-- `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — `_zone300OverlayVisible`, `_regulatedZoneOverlayVisible`, both auto-show blocks
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — collect + pass + OR render gates
-- `plans/auto-show-settings-decoupling-design.md` — design plan
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — scrim removed, CoastlineMapView params + touch listener, call site threaded
 
-**Last Bake:** 2026-06-17 13:57 UTC
+**Last Bake:** 2026-06-23 15:28 UTC

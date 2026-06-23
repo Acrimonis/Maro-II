@@ -1126,18 +1126,10 @@ private fun MapContent(
             onCenterChanged = onCenterChanged,
             onZoomChanged = onZoomChanged,
             onMapViewReady = onMapViewReady,
+            expandedFanId = expandedFanId,
+            onDismissFan = onDismissFan,
             modifier = Modifier.fillMaxSize()
         )
-
-        // ── Scrim: transparent full-screen tap catcher when any fan is expanded ──
-        //     Placed between MapView and overlay Row so it catches taps on empty
-        //     areas of the screen (passing through non-clickable overlays above),
-        //     but fan children, settings, and zoom buttons (in the Row above) still
-        //     consume their own taps. Generic — dismisses whatever fan is open via
-        //     onDismissFan(), works for any number of future fans.
-        if (expandedFanId != null) {
-            Box(modifier = Modifier.fillMaxSize().clickable { onDismissFan() })
-        }
 
         // ── Layer 0 overlays: cap (bottom), arrow (middle), marker (top) ──
         // ── Layer 0 overlays: direction line + center marker ─────────────
@@ -1532,6 +1524,8 @@ private fun CoastlineMapView(
     onCenterChanged: (Double, Double) -> Unit = { _, _ -> },
     onZoomChanged: (Double) -> Unit = {},
     onMapViewReady: (MapView) -> Unit = {},
+    expandedFanId: ControlId? = null,
+    onDismissFan: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -1602,6 +1596,14 @@ private fun CoastlineMapView(
             }
         },
         update = { mapView ->
+            // ── Fan dismiss: close any expanded fan on map touch, pass through to map ──
+            mapView.setOnTouchListener { _, event ->
+                if (event.action == android.view.MotionEvent.ACTION_DOWN && expandedFanId != null) {
+                    onDismissFan()
+                }
+                false // never consume — let MapView handle pan/zoom
+            }
+
             var dirty = false
 
             // ── Zone300 layer ──────────────────────────────────────────────
