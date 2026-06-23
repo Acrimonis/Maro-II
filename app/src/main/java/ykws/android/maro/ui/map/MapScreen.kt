@@ -141,6 +141,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.withContext
@@ -515,8 +516,12 @@ fun MapScreen(
             viewModel.gpsPosition,
             viewModel.mapCenter,
             viewModel.navigationState,
+            viewModel.isEstimating,
             ticker
-        ) { gpsPos, center, nav, _ ->
+        ) { gpsPos, center, nav, estimating, _ ->
+            // Dead reckoning extrapolates display position only —
+            // never feed extrapolated positions into track recording.
+            if (estimating) return@combine null
             val isGps = appSettings.gpsMode
             val pos = gpsPos ?: center
             val speedKn = if (isGps) nav.speedKnots else nav.demoSpeedKnots
@@ -532,7 +537,7 @@ fun MapScreen(
                 hasLock = true,
                 timestampEpochMs = System.currentTimeMillis()
             )
-        }
+        }.filterNotNull()
         trackViewModel.startRecorder(gpsFlow, appSettings)
     }
 
