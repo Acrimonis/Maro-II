@@ -114,7 +114,7 @@ fun WizardDrawer(
         is WizardStep.TypeSelect -> "Select Type"
         is WizardStep.Position -> if (form.type == MarkerType.CORRIDOR) "Point 1" else "Position"
         is WizardStep.PositionP2 -> "Point 2"
-        is WizardStep.Radius -> "Radius"
+        is WizardStep.Radius -> if (form.type == MarkerType.CORRIDOR) "Width" else "Radius"
         is WizardStep.Proximity -> "Proximity"
         is WizardStep.Title -> "Name"
         is WizardStep.Description -> "Description"
@@ -225,14 +225,22 @@ private fun WizardStepContent(
         is WizardStep.TypeSelect -> TypeSelectStep(viewModel)
         is WizardStep.Position -> PositionStep(viewModel, isCorridorP1 = false)
         is WizardStep.PositionP2 -> PositionStep(viewModel, isCorridorP1 = false)
-        is WizardStep.Radius -> SliderStep(
-            title = "Radius",
-            valueM = viewModel.createForm.collectAsState().value.radiusM,
-            range = 0.0..500.0,
-            step = 5.0,
-            unit = "m",
-            onValueChange = { v -> viewModel.updateForm { it.copy(radiusM = v) } }
-        )
+        is WizardStep.Radius -> {
+            val form by viewModel.createForm.collectAsState()
+            val isCorridor = form.type == MarkerType.CORRIDOR
+            SliderStep(
+                title = if (isCorridor) "Width" else "Radius",
+                valueM = if (isCorridor) form.widthM else form.radiusM,
+                range = 0.0..500.0,
+                step = 5.0,
+                unit = "m",
+                onValueChange = { v ->
+                    viewModel.updateForm {
+                        if (isCorridor) it.copy(widthM = v) else it.copy(radiusM = v)
+                    }
+                }
+            )
+        }
         is WizardStep.Proximity -> {
             val form by viewModel.createForm.collectAsState()
             val defaultValue = when (form.type) {
@@ -240,10 +248,15 @@ private fun WizardStepContent(
                 MarkerType.CIRCLE -> form.radiusM
                 MarkerType.CORRIDOR -> form.widthM
             }
+            val maxProximity = when (form.type) {
+                MarkerType.PIN -> 500.0
+                MarkerType.CIRCLE -> 3.0 * form.radiusM
+                MarkerType.CORRIDOR -> 3.0 * form.widthM
+            }
             SliderStep(
                 title = "Proximity",
                 valueM = form.proximityOverrideM.toDoubleOrNull() ?: defaultValue,
-                range = 0.0..500.0,
+                range = 0.0..maxProximity,
                 step = 5.0,
                 unit = "m",
                 onValueChange = { v ->
@@ -478,6 +491,8 @@ private fun PositionStep(viewModel: MarkersViewModel, isCorridorP1: Boolean) {
 
 /**
  * Reusable slider step for Radius and Proximity.
+ * Visual style matches [BoatSizeSlider]: card background, row title+value,
+ * accent-coloured slider.
  */
 @Composable
 private fun SliderStep(
@@ -488,56 +503,60 @@ private fun SliderStep(
     unit: String,
     onValueChange: (Double) -> Unit
 ) {
-    val sliderColors = SliderDefaults.colors(
-        thumbColor = ComposeColor(AppConfig.buttonActionBgColor),
-        activeTrackColor = ComposeColor(AppConfig.buttonActionBgColor),
-        inactiveTrackColor = ComposeColor(AppConfig.uiSettingsTextMuted).copy(alpha = 0.3f)
-    )
+    val accent = ComposeColor(AppConfig.uiSettingsAccent)
 
     Column(
         modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(ComposeColor(AppConfig.uiSettingsCardBackground))
+            .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
-        Text(
-            title,
-            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Medium,
-            textAlign = TextAlign.Center
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                title,
+                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                "${valueM.toLong()} $unit",
+                color = accent,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
         Spacer(Modifier.height(4.dp))
-        Text(
-            "${valueM.toLong()} $unit",
-            color = ComposeColor(AppConfig.buttonActionBgColor),
-            fontSize = 28.sp,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(Modifier.height(8.dp))
-
         Slider(
             value = valueM.toFloat(),
             onValueChange = { onValueChange(it.toDouble()) },
             valueRange = range.start.toFloat()..range.endInclusive.toFloat(),
             steps = ((range.endInclusive - range.start) / step).toInt() - 1,
             modifier = Modifier.fillMaxWidth(),
-            colors = sliderColors
+            colors = SliderDefaults.colors(
+                thumbColor = accent,
+                activeTrackColor = accent,
+                inactiveTrackColor = accent.copy(alpha = 0.3f)
+            )
         )
-
+        Spacer(Modifier.height(4.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                "${range.start.toLong()} $unit",
-                color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                "0 $unit",
+                color = ComposeColor(AppConfig.uiSettingsTextSecondary),
                 fontSize = 11.sp
             )
             Text(
                 "${range.endInclusive.toLong()} $unit",
-                color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                color = ComposeColor(AppConfig.uiSettingsTextSecondary),
                 fontSize = 11.sp
             )
         }

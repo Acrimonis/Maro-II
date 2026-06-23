@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -133,6 +134,15 @@ class MarkersViewModel(
     /** Current wizard step (null when wizard is not active). */
     private val _wizardStep = MutableStateFlow<WizardStep?>(null)
     val wizardStep: StateFlow<WizardStep?> = _wizardStep.asStateFlow()
+
+    /** One-shot request to centre the map on a given position (edit mode). */
+    private val _mapCenterRequest = MutableStateFlow<LatLng?>(null)
+    val mapCenterRequest: StateFlow<LatLng?> = _mapCenterRequest.asStateFlow()
+
+    /** Gate that suspends form position tracking during animateTo (prevents
+     *  intermediate mapCenter values from overwriting form position/P2). */
+    private val _suspendTracking = MutableStateFlow(false)
+    val suspendTracking: StateFlow<Boolean> = _suspendTracking.asStateFlow()
 
     /** Wizard animation direction: true = forward (Next), false = backward (Previous). */
     var wizardForward = true
@@ -294,8 +304,10 @@ class MarkersViewModel(
         }
         wizardForward = true
         val seq = stepSequenceFor(_createForm.value.type)
-        // Start at TypeSelect so user can change type; Position pre-filled
-        _wizardStep.value = seq.first()
+        // Skip TypeSelect — edit already knows the type; jump to Position step
+        _wizardStep.value = seq[1]
+        // Emit one-shot map-centre request so MapScreen animates to the marker
+        _mapCenterRequest.value = _createForm.value.position
         _drawerState.value = MarkerDrawerState.Editing(markerId)
     }
 
@@ -307,6 +319,7 @@ class MarkersViewModel(
         if (idx < 0 || idx >= seq.lastIndex) return
         wizardForward = true
         _wizardStep.value = seq[idx + 1]
+        recenterMapOnStep(seq[idx + 1])
     }
 
     /** Go back to the previous wizard step. */
@@ -317,12 +330,32 @@ class MarkersViewModel(
         if (idx <= 0) return
         wizardForward = false
         _wizardStep.value = seq[idx - 1]
+        recenterMapOnStep(seq[idx - 1])
     }
 
-    /** Cancel wizard — discard form, close drawer. */
+    /** During edit mode, recenter the map when entering a position step. */
+    private fun recenterMapOnStep(step: WizardStep) {
+        if (editingMarkerId == null) return  // only during edit
+        val form = _createForm.value
+        // Suspend form tracking so animateTo intermediate mapCenter values
+        // don't overwrite the position we just restored from the marker.
+        _suspendTracking.value = true
+        viewModelScope.launch {
+            delay(600L)
+            _suspendTracking.value = false
+        }
+        when (step) {
+            is WizardStep.Position -> _mapCenterRequest.value = form.position  // P1
+            is WizardStep.PositionP2 -> _mapCenterRequest.value = form.corridorP2  // P2
+            else -> { /* no recenter for non-position steps */ }
+        }
+    }
+
+    /** Cancel wizard — discard form, close drawer, reset form state. */
     fun wizardCancel() {
         _wizardStep.value = null
         editingMarkerId = null
+        _createForm.value = CreateFormState()
         _drawerState.value = MarkerDrawerState.Hidden
     }
 
@@ -433,19 +466,16 @@ class MarkersViewModel(
     /** Set of marker IDs pending deletion (not yet persisted). */
     val pendingDeletes: MutableSet<String> = mutableSetOf()
 
-    /** Soft-delete: remove from UI but allow undo. */
+    /** Soft-delete: mark for deletion but keep in list so the inline snackbar stays composed. */
     fun softDeleteMarker(markerId: String) {
         pendingDeletes.add(markerId)
-        _markers.value = _markers.value.filter { it.id != markerId }
+        // Keep marker in _markers — the SwipeToDeleteMarkerCard composable
+        // transitions to SNACKBAR state and must remain in the LazyColumn.
     }
 
-    /** Undo a soft-delete: restore the marker to the UI. */
+    /** Undo a soft-delete: remove from pending set. Marker was never removed from list. */
     fun undoDeleteMarker(markerId: String) {
         pendingDeletes.remove(markerId)
-        // Reload from repo — the marker was never actually deleted
-        viewModelScope.launch {
-            _markers.value = withContext(Dispatchers.IO) { repo.loadAll() }
-        }
     }
 
     /** Commit all pending soft-deletes to persistent storage. */
