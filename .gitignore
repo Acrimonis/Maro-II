@@ -39,7 +39,7 @@ tmp/
 app/preloaded/
 
 # NO baked data in git. Coastline + depth assets bake into the gitignored /data/app-assets tree and
-# package into the APK via the build's asset srcDir; GDAL/OSM intermediates (tiles, .asc) are
-# reproducible via tools/fetch_litto3d_paca.ps1 + tools/bake-*.bat. A fresh clone bakes before build.
-tools/litto3d_tiles/
+# package into the APK via the build's asset srcDir; GDAL/OSM source downloads live in
+# D:\.src\.data\ (shared across Maro projects). A fresh clone bakes before build.
 /data/
+/tools/
