@@ -248,6 +248,13 @@ fun TrackHistoryOverlay(
                             modifier = Modifier.size(18.dp)
                         )
                     }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Text(
+                        text = "Track History",
+                        color = Color(AppConfig.uiSettingsTextPrimary),
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))

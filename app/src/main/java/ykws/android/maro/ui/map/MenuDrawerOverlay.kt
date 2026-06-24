@@ -62,7 +62,7 @@ import ykws.android.maro.data.track.TrackRecorderUiState
  * @param onStopRecording   Triggered when user taps Stop.
  * @param onViewTrackList   Triggered when user taps "Track List".
  * @param onManageMarkers   Triggered when user taps "Manage Markers".
- * @param onDismiss         Triggered to close the drawer.
+ * @param onDismiss         Triggered to close the panel.
  */
 @Composable
 fun MenuDrawerOverlay(
@@ -108,7 +108,6 @@ fun MenuDrawerOverlay(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(Color(AppConfig.uiSettingsBackground))
-                        .windowInsetsPadding(WindowInsets.statusBars)
                 ) {
                     Column(
                         modifier = Modifier

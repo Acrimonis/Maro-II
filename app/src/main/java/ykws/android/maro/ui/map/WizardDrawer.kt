@@ -201,11 +201,11 @@ private fun WizardTopBar(stepIndex: Int, totalSteps: Int, onCancel: () -> Unit) 
                 modifier = Modifier.size(18.dp)
             )
         }
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(16.dp))
         Text(
             text = title,
             color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-            fontSize = 14.sp,
+            fontSize = 17.sp,
             fontWeight = FontWeight.Bold
         )
     }
@@ -296,16 +296,11 @@ private fun WizardButtonRow(
 ) {
     val accentBg = ComposeColor(AppConfig.uiSettingsAccent)
     val accentFg = ComposeColor(AppConfig.uiSettingsTextPrimary)
-    val mutedFg = ComposeColor(AppConfig.uiSettingsTextMuted)
-    val cardBg = ComposeColor(AppConfig.uiCardBackground)
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(cardBg)
-            .padding(6.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -402,21 +397,21 @@ private fun TypeSelectStep(viewModel: MarkersViewModel) {
         TypeCard(
             title = "Pin",
             description = "A single point on the map",
-            icon = "📍",
+            icon = "\uD83D\uDCCD",
             selected = form.type == MarkerType.PIN,
             onClick = { viewModel.updateForm { it.copy(type = MarkerType.PIN) } }
         )
         TypeCard(
             title = "Circle (Zone)",
             description = "A circular area with a defined radius",
-            icon = "⭕",
+            icon = "\u26D4",
             selected = form.type == MarkerType.CIRCLE,
             onClick = { viewModel.updateForm { it.copy(type = MarkerType.CIRCLE) } }
         )
         TypeCard(
             title = "Corridor",
             description = "A linear corridor between two points",
-            icon = "↔️",
+            icon = "\u2194\uFE0F",
             selected = form.type == MarkerType.CORRIDOR,
             onClick = { viewModel.updateForm { it.copy(type = MarkerType.CORRIDOR) } }
         )
@@ -624,43 +619,51 @@ private fun TextInputStep(
             Spacer(Modifier.height(24.dp))
         }
 
-        Text(
-            label,
-            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Medium
-        )
-        Spacer(Modifier.height(12.dp))
-
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            singleLine = singleLine,
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .focusRequester(focusRequester)
-                .then(if (singleLine) Modifier.height(56.dp) else Modifier.height(120.dp)),
-            colors = drawerTextFieldColors(),
-            textStyle = androidx.compose.ui.text.TextStyle(
-                fontSize = 14.sp,
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary)
-            ),
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Text,
-                imeAction = if (singleLine) ImeAction.Next else ImeAction.Default
-            ),
-            keyboardActions = KeyboardActions(
-                onNext = { focusManager.clearFocus() },
-                onDone = { focusManager.clearFocus() }
-            ),
-            placeholder = {
-                Text(
-                    if (singleLine) "e.g. My marker" else "Optional notes…",
-                    color = ComposeColor(AppConfig.uiSettingsTextMuted).copy(alpha = 0.5f),
-                    fontSize = 14.sp
-                )
-            }
-        )
+                .clip(RoundedCornerShape(12.dp))
+                .background(ComposeColor(AppConfig.uiCardBackground))
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+        ) {
+            Text(
+                label,
+                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Spacer(Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = value,
+                onValueChange = onValueChange,
+                singleLine = singleLine,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(focusRequester)
+                    .then(if (singleLine) Modifier.height(56.dp) else Modifier.height(120.dp)),
+                colors = drawerTextFieldColors(),
+                textStyle = androidx.compose.ui.text.TextStyle(
+                    fontSize = 14.sp,
+                    color = ComposeColor(AppConfig.uiSettingsTextPrimary)
+                ),
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Text,
+                    imeAction = if (singleLine) ImeAction.Next else ImeAction.Default
+                ),
+                keyboardActions = KeyboardActions(
+                    onNext = { focusManager.clearFocus() },
+                    onDone = { focusManager.clearFocus() }
+                ),
+                placeholder = {
+                    Text(
+                        if (singleLine) "e.g. My marker" else "Optional notes\u2026",
+                        color = ComposeColor(AppConfig.uiSettingsTextMuted).copy(alpha = 0.5f),
+                        fontSize = 14.sp
+                    )
+                }
+            )
+        }
     }
 }
 
