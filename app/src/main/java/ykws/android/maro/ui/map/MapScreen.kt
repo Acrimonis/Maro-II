@@ -2211,7 +2211,7 @@ private fun GeneralSettings(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -2254,7 +2254,7 @@ private fun GeneralSettings(
                         onToggle = { warningExpanded = !warningExpanded }
                     ) {
                         Spacer(modifier = Modifier.height(8.dp))
-                        SettingsSliderGroup {
+                        SettingsSliderGroup(nested = true) {
                             SliderRowContent(
                                 label = stringResource(R.string.settings_low_depth_threshold_label),
                                 description = stringResource(R.string.settings_low_depth_threshold_desc),
@@ -2281,6 +2281,7 @@ private fun GeneralSettings(
                         }
                     }
                 }
+                Spacer(Modifier.height(16.dp))
             }
         }
 
@@ -2308,7 +2309,7 @@ private fun GeneralSettings(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -2353,7 +2354,8 @@ private fun GeneralSettings(
                         Column(
                             modifier = Modifier.fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(ComposeColor(AppConfig.uiCardBackground))
+                                .background(ComposeColor(0x0DFFFFFF))
+                                .border(1.dp, ComposeColor(0x40FFFFFF), RoundedCornerShape(12.dp))
                                 .padding(horizontal = 16.dp, vertical = 12.dp)
                         ) {
                             Text(
@@ -2409,6 +2411,7 @@ private fun GeneralSettings(
                         BoatSizeSlider(settings, onUpdateSettings)
                     }
                 }
+                Spacer(Modifier.height(16.dp))
             }
         }
 
@@ -2437,7 +2440,7 @@ private fun GeneralSettings(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -2481,8 +2484,9 @@ private fun GeneralSettings(
                         Column(
                             modifier = Modifier.fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(ComposeColor(AppConfig.uiCardBackground))
-                                .padding(horizontal = 16.dp, vertical = 4.dp)
+                                .background(ComposeColor(0x0DFFFFFF))
+                                .border(1.dp, ComposeColor(0x40FFFFFF), RoundedCornerShape(12.dp))
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
                         ) {
                             // Number of history tracks
                             Text(
@@ -2619,7 +2623,14 @@ private fun GeneralSettings(
                                 )
                             )
 
-                            Spacer(Modifier.height(8.dp))
+                            Spacer(Modifier.height(6.dp))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(1.dp)
+                                    .background(ComposeColor(0x26FFFFFF))
+                            )
+                            Spacer(Modifier.height(6.dp))
 
                             // Colors
                             Text(
@@ -2733,7 +2744,7 @@ private fun NavigationSettings(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -2770,7 +2781,7 @@ private fun NavigationSettings(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -2811,7 +2822,7 @@ private fun NavigationSettings(
                         onToggle = { alertExpanded = !alertExpanded }
                     ) {
                         Spacer(modifier = Modifier.height(8.dp))
-                        SettingsSliderGroup {
+                        SettingsSliderGroup(nested = true) {
                             SliderRowContent(
                                 label = stringResource(R.string.settings_alert_dist_label),
                                 description = stringResource(R.string.settings_alert_dist_desc),
@@ -2834,6 +2845,7 @@ private fun NavigationSettings(
                         }
                     }
                 }
+                Spacer(Modifier.height(16.dp))
             }
         }
 
@@ -2850,7 +2862,7 @@ private fun NavigationSettings(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -2887,7 +2899,7 @@ private fun NavigationSettings(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -2924,7 +2936,7 @@ private fun NavigationSettings(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -2961,7 +2973,7 @@ private fun NavigationSettings(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -3037,7 +3049,7 @@ private fun SystemSettings(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -3098,7 +3110,8 @@ private fun SystemSettings(
                             value = settings.recenterDelaySeconds.toFloat(),
                             valueRange = 1f..10f,
                             steps = 8,
-                            onValueChange = { v -> onUpdateSettings { it.copy(recenterDelaySeconds = v.roundToInt()) } }
+                            onValueChange = { v -> onUpdateSettings { it.copy(recenterDelaySeconds = v.roundToInt()) } },
+                            nested = true
                         )
                     }
                 }
@@ -3148,7 +3161,7 @@ private fun SystemSettings(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -3186,7 +3199,7 @@ private fun SystemSettings(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                        .padding(horizontal = 16.dp, vertical = 2.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -3227,7 +3240,7 @@ private fun SystemSettings(
                         onToggle = { adaptiveAdvanced = !adaptiveAdvanced }
                     ) {
                         Spacer(modifier = Modifier.height(8.dp))
-                        SettingsSliderGroup {
+                        SettingsSliderGroup(nested = true) {
                             SliderRowContent(
                                 label = stringResource(R.string.settings_window_label),
                                 description = stringResource(R.string.settings_window_desc),
@@ -3250,6 +3263,7 @@ private fun SystemSettings(
                         }
                     }
                 }
+                Spacer(Modifier.height(16.dp))
             }
         }
 
@@ -3396,7 +3410,7 @@ private fun SettingsToggleRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(ComposeColor(AppConfig.uiCardBackground))
-            .padding(horizontal = 16.dp, vertical = 6.dp),
+            .padding(horizontal = 16.dp, vertical = 2.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -3435,22 +3449,31 @@ private fun SettingsSliderRow(
     value: Float,
     valueRange: ClosedFloatingPointRange<Float>,
     steps: Int,
-    onValueChange: (Float) -> Unit
+    onValueChange: (Float) -> Unit,
+    nested: Boolean = false
 ) {
-    SettingsSliderGroup {
+    SettingsSliderGroup(nested = nested) {
         SliderRowContent(label, description, valueLabel, value, valueRange, steps, onValueChange)
     }
 }
 
 /** Rounded settings "box" hosting one or more [SliderRowContent]s — groups related sliders together. */
 @Composable
-private fun SettingsSliderGroup(content: @Composable () -> Unit) {
+private fun SettingsSliderGroup(
+    nested: Boolean = false,
+    content: @Composable () -> Unit
+) {
+    val bgColor = if (nested) 0x0DFFFFFF else AppConfig.uiCardBackground
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(ComposeColor(AppConfig.uiCardBackground))
-            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .background(ComposeColor(bgColor))
+            .then(
+                if (nested) Modifier.border(1.dp, ComposeColor(0x40FFFFFF), RoundedCornerShape(12.dp))
+                else Modifier
+            )
+            .padding(horizontal = 16.dp, vertical = 2.dp)
     ) {
         content()
     }
@@ -3514,7 +3537,7 @@ private fun SliderRowDivider() {
         modifier = Modifier
             .fillMaxWidth()
             .height(1.dp)
-            .background(ComposeColor(AppConfig.uiSettingsDivider))
+            .background(ComposeColor(0x26FFFFFF))
     )
     Spacer(modifier = Modifier.height(2.dp))
 }
@@ -3804,7 +3827,7 @@ private fun SettingsFrequencyRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(ComposeColor(AppConfig.uiCardBackground))
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .padding(horizontal = 16.dp, vertical = 2.dp)
     ) {
         Text(
             text = stringResource(R.string.settings_freq_label),
@@ -3875,7 +3898,7 @@ private fun SettingsTextFieldRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(ComposeColor(AppConfig.uiCardBackground))
-            .padding(horizontal = 16.dp, vertical = 12.dp),
+            .padding(horizontal = 16.dp, vertical = 2.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {

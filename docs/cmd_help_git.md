@@ -11,6 +11,14 @@ Convenience wrappers over standard git. **🔴 See [`docs/GIT_WORKFLOW.md`](docs
   #cherry [target]    list unpushed commits, interactive pick to cherry-pick to [target].
   #copy [target]      alias for #cherry.
   #rename [branch]    git branch -m [branch].
-  #merge              Pull origin/develop into current feature branch (merge/rebase),
-                      resolve conflicts, push feature branch (but only if the remote branch already exists),provide GitHub PR link.
+  #merge              Rebase current feature branch onto origin/develop:
+                      1. stash WIP changes
+                      2. git fetch origin develop
+                      3. git rebase origin/develop
+                      4. resolve conflicts per commit
+                      5. git stash pop
+                      6. git push --force-with-lease origin [branch]
+                         (skip if branch not yet on remote — ask first)
+                      7. provide GitHub PR link
                       🔴 NEVER writes to develop/main — PR handles integration.
+                      🔴 No auto-push unless branch was already on remote before #merge.

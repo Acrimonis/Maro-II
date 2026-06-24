@@ -3,6 +3,7 @@ package ykws.android.maro.ui.map
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import ykws.android.maro.data.regulation.contains
 import ykws.android.maro.data.regulation.displayCategories
@@ -302,13 +303,14 @@ fun RegulatedZoneCategoryToggles(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(ComposeColor(AppConfig.uiCardBackground))
+            .background(ComposeColor(0x0DFFFFFF))
+            .border(1.dp, ComposeColor(0x40FFFFFF), RoundedCornerShape(12.dp))
     ) {
         categoryToggleItems.forEachIndexed { index, item ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -357,15 +359,6 @@ fun RegulatedZoneCategoryToggles(
                     )
                 )
             }
-            if (index < categoryToggleItems.size - 1) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(0.5.dp)
-                        .padding(horizontal = 16.dp)
-                        .background(ComposeColor(AppConfig.uiCardBackground))
-                )
-            }
         }
     }
 }
@@ -383,8 +376,9 @@ fun BoatSizeSlider(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(ComposeColor(AppConfig.uiCardBackground))
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .background(ComposeColor(0x0DFFFFFF))
+            .border(1.dp, ComposeColor(0x40FFFFFF), RoundedCornerShape(12.dp))
+            .padding(horizontal = 16.dp, vertical = 2.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
