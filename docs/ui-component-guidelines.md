@@ -1,0 +1,143 @@
+# UI Component Guidelines
+
+> **Canonical patterns** for cards, expanders, toggles, sliders, and drawers across the app.
+> Code wins over doc — when they disagree, update this file.
+
+> **Tokens:** [`ui-tokens.properties`](../app/src/main/assets/ui-tokens.properties) (dimensions) +
+> [`colors.properties`](../app/src/main/assets/colors.properties) (colors).
+> All `${ui.*}` references below resolve to those files.
+
+---
+
+## 1. Decision Flow
+
+```
+New setting?
+  ├─ Standalone toggle?          → SettingsToggleRow           (§2.1)
+  ├─ Standalone slider?          → SettingsSliderRow            (§2.2)
+  ├─ Toggle + sub-settings?      → Grouped card (§2.3)
+  │   ├─ Sub = sliders?          → SettingsSliderGroup(nested=true)  (§2.4a)
+  │   └─ Sub = text/toggles/etc? → Nested card inline              (§2.4b)
+  └─ Drawer/Track card?          → Same card surface, specific rows (§5)
+```
+
+---
+
+## 2. Components
+
+### 2.1 Standalone Toggle — `SettingsToggleRow`
+
+Self-contained card (`uiCardBackground`, 12dp radius, 16×2dp pad). Gap between: `${ui.spacing.card.gap}`.
+
+🔴 Never nest inside a grouped card — it IS a card.
+
+### 2.2 Standalone Slider — `SettingsSliderRow`
+
+Wraps `SliderRowContent` inside `SettingsSliderGroup`. Standalone (top-level) = `uiCardBackground`. Gap: `${ui.spacing.card.gap}`.
+
+### 2.3 Grouped Card
+
+Outer `Column(uiCardBackground, 12dp radius)` with **inline toggle rows** (not `SettingsToggleRow`):
+
+```
+Column(uiCardBackground, 12dp radius) {
+    Row(16×${ui.padding.grouped.toggle.vertical} pad) { Text + Switch }   ← inline toggle
+    Spacer(${ui.spacing.grouped.row.gap})
+    Row(16×${ui.padding.grouped.toggle.vertical} pad) { Text + Switch }   ← more toggles
+    
+    if (checked) {
+        Spacer(${ui.spacing.grouped.before-expander})
+        Box(pad h=16) {
+            SettingsExpander(label) {
+                Spacer(8dp)
+                … content (see §2.4)
+            }
+        }
+        Spacer(${ui.padding.card.horizontal})   ← after last expander, matches card h-pad
+    }
+}
+```
+
+### 2.4 Inside-Expander Content
+
+All expander content uses the **same outlined card surface** — whether a slider group or inline content:
+
+| Token | Value | Role |
+|---|---|---|
+| `ui.nested.card.bg` | `#0DFFFFFF` (5% white) | Subtle depth below parent |
+| `ui.nested.card.border` | `#40FFFFFF` (25% white) | Nesting indicator |
+
+> Why not `uiCardBackground`? Stacking 15%+15% white = ~28% effective — too light for `#1565C0` accent contrast.
+
+**2.4a — Sliders:** `SettingsSliderGroup(nested = true)` — provides the nested surface automatically. Pad: 16×2dp.
+
+```kotlin
+SettingsSliderGroup(nested = true) {
+    SliderRowContent(…)
+    SliderRowDivider()
+    SliderRowContent(…)
+}
+```
+
+**2.4b — Text / toggles / swatches:** Build inline with the same tokens:
+
+```kotlin
+Column(
+    Modifier.fillMaxWidth().clip(12dp)
+        .background(${ui.nested.card.bg})
+        .border(1.dp, ${ui.nested.card.border}, 12dp)
+        .padding(16dp, ${ui.padding.content.comfortable})
+) { /* content */ }
+```
+
+### 2.5 Expander Labels
+
+`SettingsExpander` defaults: `uiSettingsTextPrimary`, 14sp, Medium. Never override `labelStyle` per call site.
+
+### 2.6 Section Dividers
+
+**Visible divider** (`#26FFFFFF`, 6dp gap above/below) between distinct content blocks inside a card (e.g., "Colors" vs sliders in Track settings). **Spacer only** (8dp) between simple toggle rows that are not sections (e.g., Categories).
+
+```
+Spacer(6.dp)
+Box(Modifier.fillMaxWidth().height(1.dp).background(0x26FFFFFF))
+Spacer(6.dp)
+```
+
+---
+
+## 3. Spacing Quick Reference
+
+| Context | Token | Value |
+|---|---|---|
+| Card→card (standalone) | `ui.spacing.card.gap` | 12dp |
+| Section→section | `ui.spacing.section.gap` | 24dp |
+| Header→first card | `ui.spacing.header.bottom` | 8dp |
+| Inline toggle→toggle | `ui.spacing.grouped.row.gap` | 8dp |
+| Before expander (in grouped card) | `ui.spacing.grouped.before-expander` | 8dp |
+| Expander→content | header+8dp spacer | 8dp |
+| Last expander→card close | `ui.spacing.header.bottom` | 8dp |
+
+Full token list: [`ui-tokens.properties`](../app/src/main/assets/ui-tokens.properties).
+
+---
+
+## 4. Anti-Patterns
+
+- ❌ `SettingsToggleRow` inside a grouped card (double-wrapping)
+- ❌ Inner content card using `uiCardBackground` (stacked 15% white)
+- ❌ Per-call `labelStyle` on `SettingsExpander`
+- ❌ Visible dividers between top-level cards (use spacer)
+- ❌ `SliderRowContent(label="", …)` (use inline Row+Slider)
+
+---
+
+## 5. Non-Settings Surfaces
+
+### 5.1 Drawer Cards (`TrackDrawerOverlay`)
+
+Same `uiCardBackground` + 12dp radius. Rows: 16×10dp pad, `heightIn(min = 48dp)` touch target. Between cards: `${ui.spacing.header.bottom}`.
+
+### 5.2 Track History Cards (`TrackHistoryOverlay`)
+
+Same `uiCardBackground` + 12dp radius. Compact vertical pad (4dp — denser list context). Section header: 17sp Bold accent UPPERCASE. Inline editing with `FocusRequester`. Stats: 3-col × 2-row.
