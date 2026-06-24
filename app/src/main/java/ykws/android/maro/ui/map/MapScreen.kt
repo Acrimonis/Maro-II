@@ -762,6 +762,7 @@ fun MapScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
+            .padding(bottom = 10.dp)
     ) {
         // ── Intercept system back when any fan is open ────────────────────
         if (anyFanExpanded) {
