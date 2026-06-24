@@ -899,6 +899,10 @@ fun MapScreen(
                 }
             }
 
+            // Compute crosshair flag for Wizard position steps
+            val showCrosshair = (drawerState is MarkerDrawerState.Creating || drawerState is MarkerDrawerState.Editing) &&
+                (wizardStep is WizardStep.Position || wizardStep is WizardStep.PositionP2)
+
             // Map fills the box, padded to leave room for the dashboard overlay.
             // Stable composition slot — never inside an if/else branch.
             MapContent(
@@ -948,8 +952,9 @@ fun MapScreen(
                 onStopRecording = { trackViewModel.stopRecording() },
                 onViewTrackList = { showTrackHistory = true },
                 onDismissTrackHistory = { showTrackHistory = false },
-                onUpdateTrack = { id, name, comment, visible ->
-                    trackViewModel.updateTrack(id, name, comment, visible)
+                onUpdateTrack = { id, name, comment, pinned ->
+                    pinned?.let { trackViewModel.setPinned(id, it) }
+                    trackViewModel.updateTrack(id, name, comment)
                 },
                 onDeleteTrack = { id -> trackViewModel.deleteTrack(id) },
                 onShareGpx = { id ->
@@ -1068,6 +1073,7 @@ fun MapScreen(
         if (markerLayerVisible) {
             val matchResult by markersViewModel.matchResult.collectAsState()
             val drawerStateForOverlay by markersViewModel.drawerState.collectAsState()
+            val selectedMarkerId by markersViewModel.selectedMarkerId.collectAsState()
             MarkerOverlay(
                 markers = userMarkers,
                 mapView = mapView,
@@ -1075,7 +1081,8 @@ fun MapScreen(
                 unconfirmedMarker = unconfirmedMarker,
                 onMarkerTap = { id -> markersViewModel.openEditDrawer(id) },
                 matchResult = if (drawerStateForOverlay is MarkerDrawerState.MatchResult) matchResult else null,
-                markerZonesVisible = appSettings.markerZonesVisible
+                markerZonesVisible = appSettings.markerZonesVisible,
+                selectedMarkerId = selectedMarkerId
             )
         }
         }
@@ -1125,8 +1132,9 @@ fun MapScreen(
             TrackHistoryOverlay(
                 trackSummaries = trackSummaries,
                 liveTrackState = trackRecorderState,
-                onUpdateTrack = { id, name, comment, visible ->
-                    trackViewModel.updateTrack(id, name, comment, visible)
+                onUpdateTrack = { id, name, comment, pinned ->
+                    pinned?.let { trackViewModel.setPinned(id, it) }
+                    trackViewModel.updateTrack(id, name, comment)
                 },
                 onUpdateLiveTrack = { name, comment ->
                     trackViewModel.updateLiveTrackMeta(name, comment)
@@ -1176,12 +1184,17 @@ fun MapScreen(
             val markerIsLandscape = maxWidth > maxHeight
             val drawerState by markersViewModel.drawerState.collectAsState()
             if (drawerState is MarkerDrawerState.Viewing || drawerState is MarkerDrawerState.MatchResult) {
-                MarkerDrawer(
-                    viewModel = markersViewModel,
-                    isLandscape = markerIsLandscape,
-                    onClose = { markersViewModel.closeDrawer() },
-                    boatPosition = gpsPosition ?: mapCenter
-                )
+                Box(
+                    modifier = Modifier
+                        .align(if (markerIsLandscape) Alignment.CenterStart else Alignment.BottomCenter)
+                ) {
+                    MarkerDrawer(
+                        viewModel = markersViewModel,
+                        isLandscape = markerIsLandscape,
+                        onClose = { markersViewModel.closeDrawer() },
+                        boatPosition = gpsPosition ?: mapCenter
+                    )
+                }
             }
         }
 
@@ -1421,6 +1434,7 @@ private fun MapContent(
             isWater = isWater,
             zoomLevel = zoomLevel,
             distanceToShore = distanceToShore,
+            showCrosshair = showCrosshair,
             onClick = { onWhereAmI() },
             modifier = Modifier.align(Alignment.Center)
         )
@@ -2047,6 +2061,7 @@ private fun CenterMarkerOverlay(
     isWater: Boolean,
     zoomLevel: Double,
     distanceToShore: Double?,
+    showCrosshair: Boolean = false,
     onClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
