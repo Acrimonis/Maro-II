@@ -1258,7 +1258,7 @@ private fun MapContent(
                                 shadowElevation = 8.dp,
                                 modifier = Modifier.border(2.dp, ComposeColor(AppConfig.uiDashboardBackground), RoundedCornerShape(14.dp))
                             ) {
-                                Box(modifier = Modifier.background(ComposeColor(AppConfig.uiSettingsCardBackground))) {
+                                Box(modifier = Modifier.background(ComposeColor(AppConfig.uiCardBackground))) {
                                     Text(
                                     text = stringResource(R.string.exit_press_back_again),
                                     color = ComposeColor(AppConfig.uiSettingsToastText),
@@ -1421,7 +1421,7 @@ private fun LoadingOverlay(
             .fillMaxWidth()
             .border(2.dp, ComposeColor(AppConfig.uiDashboardBackground), RoundedCornerShape(14.dp))
     ) {
-        Box(modifier = Modifier.background(ComposeColor(AppConfig.uiSettingsCardBackground))) {
+        Box(modifier = Modifier.background(ComposeColor(AppConfig.uiCardBackground))) {
             Column(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -1490,7 +1490,7 @@ private fun ErrorOverlay(
             .fillMaxWidth()
             .border(2.dp, ComposeColor(AppConfig.uiDashboardZoneDanger), RoundedCornerShape(14.dp))
     ) {
-        Box(modifier = Modifier.background(ComposeColor(AppConfig.uiSettingsCardBackground))) {
+        Box(modifier = Modifier.background(ComposeColor(AppConfig.uiCardBackground))) {
             Column(
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally
@@ -2164,7 +2164,7 @@ private fun GeneralSettings(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .background(ComposeColor(AppConfig.uiSettingsCardBackground))
+                .background(ComposeColor(AppConfig.uiCardBackground))
         ) {
             // Toggle row (inline)
             Row(
@@ -2262,7 +2262,7 @@ private fun GeneralSettings(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .background(ComposeColor(AppConfig.uiSettingsCardBackground))
+                .background(ComposeColor(AppConfig.uiCardBackground))
         ) {
             Row(
                 modifier = Modifier
@@ -2312,7 +2312,7 @@ private fun GeneralSettings(
                         Column(
                             modifier = Modifier.fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(ComposeColor(AppConfig.uiSettingsCardBackground))
+                                .background(ComposeColor(AppConfig.uiCardBackground))
                                 .padding(horizontal = 16.dp, vertical = 12.dp)
                         ) {
                             Text(
@@ -2390,7 +2390,7 @@ private fun GeneralSettings(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .background(ComposeColor(AppConfig.uiSettingsCardBackground))
+                .background(ComposeColor(AppConfig.uiCardBackground))
         ) {
             // Master toggle row
             Row(
@@ -2440,7 +2440,7 @@ private fun GeneralSettings(
                         Column(
                             modifier = Modifier.fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(ComposeColor(AppConfig.uiSettingsCardBackground))
+                                .background(ComposeColor(AppConfig.uiCardBackground))
                                 .padding(horizontal = 16.dp, vertical = 4.dp)
                         ) {
                             // Number of history tracks
@@ -2686,7 +2686,7 @@ private fun NavigationSettings(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .background(ComposeColor(AppConfig.uiSettingsCardBackground))
+                .background(ComposeColor(AppConfig.uiCardBackground))
         ) {
             // Auto-show GPS mode toggle
             Row(
@@ -2803,7 +2803,7 @@ private fun NavigationSettings(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .background(ComposeColor(AppConfig.uiSettingsCardBackground))
+                .background(ComposeColor(AppConfig.uiCardBackground))
         ) {
             // Auto-show GPS mode toggle
             Row(
@@ -2990,7 +2990,7 @@ private fun SystemSettings(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .background(ComposeColor(AppConfig.uiSettingsCardBackground))
+                .background(ComposeColor(AppConfig.uiCardBackground))
         ) {
             // GPS mode toggle row (inline, no separate card background)
             Row(
@@ -3101,7 +3101,7 @@ private fun SystemSettings(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
-                .background(ComposeColor(AppConfig.uiSettingsCardBackground))
+                .background(ComposeColor(AppConfig.uiCardBackground))
         ) {
             // Enable stop detection toggle
             Row(
@@ -3317,7 +3317,7 @@ private fun SettingsLanguageRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(ComposeColor(AppConfig.uiSettingsCardBackground))
+            .background(ComposeColor(AppConfig.uiCardBackground))
             .padding(6.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
@@ -3354,7 +3354,7 @@ private fun SettingsToggleRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(ComposeColor(AppConfig.uiSettingsCardBackground))
+            .background(ComposeColor(AppConfig.uiCardBackground))
             .padding(horizontal = 16.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
@@ -3408,7 +3408,7 @@ private fun SettingsSliderGroup(content: @Composable () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(ComposeColor(AppConfig.uiSettingsCardBackground))
+            .background(ComposeColor(AppConfig.uiCardBackground))
             .padding(horizontal = 16.dp, vertical = 6.dp)
     ) {
         content()
@@ -3762,7 +3762,7 @@ private fun SettingsFrequencyRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(ComposeColor(AppConfig.uiSettingsCardBackground))
+            .background(ComposeColor(AppConfig.uiCardBackground))
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         Text(
@@ -3833,7 +3833,7 @@ private fun SettingsTextFieldRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(ComposeColor(AppConfig.uiSettingsCardBackground))
+            .background(ComposeColor(AppConfig.uiCardBackground))
             .padding(horizontal = 16.dp, vertical = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically

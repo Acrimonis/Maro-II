@@ -255,8 +255,8 @@ object AppConfig {
     /** Settings panel accent colour. Default #FF1565C0. Set via `ui.settings.accent` in colors.properties. */
     var uiSettingsAccent: Int = 0xFF1565C0.toInt()
         private set
-    /** Settings panel card background. Default #1AFFFFFF. Set via `ui.settings.card.background` in colors.properties. */
-    var uiSettingsCardBackground: Int = 0x1AFFFFFF.toInt()
+    /** Settings panel card background. Default #33FFFFFF (20% white). Set via `ui.card.background` in colors.properties. */
+    var uiCardBackground: Int = 0x33FFFFFF.toInt()
         private set
     /** Settings panel divider colour. Default #14FFFFFF. Set via `ui.settings.divider` in colors.properties. */
     var uiSettingsDivider: Int = 0x14FFFFFF.toInt()
@@ -557,7 +557,7 @@ object AppConfig {
             props.getProperty("ui.settings.text.muted")?.let { parseColorOrNull(it) }?.let { uiSettingsTextMuted = it }
             props.getProperty("ui.settings.text.secondary")?.let { parseColorOrNull(it) }?.let { uiSettingsTextSecondary = it }
             props.getProperty("ui.settings.accent")?.let { parseColorOrNull(it) }?.let { uiSettingsAccent = it }
-            props.getProperty("ui.settings.card.background")?.let { parseColorOrNull(it) }?.let { uiSettingsCardBackground = it }
+            props.getProperty("ui.card.background")?.let { parseColorOrNull(it) }?.let { uiCardBackground = it }
             props.getProperty("ui.settings.divider")?.let { parseColorOrNull(it) }?.let { uiSettingsDivider = it }
             props.getProperty("ui.settings.switch.track.inactive")?.let { parseColorOrNull(it) }?.let { uiSettingsSwitchTrackInactive = it }
             props.getProperty("ui.settings.input.border")?.let { parseColorOrNull(it) }?.let { uiSettingsInputBorder = it }

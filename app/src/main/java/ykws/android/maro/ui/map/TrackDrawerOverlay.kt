@@ -224,7 +224,7 @@ fun TrackDrawerOverlay(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(12.dp))
-                                    .background(Color(AppConfig.uiSettingsCardBackground))
+                                    .background(Color(AppConfig.uiCardBackground))
                                     .padding(horizontal = 16.dp, vertical = 10.dp),
                                 verticalArrangement = Arrangement.spacedBy(6.dp)
                             ) {

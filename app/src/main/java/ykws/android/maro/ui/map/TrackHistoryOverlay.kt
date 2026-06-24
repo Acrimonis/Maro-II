@@ -364,7 +364,7 @@ private fun SwipeToDeleteCard(
 /** Inline snackbar with 48–80dp height, card-bg × 0.75 alpha. */
 @Composable
 private fun SnackbarSlot(trackName: String, onUndo: () -> Unit) {
-    val bgColor = Color(AppConfig.uiSettingsCardBackground)
+    val bgColor = Color(AppConfig.uiCardBackground)
         .copy(alpha = 0.102f * 0.75f)
 
     Row(
@@ -447,7 +447,7 @@ private fun TrackCardContent(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(Color(AppConfig.uiSettingsCardBackground))
+            .background(Color(AppConfig.uiCardBackground))
             .padding(horizontal = 8.dp, vertical = 4.dp)
     ) {
         // ── Date + time range + action icons ────────────────────────
@@ -687,7 +687,7 @@ private fun LiveTrackCard(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(Color(AppConfig.uiSettingsCardBackground))
+            .background(Color(AppConfig.uiCardBackground))
             .border(
                 BorderStroke(2.dp, borderColor.copy(alpha = pulseAlpha)),
                 RoundedCornerShape(12.dp)
