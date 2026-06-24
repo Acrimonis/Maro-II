@@ -12,5 +12,5 @@ Convenience wrappers over standard git. **🔴 See [`docs/GIT_WORKFLOW.md`](docs
   #copy [target]      alias for #cherry.
   #rename [branch]    git branch -m [branch].
   #merge              Pull origin/develop into current feature branch (merge/rebase),
-                      resolve conflicts, push feature branch, provide GitHub PR link.
+                      resolve conflicts, push feature branch (but only if the remote branch already exists),provide GitHub PR link.
                       🔴 NEVER writes to develop/main — PR handles integration.

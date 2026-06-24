@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** Ui_General
-- **Active Subfeature:** overlay styling
+- **Active Feature:** BoatTrace
+- **Active Subfeature:** track-list-render-indicator
 - **Last Updated:** 2026-06-24
-- **Last Bake:** 2026-06-24 09:13 (Ui_General — overlay styling: unified navy 80% + frost bg, 2dp borders, fan scrim removed, toast/progress full-width, 10 Canvas icons→Material/standalone, docs restructured. Build ✅)
-- **Branch:** feature/some-ui
+- **Last Bake:** 2026-06-24 11:20 (BoatTrace — track-list-render-indicator: merge conflict resolved, pushed)
+- **Branch:** feature/some-ui-2
 ## Routing Map
 | Keyword | Feature File |
 |---|---|
@@ -54,7 +54,7 @@
 | **ArcLayout** | **Layer toggle arc menu — pure-Compose semicircle fan-out with layer toggles, FanLayout framework, fixed child centering using effectiveTheta=180/currentCount** | **2026-06-13 07:34** | **2026-06-14 14:50** | **active** |
 | **ZoneTile** | **Zone information tiles and map overlay rendering — zone-ahead cone/line, speed zone display, ETA, zone state management** | **2026-06-17 09:45** | **2026-06-17 09:45** | **active** |
 | **Zone300SpeedBadge** | **300m zone speed limit badge integrated into regulated zone icon stack as highest-priority SPEED_LIMIT entry** | **2026-06-14 17:42** | **2026-06-14 17:42** | **done** |
-| **BoatTrace** | **Boat movement tracking: record tracks from GPS fixes, persist, display on map with configurable render layers, GPX export, track history UI** | **2026-06-15 21:43** | **2026-06-22 10:48** | **active** |
+| **BoatTrace** | **Boat movement tracking: record tracks from GPS fixes, persist, display on map with configurable render layers, GPX export, track history UI, render preview indicator** | **2026-06-15 21:43** | **2026-06-24 11:09** | **active** |
 | **CheckDev** | **Dev-branch health monitoring — remote branch state, ahead/behind analysis, workflow hygiene validation** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
 | **Health** | **Application health monitoring — diagnostics, crash reporting, memory/performance telemetry** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
 | **WorkflowAmbiguityFix** | **Eliminate ambiguity between AGENTS.md rules — #merge direction, §5 reinforcement, command doc alignment** | **2026-06-20 14:51** | **2026-06-20 14:51** | **active** |

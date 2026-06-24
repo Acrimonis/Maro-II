@@ -28,6 +28,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -128,7 +130,18 @@ fun TrackHistoryOverlay(
     onUndoDeleteTrack: (String) -> Unit,
     onShareGpx: (String) -> Unit,
     onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    // ── Render preview settings ───────────────────────────────────────
+    tracksVisible: Boolean = true,
+    trackingRenderNb: Int = 20,
+    trackingTransparencyNewest: Int = 20,
+    trackingTransparencyOldest: Int = 80,
+    trackingColorPastFrom: Int = 0xFF1565C0.toInt(),
+    trackingColorPastTo: Int = 0xFF42A5F5.toInt(),
+    trackingTransparencyPinnedNewest: Int = 0,
+    trackingTransparencyPinnedOldest: Int = 20,
+    trackingColorPinnedFrom: Int = 0xFFFF6F00.toInt(),
+    trackingColorPinnedTo: Int = 0xFFFF8F00.toInt()
 ) {
     val pendingDeletes = remember { mutableListOf<String>() }
 
@@ -139,6 +152,68 @@ fun TrackHistoryOverlay(
     }
 
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US) }
+
+    // Pre-compute accent bar colors for each track based on current render settings
+    val accentColors = remember(trackSummaries, tracksVisible, trackingRenderNb,
+        trackingTransparencyNewest, trackingTransparencyOldest,
+        trackingColorPastFrom, trackingColorPastTo,
+        trackingTransparencyPinnedNewest, trackingTransparencyPinnedOldest,
+        trackingColorPinnedFrom, trackingColorPinnedTo
+    ) {
+        val pinnedSummaries = trackSummaries.filter { it.pinned }.sortedByDescending { it.startTimeMs }
+        val historySummaries = trackSummaries.filter { !it.pinned }.sortedByDescending { it.startTimeMs }
+
+        val map = mutableMapOf<String, Color>()
+        val greyColor = Color(AppConfig.uiSettingsTextMuted).copy(alpha = 0.15f)
+
+        if (!tracksVisible) {
+            trackSummaries.forEach { map[it.id] = greyColor }
+            return@remember map
+        }
+
+        // Pinned tracks always render
+        val pinnedTotal = pinnedSummaries.size
+        for ((index, summary) in pinnedSummaries.withIndex()) {
+            val appearance = computeTrackPolylineAppearance(
+                index, pinnedTotal,
+                trackingTransparencyPinnedNewest, trackingTransparencyPinnedOldest,
+                trackingColorPinnedFrom, trackingColorPinnedTo, 6f
+            )
+            val a = appearance.argb
+            map[summary.id] = Color(
+                red = (a shr 16) and 0xFF,
+                green = (a shr 8) and 0xFF,
+                blue = a and 0xFF,
+                alpha = (a ushr 24) and 0xFF
+            )
+        }
+
+        // History tracks render only within trackingRenderNb
+        val renderCount = trackingRenderNb.coerceIn(0, 20)
+        val historyTotal = historySummaries.size
+        for ((index, summary) in historySummaries.withIndex()) {
+            if (index < renderCount) {
+                val effectiveTotal = minOf(renderCount, historyTotal)
+                val appearance = computeTrackPolylineAppearance(
+                    index, effectiveTotal,
+                    trackingTransparencyNewest, trackingTransparencyOldest,
+                    trackingColorPastFrom, trackingColorPastTo,
+                    if (index == 0) 8f else 6f
+                )
+                val a = appearance.argb
+                map[summary.id] = Color(
+                    red = (a shr 16) and 0xFF,
+                    green = (a shr 8) and 0xFF,
+                    blue = a and 0xFF,
+                    alpha = (a ushr 24) and 0xFF
+                )
+            } else {
+                map[summary.id] = greyColor
+            }
+        }
+
+        map
+    }
 
     Box(
         modifier = modifier
@@ -220,6 +295,8 @@ fun TrackHistoryOverlay(
                         summary = summary,
                         modifier = Modifier.animateItemPlacement(),
                         dateFormat = dateFormat,
+                        accentColor = accentColors[summary.id]
+                            ?: Color(AppConfig.uiSettingsTextMuted).copy(alpha = 0.15f),
                         onUpdateTrack = onUpdateTrack,
                         onShareGpx = onShareGpx,
                         onDelete = { pendingDeletes.add(summary.id) },
@@ -245,6 +322,7 @@ private fun SwipeToDeleteCard(
     summary: TrackSummary,
     modifier: Modifier = Modifier,
     dateFormat: SimpleDateFormat,
+    accentColor: Color = Color.Unspecified,
     onUpdateTrack: (String, name: String?, comment: String?, pinned: Boolean?) -> Unit,
     onShareGpx: (String) -> Unit,
     onDelete: () -> Unit,
@@ -309,7 +387,7 @@ private fun SwipeToDeleteCard(
                         } else Modifier
                     )
             ) {
-                TrackCardContent(summary, dateFormat, onUpdateTrack, onShareGpx)
+                TrackCardContent(summary, dateFormat, accentColor, onUpdateTrack, onShareGpx)
             }
         }
 
@@ -404,6 +482,7 @@ private fun SnackbarSlot(trackName: String, onUndo: () -> Unit) {
 private fun TrackCardContent(
     summary: TrackSummary,
     dateFormat: SimpleDateFormat,
+    accentColor: Color = Color.Unspecified,
     onUpdateTrack: (String, name: String?, comment: String?, pinned: Boolean?) -> Unit,
     onShareGpx: (String) -> Unit
 ) {
@@ -443,13 +522,25 @@ private fun TrackCardContent(
         }
     }
 
-    Column(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
+            .height(IntrinsicSize.Min)
             .clip(RoundedCornerShape(12.dp))
             .background(Color(AppConfig.uiCardBackground))
-            .padding(horizontal = 8.dp, vertical = 4.dp)
     ) {
+        // Left-edge accent bar — previews the track's polyline render color
+        Box(
+            modifier = Modifier
+                .width(4.dp)
+                .fillMaxHeight()
+                .background(accentColor)
+        )
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+        ) {
         // ── Date + time range + action icons ────────────────────────
         val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.US) }
         val dateLabel = remember(summary.id) {
@@ -616,6 +707,7 @@ private fun TrackCardContent(
             Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_dist), fmtNm(summary.distanceNm)) }
             Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_idle), fmtDuration(summary.pausedDurationSec)) }
             Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_max), fmtKnFromMps(summary.fastestSpeedMps)) }
+        }
         }
     }
 }
