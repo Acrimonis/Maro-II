@@ -155,6 +155,10 @@ class MarkersViewModel(
     private val _lastSavedMarkerId = MutableStateFlow<String?>(null)
     val lastSavedMarkerId: StateFlow<String?> = _lastSavedMarkerId.asStateFlow()
 
+    /** ID of the currently selected marker (for map highlighting). */
+    private val _selectedMarkerId = MutableStateFlow<String?>(null)
+    val selectedMarkerId: StateFlow<String?> = _selectedMarkerId.asStateFlow()
+
     /** Result of the last "where am I?" query. */
     private val _matchResult = MutableStateFlow<TieredMatchResult?>(null)
     val matchResult: StateFlow<TieredMatchResult?> = _matchResult.asStateFlow()
@@ -202,6 +206,7 @@ class MarkersViewModel(
     /** Opens drawer in viewing mode for the marker with [markerId]. */
     fun openEditDrawer(markerId: String) {
         val marker = _markers.value.find { it.id == markerId } ?: return
+        _selectedMarkerId.value = markerId
         val pos = when (val g = marker.geometry) {
             is MarkerGeometry.Pin -> g.position
             is MarkerGeometry.Circle -> g.center
@@ -234,6 +239,7 @@ class MarkersViewModel(
         _drawerState.value = MarkerDrawerState.Hidden
         _wizardStep.value = null
         editingMarkerId = null
+        _selectedMarkerId.value = null
     }
 
     // ── Wizard state machine ──────────────────────────────────────────────
@@ -355,6 +361,7 @@ class MarkersViewModel(
     fun wizardCancel() {
         _wizardStep.value = null
         editingMarkerId = null
+        _selectedMarkerId.value = null
         _createForm.value = CreateFormState()
         _drawerState.value = MarkerDrawerState.Hidden
     }
@@ -372,6 +379,7 @@ class MarkersViewModel(
         }
         _wizardStep.value = null
         editingMarkerId = null
+        _selectedMarkerId.value = null
     }
 
     /** Whether Finish is allowed at the current step (corridor needs P2). */
