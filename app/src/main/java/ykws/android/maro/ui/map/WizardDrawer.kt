@@ -297,7 +297,7 @@ private fun WizardButtonRow(
     val accentBg = ComposeColor(AppConfig.uiSettingsAccent)
     val accentFg = ComposeColor(AppConfig.uiSettingsTextPrimary)
     val mutedFg = ComposeColor(AppConfig.uiSettingsTextMuted)
-    val cardBg = ComposeColor(AppConfig.uiSettingsCardBackground)
+    val cardBg = ComposeColor(AppConfig.uiCardBackground)
 
     Row(
         modifier = Modifier
@@ -438,7 +438,7 @@ private fun TypeCard(
     val bgColor = if (selected)
         accent.copy(alpha = 0.15f)
     else
-        ComposeColor(AppConfig.uiSettingsCardBackground)
+        ComposeColor(AppConfig.uiCardBackground)
 
     Row(
         modifier = Modifier
@@ -532,7 +532,7 @@ private fun SliderStep(
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .clip(RoundedCornerShape(12.dp))
-            .background(ComposeColor(AppConfig.uiSettingsCardBackground))
+            .background(ComposeColor(AppConfig.uiCardBackground))
             .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
         Row(
