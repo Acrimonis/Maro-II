@@ -11,7 +11,6 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,6 +31,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -65,6 +66,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
+import ykws.android.maro.ui.icons.Conversion_path
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public composable — WizardDrawer
@@ -122,7 +124,7 @@ fun WizardDrawer(
             .fillMaxSize()
             .background(ComposeColor(AppConfig.uiSettingsBackground))
     ) {
-        // ── Top bar: Cancel ← + step counter header ─────────────────────
+        // ── Top bar: Cancel ← + title + dot progress ────────────────────
         WizardTopBar(
             stepIndex = stepIndex,
             totalSteps = totalSteps,
@@ -176,15 +178,13 @@ fun WizardDrawer(
 
 @Composable
 private fun WizardTopBar(stepIndex: Int, totalSteps: Int, onCancel: () -> Unit) {
-    val title = if (stepIndex >= 0 && totalSteps > 0)
-        "Create Marker — Step ${stepIndex + 1} of $totalSteps"
-    else
-        "Create Marker"
+    val accent = ComposeColor(AppConfig.uiSettingsAccent)
+    val divider = ComposeColor(AppConfig.uiSettingsDivider)
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .padding(horizontal = 24.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(
@@ -203,11 +203,25 @@ private fun WizardTopBar(stepIndex: Int, totalSteps: Int, onCancel: () -> Unit) 
         }
         Spacer(Modifier.width(16.dp))
         Text(
-            text = title,
+            text = "Create Marker",
             color = ComposeColor(AppConfig.uiSettingsTextPrimary),
             fontSize = 17.sp,
             fontWeight = FontWeight.Bold
         )
+        Spacer(Modifier.weight(1f))
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            for (i in 0 until totalSteps) {
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(if (i <= stepIndex) accent else divider)
+                )
+            }
+        }
     }
 }
 
@@ -374,91 +388,66 @@ private fun WizardButtonRow(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Type selection step — three tappable cards: Pin, Circle, Corridor.
+ * Type selection step — segmented selector in the style of the language
+ * buttons in settings: three equally-weighted segments with Material Icons,
+ * accent background on the active choice.
  */
 @Composable
 private fun TypeSelectStep(viewModel: MarkersViewModel) {
     val form by viewModel.createForm.collectAsState()
+    val accent = ComposeColor(AppConfig.uiSettingsAccent)
+    val divider = ComposeColor(AppConfig.uiSettingsDivider)
+    val primaryText = ComposeColor(AppConfig.uiSettingsTextPrimary)
+    val mutedText = ComposeColor(AppConfig.uiSettingsTextMuted)
+    val cardBg = ComposeColor(AppConfig.uiCardBackground)
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+            .padding(12.dp)
     ) {
-        Text(
-            "Choose a marker type",
-            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Medium
-        )
-
-        TypeCard(
-            title = "Pin",
-            description = "A single point on the map",
-            icon = "\uD83D\uDCCD",
-            selected = form.type == MarkerType.PIN,
-            onClick = { viewModel.updateForm { it.copy(type = MarkerType.PIN) } }
-        )
-        TypeCard(
-            title = "Circle (Zone)",
-            description = "A circular area with a defined radius",
-            icon = "\u26D4",
-            selected = form.type == MarkerType.CIRCLE,
-            onClick = { viewModel.updateForm { it.copy(type = MarkerType.CIRCLE) } }
-        )
-        TypeCard(
-            title = "Corridor",
-            description = "A linear corridor between two points",
-            icon = "\u2194\uFE0F",
-            selected = form.type == MarkerType.CORRIDOR,
-            onClick = { viewModel.updateForm { it.copy(type = MarkerType.CORRIDOR) } }
-        )
-    }
-}
-
-@Composable
-private fun TypeCard(
-    title: String,
-    description: String,
-    icon: String,
-    selected: Boolean,
-    onClick: () -> Unit
-) {
-    val accent = ComposeColor(AppConfig.buttonActionBgColor)
-    val borderColor = if (selected) accent
-    else ComposeColor(AppConfig.uiSettingsTextMuted).copy(alpha = 0.3f)
-
-    val bgColor = if (selected)
-        accent.copy(alpha = 0.15f)
-    else
-        ComposeColor(AppConfig.uiCardBackground)
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(2.dp, borderColor, RoundedCornerShape(10.dp))
-            .clip(RoundedCornerShape(10.dp))
-            .background(bgColor)
-            .clickable(onClick = onClick)
-            .padding(8.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(icon, fontSize = 24.sp)
-        Spacer(Modifier.width(12.dp))
-        Column {
-            Text(
-                title,
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(cardBg)
+                .padding(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            val types = listOf(
+                Triple(MarkerType.PIN, Icons.Filled.LocationOn, "Pin"),
+                Triple(MarkerType.CIRCLE, Icons.Filled.RadioButtonUnchecked, "Zone"),
+                Triple(MarkerType.CORRIDOR, Conversion_path, "Corridor")
             )
-            Text(
-                description,
-                color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                fontSize = 12.sp
-            )
+            types.forEach { (type, icon, label) ->
+                val selected = form.type == type
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (selected) accent else divider)
+                        .clickable { viewModel.updateForm { it.copy(type = type) } }
+                        .padding(vertical = 8.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = label,
+                            tint = if (selected) primaryText else mutedText,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = label,
+                            color = if (selected) primaryText else mutedText,
+                            fontSize = 13.sp,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                        )
+                    }
+                }
+            }
         }
     }
 }
