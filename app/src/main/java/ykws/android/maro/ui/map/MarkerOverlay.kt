@@ -113,6 +113,7 @@ fun MarkerOverlay(
     fun removeAllMarkerOverlays() {
         val toRemove = mv.overlays.filter { overlay ->
             (overlay as? Polyline)?.title?.startsWith(OVERLAY_PREFIX) == true ||
+            (overlay as? Polygon)?.title?.startsWith(OVERLAY_PREFIX) == true ||
             (overlay as? Marker)?.title?.startsWith(OVERLAY_PREFIX) == true
         }
         mv.overlays.removeAll(toRemove)
@@ -317,6 +318,7 @@ fun MarkerOverlay(
 
         onDispose {
             removeAllMarkerOverlays()
+            mv.overlays.remove(tapOverlay)
             mv.invalidate()
         }
     }
