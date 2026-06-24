@@ -660,33 +660,6 @@ fun MapScreen(
             }
             mv.overlays.add(polyline)
         }
-        // ── Render pinned tracks (middle z-order, on top of history) ───
-        val pinnedTotal = pinnedSummaries.size
-        for ((index, summary) in pinnedSummaries.withIndex()) {
-            val track = trackViewModel.loadTrackDetailCached(summary.id) ?: continue
-            if (track.trackPoints.isEmpty()) continue
-
-            val appearance = computeTrackPolylineAppearance(
-                index = index,
-                total = pinnedTotal,
-                transparencyNewest = appSettings.trackingTransparencyPinnedNewest,
-                transparencyOldest = appSettings.trackingTransparencyPinnedOldest,
-                colorFrom = appSettings.trackingColorPinnedFrom,
-                colorTo = appSettings.trackingColorPinnedTo,
-                strokeWidth = 6f
-            )
-
-            val polyline = org.osmdroid.views.overlay.Polyline().apply {
-                title = "track_pinned_${summary.id}"
-                outlinePaint.color = appearance.argb
-                outlinePaint.strokeWidth = appearance.strokeWidth
-                setPoints(track.trackPoints.map { pt ->
-                    org.osmdroid.util.GeoPoint(pt.lat, pt.lon)
-                })
-            }
-            mv.overlays.add(polyline)
-            desiredIds.add(summary.id)
-        }
         renderedTrackIds.value = desiredIds
         mv.invalidate()
     }
@@ -2864,66 +2837,7 @@ private fun GeneralSettings(
                                 )
                             )
 
-<<<<<<< HEAD
-                            Spacer(Modifier.height(6.dp))
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(1.dp)
-                                    .background(ComposeColor(AppConfig.uiSettingsDivider))
-                            )
-                            Spacer(Modifier.height(6.dp))
-
-                            // Pinned transparency
-                            Text(
-                                text = "Pinned transparency",
-                                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                text = "Pinned tracks always render on the map. 0% = opaque, 100% = invisible.",
-                                color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                                fontSize = 12.sp
-                            )
-                            Text(
-                                text = "Newest %d%%  –  Oldest %d%%".format(settings.trackingTransparencyPinnedNewest, settings.trackingTransparencyPinnedOldest),
-                                color = ComposeColor(AppConfig.uiSettingsAccent),
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                textAlign = TextAlign.End,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            RangeSlider(
-                                value = settings.trackingTransparencyPinnedNewest.toFloat()..settings.trackingTransparencyPinnedOldest.toFloat(),
-                                onValueChange = { range: ClosedFloatingPointRange<Float> ->
-                                    onUpdateSettings {
-                                        it.copy(
-                                            trackingTransparencyPinnedNewest = range.start.roundToInt(),
-                                            trackingTransparencyPinnedOldest = range.endInclusive.roundToInt()
-                                        )
-                                    }
-                                },
-                                valueRange = 0f..100f,
-                                steps = 19,
-                                colors = SliderDefaults.colors(
-                                    thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                                    activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
-                                    inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                                )
-                            )
-
-                            Spacer(Modifier.height(6.dp))
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(1.dp)
-                                    .background(ComposeColor(0x26FFFFFF))
-                            )
-                            Spacer(Modifier.height(6.dp))
-=======
                             Spacer(Modifier.height(8.dp))
->>>>>>> 97be575 (Markers Phase D: map overlay rendering — Pin/Circle/Corridor Canvas + proximity preview)
 
                             // Colors
                             Text(
@@ -3455,79 +3369,6 @@ private fun SystemSettings(
                 .padding(vertical = 8.dp)
         ) {
             // Enable stop detection toggle
-<<<<<<< HEAD
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_stop_enable_label),
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_stop_enable_desc),
-                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = 13.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Switch(
-                    checked = settings.stopDetectionEnabled,
-                    onCheckedChange = { on -> onUpdateSettings { it.copy(stopDetectionEnabled = on) } },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                    )
-                )
-            }
-
-            // Conditional content: only shown when stop detection is enabled
-            if (settings.stopDetectionEnabled) {
-                Spacer(Modifier.height(8.dp))
-
-                // Delay GPS when still toggle
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 2.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.settings_stop_delay_label),
-                            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            text = stringResource(R.string.settings_stop_delay_desc),
-                            color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                            fontSize = 13.sp
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Switch(
-                        checked = settings.stopDetectionDelayGps,
-                        onCheckedChange = { on -> onUpdateSettings { it.copy(stopDetectionDelayGps = on) } },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                            checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                            uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
-                            uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                        )
-                    )
-                }
-
-=======
             SettingsToggleRow(
                 label = stringResource(R.string.settings_stop_enable_label),
                 description = stringResource(R.string.settings_stop_enable_desc),
@@ -3538,7 +3379,6 @@ private fun SystemSettings(
             // Conditional content: only shown when stop detection is enabled
             if (settings.stopDetectionEnabled) {
                 // Thin divider
->>>>>>> 97be575 (Markers Phase D: map overlay rendering — Pin/Circle/Corridor Canvas + proximity preview)
                 Spacer(Modifier.height(8.dp))
 
                 // Detection thresholds expander
@@ -3573,10 +3413,6 @@ private fun SystemSettings(
                         }
                     }
                 }
-<<<<<<< HEAD
-                Spacer(Modifier.height(16.dp))
-=======
-
                 Spacer(modifier = Modifier.height(4.dp))
 
                 // Thin divider
@@ -3589,7 +3425,6 @@ private fun SystemSettings(
                     checked = settings.stopDetectionDelayGps,
                     onCheckedChange = { on -> onUpdateSettings { it.copy(stopDetectionDelayGps = on) } }
                 )
->>>>>>> 97be575 (Markers Phase D: map overlay rendering — Pin/Circle/Corridor Canvas + proximity preview)
             }
         }
 
