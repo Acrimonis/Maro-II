@@ -127,3 +127,4 @@ active_subfeature: none
 - `xTrack/Ui_Settings/FEAT_PLN_Ui_Settings_landscape-font-sizing.md` — Landscape font sizing discussion
 - `xTrack/Ui_Settings/FEAT_PLN_Ui_Settings_zoneconfig-to-appconfig.md` — ZoneConfig to AppConfig rename
 - `xTrack/Ui_Settings/FEAT_PLN_Ui_Settings_track-drawer-settings-btn.md` — Settings button in Track Drawer header row
+- `docs/settings-page-guidelines.md` — Settings page UI patterns and layout rules

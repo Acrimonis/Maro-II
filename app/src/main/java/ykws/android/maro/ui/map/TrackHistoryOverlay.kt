@@ -45,6 +45,9 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material.icons.outlined.LocationOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -472,12 +475,24 @@ private fun TrackCardContent(
                     onClick = { onUpdateTrack(summary.id, null, null, !pinned) },
                     modifier = Modifier.size(36.dp)
                 ) {
-                    PinIcon(pinned)
+                    Icon(
+                        imageVector = if (pinned) Icons.Filled.LocationOn else Icons.Outlined.LocationOff,
+                        contentDescription = if (pinned) "Unpin" else "Pin",
+                        tint = ButtonColors.icon,
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
                 IconButton(
                     onClick = { onShareGpx(summary.id) },
                     modifier = Modifier.size(36.dp)
-                ) { ShareIcon() }
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Upload,
+                        contentDescription = "Export GPX",
+                        tint = ButtonColors.icon,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
         }
 
@@ -815,46 +830,6 @@ private fun LiveTrackCard(
 
 /** Which field is being edited — ensures mutual exclusion. */
 private enum class EditingField { NAME, COMMENT }
-
-// ── Canvas icon composables (28dp, matching ICON_SIZE_DP) ───────────────────
-
-@Composable
-private fun PinIcon(pinned: Boolean) {
-    Canvas(modifier = Modifier.size(28.dp)) {
-        val w = size.width; val h = size.height; val c = ButtonColors.icon
-        val cx = w / 2f
-        val alpha = if (pinned) 1f else 0.4f
-        // Pin head (circle)
-        drawCircle(c, w * 0.16f, Offset(cx, h * 0.28f), alpha)
-        // Pin body (triangle)
-        val path = androidx.compose.ui.graphics.Path().apply {
-            moveTo(cx - w * 0.18f, h * 0.38f)
-            lineTo(cx + w * 0.18f, h * 0.38f)
-            lineTo(cx, h * 0.88f)
-            close()
-        }
-        drawPath(path, c, alpha = alpha)
-    }
-}
-
-@Composable
-private fun ShareIcon() {
-    Canvas(modifier = Modifier.size(28.dp)) {
-        val w = size.width; val h = size.height; val c = ButtonColors.icon
-        val cx = w / 2f; val cy = h / 2f
-        val stemEnd = Offset(cx + w * 0.25f, cy - h * 0.30f)
-        drawLine(c, Offset(cx, cy), stemEnd, w * 0.12f, cap = StrokeCap.Round)
-        val headLen = w * 0.15f
-        drawLine(c, stemEnd, Offset(stemEnd.x - headLen, stemEnd.y + headLen * 0.4f),
-            w * 0.10f, cap = StrokeCap.Round)
-        drawLine(c, stemEnd, Offset(stemEnd.x - headLen * 0.4f, stemEnd.y - headLen),
-            w * 0.10f, cap = StrokeCap.Round)
-        drawRoundRect(c, topLeft = Offset(cx - w * 0.10f, cy + h * 0.05f),
-            size = Size(w * 0.35f, h * 0.30f),
-            cornerRadius = CornerRadius(3f, 3f), alpha = 0.7f,
-            style = Stroke(w * 0.10f))
-    }
-}
 
 /** Single cell in the 3-column stats grid: label (33%, right-aligned) + value (66%, left-aligned). */
 @Composable

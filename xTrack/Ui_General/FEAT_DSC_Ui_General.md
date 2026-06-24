@@ -2,8 +2,8 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-06-23 15:28
-active_subfeature: fan tweak
+modified: 2026-06-24 09:13
+active_subfeature: overlay styling
 ---
 
 # Feature: Ui_General
@@ -173,7 +173,60 @@ Adjust vertical spacing between buttons in the right-edge control stack for impr
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `MapContent()` (remove scrim, thread params), `CoastlineMapView()` (add params, set touch listener)
 
+### toast and progress dialog  [x]
+
+**Focus:** The exit toast and loading/progress overlay should fill all available horizontal space in the bottom zone. Legacy padding values from before the 2-column Row refactor unnecessarily constrain their width.
+
+**Root cause:** After the `Row(fillMaxSize)` 2-column layout was introduced, the LEFT COLUMN already fills only the space not consumed by the RIGHT COLUMN. But the bottom overlays still carry manual padding (`start=56dp, end=76dp`) from the pre-refactor era. Additionally, `LoadingOverlay` internally constrains to `.fillMaxWidth(0.66f)`.
+
+#### Todos
+- [x] Change both bottom Box padding: `start = 56.dp, end = 76.dp` → `start = 6.dp, end = 6.dp`
+- [x] Change `LoadingOverlay` modifier: `.fillMaxWidth(0.66f)` → `.fillMaxWidth()`
+- [x] Build & verify: BUILD SUCCESSFUL
+
+#### Implemented
+- [`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1227) — 3 changes: loading/error Box padding 56→6dp, exit toast Box padding 56→6dp, LoadingOverlay fillMaxWidth(0.66f)→fillMaxWidth(). 1 file, 3 lines. Build ✅.
+
+#### Rules
+- `start = 6.dp` matches the regulated zone icon row's padding — consistent with the 2-column Row layout
+- `end = 6.dp` provides minimal breathing room to the RIGHT COLUMN edge
+- No overlap risk: the Row layout already separates left and right columns
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — both bottom Box padding + LoadingOverlay modifier
+
+### overlay styling  [x]
+
+**Focus:** Unify the three bottom overlays (exit toast, loading/progress, error) with a shared navy card design at 80% opacity, differentiated by border and text color.
+
+**Design:**
+
+| Overlay | Background | Border | Text |
+|----------|-----------|--------|------|
+| Toast | `#CC16213E` | `#1565C0` blue | White |
+| Progress | `#CC16213E` | `#1565C0` blue | White (bar blue) |
+| Error | `#CC16213E` | `#C62828` red | Title red, body white |
+
+#### Todos
+- [x] Toast: bg → `buttonActionBgColor`, add blue border, reduce padding to `h=16dp v=10dp`
+- [x] LoadingOverlay: wrap in Surface (bg `buttonActionBgColor`, blue border, `h=16dp v=10dp`), text white
+- [x] ErrorOverlay: bg → `buttonActionBgColor`, add red border, title red, body white, padding match
+- [x] Build & verify: BUILD SUCCESSFUL
+
+#### Implemented
+- [`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1254) — 3 composables unified: toast Surface (bg + border + padding), LoadingOverlay (Surface wrapper + white text), ErrorOverlay (Surface + red border + red title). 1 file. Build ✅.
+
+#### Rules
+- Background `#CC16213E` = `buttonActionBgColor` — navy at 80% opacity, consistent across all three
+- Border colors from existing tokens: blue = `uiSettingsAccent` (`#1565C0`), red = `uiDashboardZoneDanger` (`#C62828`)
+- Progress bar fill and spinner keep blue (`uiProgressAccent`) — functional indicators
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — toast Surface, LoadingOverlay, ErrorOverlay
+
 ## Todos
+- [ ] Rename "Track List..." → "Manage Tracks..." in TrackDrawerOverlay.kt:212
+- [ ] Add point count (`TrackSummary.pointCount`) and display "xxx pts" left of pin/share icons in TrackHistoryOverlay track cards
 
 ## Rules
 
@@ -188,3 +241,4 @@ Adjust vertical spacing between buttons in the right-edge control stack for impr
 - `plans/right-edge-controls-gap-asymmetry-analysis.md` — root cause analysis of asymmetric gap between right-edge controls and map edges after immersive rework
 - `plans/map-overlay-layout-rationalization.md` — complete layout refactor: 2-column Row structure, symmetric 6dp margins, orientation-aware insets
 - `plans/map-overlay-layout-inventory.md` — current overlay inventory and planned evolution audit
+- `docs/material-icons-standalone-guide.md` — How to add Material Symbols icons as standalone ImageVector .kt files

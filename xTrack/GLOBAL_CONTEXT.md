@@ -2,9 +2,9 @@
 
 ## Active Session Pointers
 - **Active Feature:** Ui_General
-- **Active Subfeature:** fan tweak
-- **Last Updated:** 2026-06-23
-- **Last Bake:** 2026-06-23 15:28 (Ui_General — fan tweak: scrim removed, MapView.setOnTouchListener for pass-through dismiss. 1 file, 4 touch points. Build ✅)
+- **Active Subfeature:** overlay styling
+- **Last Updated:** 2026-06-24
+- **Last Bake:** 2026-06-24 09:13 (Ui_General — overlay styling: unified navy 80% + frost bg, 2dp borders, fan scrim removed, toast/progress full-width, 10 Canvas icons→Material/standalone, docs restructured. Build ✅)
 - **Branch:** feature/some-ui
 ## Routing Map
 | Keyword | Feature File |
@@ -47,7 +47,7 @@
 | Performance | Battery optimization, adaptive GPS tuning, compass gate, map refresh | 2026-05-20 00:00 | 2026-06-05 00:00 | active |
 | BakeNormalization | APK bake/build/deploy pipeline and prebake data processing | 2026-06-01 00:00 | 2026-06-05 00:00 | active |
 | DepthSafety | Danger depth alerts, shallow water grounding prevention, isobath precision | 2026-06-03 00:00 | 2026-06-05 00:00 | active |
-| Ui_General | App-lifecycle UX: back-to-exit guard, keep-screen-on wakelock, edge-to-edge rendering and WindowInsets management | 2026-06-08 16:43 | 2026-06-23 15:28 | active |
+| Ui_General | App-lifecycle UX: back-to-exit guard, keep-screen-on wakelock, edge-to-edge rendering and WindowInsets management | 2026-06-08 16:43 | 2026-06-24 09:13 | active |
 | Ui_Settings | Settings page UI, persistence, widgets, and UX enhancements | 2026-06-09 15:28 | 2026-06-09 19:42 | active |
 | **Navigation** | **Navigation aids — heading/speed arrow and direction line on map overlay** | **2026-06-10 08:40** | **2026-06-11 11:55** | **active** |
 | **RegulatedZones** | **Maritime regulatory zones — multi-source normalization (SHOM INSPIRE + IGN Natura 2000), sealed classification, 8-category icon mapping, keyword-driven display logic** | **2026-06-11 18:00** | **2026-06-12 22:37** | **active** |
@@ -72,6 +72,15 @@
 - [ ] Validate the intermittent Overpass-outage theory — confirm the coastline OSM fetch failures are transient (succeeded 13:52, failing ~16:52 on 2026-06-08), not a persistent network / cert / IPv6 block. Quick checks: retry `bake-coastline` later; `curl -sk https://overpass-api.de/api/status`; race other mirrors.
 - [x] **Classify all `plans/*.md` by target feature (routing map)** — completed during Documentation feature
 - [ ] **Change direction arrow color by speed compliance** — arrow in heading-ahead display (↑/↗→/→) should reflect speed-vs-limit ratio: green ≤ limit, orange ≤ limit×1.4, red > limit×1.4
+
+## Cross-Reference Docs
+Docs available via `#doc read [name]` from any feature. Fuzzy-resolve searches this table.
+
+| Doc | Owner Feature | One-Liner |
+|-----|---------------|-----------|
+| `color-scheme.md` | ColorManagement | Color tokens, palette, alias chains |
+| `settings-page-guidelines.md` | Ui_Settings | Settings page UI patterns and layout rules |
+| `material-icons-standalone-guide.md` | Ui_General | How to add Material Symbols icons as standalone ImageVector .kt files |
 
 ## Always-Loaded Context
 These files are loaded into context at the start of every session to maximize the AI prefix-cache hit rate:

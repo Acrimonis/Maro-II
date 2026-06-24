@@ -139,7 +139,7 @@ Verify: `gdalwarp --version` and `projinfo EPSG:2154` (confirms PROJ).
 |-----|-------|-------------|
 | [docs/SETUP.md](docs/SETUP.md) | `onboarding` | New machine: SSH keys, ADB device, env vars |
 | [docs/GIT_WORKFLOW.md](docs/GIT_WORKFLOW.md) | `reference` | Branching strategy, feature lifecycle, releases |
-| [docs/MARO_ARCHITECTURE.md](docs/MARO_ARCHITECTURE.md) | `reference` | Spatial engine constraints, memory-mapped I/O, async rendering |
+| [docs/MARO_ARCHITECTURE.md](docs/MARO_ARCHITECTURE.md) | `reference` | Spatial engine constraints + reference doc hub (colors, icons, settings patterns) |
 | [docs/FAQ.md](docs/FAQ.md) | `reference` | Build failures, common troubleshooting |
 
 **Scope legend:**

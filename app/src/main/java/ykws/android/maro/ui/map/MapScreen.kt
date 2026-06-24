@@ -58,6 +58,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -1224,7 +1225,7 @@ private fun MapContent(
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .fillMaxWidth()
-                            .padding(start = 56.dp, end = 76.dp),
+                            .padding(start = 6.dp, end = 6.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         if (rasterProgress != null && rasterProgress!!.globalProgress < 100) {
@@ -1248,22 +1249,25 @@ private fun MapContent(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
                                 .fillMaxWidth()
-                                .padding(start = 56.dp, end = 76.dp),
+                                .padding(start = 6.dp, end = 6.dp),
                             contentAlignment = Alignment.Center
                         ) {
                             Surface(
                                 shape = RoundedCornerShape(14.dp),
-                                color = ComposeColor(AppConfig.uiSettingsToastBackground),
-                                shadowElevation = 8.dp
+                                color = ComposeColor(AppConfig.buttonActionBgColor),
+                                shadowElevation = 8.dp,
+                                modifier = Modifier.border(2.dp, ComposeColor(AppConfig.uiDashboardBackground), RoundedCornerShape(14.dp))
                             ) {
-                                Text(
+                                Box(modifier = Modifier.background(ComposeColor(AppConfig.uiSettingsCardBackground))) {
+                                    Text(
                                     text = stringResource(R.string.exit_press_back_again),
                                     color = ComposeColor(AppConfig.uiSettingsToastText),
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Medium,
                                     textAlign = TextAlign.Center,
-                                    modifier = Modifier.padding(horizontal = 28.dp, vertical = 16.dp)
-                                )
+                                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -1409,55 +1413,64 @@ private fun LoadingOverlay(
     modifier: Modifier = Modifier,
     title: String = stringResource(R.string.map_loading_coastline)
 ) {
-    Column(
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = ComposeColor(AppConfig.buttonActionBgColor),
+        shadowElevation = 8.dp,
         modifier = modifier
-            .fillMaxWidth(0.66f)
-            .padding(horizontal = 8.dp, vertical = 0.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .fillMaxWidth()
+            .border(2.dp, ComposeColor(AppConfig.uiDashboardBackground), RoundedCornerShape(14.dp))
     ) {
-        CircularProgressIndicator(
-            modifier = Modifier.size(18.dp),
-            strokeWidth = 2.5.dp,
-            color = ComposeColor(AppConfig.uiProgressAccent)
-        )
+        Box(modifier = Modifier.background(ComposeColor(AppConfig.uiSettingsCardBackground))) {
+            Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(18.dp),
+                strokeWidth = 2.5.dp,
+                color = ComposeColor(AppConfig.uiProgressAccent)
+            )
 
-        Text(
-            text = title,
-            color = ComposeColor(AppConfig.uiProgressAccent),
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold
-        )
-
-        // NOTE: the per-phase label below is still emitted as French literals by the
-        // data/spatial generators (CoastlineGenerator/DepthGenerator/Zone300Builder).
-        // Localising it requires threading a phase enum through onProgress — tracked as
-        // a follow-up; it only shows during first-run generation.
-        if (progress.phase.isNotEmpty()) {
             Text(
-                text = progress.phase,
-                color = ComposeColor(AppConfig.uiProgressAccent),
-                fontSize = 12.sp,
+                text = title,
+                color = ComposeColor.White,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.Bold
             )
-        }
 
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            LinearProgressIndicator(
-                progress = { progress.progress / 100f },
-                modifier = Modifier
-                    .weight(1f)
-                    .height(4.dp),
-                color = ComposeColor(AppConfig.uiProgressAccent),
-                trackColor = ComposeColor(AppConfig.uiProgressTrack)
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                text = "${progress.progress}%",
-                color = ComposeColor(AppConfig.uiProgressAccent),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold
-            )
+            // NOTE: the per-phase label below is still emitted as French literals by the
+            // data/spatial generators (CoastlineGenerator/DepthGenerator/Zone300Builder).
+            // Localising it requires threading a phase enum through onProgress — tracked as
+            // a follow-up; it only shows during first-run generation.
+            if (progress.phase.isNotEmpty()) {
+                Text(
+                    text = progress.phase,
+                    color = ComposeColor.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                LinearProgressIndicator(
+                    progress = { progress.progress / 100f },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(4.dp),
+                    color = ComposeColor(AppConfig.uiProgressAccent),
+                    trackColor = ComposeColor(AppConfig.uiProgressTrack)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "${progress.progress}%",
+                    color = ComposeColor.White,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
+    }
     }
 }
 
@@ -1469,39 +1482,47 @@ private fun ErrorOverlay(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Column(
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = ComposeColor(AppConfig.buttonActionBgColor),
+        shadowElevation = 8.dp,
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(ComposeColor(AppConfig.uiErrorCard))
-            .padding(horizontal = 16.dp, vertical = 12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .fillMaxWidth()
+            .border(2.dp, ComposeColor(AppConfig.uiDashboardZoneDanger), RoundedCornerShape(14.dp))
     ) {
-        Text(
-            text = stringResource(R.string.error_title),
-            color = ComposeColor(AppConfig.uiErrorText),
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(
-            text = message,
-            color = ComposeColor(AppConfig.uiErrorText),
-            fontSize = 12.sp
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Button(
-            onClick = onRetry,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = ComposeColor(AppConfig.uiErrorButtonBackground)
-            )
+        Box(modifier = Modifier.background(ComposeColor(AppConfig.uiSettingsCardBackground))) {
+            Column(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
-                text = stringResource(R.string.retry),
+                text = stringResource(R.string.error_title),
                 color = ComposeColor(AppConfig.uiErrorButtonText),
-                fontSize = 12.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.Bold
             )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = message,
+                color = ComposeColor(AppConfig.uiSettingsToastText),
+                fontSize = 12.sp
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Button(
+                onClick = onRetry,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ComposeColor(AppConfig.uiErrorButtonBackground)
+                )
+            ) {
+                Text(
+                    text = stringResource(R.string.retry),
+                    color = ComposeColor(AppConfig.uiErrorButtonText),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
+    }
     }
 }
 
@@ -1911,40 +1932,15 @@ private fun EarthWaterIcon(
 
 /**
  * Hamburger menu icon: three horizontal lines (classic menu button).
- * Drawn with Canvas to match the app's icon family without material-icons-extended.
  */
 @Composable
 private fun HamburgerIcon() {
-    androidx.compose.foundation.Canvas(modifier = Modifier.size(36.dp)) {
-        val stroke = size.width * 0.15f
-        val inset = size.width * 0.22f
-        val cy = size.height / 2f
-        val gap = size.height * 0.16f
-        // Top line
-        drawLine(
-            color = ButtonColors.icon,
-            start = Offset(inset, cy - gap),
-            end = Offset(size.width - inset, cy - gap),
-            strokeWidth = stroke,
-            cap = StrokeCap.Round
-        )
-        // Middle line
-        drawLine(
-            color = ButtonColors.icon,
-            start = Offset(inset, cy),
-            end = Offset(size.width - inset, cy),
-            strokeWidth = stroke,
-            cap = StrokeCap.Round
-        )
-        // Bottom line
-        drawLine(
-            color = ButtonColors.icon,
-            start = Offset(inset, cy + gap),
-            end = Offset(size.width - inset, cy + gap),
-            strokeWidth = stroke,
-            cap = StrokeCap.Round
-        )
-    }
+    Icon(
+        imageVector = Icons.Filled.Menu,
+        contentDescription = "Menu",
+        tint = ButtonColors.icon,
+        modifier = Modifier.size(36.dp)
+    )
 }
 
 /**

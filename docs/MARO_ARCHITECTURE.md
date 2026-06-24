@@ -43,3 +43,11 @@ in `gradle.properties` → `BuildConfig`; N/S stay constant (coast → ~6 NM).
 **Status (2026-06-06): adopted.** Repositories are pure loaders; `CoastlinePrebakeTest` +
 `DepthPrebakeTest` and the `apk-build.bat` prompts are in place; build green. Remaining: the W/E
 `RegionConfig` prop, and producing the actual bundled `.bin` assets by running the prebakes.
+
+## Reference Docs
+
+| Doc | Scope | When to load |
+|-----|-------|-------------|
+| [docs/color-scheme.md](color-scheme.md) | Color tokens, palette, alias chains | Changing any UI color |
+| [docs/settings-page-guidelines.md](settings-page-guidelines.md) | Settings page UI patterns and layout rules | Adding/modifying settings |
+| [docs/material-icons-standalone-guide.md](material-icons-standalone-guide.md) | How to add Material Symbols icons as standalone ImageVector .kt files | Adding new icons |
