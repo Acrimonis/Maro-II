@@ -214,49 +214,38 @@ fun TrackHistoryOverlay(
         map
     }
 
-        // ── Panel ────────────────────────────────────────────────
-        val historyShape = RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp)
-        Box(
-            modifier = modifier
-                .fillMaxSize()
-                .clip(historyShape)
-                .background(Color(AppConfig.uiSettingsBackground))
-                .windowInsetsPadding(WindowInsets.statusBars)
-        ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                // ── Header ─────────────────────────────────────────────────
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 3.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(
-                            onClick = {
-                                pendingDeletes.forEach { id -> onDeleteTrack(id) }
-                                pendingDeletes.clear()
-                                onDismiss()
-                            },
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(Color(AppConfig.uiSettingsSwitchTrackInactive))
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
-                                tint = Color(AppConfig.uiSettingsTextPrimary),
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Text(
-                            text = "Track History",
-                            color = Color(AppConfig.uiSettingsTextPrimary),
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Bold
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color(AppConfig.uiSettingsBackground))
+            .windowInsetsPadding(WindowInsets.statusBars)
+    ) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            // ── Header ─────────────────────────────────────────────────
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 3.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(
+                        onClick = {
+                            pendingDeletes.forEach { id -> onDeleteTrack(id) }
+                            pendingDeletes.clear()
+                            onDismiss()
+                        },
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(Color(AppConfig.uiSettingsSwitchTrackInactive))
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color(AppConfig.uiSettingsTextPrimary),
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
