@@ -108,6 +108,7 @@ fun MenuDrawerOverlay(
                     modifier = Modifier
                         .fillMaxSize()
                         .background(Color(AppConfig.uiSettingsBackground))
+                        .windowInsetsPadding(WindowInsets.statusBars)
                 ) {
                     Column(
                         modifier = Modifier

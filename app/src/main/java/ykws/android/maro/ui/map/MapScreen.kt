@@ -1629,7 +1629,7 @@ private fun MapContent(
                                 { isActive -> RegulatedZoneIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
                                 { isActive -> DoubleCircleIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
                                 { isActive -> WarningTriangleIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
-                                { isActive -> OutlinedPinIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) }
+                                { isActive -> LocationOnIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) }
                             ),
                             activeStates = listOf(
                                 appSettings.tracksVisible,
@@ -1657,7 +1657,7 @@ private fun MapContent(
                     MapControlButton(
                         onClick = { onAddZone(mapCenter) }
                     ) {
-                        FilledPinIcon()
+                        AddLocationAltIcon()
                     }
                 }
 
