@@ -2,7 +2,7 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-06-24 09:13
+modified: 2026-06-24 11:24
 active_subfeature: overlay styling
 ---
 
@@ -225,8 +225,8 @@ Adjust vertical spacing between buttons in the right-edge control stack for impr
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — toast Surface, LoadingOverlay, ErrorOverlay
 
 ## Todos
-- [ ] Rename "Track List..." → "Manage Tracks..." in TrackDrawerOverlay.kt:212
-- [ ] Add point count (`TrackSummary.pointCount`) and display "xxx pts" left of pin/share icons in TrackHistoryOverlay track cards
+- [x] Rename "Track List..." → "Manage Tracks..." in TrackDrawerOverlay.kt:212
+- [x] Add point count (`TrackSummary.pointCount`) and display "xxx pts" left of pin/share icons in TrackHistoryOverlay track cards
 
 ## Rules
 

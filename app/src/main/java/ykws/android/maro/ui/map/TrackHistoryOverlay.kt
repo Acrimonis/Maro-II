@@ -470,6 +470,10 @@ private fun TrackCardContent(
                        else "$dateLabel  $startTime",
                 color = Color(AppConfig.uiSettingsTextMuted), fontSize = 11.sp
             )
+            Text(
+                text = "${summary.pointCount} pts",
+                color = Color(AppConfig.uiSettingsTextMuted), fontSize = 11.sp
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 IconButton(
                     onClick = { onUpdateTrack(summary.id, null, null, !pinned) },

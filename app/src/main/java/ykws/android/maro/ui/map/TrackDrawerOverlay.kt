@@ -209,7 +209,7 @@ fun TrackDrawerOverlay(
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
                             Text(
-                                text = "Track List...",
+                                text = "Manage Tracks...",
                                 color = Color(AppConfig.uiSettingsTextPrimary),
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Medium
