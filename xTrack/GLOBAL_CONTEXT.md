@@ -1,10 +1,17 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
+<<<<<<< HEAD
 - **Active Feature:** BoatTrace
 - **Active Subfeature:** track-list-render-indicator
 - **Last Updated:** 2026-06-24
 - **Last Bake:** 2026-06-24 11:09 (BoatTrace — track-list-render-indicator: extracted computeTrackPolylineAppearance() utility, 4dp left-edge accent bar on each card previewing polyline color/alpha, refactored MapScreen rendering loops, threaded 10 render settings through TrackHistoryOverlay. Build ✅)
+=======
+- **Active Feature:** Ui_General
+- **Active Subfeature:** overlay styling
+- **Last Updated:** 2026-06-24
+- **Last Bake:** 2026-06-24 09:13 (Ui_General — overlay styling: unified navy 80% + frost bg, 2dp borders, fan scrim removed, toast/progress full-width, 10 Canvas icons→Material/standalone, docs restructured. Build ✅)
+>>>>>>> 6a62f6b4076b3f3974fee6c69746e3bfc7cc4771
 - **Branch:** feature/some-ui
 ## Routing Map
 | Keyword | Feature File |
