@@ -1,8 +1,8 @@
 name: BoatTrace
 status: active
 created: 2026-06-15 21:43
-modified: 2026-06-22 16:54
-active_subfeature: pinned-tracks
+modified: 2026-06-24 11:09
+active_subfeature: track-list-render-indicator
 ---
 
 # Feature: BoatTrace
@@ -72,6 +72,15 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 
 #### Docs
 - `xTrack/BoatTrace/FEAT_PLN_BoatTrace_TrackList_Design.md` — track list UI design and 26 requirements
+
+### track-list-render-indicator  [x]
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt`
+
+#### Docs
+- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_track-list-render-indicator.md` — design plan
 
 ### tracking-status-n-triggers  [x]
 
@@ -294,3 +303,5 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 **Build:** ✅ `assembleDebug` passes
 
 **pinned-tracks (2026-06-22):** Replaced eye-icon with pin-icon in TrackHistoryOverlay track card. Pin toggle → `TrackViewModel.setPinned()` → `TrackRepository.setPinned()`. Added `pinned: Boolean` to Track protobuf (ProtoNumber 14) and TrackSummary (ProtoNumber 12). Map rendering split: pinned tracks always render, history tracks capped by `trackingRenderNb`. Z-order: active > pinned > history. Pinned transparency defaults 0%→20% (amber→orange). Settings UI: "Number of history tracks" / "History transparency" / "Pinned transparency" RangeSliders. Fan button `mv.invalidate()` fix for toggle-off.
+
+**track-list-render-indicator (2026-06-24):** Extracted `computeTrackPolylineAppearance()` pure utility — shared ARGB+stroke computation between map rendering and card indicator. Refactored both history and pinned polyline loops in MapScreen to use it. Added 4dp left-edge accent bar to each TrackCardContent card previewing the track's exact polyline color+alpha. Threaded 10 render settings (`tracksVisible`, `trackingRenderNb`, transparency/color pairs for past+pinned) through TrackHistoryOverlay. Non-visible tracks (beyond renderNb or `tracksVisible=false`) show muted grey bar.

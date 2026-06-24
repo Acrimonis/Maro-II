@@ -170,6 +170,44 @@ private const val GPS_ANIMATION_MIN_MOVE_M = 3.0
 /** Animation duration per GPS-follow scroll (ms). Must be < min GPS fix interval (1s). */
 private const val GPS_ANIMATION_DURATION_MS = 600L
 
+/** Computed polyline rendering appearance: ARGB color + stroke width. */
+data class TrackPolylineAppearance(val argb: Int, val strokeWidth: Float)
+
+/**
+ * Compute a track polyline's ARGB color and stroke width from its position
+ * in a same-type group and the current rendering settings.
+ *
+ * @param index 0-based position (newest = 0) among same-type tracks being rendered.
+ * @param total total tracks of this type being rendered.
+ * @param transparencyNewest 0..100 (0 = opaque, 100 = invisible).
+ * @param transparencyOldest 0..100.
+ * @param colorFrom start color (0xRRGGBB, no alpha) for newest track.
+ * @param colorTo end color (0xRRGGBB, no alpha) for oldest track.
+ * @param strokeWidth polyline stroke width in px (default 6f).
+ */
+internal fun computeTrackPolylineAppearance(
+    index: Int,
+    total: Int,
+    transparencyNewest: Int,
+    transparencyOldest: Int,
+    colorFrom: Int,
+    colorTo: Int,
+    strokeWidth: Float = 6f
+): TrackPolylineAppearance {
+    val alphaNewest = (100 - transparencyNewest) / 100f
+    val alphaOldest = (100 - transparencyOldest) / 100f
+    val t = if (total <= 1) 0f else index.toFloat() / (total - 1).toFloat()
+    val alphaFraction = alphaNewest - t * (alphaNewest - alphaOldest)
+    val alphaInt = (alphaFraction * 255).toInt().coerceIn(0, 255)
+
+    val r = ((colorFrom shr 16 and 0xFF) * (1f - t) + (colorTo shr 16 and 0xFF) * t).toInt().coerceIn(0, 255)
+    val g = ((colorFrom shr 8 and 0xFF) * (1f - t) + (colorTo shr 8 and 0xFF) * t).toInt().coerceIn(0, 255)
+    val b = ((colorFrom and 0xFF) * (1f - t) + (colorTo and 0xFF) * t).toInt().coerceIn(0, 255)
+
+    val argb = (alphaInt shl 24) or (r shl 16) or (g shl 8) or b
+    return TrackPolylineAppearance(argb, strokeWidth)
+}
+
 /**
  * Compose screen rendering the coastline on an OSMdroid map.
  *
@@ -575,24 +613,20 @@ fun MapScreen(
             val track = trackViewModel.loadTrackDetailCached(summary.id) ?: continue
             if (track.trackPoints.isEmpty()) continue
 
-            val alphaNewest = (100 - appSettings.trackingTransparencyNewest) / 100f
-            val alphaOldest = (100 - appSettings.trackingTransparencyOldest) / 100f
-            val t = if (historyTotal <= 1) 0f else index.toFloat() / (historyTotal - 1).toFloat()
-            val alphaFraction = alphaNewest - t * (alphaNewest - alphaOldest)
-            val alphaInt = (alphaFraction * 255).toInt().coerceIn(0, 255)
-
-            val startColor = appSettings.trackingColorPastFrom
-            val endColor = appSettings.trackingColorPastTo
-            val r = ((startColor shr 16 and 0xFF) * (1f - t) + (endColor shr 16 and 0xFF) * t).toInt().coerceIn(0, 255)
-            val g = ((startColor shr 8 and 0xFF) * (1f - t) + (endColor shr 8 and 0xFF) * t).toInt().coerceIn(0, 255)
-            val b = ((startColor and 0xFF) * (1f - t) + (endColor and 0xFF) * t).toInt().coerceIn(0, 255)
-            val colorWithAlpha = (alphaInt shl 24) or (r shl 16) or (g shl 8) or b
-            val strokeWidth = if (index == 0) 8f else 6f
+            val appearance = computeTrackPolylineAppearance(
+                index = index,
+                total = historyTotal,
+                transparencyNewest = appSettings.trackingTransparencyNewest,
+                transparencyOldest = appSettings.trackingTransparencyOldest,
+                colorFrom = appSettings.trackingColorPastFrom,
+                colorTo = appSettings.trackingColorPastTo,
+                strokeWidth = if (index == 0) 8f else 6f
+            )
 
             val polyline = org.osmdroid.views.overlay.Polyline().apply {
                 title = "track_hist_${summary.id}"
-                outlinePaint.color = colorWithAlpha
-                outlinePaint.strokeWidth = strokeWidth
+                outlinePaint.color = appearance.argb
+                outlinePaint.strokeWidth = appearance.strokeWidth
                 setPoints(track.trackPoints.map { pt ->
                     org.osmdroid.util.GeoPoint(pt.lat, pt.lon)
                 })
@@ -607,23 +641,20 @@ fun MapScreen(
             val track = trackViewModel.loadTrackDetailCached(summary.id) ?: continue
             if (track.trackPoints.isEmpty()) continue
 
-            val alphaNewest = (100 - appSettings.trackingTransparencyPinnedNewest) / 100f
-            val alphaOldest = (100 - appSettings.trackingTransparencyPinnedOldest) / 100f
-            val t = if (pinnedTotal <= 1) 0f else index.toFloat() / (pinnedTotal - 1).toFloat()
-            val alphaFraction = alphaNewest - t * (alphaNewest - alphaOldest)
-            val alphaInt = (alphaFraction * 255).toInt().coerceIn(0, 255)
-
-            val startColor = appSettings.trackingColorPinnedFrom
-            val endColor = appSettings.trackingColorPinnedTo
-            val r = ((startColor shr 16 and 0xFF) * (1f - t) + (endColor shr 16 and 0xFF) * t).toInt().coerceIn(0, 255)
-            val g = ((startColor shr 8 and 0xFF) * (1f - t) + (endColor shr 8 and 0xFF) * t).toInt().coerceIn(0, 255)
-            val b = ((startColor and 0xFF) * (1f - t) + (endColor and 0xFF) * t).toInt().coerceIn(0, 255)
-            val colorWithAlpha = (alphaInt shl 24) or (r shl 16) or (g shl 8) or b
+            val appearance = computeTrackPolylineAppearance(
+                index = index,
+                total = pinnedTotal,
+                transparencyNewest = appSettings.trackingTransparencyPinnedNewest,
+                transparencyOldest = appSettings.trackingTransparencyPinnedOldest,
+                colorFrom = appSettings.trackingColorPinnedFrom,
+                colorTo = appSettings.trackingColorPinnedTo,
+                strokeWidth = 6f
+            )
 
             val polyline = org.osmdroid.views.overlay.Polyline().apply {
                 title = "track_pinned_${summary.id}"
-                outlinePaint.color = colorWithAlpha
-                outlinePaint.strokeWidth = 6f
+                outlinePaint.color = appearance.argb
+                outlinePaint.strokeWidth = appearance.strokeWidth
                 setPoints(track.trackPoints.map { pt ->
                     org.osmdroid.util.GeoPoint(pt.lat, pt.lon)
                 })
@@ -950,7 +981,17 @@ fun MapScreen(
                 onUndoDeleteTrack = { /* no-op: track was never actually removed from repo,
                                           only visually hidden until Snackbar timeout */ },
                 onShareGpx = { id -> shareTrackGpx(context, trackViewModel, id, trackScope) },
-                onDismiss = { showTrackHistory = false }
+                onDismiss = { showTrackHistory = false },
+                tracksVisible = appSettings.tracksVisible,
+                trackingRenderNb = appSettings.trackingRenderNb,
+                trackingTransparencyNewest = appSettings.trackingTransparencyNewest,
+                trackingTransparencyOldest = appSettings.trackingTransparencyOldest,
+                trackingColorPastFrom = appSettings.trackingColorPastFrom,
+                trackingColorPastTo = appSettings.trackingColorPastTo,
+                trackingTransparencyPinnedNewest = appSettings.trackingTransparencyPinnedNewest,
+                trackingTransparencyPinnedOldest = appSettings.trackingTransparencyPinnedOldest,
+                trackingColorPinnedFrom = appSettings.trackingColorPinnedFrom,
+                trackingColorPinnedTo = appSettings.trackingColorPinnedTo
             )
         }
 
