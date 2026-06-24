@@ -141,3 +141,23 @@ Same `uiCardBackground` + 12dp radius. Rows: 16×10dp pad, `heightIn(min = 48dp)
 ### 5.2 Track History Cards (`TrackHistoryOverlay`)
 
 Same `uiCardBackground` + 12dp radius. Compact vertical pad (4dp — denser list context). Section header: 17sp Bold accent UPPERCASE. Inline editing with `FocusRequester`. Stats: 3-col × 2-row.
+
+---
+
+## 6. Global Layout Rules
+
+### 6.1 Screen Bottom Padding
+
+Add `Modifier.padding(bottom = 10.dp)` on the root `Box` in the screen composable to prevent content from touching the bottom edge. This applies to all screens — the app uses `enableEdgeToEdge()` so the map draws full-screen behind the nav bar, but overlay content needs breathing room.
+
+```kotlin
+Box(
+    modifier = modifier
+        .fillMaxSize()
+        .padding(bottom = 10.dp)   // ← global bottom breathing room
+) {
+    // screen content
+}
+```
+
+🔴 Do not apply padding at a higher level (e.g. `Surface` in `MainActivity`) — it would offset the full-screen map. Apply at the screen root `Box` only.

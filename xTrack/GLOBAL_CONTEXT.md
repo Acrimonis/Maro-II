@@ -1,11 +1,19 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
+<<<<<<< HEAD
 - **Active Feature:** BoatTrace
 - **Active Subfeature:** *(none)*
 - **Last Updated:** 2026-06-24
 - **Last Bake:** 2026-06-24 14:46 (BoatTrace — #merge: rebased onto origin/develop)
 - **Branch:** feature/ui-3
+=======
+- **Active Feature:** Ui_General
+- **Active Subfeature:** *(none)*
+- **Last Updated:** 2026-06-24
+- **Last Bake:** 2026-06-24 11:20 (BoatTrace — track-list-render-indicator: merge conflict resolved, pushed)
+- **Branch:** feature/ui-4
+>>>>>>> 23589f4 (feat: add 10dp bottom padding to MapScreen + document in ui-component-guidelines)
 ## Routing Map
 | Keyword | Feature File |
 |---|---|
@@ -47,7 +55,7 @@
 | Performance | Battery optimization, adaptive GPS tuning, compass gate, map refresh | 2026-05-20 00:00 | 2026-06-05 00:00 | active |
 | BakeNormalization | APK bake/build/deploy pipeline and prebake data processing | 2026-06-01 00:00 | 2026-06-05 00:00 | active |
 | DepthSafety | Danger depth alerts, shallow water grounding prevention, isobath precision | 2026-06-03 00:00 | 2026-06-05 00:00 | active |
-| Ui_General | App-lifecycle UX: back-to-exit guard, keep-screen-on wakelock, edge-to-edge rendering and WindowInsets management | 2026-06-08 16:43 | 2026-06-24 09:13 | active |
+| Ui_General | App-lifecycle UX: back-to-exit guard, keep-screen-on wakelock, edge-to-edge rendering and WindowInsets management | 2026-06-08 16:43 | 2026-06-24 15:44 | active |
 | Ui_Settings | Settings page UI, persistence, widgets, and UX enhancements | 2026-06-09 15:28 | 2026-06-18 19:10 | active |
 | **Navigation** | **Navigation aids — heading/speed arrow and direction line on map overlay** | **2026-06-10 08:40** | **2026-06-11 11:55** | **active** |
 | **RegulatedZones** | **Maritime regulatory zones — multi-source normalization (SHOM INSPIRE + IGN Natura 2000), sealed classification, 8-category icon mapping, keyword-driven display logic** | **2026-06-11 18:00** | **2026-06-12 22:37** | **active** |
