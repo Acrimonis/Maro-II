@@ -146,7 +146,8 @@ class TrackRepository(
                         navigatingDurationSec = track.navigatingDurationSec,
                         pausedDurationSec = track.pausedDurationSec,
                         averageSpeedMps = track.averageSpeedMps,
-                        pinned = track.pinned
+                        pinned = track.pinned,
+                        pointCount = track.trackPoints.size
                     )
                 } catch (e: Exception) {
                     file.delete()

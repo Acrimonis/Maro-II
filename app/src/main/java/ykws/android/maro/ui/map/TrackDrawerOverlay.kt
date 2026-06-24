@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -24,6 +25,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -143,7 +145,8 @@ fun TrackDrawerOverlay(
                                 Icon(
                                     imageVector = Icons.Default.Settings,
                                     contentDescription = "Settings",
-                                    tint = Color(AppConfig.uiSettingsTextPrimary)
+                                    tint = Color(AppConfig.uiSettingsTextPrimary),
+                                    modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
                                 )
                             }
                         }
@@ -161,29 +164,35 @@ fun TrackDrawerOverlay(
 
                         Spacer(Modifier.height(2.dp))
 
-                        Row(
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 6.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(AppConfig.uiCardBackground))
+                                .padding(horizontal = 16.dp, vertical = 10.dp)
                         ) {
-                            Text(
-                                text = stringResource(R.string.settings_gps_mode_label),
-                                color = Color(AppConfig.uiSettingsTextPrimary),
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Switch(
-                                checked = gpsMode,
-                                onCheckedChange = onGpsModeChange,
-                                colors = SwitchDefaults.colors(
-                                    checkedThumbColor = gpsToggleColor,
-                                    checkedTrackColor = gpsToggleColor.copy(alpha = 0.4f),
-                                    uncheckedThumbColor = Color(AppConfig.uiSettingsTextMuted),
-                                    uncheckedTrackColor = Color(AppConfig.uiSettingsSwitchTrackInactive)
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.settings_gps_mode_label),
+                                    color = Color(AppConfig.uiSettingsTextPrimary),
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Medium
                                 )
-                            )
+                                Switch(
+                                    checked = gpsMode,
+                                    onCheckedChange = onGpsModeChange,
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = gpsToggleColor,
+                                        checkedTrackColor = gpsToggleColor.copy(alpha = 0.4f),
+                                        uncheckedThumbColor = Color(AppConfig.uiSettingsTextMuted),
+                                        uncheckedTrackColor = Color(AppConfig.uiSettingsSwitchTrackInactive)
+                                    )
+                                )
+                            }
                         }
 
                         Spacer(Modifier.height(16.dp))
@@ -199,41 +208,51 @@ fun TrackDrawerOverlay(
 
                         Spacer(Modifier.height(2.dp))
 
-                        // ── Track List row ─────────────────────────────
-                        Row(
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable(onClick = onViewTrackList)
-                                .padding(vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(AppConfig.uiCardBackground))
+                                .padding(horizontal = 16.dp, vertical = 10.dp)
                         ) {
-                            Text(
-                                text = "Track List...",
-                                color = Color(AppConfig.uiSettingsTextPrimary),
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-
-                        // ── Live stats card (only when recording) ──────
-                        if (recorderState.state == TrackRecorderState.ON) {
-                            Spacer(Modifier.height(2.dp))
-
-                            Column(
+                            // ── Track List row ─────────────────────────────
+                            Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Color(AppConfig.uiSettingsCardBackground))
-                                    .padding(horizontal = 16.dp, vertical = 10.dp),
-                                verticalArrangement = Arrangement.spacedBy(6.dp)
+                                    .heightIn(min = 48.dp)
+                                    .clickable(onClick = onViewTrackList),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
                             ) {
-                                StatRow("State", if (recorderState.isMoving) "\u25CF Recording" else "\u25CF Idle")
-                                StatRow("Elapsed", formatDuration(recorderState.elapsedSeconds))
-                                StatRow("Points", "${recorderState.pointCount}")
-                                StatRow("Distance", "${"%.2f".format(recorderState.distanceNm)} nm")
-                                StatRow("Max Speed", "${"%.1f".format(recorderState.maxSpeedKn)} kn")
-                                StatRow("Avg Speed", "${"%.1f".format(recorderState.avgSpeedKn)} kn")
+                                Text(
+                                    text = "Manage Tracks",
+                                    color = Color(AppConfig.uiSettingsTextPrimary),
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                    contentDescription = "View track list",
+                                    tint = Color(AppConfig.uiSettingsTextMuted),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+
+                            // ── Live stats (only when recording) ──────────
+                            if (recorderState.state == TrackRecorderState.ON) {
+                                Spacer(Modifier.height(6.dp))
+                                HorizontalDivider(thickness = 0.5.dp, color = Color(AppConfig.uiSettingsDivider))
+                                Spacer(Modifier.height(6.dp))
+                                Column(
+                                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    StatRow("State", if (recorderState.isMoving) "\u25CF Recording" else "\u25CF Idle")
+                                    StatRow("Elapsed", formatDuration(recorderState.elapsedSeconds))
+                                    StatRow("Points", "${recorderState.pointCount}")
+                                    StatRow("Distance", "${"%.2f".format(recorderState.distanceNm)} nm")
+                                    StatRow("Max Speed", "${"%.1f".format(recorderState.maxSpeedKn)} kn")
+                                    StatRow("Avg Speed", "${"%.1f".format(recorderState.avgSpeedKn)} kn")
+                                }
                             }
                         }
                     }

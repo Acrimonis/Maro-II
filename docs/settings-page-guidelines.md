@@ -302,3 +302,30 @@ Slider(value, 0f..20f, steps=20, …)
 - [ ] No custom `labelStyle` on `SettingsExpander`? (§1e)
 - [ ] No double-wrapped cards? (§6)
 - [ ] No `SettingsToggleRow` nested in a grouped card? (§1d, §6)
+
+---
+
+## 8. Drawer Card Pattern
+
+Drawer menu items (TrackDrawerOverlay) follow the same card pattern as settings, with two row types:
+
+| Row type | Pattern | Example |
+|----------|---------|---------|
+| Setting | Label + inline control (Switch) — stays in-place | GPS mode toggle |
+| Navigation | Label + trailing chevron (→) — closes drawer, navigates away | "Manage Tracks" |
+
+**Card wrapper:**
+```kotlin
+Column(
+    modifier = Modifier.fillMaxWidth()
+        .clip(RoundedCornerShape(12.dp))
+        .background(Color(AppConfig.uiCardBackground))
+        .padding(horizontal = 16.dp, vertical = 10.dp)
+) { /* rows */ }
+```
+
+**Row minimum height:** All rows inside a drawer card must use `Modifier.heightIn(min = 48.dp)` to match the Material 3 touch target — this ensures setting rows (with Switch) and navigation rows (text + chevron) have identical visual weight when adjacent.
+
+**Between cards:** `Spacer(8.dp)` (matches settings §2).
+
+**Reference:** `TrackDrawerOverlay.kt` — Position Source card + Track Recording card.

@@ -302,7 +302,7 @@ fun RegulatedZoneCategoryToggles(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(ComposeColor(AppConfig.uiSettingsCardBackground))
+            .background(ComposeColor(AppConfig.uiCardBackground))
     ) {
         categoryToggleItems.forEachIndexed { index, item ->
             Row(
@@ -363,7 +363,7 @@ fun RegulatedZoneCategoryToggles(
                         .fillMaxWidth()
                         .height(0.5.dp)
                         .padding(horizontal = 16.dp)
-                        .background(ComposeColor(AppConfig.uiSettingsCardBackground))
+                        .background(ComposeColor(AppConfig.uiCardBackground))
                 )
             }
         }
@@ -383,7 +383,7 @@ fun BoatSizeSlider(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(ComposeColor(AppConfig.uiSettingsCardBackground))
+            .background(ComposeColor(AppConfig.uiCardBackground))
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         Row(
