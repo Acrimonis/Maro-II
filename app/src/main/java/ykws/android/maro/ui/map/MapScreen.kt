@@ -900,6 +900,10 @@ fun MapScreen(
                 }
             }
 
+            // Compute crosshair flag for Wizard position steps
+            val showCrosshair = (drawerState is MarkerDrawerState.Creating || drawerState is MarkerDrawerState.Editing) &&
+                (wizardStep is WizardStep.Position || wizardStep is WizardStep.PositionP2)
+
             // Map fills the box, padded to leave room for the dashboard overlay.
             // Stable composition slot — never inside an if/else branch.
             MapContent(
@@ -909,6 +913,7 @@ fun MapScreen(
                 isWater = isWater,
                 zoomLevel = zoomLevel,
                 distanceToShore = distanceToShore,
+                showCrosshair = showCrosshair,
                 regulatedZones = regulatedZones,
                 zone300 = zone300,
                 inZone300 = inZone300,
@@ -948,8 +953,9 @@ fun MapScreen(
                 onStopRecording = { trackViewModel.stopRecording() },
                 onViewTrackList = { showTrackHistory = true },
                 onDismissTrackHistory = { showTrackHistory = false },
-                onUpdateTrack = { id, name, comment, visible ->
-                    trackViewModel.updateTrack(id, name, comment, visible)
+                onUpdateTrack = { id, name, comment, pinned ->
+                    pinned?.let { trackViewModel.setPinned(id, it) }
+                    trackViewModel.updateTrack(id, name, comment)
                 },
                 onDeleteTrack = { id -> trackViewModel.deleteTrack(id) },
                 onShareGpx = { id ->
@@ -1068,6 +1074,7 @@ fun MapScreen(
         if (markerLayerVisible) {
             val matchResult by markersViewModel.matchResult.collectAsState()
             val drawerStateForOverlay by markersViewModel.drawerState.collectAsState()
+            val selectedMarkerId by markersViewModel.selectedMarkerId.collectAsState()
             MarkerOverlay(
                 markers = userMarkers,
                 mapView = mapView,
@@ -1075,7 +1082,8 @@ fun MapScreen(
                 unconfirmedMarker = unconfirmedMarker,
                 onMarkerTap = { id -> markersViewModel.openEditDrawer(id) },
                 matchResult = if (drawerStateForOverlay is MarkerDrawerState.MatchResult) matchResult else null,
-                markerZonesVisible = appSettings.markerZonesVisible
+                markerZonesVisible = appSettings.markerZonesVisible,
+                selectedMarkerId = selectedMarkerId
             )
         }
         }
@@ -1125,8 +1133,9 @@ fun MapScreen(
             TrackHistoryOverlay(
                 trackSummaries = trackSummaries,
                 liveTrackState = trackRecorderState,
-                onUpdateTrack = { id, name, comment, visible ->
-                    trackViewModel.updateTrack(id, name, comment, visible)
+                onUpdateTrack = { id, name, comment, pinned ->
+                    pinned?.let { trackViewModel.setPinned(id, it) }
+                    trackViewModel.updateTrack(id, name, comment)
                 },
                 onUpdateLiveTrack = { name, comment ->
                     trackViewModel.updateLiveTrackMeta(name, comment)
@@ -1176,12 +1185,17 @@ fun MapScreen(
             val markerIsLandscape = maxWidth > maxHeight
             val drawerState by markersViewModel.drawerState.collectAsState()
             if (drawerState is MarkerDrawerState.Viewing || drawerState is MarkerDrawerState.MatchResult) {
-                MarkerDrawer(
-                    viewModel = markersViewModel,
-                    isLandscape = markerIsLandscape,
-                    onClose = { markersViewModel.closeDrawer() },
-                    boatPosition = gpsPosition ?: mapCenter
-                )
+                Box(
+                    modifier = Modifier
+                        .align(if (markerIsLandscape) Alignment.CenterStart else Alignment.BottomCenter)
+                ) {
+                    MarkerDrawer(
+                        viewModel = markersViewModel,
+                        isLandscape = markerIsLandscape,
+                        onClose = { markersViewModel.closeDrawer() },
+                        boatPosition = gpsPosition ?: mapCenter
+                    )
+                }
             }
         }
 
@@ -1338,6 +1352,7 @@ private fun MapContent(
     onToggleFan: (ControlId) -> Unit = {},
     showExitBanner: Boolean,
     rasterProgress: RasterProgress? = null,
+    showCrosshair: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier.clipToBounds()) {
@@ -1420,6 +1435,7 @@ private fun MapContent(
             isWater = isWater,
             zoomLevel = zoomLevel,
             distanceToShore = distanceToShore,
+            showCrosshair = showCrosshair,
             onClick = { onWhereAmI() },
             modifier = Modifier.align(Alignment.Center)
         )
@@ -2046,9 +2062,32 @@ private fun CenterMarkerOverlay(
     isWater: Boolean,
     zoomLevel: Double,
     distanceToShore: Double?,
+    showCrosshair: Boolean = false,
     onClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    // ── Crosshair mode: replace boat/dot with a target icon during position-step wizard ──
+    if (showCrosshair) {
+        val baseDp = 32.0
+        val scaleFactor = 2.0.pow(ZOOM_EXPONENT * (zoomLevel - REF_ZOOM))
+        val finalSizeDp = (baseDp * scaleFactor).dp
+
+        Box(
+            modifier = modifier
+                .size(finalSizeDp)
+                .clickable(onClick = onClick)
+        ) {
+            Text(
+                text = "\u2295",
+                fontSize = (finalSizeDp.value / 1.5f).sp,
+                color = ComposeColor(AppConfig.uiSettingsAccent),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxSize()
+            )
+        }
+        return
+    }
+
     val drawableId = if (isWater) R.drawable.maro_marker else R.drawable.maro_dot_marker
     val description = if (isWater) stringResource(R.string.marker_position_water)
                       else stringResource(R.string.marker_position_land)

@@ -11,6 +11,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,8 +32,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedTextField
@@ -52,6 +51,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.platform.LocalContext
@@ -109,20 +110,10 @@ fun WizardDrawer(
     // Back handler
     BackHandler { onCancel() }
 
-    // Step title
-    val stepTitle = when (step) {
-        is WizardStep.TypeSelect -> "Select Type"
-        is WizardStep.Position -> if (form.type == MarkerType.CORRIDOR) "Point 1" else "Position"
-        is WizardStep.PositionP2 -> "Point 2"
-        is WizardStep.Radius -> if (form.type == MarkerType.CORRIDOR) "Width" else "Radius"
-        is WizardStep.Proximity -> "Proximity"
-        is WizardStep.Title -> "Name"
-        is WizardStep.Description -> "Description"
-    }
-
     // Determine step index and last-step status
     val seq = stepSequenceFor(form.type)
     val stepIndex = seq.indexOf(step)
+    val totalSteps = seq.size
     val isLastStep = stepIndex >= seq.lastIndex
     val isFirstStep = stepIndex <= 0
 
@@ -131,8 +122,12 @@ fun WizardDrawer(
             .fillMaxSize()
             .background(ComposeColor(AppConfig.uiSettingsBackground))
     ) {
-        // ── Top bar: Cancel ← + step title ──────────────────────────────
-        WizardTopBar(title = stepTitle, onCancel = onCancel)
+        // ── Top bar: Cancel ← + step counter header ─────────────────────
+        WizardTopBar(
+            stepIndex = stepIndex,
+            totalSteps = totalSteps,
+            onCancel = onCancel
+        )
 
         // ── Content area with AnimatedContent ────────────────────────────
         Box(
@@ -180,7 +175,12 @@ fun WizardDrawer(
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun WizardTopBar(title: String, onCancel: () -> Unit) {
+private fun WizardTopBar(stepIndex: Int, totalSteps: Int, onCancel: () -> Unit) {
+    val title = if (stepIndex >= 0 && totalSteps > 0)
+        "Create Marker — Step ${stepIndex + 1} of $totalSteps"
+    else
+        "Create Marker"
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -282,7 +282,7 @@ private fun WizardStepContent(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// WizardButtonRow — Previous / Next / Finish
+// WizardButtonRow — Previous / Next / Finish (text pills)
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
@@ -294,27 +294,38 @@ private fun WizardButtonRow(
     onNext: () -> Unit,
     onFinish: () -> Unit
 ) {
-    val btnBg = ComposeColor(AppConfig.buttonActionBgColor)
-    val btnFg = ComposeColor(AppConfig.buttonActionIconColor)
-    val inactiveBg = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-    val textPrimary = ComposeColor(AppConfig.uiSettingsTextPrimary)
+    val accentBg = ComposeColor(AppConfig.uiSettingsAccent)
+    val accentFg = ComposeColor(AppConfig.uiSettingsTextPrimary)
+    val mutedFg = ComposeColor(AppConfig.uiSettingsTextMuted)
+    val cardBg = ComposeColor(AppConfig.uiSettingsCardBackground)
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(cardBg)
+            .padding(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Previous (hidden on first step)
         if (!isFirstStep) {
-            Button(
-                onClick = onPrevious,
-                modifier = Modifier.weight(1f).height(40.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = inactiveBg),
-                shape = RoundedCornerShape(6.dp)
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(accentBg)
+                    .clickable { onPrevious() }
+                    .padding(vertical = 10.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Text("Previous", fontSize = 13.sp, color = textPrimary)
+                Text(
+                    text = "\u2190 Previous",
+                    color = accentFg,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
         } else {
             Spacer(Modifier.weight(1f))
@@ -322,28 +333,43 @@ private fun WizardButtonRow(
 
         // Next (hidden on last step)
         if (!isLastStep) {
-            Button(
-                onClick = onNext,
-                modifier = Modifier.weight(1f).height(40.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = btnBg),
-                shape = RoundedCornerShape(6.dp)
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(accentBg)
+                    .clickable { onNext() }
+                    .padding(vertical = 10.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Text("Next", fontSize = 13.sp, color = btnFg)
+                Text(
+                    text = "Next \u2192",
+                    color = accentFg,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold
+                )
             }
+        } else {
+            Spacer(Modifier.weight(1f))
         }
 
         // Finish (always present, dimmed when invalid)
-        Button(
-            onClick = onFinish,
+        Box(
             modifier = Modifier
-                .then(if (!canFinish) Modifier.alpha(0.4f) else Modifier)
                 .weight(1f)
-                .height(40.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = btnBg),
-            shape = RoundedCornerShape(6.dp),
-            enabled = canFinish
+                .clip(RoundedCornerShape(8.dp))
+                .background(accentBg)
+                .then(if (!canFinish) Modifier.alpha(0.4f) else Modifier)
+                .then(if (canFinish) Modifier.clickable { onFinish() } else Modifier)
+                .padding(vertical = 10.dp),
+            contentAlignment = Alignment.Center
         ) {
-            Text("Finish", fontSize = 13.sp, color = btnFg)
+            Text(
+                text = "\u2713 Finish",
+                color = accentFg,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
     }
 }
@@ -363,7 +389,7 @@ private fun TypeSelectStep(viewModel: MarkersViewModel) {
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(12.dp),
+            .padding(8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Text(
@@ -405,30 +431,26 @@ private fun TypeCard(
     selected: Boolean,
     onClick: () -> Unit
 ) {
-    val borderColor = if (selected)
-        ComposeColor(AppConfig.buttonActionBgColor)
-    else
-        ComposeColor(AppConfig.uiSettingsTextMuted).copy(alpha = 0.3f)
+    val accent = ComposeColor(AppConfig.buttonActionBgColor)
+    val borderColor = if (selected) accent
+    else ComposeColor(AppConfig.uiSettingsTextMuted).copy(alpha = 0.3f)
 
     val bgColor = if (selected)
-        ComposeColor(AppConfig.buttonActionBgColor).copy(alpha = 0.08f)
+        accent.copy(alpha = 0.15f)
     else
         ComposeColor(AppConfig.uiSettingsCardBackground)
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .border(2.dp, borderColor, RoundedCornerShape(10.dp))
             .clip(RoundedCornerShape(10.dp))
             .background(bgColor)
-            .then(
-                if (selected) Modifier.background(bgColor)
-                else Modifier
-            )
             .clickable(onClick = onClick)
-            .padding(12.dp),
+            .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(icon, fontSize = 28.sp)
+        Text(icon, fontSize = 24.sp)
         Spacer(Modifier.width(12.dp))
         Column {
             Text(
@@ -457,7 +479,7 @@ private fun PositionStep(viewModel: MarkersViewModel, isCorridorP1: Boolean) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(12.dp),
+            .padding(8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -508,10 +530,10 @@ private fun SliderStep(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(ComposeColor(AppConfig.uiSettingsCardBackground))
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -578,6 +600,12 @@ private fun TextInputStep(
     isLandscape: Boolean
 ) {
     val focusManager = LocalFocusManager.current
+    val focusRequester = remember { FocusRequester() }
+
+    // Auto-focus on entry
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+    }
 
     Column(
         modifier = Modifier
@@ -590,7 +618,7 @@ private fun TextInputStep(
                     Modifier.padding(horizontal = 12.dp, vertical = 16.dp)
                 }
             ),
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.Start
     ) {
         if (isLandscape) {
             Spacer(Modifier.height(24.dp))
@@ -610,6 +638,7 @@ private fun TextInputStep(
             singleLine = singleLine,
             modifier = Modifier
                 .fillMaxWidth()
+                .focusRequester(focusRequester)
                 .then(if (singleLine) Modifier.height(56.dp) else Modifier.height(120.dp)),
             colors = drawerTextFieldColors(),
             textStyle = androidx.compose.ui.text.TextStyle(
