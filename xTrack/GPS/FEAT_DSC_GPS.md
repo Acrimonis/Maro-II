@@ -3,7 +3,7 @@ name: GPS
 status: active
 created: 2026-06-07 00:00
 modified: 2026-06-23 08:09
-active_subfeature:
+active_subfeature: none
 ---
 
 # Feature: GpsPlugin
