@@ -250,7 +250,7 @@ fun TrackHistoryOverlay(
                     Text(
                         text = "Track History",
                         color = Color(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 24.sp,
+                        fontSize = 17.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }

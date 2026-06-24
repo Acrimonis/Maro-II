@@ -143,7 +143,15 @@ private fun ViewingContent(viewModel: MarkersViewModel, markerId: String, onClos
     ) {
         DrawerHeader(title = marker?.name ?: "Marker", onClose = onClose)
 
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(12.dp))
+        Text(
+            text = "MARKER DETAILS",
+            color = ComposeColor(AppConfig.uiSettingsAccent),
+            fontSize = 17.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.sp
+        )
+        Spacer(Modifier.height(8.dp))
 
         if (marker != null) {
             // Geometry + proximity inline
@@ -270,7 +278,15 @@ private fun MatchResultContent(viewModel: MarkersViewModel, onClose: () -> Unit)
     ) {
         DrawerHeader(title = "Where Am I?", onClose = onClose)
 
-        Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(12.dp))
+        Text(
+            text = "MATCH RESULTS",
+            color = ComposeColor(AppConfig.uiSettingsAccent),
+            fontSize = 17.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.sp
+        )
+        Spacer(Modifier.height(8.dp))
 
         val matches = result?.matches ?: emptyList()
         if (matches.isEmpty()) {
@@ -322,7 +338,7 @@ private fun MatchResultRow(match: MatchResult, indent: Int) {
                 is MarkerGeometry.Pin -> "pin"
             }
             Text(
-                "${prefix}└─ ${match.marker.name}  ·  $geometryDesc  ·  inside zone",
+                "${prefix}\u2514\u2500 ${match.marker.name}  \u00B7  $geometryDesc  \u00B7  inside zone",
                 color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium
@@ -339,7 +355,7 @@ private fun MatchResultRow(match: MatchResult, indent: Int) {
                 is MarkerGeometry.Pin -> "pin"
             }
             Text(
-                "${prefix}📍 ${match.marker.name}  ·  $geometryDesc  ·  ${"%.0f".format(match.distanceM)} m",
+                "${prefix}\uD83D\uDCCD ${match.marker.name}  \u00B7  $geometryDesc  \u00B7  ${"%.0f".format(match.distanceM)} m",
                 color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium
@@ -385,11 +401,11 @@ private fun DrawerHeader(
                 modifier = Modifier.size(18.dp)
             )
         }
-        Spacer(Modifier.width(6.dp))
+        Spacer(Modifier.width(16.dp))
         Text(
             text = title,
             color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-            fontSize = 14.sp,
+            fontSize = 17.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.weight(1f)
         )
