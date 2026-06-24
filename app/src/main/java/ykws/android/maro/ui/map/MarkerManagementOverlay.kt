@@ -390,7 +390,7 @@ private fun MarkerCardContent(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(AppConfig.uiSettingsCardBackground))
+            .background(Color(AppConfig.uiCardBackground))
             .padding(horizontal = 12.dp, vertical = 10.dp)
     ) {
         Row(
@@ -457,7 +457,7 @@ private fun MarkerCardContent(
 
 @Composable
 private fun MarkerSnackbarSlot(markerName: String, onUndo: () -> Unit) {
-    val bgColor = Color(AppConfig.uiSettingsCardBackground)
+    val bgColor = Color(AppConfig.uiCardBackground)
         .copy(alpha = 0.102f * 0.75f)
 
     Row(
