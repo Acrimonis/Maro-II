@@ -30,7 +30,6 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -49,18 +48,18 @@ import ykws.android.maro.data.track.TrackRecorderState
 import ykws.android.maro.data.track.TrackRecorderUiState
 
 /**
- * Track Drawer overlay — animated panel that slides in from the right.
+ * Menu slide panel — animated panel that slides in from the right.
  *
  * Full-screen overlay with a scrim on the left 25% that closes on tap.
  * Styled to match the Settings overlay (same design tokens).
  *
- * @param isOpen           Whether the drawer is visible.
+ * @param isOpen           Whether the panel is visible.
  * @param recorderState    Current recorder state from [TrackViewModel].
  * @param onStartRecording  Triggered when user taps Start.
  * @param onStopRecording   Triggered when user taps Stop.
  * @param onViewTrackList   Triggered when user taps "Track List".
  * @param onManageMarkers   Triggered when user taps "Manage Markers".
- * @param onDismiss         Triggered to close the drawer.
+ * @param onDismiss         Triggered to close the panel.
  */
 @Composable
 fun TrackDrawerOverlay(
@@ -92,7 +91,7 @@ fun TrackDrawerOverlay(
                     .clickable(onClick = onDismiss)
             )
 
-            // ── Drawer panel: 75% right, slides in from right ────────────
+            // ── Panel: 75% right, slides in from right ──────────────────
             AnimatedVisibility(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
@@ -102,9 +101,10 @@ fun TrackDrawerOverlay(
                 enter = slideInHorizontally { it } + fadeIn(),
                 exit = slideOutHorizontally { it } + fadeOut()
             ) {
-                ModalDrawerSheet(
-                    modifier = Modifier.fillMaxSize(),
-                    drawerContainerColor = Color(AppConfig.uiSettingsBackground)
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color(AppConfig.uiSettingsBackground))
                 ) {
                     Column(
                         modifier = Modifier
@@ -133,7 +133,7 @@ fun TrackDrawerOverlay(
                             Text(
                                 text = "Maro II",
                                 color = Color(AppConfig.uiSettingsTextPrimary),
-                                fontSize = 24.sp,
+                                fontSize = 17.sp,
                                 fontWeight = FontWeight.Bold
                             )
                             Spacer(Modifier.weight(1f))
