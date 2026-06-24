@@ -2,7 +2,7 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-06-24 11:44
+modified: 2026-06-24 12:07
 active_subfeature: menu
 ---
 
@@ -100,6 +100,17 @@ Extend `enableEdgeToEdge()` to the nav bar: remove blanket `windowInsetsPadding(
 #### Rules
 
 #### Key Files
+
+### menu  [ ]
+
+Wrap drawer menu items (Position Source toggle, Manage Tracks link) in card backgrounds using `uiCardBackground` for visual grouping, matching the settings/track card pattern.
+
+#### Todos
+
+#### Rules
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/TrackDrawerOverlay.kt`
 
 ### reg speed zone  [x]
 

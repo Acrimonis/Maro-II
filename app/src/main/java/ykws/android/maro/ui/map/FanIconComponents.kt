@@ -30,9 +30,8 @@ object ButtonColors {
     val badgeText: ComposeColor get() = ComposeColor(AppConfig.uiButtonBadgeText)
     val badgeActiveAlpha: Float get() = AppConfig.buttonBadgeActiveAlpha
     val badgeInactiveAlpha: Float get() = AppConfig.buttonBadgeInactiveAlpha
+    val iconSizeDp: Int = 28
 }
-
-private const val ICON_SIZE_DP = 28
 
 // ── Arc menu fan icons ────────────────────────────────────────────────────────
 // Google Fonts name → Compose name:
@@ -54,7 +53,7 @@ fun WarningTriangleIcon(alpha: Float) {
         imageVector = Icons.Filled.Warning,
         contentDescription = null,
         tint = ButtonColors.icon,
-        modifier = Modifier.size(ICON_SIZE_DP.dp).alpha(alpha)
+        modifier = Modifier.size(ButtonColors.iconSizeDp.dp).alpha(alpha)
     )
 }
 
@@ -64,7 +63,7 @@ fun PlusIcon() {
         imageVector = Icons.Filled.Add,
         contentDescription = null,
         tint = ButtonColors.icon,
-        modifier = Modifier.size(ICON_SIZE_DP.dp)
+        modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
     )
 }
 
@@ -74,7 +73,7 @@ fun MinusIcon() {
         imageVector = Icons.Filled.Remove,
         contentDescription = null,
         tint = ButtonColors.icon,
-        modifier = Modifier.size(ICON_SIZE_DP.dp)
+        modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
     )
 }
 
@@ -84,7 +83,7 @@ fun GearIcon() {
         imageVector = Icons.Default.Settings,
         contentDescription = null,
         tint = ButtonColors.icon,
-        modifier = Modifier.size(ICON_SIZE_DP.dp)
+        modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
     )
 }
 
@@ -95,7 +94,7 @@ fun ThreeStripeLayerIcon(alpha: Float) {
         imageVector = Stacks,
         contentDescription = null,
         tint = ButtonColors.icon,
-        modifier = Modifier.size(ICON_SIZE_DP.dp).alpha(alpha)
+        modifier = Modifier.size(ButtonColors.iconSizeDp.dp).alpha(alpha)
     )
 }
 
@@ -106,7 +105,7 @@ fun DepthBarIcon(alpha: Float) {
         imageVector = Icons.Filled.AreaChart,
         contentDescription = null,
         tint = ButtonColors.icon,
-        modifier = Modifier.size(ICON_SIZE_DP.dp).alpha(alpha)
+        modifier = Modifier.size(ButtonColors.iconSizeDp.dp).alpha(alpha)
     )
 }
 
@@ -117,7 +116,7 @@ fun RegulatedZoneIcon(alpha: Float) {
         imageVector = Activity_zone,
         contentDescription = null,
         tint = ButtonColors.icon,
-        modifier = Modifier.size(ICON_SIZE_DP.dp).alpha(alpha)
+        modifier = Modifier.size(ButtonColors.iconSizeDp.dp).alpha(alpha)
     )
 }
 
@@ -128,7 +127,7 @@ fun DoubleCircleIcon(alpha: Float) {
         imageVector = Output_circle,
         contentDescription = null,
         tint = ButtonColors.icon,
-        modifier = Modifier.size(ICON_SIZE_DP.dp).alpha(alpha)
+        modifier = Modifier.size(ButtonColors.iconSizeDp.dp).alpha(alpha)
     )
 }
 
@@ -139,6 +138,6 @@ fun TrackLayerIcon(alpha: Float) {
         imageVector = Conversion_path,
         contentDescription = null,
         tint = ButtonColors.icon,
-        modifier = Modifier.size(ICON_SIZE_DP.dp).alpha(alpha)
+        modifier = Modifier.size(ButtonColors.iconSizeDp.dp).alpha(alpha)
     )
 }
