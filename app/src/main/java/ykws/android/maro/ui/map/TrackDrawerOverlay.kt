@@ -119,7 +119,7 @@ fun TrackDrawerOverlay(
                             IconButton(
                                 onClick = onDismiss,
                                 modifier = Modifier
-                                    .size(48.dp)
+                                    .size(32.dp)
                                     .clip(CircleShape)
                                     .background(Color(AppConfig.uiSettingsSwitchTrackInactive))
                             ) {
