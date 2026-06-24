@@ -109,7 +109,7 @@ fun TrackDrawerOverlay(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(start = 24.dp, top = 0.dp, end = 8.dp, bottom = 8.dp)
+                            .padding(horizontal = 24.dp, vertical = 3.dp)
                     ) {
                         // ── Header: back button + "Maro II" title + Settings button ───
                         Row(

@@ -371,7 +371,7 @@ private fun MatchResultRow(match: MatchResult, indent: Int) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Drawer header with optional action buttons (P4: sticky Save/Cancel).
+ * Drawer header with optional action buttons.
  *
  * @param title   Header title text.
  * @param onClose Back button handler.
@@ -384,7 +384,7 @@ private fun DrawerHeader(
     actions: (@Composable () -> Unit)? = null
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 6.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(
