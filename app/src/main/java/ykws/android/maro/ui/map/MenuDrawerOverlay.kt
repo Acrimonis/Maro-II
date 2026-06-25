@@ -65,7 +65,7 @@ import ykws.android.maro.data.track.TrackRecorderUiState
  * @param onDismiss         Triggered to close the panel.
  */
 @Composable
-fun TrackDrawerOverlay(
+fun MenuDrawerOverlay(
     isOpen: Boolean,
     gpsMode: Boolean,
     onGpsModeChange: (Boolean) -> Unit,

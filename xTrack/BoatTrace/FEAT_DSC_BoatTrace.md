@@ -94,7 +94,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/TrackStatusIcon.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/TrackDrawerOverlay.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt`
 - `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt`
 - `app/src/main/java/ykws/android/maro/data/track/TrackViewModel.kt`
 
@@ -138,7 +138,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 ### tweaks  [x]
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/TrackStatusIcon.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/TrackDrawerOverlay.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt`
 
 ### render-tracks  [x]
 #### Key Files
@@ -282,7 +282,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 
 **TrackViewModel:** `StateFlow<TrackRecorderUiState>` bridge. LRU detail cache (`LinkedHashMap`, max 30). Track list sorted by `startTimeMs` desc. Auto-naming `yyyy-MM-dd HH:mm`.
 
-**UI:** `TrackStatusIcon` — 3 states (OFF dimmed, ON+moving green+red dot, ON+idle blue+blue dot), click toggles recording. `TrackDrawerOverlay` — right panel (75% width), hamburger always visible (36dp), unified ON/OFF switch + Track List. `TrackHistoryOverlay` — LazyColumn with inline editing, visibility toggle, swipe-to-delete with snackbar undo, GPX share. `LiveTrackCard` at position 0 during recording with pulsing border.
+**UI:** `TrackStatusIcon` — 3 states (OFF dimmed, ON+moving green+red dot, ON+idle blue+blue dot), click toggles recording. `MenuDrawerOverlay` — right panel (75% width), hamburger always visible (36dp), unified ON/OFF switch + Track List. `TrackHistoryOverlay` — LazyColumn with inline editing, visibility toggle, swipe-to-delete with snackbar undo, GPX share. `LiveTrackCard` at position 0 during recording with pulsing border.
 
 **Settings:** Unified Tracking section in General → Display → Layers card; 3 expandable subsections (Number of tracks, Transparency RangeSlider, Colors). Canvas HSV color pickers (Active single, Past from→to, Pinned from→to). Transparency semantics: 0%=opaque, 100%=invisible. Newest track gets `trackingTransparencyNewest` (default 20), oldest gets `trackingTransparencyOldest` (default 80). Past/pinned colors + transparency fields persisted to SharedPreferences.
 

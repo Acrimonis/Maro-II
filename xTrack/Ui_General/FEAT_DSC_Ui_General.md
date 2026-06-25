@@ -110,7 +110,7 @@ Wrap drawer menu items (Position Source toggle, Manage Tracks link) in card back
 #### Rules
 
 #### Key Files
-- `app/src/main/java/ykws/android/maro/ui/map/TrackDrawerOverlay.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt`
 
 ### track list colors  [ ]
 
@@ -224,7 +224,7 @@ Track list (TrackHistoryOverlay) color review — ensure track cards, stats, lab
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — toast Surface, LoadingOverlay, ErrorOverlay
 
 ## Todos
-- [x] Rename "Track List..." → "Manage Tracks..." in TrackDrawerOverlay.kt:212
+- [x] Rename "Track List..." → "Manage Tracks..." in MenuDrawerOverlay.kt:212
 - [x] Add point count (`TrackSummary.pointCount`) and display "xxx pts" left of pin/share icons in TrackHistoryOverlay track cards
 
 ## Rules

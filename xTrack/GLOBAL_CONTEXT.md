@@ -3,7 +3,7 @@
 ## Active Session Pointers
 - **Active Feature:** Markers
 - **Active Subfeature:** create-zones-flow
-- **Last Updated:** 2026-06-24
+- **Last Updated:** 2026-06-24 18:07
 - **Last Bake:** 2026-06-24 11:38 (Markers — marker layer toggle fix: Polygon fills + MapEventsOverlay cleanup; #merge onto develop; restored 7-step merge procedure. Build ✅)
 - **Branch:** feature/markers
 ## Routing Map
@@ -30,6 +30,7 @@
 | boat, trace, trip, boat-trace, boat-tracing, track, recording, port-salis, journey | xTrack/BoatTrace/FEAT_DSC_BoatTrace.md |
 | workflow, rules, ambiguity, merge, agents, gitops | xTrack/WorkflowAmbiguityFix/FEAT_DSC_WorkflowAmbiguityFix.md |
 | ui, tweaks, polish, small-potatoes, ui-small-potatoes, small potatoes | xTrack/ui-small-potatoes/FEAT_DSC_ui-small-potatoes.md |
+| markers, pin, circle, corridor, usermarker, user marker, where am i | xTrack/Markers/FEAT_DSC_Markers.md |
 
 ## Feature Summaries
 

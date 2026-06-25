@@ -131,10 +131,10 @@
 - **Rationale:** Quick access without opening drawer. Matches GPS icon click behavior.
 - **Filed:** [`TrackStatusIcon.kt`](app/src/main/java/ykws/android/maro/ui/map/TrackStatusIcon.kt:45)
 
-### 4.3 TrackDrawerOverlay: Animated Right Panel
+### 4.3 MenuDrawerOverlay: Animated Right Panel
 - **Decision:** Right-side animated panel at 75% width with scrim on right 25%. Title "Maro II". Section header "TRACK RECORDING".
 - **Rationale:** Hamburger icon in top-left icon row. Drawer styled consistently with Settings overlay patterns (8dp outer, 6dp items, 2dp gaps). Close via back button or scrim tap.
-- **Filed:** [`TrackDrawerOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/TrackDrawerOverlay.kt)
+- **Filed:** [`MenuDrawerOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt)
 
 ### 4.4 Hamburger: Always Visible
 - **Decision:** Hamburger icon (64dp round, `ButtonColors.bg`/`ButtonColors.icon`) always visible in top-left icon row, first position.
@@ -144,7 +144,7 @@
 ### 4.5 Track Drawer: Unified ON/OFF Toggle + Track List
 - **Decision:** Single row with "Track List..." label + colored Switch (ON/OFF) replaces separate "Start Recording" button.
 - **Rationale:** Merges two controls into one intuitive toggle. Switch color reflects state (green=moving, blue=idle/waiting, grey=off).
-- **Filed:** [`TrackDrawerOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/TrackDrawerOverlay.kt:202)
+- **Filed:** [`MenuDrawerOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt:202)
 
 ### 4.6 TrackHistoryOverlay: Full-Screen LazyColumn
 - **Decision:** Full-screen overlay with `LazyColumn`, swipe-to-delete with snackbar undo, inline editing for name/comment.

@@ -3,7 +3,7 @@
 **Session:** Global bottom padding (10dp) + ui-component-guidelines update.
 
 **State:**
-- `menu [x]` — card-wrapped GPS toggle and Track Recording rows in TrackDrawerOverlay; live stats merged into Track Recording card with divider; "Manage Tracks" → nav action with trailing chevron; row height normalized to 48dp matching Switch touch target
+- `menu [x]` — card-wrapped GPS toggle and Track Recording rows in MenuDrawerOverlay; live stats merged into Track Recording card with divider; "Manage Tracks" → nav action with trailing chevron; row height normalized to 48dp matching Switch touch target
 - `icon size [x]` — promoted `ICON_SIZE_DP=28` to `ButtonColors.iconSizeDp`, Settings gear icon now matches map action icons
 - `ui guidelines [x]` — added §8 Drawer Card Pattern to settings-page-guidelines.md; discussed rename to ui-guidelines.md
 
@@ -19,7 +19,7 @@
 - Added §6 Global Layout Rules → §6.1 Screen Bottom Padding to `docs/ui-component-guidelines.md`.
 
 **Key Files:**
-- `app/src/main/java/ykws/android/maro/ui/map/TrackDrawerOverlay.kt` — 2 cards, merged stats, chevron, 48dp row
+- `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt` — 2 cards, merged stats, chevron, 48dp row
 - `app/src/main/java/ykws/android/maro/ui/map/FanIconComponents.kt` — `ButtonColors.iconSizeDp = 28`
 - `docs/settings-page-guidelines.md` — §8 Drawer Card Pattern
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `.padding(bottom = 10.dp)`

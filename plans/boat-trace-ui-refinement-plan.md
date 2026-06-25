@@ -2,7 +2,7 @@
 
 ## Problem Summary
 
-The BoatTrace UI (TrackHistoryOverlay, TrackDrawerOverlay, TrackStatusIcon) was implemented
+The BoatTrace UI (TrackHistoryOverlay, MenuDrawerOverlay, TrackStatusIcon) was implemented
 but has several misalignments with the established app UI principles:
 
 1. **Icons use emoji/unicode text** instead of the Material Icons family used everywhere else
@@ -21,7 +21,7 @@ but has several misalignments with the established app UI principles:
 | `AppConfig.uiSettingsCardBackground` | `0x1AFFFFFF` | `Color(0x1AFFFFFF)` ✅ but should use AppConfig |
 | `AppConfig.uiSettingsTextPrimary` | `0xFFFFFFFF` | `Color.White` ✅ but should use AppConfig |
 | `AppConfig.uiSettingsTextMuted` | `0xFFB0BEC5` | `Color(0xFFB0BEC5)` ✅ but should use AppConfig |
-| `AppConfig.uiSettingsAccent` | `0xFF1565C0` | Hardcoded in TrackDrawerOverlay |
+| `AppConfig.uiSettingsAccent` | `0xFF1565C0` | Hardcoded in MenuDrawerOverlay |
 | `AppConfig.uiSettingsDivider` | `0x14FFFFFF` | Not used in track UI |
 | `AppConfig.uiSettingsSwitchTrackInactive` | `0x33FFFFFF` | Not used in track UI |
 | `AppConfig.uiSettingsDanger` | `0xFFE53935` | Not used (delete uses `0xFFFF5252`) |
@@ -36,7 +36,7 @@ but has several misalignments with the established app UI principles:
 | TrackHistoryOverlay share | `↗️` emoji | `Icons.Default.Share` |
 | TrackHistoryOverlay delete bg | `🗑️` text | `Icons.Default.Delete` |
 | TrackHistoryOverlay stats | 🏁 ⚡ ⛵ ⏸️ emoji | Text labels only (no icons) |
-| TrackDrawerOverlay back | Already `Icons.AutoMirrored.Filled.ArrowBack` | ✅ Keep |
+| MenuDrawerOverlay back | Already `Icons.AutoMirrored.Filled.ArrowBack` | ✅ Keep |
 | TrackStatusIcon | 👣 emoji | `Icons.Default.Footprint` (or DirectionsWalk) |
 | All icon tints | hardcoded | `ButtonColors.icon` / `ComposeColor(AppConfig.uiSettingsTextPrimary)` |
 
@@ -61,9 +61,9 @@ Changes:
 - Add `BackHandler` at overlay level
 - Add `windowInsetsPadding(WindowInsets.statusBars)` like Settings overlay
 
-### Step 2: Rewrite `TrackDrawerOverlay.kt`
+### Step 2: Rewrite `MenuDrawerOverlay.kt`
 
-**File:** `app/src/main/java/ykws/android/maro/ui/map/TrackDrawerOverlay.kt`
+**File:** `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt`
 
 Changes:
 - Keep existing structure mostly intact (already partially aligned)
@@ -143,7 +143,7 @@ These should be implemented in a separate pass focused on test coverage.
 
 ```mermaid
 flowchart TD
-    MapScreen[MapScreen.kt] --> TrackDrawer[TrackDrawerOverlay.kt]
+    MapScreen[MapScreen.kt] --> TrackDrawer[MenuDrawerOverlay.kt]
     MapScreen --> TrackHistory[TrackHistoryOverlay.kt]
     MapScreen --> TrackStatus[TrackStatusIcon.kt]
     MapScreen --> TrackVM[TrackViewModel.kt]

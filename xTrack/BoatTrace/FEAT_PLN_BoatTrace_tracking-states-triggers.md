@@ -171,9 +171,9 @@ The dot:
 - Pulsing animation: `animateFloatAsState` target 0.3f→1.0f, infinite repeat, RepeatMode.Reverse
 - Drawn with `Canvas` or `Box` overlay on top of the base background
 
-### 6. `TrackDrawerOverlay.kt`
+### 6. `MenuDrawerOverlay.kt`
 
-### 4. `TrackDrawerOverlay.kt`
+### 4. `MenuDrawerOverlay.kt`
 
 ```kotlin
 // Before:
