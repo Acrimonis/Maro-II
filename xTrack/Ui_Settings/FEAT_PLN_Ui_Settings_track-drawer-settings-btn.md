@@ -3,7 +3,7 @@
 
 ## Current State
 
-The [`TrackDrawerOverlay`](app/src/main/java/ykws/android/maro/ui/map/TrackDrawerOverlay.kt:108) header currently has only a back button + "Maro II" title:
+The [`MenuDrawerOverlay`](app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt:108) header currently has only a back button + "Maro II" title:
 
 ```
 [ ← back ]   Maro II
@@ -49,7 +49,7 @@ This keeps the UX consistent: the Settings overlay is always a full-screen page,
 
 ## Files to Modify
 
-### 1. [`TrackDrawerOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/TrackDrawerOverlay.kt)
+### 1. [`MenuDrawerOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt)
 
 **Add parameter:**
 
@@ -90,10 +90,10 @@ import androidx.compose.material.icons.filled.Settings
 
 ### 2. [`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt)
 
-**Update `TrackDrawerOverlay` call** (line 841–851) — pass `onOpenSettings` that both dismisses the drawer and opens settings:
+**Update `MenuDrawerOverlay` call** (line 841–851) — pass `onOpenSettings` that both dismisses the drawer and opens settings:
 
 ```kotlin
-TrackDrawerOverlay(
+MenuDrawerOverlay(
     ...
     onDismiss = { showTrackDrawer = false },
     onOpenSettings = {
@@ -125,7 +125,7 @@ The gear icon button would use the same styling as the existing back button: sam
 
 ## Acceptance Criteria
 
-1. TrackDrawerOverlay header shows: `[←][Maro II]········[⚙]`
+1. MenuDrawerOverlay header shows: `[←][Maro II]········[⚙]`
 2. Tapping `⚙` closes the drawer and opens the Settings overlay
 3. Settings overlay works identically to opening it from the map gear button
 4. No regressions in drawer animation, back handling, or existing controls

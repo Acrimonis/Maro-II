@@ -105,7 +105,7 @@ active_subfeature: none
 - [x] BUILD SUCCESSFUL
 
 #### Key Files
-- `app/src/main/java/ykws/android/maro/ui/map/TrackDrawerOverlay.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt`
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
 
 ## Todos

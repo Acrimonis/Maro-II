@@ -9,6 +9,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -23,7 +24,6 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -50,8 +50,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.outlined.LocationOff
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -130,6 +128,7 @@ fun TrackHistoryOverlay(
     onUndoDeleteTrack: (String) -> Unit,
     onShareGpx: (String) -> Unit,
     onDismiss: () -> Unit,
+    isOpen: Boolean = true,
     modifier: Modifier = Modifier,
     // ── Render preview settings ───────────────────────────────────────
     tracksVisible: Boolean = true,
@@ -215,104 +214,105 @@ fun TrackHistoryOverlay(
         map
     }
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Color(AppConfig.uiSettingsBackground))
-            .windowInsetsPadding(WindowInsets.statusBars)
-    ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            // ── Header ─────────────────────────────────────────────────
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp, vertical = 3.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Button(
-                        onClick = {
-                            pendingDeletes.forEach { id -> onDeleteTrack(id) }
-                            pendingDeletes.clear()
-                            onDismiss()
-                        },
-                        modifier = Modifier.size(48.dp),
-                        shape = CircleShape,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(AppConfig.uiSettingsSwitchTrackInactive)
-                        ),
-                        contentPadding = PaddingValues(0.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color(AppConfig.uiSettingsTextPrimary),
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Text(
-                        text = "Track History",
-                        color = Color(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-            Text(
-                text = "RECORDED TRACKS",
-                color = Color(AppConfig.uiSettingsAccent),
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp,
-                modifier = Modifier.padding(horizontal = 24.dp)
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // ── Track list ─────────────────────────────────────────────
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                // Live track card (index 0) when recording
-                if (liveTrackState != null && liveTrackState.state == TrackRecorderState.ON) {
-                    item(key = "__live__") {
-                        LiveTrackCard(
-                            liveState = liveTrackState,
-                            dateFormat = dateFormat,
-                            onUpdateMeta = onUpdateLiveTrack,
-                        )
-                    }
-                }
-
-                items(trackSummaries, key = { it.id }) { summary ->
-                    SwipeToDeleteCard(
-                        summary = summary,
-                        modifier = Modifier.animateItemPlacement(),
-                        dateFormat = dateFormat,
-                        accentColor = accentColors[summary.id]
-                            ?: Color(AppConfig.uiSettingsTextMuted).copy(alpha = 0.15f),
-                        onUpdateTrack = onUpdateTrack,
-                        onShareGpx = onShareGpx,
-                        onDelete = { pendingDeletes.add(summary.id) },
-                        onUndo = {
-                            pendingDeletes.remove(summary.id)
-                            onUndoDeleteTrack(summary.id)
-                        },
-                        onPermanentDelete = {
-                            pendingDeletes.remove(summary.id)
-                            onDeleteTrack(summary.id)
+        // ── Panel ────────────────────────────────────────────────
+        val historyShape = RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp)
+        Box(
+            modifier = modifier
+                .fillMaxSize()
+                .clip(historyShape)
+                .background(Color(AppConfig.uiSettingsBackground))
+                .windowInsetsPadding(WindowInsets.statusBars)
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // ── Header ─────────────────────────────────────────────────
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 24.dp, vertical = 3.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(
+                            onClick = {
+                                pendingDeletes.forEach { id -> onDeleteTrack(id) }
+                                pendingDeletes.clear()
+                                onDismiss()
+                            },
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(Color(AppConfig.uiSettingsSwitchTrackInactive))
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back",
+                                tint = Color(AppConfig.uiSettingsTextPrimary),
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
-                    )
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Text(
+                            text = "Track History",
+                            color = Color(AppConfig.uiSettingsTextPrimary),
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "RECORDED TRACKS",
+                    color = Color(AppConfig.uiSettingsAccent),
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp,
+                    modifier = Modifier.padding(horizontal = 24.dp)
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // ── Track list ─────────────────────────────────────────────
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Live track card (index 0) when recording
+                    if (liveTrackState != null && liveTrackState.state == TrackRecorderState.ON) {
+                        item(key = "__live__") {
+                            LiveTrackCard(
+                                liveState = liveTrackState,
+                                dateFormat = dateFormat,
+                                onUpdateMeta = onUpdateLiveTrack,
+                            )
+                        }
+                    }
+
+                    items(trackSummaries, key = { it.id }) { summary ->
+                        SwipeToDeleteCard(
+                            summary = summary,
+                            modifier = Modifier.animateItem(),
+                            dateFormat = dateFormat,
+                            accentColor = accentColors[summary.id]
+                                ?: Color(AppConfig.uiSettingsTextMuted).copy(alpha = 0.15f),
+                            onUpdateTrack = onUpdateTrack,
+                            onShareGpx = onShareGpx,
+                            onDelete = { pendingDeletes.add(summary.id) },
+                            onUndo = {
+                                pendingDeletes.remove(summary.id)
+                                onUndoDeleteTrack(summary.id)
+                            },
+                            onPermanentDelete = {
+                                pendingDeletes.remove(summary.id)
+                                onDeleteTrack(summary.id)
+                            }
+                        )
+                    }
                 }
             }
         }
-    }
 }
 
 private enum class ItemState { CARD, SNACKBAR, DELETED }
@@ -352,8 +352,8 @@ private fun SwipeToDeleteCard(
         // ── Card layer ─────────────────────────────────────────────────
         AnimatedVisibility(
             visible = state == ItemState.CARD,
-            enter = slideInHorizontally(animationSpec = tween(250)) { it },
-            exit = slideOutHorizontally(animationSpec = tween(250)) { it }
+            enter = slideInHorizontally(animationSpec = spring(dampingRatio = 1.0f, stiffness = 350f)) { it },
+            exit = slideOutHorizontally(animationSpec = tween(150)) { it }
                 + fadeOut(animationSpec = tween(150))
         ) {
             Box(

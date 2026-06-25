@@ -8,12 +8,12 @@ plugins {
 
 android {
     namespace = "ykws.android.maro"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "ykws.android.maro"
         minSdk = 26
-        targetSdk = 34
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
@@ -105,6 +105,12 @@ android {
         // ── Stop detection GPS dormant percent from maro.properties ──────
         buildConfigField("int", "STOP_DETECTION_GPS_DORMANT_PCT",
             propInt("stopDetection.gpsDormantPct", 80).toString())
+
+        // ── User marker proximity defaults from maro.properties ──────────
+        buildConfigField("double", "MARKER_PROXIMITY_PIN_M",
+            propDouble("marker.proximity.pin_m", 200.0).toString())
+        buildConfigField("double", "MARKER_PROXIMITY_ZONE_MULTIPLIER",
+            propDouble("marker.proximity.zone_multiplier", 3.0).toString())
     }
 
     compileOptions {

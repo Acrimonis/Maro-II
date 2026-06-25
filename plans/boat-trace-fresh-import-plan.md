@@ -323,13 +323,13 @@ Protobuf file CRUD on `Dispatchers.IO`:
 - Clickable — opens TrackDrawer on tap
 - Positioned in top-left icon row on MapScreen
 
-### 3c. Create TrackDrawerOverlay
+### 3c. Create MenuDrawerOverlay
 
-**File:** `ui/map/TrackDrawerOverlay.kt` — right-side overlay panel using `ModalDrawerSheet`
+**File:** `ui/map/MenuDrawerOverlay.kt` — right-side overlay panel using `ModalDrawerSheet`
 
 **Triggers:** Both 🍔 hamburger button (right-edge stack, above settings) and 👣 `TrackStatusIcon` (top-left icon row) open the drawer.
 
-**TrackDrawerOverlay (right-side overlay):**
+**MenuDrawerOverlay (right-side overlay):**
 - Right-aligned panel at 75% width (`Alignment.TopEnd`, `fillMaxWidth(0.75f)`)
 - Scrim on left 25% (click to dismiss)
 - Uses Material3 `ModalDrawerSheet` with dark background (`0xFF1A1A2E`)
@@ -427,10 +427,10 @@ The existing `gpsFixFlow` emission site should also emit to `_gpsFixFlow` via `_
 
 - Add 🍔 **hamburger button** to the right-edge control stack, **above the Settings button** — `Icons.Default.Menu`, 64dp round `MapControlButton` style
 - Add `TrackStatusIcon` to top-left icon row
-- Both hamburger and status icon open `TrackDrawerOverlay`
+- Both hamburger and status icon open `MenuDrawerOverlay`
 - Track overlay `LaunchedEffect`: observes `trackSummaries`, manages osmdroid `Polyline` per visible track (8f stroke, `trackColorArgb`, titled `"track_$id"`)
 - Overlay cleanup protection: exclude `"track_"`-prefixed Polylines from general `removeAll`
-- `TrackDrawerOverlay` as right-side panel
+- `MenuDrawerOverlay` as right-side panel
 - `TrackHistoryOverlay` as full-screen overlay
 - "Track Recording" toggle in General settings tab
 - "Track Configuration" read-only section (origin lat/lon/radius)
@@ -478,7 +478,7 @@ gradlew testDebugUnitTest
 | 9 | Create notification icon `ic_track_notification.xml` | 1 new file |
 | 10 | Create `GpxExporter` | 1 new file |
 | 11 | Create `TrackStatusIcon` | 1 new file |
-| 12 | Create `TrackDrawerOverlay` | 1 new file |
+| 12 | Create `MenuDrawerOverlay` | 1 new file |
 | 13 | Create `TrackHistoryOverlay` | 1 new file |
 | 14 | Add FileProvider (xml + manifest) | 2 files (1 new, 1 mod) |
 | 15 | Wire `TrackViewModel` into `CoastlineViewModel` | 1 file modified |

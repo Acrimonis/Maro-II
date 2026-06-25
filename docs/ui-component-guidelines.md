@@ -134,7 +134,7 @@ Full token list: [`ui-tokens.properties`](../app/src/main/assets/ui-tokens.prope
 
 ## 5. Non-Settings Surfaces
 
-### 5.1 Drawer Cards (`TrackDrawerOverlay`)
+### 5.1 Drawer Cards (`MenuDrawerOverlay`)
 
 Same `uiCardBackground` + 12dp radius. Rows: 16×10dp pad, `heightIn(min = 48dp)` touch target. Between cards: `${ui.spacing.header.bottom}`.
 

@@ -1,19 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-<<<<<<< HEAD
-- **Active Feature:** BoatTrace
-- **Active Subfeature:** *(none)*
-- **Last Updated:** 2026-06-24
-- **Last Bake:** 2026-06-24 14:46 (BoatTrace — #merge: rebased onto origin/develop)
-- **Branch:** feature/ui-3
-=======
-- **Active Feature:** Ui_General
-- **Active Subfeature:** *(none)*
-- **Last Updated:** 2026-06-24
-- **Last Bake:** 2026-06-24 11:20 (BoatTrace — track-list-render-indicator: merge conflict resolved, pushed)
-- **Branch:** feature/ui-4
->>>>>>> 23589f4 (feat: add 10dp bottom padding to MapScreen + document in ui-component-guidelines)
+- **Active Feature:** Markers
+- **Active Subfeature:** create-zones-flow
+- **Last Updated:** 2026-06-25 16:08
+- **Last Bake:** 2026-06-25 16:08 (Markers — #merge rebase onto origin/develop; CoastlineViewModel→NavigationViewModel + GpsFix→TrackSample API fixes; build ✅)
+- **Branch:** feature/markers
 ## Routing Map
 | Keyword | Feature File |
 |---|---|
@@ -38,6 +30,7 @@
 | boat, trace, trip, boat-trace, boat-tracing, track, recording, port-salis, journey | xTrack/BoatTrace/FEAT_DSC_BoatTrace.md |
 | workflow, rules, ambiguity, merge, agents, gitops | xTrack/WorkflowAmbiguityFix/FEAT_DSC_WorkflowAmbiguityFix.md |
 | ui, tweaks, polish, small-potatoes, ui-small-potatoes, small potatoes | xTrack/ui-small-potatoes/FEAT_DSC_ui-small-potatoes.md |
+| markers, pin, circle, corridor, usermarker, user marker, where am i | xTrack/Markers/FEAT_DSC_Markers.md |
 
 ## Feature Summaries
 
@@ -67,6 +60,7 @@
 | **Health** | **Application health monitoring — diagnostics, crash reporting, memory/performance telemetry** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
 | **WorkflowAmbiguityFix** | **Eliminate ambiguity between AGENTS.md rules — #merge direction, §5 reinforcement, command doc alignment** | **2026-06-20 14:51** | **2026-06-20 14:51** | **active** |
 | **ui-small-potatoes** | **UI polish, refinements, and small fixes across the app** | **2026-06-22 13:50** | **2026-06-22 14:20** | **active** |
+| **Markers** | **User-defined map markers (Pin, Circle, Corridor) with sea-distance-gated proximity matching and on-demand "where am I?" query** | **2026-06-22 11:52** | **2026-06-25 16:08** | **active** |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).

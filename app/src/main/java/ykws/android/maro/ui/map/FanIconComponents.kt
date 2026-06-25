@@ -2,7 +2,9 @@
 package ykws.android.maro.ui.map
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.ui.icons.Activity_zone
+import ykws.android.maro.ui.icons.Add_location_alt
 import ykws.android.maro.ui.icons.Conversion_path
+import ykws.android.maro.ui.icons.Location_on
 import ykws.android.maro.ui.icons.Output_circle
 import ykws.android.maro.ui.icons.Stacks
 
@@ -33,19 +35,10 @@ object ButtonColors {
     val iconSizeDp: Int = 28
 }
 
+/** Standard icon size for control-stack buttons (28 dp). */
+private const val ICON_SIZE_DP = 28
+
 // ── Arc menu fan icons ────────────────────────────────────────────────────────
-// Google Fonts name → Compose name:
-//   stacks           → Layers
-//   area_chart       → AreaChart
-//   activity_zone    → GpsFixed       (no exact match)
-//   output_circle    → Circle
-//   conversion_path  → AltRoute       (no exact match)
-//   warning          → Warning
-//   add              → Add
-//   remove           → Remove
-//   menu             → Menu
-//   location_on/off  → LocationOn/LocationOff
-//   file_export      → Upload          (no exact match)
 
 @Composable
 fun WarningTriangleIcon(alpha: Float) {
@@ -136,6 +129,28 @@ fun DoubleCircleIcon(alpha: Float) {
 fun TrackLayerIcon(alpha: Float) {
     Icon(
         imageVector = Conversion_path,
+        contentDescription = null,
+        tint = ButtonColors.icon,
+        modifier = Modifier.size(ButtonColors.iconSizeDp.dp).alpha(alpha)
+    )
+}
+
+/** Add marker button: add_location_alt (map pin with + sign). */
+@Composable
+fun AddLocationAltIcon() {
+    Icon(
+        imageVector = Add_location_alt,
+        contentDescription = null,
+        tint = ButtonColors.icon,
+        modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
+    )
+}
+
+/** User markers layer toggle: location_on (outlined map pin). */
+@Composable
+fun LocationOnIcon(alpha: Float) {
+    Icon(
+        imageVector = Location_on,
         contentDescription = null,
         tint = ButtonColors.icon,
         modifier = Modifier.size(ButtonColors.iconSizeDp.dp).alpha(alpha)

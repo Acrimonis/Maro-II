@@ -66,7 +66,7 @@
 | [`MapOverlayRenderer.kt`](app/src/main/java/ykws/android/maro/ui/map/MapOverlayRenderer.kt) | **All osmdroid overlay drawing** — coastlines, depth, isobaths, zones, banded overlays | ~343 |
 | [`OverlayTracker.kt`](app/src/main/java/ykws/android/maro/ui/map/OverlayTracker.kt) | Overlay reference lists + dirty-check fields | ~35 |
 | [`RegulatedZoneComponents.kt`](app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneComponents.kt) | Compose zone icon stack, info panel, category toggles, boat size slider | ~505 |
-| [`TrackDrawerOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/TrackDrawerOverlay.kt) | Compose track recording drawer panel | ~299 |
+| [`MenuDrawerOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt) | Compose track recording drawer panel | ~299 |
 | [`TrackHistoryOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt) | Compose track history list overlay | ~921 |
 | [`TrackStatusIcon.kt`](app/src/main/java/ykws/android/maro/ui/map/TrackStatusIcon.kt) | Compose track status indicator icon | ~117 |
 
@@ -89,7 +89,7 @@ MapScreen (Compose Box)
     ├── CapArrowOverlay (Compose Canvas)
     ├── CenterMarkerOverlay (Compose Image)
     ├── Row (overlay controls: dashboard, buttons, settings)
-    ├── TrackDrawerOverlay / TrackHistoryOverlay       ← Compose only
+    ├── MenuDrawerOverlay / TrackHistoryOverlay       ← Compose only
     └── RegulatedZoneComponents (icon stack)           ← Compose only
 ```
 
@@ -112,7 +112,7 @@ MapScreen (Compose Box)
     ├── CapArrowOverlay (Compose Canvas)                ← UNCHANGED
     ├── CenterMarkerOverlay (Compose Image)             ← UNCHANGED
     ├── Row (overlay controls)                          ← UNCHANGED
-    ├── TrackDrawerOverlay / TrackHistoryOverlay        ← UNCHANGED
+    ├── MenuDrawerOverlay / TrackHistoryOverlay        ← UNCHANGED
     └── RegulatedZoneComponents                         ← UNCHANGED
 ```
 
@@ -718,7 +718,7 @@ LaunchedEffect(mapLibreMap, appSettings.trackingColorActive) {
 }
 ```
 
-**Note:** [`TrackDrawerOverlay`](app/src/main/java/ykws/android/maro/ui/map/TrackDrawerOverlay.kt) and [`TrackHistoryOverlay`](app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt) are pure Compose — **untouched** by the migration.
+**Note:** [`MenuDrawerOverlay`](app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt) and [`TrackHistoryOverlay`](app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt) are pure Compose — **untouched** by the migration.
 
 **Settings fields already in code** ([`AppSettings`](app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt)):
 - `trackEnabled`, `tracksVisible`, `trackingRenderNb` (0–20)
@@ -865,7 +865,7 @@ The following Compose-only layers stay **exactly as they are** — they are inde
 | [`FanLayout`](app/src/main/java/ykws/android/maro/ui/map/FanLayout.kt) | Separate file | ✅ Untouched |
 | [`MapControlButton` / `FanIconComponents`](app/src/main/java/ykws/android/maro/ui/map/FanIconComponents.kt) | Separate file | ✅ Untouched |
 | [`TrackStatusIcon`](app/src/main/java/ykws/android/maro/ui/map/TrackStatusIcon.kt) | Separate file | ✅ Untouched |
-| [`TrackDrawerOverlay`](app/src/main/java/ykws/android/maro/ui/map/TrackDrawerOverlay.kt) | Separate file | ✅ Untouched |
+| [`MenuDrawerOverlay`](app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt) | Separate file | ✅ Untouched |
 | [`TrackHistoryOverlay`](app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt) | Separate file | ✅ Untouched |
 | [`RegulatedZoneComponents`](app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneComponents.kt) | Separate file | ✅ Untouched |
 | Settings overlay | Inline in `MapScreen.kt` | ✅ Untouched |
