@@ -235,7 +235,7 @@ internal fun computeTrackPolylineAppearance(
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @Composable
 fun MapScreen(
-    viewModel: CoastlineViewModel,
+    viewModel: NavigationViewModel,
     depthViewModel: DepthViewModel,
     modifier: Modifier = Modifier
 ) {
@@ -419,7 +419,7 @@ fun MapScreen(
 
     // ── Demo heading-up: apply pan-derived bearing to map orientation ─────────
     // When demoHeadingUp is enabled (and we're in demo mode), the bearing is
-    // computed from the pan direction in CoastlineViewModel.computeDemoSpeed().
+    // computed from the pan direction in NavigationViewModel.computeDemoSpeed().
     // Watch navigationState.bearingDeg and apply it to the MapView directly.
     // This effect runs separately from the GPS auto-follow effect above.
     LaunchedEffect(appSettings.demoHeadingUp, appSettings.gpsMode, mapView) {
@@ -591,12 +591,11 @@ fun MapScreen(
             val speedMs = speedKn?.let { it * 0.514444f }
             val bearing = if (isGps) nav.bearingDeg else nav.demoBearingDeg
             android.util.Log.d("MaroII_Track",
-                "GPSflow: gpsPos=${gpsPos != null} demoSpeed=${nav.demoSpeedKnots} speedKn=$speedKn speedMs=$speedMs")
-            ykws.android.maro.data.location.GpsFix(
+                "TrackSample: gpsPos=${gpsPos != null} demoSpeed=${nav.demoSpeedKnots} speedKn=$speedKn speedMs=$speedMs")
+            ykws.android.maro.data.track.TrackSample(
                 position = pos,
-                bearingDeg = bearing,
-                hasCourse = speedMs != null && speedMs > 0.5f,
                 speedMps = speedMs,
+                bearingDeg = bearing,
                 hasLock = true,
                 timestampEpochMs = System.currentTimeMillis()
             )
