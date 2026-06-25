@@ -22,7 +22,14 @@ import ykws.android.maro.R
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -974,202 +981,112 @@ fun MapScreen(
                     )
             )
 
-            // Dashboard / Wizard overlaid on top, positioned via alignment.
-            val imeBottom = WindowInsets.ime.getBottom(LocalDensity.current)
-            val imeHeightDp = with(LocalDensity.current) { imeBottom.toDp() }
-            val keyboardOffsetDp = 0.dp - imeHeightDp
-
-            if (drawerState is MarkerDrawerState.Creating || drawerState is MarkerDrawerState.Editing) {
-                // Wizard replaces dashboard when creating/editing
-                if (isLandscape) {
-                    Box(modifier = Modifier
+            // ── Dashboard (always rendered, Layer 0) ────────────────────────
+            if (isLandscape) {
+                DashboardPanel(
+                    state = state,
+                    isWater = isWater,
+                    distanceToShore = distanceToShore,
+                    depthSample = depthReadout,
+                    speedKnots = navigationState.speedKnots ?: navigationState.demoSpeedKnots,
+                    zoneSituation = zoneSituation,
+                    autoRevealDistanceM = appSettings.zoneAutoRevealDistanceM,
+                    autoRevealTimeS = appSettings.zoneAutoRevealTimeS.toFloat(),
+                    modifier = Modifier
                         .align(Alignment.CenterStart)
                         .width(landscapeDashboardWidth)
                         .fillMaxHeight()
-                    ) {
-                        WizardDrawer(
-                            viewModel = markersViewModel,
-                            isLandscape = true,
-                            onCancel = { markersViewModel.wizardCancel() }
-                        )
-                    }
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .height(portraitDashboardHeight)
-                            .offset(y = keyboardOffsetDp)
-                    ) {
-                        WizardDrawer(
-                            viewModel = markersViewModel,
-                            isLandscape = false,
-                            onCancel = { markersViewModel.wizardCancel() }
-                        )
-                    }
-                }
+                )
             } else {
-        if (isLandscape) {
-            DashboardPanel(
-                state = state,
-                isWater = isWater,
-                distanceToShore = distanceToShore,
-                depthSample = depthReadout,
-                speedKnots = navigationState.speedKnots ?: navigationState.demoSpeedKnots,
-                zoneSituation = zoneSituation,
-                autoRevealDistanceM = appSettings.zoneAutoRevealDistanceM,
-                autoRevealTimeS = appSettings.zoneAutoRevealTimeS.toFloat(),
-                modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .width(landscapeDashboardWidth)
-                    .fillMaxHeight()
-            )
-        } else {
-            DashboardPanel(
-                state = state,
-                isWater = isWater,
-                distanceToShore = distanceToShore,
-                depthSample = depthReadout,
-                speedKnots = navigationState.speedKnots ?: navigationState.demoSpeedKnots,
-                zoneSituation = zoneSituation,
-                autoRevealDistanceM = appSettings.zoneAutoRevealDistanceM,
-                autoRevealTimeS = appSettings.zoneAutoRevealTimeS.toFloat(),
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .height(portraitDashboardHeight)
-            )
-        }
-            }
-
-        // ── Marker overlays (OSMdroid native, via LaunchedEffect) ─────
-        if (markerLayerVisible) {
-            val matchResult by markersViewModel.matchResult.collectAsState()
-            val drawerStateForOverlay by markersViewModel.drawerState.collectAsState()
-            val selectedMarkerId by markersViewModel.selectedMarkerId.collectAsState()
-            MarkerOverlay(
-                markers = userMarkers,
-                mapView = mapView,
-                proximityZoneMultiplier = AppConfig.markerProximityZoneMultiplier,
-                unconfirmedMarker = unconfirmedMarker,
-                onMarkerTap = { id -> markersViewModel.openEditDrawer(id) },
-                matchResult = if (drawerStateForOverlay is MarkerDrawerState.MatchResult) matchResult else null,
-                markerZonesVisible = appSettings.markerZonesVisible,
-                selectedMarkerId = selectedMarkerId
-            )
-        }
-        }
-
-        // ── Settings overlay (full-screen, covers dashboard too) ──────────
-        if (showSettings) {
-            SettingsOverlay(
-                settings = appSettings,
-                onUpdateSettings = viewModel::updateSettings,
-                onGpsModeChange = onGpsModeChange,
-                onDismiss = { showSettings = false },
-                selectedTab = selectedTab,
-                onTabChange = { selectedTab = it },
-                displayScrollState = displayScrollState,
-                navigationScrollState = navigationScrollState,
-                systemScrollState = systemScrollState,
-                onRegenerateRasters = { steps ->
-                    val waterTest: (Double, Double) -> Boolean =
-                        if (state is CoastlineState.Ready) viewModel::isOnWater else { _, _ -> true }
-                    depthViewModel.generateRasterLayers(context, steps, appSettings, waterTest)
-                }
-            )
-        }
-
-        // ── Menu drawer overlay (layer on top, like SettingsOverlay) ─────
-        if (showTrackDrawer) {
-            MenuDrawerOverlay(
-                isOpen = true,
-                gpsMode = appSettings.gpsMode,
-                onGpsModeChange = onGpsModeChange,
-                gpsToggleColor = gpsToggleColor,
-                recorderState = trackRecorderState,
-                onStartRecording = { trackViewModel.startRecording() },
-                onStopRecording = { trackViewModel.stopRecording() },
-                onViewTrackList = { showTrackDrawer = false; showTrackHistory = true },
-                onManageMarkers = {
-                    showTrackDrawer = false
-                    showMarkerManagement = true
-                },
-                onDismiss = { showTrackDrawer = false },
-                onOpenSettings = { showTrackDrawer = false; showSettings = true }
-            )
-        }
-
-        // ── TrackHistory overlay ──────────────────────────────────────────
-        if (showTrackHistory) {
-            TrackHistoryOverlay(
-                trackSummaries = trackSummaries,
-                liveTrackState = trackRecorderState,
-                onUpdateTrack = { id, name, comment, pinned ->
-                    pinned?.let { trackViewModel.setPinned(id, it) }
-                    trackViewModel.updateTrack(id, name, comment)
-                },
-                onUpdateLiveTrack = { name, comment ->
-                    trackViewModel.updateLiveTrackMeta(name, comment)
-                },
-                onDeleteTrack = { id -> trackViewModel.deleteTrack(id) },
-                onUndoDeleteTrack = { /* no-op: track was never actually removed from repo,
-                                          only visually hidden until Snackbar timeout */ },
-                onShareGpx = { id -> shareTrackGpx(context, trackViewModel, id, trackScope) },
-                onDismiss = { showTrackHistory = false },
-                tracksVisible = appSettings.tracksVisible,
-                trackingRenderNb = appSettings.trackingRenderNb,
-                trackingTransparencyNewest = appSettings.trackingTransparencyNewest,
-                trackingTransparencyOldest = appSettings.trackingTransparencyOldest,
-                trackingColorPastFrom = appSettings.trackingColorPastFrom,
-                trackingColorPastTo = appSettings.trackingColorPastTo,
-                trackingTransparencyPinnedNewest = appSettings.trackingTransparencyPinnedNewest,
-                trackingTransparencyPinnedOldest = appSettings.trackingTransparencyPinnedOldest,
-                trackingColorPinnedFrom = appSettings.trackingColorPinnedFrom,
-                trackingColorPinnedTo = appSettings.trackingColorPinnedTo
-            )
-        }
-
-        // ── Marker management overlay (P8: composed BEFORE drawer so drawer renders on top) ──
-        if (showMarkerManagement) {
-            val mgmtMarkers by markersViewModel.markers.collectAsState()
-            MarkerManagementOverlay(
-                markers = mgmtMarkers,
-                onTapMarker = { id -> markersViewModel.openEditDrawer(id) },
-                onEditMarker = { id ->
-                    showMarkerManagement = false
-                    markersViewModel.startWizard(id)
-                },
-                onSoftDeleteMarker = { id -> markersViewModel.softDeleteMarker(id) },
-                onUndoDeleteMarker = { id -> markersViewModel.undoDeleteMarker(id) },
-                onPermanentDelete = { id -> markersViewModel.deleteMarker(id) },
-                onCommitPendingDeletes = { markersViewModel.commitPendingDeletes() },
-                onCreateFirst = {
-                    showMarkerManagement = false
-                    markersViewModel.startWizard(initialPos = mapCenter)
-                },
-                onDismiss = { showMarkerManagement = false }
-            )
-        }
-
-        // ── Marker drawer overlay (Viewing/MatchResult only — Creating/Editing use WizardDrawer) ──
-        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
-            val markerIsLandscape = maxWidth > maxHeight
-            val drawerState by markersViewModel.drawerState.collectAsState()
-            if (drawerState is MarkerDrawerState.Viewing || drawerState is MarkerDrawerState.MatchResult) {
-                Box(
+                DashboardPanel(
+                    state = state,
+                    isWater = isWater,
+                    distanceToShore = distanceToShore,
+                    depthSample = depthReadout,
+                    speedKnots = navigationState.speedKnots ?: navigationState.demoSpeedKnots,
+                    zoneSituation = zoneSituation,
+                    autoRevealDistanceM = appSettings.zoneAutoRevealDistanceM,
+                    autoRevealTimeS = appSettings.zoneAutoRevealTimeS.toFloat(),
                     modifier = Modifier
-                        .align(if (markerIsLandscape) Alignment.CenterStart else Alignment.BottomCenter)
-                ) {
-                    MarkerDrawer(
-                        viewModel = markersViewModel,
-                        isLandscape = markerIsLandscape,
-                        onClose = { markersViewModel.closeDrawer() },
-                        boatPosition = gpsPosition ?: mapCenter
-                    )
-                }
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .height(portraitDashboardHeight)
+                )
             }
-        }
+
+            // ── Marker overlays (OSMdroid native, via LaunchedEffect) ─────
+            if (markerLayerVisible) {
+                val matchResult by markersViewModel.matchResult.collectAsState()
+                val selectedMarkerId by markersViewModel.selectedMarkerId.collectAsState()
+                MarkerOverlay(
+                    markers = userMarkers,
+                    mapView = mapView,
+                    proximityZoneMultiplier = AppConfig.markerProximityZoneMultiplier,
+                    unconfirmedMarker = unconfirmedMarker,
+                    onMarkerTap = { id -> markersViewModel.openEditDrawer(id) },
+                    matchResult = if (drawerState is MarkerDrawerState.MatchResult) matchResult else null,
+                    markerZonesVisible = appSettings.markerZonesVisible,
+                    selectedMarkerId = selectedMarkerId
+                )
+            }
+
+        // ── Layer 1: Overlay (transient drawers, Wizard, Settings, scrim) ──
+        val showWizard = drawerState is MarkerDrawerState.Creating || drawerState is MarkerDrawerState.Editing
+        val mgmtMarkers by markersViewModel.markers.collectAsState()
+        OverlayLayer(
+            showSettings = showSettings,
+            showTrackDrawer = showTrackDrawer,
+            showTrackHistory = showTrackHistory,
+            showMarkerManagement = showMarkerManagement,
+            showWizard = showWizard,
+            wizardStep = wizardStep,
+            drawerState = drawerState,
+            isLandscape = isLandscape,
+            portraitDashboardHeight = portraitDashboardHeight,
+            landscapeDashboardWidth = landscapeDashboardWidth,
+            onDismissSettings = { showSettings = false },
+            onDismissMenu = { showTrackDrawer = false },
+            onDismissTrackHistory = { showTrackHistory = false },
+            onDismissMarkerManagement = { showMarkerManagement = false },
+            onWizardCancel = { markersViewModel.wizardCancel() },
+            onMarkerDrawerClose = { markersViewModel.closeDrawer() },
+            onOpenTrackHistoryFromMenu = { showTrackHistory = true },
+            onOpenMarkerManagementFromMenu = { showMarkerManagement = true },
+            onOpenSettingsFromMenu = { showSettings = true },
+            markersViewModel = markersViewModel,
+            trackViewModel = trackViewModel,
+            gpsMode = appSettings.gpsMode,
+            onGpsModeChange = onGpsModeChange,
+            gpsToggleColor = gpsToggleColor,
+            onShareGpx = { id -> shareTrackGpx(context, trackViewModel, id, trackScope) },
+            appSettings = appSettings,
+            onUpdateSettings = viewModel::updateSettings,
+            selectedTab = selectedTab,
+            onTabChange = { selectedTab = it },
+            displayScrollState = displayScrollState,
+            navigationScrollState = navigationScrollState,
+            systemScrollState = systemScrollState,
+            onRegenerateRasters = { steps ->
+                val waterTest: (Double, Double) -> Boolean =
+                    if (state is CoastlineState.Ready) viewModel::isOnWater else { _, _ -> true }
+                depthViewModel.generateRasterLayers(context, steps, appSettings, waterTest)
+            },
+            boatPosition = gpsPosition ?: mapCenter,
+            markers = mgmtMarkers,
+            onTapMarker = { id -> markersViewModel.openEditDrawer(id) },
+            onEditMarker = { id ->
+                showMarkerManagement = false
+                markersViewModel.startWizard(id)
+            },
+            onSoftDeleteMarker = { id -> markersViewModel.softDeleteMarker(id) },
+            onUndoDeleteMarker = { id -> markersViewModel.undoDeleteMarker(id) },
+            onPermanentDelete = { id -> markersViewModel.deleteMarker(id) },
+            onCommitPendingDeletes = { markersViewModel.commitPendingDeletes() },
+            onCreateFirst = {
+                showMarkerManagement = false
+                markersViewModel.startWizard(initialPos = mapCenter)
+            }
+        )
 
         // ── Post-save undo Snackbar (P5) ────────────────────────────────
         val lastSavedId by markersViewModel.lastSavedMarkerId.collectAsState()
@@ -1218,6 +1135,7 @@ fun MapScreen(
             )
         }
     }
+}
 }
 
 /**
@@ -2286,7 +2204,7 @@ private val settingsTabLabels = listOf("General", "Navigation", "System")
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun SettingsOverlay(
+internal fun SettingsOverlay(
     settings: AppSettings,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
     onGpsModeChange: (Boolean) -> Unit,

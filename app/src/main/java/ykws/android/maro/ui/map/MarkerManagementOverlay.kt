@@ -221,7 +221,7 @@ fun MarkerManagementOverlay(
                     items(markers, key = { it.id }) { marker ->
                         SwipeToDeleteMarkerCard(
                             marker = marker,
-                            modifier = Modifier.animateItemPlacement(),
+                            modifier = Modifier.animateItem(),
                             onTap = { onTapMarker(marker.id) },
                             onEdit = { onEditMarker(marker.id) },
                             onDelete = {

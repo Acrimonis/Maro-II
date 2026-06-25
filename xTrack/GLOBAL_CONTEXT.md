@@ -3,8 +3,8 @@
 ## Active Session Pointers
 - **Active Feature:** Markers
 - **Active Subfeature:** create-zones-flow
-- **Last Updated:** 2026-06-24 18:07
-- **Last Bake:** 2026-06-24 11:38 (Markers — marker layer toggle fix: Polygon fills + MapEventsOverlay cleanup; #merge onto develop; restored 7-step merge procedure. Build ✅)
+- **Last Updated:** 2026-06-25 14:05
+- **Last Bake:** 2026-06-25 14:05 (Markers — OverlayLayer framework: unified drawer/scrim layer; DrawerSlot abstraction planned; Wizard blank fix; spring animation normalization 1.0f/350f; gradient shadow edge on all drawers; MarkerManagement moved to OverlayLayer. Build ✅)
 - **Branch:** feature/markers
 ## Routing Map
 | Keyword | Feature File |
@@ -60,7 +60,7 @@
 | **Health** | **Application health monitoring — diagnostics, crash reporting, memory/performance telemetry** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
 | **WorkflowAmbiguityFix** | **Eliminate ambiguity between AGENTS.md rules — #merge direction, §5 reinforcement, command doc alignment** | **2026-06-20 14:51** | **2026-06-20 14:51** | **active** |
 | **ui-small-potatoes** | **UI polish, refinements, and small fixes across the app** | **2026-06-22 13:50** | **2026-06-22 14:20** | **active** |
-| **Markers** | **User-defined map markers (Pin, Circle, Corridor) with sea-distance-gated proximity matching and on-demand "where am I?" query** | **2026-06-22 11:52** | **2026-06-24 11:38** | **active** |
+| **Markers** | **User-defined map markers (Pin, Circle, Corridor) with sea-distance-gated proximity matching and on-demand "where am I?" query** | **2026-06-22 11:52** | **2026-06-25 14:05** | **active** |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).
