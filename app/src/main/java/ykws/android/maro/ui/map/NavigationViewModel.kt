@@ -96,7 +96,7 @@ data class NavigationState(
  * the race where `LaunchedEffect`-initiated restore ran after the MapView factory.
  */
 @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
-class CoastlineViewModel(
+class NavigationViewModel(
     application: Application,
     private val repository: CoastlineRepository = CoastlineRepository()
 ) : AndroidViewModel(application) {
@@ -272,8 +272,9 @@ class CoastlineViewModel(
 
     /** Stale-fix watchdog: monotonic clock time of the last fix received. 0 = never received. */
     private var lastFixMs = 0L
-    /** Stale-fix watchdog: the timeout job — cancelled and re-armed on each valid fix. */
-    private var staleWatchdogJob: Job? = null
+    /** GPS signal watchdog: fires dead reckoning when no fix arrives within [GPS_STALE_TIMEOUT_MS]
+     * while the boat is actively moving (acquisition mode != IDLE). */
+    private var gpsSignalWatchdogJob: Job? = null
 
     /** Last known position + motion vector for dead reckoning during GPS dropouts. */
     private data class DeadReckoningState(
@@ -653,7 +654,18 @@ class CoastlineViewModel(
                 _gpsPosition.value = fix.position
                 updateMapCenter(fix.position.latitude, fix.position.longitude)
 
-                // ── Stale-fix watchdog + dead reckoning ─────────────────
+                // ── Acquisition mode update (BEFORE watchdog) ──────────────
+                // Update adaptive policy first so the watchdog gate reads current fix's state.
+                val s = settings.value
+                _acquisitionMode.value = adaptivePolicy.onFix(
+                    now, fix.position,
+                    s.stopDetectionTimeSec * 1_000L, s.stopDetectionDistanceM.toDouble()
+                )
+                if (_acquisitionMode.value == AcquisitionMode.IDLE) {
+                    deadReckoningState = null
+                }
+
+                // ── GpsSignalWatchdog + dead reckoning ────────────────────
                 if (fix.hasLock) {
                     deadReckoningJob?.cancel()
                     deadReckoningJob = null
@@ -661,12 +673,17 @@ class CoastlineViewModel(
                     _forceReconnect.value = false
                     _gpsStale.value = false
                     lastFixMs = now
-                    staleWatchdogJob?.cancel()
-                    staleWatchdogJob = viewModelScope.launch {
-                        delay(GPS_STALE_TIMEOUT_MS)
-                        _gpsStale.value = true
-                        _forceReconnect.value = true
-                        startDeadReckoning()
+                    gpsSignalWatchdogJob?.cancel()
+                    // Only arm watchdog when boat is moving — stationary lack of fixes is expected.
+                    if (_acquisitionMode.value != AcquisitionMode.IDLE) {
+                        gpsSignalWatchdogJob = viewModelScope.launch {
+                            delay(GPS_STALE_TIMEOUT_MS)
+                            if (_acquisitionMode.value != AcquisitionMode.IDLE) {
+                                _gpsStale.value = true
+                                _forceReconnect.value = true
+                                startDeadReckoning()
+                            }
+                        }
                     }
                 } else {
                     // No satellite lock → immediately stale + start dead reckoning
@@ -702,16 +719,6 @@ class CoastlineViewModel(
                     _needsCompass.value = false                 // GPS course present → compass off
                 } else if (now - lastGpsBearingMs > HEADING_FALLBACK_MS) {
                     _needsCompass.value = true                  // no course for 3 s → need compass
-                }
-                // Always-on adaptive cadence: drop to idle when effectively stationary.
-                val s = settings.value
-                _acquisitionMode.value = adaptivePolicy.onFix(
-                    now, fix.position,
-                    s.stopDetectionTimeSec * 1_000L, s.stopDetectionDistanceM.toDouble()
-                )
-                // NEW: invalidate dead reckoning state when boat goes idle (stopped)
-                if (_acquisitionMode.value == AcquisitionMode.IDLE) {
-                    deadReckoningState = null
                 }
             }
             .catch { e ->
@@ -781,7 +788,7 @@ class CoastlineViewModel(
                     _needsCompass.value = true
                     _gpsStale.value = false
                     lastFixMs = 0L
-                    staleWatchdogJob?.cancel()
+                    gpsSignalWatchdogJob?.cancel()
                 }
             }
             .launchIn(viewModelScope)
@@ -805,8 +812,12 @@ class CoastlineViewModel(
      * Starts a dead-reckoning coroutine that extrapolates position from the last known
      * course and speed, updating [_gpsPosition], map center, and [_navigationState] bearing
      * every [DEAD_RECKONING_INTERVAL_MS] for up to [DEAD_RECKONING_MAX_MS].
+     * Only fires when the boat is actively moving (acquisition mode != IDLE) — prevents
+     * unnecessary extrapolation during stationary periods with GPS min-distance filtering.
      */
     private fun startDeadReckoning() {
+        // Defense-in-depth: don't extrapolate when the adaptive policy says stationary.
+        if (_acquisitionMode.value == AcquisitionMode.IDLE) return
         deadReckoningJob?.cancel()
         val state = deadReckoningState ?: return
         _isEstimating.value = true
@@ -1041,6 +1052,21 @@ class CoastlineViewModel(
         }
         // Track last scroll for stop-detection (checked in pipeline onEach — no coroutine churn).
         lastScrollMs = now
+    }
+
+    /**
+     * Feeds the current map center position into the adaptive GPS policy for stop detection
+     * in demo mode. Called by [MapScreen] on each pan/drag update when GPS is off.
+     * In demo mode, the map center IS the boat position — the same adaptive policy
+     * with [stopDetectionTimeSec]/[stopDetectionDistanceM] detects when the user stops dragging.
+     */
+    fun feedDemoPosition(lat: Double, lon: Double) {
+        val now = SystemClock.elapsedRealtime()
+        val s = settings.value
+        _acquisitionMode.value = adaptivePolicy.onFix(
+            now, LatLng(lat, lon),
+            s.stopDetectionTimeSec * 1_000L, s.stopDetectionDistanceM.toDouble()
+        )
     }
 
     /**
@@ -1493,7 +1519,7 @@ class CoastlineViewModel(
         private const val MAX_DEMO_KNOTS = 50.0
 
         /** Log tag for this ViewModel. */
-        private const val TAG = "CoastlineVM"
+        private const val TAG = "NavigationVM"
 
         /**
          * Stale-fix watchdog timeout (ms): if no GPS fix arrives within this window, the position
@@ -1509,7 +1535,7 @@ class CoastlineViewModel(
         private const val DEAD_RECKONING_MAX_MS = 30_000L
 
         /**
-         * Factory for [CoastlineViewModel] — required because the primary constructor
+         * Factory for [NavigationViewModel] — required because the primary constructor
          * has two parameters (`Application`, `CoastlineRepository` with default), but
          * [AndroidViewModelFactory] only matches single-`Application`-param constructors.
          */
@@ -1520,8 +1546,8 @@ class CoastlineViewModel(
                 extras: CreationExtras
             ): T {
                 val application = extras[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY]
-                    ?: error("Cannot create CoastlineViewModel without APPLICATION_KEY")
-                return CoastlineViewModel(application as Application) as T
+                    ?: error("Cannot create NavigationViewModel without APPLICATION_KEY")
+                return NavigationViewModel(application as Application) as T
             }
         }
     }

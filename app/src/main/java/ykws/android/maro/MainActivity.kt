@@ -29,7 +29,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import java.util.Locale
-import ykws.android.maro.ui.map.CoastlineViewModel
+import ykws.android.maro.ui.map.NavigationViewModel
 import ykws.android.maro.ui.map.DepthViewModel
 import ykws.android.maro.ui.map.MapScreen
 import ykws.android.maro.config.AppConfig
@@ -57,10 +57,10 @@ class MainActivity : ComponentActivity() {
         AppConfig.init(this)
 
         setContent {
-            // Use a factory because CoastlineViewModel now extends AndroidViewModel
+            // Use a factory because NavigationViewModel now extends AndroidViewModel
             // with a multi-param constructor that AndroidViewModelFactory can't match.
-            val viewModel: CoastlineViewModel = viewModel(
-                factory = CoastlineViewModel.Factory
+            val viewModel: NavigationViewModel = viewModel(
+                factory = NavigationViewModel.Factory
             )
             val depthViewModel: DepthViewModel = viewModel()
             val appSettings by viewModel.settings.collectAsState()

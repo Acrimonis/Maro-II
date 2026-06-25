@@ -220,7 +220,7 @@ internal fun computeTrackPolylineAppearance(
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @Composable
 fun MapScreen(
-    viewModel: CoastlineViewModel,
+    viewModel: NavigationViewModel,
     depthViewModel: DepthViewModel,
     modifier: Modifier = Modifier
 ) {
@@ -268,7 +268,7 @@ fun MapScreen(
     val effectiveHeadingDeg = if (appSettings.gpsMode) navigationState.bearingDeg.toDouble()
         else navigationState.demoBearingDeg?.toDouble() ?: 0.0
 
-    // Derive the GPS icon state from ViewModel state (6-state model).
+    // Derive the GPS icon state from NavigationViewModel state (6-state model).
     val gpsIconState = remember(appSettings.gpsMode, gpsPosition, gpsStale, acquisitionMode, isEstimating) {
         when {
             !appSettings.gpsMode -> GpsIconState.DEMO
@@ -551,7 +551,7 @@ fun MapScreen(
                     kotlinx.coroutines.flow.flowOf(0L)
                 }
             }
-        val gpsFlow = kotlinx.coroutines.flow.combine(
+        val sampleFlow = kotlinx.coroutines.flow.combine(
             viewModel.gpsPosition,
             viewModel.mapCenter,
             viewModel.navigationState,
@@ -567,17 +567,31 @@ fun MapScreen(
             val speedMs = speedKn?.let { it * 0.514444f }
             val bearing = if (isGps) nav.bearingDeg else nav.demoBearingDeg
             android.util.Log.d("MaroII_Track",
-                "GPSflow: gpsPos=${gpsPos != null} demoSpeed=${nav.demoSpeedKnots} speedKn=$speedKn speedMs=$speedMs")
-            ykws.android.maro.data.location.GpsFix(
+                "TrackSample: gpsPos=${gpsPos != null} demoSpeed=${nav.demoSpeedKnots} speedKn=$speedKn speedMs=$speedMs")
+            ykws.android.maro.data.track.TrackSample(
                 position = pos,
-                bearingDeg = bearing,
-                hasCourse = speedMs != null && speedMs > 0.5f,
                 speedMps = speedMs,
-                hasLock = true,
+                bearingDeg = bearing,
+                hasLock = isGps,
                 timestampEpochMs = System.currentTimeMillis()
             )
         }.filterNotNull()
-        trackViewModel.startRecorder(gpsFlow, appSettings)
+        trackViewModel.setStoppedSource(viewModel.isStopped)
+        trackViewModel.startRecorder(sampleFlow, appSettings)
+
+        // Periodic demo position feed: when GPS is off, re-feed the map center
+        // every second so the adaptive policy timer advances toward IDLE even
+        // when the user has stopped dragging (feedDemoPosition from onCenterChanged
+        // only fires on actual scroll events).
+        while (true) {
+            if (!appSettings.gpsMode) {
+                val center = viewModel.mapCenter.value
+                if (center != null) {
+                    viewModel.feedDemoPosition(center.latitude, center.longitude)
+                }
+            }
+            kotlinx.coroutines.delay(1_000L)
+        }
     }
 
     // ── Track overlay: incremental diff for history tracks with fading transparency ──
@@ -667,31 +681,26 @@ fun MapScreen(
         mv.invalidate()
     }
 
-    // ── Active recording trace: real-time Polyline during RECORDING ─────────
+    // ── Active recording trace: incremental polyline via newPoint stream ────
+    // Polyline lifecycle (create/remove) driven by recorder state snapshot.
     LaunchedEffect(mapView, appSettings.trackingColorActive) {
         val mv = mapView ?: return@LaunchedEffect
-        androidx.compose.runtime.snapshotFlow { trackRecorderState }
-            .collect { state ->
-                val recState = state.state
-                val points = state.recordingPoints
-
-                if (recState == ykws.android.maro.data.track.TrackRecorderState.ON && points.isNotEmpty()) {
+        androidx.compose.runtime.snapshotFlow { trackRecorderState.state }
+            .collect { recState ->
+                if (recState == ykws.android.maro.data.track.TrackRecorderState.ON) {
                     val existing = mv.overlays.firstOrNull {
                         (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording"
-                    } as? org.osmdroid.views.overlay.Polyline
-                    if (existing != null) {
-                        existing.setPoints(points.map { org.osmdroid.util.GeoPoint(it.lat, it.lon) })
-                    } else {
+                    }
+                    if (existing == null) {
                         val polyline = org.osmdroid.views.overlay.Polyline().apply {
                             title = "track_recording"
                             outlinePaint.color = appSettings.trackingColorActive
                             outlinePaint.strokeWidth = 10f
                             isVisible = true
-                            setPoints(points.map { org.osmdroid.util.GeoPoint(it.lat, it.lon) })
                         }
                         mv.overlays.add(polyline)
+                        mv.invalidate()
                     }
-                    mv.invalidate()
                 } else {
                     val removed = mv.overlays.removeAll {
                         (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording"
@@ -699,6 +708,20 @@ fun MapScreen(
                     if (removed) mv.invalidate()
                 }
             }
+    }
+
+    // ── Incremental point appending: observe newPoint stream for live polyline ─┐
+    // Keyed on recorder state so a stop→restart cycle re-obtains the new SharedFlow.
+    LaunchedEffect(mapView, trackRecorderState.state) {
+        val mv = mapView ?: return@LaunchedEffect
+        val stream = trackViewModel.newPointStream ?: return@LaunchedEffect
+        stream.collect { point ->
+            val polyline = mv.overlays.firstOrNull {
+                (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording"
+            } as? org.osmdroid.views.overlay.Polyline ?: return@collect
+            polyline.addPoint(org.osmdroid.util.GeoPoint(point.lat, point.lon))
+            mv.invalidate()
+        }
     }
 
     // ── Foreground notification updates ────────────────────────────────────
@@ -729,10 +752,15 @@ fun MapScreen(
     }
 
     // The map centre drives BOTH layers: coastline (distance/zone) and depth-at-centre.
-    val onCenterChanged: (Double, Double) -> Unit = remember(viewModel, depthViewModel) {
+    // Also feeds into adaptive stop detection in demo mode.
+    val onCenterChanged: (Double, Double) -> Unit = remember(viewModel, depthViewModel, appSettings) {
         { lat, lon ->
             viewModel.updateMapCenter(lat, lon)
             depthViewModel.updateMapCenter(lat, lon)
+            // In demo mode, feed map center into adaptive policy for stop detection
+            if (!appSettings.gpsMode) {
+                viewModel.feedDemoPosition(lat, lon)
+            }
         }
     }
 
