@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** Markers
-- **Active Subfeature:** create-zones-flow
-- **Last Updated:** 2026-06-24 18:07
+- **Active Feature:** Ui_Settings
+- **Active Subfeature:** render-tweaks
+- **Last Updated:** 2026-06-25 22:08
 - **Last Bake:** 2026-06-24 11:38 (Markers — marker layer toggle fix: Polygon fills + MapEventsOverlay cleanup; #merge onto develop; restored 7-step merge procedure. Build ✅)
-- **Branch:** feature/markers
+- **Branch:** feature/settings-render
 ## Routing Map
 | Keyword | Feature File |
 |---|---|

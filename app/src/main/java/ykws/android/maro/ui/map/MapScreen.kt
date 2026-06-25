@@ -2454,6 +2454,7 @@ private fun GeneralSettings(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
                 .background(ComposeColor(AppConfig.uiCardBackground))
+                .padding(vertical = 8.dp)
         ) {
             // Toggle row (inline)
             Row(
@@ -2565,6 +2566,7 @@ private fun GeneralSettings(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
                 .background(ComposeColor(AppConfig.uiCardBackground))
+                .padding(vertical = 8.dp)
         ) {
             Row(
                 modifier = Modifier
@@ -2695,6 +2697,7 @@ private fun GeneralSettings(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
                 .background(ComposeColor(AppConfig.uiCardBackground))
+                .padding(vertical = 8.dp)
         ) {
             // Master toggle row
             Row(
@@ -2944,6 +2947,7 @@ private fun NavigationSettings(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
                 .background(ComposeColor(AppConfig.uiCardBackground))
+                .padding(vertical = 8.dp)
         ) {
             // Auto-show GPS mode toggle
             Row(
@@ -3062,6 +3066,7 @@ private fun NavigationSettings(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
                 .background(ComposeColor(AppConfig.uiCardBackground))
+                .padding(vertical = 8.dp)
         ) {
             // Auto-show GPS mode toggle
             Row(
@@ -3249,6 +3254,7 @@ private fun SystemSettings(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
                 .background(ComposeColor(AppConfig.uiCardBackground))
+                .padding(vertical = 8.dp)
         ) {
             // GPS mode toggle row (inline, no separate card background)
             Row(
@@ -3361,6 +3367,7 @@ private fun SystemSettings(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
                 .background(ComposeColor(AppConfig.uiCardBackground))
+                .padding(vertical = 8.dp)
         ) {
             // Enable stop detection toggle
             SettingsToggleRow(
@@ -3565,7 +3572,7 @@ private fun SettingsToggleRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(ComposeColor(AppConfig.uiCardBackground))
-            .padding(horizontal = 16.dp, vertical = 2.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -3628,7 +3635,7 @@ private fun SettingsSliderGroup(
                 if (nested) Modifier.border(1.dp, ComposeColor(0x40FFFFFF), RoundedCornerShape(12.dp))
                 else Modifier
             )
-            .padding(horizontal = 16.dp, vertical = 2.dp)
+            .padding(horizontal = 16.dp, vertical = if (nested) 2.dp else 8.dp)
     ) {
         content()
     }
@@ -3982,7 +3989,7 @@ private fun SettingsFrequencyRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(ComposeColor(AppConfig.uiCardBackground))
-            .padding(horizontal = 16.dp, vertical = 2.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp)
     ) {
         Text(
             text = stringResource(R.string.settings_freq_label),
@@ -4053,7 +4060,7 @@ private fun SettingsTextFieldRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(ComposeColor(AppConfig.uiCardBackground))
-            .padding(horizontal = 16.dp, vertical = 2.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
