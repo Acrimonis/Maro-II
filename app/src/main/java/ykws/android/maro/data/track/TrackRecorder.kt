@@ -119,6 +119,10 @@ class TrackRecorder(
     private val _events = MutableSharedFlow<TrackEvent>(extraBufferCapacity = 64)
     val events: SharedFlow<TrackEvent> = _events.asSharedFlow()
 
+    /** Incremental point stream — emits each captured point for polyline appending. */
+    private val _newPoint = MutableSharedFlow<TrackPoint>(extraBufferCapacity = 64)
+    val newPoint: SharedFlow<TrackPoint> = _newPoint.asSharedFlow()
+
     // Internal mutable state
     @Volatile
     private var state: TrackRecorderState = TrackRecorderState.OFF
@@ -443,6 +447,7 @@ class TrackRecorder(
 
         pointsSinceLastCheckpoint++
         _events.tryEmit(PointCaptured(point))
+        _newPoint.tryEmit(point)
         val avgKn = if (speedCount > 0) {
             (speedSumMps / speedCount) * 1.94384f
         } else 0f
@@ -451,8 +456,7 @@ class TrackRecorder(
                 pointCount = it.pointCount + 1,
                 currentSpeedKn = latestSpeedKn,
                 distanceNm = cumulativeDistanceNm,
-                avgSpeedKn = avgKn,
-                recordingPoints = currentTrack!!.trackPoints
+                avgSpeedKn = avgKn
             )
         }
 

@@ -1,7 +1,7 @@
 # Hydration — GPS
 
-**Last Bake:** 2026-06-25 09:46
-**State:** yarefact: Phase A+B complete. Duplicate AdaptiveGpsPolicy removed from TrackRecorder, unified isStopped gate, GpsSignalWatchdog reordered+IDLE-gated, feedDemoPosition for demo stop detection, TrackSample pipeline replaces virtual GpsFix. CoastlineViewModel → NavigationViewModel. Build ✅.
+**Last Bake:** 2026-06-25 10:15
+**State:** yarefact: Phase A+B+C complete. Polyline streaming via _newPoint SharedFlow, incremental appending, stop→restart fix. Build ✅.
 
 ## Summary
 - Phase A — removed duplicate AdaptiveGpsPolicy from TrackRecorder, unified isStopped gate (`if (isStopped.value) return`), added feedDemoPosition() for demo mode stop detection with 1Hz periodic re-feed. GpsSignalWatchdog reordered before onFix, double-gated on `_acquisitionMode != IDLE`. setStoppedSource() forwarding on TrackViewModel.

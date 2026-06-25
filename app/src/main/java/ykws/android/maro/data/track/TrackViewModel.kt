@@ -36,6 +36,10 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
     private val _summaries = MutableStateFlow<List<TrackSummary>>(emptyList())
     val summaries: StateFlow<List<TrackSummary>> = _summaries.asStateFlow()
 
+    /** Accessor for the recorder's incremental new-point stream (null when recorder isn't active). */
+    val newPointStream: SharedFlow<TrackPoint>?
+        get() = recorder?.newPoint
+
     // Recovery state — non-null when an orphaned checkpoint is found
     private val _recoveryTrack = MutableStateFlow<Track?>(null)
     val recoveryTrack: StateFlow<Track?> = _recoveryTrack.asStateFlow()

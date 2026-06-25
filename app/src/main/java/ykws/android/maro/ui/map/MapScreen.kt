@@ -681,31 +681,26 @@ fun MapScreen(
         mv.invalidate()
     }
 
-    // ── Active recording trace: real-time Polyline during RECORDING ─────────
+    // ── Active recording trace: incremental polyline via newPoint stream ────
+    // Polyline lifecycle (create/remove) driven by recorder state snapshot.
     LaunchedEffect(mapView, appSettings.trackingColorActive) {
         val mv = mapView ?: return@LaunchedEffect
-        androidx.compose.runtime.snapshotFlow { trackRecorderState }
-            .collect { state ->
-                val recState = state.state
-                val points = state.recordingPoints
-
-                if (recState == ykws.android.maro.data.track.TrackRecorderState.ON && points.isNotEmpty()) {
+        androidx.compose.runtime.snapshotFlow { trackRecorderState.state }
+            .collect { recState ->
+                if (recState == ykws.android.maro.data.track.TrackRecorderState.ON) {
                     val existing = mv.overlays.firstOrNull {
                         (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording"
-                    } as? org.osmdroid.views.overlay.Polyline
-                    if (existing != null) {
-                        existing.setPoints(points.map { org.osmdroid.util.GeoPoint(it.lat, it.lon) })
-                    } else {
+                    }
+                    if (existing == null) {
                         val polyline = org.osmdroid.views.overlay.Polyline().apply {
                             title = "track_recording"
                             outlinePaint.color = appSettings.trackingColorActive
                             outlinePaint.strokeWidth = 10f
                             isVisible = true
-                            setPoints(points.map { org.osmdroid.util.GeoPoint(it.lat, it.lon) })
                         }
                         mv.overlays.add(polyline)
+                        mv.invalidate()
                     }
-                    mv.invalidate()
                 } else {
                     val removed = mv.overlays.removeAll {
                         (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording"
@@ -713,6 +708,20 @@ fun MapScreen(
                     if (removed) mv.invalidate()
                 }
             }
+    }
+
+    // ── Incremental point appending: observe newPoint stream for live polyline ─┐
+    // Keyed on recorder state so a stop→restart cycle re-obtains the new SharedFlow.
+    LaunchedEffect(mapView, trackRecorderState.state) {
+        val mv = mapView ?: return@LaunchedEffect
+        val stream = trackViewModel.newPointStream ?: return@LaunchedEffect
+        stream.collect { point ->
+            val polyline = mv.overlays.firstOrNull {
+                (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording"
+            } as? org.osmdroid.views.overlay.Polyline ?: return@collect
+            polyline.addPoint(org.osmdroid.util.GeoPoint(point.lat, point.lon))
+            mv.invalidate()
+        }
     }
 
     // ── Foreground notification updates ────────────────────────────────────
