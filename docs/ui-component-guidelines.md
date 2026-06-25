@@ -27,20 +27,20 @@ New setting?
 
 ### 2.1 Standalone Toggle — `SettingsToggleRow`
 
-Self-contained card (`uiCardBackground`, 12dp radius, 16×2dp pad). Gap between: `${ui.spacing.card.gap}`.
+Self-contained card (`uiCardBackground`, 12dp radius, 16×8dp pad). Gap between: `${ui.spacing.card.gap}`.
 
 🔴 Never nest inside a grouped card — it IS a card.
 
 ### 2.2 Standalone Slider — `SettingsSliderRow`
 
-Wraps `SliderRowContent` inside `SettingsSliderGroup`. Standalone (top-level) = `uiCardBackground`. Gap: `${ui.spacing.card.gap}`.
+Wraps `SliderRowContent` inside `SettingsSliderGroup`. Standalone (top-level) = `uiCardBackground`, 16×8dp pad. Nested = `0x0DFFFFFF`, 16×2dp pad. Gap: `${ui.spacing.card.gap}`.
 
 ### 2.3 Grouped Card
 
 Outer `Column(uiCardBackground, 12dp radius)` with **inline toggle rows** (not `SettingsToggleRow`):
 
 ```
-Column(uiCardBackground, 12dp radius) {
+Column(uiCardBackground, 12dp radius, ${ui.padding.card.vertical} pad) {
     Row(16×${ui.padding.grouped.toggle.vertical} pad) { Text + Switch }   ← inline toggle
     Spacer(${ui.spacing.grouped.row.gap})
     Row(16×${ui.padding.grouped.toggle.vertical} pad) { Text + Switch }   ← more toggles
@@ -110,6 +110,7 @@ Spacer(6.dp)
 
 | Context | Token | Value |
 |---|---|---|
+| Card vertical (top/bottom) | `ui.padding.card.vertical` | 8dp |
 | Card→card (standalone) | `ui.spacing.card.gap` | 12dp |
 | Section→section | `ui.spacing.section.gap` | 24dp |
 | Header→first card | `ui.spacing.header.bottom` | 8dp |

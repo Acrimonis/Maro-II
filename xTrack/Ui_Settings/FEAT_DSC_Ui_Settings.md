@@ -2,8 +2,8 @@
 name: Ui_Settings
 status: active
 created: 2026-06-09 15:28
-modified: 2026-06-18 19:10
-active_subfeature: none
+modified: 2026-06-25 22:06
+active_subfeature: render-tweaks
 ---
 
 **Description:** Settings page UI, settings persistence (SharedPreferences), settings-related widgets, and settings UX enhancements.
@@ -57,6 +57,20 @@ active_subfeature: none
 #### Rules
 - `selectedTab` must be hoisted to `MapScreen` composable level with `rememberSaveable` so it survives overlay dismissal/recomposition
 - Scroll states (`displayScrollState`, `navigationScrollState`, `systemScrollState`) are already at `MapScreen` level — verify they correctly persist across overlay toggle
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
+
+### render-tweaks  [ ]
+
+#### Todos
+- [ ] Tweak card rendering in settings overlays per ui-component-guidelines.md
+
+#### Rules
+- Follow canonical patterns in `docs/ui-component-guidelines.md` — grouped cards (§2.3), nested surfaces (§2.4), divider spacing (§2.6)
+- Card background: `uiCardBackground`, 12dp radius
+- Nested card surface: `ui.nested.card.bg` / `ui.nested.card.border`
+- No anti-patterns (§4)
 
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
@@ -118,6 +132,7 @@ active_subfeature: none
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
 
 ## Docs
+- `xTrack/Ui_Settings/FEAT_PLN_Ui_Settings_render-tweaks.md` — card rendering tweaks discussion (padding, bg darkness, nested surfaces)
 - `xTrack/Ui_Settings/FEAT_PLN_Ui_Settings_apply-on-close.md` — settings apply-on-close UX design
 - `xTrack/Ui_Settings/FEAT_PLN_Ui_Settings_scroll-persistence.md` — discussion: hoist `ScrollState` to survive overlay dismiss/reopen within a session
 - `xTrack/Ui_Settings/FEAT_PLN_Ui_Settings_scroll-persistence-analysis.md` — scroll persistence analysis

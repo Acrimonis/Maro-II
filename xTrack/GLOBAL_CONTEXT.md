@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** Markers
-- **Active Subfeature:** create-zones-flow
-- **Last Updated:** 2026-06-25 16:08
-- **Last Bake:** 2026-06-25 16:08 (Markers — #merge rebase onto origin/develop; CoastlineViewModel→NavigationViewModel + GpsFix→TrackSample API fixes; build ✅)
-- **Branch:** feature/markers
+- **Active Feature:** Ui_Settings
+- **Active Subfeature:** render-tweaks
+- **Last Updated:** 2026-06-25 22:08
+- **Last Bake:** 2026-06-24 11:38 (Markers — marker layer toggle fix: Polygon fills + MapEventsOverlay cleanup; #merge onto develop; restored 7-step merge procedure. Build ✅)
+- **Branch:** feature/settings-render
 ## Routing Map
 | Keyword | Feature File |
 |---|---|
@@ -43,7 +43,7 @@
 | DepthMapping | Bathymetry / depth mapping from Litto3D, SHOM, EMODnet sources | 2026-05-10 00:00 | 2026-06-10 12:13 | active |
 | Coastline | Coastline extraction, spatial indexing, isOnWater, hazard rings, unified data store; eastern bound extended to Menton (7.55°E), single region ID via BuildConfig | 2026-05-10 00:00 | 2026-06-23 07:08 | active |
 | Ui_Dashboard | Main dashboard UI layout and HUD information display | 2026-05-15 00:00 | 2026-06-15 08:29 | active |
-| GPS | GPS plugin with demo mode, heading/COG compass, geolocation | 2026-05-10 00:00 | 2026-06-25 10:15 | active |
+| GPS | GPS plugin with demo mode, heading/COG compass, geolocation | 2026-05-10 00:00 | 2026-06-23 08:09 | active |
 | UI_Map | Map rendering, depth color layer, orientation overlay, boat marker offset | 2026-05-10 00:00 | 2026-06-14 19:39 | active |
 | Performance | Battery optimization, adaptive GPS tuning, compass gate, map refresh | 2026-05-20 00:00 | 2026-06-05 00:00 | active |
 | BakeNormalization | APK bake/build/deploy pipeline and prebake data processing | 2026-06-01 00:00 | 2026-06-05 00:00 | active |
@@ -60,7 +60,7 @@
 | **Health** | **Application health monitoring — diagnostics, crash reporting, memory/performance telemetry** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
 | **WorkflowAmbiguityFix** | **Eliminate ambiguity between AGENTS.md rules — #merge direction, §5 reinforcement, command doc alignment** | **2026-06-20 14:51** | **2026-06-20 14:51** | **active** |
 | **ui-small-potatoes** | **UI polish, refinements, and small fixes across the app** | **2026-06-22 13:50** | **2026-06-22 14:20** | **active** |
-| **Markers** | **User-defined map markers (Pin, Circle, Corridor) with sea-distance-gated proximity matching and on-demand "where am I?" query** | **2026-06-22 11:52** | **2026-06-25 16:08** | **active** |
+| **Markers** | **User-defined map markers (Pin, Circle, Corridor) with sea-distance-gated proximity matching and on-demand "where am I?" query** | **2026-06-22 11:52** | **2026-06-24 11:38** | **active** |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).
