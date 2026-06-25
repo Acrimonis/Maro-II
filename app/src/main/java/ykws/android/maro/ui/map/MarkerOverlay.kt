@@ -22,8 +22,8 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.spatial.SpatialOperations
-import ykws.android.maro.spatial.MatchResult
-import ykws.android.maro.spatial.TieredMatchResult
+import ykws.android.maro.spatial.WhereAmIMatch
+import ykws.android.maro.spatial.WhereAmIResult
 import kotlin.math.*
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -102,7 +102,7 @@ fun MarkerOverlay(
     modifier: Modifier = Modifier,
     unconfirmedMarker: UserMarker? = null,
     onMarkerTap: (String) -> Unit = {},
-    matchResult: TieredMatchResult? = null,
+    matchResult: WhereAmIResult? = null,
     markerZonesVisible: Boolean = true,
     selectedMarkerId: String? = null
 ) {
@@ -120,23 +120,12 @@ fun MarkerOverlay(
     }
 
     // ── P6: Build set of matched marker IDs for highlighting ──────────────────
-    val matchedIds: Set<String> = if (matchResult != null) {
-        val ids = mutableSetOf<String>()
-        fun collectIds(results: List<MatchResult>) {
-            for (r in results) {
-                when (r) {
-                    is MatchResult.ZoneMatch -> {
-                        ids.add(r.marker.id)
-                        collectIds(r.children)
-                    }
-                    is MatchResult.ProximityMatch -> ids.add(r.marker.id)
-                    is MatchResult.NoMatch -> {}
-                }
-            }
+    val matchedIds: Set<String> = matchResult?.allMatches?.mapNotNull { match ->
+        when (match) {
+            is WhereAmIMatch.ZoneMatch -> match.marker.id
+            is WhereAmIMatch.ProximityMatch -> match.marker.id
         }
-        collectIds(matchResult.matches)
-        ids
-    } else emptySet()
+    }?.toSet() ?: emptySet()
 
     DisposableEffect(markers, unconfirmedMarker, mv, matchResult) {
         // ── Remove old marker overlays, then add new ones ─────────────────────
@@ -212,10 +201,11 @@ fun MarkerOverlay(
                             confirmed = confirmed, onMarkerTap = onMarkerTap)
                     }
 
-                    // Proximity range preview (fill + stroke)
+                    // Proximity range preview (fill + stroke) — drawn from zone boundary outward
                     if (drawZones) {
-                        val previewRadiusM = marker.proximityOverrideM
+                        val proximityM = marker.proximityOverrideM
                             ?: (geom.radiusM * proximityZoneMultiplier)
+                        val totalRadiusM = geom.radiusM + proximityM
                         // Fill
                         val proxFill = Polygon().apply {
                             title = "$OVERLAY_PREFIX${marker.id}_prox_fill"
@@ -224,13 +214,13 @@ fun MarkerOverlay(
                             outlinePaint.strokeWidth = 0f
                             points = Polygon.pointsAsCircle(
                                 GeoPoint(geom.center.latitude, geom.center.longitude),
-                                previewRadiusM
+                                totalRadiusM
                             )
                         }
                         mv.overlays.add(proxFill)
                         // Stroke
                         addCirclePolyline(
-                            mv, geom.center, previewRadiusM,
+                            mv, geom.center, totalRadiusM,
                             "$OVERLAY_PREFIX${marker.id}_prox",
                             COLOR_PROXIMITY_PREVIEW, 2f,
                             dashed = false
@@ -250,11 +240,11 @@ fun MarkerOverlay(
                             confirmed = confirmed, onMarkerTap = onMarkerTap)
                     }
 
-                    // Proximity range preview (fill + stroke)
+                    // Proximity range preview (fill + stroke) — drawn from zone boundary outward
                     if (drawZones) {
                         val proximityM = marker.proximityOverrideM
                             ?: (geom.widthM * proximityZoneMultiplier)
-                        val halfProx = proximityM / 2.0
+                        val halfProx = geom.widthM / 2.0 + proximityM
                         // Fill
                         val proxBearing = SpatialOperations.initialBearing(geom.p1, geom.p2)
                         val proxFillPts = buildCorridorFillPoints(geom.p1, geom.p2, halfProx, proxBearing)

@@ -54,9 +54,9 @@ import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.UserMarker
-import ykws.android.maro.spatial.MatchResult
 import ykws.android.maro.spatial.SpatialOperations
-import ykws.android.maro.spatial.TieredMatchResult
+import ykws.android.maro.spatial.WhereAmIMatch
+import ykws.android.maro.spatial.WhereAmIResult
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public composable
@@ -268,7 +268,7 @@ private fun MatchResultContent(viewModel: MarkersViewModel, onClose: () -> Unit)
         )
         Spacer(Modifier.height(8.dp))
 
-        val matches = result?.matches ?: emptyList()
+        val matches = result?.allMatches ?: emptyList()
         if (matches.isEmpty()) {
             if (allMarkers.isEmpty()) {
                 Text(
@@ -297,53 +297,23 @@ private fun MatchResultContent(viewModel: MarkersViewModel, onClose: () -> Unit)
                 )
             }
         } else {
-            matches.forEach { match ->
-                MatchResultRow(match, indent = 0)
+            // Sentence-format display: "NW of P1, Z2, NE of C3"
+            val sentence = matches.joinToString(", ") { match ->
+                when (match) {
+                    is WhereAmIMatch.ZoneMatch -> match.marker.name  // no prefix for zones
+                    is WhereAmIMatch.ProximityMatch -> "${cardinalDirection(match.bearingDeg)} of ${match.marker.name}"
+                }
             }
+            Text(
+                text = sentence,
+                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium
+            )
         }
 
         Spacer(Modifier.height(6.dp))
     }
-}
-
-@Composable
-private fun MatchResultRow(match: MatchResult, indent: Int) {
-    val prefix = "  ".repeat(indent)
-    when (match) {
-        is MatchResult.ZoneMatch -> {
-            val g = match.marker.geometry
-            val geometryDesc = when (g) {
-                is MarkerGeometry.Circle -> "circle ${g.radiusM.toLong()}m"
-                is MarkerGeometry.Corridor -> "corridor ${g.widthM.toLong()}m"
-                is MarkerGeometry.Pin -> "pin"
-            }
-            Text(
-                "${prefix}\u2514\u2500 ${match.marker.name}  \u00B7  $geometryDesc  \u00B7  inside zone",
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium
-            )
-            match.children.forEach { child ->
-                MatchResultRow(child, indent + 1)
-            }
-        }
-        is MatchResult.ProximityMatch -> {
-            val g = match.marker.geometry
-            val geometryDesc = when (g) {
-                is MarkerGeometry.Circle -> "circle ${g.radiusM.toLong()}m"
-                is MarkerGeometry.Corridor -> "corridor ${g.widthM.toLong()}m"
-                is MarkerGeometry.Pin -> "pin"
-            }
-            Text(
-                "${prefix}\uD83D\uDCCD ${match.marker.name}  \u00B7  $geometryDesc  \u00B7  ${"%.0f".format(match.distanceM)} m",
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium
-            )
-        }
-        is MatchResult.NoMatch -> { /* unreachable */ }
-    }
-    Spacer(Modifier.height(2.dp))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -392,5 +362,20 @@ private fun DrawerHeader(
         if (actions != null) {
             actions()
         }
+    }
+}
+
+/** Converts a bearing (0-360°) to a cardinal direction: N, NE, E, SE, S, SW, W, NW. */
+private fun cardinalDirection(bearingDeg: Double): String {
+    val normalized = ((bearingDeg % 360) + 360) % 360
+    return when {
+        normalized < 22.5 || normalized >= 337.5 -> "N"
+        normalized < 67.5 -> "NE"
+        normalized < 112.5 -> "E"
+        normalized < 157.5 -> "SE"
+        normalized < 202.5 -> "S"
+        normalized < 247.5 -> "SW"
+        normalized < 292.5 -> "W"
+        else -> "NW"
     }
 }

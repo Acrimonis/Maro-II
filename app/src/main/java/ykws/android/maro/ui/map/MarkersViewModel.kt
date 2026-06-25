@@ -13,16 +13,16 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.markers.UserMarkerRepository
-import ykws.android.maro.data.model.CoastlineData
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.settings.SettingsManager
+import ykws.android.maro.spatial.CoastlineSpatialIndex
 import ykws.android.maro.spatial.MarkerMatcher
-import ykws.android.maro.spatial.MatchResult
 import ykws.android.maro.spatial.ProximityConfig
-import ykws.android.maro.spatial.TieredMatchResult
+import ykws.android.maro.spatial.WhereAmIMatch
+import ykws.android.maro.spatial.WhereAmIResult
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -76,8 +76,8 @@ data class CreateFormState(
     val name: String = "",
     val type: MarkerType = MarkerType.PIN,
     val position: LatLng? = null,         // pin position / circle centre / corridor p1
-    val radiusM: Double = 200.0,
-    val widthM: Double = 300.0,
+    val radiusM: Double = 100.0,
+    val widthM: Double = 100.0,
     val proximityOverrideM: String = "",  // empty = use computed default
     val description: String = "",
     // Corridor 2nd-point
@@ -160,8 +160,8 @@ class MarkersViewModel(
     val selectedMarkerId: StateFlow<String?> = _selectedMarkerId.asStateFlow()
 
     /** Result of the last "where am I?" query. */
-    private val _matchResult = MutableStateFlow<TieredMatchResult?>(null)
-    val matchResult: StateFlow<TieredMatchResult?> = _matchResult.asStateFlow()
+    private val _matchResult = MutableStateFlow<WhereAmIResult?>(null)
+    val matchResult: StateFlow<WhereAmIResult?> = _matchResult.asStateFlow()
 
     /** Mutable form state for creation/editing (lives here so it survives drawer close). */
     private val _createForm = MutableStateFlow(CreateFormState())
@@ -175,9 +175,9 @@ class MarkersViewModel(
         SimpleDateFormat("EEE, dd MMM yy 'at' HH:mm", Locale.US)
     }
 
-    // ── Coastline data (injected by the screen) ───────────────────────────
+    // ── Coastline index (injected by the screen) ──────────────────────────
     /** Set by [MapScreen] when coastline is ready. Used by land-blocking engine. */
-    var coastlineData: CoastlineData? = null
+    var coastlineIndex: CoastlineSpatialIndex? = null
 
     // ── Init ──────────────────────────────────────────────────────────────
 
@@ -217,8 +217,8 @@ class MarkersViewModel(
             is MarkerGeometry.Circle -> MarkerType.CIRCLE
             is MarkerGeometry.Corridor -> MarkerType.CORRIDOR
         }
-        val radiusM = (marker.geometry as? MarkerGeometry.Circle)?.radiusM ?: 200.0
-        val widthM = (marker.geometry as? MarkerGeometry.Corridor)?.widthM ?: 300.0
+        val radiusM = (marker.geometry as? MarkerGeometry.Circle)?.radiusM ?: 100.0
+        val widthM = (marker.geometry as? MarkerGeometry.Corridor)?.widthM ?: 100.0
         val corridorP2 = (marker.geometry as? MarkerGeometry.Corridor)?.p2
 
         _createForm.value = CreateFormState(
@@ -269,7 +269,6 @@ class MarkersViewModel(
         _createForm.value = CreateFormState(
             type = initialType,
             position = initialPos,
-            radiusM = 200.0,
             name = dateFormat.get()!!.format(now),
             description = dateTimeFormat.get()!!.format(now)
         )
@@ -294,8 +293,8 @@ class MarkersViewModel(
                 is MarkerGeometry.Circle -> MarkerType.CIRCLE
                 is MarkerGeometry.Corridor -> MarkerType.CORRIDOR
             }
-            val radiusM = (marker.geometry as? MarkerGeometry.Circle)?.radiusM ?: 200.0
-            val widthM = (marker.geometry as? MarkerGeometry.Corridor)?.widthM ?: 300.0
+            val radiusM = (marker.geometry as? MarkerGeometry.Circle)?.radiusM ?: 100.0
+            val widthM = (marker.geometry as? MarkerGeometry.Corridor)?.widthM ?: 100.0
             val corridorP2 = (marker.geometry as? MarkerGeometry.Corridor)?.p2
             _createForm.value = CreateFormState(
                 name = marker.name,
@@ -519,14 +518,14 @@ class MarkersViewModel(
 
     /**
      * Runs [MarkerMatcher.resolveAllMarkers] at [boatPos] using the injected
-     * coastline data.  Posts the result to [matchResult] and switches the
+     * coastline spatial index.  Posts the result to [matchResult] and switches the
      * drawer to [MarkerDrawerState.MatchResult].
      */
     fun whereAmI(boatPos: LatLng) {
-        val coast = coastlineData ?: return
+        val index = coastlineIndex ?: return
         val all = _markers.value
         if (all.isEmpty()) {
-            _matchResult.value = TieredMatchResult(emptyList())
+            _matchResult.value = WhereAmIResult(emptyList())
             _drawerState.value = MarkerDrawerState.MatchResult
             return
         }
@@ -538,7 +537,7 @@ class MarkersViewModel(
 
         viewModelScope.launch {
             val result = withContext(Dispatchers.Default) {
-                MarkerMatcher.resolveAllMarkers(boatPos, all, coast, config)
+                MarkerMatcher.resolveAllMarkers(boatPos, all, index, config)
             }
             _matchResult.value = result
             _drawerState.value = MarkerDrawerState.MatchResult

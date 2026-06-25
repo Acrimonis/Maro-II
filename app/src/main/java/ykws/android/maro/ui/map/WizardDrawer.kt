@@ -165,8 +165,8 @@ private fun WizardStepContent(
             SliderStep(
                 title = if (isCorridor) "Width" else "Radius",
                 valueM = if (isCorridor) form.widthM else form.radiusM,
-                range = 0.0..500.0,
-                step = 5.0,
+                range = 0.0..1000.0,
+                step = 25.0,
                 unit = "m",
                 onValueChange = { v ->
                     viewModel.updateForm {
@@ -182,16 +182,11 @@ private fun WizardStepContent(
                 MarkerType.CIRCLE -> form.radiusM
                 MarkerType.CORRIDOR -> form.widthM
             }
-            val maxProximity = when (form.type) {
-                MarkerType.PIN -> 500.0
-                MarkerType.CIRCLE -> 3.0 * form.radiusM
-                MarkerType.CORRIDOR -> 3.0 * form.widthM
-            }
             SliderStep(
                 title = "Proximity",
-                valueM = form.proximityOverrideM.toDoubleOrNull() ?: defaultValue,
-                range = 0.0..maxProximity,
-                step = 5.0,
+                valueM = form.proximityOverrideM.toDoubleOrNull() ?: 100.0,
+                range = 0.0..1000.0,
+                step = 25.0,
                 unit = "m",
                 onValueChange = { v ->
                     viewModel.updateForm { it.copy(proximityOverrideM = v.toLong().toString()) }

@@ -3,6 +3,7 @@
 > **Feature:** Markers | **Subfeature:** whereami-rework
 > **Created:** 2026-06-25 | **Status:** Design — confirmed, all review findings addressed
 > **Invocation:** Boat marker tap → "where am I?" (auto-refresh timing deferred)
+> **Implemented:** 2026-06-25 — 7 files changed, build ✅
 
 ---
 
@@ -185,8 +186,7 @@ allMatches.forEach { match ->
 
 ## 8. Deferred
 
-- Sentence format string ("next to P1, in Z2, next to C3")
-- Proper UI component in `MatchResultContent`
+- ~~Sentence format string ("next to P1, in Z2, next to C3")~~ ✅ implemented
 - Auto-refresh timing (currently: boat marker tap only)
 
 ## 9. Key Files
@@ -221,3 +221,18 @@ Boat inside Z2 (circle 150m), Z2 inside C3 (corridor 400m), P1 at 30m inside Z2
 Boat near P1 (50m), P2 (120m), C5 corridor (300m). Nothing contains boat.
 → Display: [ProximityMatch(P1), ProximityMatch(P2), ProximityMatch(C5)]  → "next to P1, next to P2, next to C5"
 ```
+
+## Implemented
+
+| File | Change |
+|------|--------|
+| [`MarkerMatcher.kt`](app/src/main/java/ykws/android/maro/spatial/MarkerMatcher.kt) | Rewritten (374↓633 lines). New `WhereAmIMatch`/`WhereAmIResult` types. Depth-first leaves-first traversal. 1km BBox fence. Removed dead comparators + old types. Immutable `children: List` with `copy()`. |
+| [`CoastlineSpatialIndex.kt`](app/src/main/java/ykws/android/maro/spatial/CoastlineSpatialIndex.kt) | Added `segmentIntersectsLand(a, b): Boolean` — grid-pre-filtered, 10m grazing, short-circuit. |
+| [`CoastlineRepository.kt`](app/src/main/java/ykws/android/maro/data/coastline/CoastlineRepository.kt) | Exposed `spatialIndex` (was `private`, now `var` with `private set`). |
+| [`NavigationViewModel.kt`](app/src/main/java/ykws/android/maro/ui/map/NavigationViewModel.kt) | Added `spatialIndex` getter + import. |
+| [`MarkersViewModel.kt`](app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt) | `_matchResult`: `TieredMatchResult?` → `WhereAmIResult?`. `coastlineData` → `coastlineIndex`. |
+| [`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt) | Injection: `coastlineIndex = viewModel.spatialIndex`. |
+| [`MarkerDrawer.kt`](app/src/main/java/ykws/android/maro/ui/map/MarkerDrawer.kt) | Temp flat-list UI stub with "in"/"next to" labels. |
+| [`MarkerOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/MarkerOverlay.kt) | `matchedIds` via `mapNotNull` over `allMatches`. |
+
+**Build:** `assembleDebug` ✅. **Deferred:** Sentence format, recursive children UI, auto-refresh.

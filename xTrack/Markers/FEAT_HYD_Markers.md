@@ -1,19 +1,22 @@
-# Markers — Hydration Snapshot (2026-06-25 17:04 UTC)
+# Markers — Hydration Snapshot (2026-06-25 18:52 UTC)
 
 ## State
 - **Active subfeature:** whereami-rework
-- **Status:** active — plan finalized, all review findings addressed
-- **Last action:** Plan review complete. 4 findings resolved: immutable children (copy pattern), sizeOf() kept (mixed metrics correct for "most specific first"), extend existing CoastlineSpatialIndex (expose + add segmentIntersectsLand), 1km = BBox search fence (not proximity cap), UI stub for compile.
+- **Status:** active — implemented + tested + hardened
 - **Branch:** feature/markers-2
-- **Build:** assembleDebug ✅ (from prior merge)
 
-## Target Files
-- `app/src/main/java/ykws/android/maro/spatial/CoastlineSpatialIndex.kt` — add segmentIntersectsLand(a, b): Boolean
-- `app/src/main/java/ykws/android/maro/data/coastline/CoastlineRepository.kt` — expose spatialIndex (drop private)
-- `app/src/main/java/ykws/android/maro/spatial/MarkerMatcher.kt` — WhereAmIMatch/WhereAmIResult types, revised resolveAllMarkers(), depth-first traversal, 1km BBox fence, remove dead code
-- `app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt` — matchResult type, coastlineIndex injection
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — inject spatialIndex
-- `app/src/main/java/ykws/android/maro/ui/map/MarkerDrawer.kt` — temp UI stub
+## Changes This Session
+- WhereAmI rework: `WhereAmIMatch`/`WhereAmIResult` types, depth-first leaves-first traversal, 1km BBox search fence, `CoastlineSpatialIndex.segmentIntersectsLand()`
+- Bearing reversed: marker→boat (display "SE of P1" = boat is SE of marker)
+- Cardinal direction display: proximity → "NW of", zone → bare name
+- BBox cap fixed: always 1km from boat (not `minOf(proximityRange, 1km)`)
+- Proximity rendering fixed: drawn from boundary (radius+proximity, width/2+proximity)
+- Sliders normalized: radius/width 0-1000m step 25m default 100m, proximity 0-1000m step 25m default 100m
+- Touch target: CenterMarkerOverlay min 48dp clickable area
+- Dead code removed: old `MatchResult`, `TieredMatchResult`, `precisionComparator`, `geometryTypeRank`, `distanceFromResult`, `segmentIntersectsPointList`
+
+## Build
+- assembleDebug ✅
 
 ## Next Step
-- Implement per todo list: expose index → add segmentIntersectsLand → new types → revise resolveAllMarkers → cleanup → wire → stub → build
+- User validation on device

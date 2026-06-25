@@ -176,7 +176,6 @@ import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.data.markers.UserMarkerRepository
 import ykws.android.maro.spatial.SpatialOperations
-import ykws.android.maro.spatial.TieredMatchResult
 import ykws.android.maro.ui.map.MarkersViewModel
 import ykws.android.maro.ui.map.MarkerDrawer
 
@@ -495,10 +494,9 @@ fun MapScreen(
     val userMarkers by markersViewModel.markers.collectAsState()
     val markerLayerVisible by markersViewModel.userMarkersVisible.collectAsState()
 
-    // Wire coastline data into MarkersViewModel for land-blocking when ready
+    // Wire coastline spatial index into MarkersViewModel for land-blocking when ready
     if (coastlineReady) {
-        val data = (state as CoastlineState.Ready).data
-        markersViewModel.coastlineData = data
+        markersViewModel.coastlineIndex = viewModel.spatialIndex
     }
 
     // ── Raster cache reads (no lazy auto-trigger; only settings button triggers generation) ──
@@ -1964,15 +1962,15 @@ private fun CenterMarkerOverlay(
 
         Box(
             modifier = modifier
-                .size(finalSizeDp)
-                .clickable(onClick = onClick)
+                .size(if (finalSizeDp < 48.dp) 48.dp else finalSizeDp)
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center
         ) {
             Text(
                 text = "\u2295",
                 fontSize = (finalSizeDp.value / 1.5f).sp,
                 color = ComposeColor(AppConfig.uiSettingsAccent),
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxSize()
             )
         }
         return
@@ -2003,10 +2001,15 @@ private fun CenterMarkerOverlay(
     // On water: the boat image is shifted down by half its height so its top-center
     // aligns with the map center (GPS position at the boat's bow).
     // On land:   the dot stays centered (no offset — a dot has no direction).
+    //
+    // Touch target is always at least 48dp (button-sized) even when the visual
+    // marker is small at low zoom levels.
+    val touchSizeDp = if (finalSizeDp < 48.dp) 48.dp else finalSizeDp
     Box(
         modifier = modifier
-            .size(finalSizeDp)
-            .clickable(onClick = onClick)
+            .size(touchSizeDp)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
     ) {
         // ── Boat/land marker ──────────────────────────────────────────────
         val yOffset = if (isWater) finalSizeDp / 2 else 0.dp
@@ -2014,7 +2017,7 @@ private fun CenterMarkerOverlay(
             painter = painterResource(id = drawableId),
             contentDescription = description,
             modifier = Modifier
-                .fillMaxSize()
+                .size(finalSizeDp)
                 .offset(y = yOffset),
             contentScale = ContentScale.Fit
         )
