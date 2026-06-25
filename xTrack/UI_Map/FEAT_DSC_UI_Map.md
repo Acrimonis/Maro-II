@@ -2,8 +2,8 @@
 name: UI_Map
 status: active
 created: 2026-06-07 00:00
-modified: 2026-06-20 09:56
-active_subfeature: boat-center
+modified: 2026-06-25 16:55
+active_subfeature: overlay-layer
 ---
 
 **Description:** Map display layer management — depth layer, color depth layer, and orientation-aware rendering.
@@ -273,6 +273,39 @@ Shift the boat position from screen centre to the lower third of the viewport wh
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — GPS auto-follow `LaunchedEffect`, `CenterMarkerOverlay` modifier, `MapContent` layout
 - `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — speed state exposure for dynamic offset decision
 - `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — optional offset toggle / max-offset setting
+
+### overlay-layer  [x]
+
+Unified drawer framework: `DrawerSlot` reusable animation wrapper + `OverlayLayer` self-contained
+Layer 1 compositor. All 7 transient surfaces (scrim, Wizard, Menu, Marker, TrackHistory,
+MarkerManagement, Settings) now live in `OverlayLayer`. Individual drawer composables are pure
+content — no `AnimatedVisibility`, scrim, or shadow of their own. Wizard steps extracted to
+`markers/wizard/` package.
+
+#### Todos
+- [x] Create `DrawerSlot.kt` — reusable `AnimatedVisibility` wrapper, `SlideDirection` + `ShadowEdge` enums, spring enter + tween exit, 8dp gradient shadow via `drawBehind`
+- [x] Create `OverlayLayer.kt` — unified Layer 1 compositor rendering all 7 transient surfaces + unified scrim
+- [x] Extract Wizard steps to `markers/wizard/` — `WizardTopBar`, `WizardButtonRow`, `TypeSelectStep`, `PositionStep`, `SliderStep`, `TextInputStep`
+- [x] Fix Wizard blank — `WizardDrawer` receives `step` as non-null parameter
+- [x] Strip scrim + shadow + `AnimatedVisibility` from `MarkerDrawer`, `MenuDrawerOverlay`, `TrackHistoryOverlay`, `WizardDrawer`
+- [x] Wire `OverlayLayer` call in `MapScreen.kt` (line 1036)
+- [x] Build: SUCCESS (`assembleDebug`)
+- [ ] On-device verify all 7 surfaces open/close correctly with animations and shadows
+
+#### Rules
+- Layer 0 (Dashboard, controls, map) is permanent — never conditional
+- Layer 1 (OverlayLayer) is transient — any new overlay fits into this framework
+- Every drawer composable must be pure content: no `AnimatedVisibility`, no scrim, no shadow
+- `DrawerSlot` provides animation + shadow; scrim is unified once in `OverlayLayer`
+- New drawers follow the 6-step checklist in `docs/ui-drawer-guidelines.md` §5
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/DrawerSlot.kt` — reusable slot
+- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt` — unified compositor
+- `app/src/main/java/ykws/android/maro/ui/map/WizardDrawer.kt` — thin shell (~228 lines)
+- `app/src/main/java/ykws/android/maro/ui/markers/wizard/` — extracted step composables
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — OverlayLayer call at line 1036
+- `docs/ui-drawer-guidelines.md` — canonical reference
 
 ## Todos
 

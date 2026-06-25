@@ -11,62 +11,32 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.RadioButtonUnchecked
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ykws.android.maro.config.AppConfig
-import ykws.android.maro.data.model.LatLng
-import ykws.android.maro.ui.icons.Conversion_path
+import ykws.android.maro.ui.markers.wizard.WizardButtonRow
+import ykws.android.maro.ui.markers.wizard.WizardTopBar
+import ykws.android.maro.ui.markers.wizard.steps.PositionStep
+import ykws.android.maro.ui.markers.wizard.steps.SliderStep
+import ykws.android.maro.ui.markers.wizard.steps.TextInputStep
+import ykws.android.maro.ui.markers.wizard.steps.TypeSelectStep
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public composable — WizardDrawer
@@ -82,17 +52,19 @@ import ykws.android.maro.ui.icons.Conversion_path
  * @param viewModel     The [MarkersViewModel] driving the wizard.
  * @param isLandscape   Whether the device is in landscape orientation.
  * @param onCancel      Called when the wizard is dismissed (Cancel / back).
+ * @param step          The current wizard step (non-null, guaranteed by caller).
+ * @param totalSteps    Total number of steps in the sequence.
+ * @param stepIndex     0-based index of the current step.
  */
 @Composable
 fun WizardDrawer(
     viewModel: MarkersViewModel,
     isLandscape: Boolean,
-    onCancel: () -> Unit
+    onCancel: () -> Unit,
+    step: WizardStep,
+    totalSteps: Int,
+    stepIndex: Int
 ) {
-    val wizardStep by viewModel.wizardStep.collectAsState()
-    val form by viewModel.createForm.collectAsState()
-    val step = wizardStep ?: return
-
     val context = LocalContext.current
     val activity = context.findActivity()
 
@@ -112,20 +84,21 @@ fun WizardDrawer(
     // Back handler
     BackHandler { onCancel() }
 
-    // Determine step index and last-step status
-    val seq = stepSequenceFor(form.type)
-    val stepIndex = seq.indexOf(step)
-    val totalSteps = seq.size
-    val isLastStep = stepIndex >= seq.lastIndex
+    // Determine step index and last-step status from parameters
+    val isLastStep = stepIndex >= totalSteps - 1
     val isFirstStep = stepIndex <= 0
+
+    val drawerShape = if (isLandscape) RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp)
+        else RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
 
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .clip(drawerShape)
             .background(ComposeColor(AppConfig.uiSettingsBackground))
     ) {
-        // ── Top bar: Cancel ← + title + dot progress ────────────────────
-        WizardTopBar(
+            // ── Top bar: Cancel ← + title + dot progress ────────────────────
+            WizardTopBar(
             stepIndex = stepIndex,
             totalSteps = totalSteps,
             onCancel = onCancel
@@ -169,59 +142,6 @@ fun WizardDrawer(
             onNext = { viewModel.wizardNext() },
             onFinish = { viewModel.wizardFinish() }
         )
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// WizardTopBar
-// ─────────────────────────────────────────────────────────────────────────────
-
-@Composable
-private fun WizardTopBar(stepIndex: Int, totalSteps: Int, onCancel: () -> Unit) {
-    val accent = ComposeColor(AppConfig.uiSettingsAccent)
-    val divider = ComposeColor(AppConfig.uiSettingsDivider)
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 24.dp, vertical = 3.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconButton(
-            onClick = onCancel,
-            modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(ComposeColor(AppConfig.uiSettingsSwitchTrackInactive))
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Cancel",
-                tint = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                modifier = Modifier.size(18.dp)
-            )
-        }
-        Spacer(Modifier.width(16.dp))
-        Text(
-            text = "Create Marker",
-            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-            fontSize = 17.sp,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(Modifier.weight(1f))
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            for (i in 0 until totalSteps) {
-                Box(
-                    modifier = Modifier
-                        .size(6.dp)
-                        .clip(CircleShape)
-                        .background(if (i <= stepIndex) accent else divider)
-                )
-            }
-        }
     }
 }
 
@@ -296,393 +216,8 @@ private fun WizardStepContent(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// WizardButtonRow — Previous / Next / Finish (text pills)
-// ─────────────────────────────────────────────────────────────────────────────
-
-@Composable
-private fun WizardButtonRow(
-    isFirstStep: Boolean,
-    isLastStep: Boolean,
-    canFinish: Boolean,
-    onPrevious: () -> Unit,
-    onNext: () -> Unit,
-    onFinish: () -> Unit
-) {
-    val accentBg = ComposeColor(AppConfig.uiSettingsAccent)
-    val accentFg = ComposeColor(AppConfig.uiSettingsTextPrimary)
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        // Previous (hidden on first step)
-        if (!isFirstStep) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(accentBg)
-                    .clickable { onPrevious() }
-                    .padding(vertical = 10.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "\u2190 Previous",
-                    color = accentFg,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        } else {
-            Spacer(Modifier.weight(1f))
-        }
-
-        // Next (hidden on last step)
-        if (!isLastStep) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(accentBg)
-                    .clickable { onNext() }
-                    .padding(vertical = 10.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Next \u2192",
-                    color = accentFg,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        } else {
-            Spacer(Modifier.weight(1f))
-        }
-
-        // Finish (always present, dimmed when invalid)
-        Box(
-            modifier = Modifier
-                .weight(1f)
-                .clip(RoundedCornerShape(8.dp))
-                .background(accentBg)
-                .then(if (!canFinish) Modifier.alpha(0.4f) else Modifier)
-                .then(if (canFinish) Modifier.clickable { onFinish() } else Modifier)
-                .padding(vertical = 10.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = "\u2713 Finish",
-                color = accentFg,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Step content composables
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * Type selection step — segmented selector in the style of the language
- * buttons in settings: three equally-weighted segments with Material Icons,
- * accent background on the active choice.
- */
-@Composable
-private fun TypeSelectStep(viewModel: MarkersViewModel) {
-    val form by viewModel.createForm.collectAsState()
-    val accent = ComposeColor(AppConfig.uiSettingsAccent)
-    val divider = ComposeColor(AppConfig.uiSettingsDivider)
-    val primaryText = ComposeColor(AppConfig.uiSettingsTextPrimary)
-    val mutedText = ComposeColor(AppConfig.uiSettingsTextMuted)
-    val cardBg = ComposeColor(AppConfig.uiCardBackground)
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(12.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(cardBg)
-                .padding(6.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            val types = listOf(
-                Triple(MarkerType.PIN, Icons.Filled.LocationOn, "Pin"),
-                Triple(MarkerType.CIRCLE, Icons.Filled.RadioButtonUnchecked, "Zone"),
-                Triple(MarkerType.CORRIDOR, Conversion_path, "Corridor")
-            )
-            types.forEach { (type, icon, label) ->
-                val selected = form.type == type
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(if (selected) accent else divider)
-                        .clickable { viewModel.updateForm { it.copy(type = type) } }
-                        .padding(vertical = 8.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            imageVector = icon,
-                            contentDescription = label,
-                            tint = if (selected) primaryText else mutedText,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = label,
-                            color = if (selected) primaryText else mutedText,
-                            fontSize = 13.sp,
-                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-/**
- * Position step — instruction text. Map stays interactive behind.
- * The actual position tracking is done by the LaunchedEffect in MapScreen.
- */
-@Composable
-private fun PositionStep(viewModel: MarkersViewModel, isCorridorP1: Boolean) {
-    val form by viewModel.createForm.collectAsState()
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Text(
-            text = "Drag the map to position the marker",
-            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-            fontSize = 15.sp,
-            fontWeight = FontWeight.Medium,
-            textAlign = TextAlign.Center
-        )
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = "The crosshair shows your selection.\nTap Next when ready.",
-            color = ComposeColor(AppConfig.uiSettingsTextMuted),
-            fontSize = 12.sp,
-            textAlign = TextAlign.Center
-        )
-
-        // Show current position coordinates for reference
-        form.position?.let { pos ->
-            Spacer(Modifier.height(12.dp))
-            Text(
-                text = "%.4f, %.4f".format(pos.latitude, pos.longitude),
-                color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                fontSize = 11.sp,
-                fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
-            )
-        }
-    }
-}
-
-/**
- * Reusable slider step for Radius and Proximity.
- * Visual style matches [BoatSizeSlider]: card background, row title+value,
- * accent-coloured slider.
- */
-@Composable
-private fun SliderStep(
-    title: String,
-    valueM: Double,
-    range: ClosedFloatingPointRange<Double>,
-    step: Double,
-    unit: String,
-    onValueChange: (Double) -> Unit
-) {
-    val accent = ComposeColor(AppConfig.uiSettingsAccent)
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(ComposeColor(AppConfig.uiCardBackground))
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                title,
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                "${valueM.toLong()} $unit",
-                color = accent,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold
-            )
-        }
-        Spacer(Modifier.height(4.dp))
-        Slider(
-            value = valueM.toFloat(),
-            onValueChange = { onValueChange(it.toDouble()) },
-            valueRange = range.start.toFloat()..range.endInclusive.toFloat(),
-            steps = ((range.endInclusive - range.start) / step).toInt() - 1,
-            modifier = Modifier.fillMaxWidth(),
-            colors = SliderDefaults.colors(
-                thumbColor = accent,
-                activeTrackColor = accent,
-                inactiveTrackColor = accent.copy(alpha = 0.3f)
-            )
-        )
-        Spacer(Modifier.height(4.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                "0 $unit",
-                color = ComposeColor(AppConfig.uiSettingsTextSecondary),
-                fontSize = 11.sp
-            )
-            Text(
-                "${range.endInclusive.toLong()} $unit",
-                color = ComposeColor(AppConfig.uiSettingsTextSecondary),
-                fontSize = 11.sp
-            )
-        }
-    }
-}
-
-/**
- * Text input step for Title and Description.
- *
- * On focus: select-all existing text, keyboard opens.
- * Landscape: content is positioned in the upper portion (no offset needed).
- */
-@Composable
-private fun TextInputStep(
-    label: String,
-    value: String,
-    singleLine: Boolean,
-    onValueChange: (String) -> Unit,
-    isLandscape: Boolean
-) {
-    val focusManager = LocalFocusManager.current
-    val focusRequester = remember { FocusRequester() }
-
-    // Auto-focus on entry
-    LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
-    }
-
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .then(
-                if (isLandscape) {
-                    // Landscape: position text in upper portion, above keyboard zone
-                    Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                } else {
-                    Modifier.padding(horizontal = 12.dp, vertical = 16.dp)
-                }
-            ),
-        horizontalAlignment = Alignment.Start
-    ) {
-        if (isLandscape) {
-            Spacer(Modifier.height(24.dp))
-        }
-
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(ComposeColor(AppConfig.uiCardBackground))
-                .padding(horizontal = 8.dp, vertical = 4.dp)
-        ) {
-            Text(
-                label,
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Medium
-            )
-            Spacer(Modifier.height(12.dp))
-
-            OutlinedTextField(
-                value = value,
-                onValueChange = onValueChange,
-                singleLine = singleLine,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .focusRequester(focusRequester)
-                    .then(if (singleLine) Modifier.height(56.dp) else Modifier.height(120.dp)),
-                colors = drawerTextFieldColors(),
-                textStyle = androidx.compose.ui.text.TextStyle(
-                    fontSize = 14.sp,
-                    color = ComposeColor(AppConfig.uiSettingsTextPrimary)
-                ),
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Text,
-                    imeAction = if (singleLine) ImeAction.Next else ImeAction.Default
-                ),
-                keyboardActions = KeyboardActions(
-                    onNext = { focusManager.clearFocus() },
-                    onDone = { focusManager.clearFocus() }
-                ),
-                placeholder = {
-                    Text(
-                        if (singleLine) "e.g. My marker" else "Optional notes\u2026",
-                        color = ComposeColor(AppConfig.uiSettingsTextMuted).copy(alpha = 0.5f),
-                        fontSize = 14.sp
-                    )
-                }
-            )
-        }
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
-
-@Composable
-private fun drawerTextFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedBorderColor = ComposeColor(AppConfig.buttonActionBgColor).copy(alpha = 0.5f),
-    unfocusedBorderColor = ComposeColor(AppConfig.uiSettingsTextMuted).copy(alpha = 0.3f),
-    cursorColor = ComposeColor(AppConfig.uiSettingsTextPrimary)
-)
-
-/** Returns the step sequence for the given marker type (mirror of VM method for UI use). */
-private fun stepSequenceFor(type: MarkerType): List<WizardStep> = when (type) {
-    MarkerType.PIN -> listOf(
-        WizardStep.TypeSelect, WizardStep.Position,
-        WizardStep.Proximity, WizardStep.Title, WizardStep.Description
-    )
-    MarkerType.CIRCLE -> listOf(
-        WizardStep.TypeSelect, WizardStep.Position,
-        WizardStep.Radius, WizardStep.Proximity, WizardStep.Title, WizardStep.Description
-    )
-    MarkerType.CORRIDOR -> listOf(
-        WizardStep.TypeSelect, WizardStep.Position,
-        WizardStep.PositionP2, WizardStep.Radius,
-        WizardStep.Proximity, WizardStep.Title, WizardStep.Description
-    )
-}
 
 /** Unwraps the (possibly localisation-wrapped) [Context] chain to the host [Activity]. */
 private tailrec fun Context.findActivity(): Activity? = when (this) {

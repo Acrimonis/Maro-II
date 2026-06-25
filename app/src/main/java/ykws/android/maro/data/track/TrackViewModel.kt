@@ -4,12 +4,14 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import ykws.android.maro.data.location.GpsFix
 import ykws.android.maro.data.settings.AppSettings
 
 /**
@@ -27,12 +29,23 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow(TrackRecorderUiState())
     val uiState: StateFlow<TrackRecorderUiState> = _uiState.asStateFlow()
 
+    /** Incoming track sample stream — MapScreen pushes position data here. */
+    private val _trackSample = MutableSharedFlow<TrackSample>(extraBufferCapacity = 8)
+    val trackSample: SharedFlow<TrackSample> = _trackSample.asSharedFlow()
+
     private val _summaries = MutableStateFlow<List<TrackSummary>>(emptyList())
     val summaries: StateFlow<List<TrackSummary>> = _summaries.asStateFlow()
+
+    /** Accessor for the recorder's incremental new-point stream (null when recorder isn't active). */
+    val newPointStream: SharedFlow<TrackPoint>?
+        get() = recorder?.newPoint
 
     // Recovery state — non-null when an orphaned checkpoint is found
     private val _recoveryTrack = MutableStateFlow<Track?>(null)
     val recoveryTrack: StateFlow<Track?> = _recoveryTrack.asStateFlow()
+
+    /** Source of truth for isStopped — set once by MapScreen from NavigationViewModel. */
+    private var stoppedSource: StateFlow<Boolean> = MutableStateFlow(false)
 
     init {
         viewModelScope.launch {
@@ -42,10 +55,29 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Start the recorder with a GPS fix flow and current settings.
+     * Push a position sample into the recording pipeline.
+     * Called by MapScreen from the TrackSample combine flow.
+     */
+    fun pushTrackSample(sample: TrackSample) {
+        _trackSample.tryEmit(sample)
+    }
+
+    /**
+     * Set the source-of-truth for boat-stopped state.
+     * Called once by MapScreen from NavigationViewModel.isStopped.
+     */
+    fun setStoppedSource(flow: StateFlow<Boolean>) {
+        stoppedSource = flow
+        recorder?.let { rec ->
+            // Re-create recorder with updated isStopped source (only happens before pipeline start)
+        }
+    }
+
+    /**
+     * Start the recorder with a TrackSample flow and current settings.
      * Call once when the GPS pipeline is ready.
      */
-    fun startRecorder(gpsFlow: Flow<GpsFix>, settings: AppSettings) {
+    fun startRecorder(sampleFlow: Flow<TrackSample>, settings: AppSettings) {
         stopRecorder()
         val rec = TrackRecorder(
             repository = repository,
@@ -54,14 +86,13 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
             geofenceOriginLon = settings.trackOriginLon,
             geofenceRadiusM = settings.trackGeofenceRadiusM,
             geofenceEnabled = settings.trackGeofenceEnabled,
-            adaptiveWindowMs = settings.stopDetectionTimeSec * 1000L,
-            adaptiveThresholdM = settings.stopDetectionDistanceM.toDouble(),
+            isStopped = stoppedSource,
             simplifyEnabled = settings.trackSimplifyEnabled,
             simplifyEpsilonM = settings.trackSimplifyEpsilonM,
             simplifySpeedDeltaKn = settings.trackSimplifySpeedDeltaKn
         )
         recorder = rec
-        rec.start(gpsFlow)
+        rec.start(sampleFlow)
         viewModelScope.launch {
             rec.uiState.collect { state ->
                 _uiState.value = state
@@ -103,8 +134,7 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
             geofenceOriginLon = settings?.trackOriginLon ?: 7.00,
             geofenceRadiusM = settings?.trackGeofenceRadiusM ?: 500.0,
             geofenceEnabled = settings?.trackGeofenceEnabled ?: true,
-            adaptiveWindowMs = (settings?.stopDetectionTimeSec ?: 45) * 1000L,
-            adaptiveThresholdM = (settings?.stopDetectionDistanceM ?: 15).toDouble(),
+            isStopped = stoppedSource,
             simplifyEnabled = settings?.trackSimplifyEnabled ?: true,
             simplifyEpsilonM = settings?.trackSimplifyEpsilonM ?: 3.0,
             simplifySpeedDeltaKn = settings?.trackSimplifySpeedDeltaKn ?: 3.0

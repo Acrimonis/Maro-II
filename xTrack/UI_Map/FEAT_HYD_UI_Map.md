@@ -1,35 +1,39 @@
 # UI_Map — Hydration Snapshot
 
-**Baked:** 2026-06-20 09:56 UTC+2
+**Baked:** 2026-06-25 16:55 UTC+2
 
 ## Active State
-- **Subfeature:** decenter-map
+- **Subfeature:** overlay-layer
 - **Branch:** feature/map-migration
 
 ## What Changed This Session
-1. **decenter-map subfeature created** — new subfeature for dynamic downward offset of map centre
-2. **osmdroid API investigation** — confirmed no viewport offset or tilt API exists in osmdroid 6.1.18
-3. **Full osmdroid usage audit** — all osmdroid APIs confined to `MapScreen.kt` (~3993 lines)
-4. **Library upgrade research** — evaluated Google Maps SDK, Mapbox GL, MapLibre GL
-5. **MapLibre GL deep-dive** — `CameraOptions.padding` solves decenter natively, `pitch` adds tilt. Zero wasted tiles.
-6. **Migration plan written** — `docs/map-lib-migration-plan.md` with 13-step incremental migration, all design decisions confirmed
+1. **DrawerSlot created** — reusable `AnimatedVisibility` wrapper: `SlideDirection` + `ShadowEdge` enums, spring enter + tween exit, 8dp gradient shadow via `drawBehind`
+2. **OverlayLayer created** — unified Layer 1 compositor: all 7 transient surfaces + scrim in one self-contained composable
+3. **Wizard steps extracted** to `markers/wizard/` — 6 new files: `WizardTopBar`, `WizardButtonRow`, `TypeSelectStep`, `PositionStep`, `SliderStep`, `TextInputStep`
+4. **Wizard blank fixed** — `WizardDrawer` receives `step: WizardStep` as non-null parameter
+5. **Drawer cleanup** — `MarkerDrawer`, `MenuDrawerOverlay`, `TrackHistoryOverlay`, `WizardDrawer` stripped of AnimatedVisibility/scrim/shadow → pure content
+6. **MapScreen integrated** — `OverlayLayer(...)` call at line 1036 replaces inline drawer rendering
+7. **Build: SUCCESS** — `assembleDebug` green, 41 tasks up-to-date
+8. **`docs/ui-drawer-guidelines.md` updated** — §1–§5 new: architecture, DrawerSlot API, surfaces table, composable contract, how-to-add-a-drawer checklist; decisions I7–I11
 
 ## Design Decisions
-- OSM raster tiles (same visual, same perf)
-- Skip offline MBTiles for now
-- Depth bitmap unchanged (banding hack eliminated by MapLibre)
-- Tilt: OFF default, 3-state (OFF/MANUAL/AUTOMATIC), manual has slider with live preview
-- Decenter: OFF default, 25% max, ramp 5–15 kn
-- Both GPS and demo mode
-- Raw `AndroidView(MapView)` wrapper
+- 9 copy-pasted `AnimatedVisibility` blocks → 9 `DrawerSlot` calls (~270 lines → ~72 lines)
+- `Modifier.shadow()` (invisible on dark) → 8dp black@18% gradient via `drawBehind`
+- Wizard steps are independent composables in `markers/wizard/steps/`; `WizardDrawer.kt` is a thin shell
+- Layer 0 (dashboard/map/controls) is permanent; Layer 1 (OverlayLayer) is transient
+- Any new overlay follows the 6-step checklist in `docs/ui-drawer-guidelines.md` §5
 
 ## Target Files
-- `docs/map-lib-migration-plan.md` — full migration plan
-- `app/build.gradle.kts` — add MapLibre dependency
-- `gradle/libs.versions.toml` — add MapLibre version
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — all migration changes
-- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — tilt/decenter settings fields
+- `app/src/main/java/ykws/android/maro/ui/map/DrawerSlot.kt` — NEW
+- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt` — NEW
+- `app/src/main/java/ykws/android/maro/ui/markers/wizard/WizardTopBar.kt` — NEW
+- `app/src/main/java/ykws/android/maro/ui/markers/wizard/WizardButtonRow.kt` — NEW
+- `app/src/main/java/ykws/android/maro/ui/markers/wizard/steps/TypeSelectStep.kt` — NEW
+- `app/src/main/java/ykws/android/maro/ui/markers/wizard/steps/PositionStep.kt` — NEW
+- `app/src/main/java/ykws/android/maro/ui/markers/wizard/steps/SliderStep.kt` — NEW
+- `app/src/main/java/ykws/android/maro/ui/markers/wizard/steps/TextInputStep.kt` — NEW
+- `app/src/main/java/ykws/android/maro/ui/map/WizardDrawer.kt` — modified (thin shell)
+- `docs/ui-drawer-guidelines.md` — updated
 
 ## Next Steps
-- Switch to Ask mode for full plan review
-- Then implement Step 1: MapLibre dependency + `MapLibreMapView` composable
+- On-device verify all 7 surfaces open/close with correct animations and shadows

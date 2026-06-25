@@ -17,9 +17,6 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import ykws.android.maro.data.location.AcquisitionMode
-import ykws.android.maro.data.location.AdaptiveGpsPolicy
-import ykws.android.maro.data.location.GpsFix
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.track.TrackEvent.*
 import ykws.android.maro.spatial.SpatialOperations
@@ -86,7 +83,7 @@ data class TrackRecorderUiState(
  * Coroutine-based track recording state machine.
  *
  * Two states: OFF (not tracking) and ON (tracking). Within ON, point capture
- * is gated by [AdaptiveGpsPolicy.isStill] — when the boat is stationary,
+ * is gated by [isStopped] — when the boat is stationary,
  * GPS fixes are received but not saved to the track.
  *
  * Auto-start on geofence exit (Port Salis) with 10s movement debounce.
@@ -97,8 +94,7 @@ data class TrackRecorderUiState(
  * @param geofenceOriginLon       Port Salis geofence origin longitude.
  * @param geofenceRadiusM         Geofence radius in metres.
  * @param geofenceEnabled         When false, recording starts on movement alone.
- * @param adaptiveWindowMs        Adaptive idle window (ms) — how long the boat must stay still before pausing.
- * @param adaptiveThresholdM      Adaptive displacement threshold (m) — max movement still counted as stationary.
+ * @param isStopped               True when the boat is stationary (from NavigationVM adaptive policy). Default false.
  * @param simplifyEnabled         When true, simplify track points on finalize (Douglas-Peucker + speed-aware).
  * @param simplifyEpsilonM        Douglas-Peucker tolerance (metres). Lower = more points kept.
  * @param simplifySpeedDeltaKn    Speed deviation threshold (knots) to re-insert a point during simplification.
@@ -106,13 +102,12 @@ data class TrackRecorderUiState(
  */
 class TrackRecorder(
     private val repository: TrackRepository,
-    private val gpsMode: Boolean = true,
     private val geofenceOriginLat: Double = 43.55,
     private val geofenceOriginLon: Double = 7.00,
     private val geofenceRadiusM: Double = 500.0,
     private val geofenceEnabled: Boolean = true,
-    private val adaptiveWindowMs: Long = 30_000L,
-    private val adaptiveThresholdM: Double = 20.0,
+    private val gpsMode: Boolean = true,
+    val isStopped: StateFlow<Boolean> = MutableStateFlow(false),
     private val simplifyEnabled: Boolean = true,
     private val simplifyEpsilonM: Double = 3.0,
     private val simplifySpeedDeltaKn: Double = 3.0,
@@ -123,6 +118,10 @@ class TrackRecorder(
 
     private val _events = MutableSharedFlow<TrackEvent>(extraBufferCapacity = 64)
     val events: SharedFlow<TrackEvent> = _events.asSharedFlow()
+
+    /** Incremental point stream — emits each captured point for polyline appending. */
+    private val _newPoint = MutableSharedFlow<TrackPoint>(extraBufferCapacity = 64)
+    val newPoint: SharedFlow<TrackPoint> = _newPoint.asSharedFlow()
 
     // Internal mutable state
     @Volatile
@@ -164,21 +163,20 @@ class TrackRecorder(
     /** Last assigned timeOffsetMs — ensures monotonic uniqueness even when fixes share the same ms. */
     private var lastTimeOffsetMs: Long = 0L
 
-    private val policy = AdaptiveGpsPolicy()
     private var scope: CoroutineScope? = null
     private var collectingJob: Job? = null
     private var checkpointJob: Job? = null
     private var elapsedTimerJob: Job? = null
 
     /**
-     * Start collecting [GpsFix] events and driving the state machine.
+     * Start collecting [TrackSample] events and driving the state machine.
      * Call from viewModelScope or similar.
      */
-    fun start(gpsFlow: Flow<GpsFix>) {
+    fun start(sampleFlow: Flow<TrackSample>) {
         collectingJob?.cancel()
         scope = CoroutineScope(dispatcher + SupervisorJob())
         collectingJob = scope?.launch {
-            gpsFlow.collect { fix -> processFix(fix) }
+            sampleFlow.collect { sample -> processSample(sample) }
         }
         startElapsedTimer()
     }
@@ -217,15 +215,14 @@ class TrackRecorder(
             Log.d(TAG, "startManual: ignored — state=$state (not OFF)")
             return
         }
-        policy.reset()
         Log.d(TAG, "startManual: → beginRecording")
         beginRecording(isManual = true)
     }
 
-    private fun processFix(fix: GpsFix) {
+    private fun processSample(sample: TrackSample) {
         val insideGeofence = geofenceEnabled && TrackGeofenceChecker.isInsideGeofence(
-            posLat = fix.position.latitude,
-            posLon = fix.position.longitude,
+            posLat = sample.position.latitude,
+            posLon = sample.position.longitude,
             originLat = geofenceOriginLat,
             originLon = geofenceOriginLon,
             radiusM = geofenceRadiusM
@@ -241,7 +238,7 @@ class TrackRecorder(
                         debounceStartTime = now
                     } else if (now - debounceStartTime!! >= DEBOUNCE_MS) {
                         debounceStartTime = null
-                        beginRecording(isManual = false, startFix = fix)
+                        beginRecording(isManual = false, startSample = sample)
                     }
                 } else {
                     debounceStartTime = null
@@ -250,8 +247,8 @@ class TrackRecorder(
             }
 
             TrackRecorderState.ON -> {
-                Log.v(TAG, "processFix(ON): speed=${fix.speedMps} pos=(${fix.position.latitude},${fix.position.longitude})")
-                addPoint(fix)
+                Log.v(TAG, "processSample(ON): speed=${sample.speedMps} pos=(${sample.position.latitude},${sample.position.longitude})")
+                addPoint(sample)
 
                 // Auto-stop: inside geofence with 15s debounce
                 if (geofenceEnabled && insideGeofence) {
@@ -260,7 +257,7 @@ class TrackRecorder(
                         stopDebounceStartTime = now
                     } else if (now - stopDebounceStartTime!! >= STOP_DEBOUNCE_MS) {
                         stopDebounceStartTime = null
-                        Log.d(TAG, "processFix(ON): inside geofence for 15s → auto-stop")
+                        Log.d(TAG, "processSample(ON): inside geofence for 15s → auto-stop")
                         finalizeTrack()
                     }
                 } else {
@@ -270,7 +267,7 @@ class TrackRecorder(
         }
     }
 
-    private fun beginRecording(isManual: Boolean, startFix: GpsFix? = null) {
+    private fun beginRecording(isManual: Boolean, startSample: TrackSample? = null) {
         val now = System.currentTimeMillis()
         val id = UUID.randomUUID().toString()
         val name = formatTimestamp(now)
@@ -309,58 +306,48 @@ class TrackRecorder(
                 isMoving = false
             )
         }
-        Log.d(TAG, "beginRecording: id=$id name=$name isManual=$isManual startFix=${startFix != null}")
+        Log.d(TAG, "beginRecording: id=$id name=$name isManual=$isManual startSample=${startSample != null}")
         _events.tryEmit(Started)
         startCheckpointJob()
 
-        startFix?.let { addPoint(it) }
+        startSample?.let { addPoint(it) }
     }
 
-    private fun addPoint(fix: GpsFix) {
+    private fun addPoint(sample: TrackSample) {
         val track = currentTrack ?: return
 
-        // Feed the fix to the policy and let isStill() determine movement.
-        // No separate speed threshold — the policy handles it internally.
-        policy.onFix(
-            nowMs = System.currentTimeMillis(),
-            pos = fix.position,
-            windowMs = adaptiveWindowMs,
-            thresholdM = adaptiveThresholdM
-        )
-        val moving = !policy.isStill()
-        _uiState.update { it.copy(isMoving = moving) }
+        val stopped = isStopped.value
+        _uiState.update { it.copy(isMoving = !stopped) }
 
-        val speedKn = fix.speedMps?.let { it * 1.94384f }
-        Log.d(TAG, "addPoint: speed=${speedKn} kn isStill=${policy.isStill()} moving=$moving state=$state")
+        val speedKn = sample.speedMps?.let { it * 1.94384f }
+        Log.d(TAG, "addPoint: speed=${speedKn} kn isStopped=$stopped state=$state")
 
-        // Skip point capture when stationary (still tracking, just not recording points)
-        if (!moving && gpsMode) return
+        // Skip point capture when stationary (same gate for GPS and demo mode)
+        if (stopped) return
 
         // ── Spike rejection v2: four-gate algorithm (GPS mode only) ────
         if (gpsMode) {
-            // Timeout reset: if no fix accepted for >STALE_FIX_TIMEOUT_MS, accept unconditionally.
-            // Prevents lock-in after sharp turns (stale lastValidPoint/Course) and silent GPS
-            // recovery where no emitNoLock fired (lastHadLock stayed true, Gate 0 missed).
+            // Timeout reset: if no sample accepted for >STALE_FIX_TIMEOUT_MS, accept unconditionally.
             if (lastAcceptedTimeMs > 0L && System.currentTimeMillis() - lastAcceptedTimeMs > STALE_FIX_TIMEOUT_MS) {
-                Log.w(TAG, "Spike reset: ${(System.currentTimeMillis() - lastAcceptedTimeMs) / 1000}s since last accepted fix — accepting unconditionally")
-                lastHadLock = fix.hasLock
-                captureAcceptedPoint(fix)
+                Log.w(TAG, "Spike reset: ${(System.currentTimeMillis() - lastAcceptedTimeMs) / 1000}s since last accepted sample — accepting unconditionally")
+                lastHadLock = sample.hasLock
+                captureAcceptedPoint(sample)
                 return
             }
 
             // Gate 0: GPS recovery — skip all checks when lock transitions false→true
-            if (!lastHadLock && fix.hasLock) {
+            if (!lastHadLock && sample.hasLock) {
                 lastHadLock = true
-                captureAcceptedPoint(fix)
+                captureAcceptedPoint(sample)
                 return
             }
-            lastHadLock = fix.hasLock
+            lastHadLock = sample.hasLock
 
             // Need at least one valid point for gates 1-3
             if (lastValidPointLat != null && lastValidPointLon != null && lastValidPointTimeMs > 0L) {
                 val lastValidPos = LatLng(lastValidPointLat!!, lastValidPointLon!!)
-                val distM = SpatialOperations.haversine(lastValidPos, fix.position)
-                val timeDeltaSec = (fix.timestampEpochMs - lastValidPointTimeMs) / 1000.0
+                val distM = SpatialOperations.haversine(lastValidPos, sample.position)
+                val timeDeltaSec = (sample.timestampEpochMs - lastValidPointTimeMs) / 1000.0
                 if (timeDeltaSec > 0.0) {
                     val impliedSpeedKn = (distM / timeDeltaSec) * 1.94384
 
@@ -369,8 +356,8 @@ class TrackRecorder(
 
                     // Gate 2: Direction (sea only)
                     val effectiveCap = if (!isOnLand && lastValidCourseDeg != null) {
-                        val bearingToFix = SpatialOperations.initialBearing(lastValidPos, fix.position)
-                        val delta = angularDistance(bearingToFix, lastValidCourseDeg!!)
+                        val bearingToSample = SpatialOperations.initialBearing(lastValidPos, sample.position)
+                        val delta = angularDistance(bearingToSample, lastValidCourseDeg!!)
                         when {
                             delta <= COURSE_ALIGNED_DEG -> baseCap * COURSE_ALIGNED_MULTIPLIER
                             else -> baseCap * COURSE_SIDEWAYS_MULTIPLIER
@@ -382,12 +369,12 @@ class TrackRecorder(
                     if (impliedSpeedKn > effectiveCap) {
                         logRejection("speed cap", impliedSpeedKn, effectiveCap)
                         consecutiveRejections++
-                        checkLandDetection(fix)
+                        checkLandDetection(sample)
                         return
                     }
 
                     // Gate 3: Acceleration
-                    val currentSpeedKn = fix.speedMps?.let { it * 1.94384 } ?: impliedSpeedKn
+                    val currentSpeedKn = sample.speedMps?.let { it * 1.94384 } ?: impliedSpeedKn
                     val accelKnPerSec = abs(currentSpeedKn - lastValidSpeedKn) / timeDeltaSec
                     val accelLimit = if (isOnLand) MAX_ACCEL_KN_PER_SEC_LAND else MAX_ACCEL_KN_PER_SEC_SEA
 
@@ -404,11 +391,11 @@ class TrackRecorder(
         }
 
         // ── Capture accepted point ──
-        captureAcceptedPoint(fix)
+        captureAcceptedPoint(sample)
     }
 
-    /** Record an accepted fix into the track (stats, UI, course history). */
-    private fun captureAcceptedPoint(fix: GpsFix) {
+    /** Record an accepted sample into the track (stats, UI, course history). */
+    private fun captureAcceptedPoint(sample: TrackSample) {
         val track = currentTrack ?: return
 
         val now = System.currentTimeMillis()
@@ -417,16 +404,16 @@ class TrackRecorder(
         val timeOffsetMs = if (rawMs <= lastTimeOffsetMs) lastTimeOffsetMs + 1 else rawMs
         lastTimeOffsetMs = timeOffsetMs
         val point = TrackPoint(
-            lat = fix.position.latitude,
-            lon = fix.position.longitude,
-            speedMps = fix.speedMps,
-            bearingDeg = fix.bearingDeg,
+            lat = sample.position.latitude,
+            lon = sample.position.longitude,
+            speedMps = sample.speedMps,
+            bearingDeg = sample.bearingDeg,
             timeOffsetSec = timeOffsetSec,
             timeOffsetMs = timeOffsetMs
         )
 
         // Accumulate stats
-        val latestSpeedKn = fix.speedMps?.let { mps ->
+        val latestSpeedKn = sample.speedMps?.let { mps ->
             speedSumMps += mps
             speedCount++
             val speedKn = mps * 1.94384f
@@ -449,17 +436,18 @@ class TrackRecorder(
         // Update valid-point tracker for spike rejection
         lastValidPointLat = point.lat
         lastValidPointLon = point.lon
-        lastValidPointTimeMs = fix.timestampEpochMs
+        lastValidPointTimeMs = sample.timestampEpochMs
         lastAcceptedTimeMs = System.currentTimeMillis()
 
         // Rebuild track with new point appended (immutable list)
         currentTrack = track.copy(
             trackPoints = track.trackPoints + point,
-            fastestSpeedMps = maxOf(track.fastestSpeedMps, fix.speedMps ?: 0f)
+            fastestSpeedMps = maxOf(track.fastestSpeedMps, sample.speedMps ?: 0f)
         )
 
         pointsSinceLastCheckpoint++
         _events.tryEmit(PointCaptured(point))
+        _newPoint.tryEmit(point)
         val avgKn = if (speedCount > 0) {
             (speedSumMps / speedCount) * 1.94384f
         } else 0f
@@ -468,15 +456,14 @@ class TrackRecorder(
                 pointCount = it.pointCount + 1,
                 currentSpeedKn = latestSpeedKn,
                 distanceNm = cumulativeDistanceNm,
-                avgSpeedKn = avgKn,
-                recordingPoints = currentTrack!!.trackPoints
+                avgSpeedKn = avgKn
             )
         }
 
         // Update spike-rejection trackers
-        val acceptedSpeedKn = fix.speedMps?.let { it * 1.94384 } ?: _uiState.value.currentSpeedKn.toDouble()
+        val acceptedSpeedKn = sample.speedMps?.let { it * 1.94384 } ?: _uiState.value.currentSpeedKn.toDouble()
         lastValidSpeedKn = acceptedSpeedKn
-        updateCourseHistory(fix.position)
+        updateCourseHistory(sample.position)
     }
 
     private fun transitionTo(newState: TrackRecorderState) {
@@ -576,18 +563,18 @@ class TrackRecorder(
     }
 
     /** Auto-detect land/sea context from rejection patterns. */
-    private fun checkLandDetection(fix: GpsFix) {
+    private fun checkLandDetection(sample: TrackSample) {
         if (consecutiveRejections >= LAND_DETECTION_REJECTIONS) {
-            val gpsSpeedKn = fix.speedMps?.let { it * 1.94384 } ?: 0.0
-            if (gpsSpeedKn > BOAT_MAX_SPEED_KN) {
+            val speedKn = sample.speedMps?.let { it * 1.94384 } ?: 0.0
+            if (speedKn > BOAT_MAX_SPEED_KN) {
                 isOnLand = true
                 consecutiveRejections = 0
                 lastValidCourseDeg = null  // reset course — direction check now off
             }
         }
         if (isOnLand && consecutiveRejections == 0) {
-            val gpsSpeedKn = fix.speedMps?.let { it * 1.94384 } ?: 0.0
-            if (gpsSpeedKn <= BOAT_MAX_SPEED_KN) {
+            val speedKn = sample.speedMps?.let { it * 1.94384 } ?: 0.0
+            if (speedKn <= BOAT_MAX_SPEED_KN) {
                 seaConfidenceCounter++
                 if (seaConfidenceCounter >= SEA_RECOVERY_CONSECUTIVE) {
                     isOnLand = false
@@ -623,7 +610,6 @@ class TrackRecorder(
         elapsedTimerJob = null
         scope = null
         wasInsideGeofence = false
-        policy.reset()
     }
 
     /** Release all resources. */

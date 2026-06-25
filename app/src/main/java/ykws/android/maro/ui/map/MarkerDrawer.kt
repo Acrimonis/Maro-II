@@ -1,13 +1,6 @@
 package ykws.android.maro.ui.map
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -70,11 +63,10 @@ import ykws.android.maro.spatial.TieredMatchResult
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Animated drawer for marker viewing and match results.
- * Creating/Editing is now handled by [WizardDrawer].
+ * Pure-content drawer for marker viewing and match results.
  *
- * Portrait: slides up from bottom, covering the dashboard area.
- * Landscape: slides in from the left, covering the dashboard area.
+ * Animation and shadow are provided by [OverlayLayer].
+ * Creating/Editing is now handled by [WizardDrawer].
  *
  * @param viewModel     The [MarkersViewModel] driving the drawer state.
  * @param isLandscape   Whether the device is in landscape orientation.
@@ -91,32 +83,20 @@ fun MarkerDrawer(
     val drawerState by viewModel.drawerState.collectAsState()
     val isOpen = drawerState !is MarkerDrawerState.Hidden
 
-    AnimatedVisibility(
-        visible = isOpen,
-        enter = if (isLandscape) slideInHorizontally { -it } + fadeIn()
-        else slideInVertically { it } + fadeIn(),
-        exit = if (isLandscape) slideOutHorizontally { -it } + fadeOut()
-        else slideOutVertically { it } + fadeOut()
+    val panelShape = if (isLandscape) RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp)
+        else RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+
+    // ── Panel ──
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .clip(panelShape)
+            .background(ComposeColor(AppConfig.uiSettingsBackground))
     ) {
-        // Drawer panel — no scrim, close only via back/BackHandler/Cancel
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(if (isLandscape) 0.75f else 1f)
-                .then(
-                    if (isLandscape) Modifier.height(androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp.dp)
-                    else Modifier.heightIn(max = 350.dp).wrapContentHeight()
-                )
-                .clip(
-                    if (isLandscape) RoundedCornerShape(topEnd = 16.dp, bottomEnd = 16.dp)
-                    else RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
-                )
-                .background(ComposeColor(AppConfig.uiSettingsBackground))
-        ) {
-            when (val state = drawerState) {
-                is MarkerDrawerState.Viewing -> ViewingContent(viewModel, state.markerId, onClose)
-                is MarkerDrawerState.MatchResult -> MatchResultContent(viewModel, onClose)
-                else -> { /* Creating/Editing handled by WizardDrawer */ }
-            }
+        when (val state = drawerState) {
+            is MarkerDrawerState.Viewing -> ViewingContent(viewModel, state.markerId, onClose)
+            is MarkerDrawerState.MatchResult -> MatchResultContent(viewModel, onClose)
+            else -> { /* Creating/Editing handled by WizardDrawer */ }
         }
     }
 

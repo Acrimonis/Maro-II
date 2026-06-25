@@ -6,11 +6,14 @@ import ykws.android.maro.spatial.SpatialOperations
 import kotlin.math.abs
 
 /**
- * Single-pass track simplification using compound importance.
+ * Single-pass track simplification using additive compound importance.
  *
- * Douglas-Peucker recursion with a unified "importance" score that considers both
- * spatial deviation (shape) and speed deviation (velocity profile) simultaneously.
- * A point is kept iff its compound importance exceeds 1.0.
+ * Douglas-Peucker recursion with a unified "importance" score that sums
+ * spatial deviation (shape) and speed deviation (velocity profile).
+ * A point is kept iff the sum exceeds 1.0.
+ *
+ * Additive scoring means a point with moderate deviation in BOTH space and speed
+ * (e.g. gentle turn + moderate acceleration) survives — unlike maxOf which rejected it.
  *
  * No separate speed-reinsertion pass — shape and speed are balanced in one recursion.
  * Raw GPS fix order is preserved in the output.
@@ -84,7 +87,10 @@ object TrackSimplifier {
             val kn = (p.speedMps ?: 0f) * 1.94384
             val speedImportance = abs(kn - avgKn) / speedDeltaKn
 
-            val importance = maxOf(spatialImportance, speedImportance)
+            // Additive importance: spatial + speed contributions sum.
+            // A point with moderate deviation in both dimensions (e.g. gentle turn
+            // + moderate acceleration) is kept — no longer lost by maxOf "OR" gate.
+            val importance = spatialImportance + speedImportance
             if (importance > maxImportance) {
                 maxImportance = importance
                 maxIdx = i
