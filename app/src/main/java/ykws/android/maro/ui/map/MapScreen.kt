@@ -1628,7 +1628,8 @@ private fun MapContent(
                     // Add Zone button (same size/style as FanLayout buttons, opens wizard at TypeSelect)
                     Spacer(modifier = Modifier.height(6.dp))
                     MapControlButton(
-                        onClick = { onAddZone(mapCenter) }
+                        onClick = { onAddZone(mapCenter) },
+                        modifier = Modifier.alpha(if (anyFanOpen) 0f else 1f)
                     ) {
                         AddLocationAltIcon()
                     }
