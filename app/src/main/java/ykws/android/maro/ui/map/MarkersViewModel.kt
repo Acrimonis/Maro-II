@@ -80,6 +80,7 @@ data class CreateFormState(
     val widthM: Double = 100.0,
     val proximityOverrideM: String = "",  // empty = use computed default
     val description: String = "",
+    val colorIndex: Int = 0,
     // Corridor 2nd-point
     val corridorP2: LatLng? = null
 )
@@ -312,16 +313,47 @@ class MarkersViewModel(
         )
     }
 
+    /** Icon matching the description field: 📌 ⭕ 📏 */
+    private fun typeIcon(type: MarkerType): String = when (type) {
+        MarkerType.PIN -> "\uD83D\uDCCC"     // 📌
+        MarkerType.CIRCLE -> "\u2B55"         // ⭕
+        MarkerType.CORRIDOR -> "\uD83D\uDCCF" // 📏
+    }
+
+    /** Human-readable name for a color index (0-15). */
+    private fun colorName(index: Int): String = when (index) {
+        0 -> "Red"
+        1 -> "Blue"
+        2 -> "Green"
+        3 -> "Orange"
+        4 -> "Purple"
+        5 -> "Cyan"
+        6 -> "Deep Orange"
+        7 -> "Indigo"
+        8 -> "Light Green"
+        9 -> "Yellow"
+        10 -> "Pink"
+        11 -> "Brown"
+        12 -> "Teal"
+        13 -> "Deep Purple"
+        14 -> "Lime"
+        15 -> "Blue Grey"
+        else -> "Grey"
+    }
+
     /** Begin wizard in creation mode with optional [initialType] and [initialPos]. */
     fun startWizard(initialType: MarkerType = MarkerType.PIN, initialPos: LatLng? = null) {
         showLayer()
         editingMarkerId = null
         val now = Date()
+        val colorIdx = MarkerColors.randomIndex()
+        val defaultName = "${typeIcon(initialType)} ${colorName(colorIdx)}"
         _createForm.value = CreateFormState(
             type = initialType,
             position = initialPos,
-            name = dateFormat.get()!!.format(now),
-            description = dateTimeFormat.get()!!.format(now)
+            name = defaultName,
+            description = dateTimeFormat.get()!!.format(now),
+            colorIndex = colorIdx
         )
         wizardForward = true
         _wizardStep.value = WizardStep.TypeSelect
@@ -469,7 +501,7 @@ class MarkersViewModel(
             description = form.description,
             proximityOverrideM = proximityOverride,
             confirmed = true,
-            colorIndex = MarkerColors.randomIndex()
+            colorIndex = form.colorIndex
         )
 
         viewModelScope.launch {

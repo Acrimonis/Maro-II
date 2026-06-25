@@ -161,6 +161,9 @@ object MarkerMatcher {
             for (other in results) {
                 if (other === outer) continue
                 if (isMatchInsideZone(other, outer.marker.geometry)) {
+                    // Prevent mutual nesting: a ZoneMatch should only nest
+                    // inside a strictly larger zone — never a same-size or smaller one.
+                    if (other is WhereAmIMatch.ZoneMatch && other.zoneSizeM >= outer.zoneSizeM) continue
                     tempChildren.add(other)
                     nestedIds.add(markerOf(other).id)
                 }
@@ -251,7 +254,7 @@ object MarkerMatcher {
     }
 
     /** Returns the geometric center of a marker's zone. */
-    private fun zoneCenterOf(geometry: MarkerGeometry): LatLng = when (geometry) {
+    internal fun zoneCenterOf(geometry: MarkerGeometry): LatLng = when (geometry) {
         is MarkerGeometry.Pin -> geometry.position
         is MarkerGeometry.Circle -> geometry.center
         is MarkerGeometry.Corridor -> LatLng(
