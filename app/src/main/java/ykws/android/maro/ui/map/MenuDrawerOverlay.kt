@@ -1,11 +1,6 @@
 package ykws.android.maro.ui.map
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -51,12 +46,12 @@ import ykws.android.maro.data.track.TrackRecorderState
 import ykws.android.maro.data.track.TrackRecorderUiState
 
 /**
- * Menu slide panel — animated panel that slides in from the right.
+ * Menu slide panel — pure content composable.
  *
- * Full-screen overlay with a scrim on the left 25% that closes on tap.
+ * Animation and shadow are provided by [OverlayLayer].
  * Styled to match the Settings overlay (same design tokens).
  *
- * @param isOpen           Whether the panel is visible.
+ * @param isOpen           Whether the panel is visible (for BackHandler guard).
  * @param recorderState    Current recorder state from [TrackViewModel].
  * @param onStartRecording  Triggered when user taps Start.
  * @param onStopRecording   Triggered when user taps Stop.
@@ -79,234 +74,210 @@ fun MenuDrawerOverlay(
     onOpenSettings: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    AnimatedVisibility(
-        visible = isOpen,
-        enter = fadeIn(),
-        exit = fadeOut()
+    if (isOpen) { BackHandler { onDismiss() } }
+
+    val menuShape = RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp)
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .clip(menuShape)
+            .background(Color(AppConfig.uiSettingsBackground))
+            .windowInsetsPadding(WindowInsets.statusBars)
     ) {
-        Box(modifier = modifier.fillMaxSize()) {
-            BackHandler { onDismiss() }
-
-            // ── Scrim: full screen, clickable to dismiss ─────────────────
-            Box(
+            Column(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .clickable(onClick = onDismiss)
-            )
-
-            // ── Panel: 75% right, slides in from right ──────────────────
-            AnimatedVisibility(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .fillMaxWidth(0.75f)
-                    .fillMaxHeight(),
-                visible = isOpen,
-                enter = slideInHorizontally { it } + fadeIn(),
-                exit = slideOutHorizontally { it } + fadeOut()
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp, vertical = 3.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color(AppConfig.uiSettingsBackground))
-                        .windowInsetsPadding(WindowInsets.statusBars)
+                // ── Header: back button + "Maro II" title + Settings button ───
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(
+                    IconButton(
+                        onClick = onDismiss,
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(Color(AppConfig.uiSettingsSwitchTrackInactive))
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Close",
+                            tint = Color(AppConfig.uiSettingsTextPrimary)
+                        )
+                    }
+                    Spacer(Modifier.width(16.dp))
+                    Text(
+                        text = "Maro II",
+                        color = Color(AppConfig.uiSettingsTextPrimary),
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.weight(1f))
+                    IconButton(
+                        onClick = onOpenSettings,
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(CircleShape)
+                            .background(Color(AppConfig.uiSettingsSwitchTrackInactive))
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = "Settings",
+                            tint = Color(AppConfig.uiSettingsTextPrimary),
+                            modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(20.dp))
+
+                // ── POSITION SOURCE section ──────────────────────
+                Text(
+                    text = "POSITION SOURCE",
+                    color = Color(AppConfig.uiSettingsAccent),
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
+
+                Spacer(Modifier.height(2.dp))
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(AppConfig.uiCardBackground))
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = stringResource(R.string.settings_gps_mode_label),
+                            color = Color(AppConfig.uiSettingsTextPrimary),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Switch(
+                            checked = gpsMode,
+                            onCheckedChange = onGpsModeChange,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = gpsToggleColor,
+                                checkedTrackColor = gpsToggleColor.copy(alpha = 0.4f),
+                                uncheckedThumbColor = Color(AppConfig.uiSettingsTextMuted),
+                                uncheckedTrackColor = Color(AppConfig.uiSettingsSwitchTrackInactive)
+                            )
+                        )
+                    }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // ── Section header ──────────────────────────────
+                Text(
+                    text = "TRACK RECORDING",
+                    color = Color(AppConfig.uiSettingsAccent),
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
+
+                Spacer(Modifier.height(2.dp))
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(AppConfig.uiCardBackground))
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                ) {
+                    // ── Track List row ─────────────────────────────
+                    Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 24.dp, vertical = 3.dp)
+                            .heightIn(min = 48.dp)
+                            .clickable(onClick = onViewTrackList),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
                     ) {
-                        // ── Header: back button + "Maro II" title + Settings button ───
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            IconButton(
-                                onClick = onDismiss,
-                                modifier = Modifier
-                                    .size(32.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(AppConfig.uiSettingsSwitchTrackInactive))
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                    contentDescription = "Close",
-                                    tint = Color(AppConfig.uiSettingsTextPrimary)
-                                )
-                            }
-                            Spacer(Modifier.width(16.dp))
-                            Text(
-                                text = "Maro II",
-                                color = Color(AppConfig.uiSettingsTextPrimary),
-                                fontSize = 17.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(Modifier.weight(1f))
-                            IconButton(
-                                onClick = onOpenSettings,
-                                modifier = Modifier
-                                    .size(64.dp)
-                                    .clip(CircleShape)
-                                    .background(Color(AppConfig.uiSettingsSwitchTrackInactive))
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Settings,
-                                    contentDescription = "Settings",
-                                    tint = Color(AppConfig.uiSettingsTextPrimary),
-                                    modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
-                                )
-                            }
-                        }
-
-                        Spacer(Modifier.height(20.dp))
-
-                        // ── POSITION SOURCE section ──────────────────────
                         Text(
-                            text = "POSITION SOURCE",
-                            color = Color(AppConfig.uiSettingsAccent),
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp
+                            text = "Manage Tracks",
+                            color = Color(AppConfig.uiSettingsTextPrimary),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
                         )
-
-                        Spacer(Modifier.height(2.dp))
-
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color(AppConfig.uiCardBackground))
-                                .padding(horizontal = 16.dp, vertical = 10.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.settings_gps_mode_label),
-                                    color = Color(AppConfig.uiSettingsTextPrimary),
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Switch(
-                                    checked = gpsMode,
-                                    onCheckedChange = onGpsModeChange,
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor = gpsToggleColor,
-                                        checkedTrackColor = gpsToggleColor.copy(alpha = 0.4f),
-                                        uncheckedThumbColor = Color(AppConfig.uiSettingsTextMuted),
-                                        uncheckedTrackColor = Color(AppConfig.uiSettingsSwitchTrackInactive)
-                                    )
-                                )
-                            }
-                        }
-
-                        Spacer(Modifier.height(16.dp))
-
-                        // ── Section header ──────────────────────────────
-                        Text(
-                            text = "TRACK RECORDING",
-                            color = Color(AppConfig.uiSettingsAccent),
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = "View track list",
+                            tint = Color(AppConfig.uiSettingsTextMuted),
+                            modifier = Modifier.size(20.dp)
                         )
+                    }
 
-                        Spacer(Modifier.height(2.dp))
-
+                    // ── Live stats (only when recording) ──────────
+                    if (recorderState.state == TrackRecorderState.ON) {
+                        Spacer(Modifier.height(6.dp))
+                        HorizontalDivider(thickness = 0.5.dp, color = Color(AppConfig.uiSettingsDivider))
+                        Spacer(Modifier.height(6.dp))
                         Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color(AppConfig.uiCardBackground))
-                                .padding(horizontal = 16.dp, vertical = 10.dp)
+                            verticalArrangement = Arrangement.spacedBy(6.dp)
                         ) {
-                            // ── Track List row ─────────────────────────────
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(min = 48.dp)
-                                    .clickable(onClick = onViewTrackList),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = "Manage Tracks",
-                                    color = Color(AppConfig.uiSettingsTextPrimary),
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                    contentDescription = "View track list",
-                                    tint = Color(AppConfig.uiSettingsTextMuted),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
-
-                            // ── Live stats (only when recording) ──────────
-                            if (recorderState.state == TrackRecorderState.ON) {
-                                Spacer(Modifier.height(6.dp))
-                                HorizontalDivider(thickness = 0.5.dp, color = Color(AppConfig.uiSettingsDivider))
-                                Spacer(Modifier.height(6.dp))
-                                Column(
-                                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                                ) {
-                                    StatRow("State", if (recorderState.isMoving) "\u25CF Recording" else "\u25CF Idle")
-                                    StatRow("Elapsed", formatDuration(recorderState.elapsedSeconds))
-                                    StatRow("Points", "${recorderState.pointCount}")
-                                    StatRow("Distance", "${"%.2f".format(recorderState.distanceNm)} nm")
-                                    StatRow("Max Speed", "${"%.1f".format(recorderState.maxSpeedKn)} kn")
-                                    StatRow("Avg Speed", "${"%.1f".format(recorderState.avgSpeedKn)} kn")
-                                }
-                            }
-                        }
-
-                        Spacer(Modifier.height(16.dp))
-
-                        // ── MARKERS section ─────────────────────────────
-                        Text(
-                            text = "MARKERS",
-                            color = Color(AppConfig.uiSettingsAccent),
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp
-                        )
-
-                        Spacer(Modifier.height(8.dp))
-
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color(AppConfig.uiCardBackground))
-                                .padding(horizontal = 16.dp, vertical = 10.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(min = 48.dp)
-                                    .clickable(onClick = onManageMarkers),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Text(
-                                    text = "Manage Markers",
-                                    color = Color(AppConfig.uiSettingsTextPrimary),
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                    contentDescription = "Manage markers",
-                                    tint = Color(AppConfig.uiSettingsTextMuted),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
+                            StatRow("State", if (recorderState.isMoving) "\u25CF Recording" else "\u25CF Idle")
+                            StatRow("Elapsed", formatDuration(recorderState.elapsedSeconds))
+                            StatRow("Points", "${recorderState.pointCount}")
+                            StatRow("Distance", "${"%.2f".format(recorderState.distanceNm)} nm")
+                            StatRow("Max Speed", "${"%.1f".format(recorderState.maxSpeedKn)} kn")
+                            StatRow("Avg Speed", "${"%.1f".format(recorderState.avgSpeedKn)} kn")
                         }
                     }
                 }
-            }
+
+                Spacer(Modifier.height(16.dp))
+
+                // ── MARKERS section ─────────────────────────────
+                Text(
+                    text = "MARKERS",
+                    color = Color(AppConfig.uiSettingsAccent),
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(AppConfig.uiCardBackground))
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 48.dp)
+                            .clickable(onClick = onManageMarkers),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Manage Markers",
+                            color = Color(AppConfig.uiSettingsTextPrimary),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = "Manage markers",
+                            tint = Color(AppConfig.uiSettingsTextMuted),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
         }
     }
 }
