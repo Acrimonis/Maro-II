@@ -2,7 +2,7 @@
 
 > **Purpose:** Canonical reference for rendering any drawer/panel surface in Maro II.
 > **Created:** 2026-06-24 — normalisation pass (I1–I6).
-> **Scope:** Menu slide panel (TrackDrawerOverlay), TrackHistoryOverlay, WizardDrawer, MarkerDrawer.
+> **Scope:** Menu slide panel (MenuDrawerOverlay), TrackHistoryOverlay, WizardDrawer, MarkerDrawer.
 
 ---
 
@@ -10,7 +10,7 @@
 
 | Surface | File | Orientation | Entry |
 |---------|------|-------------|-------|
-| Menu slide panel | `TrackDrawerOverlay.kt` | Slides from right | Hamburger button |
+| Menu slide panel | `MenuDrawerOverlay.kt` | Slides from right | Hamburger button |
 | Track history | `TrackHistoryOverlay.kt` | Full-screen overlay | "Manage Tracks" row |
 | Wizard | `WizardDrawer.kt` | Replaces dashboard | "New marker" / Edit |
 | Marker viewer | `MarkerDrawer.kt` | Slides from bottom (portrait) / left (landscape) | Boat tap / marker tap |
