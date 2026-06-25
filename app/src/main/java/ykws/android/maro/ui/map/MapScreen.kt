@@ -220,7 +220,7 @@ internal fun computeTrackPolylineAppearance(
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @Composable
 fun MapScreen(
-    viewModel: CoastlineViewModel,
+    viewModel: NavigationViewModel,
     depthViewModel: DepthViewModel,
     modifier: Modifier = Modifier
 ) {
@@ -268,7 +268,7 @@ fun MapScreen(
     val effectiveHeadingDeg = if (appSettings.gpsMode) navigationState.bearingDeg.toDouble()
         else navigationState.demoBearingDeg?.toDouble() ?: 0.0
 
-    // Derive the GPS icon state from ViewModel state (6-state model).
+    // Derive the GPS icon state from NavigationViewModel state (6-state model).
     val gpsIconState = remember(appSettings.gpsMode, gpsPosition, gpsStale, acquisitionMode, isEstimating) {
         when {
             !appSettings.gpsMode -> GpsIconState.DEMO
@@ -551,7 +551,7 @@ fun MapScreen(
                     kotlinx.coroutines.flow.flowOf(0L)
                 }
             }
-        val gpsFlow = kotlinx.coroutines.flow.combine(
+        val sampleFlow = kotlinx.coroutines.flow.combine(
             viewModel.gpsPosition,
             viewModel.mapCenter,
             viewModel.navigationState,
@@ -567,17 +567,31 @@ fun MapScreen(
             val speedMs = speedKn?.let { it * 0.514444f }
             val bearing = if (isGps) nav.bearingDeg else nav.demoBearingDeg
             android.util.Log.d("MaroII_Track",
-                "GPSflow: gpsPos=${gpsPos != null} demoSpeed=${nav.demoSpeedKnots} speedKn=$speedKn speedMs=$speedMs")
-            ykws.android.maro.data.location.GpsFix(
+                "TrackSample: gpsPos=${gpsPos != null} demoSpeed=${nav.demoSpeedKnots} speedKn=$speedKn speedMs=$speedMs")
+            ykws.android.maro.data.track.TrackSample(
                 position = pos,
-                bearingDeg = bearing,
-                hasCourse = speedMs != null && speedMs > 0.5f,
                 speedMps = speedMs,
-                hasLock = true,
+                bearingDeg = bearing,
+                hasLock = isGps,
                 timestampEpochMs = System.currentTimeMillis()
             )
         }.filterNotNull()
-        trackViewModel.startRecorder(gpsFlow, appSettings)
+        trackViewModel.setStoppedSource(viewModel.isStopped)
+        trackViewModel.startRecorder(sampleFlow, appSettings)
+
+        // Periodic demo position feed: when GPS is off, re-feed the map center
+        // every second so the adaptive policy timer advances toward IDLE even
+        // when the user has stopped dragging (feedDemoPosition from onCenterChanged
+        // only fires on actual scroll events).
+        while (true) {
+            if (!appSettings.gpsMode) {
+                val center = viewModel.mapCenter.value
+                if (center != null) {
+                    viewModel.feedDemoPosition(center.latitude, center.longitude)
+                }
+            }
+            kotlinx.coroutines.delay(1_000L)
+        }
     }
 
     // ── Track overlay: incremental diff for history tracks with fading transparency ──
@@ -729,10 +743,15 @@ fun MapScreen(
     }
 
     // The map centre drives BOTH layers: coastline (distance/zone) and depth-at-centre.
-    val onCenterChanged: (Double, Double) -> Unit = remember(viewModel, depthViewModel) {
+    // Also feeds into adaptive stop detection in demo mode.
+    val onCenterChanged: (Double, Double) -> Unit = remember(viewModel, depthViewModel, appSettings) {
         { lat, lon ->
             viewModel.updateMapCenter(lat, lon)
             depthViewModel.updateMapCenter(lat, lon)
+            // In demo mode, feed map center into adaptive policy for stop detection
+            if (!appSettings.gpsMode) {
+                viewModel.feedDemoPosition(lat, lon)
+            }
         }
     }
 
