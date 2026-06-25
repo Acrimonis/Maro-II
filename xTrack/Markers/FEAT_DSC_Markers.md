@@ -2,8 +2,8 @@
 name: Markers
 status: active
 created: 2026-06-22 11:52
-modified: 2026-06-25 16:08
-active_subfeature: create-zones-flow
+modified: 2026-06-25 17:14
+active_subfeature: whereami-rework
 ---
 
 # Feature: Markers
@@ -20,7 +20,9 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Sea-di
 ### overlay-rendering  [x]
 ### creation-ui  [x]
 ### management-page  [x]
-### create-zones-flow  [ ]
+### create-zones-flow  [x]
+### clean-up-wizard-next  [x]  *(deprecated — superseded by whereami-rework)*
+### whereami-rework  [ ]
 ### menu-markers-normalization  [x]
 
 ## Key Files
@@ -44,6 +46,8 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Sea-di
 - `app/src/main/java/ykws/android/maro/ui/map/MarkerManagementOverlay.kt`
 
 ## Docs
+- `xTrack/Markers/FEAT_PLN_Markers_whereami-rework.md` — "where am I?" rework: smallest-first depth-first tree traversal, flat result model
+- `xTrack/Markers/FEAT_PLN_Markers_clean-up-wizard-next.md` — [deprecated] Phase 5+6 from create-zones-flow
 - `xTrack/Markers/FEAT_PLN_Markers_create-zones-flow.md` — wizard creation flow design (step-by-step, keyboard handling, replace dashboard)
 - `xTrack/Markers/FEAT_PLN_Markers_user-markers-design.md` — full design plan (data model, algorithm, UI, 6 phases)
 - `xTrack/Markers/FEAT_PLN_Markers_discussion-notes.md` — implementation plan evaluation (7 gaps resolved)
