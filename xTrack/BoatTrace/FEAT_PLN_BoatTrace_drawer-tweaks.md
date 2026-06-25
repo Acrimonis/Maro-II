@@ -49,7 +49,7 @@ Row("Track List"               [ColoredSwitch])       ← Track List + ON/OFF to
 
 ### Visual on/off switch with status icon colors
 
-The [`Switch`](app/src/main/java/ykws/android/maro/ui/map/TrackDrawerOverlay.kt:179-191) already uses `SwitchDefaults.colors()`. Replace with colors matching the tracking status icon:
+The [`Switch`](app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt:179-191) already uses `SwitchDefaults.colors()`. Replace with colors matching the tracking status icon:
 
 | State | Thumb | Track |
 |---|---|---|
@@ -79,7 +79,7 @@ The toggle uses the existing `onStartRecording`/`onStopRecording` callbacks — 
 | `TrackViewModel.kt:114` | Add `.sortedByDescending { it.startTimeMs }` to `refreshSummaries()` |
 | `MapScreen.kt:1178-1185` | Add spacing between hamburger and settings buttons |
 | `MapScreen.kt:1843` | Change `HamburgerIcon()` Canvas size from 28dp → 36dp |
-| `TrackDrawerOverlay.kt:147-212` | Merge Track List row and toggle; remove separate Start/Stop row; color switch dynamically |
+| `MenuDrawerOverlay.kt:147-212` | Merge Track List row and toggle; remove separate Start/Stop row; color switch dynamically |
 
 ## Migration
 

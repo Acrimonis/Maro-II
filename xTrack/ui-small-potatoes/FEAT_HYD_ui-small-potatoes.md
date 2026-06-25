@@ -8,7 +8,7 @@
 Two small UI tweaks applied.
 
 ### remove-track-toggle
-- Removed ON/OFF Switch from TrackDrawerOverlay "Track List..." row
+- Removed ON/OFF Switch from MenuDrawerOverlay "Track List..." row
 - Recording now controlled only via TrackStatusIcon on map
 
 ### danger-icon-redesign
@@ -16,7 +16,7 @@ Two small UI tweaks applied.
 - Changed from grey triangle with white "!" to white triangle with transparent cutout
 
 ## Key Files Modified
-- TrackDrawerOverlay.kt — removed ON/OFF Switch from "Track List..." row
+- MenuDrawerOverlay.kt — removed ON/OFF Switch from "Track List..." row
 - FanIconComponents.kt — WarningTriangleIcon: white triangle + BlendMode.Clear "!"
 
 ## Next Steps

@@ -1080,9 +1080,9 @@ fun MapScreen(
             )
         }
 
-        // ── TrackDrawer overlay (layer on top, like SettingsOverlay) ─────
+        // ── Menu drawer overlay (layer on top, like SettingsOverlay) ─────
         if (showTrackDrawer) {
-            TrackDrawerOverlay(
+            MenuDrawerOverlay(
                 isOpen = true,
                 gpsMode = appSettings.gpsMode,
                 onGpsModeChange = onGpsModeChange,

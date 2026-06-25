@@ -365,9 +365,9 @@ The section should include:
 
 ---
 
-### Step 9: TrackDrawerOverlay — Use tracking colors
+### Step 9: MenuDrawerOverlay — Use tracking colors
 
-**File:** [`TrackDrawerOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/TrackDrawerOverlay.kt)
+**File:** [`MenuDrawerOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt)
 
 If the drawer shows a preview line/color of the active track, update it to use `tracking.color.active`.
 
@@ -384,7 +384,7 @@ If the drawer shows a preview line/color of the active track, update it to use `
 | `FanIconComponents.kt` | Add `TrackLayerIcon` composable |
 | `CoastlineViewModel.kt` | Add `toggleTracksVisibility()` |
 | `MapScreen.kt` | FanLayout: `maxCount` 5→6, `currentCount` 4→5, add tracks layer; Track overlay: incremental diff rendering with fade + LRU cache, active track color; NavigationSettings: add Tracking section with color pickers |
-| `TrackDrawerOverlay.kt` | Optional: use tracking colors in active track preview |
+| `MenuDrawerOverlay.kt` | Optional: use tracking colors in active track preview |
 
 ## Rendering Algorithm
 
