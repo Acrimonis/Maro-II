@@ -40,8 +40,8 @@ sealed class MarkerDrawerState {
     /** Creating a new marker (now driven by wizard). */
     data object Creating : MarkerDrawerState()
 
-    /** Viewing an existing marker's details (read-only, with Edit/Close buttons). */
-    data class Viewing(val markerId: String) : MarkerDrawerState()
+    /** Viewing existing markers' details (read-only, driven by selectedMarkerIds/selectedMarkerIndex). */
+    data object Viewing : MarkerDrawerState()
 
     /** Editing an existing marker by ID (now driven by wizard). */
     data class Editing(val markerId: String) : MarkerDrawerState()
@@ -159,6 +159,14 @@ class MarkersViewModel(
     private val _selectedMarkerId = MutableStateFlow<String?>(null)
     val selectedMarkerId: StateFlow<String?> = _selectedMarkerId.asStateFlow()
 
+    /** List of marker IDs selected for viewing (multi-marker navigation, §11). */
+    private val _selectedMarkerIds = MutableStateFlow<List<String>>(emptyList())
+    val selectedMarkerIds: StateFlow<List<String>> = _selectedMarkerIds.asStateFlow()
+
+    /** Index into [selectedMarkerIds] for multi-marker Previous/Next navigation (§11). */
+    private val _selectedMarkerIndex = MutableStateFlow(0)
+    val selectedMarkerIndex: StateFlow<Int> = _selectedMarkerIndex.asStateFlow()
+
     /** Result of the last "where am I?" query. */
     private val _matchResult = MutableStateFlow<WhereAmIResult?>(null)
     val matchResult: StateFlow<WhereAmIResult?> = _matchResult.asStateFlow()
@@ -203,10 +211,19 @@ class MarkersViewModel(
 
     // ── Drawer control ────────────────────────────────────────────────────
 
-    /** Opens drawer in viewing mode for the marker with [markerId]. */
+    /** Opens drawer in viewing mode for a single marker (convenience). */
     fun openEditDrawer(markerId: String) {
-        val marker = _markers.value.find { it.id == markerId } ?: return
-        _selectedMarkerId.value = markerId
+        openEditDrawer(listOf(markerId))
+    }
+
+    /** Opens drawer in viewing mode for one or more markers (§11 multi-marker). */
+    fun openEditDrawer(markerIds: List<String>) {
+        if (markerIds.isEmpty()) return
+        _selectedMarkerIds.value = markerIds
+        _selectedMarkerIndex.value = 0
+        val firstId = markerIds.first()
+        val marker = _markers.value.find { it.id == firstId } ?: return
+        _selectedMarkerId.value = firstId
         val pos = when (val g = marker.geometry) {
             is MarkerGeometry.Pin -> g.position
             is MarkerGeometry.Circle -> g.center
@@ -231,7 +248,39 @@ class MarkersViewModel(
             description = marker.description,
             corridorP2 = corridorP2
         )
-        _drawerState.value = MarkerDrawerState.Viewing(markerId)
+        _drawerState.value = MarkerDrawerState.Viewing
+    }
+
+    /** Navigate to the previous marker in the multi-marker selection (§11). */
+    fun viewPreviousMarker() {
+        val ids = _selectedMarkerIds.value
+        if (ids.size <= 1) return
+        val current = _selectedMarkerIndex.value
+        val newIndex = if (current > 0) current - 1 else ids.lastIndex
+        _selectedMarkerIndex.value = newIndex
+        _selectedMarkerId.value = ids[newIndex]
+        emitMapCenterFor(ids[newIndex])
+    }
+
+    /** Navigate to the next marker in the multi-marker selection (§11). */
+    fun viewNextMarker() {
+        val ids = _selectedMarkerIds.value
+        if (ids.size <= 1) return
+        val current = _selectedMarkerIndex.value
+        val newIndex = if (current < ids.lastIndex) current + 1 else 0
+        _selectedMarkerIndex.value = newIndex
+        _selectedMarkerId.value = ids[newIndex]
+        emitMapCenterFor(ids[newIndex])
+    }
+
+    private fun emitMapCenterFor(markerId: String) {
+        val marker = _markers.value.find { it.id == markerId } ?: return
+        val pos = when (val g = marker.geometry) {
+            is MarkerGeometry.Pin -> g.position
+            is MarkerGeometry.Circle -> g.center
+            is MarkerGeometry.Corridor -> g.p1
+        }
+        _mapCenterRequest.value = pos
     }
 
     /** Closes the drawer. */
@@ -240,6 +289,8 @@ class MarkersViewModel(
         _wizardStep.value = null
         editingMarkerId = null
         _selectedMarkerId.value = null
+        _selectedMarkerIds.value = emptyList()
+        _selectedMarkerIndex.value = 0
     }
 
     // ── Wizard state machine ──────────────────────────────────────────────

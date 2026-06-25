@@ -165,11 +165,6 @@ fun TrackHistoryOverlay(
         val map = mutableMapOf<String, Color>()
         val greyColor = Color(AppConfig.uiSettingsTextMuted).copy(alpha = 0.15f)
 
-        if (!tracksVisible) {
-            trackSummaries.forEach { map[it.id] = greyColor }
-            return@remember map
-        }
-
         // Pinned tracks always render
         val pinnedTotal = pinnedSummaries.size
         for ((index, summary) in pinnedSummaries.withIndex()) {

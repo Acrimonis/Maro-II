@@ -14,6 +14,7 @@
 - Sliders normalized: radius/width 0-1000m step 25m default 100m, proximity 0-1000m step 25m default 100m
 - Touch target: CenterMarkerOverlay min 48dp clickable area
 - Dead code removed: old `MatchResult`, `TieredMatchResult`, `precisionComparator`, `geometryTypeRank`, `distanceFromResult`, `segmentIntersectsPointList`
+- UI polish: unified text format (§8), B/W edit icons (§10), viewing drawer redesign (§11), color picker (§9) — see `FEAT_PLN_Markers_next-session-ui-polish.md`
 
 ## Build
 - assembleDebug ✅

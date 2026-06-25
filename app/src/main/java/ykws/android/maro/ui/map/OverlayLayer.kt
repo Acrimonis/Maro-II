@@ -1,6 +1,7 @@
 package ykws.android.maro.ui.map
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -133,10 +134,20 @@ fun OverlayLayer(
             modifier = Modifier.fillMaxSize(),
             slideDirection = SlideDirection.FADE_ONLY
         ) {
+            val scrimDismiss: () -> Unit = {
+                when {
+                    showTrackDrawer -> onDismissMenu()
+                    showTrackHistory -> onDismissTrackHistory()
+                    showMarkerManagement -> onDismissMarkerManagement()
+                    showWizard -> onWizardCancel()
+                    drawerState is MarkerDrawerState.Viewing || drawerState is MarkerDrawerState.MatchResult -> onMarkerDrawerClose()
+                }
+            }
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(ComposeColor.Black.copy(alpha = 0.32f))
+                    .clickable { scrimDismiss() }
             )
         }
 

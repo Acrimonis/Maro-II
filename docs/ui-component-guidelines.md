@@ -139,9 +139,9 @@ Full token list: [`ui-tokens.properties`](../app/src/main/assets/ui-tokens.prope
 
 Same `uiCardBackground` + 12dp radius. Rows: 16×10dp pad, `heightIn(min = 48dp)` touch target. Between cards: `${ui.spacing.header.bottom}`.
 
-### 5.2 Track History Cards (`TrackHistoryOverlay`)
+### 5.2 List Item Cards (`TrackHistoryOverlay` + `MarkerManagementOverlay`)
 
-Same `uiCardBackground` + 12dp radius. Compact vertical pad (4dp — denser list context). Section header: 17sp Bold accent UPPERCASE. Inline editing with `FocusRequester`. Stats: 3-col × 2-row.
+Unified pattern documented in [`ui-drawer-guidelines.md` §9](ui-drawer-guidelines.md#9-list-item-card-pattern-track--marker). Shell: `Row(height(IntrinsicSize.Min), clip(12dp), uiCardBackground)` + `Box(4dp, fillMaxHeight, accentColor)` + `Column(weight 1f, pad 8×4dp)`. Shared tokens for header (11sp muted), title (15sp SemiBold white), detail (14sp white), comment (13sp muted), action icons (`IconButton(36dp)` + `Icon(24dp, tint=ButtonColors.icon)`). Per-type variations in accent color source and metadata format.
 
 ---
 

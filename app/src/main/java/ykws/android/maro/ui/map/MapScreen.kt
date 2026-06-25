@@ -1019,7 +1019,7 @@ fun MapScreen(
                     mapView = mapView,
                     proximityZoneMultiplier = AppConfig.markerProximityZoneMultiplier,
                     unconfirmedMarker = unconfirmedMarker,
-                    onMarkerTap = { id -> markersViewModel.openEditDrawer(id) },
+                    onMarkerTap = { ids -> markersViewModel.openEditDrawer(ids) },
                     matchResult = if (drawerState is MarkerDrawerState.MatchResult) matchResult else null,
                     markerZonesVisible = appSettings.markerZonesVisible,
                     selectedMarkerId = selectedMarkerId
