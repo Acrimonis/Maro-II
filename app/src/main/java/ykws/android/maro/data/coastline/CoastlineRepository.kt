@@ -48,8 +48,10 @@ class CoastlineRepository(
     /**
      * Spatial index for fast nearest-coastline queries.
      * Built once when coastline data is loaded — null when no data is available.
+     * Exposed for MarkerMatcher land-blocking (segment-intersection queries).
      */
-    private var spatialIndex: CoastlineSpatialIndex? = null
+    var spatialIndex: CoastlineSpatialIndex? = null
+        private set
 
     /**
      * Progress state (phase name + 0–100) exposed for UI feedback.

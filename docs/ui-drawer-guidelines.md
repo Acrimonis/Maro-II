@@ -2,7 +2,7 @@
 
 > **Purpose:** Canonical reference for rendering any drawer/panel surface in Maro II.
 > **Created:** 2026-06-24 — normalisation pass (I1–I6).
-> **Updated:** 2026-06-25 — OverlayLayer + DrawerSlot architecture (I7–I12); wizard sub-package extraction.
+> **Updated:** 2026-06-25 — OverlayLayer + DrawerSlot architecture (I7–I12); wizard sub-package extraction; unified list item card pattern (I21).
 
 ---
 
@@ -102,6 +102,12 @@ val showScrim = showTrackDrawer
 ```
 
 Wizard `Position` / `PositionP2` steps suppress the scrim so the map stays interactive during point placement.
+
+### Scrim Behavior Rule
+
+🔴 **All drawers must close when the scrim is tapped.** The scrim click handler calls the drawer's dismiss callback.
+
+**Exception:** Wizard `Position` / `PositionP2` steps — these suppress the scrim entirely so the map remains draggable during point placement.
 
 ---
 
@@ -231,8 +237,6 @@ Text(
 Spacer(Modifier.height(8.dp))
 ```
 
-Subsection headers below the drawer title follow `Spacer(12.dp)` after the header row.
-
 ---
 
 ## 8. Card Pattern
@@ -276,7 +280,77 @@ Column(
 
 ---
 
-## 9. Row Types
+## 9. List Item Card Pattern (Track + Marker)
+
+Both `TrackHistoryOverlay` and `MarkerManagementOverlay` share an identical item shell. This is the canonical pattern for any list item with a colored accent bar.
+
+### Shell
+
+```kotlin
+Row(
+    modifier = Modifier.fillMaxWidth()
+        .height(IntrinsicSize.Min)
+        .clip(RoundedCornerShape(12.dp))
+        .background(uiCardBackground)
+) {
+    // Left-edge accent bar — 4dp wide, full height, color from data
+    Box(Modifier.width(4.dp).fillMaxHeight().background(accentColor))
+
+    // Content column
+    Column(Modifier.weight(1f).padding(horizontal = 8.dp, vertical = 4.dp)) {
+        // ── Header row: metadata (11sp muted) + action icons right-aligned ──
+        Row(Modifier.fillMaxWidth(), SpaceBetween, CenterVertically) {
+            Text(metadata, 11sp, uiSettingsTextMuted, weight 1f, ellipsis)
+            Row(spacedBy(2.dp)) {
+                IconButton(36dp) { Icon(actionIcon, 24dp, tint = ButtonColors.icon) }
+                // ... more action icons
+            }
+        }
+        Spacer(2.dp)
+        HorizontalDivider(0.5dp, uiSettingsDivider)
+        Spacer(2.dp)
+
+        // ── Title: 15sp SemiBold white ──
+        Text(title, 15sp, SemiBold, uiSettingsTextPrimary, maxLines=1, ellipsis)
+
+        // ── Detail row: 14sp Normal white ──
+        Text(detailText, 14sp, uiSettingsTextPrimary)
+
+        // ── Comment/description: 13sp muted (if present) ──
+        if (comment.isNotBlank()) {
+            Text(comment, 13sp, uiSettingsTextMuted, maxLines=3)
+        }
+    }
+}
+```
+
+### Shared Tokens
+
+| Token | Value | Applies to |
+|-------|-------|------------|
+| Card radius | 12dp | Both |
+| Accent bar width | 4dp, `fillMaxHeight()` | Both |
+| Content padding | 8dp h × 4dp v | Both |
+| Header font | 11sp, `uiSettingsTextMuted` | Both |
+| Title font | 15sp, SemiBold, `uiSettingsTextPrimary` | Both |
+| Detail font | 14sp, Normal, `uiSettingsTextPrimary` | Both |
+| Comment font | 13sp, Normal, `uiSettingsTextMuted` | Both |
+| Action icon | `IconButton(36dp)` + `Icon(24dp, tint=ButtonColors.icon)` | Both |
+| Divider | 0.5dp, `uiSettingsDivider`, 2dp gap each side | Both |
+
+### Per-Type Variations
+
+| Aspect | Track | Marker |
+|--------|-------|--------|
+| Accent color source | `computeTrackPolylineAppearance()` → ARGB int | `MarkerColors.of(colorIndex)` |
+| Header metadata | `dateLabel  startTime→endTime` + `pts` | `coordinateHeader()`: `[lat,lon]` (Pin/Circle) or `[lat,lon]→[lat,lon]` (Corridor) |
+| Detail text | 3-col × 2-row stats grid | `markerFormatText()`: `📌 - 200m prox` / `⭕ - 200m r - 200m prox` / `📏 - 100m w - 200m prox` |
+| Action icons | Pin toggle + Export GPX | Edit only |
+| Accent bar when hidden | Always real color | Always marker color |
+
+---
+
+## 10. Row Types
 
 | Row type | Pattern | Example |
 |----------|---------|---------|
@@ -286,7 +360,7 @@ Column(
 
 ---
 
-## 10. Decision Log
+## 11. Decision Log
 
 | # | Date | Decision | Rationale |
 |---|------|----------|-----------|
@@ -297,6 +371,11 @@ Column(
 | I7 | 2026-06-25 | `DrawerSlot` abstraction — one composable for all drawer animations | Replaces 9 copy-pasted `AnimatedVisibility` blocks (~270 lines → ~72 lines). `SlideDirection` + `ShadowEdge` enums make each drawer declarative. |
 | I8 | 2026-06-25 | `OverlayLayer` — unified Layer 1 compositor | All transient surfaces + scrim live in one self-contained composable. Layer 0 (dashboard/map/controls) is permanent. Any new overlay fits into this framework. |
 | I9 | 2026-06-25 | Gradient shadow via `drawBehind` replacing `Modifier.shadow()` | `Modifier.shadow(16.dp)` uses RenderNode elevation — invisible on dark backgrounds. An 8dp black@18%→transparent gradient on the drawer edge is always visible. |
-| I10 | 2026-06-25 | Wizard steps extracted to `ui/markers/wizard/` package | `WizardTopBar`, `WizardButtonRow`, and 4 step composables (`TypeSelectStep`, `PositionStep`, `SliderStep`, `TextInputStep`) in `ui/markers/wizard/steps/`. `WizardDrawer.kt` is a thin shell (~228 lines). Import path: `ykws.android.maro.ui.markers.wizard.*`. |
-| I11 | 2026-06-25 | `WizardDrawer` receives `step` as non-null parameter | Fixes the blank-screen bug where `step ?: return` short-circuited rendering when the state was `null` for one frame. `OverlayLayer` guards with `showWizard && activeStep != null`. |
-| I12 | 2026-06-25 | `OverlayLayer` consolidates ALL transient surfaces | 7 surfaces (Scrim, Wizard, Menu, Marker, TrackHistory, MarkerManagement, Settings) in one composable. `MapScreen` Layer 1 is a single `OverlayLayer(...)` call — no inline `if (showXxx) { ... }` blocks. |
+| I10 | 2026-06-25 | Wizard steps extracted to `ui/markers/wizard/` package | `WizardTopBar`, `WizardButtonRow`, and 4 step composables in `ui/markers/wizard/steps/`. `WizardDrawer.kt` is a thin shell. |
+| I11 | 2026-06-25 | `WizardDrawer` receives `step` as non-null parameter | Fixes blank-screen bug where `step ?: return` short-circuited rendering. `OverlayLayer` guards with `showWizard && activeStep != null`. |
+| I12 | 2026-06-25 | `OverlayLayer` consolidates ALL transient surfaces | 7 surfaces in one composable. `MapScreen` Layer 1 is a single `OverlayLayer(...)` call. |
+| I13 | 2026-06-25 | Marker viewer uses Tight card (8×4dp) for info content | Geometry desc, direction+distance, and description inside `uiCardBackground` card, 12dp radius. |
+| I21 | 2026-06-25 | Unified list item card pattern (Track + Marker) | `Row(height(IntrinsicSize.Min), clip(12dp), uiCardBackground)` + `Box(4dp, fillMaxHeight, accentColor)` + `Column(weight 1f, pad 8×4dp)`. Canonical pattern in §9. Consolidates I14/I15/I19/I20. Per-type variations: accent color source, header metadata, detail text, action icons. |
+| I16 | 2026-06-25 | Previous/Next buttons match wizard pill style | `Box(RoundedCornerShape(8dp), uiSettingsAccent bg, Bold 14sp)` — same as `WizardButtonRow`. |
+| I17 | 2026-06-25 | Selected marker highlight via 2.5× stroke multiplier | Thicker stroke + `mapCenterRequest` on Previous/Next navigation. |
+| I18 | 2026-06-25 | Proximity zone uses marker's own color (50% stroke / 10% fill) | Replaces hardcoded cyan. Fill = `dimColor(markerColor, ZONE_FILL_ALPHA_FRACTION/2)`. |

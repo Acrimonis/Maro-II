@@ -11,13 +11,16 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -35,10 +38,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -372,8 +377,18 @@ private fun SwipeToDeleteMarkerCard(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Marker card content
+// Marker card content — matching track list item pattern
 // ─────────────────────────────────────────────────────────────────────────────
+
+// Marker list item layout constants (matching TrackHistoryOverlay track card)
+private val MARKER_CARD_RADIUS = 12.dp
+private val MARKER_ACCENT_BAR_WIDTH = 4.dp
+private val MARKER_CONTENT_PAD_H = 8.dp
+private val MARKER_CONTENT_PAD_V = 4.dp
+private val MARKER_HEADER_FONT_SIZE = 11.sp
+private val MARKER_TITLE_FONT_SIZE = 15.sp
+private val MARKER_GEOMETRY_FONT_SIZE = 14.sp
+private val MARKER_DESC_FONT_SIZE = 13.sp
 
 @Composable
 private fun MarkerCardContent(
@@ -381,72 +396,120 @@ private fun MarkerCardContent(
     onTap: () -> Unit,
     onEdit: () -> Unit
 ) {
-    val geometryDesc = when (val g = marker.geometry) {
-        is MarkerGeometry.Pin -> "Pin"
-        is MarkerGeometry.Circle -> "Circle \u00B7 ${g.radiusM.toLong()} m"
-        is MarkerGeometry.Corridor -> "Corridor \u00B7 ${g.widthM.toLong()} m"
-    }
-
-    Column(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
+            .height(IntrinsicSize.Min)
+            .clip(RoundedCornerShape(MARKER_CARD_RADIUS))
             .background(Color(AppConfig.uiCardBackground))
-            .padding(horizontal = 12.dp, vertical = 10.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        // Left-edge accent bar — matches track list highlight pattern exactly
+        Box(
+            modifier = Modifier
+                .width(MARKER_ACCENT_BAR_WIDTH)
+                .fillMaxHeight()
+                .background(Color(MarkerColors.of(marker.colorIndex)))
+        )
+        // Content column
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = MARKER_CONTENT_PAD_H, vertical = MARKER_CONTENT_PAD_V)
         ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = marker.name,
-                    color = Color(AppConfig.uiSettingsTextPrimary),
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = geometryDesc,
-                    color = Color(AppConfig.uiSettingsTextMuted),
-                    fontSize = 12.sp
-                )
-            }
-            // P8: Explicit Edit button
-            Button(
-                onClick = onEdit,
-                modifier = Modifier.height(34.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(AppConfig.buttonActionBgColor)
-                ),
-                shape = RoundedCornerShape(6.dp),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
+            // ── Header: coordinates + edit icon right-aligned ─────────────
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    "Edit",
-                    color = Color(AppConfig.buttonActionIconColor),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium
+                    text = coordinateHeader(marker),
+                    color = Color(AppConfig.uiSettingsTextMuted),
+                    fontSize = MARKER_HEADER_FONT_SIZE,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
                 )
+                IconButton(
+                    onClick = onEdit,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Edit,
+                        contentDescription = "Edit",
+                        tint = ButtonColors.icon,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
-        }
 
-        if (marker.description.isNotBlank()) {
-            Spacer(modifier = Modifier.height(4.dp))
-            HorizontalDivider(
-                thickness = 0.5.dp,
-                color = Color(AppConfig.uiSettingsDivider)
-            )
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(Modifier.height(2.dp))
+            HorizontalDivider(thickness = 0.5.dp, color = Color(AppConfig.uiSettingsDivider))
+            Spacer(Modifier.height(2.dp))
+
+            // ── Title ────────────────────────────────────────────────────
             Text(
-                text = marker.description,
-                color = Color(AppConfig.uiSettingsTextMuted),
-                fontSize = 13.sp,
+                text = marker.name,
+                color = Color(AppConfig.uiSettingsTextPrimary),
+                fontSize = MARKER_TITLE_FONT_SIZE,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            // ── Geometry description ──────────────────────────────────────
+            Text(
+                text = markerFormatText(marker),
+                color = Color(AppConfig.uiSettingsTextPrimary),
+                fontSize = MARKER_GEOMETRY_FONT_SIZE,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
+
+            // ── Description ──────────────────────────────────────────────
+            if (marker.description.isNotBlank()) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = marker.description,
+                    color = Color(AppConfig.uiSettingsTextMuted),
+                    fontSize = MARKER_DESC_FONT_SIZE,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+/** Coordinate header: "[lat, lon]" for Pin/Circle, "[lat,lon]→[lat,lon]" for Corridor. */
+private fun coordinateHeader(marker: UserMarker): String {
+    fun fmt(ll: ykws.android.maro.data.model.LatLng) =
+        "%.4f, %.4f".format(ll.latitude, ll.longitude)
+    return when (val g = marker.geometry) {
+        is MarkerGeometry.Pin -> "[${fmt(g.position)}]"
+        is MarkerGeometry.Circle -> "[${fmt(g.center)}]"
+        is MarkerGeometry.Corridor -> "[${fmt(g.p1)}] → [${fmt(g.p2)}]"
+    }
+}
+
+/** Compact format: "📌 - 200m prox", "⭕ - 200m r - 200m prox", "📏 - 100m w - 200m prox". */
+private fun markerFormatText(marker: UserMarker): String {
+    val proximityM = marker.proximityOverrideM
+        ?: when (val g = marker.geometry) {
+            is MarkerGeometry.Pin -> AppConfig.markerProximityPinM
+            is MarkerGeometry.Circle -> g.radiusM * AppConfig.markerProximityZoneMultiplier
+            is MarkerGeometry.Corridor -> g.widthM * AppConfig.markerProximityZoneMultiplier
+        }
+    val prox = "${proximityM.toLong()}m prox"
+    return when (marker.geometry) {
+        is MarkerGeometry.Pin -> "\uD83D\uDCCC - $prox"
+        is MarkerGeometry.Circle -> {
+            val r = "${marker.geometry.radiusM.toLong()}m r"
+            "\u2B55 - $r - $prox"
+        }
+        is MarkerGeometry.Corridor -> {
+            val w = "${marker.geometry.widthM.toLong()}m w"
+            "\uD83D\uDCCF - $w - $prox"
         }
     }
 }

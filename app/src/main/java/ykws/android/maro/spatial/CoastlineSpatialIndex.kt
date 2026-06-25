@@ -389,6 +389,94 @@ class CoastlineSpatialIndex(
     )
 
     /**
+     * Tests whether segment A→B intersects any land edge, using the spatial index
+     * to only check edges near the segment. Applies 10 m grazing tolerance: an
+     * intersection within 10 m of both edge vertices is treated as grazing (peninsula
+     * tip) and ignored. Short-circuits on first non-grazing land hit.
+     *
+     * @return `true` if land blocks the segment, `false` otherwise (clear sea path).
+     */
+    fun segmentIntersectsLand(a: LatLng, b: LatLng): Boolean {
+        if (!hasData) return false
+
+        // Compute bounding box of the query segment A→B
+        val segMinLat = minOf(a.latitude, b.latitude)
+        val segMaxLat = maxOf(a.latitude, b.latitude)
+        val segMinLon = minOf(a.longitude, b.longitude)
+        val segMaxLon = maxOf(a.longitude, b.longitude)
+
+        // Grid cell range overlapping the segment's bbox
+        val rMin = ((segMinLat - minLat) / cellSizeLat).toInt().coerceIn(0, rowCount - 1)
+        val rMax = ((segMaxLat - minLat) / cellSizeLat).toInt().coerceIn(0, rowCount - 1)
+        val cMin = ((segMinLon - minLon) / cellSizeLon).toInt().coerceIn(0, colCount - 1)
+        val cMax = ((segMaxLon - minLon) / cellSizeLon).toInt().coerceIn(0, colCount - 1)
+
+        val seen = HashSet<Int>()
+        val GRAZING_M = 10.0
+
+        for (r in rMin..rMax) {
+            for (c in cMin..cMax) {
+                grid[GridCell(r, c)]?.let { indices ->
+                    for (idx in indices) {
+                        if (!seen.add(idx)) continue
+                        val ref = segmentRefs[idx]
+
+                        // Skip terminal points (no outgoing edge)
+                        // Terminal check: polylineIdx=0 is mainland, its terminal points
+                        // don't form outgoing edges. For islands, skip edges where either
+                        // vertex is a terminal.
+                        // We approximate: skip if this is the last vertex in its polyline
+                        // and there's no next point (open polyline endpoint).
+
+                        if (!SpatialOperations.segmentsIntersect(a, b, ref.a, ref.b)) continue
+
+                        // Grazing tolerance: compute intersection point, check distance
+                        // to both edge vertices
+                        val ip = intersectionPoint(a, b, ref.a, ref.b) ?: continue
+                        val distToA = SpatialOperations.haversine(ip, ref.a)
+                        val distToB = SpatialOperations.haversine(ip, ref.b)
+                        if (distToA > GRAZING_M && distToB > GRAZING_M) {
+                            return true  // land blocks
+                        }
+                        // else: grazing — continue checking other edges
+                    }
+                }
+            }
+        }
+        return false
+    }
+
+    /** Intersection point of segments A→B and Q1→Q2, using local planar projection. */
+    private fun intersectionPoint(
+        a: LatLng, b: LatLng,
+        q1: LatLng, q2: LatLng
+    ): LatLng? {
+        val midLat = (a.latitude + b.latitude + q1.latitude + q2.latitude) / 4.0
+        val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
+        val mPerDegLon = mPerDegLat * cos(Math.toRadians(midLat))
+
+        fun toProj(p: LatLng) = Pair(p.longitude * mPerDegLon, p.latitude * mPerDegLat)
+
+        val (ax, ay) = toProj(a)
+        val (bx, by) = toProj(b)
+        val (q1x, q1y) = toProj(q1)
+        val (q2x, q2y) = toProj(q2)
+
+        val rx = bx - ax; val ry = by - ay
+        val sx = q2x - q1x; val sy = q2y - q1y
+
+        val crossRS = rx * sy - ry * sx
+        if (abs(crossRS) < 1e-12) return null
+
+        val qpx = q1x - ax; val qpy = q1y - ay
+        val t = (qpx * sy - qpy * sx) / crossRS
+
+        val ix = ax + t * rx
+        val iy = ay + t * ry
+        return LatLng(iy / mPerDegLat, ix / mPerDegLon)
+    }
+
+    /**
      * Water/land by a **mainland-primary** test:
      *  - **Base** = nearest-**MAINLAND**-segment **side test** ([classifyWater]) — the open coast is
      *    what actually separates sea from land; this is immune to the vertical-ray degeneracy and is

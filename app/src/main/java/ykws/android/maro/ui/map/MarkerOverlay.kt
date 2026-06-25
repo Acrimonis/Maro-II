@@ -22,8 +22,8 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.spatial.SpatialOperations
-import ykws.android.maro.spatial.MatchResult
-import ykws.android.maro.spatial.TieredMatchResult
+import ykws.android.maro.spatial.WhereAmIMatch
+import ykws.android.maro.spatial.WhereAmIResult
 import kotlin.math.*
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -49,17 +49,20 @@ private val COLOR_CONFIRMED = AppConfig.semanticInfo
 /** Unconfirmed marker colour (semantic.caution amber). */
 private val COLOR_UNCONFIRMED = AppConfig.semanticCaution
 
-/** Proximity preview colour — cyan #4FC3F7 at ~50% alpha (was 30%, too faint with dash). */
-private val COLOR_PROXIMITY_PREVIEW = 0x804FC3F7.toInt()
-
 /** Alpha for dimmed (non-matched) markers during match-result highlighting (30%). */
 private const val DIMMED_ALPHA_FRACTION = 0.30f
 
 /** Alpha fraction for zone fill (20% — subtle transparent background). */
 private const val ZONE_FILL_ALPHA_FRACTION = 0.20f
 
+/** Alpha fraction for proximity preview — 50% for strokes, fills use ZONE_FILL_ALPHA_FRACTION/2 (10%). */
+private const val PROXIMITY_ALPHA_FRACTION = 0.50f
+
 /** Brighter stroke multiplier for matched markers (3dp → 5dp ≈ 1.67×). */
 private const val MATCHED_STROKE_MULTIPLIER = 1.67f
+
+/** Stroke multiplier for pulse-highlighted selected marker. */
+private const val SELECTED_STROKE_MULTIPLIER = 2.5f
 
 // ── Public composable ─────────────────────────────────────────────────────────
 
@@ -91,7 +94,7 @@ private const val MATCHED_STROKE_MULTIPLIER = 1.67f
  * @param proximityZoneMultiplier Multiplier for proximity range preview.
  * @param modifier               Compose modifier (unused — overlays go to mapView).
  * @param unconfirmedMarker      Optional unconfirmed marker being created/edited.
- * @param onMarkerTap            Called when a confirmed marker is tapped on the map.
+ * @param onMarkerTap            Called with the list of tapped marker IDs (one or more for overlapping markers).
  * @param matchResult            Optional tiered match result for marker highlighting.
  */
 @Composable
@@ -101,8 +104,8 @@ fun MarkerOverlay(
     proximityZoneMultiplier: Double = 3.0,
     modifier: Modifier = Modifier,
     unconfirmedMarker: UserMarker? = null,
-    onMarkerTap: (String) -> Unit = {},
-    matchResult: TieredMatchResult? = null,
+    onMarkerTap: (List<String>) -> Unit = {},
+    matchResult: WhereAmIResult? = null,
     markerZonesVisible: Boolean = true,
     selectedMarkerId: String? = null
 ) {
@@ -120,25 +123,14 @@ fun MarkerOverlay(
     }
 
     // ── P6: Build set of matched marker IDs for highlighting ──────────────────
-    val matchedIds: Set<String> = if (matchResult != null) {
-        val ids = mutableSetOf<String>()
-        fun collectIds(results: List<MatchResult>) {
-            for (r in results) {
-                when (r) {
-                    is MatchResult.ZoneMatch -> {
-                        ids.add(r.marker.id)
-                        collectIds(r.children)
-                    }
-                    is MatchResult.ProximityMatch -> ids.add(r.marker.id)
-                    is MatchResult.NoMatch -> {}
-                }
-            }
+    val matchedIds: Set<String> = matchResult?.allMatches?.mapNotNull { match ->
+        when (match) {
+            is WhereAmIMatch.ZoneMatch -> match.marker.id
+            is WhereAmIMatch.ProximityMatch -> match.marker.id
         }
-        collectIds(matchResult.matches)
-        ids
-    } else emptySet()
+    }?.toSet() ?: emptySet()
 
-    DisposableEffect(markers, unconfirmedMarker, mv, matchResult) {
+    DisposableEffect(markers, unconfirmedMarker, mv, matchResult, selectedMarkerId) {
         // ── Remove old marker overlays, then add new ones ─────────────────────
         removeAllMarkerOverlays()
 
@@ -155,17 +147,20 @@ fun MarkerOverlay(
         for (marker in allMarkers) {
             val confirmed = marker.confirmed
             val isMatched = matchResult != null && matchedIds.contains(marker.id)
-            // Unconfirmed: always unconfirmed colour. Confirmed + not matched + has result: dim.
+            val markerColor = MarkerColors.of(marker.colorIndex)
+            // Unconfirmed: unconfirmed colour. Confirmed + not matched + has result: dim.
             val baseColor = when {
                 !confirmed -> COLOR_UNCONFIRMED
-                matchResult != null && !isMatched -> dimColor(COLOR_CONFIRMED, DIMMED_ALPHA_FRACTION)
-                else -> COLOR_CONFIRMED
+                matchResult != null && !isMatched -> dimColor(markerColor, DIMMED_ALPHA_FRACTION)
+                else -> markerColor
             }
             val strokeMultiplier = when {
-                marker.id == selectedMarkerId -> 2.0f
+                marker.id == selectedMarkerId -> SELECTED_STROKE_MULTIPLIER
                 matchResult != null && isMatched -> MATCHED_STROKE_MULTIPLIER
                 else -> 1.0f
             }
+            val proxColor = dimColor(markerColor, PROXIMITY_ALPHA_FRACTION)
+            val proxFillColor = dimColor(markerColor, ZONE_FILL_ALPHA_FRACTION / 2.0f)
 
             // Zone shapes gated by markerZonesVisible for confirmed markers;
             // unconfirmed (creating/editing) always show full geometry.
@@ -183,7 +178,7 @@ fun MarkerOverlay(
                         // Fill
                         val proxFill = Polygon().apply {
                             title = "$OVERLAY_PREFIX${marker.id}_prox_fill"
-                            fillPaint.color = dimColor(COLOR_PROXIMITY_PREVIEW, ZONE_FILL_ALPHA_FRACTION)
+                            fillPaint.color = proxFillColor
                             fillPaint.isAntiAlias = true
                             outlinePaint.strokeWidth = 0f
                             points = Polygon.pointsAsCircle(
@@ -196,7 +191,7 @@ fun MarkerOverlay(
                         addCirclePolyline(
                             mv, geom.position, previewRadiusM,
                             "$OVERLAY_PREFIX${marker.id}_prox",
-                            COLOR_PROXIMITY_PREVIEW, 2f,
+                            proxColor, 2f,
                             dashed = false
                         )
                     }
@@ -212,27 +207,28 @@ fun MarkerOverlay(
                             confirmed = confirmed, onMarkerTap = onMarkerTap)
                     }
 
-                    // Proximity range preview (fill + stroke)
+                    // Proximity range preview (fill + stroke) — drawn from zone boundary outward
                     if (drawZones) {
-                        val previewRadiusM = marker.proximityOverrideM
+                        val proximityM = marker.proximityOverrideM
                             ?: (geom.radiusM * proximityZoneMultiplier)
+                        val totalRadiusM = geom.radiusM + proximityM
                         // Fill
                         val proxFill = Polygon().apply {
                             title = "$OVERLAY_PREFIX${marker.id}_prox_fill"
-                            fillPaint.color = dimColor(COLOR_PROXIMITY_PREVIEW, ZONE_FILL_ALPHA_FRACTION)
+                            fillPaint.color = proxFillColor
                             fillPaint.isAntiAlias = true
                             outlinePaint.strokeWidth = 0f
                             points = Polygon.pointsAsCircle(
                                 GeoPoint(geom.center.latitude, geom.center.longitude),
-                                previewRadiusM
+                                totalRadiusM
                             )
                         }
                         mv.overlays.add(proxFill)
                         // Stroke
                         addCirclePolyline(
-                            mv, geom.center, previewRadiusM,
+                            mv, geom.center, totalRadiusM,
                             "$OVERLAY_PREFIX${marker.id}_prox",
-                            COLOR_PROXIMITY_PREVIEW, 2f,
+                            proxColor, 2f,
                             dashed = false
                         )
                     }
@@ -250,17 +246,17 @@ fun MarkerOverlay(
                             confirmed = confirmed, onMarkerTap = onMarkerTap)
                     }
 
-                    // Proximity range preview (fill + stroke)
+                    // Proximity range preview (fill + stroke) — drawn from zone boundary outward
                     if (drawZones) {
                         val proximityM = marker.proximityOverrideM
                             ?: (geom.widthM * proximityZoneMultiplier)
-                        val halfProx = proximityM / 2.0
+                        val halfProx = geom.widthM / 2.0 + proximityM
                         // Fill
                         val proxBearing = SpatialOperations.initialBearing(geom.p1, geom.p2)
                         val proxFillPts = buildCorridorFillPoints(geom.p1, geom.p2, halfProx, proxBearing)
                         val proxFill = Polygon().apply {
                             title = "$OVERLAY_PREFIX${marker.id}_prox_fill"
-                            fillPaint.color = dimColor(COLOR_PROXIMITY_PREVIEW, ZONE_FILL_ALPHA_FRACTION)
+                            fillPaint.color = proxFillColor
                             fillPaint.isAntiAlias = true
                             outlinePaint.strokeWidth = 0f
                             points = proxFillPts
@@ -270,14 +266,14 @@ fun MarkerOverlay(
                         addCorridorParallels(
                             mv, geom.p1, geom.p2, halfProx,
                             "$OVERLAY_PREFIX${marker.id}_prox",
-                            COLOR_PROXIMITY_PREVIEW, 2f,
+                            proxColor, 2f,
                             dashed = true
                         )
                         // Semi-circle endcaps at p1 and p2 (matching main corridor band)
                         addSemiCircleCaps(
                             mv, geom.p1, geom.p2, halfProx, proxBearing,
                             "$OVERLAY_PREFIX${marker.id}_prox",
-                            COLOR_PROXIMITY_PREVIEW, 2f,
+                            proxColor, 2f,
                             dashed = true
                         )
                     }
@@ -291,20 +287,18 @@ fun MarkerOverlay(
             override fun singleTapConfirmedHelper(p: GeoPoint?): Boolean {
                 if (p == null || confirmedMarkers.isEmpty()) return false
                 val tapPoint = LatLng(p.latitude, p.longitude)
-                var bestId: String? = null
-                var bestDist = Double.MAX_VALUE
+                val tappedIds = mutableListOf<String>()
 
                 for (marker in confirmedMarkers) {
                     val range = proximityRangeForTap(marker, AppConfig.markerProximityPinM, proximityZoneMultiplier)
                     val dist = closestPointOnGeometry(tapPoint, marker.geometry)
-                    if (dist <= range && dist < bestDist) {
-                        bestDist = dist
-                        bestId = marker.id
+                    if (dist <= range) {
+                        tappedIds.add(marker.id)
                     }
                 }
 
-                if (bestId != null) {
-                    onMarkerTap(bestId)
+                if (tappedIds.isNotEmpty()) {
+                    onMarkerTap(tappedIds)
                     return true
                 }
                 return false
@@ -335,7 +329,7 @@ private fun addPinOverlay(
     color: Int,
     dotBitmap: Bitmap,
     confirmed: Boolean = true,
-    onMarkerTap: (String) -> Unit = {}
+    onMarkerTap: (List<String>) -> Unit = {}
 ) {
     val geo = GeoPoint(geom.position.latitude, geom.position.longitude)
     val marker = Marker(mv).apply {
@@ -345,7 +339,7 @@ private fun addPinOverlay(
         title = "${OVERLAY_PREFIX}pin_$markerId"
         if (confirmed) {
             setOnMarkerClickListener { _, _ ->
-                onMarkerTap(markerId)
+                onMarkerTap(listOf(markerId))
                 true
             }
         }
@@ -362,7 +356,7 @@ private fun addCircleOverlay(
     dotBitmap: Bitmap,
     strokeMultiplier: Float = 1.0f,
     confirmed: Boolean = true,
-    onMarkerTap: (String) -> Unit = {}
+    onMarkerTap: (List<String>) -> Unit = {}
 ) {
     // Fill: subtle transparent background
     val fillColor = dimColor(color, ZONE_FILL_ALPHA_FRACTION)
@@ -391,7 +385,7 @@ private fun addCircleOverlay(
         title = "${OVERLAY_PREFIX}circle_center_$markerId"
         if (confirmed) {
             setOnMarkerClickListener { _, _ ->
-                onMarkerTap(markerId)
+                onMarkerTap(listOf(markerId))
                 true
             }
         }
@@ -408,7 +402,7 @@ private fun addCorridorOverlay(
     dotBitmap: Bitmap,
     confirmed: Boolean,
     strokeMultiplier: Float = 1.0f,
-    onMarkerTap: (String) -> Unit = {}
+    onMarkerTap: (List<String>) -> Unit = {}
 ) {
     val halfW = geom.widthM / 2.0
 
@@ -452,7 +446,7 @@ private fun addCorridorOverlay(
         title = "${OVERLAY_PREFIX}corr_p1_$markerId"
         if (confirmed) {
             setOnMarkerClickListener { _, _ ->
-                onMarkerTap(markerId)
+                onMarkerTap(listOf(markerId))
                 true
             }
         }
@@ -467,7 +461,7 @@ private fun addCorridorOverlay(
         title = "${OVERLAY_PREFIX}corr_p2_$markerId"
         if (confirmed) {
             setOnMarkerClickListener { _, _ ->
-                onMarkerTap(markerId)
+                onMarkerTap(listOf(markerId))
                 true
             }
         }

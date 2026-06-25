@@ -56,7 +56,7 @@ internal fun WizardButtonRow(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "\u2190 Previous",
+                    text = "Previous",
                     color = accentFg,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold
@@ -78,7 +78,7 @@ internal fun WizardButtonRow(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Next \u2192",
+                    text = "Next",
                     color = accentFg,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold
@@ -100,7 +100,7 @@ internal fun WizardButtonRow(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "\u2713 Finish",
+                text = "Finish",
                 color = accentFg,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold

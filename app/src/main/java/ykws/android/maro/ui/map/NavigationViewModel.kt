@@ -41,6 +41,7 @@ import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import ykws.android.maro.data.coastline.CoastlineRepository
+import ykws.android.maro.spatial.CoastlineSpatialIndex
 import ykws.android.maro.data.location.AcquisitionMode
 import ykws.android.maro.data.location.AdaptiveGpsPolicy
 import ykws.android.maro.data.location.CompassSource
@@ -100,6 +101,9 @@ class NavigationViewModel(
     application: Application,
     private val repository: CoastlineRepository = CoastlineRepository()
 ) : AndroidViewModel(application) {
+
+    /** Exposed for MarkerMatcher land-blocking — the spatial index built from coastline data. */
+    val spatialIndex: CoastlineSpatialIndex? get() = repository.spatialIndex
 
     /** Persisted settings — initialised eagerly so StateFlows are seeded directly. */
     private val settingsManager: SettingsManager =

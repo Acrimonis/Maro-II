@@ -2,39 +2,39 @@ package ykws.android.maro.ui.map
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -47,16 +47,16 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.UserMarker
-import ykws.android.maro.spatial.MatchResult
 import ykws.android.maro.spatial.SpatialOperations
-import ykws.android.maro.spatial.TieredMatchResult
+import ykws.android.maro.spatial.WhereAmIMatch
+import ykws.android.maro.spatial.WhereAmIResult
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public composable
@@ -93,8 +93,8 @@ fun MarkerDrawer(
             .clip(panelShape)
             .background(ComposeColor(AppConfig.uiSettingsBackground))
     ) {
-        when (val state = drawerState) {
-            is MarkerDrawerState.Viewing -> ViewingContent(viewModel, state.markerId, onClose)
+        when (drawerState) {
+            is MarkerDrawerState.Viewing -> ViewingContent(viewModel, onClose, boatPosition)
             is MarkerDrawerState.MatchResult -> MatchResultContent(viewModel, onClose)
             else -> { /* Creating/Editing handled by WizardDrawer */ }
         }
@@ -107,59 +107,222 @@ fun MarkerDrawer(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Viewing content
+// Viewing content — card layout redesign
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun ViewingContent(viewModel: MarkersViewModel, markerId: String, onClose: () -> Unit) {
+private fun ViewingContent(
+    viewModel: MarkersViewModel,
+    onClose: () -> Unit,
+    boatPosition: LatLng? = null
+) {
     val markers by viewModel.markers.collectAsState()
-    val marker = markers.find { it.id == markerId }
+    val selectedIds by viewModel.selectedMarkerIds.collectAsState()
+    val selectedIndex by viewModel.selectedMarkerIndex.collectAsState()
+
+    val currentId = selectedIds.getOrNull(selectedIndex)
+    val marker = currentId?.let { id -> markers.find { it.id == id } }
+    val hasMultiple = selectedIds.size > 1
+
+    var showDeleteConfirm by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .padding(horizontal = 12.dp, vertical = 6.dp)
     ) {
-        DrawerHeader(title = marker?.name ?: "Marker", onClose = onClose)
-
-        Spacer(Modifier.height(12.dp))
-        Text(
-            text = "MARKER DETAILS",
-            color = ComposeColor(AppConfig.uiSettingsAccent),
-            fontSize = 17.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 1.sp
-        )
-        Spacer(Modifier.height(8.dp))
-
-        if (marker != null) {
-            // Geometry + proximity inline
-            val geometryDesc = when (val g = marker.geometry) {
-                is MarkerGeometry.Pin -> "Pin at ${"%.4f".format(g.position.latitude)}, ${"%.4f".format(g.position.longitude)}"
-                is MarkerGeometry.Circle -> "Circle — radius ${g.radiusM.toLong()} m"
-                is MarkerGeometry.Corridor -> "Corridor — width ${g.widthM.toLong()} m"
-            }
-            val proximityM = marker.proximityOverrideM ?: when (marker.geometry) {
-                is MarkerGeometry.Pin -> AppConfig.markerProximityPinM
-                is MarkerGeometry.Circle -> marker.geometry.radiusM * AppConfig.markerProximityZoneMultiplier
-                is MarkerGeometry.Corridor -> marker.geometry.widthM * AppConfig.markerProximityZoneMultiplier
-            }
-            Text(
-                "$geometryDesc  ·  proximity ${proximityM.toLong()} m",
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                fontSize = 13.sp
-            )
-
-            if (marker.description.isNotBlank()) {
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    marker.description,
-                    color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                    fontSize = 13.sp
+        // ── Header: back + title + edit/delete icons inline right-aligned ──
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 3.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(
+                onClick = onClose,
+                modifier = Modifier
+                    .size(32.dp)
+                    .clip(CircleShape)
+                    .background(ComposeColor(AppConfig.uiSettingsSwitchTrackInactive))
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Close",
+                    tint = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                    modifier = Modifier.size(18.dp)
                 )
             }
+            Spacer(Modifier.width(16.dp))
+            Text(
+                text = marker?.name ?: "Marker",
+                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+            if (marker != null) {
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    IconButton(
+                        onClick = {
+                            viewModel.closeDrawer()
+                            viewModel.startWizard(marker.id)
+                        },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Edit,
+                            contentDescription = "Edit",
+                            tint = ButtonColors.icon,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    IconButton(
+                        onClick = { showDeleteConfirm = true },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Delete,
+                            contentDescription = "Delete",
+                            tint = ButtonColors.icon,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        if (marker != null) {
+            Spacer(Modifier.height(8.dp))
+
+            // ── Info card with left accent bar + content ──────────────────
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(IntrinsicSize.Min)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(ComposeColor(AppConfig.uiCardBackground))
+            ) {
+                // Left accent bar — same rendering as list items
+                Box(
+                    modifier = Modifier
+                        .width(4.dp)
+                        .fillMaxHeight()
+                        .background(ComposeColor(MarkerColors.of(marker.colorIndex)))
+                )
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(horizontal = 8.dp, vertical = 4.dp)
+                ) {
+                // Geometry desc — numeric-only compact format
+                Text(
+                    text = markerFormatText(marker),
+                    color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                    fontSize = 14.sp
+                )
+
+                // Direction + distance (if boatPosition available)
+                if (boatPosition != null) {
+                    val markerPos = when (val g = marker.geometry) {
+                        is MarkerGeometry.Pin -> g.position
+                        is MarkerGeometry.Circle -> g.center
+                        is MarkerGeometry.Corridor -> g.p1
+                    }
+                    val bearing = SpatialOperations.initialBearing(boatPosition, markerPos)
+                    val distM = SpatialOperations.haversine(markerPos, boatPosition)
+                    val dir = cardinalDirection(bearing)
+                    val distStr = if (distM < 1000.0) "${distM.toLong()} m"
+                        else "%.1f km".format(distM / 1000.0)
+
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "$dir of boat - $distStr",
+                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                        fontSize = 13.sp
+                    )
+                }
+
+                // Description
+                if (marker.description.isNotBlank()) {
+                    Spacer(Modifier.height(6.dp))
+                    HorizontalDivider(
+                        thickness = 0.5.dp,
+                        color = ComposeColor(AppConfig.uiSettingsDivider)
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = marker.description,
+                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        fontSize = 13.sp
+                    )
+                }
+
+                // Page counter (bottom-right of card)
+                if (hasMultiple) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "${selectedIndex + 1}/${selectedIds.size}",
+                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                        fontSize = 12.sp,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Right
+                    )
+                }
+            }  // closes inner Column
+            }  // closes Row (info card)
+
+            // ── Previous/Next navigation (wizard-style pills) ─────────────
+            if (hasMultiple) {
+                Spacer(Modifier.height(12.dp))
+                HorizontalDivider(color = ComposeColor(AppConfig.uiSettingsDivider))
+                Spacer(Modifier.height(8.dp))
+                val accentBg = ComposeColor(AppConfig.uiSettingsAccent)
+                val accentFg = ComposeColor(AppConfig.uiSettingsTextPrimary)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(accentBg)
+                            .clickable { viewModel.viewPreviousMarker() }
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Previous",
+                            color = accentFg,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(accentBg)
+                            .clickable { viewModel.viewNextMarker() }
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Next",
+                            color = accentFg,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
         } else {
+            Spacer(Modifier.height(12.dp))
             Text(
                 "Marker not found",
                 color = ComposeColor(AppConfig.uiSettingsTextMuted),
@@ -167,55 +330,9 @@ private fun ViewingContent(viewModel: MarkersViewModel, markerId: String, onClos
             )
         }
 
-        Spacer(Modifier.height(6.dp))
-
-        // Edit + Close buttons
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Button(
-                onClick = onClose,
-                modifier = Modifier.weight(1f).height(40.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                ),
-                shape = RoundedCornerShape(6.dp)
-            ) {
-                Text("Close", fontSize = 13.sp, color = ComposeColor(AppConfig.uiSettingsTextPrimary))
-            }
-            Button(
-                onClick = {
-                    viewModel.closeDrawer()
-                    viewModel.startWizard(markerId)
-                },
-                modifier = Modifier.weight(1f).height(40.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = ComposeColor(AppConfig.buttonActionBgColor)
-                ),
-                shape = RoundedCornerShape(6.dp)
-            ) {
-                Text("Edit", fontSize = 13.sp, color = ComposeColor(AppConfig.buttonActionIconColor))
-            }
-        }
-
         Spacer(Modifier.height(4.dp))
 
-        // Delete button with confirmation
-        var showDeleteConfirm by remember { mutableStateOf(false) }
-        HorizontalDivider(color = ComposeColor(AppConfig.uiSettingsTextMuted).copy(alpha = 0.3f))
-        Spacer(Modifier.height(4.dp))
-        Button(
-            onClick = { showDeleteConfirm = true },
-            modifier = Modifier.fillMaxWidth().height(40.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = ComposeColor(AppConfig.semanticDanger).copy(alpha = 0.15f)
-            ),
-            shape = RoundedCornerShape(6.dp)
-        ) {
-            Text("Delete Marker", fontSize = 13.sp, color = ComposeColor(AppConfig.semanticDanger))
-        }
-
+        // ── Delete confirmation dialog ───────────────────────────────────
         if (showDeleteConfirm) {
             AlertDialog(
                 onDismissRequest = { showDeleteConfirm = false },
@@ -224,7 +341,7 @@ private fun ViewingContent(viewModel: MarkersViewModel, markerId: String, onClos
                 confirmButton = {
                     TextButton(onClick = {
                         showDeleteConfirm = false
-                        viewModel.deleteMarker(markerId)
+                        currentId?.let { viewModel.deleteMarker(it) }
                     }) {
                         Text("Delete", color = ComposeColor(AppConfig.semanticDanger))
                     }
@@ -236,8 +353,6 @@ private fun ViewingContent(viewModel: MarkersViewModel, markerId: String, onClos
                 }
             )
         }
-
-        Spacer(Modifier.height(4.dp))
     }
 }
 
@@ -268,7 +383,7 @@ private fun MatchResultContent(viewModel: MarkersViewModel, onClose: () -> Unit)
         )
         Spacer(Modifier.height(8.dp))
 
-        val matches = result?.matches ?: emptyList()
+        val matches = result?.allMatches ?: emptyList()
         if (matches.isEmpty()) {
             if (allMarkers.isEmpty()) {
                 Text(
@@ -297,66 +412,28 @@ private fun MatchResultContent(viewModel: MarkersViewModel, onClose: () -> Unit)
                 )
             }
         } else {
-            matches.forEach { match ->
-                MatchResultRow(match, indent = 0)
+            val sentence = matches.joinToString(", ") { match ->
+                when (match) {
+                    is WhereAmIMatch.ZoneMatch -> match.marker.name
+                    is WhereAmIMatch.ProximityMatch -> "${cardinalDirection(match.bearingDeg)} of ${match.marker.name}"
+                }
             }
+            Text(
+                text = sentence,
+                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium
+            )
         }
 
         Spacer(Modifier.height(6.dp))
     }
 }
 
-@Composable
-private fun MatchResultRow(match: MatchResult, indent: Int) {
-    val prefix = "  ".repeat(indent)
-    when (match) {
-        is MatchResult.ZoneMatch -> {
-            val g = match.marker.geometry
-            val geometryDesc = when (g) {
-                is MarkerGeometry.Circle -> "circle ${g.radiusM.toLong()}m"
-                is MarkerGeometry.Corridor -> "corridor ${g.widthM.toLong()}m"
-                is MarkerGeometry.Pin -> "pin"
-            }
-            Text(
-                "${prefix}\u2514\u2500 ${match.marker.name}  \u00B7  $geometryDesc  \u00B7  inside zone",
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium
-            )
-            match.children.forEach { child ->
-                MatchResultRow(child, indent + 1)
-            }
-        }
-        is MatchResult.ProximityMatch -> {
-            val g = match.marker.geometry
-            val geometryDesc = when (g) {
-                is MarkerGeometry.Circle -> "circle ${g.radiusM.toLong()}m"
-                is MarkerGeometry.Corridor -> "corridor ${g.widthM.toLong()}m"
-                is MarkerGeometry.Pin -> "pin"
-            }
-            Text(
-                "${prefix}\uD83D\uDCCD ${match.marker.name}  \u00B7  $geometryDesc  \u00B7  ${"%.0f".format(match.distanceM)} m",
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium
-            )
-        }
-        is MatchResult.NoMatch -> { /* unreachable */ }
-    }
-    Spacer(Modifier.height(2.dp))
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared components
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Drawer header with optional action buttons.
- *
- * @param title   Header title text.
- * @param onClose Back button handler.
- * @param actions Optional composable for right-aligned action buttons.
- */
 @Composable
 private fun DrawerHeader(
     title: String,
@@ -387,10 +464,100 @@ private fun DrawerHeader(
             color = ComposeColor(AppConfig.uiSettingsTextPrimary),
             fontSize = 17.sp,
             fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f)
         )
         if (actions != null) {
             actions()
         }
     }
+}
+
+/** Converts a bearing (0-360°) to a cardinal direction: N, NE, E, SE, S, SW, W, NW. */
+private fun cardinalDirection(bearingDeg: Double): String {
+    val normalized = ((bearingDeg % 360) + 360) % 360
+    return when {
+        normalized < 22.5 || normalized >= 337.5 -> "N"
+        normalized < 67.5 -> "NE"
+        normalized < 112.5 -> "E"
+        normalized < 157.5 -> "SE"
+        normalized < 202.5 -> "S"
+        normalized < 247.5 -> "SW"
+        normalized < 292.5 -> "W"
+        else -> "NW"
+    }
+}
+
+/** Numeric-only compact format: "📌 / 200", "⭕ / 200 / 200", "📏 / 100 / 200". */
+private fun markerFormatText(marker: UserMarker): String {
+    val proximityM = marker.proximityOverrideM
+        ?: when (val g = marker.geometry) {
+            is MarkerGeometry.Pin -> AppConfig.markerProximityPinM
+            is MarkerGeometry.Circle -> g.radiusM * AppConfig.markerProximityZoneMultiplier
+            is MarkerGeometry.Corridor -> g.widthM * AppConfig.markerProximityZoneMultiplier
+        }
+    val prox = proximityM.toLong().toString()
+    return when (marker.geometry) {
+        is MarkerGeometry.Pin -> "\uD83D\uDCCC / $prox"
+        is MarkerGeometry.Circle -> {
+            val r = marker.geometry.radiusM.toLong().toString()
+            "\u2B55 / $r / $prox"
+        }
+        is MarkerGeometry.Corridor -> {
+            val w = marker.geometry.widthM.toLong().toString()
+            "\uD83D\uDCCF / $w / $prox"
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Color picker — 4×4 swatch grid from MarkerColors.all
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+fun MarkerColorPickerDialog(
+    currentColorIndex: Int?,
+    onColorSelected: (Int) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val colors = MarkerColors.all
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Marker Color") },
+        text = {
+            Column {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(4),
+                    modifier = Modifier.height(216.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(16) { index ->
+                        val color = colors[index]
+                        val isSelected = index == currentColorIndex
+                        Box(
+                            modifier = Modifier
+                                .size(48.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(ComposeColor(color))
+                                .border(
+                                    width = if (isSelected) 3.dp else 1.dp,
+                                    color = if (isSelected) ComposeColor(AppConfig.uiSettingsAccent)
+                                        else ComposeColor(AppConfig.uiSettingsDivider),
+                                    shape = RoundedCornerShape(8.dp)
+                                )
+                                .clickable { onColorSelected(index) }
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }
