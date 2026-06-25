@@ -51,3 +51,4 @@ in `gradle.properties` → `BuildConfig`; N/S stay constant (coast → ~6 NM).
 | [docs/color-scheme.md](color-scheme.md) | Color tokens, palette, alias chains | Changing any UI color |
 | [docs/settings-page-guidelines.md](settings-page-guidelines.md) | Settings page UI patterns and layout rules | Adding/modifying settings |
 | [docs/material-icons-standalone-guide.md](material-icons-standalone-guide.md) | How to add Material Symbols icons as standalone ImageVector .kt files | Adding new icons |
+| [docs/ui-drawer-guidelines.md](ui-drawer-guidelines.md) | Drawer/overlay UI framework: OverlayLayer + DrawerSlot architecture, animation specs, composable contract, how to add a new drawer | Any drawer or transient UI surface work |

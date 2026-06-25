@@ -2,7 +2,7 @@
 
 > **Purpose:** Canonical reference for rendering any drawer/panel surface in Maro II.
 > **Created:** 2026-06-24 — normalisation pass (I1–I6).
-> **Updated:** 2026-06-25 — OverlayLayer + DrawerSlot architecture (I7–I8).
+> **Updated:** 2026-06-25 — OverlayLayer + DrawerSlot architecture (I7–I12); wizard sub-package extraction.
 
 ---
 
@@ -297,5 +297,6 @@ Column(
 | I7 | 2026-06-25 | `DrawerSlot` abstraction — one composable for all drawer animations | Replaces 9 copy-pasted `AnimatedVisibility` blocks (~270 lines → ~72 lines). `SlideDirection` + `ShadowEdge` enums make each drawer declarative. |
 | I8 | 2026-06-25 | `OverlayLayer` — unified Layer 1 compositor | All transient surfaces + scrim live in one self-contained composable. Layer 0 (dashboard/map/controls) is permanent. Any new overlay fits into this framework. |
 | I9 | 2026-06-25 | Gradient shadow via `drawBehind` replacing `Modifier.shadow()` | `Modifier.shadow(16.dp)` uses RenderNode elevation — invisible on dark backgrounds. An 8dp black@18%→transparent gradient on the drawer edge is always visible. |
-| I10 | 2026-06-25 | Wizard steps extracted to `markers/wizard/` package | `WizardTopBar`, `WizardButtonRow`, and 4 step composables (`TypeSelectStep`, `PositionStep`, `SliderStep`, `TextInputStep`) are now independent files. `WizardDrawer.kt` is a thin shell (~228 lines). |
+| I10 | 2026-06-25 | Wizard steps extracted to `ui/markers/wizard/` package | `WizardTopBar`, `WizardButtonRow`, and 4 step composables (`TypeSelectStep`, `PositionStep`, `SliderStep`, `TextInputStep`) in `ui/markers/wizard/steps/`. `WizardDrawer.kt` is a thin shell (~228 lines). Import path: `ykws.android.maro.ui.markers.wizard.*`. |
 | I11 | 2026-06-25 | `WizardDrawer` receives `step` as non-null parameter | Fixes the blank-screen bug where `step ?: return` short-circuited rendering when the state was `null` for one frame. `OverlayLayer` guards with `showWizard && activeStep != null`. |
+| I12 | 2026-06-25 | `OverlayLayer` consolidates ALL transient surfaces | 7 surfaces (Scrim, Wizard, Menu, Marker, TrackHistory, MarkerManagement, Settings) in one composable. `MapScreen` Layer 1 is a single `OverlayLayer(...)` call — no inline `if (showXxx) { ... }` blocks. |
