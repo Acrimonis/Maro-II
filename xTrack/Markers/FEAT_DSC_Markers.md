@@ -2,8 +2,8 @@
 name: Markers
 status: active
 created: 2026-06-22 11:52
-modified: 2026-06-25 19:35
-active_subfeature: whereami-rework
+modified: 2026-06-25 23:07
+active_subfeature: debug-wia
 ---
 
 # Feature: Markers
@@ -22,7 +22,8 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Sea-di
 ### management-page  [x]
 ### create-zones-flow  [x]
 ### clean-up-wizard-next  [x]  *(deprecated — superseded by whereami-rework)*
-### whereami-rework  [ ]
+### whereami-rework  [x]
+### debug-wia  [x]
 ### menu-markers-normalization  [x]
 
 ## Key Files
@@ -46,6 +47,7 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Sea-di
 - `app/src/main/java/ykws/android/maro/ui/map/MarkerManagementOverlay.kt`
 
 ## Docs
+- `xTrack/Markers/FEAT_PLN_Markers_debug-wia.md` — debug mode for whereAmI(): per-marker diagnostic logcat, map-tap handler, visible-marker dump
 - `xTrack/Markers/FEAT_PLN_Markers_whereami-rework.md` — "where am I?" rework: smallest-first depth-first tree traversal, flat result model
 - `xTrack/Markers/FEAT_PLN_Markers_clean-up-wizard-next.md` — [deprecated] Phase 5+6 from create-zones-flow
 - `xTrack/Markers/FEAT_PLN_Markers_create-zones-flow.md` — wizard creation flow design (step-by-step, keyboard handling, replace dashboard)

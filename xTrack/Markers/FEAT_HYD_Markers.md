@@ -1,23 +1,24 @@
-# Markers — Hydration Snapshot (2026-06-25 18:52 UTC)
+# Markers — Hydration Snapshot (2026-06-25 23:43 UTC)
 
 ## State
-- **Active subfeature:** whereami-rework
-- **Status:** active — implemented + tested + hardened
-- **Branch:** feature/markers-2
+- **Active subfeature:** debug-wia
+- **Status:** done
+- **Branch:** feature/debug-wia
 
-## Changes This Session
-- WhereAmI rework: `WhereAmIMatch`/`WhereAmIResult` types, depth-first leaves-first traversal, 1km BBox search fence, `CoastlineSpatialIndex.segmentIntersectsLand()`
-- Bearing reversed: marker→boat (display "SE of P1" = boat is SE of marker)
-- Cardinal direction display: proximity → "NW of", zone → bare name
-- BBox cap fixed: always 1km from boat (not `minOf(proximityRange, 1km)`)
-- Proximity rendering fixed: drawn from boundary (radius+proximity, width/2+proximity)
-- Sliders normalized: radius/width 0-1000m step 25m default 100m, proximity 0-1000m step 25m default 100m
-- Touch target: CenterMarkerOverlay min 48dp clickable area
-- Dead code removed: old `MatchResult`, `TieredMatchResult`, `precisionComparator`, `geometryTypeRank`, `distanceFromResult`, `segmentIntersectsPointList`
-- UI polish: unified text format (§8), B/W edit icons (§10), viewing drawer redesign (§11), color picker (§9) — see `FEAT_PLN_Markers_next-session-ui-polish.md`
+## Changes
+- Diagnosed mutual-nesting bug in containment tree via debug logcat: overlapping ZoneMatches destroyed each other when each contained the other's center
+- Fixed: skip nesting when child `zoneSizeM >= outer.zoneSizeM` in `resolveAllMarkers()` (MarkerMatcher.kt:169)
+- Added default marker name: type icon + color (📌 Blue, ⭕ Red, 📏 Green) — icons match `markerFormatText` in MarkerDrawer
+- Added `colorIndex` to `CreateFormState` for name/color consistency
+- All debug instrumentation removed from production code
+
+## Implemented
+| File | Change |
+|------|--------|
+| `MarkerMatcher.kt` | Mutual-nesting fix (line 169), `zoneCenterOf` → `internal` |
+| `MarkersViewModel.kt` | `typeIcon()`, `colorName()`, default name in `startWizard()`, `colorIndex` in `CreateFormState` |
+| `MarkerOverlay.kt` | Clean (debug code removed) |
+| `MapScreen.kt` | Clean (debug code removed) |
 
 ## Build
 - assembleDebug ✅
-
-## Next Step
-- User validation on device
