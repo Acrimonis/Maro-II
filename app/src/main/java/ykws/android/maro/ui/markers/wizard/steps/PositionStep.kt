@@ -27,6 +27,11 @@ import ykws.android.maro.ui.map.MarkersViewModel
 @Composable
 internal fun PositionStep(viewModel: MarkersViewModel, isCorridorP1: Boolean) {
     val form by viewModel.createForm.collectAsState()
+    val typeLabel = when (form.type) {
+        ykws.android.maro.ui.map.MarkerType.PIN -> "the pin"
+        ykws.android.maro.ui.map.MarkerType.CIRCLE -> "the zone center"
+        ykws.android.maro.ui.map.MarkerType.CORRIDOR -> if (isCorridorP1) "the corridor start" else "the corridor end"
+    }
 
     Column(
         modifier = Modifier
@@ -36,7 +41,7 @@ internal fun PositionStep(viewModel: MarkersViewModel, isCorridorP1: Boolean) {
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "Drag the map to position the marker",
+            text = "Move the map to set $typeLabel",
             color = ComposeColor(AppConfig.uiSettingsTextPrimary),
             fontSize = 15.sp,
             fontWeight = FontWeight.Medium,
@@ -44,7 +49,7 @@ internal fun PositionStep(viewModel: MarkersViewModel, isCorridorP1: Boolean) {
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            text = "The crosshair shows your selection.\nTap Next when ready.",
+            text = "Tap Next when ready.",
             color = ComposeColor(AppConfig.uiSettingsTextMuted),
             fontSize = 12.sp,
             textAlign = TextAlign.Center

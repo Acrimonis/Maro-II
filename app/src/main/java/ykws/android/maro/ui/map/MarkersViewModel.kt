@@ -417,7 +417,8 @@ class MarkersViewModel(
             geometry = geometry,
             description = form.description,
             proximityOverrideM = proximityOverride,
-            confirmed = true
+            confirmed = true,
+            colorIndex = MarkerColors.randomIndex()
         )
 
         viewModelScope.launch {

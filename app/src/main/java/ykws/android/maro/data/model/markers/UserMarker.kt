@@ -27,7 +27,8 @@ data class UserMarker(
     val geometry: MarkerGeometry,
     val description: String = "",
     val proximityOverrideM: Double? = null,
-    val confirmed: Boolean = true
+    val confirmed: Boolean = true,
+    val colorIndex: Int? = null      // null = default colour, 0-15 = 16-colour palette
 ) {
     /**
      * Axis-aligned lat/lon bounding box for cheap pre-filter before expensive

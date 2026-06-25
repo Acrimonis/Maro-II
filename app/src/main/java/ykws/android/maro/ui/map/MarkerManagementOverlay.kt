@@ -398,6 +398,14 @@ private fun MarkerCardContent(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Colour indicator bar
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .height(36.dp)
+                    .background(Color(MarkerColors.of(marker.colorIndex)), RoundedCornerShape(2.dp))
+            )
+            Spacer(modifier = Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = marker.name,

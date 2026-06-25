@@ -144,11 +144,12 @@ fun MarkerOverlay(
         for (marker in allMarkers) {
             val confirmed = marker.confirmed
             val isMatched = matchResult != null && matchedIds.contains(marker.id)
-            // Unconfirmed: always unconfirmed colour. Confirmed + not matched + has result: dim.
+            val markerColor = MarkerColors.of(marker.colorIndex)
+            // Unconfirmed: unconfirmed colour. Confirmed + not matched + has result: dim.
             val baseColor = when {
                 !confirmed -> COLOR_UNCONFIRMED
-                matchResult != null && !isMatched -> dimColor(COLOR_CONFIRMED, DIMMED_ALPHA_FRACTION)
-                else -> COLOR_CONFIRMED
+                matchResult != null && !isMatched -> dimColor(markerColor, DIMMED_ALPHA_FRACTION)
+                else -> markerColor
             }
             val strokeMultiplier = when {
                 marker.id == selectedMarkerId -> 2.0f

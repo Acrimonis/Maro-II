@@ -876,9 +876,8 @@ fun MapScreen(
                 }
             }
 
-            // Compute crosshair flag for Wizard position steps
-            val showCrosshair = (drawerState is MarkerDrawerState.Creating || drawerState is MarkerDrawerState.Editing) &&
-                (wizardStep is WizardStep.Position || wizardStep is WizardStep.PositionP2)
+            // Crosshair removed — boat marker stays visible during position steps
+            val showCrosshair = false
 
             // Map fills the box, padded to leave room for the dashboard overlay.
             // Stable composition slot — never inside an if/else branch.

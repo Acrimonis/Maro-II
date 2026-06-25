@@ -186,7 +186,8 @@ allMatches.forEach { match ->
 
 ## 8. Deferred
 
-- ~~Sentence format string ("next to P1, in Z2, next to C3")~~ ✅ implemented
+- Sentence format string ("next to P1, in Z2, next to C3")
+- Proper UI component in `MatchResultContent`
 - Auto-refresh timing (currently: boat marker tap only)
 
 ## 9. Key Files
