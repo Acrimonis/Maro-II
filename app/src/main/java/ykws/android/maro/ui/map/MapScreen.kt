@@ -1500,40 +1500,40 @@ private fun MapContent(
                                 toggleChildren = true,
                                 showActiveBadge = true,
                                 activeChildCount = listOf(
+                                    markerLayerVisible,
                                     appSettings.tracksVisible,
                                     appSettings.depthLayerVisible,
                                     appSettings.regulatedZonesVisible,
                                     appSettings.zone300Visible,
-                                    appSettings.lowDepthWarningVisible,
-                                    markerLayerVisible
+                                    appSettings.lowDepthWarningVisible
                                 ).count { it }
                             ),
                             parent = { _: Boolean, _: Int -> ThreeStripeLayerIcon(alpha = 1f) },
                             onParentClick = { onToggleFan(ControlId.LAYER_FAN) },
                             children = listOf<@Composable (Boolean) -> Unit>(
+                                { isActive -> LocationOnIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
                                 { isActive -> TrackLayerIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
                                 { isActive -> DepthBarIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
                                 { isActive -> RegulatedZoneIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
                                 { isActive -> DoubleCircleIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
-                                { isActive -> WarningTriangleIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
-                                { isActive -> LocationOnIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) }
+                                { isActive -> WarningTriangleIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) }
                             ),
                             activeStates = listOf(
+                                markerLayerVisible,
                                 appSettings.tracksVisible,
                                 appSettings.depthLayerVisible,
                                 appSettings.regulatedZonesVisible,
                                 appSettings.zone300Visible,
-                                appSettings.lowDepthWarningVisible,
-                                markerLayerVisible
+                                appSettings.lowDepthWarningVisible
                             ),
                             onChildClick = { index: Int, _: Boolean ->
                                 when (index) {
-                                    0 -> onToggleTracks()
-                                    1 -> onToggleDepthLayer()
-                                    2 -> onToggleRegulatedZones()
-                                    3 -> onToggleZone300()
-                                    4 -> onToggleLowDepthWarning()
-                                    5 -> onToggleUserMarkers()
+                                    0 -> onToggleUserMarkers()
+                                    1 -> onToggleTracks()
+                                    2 -> onToggleDepthLayer()
+                                    3 -> onToggleRegulatedZones()
+                                    4 -> onToggleZone300()
+                                    5 -> onToggleLowDepthWarning()
                                 }
                             }
                         )
