@@ -2,8 +2,8 @@
 name: Markers
 status: active
 created: 2026-06-22 11:52
-modified: 2026-06-25 23:07
-active_subfeature: debug-wia
+modified: 2026-06-26 06:07
+active_subfeature: marker-pin-tri-state
 ---
 
 # Feature: Markers
@@ -25,6 +25,8 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Sea-di
 ### whereami-rework  [x]
 ### debug-wia  [x]
 ### menu-markers-normalization  [x]
+### marker-pin  [x]
+### marker-pin-tri-state  [x]
 
 ## Key Files
 - `app/src/main/java/ykws/android/maro/data/model/markers/UserMarker.kt`

@@ -493,7 +493,8 @@ fun MapScreen(
 
     // ── User markers: from MarkersViewModel ─────────────────────────────────────────
     val userMarkers by markersViewModel.markers.collectAsState()
-    val markerLayerVisible by markersViewModel.userMarkersVisible.collectAsState()
+    val markerLayerState by markersViewModel.markerLayerState.collectAsState()
+    val markerLayerVisible = markerLayerState != MarkerLayerState.HIDDEN
 
     // Wire coastline spatial index into MarkersViewModel for land-blocking when ready
     if (coastlineReady) {
@@ -942,8 +943,8 @@ fun MapScreen(
                 onCenterChanged = onCenterChanged,
                 onZoomChanged = viewModel::updateZoomLevel,
                 onMapViewReady = { mapView = it },
-                markerLayerVisible = markerLayerVisible,
-                onToggleUserMarkers = { markersViewModel.toggleVisibility() },
+                markerLayerState = markerLayerState,
+                onCycleMarkerLayer = { markersViewModel.cycleMarkerLayerState() },
                 onAddZone = { center -> markersViewModel.startWizard(initialPos = center) },
                 onMarkerTap = { id -> markersViewModel.openEditDrawer(id) },
                 onWhereAmI = {
@@ -1048,7 +1049,7 @@ fun MapScreen(
                 val matchResult by markersViewModel.matchResult.collectAsState()
                 val selectedMarkerId by markersViewModel.selectedMarkerId.collectAsState()
                 MarkerOverlay(
-                    markers = userMarkers,
+                    markers = if (markerLayerState == MarkerLayerState.SHOW_PINNED) userMarkers.filter { it.pinned } else userMarkers,
                     mapView = mapView,
                     proximityZoneMultiplier = AppConfig.markerProximityZoneMultiplier,
                     unconfirmedMarker = unconfirmedMarker,
@@ -1114,7 +1115,8 @@ fun MapScreen(
             onCreateFirst = {
                 showMarkerManagement = false
                 markersViewModel.startWizard(initialPos = mapCenter)
-            }
+            },
+            onTogglePin = { markersViewModel.togglePin(it) }
         )
 
         // ── Post-save undo Snackbar (P5) ────────────────────────────────
@@ -1237,8 +1239,8 @@ private fun MapContent(
     onCenterChanged: (Double, Double) -> Unit,
     onZoomChanged: (Double) -> Unit,
     onMapViewReady: (MapView) -> Unit,
-    markerLayerVisible: Boolean = true,
-    onToggleUserMarkers: () -> Unit = {},
+    markerLayerState: MarkerLayerState = MarkerLayerState.SHOW_ALL,
+    onCycleMarkerLayer: () -> Unit = {},
     onAddZone: (LatLng) -> Unit = {},
     onMarkerTap: (String) -> Unit = {},
     onWhereAmI: () -> Unit = {},
@@ -1533,7 +1535,7 @@ private fun MapContent(
                                 toggleChildren = true,
                                 showActiveBadge = true,
                                 activeChildCount = listOf(
-                                    markerLayerVisible,
+                                    markerLayerState != MarkerLayerState.HIDDEN,
                                     appSettings.tracksVisible,
                                     appSettings.depthLayerVisible,
                                     appSettings.regulatedZonesVisible,
@@ -1544,7 +1546,13 @@ private fun MapContent(
                             parent = { _: Boolean, _: Int -> ThreeStripeLayerIcon(alpha = 1f) },
                             onParentClick = { onToggleFan(ControlId.LAYER_FAN) },
                             children = listOf<@Composable (Boolean) -> Unit>(
-                                { isActive -> LocationOnIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
+                                { isActive ->
+                                    when {
+                                        !isActive -> LocationOnIcon(alpha = ButtonColors.inactiveAlpha)
+                                        markerLayerState == MarkerLayerState.SHOW_PINNED -> WhereToVoteIcon(alpha = ButtonColors.activeAlpha)
+                                        else -> LocationOnIcon(alpha = ButtonColors.activeAlpha)
+                                    }
+                                },
                                 { isActive -> TrackLayerIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
                                 { isActive -> DepthBarIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
                                 { isActive -> RegulatedZoneIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
@@ -1552,7 +1560,7 @@ private fun MapContent(
                                 { isActive -> WarningTriangleIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) }
                             ),
                             activeStates = listOf(
-                                markerLayerVisible,
+                                markerLayerState != MarkerLayerState.HIDDEN,
                                 appSettings.tracksVisible,
                                 appSettings.depthLayerVisible,
                                 appSettings.regulatedZonesVisible,
@@ -1561,7 +1569,7 @@ private fun MapContent(
                             ),
                             onChildClick = { index: Int, _: Boolean ->
                                 when (index) {
-                                    0 -> onToggleUserMarkers()
+                                    0 -> onCycleMarkerLayer()
                                     1 -> onToggleTracks()
                                     2 -> onToggleDepthLayer()
                                     3 -> onToggleRegulatedZones()

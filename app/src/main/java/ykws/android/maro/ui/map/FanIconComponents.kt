@@ -5,6 +5,7 @@ import ykws.android.maro.ui.icons.Activity_zone
 import ykws.android.maro.ui.icons.Add_location_alt
 import ykws.android.maro.ui.icons.Conversion_path
 import ykws.android.maro.ui.icons.Location_on
+import ykws.android.maro.ui.icons.where_to_vote
 import ykws.android.maro.ui.icons.Output_circle
 import ykws.android.maro.ui.icons.Stacks
 
@@ -151,6 +152,17 @@ fun AddLocationAltIcon() {
 fun LocationOnIcon(alpha: Float) {
     Icon(
         imageVector = Location_on,
+        contentDescription = null,
+        tint = ButtonColors.icon,
+        modifier = Modifier.size(ButtonColors.iconSizeDp.dp).alpha(alpha)
+    )
+}
+
+/** Show pinned-only marker state: where_to_vote (ballot with pin). */
+@Composable
+fun WhereToVoteIcon(alpha: Float) {
+    Icon(
+        imageVector = where_to_vote,
         contentDescription = null,
         tint = ButtonColors.icon,
         modifier = Modifier.size(ButtonColors.iconSizeDp.dp).alpha(alpha)

@@ -50,6 +50,9 @@ sealed class MarkerDrawerState {
     data object MatchResult : MarkerDrawerState()
 }
 
+/** Tri-state for the fan layer marker toggle. */
+enum class MarkerLayerState { HIDDEN, SHOW_ALL, SHOW_PINNED }
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Create/edit form state
 // ─────────────────────────────────────────────────────────────────────────────
@@ -116,15 +119,20 @@ class MarkersViewModel(
     private val _markers = MutableStateFlow<List<UserMarker>>(emptyList())
     val markers: StateFlow<List<UserMarker>> = _markers.asStateFlow()
 
-    /** Whether the user markers layer is visible (FanLayout toggle). */
-    val userMarkersVisible: StateFlow<Boolean> =
+    /** Tri-state layer visibility (FanLayout toggle). */
+    val markerLayerState: StateFlow<MarkerLayerState> =
         settingsManager.settings.let { flow ->
-            // Bridge: mirror settings into our own StateFlow, seeded from initial value
-            val initial = flow.value.userMarkersVisible
+            val initial = flow.value.markerLayerState
             MutableStateFlow(initial).also { sf ->
-                viewModelScope.launch {
-                    flow.collect { sf.value = it.userMarkersVisible }
-                }
+                viewModelScope.launch { flow.collect { sf.value = it.markerLayerState } }
+            }.asStateFlow()
+        }
+
+    /** Derived: true when layer is not hidden. */
+    val userMarkersVisible: StateFlow<Boolean> =
+        markerLayerState.let { flow ->
+            MutableStateFlow(flow.value != MarkerLayerState.HIDDEN).also { sf ->
+                viewModelScope.launch { flow.collect { sf.value = it != MarkerLayerState.HIDDEN } }
             }.asStateFlow()
         }
 
@@ -199,15 +207,20 @@ class MarkersViewModel(
 
     // ── Visibility toggle ─────────────────────────────────────────────────
 
-    /** Toggles the user markers layer on/off. */
-    fun toggleVisibility() {
-        val current = userMarkersVisible.value
-        settingsManager.update { it.copy(userMarkersVisible = !current) }
+    /** Cycles the marker layer through HIDDEN → SHOW_ALL → SHOW_PINNED → HIDDEN. */
+    fun cycleMarkerLayerState() {
+        val next = when (markerLayerState.value) {
+            MarkerLayerState.HIDDEN -> MarkerLayerState.SHOW_ALL
+            MarkerLayerState.SHOW_ALL -> MarkerLayerState.SHOW_PINNED
+            MarkerLayerState.SHOW_PINNED -> MarkerLayerState.HIDDEN
+        }
+        settingsManager.update { it.copy(markerLayerState = next) }
     }
 
-    /** Shows the user markers layer if not already visible (no-op if visible). */
+    /** Shows the user markers layer (sets to SHOW_ALL) if currently HIDDEN. */
     fun showLayer() {
-        if (!userMarkersVisible.value) toggleVisibility()
+        if (markerLayerState.value == MarkerLayerState.HIDDEN)
+            settingsManager.update { it.copy(markerLayerState = MarkerLayerState.SHOW_ALL) }
     }
 
     // ── Drawer control ────────────────────────────────────────────────────
@@ -549,6 +562,16 @@ class MarkersViewModel(
             withContext(Dispatchers.IO) { repo.delete(markerId) }
             _markers.value = withContext(Dispatchers.IO) { repo.loadAll() }
             _drawerState.value = MarkerDrawerState.Hidden
+        }
+    }
+
+    /** Toggle the pinned state of a marker. */
+    fun togglePin(markerId: String) {
+        val marker = _markers.value.find { it.id == markerId } ?: return
+        val updated = marker.copy(pinned = !marker.pinned)
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { repo.update(updated) }
+            _markers.value = withContext(Dispatchers.IO) { repo.loadAll() }
         }
     }
 
