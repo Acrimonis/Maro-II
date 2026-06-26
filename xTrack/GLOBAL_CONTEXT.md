@@ -2,10 +2,10 @@
 
 ## Active Session Pointers
 - **Active Feature:** Markers
-- **Active Subfeature:** create-zones-flow
-- **Last Updated:** 2026-06-25 16:08
-- **Last Bake:** 2026-06-25 16:08 (Markers — #merge rebase onto origin/develop; CoastlineViewModel→NavigationViewModel + GpsFix→TrackSample API fixes; build ✅)
-- **Branch:** feature/markers
+- **Active Subfeature:** icon
+- **Last Updated:** 2026-06-26 11:18
+- **Last Bake:** 2026-06-25 16:08 (Markers — #merge rebase onto origin/develop)
+- **Branch:** feature/marker-icon
 ## Routing Map
 | Keyword | Feature File |
 |---|---|
