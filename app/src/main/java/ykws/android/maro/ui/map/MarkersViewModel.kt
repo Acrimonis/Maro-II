@@ -552,6 +552,16 @@ class MarkersViewModel(
         }
     }
 
+    /** Toggle the pinned state of a marker. */
+    fun togglePin(markerId: String) {
+        val marker = _markers.value.find { it.id == markerId } ?: return
+        val updated = marker.copy(pinned = !marker.pinned)
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { repo.update(updated) }
+            _markers.value = withContext(Dispatchers.IO) { repo.loadAll() }
+        }
+    }
+
     // ── Soft-delete for management page undo ──────────────────────────────
 
     /** Set of marker IDs pending deletion (not yet persisted). */

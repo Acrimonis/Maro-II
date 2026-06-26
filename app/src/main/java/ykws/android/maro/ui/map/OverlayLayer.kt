@@ -109,7 +109,8 @@ fun OverlayLayer(
     onUndoDeleteMarker: (String) -> Unit,
     onPermanentDelete: (String) -> Unit,
     onCommitPendingDeletes: () -> Unit,
-    onCreateFirst: () -> Unit
+    onCreateFirst: () -> Unit,
+    onTogglePin: (String) -> Unit
 ) {
     // ── Collect track ViewModel state ────────────────────────────────────
     val trackRecorderState by trackViewModel.uiState.collectAsState()
@@ -323,7 +324,8 @@ fun OverlayLayer(
                 onPermanentDelete = onPermanentDelete,
                 onCreateFirst = onCreateFirst,
                 onCommitPendingDeletes = onCommitPendingDeletes,
-                onDismiss = onDismissMarkerManagement
+                onDismiss = onDismissMarkerManagement,
+                onTogglePin = onTogglePin
             )
         }
 

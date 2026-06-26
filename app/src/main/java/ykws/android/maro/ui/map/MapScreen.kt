@@ -1081,7 +1081,8 @@ fun MapScreen(
             onCreateFirst = {
                 showMarkerManagement = false
                 markersViewModel.startWizard(initialPos = mapCenter)
-            }
+            },
+            onTogglePin = { markersViewModel.togglePin(it) }
         )
 
         // ── Post-save undo Snackbar (P5) ────────────────────────────────

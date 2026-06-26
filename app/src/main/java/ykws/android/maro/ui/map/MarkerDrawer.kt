@@ -29,6 +29,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.outlined.LocationOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -165,6 +167,17 @@ private fun ViewingContent(
             )
             if (marker != null) {
                 Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    IconButton(
+                        onClick = { viewModel.togglePin(marker.id) },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (marker.pinned) Icons.Filled.LocationOn else Icons.Outlined.LocationOff,
+                            contentDescription = if (marker.pinned) "Unpin" else "Pin",
+                            tint = ButtonColors.icon,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                     IconButton(
                         onClick = {
                             viewModel.closeDrawer()

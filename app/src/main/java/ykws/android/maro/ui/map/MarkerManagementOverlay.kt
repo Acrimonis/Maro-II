@@ -39,6 +39,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.outlined.LocationOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -113,6 +115,7 @@ fun MarkerManagementOverlay(
     onCommitPendingDeletes: () -> Unit,
     onCreateFirst: () -> Unit,
     onDismiss: () -> Unit,
+    onTogglePin: (String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val pendingDeletes = remember { mutableListOf<String>() }
@@ -240,7 +243,8 @@ fun MarkerManagementOverlay(
                             onPermanentDelete = {
                                 pendingDeletes.remove(marker.id)
                                 onPermanentDelete(marker.id)
-                            }
+                            },
+                            onTogglePin = { onTogglePin(marker.id) }
                         )
                     }
                 }
@@ -263,7 +267,8 @@ private fun SwipeToDeleteMarkerCard(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onUndo: () -> Unit,
-    onPermanentDelete: () -> Unit
+    onPermanentDelete: () -> Unit,
+    onTogglePin: (String) -> Unit
 ) {
     var state by remember { mutableStateOf(MarkerItemState.CARD) }
     val scope = rememberCoroutineScope()
@@ -324,7 +329,7 @@ private fun SwipeToDeleteMarkerCard(
                     )
                     .clip(RoundedCornerShape(12.dp))
             ) {
-                MarkerCardContent(marker, onTap = onTap, onEdit = onEdit)
+                MarkerCardContent(marker, onTap = onTap, onEdit = onEdit, onTogglePin = { onTogglePin(marker.id) })
             }
         }
 
@@ -394,7 +399,8 @@ private val MARKER_DESC_FONT_SIZE = 13.sp
 private fun MarkerCardContent(
     marker: UserMarker,
     onTap: () -> Unit,
-    onEdit: () -> Unit
+    onEdit: () -> Unit,
+    onTogglePin: () -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -416,7 +422,7 @@ private fun MarkerCardContent(
                 .weight(1f)
                 .padding(horizontal = MARKER_CONTENT_PAD_H, vertical = MARKER_CONTENT_PAD_V)
         ) {
-            // ── Header: coordinates + edit icon right-aligned ─────────────
+            // ── Header: coordinates + pin + edit icons right-aligned ──────
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -430,16 +436,29 @@ private fun MarkerCardContent(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f)
                 )
-                IconButton(
-                    onClick = onEdit,
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Edit,
-                        contentDescription = "Edit",
-                        tint = ButtonColors.icon,
-                        modifier = Modifier.size(24.dp)
-                    )
+                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    IconButton(
+                        onClick = onTogglePin,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (marker.pinned) Icons.Filled.LocationOn else Icons.Outlined.LocationOff,
+                            contentDescription = if (marker.pinned) "Unpin" else "Pin",
+                            tint = ButtonColors.icon,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    IconButton(
+                        onClick = onEdit,
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Edit,
+                            contentDescription = "Edit",
+                            tint = ButtonColors.icon,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                 }
             }
 

@@ -1,24 +1,26 @@
-# Markers — Hydration Snapshot (2026-06-25 23:43 UTC)
+# Markers — Hydration Snapshot (2026-06-26 05:38 UTC)
 
 ## State
-- **Active subfeature:** debug-wia
-- **Status:** done
-- **Branch:** feature/debug-wia
+- **Active subfeature:** marker-pin
+- **Status:** active
+- **Branch:** feature/marker-pin
 
 ## Changes
-- Diagnosed mutual-nesting bug in containment tree via debug logcat: overlapping ZoneMatches destroyed each other when each contained the other's center
-- Fixed: skip nesting when child `zoneSizeM >= outer.zoneSizeM` in `resolveAllMarkers()` (MarkerMatcher.kt:169)
-- Added default marker name: type icon + color (📌 Blue, ⭕ Red, 📏 Green) — icons match `markerFormatText` in MarkerDrawer
-- Added `colorIndex` to `CreateFormState` for name/color consistency
-- All debug instrumentation removed from production code
+- Added `pinned: Boolean = false` to `UserMarker` data class
+- Added `MarkersViewModel.togglePin(markerId)` — toggles pinned state, persists via repo
+- Added pin `IconButton` (LocationOn/LocationOff) to marker list card header row, left of Edit
+- Added pin `IconButton` to marker detail drawer header, before Edit
+- Callback chain: `MapScreen` → `OverlayLayer` → `MarkerManagementOverlay` → `SwipeToDeleteMarkerCard` → `MarkerCardContent`
 
 ## Implemented
 | File | Change |
 |------|--------|
-| `MarkerMatcher.kt` | Mutual-nesting fix (line 169), `zoneCenterOf` → `internal` |
-| `MarkersViewModel.kt` | `typeIcon()`, `colorName()`, default name in `startWizard()`, `colorIndex` in `CreateFormState` |
-| `MarkerOverlay.kt` | Clean (debug code removed) |
-| `MapScreen.kt` | Clean (debug code removed) |
+| `UserMarker.kt` | `pinned: Boolean = false` field |
+| `MarkersViewModel.kt` | `togglePin(markerId)` method |
+| `MarkerManagementOverlay.kt` | `onTogglePin` callback chain + pin IconButton + imports |
+| `MarkerDrawer.kt` | Pin IconButton in header + imports |
+| `OverlayLayer.kt` | `onTogglePin` param + wiring to MarkerManagementOverlay |
+| `MapScreen.kt` | `onTogglePin` wiring to `markersViewModel.togglePin()` |
 
 ## Build
 - assembleDebug ✅
