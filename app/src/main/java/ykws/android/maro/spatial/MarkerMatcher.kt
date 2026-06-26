@@ -117,7 +117,12 @@ object MarkerMatcher {
             ?: return null
 
         // ── 5. Sea-path distance ≤ range? ──
-        val dist = SpatialOperations.haversine(boat, unblocked)
+        val rawDist = SpatialOperations.haversine(boat, unblocked)
+        // For corridors, closestUnblockedPoint returns a centreline point;
+        // subtract half-width to get distance to the actual zone boundary.
+        val dist = if (marker.geometry is MarkerGeometry.Corridor)
+            max(0.0, rawDist - marker.geometry.widthM / 2.0)
+        else rawDist
         return if (dist <= range)
             WhereAmIMatch.ProximityMatch(marker, dist, SpatialOperations.initialBearing(unblocked, boat))
         else null
