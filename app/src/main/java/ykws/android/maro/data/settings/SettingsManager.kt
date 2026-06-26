@@ -166,8 +166,8 @@ data class AppSettings(
     /** When false, recording starts on movement alone (no geofence check). */
     val trackGeofenceEnabled: Boolean = true,
     /** Whether the tracks overlay layer is visible on the map. */
-    /** Whether the user-defined markers overlay is visible. */
-    val userMarkersVisible: Boolean = true,
+    /** Tri-state marker layer visibility: HIDDEN, SHOW_ALL, SHOW_PINNED. */
+    val markerLayerState: ykws.android.maro.ui.map.MarkerLayerState = ykws.android.maro.ui.map.MarkerLayerState.SHOW_ALL,
     /** Whether marker zone shapes (circle outlines, corridor parallels) render.
      *  When false, only center dots are drawn. Proximity previews follow this toggle. */
     val markerZonesVisible: Boolean = true,
@@ -257,11 +257,19 @@ class SettingsManager(
         // Migration: reset stale values when prefs version changes.
         val savedVersion = prefs.getInt(KEY_PREFS_VERSION, 1)
         if (savedVersion < CURRENT_VERSION) {
-            prefs.edit()
-                .remove(KEY_ZONE_AUTOREVEAL_DIST_M)
-                .remove(KEY_ZONE_AUTOREVEAL_TIME_S)
-                .putInt(KEY_PREFS_VERSION, CURRENT_VERSION)
-                .apply()
+            val editor = prefs.edit()
+            if (savedVersion < 2) {
+                editor.remove(KEY_ZONE_AUTOREVEAL_DIST_M)
+                    .remove(KEY_ZONE_AUTOREVEAL_TIME_S)
+            }
+            if (savedVersion < 3) {
+                // Migrate Boolean userMarkersVisible → MarkerLayerState
+                val oldVisible = prefs.getBoolean("user_markers_visible", true)
+                val newState = if (oldVisible) "SHOW_ALL" else "HIDDEN"
+                editor.putString(KEY_MARKER_LAYER_STATE, newState)
+                    .remove("user_markers_visible")
+            }
+            editor.putInt(KEY_PREFS_VERSION, CURRENT_VERSION).apply()
         }
     }
 
@@ -331,7 +339,10 @@ class SettingsManager(
         trackOriginLon = prefs.getFloat(KEY_TRACK_ORIGIN_LON, BuildConfig.TRACK_ORIGIN_LON.toFloat()).toDouble(),
         trackGeofenceRadiusM = prefs.getFloat(KEY_TRACK_GEOFENCE_RADIUS_M, BuildConfig.TRACK_GEOFENCE_RADIUS_M.toFloat()).toDouble(),
         trackGeofenceEnabled = prefs.getBoolean(KEY_TRACK_GEOFENCE_ENABLED, true),
-        userMarkersVisible = prefs.getBoolean(KEY_USER_MARKERS_VISIBLE, true),
+        markerLayerState = try {
+            ykws.android.maro.ui.map.MarkerLayerState.valueOf(
+                prefs.getString(KEY_MARKER_LAYER_STATE, "SHOW_ALL") ?: "SHOW_ALL")
+        } catch (_: Exception) { ykws.android.maro.ui.map.MarkerLayerState.SHOW_ALL },
         markerZonesVisible = prefs.getBoolean(KEY_MARKER_ZONES_VISIBLE, true),
         tracksVisible = prefs.getBoolean(KEY_TRACKS_VISIBLE, true),
         trackingRenderNb = prefs.getInt(KEY_TRACKING_RENDER_NB, BuildConfig.TRACKING_RENDER_NB).coerceIn(0, 20),
@@ -428,7 +439,7 @@ class SettingsManager(
             .putFloat(KEY_TRACK_ORIGIN_LON, updated.trackOriginLon.toFloat())
             .putFloat(KEY_TRACK_GEOFENCE_RADIUS_M, updated.trackGeofenceRadiusM.toFloat())
             .putBoolean(KEY_TRACK_GEOFENCE_ENABLED, updated.trackGeofenceEnabled)
-            .putBoolean(KEY_USER_MARKERS_VISIBLE, updated.userMarkersVisible)
+            .putString(KEY_MARKER_LAYER_STATE, updated.markerLayerState.name)
             .putBoolean(KEY_MARKER_ZONES_VISIBLE, updated.markerZonesVisible)
             .putBoolean(KEY_TRACKS_VISIBLE, updated.tracksVisible)
             .putInt(KEY_TRACKING_RENDER_NB, updated.trackingRenderNb)
@@ -515,7 +526,7 @@ class SettingsManager(
         private const val KEY_TRACK_GEOFENCE_RADIUS_M = "track_geofence_radius_m"
         private const val KEY_TRACK_GEOFENCE_ENABLED = "track_geofence_enabled"
         private const val KEY_TRACKS_VISIBLE = "tracks_visible"
-        private const val KEY_USER_MARKERS_VISIBLE = "user_markers_visible"
+        private const val KEY_MARKER_LAYER_STATE = "marker_layer_state"
         private const val KEY_MARKER_ZONES_VISIBLE = "marker_zones_visible"
         private const val KEY_TRACKING_RENDER_NB = "tracking_render_nb"
         private const val KEY_TRACKING_COLOR_ACTIVE = "tracking_color_active"
@@ -534,6 +545,6 @@ class SettingsManager(
         private const val KEY_TRACK_SIMPLIFY_EPSILON_M = "track_simplify_epsilon_m"
         private const val KEY_TRACK_SIMPLIFY_SPEED_DELTA_KN = "track_simplify_speed_delta_kn"
         private const val KEY_PREFS_VERSION = "prefs_version"
-        private const val CURRENT_VERSION = 2
+        private const val CURRENT_VERSION = 3
     }
 }

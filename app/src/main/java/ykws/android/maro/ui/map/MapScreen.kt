@@ -492,7 +492,8 @@ fun MapScreen(
 
     // ── User markers: from MarkersViewModel ─────────────────────────────────────────
     val userMarkers by markersViewModel.markers.collectAsState()
-    val markerLayerVisible by markersViewModel.userMarkersVisible.collectAsState()
+    val markerLayerState by markersViewModel.markerLayerState.collectAsState()
+    val markerLayerVisible = markerLayerState != MarkerLayerState.HIDDEN
 
     // Wire coastline spatial index into MarkersViewModel for land-blocking when ready
     if (coastlineReady) {
@@ -909,8 +910,8 @@ fun MapScreen(
                 onCenterChanged = onCenterChanged,
                 onZoomChanged = viewModel::updateZoomLevel,
                 onMapViewReady = { mapView = it },
-                markerLayerVisible = markerLayerVisible,
-                onToggleUserMarkers = { markersViewModel.toggleVisibility() },
+                markerLayerState = markerLayerState,
+                onCycleMarkerLayer = { markersViewModel.cycleMarkerLayerState() },
                 onAddZone = { center -> markersViewModel.startWizard(initialPos = center) },
                 onMarkerTap = { id -> markersViewModel.openEditDrawer(id) },
                 onWhereAmI = {
@@ -1015,7 +1016,7 @@ fun MapScreen(
                 val matchResult by markersViewModel.matchResult.collectAsState()
                 val selectedMarkerId by markersViewModel.selectedMarkerId.collectAsState()
                 MarkerOverlay(
-                    markers = userMarkers,
+                    markers = if (markerLayerState == MarkerLayerState.SHOW_PINNED) userMarkers.filter { it.pinned } else userMarkers,
                     mapView = mapView,
                     proximityZoneMultiplier = AppConfig.markerProximityZoneMultiplier,
                     unconfirmedMarker = unconfirmedMarker,
@@ -1205,8 +1206,8 @@ private fun MapContent(
     onCenterChanged: (Double, Double) -> Unit,
     onZoomChanged: (Double) -> Unit,
     onMapViewReady: (MapView) -> Unit,
-    markerLayerVisible: Boolean = true,
-    onToggleUserMarkers: () -> Unit = {},
+    markerLayerState: MarkerLayerState = MarkerLayerState.SHOW_ALL,
+    onCycleMarkerLayer: () -> Unit = {},
     onAddZone: (LatLng) -> Unit = {},
     onMarkerTap: (String) -> Unit = {},
     onWhereAmI: () -> Unit = {},
@@ -1506,7 +1507,7 @@ private fun MapContent(
                                     appSettings.regulatedZonesVisible,
                                     appSettings.zone300Visible,
                                     appSettings.lowDepthWarningVisible,
-                                    markerLayerVisible
+                                    markerLayerState != MarkerLayerState.HIDDEN
                                 ).count { it }
                             ),
                             parent = { _: Boolean, _: Int -> ThreeStripeLayerIcon(alpha = 1f) },
@@ -1517,7 +1518,13 @@ private fun MapContent(
                                 { isActive -> RegulatedZoneIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
                                 { isActive -> DoubleCircleIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
                                 { isActive -> WarningTriangleIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
-                                { isActive -> LocationOnIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) }
+                                { isActive ->
+                                    when {
+                                        !isActive -> LocationOnIcon(alpha = ButtonColors.inactiveAlpha)
+                                        markerLayerState == MarkerLayerState.SHOW_PINNED -> WhereToVoteIcon(alpha = ButtonColors.activeAlpha)
+                                        else -> LocationOnIcon(alpha = ButtonColors.activeAlpha)
+                                    }
+                                }
                             ),
                             activeStates = listOf(
                                 appSettings.tracksVisible,
@@ -1525,7 +1532,7 @@ private fun MapContent(
                                 appSettings.regulatedZonesVisible,
                                 appSettings.zone300Visible,
                                 appSettings.lowDepthWarningVisible,
-                                markerLayerVisible
+                                markerLayerState != MarkerLayerState.HIDDEN
                             ),
                             onChildClick = { index: Int, _: Boolean ->
                                 when (index) {
@@ -1534,7 +1541,7 @@ private fun MapContent(
                                     2 -> onToggleRegulatedZones()
                                     3 -> onToggleZone300()
                                     4 -> onToggleLowDepthWarning()
-                                    5 -> onToggleUserMarkers()
+                                    5 -> onCycleMarkerLayer()
                                 }
                             }
                         )
