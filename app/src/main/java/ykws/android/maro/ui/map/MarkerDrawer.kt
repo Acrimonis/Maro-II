@@ -197,6 +197,17 @@ private fun ViewingContent(
                         )
                     }
                     IconButton(
+                        onClick = { viewModel.togglePin(marker.id) },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (marker.pinned) Icons.Filled.LocationOn else Icons.Outlined.LocationOff,
+                            contentDescription = if (marker.pinned) "Unpin" else "Pin",
+                            tint = ButtonColors.icon,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    IconButton(
                         onClick = {
                             viewModel.closeDrawer()
                             viewModel.startWizard(marker.id)
