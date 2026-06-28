@@ -18,9 +18,10 @@
   never as code in the current delivery. Unrequested features are defects.
 
 - **🔴 MODE LOCK: Do not switch to Code or implement without explicit go-ahead.**
-  Architect mode is for discussion/design. Code mode is for execution only.
+  Architect mode is for discussion, design, and workflow management (shell commands,
+  git branch operations). Code mode is for source file modifications only.
   IF the user hasn't said "implement", "go ahead", "switch to Code", or similar →
-  stay in discussion mode. Unauthorized mode switches are workflow violations.
+  stay in Architect mode. Unauthorized mode switches are workflow violations.
 
 - **🔴 ABSOLUTE RULE: No agent may execute `git add`, `git commit`, `git push`,
   `git merge`, or `git rebase` without the user's explicit, unambiguous go-ahead.**
@@ -118,10 +119,18 @@ Intercept `#`-prefix. All name lookups use fuzzy-resolve cascade (exact → subs
 | `#doc` | Sub-commands: create, list, read, attach, detach, audit, update. Docs attach to `## Docs` |
 | `#status` | Dashboard of active/named feature. `#status diff` for changes since last bake |
 | `#now` | Lightweight orientation: active feature, subfeature, CWD, Last Bake |
-| `#help [cmd]` | Lazy-load `docs/cmd_help_[cmd].md`. Bare=print reference table |
+| `#help [cmd]` | Scan `docs/cmd_help_*.md` filenames, fuzzy-resolve `[cmd]` against stem, read match. Bare=print reference table |
 | `#doctor` | Lint xTrack (a-j checks); `#doctor fix` auto-repairs safe classes |
-| `#merge` | Pull `origin/develop` into current feature branch (merge or rebase), push feature branch, provide GitHub PR link. **Never touches `develop`/`main`.** |
+| `#merge` | Pre-flight analysis → trivial/non-trivial classification → auto-select rebase/merge → confirm (yes for direct, `#implement` for full validation pipeline). Push + PR link. **Never touches `develop`/`main`.** |
 | `#implement` | Pipeline: Code→implement+build → Ask→review → Architect→report+## Implemented |
+| `#new [branch]` | Create `feature/[branch]` from `origin/develop` |
+| `#checkout [branch]` | Switch to existing branch; `#checkout new [branch]` creates + switches |
+| `#commit` | `#bake` + `git add -A && git commit` (always prompts confirm) |
+| `#push` | Push current branch to origin. Refuses on `develop`/`main` |
+| `#move [branch]` | Stash → switch → pop (existing branch) |
+| `#move new [branch]` | Stash → create from `origin/develop` → pop |
+| `#cherry [target]` | Interactive cherry-pick of unpushed commits (alias: `#copy`) |
+| `#rename [branch]` | Rename current branch via `git branch -m` |
 
 Full detail per command in `docs/cmd_help_*.md` — loaded by `#help`. See `docs/cmd_help.md` for the complete reference table.
 

@@ -1,8 +1,8 @@
 ---
 name: WorkflowAmbiguityFix
-status: active
+status: done
 created: 2026-06-20 14:51
-modified: 2026-06-20 14:51
+modified: 2026-06-28 13:51
 active_subfeature: none
 ---
 
@@ -11,14 +11,21 @@ active_subfeature: none
 **Description:**
 Eliminate ambiguity between AGENTS.md rules — specifically the `#merge` command (§7b) conflicting with the absolute `develop`/`main` write ban (§5). Reinforce rule precedence so no agent can misinterpret.
 
+## Resolution (2026-06-28)
+Absorbed into **WorkflowImprovement**. All concerns addressed in the WorkflowImprovement "hard rules" and "Core Directives promotion" passes:
+- §5 hardened with absolute develop/main write ban + "override does not lift it" language
+- §7b `#merge` redefined as pull develop→feature, push feature, PR link
+- `docs/cmd_help_git.md` aligned
+- GLOBAL_CONTEXT.md synced
+
 ## Subfeatures
 
 ## Todos
-- [ ] Update AGENTS.md §5 — "override does not lift it" language
-- [ ] Update AGENTS.md §7b — `#merge` = pull develop→feature, push feature, PR link
-- [ ] Update docs/cmd_help_git.md — `#merge` description alignment
-- [ ] Update GLOBAL_CONTEXT.md — routing/summary for WorkflowAmbiguityFix
-- [ ] Create FEAT_DSC and FEAT_HYD files
+- [x] Update AGENTS.md §5 — "override does not lift it" language
+- [x] Update AGENTS.md §7b — `#merge` = pull develop→feature, push feature, PR link
+- [x] Update docs/cmd_help_git.md — `#merge` description alignment
+- [x] Update GLOBAL_CONTEXT.md — routing/summary for WorkflowAmbiguityFix
+- [x] Create FEAT_DSC and FEAT_HYD files
 
 ## Rules
 - §5 absolute rule supersedes ALL other commands — `#merge`, `#implement`, user "override" included

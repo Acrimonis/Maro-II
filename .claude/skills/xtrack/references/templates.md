@@ -114,9 +114,8 @@ Subfeature checkbox: `[ ]` open, `[x]` done. `#bake` updates the
 ## `FEAT_HYD_[Feature].md`
 
 **One file per feature** (created/overwritten on `#bake` of that feature), stored
-at project root — so a bake on one feature never clobbers another's resume state
-(safe under parallel sessions). A ~200-word micro-state summary so the next
-session can resume cold. Keep it tight and transactional — not a changelog.
+at `xTrack/[Feature]/FEAT_HYD_[Feature].md`. A ~200-word micro-state summary so
+the next session can resume cold. Keep it tight and transactional — not a changelog.
 
 ```markdown
 # Context Hydration — [Feature] — [YYYY-MM-DD]

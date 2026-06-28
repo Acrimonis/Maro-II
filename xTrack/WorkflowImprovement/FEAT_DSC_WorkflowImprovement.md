@@ -2,7 +2,7 @@
 name: WorkflowImprovement
 status: active
 created: 2026-06-03 00:00
-modified: 2026-06-20 10:42
+modified: 2026-06-28 14:23
 active_subfeature: none
 ---
 
@@ -87,7 +87,7 @@ Rationalize the xTrack command set per Option C: merge `#features` into `#contex
 #### Todos
 - [x] Update AGENTS.md §7b — rename `#feature`→`#context`, merge `#features`/`#list` into `#context list`, merge `#diff` into `#status diff`, move `#sub focus`→`#focus sub` and `#sub out`→`#focus out`, update `#help` command list, remove `#list` alias from item 8
 - [x] Update docs/cmd_help.md — rewrite reference table, add `## #context` section, add `#status diff` sub-command, remove `## #diff` section, update `## #sub` (remove focus/out), add `## #focus` section (add sub/out), remove `#list` from help
-- [ ] Update templates.md to reflect new command set if template references exist
+- [x] Update templates.md — FEAT_HYD location corrected (2026-06-28 cleanup pass)
 
 #### Rules
 - §7b in AGENTS.md and docs/cmd_help.md must be updated atomically — both describe the same command surface.
@@ -126,7 +126,7 @@ Define the Zero-Piecemeal Writes discussion exception: allow one plan file per d
 - [x] Define `#merge` — rebase onto origin/develop + force-push; D/F/M priority prompt on conflict
 - [x] Define `#merge [branch]` — rebase onto specific remote branch
 - [x] Update `docs/cmd_help.md` with all git commands in reference table + Git section
-- [ ] On-device / real-repo verification of all git shortcuts
+- [ ] On-device / real-repo verification of all git shortcuts — deferred, low priority
 
 #### Rules
 - Git commands are convenience shortcuts for the xTrack workflow, not replacements for manual git operations.
@@ -147,11 +147,11 @@ Define the Zero-Piecemeal Writes discussion exception: allow one plan file per d
 Enforce the "no git write until green-lit" rule across all agents — audit rule placement, detect bypass vectors, harden the wording, and add automated enforcement.
 
 #### Todos
-- [ ] Audit all extant rule locations — AGENTS.md §5, GLOBAL_CONTEXT.md Global Rules, .clinerules, CLAUDE.md — for consistency and enforcement strength
-- [ ] Identify bypass vectors — exceptions (§5 `new_task` exception, `#commit` chained commands, mode-handoff Protocol §8b)
-- [ ] Harden wording: from "no auto commit/push" to "no git write operations without explicit user green light" (including `git add`, `git commit`, `git push`, `git merge`, `git rebase` without explicit permission)
-- [ ] Remove or tighten the `new_task(mode=code,...)` commit exception
-- [ ] Add a compliance check to the `#doctor` command
+- [x] Audit all extant rule locations — AGENTS.md §5, GLOBAL_CONTEXT.md Global Rules, .clinerules, CLAUDE.md — for consistency and enforcement strength
+- [x] Identify bypass vectors — exceptions (§5 `new_task` exception, `#commit` chained commands, mode-handoff Protocol §8b)
+- [x] Harden wording: from "no auto commit/push" to "no git write operations without explicit user green light" (including `git add`, `git commit`, `git push`, `git merge`, `git rebase` without explicit permission)
+- [x] Remove or tighten the `new_task(mode=code,...)` commit exception
+- [x] Add a compliance check to the `#doctor` command (check j — staged changes on develop/main)
 
 #### Rules
 - No agent may execute `git add`, `git commit`, `git push`, `git merge`, or `git rebase` without explicit user permission — even inside `new_task` subtasks.
@@ -167,10 +167,10 @@ Enforce the "no git write until green-lit" rule across all agents — audit rule
 - `.clinerules` — adapter file
 
 #### Todos
-- [ ] Add compliance check to `#doctor`
+- [x] Add compliance check to `#doctor`
 
 ## Todos
-- [ ] **Post-merge reconcile xTrack/ across branches.** After `feature/ai-tooling` lands on `develop`, other branches with their own `xTrack/` evolutions (e.g. `feature/300M-Claude-II` carrying Coastline/DepthMapping) will conflict on merge. Procedure: (1) **tooling-system files** (`AGENTS.md`, `CLAUDE.md`, `.clinerules`, `.claude/skills/xtrack/**`, `docs/cmd_help.md`) — accept ai-tooling's version on conflict; (2) **`FEATURE_SCOPE_*.md`** added or edited on spatial — add YAML front-matter (`name`/`status`/`created`/`modified`/`active_subfeature`/`subs_total`/`subs_done`/`one_liner`), normalize all dates to `YYYY-MM-DD`, remove duplicated prose header lines, and split any attached docs out of `## Key Files` into a new `## Docs` section; (3) **`xTrack/CONTEXT_HYDRATION.md`** — resolve the delete/modify conflict in favor of the deletion and split its content into per-feature `xTrack/hydration/CONTEXT_HYDRATION_[Feature].md` files (one per active feature); (4) **`GLOBAL_CONTEXT.md`** — merge Routing Map rows (dedupe), normalize the Active Session Pointers block (add `Last Bake` if missing), normalize dates; (5) run `#doctor fix` to sweep residual drift, then `#doctor` to confirm clean.
+- [ ] **Post-merge reconcile xTrack/ across branches** — deferred. Procedure documented in FEAT_DSC; execute when first cross-branch xTrack conflict occurs.
 - `AGENTS.md` is the canonical rulebook and directly writable; edit without prompting (`.clinerules`/`CLAUDE.md` are pointers).
 
 ## Key Files
@@ -205,6 +205,7 @@ Enforce the "no git write until green-lit" rule across all agents — audit rule
 - `xTrack/WorkflowImprovement/FEAT_PLN_WorkflowImprovement_newtask-delegation.md` — new_task delegation: Architect → Code without mode switch
 - `plans/plan-migration-plan.md` — Plan-to-FEAT_PLN_ bulk migration plan (62 files)
 - `xTrack/Documentation/FEAT_PLN_Documentation_git-merge-command.md` — Git merge command design
+- `xTrack/WorkflowImprovement/FEAT_PLN_WorkflowImprovement_merge-strategy.md` — #merge hybrid strategy: pre-flight + trivial/non-trivial classification + auto-select + #implement pipeline
 
 ## Implemented
 
@@ -227,6 +228,25 @@ Enforce the "no git write until green-lit" rule across all agents — audit rule
 - **§4/§7a/§8** tightened
 - No rules removed — all commands, protocols, and behavioral directives preserved
 
+### Workflow management cleanup pass (2026-06-28)
+
+- **8 git commands added to AGENTS.md §7b** — `#new`, `#checkout`, `#commit`, `#push`, `#move`, `#move new`, `#cherry`/`#copy`, `#rename` now canonical in the command table
+- **MODE LOCK clarified** — Architect mode permits shell commands + all git branch operations; Code mode is for source file modifications only
+- **#help dispatch** — updated to filename-scan (`docs/cmd_help_*.md`) instead of inline list
+- **WorkflowAmbiguityFix absorbed** — all 5 todos marked done, feature status→done, concerns already addressed in prior WorkflowImprovement passes
+- **Lingering todos closed** — templates.md sync, #doctor check (j), post-merge reconcile deferred
+- **templates.md** — FEAT_HYD path corrected (project root → xTrack/[Feature]/)
+- **docs/cmd_help.md** — `#checkout` entry added, sync verified against AGENTS.md §7b
+- **GLOBAL_CONTEXT.md** — branch→feature/workflow, summaries updated, global rules reference AGENTS.md
+
+### #merge hybrid strategy (2026-06-28)
+
+- **Pre-flight analysis** — fetch + commit count + file overlap + push status + classification (trivial vs non-trivial)
+- **Auto-select** — rebase (few commits, no overlap, docs-only) vs merge (pushed branch, many commits, source overlap)
+- **Hybrid execution** — trivial: direct shell with yes/no confirmation; non-trivial: sticky issues listed, `yes` for direct or `#implement` for Code→Ask→Architect pipeline
+- **Conflict resolution strategy** — per-file-type rules (GLOBAL_CONTEXT.md auto-merge, AGENTS.md manual, source .kt by feature ownership)
+- **Files:** AGENTS.md §7b, docs/cmd_help_git.md (full rewrite), docs/cmd_help.md one-liner
+
 ## Notes
 <!-- blockers, design decisions, context for next session -->
-Original items 1–17 complete. Tooling spec canonicalized in AGENTS.md (Fix 1). Follow-on normalization (front-matter, #doctor, per-feature hydration, docs) is the AGENTSmdNormalization workstream on branch feature/ai-tooling.
+Original items 1–17 complete. Tooling spec canonicalized in AGENTS.md (Fix 1). WorkflowAmbiguityFix absorbed 2026-06-28. Remaining deferred: git shortcut on-device verification, post-merge xTrack reconcile.
