@@ -327,10 +327,25 @@ class TrackRecorder(
 
         // ── Spike rejection v2: four-gate algorithm (GPS mode only) ────
         if (gpsMode) {
-            // Timeout reset: if no sample accepted for >STALE_FIX_TIMEOUT_MS, accept unconditionally.
+            // Timeout reset: if no sample accepted for >STALE_FIX_TIMEOUT_MS, accept with relaxed check.
             if (lastAcceptedTimeMs > 0L && System.currentTimeMillis() - lastAcceptedTimeMs > STALE_FIX_TIMEOUT_MS) {
-                Log.w(TAG, "Spike reset: ${(System.currentTimeMillis() - lastAcceptedTimeMs) / 1000}s since last accepted sample — accepting unconditionally")
+                Log.w(TAG, "Spike reset: ${(System.currentTimeMillis() - lastAcceptedTimeMs) / 1000}s since last accepted sample")
                 lastHadLock = sample.hasLock
+                // Relaxed check: reject only physically impossible jumps (>6× boat max speed ≈ 192 kn).
+                // This catches GPS spikes (e.g. 4 km in 14s = 560 kn) while allowing legitimate
+                // position recovery after a recording pause.
+                if (lastValidPointLat != null && lastValidPointLon != null && lastValidPointTimeMs > 0L) {
+                    val refPos = LatLng(lastValidPointLat!!, lastValidPointLon!!)
+                    val distM = SpatialOperations.haversine(refPos, sample.position)
+                    val dtSec = (sample.timestampEpochMs - lastValidPointTimeMs) / 1000.0
+                    if (dtSec > 0.0) {
+                        val impliedKn = (distM / dtSec) * 1.94384
+                        if (impliedKn > BOAT_MAX_SPEED_KN * 6.0) {
+                            Log.w(TAG, "Spike reset REJECTED: implied=${"%.1f".format(impliedKn)}kn dist=${"%.0f".format(distM)}m dt=${"%.1f".format(dtSec)}s")
+                            return
+                        }
+                    }
+                }
                 captureAcceptedPoint(sample)
                 return
             }
@@ -385,6 +400,17 @@ class TrackRecorder(
                     }
 
                     // Accepted — reset rejection counter
+                    consecutiveRejections = 0
+                } else {
+                    // Same-ms or out-of-order GPS timestamps: reject position changes >30 m.
+                    // Consumer GPS CEP is ~5–10 m; 30 m is 3× worst case and prevents
+                    // coordinate teleports from bypassing all gates when dt = 0.
+                    if (distM > 30.0) {
+                        logRejection("same-ms jump", distM, 30.0)
+                        consecutiveRejections++
+                        return
+                    }
+                    // Accepted — reset rejection counter (mirrors line 403 in dt>0 path)
                     consecutiveRejections = 0
                 }
             }
