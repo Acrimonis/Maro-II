@@ -4,7 +4,10 @@ import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.Service
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
@@ -16,21 +19,65 @@ import androidx.core.app.NotificationCompat
  * - Started via [startForegroundService] when the app opens ([MainActivity.onCreate]).
  * - Stopped via [stopService] when the user explicitly exits (double-back).
  * - Always shows a low-importance notification:
- *   - **Ready:** "Maro II — Ready" (or "Maro II — Ready (Demo)" in demo mode)
- *   - **Recording:** "Maro II — Recording • 12.3 kn • 00:05:23 • 1.2 nm"
+ *   - **Ready:** "Maro II — Ready • On Water" (or "Ready (Demo) • On Water" in demo mode)
+ *   - **Recording:** "Maro II — Recording • 12.3 kn • 00:05:23 • 1.2 nm • On Water"
  *
  * Notification content is updated via [ACTION_UPDATE] intents sent from the UI layer
  * (MapScreen) with live recording stats. The [TrackRecorder] state machine runs in
  * [TrackViewModel]; this service only holds the foreground notification.
+ *
+ * ## Tasker integration
+ * Stores the boat's water-state ([lastKnownOnWater]) from incoming [ACTION_UPDATE]
+ * intents. On toggle, fires [ACTION_WATER_STATE_CHANGED] so Tasker can react
+ * immediately. Also answers [ACTION_QUERY_WATER_STATE] on demand.
  */
 class TrackRecordingService : Service() {
+
+    /** Last known boat water state — persisted across Activity lifecycle for query support. */
+    private var lastKnownOnWater: Boolean = false
+
+    /** Dynamically registered receiver for [ACTION_QUERY_WATER_STATE]. */
+    private var waterQueryReceiver: BroadcastReceiver? = null
 
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+
+        // Register query receiver so Tasker can poll water state on demand
+        waterQueryReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (intent?.action == ACTION_QUERY_WATER_STATE) {
+                    val result = Intent(ACTION_WATER_STATE_RESULT).apply {
+                        putExtra(EXTRA_ON_WATER, lastKnownOnWater)
+                    }
+                    sendBroadcast(result)
+                }
+            }
+        }
+        registerReceiver(waterQueryReceiver, IntentFilter(ACTION_QUERY_WATER_STATE),
+            Context.RECEIVER_EXPORTED)
+    }
+
+    override fun onDestroy() {
+        waterQueryReceiver?.let { unregisterReceiver(it) }
+        waterQueryReceiver = null
+        super.onDestroy()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // ── Water state update (may ride along with notification update or arrive standalone) ──
+        if (intent != null && intent.hasExtra(EXTRA_ON_WATER)) {
+            val newOnWater = intent.getBooleanExtra(EXTRA_ON_WATER, false)
+            if (newOnWater != lastKnownOnWater) {
+                lastKnownOnWater = newOnWater
+                // Push broadcast to Tasker on every land↔water toggle
+                sendBroadcast(Intent(ACTION_WATER_STATE_CHANGED).apply {
+                    putExtra(EXTRA_ON_WATER, newOnWater)
+                })
+            }
+        }
+
+        val isOnWater = lastKnownOnWater
         val notification = if (intent?.action == ACTION_UPDATE) {
             val recording = intent.getBooleanExtra(EXTRA_RECORDING, false)
             val isDemo = intent.getBooleanExtra(EXTRA_IS_DEMO, false)
@@ -38,12 +85,12 @@ class TrackRecordingService : Service() {
                 val speedKn = intent.getFloatExtra(EXTRA_SPEED_KN, 0f)
                 val elapsedSec = intent.getLongExtra(EXTRA_ELAPSED_SEC, 0L)
                 val distanceNm = intent.getFloatExtra(EXTRA_DISTANCE_NM, 0f)
-                buildRecordingNotification(speedKn, elapsedSec, distanceNm, isDemo)
+                buildRecordingNotification(speedKn, elapsedSec, distanceNm, isDemo, isOnWater)
             } else {
-                buildReadyNotification(isDemo)
+                buildReadyNotification(isDemo, isOnWater)
             }
         } else {
-            buildReadyNotification(false)
+            buildReadyNotification(false, isOnWater)
         }
         startForeground(NOTIFICATION_ID, notification)
         return START_STICKY
@@ -66,9 +113,10 @@ class TrackRecordingService : Service() {
         }
     }
 
-    private fun buildReadyNotification(isDemo: Boolean): Notification {
+    private fun buildReadyNotification(isDemo: Boolean, isOnWater: Boolean): Notification {
         val title = "Maro II"
-        val text = if (isDemo) "Ready (Demo)" else "Ready"
+        val waterLabel = if (isOnWater) "On Water" else "On Land"
+        val text = if (isDemo) "Ready (Demo) • $waterLabel" else "Ready • $waterLabel"
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(text)
@@ -82,13 +130,15 @@ class TrackRecordingService : Service() {
         speedKn: Float,
         elapsedSec: Long,
         distanceNm: Float,
-        isDemo: Boolean
+        isDemo: Boolean,
+        isOnWater: Boolean
     ): Notification {
         val demoLabel = if (isDemo) " (Demo)" else ""
+        val waterLabel = if (isOnWater) "On Water" else "On Land"
         val elapsed = formatElapsed(elapsedSec)
         val speed = "%.1f".format(speedKn)
         val dist = "%.1f".format(distanceNm)
-        val text = "Recording$demoLabel • $speed kn • $elapsed • $dist nm"
+        val text = "Recording$demoLabel • $speed kn • $elapsed • $dist nm • $waterLabel"
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Maro II")
             .setContentText(text)
@@ -122,5 +172,19 @@ class TrackRecordingService : Service() {
         const val EXTRA_ELAPSED_SEC = "elapsed_sec"
         const val EXTRA_DISTANCE_NM = "distance_nm"
         const val EXTRA_IS_DEMO = "is_demo"
+
+        // ── Tasker water-state integration ─────────────────────────────────────
+
+        /** Extra: boat is currently on water (boolean). */
+        const val EXTRA_ON_WATER = "on_water"
+
+        /** Push broadcast: fired when boat water state toggles (land↔water). */
+        const val ACTION_WATER_STATE_CHANGED = "ykws.android.maro.action.WATER_STATE_CHANGED"
+
+        /** Query broadcast: Tasker sends this to poll current water state. */
+        const val ACTION_QUERY_WATER_STATE = "ykws.android.maro.action.QUERY_WATER_STATE"
+
+        /** Query response: Maro II answers with [EXTRA_ON_WATER]. */
+        const val ACTION_WATER_STATE_RESULT = "ykws.android.maro.action.WATER_STATE_RESULT"
     }
 }

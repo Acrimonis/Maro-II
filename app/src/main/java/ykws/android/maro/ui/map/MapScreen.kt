@@ -279,6 +279,7 @@ fun MapScreen(
     val gpsStale by viewModel.gpsStale.collectAsState()
     val acquisitionMode by viewModel.acquisitionMode.collectAsState()
     val isEstimating by viewModel.isEstimating.collectAsState()
+    val boatIsWater by viewModel.boatIsWater.collectAsState()
     // Effective heading for the zone-ahead cone:
     // GPS mode → GPS bearing (COG/compass, boat faces direction of travel)
     // Demo mode → 0° = north (boat marker always points up/top of map).
@@ -749,14 +750,28 @@ fun MapScreen(
                 intent.putExtra(TrackRecordingService.EXTRA_SPEED_KN, state.currentSpeedKn)
                 intent.putExtra(TrackRecordingService.EXTRA_ELAPSED_SEC, state.elapsedSeconds)
                 intent.putExtra(TrackRecordingService.EXTRA_DISTANCE_NM, state.distanceNm)
+                intent.putExtra(TrackRecordingService.EXTRA_ON_WATER, boatIsWater)
                 context.startService(intent)
                 kotlinx.coroutines.delay(5_000L)
             }
         } else {
             // Not recording — one update to show "Ready"
             intent.putExtra(TrackRecordingService.EXTRA_RECORDING, false)
+            intent.putExtra(TrackRecordingService.EXTRA_ON_WATER, boatIsWater)
             context.startService(intent)
         }
+    }
+
+    // ── Water state push to TrackRecordingService ─────────────────────────
+    // Sends a one-shot intent every time boatIsWater toggles, so the service
+    // can fire the WATER_STATE_CHANGED broadcast to Tasker immediately.
+    LaunchedEffect(boatIsWater) {
+        val intent = Intent(context, TrackRecordingService::class.java).apply {
+            action = TrackRecordingService.ACTION_UPDATE
+            putExtra(TrackRecordingService.EXTRA_ON_WATER, boatIsWater)
+            putExtra(TrackRecordingService.EXTRA_IS_DEMO, !appSettings.gpsMode)
+        }
+        context.startService(intent)
     }
 
     // The map centre drives BOTH layers: coastline (distance/zone) and depth-at-centre.

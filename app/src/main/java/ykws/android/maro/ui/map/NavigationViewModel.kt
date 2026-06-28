@@ -144,6 +144,7 @@ class NavigationViewModel(
                         val avgLon = allPoints.sumOf { it.lon.toDouble() } / allPoints.size
                         _mapCenter.value = LatLng(avgLat, avgLon)
                         _isWater.value = repository.isOnWater(avgLat, avgLon)
+                        _boatIsWater.value = repository.isOnWater(avgLat, avgLon)
                     }
                 }
             }
@@ -188,6 +189,12 @@ class NavigationViewModel(
     /** True if the current map center is on the water side of the coastline. */
     private val _isWater: MutableStateFlow<Boolean> = MutableStateFlow(initialAppSettings.isWater)
     val isWater: StateFlow<Boolean> = _isWater.asStateFlow()
+
+    /** True when the boat's GPS fix position is on water (land/water test against the
+     * boat's actual position, not the map centre). Exposed for Tasker integration.
+     * Seeded from persisted settings so the notification is correct before first GPS fix. */
+    private val _boatIsWater = MutableStateFlow(initialAppSettings.isWater)
+    val boatIsWater: StateFlow<Boolean> = _boatIsWater.asStateFlow()
 
     /** Distance (meters) from the current map center to the nearest coastline point.
      * `null` when no coastline is loaded or distance cannot be computed. */
@@ -656,6 +663,7 @@ class NavigationViewModel(
             .onEach { fix ->
                 val now = SystemClock.elapsedRealtime()
                 _gpsPosition.value = fix.position
+                _boatIsWater.value = repository.isOnWater(fix.position.latitude, fix.position.longitude)
                 updateMapCenter(fix.position.latitude, fix.position.longitude)
 
                 // ── Acquisition mode update (BEFORE watchdog) ──────────────
@@ -785,6 +793,7 @@ class NavigationViewModel(
             .onEach { on ->
                 if (!on) {
                     _gpsPosition.value = null
+                    _boatIsWater.value = false
                     _navigationState.value = NavigationState()
                     lastGpsBearingMs = 0L
                     adaptivePolicy.reset()
@@ -837,6 +846,7 @@ class NavigationViewModel(
                     distM
                 )
                 _gpsPosition.value = estimatedPos
+                _boatIsWater.value = repository.isOnWater(estimatedPos.latitude, estimatedPos.longitude)
                 updateMapCenter(estimatedPos.latitude, estimatedPos.longitude)
                 _navigationState.update { it.copy(bearingDeg = state.bearingDeg) }
                 delay(DEAD_RECKONING_INTERVAL_MS)
