@@ -444,7 +444,7 @@ fun MapScreen(
     // (to keep NoData colour off land).
     val coastlineReady = state is CoastlineState.Ready
     val waterTest: (Double, Double) -> Boolean =
-        if (coastlineReady) viewModel::isOnWater else { _, _ -> true }
+        if (coastlineReady) viewModel::isOnWater else { _, _ -> false }
 
     // Rasterise the colour map once per grid, off the main thread (~7 M cells).
     val depthBitmap by produceState<Bitmap?>(initialValue = null, depthGrid,
@@ -527,7 +527,7 @@ fun MapScreen(
             missing.add(RasterCache.Step.LOW_DEPTH_WARNING)
         if (missing.isNotEmpty()) {
             val waterTest: (Double, Double) -> Boolean =
-                if (coastlineReady) viewModel::isOnWater else { _, _ -> true }
+                if (coastlineReady) viewModel::isOnWater else { _, _ -> false }
             depthViewModel.generateRasterLayers(context, missing, appSettings, waterTest, silent = true)
         }
     }
@@ -1102,7 +1102,7 @@ fun MapScreen(
             systemScrollState = systemScrollState,
             onRegenerateRasters = { steps ->
                 val waterTest: (Double, Double) -> Boolean =
-                    if (state is CoastlineState.Ready) viewModel::isOnWater else { _, _ -> true }
+                    if (state is CoastlineState.Ready) viewModel::isOnWater else { _, _ -> false }
                 depthViewModel.generateRasterLayers(context, steps, appSettings, waterTest)
             },
             boatPosition = gpsPosition ?: mapCenter,
