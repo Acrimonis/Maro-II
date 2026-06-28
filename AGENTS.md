@@ -121,7 +121,7 @@ Intercept `#`-prefix. All name lookups use fuzzy-resolve cascade (exact → subs
 | `#now` | Lightweight orientation: active feature, subfeature, CWD, Last Bake |
 | `#help [cmd]` | Scan `docs/cmd_help_*.md` filenames, fuzzy-resolve `[cmd]` against stem, read match. Bare=print reference table |
 | `#doctor` | Lint xTrack (a-j checks); `#doctor fix` auto-repairs safe classes |
-| `#merge` | Pull `origin/develop` into current feature branch (merge or rebase), push feature branch, provide GitHub PR link. **Never touches `develop`/`main`.** |
+| `#merge` | Pre-flight analysis → trivial/non-trivial classification → auto-select rebase/merge → confirm (yes for direct, `#implement` for full validation pipeline). Push + PR link. **Never touches `develop`/`main`.** |
 | `#implement` | Pipeline: Code→implement+build → Ask→review → Architect→report+## Implemented |
 | `#new [branch]` | Create `feature/[branch]` from `origin/develop` |
 | `#checkout [branch]` | Switch to existing branch; `#checkout new [branch]` creates + switches |

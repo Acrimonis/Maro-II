@@ -1,19 +1,19 @@
-# Context Hydration — WorkflowImprovement — 2026-06-28 13:51
+# Context Hydration — WorkflowImprovement — 2026-06-28 14:23
 
 **Active Subfeature:** none
 
 ## State
-Workflow management cleanup pass completed. Absorbed WorkflowAmbiguityFix (all 5 todos now [x]). AGENTS.md §7b now includes all git commands (#new, #checkout, #commit, #push, #move, #cherry/#copy, #rename). MODE LOCK clarified: Architect can do shell commands + git branch ops. #help dispatch updated to filename-scan. templates.md FEAT_HYD path fixed. docs/cmd_help.md synced with #checkout entry. GLOBAL_CONTEXT.md updated: WorkflowAmbiguityFix→done, WorkflowImprovement one-liner refreshed.
+Two passes completed on feature/workflow:
 
-Remaining deferred: git shortcut on-device verification, post-merge xTrack reconcile.
+1. **Cleanup pass** — 8 git commands added to AGENTS.md §7b, MODE LOCK clarified (Architect=shell+git ops), WorkflowAmbiguityFix absorbed, lingering todos closed, templates.md/dcmd_help.md synced.
+
+2. **#merge hybrid strategy** — Pre-flight analysis classifies merge as trivial (direct shell) or non-trivial (yes or #implement pipeline). Auto-selects rebase vs merge based on commit count, overlap, and push status. Conflict resolution strategy per file type. Docs: AGENTS.md §7b, docs/cmd_help_git.md (full rewrite), docs/cmd_help.md one-liner.
 
 ## Target Files
-- `AGENTS.md` — §7b git commands added, MODE LOCK fixed, #help filename-scan
-- `xTrack/GLOBAL_CONTEXT.md` — branch, feature summaries, global rules updated
-- `xTrack/WorkflowAmbiguityFix/FEAT_DSC_WorkflowAmbiguityFix.md` — status→done, resolution noted
-- `xTrack/WorkflowImprovement/FEAT_DSC_WorkflowImprovement.md` — lingering todos closed
-- `.claude/skills/xtrack/references/templates.md` — FEAT_HYD path corrected
-- `docs/cmd_help.md` — #checkout entry added
+- `AGENTS.md` — §7b #merge updated, all git commands present
+- `docs/cmd_help_git.md` — full hybrid spec
+- `docs/cmd_help.md` — #merge one-liner
+- `xTrack/WorkflowImprovement/FEAT_PLN_WorkflowImprovement_merge-strategy.md` — full design doc
 
 ## Next Step
-User direction. Branch `feature/workflow` ready for commit/push.
+User direction. Branch feature/workflow ready for commit.

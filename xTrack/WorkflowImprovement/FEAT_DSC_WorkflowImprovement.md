@@ -2,7 +2,7 @@
 name: WorkflowImprovement
 status: active
 created: 2026-06-03 00:00
-modified: 2026-06-28 13:51
+modified: 2026-06-28 14:23
 active_subfeature: none
 ---
 
@@ -205,6 +205,7 @@ Enforce the "no git write until green-lit" rule across all agents — audit rule
 - `xTrack/WorkflowImprovement/FEAT_PLN_WorkflowImprovement_newtask-delegation.md` — new_task delegation: Architect → Code without mode switch
 - `plans/plan-migration-plan.md` — Plan-to-FEAT_PLN_ bulk migration plan (62 files)
 - `xTrack/Documentation/FEAT_PLN_Documentation_git-merge-command.md` — Git merge command design
+- `xTrack/WorkflowImprovement/FEAT_PLN_WorkflowImprovement_merge-strategy.md` — #merge hybrid strategy: pre-flight + trivial/non-trivial classification + auto-select + #implement pipeline
 
 ## Implemented
 
@@ -237,6 +238,14 @@ Enforce the "no git write until green-lit" rule across all agents — audit rule
 - **templates.md** — FEAT_HYD path corrected (project root → xTrack/[Feature]/)
 - **docs/cmd_help.md** — `#checkout` entry added, sync verified against AGENTS.md §7b
 - **GLOBAL_CONTEXT.md** — branch→feature/workflow, summaries updated, global rules reference AGENTS.md
+
+### #merge hybrid strategy (2026-06-28)
+
+- **Pre-flight analysis** — fetch + commit count + file overlap + push status + classification (trivial vs non-trivial)
+- **Auto-select** — rebase (few commits, no overlap, docs-only) vs merge (pushed branch, many commits, source overlap)
+- **Hybrid execution** — trivial: direct shell with yes/no confirmation; non-trivial: sticky issues listed, `yes` for direct or `#implement` for Code→Ask→Architect pipeline
+- **Conflict resolution strategy** — per-file-type rules (GLOBAL_CONTEXT.md auto-merge, AGENTS.md manual, source .kt by feature ownership)
+- **Files:** AGENTS.md §7b, docs/cmd_help_git.md (full rewrite), docs/cmd_help.md one-liner
 
 ## Notes
 <!-- blockers, design decisions, context for next session -->
