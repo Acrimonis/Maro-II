@@ -2,7 +2,7 @@
 name: WorkflowImprovement
 status: active
 created: 2026-06-03 00:00
-modified: 2026-06-28 14:23
+modified: 2026-06-28 16:01
 active_subfeature: none
 ---
 
@@ -206,6 +206,7 @@ Enforce the "no git write until green-lit" rule across all agents — audit rule
 - `plans/plan-migration-plan.md` — Plan-to-FEAT_PLN_ bulk migration plan (62 files)
 - `xTrack/Documentation/FEAT_PLN_Documentation_git-merge-command.md` — Git merge command design
 - `xTrack/WorkflowImprovement/FEAT_PLN_WorkflowImprovement_merge-strategy.md` — #merge hybrid strategy: pre-flight + trivial/non-trivial classification + auto-select + #implement pipeline
+- `xTrack/WorkflowImprovement/FEAT_PLN_WorkflowImprovement_trunk-to-leaf.md` — AGENTS.md trunk-to-leaf token optimization: deduplicate, condense, Lazy-Load Index
 
 ## Implemented
 
@@ -246,6 +247,14 @@ Enforce the "no git write until green-lit" rule across all agents — audit rule
 - **Hybrid execution** — trivial: direct shell with yes/no confirmation; non-trivial: sticky issues listed, `yes` for direct or `#implement` for Code→Ask→Architect pipeline
 - **Conflict resolution strategy** — per-file-type rules (GLOBAL_CONTEXT.md auto-merge, AGENTS.md manual, source .kt by feature ownership)
 - **Files:** AGENTS.md §7b, docs/cmd_help_git.md (full rewrite), docs/cmd_help.md one-liner
+
+### AGENTS.md trunk-to-leaf token optimization (2026-06-28)
+
+- **§5 merged into Core Directives** — git rules no longer duplicated; 5 lines → 1 pointer line
+- **§§1-4 condensed** — MAD (2→1), Extraction (3→1), Token (3→1), Loop (4→2) — saved 7 lines
+- **§8 compressed** — preamble removed (1 line saved)
+- **Lazy-Load Index added** — 9-domain routing table: spatial, UI, drawers, colors, icons, git, setup, FAQ, #-commands — all docs discoverable from AGENTS.md trunk
+- **GLOBAL_CONTEXT.md** — Global Instructions tightened, references AGENTS.md Lazy-Load Index
 
 ## Notes
 <!-- blockers, design decisions, context for next session -->

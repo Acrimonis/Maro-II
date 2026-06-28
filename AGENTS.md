@@ -25,7 +25,7 @@
 
 - **🔴 ABSOLUTE RULE: No agent may execute `git add`, `git commit`, `git push`,
   `git merge`, or `git rebase` without the user's explicit, unambiguous go-ahead.**
-  Committing inside `new_task(Code)` subtasks is NOT exempt — see §5.
+  Committing inside `new_task(Code)` subtasks is NOT exempt. `git add` may be used to stage when preparing a `#commit`; do not stage preemptively.
   **Read-only git queries (`git status`, `git log`, `git branch`, `git diff`, `git fetch`) are always permitted in any mode.**
   **Exception:** `#commit`, `#push`, `#merge`, and all git-related `#`-commands are self-contained confirmations — the user's explicit invocation of the command constitutes the go-ahead. No additional confirmation prompt is required.
 
@@ -73,30 +73,17 @@
 - User: Senior Java backend dev → Android/Kotlin. Map ViewModels/Repos ↔ Spring Beans/Services, StateFlow ↔ reactive streams. Highlight idiomatic Kotlin (coroutines, data classes, functional collections).
 - **Async Rule:** Kotlin Coroutines + Flow only — no raw threads or executors.
 
-# 1. Modern Android Development (MAD) Replication Rule
-- **Rewrite on Replication:** When replicating or porting an existing legacy feature (Activity, Fragment, XML layout), rewrite it entirely using MAD patterns: Jetpack Compose UI + ViewModel + StateFlow + Coroutines/Flow. Do not copy-paste legacy patterns. Do not reuse legacy layout files, Activities, or Fragments.
+# 1. MAD Replication — port legacy → Compose + ViewModel + StateFlow + Coroutines/Flow. Never copy-paste legacy.
 
-# 2. Isolated Greenfield Component Extraction
-You are executing a 100% Greenfield rewrite in a fresh workspace, using the legacy repository purely as a static reference.
-- **Extraction Sequence:** Port one component at a time: (1) domain logic isolated as pure Kotlin, (2) ViewModel with StateFlow/Coroutines, (3) stateless Compose UI bound to ViewModel state.
+# 2. Greenfield Extraction — (1) pure Kotlin domain, (2) ViewModel+StateFlow/Coroutines, (3) stateless Compose UI.
 
-# 3. Token & Prompt-Cache Optimization (Strict Operational Enforcement)
-- **Cache Optimization:** Group changes into bulk writes across multiple files. Avoid unrelated task switching mid-session. Every sequential edit invalidates the prefix-cache and multiplies token cost.
-- **Strict Context Isolation:** Open only the files the user asks for or that directly import the target class. For context, read interfaces/public methods, not full implementations.
+# 3. Token Optimization — bulk writes, strict context isolation. See Core Directives WRITE-ONCE + CONCISE.
 
-# 4. Loop Control & Feedback Guardrails
-- **Max Iteration Cap:** Limit autonomous agent loops to 3–5 consecutive turns per task, then force checkpoint.
-- **Error Back-off:** If compilation/Gradle error persists 2 consecutive attempts, halt and ask developer.
-- **Design Deviation Gate:** Await explicit approval before new dependencies, third-party libraries, or data flow changes.
+# 4. Loop Control — max 3–5 autonomous loops per task. Two consecutive build failures → halt. New deps/libs → approval first.
 
-# 5. Git Operations — STRICT
-- **🔴 ABSOLUTE RULE: No agent may execute `git add`, `git commit`, `git push`, `git merge`, or `git rebase` without the user's explicit, unambiguous go-ahead.** This applies to ALL modes and ALL subtasks — including `new_task(mode=code, ...)` subtasks. No exception. **Read-only git queries (`git status`, `git log`, `git branch`, `git diff`, `git fetch`) are always permitted in any mode.**
-- **`#commit`, `#push`, `#merge` are self-contained confirmations.** The user's explicit invocation of the `#`-command constitutes the go-ahead — no additional confirmation prompt is required. When chained (e.g. `#bake #commit #implement`), each `#`-command is independently self-confirming.
-- **`git add` may be used to stage** when preparing a `#commit`. Do not stage preemptively without a `#commit` command.
-- Feature work lives on `feature/*` branches; merges to `develop`/`main` are done via pull request only.
+# 5. Git Operations — see Core Directives above + `docs/GIT_WORKFLOW.md`. Feature work on `feature/*`; merge to `develop`/`main` via PR only.
 
-# 6. Spatial Engine Constraints
-- See `docs/MARO_ARCHITECTURE.md` for Maro-II spatial engine constraints (bounding box, memory-mapped I/O, async rendering).
+# 6. Spatial Engine — see `docs/MARO_ARCHITECTURE.md`.
 
 # 7a. xTrack — Stack, Bootstrap & Lifecycle
 - **Memory Stack:** Context footprint: `xTrack/` (features) + `GLOBAL_CONTEXT.md` (routing), `xTrack/[Feature]/FEAT_DSC_[Feature].md` (epics), `xTrack/[Feature]/FEAT_HYD_[Feature].md` (session state). Auto-create on first `#track`/`#focus`.
@@ -134,9 +121,7 @@ Intercept `#`-prefix. All name lookups use fuzzy-resolve cascade (exact → subs
 
 Full detail per command in `docs/cmd_help_*.md` — loaded by `#help`. See `docs/cmd_help.md` for the complete reference table.
 
-# 8. Mode Handoff Protocol
-
-Every mode follows this protocol at completion to return control to Architect.
+# 8. Mode Handoff Protocol — all modes return control to Architect on completion.
 
 ## 8a. Agent-Specific Adapter Files
 `.claude/`, `.clinerules`, `CLAUDE.md` are thin adapters — pointer to this file only. Any info beyond redirect is stale — ignore and flag.
@@ -158,3 +143,19 @@ When calling `switch_mode`, include 1-3 bullet summary in the reason field:
 - **Code:** what was implemented, build status, files changed, deviations
 - **Ask:** scope covered, code health observations (spaghetti, factorization, maintenance)
 - **Debug:** root cause, evidence, fix/non-fix recommendation
+
+## Lazy-Load Index
+
+Load these only when the task domain matches:
+
+| Task domain | Load |
+|-------------|------|
+| Spatial, bathymetry, depth, coastline | `docs/MARO_ARCHITECTURE.md` |
+| UI components, layouts, theme | `docs/ui-component-guidelines.md` |
+| Drawers, bottom sheets, overlays | `docs/ui-drawer-guidelines.md` |
+| Color tokens, theming, palette | `docs/color-scheme.md` |
+| Material Symbols icons (standalone) | `docs/material-icons-standalone-guide.md` |
+| Git workflow, merge strategy, conflicts | `docs/GIT_WORKFLOW.md` |
+| Project setup, build, deploy | `docs/SETUP.md` |
+| FAQs, common issues | `docs/FAQ.md` |
+| Any #-command detail | `docs/cmd_help_[cmd].md` via `#help` |

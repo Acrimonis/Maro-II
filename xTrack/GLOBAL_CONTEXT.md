@@ -38,7 +38,7 @@
 |---------|-----------|---------|----------|--------|
 | **ColorManagement** | **Centralised colour palette — all tokens in colors.properties with alias interpolation, documented in color-scheme.md** | **2026-06-16 14:05** | **2026-06-17 14:39** | **active** |
 | **Documentation** | **README, FAQs, setup guides, architecture docs, and plans cleanup** | **2026-06-11 06:42** | **2026-06-11 10:36** | **active** |
-| WorkflowImprovement | xTrack #command system, git shortcuts, mode handoff protocol, hard rules enforcement, AGENTS.md optimization, and spec consolidation. Absorbed WorkflowAmbiguityFix 2026-06-28. | 2026-06-03 00:00 | 2026-06-28 13:51 | active |
+| WorkflowImprovement | xTrack #command system, git shortcuts, mode handoff protocol, hard rules enforcement, AGENTS.md trunk-to-leaf optimization, #merge hybrid strategy, and spec consolidation. Absorbed WorkflowAmbiguityFix 2026-06-28. | 2026-06-03 00:00 | 2026-06-28 16:10 | active |
 | Zone300 | 300m zone generation from coastline with water-only constraint | 2026-05-20 00:00 | 2026-06-03 00:00 | active |
 | DepthMapping | Bathymetry / depth mapping from Litto3D, SHOM, EMODnet sources | 2026-05-10 00:00 | 2026-06-10 12:13 | active |
 | Coastline | Coastline extraction, spatial indexing, isOnWater, hazard rings, unified data store; eastern bound extended to Menton (7.55°E), single region ID via BuildConfig | 2026-05-10 00:00 | 2026-06-23 07:08 | active |
@@ -93,6 +93,6 @@ These files are loaded into context at the start of every session to maximize th
 
 ## Global Instructions
 - The xTrack `#`-command system is the canonical workflow. Use it for all feature tracking, todo/rule management, doc management, and session snapshots.
-- On Turn 1 of any session: read GLOBAL_CONTEXT.md, match user intent against the Routing Map, open the corresponding feature file and its hydration file.
-- Route docs, key files, and todos to the correct feature scope. Keep feature files lean — use ## Docs for references, ## Key Files for source paths.
-- `docs/cmd_help.md`, `references/fuzzy-resolve.md`, and `references/templates.md` are lazy-loaded on `#help` only — not loaded every session.
+- On Turn 1: read GLOBAL_CONTEXT.md, match intent against Routing Map, open matching feature file + hydration. No match → ask scoping question.
+- Route docs/key files/todos to correct feature scope. Keep feature files lean — `## Docs` for references, `## Key Files` for source paths.
+- Reference docs are lazy-loaded per [`AGENTS.md` Lazy-Load Index](AGENTS.md).
