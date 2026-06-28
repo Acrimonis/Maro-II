@@ -50,11 +50,22 @@ internal fun TextInputStep(
 ) {
     val focusManager = LocalFocusManager.current
     val focusRequester = remember { FocusRequester() }
-    var textFieldValue by remember(value) { mutableStateOf(TextFieldValue(value, selection = androidx.compose.ui.text.TextRange(0, value.length))) }
+    var textFieldValue by remember { mutableStateOf(TextFieldValue(value)) }
 
-    // Auto-focus on entry + select all
+    // Sync external value changes (e.g. edit pre-populate) without re-selecting
+    LaunchedEffect(value) {
+        if (textFieldValue.text != value) {
+            textFieldValue = TextFieldValue(value)
+        }
+    }
+
+    // Auto-focus on entry + select all (once)
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
+        textFieldValue = TextFieldValue(
+            text = textFieldValue.text,
+            selection = androidx.compose.ui.text.TextRange(0, textFieldValue.text.length)
+        )
     }
 
     Column(
@@ -63,9 +74,9 @@ internal fun TextInputStep(
             .then(
                 if (isLandscape) {
                     // Landscape: position text in upper portion, above keyboard zone
-                    Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                 } else {
-                    Modifier.padding(horizontal = 12.dp, vertical = 16.dp)
+                    Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                 }
             ),
         horizontalAlignment = Alignment.Start

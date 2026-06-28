@@ -34,17 +34,18 @@ internal fun SliderStep(
     range: ClosedFloatingPointRange<Double>,
     step: Double,
     unit: String,
-    onValueChange: (Double) -> Unit
+    onValueChange: (Double) -> Unit,
+    comment: String? = null
 ) {
     val accent = ComposeColor(AppConfig.uiSettingsAccent)
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = 8.dp, vertical = 4.dp)
             .clip(RoundedCornerShape(12.dp))
             .background(ComposeColor(AppConfig.uiCardBackground))
-            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .padding(horizontal = 8.dp, vertical = 4.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -64,7 +65,14 @@ internal fun SliderStep(
                 fontWeight = FontWeight.Bold
             )
         }
-        Spacer(Modifier.height(4.dp))
+        if (comment != null) {
+            Text(
+                comment,
+                color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                fontSize = 11.sp
+            )
+            Spacer(Modifier.height(4.dp))
+        }
         Slider(
             value = valueM.toFloat(),
             onValueChange = { onValueChange(it.toDouble()) },
