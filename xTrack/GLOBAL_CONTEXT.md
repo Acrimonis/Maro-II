@@ -2,10 +2,10 @@
 
 ## Active Session Pointers
 - **Active Feature:** GPS
-- **Active Subfeature:** gps-filter
-- **Last Updated:** 2026-06-28 16:23
-- **Last Bake:** 2026-06-28 16:17 (Markers — #merge rebase onto origin/develop)
-- **Branch:** feature/gps-filter
+- **Active Subfeature:** background-recording
+- **Last Updated:** 2026-06-28 18:44
+- **Last Bake:** 2026-06-28 18:44 (BoatTrace — idle-time-tracking: idleDurationSec accumulator + UiState refresh fix; build ✅)
+- **Branch:** feature/track-idling
 ## Routing Map
 | Keyword | Feature File |
 |---|---|

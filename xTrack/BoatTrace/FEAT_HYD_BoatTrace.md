@@ -1,11 +1,11 @@
 # BoatTrace — Hydration Snapshot
 
-**Baked at:** 2026-06-24 11:09 UTC
-**Active Subfeature:** track-list-render-indicator (implemented)
+**Baked at:** 2026-06-28 18:44 UTC
+**Active Subfeature:** idle-time-tracking (implemented)
 
 ## Session Summary
 
-Track list render indicator — each card now shows a 4dp left-edge accent bar previewing the track's polyline color+alpha on the map. Extracted shared `computeTrackPolylineAppearance()` utility, refactored MapScreen rendering loops, added `IntrinsicSize.Min` + explicit 4-component `Color()` to fix bar visibility.
+Idle time tracking — added `idleDurationSec` accumulator in TrackRecorder using `isStopped` transition detection. Displays in track history summary cards, live track card (Nav corrected to elapsed-minus-idle), and menu drawer recording status. Fixed `navigatingDurationSec = totalElapsedSec - idleDurationSec`. Real-time UI refresh on every addPoint() call while idle.
 
 ### track-list-render-indicator implementation (2026-06-24)
 - **Utility:** `TrackPolylineAppearance` data class + `computeTrackPolylineAppearance()` pure function — computes ARGB + stroke width from index/total/transparency/color settings

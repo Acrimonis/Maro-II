@@ -76,7 +76,8 @@ data class TrackRecorderUiState(
     val avgSpeedKn: Float = 0f,
     val distanceNm: Float = 0f,
     val recordingPoints: List<TrackPoint> = emptyList(),
-    val isMoving: Boolean = false
+    val isMoving: Boolean = false,
+    val idleDurationSec: Long = 0L
 )
 
 /**
@@ -162,6 +163,11 @@ class TrackRecorder(
     private var lastAcceptedTimeMs: Long = 0L
     /** Last assigned timeOffsetMs — ensures monotonic uniqueness even when fixes share the same ms. */
     private var lastTimeOffsetMs: Long = 0L
+
+    // ── Idle duration accumulator ──
+    private var idleDurationSec: Long = 0L
+    private var idleStartMs: Long = 0L
+    private var wasStopped: Boolean = false
 
     private var scope: CoroutineScope? = null
     private var collectingJob: Job? = null
@@ -297,6 +303,9 @@ class TrackRecorder(
         lastTimeOffsetMs = 0L
         pointsSinceLastCheckpoint = 0
         stopDebounceStartTime = null
+        idleDurationSec = 0L
+        idleStartMs = 0L
+        wasStopped = false
         transitionTo(TrackRecorderState.ON)
         _uiState.update {
             TrackRecorderUiState(
@@ -321,6 +330,21 @@ class TrackRecorder(
 
         val speedKn = sample.speedMps?.let { it * 1.94384f }
         Log.d(TAG, "addPoint: speed=${speedKn} kn isStopped=$stopped state=$state")
+
+        // ── Idle duration accumulation ──
+        val now = System.currentTimeMillis()
+        if (stopped && !wasStopped) {
+            idleStartMs = now  // transition: moving → idle
+        } else if (!stopped && wasStopped && idleStartMs > 0) {
+            idleDurationSec += (now - idleStartMs) / 1000
+            idleStartMs = 0L  // transition: idle → moving
+            _uiState.update { it.copy(idleDurationSec = idleDurationSec) }
+        }
+        wasStopped = stopped
+
+        if (stopped && idleStartMs > 0) {
+            _uiState.update { it.copy(idleDurationSec = idleDurationSec + (now - idleStartMs) / 1000) }
+        }
 
         // Skip point capture when stationary (same gate for GPS and demo mode)
         if (stopped) return
@@ -553,13 +577,18 @@ class TrackRecorder(
         } else {
             track.trackPoints
         }
+        // Flush any open idle period
+        if (wasStopped && idleStartMs > 0) {
+            idleDurationSec += (System.currentTimeMillis() - idleStartMs) / 1000
+        }
         val finalized = track.copy(
             trackPoints = simplifiedPoints,
             endTimeMs = System.currentTimeMillis(),
             pausedDurationSec = 0,
+            idleDurationSec = idleDurationSec,
             averageSpeedMps = avgMps,
             distanceNm = cumulativeDistanceNm,
-            navigatingDurationSec = totalElapsedSec
+            navigatingDurationSec = totalElapsedSec - idleDurationSec
         )
         currentTrack = finalized
 

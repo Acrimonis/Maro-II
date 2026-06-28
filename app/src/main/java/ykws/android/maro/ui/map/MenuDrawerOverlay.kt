@@ -232,6 +232,7 @@ fun MenuDrawerOverlay(
                             StatRow("Distance", "${"%.2f".format(recorderState.distanceNm)} nm")
                             StatRow("Max Speed", "${"%.1f".format(recorderState.maxSpeedKn)} kn")
                             StatRow("Avg Speed", "${"%.1f".format(recorderState.avgSpeedKn)} kn")
+                            StatRow("Idle", formatDuration(recorderState.idleDurationSec))
                         }
                     }
                 }
