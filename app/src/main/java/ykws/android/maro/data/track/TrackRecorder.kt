@@ -325,6 +325,10 @@ class TrackRecorder(
         // Skip point capture when stationary (same gate for GPS and demo mode)
         if (stopped) return
 
+        // Skip points without speed data — transient GPS state at recording start / post-pause.
+        // These create gaps in GPX export (missing <speed> elements) with no tracking value.
+        if (sample.speedMps == null) return
+
         // ── Spike rejection v2: four-gate algorithm (GPS mode only) ────
         if (gpsMode) {
             // Timeout reset: if no sample accepted for >STALE_FIX_TIMEOUT_MS, accept with relaxed check.
