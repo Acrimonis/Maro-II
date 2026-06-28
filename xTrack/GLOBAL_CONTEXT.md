@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** WorkflowImprovement
+- **Active Feature:** ui-small-potatoes
 - **Active Subfeature:** (none)
-- **Last Updated:** 2026-06-28 13:51
+- **Last Updated:** 2026-06-28 16:18
 - **Last Bake:** 2026-06-25 16:08 (Markers — #merge rebase onto origin/develop; CoastlineViewModel→NavigationViewModel + GpsFix→TrackSample API fixes; build ✅)
-- **Branch:** feature/workflow
+- **Branch:** feature/misc-fixes
 ## Routing Map
 | Keyword | Feature File |
 |---|---|
