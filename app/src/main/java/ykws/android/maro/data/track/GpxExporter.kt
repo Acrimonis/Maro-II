@@ -4,7 +4,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US)
+private val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
 
 /**
  * Convert [track] to GPX 1.1 XML.
@@ -34,7 +34,7 @@ fun Track.toGpx(): String = buildString {
         if (point.bearingDeg != null) {
             append("<course>${point.bearingDeg}</course>")
         }
-        val pointTime = Date(startTimeMs + point.timeOffsetSec * 1000L)
+        val pointTime = Date(startTimeMs + point.timeOffsetMs)
         append("<time>${isoFormat.format(pointTime)}</time>")
         append("</trkpt>")
     }
