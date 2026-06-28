@@ -11,7 +11,6 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -182,7 +181,8 @@ private fun WizardStepContent(
                     viewModel.updateForm {
                         if (isCorridor) it.copy(widthM = v) else it.copy(radiusM = v)
                     }
-                }
+                },
+                comment = if (isCorridor) "Corridor width in metres" else "Zone radius in metres"
             )
         }
         is WizardStep.Proximity -> {
@@ -200,53 +200,19 @@ private fun WizardStepContent(
                 unit = "m",
                 onValueChange = { v ->
                     viewModel.updateForm { it.copy(proximityOverrideM = v.toLong().toString()) }
-                }
+                },
+                comment = "Alert distance around the zone"
             )
         }
         is WizardStep.Title -> {
             val form by viewModel.createForm.collectAsState()
-            var showIconPicker by remember { mutableStateOf(false) }
-            Column {
-                TextInputStep(
-                    label = "Name",
-                    value = form.name,
-                    singleLine = true,
-                    onValueChange = { v -> viewModel.updateForm { it.copy(name = v) } },
-                    isLandscape = isLandscape
-                )
-                Spacer(Modifier.height(12.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        "Icon:",
-                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = 13.sp
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(ComposeColor(AppConfig.uiSettingsSwitchTrackInactive))
-                            .clickable { showIconPicker = true },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = form.icon ?: "\uD83D\uDCCD",
-                            fontSize = 20.sp
-                        )
-                    }
-                }
-                if (showIconPicker) {
-                    IconPickerDialog(
-                        currentIcon = form.icon,
-                        onIconSelected = { icon ->
-                            viewModel.updateForm { it.copy(icon = icon) }
-                            showIconPicker = false
-                        },
-                        onDismiss = { showIconPicker = false }
-                    )
-                }
-            }
+            TextInputStep(
+                label = "Name",
+                value = form.name,
+                singleLine = true,
+                onValueChange = { v -> viewModel.updateForm { it.copy(name = v) } },
+                isLandscape = isLandscape
+            )
         }
         is WizardStep.Description -> TextInputStep(
             label = "Description",

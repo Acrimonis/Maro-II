@@ -13,16 +13,22 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
+import androidx.compose.material.icons.outlined.LocationOff
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -32,6 +38,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.ui.icons.Conversion_path
+import ykws.android.maro.ui.map.ButtonColors
+import ykws.android.maro.ui.map.IconPickerDialog
 import ykws.android.maro.ui.map.MarkerType
 import ykws.android.maro.ui.map.MarkersViewModel
 
@@ -53,7 +61,7 @@ internal fun TypeSelectStep(viewModel: MarkersViewModel) {
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(12.dp)
+            .padding(horizontal = 8.dp, vertical = 4.dp)
     ) {
         Row(
             modifier = Modifier
@@ -79,23 +87,67 @@ internal fun TypeSelectStep(viewModel: MarkersViewModel) {
                         .padding(vertical = 8.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
                             imageVector = icon,
                             contentDescription = label,
                             tint = if (selected) primaryText else mutedText,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(18.dp)
                         )
-                        Spacer(Modifier.height(4.dp))
+                        Spacer(Modifier.width(4.dp))
                         Text(
                             text = label,
                             color = if (selected) primaryText else mutedText,
-                            fontSize = 13.sp,
-                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                            fontSize = 12.sp,
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                            maxLines = 1,
+                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis
                         )
                     }
                 }
             }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        // Pin toggle + icon picker
+        var showIconPicker by remember { mutableStateOf(false) }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(cardBg)
+                .clickable { showIconPicker = true }
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (form.icon != null) {
+                Text(form.icon!!, fontSize = 20.sp)
+            } else {
+                Icon(
+                    imageVector = Icons.Outlined.LocationOff,
+                    contentDescription = "Pin this marker",
+                    tint = ButtonColors.icon,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = if (form.icon != null) "Pinned" else "Pin this marker",
+                color = mutedText,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
+        if (showIconPicker) {
+            IconPickerDialog(
+                currentIcon = form.icon,
+                onIconSelected = { icon ->
+                    viewModel.updateForm { it.copy(icon = icon) }
+                    showIconPicker = false
+                },
+                onDismiss = { showIconPicker = false }
+            )
         }
     }
 }

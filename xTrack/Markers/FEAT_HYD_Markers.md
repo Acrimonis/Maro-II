@@ -1,4 +1,4 @@
-# Markers — Hydration Snapshot (2026-06-28 14:22 UTC)
+# Markers — Hydration Snapshot (2026-06-28 16:17 UTC)
 
 ## State
 - **Active subfeature:** icon
@@ -29,3 +29,15 @@
 
 ## Build
 - compileDebugKotlin ✅
+
+## Wizard Layout Normalization
+| File | Change |
+|------|--------|
+| `WizardTopBar.kt` | Header padding: 16×12dp, better back-arrow breathing room |
+| `TypeSelectStep.kt` | Icon+label on same Row (18dp+12sp), single-line, pin bar fully clickable |
+| `PositionStep.kt` | Left-aligned, uiCardBackground card wrapper (Tight 8×4dp) |
+| `SliderStep.kt` | Optional `comment` param, Tight 8×4dp padding |
+| `WizardButtonRow.kt` | 3 slots always visible, dimmed when inappropriate (no layout jumps) |
+| `TextInputStep.kt` | Outer padding → Tight 8×4dp |
+| `TextInputStep.kt` | Focus bug fixed: `remember` without key, select-all only in LaunchedEffect(Unit) |
+| `MarkerOverlay.kt` | Unconfirmed markers bypass drawGeometry/skipDots — always full geometry during wizard |

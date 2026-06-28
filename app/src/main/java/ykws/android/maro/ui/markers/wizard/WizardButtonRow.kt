@@ -44,51 +44,45 @@ internal fun WizardButtonRow(
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Previous (hidden on first step)
-        if (!isFirstStep) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(accentBg)
-                    .clickable { onPrevious() }
-                    .padding(vertical = 10.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Previous",
-                    color = accentFg,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        } else {
-            Spacer(Modifier.weight(1f))
+        // Previous (dimmed on first step)
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .clip(RoundedCornerShape(8.dp))
+                .background(accentBg)
+                .then(if (isFirstStep) Modifier.alpha(0.4f) else Modifier)
+                .then(if (!isFirstStep) Modifier.clickable { onPrevious() } else Modifier)
+                .padding(vertical = 10.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Previous",
+                color = accentFg,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
 
-        // Next (hidden on last step)
-        if (!isLastStep) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(accentBg)
-                    .clickable { onNext() }
-                    .padding(vertical = 10.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Next",
-                    color = accentFg,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        } else {
-            Spacer(Modifier.weight(1f))
+        // Next (dimmed on last step)
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .clip(RoundedCornerShape(8.dp))
+                .background(accentBg)
+                .then(if (isLastStep) Modifier.alpha(0.4f) else Modifier)
+                .then(if (!isLastStep) Modifier.clickable { onNext() } else Modifier)
+                .padding(vertical = 10.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Next",
+                color = accentFg,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
 
-        // Finish (always present, dimmed when invalid)
+        // Finish (dimmed when invalid)
         Box(
             modifier = Modifier
                 .weight(1f)

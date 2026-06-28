@@ -280,7 +280,6 @@ class MarkersViewModel(
         val newIndex = if (current > 0) current - 1 else ids.lastIndex
         _selectedMarkerIndex.value = newIndex
         _selectedMarkerId.value = ids[newIndex]
-        emitMapCenterFor(ids[newIndex])
     }
 
     /** Navigate to the next marker in the multi-marker selection (§11). */
@@ -291,17 +290,6 @@ class MarkersViewModel(
         val newIndex = if (current < ids.lastIndex) current + 1 else 0
         _selectedMarkerIndex.value = newIndex
         _selectedMarkerId.value = ids[newIndex]
-        emitMapCenterFor(ids[newIndex])
-    }
-
-    private fun emitMapCenterFor(markerId: String) {
-        val marker = _markers.value.find { it.id == markerId } ?: return
-        val pos = when (val g = marker.geometry) {
-            is MarkerGeometry.Pin -> g.position
-            is MarkerGeometry.Circle -> g.center
-            is MarkerGeometry.Corridor -> g.p1
-        }
-        _mapCenterRequest.value = pos
     }
 
     /** Closes the drawer. */
