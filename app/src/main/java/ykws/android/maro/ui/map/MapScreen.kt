@@ -778,7 +778,9 @@ fun MapScreen(
             when (event) {
                 Lifecycle.Event.ON_PAUSE -> {
                     viewModel.savePosition()
-                    viewModel.setGpsActive(false)
+                    if (trackRecorderState.state != ykws.android.maro.data.track.TrackRecorderState.ON) {
+                        viewModel.setGpsActive(false)
+                    }
                 }
                 Lifecycle.Event.ON_RESUME -> viewModel.setGpsActive(true)
                 else -> {}

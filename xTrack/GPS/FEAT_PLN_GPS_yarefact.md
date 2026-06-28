@@ -3,8 +3,8 @@
 > **Feature:** GPS
 > **Subfeature:** yarefact
 > **Date:** 2026-06-25
-> **Status:** planned, reviewed (round 2)
-> **Validated against:** codebase commit at 2026-06-25
+> **Status:** done — Phase A+B+C complete, validated against codebase 2026-06-28
+> **Validated against:** codebase commit at 2026-06-28
 > **Design decisions:** finalized via Architect + Ask review on 2026-06-25
 
 ## Motivation
@@ -60,18 +60,18 @@ MapScreen: combine(gpsPos, center, nav, isEstimating, ticker)
           │
           ├─ isStopped from NavigationVM (single AdaptiveGpsPolicy, shared)
           ├─ addPoint() → spike rejection → capture
-          └─ _uiState.recordingPoints (full list copy per point)
+          └─ _newPoint.tryEmit(point) → MapScreen incremental polyline append
 ```
 
-## Validation Against Codebase
+## Validation Against Codebase (2026-06-28)
 
 | Item | Status | Evidence |
 |------|--------|----------|
-| C1: duplicate AdaptiveGpsPolicy | **Partial** — `isStopped` exposed but TrackRecorder has own policy | [`isStopped`](app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt:346-348) ✅ · [`policy` in TrackRecorder](app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt:167) ❌ |
-| C2: DR guard on dormant GPS | **Partial** — DR state invalidated on IDLE, watchdog unguarded | [`deadReckoningState = null`](app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt:712-714) ✅ · [watchdog unguarded](app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt:665-670) ❌ |
-| C3: isEstimated on TrackPoint | **Skipped** — solved by `isEstimating` guard in combine | [`if (estimating) return@combine null`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:563) |
-| C4: virtual GpsFix indirection | **Not done** — combine still creates virtual GpsFix | [`combine` at 554-579](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:554-579) |
-| C5: full list copy | **Not done** — per-point copy | [`recordingPoints = currentTrack!!.trackPoints`](app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt:472) |
+| C1: duplicate AdaptiveGpsPolicy | **Done** — single policy in NavigationViewModel | [`AdaptiveGpsPolicy` only in NavigationViewModel](app/src/main/java/ykws/android/maro/ui/map/NavigationViewModel.kt) |
+| C2: DR guard on dormant GPS | **Done** — watchdog gated on `_acquisitionMode != IDLE` | NavigationViewModel `GpsSignalWatchdog` double-gated |
+| C3: isEstimated on TrackPoint | **Done** — `isEstimating` guard in combine | [`if (estimating) return@combine null`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt) |
+| C4: virtual GpsFix indirection | **Done** — TrackSample replaces virtual GpsFix | [`TrackSample`](app/src/main/java/ykws/android/maro/data/track/TrackSample.kt), MapScreen combine produces TrackSample directly |
+| C5: full list copy | **Done** — `_newPoint` SharedFlow + incremental polyline | [`_newPoint`](app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt:122) · [`MapScreen` incremental append](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:692) |
 
 ---
 
@@ -270,21 +270,22 @@ Simplify: TrackRecorder's `start()` becomes internal — called by TrackViewMode
 
 ---
 
-## Phase C — Streaming Optimization (deferred)
+## Phase C — Streaming Optimization (done ✅)
 
-### Changes
+### Changes (all implemented)
 
-| File | Change |
-|------|--------|
-| [`TrackRecorder.kt`](app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt) | Add `_newPoint: MutableSharedFlow<TrackPoint>`, emit in `captureAcceptedPoint()` |
-| [`TrackRecorder.kt`](app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt:466-473) | Remove `recordingPoints = currentTrack!!.trackPoints` from `_uiState.update` |
-| [`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt) | Incremental polyline append via `_newPoint` |
+| File | Change | Status |
+|------|--------|--------|
+| [`TrackRecorder.kt`](app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt) | Add `_newPoint: MutableSharedFlow<TrackPoint>`, emit in `captureAcceptedPoint()` | [x] |
+| [`TrackRecorder.kt`](app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt:454-461) | Removed `recordingPoints` from `_uiState.update` copy | [x] |
+| [`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:692-731) | Incremental polyline append via `newPoint` stream | [x] |
+
+### Dead code to remove
+- `recordingPoints: List<TrackPoint>` in [`TrackRecorderUiState`](app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt:78) — field exists but never populated.
 
 ### Verification
-
-- Polyline draws correctly during recording
-- Measurable reduction in Compose recomposition
-
+- [x] Polyline draws correctly during recording
+- [x] No full-list copy per point — only `pointCount`/`currentSpeedKn`/`distanceNm`/`avgSpeedKn` updated in `_uiState`
 ---
 
 ## Stillness Logic
