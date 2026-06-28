@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** Markers
-- **Active Subfeature:** icon
-- **Last Updated:** 2026-06-26 11:18
-- **Last Bake:** 2026-06-25 16:08 (Markers — #merge rebase onto origin/develop)
-- **Branch:** feature/marker-icon
+- **Active Feature:** WorkflowImprovement
+- **Active Subfeature:** (none)
+- **Last Updated:** 2026-06-28 13:51
+- **Last Bake:** 2026-06-25 16:08 (Markers — #merge rebase onto origin/develop; CoastlineViewModel→NavigationViewModel + GpsFix→TrackSample API fixes; build ✅)
+- **Branch:** feature/workflow
 ## Routing Map
 | Keyword | Feature File |
 |---|---|
@@ -38,7 +38,7 @@
 |---------|-----------|---------|----------|--------|
 | **ColorManagement** | **Centralised colour palette — all tokens in colors.properties with alias interpolation, documented in color-scheme.md** | **2026-06-16 14:05** | **2026-06-17 14:39** | **active** |
 | **Documentation** | **README, FAQs, setup guides, architecture docs, and plans cleanup** | **2026-06-11 06:42** | **2026-06-11 10:36** | **active** |
-| WorkflowImprovement | xTrack #command system, git shortcuts, #now/#list rename, trigger syntax, fuzzy matching, bootstrap, memory bake lifecycle, and mode handoff protocol | 2026-06-03 00:00 | 2026-06-17 17:12 | active |
+| WorkflowImprovement | xTrack #command system, git shortcuts, mode handoff protocol, hard rules enforcement, AGENTS.md optimization, and spec consolidation. Absorbed WorkflowAmbiguityFix 2026-06-28. | 2026-06-03 00:00 | 2026-06-28 13:51 | active |
 | Zone300 | 300m zone generation from coastline with water-only constraint | 2026-05-20 00:00 | 2026-06-03 00:00 | active |
 | DepthMapping | Bathymetry / depth mapping from Litto3D, SHOM, EMODnet sources | 2026-05-10 00:00 | 2026-06-10 12:13 | active |
 | Coastline | Coastline extraction, spatial indexing, isOnWater, hazard rings, unified data store; eastern bound extended to Menton (7.55°E), single region ID via BuildConfig | 2026-05-10 00:00 | 2026-06-23 07:08 | active |
@@ -58,9 +58,9 @@
 | **BoatTrace** | **Boat movement tracking: record tracks from GPS fixes, persist, display on map with configurable render layers, GPX export, track history UI, render preview indicator** | **2026-06-15 21:43** | **2026-06-24 11:09** | **active** |
 | **CheckDev** | **Dev-branch health monitoring — remote branch state, ahead/behind analysis, workflow hygiene validation** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
 | **Health** | **Application health monitoring — diagnostics, crash reporting, memory/performance telemetry** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
-| **WorkflowAmbiguityFix** | **Eliminate ambiguity between AGENTS.md rules — #merge direction, §5 reinforcement, command doc alignment** | **2026-06-20 14:51** | **2026-06-20 14:51** | **active** |
+| **WorkflowAmbiguityFix** | **Eliminate ambiguity between AGENTS.md rules — #merge direction, §5 reinforcement, command doc alignment. Absorbed into WorkflowImprovement 2026-06-28.** | **2026-06-20 14:51** | **2026-06-28 13:51** | **done** |
 | **ui-small-potatoes** | **UI polish, refinements, and small fixes across the app** | **2026-06-22 13:50** | **2026-06-22 14:20** | **active** |
-| **Markers** | **User-defined map markers (Pin, Circle, Corridor) with sea-distance-gated proximity matching and on-demand "where am I?" query** | **2026-06-22 11:52** | **2026-06-28 14:22** | **active** |
+| **Markers** | **User-defined map markers (Pin, Circle, Corridor) with sea-distance-gated proximity matching and on-demand "where am I?" query** | **2026-06-22 11:52** | **2026-06-25 16:08** | **active** |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).
@@ -68,7 +68,7 @@
 - Auto-refine rule wording for clarity and conciseness on `#rule` add.
 - Use apk-build.bat to build APK (runs gradlew assembleDebug).
 - **Git operations allowed on `#`-command invocation** — `#commit`, `#push`, `#merge`, `#checkout` are self-contained confirmations; the command invocation is the go-ahead. Never touch `develop`/`main` branches.
-- **🔴 MODE LOCK: Do not switch to Code mode or invoke `#implement` pipeline without explicit user go-ahead (`#implement` tag or "go ahead" / "implement now").** Never suggest "ready for #implement" — it implies permission. Architect mode stays in Architect until user explicitly directs otherwise.
+- **🔴 MODE LOCK: Do not switch to Code mode or invoke `#implement` pipeline without explicit user go-ahead (`#implement` tag or "go ahead" / "implement now").** Never suggest "ready for #implement" — it implies permission. Architect mode stays in Architect until user explicitly directs otherwise. See AGENTS.md Core Directives for full mode permissions.
 - **🔴 QUESTIONS: Answer before acting.** A question is not an implicit implementation order. Answer it first, then wait for direction.
 
 ## Global Todos

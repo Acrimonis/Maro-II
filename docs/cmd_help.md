@@ -27,14 +27,15 @@ Session:  #bake                snapshot session (updates summaries table + xTrac
           #help                this list
 Pipeline: #implement           full pipeline: Code → build → Ask review → Architect report
 Git:      🔴 See [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md) for full rules + enforcement.
-          #new [branch]        create `feature/[branch]` from origin/develop
-          #commit              bake + add + commit. 🚫 refuses on develop/main.
-          #push                push current branch. 🚫 refuses on develop/main.
-          #move [branch]       stash → switch → pop (existing)
-          #move new [branch]   stash → create from develop → pop
-          #cherry [target]     interactive cherry-pick unpushed commits
-          #copy [target]       alias for #cherry
-          #rename [branch]     git branch -m
-          #merge               rebase + force-push; AI auto-resolves conflicts via feature ownership. 🚫 refuses on develop/main.
+           #new [branch]        create `feature/[branch]` from origin/develop
+           #checkout [branch]   switch to existing branch; #checkout new [branch] creates + switches
+           #commit              bake + add + commit. ALWAYS prompts confirm. 🚫 refuses on develop/main.
+           #push                push current branch. 🚫 refuses on develop/main.
+           #move [branch]       stash → switch → pop (existing)
+           #move new [branch]   stash → create from develop → pop
+           #cherry [target]     interactive cherry-pick unpushed commits
+           #copy [target]       alias for #cherry
+           #rename [branch]     git branch -m
+           #merge               rebase + force-push; AI auto-resolves conflicts via feature ownership. 🚫 refuses on develop/main.
 Health:   #doctor              lint xTrack for drift
           #doctor fix          auto-repair

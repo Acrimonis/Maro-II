@@ -1,15 +1,19 @@
-# Context Hydration — WorkflowImprovement — 2026-06-20 10:53
+# Context Hydration — WorkflowImprovement — 2026-06-28 13:51
 
-**Active Subfeature:** hard rules — completed [x]
+**Active Subfeature:** none
 
 ## State
-Two implementation passes completed:
-1. Core Directives promotion — 10 rules promoted to prefix-cache, §5 hardened, §3 deduped, #doctor check (j), GLOBAL_CONTEXT.md synced, cmd_help_git.md updated.
-2. AGENTS.md token optimization — 207→149 lines (28% reduction). Header, Dev Profile, §2, §7b (compact table), §4, §7a, §8 all compressed. No rules removed.
+Workflow management cleanup pass completed. Absorbed WorkflowAmbiguityFix (all 5 todos now [x]). AGENTS.md §7b now includes all git commands (#new, #checkout, #commit, #push, #move, #cherry/#copy, #rename). MODE LOCK clarified: Architect can do shell commands + git branch ops. #help dispatch updated to filename-scan. templates.md FEAT_HYD path fixed. docs/cmd_help.md synced with #checkout entry. GLOBAL_CONTEXT.md updated: WorkflowAmbiguityFix→done, WorkflowImprovement one-liner refreshed.
+
+Remaining deferred: git shortcut on-device verification, post-merge xTrack reconcile.
 
 ## Target Files
-- `AGENTS.md` — optimized (149 lines)
-- `xTrack/WorkflowImprovement/FEAT_DOC_WorkflowImprovement.md` — ## Implemented updated
+- `AGENTS.md` — §7b git commands added, MODE LOCK fixed, #help filename-scan
+- `xTrack/GLOBAL_CONTEXT.md` — branch, feature summaries, global rules updated
+- `xTrack/WorkflowAmbiguityFix/FEAT_DSC_WorkflowAmbiguityFix.md` — status→done, resolution noted
+- `xTrack/WorkflowImprovement/FEAT_DSC_WorkflowImprovement.md` — lingering todos closed
+- `.claude/skills/xtrack/references/templates.md` — FEAT_HYD path corrected
+- `docs/cmd_help.md` — #checkout entry added
 
 ## Next Step
-Remaining WorkflowImprovement todos: git shortcut on-device verification, templates.md sync, post-merge xTrack reconcile. Awaiting user direction.
+User direction. Branch `feature/workflow` ready for commit/push.
