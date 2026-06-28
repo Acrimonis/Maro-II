@@ -84,6 +84,7 @@ data class CreateFormState(
     val proximityOverrideM: String = "",  // empty = use computed default
     val description: String = "",
     val colorIndex: Int = 0,
+    val icon: String? = null,            // POI emoji/unicode icon, null = no icon
     // Corridor 2nd-point
     val corridorP2: LatLng? = null
 )
@@ -191,6 +192,9 @@ class MarkersViewModel(
     private val dateTimeFormat = ThreadLocal.withInitial {
         SimpleDateFormat("EEE, dd MMM yy 'at' HH:mm", Locale.US)
     }
+    private val shortDateFormat = ThreadLocal.withInitial {
+        SimpleDateFormat("dd MMM yy", Locale.US)
+    }
 
     // ── Coastline index (injected by the screen) ──────────────────────────
     /** Set by [MapScreen] when coastline is ready. Used by land-blocking engine. */
@@ -243,6 +247,7 @@ class MarkersViewModel(
             is MarkerGeometry.Circle -> g.center
             is MarkerGeometry.Corridor -> g.p1
         }
+        val colorIndex = marker.colorIndex ?: 0
         val type = when (marker.geometry) {
             is MarkerGeometry.Pin -> MarkerType.PIN
             is MarkerGeometry.Circle -> MarkerType.CIRCLE
@@ -260,6 +265,8 @@ class MarkersViewModel(
             widthM = widthM,
             proximityOverrideM = marker.proximityOverrideM?.toString() ?: "",
             description = marker.description,
+            colorIndex = colorIndex,
+            icon = marker.icon,
             corridorP2 = corridorP2
         )
         _drawerState.value = MarkerDrawerState.Viewing
@@ -360,7 +367,7 @@ class MarkersViewModel(
         editingMarkerId = null
         val now = Date()
         val colorIdx = MarkerColors.randomIndex()
-        val defaultName = "${typeIcon(initialType)} ${colorName(colorIdx)}"
+        val defaultName = "(${shortDateFormat.get()!!.format(now)}) ${typeIcon(initialType)} ${colorName(colorIdx)}"
         _createForm.value = CreateFormState(
             type = initialType,
             position = initialPos,
@@ -400,6 +407,8 @@ class MarkersViewModel(
                 widthM = widthM,
                 proximityOverrideM = marker.proximityOverrideM?.toString() ?: "",
                 description = marker.description,
+                colorIndex = marker.colorIndex ?: 0,
+                icon = marker.icon,
                 corridorP2 = corridorP2
             )
         }
@@ -514,7 +523,10 @@ class MarkersViewModel(
             description = form.description,
             proximityOverrideM = proximityOverride,
             confirmed = true,
-            colorIndex = form.colorIndex
+            colorIndex = form.colorIndex,
+            icon = form.icon,
+            pinned = form.icon != null,
+            createdAtEpochMs = System.currentTimeMillis()
         )
 
         viewModelScope.launch {
@@ -546,7 +558,9 @@ class MarkersViewModel(
             name = form.name.ifBlank { existing.name },
             geometry = geometry,
             description = form.description,
-            proximityOverrideM = proximityOverride
+            proximityOverrideM = proximityOverride,
+            icon = form.icon,
+            pinned = form.icon != null
         )
 
         viewModelScope.launch {
@@ -606,6 +620,18 @@ class MarkersViewModel(
     }
 
     // ── Post-save undo (Snackbar) ─────────────────────────────────────────
+
+    // ── Icon management ───────────────────────────────────────────────────
+
+    /** Set the icon on a marker (null = remove icon, unpin). */
+    fun setMarkerIcon(markerId: String, icon: String?) {
+        val marker = _markers.value.find { it.id == markerId } ?: return
+        val updated = marker.copy(icon = icon, pinned = icon != null)
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { repo.update(updated) }
+            _markers.value = withContext(Dispatchers.IO) { repo.loadAll() }
+        }
+    }
 
     /** Dismiss the last-saved-marker Snackbar without undoing. */
     fun dismissLastSaved() {

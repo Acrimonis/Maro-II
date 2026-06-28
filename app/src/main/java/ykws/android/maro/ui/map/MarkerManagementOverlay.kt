@@ -115,7 +115,7 @@ fun MarkerManagementOverlay(
     onCommitPendingDeletes: () -> Unit,
     onCreateFirst: () -> Unit,
     onDismiss: () -> Unit,
-    onTogglePin: (String) -> Unit = {},
+    onSetIcon: (String, String?) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val pendingDeletes = remember { mutableListOf<String>() }
@@ -244,7 +244,7 @@ fun MarkerManagementOverlay(
                                 pendingDeletes.remove(marker.id)
                                 onPermanentDelete(marker.id)
                             },
-                            onTogglePin = { onTogglePin(marker.id) }
+                            onSetIcon = onSetIcon
                         )
                     }
                 }
@@ -268,7 +268,7 @@ private fun SwipeToDeleteMarkerCard(
     onDelete: () -> Unit,
     onUndo: () -> Unit,
     onPermanentDelete: () -> Unit,
-    onTogglePin: (String) -> Unit
+    onSetIcon: (String, String?) -> Unit
 ) {
     var state by remember { mutableStateOf(MarkerItemState.CARD) }
     val scope = rememberCoroutineScope()
@@ -329,7 +329,7 @@ private fun SwipeToDeleteMarkerCard(
                     )
                     .clip(RoundedCornerShape(12.dp))
             ) {
-                MarkerCardContent(marker, onTap = onTap, onEdit = onEdit, onTogglePin = { onTogglePin(marker.id) })
+                MarkerCardContent(marker, onTap = onTap, onEdit = onEdit, onSetIcon = onSetIcon)
             }
         }
 
@@ -400,7 +400,7 @@ private fun MarkerCardContent(
     marker: UserMarker,
     onTap: () -> Unit,
     onEdit: () -> Unit,
-    onTogglePin: () -> Unit
+    onSetIcon: (String, String?) -> Unit
 ) {
     Row(
         modifier = Modifier
@@ -437,15 +437,30 @@ private fun MarkerCardContent(
                     modifier = Modifier.weight(1f)
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    var showIconPicker by remember { mutableStateOf(false) }
                     IconButton(
-                        onClick = onTogglePin,
+                        onClick = { showIconPicker = true },
                         modifier = Modifier.size(36.dp)
                     ) {
-                        Icon(
-                            imageVector = if (marker.pinned) Icons.Filled.LocationOn else Icons.Outlined.LocationOff,
-                            contentDescription = if (marker.pinned) "Unpin" else "Pin",
-                            tint = ButtonColors.icon,
-                            modifier = Modifier.size(24.dp)
+                        if (marker.icon != null) {
+                            Text(marker.icon!!, fontSize = 20.sp)
+                        } else {
+                            Icon(
+                                imageVector = Icons.Outlined.LocationOff,
+                                contentDescription = "Set icon",
+                                tint = ButtonColors.icon,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                    if (showIconPicker) {
+                        IconPickerDialog(
+                            currentIcon = marker.icon,
+                            onIconSelected = { icon ->
+                                onSetIcon(marker.id, icon)
+                                showIconPicker = false
+                            },
+                            onDismiss = { showIconPicker = false }
                         )
                     }
                     IconButton(

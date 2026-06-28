@@ -33,11 +33,26 @@ Default: `SHOW_ALL` — matches existing `userMarkersVisible = true`.
 
 ### State → Behavior Mapping
 
-| State | Fan child `isActive` | Icon | MarkerOverlay receives |
-|-------|---------------------|------|----------------------|
-| HIDDEN | false | `LocationOff`, inactive alpha | nothing (not rendered) |
-| SHOW_ALL | true | `LocationOn`, active alpha | all `userMarkers` |
-| SHOW_PINNED | true | `LocationOn`, active alpha (no visual distinction yet — defer to follow-up) | only `userMarkers.filter { it.pinned }` |
+| State | Fan child `isActive` | Icon | MarkerOverlay receives | Rendering |
+|-------|---------------------|------|----------------------|-----------|
+| HIDDEN | false | `LocationOff`, inactive alpha | nothing (not rendered) | — |
+| SHOW_ALL | true | `LocationOn`, active alpha | all `userMarkers` | All geometry (zones + proximity). Pinned markers: icon replaces center dot. |
+| SHOW_PINNED | true | `WhereToVote` (active) | only `userMarkers.filter { it.pinned }` | Icon only by default. Selected marker (dashboard): full geometry (icon + zones + proximity). |
+
+### Rendering Rules Detail
+
+**`drawGeometry`** gate (in `MarkerOverlay.kt`):
+```kotlin
+val drawGeometry = markerLayerState != MarkerLayerState.SHOW_PINNED
+    || marker.id == selectedMarkerId
+```
+
+| Mode | Pinned? | Selected? | Dots | Zones | Proximity | Icon |
+|------|---------|-----------|------|-------|-----------|------|
+| SHOW_ALL | No | — | ✅ | ✅ | ✅ | ❌ |
+| SHOW_ALL | Yes | — | ❌ | ✅ | ✅ | ✅ |
+| SHOW_PINNED | Yes | No | ❌ | ❌ | ❌ | ✅ |
+| SHOW_PINNED | Yes | Yes | ❌ | ✅ | ✅ | ✅ |
 
 ### Cycle Logic
 
@@ -175,9 +190,37 @@ markerLayerState = markerLayerState,
 onCycleMarkerLayer = { markersViewModel.cycleMarkerLayerState() },
 ```
 
-### Step 5 — FanIconComponents.kt
+### Step 5 — MarkerOverlay.kt (rendering differentiation)
 
-No changes. Option D (no visual distinction between SHOW_ALL and SHOW_PINNED).
+**File:** `MarkerOverlay.kt`
+
+**5a.** Add `drawGeometry` master gate (SHOW_PINNED suppresses geometry for non-selected):
+```kotlin
+val drawGeometry = markerLayerState != MarkerLayerState.SHOW_PINNED
+    || marker.id == selectedMarkerId
+```
+
+**5b.** Tighten `drawZones` to also respect `drawGeometry`:
+```kotlin
+val drawZones = drawGeometry && (!confirmed || markerZonesVisible)
+```
+
+**5c.** Add `skipDots` flag — pinned markers use icon instead of center dot:
+```kotlin
+val skipDots = marker.pinned
+```
+
+**5d.** Pin branch: gate `addPinOverlay` on `drawGeometry && !skipDots`.
+
+**5e.** Circle branch: pass `skipDots` to `addCircleOverlay`; fallback center-dot also gated on `drawGeometry && !skipDots`.
+
+**5f.** Corridor branch: pass `skipDots` to `addCorridorOverlay`; fallback p1/p2 dots also gated on `drawGeometry && !skipDots`.
+
+**5g.** Add `skipDots: Boolean = false` parameter to `addCircleOverlay` and `addCorridorOverlay`. When true, skip the center/p1/p2 Marker overlays (icon overlays from the icon loop handle tap detection via the geographic `MapEventsOverlay`).
+
+### Step 6 — FanIconComponents.kt
+
+SHOW_PINNED now uses `WhereToVoteIcon` (already implemented — see MapScreen.kt line 1552).
 
 ## Files Summary
 
@@ -187,4 +230,5 @@ No changes. Option D (no visual distinction between SHOW_ALL and SHOW_PINNED).
 | 2 | `SettingsManager.kt` | `markerLayerState: MarkerLayerState`, migration, persistence |
 | 3 | `MarkersViewModel.kt` | `markerLayerState` + `userMarkersVisible` StateFlows, `cycleMarkerLayerState()`, `showLayer()` |
 | 4 | `MapScreen.kt` | Tri-state wiring (icon, filter, cycle, signature) |
-| 5 | `FanIconComponents.kt` | No change |
+| 5 | `MarkerOverlay.kt` | `drawGeometry` gate, `skipDots`, per-mode rendering differentiation |
+| 6 | `FanIconComponents.kt` | No change (SHOW_PINNED icon already `WhereToVote`) |

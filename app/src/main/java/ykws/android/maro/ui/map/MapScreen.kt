@@ -1049,14 +1049,18 @@ fun MapScreen(
                 val matchResult by markersViewModel.matchResult.collectAsState()
                 val selectedMarkerId by markersViewModel.selectedMarkerId.collectAsState()
                 MarkerOverlay(
-                    markers = if (markerLayerState == MarkerLayerState.SHOW_PINNED) userMarkers.filter { it.pinned } else userMarkers,
+                    markers = when (markerLayerState) {
+                        MarkerLayerState.SHOW_PINNED -> userMarkers.filter { it.pinned }
+                        else -> userMarkers
+                    },
                     mapView = mapView,
                     proximityZoneMultiplier = AppConfig.markerProximityZoneMultiplier,
                     unconfirmedMarker = unconfirmedMarker,
                     onMarkerTap = { ids -> markersViewModel.openEditDrawer(ids) },
                     matchResult = if (drawerState is MarkerDrawerState.MatchResult) matchResult else null,
                     markerZonesVisible = appSettings.markerZonesVisible,
-                    selectedMarkerId = selectedMarkerId
+                    selectedMarkerId = selectedMarkerId,
+                    markerLayerState = markerLayerState
                 )
             }
 
@@ -1116,7 +1120,7 @@ fun MapScreen(
                 showMarkerManagement = false
                 markersViewModel.startWizard(initialPos = mapCenter)
             },
-            onTogglePin = { markersViewModel.togglePin(it) }
+            onSetIcon = { id, icon -> markersViewModel.setMarkerIcon(id, icon) },
         )
 
         // ── Post-save undo Snackbar (P5) ────────────────────────────────
