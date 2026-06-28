@@ -114,7 +114,7 @@ class TrackRepository(
         val now = System.currentTimeMillis()
         val finalized = track.copy(
             endTimeMs = now,
-            navigatingDurationSec = (now - track.startTimeMs) / 1000 - track.pausedDurationSec
+            navigatingDurationSec = (now - track.startTimeMs) / 1000 - track.idleDurationSec
         )
         deleteCheckpoint(track.id)
         save(finalized)
@@ -145,6 +145,7 @@ class TrackRepository(
                         visibleOnMap = track.visibleOnMap,
                         navigatingDurationSec = track.navigatingDurationSec,
                         pausedDurationSec = track.pausedDurationSec,
+                        idleDurationSec = track.idleDurationSec,
                         averageSpeedMps = track.averageSpeedMps,
                         pinned = track.pinned,
                         pointCount = track.trackPoints.size

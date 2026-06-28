@@ -82,6 +82,7 @@
 # 4. Loop Control — max 3–5 autonomous loops per task. Two consecutive build failures → halt. New deps/libs → approval first.
 
 # 5. Git Operations — see Core Directives above + `docs/GIT_WORKFLOW.md`. Feature work on `feature/*`; merge to `develop`/`main` via PR only.
+- **🔴 NO GIT EDITOR: Never open an interactive editor for git commands.** Always use `-m "message"` for commits, `--no-edit` for rebases/merges, and `-S` (signoff) or other flags as needed. If a git command would spawn vim/nano, it must be re-run with the appropriate non-interactive flag. Applies to all modes, all tasks, all agents.
 
 # 6. Spatial Engine — see `docs/MARO_ARCHITECTURE.md`.
 

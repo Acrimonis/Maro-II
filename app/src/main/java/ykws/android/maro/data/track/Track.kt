@@ -37,7 +37,8 @@ data class Track(
     @ProtoNumber(11) val visibleOnMap: Boolean = true,
     @ProtoNumber(12) val distanceNm: Float = 0f,
     @ProtoNumber(13) val navigatingDurationSec: Long = 0,
-    @ProtoNumber(14) val pinned: Boolean = false
+    @ProtoNumber(14) val pinned: Boolean = false,
+    @ProtoNumber(15) val idleDurationSec: Long = 0
 )
 
 /**
@@ -58,7 +59,8 @@ data class TrackSummary(
     @ProtoNumber(10) val pausedDurationSec: Long = 0,
     @ProtoNumber(11) val averageSpeedMps: Float = 0f,
     @ProtoNumber(12) val pinned: Boolean = false,
-    @ProtoNumber(13) val pointCount: Int = 0
+    @ProtoNumber(13) val pointCount: Int = 0,
+    @ProtoNumber(14) val idleDurationSec: Long = 0
 )
 
 /**

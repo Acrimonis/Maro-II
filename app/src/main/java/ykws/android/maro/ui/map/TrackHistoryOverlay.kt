@@ -700,7 +700,7 @@ private fun TrackCardContent(
         }
         Row(modifier = Modifier.fillMaxWidth()) {
             Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_dist), fmtNm(summary.distanceNm)) }
-            Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_idle), fmtDuration(summary.pausedDurationSec)) }
+            Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_idle), fmtDuration(summary.idleDurationSec)) }
             Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_max), fmtKnFromMps(summary.fastestSpeedMps)) }
         }
         }
@@ -908,12 +908,12 @@ private fun LiveTrackCard(
         // ── Live stats grid ────────────────────────────────────────
         Row(modifier = Modifier.fillMaxWidth()) {
             Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_total), fmtDuration(liveState.elapsedSeconds)) }
-            Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_nav), fmtDuration(liveState.elapsedSeconds)) }
+            Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_nav), fmtDuration(liveState.elapsedSeconds - liveState.idleDurationSec)) }
             Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_avg), fmtKn(liveState.avgSpeedKn)) }
         }
         Row(modifier = Modifier.fillMaxWidth()) {
             Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_dist), fmtNm(liveState.distanceNm)) }
-            Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_idle), fmtDuration(0)) }
+            Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_idle), fmtDuration(liveState.idleDurationSec)) }
             Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_max), fmtKn(liveState.maxSpeedKn)) }
         }
     }

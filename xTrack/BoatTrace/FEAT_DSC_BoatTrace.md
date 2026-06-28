@@ -1,8 +1,8 @@
 name: BoatTrace
 status: active
 created: 2026-06-15 21:43
-modified: 2026-06-24 11:09
-active_subfeature: none
+modified: 2026-06-28 18:44
+active_subfeature: idle-time-tracking
 ---
 
 # Feature: BoatTrace
@@ -257,6 +257,18 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 - Index rebuilt by scanning `.bin` files on startup if missing or corrupted
 - Swipe-to-delete on TrackHistoryOverlay with snackbar undo
 
+### idle-time-tracking  [x]
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/data/track/Track.kt`
+- `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt`
+- `app/src/main/java/ykws/android/maro/data/track/TrackRepository.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt`
+
+#### Docs
+- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_idle-time-always-zero.md` — root cause + fix plan + implementation record
+
 ## Docs
 - `plans/boat-trace-design-discussion.md` — final design and implementation plan
 - `xTrack/BoatTrace/FEAT_PLN_BoatTrace_TrackList_Design.md` — track list UI requirements, animation design, component architecture
@@ -305,3 +317,5 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 **pinned-tracks (2026-06-22):** Replaced eye-icon with pin-icon in TrackHistoryOverlay track card. Pin toggle → `TrackViewModel.setPinned()` → `TrackRepository.setPinned()`. Added `pinned: Boolean` to Track protobuf (ProtoNumber 14) and TrackSummary (ProtoNumber 12). Map rendering split: pinned tracks always render, history tracks capped by `trackingRenderNb`. Z-order: active > pinned > history. Pinned transparency defaults 0%→20% (amber→orange). Settings UI: "Number of history tracks" / "History transparency" / "Pinned transparency" RangeSliders. Fan button `mv.invalidate()` fix for toggle-off.
 
 **track-list-render-indicator (2026-06-24):** Extracted `computeTrackPolylineAppearance()` pure utility — shared ARGB+stroke computation between map rendering and card indicator. Refactored both history and pinned polyline loops in MapScreen to use it. Added 4dp left-edge accent bar to each TrackCardContent card previewing the track's exact polyline color+alpha. Threaded 10 render settings (`tracksVisible`, `trackingRenderNb`, transparency/color pairs for past+pinned) through TrackHistoryOverlay. Non-visible tracks (beyond renderNb or `tracksVisible=false`) show muted grey bar.
+
+**idle-time-tracking (2026-06-28):** Added `idleDurationSec` to Track/TrackSummary (proto #15/#14). Transition-based accumulator in TrackRecorder.addPoint() — timestamps idle-entry/exit and accumulates delta. Flushes open idle period on finalizeTrack(). Fixed `navigatingDurationSec = totalElapsedSec - idleDurationSec`. Mapped through TrackRepository rebuildIndex and orphan finalization. Display in 3 locations: track history summary cards, live track card (Nav corrected, Idle now real), menu drawer recording status. Real-time UiState refresh during idle via per-sample update. Build: ✅
