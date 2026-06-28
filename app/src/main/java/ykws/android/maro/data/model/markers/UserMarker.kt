@@ -29,7 +29,9 @@ data class UserMarker(
     val proximityOverrideM: Double? = null,
     val confirmed: Boolean = true,
     val colorIndex: Int? = null,      // null = default colour, 0-15 = 16-colour palette
-    val pinned: Boolean = false
+    val pinned: Boolean = false,
+    val icon: String? = null,          // POI emoji/unicode icon, null = no icon
+    val createdAtEpochMs: Long = 0L    // 0 = legacy marker
 ) {
     /**
      * Axis-aligned lat/lon bounding box for cheap pre-filter before expensive

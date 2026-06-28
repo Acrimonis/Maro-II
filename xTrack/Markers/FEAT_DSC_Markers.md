@@ -2,8 +2,8 @@
 name: Markers
 status: active
 created: 2026-06-22 11:52
-modified: 2026-06-26 06:07
-active_subfeature: marker-pin-tri-state
+modified: 2026-06-28 13:53
+active_subfeature: icon
 ---
 
 # Feature: Markers
@@ -27,6 +27,7 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Sea-di
 ### menu-markers-normalization  [x]
 ### marker-pin  [x]
 ### marker-pin-tri-state  [x]
+### icon  [x]
 
 ## Key Files
 - `app/src/main/java/ykws/android/maro/data/model/markers/UserMarker.kt`

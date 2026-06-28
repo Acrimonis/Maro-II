@@ -107,7 +107,8 @@ fun MarkerOverlay(
     onMarkerTap: (List<String>) -> Unit = {},
     matchResult: WhereAmIResult? = null,
     markerZonesVisible: Boolean = true,
-    selectedMarkerId: String? = null
+    selectedMarkerId: String? = null,
+    markerLayerState: MarkerLayerState = MarkerLayerState.SHOW_ALL
 ) {
     val mv = mapView ?: return
     val context = LocalContext.current
@@ -162,14 +163,24 @@ fun MarkerOverlay(
             val proxColor = dimColor(markerColor, PROXIMITY_ALPHA_FRACTION)
             val proxFillColor = dimColor(markerColor, ZONE_FILL_ALPHA_FRACTION / 2.0f)
 
+            // Master gate: suppress all geometry for non-selected markers in SHOW_PINNED.
+            val drawGeometry = markerLayerState != MarkerLayerState.SHOW_PINNED
+                || marker.id == selectedMarkerId
+
             // Zone shapes gated by markerZonesVisible for confirmed markers;
             // unconfirmed (creating/editing) always show full geometry.
-            val drawZones = !confirmed || markerZonesVisible
+            // In SHOW_PINNED, zones only render for the selected marker.
+            val drawZones = drawGeometry && (!confirmed || markerZonesVisible)
+
+            // Suppress center/p1/p2 dots when pinned — icon replaces the point marker.
+            val skipDots = marker.pinned
 
             when (val geom = marker.geometry) {
                 is MarkerGeometry.Pin -> {
-                    addPinOverlay(mv, geom, marker.id, baseColor, dotBitmap,
-                        confirmed = confirmed, onMarkerTap = onMarkerTap)
+                    if (drawGeometry && !skipDots) {
+                        addPinOverlay(mv, geom, marker.id, baseColor, dotBitmap,
+                            confirmed = confirmed, onMarkerTap = onMarkerTap)
+                    }
 
                     // Proximity range preview (fill + stroke)
                     if (drawZones) {
@@ -200,8 +211,8 @@ fun MarkerOverlay(
                 is MarkerGeometry.Circle -> {
                     if (drawZones) {
                         addCircleOverlay(mv, geom, marker.id, baseColor, dotBitmap, strokeMultiplier,
-                            confirmed = confirmed, onMarkerTap = onMarkerTap)
-                    } else {
+                            confirmed = confirmed, onMarkerTap = onMarkerTap, skipDots = skipDots)
+                    } else if (drawGeometry && !skipDots) {
                         // Center dot only
                         addPinOverlay(mv, MarkerGeometry.Pin(geom.center), marker.id, baseColor, dotBitmap,
                             confirmed = confirmed, onMarkerTap = onMarkerTap)
@@ -237,8 +248,8 @@ fun MarkerOverlay(
                 is MarkerGeometry.Corridor -> {
                     if (drawZones) {
                         addCorridorOverlay(mv, geom, marker.id, baseColor, dotBitmap, confirmed, strokeMultiplier,
-                            onMarkerTap = onMarkerTap)
-                    } else {
+                            onMarkerTap = onMarkerTap, skipDots = skipDots)
+                    } else if (drawGeometry && !skipDots) {
                         // p1/p2 dots only
                         addPinOverlay(mv, MarkerGeometry.Pin(geom.p1), "${marker.id}_p1", baseColor, dotBitmap,
                             confirmed = confirmed, onMarkerTap = onMarkerTap)
@@ -278,6 +289,41 @@ fun MarkerOverlay(
                         )
                     }
                 }
+            }
+        }
+
+        // ── Icon markers for pinned markers ──────────────────────────────
+        for (marker in allMarkers) {
+            val iconText = marker.icon ?: if (marker.pinned) "\uD83D\uDCCD" else null ?: continue
+            val positions = when (marker.geometry) {
+                is MarkerGeometry.Pin -> listOf(marker.geometry.position)
+                is MarkerGeometry.Circle -> listOf(marker.geometry.center)
+                is MarkerGeometry.Corridor -> listOf(
+                    marker.geometry.p1,
+                    LatLng(
+                        (marker.geometry.p1.latitude + marker.geometry.p2.latitude) / 2.0,
+                        (marker.geometry.p1.longitude + marker.geometry.p2.longitude) / 2.0
+                    ),
+                    marker.geometry.p2
+                )
+            }
+            for (pos in positions) {
+                val iconMarker = Marker(mv).apply {
+                    position = GeoPoint(pos.latitude, pos.longitude)
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+                    title = "${OVERLAY_PREFIX}icon_${marker.id}_${pos.latitude}_${pos.longitude}"
+                    val bitmap = android.graphics.Bitmap.createBitmap(64, 64, android.graphics.Bitmap.Config.ARGB_8888)
+                    val canvas = android.graphics.Canvas(bitmap)
+                    val paint = android.graphics.Paint().apply {
+                        color = MarkerColors.of(marker.colorIndex)
+                        textSize = 48f
+                        textAlign = android.graphics.Paint.Align.CENTER
+                        isAntiAlias = true
+                    }
+                    canvas.drawText(iconText, 32f, 44f, paint)
+                    icon = android.graphics.drawable.BitmapDrawable(mv.context.resources, bitmap)
+                }
+                mv.overlays.add(iconMarker)
             }
         }
 
@@ -356,7 +402,8 @@ private fun addCircleOverlay(
     dotBitmap: Bitmap,
     strokeMultiplier: Float = 1.0f,
     confirmed: Boolean = true,
-    onMarkerTap: (List<String>) -> Unit = {}
+    onMarkerTap: (List<String>) -> Unit = {},
+    skipDots: Boolean = false
 ) {
     // Fill: subtle transparent background
     val fillColor = dimColor(color, ZONE_FILL_ALPHA_FRACTION)
@@ -376,24 +423,27 @@ private fun addCircleOverlay(
     val strokeW = 4f * strokeMultiplier
     addCirclePolyline(mv, geom.center, geom.radiusM, "${OVERLAY_PREFIX}circle_$markerId", color, strokeW)
 
-    // Center dot
-    val centerGeo = GeoPoint(geom.center.latitude, geom.center.longitude)
-    val centerMarker = Marker(mv).apply {
-        position = centerGeo
-        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-        icon = BitmapDrawable(mv.context.resources, if (color == COLOR_CONFIRMED) dotBitmap else createDotBitmap(color))
-        title = "${OVERLAY_PREFIX}circle_center_$markerId"
-        if (confirmed) {
-            setOnMarkerClickListener { _, _ ->
-                onMarkerTap(listOf(markerId))
-                true
+    // Center dot (suppressed when skipDots — icon replaces it)
+    if (!skipDots) {
+        val centerGeo = GeoPoint(geom.center.latitude, geom.center.longitude)
+        val centerMarker = Marker(mv).apply {
+            position = centerGeo
+            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+            icon = BitmapDrawable(mv.context.resources, if (color == COLOR_CONFIRMED) dotBitmap else createDotBitmap(color))
+            title = "${OVERLAY_PREFIX}circle_center_$markerId"
+            if (confirmed) {
+                setOnMarkerClickListener { _, _ ->
+                    onMarkerTap(listOf(markerId))
+                    true
+                }
             }
         }
+        mv.overlays.add(centerMarker)
     }
-    mv.overlays.add(centerMarker)
 }
 
-/** Add corridor overlays: two parallel lines, centerline, p1/p2 markers. */
+/** Add corridor overlays: two parallel lines, centerline, p1/p2 markers.
+ *  @param skipDots When true, p1/p2 center dots are suppressed (icon replaces them). */
 private fun addCorridorOverlay(
     mv: MapView,
     geom: MarkerGeometry.Corridor,
@@ -402,7 +452,8 @@ private fun addCorridorOverlay(
     dotBitmap: Bitmap,
     confirmed: Boolean,
     strokeMultiplier: Float = 1.0f,
-    onMarkerTap: (List<String>) -> Unit = {}
+    onMarkerTap: (List<String>) -> Unit = {},
+    skipDots: Boolean = false
 ) {
     val halfW = geom.widthM / 2.0
 
@@ -437,35 +488,38 @@ private fun addCorridorOverlay(
     // Semi-circle caps at each end (close the band into a pill shape)
     addSemiCircleCaps(mv, geom.p1, geom.p2, halfW, bearing, "${OVERLAY_PREFIX}corr_$markerId", color, 4f * strokeMultiplier)
 
-    // p1 Marker
-    val p1Geo = GeoPoint(geom.p1.latitude, geom.p1.longitude)
-    mv.overlays.add(Marker(mv).apply {
-        position = p1Geo
-        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-        icon = BitmapDrawable(mv.context.resources, if (color == COLOR_CONFIRMED) dotBitmap else createDotBitmap(color))
-        title = "${OVERLAY_PREFIX}corr_p1_$markerId"
-        if (confirmed) {
-            setOnMarkerClickListener { _, _ ->
-                onMarkerTap(listOf(markerId))
-                true
+    // p1/p2 dots suppressed when skipDots — icon replaces them
+    if (!skipDots) {
+        // p1 Marker
+        val p1Geo = GeoPoint(geom.p1.latitude, geom.p1.longitude)
+        mv.overlays.add(Marker(mv).apply {
+            position = p1Geo
+            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+            icon = BitmapDrawable(mv.context.resources, if (color == COLOR_CONFIRMED) dotBitmap else createDotBitmap(color))
+            title = "${OVERLAY_PREFIX}corr_p1_$markerId"
+            if (confirmed) {
+                setOnMarkerClickListener { _, _ ->
+                    onMarkerTap(listOf(markerId))
+                    true
+                }
             }
-        }
-    })
+        })
 
-    // p2 Marker
-    val p2Geo = GeoPoint(geom.p2.latitude, geom.p2.longitude)
-    mv.overlays.add(Marker(mv).apply {
-        position = p2Geo
-        setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-        icon = BitmapDrawable(mv.context.resources, if (color == COLOR_CONFIRMED) dotBitmap else createDotBitmap(color))
-        title = "${OVERLAY_PREFIX}corr_p2_$markerId"
-        if (confirmed) {
-            setOnMarkerClickListener { _, _ ->
-                onMarkerTap(listOf(markerId))
-                true
+        // p2 Marker
+        val p2Geo = GeoPoint(geom.p2.latitude, geom.p2.longitude)
+        mv.overlays.add(Marker(mv).apply {
+            position = p2Geo
+            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+            icon = BitmapDrawable(mv.context.resources, if (color == COLOR_CONFIRMED) dotBitmap else createDotBitmap(color))
+            title = "${OVERLAY_PREFIX}corr_p2_$markerId"
+            if (confirmed) {
+                setOnMarkerClickListener { _, _ ->
+                    onMarkerTap(listOf(markerId))
+                    true
+                }
             }
-        }
-    })
+        })
+    }
 }
 
 /** Build a closed polygon tracing the corridor pill shape (fill):

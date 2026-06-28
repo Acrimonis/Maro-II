@@ -43,6 +43,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -167,15 +170,30 @@ private fun ViewingContent(
             )
             if (marker != null) {
                 Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    var showIconPicker by remember { mutableStateOf(false) }
                     IconButton(
-                        onClick = { viewModel.togglePin(marker.id) },
+                        onClick = { showIconPicker = true },
                         modifier = Modifier.size(36.dp)
                     ) {
-                        Icon(
-                            imageVector = if (marker.pinned) Icons.Filled.LocationOn else Icons.Outlined.LocationOff,
-                            contentDescription = if (marker.pinned) "Unpin" else "Pin",
-                            tint = ButtonColors.icon,
-                            modifier = Modifier.size(24.dp)
+                        if (marker.icon != null) {
+                            Text(marker.icon!!, fontSize = 20.sp)
+                        } else {
+                            Icon(
+                                imageVector = Icons.Outlined.LocationOff,
+                                contentDescription = "Set icon",
+                                tint = ButtonColors.icon,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                    if (showIconPicker) {
+                        IconPickerDialog(
+                            currentIcon = marker.icon,
+                            onIconSelected = { icon ->
+                                viewModel.setMarkerIcon(marker.id, icon)
+                                showIconPicker = false
+                            },
+                            onDismiss = { showIconPicker = false }
                         )
                     }
                     IconButton(
@@ -512,14 +530,14 @@ private fun markerFormatText(marker: UserMarker): String {
         }
     val prox = proximityM.toLong().toString()
     return when (marker.geometry) {
-        is MarkerGeometry.Pin -> "\uD83D\uDCCC / $prox"
+        is MarkerGeometry.Pin -> "\uD83D\uDCCC 0 $prox"
         is MarkerGeometry.Circle -> {
             val r = marker.geometry.radiusM.toLong().toString()
-            "\u2B55 / $r / $prox"
+            "\u2B55 $r $prox"
         }
         is MarkerGeometry.Corridor -> {
             val w = marker.geometry.widthM.toLong().toString()
-            "\uD83D\uDCCF / $w / $prox"
+            "\uD83D\uDCCF $w $prox"
         }
     }
 }

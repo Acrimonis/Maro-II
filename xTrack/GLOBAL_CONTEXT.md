@@ -2,10 +2,10 @@
 
 ## Active Session Pointers
 - **Active Feature:** Markers
-- **Active Subfeature:** create-zones-flow
-- **Last Updated:** 2026-06-25 16:08
-- **Last Bake:** 2026-06-25 16:08 (Markers — #merge rebase onto origin/develop; CoastlineViewModel→NavigationViewModel + GpsFix→TrackSample API fixes; build ✅)
-- **Branch:** feature/markers
+- **Active Subfeature:** icon
+- **Last Updated:** 2026-06-26 11:18
+- **Last Bake:** 2026-06-25 16:08 (Markers — #merge rebase onto origin/develop)
+- **Branch:** feature/marker-icon
 ## Routing Map
 | Keyword | Feature File |
 |---|---|
@@ -60,7 +60,7 @@
 | **Health** | **Application health monitoring — diagnostics, crash reporting, memory/performance telemetry** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
 | **WorkflowAmbiguityFix** | **Eliminate ambiguity between AGENTS.md rules — #merge direction, §5 reinforcement, command doc alignment** | **2026-06-20 14:51** | **2026-06-20 14:51** | **active** |
 | **ui-small-potatoes** | **UI polish, refinements, and small fixes across the app** | **2026-06-22 13:50** | **2026-06-22 14:20** | **active** |
-| **Markers** | **User-defined map markers (Pin, Circle, Corridor) with sea-distance-gated proximity matching and on-demand "where am I?" query** | **2026-06-22 11:52** | **2026-06-25 16:08** | **active** |
+| **Markers** | **User-defined map markers (Pin, Circle, Corridor) with sea-distance-gated proximity matching and on-demand "where am I?" query** | **2026-06-22 11:52** | **2026-06-28 14:22** | **active** |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).

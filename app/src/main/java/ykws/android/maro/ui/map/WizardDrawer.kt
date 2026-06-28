@@ -11,10 +11,16 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -23,6 +29,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color as ComposeColor
@@ -193,13 +203,51 @@ private fun WizardStepContent(
                 }
             )
         }
-        is WizardStep.Title -> TextInputStep(
-            label = "Name",
-            value = viewModel.createForm.collectAsState().value.name,
-            singleLine = true,
-            onValueChange = { v -> viewModel.updateForm { it.copy(name = v) } },
-            isLandscape = isLandscape
-        )
+        is WizardStep.Title -> {
+            val form by viewModel.createForm.collectAsState()
+            var showIconPicker by remember { mutableStateOf(false) }
+            Column {
+                TextInputStep(
+                    label = "Name",
+                    value = form.name,
+                    singleLine = true,
+                    onValueChange = { v -> viewModel.updateForm { it.copy(name = v) } },
+                    isLandscape = isLandscape
+                )
+                Spacer(Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "Icon:",
+                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        fontSize = 13.sp
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(ComposeColor(AppConfig.uiSettingsSwitchTrackInactive))
+                            .clickable { showIconPicker = true },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = form.icon ?: "\uD83D\uDCCD",
+                            fontSize = 20.sp
+                        )
+                    }
+                }
+                if (showIconPicker) {
+                    IconPickerDialog(
+                        currentIcon = form.icon,
+                        onIconSelected = { icon ->
+                            viewModel.updateForm { it.copy(icon = icon) }
+                            showIconPicker = false
+                        },
+                        onDismiss = { showIconPicker = false }
+                    )
+                }
+            }
+        }
         is WizardStep.Description -> TextInputStep(
             label = "Description",
             value = viewModel.createForm.collectAsState().value.description,
