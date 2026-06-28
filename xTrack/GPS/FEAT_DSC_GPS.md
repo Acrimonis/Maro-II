@@ -2,8 +2,8 @@
 name: GPS
 status: active
 created: 2026-06-07 00:00
-modified: 2026-06-25 07:21
-active_subfeature: yarefact
+modified: 2026-06-28 17:51
+active_subfeature: background-recording
 ---
 
 # Feature: GpsPlugin
@@ -136,9 +136,9 @@ ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 ### fix-track-extrapolation  [x]
 
 #### Todos
-- [ ] Investigate: dead-reckoning extrapolated positions leaking into track recording via MapScreen.kt combine flow
-- [ ] Design fix: prevent extrapolated GpsFix objects from reaching TrackRecorder.addPoint()
-- [ ] Implement fix
+- [x] Investigate: dead-reckoning extrapolated positions leaking into track recording via MapScreen.kt combine flow
+- [x] Design fix: prevent extrapolated GpsFix objects from reaching TrackRecorder.addPoint()
+- [x] Implement fix
 - [ ] Build (apk-build.bat) + on-device verification: stop boat, confirm no extrapolated spikes in recorded track
 
 #### Rules
@@ -153,12 +153,28 @@ ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 #### Docs
 - `xTrack/GPS/FEAT_PLN_GPS_fix-track-extrapolation.md` — analysis & fix plan
 
-### yarefact  [ ]
+### background-recording  [x]
 
 #### Todos
-- [ ] Phase A — Core Consolidation (C1 + C2): wire `isStopped` into TrackRecorder, remove duplicate policy, gate stale watchdog on IDLE
-- [ ] Phase B — Pipeline Simplification (C4): create `TrackSample`, remove virtual GpsFix combine
-- [ ] Phase C — Streaming Optimization (C5, deferred): incremental point streaming via SharedFlow
+- [x] Gate `setGpsActive(false)` on `ON_PAUSE` behind recording state check
+- [x] Build (apk-build.bat)
+- [ ] On-device verification: start recording, background app, confirm track continues
+
+#### Rules
+- GPS must stay active when `TrackRecorderState.ON` — foreground service already keeps process alive.
+- `isStopped` gate + dormant GPS cadence still apply in background.
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — ON_PAUSE lifecycle handler (line 779-785)
+- `app/src/main/java/ykws/android/maro/data/track/TrackRecordingService.kt` — foreground service, START_STICKY
+- `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt` — isStopped gate at addPoint (line 326)
+
+### yarefact  [x]
+
+#### Todos
+- [x] Phase A — Core Consolidation (C1 + C2): wire `isStopped` into TrackRecorder, remove duplicate policy, gate stale watchdog on IDLE
+- [x] Phase B — Pipeline Simplification (C4): create `TrackSample`, remove virtual GpsFix combine
+- [x] Phase C — Streaming Optimization (C5): incremental point streaming via SharedFlow + MapScreen polyline append
 
 #### Rules
 - Must not change recorded track semantics — consolidation only, no feature addition.
@@ -175,9 +191,9 @@ ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 #### Docs
 - `xTrack/GPS/FEAT_PLN_GPS_yarefact.md` — refined consolidation plan
 
-## Implemented
+**yarefact (2026-06-25, Phase A+B+C):** Removed duplicate `AdaptiveGpsPolicy` from TrackRecorder — unified stillness detection via single `isStopped` StateFlow from NavigationViewModel. Reordered `adaptivePolicy.onFix()` before `GpsSignalWatchdog` block, gated both on `_acquisitionMode != IDLE`. Added `feedDemoPosition()` for demo-mode stop detection with periodic 1Hz convergence. `setStoppedSource()` forwarding mechanism on TrackViewModel. Created `TrackSample` data class. Migrated entire recording pipeline from virtual `GpsFix` to `TrackSample`. Phase C: `_newPoint` SharedFlow emits each captured point for incremental polyline append in MapScreen — removed full-list `recordingPoints` copy from `_uiState.update`. Fixes: stale `remember` closure on `appSettings`, periodic demo position feed for stop convergence. Build: ✅.
 
-**yarefact (2026-06-25, Phase A+B):** Removed duplicate `AdaptiveGpsPolicy` from TrackRecorder — unified stillness detection via single `isStopped` StateFlow from NavigationViewModel. Reordered `adaptivePolicy.onFix()` before `GpsSignalWatchdog` block, gated both on `_acquisitionMode != IDLE`. Added `feedDemoPosition()` for demo-mode stop detection with periodic 1Hz convergence. `setStoppedSource()` forwarding mechanism on TrackViewModel. Created `TrackSample` data class. Migrated entire recording pipeline from virtual `GpsFix` to `TrackSample` — `processFix`→`processSample`, `addPoint`/`captureAcceptedPoint`/`checkLandDetection` all updated. MapScreen combine produces `TrackSample` directly. Fixes: stale `remember` closure on `appSettings`, periodic demo position feed for stop convergence. Build: ✅.
+**background-recording (2026-06-28):** One-line conditional in MapScreen `ON_PAUSE` handler — don't kill GPS (`setGpsActive(false)`) when track recording is active. GPS survives backgrounding while `TrackRecorderState.ON`; foreground service (`TrackRecordingService`, START_STICKY) keeps process alive. `isStopped` gate + dormant GPS cadence still apply. 1 file, 1 line. Build: ✅.
 
 ## Rules
 - GPS mode: the GPS position stays at the center of the map.
