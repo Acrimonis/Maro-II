@@ -2,10 +2,10 @@
 
 ## Active Session Pointers
 - **Active Feature:** GPS
-- **Active Subfeature:** background-recording
-- **Last Updated:** 2026-06-28 17:52
-- **Last Bake:** 2026-06-28 17:52 (GPS — yarefact validation + background-recording ON_PAUSE guard; build ✅)
-- **Branch:** feature/misc-fixes
+- **Active Subfeature:** gps-filter
+- **Last Updated:** 2026-06-28 16:23
+- **Last Bake:** 2026-06-28 16:17 (Markers — #merge rebase onto origin/develop)
+- **Branch:** feature/gps-filter
 ## Routing Map
 | Keyword | Feature File |
 |---|---|
