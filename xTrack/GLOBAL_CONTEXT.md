@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** GPS
-- **Active Subfeature:** background-recording
-- **Last Updated:** 2026-06-28 18:44
+- **Active Feature:** BoatTrace
+- **Active Subfeature:** track-settings
+- **Last Updated:** 2026-06-28 18:54
 - **Last Bake:** 2026-06-28 18:44 (BoatTrace — idle-time-tracking: idleDurationSec accumulator + UiState refresh fix; build ✅)
-- **Branch:** feature/track-idling
+- **Branch:** feature/track-settings
 ## Routing Map
 | Keyword | Feature File |
 |---|---|
