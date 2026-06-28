@@ -321,9 +321,8 @@ class CoastlineRepository(
      *
      * ## Short-circuit
      *
-     * - No loaded data → `true` (safe default for a boat app: assume water).
-     * - Distance to coast > 6 NM → `true` (beyond the regulatory zone = open water; also
-     *   avoids treating deep-inland points, which are never queried in practice, as land).
+     * - No loaded data → `false` (conservative default: assume land/unknown).
+     * - Distance to coast > 6 NM → `false` (outside coverage zone, assume land).
      */
     fun isOnWater(latitude: Double, longitude: Double): Boolean =
         isOnWater(latitude, longitude, distanceToCoastMeters(latitude, longitude))
@@ -335,10 +334,9 @@ class CoastlineRepository(
      * from a single [distanceToCoast] call.
      */
     fun isOnWater(latitude: Double, longitude: Double, distToCoastMeters: Double): Boolean {
-        val index = spatialIndex ?: return true
-        // Beyond the regulatory zone → open water (and keeps the containment test, which
-        // assumes near-coast queries, from ever classifying far-inland points as land).
-        if (distToCoastMeters > SIX_NM_METERS) return true
+        val index = spatialIndex ?: return false
+        // Outside the coastline coverage zone → assume land (show as dot, not boat).
+        if (distToCoastMeters > SIX_NM_METERS) return false
         return index.isWater(latitude, longitude)
     }
 
