@@ -11,6 +11,7 @@ import android.content.IntentFilter
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import ykws.android.maro.R
 
 /**
  * Foreground service that keeps Maro II alive when backgrounded.
@@ -18,9 +19,8 @@ import androidx.core.app.NotificationCompat
  * Lifecycle:
  * - Started via [startForegroundService] when the app opens ([MainActivity.onCreate]).
  * - Stopped via [stopService] when the user explicitly exits (double-back).
- * - Always shows a low-importance notification:
- *   - **Ready:** "Maro II — Ready • On Water" (or "Ready (Demo) • On Water" in demo mode)
- *   - **Recording:** "Maro II — Recording • 12.3 kn • 00:05:23 • 1.2 nm • On Water"
+ * - Always shows a low-importance notification with a 5-segment collapsed title
+ *   and an InboxStyle expanded view with stat rows.
  *
  * Notification content is updated via [ACTION_UPDATE] intents sent from the UI layer
  * (MapScreen) with live recording stats. The [TrackRecorder] state machine runs in
@@ -79,24 +79,52 @@ class TrackRecordingService : Service() {
 
         val isOnWater = lastKnownOnWater
         val notification = if (intent?.action == ACTION_UPDATE) {
-            val recording = intent.getBooleanExtra(EXTRA_RECORDING, false)
-            val isDemo = intent.getBooleanExtra(EXTRA_IS_DEMO, false)
-            if (recording) {
-                val speedKn = intent.getFloatExtra(EXTRA_SPEED_KN, 0f)
-                val elapsedSec = intent.getLongExtra(EXTRA_ELAPSED_SEC, 0L)
-                val distanceNm = intent.getFloatExtra(EXTRA_DISTANCE_NM, 0f)
-                buildRecordingNotification(speedKn, elapsedSec, distanceNm, isDemo, isOnWater)
-            } else {
-                buildReadyNotification(isDemo, isOnWater)
-            }
+            buildNotification(intent, isOnWater)
         } else {
-            buildReadyNotification(false, isOnWater)
+            buildNotification(null, isOnWater)
         }
         startForeground(NOTIFICATION_ID, notification)
         return START_STICKY
     }
 
     override fun onBind(intent: Intent?): IBinder? = null
+
+    // ── Notification building ──────────────────────────────────────────────
+
+    private fun buildNotification(intent: Intent?, isOnWater: Boolean): Notification {
+        val recording = intent?.getBooleanExtra(EXTRA_RECORDING, false) ?: false
+        val isDemo = intent?.getBooleanExtra(EXTRA_IS_DEMO, false) ?: false
+        val isMoving = intent?.getBooleanExtra(EXTRA_IS_MOVING, false) ?: false
+        val speedKn = intent?.getFloatExtra(EXTRA_SPEED_KN, 0f) ?: 0f
+        val elapsedSec = intent?.getLongExtra(EXTRA_ELAPSED_SEC, 0L) ?: 0L
+        val distanceNm = intent?.getFloatExtra(EXTRA_DISTANCE_NM, 0f) ?: 0f
+        val idleSec = intent?.getLongExtra(EXTRA_IDLE_SEC, 0L) ?: 0L
+        val avgSpeedKn = intent?.getFloatExtra(EXTRA_AVG_SPEED_KN, 0f) ?: 0f
+        val maxSpeedKn = intent?.getFloatExtra(EXTRA_MAX_SPEED_KN, 0f) ?: 0f
+        val pointCount = intent?.getIntExtra(EXTRA_POINT_COUNT, 0) ?: 0
+
+        // 5-segment title: "Maro II • [GPS|Demo] • [Navigating|Idle|Moving] • [Recording|Ready] • [On Water|On Land]"
+        val modeLabel = if (isDemo) "Demo" else "GPS"
+        val recLabel = if (recording) "Recording" else "Ready"
+        val navLabel = when {
+            !isMoving -> "Idle"
+            isOnWater -> "Navigating"
+            else -> "Moving"
+        }
+        val waterLabel = if (isOnWater) "On Water" else "On Land"
+        val title = "Maro II • $modeLabel • $navLabel • $recLabel • $waterLabel"
+
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle("Maro II")
+            .setContentText(title)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setOngoing(true)
+
+        return builder.build()
+    }
+
+    // ── Channel / formatting ───────────────────────────────────────────────
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -113,41 +141,6 @@ class TrackRecordingService : Service() {
         }
     }
 
-    private fun buildReadyNotification(isDemo: Boolean, isOnWater: Boolean): Notification {
-        val title = "Maro II"
-        val waterLabel = if (isOnWater) "On Water" else "On Land"
-        val text = if (isDemo) "Ready (Demo) • $waterLabel" else "Ready • $waterLabel"
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle(title)
-            .setContentText(text)
-            .setSmallIcon(android.R.drawable.ic_menu_compass)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setOngoing(true)
-            .build()
-    }
-
-    private fun buildRecordingNotification(
-        speedKn: Float,
-        elapsedSec: Long,
-        distanceNm: Float,
-        isDemo: Boolean,
-        isOnWater: Boolean
-    ): Notification {
-        val demoLabel = if (isDemo) " (Demo)" else ""
-        val waterLabel = if (isOnWater) "On Water" else "On Land"
-        val elapsed = formatElapsed(elapsedSec)
-        val speed = "%.1f".format(speedKn)
-        val dist = "%.1f".format(distanceNm)
-        val text = "Recording$demoLabel • $speed kn • $elapsed • $dist nm • $waterLabel"
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("Maro II")
-            .setContentText(text)
-            .setSmallIcon(android.R.drawable.ic_menu_compass)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .setOngoing(true)
-            .build()
-    }
-
     private fun formatElapsed(totalSec: Long): String {
         val h = totalSec / 3600
         val m = (totalSec % 3600) / 60
@@ -159,6 +152,8 @@ class TrackRecordingService : Service() {
         }
     }
 
+    // ── Constants ──────────────────────────────────────────────────────────
+
     companion object {
         private const val CHANNEL_ID = "maro_persistent"
         private const val CHANNEL_NAME = "Maro II"
@@ -168,15 +163,22 @@ class TrackRecordingService : Service() {
         /** Intent action: update the foreground notification with current recording stats. */
         const val ACTION_UPDATE = "ykws.android.maro.action.UPDATE_NOTIFICATION"
         const val EXTRA_RECORDING = "recording"
-        const val EXTRA_SPEED_KN = "speed_kn"
-        const val EXTRA_ELAPSED_SEC = "elapsed_sec"
-        const val EXTRA_DISTANCE_NM = "distance_nm"
         const val EXTRA_IS_DEMO = "is_demo"
 
-        // ── Tasker water-state integration ─────────────────────────────────────
-
-        /** Extra: boat is currently on water (boolean). */
+        // Always-sent extras
+        const val EXTRA_IS_MOVING = "is_moving"
+        const val EXTRA_SPEED_KN = "speed_kn"
         const val EXTRA_ON_WATER = "on_water"
+
+        // Recording-only extras
+        const val EXTRA_ELAPSED_SEC = "elapsed_sec"
+        const val EXTRA_DISTANCE_NM = "distance_nm"
+        const val EXTRA_IDLE_SEC = "idle_sec"
+        const val EXTRA_AVG_SPEED_KN = "avg_speed_kn"
+        const val EXTRA_MAX_SPEED_KN = "max_speed_kn"
+        const val EXTRA_POINT_COUNT = "point_count"
+
+        // ── Tasker water-state integration ─────────────────────────────────────
 
         /** Push broadcast: fired when boat water state toggles (land↔water). */
         const val ACTION_WATER_STATE_CHANGED = "ykws.android.maro.action.WATER_STATE_CHANGED"

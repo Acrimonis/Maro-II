@@ -1,8 +1,8 @@
 name: BoatTrace
 status: active
 created: 2026-06-15 21:43
-modified: 2026-06-28 18:54
-active_subfeature: track-settings
+modified: 2026-06-29 12:48
+active_subfeature: notif-fix
 ---
 
 # Feature: BoatTrace
