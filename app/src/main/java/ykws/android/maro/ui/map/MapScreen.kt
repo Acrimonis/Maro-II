@@ -787,28 +787,36 @@ fun MapScreen(
     // ── Foreground notification updates ────────────────────────────────────
     // Sends recording stats to TrackRecordingService every ~5s while recording.
     // When recording stops, sends one final update to revert to "Ready".
-    LaunchedEffect(trackRecorderState, appSettings.gpsMode) {
+    LaunchedEffect(trackRecorderState, appSettings.gpsMode, boatIsWater) {
         val state = trackRecorderState
         val isDemo = !appSettings.gpsMode
+        val isMoving = !viewModel.isStopped.value
+        val speedKn = navigationState.speedKnots ?: navigationState.demoSpeedKnots
         val intent = Intent(context, TrackRecordingService::class.java).apply {
             action = TrackRecordingService.ACTION_UPDATE
             putExtra(TrackRecordingService.EXTRA_IS_DEMO, isDemo)
+            // Always-sent extras
+            putExtra(TrackRecordingService.EXTRA_IS_MOVING, isMoving)
+            putExtra(TrackRecordingService.EXTRA_SPEED_KN, speedKn)
+            putExtra(TrackRecordingService.EXTRA_ON_WATER, boatIsWater)
         }
         if (state.state == ykws.android.maro.data.track.TrackRecorderState.ON) {
             // Send updates periodically while recording
             while (true) {
                 intent.putExtra(TrackRecordingService.EXTRA_RECORDING, true)
-                intent.putExtra(TrackRecordingService.EXTRA_SPEED_KN, state.currentSpeedKn)
-                intent.putExtra(TrackRecordingService.EXTRA_ELAPSED_SEC, state.elapsedSeconds)
+                // Recording-only extras
                 intent.putExtra(TrackRecordingService.EXTRA_DISTANCE_NM, state.distanceNm)
-                intent.putExtra(TrackRecordingService.EXTRA_ON_WATER, boatIsWater)
+                intent.putExtra(TrackRecordingService.EXTRA_ELAPSED_SEC, state.elapsedSeconds)
+                intent.putExtra(TrackRecordingService.EXTRA_IDLE_SEC, state.idleDurationSec)
+                intent.putExtra(TrackRecordingService.EXTRA_AVG_SPEED_KN, state.avgSpeedKn)
+                intent.putExtra(TrackRecordingService.EXTRA_MAX_SPEED_KN, state.maxSpeedKn)
+                intent.putExtra(TrackRecordingService.EXTRA_POINT_COUNT, state.pointCount)
                 context.startService(intent)
                 kotlinx.coroutines.delay(5_000L)
             }
         } else {
             // Not recording — one update to show "Ready"
             intent.putExtra(TrackRecordingService.EXTRA_RECORDING, false)
-            intent.putExtra(TrackRecordingService.EXTRA_ON_WATER, boatIsWater)
             context.startService(intent)
         }
     }

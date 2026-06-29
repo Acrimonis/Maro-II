@@ -1,10 +1,13 @@
 # BoatTrace — Hydration Snapshot
 
-**Baked at:** 2026-06-28 18:44 UTC
-**Active Subfeature:** idle-time-tracking (implemented)
+**Baked at:** 2026-06-29 12:48 UTC
+**Active Subfeature:** notif-fix (implemented)
 
 ## Session Summary
 
+Notification simplification — stripped extended info (speed/elapsed/distance) from notification layout, keeping only collapsed title line. Reverted RemoteViews column experiments and adaptive icon explorations. Build: ✅
+
+### idle-time-tracking implementation (2026-06-28)
 Idle time tracking — added `idleDurationSec` accumulator in TrackRecorder using `isStopped` transition detection. Displays in track history summary cards, live track card (Nav corrected to elapsed-minus-idle), and menu drawer recording status. Fixed `navigatingDurationSec = totalElapsedSec - idleDurationSec`. Real-time UI refresh on every addPoint() call while idle.
 
 ### track-list-render-indicator implementation (2026-06-24)
