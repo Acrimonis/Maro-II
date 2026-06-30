@@ -1,10 +1,10 @@
-# Markers — Hydration Snapshot (2026-06-30 09:54 UTC)
+# Markers — Hydration Snapshot (2026-06-30 16:35 UTC)
 
 ## State
-- **Active subfeature:** sort-scoring
-- **Status:** implemented — pending on-device validation
+- **Active subfeature:** 2-gate simplification
+- **Status:** implemented — build ✅, deployed, pending on-device re-test
 - **Branch:** feature/markers-zones
-- **Build:** compileDebugKotlin ✅
+- **Build:** assembleDebug ✅
 - **14/14 subfeatures complete**
 
 ## Implemented (this session)

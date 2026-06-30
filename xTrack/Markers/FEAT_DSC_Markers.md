@@ -2,8 +2,8 @@
 name: Markers
 status: active
 created: 2026-06-22 11:52
-modified: 2026-06-30 10:28
-active_subfeature: sort-scoring
+modified: 2026-06-30 16:35
+active_subfeature: 2-gate-simplification
 ---
 
 # Feature: Markers

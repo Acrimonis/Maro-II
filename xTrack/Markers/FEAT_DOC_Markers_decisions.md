@@ -15,9 +15,8 @@
 **Rationale:** User-configurable per-marker alert distance without changing global defaults.
 **Source:** [`UserMarker.kt`](app/src/main/java/ykws/android/maro/data/model/markers/UserMarker.kt:29), [`MarkersViewModel.kt:504-508`](app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt:504)
 
-### BBox Pre-Filter
-**Decision:** Every UserMarker has a pre-computed axis-aligned bounding box (`bbox`). `resolveAllMarkers()` gates on cheap BBox overlap before expensive land-blocking.
-**Rationale:** 15K coastline edges × 20 markers = 300K edge tests → BBox reduces to 1-3 markers within 1km search fence.
+### BBox Pre-Filter — REMOVED (2026-06-30)
+**Decision:** REMOVED. BBox pre-filter was a performance optimization that dropped markers whose axis-aligned bounding box didn't overlap the boat's 1km search circle. **Removed per 2-gate simplification rule** — the only valid gates are zone membership and direct line-of-sight. BBox is neither.
 **Source:** [`MarkerMatcher.kt`](app/src/main/java/ykws/android/maro/spatial/MarkerMatcher.kt)
 
 ### Icon → Auto-Pinned
@@ -34,19 +33,35 @@
 **Rationale:** User-triggered, <500ms acceptable. No real-time performance constraint.
 **Source:** [`MarkersViewModel.kt:654-670`](app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt:654)
 
+### Two-Gate Rule (Canonical — 2026-06-30)
+**Decision:** `whereAmI()` resolution uses exactly two gates — no others. Any additional filter or early-exit is a bug.
+
+| Gate | Rule | Applies To |
+|------|------|------------|
+| **G1 — Proximity** | Boat must be within the marker's proximity range | All markers |
+| **G2 — Direct Line-of-Sight** | Boat must have a clear sea path to the zone boundary (no land in between) | Circle, Corridor only |
+
+- **Pin markers:** G1 only (direct distance ≤ proximity range). No land check — a Pin behind an island still matches.
+- **Circle/Corridor:** G1 + G2. `closestUnblockedPoint()` samples the zone boundary and returns the nearest reachable point. If sea-path distance ≤ proximity range, match.
+- **No other gates exist.** No BBox pre-filter, no distance-based early exit, no `hasLineOfSight` post-filter, no MAX_RESULTS cap.
+- **All matches are returned** — containment tree with `depthFirstLeavesFirst` traversal is a display ordering concern (preserved), not a resolution gate.
+
+**Rationale:** Prior design had 6 sequential gates (BBox → resolveMatch → hasLineOfSight → containment tree → depth-first → MAX_RESULTS cap), each a potential false-negative source. The Sainte Marguerite corridor was dropped by the `directDist > range+200` early exit because `distanceToClosestGeometryPoint()` measured to centerline/endpoints instead of zone boundary — a metric mismatch. Simplifying to 2 gates eliminates entire classes of false negatives.
+
+**Source:** [`MarkerMatcher.kt`](app/src/main/java/ykws/android/maro/spatial/MarkerMatcher.kt)
+
 ### WhereAmIMatch Sealed Class
-**Decision:** Two variants: `ZoneMatch` (boat inside geometry, purely geometric) and `ProximityMatch` (boat outside, sea-path distance to closest unblocked boundary point). Immutable `children: List<WhereAmIMatch>` for containment tree.
+**Decision:** Two variants: `ZoneMatch` (boat inside geometry, purely geometric) and `ProximityMatch` (boat outside, sea-path distance to closest unblocked boundary point). `children` field on `ZoneMatch` is preserved for display ordering via containment tree — not a match gate.
 **Rationale:** Zone match skips land check — if boat is inside the circle/corridor it always matches. Proximity is land-gated.
 **Source:** [`MarkerMatcher.kt`](app/src/main/java/ykws/android/maro/spatial/MarkerMatcher.kt)
 
-### Depth-First Leaves-First Traversal
-**Decision:** `depthFirstLeavesFirst()` sorts by `sizeOf()` (zone radius or sea distance), children before parents. Capped at 8 results.
-**Rationale:** "Smallest first" — most specific match displayed first, containment tree flattened.
+### Display Ordering
+**Decision:** Results sorted by `sortScore()` (composite: categoryBase + typeWeight × percentage), then `zoneSizeOf()` as tiebreaker, then `depthFirstLeavesFirst` traversal of the containment tree (children before parent). No MAX_RESULTS cap — all matches returned.
+**Rationale:** "Smallest/most specific first" ordering. Containment tree with `depthFirstLeavesFirst` is preserved for display ordering — not a match gate.
 **Source:** [`MarkerMatcher.kt`](app/src/main/java/ykws/android/maro/spatial/MarkerMatcher.kt)
 
-### 1km Search Fence
-**Decision:** BBox pre-filter uses 1km search radius. Markers inside the fence use their full natural proximity range (no cap).
-**Rationale:** 1km is a reasonable on-water visibility radius; markers beyond 1km are unlikely to be relevant.
+### 1km Search Fence — REMOVED (2026-06-30)
+**Decision:** REMOVED. The 1km BBox search fence was an arbitrary gate that dropped markers outside a 1km radius regardless of their actual proximity range. **Removed per 2-gate rule** — if a marker has a proximity range of 2km and the boat is 1.5km away with clear LOS, it should match.
 **Source:** [`MarkerMatcher.kt`](app/src/main/java/ykws/android/maro/spatial/MarkerMatcher.kt)
 
 ---
@@ -54,12 +69,9 @@
 ## Land-Blocking Engine
 
 ### Tangent-Guided Angular Shadow Projection
-**Decision:** `closestUnblockedPoint()` iterates view cones, computes angular shadows from coastline segments, merges overlapping shadows, returns closest boundary point in unblocked intervals. 10m grazing tolerance.
-**Rationale:** Replaced brute-force 36-point sampling with analytical cone coverage. CoastlineSpatialIndex provides grid-pre-filtered segment queries.
+**Decision:** `closestUnblockedPoint()` samples zone boundary points and tests each for land intersection via `segmentIntersectsLandStepped()` (20m step increments). Direct-line fast path: if the geometrically-closest boundary point has clear LOS, return immediately — skip full sampling. 10m grazing tolerance.
+**Rationale:** G2 (direct line-of-sight) implementation. CoastlineSpatialIndex provides grid-pre-filtered segment queries.
 **Source:** [`MarkerMatcher.kt`](app/src/main/java/ykws/android/maro/spatial/MarkerMatcher.kt), [`CoastlineSpatialIndex.kt`](app/src/main/java/ykws/android/maro/spatial/CoastlineSpatialIndex.kt)
-
-**Known issue:** Angular shadows from wide island-spanning coastline segments merge to cover full cone, producing ~50% match rate on Sainte Marguerite corridor. Direct line test confirms closest boundary point is reachable.
-**Source:** [`FEAT_HYD_Markers.md`](xTrack/Markers/FEAT_HYD_Markers.md)
 
 ### CoastlineSpatialIndex Integration
 **Decision:** Reuse existing `CoastlineSpatialIndex` (500m grid cells, 0.03ms queries). Added `segmentIntersectsLand(a, b): Boolean` and `segmentsInBbox()` method. CoastlineRepository exposes `spatialIndex`.

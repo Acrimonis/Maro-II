@@ -3,7 +3,6 @@ package ykws.android.maro.spatial
 import android.util.Log
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
-import ykws.android.maro.data.model.markers.BBox
 import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.UserMarker
 import kotlin.math.*
@@ -38,7 +37,7 @@ sealed class WhereAmIMatch {
     ) : WhereAmIMatch()
 }
 
-/** Flat result container — depth-first, leaves-first, capped at 8. */
+/** Flat result container — depth-first, leaves-first. */
 data class WhereAmIResult(val allMatches: List<WhereAmIMatch>)
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -67,13 +66,6 @@ object MarkerMatcher {
     /** Distance threshold (metres) at which the boat is considered "at" the
      *  marker — skip the expensive land-blocking search. */
     private const val AT_MARKER_THRESHOLD_M = 1.0
-
-    /** Maximum search radius (metres) — BBox pre-filter fence. Markers whose
-     *  expanded bounding box doesn't overlap the boat's 1 km circle are skipped. */
-    private const val MAX_SEARCH_RADIUS_M = 1000.0
-
-    /** Maximum number of results in the display list. */
-    private const val MAX_RESULTS = 8
 
     // ─────────────────────────────────────────────────────────────────────
     // Public API
@@ -104,6 +96,11 @@ object MarkerMatcher {
                 is MarkerGeometry.Pin -> 0.0
             }
             val bearing = SpatialOperations.initialBearing(center, boat)
+            // Debug: capture all boundary sample segments for matched ZoneMatch
+            testDebugSamples(boat, marker, spatialIndex)
+            closestBoundaryPoint(boat, marker.geometry)?.let { bp ->
+                debugger.onSegmentTested(boat, bp, false)
+            }
             return WhereAmIMatch.ZoneMatch(marker, zoneSize, dist, bearing)
         }
 
@@ -113,21 +110,18 @@ object MarkerMatcher {
         // ── 3. Boat at marker → skip land check ──
         val directDist = distanceToClosestGeometryPoint(boat, marker.geometry)
 
-        // ── Early exit: boat clearly too far → skip expensive land checks ──
-        if (directDist > range + 200.0) return null
-
-        // Debug: capture segments for all markers within range
-        testDebugSamples(boat, marker, spatialIndex)
-
         if (directDist <= AT_MARKER_THRESHOLD_M) {
             return if (directDist <= range) {
                 val center = zoneCenterOf(marker.geometry)
+                debugger.onSegmentTested(boat, center, false)
                 WhereAmIMatch.ProximityMatch(marker, directDist, SpatialOperations.initialBearing(center, boat))
             } else null
         }
 
         // ── 4. Pin markers: proximity is enough, no coastline check ──
         if (marker.geometry is MarkerGeometry.Pin) {
+            if (directDist > range) return null
+            debugger.onSegmentTested(boat, marker.geometry.position, false)
             return WhereAmIMatch.ProximityMatch(marker, directDist,
                 SpatialOperations.initialBearing(marker.geometry.position, boat))
         }
@@ -136,8 +130,12 @@ object MarkerMatcher {
         val unblocked = closestUnblockedPoint(boat, marker, spatialIndex)
             ?: return null
 
-        // ── 6. Unblocked point found → match (zone gate already ensured proximity) ──
+        // ── 6. Unblocked point found → proximity gate ──
         val dist = SpatialOperations.haversine(boat, unblocked)
+        if (dist > range) return null
+        // Debug: capture all boundary sample segments for matched ProximityMatch
+        testDebugSamples(boat, marker, spatialIndex)
+        debugger.onSegmentTested(boat, unblocked, false)
         Log.d("WIA", "  range=${"%.0f".format(range)} dist=${"%.0f".format(dist)} MATCH")
         return WhereAmIMatch.ProximityMatch(marker, dist, SpatialOperations.initialBearing(unblocked, boat))
     }
@@ -146,11 +144,9 @@ object MarkerMatcher {
      * Resolves all [markers] against the boat position.
      *
      * Algorithm:
-     * 1. BBox pre-filter with 1 km search fence — skip markers outside range
-     * 2. Resolve each surviving marker via [resolveMatch]; discard null
-     * 3. Build spatial containment tree (large zones contain smaller ones)
-     * 4. Depth-first, leaves-first traversal sorted by size asc at each level
-     * 5. Cap at [MAX_RESULTS]
+     * 1. Resolve each marker via [resolveMatch]; discard null
+     * 2. Build spatial containment tree (large zones contain smaller ones)
+     * 3. Depth-first, leaves-first traversal sorted by size asc at each level
      */
     fun resolveAllMarkers(
         boat: LatLng,
@@ -159,29 +155,21 @@ object MarkerMatcher {
     ): WhereAmIResult {
         if (markers.isEmpty()) return WhereAmIResult(emptyList())
 
-        // ── 1. BBox pre-filter (1 km fence) + resolve ──
-        val results = mutableListOf<WhereAmIMatch>()
-        for (marker in markers) {
-            if (!boatInExpandedBbox(boat, marker, MAX_SEARCH_RADIUS_M)) continue
-            val match = resolveMatch(boat, marker, spatialIndex)
-            if (match != null) results.add(match)
+        // ── 1. Resolve all markers ──
+        val results = markers.mapNotNull { marker ->
+            resolveMatch(boat, marker, spatialIndex)
         }
 
-        // ── 1b. Post-filter: line-of-sight for ALL matches ──
-        val verified = results.mapNotNull { match ->
-            if (hasLineOfSight(boat, markerOf(match), spatialIndex)) match else null
-        }
-
-        if (verified.isEmpty()) return WhereAmIResult(emptyList())
+        if (results.isEmpty()) return WhereAmIResult(emptyList())
 
         // ── 2. Build containment tree ──
         val nestedIds = mutableSetOf<String>()
-        val zoneMatches = verified.filterIsInstance<WhereAmIMatch.ZoneMatch>().toMutableList()
+        val zoneMatches = results.filterIsInstance<WhereAmIMatch.ZoneMatch>().toMutableList()
 
         for (i in zoneMatches.indices) {
             val outer = zoneMatches[i]
             val tempChildren = mutableListOf<WhereAmIMatch>()
-            for (other in verified) {
+            for (other in results) {
                 if (other === outer) continue
                 if (isMatchInsideZone(other, outer.marker.geometry)) {
                     // Prevent mutual nesting: a ZoneMatch should only nest
@@ -197,7 +185,7 @@ object MarkerMatcher {
         }
 
         // Rebuild list with updated zone matches
-        val finalResults = verified.map { match ->
+        val finalResults = results.map { match ->
             if (match is WhereAmIMatch.ZoneMatch) {
                 zoneMatches.find { it.marker.id == match.marker.id } ?: match
             } else match
@@ -206,33 +194,9 @@ object MarkerMatcher {
         val roots = finalResults.filter { markerOf(it).id !in nestedIds }
 
         // ── 3. Depth-first, leaves-first traversal ──
-        val display = depthFirstLeavesFirst(roots).take(MAX_RESULTS)
+        val display = depthFirstLeavesFirst(roots)
 
         return WhereAmIResult(display)
-    }
-
-    /** Two-tier check: points first (cheap), then zone boundary. */
-    private fun hasLineOfSight(
-        boat: LatLng, marker: UserMarker, spatialIndex: CoastlineSpatialIndex
-    ): Boolean {
-        // Tier 1: check point(s) — cheap, O(1-2) segmentIntersectsLand calls
-        if (pointsVisible(boat, marker, spatialIndex)) return true
-
-        // Tier 2: check zone boundary — sampling approach
-        return closestUnblockedPoint(boat, marker, spatialIndex) != null
-    }
-
-    /** Direct line-of-sight to the marker's defining point(s). */
-    private fun pointsVisible(
-        boat: LatLng, marker: UserMarker, spatialIndex: CoastlineSpatialIndex
-    ): Boolean = when (marker.geometry) {
-        is MarkerGeometry.Pin ->
-            !spatialIndex.segmentIntersectsLand(boat, marker.geometry.position)
-        is MarkerGeometry.Circle ->
-            !spatialIndex.segmentIntersectsLand(boat, marker.geometry.center)
-        is MarkerGeometry.Corridor ->
-            !spatialIndex.segmentIntersectsLand(boat, marker.geometry.p1) ||
-            !spatialIndex.segmentIntersectsLand(boat, marker.geometry.p2)
     }
 
     // ─────────────────────────────────────────────────────────────────────
@@ -266,15 +230,6 @@ object MarkerMatcher {
         }
         // Also check the target point itself
         return !spatialIndex.isWater(target.latitude, target.longitude)
-    }
-
-    /** Debug-only: tests all boundary samples for visual rendering, even for zone matches. */
-    private fun testDebugSamples(boat: LatLng, marker: UserMarker, spatialIndex: CoastlineSpatialIndex) {
-        val candidates = sampleBoundaryPoints(boat, marker.geometry)
-        for (c in candidates) {
-            val blocked = segmentIntersectsLandStepped(boat, c, spatialIndex)
-            debugger.onSegmentTested(boat, c, blocked)
-        }
     }
 
     /**
@@ -344,6 +299,39 @@ object MarkerMatcher {
                 val bearing = SpatialOperations.initialBearing(boat, closestOnCL)
                 val distToBoundary = (distToCL - halfW).coerceAtLeast(0.0)
                 SpatialOperations.pointAlongBearing(boat.latitude, boat.longitude, bearing, distToBoundary)
+            }
+        }
+    }
+
+    /** Closest point on [geometry] boundary to [boat], even when boat is inside.
+     *  For debug visualization of ZoneMatch segments. */
+    private fun closestBoundaryPoint(boat: LatLng, geometry: MarkerGeometry): LatLng? {
+        return when (geometry) {
+            is MarkerGeometry.Pin -> geometry.position
+            is MarkerGeometry.Circle -> {
+                val dist = SpatialOperations.haversine(boat, geometry.center)
+                val bearing = SpatialOperations.initialBearing(boat, geometry.center)
+                if (dist <= geometry.radiusM) {
+                    // Inside: closest boundary point is away from center
+                    SpatialOperations.pointAlongBearing(boat.latitude, boat.longitude, bearing, geometry.radiusM - dist)
+                } else {
+                    // Outside: closest boundary point is toward center
+                    SpatialOperations.pointAlongBearing(boat.latitude, boat.longitude, bearing, dist - geometry.radiusM)
+                }
+            }
+            is MarkerGeometry.Corridor -> {
+                val halfW = geometry.widthM / 2.0
+                val closestOnCL = SpatialOperations.projectPointOntoSegment(boat, geometry.p1, geometry.p2)
+                val distToCL = SpatialOperations.pointToSegmentDistance(boat, geometry.p1, geometry.p2)
+                if (distToCL <= halfW) {
+                    // Inside: closest boundary point is perpendicular away from CL
+                    val bearing = SpatialOperations.initialBearing(closestOnCL, boat)
+                    SpatialOperations.pointAlongBearing(boat.latitude, boat.longitude, bearing, halfW - distToCL)
+                } else {
+                    // Outside: closest boundary point is perpendicular toward CL
+                    val bearing = SpatialOperations.initialBearing(boat, closestOnCL)
+                    SpatialOperations.pointAlongBearing(boat.latitude, boat.longitude, bearing, distToCL - halfW)
+                }
             }
         }
     }
@@ -484,24 +472,6 @@ object MarkerMatcher {
         }
 
     // ─────────────────────────────────────────────────────────────────────
-    // BBox pre-filter
-    // ─────────────────────────────────────────────────────────────────────
-
-    private fun boatInExpandedBbox(
-        boat: LatLng, marker: UserMarker, rangeM: Double
-    ): Boolean {
-        val bbox = marker.bbox
-        val degPerMeterLat = 1.0 / (SpatialOperations.EARTH_RADIUS_M * PI / 180.0)
-        val degPerMeterLon = degPerMeterLat / cos(Math.toRadians(boat.latitude))
-        val marginLat = rangeM * degPerMeterLat
-        val marginLon = rangeM * degPerMeterLon
-        return boat.latitude >= bbox.latSouth - marginLat &&
-               boat.latitude <= bbox.latNorth + marginLat &&
-               boat.longitude >= bbox.lonWest - marginLon &&
-               boat.longitude <= bbox.lonEast + marginLon
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
     // Traversal
     // ─────────────────────────────────────────────────────────────────────
 
@@ -596,5 +566,16 @@ object MarkerMatcher {
             else -> return null
         }
         return SpatialOperations.pointAlongBearing(boat.latitude, boat.longitude, bearing, t)
+    }
+    // ─────────────────────────────────────────────────────────────────────
+    // Debug — sample all boundary points for visual ray rendering
+    // ─────────────────────────────────────────────────────────────────────
+
+    private fun testDebugSamples(boat: LatLng, marker: UserMarker, spatialIndex: CoastlineSpatialIndex) {
+        val candidates = sampleBoundaryPoints(boat, marker.geometry)
+        for (c in candidates) {
+            val blocked = segmentIntersectsLandStepped(boat, c, spatialIndex)
+            debugger.onSegmentTested(boat, c, blocked)
+        }
     }
 }
