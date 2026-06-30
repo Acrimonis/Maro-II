@@ -483,54 +483,54 @@ On-demand query — see §6.5 for detailed breakdown. Summary:
 
 ## 11. Implementation Phases
 
-### Phase A — Data model + persistence
-- [ ] `UserMarker` data class + `MarkerGeometry` sealed class (Pin, Circle, Corridor)
-- [ ] `UserMarkerRepository` — JSON load/save, CRUD
-- [ ] Unit tests for JSON round-trip
+### Phase A — Data model + persistence ✅
+- [x] `UserMarker` data class + `MarkerGeometry` sealed class (Pin, Circle, Corridor)
+- [x] `UserMarkerRepository` — JSON load/save, CRUD
+- [x] Unit tests for JSON round-trip
 
-### Phase B — Land-blocking engine
-- [ ] `segmentIntersectsLand()` — segment vs coastline edges
-- [ ] Grazing tolerance (10m vertex proximity)
-- [ ] `isBlockedByLand()` — combines intersection test with tolerance
-- [ ] Unit tests with synthetic coastline + real Cap d'Antibes scenario
+### Phase B — Land-blocking engine ✅
+- [x] `segmentIntersectsLand()` — segment vs coastline edges
+- [x] Grazing tolerance (10m vertex proximity)
+- [x] `isBlockedByLand()` — combines intersection test with tolerance
+- [x] Unit tests with synthetic coastline + real Cap d'Antibes scenario
 
-### Phase C — Match resolution
-- [ ] `resolveMatch(boat, marker, coastline, config)` → single `MatchResult`
-- [ ] `resolveAllMarkers(boat, markers, coastline, config)` → `TieredMatchResult`
-- [ ] Zone match: purely geometric inside-geometry check (no land test)
-- [ ] Proximity range: override or formula (pin=200m, circle=radius×3, corridor=width×3)
-- [ ] Load `marker.proximity.pin_m` and `marker.proximity.zone_multiplier` from maro.properties
-- [ ] `closestUnblockedPoint()` — 10° sampling + land-intersection test
-- [ ] Precision sort: Pin (distance) > Circle (radius) > Corridor (width→length)
-- [ ] Spatial nesting for tiered display
-- [ ] Corridor rounded-cap containment check
-- [ ] Unit tests: single match, multi-match, nesting, land-blocked, grazing, override
+### Phase C — Match resolution ✅
+- [x] `resolveMatch(boat, marker, coastline, config)` → single `MatchResult`
+- [x] `resolveAllMarkers(boat, markers, coastline, config)` → `TieredMatchResult`
+- [x] Zone match: purely geometric inside-geometry check (no land test)
+- [x] Proximity range: override or formula (pin=200m, circle=radius×3, corridor=width×3)
+- [x] Load `marker.proximity.pin_m` and `marker.proximity.zone_multiplier` from maro.properties
+- [x] `closestUnblockedPoint()` — 10° sampling + land-intersection test
+- [x] Precision sort: Pin (distance) > Circle (radius) > Corridor (width→length)
+- [x] Spatial nesting for tiered display
+- [x] Corridor rounded-cap containment check
+- [x] Unit tests: single match, multi-match, nesting, land-blocked, grazing, override
 
-### Phase D — Map overlay rendering (neutral, below boat)
-- [ ] Pin/Circle/Corridor polyline/Canvas drawing as map layer
-- [ ] Renders below boat marker and heading/speed arrow in Z-order
-- [ ] Pin dots at circle centers and corridor endpoints
-- [ ] Always neutral style — no live match coloring
-- [ ] Name labels
-- [ ] Unconfirmed marker color (orange/yellow) during placement
+### Phase D — Map overlay rendering (neutral, below boat) ✅
+- [x] Pin/Circle/Corridor polyline/Canvas drawing as map layer
+- [x] Renders below boat marker and heading/speed arrow in Z-order
+- [x] Pin dots at circle centers and corridor endpoints
+- [x] Always neutral style — no live match coloring
+- [x] Name labels
+- [x] Unconfirmed marker color (orange/yellow) during placement
 
-### Phase E — Creation/editing UI
-- [ ] FanLayout pin icon toggle for `userMarkersVisible`
-- [ ] "Add Pin" button below FanLayout
-- [ ] Map-center placement: unconfirmed pin at center, user pans map
-- [ ] Animated drawer (portrait: bottom; landscape: left) covering dashboard area
-- [ ] Creation mode: name, type selector (Pin/Circle/Corridor), radius, proximity override
-- [ ] Circle: radius field + dashed preview circle during placement
-- [ ] Corridor: 2nd-point mode with temporary dashed line between p1 and p2
-- [ ] Match result mode: tiered display, nested by precision
-- [ ] Edit mode: same drawer pre-filled, + delete button
-- [ ] Hamburger drawer MARKERS section → "Manage Markers"
+### Phase E — Creation/editing UI ✅
+- [x] FanLayout pin icon toggle for `userMarkersVisible`
+- [x] "Add Pin" button below FanLayout
+- [x] Map-center placement: unconfirmed pin at center, user pans map
+- [x] Animated drawer (portrait: bottom; landscape: left) covering dashboard area
+- [x] Creation mode: name, type selector (Pin/Circle/Corridor), radius, proximity override
+- [x] Circle: radius field + dashed preview circle during placement
+- [x] Corridor: 2nd-point mode with temporary dashed line between p1 and p2
+- [x] Match result mode: tiered display, nested by precision
+- [x] Edit mode: same drawer pre-filled, + delete button
+- [x] Hamburger drawer MARKERS section → "Manage Markers"
 
-### Phase F — "Where am I?" + management page
-- [ ] `CenterMarkerOverlay` clickable → fires `resolveAllMarkers()` at boat position
-- [ ] Opens drawer in match result mode
-- [ ] Handle "no matches" and "land blocked" states
-- [ ] Management page: LazyColumn with swipe-to-delete (track list paradigm)
-- [ ] Inline snackbar undo, permanent delete on snackbar swipe
-- [ ] Tap item → opens drawer in edit mode
-- [ ] Layer toggle only — no per-marker visibility
+### Phase F — "Where am I?" + management page ✅
+- [x] `CenterMarkerOverlay` clickable → fires `resolveAllMarkers()` at boat position
+- [x] Opens drawer in match result mode
+- [x] Handle "no matches" and "land blocked" states
+- [x] Management page: LazyColumn with swipe-to-delete (track list paradigm)
+- [x] Inline snackbar undo, permanent delete on snackbar swipe
+- [x] Tap item → opens drawer in edit mode
+- [x] Layer toggle only — no per-marker visibility

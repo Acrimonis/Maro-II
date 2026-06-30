@@ -1,43 +1,104 @@
-# Markers — Hydration Snapshot (2026-06-28 16:17 UTC)
+# Markers — Hydration Snapshot (2026-06-30 09:54 UTC)
 
 ## State
-- **Active subfeature:** icon
-- **Status:** implemented
-- **Branch:** feature/marker-icon
+- **Active subfeature:** sort-scoring
+- **Status:** implemented — pending on-device validation
+- **Branch:** feature/markers-zones
+- **Build:** compileDebugKotlin ✅
+- **14/14 subfeatures complete**
 
-## Implemented
+## Implemented (this session)
+
+### whereami-fixes (7 fixes)
+- Direct-line fast path + `closestGeometricBoundaryPoint()` helper
+- Pin `bestBoundaryPoint` respects land (was: always returns position)
+- `proximityRange()` safe fallback: `proximityOverrideM ?: defaultFormula()`
+- ProximityMatch bearing: `initialBearing(boat, unblocked)` — from boat to marker
+- Debug cleanup: removed Sainte Marguerite dump + bearing gate
+- Edge line sampling: 5 bearings per unblocked interval
+- Coroutine cancellation on rapid taps
+
+### sort-scoring
+- Composite `sortScore()`: `typeWeight × (zoneSize + distance × W)` replacing `sizeOf()`
+- Pin=0.15, Circle=1.0, Corridor=2.0, W=3.0 — configurable in `maro.properties`
+- Children-before-parents preserved (depth-first)
+
+### Files changed
 | File | Change |
 |------|--------|
-| `UserMarker.kt` | `icon: String?`, `createdAtEpochMs: Long` |
-| `MarkersViewModel.kt` | `icon` in CreateFormState, `shortDateFormat`, default title `(date) icon color`, `setMarkerIcon()`, save/update wiring, edit pre-populate |
-| `IconPickerDialog.kt` | New — 3×4 grid + "None" |
-| `WizardDrawer.kt` | Icon picker in Title step |
-| `MarkerDrawer.kt` | Pin→icon button, normalized markerFormatText |
-| `MarkerManagementOverlay.kt` | Pin→icon button, `onSetIcon` callback |
-| `MarkerOverlay.kt` | `drawGeometry` gate, `skipDots` flag, icon bitmap 64×64/48sp, `skipDots` params on helpers |
-| `MapScreen.kt` | `markerLayerState`, SHOW_PINNED filter (`userMarkers.filter { it.pinned }`) |
-| `OverlayLayer.kt` | `onTogglePin` → `onSetIcon` |
-| `marker-pin-tri-state.md` | Updated rendering rules (Steps 5-6) |
+| `maro.properties` | 4 sort keys |
+| `AppConfig.kt` | 4 properties + loading |
+| `MarkerMatcher.kt` | direct-line fast path, Pin land, NPE fix, bearing, debug cleanup, edge sampling, sortScore() |
+| `MarkersViewModel.kt` | coroutine cancellation |
 
-## Rendering Rules (final)
-| Mode | Pinned? | Selected? | Dots | Zones/Prox | Icon |
-|------|---------|-----------|------|-----------|------|
-| SHOW_ALL | No | — | ✅ | ✅ | ❌ |
-| SHOW_ALL | Yes | — | ❌ | ✅ | ✅ |
-| SHOW_PINNED | — | No | ❌ | ❌ | ✅ |
-| SHOW_PINNED | — | Yes | ❌ | ✅ | ✅ |
+## Implemented (this session)
 
-## Build
-- compileDebugKotlin ✅
+6 fixes applied across 2 files — see [`FEAT_PLN_Markers_whereami-fixes.md`](xTrack/Markers/FEAT_PLN_Markers_whereami-fixes.md) for full plan:
 
-## Wizard Layout Normalization
-| File | Change |
-|------|--------|
-| `WizardTopBar.kt` | Header padding: 16×12dp, better back-arrow breathing room |
-| `TypeSelectStep.kt` | Icon+label on same Row (18dp+12sp), single-line, pin bar fully clickable |
-| `PositionStep.kt` | Left-aligned, uiCardBackground card wrapper (Tight 8×4dp) |
-| `SliderStep.kt` | Optional `comment` param, Tight 8×4dp padding |
-| `WizardButtonRow.kt` | 3 slots always visible, dimmed when inappropriate (no layout jumps) |
-| `TextInputStep.kt` | Outer padding → Tight 8×4dp |
-| `TextInputStep.kt` | Focus bug fixed: `remember` without key, select-all only in LaunchedEffect(Unit) |
-| `MarkerOverlay.kt` | Unconfirmed markers bypass drawGeometry/skipDots — always full geometry during wizard |
+| Fix | Description | File |
+|-----|-------------|------|
+| Direct-line fast path | Skip angular analysis when closest boundary point has clear LOS | `MarkerMatcher.kt` |
+| Pin land respect | `bestBoundaryPoint` checks unblocked intervals (was: always returns position) | `MarkerMatcher.kt` |
+| NPE safety | `proximityOverrideM ?: defaultFormula()` | `MarkerMatcher.kt` |
+| Bearing direction | `initialBearing(boat, x)` (was reversed: marker→boat) | `MarkerMatcher.kt` |
+| Debug cleanup | Removed hardcoded Sainte Marguerite dump + bearing gate | `MarkerMatcher.kt` |
+| Coroutine cancel | `whereAmIJob?.cancel()` on rapid taps | `MarkersViewModel.kt` |
+| Edge sampling | 5 bearings per interval instead of midpoint | `MarkerMatcher.kt` |
+
+## Known Issues
+
+### 🟡 Angular shadow fallback may still over-block
+The angular algorithm still runs when the closest boundary point IS blocked by land. Fix 4 only addresses the case where closest point is clear. If there's a marker behind an island where ALL boundary points are blocked, this is correct behavior. But if the closest arc is behind a cape but a farther arc is reachable, angular analysis may still over-block.
+
+### 🟡 Pending on-device validation
+- Sainte Marguerite corridor: verify 4/4 test clicks now match (was 2/4)
+- Bearing display: verify "NW of MarkerName" shows correct direction
+- Pin behind island: verify pin no longer matches when land blocks
+- Rapid tap: verify no UI flicker
+
+### 🟢 Deferred
+- Component cones (Fix 7) — performance optimization, not correctness
+
+### 🟡 StateFlow double-initialization race (low impact)
+**Location:** [`MarkersViewModel.kt:123-136`](app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt:123).
+
+`markerLayerState` and `userMarkersVisible` StateFlows read `flow.value` eagerly then mirror via collection. Race if SettingsManager hasn't loaded preferences yet — transient UI flicker at worst.
+
+### 🟢 Duplicate imports in MarkerDrawer.kt (cosmetic)
+**Location:** [`MarkerDrawer.kt:42-48`](app/src/main/java/ykws/android/maro/ui/map/MarkerDrawer.kt:42).
+
+`mutableStateOf`, `remember`, `setValue` imported twice. No functional impact — compile warning only.
+
+## Unimplemented Plans (verified against source)
+
+| Plan | Item | Status |
+|------|------|--------|
+| `icon-fixes.md` §5b/6b | Timestamp display on drawer + management | ❌ Not implemented |
+| `icon-fixes.md` §6c | `markerFormatText` format unification between files | ❌ Duplicated in both files |
+| `area-tap-and-wizard-buttons.md` §3 | Marker color settings in Settings page | ❌ Colors hardcoded in MarkerOverlay |
+| `next-session-ui-polish.md` §8 | List item text format (Pin/Circle/Corridor) | ❌ Current format: `📌 0 200` not `Pin / 200m proximity` |
+
+## Key Files
+- `app/src/main/java/ykws/android/maro/data/model/markers/UserMarker.kt`
+- `app/src/main/java/ykws/android/maro/data/markers/UserMarkerRepository.kt`
+- `app/src/main/java/ykws/android/maro/spatial/MarkerMatcher.kt`
+- `app/src/main/java/ykws/android/maro/spatial/CoastlineSpatialIndex.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MarkerOverlay.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MarkerDrawer.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/WizardDrawer.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MarkerManagementOverlay.kt`
+
+## Design Docs
+- `xTrack/Markers/FEAT_DOC_Markers_decisions.md` — all architectural decisions
+- `xTrack/Markers/FEAT_PLN_Markers_user-markers-design.md` — original design (all phases ✅)
+- `xTrack/Markers/FEAT_PLN_Markers_create-zones-flow.md` — wizard creation flow
+- `xTrack/Markers/FEAT_PLN_Markers_whereami-rework.md` — whereAmI rework
+- `xTrack/Markers/FEAT_PLN_Markers_whereami-gaps.md` — current bug analysis
+- `xTrack/Markers/FEAT_PLN_Markers_debug-wia.md` — debug instrumentation
+- `xTrack/Markers/FEAT_PLN_Markers_icon.md` — POI icon system
+- `xTrack/Markers/FEAT_PLN_Markers_icon-fixes.md` — icon bug-fix plan (partial)
+- `xTrack/Markers/FEAT_PLN_Markers_marker-pin.md` — pin toggle
+- `xTrack/Markers/FEAT_PLN_Markers_marker-pin-tri-state.md` — tri-state layer toggle
+- `xTrack/Markers/FEAT_PLN_Markers_area-tap-and-wizard-buttons.md` — area tap + buttons + caps + color settings
+- `xTrack/Markers/FEAT_PLN_Markers_next-session-ui-polish.md` — UI polish plan

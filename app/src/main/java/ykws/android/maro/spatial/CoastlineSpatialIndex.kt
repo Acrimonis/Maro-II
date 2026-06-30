@@ -3,6 +3,7 @@ package ykws.android.maro.spatial
 import ykws.android.maro.data.model.CoastlineDistanceResult
 import ykws.android.maro.data.model.CoastlineSegment
 import ykws.android.maro.data.model.LatLng
+import ykws.android.maro.data.model.markers.BBox
 import kotlin.math.*
 
 /**
@@ -387,6 +388,51 @@ class CoastlineSpatialIndex(
         val b: LatLng,
         val polylineIdx: Int
     )
+
+    /**
+     * A coastline edge within a bounding-box query result.
+     *
+     * @property a            Segment start point in WGS84.
+     * @property b            Segment end point in WGS84.
+     * @property polylineIdx  0 = mainland coastline, >0 = island.
+     */
+    data class BboxSegment(
+        val a: LatLng,
+        val b: LatLng,
+        val polylineIdx: Int
+    )
+
+    /**
+     * Returns all coastline edges whose bounding boxes overlap [bbox].
+     * Enumerates grid cells within the bbox, collects segment indices,
+     * and deduplicates via HashSet (same pattern as [segmentIntersectsLand]).
+     */
+    fun segmentsInBbox(bbox: BBox): List<BboxSegment> {
+        if (!hasData) return emptyList()
+
+        val rMin = ((bbox.latSouth - minLat) / cellSizeLat).toInt().coerceIn(0, rowCount - 1)
+        val rMax = ((bbox.latNorth - minLat) / cellSizeLat).toInt().coerceIn(0, rowCount - 1)
+        val cMin = ((bbox.lonWest - minLon) / cellSizeLon).toInt().coerceIn(0, colCount - 1)
+        val cMax = ((bbox.lonEast - minLon) / cellSizeLon).toInt().coerceIn(0, colCount - 1)
+
+        val seen = HashSet<Int>()
+        val result = mutableListOf<BboxSegment>()
+
+        for (r in rMin..rMax) {
+            for (c in cMin..cMax) {
+                grid[GridCell(r, c)]?.let { indices ->
+                    for (idx in indices) {
+                        if (seen.add(idx)) {
+                            val ref = segmentRefs[idx]
+                            result.add(BboxSegment(ref.a, ref.b, ref.polylineIdx))
+                        }
+                    }
+                }
+            }
+        }
+
+        return result
+    }
 
     /**
      * Tests whether segment A→B intersects any land edge, using the spatial index
