@@ -85,6 +85,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -506,6 +507,7 @@ fun MapScreen(
         markersViewModel.coastlineIndex = viewModel.spatialIndex
         if (AppConfig.markerDebugRaysEnabled) {
             MarkerMatcher.debugger = VisualWhereAmIDebugger()
+            Log.d("WIA", "DEBUGGER: VisualWhereAmIDebugger activated")
         }
     }
 
@@ -794,7 +796,8 @@ fun MapScreen(
     // ── WhereAmI debug segments: visual overlay on the map ─────────────────
     // Green = clear line-of-sight, Red = blocked by land.
     LaunchedEffect(mapView, debugSegments) {
-        val mv = mapView ?: return@LaunchedEffect
+        val mv = mapView ?: run { Log.d("WIA", "DEBUGGER: mapView null, skipping render"); return@LaunchedEffect }
+        Log.d("WIA", "DEBUGGER: rendering ${debugSegments.size} segments")
         // Remove previous debug polylines
         mv.overlays.removeAll {
             (it as? org.osmdroid.views.overlay.Polyline)?.title?.startsWith("wia_debug_") == true

@@ -135,15 +135,17 @@ android {
 
     sourceSets {
         getByName("main") {
-            // Incorporate the prebaked 300 m band into the APK assets at build time WITHOUT
-            // committing the binary: apk-bake.bat writes it under the gitignored data/ tree
-            // (data/app-assets/coastlines/nice-frejus.bin); this adds that folder as an assets
-            // source root, so it is packaged at assets/coastlines/nice-frejus.bin. When the
-            // folder is absent (never baked), it's simply ignored and the app falls back to a
-            // live fetch at runtime.
             assets.srcDir(rootProject.file("data/app-assets"))
         }
     }
+
+    // Keep root maro.properties as the single source of truth —
+    // copy into assets so AppConfig can load it at runtime.
+    tasks.register<Copy>("syncMaroProperties") {
+        from(rootProject.file("maro.properties"))
+        into(layout.projectDirectory.dir("src/main/assets"))
+    }
+    tasks.named("preBuild") { dependsOn("syncMaroProperties") }
 }
 
 protobuf {

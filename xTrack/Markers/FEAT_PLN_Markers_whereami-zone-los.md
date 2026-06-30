@@ -1,7 +1,7 @@
 # whereAmI() — Segment-Intersection `closestUnblockedPoint` (Final)
 
 > **Feature:** Markers | **Subfeature:** whereami-zone-los
-> **Created:** 2026-06-30 | **Updated:** 2026-06-30 | **Status:** Implemented
+> **Created:** 2026-06-30 | **Updated:** 2026-06-30 15:52 | **Status:** Implemented
 
 ## Requirements
 

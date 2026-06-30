@@ -126,11 +126,17 @@ object MarkerMatcher {
             } else null
         }
 
-        // ── 4. Find closest unblocked boundary point ──
+        // ── 4. Pin markers: proximity is enough, no coastline check ──
+        if (marker.geometry is MarkerGeometry.Pin) {
+            return WhereAmIMatch.ProximityMatch(marker, directDist,
+                SpatialOperations.initialBearing(marker.geometry.position, boat))
+        }
+
+        // ── 5. Find closest unblocked boundary point (Circle/Corridor) ──
         val unblocked = closestUnblockedPoint(boat, marker, spatialIndex)
             ?: return null
 
-        // ── 5. Unblocked point found → match (zone gate already ensured proximity) ──
+        // ── 6. Unblocked point found → match (zone gate already ensured proximity) ──
         val dist = SpatialOperations.haversine(boat, unblocked)
         Log.d("WIA", "  range=${"%.0f".format(range)} dist=${"%.0f".format(dist)} MATCH")
         return WhereAmIMatch.ProximityMatch(marker, dist, SpatialOperations.initialBearing(unblocked, boat))

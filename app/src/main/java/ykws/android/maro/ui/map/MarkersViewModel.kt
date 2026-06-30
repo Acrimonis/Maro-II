@@ -1,6 +1,7 @@
 package ykws.android.maro.ui.map
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -675,7 +676,9 @@ class MarkersViewModel(
             val result = withContext(Dispatchers.Default) {
                 MarkerMatcher.resolveAllMarkers(boatPos, all, index)
             }
-            _debugSegments.value = MarkerMatcher.debugger.getSegments()
+            val segs = MarkerMatcher.debugger.getSegments()
+            Log.d("WIA", "DEBUGGER: getSegments returned ${segs.size} items")
+            _debugSegments.value = segs
             _matchResult.value = result
             _drawerState.value = MarkerDrawerState.MatchResult
         }
