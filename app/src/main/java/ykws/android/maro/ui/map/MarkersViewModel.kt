@@ -19,6 +19,7 @@ import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.settings.SettingsManager
 import ykws.android.maro.spatial.CoastlineSpatialIndex
+import ykws.android.maro.spatial.DebugSegment
 import ykws.android.maro.spatial.MarkerMatcher
 import ykws.android.maro.spatial.WhereAmIMatch
 import ykws.android.maro.spatial.WhereAmIResult
@@ -114,6 +115,10 @@ class MarkersViewModel(
             AppConfig.zoneAutoRevealTimeS, AppConfig.overlayLowDepthMinOpacity)
 
     // ── StateFlows ────────────────────────────────────────────────────────
+
+    /** WhereAmI debug segments for visual overlay (green = clear, red = blocked). */
+    private val _debugSegments = MutableStateFlow<List<DebugSegment>>(emptyList())
+    val debugSegments: StateFlow<List<DebugSegment>> = _debugSegments.asStateFlow()
 
     /** Loaded user markers (reactive). */
     private val _markers = MutableStateFlow<List<UserMarker>>(emptyList())
@@ -665,10 +670,12 @@ class MarkersViewModel(
         }
 
         whereAmIJob?.cancel()
+        MarkerMatcher.debugger.clear()
         whereAmIJob = viewModelScope.launch {
             val result = withContext(Dispatchers.Default) {
                 MarkerMatcher.resolveAllMarkers(boatPos, all, index)
             }
+            _debugSegments.value = MarkerMatcher.debugger.getSegments()
             _matchResult.value = result
             _drawerState.value = MarkerDrawerState.MatchResult
         }

@@ -177,6 +177,9 @@ import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.data.markers.UserMarkerRepository
 import ykws.android.maro.spatial.SpatialOperations
+import ykws.android.maro.spatial.DebugSegment
+import ykws.android.maro.spatial.MarkerMatcher
+import ykws.android.maro.spatial.VisualWhereAmIDebugger
 import ykws.android.maro.ui.map.MarkersViewModel
 import ykws.android.maro.ui.map.MarkerDrawer
 
@@ -262,6 +265,7 @@ fun MapScreen(
         androidx.lifecycle.viewmodel.compose.viewModel()
     val markersViewModel: MarkersViewModel =
         androidx.lifecycle.viewmodel.compose.viewModel(factory = MarkersViewModel.Factory)
+    val debugSegments by markersViewModel.debugSegments.collectAsState()
     val trackRecorderState by trackViewModel.uiState.collectAsState()
     val trackSummaries by trackViewModel.summaries.collectAsState()
     val recoveryTrack by trackViewModel.recoveryTrack.collectAsState()
@@ -500,6 +504,7 @@ fun MapScreen(
     // Wire coastline spatial index into MarkersViewModel for land-blocking when ready
     if (coastlineReady) {
         markersViewModel.coastlineIndex = viewModel.spatialIndex
+        MarkerMatcher.debugger = VisualWhereAmIDebugger()
     }
 
     // ── Raster cache reads (no lazy auto-trigger; only settings button triggers generation) ──
@@ -782,6 +787,33 @@ fun MapScreen(
             polyline.addPoint(org.osmdroid.util.GeoPoint(point.lat, point.lon))
             mv.invalidate()
         }
+    }
+
+    // ── WhereAmI debug segments: visual overlay on the map ─────────────────
+    // Green = clear line-of-sight, Red = blocked by land.
+    LaunchedEffect(mapView, debugSegments) {
+        val mv = mapView ?: return@LaunchedEffect
+        // Remove previous debug polylines
+        mv.overlays.removeAll {
+            (it as? org.osmdroid.views.overlay.Polyline)?.title?.startsWith("wia_debug_") == true
+        }
+        // Render current segments
+        if (debugSegments.isNotEmpty()) {
+            debugSegments.forEachIndexed { index, segment ->
+                val color = if (segment.blocked) Color.RED else Color.GREEN
+                val polyline = org.osmdroid.views.overlay.Polyline().apply {
+                    title = "wia_debug_$index"
+                    setPoints(listOf(
+                        org.osmdroid.util.GeoPoint(segment.boat.latitude, segment.boat.longitude),
+                        org.osmdroid.util.GeoPoint(segment.target.latitude, segment.target.longitude)
+                    ))
+                    outlinePaint.color = color
+                    outlinePaint.strokeWidth = 3f
+                }
+                mv.overlays.add(polyline)
+            }
+        }
+        mv.invalidate()
     }
 
     // ── Foreground notification updates ────────────────────────────────────

@@ -51,36 +51,14 @@ data class ProximityConfig(
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Angular interval helpers (unified shadow projection)
-// ─────────────────────────────────────────────────────────────────────────────
-
-/** A bearing interval [start, end] in degrees, guaranteed non-wrapping (start < end). */
-private data class AngularInterval(val start: Double, val end: Double) {
-    val mid: Double get() = (start + end) / 2.0
-    /** Intersects this interval with [outer]. Returns null if they don't overlap. */
-    fun clampTo(outer: AngularInterval): AngularInterval? {
-        val s = maxOf(start, outer.start)
-        val e = minOf(end, outer.end)
-        return if (s < e) AngularInterval(s, e) else null
-    }
-}
-
-/**
- * The view cone from the boat to the zone — the angular sector the zone
- * occupies from the boat's perspective, plus a bounding box for spatial queries.
- */
-private data class ViewCone(
-    val interval: AngularInterval,
-    val bbox: BBox,
-    /** Distance from boat to zone boundary at a given bearing (used for depth checks). */
-    val zoneDistanceAt: (Double) -> Double
-)
-
-// ─────────────────────────────────────────────────────────────────────────────
 // MarkerMatcher object
 // ─────────────────────────────────────────────────────────────────────────────
 
 object MarkerMatcher {
+
+    /** Active debugger for visual segment testing — replace with [VisualWhereAmIDebugger]
+     *  to capture line-of-sight segments for map rendering. */
+    var debugger: WhereAmIDebugger = NoOpWhereAmIDebugger
 
     /** Intersection within this distance (metres) of a coastline vertex is
      *  considered grazing and ignored. */
@@ -115,6 +93,7 @@ object MarkerMatcher {
         marker: UserMarker,
         spatialIndex: CoastlineSpatialIndex
     ): WhereAmIMatch? {
+        debugger.beginCapture(marker.name)
         // ── 1. Zone check ──
         if (isInsideGeometry(boat, marker.geometry)) {
             val center = zoneCenterOf(marker.geometry)
@@ -133,6 +112,13 @@ object MarkerMatcher {
 
         // ── 3. Boat at marker → skip land check ──
         val directDist = distanceToClosestGeometryPoint(boat, marker.geometry)
+
+        // ── Early exit: boat clearly too far → skip expensive land checks ──
+        if (directDist > range + 200.0) return null
+
+        // Debug: capture segments for all markers within range
+        testDebugSamples(boat, marker, spatialIndex)
+
         if (directDist <= AT_MARKER_THRESHOLD_M) {
             return if (directDist <= range) {
                 val center = zoneCenterOf(marker.geometry)
@@ -144,14 +130,10 @@ object MarkerMatcher {
         val unblocked = closestUnblockedPoint(boat, marker, spatialIndex)
             ?: return null
 
-        // ── 5. Sea-path distance ≤ range? ──
-        // closestUnblockedPoint now returns actual boundary points (not centreline)
+        // ── 5. Unblocked point found → match (zone gate already ensured proximity) ──
         val dist = SpatialOperations.haversine(boat, unblocked)
-        val match = dist <= range
-        Log.d("WIA", "  range=${"%.0f".format(range)} dist=${"%.0f".format(dist)} ${if (match) "MATCH" else "REJECTED"}")
-        return if (match)
-            WhereAmIMatch.ProximityMatch(marker, dist, SpatialOperations.initialBearing(unblocked, boat))
-        else null
+        Log.d("WIA", "  range=${"%.0f".format(range)} dist=${"%.0f".format(dist)} MATCH")
+        return WhereAmIMatch.ProximityMatch(marker, dist, SpatialOperations.initialBearing(unblocked, boat))
     }
 
     /**
@@ -179,16 +161,21 @@ object MarkerMatcher {
             if (match != null) results.add(match)
         }
 
-        if (results.isEmpty()) return WhereAmIResult(emptyList())
+        // ── 1b. Post-filter: line-of-sight for ALL matches ──
+        val verified = results.mapNotNull { match ->
+            if (hasLineOfSight(boat, markerOf(match), spatialIndex)) match else null
+        }
+
+        if (verified.isEmpty()) return WhereAmIResult(emptyList())
 
         // ── 2. Build containment tree ──
         val nestedIds = mutableSetOf<String>()
-        val zoneMatches = results.filterIsInstance<WhereAmIMatch.ZoneMatch>().toMutableList()
+        val zoneMatches = verified.filterIsInstance<WhereAmIMatch.ZoneMatch>().toMutableList()
 
         for (i in zoneMatches.indices) {
             val outer = zoneMatches[i]
             val tempChildren = mutableListOf<WhereAmIMatch>()
-            for (other in results) {
+            for (other in verified) {
                 if (other === outer) continue
                 if (isMatchInsideZone(other, outer.marker.geometry)) {
                     // Prevent mutual nesting: a ZoneMatch should only nest
@@ -204,7 +191,7 @@ object MarkerMatcher {
         }
 
         // Rebuild list with updated zone matches
-        val finalResults = results.map { match ->
+        val finalResults = verified.map { match ->
             if (match is WhereAmIMatch.ZoneMatch) {
                 zoneMatches.find { it.marker.id == match.marker.id } ?: match
             } else match
@@ -218,8 +205,32 @@ object MarkerMatcher {
         return WhereAmIResult(display)
     }
 
+    /** Two-tier check: points first (cheap), then zone boundary. */
+    private fun hasLineOfSight(
+        boat: LatLng, marker: UserMarker, spatialIndex: CoastlineSpatialIndex
+    ): Boolean {
+        // Tier 1: check point(s) — cheap, O(1-2) segmentIntersectsLand calls
+        if (pointsVisible(boat, marker, spatialIndex)) return true
+
+        // Tier 2: check zone boundary — sampling approach
+        return closestUnblockedPoint(boat, marker, spatialIndex) != null
+    }
+
+    /** Direct line-of-sight to the marker's defining point(s). */
+    private fun pointsVisible(
+        boat: LatLng, marker: UserMarker, spatialIndex: CoastlineSpatialIndex
+    ): Boolean = when (marker.geometry) {
+        is MarkerGeometry.Pin ->
+            !spatialIndex.segmentIntersectsLand(boat, marker.geometry.position)
+        is MarkerGeometry.Circle ->
+            !spatialIndex.segmentIntersectsLand(boat, marker.geometry.center)
+        is MarkerGeometry.Corridor ->
+            !spatialIndex.segmentIntersectsLand(boat, marker.geometry.p1) ||
+            !spatialIndex.segmentIntersectsLand(boat, marker.geometry.p2)
+    }
+
     // ─────────────────────────────────────────────────────────────────────
-    // Land-blocking engine — unified tangent-guided angular shadow projection
+    // Land-blocking engine — boundary sampling + segment intersection
     // ─────────────────────────────────────────────────────────────────────
 
     /**
@@ -234,56 +245,73 @@ object MarkerMatcher {
         return spatialIndex.segmentIntersectsLand(a, b)
     }
 
+    /** Steps along boat→target in 20 m increments, checking [CoastlineSpatialIndex.isWater].
+     *  Returns true if ANY step is on land (catches coastline near the ray, closing joint gaps). */
+    private fun segmentIntersectsLandStepped(
+        boat: LatLng, target: LatLng, spatialIndex: CoastlineSpatialIndex, stepM: Double = 20.0
+    ): Boolean {
+        val dist = SpatialOperations.haversine(boat, target)
+        val brg = SpatialOperations.initialBearing(boat, target)
+        var d = stepM
+        while (d < dist) {
+            val pt = SpatialOperations.pointAlongBearing(boat.latitude, boat.longitude, brg, d)
+            if (!spatialIndex.isWater(pt.latitude, pt.longitude)) return true
+            d += stepM
+        }
+        // Also check the target point itself
+        return !spatialIndex.isWater(target.latitude, target.longitude)
+    }
+
+    /** Debug-only: tests all boundary samples for visual rendering, even for zone matches. */
+    private fun testDebugSamples(boat: LatLng, marker: UserMarker, spatialIndex: CoastlineSpatialIndex) {
+        val candidates = sampleBoundaryPoints(boat, marker.geometry)
+        for (c in candidates) {
+            val blocked = segmentIntersectsLandStepped(boat, c, spatialIndex)
+            debugger.onSegmentTested(boat, c, blocked)
+        }
+    }
+
     /**
      * Finds the closest point on [marker]'s geometry boundary that has a
      * clear sea line-of-sight to [boat].
      *
-     * Unified tangent-guided algorithm — one code path for Pin, Circle, Corridor:
-     * 1. Compute the view cone(s) from boat to the zone
-     * 2. Gather coastline edges in the cone's bbox
-     * 3. Compute angular shadows → merge → unblocked intervals
-     * 4. Find the closest zone boundary point in each unblocked interval
+     * Algorithm:
+     * 1. Direct-line fast path: if the geometrically-closest boundary point
+     *    has a clear sea line-of-sight, return it immediately.
+     * 2. Sample candidate points on the zone boundary at evenly-spaced bearings.
+     * 3. Test each with [segmentIntersectsLand]; return the closest clear one.
+     * 4. If all blocked → null.
      */
     fun closestUnblockedPoint(
         boat: LatLng,
         marker: UserMarker,
         spatialIndex: CoastlineSpatialIndex
     ): LatLng? {
-        // ── Direct-line fast path: if the geometrically-closest boundary
-        //     point has a clear sea line-of-sight, return it immediately.
-        //     This avoids angular-shadow over-blocking (e.g. Sainte Marguerite). ──
+        // ── Direct-line fast path ──
         val closestGeom = closestGeometricBoundaryPoint(boat, marker.geometry)
-        if (closestGeom != null && !spatialIndex.segmentIntersectsLand(boat, closestGeom)) {
-            Log.d("WIA", "  DIRECT: clear path, skipping angular analysis")
-            return closestGeom
+        if (closestGeom != null) {
+            val blocked = segmentIntersectsLandStepped(boat, closestGeom, spatialIndex)
+            if (!blocked) {
+                return closestGeom
+            }
         }
 
-        // ── Fall back to angular shadow analysis ──
-        val cones = viewCones(boat, marker.geometry)
+        // ── Sample boundary points ──
+        val candidates = sampleBoundaryPoints(boat, marker.geometry)
         var best: LatLng? = null
         var bestDist = Double.MAX_VALUE
-
-        for (cone in cones) {
-            val segments = spatialIndex.segmentsInBbox(cone.bbox)
-            val shadows = segments.mapNotNull { angularShadow(boat, it, cone) }
-            val unblocked = mergeAndComplement(shadows, cone.interval)
-            Log.d("WIA", "  ${marker.name}: cone=[${cone.interval.start}°,${cone.interval.end}°] segs=${segments.size} shadows=${shadows.size} unblocked=${unblocked.size}")
-            if (unblocked.isEmpty() && shadows.isNotEmpty()) {
-                for (s in shadows.take(3)) {
-                    val zd = cone.zoneDistanceAt(s.mid)
-                    Log.d("WIA", "    shadow [${"%.1f".format(s.start)}°,${"%.1f".format(s.end)}°] zd=$zd")
-                }
-            }
-            val candidate = bestBoundaryPoint(boat, marker.geometry, unblocked)
-            if (candidate != null) {
-                val d = SpatialOperations.haversine(boat, candidate)
-                Log.d("WIA", "    candidate dist=$d")
-                if (d < bestDist) { best = candidate; bestDist = d }
-            } else {
-                Log.d("WIA", "    NO candidate (unblocked=${unblocked.size})")
+        var clearCount = 0
+        
+        for (c in candidates) {
+            val blocked = segmentIntersectsLandStepped(boat, c, spatialIndex)
+            if (!blocked) {
+                clearCount++
+                val d = SpatialOperations.haversine(boat, c)
+                if (d < bestDist) { best = c; bestDist = d }
             }
         }
 
+        Log.d("WIA", "  ${marker.name}: samples=${candidates.size} clear=$clearCount")
         Log.d("WIA", "  RESULT bestDist=$bestDist ${if (best == null) "NULL" else ""}")
         return best
     }
@@ -310,6 +338,66 @@ object MarkerMatcher {
                 val bearing = SpatialOperations.initialBearing(boat, closestOnCL)
                 val distToBoundary = (distToCL - halfW).coerceAtLeast(0.0)
                 SpatialOperations.pointAlongBearing(boat.latitude, boat.longitude, bearing, distToBoundary)
+            }
+        }
+    }
+
+    /**
+     * Generates candidate points on the zone boundary for land-blocking tests.
+     *
+     * | Geometry  | Condition     | Samples | Spacing               |
+     * |-----------|---------------|---------|-----------------------|
+     * | Pin       | always        | 1       | N/A                   |
+     * | Circle    | boat inside   | 16      | 22.5°                 |
+     * | Circle    | boat outside  | 16      | adaptive (~1-15°)     |
+     * | Corridor  | end-cap ×2    | 8 each  | 45°                   |
+     * | Corridor  | edge line ×2  | 5 each  | 25% along length      |
+     */
+    private fun sampleBoundaryPoints(boat: LatLng, geometry: MarkerGeometry): List<LatLng> {
+        return when (geometry) {
+            is MarkerGeometry.Pin -> listOf(geometry.position)
+
+            is MarkerGeometry.Circle -> {
+                val dist = SpatialOperations.haversine(boat, geometry.center)
+                val bearing = SpatialOperations.initialBearing(boat, geometry.center)
+                val inside = dist <= geometry.radiusM
+                val step = if (inside) 360.0 / 16.0 else {
+                    val halfAngle = Math.toDegrees(asin((geometry.radiusM / dist).coerceIn(-1.0, 1.0)))
+                    (2.0 * halfAngle) / 15.0
+                }
+                val startBearing = if (inside) 0.0 else bearing - (step * 7.5)
+                (0 until 16).mapNotNull { i ->
+                    val b = (startBearing + i * step).let { (it % 360 + 360) % 360 }
+                    circlePointAtBearing(boat, geometry.center, geometry.radiusM, b)
+                }
+            }
+
+            is MarkerGeometry.Corridor -> {
+                val halfW = geometry.widthM / 2.0
+                val points = mutableListOf<LatLng>()
+                // P1 end-cap disc: 8 samples (45° spacing)
+                for (i in 0 until 8) {
+                    val b = i * 45.0
+                    val pt = circlePointAtBearing(boat, geometry.p1, halfW, b)
+                    if (pt != null) points.add(pt)
+                }
+                // P2 end-cap disc: 8 samples
+                for (i in 0 until 8) {
+                    val b = i * 45.0
+                    val pt = circlePointAtBearing(boat, geometry.p2, halfW, b)
+                    if (pt != null) points.add(pt)
+                }
+                // Edge lines: 5 samples per edge (25% spacing)
+                val segBearing = SpatialOperations.initialBearing(geometry.p1, geometry.p2)
+                for (sign in listOf(1.0, -1.0)) {
+                    val perpBearing = (segBearing + sign * 90.0).let { (it % 360 + 360) % 360 }
+                    for (t in listOf(0.0, 0.25, 0.5, 0.75, 1.0)) {
+                        val midLat = geometry.p1.latitude + (geometry.p2.latitude - geometry.p1.latitude) * t
+                        val midLon = geometry.p1.longitude + (geometry.p2.longitude - geometry.p1.longitude) * t
+                        points.add(SpatialOperations.pointAlongBearing(midLat, midLon, perpBearing, halfW))
+                    }
+                }
+                points
             }
         }
     }
@@ -462,274 +550,16 @@ object MarkerMatcher {
     }
 
     // ─────────────────────────────────────────────────────────────────────
-    // View cone computation (geometry-specific)
+    // Circle boundary point (ray-circle intersection, inlined)
     // ─────────────────────────────────────────────────────────────────────
 
-    /** Returns 1 or 2 non-wrapping view cones from [boat] to [geometry]. */
-    private fun viewCones(boat: LatLng, geometry: MarkerGeometry): List<ViewCone> {
-        return when (geometry) {
-            is MarkerGeometry.Pin -> {
-                val bearing = SpatialOperations.initialBearing(boat, geometry.position)
-                listOf(pointCone(boat, geometry.position, bearing))
-            }
-            is MarkerGeometry.Circle -> {
-                val dist = SpatialOperations.haversine(boat, geometry.center)
-                val bearing = SpatialOperations.initialBearing(boat, geometry.center)
-                val halfAngle = if (dist <= geometry.radiusM) 180.0
-                    else Math.toDegrees(asin((geometry.radiusM / dist).coerceIn(-1.0, 1.0)))
-                val rawStart = bearing - halfAngle
-                val rawEnd = bearing + halfAngle
-                val maxDist = SpatialOperations.haversine(boat, geometry.center) + geometry.radiusM
-                splitWrappingCone(boat, rawStart, rawEnd, maxDist) { b ->
-                    circleDistanceAtBearing(boat, geometry.center, geometry.radiusM, b)
-                }
-            }
-            is MarkerGeometry.Corridor -> {
-                val halfW = geometry.widthM / 2.0
-                // Compute bearings to all extreme points of the corridor silhouette
-                val extremes = mutableListOf<Double>()
-                // P1 disc
-                val bP1 = SpatialOperations.initialBearing(boat, geometry.p1)
-                val dP1 = SpatialOperations.haversine(boat, geometry.p1)
-                val aP1 = if (dP1 <= halfW) 180.0
-                    else Math.toDegrees(asin((halfW / dP1).coerceIn(-1.0, 1.0)))
-                extremes.add(bP1 - aP1); extremes.add(bP1 + aP1)
-                // P2 disc
-                val bP2 = SpatialOperations.initialBearing(boat, geometry.p2)
-                val dP2 = SpatialOperations.haversine(boat, geometry.p2)
-                val aP2 = if (dP2 <= halfW) 180.0
-                    else Math.toDegrees(asin((halfW / dP2).coerceIn(-1.0, 1.0)))
-                extremes.add(bP2 - aP2); extremes.add(bP2 + aP2)
-                // Perpendicular offsets for rectangular edges
-                val segBearing = SpatialOperations.initialBearing(geometry.p1, geometry.p2)
-                val perpBearing1 = (segBearing + 90.0) % 360.0
-                val perpBearing2 = (segBearing - 90.0).let { if (it < 0) it + 360 else it }
-                for (pt in listOf(geometry.p1, geometry.p2)) {
-                    for (perp in listOf(perpBearing1, perpBearing2)) {
-                        val offset = SpatialOperations.pointAlongBearing(
-                            pt.latitude, pt.longitude, perp, halfW)
-                        extremes.add(SpatialOperations.initialBearing(boat, offset))
-                    }
-                }
-                // Normalize all bearings to [0, 360)
-                val norm = extremes.map { (it % 360 + 360) % 360 }
-                val minB = norm.min()
-                val maxB = norm.max()
-                val maxDist = maxOf(
-                    SpatialOperations.haversine(boat, geometry.p1),
-                    SpatialOperations.haversine(boat, geometry.p2),
-                    SpatialOperations.pointToSegmentDistance(boat, geometry.p1, geometry.p2)
-                ) + halfW
-                splitWrappingCone(boat, minB, maxB, maxDist) { b ->
-                    corridorDistanceAtBearing(boat, geometry.p1, geometry.p2, halfW, b)
-                }
-            }
-        }
-    }
-
-    /** Cone for a single point (Pin). */
-    private fun pointCone(boat: LatLng, point: LatLng, bearing: Double): ViewCone {
-        val dist = SpatialOperations.haversine(boat, point)
-        val margin = dist * 0.1 + 50.0  // small bbox around the point
-        val degPerMeterLat = 1.0 / (SpatialOperations.EARTH_RADIUS_M * PI / 180.0)
-        val degPerMeterLon = degPerMeterLat / cos(Math.toRadians(boat.latitude))
-        val dLat = margin * degPerMeterLat
-        val dLon = margin * degPerMeterLon
-        val bbox = BBox(
-            minOf(boat.latitude, point.latitude) - dLat,
-            maxOf(boat.latitude, point.latitude) + dLat,
-            minOf(boat.longitude, point.longitude) - dLon,
-            maxOf(boat.longitude, point.longitude) + dLon
-        )
-        return ViewCone(AngularInterval(bearing, bearing), bbox) { dist }
-    }
-
     /**
-     * Splits a raw [start, end] bearing range into 1 or 2 non-wrapping cones.
-     * If the range wraps across 0°, returns two cones: [start, 360] and [0, end].
+     * The point on the circle boundary where the ray from [boat] at [bearing]
+     * first intersects. Returns null if the ray misses the circle.
      */
-    private fun splitWrappingCone(
-        boat: LatLng, rawStart: Double, rawEnd: Double,
-        maxDist: Double,
-        zoneDistFn: (Double) -> Double
-    ): List<ViewCone> {
-        val start = (rawStart % 360 + 360) % 360
-        val end = (rawEnd % 360 + 360) % 360
-
-        if (start <= end) {
-            return listOf(buildCone(boat, start, end, maxDist, zoneDistFn))
-        }
-        // Wraps: split into [start, 360] and [0, end]
-        return listOf(
-            buildCone(boat, start, 360.0, maxDist, zoneDistFn),
-            buildCone(boat, 0.0, end, maxDist, zoneDistFn)
-        )
-    }
-
-    private fun buildCone(
-        boat: LatLng, start: Double, end: Double,
-        maxDist: Double,
-        zoneDistFn: (Double) -> Double
-    ): ViewCone {
-        val degPerMeterLat = 1.0 / (SpatialOperations.EARTH_RADIUS_M * PI / 180.0)
-        val degPerMeterLon = degPerMeterLat / cos(Math.toRadians(boat.latitude))
-        val paddedDist = maxDist + 100.0
-        val margin = paddedDist * degPerMeterLat
-        val marginLon = paddedDist * degPerMeterLon
-        val bbox = BBox(
-            boat.latitude - margin, boat.latitude + margin,
-            boat.longitude - marginLon, boat.longitude + marginLon
-        )
-        return ViewCone(AngularInterval(start, end), bbox, zoneDistFn)
-    }
-
-    /**
-     * Distance from [boat] to the corridor boundary at the given [bearing] (0° = north).
-     * Intersects the ray with the two end-cap circles and the two offset edge lines,
-     * returning the minimum positive intersection distance.
-     */
-    private fun corridorDistanceAtBearing(
-        boat: LatLng, p1: LatLng, p2: LatLng, halfW: Double, bearing: Double,
-        debug: Boolean = false
-    ): Double {
-        // Local planar projection centred at the midpoint of boat + corridor endpoints
-        val midLat = (boat.latitude + p1.latitude + p2.latitude) / 3.0
-        val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
-        val mPerDegLon = mPerDegLat * cos(Math.toRadians(midLat))
-
-        fun toLocal(p: LatLng): Pair<Double, Double> =
-            Pair(p.longitude * mPerDegLon, p.latitude * mPerDegLat)
-
-        val (ox, oy) = toLocal(boat)
-        val rad = Math.toRadians(bearing)
-        val dx = sin(rad)   // east component
-        val dy = cos(rad)   // north component
-
-        var minDist = Double.MAX_VALUE
-
-        // ── End-cap circles (P1, P2) ──
-        for (center in listOf(p1, p2)) {
-            val (cx, cy) = toLocal(center)
-            val vx = ox - cx
-            val vy = oy - cy
-            // |(ox,oy) + t*(dx,dy) - (cx,cy)| = halfW
-            // (vx + t*dx)² + (vy + t*dy)² = halfW²
-            // t² + 2t*(vx*dx + vy*dy) + |v|² - halfW² = 0
-            val a = dx * dx + dy * dy  // = 1 (unit direction)
-            val b = 2.0 * (vx * dx + vy * dy)
-            val c = vx * vx + vy * vy - halfW * halfW
-            val disc = b * b - 4.0 * a * c
-            if (disc >= 0.0) {
-                val sqrtDisc = sqrt(disc)
-                val t1 = (-b - sqrtDisc) / (2.0 * a)
-                val t2 = (-b + sqrtDisc) / (2.0 * a)
-                if (t1 > 0.0) minDist = minOf(minDist, t1)
-                else if (t2 > 0.0) minDist = minOf(minDist, t2)
-            }
-        }
-
-        // ── Offset edge lines ──
-        val (p1x, p1y) = toLocal(p1)
-        val (p2x, p2y) = toLocal(p2)
-        val segDx = p2x - p1x
-        val segDy = p2y - p1y
-        val segLen = sqrt(segDx * segDx + segDy * segDy)
-        if (segLen > 0.0) {
-            // Perpendicular unit vector (rotate segDir 90° CW)
-            val perpDx = -segDy / segLen
-            val perpDy = segDx / segLen
-
-            for (sign in listOf(1.0, -1.0)) {
-                val offsetX = sign * halfW * perpDx
-                val offsetY = sign * halfW * perpDy
-                // Edge line: A = p1+offset, B = p2+offset
-                val ax = p1x + offsetX; val ay = p1y + offsetY
-                val bx = p2x + offsetX; val by = p2y + offsetY
-                val edgeDx = bx - ax; val edgeDy = by - ay
-
-                // Ray: O + t*D = A + s*edgeD
-                // Solve: t*dx - s*edgeDx = ax - ox
-                //        t*dy - s*edgeDy = ay - oy
-                val det = dx * (-edgeDy) - dy * (-edgeDx)
-                if (abs(det) < 1e-12) continue  // parallel
-                val t = ((ax - ox) * (-edgeDy) - (ay - oy) * (-edgeDx)) / det
-                val s = (dx * (ay - oy) - dy * (ax - ox)) / det
-                if (t > 0.0 && s >= 0.0 && s <= 1.0) {
-                    minDist = minOf(minDist, t)
-                }
-            }
-        }
-
-        val result = if (minDist == Double.MAX_VALUE) {
-            // Ray missed all components — use far-boundary distance as safe upper bound
-            maxOf(
-                SpatialOperations.haversine(boat, p1),
-                SpatialOperations.haversine(boat, p2),
-                SpatialOperations.pointToSegmentDistance(boat, p1, p2)
-            ) + halfW
-        } else minDist
-        return result
-    }
-
-    /**
-     * Intersection point of the ray from [boat] at [bearing] with the corridor's
-     * offset edge lines. Returns null if the ray misses both edges or hits outside
-     * segment bounds.
-     */
-    private fun corridorEdgePointAtBearing(
-        boat: LatLng, p1: LatLng, p2: LatLng, halfW: Double, bearing: Double
-    ): LatLng? {
-        val midLat = (boat.latitude + p1.latitude + p2.latitude) / 3.0
-        val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
-        val mPerDegLon = mPerDegLat * cos(Math.toRadians(midLat))
-
-        fun toLocal(p: LatLng): Pair<Double, Double> =
-            Pair(p.longitude * mPerDegLon, p.latitude * mPerDegLat)
-
-        val (ox, oy) = toLocal(boat)
-        val rad = Math.toRadians(bearing)
-        val dx = sin(rad)
-        val dy = cos(rad)
-
-        val (p1x, p1y) = toLocal(p1)
-        val (p2x, p2y) = toLocal(p2)
-        val segDx = p2x - p1x
-        val segDy = p2y - p1y
-        val segLen = sqrt(segDx * segDx + segDy * segDy)
-        if (segLen == 0.0) return null
-
-        val perpDx = -segDy / segLen
-        val perpDy = segDx / segLen
-        var bestT = Double.MAX_VALUE
-
-        for (sign in listOf(1.0, -1.0)) {
-            val offsetX = sign * halfW * perpDx
-            val offsetY = sign * halfW * perpDy
-            val ax = p1x + offsetX; val ay = p1y + offsetY
-            val bx = p2x + offsetX; val by = p2y + offsetY
-            val edgeDx = bx - ax; val edgeDy = by - ay
-
-            val det = dx * (-edgeDy) - dy * (-edgeDx)
-            if (abs(det) < 1e-12) continue
-            val t = ((ax - ox) * (-edgeDy) - (ay - oy) * (-edgeDx)) / det
-            val s = (dx * (ay - oy) - dy * (ax - ox)) / det
-            if (t > 0.0 && s >= 0.0 && s <= 1.0 && t < bestT) {
-                bestT = t
-            }
-        }
-
-        if (bestT == Double.MAX_VALUE) return null
-        return SpatialOperations.pointAlongBearing(boat.latitude, boat.longitude, bearing, bestT)
-    }
-
-    /**
-     * Distance from [boat] to the boundary of a circle (center, radius) along
-     * the ray at the given [bearing] (0° = north from boat). Uses ray-circle
-     * intersection — finds the entry point where the ray first hits the circle.
-     */
-    private fun circleDistanceAtBearing(
+    private fun circlePointAtBearing(
         boat: LatLng, center: LatLng, radiusM: Double, bearing: Double
-    ): Double {
+    ): LatLng? {
         val midLat = (boat.latitude + center.latitude) / 2.0
         val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
         val mPerDegLon = mPerDegLat * cos(Math.toRadians(midLat))
@@ -750,182 +580,15 @@ object MarkerMatcher {
         val c = vx * vx + vy * vy - radiusM * radiusM
         val disc = b * b - 4.0 * a * c
 
-        if (disc < 0.0) return Double.MAX_VALUE
+        if (disc < 0.0) return null
         val sqrtDisc = sqrt(disc)
         val t1 = (-b - sqrtDisc) / (2.0 * a)
         val t2 = (-b + sqrtDisc) / (2.0 * a)
-        return when {
+        val t = when {
             t1 > 0.0 -> t1
             t2 > 0.0 -> t2
-            else -> Double.MAX_VALUE
+            else -> return null
         }
-    }
-
-    /**
-     * The point on the circle boundary where the ray from [boat] at [bearing]
-     * first intersects. Returns null if the ray misses the circle.
-     */
-    private fun circlePointAtBearing(
-        boat: LatLng, center: LatLng, radiusM: Double, bearing: Double
-    ): LatLng? {
-        val t = circleDistanceAtBearing(boat, center, radiusM, bearing)
-        if (t == Double.MAX_VALUE) return null
         return SpatialOperations.pointAlongBearing(boat.latitude, boat.longitude, bearing, t)
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Angular shadow projection
-    // ─────────────────────────────────────────────────────────────────────
-
-    /** Computes the angular shadow (bearing range) a coastline edge casts from [boat]. */
-    private fun angularShadow(
-        boat: LatLng,
-        seg: CoastlineSpatialIndex.BboxSegment,
-        cone: ViewCone,
-        debug: Boolean = false
-    ): AngularInterval? {
-        val bA = SpatialOperations.initialBearing(boat, seg.a).let { (it % 360 + 360) % 360 }
-        val bB = SpatialOperations.initialBearing(boat, seg.b).let { (it % 360 + 360) % 360 }
-        val interval = AngularInterval(minOf(bA, bB), maxOf(bA, bB))
-
-        // Depth check: is this edge between boat and zone boundary?
-        // Use zoneDist at the CLAMPED interval midpoint — the bearings where this
-        // segment would actually block. Raw interval edges may be at bearings where
-        // the zone is far away, causing false shadows.
-        val clamped = interval.clampTo(cone.interval) ?: return null
-        val segDist = SpatialOperations.pointToSegmentDistance(boat, seg.a, seg.b)
-        val zoneDist = cone.zoneDistanceAt(clamped.mid)
-        if (debug) {
-            Log.d("WIA", "      sd=${"%.0f".format(segDist)} zd=${"%.0f".format(zoneDist)} → shadow [${"%.1f".format(clamped.start)}°,${"%.1f".format(clamped.end)}°]")
-        }
-        if (segDist >= zoneDist) return null  // behind zone → no shadow
-
-        return clamped
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Interval merge
-    // ─────────────────────────────────────────────────────────────────────
-
-    /** Merges overlapping angular intervals (sort by start, sweep). */
-    private fun mergeOverlapping(intervals: List<AngularInterval>): List<AngularInterval> {
-        if (intervals.isEmpty()) return emptyList()
-        val sorted = intervals.sortedBy { it.start }
-        val merged = mutableListOf(sorted.first())
-        for (i in 1 until sorted.size) {
-            val cur = sorted[i]
-            val last = merged.last()
-            if (cur.start <= last.end) {
-                merged[merged.lastIndex] = AngularInterval(last.start, maxOf(last.end, cur.end))
-            } else {
-                merged.add(cur)
-            }
-        }
-        return merged
-    }
-
-    /** Returns the unblocked angular intervals (complement of [blocked] within [cone]). */
-    private fun mergeAndComplement(
-        blocked: List<AngularInterval>,
-        cone: AngularInterval
-    ): List<AngularInterval> {
-        if (blocked.isEmpty()) return listOf(cone)
-        val merged = mergeOverlapping(blocked)
-        val unblocked = mutableListOf<AngularInterval>()
-        var cursor = cone.start
-        for (b in merged) {
-            if (cursor < b.start) unblocked.add(AngularInterval(cursor, b.start))
-            cursor = maxOf(cursor, b.end)
-        }
-        if (cursor < cone.end) unblocked.add(AngularInterval(cursor, cone.end))
-        return unblocked
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Best boundary point (geometry-specific)
-    // ─────────────────────────────────────────────────────────────────────
-
-    /**
-     * Finds the closest point on [geometry]'s boundary within the given
-     * unblocked angular intervals.
-     */
-    private fun bestBoundaryPoint(
-        boat: LatLng,
-        geometry: MarkerGeometry,
-        unblocked: List<AngularInterval>
-    ): LatLng? {
-        if (unblocked.isEmpty()) return null
-        return when (geometry) {
-            is MarkerGeometry.Pin -> {
-                // Pin only matches if its bearing falls within an unblocked interval
-                val bearingToPin = SpatialOperations.initialBearing(boat, geometry.position)
-                    .let { (it % 360 + 360) % 360 }
-                val isUnblocked = unblocked.any { bearingToPin in it.start..it.end }
-                if (isUnblocked) geometry.position else null
-            }
-            is MarkerGeometry.Circle -> {
-                var best: LatLng? = null
-                var bestDist = Double.MAX_VALUE
-                val bearingToCenter = SpatialOperations.initialBearing(boat, geometry.center)
-                    .let { (it % 360 + 360) % 360 }
-                for (interval in unblocked) {
-                    val clamped = bearingToCenter.coerceIn(interval.start, interval.end)
-                    val pt = circlePointAtBearing(boat, geometry.center, geometry.radiusM, clamped)
-                    if (pt != null) {
-                        val d = SpatialOperations.haversine(boat, pt)
-                        if (d < bestDist) { best = pt; bestDist = d }
-                    }
-                }
-                best
-            }
-            is MarkerGeometry.Corridor -> {
-                val halfW = geometry.widthM / 2.0
-                val segBearing = SpatialOperations.initialBearing(geometry.p1, geometry.p2)
-                val perpB = (segBearing + 90.0) % 360.0
-                var best: LatLng? = null
-                var bestDist = Double.MAX_VALUE
-
-                Log.d("WIA", "    corridor bestBP: unblocked=${unblocked.size} halfW=$halfW")
-                for (interval in unblocked) {
-                    // Test end-cap P1 (same ray-circle pattern as Circle)
-                    val bToP1 = SpatialOperations.initialBearing(boat, geometry.p1)
-                        .let { (it % 360 + 360) % 360 }
-                    val clampedP1 = bToP1.coerceIn(interval.start, interval.end)
-                    val ptP1 = circlePointAtBearing(boat, geometry.p1, halfW, clampedP1)
-                    Log.d("WIA", "    P1: bToP1=$bToP1 clamped=$clampedP1 pt=${ptP1 != null} dP1=${SpatialOperations.haversine(boat, geometry.p1)}")
-                    if (ptP1 != null) {
-                        val d = SpatialOperations.haversine(boat, ptP1)
-                        Log.d("WIA", "    P1 dist=$d")
-                        if (d < bestDist) { best = ptP1; bestDist = d }
-                    }
-                    // Test end-cap P2
-                    val bToP2 = SpatialOperations.initialBearing(boat, geometry.p2)
-                        .let { (it % 360 + 360) % 360 }
-                    val clampedP2 = bToP2.coerceIn(interval.start, interval.end)
-                    val ptP2 = circlePointAtBearing(boat, geometry.p2, halfW, clampedP2)
-                    Log.d("WIA", "    P2: bToP2=$bToP2 clamped=$clampedP2 pt=${ptP2 != null} dP2=${SpatialOperations.haversine(boat, geometry.p2)}")
-                    if (ptP2 != null) {
-                        val d = SpatialOperations.haversine(boat, ptP2)
-                        Log.d("WIA", "    P2 dist=$d")
-                        if (d < bestDist) { best = ptP2; bestDist = d }
-                    }
-                    // Test edge lines: sample N bearings across the interval
-                    val edgeSamples = 5
-                    for (si in 0 until edgeSamples) {
-                        val t = si.toDouble() / (edgeSamples - 1)
-                        val sampleBearing = interval.start + (interval.end - interval.start) * t
-                        val ptEdge = corridorEdgePointAtBearing(
-                            boat, geometry.p1, geometry.p2, halfW, sampleBearing)
-                        if (ptEdge != null) {
-                            val d = SpatialOperations.haversine(boat, ptEdge)
-                            if (d < bestDist) { best = ptEdge; bestDist = d }
-                        }
-                    }
-                    Log.d("WIA", "    edge samples=$edgeSamples bestDist=$bestDist")
-                }
-                Log.d("WIA", "    corridor result: bestDist=$bestDist")
-                best
-            }
-        }
     }
 }
