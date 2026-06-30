@@ -99,6 +99,10 @@ object AppConfig {
     var markerProximityZoneMultiplier: Double = 3.0
         private set
 
+    /** Enable visual whereAmI debug rays on the map. Set via `marker.debug.rays.enabled` in maro.properties. */
+    var markerDebugRaysEnabled: Boolean = false
+        private set
+
     // ── Marker sort scoring ─────────────────────────────────────────
     /** Pin type weight. Lower = higher priority. */
     var markerSortTypeWeightPin: Double = 0.5
@@ -505,6 +509,10 @@ object AppConfig {
             }
             props.getProperty("marker.proximity.zone_multiplier")?.toDoubleOrNull()?.let {
                 markerProximityZoneMultiplier = it.coerceIn(0.0, 20.0)
+            }
+            // ── Marker debug rays ───────────────────────────────────────
+            props.getProperty("marker.debug.rays.enabled")?.toBooleanStrictOrNull()?.let {
+                markerDebugRaysEnabled = it
             }
             // ── Marker sort scoring ──
             props.getProperty("marker.sort.typeWeight.Pin")?.toDoubleOrNull()?.let {

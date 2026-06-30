@@ -504,7 +504,9 @@ fun MapScreen(
     // Wire coastline spatial index into MarkersViewModel for land-blocking when ready
     if (coastlineReady) {
         markersViewModel.coastlineIndex = viewModel.spatialIndex
-        MarkerMatcher.debugger = VisualWhereAmIDebugger()
+        if (AppConfig.markerDebugRaysEnabled) {
+            MarkerMatcher.debugger = VisualWhereAmIDebugger()
+        }
     }
 
     // ── Raster cache reads (no lazy auto-trigger; only settings button triggers generation) ──
