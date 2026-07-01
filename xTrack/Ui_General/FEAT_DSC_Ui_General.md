@@ -2,8 +2,8 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-07-01 22:25
-active_subfeature: list sort
+modified: 2026-07-01 22:30
+active_subfeature: list extra sort
 ---
 
 # Feature: Ui_General
@@ -112,7 +112,7 @@ Wrap drawer menu items (Position Source toggle, Manage Tracks link) in card back
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt`
 
-### list sort  [ ]
+### list sort  [x]
 
 Normalize list rendering across tracks and markers by extracting a shared `ListOverlayScaffold<T : ListableItem>` composable. Both [`TrackHistoryOverlay`](app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt) and [`MarkerManagementOverlay`](app/src/main/java/ykws/android/maro/ui/map/MarkerManagementOverlay.kt) become thin consumers providing only card content slots + accent color extraction.
 
@@ -258,6 +258,29 @@ Scaffold also exposes `onDismiss: () -> Unit` for overlay close. All inter-compo
 | 4 | **Accent color staleness** — track accent colors depend on sorted list position. Must recompute on sort change. | Include sort key in `remember` dependency list for batch lambda. |
 | 5 | **OverlayLayer wiring** — reducing to single `onAction` callback changes parameter lists in MapScreen → OverlayLayer → overlay chain. | Mechanical update across 3 files; no compile-time safety net. Verify delete + export + tap/edit after migration. |
 | 6 | **Live items not swipeable** — scaffold must skip `SwipeableItemCard` wrapper for items with `isLive = true`. | Explicit `if (!item.isLive) SwipeableItemCard(...) else liveCardContent(item)`. |
+
+#### Implemented
+- [`ListOverlayScaffold.kt`](app/src/main/java/ykws/android/maro/ui/map/ListOverlayScaffold.kt) — generic scaffold composable: sort dropdown, swipe-to-delete, snackbar, overlay shell
+- [`ListAction.kt`](app/src/main/java/ykws/android/maro/ui/map/ListAction.kt) — sealed class: 8 variants (SoftDelete, UndoDelete, PermanentDelete, SelectItem, EditItem, ExportGpx, RefreshList, RefreshLayer)
+- [`ListSortOrder.kt`](app/src/main/java/ykws/android/maro/ui/map/ListSortOrder.kt) — `ListSortField` (TITLE/CREATED/UPDATED) + `ListSortState` (field + descending + pinnedGrouped)
+- Sort dropdown: field selector with direction arrow, "Group pinned items" toggle with separator
+- Deferred batch delete for both lists — scaffold owns `pendingDeletes`
+- [`TrackHistoryOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt) + [`MarkerManagementOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/MarkerManagementOverlay.kt) — thinned to scaffold consumers
+- [`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt) — map polylines refresh on sort change via `mapView?.invalidate()`
+- Animations: platform `spring()` defaults, snackbar `tween(250)`
+- BUILD SUCCESSFUL
+
+### list extra sort  [ ]
+
+Extend `ListSortField` to support per-type sort fields (e.g., track length, marker distance). Scaffold should accept a `customSortFields: List<ListSortField>` parameter per consumer.
+
+#### Todos
+
+#### Rules
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/ListOverlayScaffold.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/ListSortOrder.kt`
 
 ### track list colors  [ ]
 

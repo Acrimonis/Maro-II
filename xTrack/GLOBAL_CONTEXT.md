@@ -2,11 +2,11 @@
 
 ## Active Session Pointers
 - **Active Feature:** Ui_General
-- **Active Subfeature:** list sort
-- **Last Updated:** 2026-07-01 22:25
-- **Last Bake:** 2026-07-01 22:25 (Ui_General — list sort: implemented — ListOverlayScaffold, ListAction (8 variants), ListSortState field+direction+pinnedGrouped, sort dropdown, deferred batch delete, RefreshList+RefreshLayer, BUILD SUCCESSFUL)
+- **Active Subfeature:** list extra sort
+- **Last Updated:** 2026-07-01 22:30
+- **Last Bake:** 2026-07-01 22:30 (Ui_General — list sort: implemented — ListOverlayScaffold, ListAction (8 variants), ListSortState field+direction+pinnedGrouped, sort dropdown, deferred batch delete, RefreshList+RefreshLayer, BUILD SUCCESSFUL; next: list extra sort — per-type sort fields)
 - **Last Bake:** 2026-07-01 17:05 (BoatTrace — boat-markers: full implementation — BoatMarker data model, idle threshold timer, auto-marker 🕐 pins, track snapshots, history rendering with transparency)
-- **Branch:** featurer/list-sort
+- **Branch:** feature/list-extra-sort
 
 ## Routing Map
 | Keyword | Feature File |
