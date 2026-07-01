@@ -2,7 +2,7 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-07-01 22:30
+modified: 2026-07-01 22:52
 active_subfeature: list extra sort
 ---
 
@@ -272,15 +272,33 @@ Scaffold also exposes `onDismiss: () -> Unit` for overlay close. All inter-compo
 
 ### list extra sort  [ ]
 
-Extend `ListSortField` to support per-type sort fields (e.g., track length, marker distance). Scaffold should accept a `customSortFields: List<ListSortField>` parameter per consumer.
+Extend `ListSortField` to support per-type sort fields via `CustomSortField` data class + `customFieldKey: String?` in `ListSortState`. Track fields: Distance (`distanceNm`), Total Time (computed), Moving Time (computed). Marker fields: Origin (`origin`). Serialization backward-compatible (`"UPDATED:true:false:distanceNm"`).
+
+#### Plan
+- [`FEAT_PLN_Ui_General_list-extra-sort.md`](xTrack/Ui_General/FEAT_PLN_Ui_General_list-extra-sort.md) — full design: CustomSortField approach, ListSortState extension, SortControl dropdown UX, ViewModel comparators, consumer wiring, 7-file implementation order
 
 #### Todos
+- [ ] Extend `ListSortState` (+`customFieldKey`, updated `parse`/`format`)
+- [ ] Add `CustomSortField` data class
+- [ ] Extend `SortControl` + `ListOverlayScaffold` signature
+- [ ] Thread `customSortFields` through `OverlayLayer` → overlays
+- [ ] Extend `TrackViewModel.sortSummaries()` with custom comparators
+- [ ] Extend `MarkersViewModel.sortMarkers()` with custom comparators
 
 #### Rules
+- `customFieldKey: String?` — null = common field active; non-null = custom field active
+- `field` is only authoritative when `customFieldKey == null`
+- `isLive` pre-sort stays in scaffold, NOT in ViewModel comparators
+- Serialization: 3-part string = backward compat; 4-part = custom field
 
 #### Key Files
-- `app/src/main/java/ykws/android/maro/ui/map/ListOverlayScaffold.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/ListSortOrder.kt`
+- `app/src/main/java/ykws/android/maro/data/model/ListSortOrder.kt` — `CustomSortField`, `ListSortState` extension
+- `app/src/main/java/ykws/android/maro/ui/components/ListOverlayScaffold.kt` — `SortControl`, `ListOverlayScaffold` signature
+- `app/src/main/java/ykws/android/maro/data/track/TrackViewModel.kt` — `sortSummaries()` comparators
+- `app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt` — `sortMarkers()` comparators
+- `app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt` — consumer wiring
+- `app/src/main/java/ykws/android/maro/ui/map/MarkerManagementOverlay.kt` — consumer wiring
+- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt` — parameter threading
 
 ### track list colors  [ ]
 
@@ -393,15 +411,12 @@ Track list (TrackHistoryOverlay) color review — ensure track cards, stats, lab
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — toast Surface, LoadingOverlay, ErrorOverlay
 
-## Todos
-- [x] Rename "Track List..." → "Manage Tracks..." in MenuDrawerOverlay.kt:212
-- [x] Add point count (`TrackSummary.pointCount`) and display "xxx pts" left of pin/share icons in TrackHistoryOverlay track cards
-
 ## Rules
 
 ## Key Files
 
 ## Docs
+- `docs/ui-lists-guidelines.md` — ListOverlayScaffold API, swipe-to-delete state machine, sort UI, pending-delete lifecycle
 - `xTrack/Ui_General/FEAT_PLN_Ui_General_portrait-bottom-space.md` — analysis of portrait bottom space and status bar immersion
 - `plans/btn-color-harmonization.md` — button color harmonization: match map control buttons to dashboard dark theme
 - `docs/color-scheme.md` — canonical reference for all colour tokens in the app

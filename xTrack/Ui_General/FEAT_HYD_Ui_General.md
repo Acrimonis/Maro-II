@@ -1,16 +1,15 @@
 # Hydration: Ui_General
 
-**Session:** list sort subfeature — implemented. BUILD SUCCESSFUL. New branch `feature/list-extra-sort` for per-type sort fields extension.
+**Session:** list extra sort — plan reviewed and updated. `CustomSortField` approach confirmed. Track fields reduced to 3 (Distance/Total Time/Moving Time), marker fields to 1 (Origin). `colorIndex` excluded (categorical, not ordinal). `idleDurationSec` and `isLive` fallback removed from ViewModel comparator. Ready for implementation.
 
 **State:**
 - `list sort [x]` — implemented (see FEAT_DSC ## Implemented)
-- `list extra sort [ ]` — next: extend `ListSortField` for per-type sort fields (track length, marker distance)
+- `list extra sort [ ]` — plan: `CustomSortField` + `customFieldKey`, 3 track fields + 1 marker field, 7 files, backward-compat serialization
 
 **Key Files:**
-- `ListOverlayScaffold.kt`, `ListAction.kt`, `ListSortOrder.kt`, `ListableItem.kt`, `Track.kt`, `SettingsManager.kt`, `TrackViewModel.kt`, `MarkersViewModel.kt`, `TrackHistoryOverlay.kt`, `MarkerManagementOverlay.kt`, `OverlayLayer.kt`, `MapScreen.kt`
+- `ListOverlayScaffold.kt`, `ListSortOrder.kt`, `TrackViewModel.kt`, `MarkersViewModel.kt`, `TrackHistoryOverlay.kt`, `MarkerManagementOverlay.kt`, `OverlayLayer.kt`
 
-**Leftover:**
-- Dead code in MarkersViewModel: pendingDeletes, softDeleteMarker, undoDeleteMarker, commitPendingDeletes
-- docs/ui-lists-guidelines.md not yet created
+**Plan:**
+- `xTrack/Ui_General/FEAT_PLN_Ui_General_list-extra-sort.md`
 
-**Last Bake:** 2026-07-01 22:30 UTC
+**Last Bake:** 2026-07-01 22:52 UTC
