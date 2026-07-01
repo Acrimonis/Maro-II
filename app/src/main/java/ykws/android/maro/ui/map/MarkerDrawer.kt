@@ -199,17 +199,6 @@ private fun ViewingContent(
                         )
                     }
                     IconButton(
-                        onClick = { viewModel.togglePin(marker.id) },
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (marker.pinned) Icons.Filled.LocationOn else Icons.Outlined.LocationOff,
-                            contentDescription = if (marker.pinned) "Unpin" else "Pin",
-                            tint = ButtonColors.icon,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                    IconButton(
                         onClick = {
                             viewModel.closeDrawer()
                             viewModel.startWizard(marker.id)
@@ -497,7 +486,7 @@ private fun buildMatchText(match: WhereAmIMatch, boatPosition: LatLng?): String 
     return when (match) {
         is WhereAmIMatch.ZoneMatch -> {
             val icon = match.marker.icon ?: MarkerGeometry.iconFor(match.marker.geometry)
-            "$icon ${match.marker.name}"
+            "${match.marker.name} · $icon"
         }
         is WhereAmIMatch.LineOfSightMatch -> {
             val icon = match.marker.icon ?: MarkerGeometry.iconFor(match.marker.geometry)
@@ -507,9 +496,9 @@ private fun buildMatchText(match: WhereAmIMatch, boatPosition: LatLng?): String 
                 val dist = geometricDistanceToZone(boatPosition, match.marker.geometry)
                 val distStr = if (dist < 1000.0) "${dist.toLong()} m"
                     else "%.1f km".format(dist / 1000.0)
-                "$icon $name · $distStr"
+                "$name · $icon · $distStr"
             } else {
-                "$icon $name"
+                "$name · $icon"
             }
         }
     }
