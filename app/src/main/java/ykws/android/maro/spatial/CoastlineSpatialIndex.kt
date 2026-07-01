@@ -131,6 +131,65 @@ class CoastlineSpatialIndex(
     /** `true` when the index has coastline data to query. */
     val hasData: Boolean get() = segmentRefs.isNotEmpty()
 
+    // ── Coastline gap audit ──────────────────────────────────────────────────
+
+    /**
+     * Logs statistics about gaps between consecutive edges in the flattened
+     * [segmentRefs] list. A "gap" is the haversine distance between the end of
+     * edge N (B) and the start of edge N+1 (A).
+     *
+     * Within a polyline these should be near-zero (consecutive vertices).
+     * Between polylines they represent the discontinuity between OSM ways —
+     * these are the gaps that a direct [segmentIntersectsLand] ray could
+     * slip through, which [segmentIntersectsLandStepped] catches with its
+     * per-step [isWater] checks.
+     *
+     * Callsite: [CoastlineRepository.logCoastlineTopology] (zone300 build).
+     */
+    fun logGapStats() {
+        if (segmentRefs.size < 2) return
+        val gapsWithin = mutableListOf<Double>()
+        val gapsBetween = mutableListOf<Double>()
+        for (i in 0 until segmentRefs.size - 1) {
+            val cur = segmentRefs[i]
+            val next = segmentRefs[i + 1]
+            val gap = SpatialOperations.haversine(cur.b, next.a)
+            if (cur.polylineIdx == next.polylineIdx) {
+                gapsWithin.add(gap)
+            } else {
+                gapsBetween.add(gap)
+            }
+        }
+        fun stats(name: String, gaps: List<Double>) {
+            if (gaps.isEmpty()) {
+                android.util.Log.i("Coastline", "Gap audit $name: 0 gaps (single polyline)")
+                return
+            }
+            val sorted = gaps.sorted()
+            val buckets = listOf(0.0, 0.5, 1.0, 5.0, 10.0, 50.0, 100.0, Double.MAX_VALUE)
+            val hist = IntArray(buckets.size - 1)
+            for (g in gaps) {
+                for (b in 0 until buckets.size - 1) {
+                    if (g >= buckets[b] && g < buckets[b + 1]) { hist[b]++; break }
+                }
+            }
+            val histStr = buckets.zipWithNext().mapIndexed { i, (lo, hi) ->
+                val label = if (hi == Double.MAX_VALUE) "≥${lo.toInt()}m" else "${lo.toInt()}-${hi.toInt()}m"
+                "$label:${hist[i]}"
+            }.joinToString(" ")
+            android.util.Log.i("Coastline",
+                "Gap audit $name: ${gaps.size} gaps, " +
+                "min=${"%.2f".format(sorted.first())}m " +
+                "max=${"%.2f".format(sorted.last())}m " +
+                "mean=${"%.2f".format(gaps.average())}m " +
+                "median=${"%.2f".format(sorted[gaps.size / 2])}m " +
+                ">10m=${gaps.count { it > 10.0 }} — $histStr"
+            )
+        }
+        stats("within-polyline", gapsWithin)
+        stats("between-polylines", gapsBetween)
+    }
+
     // ── Constructor (build phase) ────────────────────────────────────────────
 
     init {
@@ -458,7 +517,6 @@ class CoastlineSpatialIndex(
         val cMax = ((segMaxLon - minLon) / cellSizeLon).toInt().coerceIn(0, colCount - 1)
 
         val seen = HashSet<Int>()
-        val GRAZING_M = 10.0
 
         for (r in rMin..rMax) {
             for (c in cMin..cMax) {
@@ -467,59 +525,13 @@ class CoastlineSpatialIndex(
                         if (!seen.add(idx)) continue
                         val ref = segmentRefs[idx]
 
-                        // Skip terminal points (no outgoing edge)
-                        // Terminal check: polylineIdx=0 is mainland, its terminal points
-                        // don't form outgoing edges. For islands, skip edges where either
-                        // vertex is a terminal.
-                        // We approximate: skip if this is the last vertex in its polyline
-                        // and there's no next point (open polyline endpoint).
-
                         if (!SpatialOperations.segmentsIntersect(a, b, ref.a, ref.b)) continue
-
-                        // Grazing tolerance: compute intersection point, check distance
-                        // to both edge vertices
-                        val ip = intersectionPoint(a, b, ref.a, ref.b) ?: continue
-                        val distToA = SpatialOperations.haversine(ip, ref.a)
-                        val distToB = SpatialOperations.haversine(ip, ref.b)
-                        if (distToA > GRAZING_M && distToB > GRAZING_M) {
-                            return true  // land blocks
-                        }
-                        // else: grazing — continue checking other edges
+                        return true  // land blocks
                     }
                 }
             }
         }
         return false
-    }
-
-    /** Intersection point of segments A→B and Q1→Q2, using local planar projection. */
-    private fun intersectionPoint(
-        a: LatLng, b: LatLng,
-        q1: LatLng, q2: LatLng
-    ): LatLng? {
-        val midLat = (a.latitude + b.latitude + q1.latitude + q2.latitude) / 4.0
-        val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
-        val mPerDegLon = mPerDegLat * cos(Math.toRadians(midLat))
-
-        fun toProj(p: LatLng) = Pair(p.longitude * mPerDegLon, p.latitude * mPerDegLat)
-
-        val (ax, ay) = toProj(a)
-        val (bx, by) = toProj(b)
-        val (q1x, q1y) = toProj(q1)
-        val (q2x, q2y) = toProj(q2)
-
-        val rx = bx - ax; val ry = by - ay
-        val sx = q2x - q1x; val sy = q2y - q1y
-
-        val crossRS = rx * sy - ry * sx
-        if (abs(crossRS) < 1e-12) return null
-
-        val qpx = q1x - ax; val qpy = q1y - ay
-        val t = (qpx * sy - qpy * sx) / crossRS
-
-        val ix = ax + t * rx
-        val iy = ay + t * ry
-        return LatLng(iy / mPerDegLat, ix / mPerDegLon)
     }
 
     /**

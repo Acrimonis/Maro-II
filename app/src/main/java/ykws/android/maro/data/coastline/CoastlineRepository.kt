@@ -153,6 +153,7 @@ class CoastlineRepository(
             coastlineData = preloaded
             val index = CoastlineSpatialIndex(preloaded.allSegments)
             spatialIndex = index
+            index.logGapStats()
             if (preferBundled) withContext(ioDispatcher) { writeToCache(regionId, preloaded) }
             _state.value = CoastlineState.Ready(data = preloaded)
             _progress.value = GenerationProgress(
@@ -206,6 +207,7 @@ class CoastlineRepository(
                     "Building band: segments=${base.allSegments.size}, cellM=$cell, refLat=${base.metadata.projectionRefLat}"
                 )
                 logCoastlineTopology(base)
+                index.logGapStats()
                 val band = Zone300Builder(
                     index = index,
                     segments = index.usableSegments,   // cleaned: no degenerate rings / tiny fragments

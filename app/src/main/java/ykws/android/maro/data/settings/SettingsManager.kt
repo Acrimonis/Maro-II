@@ -227,7 +227,9 @@ data class AppSettings(
     /** Douglas-Peucker spatial tolerance (metres). */
     val trackSimplifyEpsilonM: Double = 3.0,
     /** Speed deviation threshold for reinsertion during simplification (knots). */
-    val trackSimplifySpeedDeltaKn: Double = 3.0
+    val trackSimplifySpeedDeltaKn: Double = 3.0,
+    /** Enable WhereAmI debug rays (green/red line-of-sight segments) on the map. */
+    val markerDebugRays: Boolean = false
 ) {
     /** Check whether a [ZoneDisplayCategory] is enabled in the current settings. */
     fun isCategoryVisible(cat: ZoneDisplayCategory): Boolean = when (cat) {
@@ -360,7 +362,8 @@ class SettingsManager(
         trackingColorPinnedTo = prefs.getInt(KEY_TRACKING_COLOR_PINNED_TO, BuildConfig.TRACKING_COLOR_PINNED_TO),
         trackSimplifyEnabled = prefs.getBoolean(KEY_TRACK_SIMPLIFY_ENABLED, true),
         trackSimplifyEpsilonM = prefs.getFloat(KEY_TRACK_SIMPLIFY_EPSILON_M, 3.0f).toDouble(),
-        trackSimplifySpeedDeltaKn = prefs.getFloat(KEY_TRACK_SIMPLIFY_SPEED_DELTA_KN, 3.0f).toDouble()
+        trackSimplifySpeedDeltaKn = prefs.getFloat(KEY_TRACK_SIMPLIFY_SPEED_DELTA_KN, 3.0f).toDouble(),
+        markerDebugRays = prefs.getBoolean(KEY_MARKER_DEBUG_RAYS, false)
     )
 
     /**
@@ -458,6 +461,7 @@ class SettingsManager(
             .putBoolean(KEY_TRACK_SIMPLIFY_ENABLED, updated.trackSimplifyEnabled)
             .putFloat(KEY_TRACK_SIMPLIFY_EPSILON_M, updated.trackSimplifyEpsilonM.toFloat())
             .putFloat(KEY_TRACK_SIMPLIFY_SPEED_DELTA_KN, updated.trackSimplifySpeedDeltaKn.toFloat())
+            .putBoolean(KEY_MARKER_DEBUG_RAYS, updated.markerDebugRays)
             .apply()
     }
 
@@ -544,6 +548,7 @@ class SettingsManager(
         private const val KEY_TRACK_SIMPLIFY_ENABLED = "track_simplify_enabled"
         private const val KEY_TRACK_SIMPLIFY_EPSILON_M = "track_simplify_epsilon_m"
         private const val KEY_TRACK_SIMPLIFY_SPEED_DELTA_KN = "track_simplify_speed_delta_kn"
+        private const val KEY_MARKER_DEBUG_RAYS = "marker_debug_rays"
         private const val KEY_PREFS_VERSION = "prefs_version"
         private const val CURRENT_VERSION = 3
     }

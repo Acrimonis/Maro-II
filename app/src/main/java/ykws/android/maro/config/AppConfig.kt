@@ -101,7 +101,6 @@ object AppConfig {
 
     /** Enable visual whereAmI debug rays on the map. Set via `marker.debug.rays.enabled` in maro.properties. */
     var markerDebugRaysEnabled: Boolean = false
-        private set
 
     // ── Marker sort scoring ─────────────────────────────────────────
     /** Pin type weight. Lower = higher priority. */

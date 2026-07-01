@@ -97,9 +97,11 @@ object MarkerMatcher {
             }
             val bearing = SpatialOperations.initialBearing(center, boat)
             // Debug: capture all boundary sample segments for matched ZoneMatch
-            testDebugSamples(boat, marker, spatialIndex)
-            closestBoundaryPoint(boat, marker.geometry)?.let { bp ->
-                debugger.onSegmentTested(boat, bp, false)
+            if (AppConfig.markerDebugRaysEnabled) testDebugSamples(boat, marker, spatialIndex)
+            if (AppConfig.markerDebugRaysEnabled) {
+                closestBoundaryPoint(boat, marker.geometry)?.let { bp ->
+                    debugger.onSegmentTested(boat, bp, false)
+                }
             }
             return WhereAmIMatch.ZoneMatch(marker, zoneSize, dist, bearing)
         }
@@ -126,16 +128,31 @@ object MarkerMatcher {
                 SpatialOperations.initialBearing(marker.geometry.position, boat))
         }
 
-        // ── 5. Find closest unblocked boundary point (Circle/Corridor) ──
-        val unblocked = closestUnblockedPoint(boat, marker, spatialIndex)
-            ?: return null
+        // ── 5. Range pre-gate: skip markers definitely out of proximity range ──
+        val minBoundaryDist = when (marker.geometry) {
+            is MarkerGeometry.Pin -> directDist  // unreachable — Pin handled above
+            is MarkerGeometry.Circle ->
+                (directDist - marker.geometry.radiusM).coerceAtLeast(0.0)
+            is MarkerGeometry.Corridor -> {
+                val halfW = marker.geometry.widthM / 2.0
+                val dSeg = SpatialOperations.pointToSegmentDistance(boat, marker.geometry.p1, marker.geometry.p2)
+                (dSeg - halfW).coerceAtLeast(0.0)
+            }
+        }
+        if (minBoundaryDist > range) return null
 
-        // ── 6. Unblocked point found → proximity gate ──
+        // ── 6. Find closest unblocked boundary point ──
+        val unblocked = closestUnblockedPoint(boat, marker, spatialIndex)
+
+        // Debug: capture all boundary sample segments for every in-range marker
+        if (AppConfig.markerDebugRaysEnabled) testDebugSamples(boat, marker, spatialIndex)
+
+        if (unblocked == null) return null
+
+        // ── 7. Unblocked point found → proximity gate ──
         val dist = SpatialOperations.haversine(boat, unblocked)
         if (dist > range) return null
-        // Debug: capture all boundary sample segments for matched ProximityMatch
-        testDebugSamples(boat, marker, spatialIndex)
-        debugger.onSegmentTested(boat, unblocked, false)
+        if (AppConfig.markerDebugRaysEnabled) debugger.onSegmentTested(boat, unblocked, false)
         Log.d("WIA", "  range=${"%.0f".format(range)} dist=${"%.0f".format(dist)} MATCH")
         return WhereAmIMatch.ProximityMatch(marker, dist, SpatialOperations.initialBearing(unblocked, boat))
     }
@@ -215,23 +232,6 @@ object MarkerMatcher {
         return spatialIndex.segmentIntersectsLand(a, b)
     }
 
-    /** Steps along boat→target in 20 m increments, checking [CoastlineSpatialIndex.isWater].
-     *  Returns true if ANY step is on land (catches coastline near the ray, closing joint gaps). */
-    private fun segmentIntersectsLandStepped(
-        boat: LatLng, target: LatLng, spatialIndex: CoastlineSpatialIndex, stepM: Double = 20.0
-    ): Boolean {
-        val dist = SpatialOperations.haversine(boat, target)
-        val brg = SpatialOperations.initialBearing(boat, target)
-        var d = stepM
-        while (d < dist) {
-            val pt = SpatialOperations.pointAlongBearing(boat.latitude, boat.longitude, brg, d)
-            if (!spatialIndex.isWater(pt.latitude, pt.longitude)) return true
-            d += stepM
-        }
-        // Also check the target point itself
-        return !spatialIndex.isWater(target.latitude, target.longitude)
-    }
-
     /**
      * Finds the closest point on [marker]'s geometry boundary that has a
      * clear sea line-of-sight to [boat].
@@ -251,8 +251,7 @@ object MarkerMatcher {
         // ── Direct-line fast path ──
         val closestGeom = closestGeometricBoundaryPoint(boat, marker.geometry)
         if (closestGeom != null) {
-            val blocked = segmentIntersectsLandStepped(boat, closestGeom, spatialIndex)
-            if (!blocked) {
+            if (!segmentIntersectsLand(boat, closestGeom, spatialIndex)) {
                 return closestGeom
             }
         }
@@ -264,8 +263,7 @@ object MarkerMatcher {
         var clearCount = 0
         
         for (c in candidates) {
-            val blocked = segmentIntersectsLandStepped(boat, c, spatialIndex)
-            if (!blocked) {
+            if (!segmentIntersectsLand(boat, c, spatialIndex)) {
                 clearCount++
                 val d = SpatialOperations.haversine(boat, c)
                 if (d < bestDist) { best = c; bestDist = d }
@@ -574,7 +572,7 @@ object MarkerMatcher {
     private fun testDebugSamples(boat: LatLng, marker: UserMarker, spatialIndex: CoastlineSpatialIndex) {
         val candidates = sampleBoundaryPoints(boat, marker.geometry)
         for (c in candidates) {
-            val blocked = segmentIntersectsLandStepped(boat, c, spatialIndex)
+            val blocked = segmentIntersectsLand(boat, c, spatialIndex)
             debugger.onSegmentTested(boat, c, blocked)
         }
     }

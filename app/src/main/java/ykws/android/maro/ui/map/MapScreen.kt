@@ -180,6 +180,7 @@ import ykws.android.maro.data.markers.UserMarkerRepository
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.DebugSegment
 import ykws.android.maro.spatial.MarkerMatcher
+import ykws.android.maro.spatial.NoOpWhereAmIDebugger
 import ykws.android.maro.spatial.VisualWhereAmIDebugger
 import ykws.android.maro.ui.map.MarkersViewModel
 import ykws.android.maro.ui.map.MarkerDrawer
@@ -505,6 +506,11 @@ fun MapScreen(
     // Wire coastline spatial index into MarkersViewModel for land-blocking when ready
     if (coastlineReady) {
         markersViewModel.coastlineIndex = viewModel.spatialIndex
+    }
+
+    // Wire debug ray tracer + sync persisted setting → AppConfig
+    LaunchedEffect(Unit) {
+        AppConfig.markerDebugRaysEnabled = appSettings.markerDebugRays
         if (AppConfig.markerDebugRaysEnabled) {
             MarkerMatcher.debugger = VisualWhereAmIDebugger()
             Log.d("WIA", "DEBUGGER: VisualWhereAmIDebugger activated")
@@ -3469,6 +3475,19 @@ private fun SystemSettings(
             description = stringResource(R.string.settings_keep_screen_on_desc),
             checked = settings.keepScreenOn,
             onCheckedChange = { on -> onUpdateSettings { it.copy(keepScreenOn = on) } }
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        SettingsToggleRow(
+            label = "Debug rays (WhereAmI)",
+            description = "Show green/red line-of-sight rays on the map when tapping the boat marker.",
+            checked = settings.markerDebugRays,
+            onCheckedChange = { on ->
+                onUpdateSettings { it.copy(markerDebugRays = on) }
+                AppConfig.markerDebugRaysEnabled = on
+                MarkerMatcher.debugger = if (on) VisualWhereAmIDebugger() else NoOpWhereAmIDebugger
+            }
         )
 
         Spacer(modifier = Modifier.height(12.dp))
