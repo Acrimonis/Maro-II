@@ -1,9 +1,10 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** BoatTrace
-- **Active Subfeature:** boat-markers
-- **Last Updated:** 2026-07-01 17:05
+- **Active Feature:** Ui_General
+- **Active Subfeature:** list
+- **Last Updated:** 2026-07-01 19:59
+- **Last Bake:** 2026-07-01 19:59 (Ui_General — list: ListableItem interface migration — UserMarker + TrackSummary, computed overrides, updatedAtEpochMs)
 - **Last Bake:** 2026-07-01 17:05 (BoatTrace — boat-markers: full implementation — BoatMarker data model, idle threshold timer, auto-marker 🕐 pins, track snapshots, history rendering with transparency)
 - **Branch:** feature/track+markers
 
