@@ -289,3 +289,19 @@ track.boatMarker.autoMarkerMinDurationSec=120  # minimum idle before 🕐 pin be
 8. **ICON_SET**: Add 🐬🐚🏖️🕐, grid 3→4 rows.
 9. **MapScreen**: Callback wiring, event observation, MANUAL path integration, startup cleanup of orphaned `confirmed=false` 🕐 markers.
 10. **Build**
+
+## Implemented
+
+2026-07-01 — full implementation on `feature/track+markers`:
+
+- **Data model:** `BoatMarkerTrigger`, `MarkerSnapshot`, `BoatMarker` (with `autoMarkerId`), `IdleCaptureResult`, `IdleThresholdCallback` interface, `IdleSessionContext` class. Track `@ProtoNumber(16)`.
+- **TrackEvent:** `IdlePeriodStarted`, `IdlePeriodCompleted`, `DrawerAutoOpenRequested`, `DrawerAutoCloseRequested`.
+- **Config:** `track.boatMarker.autoMarker.idleThresholdSec`, `minDurationSec`, `opacity` in maro.properties + AppConfig.
+- **TrackRecorder:** idle threshold timer (60s default), session context lifecycle, BoatMarker append/close with checkpoint saves, `addManualBoatMarker()`, `setBoatMarkerAutoMarkerId()`.
+- **MarkersViewModel:** `whereAmISync()`, `addTempAutoMarker()`, `confirmAutoMarker(id, name, desc)`. Top-level `toMarkerSnapshot()` extension.
+- **TrackViewModel:** persistent `_events` forwarding, passthrough methods, idle callback wiring.
+- **MapScreen:** idle callback → `whereAmISync` (snapshots) + drawer auto-open. Event observation: `IdlePeriodStarted` → temp 🕐 pin, `IdlePeriodCompleted` → confirm/delete. MANUAL boat-marker button snapshots into track. Startup cleanup of `keepable=false` markers.
+- **MarkerOverlay:** proximity ring suppressed for `IDLE_AUTO` markers; icon tooltip suppressed; icon opacity from config.
+- **ICON_SET:** 16 icons, 4×4 grid (🐬🐚🏖️🕐).
+- **History rendering:** 🕐 pins rendered on history/pinned track polylines with matching transparency.
+- **Consolidation:** single `maro.properties` in assets, root copy deleted, `syncMaroProperties` Gradle task removed.

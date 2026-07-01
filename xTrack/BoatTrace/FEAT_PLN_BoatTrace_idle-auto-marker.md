@@ -165,7 +165,20 @@ Now 16 icons, 4×4 grid:
 
 ---
 
-## 6. Future Considerations
+## 6. Implemented
+
+2026-07-01 — merged into boat-markers implementation:
+
+- `MarkerOrigin.IDLE_AUTO` + `keepable` on `UserMarker`
+- `addTempAutoMarker(lat, lon, startTimeMs)` — title=date, description=timing placeholder, `confirmed=false`, `keepable=false`
+- `confirmAutoMarker(id, name, desc)` — `confirmed=true`, `keepable=true`, updates description with end time
+- `IdlePeriodStarted` → temp 🕐 pin created, ID stored in `IdleSessionContext`
+- `IdlePeriodCompleted` → confirm (if ≥ minDurationSec) or delete marker
+- Startup cleanup of `keepable=false` markers (crash recovery)
+- ICON_SET: 🐬🐚🏖️🕐 added, 4×4 grid
+- Config: `track.boatMarker.autoMarker.minDurationSec` (120s default), `track.boatMarker.autoMarker.opacity` (50%)
+
+## 7. Future Considerations
 
 - Notification integration: show idle marker count in recording notification
 - Filter/group auto-markers by track in marker list

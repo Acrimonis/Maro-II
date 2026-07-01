@@ -241,6 +241,11 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         recorder?.setActiveSessionAutoMarkerId(id)
     }
 
+    /** Store the confirmed auto-marker ID in the track's BoatMarker entry. */
+    fun setBoatMarkerAutoMarkerId(id: String) {
+        recorder?.setBoatMarkerAutoMarkerId(id)
+    }
+
     /** Resolve orphaned checkpoint: resume recording. */
     fun resumeOrphanedCheckpoint(track: Track) {
         _recoveryTrack.value = null

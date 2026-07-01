@@ -1,25 +1,61 @@
 # BoatTrace — Hydration Snapshot
 
-**Baked at:** 2026-07-01 16:02 UTC
-**Active Subfeature:** boat-markers (design)
+**Baked at:** 2026-07-01 17:05 UTC
+**Active Subfeature:** boat-markers (implemented)
+**Branch:** feature/track+markers
 
 ## Session Summary
 
-BoatMarker data model + idle auto-marker design finalised across two plans:
+BoatMarker infrastructure fully implemented — design finalised, all 12 steps coded and built:
 
-- `FEAT_PLN_BoatTrace_boat-markers.md` — BoatMarker infrastructure: MarkerSnapshot/BoatMarker proto types (Track @ProtoNumber 16), IdleSessionContext per idle period, IdleThresholdCallback abstraction, TrackEvent extensions (IdlePeriodStarted/Completed, DrawerAutoOpen/CloseRequested), two configurable thresholds in maro.properties
-- `FEAT_PLN_BoatTrace_idle-auto-marker.md` — Idle auto-marker: 🕐 Pin created on idle entry (confirmed=false, keepable=false), confirmed to permanent if idle ≥ autoMarkerMinDurationSec (120s default), startup cleanup of keepable=false markers, MarkerOrigin.IDLE_AUTO enum, ICON_SET expansion (🐬🐚🏖️🕐, 16 icons, 4×4 grid)
+### Data model
+- `BoatMarkerTrigger`, `MarkerSnapshot`, `BoatMarker` (ProtoNumber 1-8, including `autoMarkerId`)
+- `IdleCaptureResult`, `IdleThresholdCallback` interface, `IdleSessionContext` class
+- Track `@ProtoNumber(16) boatMarkers: List<BoatMarker>`
+- TrackEvent: `IdlePeriodStarted/Completed`, `DrawerAutoOpenRequested/CloseRequested`
+- UserMarker: `MarkerOrigin` enum, `origin`, `keepable` fields
 
-12-step implementation plan defined. Both plans finalised after cross-review.
+### Logic
+- TrackRecorder: idle threshold timer (60s default), session context lifecycle, BoatMarker append/close with checkpoint saves, `addManualBoatMarker()`, `setBoatMarkerAutoMarkerId()`, `setActiveSessionAutoMarkerId()`
+- TrackViewModel: persistent `_events` MutableSharedFlow with forwarding coroutine, passthrough methods, idle callback wiring
+- MarkersViewModel: `whereAmISync()`, `addTempAutoMarker()`, `confirmAutoMarker(id, name, desc)`, top-level `toMarkerSnapshot()`
 
-## Key Files (design only, no code yet)
+### UI
+- MapScreen: idle callback (whereAmISync snapshots + drawer auto-open), event observation (IdlePeriodStarted → temp 🕐 pin, IdlePeriodCompleted → confirm/delete), MANUAL boat-marker button snapshots, startup cleanup of `keepable=false`
+- MarkerOverlay: proximity ring suppressed for IDLE_AUTO, icon tooltip suppressed, icon opacity from config
+- ICON_SET: 16 icons, 4×4 grid (🐬🐚🏖️🕐)
+- History tracks: 🕐 pins rendered with track polyline transparency
 
-- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_boat-markers.md`
-- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_idle-auto-marker.md`
-- `xTrack/GLOBAL_CONTEXT.md` — updated
-- `xTrack/BoatTrace/FEAT_DSC_BoatTrace.md` — updated
+### Config
+- `track.boatMarker.autoMarker.idleThresholdSec=10`, `minDurationSec=30`, `opacity=50`
+- Single `maro.properties` in assets (root copy deleted, `syncMaroProperties` Gradle task removed)
+
+## Key Files (implemented)
+
+### New
+- `app/src/main/java/ykws/android/maro/data/track/BoatMarker.kt`
+- `app/src/main/java/ykws/android/maro/data/track/IdleThresholdCallback.kt`
+- `app/src/main/java/ykws/android/maro/data/track/IdleSessionContext.kt`
+
+### Modified
+- `app/src/main/java/ykws/android/maro/data/track/Track.kt` — ProtoNumber 16
+- `app/src/main/java/ykws/android/maro/data/track/TrackEvent.kt` — 4 new events
+- `app/src/main/java/ykws/android/maro/data/model/markers/UserMarker.kt` — MarkerOrigin + keepable
+- `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt` — idle timer, BoatMarker lifecycle
+- `app/src/main/java/ykws/android/maro/data/track/TrackViewModel.kt` — events forwarding, passthrough
+- `app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt` — whereAmISync, auto-marker CRUD
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — callback wiring, event observation
+- `app/src/main/java/ykws/android/maro/ui/map/MarkerOverlay.kt` — proximity/tooltip/opacity
+- `app/src/main/java/ykws/android/maro/ui/map/IconPickerDialog.kt` — 16 icons
+- `app/src/main/java/ykws/android/maro/config/AppConfig.kt` — parsed config
+- `app/src/main/assets/maro.properties` — auto-marker config keys
+- `app/build.gradle.kts` — single maro.properties reference
+
+### Deleted
+- `maro.properties` (root — consolidated to assets)
 
 ## Next Steps
-
-- [ ] Implement per 12-step plan
-- [ ] Build + E2E verify
+- [ ] Build + deploy to device
+- [ ] E2E: Verify idle auto-marker 🕐 pin appears during recording
+- [ ] E2E: Verify proximity ring hidden, icon dimmed
+- [ ] E2E: Verify history track shows 🕐 pins at idle positions

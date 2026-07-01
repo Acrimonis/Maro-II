@@ -185,6 +185,19 @@ class TrackRecorder(
         activeSession?.autoMarkerId = id
     }
 
+    /** Called by MapScreen when an auto-marker is confirmed — stores the ID in the track's BoatMarker. */
+    fun setBoatMarkerAutoMarkerId(id: String) {
+        val session = activeSession ?: return
+        val idx = session.boatMarkerIndex ?: return
+        val track = currentTrack ?: return
+        if (idx in track.boatMarkers.indices) {
+            val bm = track.boatMarkers[idx]
+            val updated = track.boatMarkers.toMutableList().also { it[idx] = bm.copy(autoMarkerId = id) }
+            currentTrack = track.copy(boatMarkers = updated)
+            scope?.launch { currentTrack?.let { repository.saveCheckpoint(it) } }
+        }
+    }
+
     /**
      * Manually append a BoatMarker to the current track.
      * Used by the boat-marker button in MapScreen (MANUAL trigger).
