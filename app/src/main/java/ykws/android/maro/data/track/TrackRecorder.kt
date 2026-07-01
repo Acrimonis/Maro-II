@@ -112,7 +112,9 @@ class TrackRecorder(
     private val simplifyEnabled: Boolean = true,
     private val simplifyEpsilonM: Double = 3.0,
     private val simplifySpeedDeltaKn: Double = 3.0,
-    private val dispatcher: CoroutineDispatcher = Dispatchers.Default
+    private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
+    private val idleThresholdSec: Long = 60,
+    private val idleThresholdCallback: IdleThresholdCallback? = null
 ) {
     private val _uiState = MutableStateFlow(TrackRecorderUiState())
     val uiState: StateFlow<TrackRecorderUiState> = _uiState.asStateFlow()
@@ -169,10 +171,44 @@ class TrackRecorder(
     private var idleStartMs: Long = 0L
     private var wasStopped: Boolean = false
 
+    // ── BoatMarker idle-session tracking ──
+    private var activeSession: IdleSessionContext? = null
+    private var idleTimerJob: Job? = null
+
     private var scope: CoroutineScope? = null
     private var collectingJob: Job? = null
     private var checkpointJob: Job? = null
     private var elapsedTimerJob: Job? = null
+
+    /** Called by MapScreen to set the 🕐 auto-marker ID on the active idle session. */
+    fun setActiveSessionAutoMarkerId(id: String) {
+        activeSession?.autoMarkerId = id
+    }
+
+    /**
+     * Manually append a BoatMarker to the current track.
+     * Used by the boat-marker button in MapScreen (MANUAL trigger).
+     */
+    fun addManualBoatMarker(snapshots: List<MarkerSnapshot>) {
+        val track = currentTrack ?: return
+        if (snapshots.isEmpty()) return
+        val now = System.currentTimeMillis()
+        val lastLat = lastPointLat ?: return
+        val lastLon = lastPointLon ?: return
+        val seqIdx = (track.boatMarkers.lastOrNull()?.sequenceIndex ?: -1) + 1
+        val bm = BoatMarker(
+            trigger = BoatMarkerTrigger.MANUAL,
+            startTimeMs = now,
+            markers = snapshots,
+            boatLat = lastLat,
+            boatLon = lastLon,
+            sequenceIndex = seqIdx
+        )
+        currentTrack = track.copy(boatMarkers = track.boatMarkers + bm)
+        scope?.launch {
+            currentTrack?.let { repository.saveCheckpoint(it) }
+        }
+    }
 
     /**
      * Start collecting [TrackSample] events and driving the state machine.
@@ -306,6 +342,8 @@ class TrackRecorder(
         idleDurationSec = 0L
         idleStartMs = 0L
         wasStopped = false
+        cancelIdleTimer()
+        activeSession = null
         transitionTo(TrackRecorderState.ON)
         _uiState.update {
             TrackRecorderUiState(
@@ -331,14 +369,41 @@ class TrackRecorder(
         val speedKn = sample.speedMps?.let { it * 1.94384f }
         Log.d(TAG, "addPoint: speed=${speedKn} kn isStopped=$stopped state=$state")
 
-        // ── Idle duration accumulation ──
+        // ── Idle duration accumulation + BoatMarker session lifecycle ──
         val now = System.currentTimeMillis()
         if (stopped && !wasStopped) {
-            idleStartMs = now  // transition: moving → idle
-        } else if (!stopped && wasStopped && idleStartMs > 0) {
-            idleDurationSec += (now - idleStartMs) / 1000
-            idleStartMs = 0L  // transition: idle → moving
-            _uiState.update { it.copy(idleDurationSec = idleDurationSec) }
+            // Transition: moving → idle
+            idleStartMs = now
+            val lat = sample.position.latitude
+            val lon = sample.position.longitude
+            activeSession = IdleSessionContext(startTimeMs = now, entryLat = lat, entryLon = lon)
+            _events.tryEmit(IdlePeriodStarted(entryLat = lat, entryLon = lon, startTimeMs = now))
+            startIdleTimer(lat, lon, now)
+        } else if (!stopped && wasStopped) {
+            // Transition: idle → moving
+            cancelIdleTimer()
+            val session = activeSession
+            if (idleStartMs > 0) {
+                val delta = (now - idleStartMs) / 1000
+                idleDurationSec += delta
+                idleStartMs = 0L
+                _uiState.update { it.copy(idleDurationSec = idleDurationSec) }
+                if (session != null) {
+                    closeOpenBoatMarker(now)
+                    if (session.drawerAutoOpened) {
+                        _events.tryEmit(DrawerAutoCloseRequested)
+                    }
+                    _events.tryEmit(IdlePeriodCompleted(
+                        entryLat = session.entryLat,
+                        entryLon = session.entryLon,
+                        startTimeMs = session.startTimeMs,
+                        endTimeMs = now,
+                        durationSec = delta,
+                        autoMarkerId = session.autoMarkerId
+                    ))
+                }
+            }
+            activeSession = null
         }
         wasStopped = stopped
 
@@ -560,6 +625,7 @@ class TrackRecorder(
     private fun finalizeTrack() {
         val track = currentTrack ?: return
         stopCheckpointJob()
+        cancelIdleTimer()
         stopDebounceStartTime = null
 
         val avgMps = if (speedCount > 0) speedSumMps / speedCount else 0f
@@ -577,10 +643,26 @@ class TrackRecorder(
         } else {
             track.trackPoints
         }
-        // Flush any open idle period
+
+        // Flush idle session — close open BoatMarker + emit IdlePeriodCompleted
+        val session = activeSession
         if (wasStopped && idleStartMs > 0) {
-            idleDurationSec += (System.currentTimeMillis() - idleStartMs) / 1000
+            val delta = (System.currentTimeMillis() - idleStartMs) / 1000
+            idleDurationSec += delta
+            if (session != null) {
+                closeOpenBoatMarker(System.currentTimeMillis())
+                _events.tryEmit(IdlePeriodCompleted(
+                    entryLat = session.entryLat,
+                    entryLon = session.entryLon,
+                    startTimeMs = session.startTimeMs,
+                    endTimeMs = 0L,
+                    durationSec = 0L,
+                    autoMarkerId = session.autoMarkerId
+                ))
+            }
         }
+        activeSession = null
+
         val finalized = track.copy(
             trackPoints = simplifiedPoints,
             endTimeMs = System.currentTimeMillis(),
@@ -660,7 +742,67 @@ class TrackRecorder(
         }
     }
 
+    // ── Idle threshold timer + BoatMarker helpers ──
+
+    private fun startIdleTimer(lat: Double, lon: Double, startMs: Long) {
+        idleTimerJob?.cancel()
+        val callback = idleThresholdCallback ?: return
+        idleTimerJob = scope?.launch {
+            delay(idleThresholdSec * 1000)
+            try {
+                val result = callback.onIdleThresholdReached(LatLng(lat, lon))
+                val session = activeSession ?: return@launch
+                if (result.entries.isNotEmpty()) {
+                    val track = currentTrack ?: return@launch
+                    val seqIdx = (track.boatMarkers.lastOrNull()?.sequenceIndex ?: -1) + 1
+                    val bm = BoatMarker(
+                        trigger = BoatMarkerTrigger.IDLE,
+                        startTimeMs = System.currentTimeMillis(),
+                        markers = result.entries,
+                        boatLat = lat,
+                        boatLon = lon,
+                        sequenceIndex = seqIdx
+                    )
+                    currentTrack = track.copy(boatMarkers = track.boatMarkers + bm)
+                    session.boatMarkerIndex = currentTrack!!.boatMarkers.lastIndex
+                    repository.saveCheckpoint(currentTrack!!)
+                }
+                if (result.autoMarkerId != null) {
+                    session.autoMarkerId = result.autoMarkerId
+                }
+                if (result.shouldOpenDrawer) {
+                    session.drawerAutoOpened = true
+                    _events.tryEmit(DrawerAutoOpenRequested)
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "IdleThresholdCallback failed", e)
+            }
+        }
+    }
+
+    private fun cancelIdleTimer() {
+        idleTimerJob?.cancel()
+        idleTimerJob = null
+    }
+
+    /** Close the open BoatMarker (set endTimeMs) for the current idle session. */
+    private fun closeOpenBoatMarker(nowMs: Long) {
+        val session = activeSession ?: return
+        val idx = session.boatMarkerIndex ?: return
+        val track = currentTrack ?: return
+        if (idx in track.boatMarkers.indices) {
+            val closed = track.boatMarkers[idx].copy(endTimeMs = nowMs)
+            currentTrack = track.copy(
+                boatMarkers = track.boatMarkers.toMutableList().also { it[idx] = closed }
+            )
+            scope?.launch {
+                currentTrack?.let { repository.saveCheckpoint(it) }
+            }
+        }
+    }
+
     private fun cleanup() {
+        cancelIdleTimer()
         collectingJob?.cancel()
         checkpointJob?.cancel()
         elapsedTimerJob?.cancel()
@@ -668,6 +810,7 @@ class TrackRecorder(
         checkpointJob = null
         elapsedTimerJob = null
         scope = null
+        activeSession = null
         wasInsideGeofence = false
     }
 

@@ -178,6 +178,10 @@ fun MarkerOverlay(
             // Only applies to confirmed markers; unconfirmed always shows dots.
             val skipDots = marker.pinned && confirmed
 
+            // Auto-markers (IDLE_AUTO) never show proximity rings — they keep
+            // proximity for whereAmI matching but suppress visual clutter.
+            val showProximity = drawZones && marker.origin != ykws.android.maro.data.model.markers.MarkerOrigin.IDLE_AUTO
+
             when (val geom = marker.geometry) {
                 is MarkerGeometry.Pin -> {
                     if (drawGeometry && !skipDots) {
@@ -186,7 +190,7 @@ fun MarkerOverlay(
                     }
 
                     // Proximity range preview (fill + stroke)
-                    if (drawZones) {
+                    if (showProximity) {
                         val previewRadiusM = marker.proximityOverrideM
                             ?: AppConfig.markerProximityPinM
                         // Fill
@@ -222,7 +226,7 @@ fun MarkerOverlay(
                     }
 
                     // Proximity range preview (fill + stroke) — drawn from zone boundary outward
-                    if (drawZones) {
+                    if (showProximity) {
                         val proximityM = marker.proximityOverrideM
                             ?: (geom.radiusM * proximityZoneMultiplier)
                         val totalRadiusM = geom.radiusM + proximityM
@@ -261,7 +265,7 @@ fun MarkerOverlay(
                     }
 
                     // Proximity range preview (fill + stroke) — drawn from zone boundary outward
-                    if (drawZones) {
+                    if (showProximity) {
                         val proximityM = marker.proximityOverrideM
                             ?: (geom.widthM * proximityZoneMultiplier)
                         val halfProx = geom.widthM / 2.0 + proximityM
@@ -323,8 +327,13 @@ fun MarkerOverlay(
                         textAlign = android.graphics.Paint.Align.CENTER
                         isAntiAlias = true
                     }
+                    // Auto-marker icons at reduced opacity
+                    if (marker.origin == ykws.android.maro.data.model.markers.MarkerOrigin.IDLE_AUTO) {
+                        paint.alpha = 255 * ykws.android.maro.config.AppConfig.boatMarkerIdleOpacityPct / 100
+                    }
                     canvas.drawText(iconText, 32f, 44f, paint)
                     icon = android.graphics.drawable.BitmapDrawable(mv.context.resources, bitmap)
+                    setOnMarkerClickListener { _, _ -> true }
                 }
                 mv.overlays.add(iconMarker)
             }

@@ -582,6 +582,53 @@ class MarkersViewModel(
         }
     }
 
+    // ── Auto-marker (idle 🕐 pin) ─────────────────────────────────────────
+
+    /**
+     * Create a temporary 🕐 auto-marker pin at the idle position.
+     * Returns the marker ID so MapScreen can pass it to TrackRecorder.
+     *
+     * Title = date only (e.g. "2026-07-01").
+     * Description = timing placeholder (e.g. "@ 14:15 -> ...").
+     */
+    fun addTempAutoMarker(lat: Double, lon: Double, startTimeMs: Long): String {
+        val now = Date()
+        val title = dateFormat.get()!!.format(now)
+        val startTime = SimpleDateFormat("HH:mm", Locale.US).format(Date(startTimeMs))
+        val desc = "@ $startTime -> ..."
+        val marker = UserMarker(
+            id = UUID.randomUUID().toString(),
+            name = title,
+            description = desc,
+            geometry = MarkerGeometry.Pin(LatLng(lat, lon)),
+            proximityOverrideM = null,
+            confirmed = false,
+            pinned = true,
+            icon = "\uD83D\uDD50",  // 🕐
+            createdAtEpochMs = System.currentTimeMillis(),
+            origin = ykws.android.maro.data.model.markers.MarkerOrigin.IDLE_AUTO,
+            keepable = false
+        )
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { repo.add(marker) }
+            _markers.value = withContext(Dispatchers.IO) { repo.loadAll() }
+        }
+        return marker.id
+    }
+
+    /**
+     * Confirm a temporary 🕐 auto-marker — sets confirmed=true, keepable=true,
+     * and updates the name and description with final values.
+     */
+    fun confirmAutoMarker(id: String, name: String, description: String) {
+        val marker = _markers.value.find { it.id == id } ?: return
+        val updated = marker.copy(confirmed = true, keepable = true, name = name, description = description)
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { repo.update(updated) }
+            _markers.value = withContext(Dispatchers.IO) { repo.loadAll() }
+        }
+    }
+
     /** Toggle the pinned state of a marker. */
     fun togglePin(markerId: String) {
         val marker = _markers.value.find { it.id == markerId } ?: return
@@ -655,6 +702,19 @@ class MarkersViewModel(
     private var whereAmIJob: kotlinx.coroutines.Job? = null
 
     /**
+     * Synchronous whereAmI — used by the idle threshold callback
+     * which runs inside a coroutine on the recorder's scope.
+     * Returns markers snapshotted at [boatPos].
+     */
+    fun whereAmISync(boatPos: LatLng): WhereAmIResult {
+        val index = coastlineIndex ?: return WhereAmIResult(emptyList())
+        val all = _markers.value
+        if (all.isEmpty()) return WhereAmIResult(emptyList())
+        MarkerMatcher.debugger.clear()
+        return MarkerMatcher.resolveAllMarkers(boatPos, all, index)
+    }
+
+    /**
      * Runs [MarkerMatcher.resolveAllMarkers] at [boatPos] using the injected
      * coastline spatial index.  Posts the result to [matchResult] and switches the
      * drawer to [MarkerDrawerState.MatchResult].
@@ -699,4 +759,37 @@ class MarkersViewModel(
             }
         }
     }
+}
+
+/** Top-level extension: convert WhereAmIMatch → MarkerSnapshot (used by idle + manual paths). */
+fun WhereAmIMatch.toMarkerSnapshot(): ykws.android.maro.data.track.MarkerSnapshot {
+    val m = when (this) {
+        is WhereAmIMatch.ZoneMatch -> marker
+        is WhereAmIMatch.LineOfSightMatch -> marker
+    }
+    val (centerLat, centerLon) = when (val g = m.geometry) {
+        is MarkerGeometry.Pin -> g.position.latitude to g.position.longitude
+        is MarkerGeometry.Circle -> g.center.latitude to g.center.longitude
+        is MarkerGeometry.Corridor -> (g.p1.latitude + g.p2.latitude) / 2.0 to (g.p1.longitude + g.p2.longitude) / 2.0
+    }
+    val zoneSize = when (m.geometry) {
+        is MarkerGeometry.Circle -> m.geometry.radiusM
+        is MarkerGeometry.Corridor -> m.geometry.widthM
+        else -> 0.0
+    }
+    val (distNm, bearingDeg) = when (this) {
+        is WhereAmIMatch.ZoneMatch -> distanceToCenterM / 1852.0 to bearingDeg
+        is WhereAmIMatch.LineOfSightMatch -> seaDistanceM / 1852.0 to bearingDeg
+    }
+    return ykws.android.maro.data.track.MarkerSnapshot(
+        markerId = m.id,
+        name = m.name,
+        geometryType = m.geometry::class.simpleName ?: "Unknown",
+        lat = centerLat,
+        lon = centerLon,
+        distanceNm = distNm,
+        bearingDeg = bearingDeg,
+        zoneSizeM = zoneSize,
+        icon = m.icon
+    )
 }

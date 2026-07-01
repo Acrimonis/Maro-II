@@ -184,6 +184,9 @@ import ykws.android.maro.spatial.NoOpWhereAmIDebugger
 import ykws.android.maro.spatial.VisualWhereAmIDebugger
 import ykws.android.maro.ui.map.MarkersViewModel
 import ykws.android.maro.ui.map.MarkerDrawer
+import ykws.android.maro.ui.map.toMarkerSnapshot
+import ykws.android.maro.data.track.IdleThresholdCallback
+import ykws.android.maro.data.track.IdleCaptureResult
 
 /** GPS-follow animation: minimum displacement (m) to trigger a glide instead of snap. */
 private const val GPS_ANIMATION_MIN_MOVE_M = 3.0
@@ -508,6 +511,89 @@ fun MapScreen(
         markersViewModel.coastlineIndex = viewModel.spatialIndex
     }
 
+    // ── Startup: clean up non-keepable auto-markers (orphaned from crash) ──
+    LaunchedEffect(Unit) {
+        val nonKeepable = userMarkers.filter { !it.keepable }
+        for (m in nonKeepable) {
+            markersViewModel.deleteMarker(m.id)
+        }
+        if (nonKeepable.isNotEmpty()) {
+            Log.d("MaroII_Map", "Startup cleanup: removed ${nonKeepable.size} non-keepable markers")
+        }
+    }
+
+    // ── BoatMarker idle callback — wired to marker matching engine ──
+    val idleCallback = remember {
+        object : IdleThresholdCallback {
+            override suspend fun onIdleThresholdReached(position: ykws.android.maro.data.model.LatLng): IdleCaptureResult {
+                return try {
+                    val result = markersViewModel.whereAmISync(position)
+                    val snapshots = result.allMatches.map { it.toMarkerSnapshot() }
+                    IdleCaptureResult(
+                        entries = snapshots,
+                        shouldOpenDrawer = snapshots.isNotEmpty()
+                    )
+                } catch (e: Exception) {
+                    Log.w("MaroII_Map", "IdleThresholdCallback failed", e)
+                    IdleCaptureResult(emptyList(), false)
+                }
+            }
+        }
+    }
+
+    // ── Track event observation: idle auto-marker lifecycle ──
+    var pendingAutoMarkerId by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(Unit) {
+        trackViewModel.events.collect { event ->
+            when (event) {
+                is ykws.android.maro.data.track.TrackEvent.IdlePeriodStarted -> {
+                    val markerId = markersViewModel.addTempAutoMarker(
+                        event.entryLat, event.entryLon, event.startTimeMs)
+                    pendingAutoMarkerId = markerId
+                    trackViewModel.setActiveSessionAutoMarkerId(markerId)
+                }
+                is ykws.android.maro.data.track.TrackEvent.DrawerAutoOpenRequested -> {
+                    if (markersViewModel.drawerState.value == MarkerDrawerState.Hidden) {
+                        val pos = gpsPosition ?: mapCenter
+                        markersViewModel.whereAmI(pos)
+                    }
+                }
+                is ykws.android.maro.data.track.TrackEvent.DrawerAutoCloseRequested -> {
+                    if (markersViewModel.drawerState.value == MarkerDrawerState.MatchResult) {
+                        markersViewModel.closeDrawer()
+                    }
+                }
+                is ykws.android.maro.data.track.TrackEvent.IdlePeriodCompleted -> {
+                    val id = event.autoMarkerId ?: return@collect
+                    try {
+                        val minDuration = AppConfig.boatMarkerAutoMarkerMinDurationSec
+                        if (event.durationSec >= minDuration || event.endTimeMs == 0L) {
+                            val title = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
+                                .format(java.util.Date(event.startTimeMs))
+                            val startFmt = java.text.SimpleDateFormat("HH:mm", java.util.Locale.US)
+                                .format(java.util.Date(event.startTimeMs))
+                            val durMin = event.durationSec / 60
+                            val desc = if (event.endTimeMs == 0L) {
+                                "@ $startFmt -> ?"
+                            } else {
+                                val endFmt = java.text.SimpleDateFormat("HH:mm", java.util.Locale.US)
+                                    .format(java.util.Date(event.endTimeMs))
+                                "@ $startFmt -> $endFmt ($durMin min)"
+                            }
+                            markersViewModel.confirmAutoMarker(id, title, desc)
+                        } else {
+                            markersViewModel.deleteMarker(id)
+                        }
+                    } catch (e: Exception) {
+                        Log.w("MaroII_Map", "autoMarker finalize failed", e)
+                    }
+                    pendingAutoMarkerId = null
+                }
+                else -> { /* Started, Stopped, PointCaptured — handled elsewhere */ }
+            }
+        }
+    }
+
     // Wire debug ray tracer + sync persisted setting → AppConfig
     LaunchedEffect(Unit) {
         AppConfig.markerDebugRaysEnabled = appSettings.markerDebugRays
@@ -621,7 +707,7 @@ fun MapScreen(
             )
         }.filterNotNull()
         trackViewModel.setStoppedSource(viewModel.isStopped)
-        trackViewModel.startRecorder(sampleFlow, appSettings)
+        trackViewModel.startRecorder(sampleFlow, appSettings, idleCallback)
 
         // Periodic demo position feed: when GPS is off, re-feed the map center
         // every second so the adaptive policy timer advances toward IDLE even
@@ -1069,6 +1155,12 @@ fun MapScreen(
                 onWhereAmI = {
                     val boatPos = gpsPosition ?: mapCenter
                     markersViewModel.whereAmI(boatPos)
+                    // Also snapshot for track recording (MANUAL trigger)
+                    val result = markersViewModel.whereAmISync(boatPos)
+                    val snapshots = result.allMatches.map { it.toMarkerSnapshot() }
+                    if (snapshots.isNotEmpty()) {
+                        trackViewModel.addManualBoatMarker(snapshots)
+                    }
                 },
                 onRetry = { viewModel.loadCoastline() },
                 onOpenTrackDrawer = { showTrackDrawer = !showTrackDrawer },
