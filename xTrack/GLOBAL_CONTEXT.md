@@ -1,11 +1,12 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** BoatTrace
-- **Active Subfeature:** boat-markers
-- **Last Updated:** 2026-07-01 17:05
+- **Active Feature:** Ui_General
+- **Active Subfeature:** list sort
+- **Last Updated:** 2026-07-01 22:25
+- **Last Bake:** 2026-07-01 22:25 (Ui_General — list sort: implemented — ListOverlayScaffold, ListAction (8 variants), ListSortState field+direction+pinnedGrouped, sort dropdown, deferred batch delete, RefreshList+RefreshLayer, BUILD SUCCESSFUL)
 - **Last Bake:** 2026-07-01 17:05 (BoatTrace — boat-markers: full implementation — BoatMarker data model, idle threshold timer, auto-marker 🕐 pins, track snapshots, history rendering with transparency)
-- **Branch:** feature/track+markers
+- **Branch:** featurer/list-sort
 
 ## Routing Map
 | Keyword | Feature File |
@@ -49,7 +50,7 @@
 | | Performance | Battery optimization, adaptive GPS tuning, compass gate, map refresh | 2026-05-20 00:00 | 2026-06-05 00:00 | active |
 | | BakeNormalization | APK bake/build/deploy pipeline and prebake data processing | 2026-06-01 00:00 | 2026-06-05 00:00 | active |
 | | DepthSafety | Danger depth alerts, shallow water grounding prevention, isobath precision | 2026-06-03 00:00 | 2026-06-05 00:00 | active |
-| | Ui_General | App-lifecycle UX: back-to-exit guard, keep-screen-on wakelock, edge-to-edge rendering and WindowInsets management | 2026-06-08 16:43 | 2026-06-24 15:44 | active |
+| | Ui_General | App-lifecycle UX: back-to-exit guard, keep-screen-on wakelock, edge-to-edge rendering, WindowInsets, list normalization (ListOverlayScaffold, sort, swipe-to-delete) | 2026-06-08 16:43 | 2026-07-01 20:42 | active |
 | | Ui_Settings | Settings page UI, persistence, widgets, and UX enhancements | 2026-06-09 15:28 | 2026-06-18 19:10 | active |
 | | **Navigation** | **Navigation aids — heading/speed arrow and direction line on map overlay** | **2026-06-10 08:40** | **2026-06-11 11:55** | **active** |
 | | **RegulatedZones** | **Maritime regulatory zones — multi-source normalization (SHOM INSPIRE + IGN Natura 2000), sealed classification, 8-category icon mapping, keyword-driven display logic** | **2026-06-11 18:00** | **2026-06-12 22:37** | **active** |
@@ -71,6 +72,7 @@
 - **Git operations allowed on `#`-command invocation** — `#commit`, `#push`, `#merge`, `#checkout` are self-contained confirmations; the command invocation is the go-ahead. Never touch `develop`/`main` branches.
 - **🔴 MODE LOCK: Do not switch to Code mode or invoke `#implement` pipeline without explicit user go-ahead (`#implement` tag or "go ahead" / "implement now").** Never suggest "ready for #implement" — it implies permission. Architect mode stays in Architect until user explicitly directs otherwise. See AGENTS.md Core Directives for full mode permissions.
 - **🔴 QUESTIONS: Answer before acting.** A question is not an implicit implementation order. Answer it first, then wait for direction.
+- **Auto-switch for commands:** When a task requires executing shell commands (git, gradlew, adb) and the current mode lacks terminal access, automatically `switch_mode("code")` to run the command, then switch back to the original mode.
 
 ## Global Todos
 - [ ] Validate the intermittent Overpass-outage theory — confirm the coastline OSM fetch failures are transient (succeeded 13:52, failing ~16:52 on 2026-06-08), not a persistent network / cert / IPv6 block. Quick checks: retry `bake-coastline` later; `curl -sk https://overpass-api.de/api/status`; race other mirrors.

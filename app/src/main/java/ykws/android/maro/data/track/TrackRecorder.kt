@@ -683,7 +683,8 @@ class TrackRecorder(
             idleDurationSec = idleDurationSec,
             averageSpeedMps = avgMps,
             distanceNm = cumulativeDistanceNm,
-            navigatingDurationSec = totalElapsedSec - idleDurationSec
+            navigatingDurationSec = totalElapsedSec - idleDurationSec,
+            updatedAtEpochMs = System.currentTimeMillis()
         )
         currentTrack = finalized
 

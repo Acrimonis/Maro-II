@@ -229,7 +229,11 @@ data class AppSettings(
     /** Speed deviation threshold for reinsertion during simplification (knots). */
     val trackSimplifySpeedDeltaKn: Double = 3.0,
     /** Enable WhereAmI debug rays (green/red line-of-sight segments) on the map. */
-    val markerDebugRays: Boolean = false
+    val markerDebugRays: Boolean = false,
+    /** Sort state for the track history list (field + direction). */
+    val trackListSort: ykws.android.maro.data.model.ListSortState = ykws.android.maro.data.model.ListSortState(),
+    /** Sort state for the marker management list (field + direction). */
+    val markerListSort: ykws.android.maro.data.model.ListSortState = ykws.android.maro.data.model.ListSortState()
 ) {
     /** Check whether a [ZoneDisplayCategory] is enabled in the current settings. */
     fun isCategoryVisible(cat: ZoneDisplayCategory): Boolean = when (cat) {
@@ -363,7 +367,9 @@ class SettingsManager(
         trackSimplifyEnabled = prefs.getBoolean(KEY_TRACK_SIMPLIFY_ENABLED, true),
         trackSimplifyEpsilonM = prefs.getFloat(KEY_TRACK_SIMPLIFY_EPSILON_M, 3.0f).toDouble(),
         trackSimplifySpeedDeltaKn = prefs.getFloat(KEY_TRACK_SIMPLIFY_SPEED_DELTA_KN, 3.0f).toDouble(),
-        markerDebugRays = prefs.getBoolean(KEY_MARKER_DEBUG_RAYS, false)
+        markerDebugRays = prefs.getBoolean(KEY_MARKER_DEBUG_RAYS, false),
+        trackListSort = ykws.android.maro.data.model.ListSortState.parse(prefs.getString(KEY_TRACK_LIST_SORT, null)),
+        markerListSort = ykws.android.maro.data.model.ListSortState.parse(prefs.getString(KEY_MARKER_LIST_SORT, null))
     )
 
     /**
@@ -462,6 +468,8 @@ class SettingsManager(
             .putFloat(KEY_TRACK_SIMPLIFY_EPSILON_M, updated.trackSimplifyEpsilonM.toFloat())
             .putFloat(KEY_TRACK_SIMPLIFY_SPEED_DELTA_KN, updated.trackSimplifySpeedDeltaKn.toFloat())
             .putBoolean(KEY_MARKER_DEBUG_RAYS, updated.markerDebugRays)
+            .putString(KEY_TRACK_LIST_SORT, ykws.android.maro.data.model.ListSortState.format(updated.trackListSort))
+            .putString(KEY_MARKER_LIST_SORT, ykws.android.maro.data.model.ListSortState.format(updated.markerListSort))
             .apply()
     }
 
@@ -549,6 +557,8 @@ class SettingsManager(
         private const val KEY_TRACK_SIMPLIFY_EPSILON_M = "track_simplify_epsilon_m"
         private const val KEY_TRACK_SIMPLIFY_SPEED_DELTA_KN = "track_simplify_speed_delta_kn"
         private const val KEY_MARKER_DEBUG_RAYS = "marker_debug_rays"
+        private const val KEY_TRACK_LIST_SORT = "track_list_sort"
+        private const val KEY_MARKER_LIST_SORT = "marker_list_sort"
         private const val KEY_PREFS_VERSION = "prefs_version"
         private const val CURRENT_VERSION = 3
     }

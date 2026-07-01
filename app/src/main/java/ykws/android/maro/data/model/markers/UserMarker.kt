@@ -2,6 +2,7 @@ package ykws.android.maro.data.model.markers
 
 import kotlinx.serialization.Serializable
 import ykws.android.maro.data.model.LatLng
+import ykws.android.maro.data.model.ListableItem
 import kotlin.math.*
 
 /** Distinguishes user-created markers from auto-generated idle markers. */
@@ -29,19 +30,23 @@ enum class MarkerOrigin { USER, IDLE_AUTO }
  */
 @Serializable
 data class UserMarker(
-    val id: String,
+    override val id: String,
     val name: String,
     val geometry: MarkerGeometry,
-    val description: String = "",
+    override val description: String = "",
     val proximityOverrideM: Double? = null,
     val confirmed: Boolean = true,
     val colorIndex: Int? = null,      // null = default colour, 0-15 = 16-colour palette
     val pinned: Boolean = false,
     val icon: String? = null,          // POI emoji/unicode icon, null = no icon
-    val createdAtEpochMs: Long = 0L,   // 0 = legacy marker
+    override val createdAtEpochMs: Long = 0L,   // 0 = legacy marker
     val origin: MarkerOrigin = MarkerOrigin.USER,
-    val keepable: Boolean = true       // user-created markers are keepable by default
-) {
+    val keepable: Boolean = true,      // user-created markers are keepable by default
+    override val updatedAtEpochMs: Long = createdAtEpochMs  // defaults to creation time for legacy
+) : ListableItem {
+    override val title: String get() = name
+    override val isPinned: Boolean get() = pinned
+
     /**
      * Axis-aligned lat/lon bounding box for cheap pre-filter before expensive
      * land-blocking checks. Computed lazily from [geometry] on first access.
