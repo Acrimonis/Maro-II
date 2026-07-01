@@ -94,9 +94,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.data.model.ListAction
+import ykws.android.maro.data.model.ListSortState
 import ykws.android.maro.data.track.TrackRecorderState
 import ykws.android.maro.data.track.TrackRecorderUiState
 import ykws.android.maro.data.track.TrackSummary
+import ykws.android.maro.ui.components.ListOverlayScaffold
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -124,10 +127,10 @@ fun TrackHistoryOverlay(
     liveTrackState: TrackRecorderUiState? = null,
     onUpdateTrack: (String, name: String?, comment: String?, pinned: Boolean?) -> Unit,
     onUpdateLiveTrack: ((name: String?, comment: String?) -> Unit)? = null,
-    onDeleteTrack: (String) -> Unit,
-    onUndoDeleteTrack: (String) -> Unit,
-    onShareGpx: (String) -> Unit,
+    onAction: (ListAction) -> Unit,
     onDismiss: () -> Unit,
+    sortState: ListSortState,
+    onSortStateChange: (ListSortState) -> Unit,
     isOpen: Boolean = true,
     modifier: Modifier = Modifier,
     // ── Render preview settings ───────────────────────────────────────
@@ -142,18 +145,10 @@ fun TrackHistoryOverlay(
     trackingColorPinnedFrom: Int = 0xFFFF6F00.toInt(),
     trackingColorPinnedTo: Int = 0xFFFF8F00.toInt()
 ) {
-    val pendingDeletes = remember { mutableListOf<String>() }
-
-    BackHandler {
-        pendingDeletes.forEach { id -> onDeleteTrack(id) }
-        pendingDeletes.clear()
-        onDismiss()
-    }
-
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US) }
 
-    // Pre-compute accent bar colors for each track based on current render settings
-    val accentColors = remember(trackSummaries, tracksVisible, trackingRenderNb,
+    // Pre-compute accent bar colors — batch lambda for scaffold
+    val accentColorMap = remember(trackSummaries, tracksVisible, trackingRenderNb,
         trackingTransparencyNewest, trackingTransparencyOldest,
         trackingColorPastFrom, trackingColorPastTo,
         trackingTransparencyPinnedNewest, trackingTransparencyPinnedOldest,
@@ -161,11 +156,8 @@ fun TrackHistoryOverlay(
     ) {
         val pinnedSummaries = trackSummaries.filter { it.pinned }.sortedByDescending { it.startTimeMs }
         val historySummaries = trackSummaries.filter { !it.pinned }.sortedByDescending { it.startTimeMs }
-
         val map = mutableMapOf<String, Color>()
         val greyColor = Color(AppConfig.uiSettingsTextMuted).copy(alpha = 0.15f)
-
-        // Pinned tracks always render
         val pinnedTotal = pinnedSummaries.size
         for ((index, summary) in pinnedSummaries.withIndex()) {
             val appearance = computeTrackPolylineAppearance(
@@ -174,15 +166,8 @@ fun TrackHistoryOverlay(
                 trackingColorPinnedFrom, trackingColorPinnedTo, 6f
             )
             val a = appearance.argb
-            map[summary.id] = Color(
-                red = (a shr 16) and 0xFF,
-                green = (a shr 8) and 0xFF,
-                blue = a and 0xFF,
-                alpha = (a ushr 24) and 0xFF
-            )
+            map[summary.id] = Color(red = (a shr 16) and 0xFF, green = (a shr 8) and 0xFF, blue = a and 0xFF, alpha = (a ushr 24) and 0xFF)
         }
-
-        // History tracks render only within trackingRenderNb
         val renderCount = trackingRenderNb.coerceIn(0, 20)
         val historyTotal = historySummaries.size
         for ((index, summary) in historySummaries.withIndex()) {
@@ -195,273 +180,41 @@ fun TrackHistoryOverlay(
                     if (index == 0) 8f else 6f
                 )
                 val a = appearance.argb
-                map[summary.id] = Color(
-                    red = (a shr 16) and 0xFF,
-                    green = (a shr 8) and 0xFF,
-                    blue = a and 0xFF,
-                    alpha = (a ushr 24) and 0xFF
-                )
+                map[summary.id] = Color(red = (a shr 16) and 0xFF, green = (a shr 8) and 0xFF, blue = a and 0xFF, alpha = (a ushr 24) and 0xFF)
             } else {
                 map[summary.id] = greyColor
             }
         }
-
         map
     }
 
-        // ── Panel ────────────────────────────────────────────────
-        val historyShape = RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp)
-        Box(
-            modifier = modifier
-                .fillMaxSize()
-                .clip(historyShape)
-                .background(Color(AppConfig.uiSettingsBackground))
-                .windowInsetsPadding(WindowInsets.statusBars)
-        ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                // ── Header ─────────────────────────────────────────────────
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 3.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(
-                            onClick = {
-                                pendingDeletes.forEach { id -> onDeleteTrack(id) }
-                                pendingDeletes.clear()
-                                onDismiss()
-                            },
-                            modifier = Modifier
-                                .size(32.dp)
-                                .clip(CircleShape)
-                                .background(Color(AppConfig.uiSettingsSwitchTrackInactive))
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                                contentDescription = "Back",
-                                tint = Color(AppConfig.uiSettingsTextPrimary),
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                        Spacer(modifier = Modifier.width(16.dp))
-                        Text(
-                            text = "Track History",
-                            color = Color(AppConfig.uiSettingsTextPrimary),
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
+    val liveState = liveTrackState
 
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = "RECORDED TRACKS",
-                    color = Color(AppConfig.uiSettingsAccent),
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp,
-                    modifier = Modifier.padding(horizontal = 24.dp)
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-
-                // ── Track list ─────────────────────────────────────────────
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(horizontal = 24.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // Live track card (index 0) when recording
-                    if (liveTrackState != null && liveTrackState.state == TrackRecorderState.ON) {
-                        item(key = "__live__") {
-                            LiveTrackCard(
-                                liveState = liveTrackState,
-                                dateFormat = dateFormat,
-                                onUpdateMeta = onUpdateLiveTrack,
-                            )
-                        }
-                    }
-
-                    items(trackSummaries, key = { it.id }) { summary ->
-                        SwipeToDeleteCard(
-                            summary = summary,
-                            modifier = Modifier.animateItem(),
-                            dateFormat = dateFormat,
-                            accentColor = accentColors[summary.id]
-                                ?: Color(AppConfig.uiSettingsTextMuted).copy(alpha = 0.15f),
-                            onUpdateTrack = onUpdateTrack,
-                            onShareGpx = onShareGpx,
-                            onDelete = { pendingDeletes.add(summary.id) },
-                            onUndo = {
-                                pendingDeletes.remove(summary.id)
-                                onUndoDeleteTrack(summary.id)
-                            },
-                            onPermanentDelete = {
-                                pendingDeletes.remove(summary.id)
-                                onDeleteTrack(summary.id)
-                            }
-                        )
-                    }
-                }
-            }
-        }
-}
-
-private enum class ItemState { CARD, SNACKBAR, DELETED }
-
-@Composable
-private fun SwipeToDeleteCard(
-    summary: TrackSummary,
-    modifier: Modifier = Modifier,
-    dateFormat: SimpleDateFormat,
-    accentColor: Color = Color.Unspecified,
-    onUpdateTrack: (String, name: String?, comment: String?, pinned: Boolean?) -> Unit,
-    onShareGpx: (String) -> Unit,
-    onDelete: () -> Unit,
-    onUndo: () -> Unit,
-    onPermanentDelete: () -> Unit
-) {
-    var state by remember { mutableStateOf(ItemState.CARD) }
-    val scope = rememberCoroutineScope()
-
-    // Card swipe state
-    var cardWidthPx by remember { mutableFloatStateOf(0f) }
-    var cardDragOffset by remember { mutableFloatStateOf(0f) }
-    val cardSwipeOffset by animateFloatAsState(
-        targetValue = cardDragOffset, animationSpec = tween(200), label = "cardSwipe"
+    ListOverlayScaffold(
+        items = trackSummaries,
+        title = "Track History",
+        sectionLabel = "RECORDED TRACKS",
+        sortState = sortState,
+        onSortStateChange = onSortStateChange,
+        accentColors = { accentColorMap },
+        cardContent = { summary ->
+            TrackCardContent(
+                summary = summary,
+                dateFormat = dateFormat,
+                accentColor = accentColorMap[summary.id] ?: Color(AppConfig.uiSettingsTextMuted).copy(alpha = 0.15f),
+                onUpdateTrack = onUpdateTrack,
+                onShareGpx = { onAction(ListAction.ExportGpx(summary.id)) }
+            )
+        },
+        liveCardContent = if (liveState != null && liveState.state == TrackRecorderState.ON) {
+            { _ -> LiveTrackCard(liveState = liveState, dateFormat = dateFormat, onUpdateMeta = onUpdateLiveTrack) }
+        } else {
+            {}
+        },
+        onAction = onAction,
+        onDismiss = onDismiss,
+        modifier = modifier
     )
-
-    // Snackbar swipe state
-    var snackWidthPx by remember { mutableFloatStateOf(0f) }
-    var snackDragOffset by remember { mutableFloatStateOf(0f) }
-    val snackSwipeOffset by animateFloatAsState(
-        targetValue = snackDragOffset, animationSpec = tween(200), label = "snackSwipe"
-    )
-
-    var cardDismissed by remember { mutableStateOf(false) }
-
-    Column(modifier = modifier.animateContentSize(animationSpec = tween(300))) {
-        // ── Card layer ─────────────────────────────────────────────────
-        AnimatedVisibility(
-            visible = state == ItemState.CARD,
-            enter = slideInHorizontally(animationSpec = spring(dampingRatio = 1.0f, stiffness = 350f)) { it },
-            exit = slideOutHorizontally(animationSpec = tween(150)) { it }
-                + fadeOut(animationSpec = tween(150))
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .offset { IntOffset(cardSwipeOffset.roundToInt(), 0) }
-                    .onSizeChanged { cardWidthPx = it.width.toFloat() }
-                    .then(
-                        if (state == ItemState.CARD && !cardDismissed) {
-                            Modifier.pointerInput(Unit) {
-                                detectHorizontalDragGestures(
-                                    onDragEnd = {
-                                        val threshold = cardWidthPx * 0.30f
-                                        if (cardDragOffset < -threshold) {
-                                            scope.launch {
-                                                cardDragOffset = -cardWidthPx
-                                                delay(220)
-                                                cardDismissed = true
-                                                state = ItemState.SNACKBAR
-                                                onDelete()
-                                            }
-                                        } else {
-                                            cardDragOffset = 0f
-                                        }
-                                    }
-                                ) { _, dragAmount ->
-                                    cardDragOffset = (cardDragOffset + dragAmount)
-                                        .coerceIn(-cardWidthPx, 0f)
-                                }
-                            }
-                        } else Modifier
-                    )
-            ) {
-                TrackCardContent(summary, dateFormat, accentColor, onUpdateTrack, onShareGpx)
-            }
-        }
-
-        // ── Snackbar layer ──────────────────────────────────────────────
-        AnimatedVisibility(
-            visible = state == ItemState.SNACKBAR,
-            enter = slideInHorizontally(animationSpec = tween(250)) { it }
-                + fadeIn(animationSpec = tween(150)),
-            exit = slideOutHorizontally(animationSpec = tween(250)) { it }
-                + fadeOut(animationSpec = tween(150))
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .offset { IntOffset(snackSwipeOffset.roundToInt(), 0) }
-                    .onSizeChanged { snackWidthPx = it.width.toFloat() }
-                    .pointerInput(Unit) {
-                        detectHorizontalDragGestures(
-                            onDragEnd = {
-                                val threshold = snackWidthPx * 0.30f
-                                if (snackDragOffset < -threshold) {
-                                    scope.launch {
-                                        snackDragOffset = -snackWidthPx
-                                        delay(220)
-                                        onPermanentDelete()
-                                        state = ItemState.DELETED
-                                    }
-                                } else {
-                                    snackDragOffset = 0f
-                                }
-                            }
-                        ) { _, dragAmount ->
-                            snackDragOffset = (snackDragOffset + dragAmount)
-                                .coerceIn(-snackWidthPx, 0f)
-                        }
-                    }
-            ) {
-                SnackbarSlot(summary.name, onUndo = {
-                    scope.launch {
-                        state = ItemState.CARD
-                        cardDismissed = false
-                        cardDragOffset = 0f
-                        snackDragOffset = 0f
-                        onUndo()
-                    }
-                })
-            }
-        }
-    }
-}
-
-/** Inline snackbar with 48–80dp height, card-bg × 0.75 alpha. */
-@Composable
-private fun SnackbarSlot(trackName: String, onUndo: () -> Unit) {
-    val bgColor = Color(AppConfig.uiCardBackground)
-        .copy(alpha = 0.102f * 0.75f)
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 48.dp, max = 96.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .background(bgColor)
-            .padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            text = "\u201C$trackName\u201D deleted",
-            color = Color(AppConfig.uiSettingsTextPrimary),
-            fontSize = 14.sp, maxLines = 3,
-            modifier = Modifier.weight(1f)
-        )
-        Spacer(modifier = Modifier.width(8.dp))
-        TextButton(onClick = onUndo) {
-            Text("Undo", color = Color(AppConfig.uiSettingsAccent),
-                fontWeight = FontWeight.Bold, fontSize = 14.sp)
-        }
-    }
 }
 
 /**

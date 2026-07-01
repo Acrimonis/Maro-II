@@ -86,7 +86,9 @@ fun OverlayLayer(
     gpsToggleColor: ComposeColor,
 
     // ── Track history data ───────────────────────────────────────────────
-    onShareGpx: (String) -> Unit,
+    onTrackAction: (ykws.android.maro.data.model.ListAction) -> Unit,
+    trackSortState: ykws.android.maro.data.model.ListSortState,
+    onTrackSortStateChange: (ykws.android.maro.data.model.ListSortState) -> Unit,
 
     // ── Settings data ────────────────────────────────────────────────────
     appSettings: AppSettings,
@@ -103,14 +105,11 @@ fun OverlayLayer(
 
     // ── Marker management data ───────────────────────────────────────────
     markers: List<UserMarker>,
-    onTapMarker: (String) -> Unit,
-    onEditMarker: (String) -> Unit,
-    onSoftDeleteMarker: (String) -> Unit,
-    onUndoDeleteMarker: (String) -> Unit,
-    onPermanentDelete: (String) -> Unit,
-    onCommitPendingDeletes: () -> Unit,
+    onMarkerAction: (ykws.android.maro.data.model.ListAction) -> Unit,
     onCreateFirst: () -> Unit,
-    onSetIcon: (String, String?) -> Unit
+    onSetIcon: (String, String?) -> Unit,
+    markerSortState: ykws.android.maro.data.model.ListSortState,
+    onMarkerSortStateChange: (ykws.android.maro.data.model.ListSortState) -> Unit
 ) {
     // ── Collect track ViewModel state ────────────────────────────────────
     val trackRecorderState by trackViewModel.uiState.collectAsState()
@@ -291,10 +290,10 @@ fun OverlayLayer(
                 onUpdateLiveTrack = { name, comment ->
                     trackViewModel.updateLiveTrackMeta(name, comment)
                 },
-                onDeleteTrack = { id -> trackViewModel.deleteTrack(id) },
-                onUndoDeleteTrack = { /* no-op */ },
-                onShareGpx = onShareGpx,
+                onAction = onTrackAction,
                 onDismiss = onDismissTrackHistory,
+                sortState = trackSortState,
+                onSortStateChange = onTrackSortStateChange,
                 tracksVisible = appSettings.tracksVisible,
                 trackingRenderNb = appSettings.trackingRenderNb,
                 trackingTransparencyNewest = appSettings.trackingTransparencyNewest,
@@ -317,15 +316,12 @@ fun OverlayLayer(
         ) {
             MarkerManagementOverlay(
                 markers = markers,
-                onTapMarker = onTapMarker,
-                onEditMarker = onEditMarker,
-                onSoftDeleteMarker = onSoftDeleteMarker,
-                onUndoDeleteMarker = onUndoDeleteMarker,
-                onPermanentDelete = onPermanentDelete,
+                onAction = onMarkerAction,
                 onCreateFirst = onCreateFirst,
-                onCommitPendingDeletes = onCommitPendingDeletes,
                 onDismiss = onDismissMarkerManagement,
-                onSetIcon = onSetIcon
+                onSetIcon = onSetIcon,
+                sortState = markerSortState,
+                onSortStateChange = onMarkerSortStateChange
             )
         }
 

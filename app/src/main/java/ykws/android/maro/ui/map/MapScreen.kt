@@ -1347,7 +1347,21 @@ fun MapScreen(
             gpsMode = appSettings.gpsMode,
             onGpsModeChange = onGpsModeChange,
             gpsToggleColor = gpsToggleColor,
-            onShareGpx = { id -> shareTrackGpx(context, trackViewModel, id, trackScope) },
+            onTrackAction = { action ->
+                when (action) {
+                    is ykws.android.maro.data.model.ListAction.ExportGpx -> shareTrackGpx(context, trackViewModel, action.id, trackScope)
+                    is ykws.android.maro.data.model.ListAction.PermanentDelete -> trackViewModel.deleteTrack(action.id)
+                    is ykws.android.maro.data.model.ListAction.RefreshList -> trackViewModel.refreshSummaries(action.sortState)
+                    is ykws.android.maro.data.model.ListAction.RefreshLayer -> mapView?.invalidate()
+                    else -> {}
+                }
+            },
+            trackSortState = appSettings.trackListSort,
+            onTrackSortStateChange = { newState ->
+                viewModel.updateSettings { it.copy(trackListSort = newState) }
+                trackViewModel.refreshSummaries(newState)
+                mapView?.invalidate()
+            },
             appSettings = appSettings,
             onUpdateSettings = viewModel::updateSettings,
             selectedTab = selectedTab,
@@ -1362,15 +1376,23 @@ fun MapScreen(
             },
             boatPosition = gpsPosition ?: mapCenter,
             markers = mgmtMarkers,
-            onTapMarker = { id -> markersViewModel.openEditDrawer(id) },
-            onEditMarker = { id ->
-                showMarkerManagement = false
-                markersViewModel.startWizard(id)
+            onMarkerAction = { action ->
+                when (action) {
+                    is ykws.android.maro.data.model.ListAction.SelectItem -> markersViewModel.openEditDrawer(action.id)
+                    is ykws.android.maro.data.model.ListAction.EditItem -> {
+                        showMarkerManagement = false
+                        markersViewModel.startWizard(action.id)
+                    }
+                    is ykws.android.maro.data.model.ListAction.PermanentDelete -> markersViewModel.deleteMarker(action.id)
+                    is ykws.android.maro.data.model.ListAction.RefreshList -> markersViewModel.refreshSort(action.sortState)
+                    else -> {}
+                }
             },
-            onSoftDeleteMarker = { id -> markersViewModel.softDeleteMarker(id) },
-            onUndoDeleteMarker = { id -> markersViewModel.undoDeleteMarker(id) },
-            onPermanentDelete = { id -> markersViewModel.deleteMarker(id) },
-            onCommitPendingDeletes = { markersViewModel.commitPendingDeletes() },
+            markerSortState = appSettings.markerListSort,
+            onMarkerSortStateChange = { newState ->
+                viewModel.updateSettings { it.copy(markerListSort = newState) }
+                markersViewModel.refreshSort(newState)
+            },
             onCreateFirst = {
                 showMarkerManagement = false
                 markersViewModel.startWizard(initialPos = mapCenter)

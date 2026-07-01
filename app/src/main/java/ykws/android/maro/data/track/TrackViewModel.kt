@@ -12,7 +12,10 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import ykws.android.maro.data.model.ListSortField
+import ykws.android.maro.data.model.ListSortState
 import ykws.android.maro.data.settings.AppSettings
+import ykws.android.maro.data.settings.SettingsManager
 
 /**
  * ViewModel bridge between [TrackRecorder] / [TrackRepository] and the Compose UI.
@@ -23,6 +26,11 @@ import ykws.android.maro.data.settings.AppSettings
 class TrackViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = TrackRepository(application)
+    private val settingsManager = ykws.android.maro.data.settings.SettingsManager(
+        application, ykws.android.maro.config.AppConfig.zoneAutoRevealDistanceM,
+        ykws.android.maro.config.AppConfig.zoneAutoRevealTimeS,
+        ykws.android.maro.config.AppConfig.overlayLowDepthMinOpacity
+    )
 
     private var recorder: TrackRecorder? = null
 
@@ -167,11 +175,36 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** Reload track summaries from repository, newest first. */
-    fun refreshSummaries() {
+    /** Reload track summaries with the given sort state, mark active track as [ListableItem.isLive]. */
+    fun refreshSummaries(sortState: ListSortState? = null) {
         viewModelScope.launch {
-            _summaries.value = repository.listTracks()
-                .sortedByDescending { it.startTimeMs }
+            val effectiveSort = sortState ?: settingsManager.settings.value.trackListSort
+            val summaries = repository.listTracks()
+            val sorted = sortSummaries(summaries, effectiveSort)
+            // Mark the active track: most recent summary with no endTimeMs
+            val active = sorted.firstOrNull { it.endTimeMs == null }
+            active?.isLive = true
+            _summaries.value = sorted
+        }
+    }
+
+    /** Apply [ListSortOrder] to a list of [TrackSummary]. */
+    private fun sortSummaries(
+        summaries: List<TrackSummary>,
+        state: ListSortState
+    ): List<TrackSummary> {
+        val comparator: Comparator<TrackSummary> = when (state.field) {
+            ListSortField.TITLE -> compareBy { it.title.lowercase() }
+            ListSortField.CREATED -> compareBy { it.createdAtEpochMs }
+            ListSortField.UPDATED -> compareBy { it.updatedAtEpochMs }
+        }
+        val directed = if (state.descending) comparator.reversed() else comparator
+
+        return if (state.pinnedGrouped) {
+            val (pinned, unpinned) = summaries.partition { it.pinned }
+            pinned.sortedWith(directed) + unpinned.sortedWith(directed)
+        } else {
+            summaries.sortedWith(directed)
         }
     }
 

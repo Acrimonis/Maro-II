@@ -210,7 +210,32 @@ class MarkersViewModel(
     init {
         viewModelScope.launch {
             val loaded = withContext(Dispatchers.IO) { repo.loadAll() }
-            _markers.value = loaded
+            val sortState = settingsManager.settings.value.markerListSort
+            _markers.value = sortMarkers(loaded, sortState)
+        }
+        viewModelScope.launch {
+            settingsManager.settings.collect { settings ->
+                val sortState = settings.markerListSort
+                _markers.value = sortMarkers(_markers.value, sortState)
+            }
+        }
+    }
+
+    private fun sortMarkers(
+        markers: List<UserMarker>,
+        state: ykws.android.maro.data.model.ListSortState
+    ): List<UserMarker> {
+        val comparator: Comparator<UserMarker> = when (state.field) {
+            ykws.android.maro.data.model.ListSortField.TITLE -> compareBy { it.title.lowercase() }
+            ykws.android.maro.data.model.ListSortField.CREATED -> compareBy { it.createdAtEpochMs }
+            ykws.android.maro.data.model.ListSortField.UPDATED -> compareBy { it.updatedAtEpochMs }
+        }
+        val directed = if (state.descending) comparator.reversed() else comparator
+        return if (state.pinnedGrouped) {
+            val (pinned, unpinned) = markers.partition { it.pinned }
+            pinned.sortedWith(directed) + unpinned.sortedWith(directed)
+        } else {
+            markers.sortedWith(directed)
         }
     }
 
@@ -295,6 +320,12 @@ class MarkersViewModel(
         val newIndex = if (current < ids.lastIndex) current + 1 else 0
         _selectedMarkerIndex.value = newIndex
         _selectedMarkerId.value = ids[newIndex]
+    }
+
+    /** Re-sort markers with the given sort state. */
+    fun refreshSort(sortState: ykws.android.maro.data.model.ListSortState? = null) {
+        val effective = sortState ?: settingsManager.settings.value.markerListSort
+        _markers.value = sortMarkers(_markers.value, effective)
     }
 
     /** Closes the drawer. */

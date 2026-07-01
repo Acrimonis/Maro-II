@@ -70,6 +70,8 @@ data class TrackSummary(
     override val description: String get() = comment
     override val createdAtEpochMs: Long get() = startTimeMs
     override val isPinned: Boolean get() = pinned
+    /** Mutable backing for [ListableItem.isLive] — set by ViewModel, never persisted. */
+    override var isLive: Boolean = false
 }
 
 /**

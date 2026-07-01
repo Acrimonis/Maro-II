@@ -8,4 +8,6 @@ interface ListableItem {
     val createdAtEpochMs: Long
     val updatedAtEpochMs: Long
     val isPinned: Boolean
+    /** True for the currently-recording live track. Scaffold sorts to top, renders via [liveCardContent], disables swipe-to-delete. */
+    val isLive: Boolean get() = false
 }

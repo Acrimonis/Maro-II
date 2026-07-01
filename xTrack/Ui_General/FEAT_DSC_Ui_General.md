@@ -2,8 +2,8 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-06-24 15:44
-active_subfeature: track list colors
+modified: 2026-07-01 22:25
+active_subfeature: list sort
 ---
 
 # Feature: Ui_General
@@ -111,6 +111,153 @@ Wrap drawer menu items (Position Source toggle, Manage Tracks link) in card back
 
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt`
+
+### list sort  [ ]
+
+Normalize list rendering across tracks and markers by extracting a shared `ListOverlayScaffold<T : ListableItem>` composable. Both [`TrackHistoryOverlay`](app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt) and [`MarkerManagementOverlay`](app/src/main/java/ykws/android/maro/ui/map/MarkerManagementOverlay.kt) become thin consumers providing only card content slots + accent color extraction.
+
+**2026 Compose best practice:** slot-based API + `spring()` platform defaults for animations. Scaffold owns structure; consumers provide content slots.
+
+**Guidelines:** [`docs/ui-lists-guidelines.md`](docs/ui-lists-guidelines.md) — canonical reference created during implementation. Card shell pattern in [`ui-drawer-guidelines.md` §9](docs/ui-drawer-guidelines.md:283).
+
+---
+
+### `ListableItem` — extended interface
+
+```kotlin
+interface ListableItem {
+    val id: String
+    val title: String
+    val description: String
+    val createdAtEpochMs: Long
+    val updatedAtEpochMs: Long
+    val isPinned: Boolean
+    val isLive: Boolean get() = false   // NEW — "happening right now"
+}
+```
+
+---
+
+### Sort design
+
+- `ListSortOrder` enum: `UPDATED_DESC` (default), `CREATED_DESC`, `TITLE_ASC`, `PINNED_FIRST`
+- Persisted in `AppSettings` via `SettingsManager` (SharedPreferences)
+- **Per-list keys:** `trackListSortOrder` / `markerListSortOrder` — independent defaults
+- ViewModels observe their key and re-sort on change
+- UI: `IconButton(Sort)` → `DropdownMenu` with 4 radio-checked items
+
+**Sort priority chain (scaffold):**
+1. `isLive = true` → always top (hard override)
+2. Chosen sort order → `UPDATED_DESC` | `CREATED_DESC` | `TITLE_ASC` | `PINNED_FIRST`
+
+---
+
+### Normalized scaffold — `ListOverlayScaffold<T : ListableItem>`
+
+**Shell:** `Box(fillMaxSize, uiSettingsBackground, statusBars insets, clip(RoundedCornerShape(16dp top/bottom)))` — per [§4 Drawer Contract](docs/ui-drawer-guidelines.md:139).
+
+**Header:** `Row(24dp h-pad, 3dp v-pad)` + `IconButton(32dp, CircleShape, uiSettingsSwitchTrackInactive)` + `Icon(ArrowBack, 18dp, uiSettingsTextPrimary)` + `Spacer(16dp)` + `Text(title, 17sp, Bold)` + `headerActions` slot — per [§6 Header Tokens](docs/ui-drawer-guidelines.md:188).
+
+**Section label:** always visible, `uiSettingsAccent`, 17sp Bold, UPPERCASE, 1sp letter-spacing — per [§7](docs/ui-drawer-guidelines.md:221).
+
+**List:** `LazyColumn(fillMaxSize, h=24dp, spacedBy=12dp)` → items sorted `isLive` first, then sort order. Each item wrapped in `SwipeableItemCard<T>`.
+
+**Card shell:** `Row(IntrinsicSize.Min, clip 12dp, uiCardBackground)` + `Box(4dp, fillMaxHeight, accentColor)` + content slot — per [§9](docs/ui-drawer-guidelines.md:296). Accent colors via batch lambda `accentColors: (List<T>) -> Map<String, Color>` — scaffold calls once per list change, looks up `map[item.id]` per card.
+
+**Card slot dispatch:**
+- `item.isLive` → `liveCardContent: @Composable (T) -> Unit` (pulsing, live stats, no swipe)
+- else → `cardContent: @Composable (T) -> Unit` (swipeable, standard card)
+
+**Swipe-to-delete:** `CARD → SNACKBAR → DELETED`, 30% drag threshold. **Deferred batch for both lists** — scaffold owns `pendingDeletes` set internally. Swipe remembers; dismiss commits.
+
+**Snackbar:** `SnackbarSlot(item.title)` — bg alpha `0.0765f`, enter `slideIn(tween(250))+fadeIn(150)`, exit `slideOut(tween(250))+fadeOut(150)`, heightIn(48-96dp), clip 12dp, "Undo" `TextButton`.
+
+**Animations:** platform `spring()` defaults for card enter/exit (Compose 1.7+).
+
+---
+
+### Action contract — `ListAction` sealed class
+
+Single callback: `onAction: (ListAction) -> Unit`. Scaffold emits actions; consumer wires to ViewModels.
+
+```kotlin
+sealed class ListAction {
+    // Delete lifecycle — scaffold owns pending set internally
+    data class SoftDelete(val id: String, val title: String) : ListAction()
+    data class UndoDelete(val id: String) : ListAction()
+    data class PermanentDelete(val id: String) : ListAction()
+    // Item interaction — consumer wires to ViewModel
+    data class SelectItem(val id: String) : ListAction()     // tap → show details
+    data class EditItem(val id: String) : ListAction()       // edit → wizard
+    data class ExportGpx(val id: String) : ListAction()      // share GPX
+}
+```
+
+| Action | Scaffold internal | Consumer wiring |
+|---|---|---|
+| `SoftDelete` | Add to `pendingDeletes`, show snackbar | *(optional)* |
+| `UndoDelete` | Remove from `pendingDeletes`, slide card back | *(optional)* |
+| `PermanentDelete` | Remove from `pendingDeletes` | `viewModel.delete(id)` + refresh |
+| `SelectItem` | — | Markers: `openEditDrawer(id)` |
+| `EditItem` | — | Markers: `startWizard(id)` |
+| `ExportGpx` | — | Tracks: `shareGpx(id)` |
+
+Scaffold also exposes `onDismiss: () -> Unit` for overlay close. All inter-component communication flows through `onAction`. Card-internal callbacks (`onUpdateTrack`, `onSetIcon`, `onUpdateLiveTrack`) stay as slot-local lambdas.
+
+---
+
+### What each consumer provides
+
+**TrackHistoryOverlay:**
+- `title = "Track History"`, `sectionLabel = "RECORDED TRACKS"`
+- `accentColors = { summaries -> /* 156-line computation from 11 render settings, returns Map<String, Color> */ }`
+- `cardContent = { TrackCardContent(it, dateFormat, onUpdateTrack, onShareGpx) }`
+- `liveCardContent = { LiveTrackCard(liveState, ...) }` — when recording
+- Live track entry has `isLive = true` in its `TrackSummary`
+- `onAction = { action -> when (action) { is ListAction.PermanentDelete -> trackViewModel.deleteTrack(action.id); refreshSummaries(); is ListAction.ExportGpx -> shareGpx(action.id) } }`
+
+**MarkerManagementOverlay:**
+- `title = "Markers · ${markers.size}"`, `sectionLabel = "YOUR MARKERS"`
+- `accentColors = { markers -> markers.associate { it.id to MarkerColors.of(it.colorIndex) } }`
+- `cardContent = { MarkerCardContent(it, onSetIcon) }` — onTap/onEdit now emit `SelectItem`/`EditItem` via scaffold's action callback
+- `emptyState = { CenteredPinIcon + "No markers yet" + "Create First Marker" button }`
+- No `liveCardContent` — markers have no live state
+- `onAction = { action -> when (action) { is ListAction.PermanentDelete -> markersViewModel.deleteMarker(action.id); refresh; is ListAction.SelectItem -> openEditDrawer(action.id); is ListAction.EditItem -> startWizard(action.id) } }`
+- **Removed from MarkersViewModel:** `pendingDeletes` set, `softDeleteMarker()`, `undoDeleteMarker()`, `commitPendingDeletes()`
+
+---
+
+### Files touched
+- **New:** `ListOverlayScaffold.kt`, `ListAction.kt` (sealed class), `ListSortOrder.kt`, `docs/ui-lists-guidelines.md`
+- **Modify:** `ListableItem.kt` (+`isLive`), `SettingsManager.kt` (+2 sort keys), `TrackViewModel.kt`, `MarkersViewModel.kt` (−4 delete methods), `TrackHistoryOverlay.kt`, `MarkerManagementOverlay.kt`, `OverlayLayer.kt` (wiring)
+
+---
+
+### Rules
+- Sort is **per-list** — `trackListSortOrder` and `markerListSortOrder` are independent
+- `isLive` always top; `PINNED_FIRST` groups pinned within non-live, then `UPDATED_DESC`
+- Scaffold owns swipe-to-delete state + `pendingDeletes`; emits `ListAction` events; consumer wires `PermanentDelete` to ViewModel
+- **Both lists use deferred batch** — swipe remembers (emits `SoftDelete`), dismiss commits (emits `PermanentDelete` per ID)
+- `ListOverlayScaffold` is generic `<T : ListableItem>`
+- Animations: platform `spring()` defaults, snackbar `tween(250)`
+- Back button: 32dp `IconButton(CircleShape, uiSettingsSwitchTrackInactive)`
+- No copy-paste between the two overlay files after normalization
+
+### Future
+- [ ] Extend `ListSortField` to support per-type sort fields (e.g., track length, marker distance). Scaffold should accept a `customSortFields: List<ListSortField>` parameter per consumer.
+
+---
+
+### Implementation Risks
+
+| # | Risk | Mitigation |
+|---|------|------------|
+| 1 | **LiveTrackCard data mismatch** — `liveCardContent` slot receives `TrackSummary` but `LiveTrackCard` needs `TrackRecorderUiState` (speed, elapsed, state). | Capture `liveState` in lambda closure; don't pass through T. |
+| 2 | **`isLive` assignment** — `TrackSummary` is protobuf-loaded; nothing marks the active track. | `TrackViewModel.refreshSummaries()` sets `isLive = true` on the currently-recording track's summary. |
+| 3 | **MarkersViewModel N+1 refresh** — per-ID `deleteMarker()` calls `loadAll()` after each delete. Dismissing 5 markers = 5 full reloads. | Batch deletes: collect IDs, delete all, `loadAll()` once. |
+| 4 | **Accent color staleness** — track accent colors depend on sorted list position. Must recompute on sort change. | Include sort key in `remember` dependency list for batch lambda. |
+| 5 | **OverlayLayer wiring** — reducing to single `onAction` callback changes parameter lists in MapScreen → OverlayLayer → overlay chain. | Mechanical update across 3 files; no compile-time safety net. Verify delete + export + tap/edit after migration. |
+| 6 | **Live items not swipeable** — scaffold must skip `SwipeableItemCard` wrapper for items with `isLive = true`. | Explicit `if (!item.isLive) SwipeableItemCard(...) else liveCardContent(item)`. |
 
 ### track list colors  [ ]
 
@@ -241,3 +388,4 @@ Track list (TrackHistoryOverlay) color review — ensure track cards, stats, lab
 - `plans/map-overlay-layout-rationalization.md` — complete layout refactor: 2-column Row structure, symmetric 6dp margins, orientation-aware insets
 - `plans/map-overlay-layout-inventory.md` — current overlay inventory and planned evolution audit
 - `docs/material-icons-standalone-guide.md` — How to add Material Symbols icons as standalone ImageVector .kt files
+- `docs/ui-lists-guidelines.md` — ListOverlayScaffold API, swipe-to-delete state machine, sort UI, pending-delete lifecycle
