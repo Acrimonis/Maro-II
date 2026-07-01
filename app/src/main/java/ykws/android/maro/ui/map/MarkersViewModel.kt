@@ -326,11 +326,11 @@ class MarkersViewModel(
         )
     }
 
-    /** Icon matching the description field: 📌 ⭕ 📏 */
+    /** Icon matching the geometry type: 📍 ⭕ 🔴 */
     private fun typeIcon(type: MarkerType): String = when (type) {
-        MarkerType.PIN -> "\uD83D\uDCCC"     // 📌
+        MarkerType.PIN -> "\uD83D\uDCCD"     // 📍
         MarkerType.CIRCLE -> "\u2B55"         // ⭕
-        MarkerType.CORRIDOR -> "\uD83D\uDCCF" // 📏
+        MarkerType.CORRIDOR -> "\uD83D\uDD34" // 🔴
     }
 
     /** Human-readable name for a color index (0-15). */

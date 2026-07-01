@@ -51,7 +51,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color as ComposeColor
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -100,7 +102,7 @@ fun MarkerDrawer(
     ) {
         when (drawerState) {
             is MarkerDrawerState.Viewing -> ViewingContent(viewModel, onClose, boatPosition)
-            is MarkerDrawerState.MatchResult -> MatchResultContent(viewModel, onClose)
+            is MarkerDrawerState.MatchResult -> MatchResultContent(viewModel, onClose, boatPosition)
             else -> { /* Creating/Editing handled by WizardDrawer */ }
         }
     }
@@ -403,9 +405,12 @@ private fun ViewingContent(
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun MatchResultContent(viewModel: MarkersViewModel, onClose: () -> Unit) {
+private fun MatchResultContent(
+    viewModel: MarkersViewModel,
+    onClose: () -> Unit,
+    boatPosition: LatLng? = null
+) {
     val result by viewModel.matchResult.collectAsState()
-    val allMarkers by viewModel.markers.collectAsState()
 
     Column(
         modifier = Modifier
@@ -427,48 +432,101 @@ private fun MatchResultContent(viewModel: MarkersViewModel, onClose: () -> Unit)
 
         val matches = result?.allMatches ?: emptyList()
         if (matches.isEmpty()) {
-            if (allMarkers.isEmpty()) {
-                Text(
-                    "No markers placed yet",
-                    color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                    fontSize = 13.sp
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    "Create a marker first, then tap the boat icon to find nearby markers.",
-                    color = ComposeColor(AppConfig.uiSettingsTextMuted).copy(alpha = 0.6f),
-                    fontSize = 11.sp
-                )
-            } else {
-                Text(
-                    "No markers in range",
-                    color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    "Land may be blocking all markers, or you are too far away.",
-                    color = ComposeColor(AppConfig.uiSettingsTextMuted).copy(alpha = 0.6f),
-                    fontSize = 11.sp
-                )
-            }
+            Text(
+                text = "in the middle of nowhere",
+                color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                fontSize = 14.sp,
+                fontStyle = FontStyle.Italic,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth()
+            )
         } else {
-            val sentence = matches.joinToString(", ") { match ->
-                when (match) {
-                    is WhereAmIMatch.ZoneMatch -> match.marker.name
-                    is WhereAmIMatch.LineOfSightMatch -> "${cardinalDirection(match.bearingDeg)} of ${match.marker.name}"
+            Column(
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                matches.forEach { match ->
+                    MatchRow(match, boatPosition)
                 }
             }
-            Text(
-                text = sentence,
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium
-            )
         }
 
         Spacer(Modifier.height(6.dp))
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Match result row
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun MatchRow(match: WhereAmIMatch, boatPosition: LatLng?) {
+    val marker = when (match) {
+        is WhereAmIMatch.ZoneMatch -> match.marker
+        is WhereAmIMatch.LineOfSightMatch -> match.marker
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min)
+            .clip(RoundedCornerShape(6.dp))
+            .background(ComposeColor(AppConfig.uiCardBackground))
+    ) {
+        // Left-edge color accent bar
+        Box(
+            modifier = Modifier
+                .width(4.dp)
+                .fillMaxHeight()
+                .background(ComposeColor(MarkerColors.of(marker.colorIndex)))
+        )
+
+        Text(
+            text = buildMatchText(match, boatPosition),
+            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier
+                .weight(1f)
+                .padding(horizontal = 8.dp, vertical = 4.dp)
+        )
+    }
+}
+
+/** Builds the display text for a match row. */
+private fun buildMatchText(match: WhereAmIMatch, boatPosition: LatLng?): String {
+    return when (match) {
+        is WhereAmIMatch.ZoneMatch -> {
+            val icon = match.marker.icon ?: MarkerGeometry.iconFor(match.marker.geometry)
+            "$icon ${match.marker.name}"
+        }
+        is WhereAmIMatch.LineOfSightMatch -> {
+            val icon = match.marker.icon ?: MarkerGeometry.iconFor(match.marker.geometry)
+            val dir = cardinalDirection(match.bearingDeg)
+            val name = "$dir of ${match.marker.name}"
+            if (boatPosition != null) {
+                val dist = geometricDistanceToZone(boatPosition, match.marker.geometry)
+                val distStr = if (dist < 1000.0) "${dist.toLong()} m"
+                    else "%.1f km".format(dist / 1000.0)
+                "$icon $name · $distStr"
+            } else {
+                "$icon $name"
+            }
+        }
+    }
+}
+
+/** Straight-line (flight-of-bird) distance from [boat] to the nearest edge of [geometry]. */
+private fun geometricDistanceToZone(boat: LatLng, geometry: MarkerGeometry): Double {
+    return when (geometry) {
+        is MarkerGeometry.Pin -> SpatialOperations.haversine(boat, geometry.position)
+        is MarkerGeometry.Circle -> {
+            val distToCenter = SpatialOperations.haversine(boat, geometry.center)
+            (distToCenter - geometry.radiusM).coerceAtLeast(0.0)
+        }
+        is MarkerGeometry.Corridor -> {
+            val dSeg = SpatialOperations.pointToSegmentDistance(boat, geometry.p1, geometry.p2)
+            (dSeg - geometry.widthM / 2.0).coerceAtLeast(0.0)
+        }
     }
 }
 
@@ -483,7 +541,7 @@ private fun DrawerHeader(
     actions: (@Composable () -> Unit)? = null
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 3.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         IconButton(
@@ -531,8 +589,9 @@ private fun cardinalDirection(bearingDeg: Double): String {
     }
 }
 
-/** Numeric-only compact format: "📌 / 200", "⭕ / 200 / 200", "📏 / 100 / 200". */
+/** Numeric-only compact format: "📍 0 200", "⭕ 200 200", "🔴 100 200". */
 private fun markerFormatText(marker: UserMarker): String {
+    val icon = MarkerGeometry.iconFor(marker.geometry)
     val proximityM = marker.proximityOverrideM
         ?: when (val g = marker.geometry) {
             is MarkerGeometry.Pin -> AppConfig.markerProximityPinM
@@ -541,14 +600,14 @@ private fun markerFormatText(marker: UserMarker): String {
         }
     val prox = proximityM.toLong().toString()
     return when (marker.geometry) {
-        is MarkerGeometry.Pin -> "\uD83D\uDCCC 0 $prox"
+        is MarkerGeometry.Pin -> "$icon 0 $prox"
         is MarkerGeometry.Circle -> {
             val r = marker.geometry.radiusM.toLong().toString()
-            "\u2B55 $r $prox"
+            "$icon $r $prox"
         }
         is MarkerGeometry.Corridor -> {
             val w = marker.geometry.widthM.toLong().toString()
-            "\uD83D\uDCCF $w $prox"
+            "$icon $w $prox"
         }
     }
 }

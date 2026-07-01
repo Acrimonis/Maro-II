@@ -141,4 +141,13 @@ sealed class MarkerGeometry {
         val p2: LatLng,
         val widthM: Double             // > 0
     ) : MarkerGeometry()
+
+    companion object {
+        /** Default emoji icon for each geometry type. */
+        fun iconFor(geometry: MarkerGeometry): String = when (geometry) {
+            is Pin -> "\uD83D\uDCCD"     // 📍
+            is Circle -> "\u2B55"         // ⭕
+            is Corridor -> "\uD83D\uDD34" // 🔴
+        }
+    }
 }
