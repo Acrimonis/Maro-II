@@ -4,6 +4,9 @@ import kotlinx.serialization.Serializable
 import ykws.android.maro.data.model.LatLng
 import kotlin.math.*
 
+/** Distinguishes user-created markers from auto-generated idle markers. */
+enum class MarkerOrigin { USER, IDLE_AUTO }
+
 /**
  * A user-defined marker placed on the map.
  *
@@ -19,6 +22,10 @@ import kotlin.math.*
  * @property confirmed           Whether the marker has been saved (confirmed) or is in placement (unconfirmed).
  *                               Unconfirmed markers render in [semantic.caution] colour;
  *                               confirmed markers render in [semantic.info] colour.
+ * @property origin              [MarkerOrigin.USER] or [MarkerOrigin.IDLE_AUTO].
+ * @property keepable            Whether the marker survives startup cleanup.
+ *                               User-created markers are always keepable.
+ *                               Auto-markers are keepable=false during idle and set to true on confirmation.
  */
 @Serializable
 data class UserMarker(
@@ -31,7 +38,9 @@ data class UserMarker(
     val colorIndex: Int? = null,      // null = default colour, 0-15 = 16-colour palette
     val pinned: Boolean = false,
     val icon: String? = null,          // POI emoji/unicode icon, null = no icon
-    val createdAtEpochMs: Long = 0L    // 0 = legacy marker
+    val createdAtEpochMs: Long = 0L,   // 0 = legacy marker
+    val origin: MarkerOrigin = MarkerOrigin.USER,
+    val keepable: Boolean = true       // user-created markers are keepable by default
 ) {
     /**
      * Axis-aligned lat/lon bounding box for cheap pre-filter before expensive

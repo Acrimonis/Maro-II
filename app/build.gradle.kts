@@ -32,7 +32,7 @@ android {
 
         // ── Layer default visibility from maro.properties ─────────────────
         val maroProps = mutableMapOf<String, String>()
-        val maroFile = rootProject.file("maro.properties")
+        val maroFile = file("src/main/assets/maro.properties")
         if (maroFile.exists()) {
             maroFile.readLines().forEach { line ->
                 val trimmed = line.trim()
@@ -139,13 +139,9 @@ android {
         }
     }
 
-    // Keep root maro.properties as the single source of truth —
-    // copy into assets so AppConfig can load it at runtime.
-    tasks.register<Copy>("syncMaroProperties") {
-        from(rootProject.file("maro.properties"))
-        into(layout.projectDirectory.dir("src/main/assets"))
-    }
-    tasks.named("preBuild") { dependsOn("syncMaroProperties") }
+    // maro.properties lives in src/main/assets — single source of truth.
+    // AppConfig loads it from assets at runtime; build.gradle.kts reads it
+    // directly for BuildConfig constants.
 }
 
 protobuf {

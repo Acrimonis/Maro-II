@@ -1,29 +1,61 @@
 # BoatTrace — Hydration Snapshot
 
-**Baked at:** 2026-06-29 12:48 UTC
-**Active Subfeature:** notif-fix (implemented)
+**Baked at:** 2026-07-01 17:05 UTC
+**Active Subfeature:** boat-markers (implemented)
+**Branch:** feature/track+markers
 
 ## Session Summary
 
-Notification simplification — stripped extended info (speed/elapsed/distance) from notification layout, keeping only collapsed title line. Reverted RemoteViews column experiments and adaptive icon explorations. Build: ✅
+BoatMarker infrastructure fully implemented — design finalised, all 12 steps coded and built:
 
-### idle-time-tracking implementation (2026-06-28)
-Idle time tracking — added `idleDurationSec` accumulator in TrackRecorder using `isStopped` transition detection. Displays in track history summary cards, live track card (Nav corrected to elapsed-minus-idle), and menu drawer recording status. Fixed `navigatingDurationSec = totalElapsedSec - idleDurationSec`. Real-time UI refresh on every addPoint() call while idle.
+### Data model
+- `BoatMarkerTrigger`, `MarkerSnapshot`, `BoatMarker` (ProtoNumber 1-8, including `autoMarkerId`)
+- `IdleCaptureResult`, `IdleThresholdCallback` interface, `IdleSessionContext` class
+- Track `@ProtoNumber(16) boatMarkers: List<BoatMarker>`
+- TrackEvent: `IdlePeriodStarted/Completed`, `DrawerAutoOpenRequested/CloseRequested`
+- UserMarker: `MarkerOrigin` enum, `origin`, `keepable` fields
 
-### track-list-render-indicator implementation (2026-06-24)
-- **Utility:** `TrackPolylineAppearance` data class + `computeTrackPolylineAppearance()` pure function — computes ARGB + stroke width from index/total/transparency/color settings
-- **MapScreen:** Refactored history and pinned polyline loops to call the utility (replaced ~22 lines of duplicated inline computation)
-- **TrackHistoryOverlay:** Accepts 10 render-settings params (`tracksVisible`, `trackingRenderNb`, transparency/color for past + pinned). Pre-computes `accentColors: Map<String, Color>` via `remember` keyed on all settings + summaries
-- **TrackCardContent:** Wrapped in `Row(IntrinsicSize.Min)` with 4dp accent bar `Box(fillMaxHeight)`. Color: exact ARGB from utility for visible tracks, muted grey at 15% alpha for non-visible (beyond `trackingRenderNb` or `tracksVisible=false`)
-- **Color fix:** Explicit 4-component `Color(red, green, blue, alpha)` instead of `Color(argbInt)` to avoid sign-extension issues with negative ARGB values
+### Logic
+- TrackRecorder: idle threshold timer (60s default), session context lifecycle, BoatMarker append/close with checkpoint saves, `addManualBoatMarker()`, `setBoatMarkerAutoMarkerId()`, `setActiveSessionAutoMarkerId()`
+- TrackViewModel: persistent `_events` MutableSharedFlow with forwarding coroutine, passthrough methods, idle callback wiring
+- MarkersViewModel: `whereAmISync()`, `addTempAutoMarker()`, `confirmAutoMarker(id, name, desc)`, top-level `toMarkerSnapshot()`
 
-## Key Files Modified (this session)
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — utility function + refactored LaunchedEffect + call site params
-- `app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt` — 10 new params, accent color precomputation, Row+accent bar in TrackCardContent, `fillMaxHeight` + `IntrinsicSize` imports
-- `xTrack/BoatTrace/FEAT_DSC_BoatTrace.md` — subfeature entry + implemented section
-- `xTrack/BoatTrace/FEAT_HYD_BoatTrace.md` — this file
-- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_track-list-render-indicator.md` — design plan
+### UI
+- MapScreen: idle callback (whereAmISync snapshots + drawer auto-open), event observation (IdlePeriodStarted → temp 🕐 pin, IdlePeriodCompleted → confirm/delete), MANUAL boat-marker button snapshots, startup cleanup of `keepable=false`
+- MarkerOverlay: proximity ring suppressed for IDLE_AUTO, icon tooltip suppressed, icon opacity from config
+- ICON_SET: 16 icons, 4×4 grid (🐬🐚🏖️🕐)
+- History tracks: 🕐 pins rendered with track polyline transparency
+
+### Config
+- `track.boatMarker.autoMarker.idleThresholdSec=10`, `minDurationSec=30`, `opacity=50`
+- Single `maro.properties` in assets (root copy deleted, `syncMaroProperties` Gradle task removed)
+
+## Key Files (implemented)
+
+### New
+- `app/src/main/java/ykws/android/maro/data/track/BoatMarker.kt`
+- `app/src/main/java/ykws/android/maro/data/track/IdleThresholdCallback.kt`
+- `app/src/main/java/ykws/android/maro/data/track/IdleSessionContext.kt`
+
+### Modified
+- `app/src/main/java/ykws/android/maro/data/track/Track.kt` — ProtoNumber 16
+- `app/src/main/java/ykws/android/maro/data/track/TrackEvent.kt` — 4 new events
+- `app/src/main/java/ykws/android/maro/data/model/markers/UserMarker.kt` — MarkerOrigin + keepable
+- `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt` — idle timer, BoatMarker lifecycle
+- `app/src/main/java/ykws/android/maro/data/track/TrackViewModel.kt` — events forwarding, passthrough
+- `app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt` — whereAmISync, auto-marker CRUD
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — callback wiring, event observation
+- `app/src/main/java/ykws/android/maro/ui/map/MarkerOverlay.kt` — proximity/tooltip/opacity
+- `app/src/main/java/ykws/android/maro/ui/map/IconPickerDialog.kt` — 16 icons
+- `app/src/main/java/ykws/android/maro/config/AppConfig.kt` — parsed config
+- `app/src/main/assets/maro.properties` — auto-marker config keys
+- `app/build.gradle.kts` — single maro.properties reference
+
+### Deleted
+- `maro.properties` (root — consolidated to assets)
 
 ## Next Steps
-- [ ] Deploy APK and E2E verify accent bars on device
-- [ ] Track list UI polish per FEAT_PLN_BoatTrace_TrackList_Design.md
+- [ ] Build + deploy to device
+- [ ] E2E: Verify idle auto-marker 🕐 pin appears during recording
+- [ ] E2E: Verify proximity ring hidden, icon dimmed
+- [ ] E2E: Verify history track shows 🕐 pins at idle positions

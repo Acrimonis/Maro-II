@@ -99,6 +99,13 @@ object AppConfig {
     var markerProximityZoneMultiplier: Double = 3.0
         private set
 
+    /** Idle threshold (seconds) for BoatMarker snapshot + drawer auto-open. */
+    var boatMarkerIdleThresholdSec: Long = 60
+    /** Minimum idle duration (seconds) before 🕐 auto-marker pin becomes permanent. */
+    var boatMarkerAutoMarkerMinDurationSec: Long = 120
+    /** Auto-marker icon opacity on map (0-100, 100=fully opaque). */
+    var boatMarkerIdleOpacityPct: Int = 50
+
     /** Enable visual whereAmI debug rays on the map. Set via `marker.debug.rays.enabled` in maro.properties. */
     var markerDebugRaysEnabled: Boolean = false
 
@@ -509,6 +516,17 @@ object AppConfig {
             props.getProperty("marker.proximity.zone_multiplier")?.toDoubleOrNull()?.let {
                 markerProximityZoneMultiplier = it.coerceIn(0.0, 20.0)
             }
+            // ── Auto-marker idle tracking ───────────────────────────────────
+            props.getProperty("track.boatMarker.autoMarker.idleThresholdSec")?.toLongOrNull()?.let {
+                boatMarkerIdleThresholdSec = it.coerceIn(10, 600)
+            }
+            props.getProperty("track.boatMarker.autoMarker.minDurationSec")?.toLongOrNull()?.let {
+                boatMarkerAutoMarkerMinDurationSec = it.coerceIn(30, 3600)
+            }
+            props.getProperty("track.boatMarker.autoMarker.opacity")?.toIntOrNull()?.let {
+                boatMarkerIdleOpacityPct = it.coerceIn(0, 100)
+            }
+
             // ── Marker debug rays ───────────────────────────────────────
             props.getProperty("marker.debug.rays.enabled")?.toBooleanStrictOrNull()?.let {
                 markerDebugRaysEnabled = it

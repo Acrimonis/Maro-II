@@ -33,6 +33,12 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
     private val _trackSample = MutableSharedFlow<TrackSample>(extraBufferCapacity = 8)
     val trackSample: SharedFlow<TrackSample> = _trackSample.asSharedFlow()
 
+    /** Recorder event stream — MapScreen observes for idle/marker events.
+     *  Persistent flow that forwards from whatever recorder is active. */
+    private val _events = MutableSharedFlow<TrackEvent>(extraBufferCapacity = 64)
+    val events: SharedFlow<TrackEvent> = _events.asSharedFlow()
+    private var eventsForwardingJob: kotlinx.coroutines.Job? = null
+
     private val _summaries = MutableStateFlow<List<TrackSummary>>(emptyList())
     val summaries: StateFlow<List<TrackSummary>> = _summaries.asStateFlow()
 
@@ -77,7 +83,11 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
      * Start the recorder with a TrackSample flow and current settings.
      * Call once when the GPS pipeline is ready.
      */
-    fun startRecorder(sampleFlow: Flow<TrackSample>, settings: AppSettings) {
+    fun startRecorder(
+        sampleFlow: Flow<TrackSample>,
+        settings: AppSettings,
+        idleThresholdCallback: IdleThresholdCallback? = null
+    ) {
         stopRecorder()
         val rec = TrackRecorder(
             repository = repository,
@@ -89,7 +99,9 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
             isStopped = stoppedSource,
             simplifyEnabled = settings.trackSimplifyEnabled,
             simplifyEpsilonM = settings.trackSimplifyEpsilonM,
-            simplifySpeedDeltaKn = settings.trackSimplifySpeedDeltaKn
+            simplifySpeedDeltaKn = settings.trackSimplifySpeedDeltaKn,
+            idleThresholdSec = ykws.android.maro.config.AppConfig.boatMarkerIdleThresholdSec,
+            idleThresholdCallback = idleThresholdCallback
         )
         recorder = rec
         rec.start(sampleFlow)
@@ -98,10 +110,17 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
                 _uiState.value = state
             }
         }
+        // Forward recorder events to persistent flow so MapScreen sees them
+        eventsForwardingJob?.cancel()
+        eventsForwardingJob = viewModelScope.launch {
+            rec.events.collect { _events.emit(it) }
+        }
     }
 
     /** Stop the recorder and release resources. */
     fun stopRecorder() {
+        eventsForwardingJob?.cancel()
+        eventsForwardingJob = null
         recorder?.dispose()
         recorder = null
     }
@@ -210,6 +229,21 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
             repository.setPinned(id, pinned)
             refreshSummaries()
         }
+    }
+
+    /** Add manual BoatMarker snapshots to the current track. */
+    fun addManualBoatMarker(snapshots: List<MarkerSnapshot>) {
+        recorder?.addManualBoatMarker(snapshots)
+    }
+
+    /** Set the auto-marker ID on the active idle session. */
+    fun setActiveSessionAutoMarkerId(id: String) {
+        recorder?.setActiveSessionAutoMarkerId(id)
+    }
+
+    /** Store the confirmed auto-marker ID in the track's BoatMarker entry. */
+    fun setBoatMarkerAutoMarkerId(id: String) {
+        recorder?.setBoatMarkerAutoMarkerId(id)
     }
 
     /** Resolve orphaned checkpoint: resume recording. */

@@ -25,7 +25,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-/** 12 POI icons available for markers. */
+/** 16 POI icons available for markers — 4×4 grid. */
 val ICON_SET = listOf(
     "\u2693",        // ⚓ Anchor
     "\uD83E\uDD3F",  // 🤿 Diver
@@ -38,7 +38,11 @@ val ICON_SET = listOf(
     "\u2B50",        // ⭐ Star
     "\uD83D\uDC80",  // 💀 Danger
     "\uD83C\uDFDD\uFE0F", // 🏝️ Island
-    "\uD83D\uDDFA\uFE0F"  // 🗺️ Map
+    "\uD83D\uDDFA\uFE0F", // 🗺️ Map
+    "\uD83D\uDC2C",  // 🐬 Dolphin
+    "\uD83D\uDC1A",  // 🐚 Shell
+    "\uD83C\uDFD6\uFE0F", // 🏖️ Beach
+    "\uD83D\uDD50"   // 🕐 Clock
 )
 
 /**
@@ -56,8 +60,8 @@ fun IconPickerDialog(
         title = { Text("Marker Icon") },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
-                // 3 rows × 4 columns
-                for (row in 0..2) {
+                // 4 rows × 4 columns
+                for (row in 0..3) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly

@@ -38,7 +38,8 @@ data class Track(
     @ProtoNumber(12) val distanceNm: Float = 0f,
     @ProtoNumber(13) val navigatingDurationSec: Long = 0,
     @ProtoNumber(14) val pinned: Boolean = false,
-    @ProtoNumber(15) val idleDurationSec: Long = 0
+    @ProtoNumber(15) val idleDurationSec: Long = 0,
+    @ProtoNumber(16) val boatMarkers: List<BoatMarker> = emptyList()
 )
 
 /**

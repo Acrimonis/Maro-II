@@ -1,8 +1,8 @@
 name: BoatTrace
 status: active
 created: 2026-06-15 21:43
-modified: 2026-06-29 12:48
-active_subfeature: notif-fix
+modified: 2026-07-01 17:05
+active_subfeature: boat-markers
 ---
 
 # Feature: BoatTrace
@@ -230,14 +230,6 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 
 #### Docs
 - `xTrack/BoatTrace/FEAT_PLN_BoatTrace_pinned-tracks.md` — full design & implementation plan
-
-## Todos
-- [ ] E2E verification on device (build + deploy, run all test scenarios)
-- [ ] Track list UI polish per design spec (FEAT_PLN_BoatTrace_TrackList_Design.md)
-- [ ] Verify hamburger appears in top-left, opens TrackDrawer with controls
-- [ ] Verify TrackStatusIcon visually matches GPS and EarthWater icons
-- [ ] Add tooltip/label to TrackStatusIcon explaining current state
-- [ ] Review drawer layout for polish
 
 ## Rules
 - Feature-scoped plans go in `xTrack/[Feature]/FEAT_PLN_[Feature]_[topic].md`, NOT in `plans/`. The `plans/` directory is for cross-cutting or legacy plans only.
