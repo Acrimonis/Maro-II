@@ -2,6 +2,7 @@ package ykws.android.maro.data.track
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoNumber
+import ykws.android.maro.data.model.ListableItem
 
 /**
  * A recorded boat track — one journey from Port Salis → Port Salis (or manual start/stop).
@@ -39,7 +40,8 @@ data class Track(
     @ProtoNumber(13) val navigatingDurationSec: Long = 0,
     @ProtoNumber(14) val pinned: Boolean = false,
     @ProtoNumber(15) val idleDurationSec: Long = 0,
-    @ProtoNumber(16) val boatMarkers: List<BoatMarker> = emptyList()
+    @ProtoNumber(16) val boatMarkers: List<BoatMarker> = emptyList(),
+    @ProtoNumber(17) val updatedAtEpochMs: Long = 0L
 )
 
 /**
@@ -48,7 +50,7 @@ data class Track(
  */
 @Serializable
 data class TrackSummary(
-    @ProtoNumber(1) val id: String,
+    @ProtoNumber(1) override val id: String,
     @ProtoNumber(2) val name: String,
     @ProtoNumber(3) val comment: String = "",
     @ProtoNumber(4) val startTimeMs: Long,
@@ -61,8 +63,14 @@ data class TrackSummary(
     @ProtoNumber(11) val averageSpeedMps: Float = 0f,
     @ProtoNumber(12) val pinned: Boolean = false,
     @ProtoNumber(13) val pointCount: Int = 0,
-    @ProtoNumber(14) val idleDurationSec: Long = 0
-)
+    @ProtoNumber(14) val idleDurationSec: Long = 0,
+    @ProtoNumber(15) override val updatedAtEpochMs: Long = 0L
+) : ListableItem {
+    override val title: String get() = name
+    override val description: String get() = comment
+    override val createdAtEpochMs: Long get() = startTimeMs
+    override val isPinned: Boolean get() = pinned
+}
 
 /**
  * Wrapper for the index file — a list of [TrackSummary] entries.

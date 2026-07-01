@@ -30,8 +30,9 @@ class TrackRepository(
 
     /** Save a completed track. */
     suspend fun save(track: Track) = withContext(Dispatchers.IO) {
-        val file = trackFile(track.id)
-        file.writeBytes(proto.encodeToByteArray(Track.serializer(), track))
+        val stamped = track.copy(updatedAtEpochMs = System.currentTimeMillis())
+        val file = trackFile(stamped.id)
+        file.writeBytes(proto.encodeToByteArray(Track.serializer(), stamped))
         updateIndex()
     }
 
@@ -114,7 +115,8 @@ class TrackRepository(
         val now = System.currentTimeMillis()
         val finalized = track.copy(
             endTimeMs = now,
-            navigatingDurationSec = (now - track.startTimeMs) / 1000 - track.idleDurationSec
+            navigatingDurationSec = (now - track.startTimeMs) / 1000 - track.idleDurationSec,
+            updatedAtEpochMs = now
         )
         deleteCheckpoint(track.id)
         save(finalized)
@@ -148,7 +150,8 @@ class TrackRepository(
                         idleDurationSec = track.idleDurationSec,
                         averageSpeedMps = track.averageSpeedMps,
                         pinned = track.pinned,
-                        pointCount = track.trackPoints.size
+                        pointCount = track.trackPoints.size,
+                        updatedAtEpochMs = track.updatedAtEpochMs
                     )
                 } catch (e: Exception) {
                     file.delete()
