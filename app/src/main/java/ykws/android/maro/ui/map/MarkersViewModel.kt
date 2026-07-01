@@ -1,6 +1,7 @@
 package ykws.android.maro.ui.map
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -19,8 +20,8 @@ import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.settings.SettingsManager
 import ykws.android.maro.spatial.CoastlineSpatialIndex
+import ykws.android.maro.spatial.DebugSegment
 import ykws.android.maro.spatial.MarkerMatcher
-import ykws.android.maro.spatial.ProximityConfig
 import ykws.android.maro.spatial.WhereAmIMatch
 import ykws.android.maro.spatial.WhereAmIResult
 import java.text.SimpleDateFormat
@@ -115,6 +116,10 @@ class MarkersViewModel(
             AppConfig.zoneAutoRevealTimeS, AppConfig.overlayLowDepthMinOpacity)
 
     // ── StateFlows ────────────────────────────────────────────────────────
+
+    /** WhereAmI debug segments for visual overlay (green = clear, red = blocked). */
+    private val _debugSegments = MutableStateFlow<List<DebugSegment>>(emptyList())
+    val debugSegments: StateFlow<List<DebugSegment>> = _debugSegments.asStateFlow()
 
     /** Loaded user markers (reactive). */
     private val _markers = MutableStateFlow<List<UserMarker>>(emptyList())
@@ -321,11 +326,11 @@ class MarkersViewModel(
         )
     }
 
-    /** Icon matching the description field: 📌 ⭕ 📏 */
+    /** Icon matching the geometry type: 📍 ⭕ 🔴 */
     private fun typeIcon(type: MarkerType): String = when (type) {
-        MarkerType.PIN -> "\uD83D\uDCCC"     // 📌
+        MarkerType.PIN -> "\uD83D\uDCCD"     // 📍
         MarkerType.CIRCLE -> "\u2B55"         // ⭕
-        MarkerType.CORRIDOR -> "\uD83D\uDCCF" // 📏
+        MarkerType.CORRIDOR -> "\uD83D\uDD34" // 🔴
     }
 
     /** Human-readable name for a color index (0-15). */
@@ -503,6 +508,11 @@ class MarkersViewModel(
         }
 
         val proximityOverride = form.proximityOverrideM.toDoubleOrNull()?.coerceAtLeast(0.0)
+            ?: when (form.type) {
+                MarkerType.PIN -> AppConfig.markerProximityPinM
+                MarkerType.CIRCLE -> form.radiusM * AppConfig.markerProximityZoneMultiplier
+                MarkerType.CORRIDOR -> form.widthM * AppConfig.markerProximityZoneMultiplier
+            }
 
         val marker = UserMarker(
             id = UUID.randomUUID().toString(),
@@ -541,6 +551,11 @@ class MarkersViewModel(
         }
 
         val proximityOverride = form.proximityOverrideM.toDoubleOrNull()?.coerceAtLeast(0.0)
+            ?: when (form.type) {
+                MarkerType.PIN -> AppConfig.markerProximityPinM
+                MarkerType.CIRCLE -> form.radiusM * AppConfig.markerProximityZoneMultiplier
+                MarkerType.CORRIDOR -> form.widthM * AppConfig.markerProximityZoneMultiplier
+            }
 
         val updated = existing.copy(
             name = form.name.ifBlank { existing.name },
@@ -637,10 +652,14 @@ class MarkersViewModel(
 
     // ── "Where am I?" on-demand match ─────────────────────────────────────
 
+    private var whereAmIJob: kotlinx.coroutines.Job? = null
+
     /**
      * Runs [MarkerMatcher.resolveAllMarkers] at [boatPos] using the injected
      * coastline spatial index.  Posts the result to [matchResult] and switches the
      * drawer to [MarkerDrawerState.MatchResult].
+     *
+     * Cancels any previous in-progress resolution (rapid-tap guard).
      */
     fun whereAmI(boatPos: LatLng) {
         val index = coastlineIndex ?: return
@@ -651,15 +670,15 @@ class MarkersViewModel(
             return
         }
 
-        val config = ProximityConfig(
-            pinM = AppConfig.markerProximityPinM,
-            zoneMultiplier = AppConfig.markerProximityZoneMultiplier
-        )
-
-        viewModelScope.launch {
+        whereAmIJob?.cancel()
+        MarkerMatcher.debugger.clear()
+        whereAmIJob = viewModelScope.launch {
             val result = withContext(Dispatchers.Default) {
-                MarkerMatcher.resolveAllMarkers(boatPos, all, index, config)
+                MarkerMatcher.resolveAllMarkers(boatPos, all, index)
             }
+            val segs = MarkerMatcher.debugger.getSegments()
+            Log.d("WIA", "DEBUGGER: getSegments returned ${segs.size} items")
+            _debugSegments.value = segs
             _matchResult.value = result
             _drawerState.value = MarkerDrawerState.MatchResult
         }

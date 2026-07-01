@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** BoatTrace
-- **Active Subfeature:** notif-fix
-- **Last Updated:** 2026-06-29 12:48
-- **Last Bake:** 2026-06-29 12:48 (BoatTrace — notif-fix: stripped extended info, collapsed title only; RemoteViews/columns/adaptive icon reverted; build ✅)
-- **Branch:** feature/notif-fix
+- **Active Feature:** Markers
+- **Active Subfeature:** sort-scoring
+- **Last Updated:** 2026-06-30 10:25
+- **Last Bake:** 2026-06-30 10:25 (Markers — sort-scoring v2: percentage-based formula, ZoneMatch before ProximityMatch, 3 params, zoneSize tie-breaker; compileDebugKotlin ✅)
+- **Branch:** feature/markers-zones
 
 ## Routing Map
 | Keyword | Feature File |
@@ -61,7 +61,7 @@
 | | **Health** | **Application health monitoring — diagnostics, crash reporting, memory/performance telemetry** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
 | | **WorkflowAmbiguityFix** | **Eliminate ambiguity between AGENTS.md rules — #merge direction, §5 reinforcement, command doc alignment. Absorbed into WorkflowImprovement 2026-06-28.** | **2026-06-20 14:51** | **2026-06-28 13:51** | **done** |
 | | **ui-small-potatoes** | **UI polish, refinements, and small fixes across the app** | **2026-06-22 13:50** | **2026-06-22 14:20** | **active** |
-| | **Markers** | **User-defined map markers (Pin, Circle, Corridor) with sea-distance-gated proximity matching and on-demand "where am I?" query** | **2026-06-22 11:52** | **2026-06-28 16:17** | **active** |
+| | **Markers** | **User-defined map markers (Pin, Circle, Corridor) with sea-distance-gated proximity matching, percentage-based sort scoring, and on-demand "where am I?" query — 14/14 subfeatures done; 7 fixes + sort v2 implemented** | **2026-06-22 11:52** | **2026-06-30 10:25** | **active** |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).

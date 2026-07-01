@@ -1,19 +1,21 @@
 # Hydration — Ui_Dashboard
 
-**Last Bake:** 2026-06-15 08:29 UTC
-**Branch:** feature/ui-general
+**Last Bake:** 2026-07-01 12:23 UTC
+**Branch:** feature/markers-zones
 **Build:** green
 
 ## Session State
 
-Removed the 64sp max clamp from AutoSizeValue (coerceIn → coerceAtLeast) so dashboard value text takes all available cell space. Added smart speed format: integer when >= 10 kn, decimal when < 10. New "size dash" subfeature created to track immersive layout verification.
+WhereAmI match-result drawer overhaul: centered italic "in the middle of nowhere" empty state, per-row color accent bars (4dp) matching marker colors, icons (custom emoji or type-default 📍/⭕/🔴), flight-of-bird geometric distance for LineOfSightMatch, icon repositioned between name and distance ("NW of Cap Camarat · 🏖️ · 406 m"). Removed obsolete pin/unpin button from ViewingContent header. Unified all drawer header left padding to 24dp.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt` — AutoSizeValue clamp removed (line 266), SpeedCard smart formatting (line 687)
-- `app/src/main/res/values/strings.xml` — added `dash_value_kn_int`
-- `app/src/main/res/values-fr/strings.xml` — added `dash_value_kn_int`
+- `app/src/main/java/ykws/android/maro/ui/map/MarkerDrawer.kt` — MatchResultContent rewrite, buildMatchText icons+position, MatchRow composable, geometricDistanceToZone, DrawerHeader padding, removed pin/unpin button
+- `app/src/main/java/ykws/android/maro/data/model/markers/UserMarker.kt` — MarkerGeometry.iconFor() companion
+- `app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt` — typeIcon updated (📍/⭕/🔴)
+- `app/src/main/java/ykws/android/maro/ui/map/MarkerManagementOverlay.kt` — markerFormatText uses iconFor()
+- `app/src/main/java/ykws/android/maro/ui/markers/wizard/WizardTopBar.kt` — padding 16→24dp
 
 ## Next Step
 
-Verify dashboard sizing in immersive mode (size dash subfeature todos). Consider increasing landscape dashboard width.
+Verify match-row rendering with multiple overlapping markers. Test no-icon, custom-icon, and type-default icon cases.

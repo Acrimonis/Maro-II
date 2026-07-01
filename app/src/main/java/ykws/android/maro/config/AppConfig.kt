@@ -99,6 +99,20 @@ object AppConfig {
     var markerProximityZoneMultiplier: Double = 3.0
         private set
 
+    /** Enable visual whereAmI debug rays on the map. Set via `marker.debug.rays.enabled` in maro.properties. */
+    var markerDebugRaysEnabled: Boolean = false
+
+    // ── Marker sort scoring ─────────────────────────────────────────
+    /** Pin type weight. Lower = higher priority. */
+    var markerSortTypeWeightPin: Double = 0.5
+        private set
+    /** Circle type weight. Baseline = 1.0. */
+    var markerSortTypeWeightCircle: Double = 1.0
+        private set
+    /** Corridor type weight. Higher = lower priority. */
+    var markerSortTypeWeightCorridor: Double = 2.0
+        private set
+
     // ── Colors from colors.properties ────────────────────────────────────────
 
     /** Dashboard background. Default #1A1A2E. Set via `ui.dashboard.background` in colors.properties. */
@@ -494,6 +508,20 @@ object AppConfig {
             }
             props.getProperty("marker.proximity.zone_multiplier")?.toDoubleOrNull()?.let {
                 markerProximityZoneMultiplier = it.coerceIn(0.0, 20.0)
+            }
+            // ── Marker debug rays ───────────────────────────────────────
+            props.getProperty("marker.debug.rays.enabled")?.toBooleanStrictOrNull()?.let {
+                markerDebugRaysEnabled = it
+            }
+            // ── Marker sort scoring ──
+            props.getProperty("marker.sort.typeWeight.Pin")?.toDoubleOrNull()?.let {
+                markerSortTypeWeightPin = it.coerceIn(0.0, 1.0)
+            }
+            props.getProperty("marker.sort.typeWeight.Circle")?.toDoubleOrNull()?.let {
+                markerSortTypeWeightCircle = it.coerceIn(0.0, 5.0)
+            }
+            props.getProperty("marker.sort.typeWeight.Corridor")?.toDoubleOrNull()?.let {
+                markerSortTypeWeightCorridor = it.coerceIn(0.0, 10.0)
             }
             for (src in DepthSource.entries) {
                 val key = src.name.lowercase()

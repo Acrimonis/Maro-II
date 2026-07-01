@@ -85,6 +85,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -177,6 +178,10 @@ import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.data.markers.UserMarkerRepository
 import ykws.android.maro.spatial.SpatialOperations
+import ykws.android.maro.spatial.DebugSegment
+import ykws.android.maro.spatial.MarkerMatcher
+import ykws.android.maro.spatial.NoOpWhereAmIDebugger
+import ykws.android.maro.spatial.VisualWhereAmIDebugger
 import ykws.android.maro.ui.map.MarkersViewModel
 import ykws.android.maro.ui.map.MarkerDrawer
 
@@ -262,6 +267,7 @@ fun MapScreen(
         androidx.lifecycle.viewmodel.compose.viewModel()
     val markersViewModel: MarkersViewModel =
         androidx.lifecycle.viewmodel.compose.viewModel(factory = MarkersViewModel.Factory)
+    val debugSegments by markersViewModel.debugSegments.collectAsState()
     val trackRecorderState by trackViewModel.uiState.collectAsState()
     val trackSummaries by trackViewModel.summaries.collectAsState()
     val recoveryTrack by trackViewModel.recoveryTrack.collectAsState()
@@ -500,6 +506,15 @@ fun MapScreen(
     // Wire coastline spatial index into MarkersViewModel for land-blocking when ready
     if (coastlineReady) {
         markersViewModel.coastlineIndex = viewModel.spatialIndex
+    }
+
+    // Wire debug ray tracer + sync persisted setting → AppConfig
+    LaunchedEffect(Unit) {
+        AppConfig.markerDebugRaysEnabled = appSettings.markerDebugRays
+        if (AppConfig.markerDebugRaysEnabled) {
+            MarkerMatcher.debugger = VisualWhereAmIDebugger()
+            Log.d("WIA", "DEBUGGER: VisualWhereAmIDebugger activated")
+        }
     }
 
     // ── Raster cache reads (no lazy auto-trigger; only settings button triggers generation) ──
@@ -782,6 +797,34 @@ fun MapScreen(
             polyline.addPoint(org.osmdroid.util.GeoPoint(point.lat, point.lon))
             mv.invalidate()
         }
+    }
+
+    // ── WhereAmI debug segments: visual overlay on the map ─────────────────
+    // Green = clear line-of-sight, Red = blocked by land.
+    LaunchedEffect(mapView, debugSegments) {
+        val mv = mapView ?: run { Log.d("WIA", "DEBUGGER: mapView null, skipping render"); return@LaunchedEffect }
+        Log.d("WIA", "DEBUGGER: rendering ${debugSegments.size} segments")
+        // Remove previous debug polylines
+        mv.overlays.removeAll {
+            (it as? org.osmdroid.views.overlay.Polyline)?.title?.startsWith("wia_debug_") == true
+        }
+        // Render current segments
+        if (debugSegments.isNotEmpty()) {
+            debugSegments.forEachIndexed { index, segment ->
+                val color = if (segment.blocked) Color.RED else Color.GREEN
+                val polyline = org.osmdroid.views.overlay.Polyline().apply {
+                    title = "wia_debug_$index"
+                    setPoints(listOf(
+                        org.osmdroid.util.GeoPoint(segment.boat.latitude, segment.boat.longitude),
+                        org.osmdroid.util.GeoPoint(segment.target.latitude, segment.target.longitude)
+                    ))
+                    outlinePaint.color = color
+                    outlinePaint.strokeWidth = 3f
+                }
+                mv.overlays.add(polyline)
+            }
+        }
+        mv.invalidate()
     }
 
     // ── Foreground notification updates ────────────────────────────────────
@@ -3432,6 +3475,19 @@ private fun SystemSettings(
             description = stringResource(R.string.settings_keep_screen_on_desc),
             checked = settings.keepScreenOn,
             onCheckedChange = { on -> onUpdateSettings { it.copy(keepScreenOn = on) } }
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        SettingsToggleRow(
+            label = "Debug rays (WhereAmI)",
+            description = "Show green/red line-of-sight rays on the map when tapping the boat marker.",
+            checked = settings.markerDebugRays,
+            onCheckedChange = { on ->
+                onUpdateSettings { it.copy(markerDebugRays = on) }
+                AppConfig.markerDebugRaysEnabled = on
+                MarkerMatcher.debugger = if (on) VisualWhereAmIDebugger() else NoOpWhereAmIDebugger
+            }
         )
 
         Spacer(modifier = Modifier.height(12.dp))

@@ -526,8 +526,9 @@ private fun coordinateHeader(marker: UserMarker): String {
     }
 }
 
-/** Compact format: "📌 - 200m prox", "⭕ - 200m r - 200m prox", "📏 - 100m w - 200m prox". */
+/** Compact format: "📍 - 200m prox", "⭕ - 200m r - 200m prox", "🔴 - 100m w - 200m prox". */
 private fun markerFormatText(marker: UserMarker): String {
+    val icon = MarkerGeometry.iconFor(marker.geometry)
     val proximityM = marker.proximityOverrideM
         ?: when (val g = marker.geometry) {
             is MarkerGeometry.Pin -> AppConfig.markerProximityPinM
@@ -536,14 +537,14 @@ private fun markerFormatText(marker: UserMarker): String {
         }
     val prox = "${proximityM.toLong()}m prox"
     return when (marker.geometry) {
-        is MarkerGeometry.Pin -> "\uD83D\uDCCC - $prox"
+        is MarkerGeometry.Pin -> "$icon - $prox"
         is MarkerGeometry.Circle -> {
             val r = "${marker.geometry.radiusM.toLong()}m r"
-            "\u2B55 - $r - $prox"
+            "$icon - $r - $prox"
         }
         is MarkerGeometry.Corridor -> {
             val w = "${marker.geometry.widthM.toLong()}m w"
-            "\uD83D\uDCCF - $w - $prox"
+            "$icon - $w - $prox"
         }
     }
 }

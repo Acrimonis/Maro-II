@@ -127,7 +127,7 @@ fun MarkerOverlay(
     val matchedIds: Set<String> = matchResult?.allMatches?.mapNotNull { match ->
         when (match) {
             is WhereAmIMatch.ZoneMatch -> match.marker.id
-            is WhereAmIMatch.ProximityMatch -> match.marker.id
+            is WhereAmIMatch.LineOfSightMatch -> match.marker.id
         }
     }?.toSet() ?: emptySet()
 
