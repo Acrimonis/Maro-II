@@ -1,22 +1,30 @@
-# Markers — Hydration Snapshot (2026-06-30 16:35 UTC)
+# Markers — Hydration Snapshot (2026-07-01 10:45 UTC)
 
 ## State
-- **Active subfeature:** 2-gate simplification
-- **Status:** implemented — build ✅, deployed, pending on-device re-test
+- **Active subfeature:** 2-gate-simplification
+- **Status:** implemented — build ✅
 - **Branch:** feature/markers-zones
 - **Build:** assembleDebug ✅
-- **14/14 subfeatures complete**
+- **15/15 subfeatures complete**
 
 ## Implemented (this session)
 
-### whereami-fixes (7 fixes)
-- Direct-line fast path + `closestGeometricBoundaryPoint()` helper
-- Pin `bestBoundaryPoint` respects land (was: always returns position)
-- `proximityRange()` safe fallback: `proximityOverrideM ?: defaultFormula()`
-- ProximityMatch bearing: `initialBearing(boat, unblocked)` — from boat to marker
-- Debug cleanup: removed Sainte Marguerite dump + bearing gate
-- Edge line sampling: 5 bearings per unblocked interval
-- Coroutine cancellation on rapid taps
+### 2-gate-simplification — proximity gate removed, pre-filter restored
+- `ProximityMatch` → `LineOfSightMatch` rename (MarkerMatcher, MarkerOverlay, MarkerDrawer)
+- `proximityRange()` now reads `proximityOverrideM` directly — no formula defaults in matching
+- Proximity gate removed for circles/corridors: line-of-sight is sole pass/fail
+- Range pre-filter restored: `minBoundaryDist > proximityOverrideM` → skip (optimization only)
+- `ProximityConfig` removed (dead code)
+
+### Tangent coverage fix
+- `sampleBoundaryPoints()` generates points from zone center via `pointAlongBearing` — never ray-intersection
+- Circle: 16 points on visible arc (`90°−asin(r/d)` half-arc); tangents guaranteed at samples 0/15
+- Corridor: 16 points per end-cap (full 360°); edge sampling unchanged
+- `circlePointAtBearing` removed (ray-intersection dropped tangent samples due to `disc < 0`)
+
+### Docs updated
+- `#doc update` — FEAT_DSC_Markers.md and FEAT_DOC_Markers_decisions.md updated
+- Flow diagram at plans/whereami-flow.md
 
 ### sort-scoring
 - Composite `sortScore()`: `typeWeight × (zoneSize + distance × W)` replacing `sizeOf()`

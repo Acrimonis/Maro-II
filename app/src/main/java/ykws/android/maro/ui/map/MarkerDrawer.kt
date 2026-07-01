@@ -457,7 +457,7 @@ private fun MatchResultContent(viewModel: MarkersViewModel, onClose: () -> Unit)
             val sentence = matches.joinToString(", ") { match ->
                 when (match) {
                     is WhereAmIMatch.ZoneMatch -> match.marker.name
-                    is WhereAmIMatch.ProximityMatch -> "${cardinalDirection(match.bearingDeg)} of ${match.marker.name}"
+                    is WhereAmIMatch.LineOfSightMatch -> "${cardinalDirection(match.bearingDeg)} of ${match.marker.name}"
                 }
             }
             Text(

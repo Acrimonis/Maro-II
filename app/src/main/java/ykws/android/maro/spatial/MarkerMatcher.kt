@@ -27,10 +27,11 @@ sealed class WhereAmIMatch {
     ) : WhereAmIMatch()
 
     /**
-     * Boat is outside the marker's zone but within the derived proximity range
-     * of the closest unblocked boundary point (sea path clear of land).
+     * Boat is outside the marker's zone but has a clear sea line-of-sight
+     * to the closest unblocked boundary point.  Pins use a proximity-distance
+     * gate instead of a land check (see [resolveMatch]).
      */
-    data class ProximityMatch(
+    data class LineOfSightMatch(
         val marker: UserMarker,
         val seaDistanceM: Double,        // sea-path distance to closest unblocked boundary point
         val bearingDeg: Double           // bearing from boat to closest unblocked point (0-360)
@@ -39,15 +40,6 @@ sealed class WhereAmIMatch {
 
 /** Flat result container — depth-first, leaves-first. */
 data class WhereAmIResult(val allMatches: List<WhereAmIMatch>)
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Proximity configuration
-// ─────────────────────────────────────────────────────────────────────────────
-
-data class ProximityConfig(
-    val pinM: Double = 200.0,
-    val zoneMultiplier: Double = 3.0
-)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MarkerMatcher object
@@ -106,29 +98,26 @@ object MarkerMatcher {
             return WhereAmIMatch.ZoneMatch(marker, zoneSize, dist, bearing)
         }
 
-        // ── 2. Compute proximity range ──
-        val range = proximityRange(marker)
-
-        // ── 3. Boat at marker → skip land check ──
+        // ── 2. Boat at marker → always match ──
         val directDist = distanceToClosestGeometryPoint(boat, marker.geometry)
 
         if (directDist <= AT_MARKER_THRESHOLD_M) {
-            return if (directDist <= range) {
-                val center = zoneCenterOf(marker.geometry)
-                debugger.onSegmentTested(boat, center, false)
-                WhereAmIMatch.ProximityMatch(marker, directDist, SpatialOperations.initialBearing(center, boat))
-            } else null
+            val center = zoneCenterOf(marker.geometry)
+            debugger.onSegmentTested(boat, center, false)
+            return WhereAmIMatch.LineOfSightMatch(marker, directDist, SpatialOperations.initialBearing(center, boat))
         }
 
-        // ── 4. Pin markers: proximity is enough, no coastline check ──
+        // ── 3. Pin markers: proximity-distance gate, no coastline check ──
         if (marker.geometry is MarkerGeometry.Pin) {
+            val range = proximityRange(marker)
             if (directDist > range) return null
             debugger.onSegmentTested(boat, marker.geometry.position, false)
-            return WhereAmIMatch.ProximityMatch(marker, directDist,
+            return WhereAmIMatch.LineOfSightMatch(marker, directDist,
                 SpatialOperations.initialBearing(marker.geometry.position, boat))
         }
 
-        // ── 5. Range pre-gate: skip markers definitely out of proximity range ──
+        // ── 4. Range pre-filter: skip markers beyond their proximity zone ──
+        val range = proximityRange(marker)
         val minBoundaryDist = when (marker.geometry) {
             is MarkerGeometry.Pin -> directDist  // unreachable — Pin handled above
             is MarkerGeometry.Circle ->
@@ -141,20 +130,19 @@ object MarkerMatcher {
         }
         if (minBoundaryDist > range) return null
 
-        // ── 6. Find closest unblocked boundary point ──
+        // ── 5. Find closest unblocked boundary point ──
         val unblocked = closestUnblockedPoint(boat, marker, spatialIndex)
 
-        // Debug: capture all boundary sample segments for every in-range marker
+        // Debug: capture all boundary sample segments
         if (AppConfig.markerDebugRaysEnabled) testDebugSamples(boat, marker, spatialIndex)
 
         if (unblocked == null) return null
 
-        // ── 7. Unblocked point found → proximity gate ──
+        // ── 5. Unblocked point found → match (no distance gate) ──
         val dist = SpatialOperations.haversine(boat, unblocked)
-        if (dist > range) return null
         if (AppConfig.markerDebugRaysEnabled) debugger.onSegmentTested(boat, unblocked, false)
-        Log.d("WIA", "  range=${"%.0f".format(range)} dist=${"%.0f".format(dist)} MATCH")
-        return WhereAmIMatch.ProximityMatch(marker, dist, SpatialOperations.initialBearing(unblocked, boat))
+        Log.d("WIA", "  dist=${"%.0f".format(dist)} MATCH")
+        return WhereAmIMatch.LineOfSightMatch(marker, dist, SpatialOperations.initialBearing(unblocked, boat))
     }
 
     /**
@@ -337,12 +325,19 @@ object MarkerMatcher {
     /**
      * Generates candidate points on the zone boundary for land-blocking tests.
      *
+     * Points are generated directly on the geometry boundary (via
+     * [SpatialOperations.pointAlongBearing]) — never via ray-intersection from
+     * the boat — so tangent samples at the visible-cone extremes are always
+     * present.
+     *
      * | Geometry  | Condition     | Samples | Spacing               |
      * |-----------|---------------|---------|-----------------------|
      * | Pin       | always        | 1       | N/A                   |
-     * | Circle    | boat inside   | 16      | 22.5°                 |
-     * | Circle    | boat outside  | 16      | adaptive (~1-15°)     |
-     * | Corridor  | end-cap ×2    | 8 each  | 45°                   |
+     * | Circle    | boat inside   | 16      | 22.5° (full 360°)     |
+     * | Circle    | boat outside  | 16      | adaptive across the   |
+     * |           |               |         | visible arc from      |
+     * |           |               |         | centre perspective    |
+     * | Corridor  | end-cap ×2    | 16 each | 22.5° (full 360°)     |
      * | Corridor  | edge line ×2  | 5 each  | 25% along length      |
      */
     private fun sampleBoundaryPoints(boat: LatLng, geometry: MarkerGeometry): List<LatLng> {
@@ -352,37 +347,44 @@ object MarkerMatcher {
             is MarkerGeometry.Circle -> {
                 val dist = SpatialOperations.haversine(boat, geometry.center)
                 val bearing = SpatialOperations.initialBearing(boat, geometry.center)
-                val inside = dist <= geometry.radiusM
-                val step = if (inside) 360.0 / 16.0 else {
-                    val halfAngle = Math.toDegrees(asin((geometry.radiusM / dist).coerceIn(-1.0, 1.0)))
-                    (2.0 * halfAngle) / 15.0
-                }
-                val startBearing = if (inside) 0.0 else bearing - (step * 7.5)
-                (0 until 16).mapNotNull { i ->
-                    val b = (startBearing + i * step).let { (it % 360 + 360) % 360 }
-                    circlePointAtBearing(boat, geometry.center, geometry.radiusM, b)
+                val radiusM = geometry.radiusM
+                val inside = dist <= radiusM
+                // Visible arc half-width from the centre's perspective:
+                //   inside  → 180° (full circle)
+                //   outside → 90° − asin(r/d)  (right-triangle: boat–tangent–centre)
+                val centerHalfArc = if (inside) 180.0
+                    else 90.0 - Math.toDegrees(asin((radiusM / dist).coerceIn(-1.0, 1.0)))
+                val centerToBoat = ((bearing + 180.0) % 360.0 + 360.0) % 360.0
+                val n = 16
+                val step = if (inside) 360.0 / n else (2.0 * centerHalfArc) / (n - 1)
+                val startAngle = if (inside) 0.0 else centerToBoat - centerHalfArc
+                val cLat = geometry.center.latitude
+                val cLon = geometry.center.longitude
+                (0 until n).map { i ->
+                    val angleDeg = ((startAngle + i * step) % 360.0 + 360.0) % 360.0
+                    SpatialOperations.pointAlongBearing(cLat, cLon, angleDeg, radiusM)
                 }
             }
 
             is MarkerGeometry.Corridor -> {
                 val halfW = geometry.widthM / 2.0
                 val points = mutableListOf<LatLng>()
-                // P1 end-cap disc: 8 samples (45° spacing)
-                for (i in 0 until 8) {
-                    val b = i * 45.0
-                    val pt = circlePointAtBearing(boat, geometry.p1, halfW, b)
-                    if (pt != null) points.add(pt)
+                // P1 end-cap: 16 points full circle (22.5° spacing) from centre
+                val p1Lat = geometry.p1.latitude
+                val p1Lon = geometry.p1.longitude
+                for (i in 0 until 16) {
+                    points.add(SpatialOperations.pointAlongBearing(p1Lat, p1Lon, i * 22.5, halfW))
                 }
-                // P2 end-cap disc: 8 samples
-                for (i in 0 until 8) {
-                    val b = i * 45.0
-                    val pt = circlePointAtBearing(boat, geometry.p2, halfW, b)
-                    if (pt != null) points.add(pt)
+                // P2 end-cap: 16 points full circle
+                val p2Lat = geometry.p2.latitude
+                val p2Lon = geometry.p2.longitude
+                for (i in 0 until 16) {
+                    points.add(SpatialOperations.pointAlongBearing(p2Lat, p2Lon, i * 22.5, halfW))
                 }
                 // Edge lines: 5 samples per edge (25% spacing)
                 val segBearing = SpatialOperations.initialBearing(geometry.p1, geometry.p2)
                 for (sign in listOf(1.0, -1.0)) {
-                    val perpBearing = (segBearing + sign * 90.0).let { (it % 360 + 360) % 360 }
+                    val perpBearing = ((segBearing + sign * 90.0) % 360.0 + 360.0) % 360.0
                     for (t in listOf(0.0, 0.25, 0.5, 0.75, 1.0)) {
                         val midLat = geometry.p1.latitude + (geometry.p2.latitude - geometry.p1.latitude) * t
                         val midLon = geometry.p1.longitude + (geometry.p2.longitude - geometry.p1.longitude) * t
@@ -438,7 +440,7 @@ object MarkerMatcher {
     /** Extracts the [UserMarker] from a [WhereAmIMatch]. */
     private fun markerOf(match: WhereAmIMatch): UserMarker = when (match) {
         is WhereAmIMatch.ZoneMatch -> match.marker
-        is WhereAmIMatch.ProximityMatch -> match.marker
+        is WhereAmIMatch.LineOfSightMatch -> match.marker
     }
 
     /** Tests whether [match]'s marker position is geometrically inside [zoneGeometry]. */
@@ -461,13 +463,9 @@ object MarkerMatcher {
     // Proximity range
     // ─────────────────────────────────────────────────────────────────────
 
-    /** Proximity range from marker, with safe fallback to default formula. */
+    /** Proximity range from marker — reads the stored override set by the creation wizard. */
     private fun proximityRange(marker: UserMarker): Double =
-        marker.proximityOverrideM ?: when (marker.geometry) {
-            is MarkerGeometry.Pin -> 200.0
-            is MarkerGeometry.Circle -> marker.geometry.radiusM * 3.0
-            is MarkerGeometry.Corridor -> marker.geometry.widthM * 3.0
-        }
+        marker.proximityOverrideM ?: Double.MAX_VALUE
 
     // ─────────────────────────────────────────────────────────────────────
     // Traversal
@@ -492,11 +490,11 @@ object MarkerMatcher {
      * Composite sort score — lower = displayed first.
      * Formula: categoryBase + typeWeight × percentage
      *
-     * ZoneMatch:     0.0 + typeWeight × (distanceToCenterM / zoneSizeM)
-     * ProximityMatch: 1.0 + typeWeight × (seaDistanceM / proximityRange)
+     * ZoneMatch:         0.0 + typeWeight × (distanceToCenterM / zoneSizeM)
+     * LineOfSightMatch:  1.0 + typeWeight × (seaDistanceM / proximityRange)
      *
      * typeWeight: Pin=0.5 / Circle=1.0 / Corridor=2.0 (from maro.properties)
-     *   ZoneMatch always beats ProximityMatch (0.0–2.0 < 1.0–3.0).
+     *   ZoneMatch always beats LineOfSightMatch (0.0–2.0 < 1.0–3.0).
      *   Tie-breaker: smaller zoneSize wins.
      */
     private fun sortScore(match: WhereAmIMatch): Double {
@@ -508,7 +506,7 @@ object MarkerMatcher {
         val (categoryBase, percentage) = when (match) {
             is WhereAmIMatch.ZoneMatch ->
                 0.0 to (match.distanceToCenterM / match.zoneSizeM).coerceAtMost(1.0)
-            is WhereAmIMatch.ProximityMatch -> {
+            is WhereAmIMatch.LineOfSightMatch -> {
                 val range = proximityRange(markerOf(match))
                 1.0 to (match.seaDistanceM / range).coerceAtMost(1.0)
             }
@@ -523,48 +521,6 @@ object MarkerMatcher {
         is MarkerGeometry.Corridor -> g.widthM
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-    // Circle boundary point (ray-circle intersection, inlined)
-    // ─────────────────────────────────────────────────────────────────────
-
-    /**
-     * The point on the circle boundary where the ray from [boat] at [bearing]
-     * first intersects. Returns null if the ray misses the circle.
-     */
-    private fun circlePointAtBearing(
-        boat: LatLng, center: LatLng, radiusM: Double, bearing: Double
-    ): LatLng? {
-        val midLat = (boat.latitude + center.latitude) / 2.0
-        val mPerDegLat = SpatialOperations.EARTH_RADIUS_M * PI / 180.0
-        val mPerDegLon = mPerDegLat * cos(Math.toRadians(midLat))
-
-        val ox = boat.longitude * mPerDegLon
-        val oy = boat.latitude * mPerDegLat
-        val cx = center.longitude * mPerDegLon
-        val cy = center.latitude * mPerDegLat
-
-        val rad = Math.toRadians(bearing)
-        val dx = sin(rad)
-        val dy = cos(rad)
-
-        val vx = ox - cx
-        val vy = oy - cy
-        val a = dx * dx + dy * dy
-        val b = 2.0 * (vx * dx + vy * dy)
-        val c = vx * vx + vy * vy - radiusM * radiusM
-        val disc = b * b - 4.0 * a * c
-
-        if (disc < 0.0) return null
-        val sqrtDisc = sqrt(disc)
-        val t1 = (-b - sqrtDisc) / (2.0 * a)
-        val t2 = (-b + sqrtDisc) / (2.0 * a)
-        val t = when {
-            t1 > 0.0 -> t1
-            t2 > 0.0 -> t2
-            else -> return null
-        }
-        return SpatialOperations.pointAlongBearing(boat.latitude, boat.longitude, bearing, t)
-    }
     // ─────────────────────────────────────────────────────────────────────
     // Debug — sample all boundary points for visual ray rendering
     // ─────────────────────────────────────────────────────────────────────
