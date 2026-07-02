@@ -44,7 +44,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.data.model.CustomSortField
 import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.ui.components.ListOverlayScaffold
@@ -73,12 +75,19 @@ fun MarkerManagementOverlay(
     onSortStateChange: (ykws.android.maro.data.model.ListSortState) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val markerCustomSortFields = remember {
+        listOf(
+            CustomSortField("origin", R.string.sort_custom_origin)
+        )
+    }
+
     ListOverlayScaffold(
         items = markers,
         title = "Markers \u00B7 ${markers.size}",
         sectionLabel = "YOUR MARKERS",
         sortState = sortState,
         onSortStateChange = onSortStateChange,
+        customSortFields = markerCustomSortFields,
         accentColors = { list -> list.associate { it.id to Color(ykws.android.maro.ui.map.MarkerColors.of(it.colorIndex)) } },
         cardContent = { marker ->
             MarkerCardContent(

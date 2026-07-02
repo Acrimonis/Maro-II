@@ -225,10 +225,16 @@ class MarkersViewModel(
         markers: List<UserMarker>,
         state: ykws.android.maro.data.model.ListSortState
     ): List<UserMarker> {
-        val comparator: Comparator<UserMarker> = when (state.field) {
-            ykws.android.maro.data.model.ListSortField.TITLE -> compareBy { it.title.lowercase() }
-            ykws.android.maro.data.model.ListSortField.CREATED -> compareBy { it.createdAtEpochMs }
-            ykws.android.maro.data.model.ListSortField.UPDATED -> compareBy { it.updatedAtEpochMs }
+        val comparator: Comparator<UserMarker> = when {
+            state.customFieldKey != null -> when (state.customFieldKey) {
+                "origin" -> compareBy { it.origin.name }
+                else -> compareByDescending { it.updatedAtEpochMs }
+            }
+            else -> when (state.field) {
+                ykws.android.maro.data.model.ListSortField.TITLE -> compareBy { it.title.lowercase() }
+                ykws.android.maro.data.model.ListSortField.CREATED -> compareBy { it.createdAtEpochMs }
+                ykws.android.maro.data.model.ListSortField.UPDATED -> compareBy { it.updatedAtEpochMs }
+            }
         }
         val directed = if (state.descending) comparator.reversed() else comparator
         return if (state.pinnedGrouped) {

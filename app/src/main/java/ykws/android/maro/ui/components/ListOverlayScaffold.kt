@@ -62,9 +62,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.data.model.CustomSortField
 import ykws.android.maro.data.model.ListAction
 import ykws.android.maro.data.model.ListSortField
 import ykws.android.maro.data.model.ListSortState
@@ -78,6 +81,7 @@ import kotlin.math.roundToInt
 @Composable
 private fun SortControl(
     state: ListSortState,
+    customFields: List<CustomSortField>,
     onStateChange: (ListSortState) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -96,12 +100,13 @@ private fun SortControl(
             )
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            // Common fields (always visible)
             ListSortField.entries.forEach { field ->
-                val isSelected = field == state.field
+                val isSelected = field == state.field && state.customFieldKey == null
                 DropdownMenuItem(
                     text = {
                         Text(
-                            text = field.label,
+                            text = stringResource(field.labelResId),
                             color = Color(AppConfig.uiSettingsTextPrimary),
                             fontSize = 14.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
@@ -112,7 +117,7 @@ private fun SortControl(
                         if (isSelected) {
                             onStateChange(state.copy(descending = !state.descending))
                         } else {
-                            onStateChange(state.copy(field = field))
+                            onStateChange(state.copy(field = field, customFieldKey = null))
                         }
                         expanded = false
                     },
@@ -125,6 +130,43 @@ private fun SortControl(
                     } else null
                 )
             }
+            // Custom fields (only if non-empty)
+            if (customFields.isNotEmpty()) {
+                HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 4.dp),
+                    thickness = 0.5.dp,
+                    color = Color(AppConfig.uiSettingsDivider)
+                )
+                customFields.forEach { cf ->
+                    val isSelected = cf.key == state.customFieldKey
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = stringResource(cf.labelResId),
+                                color = Color(AppConfig.uiSettingsTextPrimary),
+                                fontSize = 14.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        },
+                        onClick = {
+                            if (isSelected) {
+                                onStateChange(state.copy(descending = !state.descending))
+                            } else {
+                                onStateChange(state.copy(field = ListSortField.UPDATED, customFieldKey = cf.key))
+                            }
+                            expanded = false
+                        },
+                        leadingIcon = {
+                            if (isSelected) Text("✓", color = Color(AppConfig.uiSettingsAccent), fontSize = 14.sp)
+                            else Spacer(Modifier.width(20.dp))
+                        },
+                        trailingIcon = if (isSelected) {
+                            { Text(dirArrow, color = Color(AppConfig.uiSettingsTextPrimary), fontSize = 20.sp) }
+                        } else null
+                    )
+                }
+            }
             // Separator + pinned grouping toggle
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = 4.dp),
@@ -134,7 +176,7 @@ private fun SortControl(
             DropdownMenuItem(
                 text = {
                     Text(
-                        text = "Group pinned items",
+                        text = stringResource(R.string.sort_group_pinned),
                         color = Color(AppConfig.uiSettingsTextPrimary),
                         fontSize = 14.sp
                     )
@@ -253,6 +295,7 @@ fun <T : ListableItem> ListOverlayScaffold(
     sectionLabel: String,
     sortState: ListSortState,
     onSortStateChange: (ListSortState) -> Unit,
+    customSortFields: List<CustomSortField> = emptyList(),
     accentColors: (List<T>) -> Map<String, Color>,
     cardContent: @Composable (T) -> Unit,
     liveCardContent: @Composable (T) -> Unit = {},
@@ -303,7 +346,7 @@ fun <T : ListableItem> ListOverlayScaffold(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(sectionLabel, color = Color(AppConfig.uiSettingsAccent), fontSize = 17.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                SortControl(state = sortState, onStateChange = onSortStateChange)
+                SortControl(state = sortState, customFields = customSortFields, onStateChange = onSortStateChange)
             }
             Spacer(Modifier.height(8.dp))
 

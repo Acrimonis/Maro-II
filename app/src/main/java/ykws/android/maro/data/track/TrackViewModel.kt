@@ -193,10 +193,22 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         summaries: List<TrackSummary>,
         state: ListSortState
     ): List<TrackSummary> {
-        val comparator: Comparator<TrackSummary> = when (state.field) {
-            ListSortField.TITLE -> compareBy { it.title.lowercase() }
-            ListSortField.CREATED -> compareBy { it.createdAtEpochMs }
-            ListSortField.UPDATED -> compareBy { it.updatedAtEpochMs }
+        val nowMs = System.currentTimeMillis()
+        val comparator: Comparator<TrackSummary> = when {
+            state.customFieldKey != null -> when (state.customFieldKey) {
+                "distanceNm" -> compareBy { it.distanceNm }
+                "totalTimeSec" -> compareBy { (it.endTimeMs ?: nowMs) - it.startTimeMs }
+                "movingTimeSec" -> compareBy { s ->
+                    val totalMs = (s.endTimeMs ?: nowMs) - s.startTimeMs
+                    totalMs - s.idleDurationSec * 1000L
+                }
+                else -> compareByDescending { it.updatedAtEpochMs }
+            }
+            else -> when (state.field) {
+                ListSortField.TITLE -> compareBy { it.title.lowercase() }
+                ListSortField.CREATED -> compareBy { it.createdAtEpochMs }
+                ListSortField.UPDATED -> compareBy { it.updatedAtEpochMs }
+            }
         }
         val directed = if (state.descending) comparator.reversed() else comparator
 

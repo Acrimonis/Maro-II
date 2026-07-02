@@ -1,15 +1,15 @@
 # Hydration: Ui_General
 
-**Session:** list extra sort — plan reviewed and updated. `CustomSortField` approach confirmed. Track fields reduced to 3 (Distance/Total Time/Moving Time), marker fields to 1 (Origin). `colorIndex` excluded (categorical, not ordinal). `idleDurationSec` and `isLive` fallback removed from ViewModel comparator. Ready for implementation.
+**Session:** list extra sort — localization pass. 6 files modified. Sort labels converted from hardcoded English to `stringResource()` (ResId approach). +16 string resources: 8 EN + 8 FR. `ListSortField.label` → `labelResId: Int`, `CustomSortField.label` → `labelResId: Int`.
 
 **State:**
 - `list sort [x]` — implemented (see FEAT_DSC ## Implemented)
-- `list extra sort [ ]` — plan: `CustomSortField` + `customFieldKey`, 3 track fields + 1 marker field, 7 files, backward-compat serialization
+- `list extra sort [x]` — implemented: CustomSortField, 3 track + 1 marker custom fields, localized EN+FR via ResId
 
 **Key Files:**
-- `ListOverlayScaffold.kt`, `ListSortOrder.kt`, `TrackViewModel.kt`, `MarkersViewModel.kt`, `TrackHistoryOverlay.kt`, `MarkerManagementOverlay.kt`, `OverlayLayer.kt`
+- `ListSortOrder.kt`, `ListOverlayScaffold.kt`, `TrackViewModel.kt`, `MarkersViewModel.kt`, `TrackHistoryOverlay.kt`, `MarkerManagementOverlay.kt`, `values/strings.xml`, `values-fr/strings.xml`
 
 **Plan:**
 - `xTrack/Ui_General/FEAT_PLN_Ui_General_list-extra-sort.md`
 
-**Last Bake:** 2026-07-01 22:52 UTC
+**Last Bake:** 2026-07-02 09:16 UTC

@@ -2,7 +2,7 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-07-01 22:52
+modified: 2026-07-02 09:16
 active_subfeature: list extra sort
 ---
 
@@ -270,35 +270,27 @@ Scaffold also exposes `onDismiss: () -> Unit` for overlay close. All inter-compo
 - Animations: platform `spring()` defaults, snackbar `tween(250)`
 - BUILD SUCCESSFUL
 
-### list extra sort  [ ]
+### list extra sort  [x]
 
-Extend `ListSortField` to support per-type sort fields via `CustomSortField` data class + `customFieldKey: String?` in `ListSortState`. Track fields: Distance (`distanceNm`), Total Time (computed), Moving Time (computed). Marker fields: Origin (`origin`). Serialization backward-compatible (`"UPDATED:true:false:distanceNm"`).
+Extend `ListSortField` to support per-type sort fields via `CustomSortField` data class + `customFieldKey: String?` in `ListSortState`. Track fields: Distance (`distanceNm`), Total Time (computed), Moving Time (computed). Marker fields: Origin (`origin`). Serialization backward-compatible (`"UPDATED:true:false:distanceNm"`). All labels localized (EN + FR via `stringResource()` — ResId approach).
 
 #### Plan
-- [`FEAT_PLN_Ui_General_list-extra-sort.md`](xTrack/Ui_General/FEAT_PLN_Ui_General_list-extra-sort.md) — full design: CustomSortField approach, ListSortState extension, SortControl dropdown UX, ViewModel comparators, consumer wiring, 7-file implementation order
+- [`FEAT_PLN_Ui_General_list-extra-sort.md`](xTrack/Ui_General/FEAT_PLN_Ui_General_list-extra-sort.md) — full design (CustomSortField approach, ListSortState extension, SortControl dropdown UX, ViewModel comparators, consumer wiring)
 
-#### Todos
-- [ ] Extend `ListSortState` (+`customFieldKey`, updated `parse`/`format`)
-- [ ] Add `CustomSortField` data class
-- [ ] Extend `SortControl` + `ListOverlayScaffold` signature
-- [ ] Thread `customSortFields` through `OverlayLayer` → overlays
-- [ ] Extend `TrackViewModel.sortSummaries()` with custom comparators
-- [ ] Extend `MarkersViewModel.sortMarkers()` with custom comparators
+#### Implemented
+- [`ListSortOrder.kt`](app/src/main/java/ykws/android/maro/data/model/ListSortOrder.kt) — `CustomSortField` data class, `ListSortState` extended with `customFieldKey: String?`, `parse()` handles 4-part format, `format()` emits 4-part when custom active
+- [`ListOverlayScaffold.kt`](app/src/main/java/ykws/android/maro/ui/components/ListOverlayScaffold.kt) — `SortControl` renders custom fields section in dropdown with separator, `ListOverlayScaffold` accepts `customSortFields` param
+- [`TrackViewModel.kt`](app/src/main/java/ykws/android/maro/data/track/TrackViewModel.kt) — `sortSummaries()` dispatches on `customFieldKey`: `distanceNm`, `totalTimeSec` (computed), `movingTimeSec` (computed)
+- [`MarkersViewModel.kt`](app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt) — `sortMarkers()` dispatches on `customFieldKey`: `origin`
+- [`TrackHistoryOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt) — defines 3 track custom fields, passes to scaffold
+- [`MarkerManagementOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/MarkerManagementOverlay.kt) — defines 1 marker custom field, passes to scaffold
+- BUILD SUCCESSFUL
 
 #### Rules
 - `customFieldKey: String?` — null = common field active; non-null = custom field active
 - `field` is only authoritative when `customFieldKey == null`
 - `isLive` pre-sort stays in scaffold, NOT in ViewModel comparators
 - Serialization: 3-part string = backward compat; 4-part = custom field
-
-#### Key Files
-- `app/src/main/java/ykws/android/maro/data/model/ListSortOrder.kt` — `CustomSortField`, `ListSortState` extension
-- `app/src/main/java/ykws/android/maro/ui/components/ListOverlayScaffold.kt` — `SortControl`, `ListOverlayScaffold` signature
-- `app/src/main/java/ykws/android/maro/data/track/TrackViewModel.kt` — `sortSummaries()` comparators
-- `app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt` — `sortMarkers()` comparators
-- `app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt` — consumer wiring
-- `app/src/main/java/ykws/android/maro/ui/map/MarkerManagementOverlay.kt` — consumer wiring
-- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt` — parameter threading
 
 ### track list colors  [ ]
 

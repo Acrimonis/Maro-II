@@ -94,6 +94,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.data.model.CustomSortField
 import ykws.android.maro.data.model.ListAction
 import ykws.android.maro.data.model.ListSortState
 import ykws.android.maro.data.track.TrackRecorderState
@@ -147,6 +148,14 @@ fun TrackHistoryOverlay(
 ) {
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US) }
 
+    val trackCustomSortFields = remember {
+        listOf(
+            CustomSortField("distanceNm", R.string.sort_custom_distance),
+            CustomSortField("totalTimeSec", R.string.sort_custom_total_time),
+            CustomSortField("movingTimeSec", R.string.sort_custom_moving_time)
+        )
+    }
+
     // Pre-compute accent bar colors — batch lambda for scaffold
     val accentColorMap = remember(trackSummaries, tracksVisible, trackingRenderNb,
         trackingTransparencyNewest, trackingTransparencyOldest,
@@ -196,6 +205,7 @@ fun TrackHistoryOverlay(
         sectionLabel = "RECORDED TRACKS",
         sortState = sortState,
         onSortStateChange = onSortStateChange,
+        customSortFields = trackCustomSortFields,
         accentColors = { accentColorMap },
         cardContent = { summary ->
             TrackCardContent(
