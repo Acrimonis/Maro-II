@@ -2,6 +2,7 @@
 package ykws.android.maro.ui.map
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.track.TrackRecordingService
+import ykws.android.maro.data.model.matchesFilter
 import ykws.android.maro.data.track.toGpx
 
 import android.Manifest
@@ -734,14 +735,18 @@ fun MapScreen(
         appSettings.trackingTransparencyNewest, appSettings.trackingTransparencyOldest,
         appSettings.trackingColorPinnedFrom, appSettings.trackingColorPinnedTo,
         appSettings.trackingTransparencyPinnedNewest, appSettings.trackingTransparencyPinnedOldest,
-        trackSummaries) {
+        appSettings.trackListFilter, trackSummaries) {
         val mv = mapView ?: return@LaunchedEffect
+
+        // Apply filter before display split
+        val midnightMs = ykws.android.maro.data.model.todayMidnightMs()
+        val filteredSummaries = trackSummaries.filter { it.matchesFilter(appSettings.trackListFilter, midnightMs) }
 
         // Determine desired track ID set (history = non-pinned only)
         val desiredIds = if (appSettings.tracksVisible) {
             val nbToRender = appSettings.trackingRenderNb.coerceIn(0, 20)
             if (nbToRender > 0) {
-                trackSummaries
+                filteredSummaries
                     .filter { it.visibleOnMap && !it.pinned }
                     .sortedByDescending { it.startTimeMs }
                     .take(nbToRender)
@@ -760,7 +765,7 @@ fun MapScreen(
         val sortedDesired = if (appSettings.tracksVisible) {
             val nbToRender = appSettings.trackingRenderNb.coerceIn(0, 20)
             if (nbToRender > 0) {
-                trackSummaries
+                filteredSummaries
                     .filter { it.visibleOnMap && !it.pinned }
                     .sortedByDescending { it.startTimeMs }
                     .take(nbToRender)
@@ -823,7 +828,7 @@ fun MapScreen(
         mv.overlays.removeAll(toRemovePinned)
 
         val pinnedSummaries = if (appSettings.tracksVisible) {
-            trackSummaries.filter { it.pinned }.sortedByDescending { it.startTimeMs }
+            filteredSummaries.filter { it.pinned }.sortedByDescending { it.startTimeMs }
         } else emptyList()
 
         val pinnedTotal = pinnedSummaries.size
@@ -1193,7 +1198,7 @@ fun MapScreen(
                 onZoomChanged = viewModel::updateZoomLevel,
                 onMapViewReady = { mapView = it },
                 markerLayerState = markerLayerState,
-                onCycleMarkerLayer = { markersViewModel.cycleMarkerLayerState() },
+                onToggleMarkerLayer = { markersViewModel.toggleMarkerLayer() },
                 onAddZone = { center -> markersViewModel.startWizard(initialPos = center) },
                 onMarkerTap = { id -> markersViewModel.openEditDrawer(id) },
                 onWhereAmI = {
@@ -1304,10 +1309,7 @@ fun MapScreen(
                 val matchResult by markersViewModel.matchResult.collectAsState()
                 val selectedMarkerId by markersViewModel.selectedMarkerId.collectAsState()
                 MarkerOverlay(
-                    markers = when (markerLayerState) {
-                        MarkerLayerState.SHOW_PINNED -> userMarkers.filter { it.pinned }
-                        else -> userMarkers
-                    },
+                    markers = userMarkers.filter { it.matchesFilter(appSettings.markerListFilter) },
                     mapView = mapView,
                     proximityZoneMultiplier = AppConfig.markerProximityZoneMultiplier,
                     unconfirmedMarker = unconfirmedMarker,
@@ -1540,7 +1542,7 @@ private fun MapContent(
     onZoomChanged: (Double) -> Unit,
     onMapViewReady: (MapView) -> Unit,
     markerLayerState: MarkerLayerState = MarkerLayerState.SHOW_ALL,
-    onCycleMarkerLayer: () -> Unit = {},
+    onToggleMarkerLayer: () -> Unit = {},
     onAddZone: (LatLng) -> Unit = {},
     onMarkerTap: (String) -> Unit = {},
     onWhereAmI: () -> Unit = {},
@@ -1846,13 +1848,7 @@ private fun MapContent(
                             parent = { _: Boolean, _: Int -> ThreeStripeLayerIcon(alpha = 1f) },
                             onParentClick = { onToggleFan(ControlId.LAYER_FAN) },
                             children = listOf<@Composable (Boolean) -> Unit>(
-                                { isActive ->
-                                    when {
-                                        !isActive -> LocationOnIcon(alpha = ButtonColors.inactiveAlpha)
-                                        markerLayerState == MarkerLayerState.SHOW_PINNED -> WhereToVoteIcon(alpha = ButtonColors.activeAlpha)
-                                        else -> LocationOnIcon(alpha = ButtonColors.activeAlpha)
-                                    }
-                                },
+                                { isActive -> LocationOnIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
                                 { isActive -> TrackLayerIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
                                 { isActive -> DepthBarIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
                                 { isActive -> RegulatedZoneIcon(alpha = if (isActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha) },
@@ -1869,7 +1865,7 @@ private fun MapContent(
                             ),
                             onChildClick = { index: Int, _: Boolean ->
                                 when (index) {
-                                    0 -> onCycleMarkerLayer()
+                                    0 -> onToggleMarkerLayer()
                                     1 -> onToggleTracks()
                                     2 -> onToggleDepthLayer()
                                     3 -> onToggleRegulatedZones()

@@ -67,12 +67,14 @@ fun dateInRange(startTimeMs: Long, range: String, todayMidnightMs: Long): Boolea
 // Predicates
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Live track always exempt from filter. */
+/** Live track exempt from date filter only (always shows regardless of date range). */
 fun TrackSummary.matchesFilter(f: ListFilter, todayMidnightMs: Long): Boolean =
-    isLive || f.axes.all { (key, value) ->
+    f.axes.all { (key, value) ->
         when (key) {
-            "dateRange" -> dateInRange(startTimeMs, value, todayMidnightMs)
-            "pinned" -> value == "ALL" || (value == "PINNED") == this.pinned
+            "dateRange" -> isLive || dateInRange(startTimeMs, value, todayMidnightMs)
+            "pinned" -> value == "ALL" ||
+                (value == "PINNED" && this.pinned) ||
+                (value == "UNPINNED" && !this.pinned)
             else -> true
         }
     }
@@ -140,7 +142,8 @@ fun trackFilterAxes(): List<FilterAxisSpec> = listOf(
         label = "Pinned",
         options = listOf(
             FilterOptionSpec("ALL", "All", isDefault = true),
-            FilterOptionSpec("PINNED", "Pinned")
+            FilterOptionSpec("PINNED", "Pinned"),
+            FilterOptionSpec("UNPINNED", "Unpinned")
         )
     )
 )

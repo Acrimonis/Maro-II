@@ -25,6 +25,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.IconButton
+import ykws.android.maro.ui.components.FilterControl
+import ykws.android.maro.ui.icons.FilterAlt
+import ykws.android.maro.ui.icons.Refresh
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -34,6 +38,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -72,7 +77,16 @@ fun MenuDrawerOverlay(
     onManageMarkers: () -> Unit = {},
     onDismiss: () -> Unit,
     onOpenSettings: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    // ── Filter state ──────────────────────────────────────────────────
+    trackFilterState: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
+    onTrackFilterChange: (ykws.android.maro.data.model.ListFilter) -> Unit = {},
+    onTrackReset: () -> Unit = {},
+    trackFilterAxes: List<ykws.android.maro.data.model.FilterAxisSpec> = emptyList(),
+    markerFilterState: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
+    onMarkerFilterChange: (ykws.android.maro.data.model.ListFilter) -> Unit = {},
+    onMarkerReset: () -> Unit = {},
+    markerFilterAxes: List<ykws.android.maro.data.model.FilterAxisSpec> = emptyList()
 ) {
     if (isOpen) { BackHandler { onDismiss() } }
 
@@ -177,14 +191,40 @@ fun MenuDrawerOverlay(
 
                 Spacer(Modifier.height(16.dp))
 
-                // ── Section header ──────────────────────────────
-                Text(
-                    text = "TRACK RECORDING",
-                    color = Color(AppConfig.uiSettingsAccent),
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp
-                )
+                // ── Section header with filter icons ──────────────
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "TRACKS",
+                        color = Color(AppConfig.uiSettingsAccent),
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                    Spacer(Modifier.weight(1f))
+                    if (trackFilterAxes.isNotEmpty()) {
+                        FilterControl(
+                            filterState = trackFilterState,
+                            filterAxes = trackFilterAxes,
+                            onFilterChange = onTrackFilterChange
+                        )
+                        val hasActiveTrackFilter = trackFilterState.axes.isNotEmpty()
+                        IconButton(
+                            onClick = onTrackReset,
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                imageVector = Refresh,
+                                contentDescription = "Reset track filter",
+                                tint = ButtonColors.icon,
+                                modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
+                                    .alpha(if (hasActiveTrackFilter) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha)
+                            )
+                        }
+                    }
+                }
 
                 Spacer(Modifier.height(2.dp))
 
@@ -239,14 +279,40 @@ fun MenuDrawerOverlay(
 
                 Spacer(Modifier.height(16.dp))
 
-                // ── MARKERS section ─────────────────────────────
-                Text(
-                    text = "MARKERS",
-                    color = Color(AppConfig.uiSettingsAccent),
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp
-                )
+                // ── MARKERS section with filter icons ────────────
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "MARKERS",
+                        color = Color(AppConfig.uiSettingsAccent),
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                    Spacer(Modifier.weight(1f))
+                    if (markerFilterAxes.isNotEmpty()) {
+                        FilterControl(
+                            filterState = markerFilterState,
+                            filterAxes = markerFilterAxes,
+                            onFilterChange = onMarkerFilterChange
+                        )
+                        val hasActiveMarkerFilter = markerFilterState.axes.isNotEmpty()
+                        IconButton(
+                            onClick = onMarkerReset,
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                imageVector = Refresh,
+                                contentDescription = "Reset marker filter",
+                                tint = ButtonColors.icon,
+                                modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
+                                    .alpha(if (hasActiveMarkerFilter) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha)
+                            )
+                        }
+                    }
+                }
 
                 Spacer(Modifier.height(8.dp))
 
