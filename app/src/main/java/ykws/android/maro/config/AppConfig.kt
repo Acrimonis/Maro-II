@@ -106,6 +106,10 @@ object AppConfig {
     /** Auto-marker icon opacity on map (0-100, 100=fully opaque). */
     var boatMarkerIdleOpacityPct: Int = 50
 
+    /** Proximity range (m) for 🕐 auto-marker pins. Set via `track.boatMarker.autoMarker.proximityM` in maro.properties. */
+    var boatMarkerAutoMarkerProximityM: Double = 300.0
+        private set
+
     /** Enable visual whereAmI debug rays on the map. Set via `marker.debug.rays.enabled` in maro.properties. */
     var markerDebugRaysEnabled: Boolean = false
 
@@ -525,6 +529,9 @@ object AppConfig {
             }
             props.getProperty("track.boatMarker.autoMarker.opacity")?.toIntOrNull()?.let {
                 boatMarkerIdleOpacityPct = it.coerceIn(0, 100)
+            }
+            props.getProperty("track.boatMarker.autoMarker.proximityM")?.toDoubleOrNull()?.let {
+                boatMarkerAutoMarkerProximityM = it.coerceAtLeast(0.0)
             }
 
             // ── Marker debug rays ───────────────────────────────────────
