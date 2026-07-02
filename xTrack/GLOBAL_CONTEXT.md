@@ -1,12 +1,12 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** Ui_General
-- **Active Subfeature:** filter everywhere
-- **Last Updated:** 2026-07-02 22:28
-- **Last Bake:** 2026-07-02 22:28 (Ui_General — filter everywhere: map rendering reads ListFilter, marker fan ON/OFF, menu drawer filter icons on section headers, UNPINNED track filter parity, isLive scoped to dateRange, Refresh always visible with inactive alpha. BUILD SUCCESSFUL ×4)
+- **Active Feature:** Markers
+- **Active Subfeature:** wizard-cleanup-race
+- **Last Updated:** 2026-07-02 23:53
+- **Last Bake:** 2026-07-02 23:53 (Markers — wizard-cleanup-race: wizard state cleanup moved into coroutine; auto-marker-proximity: 300m default + defensive fallback; builder: moved wizard cleanup into save/updateMarker coroutines)
 - **Last Bake:** 2026-07-01 17:05 (BoatTrace — boat-markers: full implementation)
-- **Branch:** feature/filters-to-layers
+- **Branch:** feature/markers-date-points-fix
 
 ## Routing Map
 | Keyword | Feature File |

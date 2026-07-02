@@ -195,6 +195,10 @@ ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 
 **background-recording (2026-06-28):** One-line conditional in MapScreen `ON_PAUSE` handler — don't kill GPS (`setGpsActive(false)`) when track recording is active. GPS survives backgrounding while `TrackRecorderState.ON`; foreground service (`TrackRecordingService`, START_STICKY) keeps process alive. `isStopped` gate + dormant GPS cadence still apply. 1 file, 1 line. Build: ✅.
 
+## Todos
+- [ ] back to GPS point → replace delay by swipe of card
+- [ ] normalize localisation and fill holes
+
 ## Rules
 - GPS mode: the GPS position stays at the center of the map.
 - GPS mode: when a heading is tracked from GPS movement (sustained ~3 s), rotate the map so the boat always points to the top (course-up).

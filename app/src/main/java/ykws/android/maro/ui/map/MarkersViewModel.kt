@@ -504,9 +504,6 @@ class MarkersViewModel(
         } else {
             saveMarker()
         }
-        _wizardStep.value = null
-        editingMarkerId = null
-        _selectedMarkerId.value = null
     }
 
     /** Whether Finish is allowed at the current step (corridor needs P2). */
@@ -565,6 +562,9 @@ class MarkersViewModel(
             _markers.value = sortMarkers(all.filter { it.matchesFilter(settings.markerListFilter) }, settings.markerListSort)
             _drawerState.value = MarkerDrawerState.Hidden
             _lastSavedMarkerId.value = marker.id
+            _wizardStep.value = null
+            editingMarkerId = null
+            _selectedMarkerId.value = null
         }
     }
 
@@ -606,6 +606,9 @@ class MarkersViewModel(
             _allMarkers.value = all
             _markers.value = sortMarkers(all.filter { it.matchesFilter(settings.markerListFilter) }, settings.markerListSort)
             _drawerState.value = MarkerDrawerState.Hidden
+            _wizardStep.value = null
+            editingMarkerId = null
+            _selectedMarkerId.value = null
         }
     }
 
@@ -640,7 +643,7 @@ class MarkersViewModel(
             name = title,
             description = desc,
             geometry = MarkerGeometry.Pin(LatLng(lat, lon)),
-            proximityOverrideM = null,
+            proximityOverrideM = AppConfig.boatMarkerAutoMarkerProximityM,
             confirmed = false,
             pinned = true,
             icon = "\uD83D\uDD50",  // 🕐

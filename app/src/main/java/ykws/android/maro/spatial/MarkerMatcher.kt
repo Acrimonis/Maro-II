@@ -4,6 +4,7 @@ import android.util.Log
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.MarkerGeometry
+import ykws.android.maro.data.model.markers.MarkerOrigin
 import ykws.android.maro.data.model.markers.UserMarker
 import kotlin.math.*
 
@@ -463,9 +464,13 @@ object MarkerMatcher {
     // Proximity range
     // ─────────────────────────────────────────────────────────────────────
 
-    /** Proximity range from marker — reads the stored override set by the creation wizard. */
+    /** Proximity range from marker — reads the stored override set by the creation wizard.
+     *  Falls back to AppConfig.boatMarkerAutoMarkerProximityM for IDLE_AUTO markers
+     *  that lack a stored override (e.g., markers created before the wizard stored it). */
     private fun proximityRange(marker: UserMarker): Double =
-        marker.proximityOverrideM ?: Double.MAX_VALUE
+        marker.proximityOverrideM
+            ?: if (marker.origin == MarkerOrigin.IDLE_AUTO) AppConfig.boatMarkerAutoMarkerProximityM
+               else Double.MAX_VALUE
 
     // ─────────────────────────────────────────────────────────────────────
     // Traversal

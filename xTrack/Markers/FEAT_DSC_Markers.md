@@ -2,8 +2,8 @@
 name: Markers
 status: active
 created: 2026-06-22 11:52
-modified: 2026-07-01 10:45
-active_subfeature: 2-gate-simplification
+modified: 2026-07-02 23:53
+active_subfeature: wizard-cleanup-race
 ---
 
 # Feature: Markers
@@ -30,7 +30,22 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-o
 ### icon  [x]
 ### 2-gate-simplification  [x]
 
+## Todos
+- [ ] fix proximity of date points — rays hit/test all of them
+
 ## Implemented
+
+### wizard-cleanup-race (2026-07-02)
+- Moved `_wizardStep`/`editingMarkerId`/`_selectedMarkerId` cleanup from `wizardFinish()` into `saveMarker()`/`updateMarker()` coroutines
+- Fixes race: wizard state was nulled synchronously while IO save was still in-flight, causing markers to disappear until app restart
+- Build: ✅
+
+### auto-marker-proximity (2026-07-02)
+- 🕐 auto idle markers now use `AppConfig.boatMarkerAutoMarkerProximityM` (300m default) instead of `null` in `addTempAutoMarker()`
+- Defensive fallback in `proximityRange()`: `IDLE_AUTO` markers with `null` proximity fall back to 300m (handles existing on-disk markers)
+- `null` → `Double.MAX_VALUE` meant every auto marker matched `whereAmI()` regardless of distance
+- New config key `track.boatMarker.autoMarker.proximityM=300` in `maro.properties`
+- Build: ✅
 
 ### Data Model & Persistence
 - `UserMarker` with `MarkerGeometry` sealed class (Pin/Circle/Corridor), `bbox` pre-computed on create/edit
