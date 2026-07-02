@@ -3,8 +3,8 @@
 ## Active Session Pointers
 - **Active Feature:** Ui_General
 - **Active Subfeature:** filter
-- **Last Updated:** 2026-07-02 17:37
-- **Last Bake:** 2026-07-02 17:37 (Ui_General — filter: complete. Extensible ListFilter with sort+filter dropdowns, direction toggle, reset, pinnedGrouped→filter, dark dropdown surfaces, standalone icons. BUILD SUCCESSFUL)
+- **Last Updated:** 2026-07-02 18:28
+- **Last Bake:** 2026-07-02 18:28 (Ui_General — filter: UI polish complete. Popup menus match settings hierarchy (SubSectionHeader style, card bg, border, tight padding), context-aware titles (General + Tracks/Markers), plain arrow triangles, normalized fonts. BUILD SUCCESSFUL)
 - **Last Bake:** 2026-07-01 17:05 (BoatTrace — boat-markers: full implementation — BoatMarker data model, idle threshold timer, auto-marker 🕐 pins, track snapshots, history rendering with transparency)
 - **Branch:** feature/list-extra-sort
 

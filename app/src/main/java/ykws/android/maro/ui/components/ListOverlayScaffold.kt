@@ -11,6 +11,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -33,13 +34,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -65,6 +65,8 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import ykws.android.maro.R
@@ -91,6 +93,7 @@ import kotlin.math.roundToInt
 private fun SortControl(
     state: ListSortState,
     customFields: List<CustomSortField>,
+    customSectionLabel: String,
     onStateChange: (ListSortState) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -110,70 +113,76 @@ private fun SortControl(
                     .alpha(sortAlpha)
             )
         }
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            containerColor = Color(AppConfig.uiSettingsBackground)
-        ) {
-            // Common fields (always visible)
-            ListSortField.entries.forEach { field ->
-                val isSelected = field == state.field && state.customFieldKey == null
-                DropdownMenuItem(
-                    text = {
-                        Text(
-                            text = stringResource(field.labelResId),
-                            color = Color(AppConfig.uiSettingsTextPrimary),
-                            fontSize = 14.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                    },
-                    onClick = {
-                        if (isSelected) {
-                            onStateChange(state.copy(descending = !state.descending))
-                        } else {
-                            onStateChange(state.copy(field = field, customFieldKey = null))
-                        }
-                        expanded = false
-                    },
-                    leadingIcon = {
-                        if (isSelected) Text("\u2713", color = Color(AppConfig.uiSettingsAccent), fontSize = 14.sp)
-                        else Spacer(Modifier.width(20.dp))
-                    }
-                )
-            }
-            // Custom fields (only if non-empty)
-            if (customFields.isNotEmpty()) {
-                HorizontalDivider(
-                    modifier = Modifier.padding(vertical = 4.dp),
-                    thickness = 0.5.dp,
-                    color = Color(AppConfig.uiSettingsDivider)
-                )
-                customFields.forEach { cf ->
-                    val isSelected = cf.key == state.customFieldKey
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                text = stringResource(cf.labelResId),
-                                color = Color(AppConfig.uiSettingsTextPrimary),
-                                fontSize = 14.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        },
-                        onClick = {
-                            if (isSelected) {
-                                onStateChange(state.copy(descending = !state.descending))
-                            } else {
-                                onStateChange(state.copy(field = ListSortField.CREATED, customFieldKey = cf.key))
+        if (expanded) {
+            Popup(
+                alignment = Alignment.TopEnd,
+                onDismissRequest = { expanded = false },
+                properties = PopupProperties(focusable = true)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(AppConfig.uiSettingsBackground),
+                    shadowElevation = 8.dp,
+                    modifier = Modifier.width(240.dp).border(1.dp, Color(0x40FFFFFF), RoundedCornerShape(12.dp))
+                ) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        // General section
+                        Text("General",
+                            color = Color(AppConfig.uiDashboardTextMuted),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp))
+                        Surface(shape = RoundedCornerShape(12.dp), color = Color(AppConfig.uiCardBackground)) {
+                            Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                                ListSortField.entries.forEach { field ->
+                                    val isSelected = field == state.field && state.customFieldKey == null
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth().clickable {
+                                            if (isSelected) onStateChange(state.copy(descending = !state.descending))
+                                            else onStateChange(state.copy(field = field, customFieldKey = null))
+                                            expanded = false
+                                        }.padding(horizontal = 16.dp, vertical = 2.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Box(Modifier.width(24.dp), contentAlignment = Alignment.Center) {
+                                            if (isSelected) Text("\u2713", color = Color(AppConfig.uiSettingsAccent), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                        }
+                                        Spacer(Modifier.width(8.dp))
+                                        Text(stringResource(field.labelResId), color = Color(AppConfig.uiSettingsTextPrimary), fontSize = 15.sp, fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium)
+                                    }
+                                }
                             }
-                            expanded = false
-                        },
-                        leadingIcon = {
-                            if (isSelected) Text("\u2713", color = Color(AppConfig.uiSettingsAccent), fontSize = 14.sp)
-                            else Spacer(Modifier.width(20.dp))
                         }
-                    )
+                        // Custom fields card (only if non-empty)
+                        if (customFields.isNotEmpty()) {
+                            Text(customSectionLabel,
+                                color = Color(AppConfig.uiDashboardTextMuted),
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp))
+                            Surface(shape = RoundedCornerShape(12.dp), color = Color(AppConfig.uiCardBackground)) {
+                                Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                                    customFields.forEach { cf ->
+                                        val isSelected = cf.key == state.customFieldKey
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().clickable {
+                                                if (isSelected) onStateChange(state.copy(descending = !state.descending))
+                                                else onStateChange(state.copy(field = ListSortField.CREATED, customFieldKey = cf.key))
+                                                expanded = false
+                                            }.padding(horizontal = 16.dp, vertical = 2.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Box(Modifier.width(24.dp), contentAlignment = Alignment.Center) {
+                                                if (isSelected) Text("\u2713", color = Color(AppConfig.uiSettingsAccent), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                            }
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(stringResource(cf.labelResId), color = Color(AppConfig.uiSettingsTextPrimary), fontSize = 15.sp, fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -206,66 +215,59 @@ private fun FilterControl(
                     .alpha(if (hasActiveFilter) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha)
             )
         }
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            containerColor = Color(AppConfig.uiSettingsBackground)
-        ) {
-            filterAxes.forEachIndexed { axisIdx, axis ->
-                // Check if this axis is gated (disabled)
-                val isDisabled = axis.dependsOn != null && axis.dependsOnValue != null &&
-                    filterState.axes[axis.dependsOn] == axis.dependsOnValue
-
-                if (axisIdx > 0) {
-                    HorizontalDivider(
-                        modifier = Modifier.padding(vertical = 4.dp),
-                        thickness = 0.5.dp,
-                        color = Color(AppConfig.uiSettingsDivider)
-                    )
-                }
-
-                // Section header
-                Text(
-                    text = axis.label,
-                    color = Color(AppConfig.uiSettingsTextMuted),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
-                )
-
-                val currentValue = filterState.axes[axis.key] ?: axis.options.firstOrNull { it.isDefault }?.value ?: "ALL"
-
-                axis.options.forEach { option ->
-                    val isSelected = option.value == currentValue
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                text = option.label,
-                                color = if (isDisabled) Color(AppConfig.uiSettingsTextMuted).copy(alpha = 0.4f)
-                                        else Color(AppConfig.uiSettingsTextPrimary),
-                                fontSize = 14.sp,
-                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                        },
-                        onClick = {
-                            if (!isDisabled) {
-                                val newAxes = if (option.isDefault) {
-                                    filterState.axes - axis.key
-                                } else {
-                                    filterState.axes + (axis.key to option.value)
+        if (expanded) {
+            Popup(
+                alignment = Alignment.TopEnd,
+                onDismissRequest = { expanded = false },
+                properties = PopupProperties(focusable = true)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(AppConfig.uiSettingsBackground),
+                    shadowElevation = 8.dp,
+                    modifier = Modifier.width(240.dp).border(1.dp, Color(0x40FFFFFF), RoundedCornerShape(12.dp))
+                ) {
+                    Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        filterAxes.forEach { axis ->
+                            val isDisabled = axis.dependsOn != null && axis.dependsOnValue != null &&
+                                filterState.axes[axis.dependsOn] == axis.dependsOnValue
+                            val currentValue = filterState.axes[axis.key] ?: axis.options.firstOrNull { it.isDefault }?.value ?: "ALL"
+                            
+                            Text(axis.label,
+                                color = Color(AppConfig.uiDashboardTextMuted),
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 4.dp))
+                            Surface(shape = RoundedCornerShape(12.dp), color = Color(AppConfig.uiCardBackground)) {
+                                Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                                    axis.options.forEach { option ->
+                                        val isSelected = option.value == currentValue
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth().clickable(enabled = !isDisabled) {
+                                                val newAxes = if (option.isDefault) filterState.axes - axis.key else filterState.axes + (axis.key to option.value)
+                                                onFilterChange(ListFilter(newAxes))
+                                            }.padding(horizontal = 16.dp, vertical = 2.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Box(Modifier.width(24.dp), contentAlignment = Alignment.Center) {
+                                                if (isSelected) Text("\u2713",
+                                                    color = if (isDisabled) Color(AppConfig.uiSettingsTextMuted).copy(alpha = 0.4f) else Color(AppConfig.uiSettingsAccent),
+                                                    fontSize = 16.sp,
+                                                    fontWeight = FontWeight.Bold
+                                                )
+                                            }
+                                            Spacer(Modifier.width(8.dp))
+                                            Text(option.label,
+                                                color = if (isDisabled) Color(AppConfig.uiSettingsTextMuted).copy(alpha = 0.4f) else Color(AppConfig.uiSettingsTextPrimary),
+                                                fontSize = 15.sp,
+                                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
+                                            )
+                                        }
+                                    }
                                 }
-                                onFilterChange(ListFilter(newAxes))
-                                // Don't dismiss — user may set multiple axes
                             }
-                        },
-                        leadingIcon = {
-                            if (isSelected) Text("\u2713", color = if (isDisabled) Color(AppConfig.uiSettingsTextMuted).copy(alpha = 0.4f)
-                                else Color(AppConfig.uiSettingsAccent), fontSize = 14.sp)
-                            else Spacer(Modifier.width(20.dp))
-                        },
-                        enabled = !isDisabled
-                    )
+                        }
+                    }
                 }
             }
         }
@@ -371,6 +373,7 @@ fun <T : ListableItem> ListOverlayScaffold(
     sortState: ListSortState,
     onSortStateChange: (ListSortState) -> Unit,
     customSortFields: List<CustomSortField> = emptyList(),
+    customSortLabel: String = "Custom",
     filterAxes: List<FilterAxisSpec> = emptyList(),
     filterState: ListFilter = ListFilter(),
     onFilterChange: (ListFilter) -> Unit = {},
@@ -432,7 +435,7 @@ fun <T : ListableItem> ListOverlayScaffold(
                         FilterControl(filterState = filterState, filterAxes = filterAxes, onFilterChange = onFilterChange)
                     }
                     // Sort
-                    SortControl(state = sortState, customFields = customSortFields, onStateChange = onSortStateChange)
+                    SortControl(state = sortState, customFields = customSortFields, customSectionLabel = customSortLabel, onStateChange = onSortStateChange)
                     // Direction toggle
                     val isSortDefault = sortState.field == ListSortField.CREATED && sortState.customFieldKey == null && sortState.descending
                     val sortAlpha = if (isSortDefault) ButtonColors.inactiveAlpha else ButtonColors.activeAlpha
@@ -441,7 +444,7 @@ fun <T : ListableItem> ListOverlayScaffold(
                         modifier = Modifier.size(40.dp)
                     ) {
                         Icon(
-                            imageVector = if (sortState.descending) Icons.Filled.KeyboardArrowDown else Icons.Filled.KeyboardArrowUp,
+                            imageVector = if (sortState.descending) Icons.Filled.ArrowDownward else Icons.Filled.ArrowUpward,
                             contentDescription = if (sortState.descending) "Descending" else "Ascending",
                             tint = ButtonColors.icon,
                             modifier = Modifier.size(ButtonColors.iconSizeDp.dp)

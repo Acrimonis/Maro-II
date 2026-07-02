@@ -94,6 +94,7 @@ fun MarkerManagementOverlay(
         sortState = sortState,
         onSortStateChange = onSortStateChange,
         customSortFields = markerCustomSortFields,
+        customSortLabel = "Markers",
         filterAxes = markerFilterAxes(),
         filterState = filterState,
         onFilterChange = onFilterChange,

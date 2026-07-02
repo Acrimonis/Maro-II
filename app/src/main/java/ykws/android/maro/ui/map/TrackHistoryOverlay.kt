@@ -212,6 +212,7 @@ fun TrackHistoryOverlay(
         sortState = sortState,
         onSortStateChange = onSortStateChange,
         customSortFields = trackCustomSortFields,
+        customSortLabel = "Tracks",
         filterAxes = trackFilterAxes(),
         filterState = filterState,
         onFilterChange = onFilterChange,
