@@ -12,8 +12,11 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import ykws.android.maro.data.model.ListFilter
 import ykws.android.maro.data.model.ListSortField
 import ykws.android.maro.data.model.ListSortState
+import ykws.android.maro.data.model.matchesFilter
+import ykws.android.maro.data.model.todayMidnightMs
 import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.settings.SettingsManager
 
@@ -47,6 +50,9 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
     val events: SharedFlow<TrackEvent> = _events.asSharedFlow()
     private var eventsForwardingJob: kotlinx.coroutines.Job? = null
 
+    /** Unfiltered source of truth — reloaded from repository. */
+    private val _allSummaries = MutableStateFlow<List<TrackSummary>>(emptyList())
+
     private val _summaries = MutableStateFlow<List<TrackSummary>>(emptyList())
     val summaries: StateFlow<List<TrackSummary>> = _summaries.asStateFlow()
 
@@ -66,6 +72,13 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
             recoverOrphanedCheckpoints()
         }
         refreshSummaries()
+        viewModelScope.launch {
+            settingsManager.settings.collect { settings ->
+                val midnightMs = todayMidnightMs()
+                val filtered = _allSummaries.value.filter { it.matchesFilter(settings.trackListFilter, midnightMs) }
+                _summaries.value = sortSummaries(filtered, settings.trackListSort)
+            }
+        }
     }
 
     /**
@@ -175,16 +188,18 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** Reload track summaries with the given sort state, mark active track as [ListableItem.isLive]. */
+    /** Reload track summaries, mark active track as [ListableItem.isLive]. */
     fun refreshSummaries(sortState: ListSortState? = null) {
         viewModelScope.launch {
-            val effectiveSort = sortState ?: settingsManager.settings.value.trackListSort
+            val settings = settingsManager.settings.value
+            val effectiveSort = sortState ?: settings.trackListSort
             val summaries = repository.listTracks()
-            val sorted = sortSummaries(summaries, effectiveSort)
             // Mark the active track: most recent summary with no endTimeMs
-            val active = sorted.firstOrNull { it.endTimeMs == null }
-            active?.isLive = true
-            _summaries.value = sorted
+            summaries.firstOrNull { it.endTimeMs == null }?.isLive = true
+            _allSummaries.value = summaries
+            val midnightMs = todayMidnightMs()
+            val filtered = summaries.filter { it.matchesFilter(settings.trackListFilter, midnightMs) }
+            _summaries.value = sortSummaries(filtered, effectiveSort)
         }
     }
 
@@ -193,18 +208,17 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         summaries: List<TrackSummary>,
         state: ListSortState
     ): List<TrackSummary> {
-        val comparator: Comparator<TrackSummary> = when (state.field) {
-            ListSortField.TITLE -> compareBy { it.title.lowercase() }
-            ListSortField.CREATED -> compareBy { it.createdAtEpochMs }
-            ListSortField.UPDATED -> compareBy { it.updatedAtEpochMs }
-        }
-        val directed = if (state.descending) comparator.reversed() else comparator
-
-        return if (state.pinnedGrouped) {
-            val (pinned, unpinned) = summaries.partition { it.pinned }
-            pinned.sortedWith(directed) + unpinned.sortedWith(directed)
-        } else {
-            summaries.sortedWith(directed)
+        val nowMs = System.currentTimeMillis()
+        return state.applySort(summaries) { key ->
+            when (key) {
+                "distanceNm" -> compareBy { it.distanceNm }
+                "totalTimeSec" -> compareBy { (it.endTimeMs ?: nowMs) - it.startTimeMs }
+                "movingTimeSec" -> compareBy { s ->
+                    val totalMs = (s.endTimeMs ?: nowMs) - s.startTimeMs
+                    totalMs - s.idleDurationSec * 1000L
+                }
+                else -> null  // fallback to updatedAtEpochMs
+            }
         }
     }
 

@@ -94,8 +94,12 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.data.model.CustomSortField
+import ykws.android.maro.data.model.FilterAxisSpec
 import ykws.android.maro.data.model.ListAction
+import ykws.android.maro.data.model.ListFilter
 import ykws.android.maro.data.model.ListSortState
+import ykws.android.maro.data.model.trackFilterAxes
 import ykws.android.maro.data.track.TrackRecorderState
 import ykws.android.maro.data.track.TrackRecorderUiState
 import ykws.android.maro.data.track.TrackSummary
@@ -131,6 +135,9 @@ fun TrackHistoryOverlay(
     onDismiss: () -> Unit,
     sortState: ListSortState,
     onSortStateChange: (ListSortState) -> Unit,
+    filterState: ListFilter = ListFilter(),
+    onFilterChange: (ListFilter) -> Unit = {},
+    onReset: () -> Unit = {},
     isOpen: Boolean = true,
     modifier: Modifier = Modifier,
     // ── Render preview settings ───────────────────────────────────────
@@ -146,6 +153,14 @@ fun TrackHistoryOverlay(
     trackingColorPinnedTo: Int = 0xFFFF8F00.toInt()
 ) {
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US) }
+
+    val trackCustomSortFields = remember {
+        listOf(
+            CustomSortField("distanceNm", R.string.sort_custom_distance),
+            CustomSortField("totalTimeSec", R.string.sort_custom_total_time),
+            CustomSortField("movingTimeSec", R.string.sort_custom_moving_time)
+        )
+    }
 
     // Pre-compute accent bar colors — batch lambda for scaffold
     val accentColorMap = remember(trackSummaries, tracksVisible, trackingRenderNb,
@@ -196,6 +211,12 @@ fun TrackHistoryOverlay(
         sectionLabel = "RECORDED TRACKS",
         sortState = sortState,
         onSortStateChange = onSortStateChange,
+        customSortFields = trackCustomSortFields,
+        customSortLabel = "Tracks",
+        filterAxes = trackFilterAxes(),
+        filterState = filterState,
+        onFilterChange = onFilterChange,
+        onReset = onReset,
         accentColors = { accentColorMap },
         cardContent = { summary ->
             TrackCardContent(

@@ -233,7 +233,11 @@ data class AppSettings(
     /** Sort state for the track history list (field + direction). */
     val trackListSort: ykws.android.maro.data.model.ListSortState = ykws.android.maro.data.model.ListSortState(),
     /** Sort state for the marker management list (field + direction). */
-    val markerListSort: ykws.android.maro.data.model.ListSortState = ykws.android.maro.data.model.ListSortState()
+    val markerListSort: ykws.android.maro.data.model.ListSortState = ykws.android.maro.data.model.ListSortState(),
+    /** Filter state for the track history list. */
+    val trackListFilter: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
+    /** Filter state for the marker management list. */
+    val markerListFilter: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter()
 ) {
     /** Check whether a [ZoneDisplayCategory] is enabled in the current settings. */
     fun isCategoryVisible(cat: ZoneDisplayCategory): Boolean = when (cat) {
@@ -274,6 +278,11 @@ class SettingsManager(
                 val newState = if (oldVisible) "SHOW_ALL" else "HIDDEN"
                 editor.putString(KEY_MARKER_LAYER_STATE, newState)
                     .remove("user_markers_visible")
+            }
+            if (savedVersion < 4) {
+                // Clear legacy sort keys (format changed: pinnedGrouped removed)
+                editor.remove(KEY_TRACK_LIST_SORT)
+                    .remove(KEY_MARKER_LIST_SORT)
             }
             editor.putInt(KEY_PREFS_VERSION, CURRENT_VERSION).apply()
         }
@@ -369,7 +378,9 @@ class SettingsManager(
         trackSimplifySpeedDeltaKn = prefs.getFloat(KEY_TRACK_SIMPLIFY_SPEED_DELTA_KN, 3.0f).toDouble(),
         markerDebugRays = prefs.getBoolean(KEY_MARKER_DEBUG_RAYS, false),
         trackListSort = ykws.android.maro.data.model.ListSortState.parse(prefs.getString(KEY_TRACK_LIST_SORT, null)),
-        markerListSort = ykws.android.maro.data.model.ListSortState.parse(prefs.getString(KEY_MARKER_LIST_SORT, null))
+        markerListSort = ykws.android.maro.data.model.ListSortState.parse(prefs.getString(KEY_MARKER_LIST_SORT, null)),
+        trackListFilter = ykws.android.maro.data.model.ListFilter.parse(prefs.getString(KEY_TRACK_LIST_FILTER, null)),
+        markerListFilter = ykws.android.maro.data.model.ListFilter.parse(prefs.getString(KEY_MARKER_LIST_FILTER, null))
     )
 
     /**
@@ -470,6 +481,8 @@ class SettingsManager(
             .putBoolean(KEY_MARKER_DEBUG_RAYS, updated.markerDebugRays)
             .putString(KEY_TRACK_LIST_SORT, ykws.android.maro.data.model.ListSortState.format(updated.trackListSort))
             .putString(KEY_MARKER_LIST_SORT, ykws.android.maro.data.model.ListSortState.format(updated.markerListSort))
+            .putString(KEY_TRACK_LIST_FILTER, ykws.android.maro.data.model.ListFilter.format(updated.trackListFilter))
+            .putString(KEY_MARKER_LIST_FILTER, ykws.android.maro.data.model.ListFilter.format(updated.markerListFilter))
             .apply()
     }
 
@@ -559,7 +572,9 @@ class SettingsManager(
         private const val KEY_MARKER_DEBUG_RAYS = "marker_debug_rays"
         private const val KEY_TRACK_LIST_SORT = "track_list_sort"
         private const val KEY_MARKER_LIST_SORT = "marker_list_sort"
+        private const val KEY_TRACK_LIST_FILTER = "track_list_filter"
+        private const val KEY_MARKER_LIST_FILTER = "marker_list_filter"
         private const val KEY_PREFS_VERSION = "prefs_version"
-        private const val CURRENT_VERSION = 3
+        private const val CURRENT_VERSION = 4
     }
 }

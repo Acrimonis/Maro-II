@@ -1,26 +1,19 @@
 # Hydration: Ui_General
 
-**Session:** list sort subfeature — implemented. BUILD SUCCESSFUL.
+# Hydration: Ui_General
+
+**Session:** filter — #doc update complete, docs refreshed to current implementation.
 
 **State:**
 - `list sort [x]` — implemented
-  - `ListOverlayScaffold<T : ListableItem>` — generic scaffold composable (sort dropdown, swipe-to-delete, snackbar, overlay shell)
-  - `ListAction` sealed class — 8 variants: SoftDelete, UndoDelete, PermanentDelete, SelectItem, EditItem, ExportGpx, RefreshList, RefreshLayer
-  - `ListSortState` — field (TITLE/CREATED/UPDATED) + descending + pinnedGrouped
-  - Sort dropdown: field selector with direction arrow inside, "Group pinned items" toggle with separator
-  - Deferred batch delete for both lists — scaffold owns pendingDeletes
-  - TrackHistoryOverlay + MarkerManagementOverlay thinned to scaffold consumers
-  - Map polylines refresh on sort change via mapView?.invalidate()
-  - Animations: platform spring() defaults, snackbar tween(250)
+- `list extra sort [x]` — implemented
+- `sort-list-cleanup [x]` — UPDATED removed, common logic extracted, tracks reactive
+- `filter [x]` — complete: extensible ListFilter (Map-based), filter dropdowns (dark bg), direction toggle (active/inactive), reset button, pinnedGrouped removed, unfiltered backing list pattern, ButtonColors normalization, geometry→origin cascade, day-based date ranges (midnight), live track exempt+first, FilterList/FilterAlt/Refresh standalone icons
 
 **Key Files:**
-- New: `ListOverlayScaffold.kt`, `ListAction.kt`, `ListSortOrder.kt` (→ `ListSortField` + `ListSortState`)
-- Modified: `ListableItem.kt` (+isLive), `Track.kt` (+isLive var), `SettingsManager.kt` (+trackListSort/markerListSort), `TrackViewModel.kt` (sort + isLive), `MarkersViewModel.kt` (sort + refreshSort), `TrackHistoryOverlay.kt`, `MarkerManagementOverlay.kt`, `OverlayLayer.kt`, `MapScreen.kt`
+- `ListSortOrder.kt`, `ListFilter.kt`, `ListOverlayScaffold.kt`, `TrackViewModel.kt`, `MarkersViewModel.kt`, `TrackHistoryOverlay.kt`, `MarkerManagementOverlay.kt`, `OverlayLayer.kt`, `MapScreen.kt`, `SettingsManager.kt`, `FilterList.kt`, `FilterAlt.kt`, `Refresh.kt`
 
-**Leftover:**
-- Dead code in MarkersViewModel: pendingDeletes, softDeleteMarker, undoDeleteMarker, commitPendingDeletes
-- docs/ui-lists-guidelines.md not yet created
+**Plan:**
+- `xTrack/Ui_General/FEAT_PLN_Ui_General_filter.md`
 
-**Future (#todo):** Extend scaffold for per-type sort fields (e.g., track length)
-
-**Last Bake:** 2026-07-01 22:25 UTC
+**Last Bake:** 2026-07-02 18:28 UTC

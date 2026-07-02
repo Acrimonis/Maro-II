@@ -15,8 +15,10 @@ import kotlinx.coroutines.withContext
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.markers.UserMarkerRepository
 import ykws.android.maro.data.model.LatLng
+import ykws.android.maro.data.model.ListFilter
 import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.UserMarker
+import ykws.android.maro.data.model.matchesFilter
 import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.settings.SettingsManager
 import ykws.android.maro.spatial.CoastlineSpatialIndex
@@ -121,7 +123,10 @@ class MarkersViewModel(
     private val _debugSegments = MutableStateFlow<List<DebugSegment>>(emptyList())
     val debugSegments: StateFlow<List<DebugSegment>> = _debugSegments.asStateFlow()
 
-    /** Loaded user markers (reactive). */
+    /** Unfiltered source of truth — reloaded from repository. */
+    private val _allMarkers = MutableStateFlow<List<UserMarker>>(emptyList())
+
+    /** Loaded user markers (reactive, filtered + sorted). */
     private val _markers = MutableStateFlow<List<UserMarker>>(emptyList())
     val markers: StateFlow<List<UserMarker>> = _markers.asStateFlow()
 
@@ -210,13 +215,15 @@ class MarkersViewModel(
     init {
         viewModelScope.launch {
             val loaded = withContext(Dispatchers.IO) { repo.loadAll() }
-            val sortState = settingsManager.settings.value.markerListSort
-            _markers.value = sortMarkers(loaded, sortState)
+            val settings = settingsManager.settings.value
+            _allMarkers.value = loaded
+            val filtered = loaded.filter { it.matchesFilter(settings.markerListFilter) }
+            _markers.value = sortMarkers(filtered, settings.markerListSort)
         }
         viewModelScope.launch {
             settingsManager.settings.collect { settings ->
-                val sortState = settings.markerListSort
-                _markers.value = sortMarkers(_markers.value, sortState)
+                val filtered = _allMarkers.value.filter { it.matchesFilter(settings.markerListFilter) }
+                _markers.value = sortMarkers(filtered, settings.markerListSort)
             }
         }
     }
@@ -225,17 +232,11 @@ class MarkersViewModel(
         markers: List<UserMarker>,
         state: ykws.android.maro.data.model.ListSortState
     ): List<UserMarker> {
-        val comparator: Comparator<UserMarker> = when (state.field) {
-            ykws.android.maro.data.model.ListSortField.TITLE -> compareBy { it.title.lowercase() }
-            ykws.android.maro.data.model.ListSortField.CREATED -> compareBy { it.createdAtEpochMs }
-            ykws.android.maro.data.model.ListSortField.UPDATED -> compareBy { it.updatedAtEpochMs }
-        }
-        val directed = if (state.descending) comparator.reversed() else comparator
-        return if (state.pinnedGrouped) {
-            val (pinned, unpinned) = markers.partition { it.pinned }
-            pinned.sortedWith(directed) + unpinned.sortedWith(directed)
-        } else {
-            markers.sortedWith(directed)
+        return state.applySort(markers) { key ->
+            when (key) {
+                "origin" -> compareBy { it.origin.name }
+                else -> null  // fallback to updatedAtEpochMs
+            }
         }
     }
 
@@ -322,10 +323,12 @@ class MarkersViewModel(
         _selectedMarkerId.value = ids[newIndex]
     }
 
-    /** Re-sort markers with the given sort state. */
+    /** Re-apply filter + sort with current settings. */
     fun refreshSort(sortState: ykws.android.maro.data.model.ListSortState? = null) {
-        val effective = sortState ?: settingsManager.settings.value.markerListSort
-        _markers.value = sortMarkers(_markers.value, effective)
+        val settings = settingsManager.settings.value
+        val effective = sortState ?: settings.markerListSort
+        val filtered = _allMarkers.value.filter { it.matchesFilter(settings.markerListFilter) }
+        _markers.value = sortMarkers(filtered, effective)
     }
 
     /** Closes the drawer. */
@@ -560,7 +563,10 @@ class MarkersViewModel(
 
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repo.add(marker) }
-            _markers.value = withContext(Dispatchers.IO) { repo.loadAll() }
+            val all = withContext(Dispatchers.IO) { repo.loadAll() }
+            val settings = settingsManager.settings.value
+            _allMarkers.value = all
+            _markers.value = sortMarkers(all.filter { it.matchesFilter(settings.markerListFilter) }, settings.markerListSort)
             _drawerState.value = MarkerDrawerState.Hidden
             _lastSavedMarkerId.value = marker.id
         }
@@ -599,7 +605,10 @@ class MarkersViewModel(
 
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repo.update(updated) }
-            _markers.value = withContext(Dispatchers.IO) { repo.loadAll() }
+            val all = withContext(Dispatchers.IO) { repo.loadAll() }
+            val settings = settingsManager.settings.value
+            _allMarkers.value = all
+            _markers.value = sortMarkers(all.filter { it.matchesFilter(settings.markerListFilter) }, settings.markerListSort)
             _drawerState.value = MarkerDrawerState.Hidden
         }
     }
@@ -608,7 +617,10 @@ class MarkersViewModel(
     fun deleteMarker(markerId: String) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repo.delete(markerId) }
-            _markers.value = withContext(Dispatchers.IO) { repo.loadAll() }
+            val all = withContext(Dispatchers.IO) { repo.loadAll() }
+            val settings = settingsManager.settings.value
+            _allMarkers.value = all
+            _markers.value = sortMarkers(all.filter { it.matchesFilter(settings.markerListFilter) }, settings.markerListSort)
             _drawerState.value = MarkerDrawerState.Hidden
         }
     }
@@ -642,7 +654,10 @@ class MarkersViewModel(
         )
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repo.add(marker) }
-            _markers.value = withContext(Dispatchers.IO) { repo.loadAll() }
+            val all = withContext(Dispatchers.IO) { repo.loadAll() }
+            val settings = settingsManager.settings.value
+            _allMarkers.value = all
+            _markers.value = sortMarkers(all.filter { it.matchesFilter(settings.markerListFilter) }, settings.markerListSort)
         }
         return marker.id
     }
@@ -656,7 +671,10 @@ class MarkersViewModel(
         val updated = marker.copy(confirmed = true, keepable = true, name = name, description = description)
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repo.update(updated) }
-            _markers.value = withContext(Dispatchers.IO) { repo.loadAll() }
+            val all = withContext(Dispatchers.IO) { repo.loadAll() }
+            val settings = settingsManager.settings.value
+            _allMarkers.value = all
+            _markers.value = sortMarkers(all.filter { it.matchesFilter(settings.markerListFilter) }, settings.markerListSort)
         }
     }
 
@@ -666,7 +684,10 @@ class MarkersViewModel(
         val updated = marker.copy(pinned = !marker.pinned)
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repo.update(updated) }
-            _markers.value = withContext(Dispatchers.IO) { repo.loadAll() }
+            val all = withContext(Dispatchers.IO) { repo.loadAll() }
+            val settings = settingsManager.settings.value
+            _allMarkers.value = all
+            _markers.value = sortMarkers(all.filter { it.matchesFilter(settings.markerListFilter) }, settings.markerListSort)
         }
     }
 
@@ -696,7 +717,10 @@ class MarkersViewModel(
             withContext(Dispatchers.IO) {
                 ids.forEach { id -> repo.delete(id) }
             }
-            _markers.value = withContext(Dispatchers.IO) { repo.loadAll() }
+            val all = withContext(Dispatchers.IO) { repo.loadAll() }
+            val settings = settingsManager.settings.value
+            _allMarkers.value = all
+            _markers.value = sortMarkers(all.filter { it.matchesFilter(settings.markerListFilter) }, settings.markerListSort)
         }
     }
 
@@ -706,11 +730,14 @@ class MarkersViewModel(
 
     /** Set the icon on a marker (null = remove icon, unpin). */
     fun setMarkerIcon(markerId: String, icon: String?) {
-        val marker = _markers.value.find { it.id == markerId } ?: return
+        val marker = _allMarkers.value.find { it.id == markerId } ?: return
         val updated = marker.copy(icon = icon, pinned = icon != null)
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repo.update(updated) }
-            _markers.value = withContext(Dispatchers.IO) { repo.loadAll() }
+            val all = withContext(Dispatchers.IO) { repo.loadAll() }
+            val settings = settingsManager.settings.value
+            _allMarkers.value = all
+            _markers.value = sortMarkers(all.filter { it.matchesFilter(settings.markerListFilter) }, settings.markerListSort)
         }
     }
 

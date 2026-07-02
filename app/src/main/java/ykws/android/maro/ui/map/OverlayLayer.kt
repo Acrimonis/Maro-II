@@ -89,6 +89,9 @@ fun OverlayLayer(
     onTrackAction: (ykws.android.maro.data.model.ListAction) -> Unit,
     trackSortState: ykws.android.maro.data.model.ListSortState,
     onTrackSortStateChange: (ykws.android.maro.data.model.ListSortState) -> Unit,
+    trackFilterState: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
+    onTrackFilterChange: (ykws.android.maro.data.model.ListFilter) -> Unit = {},
+    onTrackReset: () -> Unit = {},
 
     // ── Settings data ────────────────────────────────────────────────────
     appSettings: AppSettings,
@@ -109,7 +112,10 @@ fun OverlayLayer(
     onCreateFirst: () -> Unit,
     onSetIcon: (String, String?) -> Unit,
     markerSortState: ykws.android.maro.data.model.ListSortState,
-    onMarkerSortStateChange: (ykws.android.maro.data.model.ListSortState) -> Unit
+    onMarkerSortStateChange: (ykws.android.maro.data.model.ListSortState) -> Unit,
+    markerFilterState: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
+    onMarkerFilterChange: (ykws.android.maro.data.model.ListFilter) -> Unit = {},
+    onMarkerReset: () -> Unit = {}
 ) {
     // ── Collect track ViewModel state ────────────────────────────────────
     val trackRecorderState by trackViewModel.uiState.collectAsState()
@@ -294,6 +300,9 @@ fun OverlayLayer(
                 onDismiss = onDismissTrackHistory,
                 sortState = trackSortState,
                 onSortStateChange = onTrackSortStateChange,
+                filterState = trackFilterState,
+                onFilterChange = onTrackFilterChange,
+                onReset = onTrackReset,
                 tracksVisible = appSettings.tracksVisible,
                 trackingRenderNb = appSettings.trackingRenderNb,
                 trackingTransparencyNewest = appSettings.trackingTransparencyNewest,
@@ -321,7 +330,10 @@ fun OverlayLayer(
                 onDismiss = onDismissMarkerManagement,
                 onSetIcon = onSetIcon,
                 sortState = markerSortState,
-                onSortStateChange = onMarkerSortStateChange
+                onSortStateChange = onMarkerSortStateChange,
+                filterState = markerFilterState,
+                onFilterChange = onMarkerFilterChange,
+                onReset = onMarkerReset
             )
         }
 

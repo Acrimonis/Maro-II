@@ -2,8 +2,8 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-07-01 22:25
-active_subfeature: list sort
+modified: 2026-07-02 18:34
+active_subfeature: filter
 ---
 
 # Feature: Ui_General
@@ -15,6 +15,28 @@ app is running. Extended with page-layout concerns: edge-to-edge rendering, stat
 bar immersion, and WindowInsets management.
 
 ## Subfeatures
+
+### filter  [x]
+
+List filters with sort UX normalization. Extensible `ListFilter` (Map-based), filter dropdowns with sectioned card layout, dedicated direction toggle, reset button. `pinnedGrouped` removed from sort, migrated to filter axes. Unfiltered backing list pattern in ViewModels. Popup menus match settings hierarchy.
+
+**Filter axes:**
+- Tracks: date range (ALL/THIS_YEAR/LAST_30_DAYS/LAST_7_DAYS, day-based from midnight) + pinned (ALL/PINNED)
+- Markers: pinned (ALL/PINNED/UNPINNED) + geometry (ALL/PINS/ZONES) + origin (ALL/MANUAL/AUTO). Geometry=ZONES bypasses origin.
+
+**Sort:** default `CREATED` descending, `UPDATED` removed, no `pinnedGrouped`. Direction toggle (`ArrowDropUp/Down`) with active/inactive state. Context-aware titles: "General" + "Tracks"/"Markers".
+
+**Icons:** `FilterAlt` (funnel), `FilterList` (3-bar sort), `ArrowDropUp/Down` (direction), `Refresh` (reset). All `ButtonColors.icon` compliant.
+
+#### Key Files
+- `ListFilter.kt`, `ListSortOrder.kt`, `ListOverlayScaffold.kt`, `TrackViewModel.kt`, `MarkersViewModel.kt`, `TrackHistoryOverlay.kt`, `MarkerManagementOverlay.kt`, `OverlayLayer.kt`, `MapScreen.kt`, `SettingsManager.kt`, `FilterAlt.kt`, `FilterList.kt`, `Refresh.kt`
+
+#### Docs
+- `docs/ui-lists-guidelines.md`
+- `docs/material-icons-standalone-guide.md`
+- `xTrack/Ui_General/FEAT_PLN_Ui_General_filter.md`
+
+---
 
 ### BackToExitConfirm  [x]
 
@@ -112,7 +134,7 @@ Wrap drawer menu items (Position Source toggle, Manage Tracks link) in card back
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt`
 
-### list sort  [ ]
+### list sort  [x]
 
 Normalize list rendering across tracks and markers by extracting a shared `ListOverlayScaffold<T : ListableItem>` composable. Both [`TrackHistoryOverlay`](app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt) and [`MarkerManagementOverlay`](app/src/main/java/ykws/android/maro/ui/map/MarkerManagementOverlay.kt) become thin consumers providing only card content slots + accent color extraction.
 
@@ -259,6 +281,39 @@ Scaffold also exposes `onDismiss: () -> Unit` for overlay close. All inter-compo
 | 5 | **OverlayLayer wiring** — reducing to single `onAction` callback changes parameter lists in MapScreen → OverlayLayer → overlay chain. | Mechanical update across 3 files; no compile-time safety net. Verify delete + export + tap/edit after migration. |
 | 6 | **Live items not swipeable** — scaffold must skip `SwipeableItemCard` wrapper for items with `isLive = true`. | Explicit `if (!item.isLive) SwipeableItemCard(...) else liveCardContent(item)`. |
 
+#### Implemented
+- [`ListOverlayScaffold.kt`](app/src/main/java/ykws/android/maro/ui/components/ListOverlayScaffold.kt) — generic scaffold: sort+filter popups, direction toggle, reset, swipe-to-delete, snackbar
+- [`ListAction.kt`](app/src/main/java/ykws/android/maro/data/model/ListAction.kt) — sealed class: 8 variants
+- [`ListSortOrder.kt`](app/src/main/java/ykws/android/maro/data/model/ListSortOrder.kt) — `ListSortField` (TITLE/CREATED), `ListSortState` (field + descending + customFieldKey), `applySort<T>()`
+- Sort popup: Popup+Surface card layout matching settings hierarchy
+- Filter popup: sectioned card layout with filter axis specs
+- Direction toggle: `ArrowDropUp/Down` with active/inactive alpha
+- Reset button: `Refresh` icon clears filter + sort to defaults
+- Deferred batch delete — scaffold owns `pendingDeletes`
+- BUILD SUCCESSFUL
+
+### list extra sort  [x]
+
+Extend `ListSortField` to support per-type sort fields via `CustomSortField` data class + `customFieldKey: String?` in `ListSortState`. Track fields: Distance (`distanceNm`), Total Time (computed), Moving Time (computed). Marker fields: Origin (`origin`). Serialization backward-compatible (`"UPDATED:true:false:distanceNm"`). All labels localized (EN + FR via `stringResource()` — ResId approach).
+
+#### Plan
+- [`FEAT_PLN_Ui_General_list-extra-sort.md`](xTrack/Ui_General/FEAT_PLN_Ui_General_list-extra-sort.md) — full design (CustomSortField approach, ListSortState extension, SortControl dropdown UX, ViewModel comparators, consumer wiring)
+
+#### Implemented
+- [`ListSortOrder.kt`](app/src/main/java/ykws/android/maro/data/model/ListSortOrder.kt) — `CustomSortField` data class, `ListSortState` extended with `customFieldKey: String?`, `parse()` handles 4-part format, `format()` emits 4-part when custom active
+- [`ListOverlayScaffold.kt`](app/src/main/java/ykws/android/maro/ui/components/ListOverlayScaffold.kt) — `SortControl` renders custom fields section in dropdown with separator, `ListOverlayScaffold` accepts `customSortFields` param
+- [`TrackViewModel.kt`](app/src/main/java/ykws/android/maro/data/track/TrackViewModel.kt) — `sortSummaries()` dispatches on `customFieldKey`: `distanceNm`, `totalTimeSec` (computed), `movingTimeSec` (computed)
+- [`MarkersViewModel.kt`](app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt) — `sortMarkers()` dispatches on `customFieldKey`: `origin`
+- [`TrackHistoryOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt) — defines 3 track custom fields, passes to scaffold
+- [`MarkerManagementOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/MarkerManagementOverlay.kt) — defines 1 marker custom field, passes to scaffold
+- BUILD SUCCESSFUL
+
+#### Rules
+- `customFieldKey: String?` — null = common field active; non-null = custom field active
+- `field` is only authoritative when `customFieldKey == null`
+- `isLive` pre-sort stays in scaffold, NOT in ViewModel comparators
+- Serialization: 3-part string = backward compat; 4-part = custom field
+
 ### track list colors  [ ]
 
 Track list (TrackHistoryOverlay) color review — ensure track cards, stats, labels, and icons use correct tokens from `ui.card.background` and `colors.properties`, consistent with the drawer and settings card patterns.
@@ -370,15 +425,13 @@ Track list (TrackHistoryOverlay) color review — ensure track cards, stats, lab
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — toast Surface, LoadingOverlay, ErrorOverlay
 
-## Todos
-- [x] Rename "Track List..." → "Manage Tracks..." in MenuDrawerOverlay.kt:212
-- [x] Add point count (`TrackSummary.pointCount`) and display "xxx pts" left of pin/share icons in TrackHistoryOverlay track cards
-
 ## Rules
 
 ## Key Files
 
 ## Docs
+- `docs/ui-lists-guidelines.md` — ListOverlayScaffold API, filter system, sort+filter popup styling, swipe-to-delete, ViewModel pipeline
+- `docs/material-icons-standalone-guide.md` — standalone icon registry (FilterAlt, FilterList, Refresh)
 - `xTrack/Ui_General/FEAT_PLN_Ui_General_portrait-bottom-space.md` — analysis of portrait bottom space and status bar immersion
 - `plans/btn-color-harmonization.md` — button color harmonization: match map control buttons to dashboard dark theme
 - `docs/color-scheme.md` — canonical reference for all colour tokens in the app
@@ -387,5 +440,3 @@ Track list (TrackHistoryOverlay) color review — ensure track cards, stats, lab
 - `plans/right-edge-controls-gap-asymmetry-analysis.md` — root cause analysis of asymmetric gap between right-edge controls and map edges after immersive rework
 - `plans/map-overlay-layout-rationalization.md` — complete layout refactor: 2-column Row structure, symmetric 6dp margins, orientation-aware insets
 - `plans/map-overlay-layout-inventory.md` — current overlay inventory and planned evolution audit
-- `docs/material-icons-standalone-guide.md` — How to add Material Symbols icons as standalone ImageVector .kt files
-- `docs/ui-lists-guidelines.md` — ListOverlayScaffold API, swipe-to-delete state machine, sort UI, pending-delete lifecycle

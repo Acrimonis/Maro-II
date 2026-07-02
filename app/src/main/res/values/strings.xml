@@ -144,4 +144,14 @@
     <string name="track_stat_dist">Dist</string>
     <string name="track_stat_idle">Idle</string>
     <string name="track_stat_max">Max</string>
+
+    <!-- Sort dropdown -->
+    <string name="sort_common_title">Title</string>
+    <string name="sort_common_created">Created</string>
+    <string name="sort_common_updated">Updated</string>
+    <string name="sort_custom_distance">Distance</string>
+    <string name="sort_custom_total_time">Total Time</string>
+    <string name="sort_custom_moving_time">Moving Time</string>
+    <string name="sort_custom_origin">Origin</string>
+    <string name="sort_group_pinned">Group pinned items</string>
 </resources>
