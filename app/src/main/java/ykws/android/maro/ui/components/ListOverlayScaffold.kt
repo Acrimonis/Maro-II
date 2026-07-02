@@ -194,7 +194,7 @@ private fun SortControl(
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
-private fun FilterControl(
+internal fun FilterControl(
     filterState: ListFilter,
     filterAxes: List<FilterAxisSpec>,
     onFilterChange: (ListFilter) -> Unit

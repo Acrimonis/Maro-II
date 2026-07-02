@@ -2,8 +2,8 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-07-02 18:34
-active_subfeature: filter
+modified: 2026-07-02 22:28
+active_subfeature: filter everywhere
 ---
 
 # Feature: Ui_General
@@ -35,6 +35,48 @@ List filters with sort UX normalization. Extensible `ListFilter` (Map-based), fi
 - `docs/ui-lists-guidelines.md`
 - `docs/material-icons-standalone-guide.md`
 - `xTrack/Ui_General/FEAT_PLN_Ui_General_filter.md`
+
+---
+
+### filter everywhere  [x]
+
+**Principle:** Layers are a viewport onto the list. Map mirrors whatever the list shows after filtering.
+
+1. **Marker fan → ON/OFF** — collapse tri-state (HIDDEN/SHOW_ALL/SHOW_PINNED) to binary toggle. `SHOW_PINNED` becomes a filter axis.
+2. **Track map rendering reads `trackListFilter`** — filter summaries before applying `trackingRenderNb`/display settings.
+3. **Marker map rendering reads `markerListFilter`** — filter `userMarkers` before `MarkerOverlay`.
+4. **Menu drawer filter icons** — `FilterAlt` + `Refresh` right of `>` chevron on TRACK RECORDING and MARKERS rows. Extract `FilterControl` from `ListOverlayScaffold` (private→internal).
+5. **Shared state** — both list overlay and menu drawer read/write same `ListFilter` in `SettingsManager`.
+
+Display concerns (colors, transparency, render count, sort) unchanged.
+
+#### Todos
+- [x] Extract `FilterControl` from `ListOverlayScaffold.kt` — private → internal
+- [x] Add filter icons to `MenuDrawerOverlay.kt` section headers (FilterAlt + Refresh, right-aligned)
+- [x] Rename section label `TRACK RECORDING` → `TRACKS`
+- [x] Thread filter state params through `OverlayLayer.kt` → `MenuDrawerOverlay`
+- [x] Apply `trackListFilter` in `MapScreen.kt` track-rendering LaunchedEffect
+- [x] Apply `markerListFilter` in `MapScreen.kt` marker dispatch
+- [x] Simplify marker fan to binary ON/OFF (`toggleMarkerLayer()`, remove `WhereToVoteIcon` reference)
+- [x] Add `UNPINNED` to track filter axis + `TrackSummary.matchesFilter()` parity
+- [x] BUILD SUCCESSFUL (×2)
+
+## Implemented
+
+#### Rules
+- `ListFilter` axes: tracks=date+pinned, markers=pinned+geometry+origin. Geometry=ZONES bypasses origin.
+- Fan toggle is master ON/OFF. Filters only apply when layer is ON.
+- Display settings (`trackingRenderNb`, colors, transparency) apply AFTER filter, unchanged.
+- Sort has no map impact.
+- Menu drawer row: entire row clickable → opens list. FilterAlt/Refresh intercept with inner `clickable`.
+
+#### Key Files
+- `MapScreen.kt`, `MarkersViewModel.kt`, `MarkerLayerState`, `FanIconComponents.kt`
+- `ListOverlayScaffold.kt`, `MenuDrawerOverlay.kt`, `OverlayLayer.kt`
+- `SettingsManager.kt` (no change), `ListFilter.kt` (no change)
+
+#### Docs
+- `xTrack/Ui_General/FEAT_PLN_Ui_General_filter-everywhere.md`
 
 ---
 

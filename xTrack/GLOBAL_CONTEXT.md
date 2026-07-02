@@ -2,11 +2,11 @@
 
 ## Active Session Pointers
 - **Active Feature:** Ui_General
-- **Active Subfeature:** filter
-- **Last Updated:** 2026-07-02 18:28
-- **Last Bake:** 2026-07-02 18:28 (Ui_General — filter: UI polish complete. Popup menus match settings hierarchy (SubSectionHeader style, card bg, border, tight padding), context-aware titles (General + Tracks/Markers), plain arrow triangles, normalized fonts. BUILD SUCCESSFUL)
-- **Last Bake:** 2026-07-01 17:05 (BoatTrace — boat-markers: full implementation — BoatMarker data model, idle threshold timer, auto-marker 🕐 pins, track snapshots, history rendering with transparency)
-- **Branch:** feature/list-extra-sort
+- **Active Subfeature:** filter everywhere
+- **Last Updated:** 2026-07-02 22:28
+- **Last Bake:** 2026-07-02 22:28 (Ui_General — filter everywhere: map rendering reads ListFilter, marker fan ON/OFF, menu drawer filter icons on section headers, UNPINNED track filter parity, isLive scoped to dateRange, Refresh always visible with inactive alpha. BUILD SUCCESSFUL ×4)
+- **Last Bake:** 2026-07-01 17:05 (BoatTrace — boat-markers: full implementation)
+- **Branch:** feature/filters-to-layers
 
 ## Routing Map
 | Keyword | Feature File |

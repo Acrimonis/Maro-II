@@ -242,13 +242,9 @@ class MarkersViewModel(
 
     // ── Visibility toggle ─────────────────────────────────────────────────
 
-    /** Cycles the marker layer through HIDDEN → SHOW_ALL → SHOW_PINNED → HIDDEN. */
-    fun cycleMarkerLayerState() {
-        val next = when (markerLayerState.value) {
-            MarkerLayerState.HIDDEN -> MarkerLayerState.SHOW_ALL
-            MarkerLayerState.SHOW_ALL -> MarkerLayerState.SHOW_PINNED
-            MarkerLayerState.SHOW_PINNED -> MarkerLayerState.HIDDEN
-        }
+    /** Toggles the marker layer between HIDDEN and SHOW_ALL (binary). */
+    fun toggleMarkerLayer() {
+        val next = if (markerLayerState.value == MarkerLayerState.HIDDEN) MarkerLayerState.SHOW_ALL else MarkerLayerState.HIDDEN
         settingsManager.update { it.copy(markerLayerState = next) }
     }
 

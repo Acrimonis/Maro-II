@@ -286,3 +286,30 @@ Implementors: [`TrackSummary`](app/src/main/java/ykws/android/maro/data/track/Tr
 | [`FilterList.kt`](app/src/main/java/ykws/android/maro/ui/icons/FilterList.kt) | 3-bar sort icon (standalone) |
 | [`Refresh.kt`](app/src/main/java/ykws/android/maro/ui/icons/Refresh.kt) | Reset icon (standalone) |
 | [`FanIconComponents.kt`](app/src/main/java/ykws/android/maro/ui/map/FanIconComponents.kt) | `ButtonColors` — icon tint/size/alpha |
+| [`MenuDrawerOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt) | Menu drawer with filter icons on section headers |
+
+## Filter Everywhere
+
+List filters (`trackListFilter` / `markerListFilter` in `SettingsManager`) are global — they gate
+both the list overlay AND the map layer rendering. The ArcLayout fan toggle is a master ON/OFF
+switch; filters only apply when the layer is ON.
+
+| Concern | Mechanism | Location |
+|---------|-----------|----------|
+| **What** items appear | `ListFilter` (date, pinned, geometry, origin) | Shared state → list + map |
+| **How many** appear | `trackingRenderNb` | SettingsManager → map only |
+| **How they look** | Colors, transparency, order | SettingsManager → map only |
+| **Sort order** | `ListSortState` | List overlay only (no map impact) |
+
+**Access points** (all write to same `SettingsManager` state):
+- List overlays: `FilterControl` in `ListOverlayScaffold` header
+- Menu drawer: `FilterControl` + `Refresh` on section header rows (`TRACKS` / `MARKERS`)
+
+**Refresh icon:** Always visible, dimmed when inactive (`inactiveAlpha`). No layout shift.
+
+**Map rendering:**
+- Tracks: `LaunchedEffect` keyed on `trackListFilter` — filters `trackSummaries` via `TrackSummary.matchesFilter()` before `trackingRenderNb` cap and pinned/non-pinned split.
+- Markers: inline `userMarkers.filter { it.matchesFilter(markerListFilter) }` in composable.
+
+**Live track exemption:** Live tracks bypass `dateRange` filter only (always visible regardless of date).
+They respect `pinned` filter.

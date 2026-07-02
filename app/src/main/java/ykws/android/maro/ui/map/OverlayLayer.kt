@@ -238,7 +238,15 @@ fun OverlayLayer(
                 onOpenSettings = {
                     onDismissMenu()
                     onOpenSettingsFromMenu()
-                }
+                },
+                trackFilterState = trackFilterState,
+                onTrackFilterChange = onTrackFilterChange,
+                onTrackReset = onTrackReset,
+                trackFilterAxes = ykws.android.maro.data.model.trackFilterAxes(),
+                markerFilterState = markerFilterState,
+                onMarkerFilterChange = onMarkerFilterChange,
+                onMarkerReset = onMarkerReset,
+                markerFilterAxes = ykws.android.maro.data.model.markerFilterAxes()
             )
         }
 
