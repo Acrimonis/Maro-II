@@ -37,8 +37,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.clickable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.ArrowDropUp
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -444,7 +444,7 @@ fun <T : ListableItem> ListOverlayScaffold(
                         modifier = Modifier.size(40.dp)
                     ) {
                         Icon(
-                            imageVector = if (sortState.descending) Icons.Filled.ArrowDownward else Icons.Filled.ArrowUpward,
+                            imageVector = if (sortState.descending) Icons.Filled.ArrowDropDown else Icons.Filled.ArrowDropUp,
                             contentDescription = if (sortState.descending) "Descending" else "Ascending",
                             tint = ButtonColors.icon,
                             modifier = Modifier.size(ButtonColors.iconSizeDp.dp)

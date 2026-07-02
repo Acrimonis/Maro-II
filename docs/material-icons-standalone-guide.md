@@ -84,6 +84,12 @@ Icon(imageVector = Stacks, contentDescription = null, tint = Color.White)
 | `output_circle` | `Circle` (fallback) | `Output_circle` |
 | `activity_zone` | `GpsFixed` (fallback) | `Activity_zone` |
 | `conversion_path` | `AltRoute` (fallback) | `Conversion_path` |
+| `filter_alt` | — (extended only) | `FilterAlt` |
+| `filter_list` | — (extended only) | `FilterList` |
+| `refresh` | — (extended only) | `Refresh` |
+| `where_to_vote` | `WhereToVote` (fallback) | `where_to_vote` |
+
+**Core library icons** (no standalone .kt needed): `ArrowDropUp`, `ArrowDropDown`, `KeyboardArrowUp`, `KeyboardArrowDown`, `ArrowUpward`, `ArrowDownward`, `Sort`, `Add`, `Remove`, `Settings`, `Warning`, `AreaChart`.
 
 If you add the standalone files, update `FanIconComponents.kt` to use the `ImageVector` variables directly instead of the Compose library fallbacks.
 

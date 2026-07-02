@@ -2,7 +2,7 @@
 
 # Hydration: Ui_General
 
-**Session:** filter — list filters + sort UX normalization complete.
+**Session:** filter — #doc update complete, docs refreshed to current implementation.
 
 **State:**
 - `list sort [x]` — implemented

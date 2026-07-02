@@ -2,8 +2,8 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-07-02 10:59
-active_subfeature: list extra sort
+modified: 2026-07-02 18:34
+active_subfeature: filter
 ---
 
 # Feature: Ui_General
@@ -15,6 +15,28 @@ app is running. Extended with page-layout concerns: edge-to-edge rendering, stat
 bar immersion, and WindowInsets management.
 
 ## Subfeatures
+
+### filter  [x]
+
+List filters with sort UX normalization. Extensible `ListFilter` (Map-based), filter dropdowns with sectioned card layout, dedicated direction toggle, reset button. `pinnedGrouped` removed from sort, migrated to filter axes. Unfiltered backing list pattern in ViewModels. Popup menus match settings hierarchy.
+
+**Filter axes:**
+- Tracks: date range (ALL/THIS_YEAR/LAST_30_DAYS/LAST_7_DAYS, day-based from midnight) + pinned (ALL/PINNED)
+- Markers: pinned (ALL/PINNED/UNPINNED) + geometry (ALL/PINS/ZONES) + origin (ALL/MANUAL/AUTO). Geometry=ZONES bypasses origin.
+
+**Sort:** default `CREATED` descending, `UPDATED` removed, no `pinnedGrouped`. Direction toggle (`ArrowDropUp/Down`) with active/inactive state. Context-aware titles: "General" + "Tracks"/"Markers".
+
+**Icons:** `FilterAlt` (funnel), `FilterList` (3-bar sort), `ArrowDropUp/Down` (direction), `Refresh` (reset). All `ButtonColors.icon` compliant.
+
+#### Key Files
+- `ListFilter.kt`, `ListSortOrder.kt`, `ListOverlayScaffold.kt`, `TrackViewModel.kt`, `MarkersViewModel.kt`, `TrackHistoryOverlay.kt`, `MarkerManagementOverlay.kt`, `OverlayLayer.kt`, `MapScreen.kt`, `SettingsManager.kt`, `FilterAlt.kt`, `FilterList.kt`, `Refresh.kt`
+
+#### Docs
+- `docs/ui-lists-guidelines.md`
+- `docs/material-icons-standalone-guide.md`
+- `xTrack/Ui_General/FEAT_PLN_Ui_General_filter.md`
+
+---
 
 ### BackToExitConfirm  [x]
 
@@ -260,14 +282,14 @@ Scaffold also exposes `onDismiss: () -> Unit` for overlay close. All inter-compo
 | 6 | **Live items not swipeable** — scaffold must skip `SwipeableItemCard` wrapper for items with `isLive = true`. | Explicit `if (!item.isLive) SwipeableItemCard(...) else liveCardContent(item)`. |
 
 #### Implemented
-- [`ListOverlayScaffold.kt`](app/src/main/java/ykws/android/maro/ui/map/ListOverlayScaffold.kt) — generic scaffold composable: sort dropdown, swipe-to-delete, snackbar, overlay shell
-- [`ListAction.kt`](app/src/main/java/ykws/android/maro/ui/map/ListAction.kt) — sealed class: 8 variants (SoftDelete, UndoDelete, PermanentDelete, SelectItem, EditItem, ExportGpx, RefreshList, RefreshLayer)
-- [`ListSortOrder.kt`](app/src/main/java/ykws/android/maro/ui/map/ListSortOrder.kt) — `ListSortField` (TITLE/CREATED/UPDATED) + `ListSortState` (field + descending + pinnedGrouped)
-- Sort dropdown: field selector with direction arrow, "Group pinned items" toggle with separator
-- Deferred batch delete for both lists — scaffold owns `pendingDeletes`
-- [`TrackHistoryOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt) + [`MarkerManagementOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/MarkerManagementOverlay.kt) — thinned to scaffold consumers
-- [`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt) — map polylines refresh on sort change via `mapView?.invalidate()`
-- Animations: platform `spring()` defaults, snackbar `tween(250)`
+- [`ListOverlayScaffold.kt`](app/src/main/java/ykws/android/maro/ui/components/ListOverlayScaffold.kt) — generic scaffold: sort+filter popups, direction toggle, reset, swipe-to-delete, snackbar
+- [`ListAction.kt`](app/src/main/java/ykws/android/maro/data/model/ListAction.kt) — sealed class: 8 variants
+- [`ListSortOrder.kt`](app/src/main/java/ykws/android/maro/data/model/ListSortOrder.kt) — `ListSortField` (TITLE/CREATED), `ListSortState` (field + descending + customFieldKey), `applySort<T>()`
+- Sort popup: Popup+Surface card layout matching settings hierarchy
+- Filter popup: sectioned card layout with filter axis specs
+- Direction toggle: `ArrowDropUp/Down` with active/inactive alpha
+- Reset button: `Refresh` icon clears filter + sort to defaults
+- Deferred batch delete — scaffold owns `pendingDeletes`
 - BUILD SUCCESSFUL
 
 ### list extra sort  [x]
@@ -408,7 +430,8 @@ Track list (TrackHistoryOverlay) color review — ensure track cards, stats, lab
 ## Key Files
 
 ## Docs
-- `docs/ui-lists-guidelines.md` — ListOverlayScaffold API, swipe-to-delete state machine, sort UI, pending-delete lifecycle
+- `docs/ui-lists-guidelines.md` — ListOverlayScaffold API, filter system, sort+filter popup styling, swipe-to-delete, ViewModel pipeline
+- `docs/material-icons-standalone-guide.md` — standalone icon registry (FilterAlt, FilterList, Refresh)
 - `xTrack/Ui_General/FEAT_PLN_Ui_General_portrait-bottom-space.md` — analysis of portrait bottom space and status bar immersion
 - `plans/btn-color-harmonization.md` — button color harmonization: match map control buttons to dashboard dark theme
 - `docs/color-scheme.md` — canonical reference for all colour tokens in the app
@@ -417,5 +440,3 @@ Track list (TrackHistoryOverlay) color review — ensure track cards, stats, lab
 - `plans/right-edge-controls-gap-asymmetry-analysis.md` — root cause analysis of asymmetric gap between right-edge controls and map edges after immersive rework
 - `plans/map-overlay-layout-rationalization.md` — complete layout refactor: 2-column Row structure, symmetric 6dp margins, orientation-aware insets
 - `plans/map-overlay-layout-inventory.md` — current overlay inventory and planned evolution audit
-- `docs/material-icons-standalone-guide.md` — How to add Material Symbols icons as standalone ImageVector .kt files
-- `docs/ui-lists-guidelines.md` — ListOverlayScaffold API, swipe-to-delete state machine, sort UI, pending-delete lifecycle
