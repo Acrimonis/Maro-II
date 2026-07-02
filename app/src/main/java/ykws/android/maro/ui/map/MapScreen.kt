@@ -1362,6 +1362,16 @@ fun MapScreen(
                 trackViewModel.refreshSummaries(newState)
                 mapView?.invalidate()
             },
+            trackFilterState = appSettings.trackListFilter,
+            onTrackFilterChange = { newFilter ->
+                viewModel.updateSettings { it.copy(trackListFilter = newFilter) }
+                trackViewModel.refreshSummaries()
+            },
+            onTrackReset = {
+                viewModel.updateSettings { it.copy(trackListSort = ykws.android.maro.data.model.ListSortState(), trackListFilter = ykws.android.maro.data.model.ListFilter()) }
+                trackViewModel.refreshSummaries()
+                mapView?.invalidate()
+            },
             appSettings = appSettings,
             onUpdateSettings = viewModel::updateSettings,
             selectedTab = selectedTab,
@@ -1392,6 +1402,15 @@ fun MapScreen(
             onMarkerSortStateChange = { newState ->
                 viewModel.updateSettings { it.copy(markerListSort = newState) }
                 markersViewModel.refreshSort(newState)
+            },
+            markerFilterState = appSettings.markerListFilter,
+            onMarkerFilterChange = { newFilter ->
+                viewModel.updateSettings { it.copy(markerListFilter = newFilter) }
+                markersViewModel.refreshSort()
+            },
+            onMarkerReset = {
+                viewModel.updateSettings { it.copy(markerListSort = ykws.android.maro.data.model.ListSortState(), markerListFilter = ykws.android.maro.data.model.ListFilter()) }
+                markersViewModel.refreshSort()
             },
             onCreateFirst = {
                 showMarkerManagement = false

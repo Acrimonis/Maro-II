@@ -2,9 +2,9 @@
 
 ## Active Session Pointers
 - **Active Feature:** Ui_General
-- **Active Subfeature:** list extra sort
-- **Last Updated:** 2026-07-02 10:59
-- **Last Bake:** 2026-07-02 10:59 (Ui_General — list extra sort: complete. CustomSortField + customFieldKey, 3 track + 1 marker custom fields, localized EN+FR, BUILD SUCCESSFUL)
+- **Active Subfeature:** filter
+- **Last Updated:** 2026-07-02 17:37
+- **Last Bake:** 2026-07-02 17:37 (Ui_General — filter: complete. Extensible ListFilter with sort+filter dropdowns, direction toggle, reset, pinnedGrouped→filter, dark dropdown surfaces, standalone icons. BUILD SUCCESSFUL)
 - **Last Bake:** 2026-07-01 17:05 (BoatTrace — boat-markers: full implementation — BoatMarker data model, idle threshold timer, auto-marker 🕐 pins, track snapshots, history rendering with transparency)
 - **Branch:** feature/list-extra-sort
 

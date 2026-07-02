@@ -35,7 +35,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.Sort
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -54,6 +55,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
@@ -68,14 +70,21 @@ import kotlinx.coroutines.launch
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.CustomSortField
+import ykws.android.maro.data.model.FilterAxisSpec
+import ykws.android.maro.data.model.FilterOptionSpec
 import ykws.android.maro.data.model.ListAction
+import ykws.android.maro.data.model.ListFilter
 import ykws.android.maro.data.model.ListSortField
 import ykws.android.maro.data.model.ListSortState
 import ykws.android.maro.data.model.ListableItem
+import ykws.android.maro.ui.icons.FilterAlt
+import ykws.android.maro.ui.icons.FilterList
+import ykws.android.maro.ui.icons.Refresh
+import ykws.android.maro.ui.map.ButtonColors
 import kotlin.math.roundToInt
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Sort dropdown — field selector + direction toggle
+// Sort dropdown — field selector (no direction arrow, no pinned grouping)
 // ─────────────────────────────────────────────────────────────────────────────
 
 @Composable
@@ -85,7 +94,8 @@ private fun SortControl(
     onStateChange: (ListSortState) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val dirArrow = if (state.descending) "\u2193" else "\u2191"
+    val isSortDefault = state.field == ListSortField.CREATED && state.customFieldKey == null && state.descending
+    val sortAlpha = if (isSortDefault) ButtonColors.inactiveAlpha else ButtonColors.activeAlpha
 
     Box {
         IconButton(
@@ -93,13 +103,18 @@ private fun SortControl(
             modifier = Modifier.size(40.dp)
         ) {
             Icon(
-                imageVector = Icons.AutoMirrored.Filled.Sort,
+                imageVector = FilterList,
                 contentDescription = "Sort by",
-                tint = Color(AppConfig.uiSettingsTextPrimary),
-                modifier = Modifier.size(26.dp)
+                tint = ButtonColors.icon,
+                modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
+                    .alpha(sortAlpha)
             )
         }
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            containerColor = Color(AppConfig.uiSettingsBackground)
+        ) {
             // Common fields (always visible)
             ListSortField.entries.forEach { field ->
                 val isSelected = field == state.field && state.customFieldKey == null
@@ -122,12 +137,9 @@ private fun SortControl(
                         expanded = false
                     },
                     leadingIcon = {
-                        if (isSelected) Text("✓", color = Color(AppConfig.uiSettingsAccent), fontSize = 14.sp)
+                        if (isSelected) Text("\u2713", color = Color(AppConfig.uiSettingsAccent), fontSize = 14.sp)
                         else Spacer(Modifier.width(20.dp))
-                    },
-                    trailingIcon = if (isSelected) {
-                        { Text(dirArrow, color = Color(AppConfig.uiSettingsTextPrimary), fontSize = 20.sp) }
-                    } else null
+                    }
                 )
             }
             // Custom fields (only if non-empty)
@@ -153,46 +165,109 @@ private fun SortControl(
                             if (isSelected) {
                                 onStateChange(state.copy(descending = !state.descending))
                             } else {
-                                onStateChange(state.copy(field = ListSortField.UPDATED, customFieldKey = cf.key))
+                                onStateChange(state.copy(field = ListSortField.CREATED, customFieldKey = cf.key))
                             }
                             expanded = false
                         },
                         leadingIcon = {
-                            if (isSelected) Text("✓", color = Color(AppConfig.uiSettingsAccent), fontSize = 14.sp)
+                            if (isSelected) Text("\u2713", color = Color(AppConfig.uiSettingsAccent), fontSize = 14.sp)
                             else Spacer(Modifier.width(20.dp))
-                        },
-                        trailingIcon = if (isSelected) {
-                            { Text(dirArrow, color = Color(AppConfig.uiSettingsTextPrimary), fontSize = 20.sp) }
-                        } else null
+                        }
                     )
                 }
             }
-            // Separator + pinned grouping toggle
-            HorizontalDivider(
-                modifier = Modifier.padding(vertical = 4.dp),
-                thickness = 0.5.dp,
-                color = Color(AppConfig.uiSettingsDivider)
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Filter dropdown — combined filter menu with sections
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun FilterControl(
+    filterState: ListFilter,
+    filterAxes: List<FilterAxisSpec>,
+    onFilterChange: (ListFilter) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val hasActiveFilter = filterState.axes.isNotEmpty()
+
+    Box {
+        IconButton(
+            onClick = { expanded = true },
+            modifier = Modifier.size(40.dp)
+        ) {
+            Icon(
+                imageVector = FilterAlt,
+                contentDescription = "Filter",
+                tint = ButtonColors.icon,
+                modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
+                    .alpha(if (hasActiveFilter) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha)
             )
-            DropdownMenuItem(
-                text = {
-                    Text(
-                        text = stringResource(R.string.sort_group_pinned),
-                        color = Color(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 14.sp
-                    )
-                },
-                onClick = {
-                    onStateChange(state.copy(pinnedGrouped = !state.pinnedGrouped))
-                    expanded = false
-                },
-                leadingIcon = {
-                    Text(
-                        text = if (state.pinnedGrouped) "☑" else "☐",
-                        fontSize = 14.sp,
-                        color = if (state.pinnedGrouped) Color(AppConfig.uiSettingsAccent) else Color(AppConfig.uiSettingsTextMuted)
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            containerColor = Color(AppConfig.uiSettingsBackground)
+        ) {
+            filterAxes.forEachIndexed { axisIdx, axis ->
+                // Check if this axis is gated (disabled)
+                val isDisabled = axis.dependsOn != null && axis.dependsOnValue != null &&
+                    filterState.axes[axis.dependsOn] == axis.dependsOnValue
+
+                if (axisIdx > 0) {
+                    HorizontalDivider(
+                        modifier = Modifier.padding(vertical = 4.dp),
+                        thickness = 0.5.dp,
+                        color = Color(AppConfig.uiSettingsDivider)
                     )
                 }
-            )
+
+                // Section header
+                Text(
+                    text = axis.label,
+                    color = Color(AppConfig.uiSettingsTextMuted),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                )
+
+                val currentValue = filterState.axes[axis.key] ?: axis.options.firstOrNull { it.isDefault }?.value ?: "ALL"
+
+                axis.options.forEach { option ->
+                    val isSelected = option.value == currentValue
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                text = option.label,
+                                color = if (isDisabled) Color(AppConfig.uiSettingsTextMuted).copy(alpha = 0.4f)
+                                        else Color(AppConfig.uiSettingsTextPrimary),
+                                fontSize = 14.sp,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        },
+                        onClick = {
+                            if (!isDisabled) {
+                                val newAxes = if (option.isDefault) {
+                                    filterState.axes - axis.key
+                                } else {
+                                    filterState.axes + (axis.key to option.value)
+                                }
+                                onFilterChange(ListFilter(newAxes))
+                                // Don't dismiss — user may set multiple axes
+                            }
+                        },
+                        leadingIcon = {
+                            if (isSelected) Text("\u2713", color = if (isDisabled) Color(AppConfig.uiSettingsTextMuted).copy(alpha = 0.4f)
+                                else Color(AppConfig.uiSettingsAccent), fontSize = 14.sp)
+                            else Spacer(Modifier.width(20.dp))
+                        },
+                        enabled = !isDisabled
+                    )
+                }
+            }
         }
     }
 }
@@ -296,6 +371,10 @@ fun <T : ListableItem> ListOverlayScaffold(
     sortState: ListSortState,
     onSortStateChange: (ListSortState) -> Unit,
     customSortFields: List<CustomSortField> = emptyList(),
+    filterAxes: List<FilterAxisSpec> = emptyList(),
+    filterState: ListFilter = ListFilter(),
+    onFilterChange: (ListFilter) -> Unit = {},
+    onReset: () -> Unit = {},
     accentColors: (List<T>) -> Map<String, Color>,
     cardContent: @Composable (T) -> Unit,
     liveCardContent: @Composable (T) -> Unit = {},
@@ -315,6 +394,7 @@ fun <T : ListableItem> ListOverlayScaffold(
     val colorMap = remember(items, accentColors) { accentColors(items) }
     val sortedItems = remember(items) { items.sortedByDescending { it.isLive } }
     val shape = RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp)
+    val hasActiveFilter = filterState.axes.isNotEmpty()
 
     Box(
         modifier = modifier.fillMaxSize().clip(shape)
@@ -339,19 +419,68 @@ fun <T : ListableItem> ListOverlayScaffold(
 
             Spacer(Modifier.height(16.dp))
 
-            // Section label + sort
+            // Section label + controls row
             Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(sectionLabel, color = Color(AppConfig.uiSettingsAccent), fontSize = 17.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                SortControl(state = sortState, customFields = customSortFields, onStateChange = onSortStateChange)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // Filter
+                    if (filterAxes.isNotEmpty()) {
+                        FilterControl(filterState = filterState, filterAxes = filterAxes, onFilterChange = onFilterChange)
+                    }
+                    // Sort
+                    SortControl(state = sortState, customFields = customSortFields, onStateChange = onSortStateChange)
+                    // Direction toggle
+                    val isSortDefault = sortState.field == ListSortField.CREATED && sortState.customFieldKey == null && sortState.descending
+                    val sortAlpha = if (isSortDefault) ButtonColors.inactiveAlpha else ButtonColors.activeAlpha
+                    IconButton(
+                        onClick = { onSortStateChange(sortState.copy(descending = !sortState.descending)) },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (sortState.descending) Icons.Filled.KeyboardArrowDown else Icons.Filled.KeyboardArrowUp,
+                            contentDescription = if (sortState.descending) "Descending" else "Ascending",
+                            tint = ButtonColors.icon,
+                            modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
+                                .alpha(sortAlpha)
+                        )
+                    }
+                    // Reset
+                    val hasActive = hasActiveFilter || !isSortDefault
+                    IconButton(
+                        onClick = onReset,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Refresh,
+                            contentDescription = "Reset",
+                            tint = ButtonColors.icon,
+                            modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
+                                .alpha(if (hasActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha)
+                        )
+                    }
+                }
             }
             Spacer(Modifier.height(8.dp))
 
             if (sortedItems.isEmpty()) {
-                Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) { emptyState() }
+                if (hasActiveFilter) {
+                    // Filter active + empty → show "No items match filters" + clear button
+                    Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("No items match filters", color = Color(AppConfig.uiSettingsTextMuted), fontSize = 18.sp, fontWeight = FontWeight.Medium)
+                            Spacer(Modifier.height(16.dp))
+                            TextButton(onClick = onReset) {
+                                Text("Clear filters", color = Color(AppConfig.uiSettingsAccent), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+                } else {
+                    Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) { emptyState() }
+                }
             } else {
                 LazyColumn(Modifier.fillMaxSize().padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     items(sortedItems, key = { it.id }) { item ->

@@ -95,8 +95,11 @@ import kotlinx.coroutines.launch
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.CustomSortField
+import ykws.android.maro.data.model.FilterAxisSpec
 import ykws.android.maro.data.model.ListAction
+import ykws.android.maro.data.model.ListFilter
 import ykws.android.maro.data.model.ListSortState
+import ykws.android.maro.data.model.trackFilterAxes
 import ykws.android.maro.data.track.TrackRecorderState
 import ykws.android.maro.data.track.TrackRecorderUiState
 import ykws.android.maro.data.track.TrackSummary
@@ -132,6 +135,9 @@ fun TrackHistoryOverlay(
     onDismiss: () -> Unit,
     sortState: ListSortState,
     onSortStateChange: (ListSortState) -> Unit,
+    filterState: ListFilter = ListFilter(),
+    onFilterChange: (ListFilter) -> Unit = {},
+    onReset: () -> Unit = {},
     isOpen: Boolean = true,
     modifier: Modifier = Modifier,
     // ── Render preview settings ───────────────────────────────────────
@@ -206,6 +212,10 @@ fun TrackHistoryOverlay(
         sortState = sortState,
         onSortStateChange = onSortStateChange,
         customSortFields = trackCustomSortFields,
+        filterAxes = trackFilterAxes(),
+        filterState = filterState,
+        onFilterChange = onFilterChange,
+        onReset = onReset,
         accentColors = { accentColorMap },
         cardContent = { summary ->
             TrackCardContent(

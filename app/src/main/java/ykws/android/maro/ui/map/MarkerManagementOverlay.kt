@@ -47,6 +47,9 @@ import androidx.compose.ui.unit.sp
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.CustomSortField
+import ykws.android.maro.data.model.FilterAxisSpec
+import ykws.android.maro.data.model.ListFilter
+import ykws.android.maro.data.model.markerFilterAxes
 import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.ui.components.ListOverlayScaffold
@@ -73,6 +76,9 @@ fun MarkerManagementOverlay(
     onSetIcon: (String, String?) -> Unit = { _, _ -> },
     sortState: ykws.android.maro.data.model.ListSortState,
     onSortStateChange: (ykws.android.maro.data.model.ListSortState) -> Unit,
+    filterState: ListFilter = ListFilter(),
+    onFilterChange: (ListFilter) -> Unit = {},
+    onReset: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val markerCustomSortFields = remember {
@@ -88,6 +94,10 @@ fun MarkerManagementOverlay(
         sortState = sortState,
         onSortStateChange = onSortStateChange,
         customSortFields = markerCustomSortFields,
+        filterAxes = markerFilterAxes(),
+        filterState = filterState,
+        onFilterChange = onFilterChange,
+        onReset = onReset,
         accentColors = { list -> list.associate { it.id to Color(ykws.android.maro.ui.map.MarkerColors.of(it.colorIndex)) } },
         cardContent = { marker ->
             MarkerCardContent(
