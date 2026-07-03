@@ -2748,16 +2748,14 @@ private fun GeneralSettings(
                 )
             }
 
-            // Warning sliders — collapsible, only visible when warning is on
-            if (settings.lowDepthWarningVisible) {
-                Spacer(Modifier.height(8.dp))
-                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    var warningExpanded by remember { mutableStateOf(false) }
-                    SettingsExpander(
-                        label = "Warning settings",
-                        expanded = warningExpanded,
-                        onToggle = { warningExpanded = !warningExpanded }
-                    ) {
+            // Warning sliders — always visible, persisted expander
+            Spacer(Modifier.height(8.dp))
+            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                SettingsExpander(
+                    label = "Warning settings",
+                    expanded = settings.lowDepthWarningSettingsExpanded,
+                    onToggle = { onUpdateSettings { it.copy(lowDepthWarningSettingsExpanded = !it.lowDepthWarningSettingsExpanded) } }
+                ) {
                         Spacer(modifier = Modifier.height(8.dp))
                         SettingsSliderGroup(nested = true) {
                             SliderRowContent(
@@ -2783,11 +2781,10 @@ private fun GeneralSettings(
                                     onUpdateSettings { it.copy(lowDepthWarningMinOpacityPct = (v / 5f).roundToInt() * 5) }
                                 }
                             )
-                        }
                     }
                 }
-                Spacer(Modifier.height(16.dp))
             }
+            Spacer(Modifier.height(16.dp))
         }
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -2801,107 +2798,6 @@ private fun GeneralSettings(
                 onUpdateSettings { it.copy(zone300Visible = visible) }
             }
         )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // ── Markers overlay toggle — grouped card ───────────────────
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(ComposeColor(AppConfig.uiCardBackground))
-                .padding(vertical = 8.dp)
-        ) {
-            // Inline toggle row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "Markers",
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = "User-created pins, circles, corridors and auto-markers",
-                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = 13.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Switch(
-                    checked = settings.markerLayerState != MarkerLayerState.HIDDEN,
-                    onCheckedChange = { visible ->
-                        onUpdateSettings { it.copy(markerLayerState = if (visible) MarkerLayerState.SHOW_ALL else MarkerLayerState.HIDDEN) }
-                    },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                    )
-                )
-            }
-
-            // Appearance settings — collapsible, only visible when layer is ON
-            if (settings.markerLayerState != MarkerLayerState.HIDDEN) {
-                Spacer(Modifier.height(8.dp))
-                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    var markerExpanded by remember { mutableStateOf(false) }
-                    SettingsExpander(
-                        label = "Appearance",
-                        expanded = markerExpanded,
-                        onToggle = { markerExpanded = !markerExpanded }
-                    ) {
-                        Spacer(Modifier.height(8.dp))
-                        Column(
-                            modifier = Modifier.fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(ComposeColor(0x0DFFFFFF))
-                                .border(1.dp, ComposeColor(0x40FFFFFF), RoundedCornerShape(12.dp))
-                                .padding(horizontal = 16.dp, vertical = 12.dp)
-                        ) {
-                            Text(
-                                text = "Show zone shapes (corridor edges, circle outlines) and proximity previews",
-                                color = ComposeColor(AppConfig.uiDashboardTextMuted),
-                                fontSize = 13.sp,
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "Zone shapes",
-                                    color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Switch(
-                                    checked = settings.markerZonesVisible,
-                                    onCheckedChange = { visible ->
-                                        onUpdateSettings { it.copy(markerZonesVisible = visible) }
-                                    },
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
-                                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                                    )
-                                )
-                            }
-                        }
-                    }
-                }
-                Spacer(Modifier.height(16.dp))
-            }
-        }
 
         Spacer(modifier = Modifier.height(12.dp))
 
@@ -2948,8 +2844,7 @@ private fun GeneralSettings(
                 )
             }
 
-            if (settings.regulatedZonesVisible) {
-                Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(8.dp))
                 // Regulation info — collapsible toggle for info text panel
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                     SettingsExpander(
@@ -3018,22 +2913,48 @@ private fun GeneralSettings(
                         BoatSizeSlider(settings, onUpdateSettings)
                     }
                 }
-                Spacer(Modifier.height(16.dp))
-            }
+            Spacer(Modifier.height(16.dp))
         }
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // ── Coastline overlay toggle ──────────────────────────────────
-        SettingsToggleRow(
-            label = stringResource(R.string.settings_coastline_label),
-            description = stringResource(R.string.settings_coastline_desc),
-            checked = settings.coastlineVisible,
-            onCheckedChange = { visible ->
-                onUpdateSettings { it.copy(coastlineVisible = visible) }
+        // ── Depth layer toggle — grouped card ─────────────────────
+        Column(
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                .background(ComposeColor(AppConfig.uiCardBackground)).padding(vertical = 8.dp)
+        ) {
+            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Depth", color = ComposeColor(AppConfig.uiSettingsTextPrimary), fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                    Text("Show depth color layer on the map", color = ComposeColor(AppConfig.uiSettingsTextMuted), fontSize = 13.sp)
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Switch(checked = settings.depthLayerVisible,
+                    onCheckedChange = { on -> onUpdateSettings { it.copy(depthLayerVisible = on) } },
+                    colors = SwitchDefaults.colors(checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent), checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f), uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted), uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive))
+                )
             }
-        )
-
+            Spacer(Modifier.height(8.dp))
+            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                SettingsExpander(label = "EMODnet shallow filter", expanded = settings.depthSettingsExpanded,
+                    onToggle = { onUpdateSettings { it.copy(depthSettingsExpanded = !it.depthSettingsExpanded) } }
+                ) {
+                    Spacer(Modifier.height(8.dp))
+                    SettingsSliderGroup(nested = true) {
+                        SliderRowContent(
+                            label = stringResource(R.string.settings_emodnet_cutoff_label),
+                            description = stringResource(R.string.settings_emodnet_cutoff_desc),
+                            valueLabel = stringResource(R.string.settings_value_depth, settings.emodnetShallowCutoffM),
+                            value = settings.emodnetShallowCutoffM, valueRange = 0f..5f, steps = 9,
+                            onValueChange = { v -> onUpdateSettings { it.copy(emodnetShallowCutoffM = (v * 2f).roundToInt() / 2f) } }
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+        }
         Spacer(modifier = Modifier.height(12.dp))
 
         // ── Tracks layer toggle ────────────────────────────────────
@@ -3078,16 +2999,14 @@ private fun GeneralSettings(
                 )
             }
 
-            if (settings.tracksVisible) {
-                Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(8.dp))
 
-                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    var trackSettingsExpanded by remember { mutableStateOf(false) }
-                    SettingsExpander(
-                        label = "Track settings",
-                        expanded = trackSettingsExpanded,
-                        onToggle = { trackSettingsExpanded = !trackSettingsExpanded }
-                    ) {
+            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                SettingsExpander(
+                    label = "Track settings",
+                    expanded = settings.trackSettingsExpanded,
+                    onToggle = { onUpdateSettings { it.copy(trackSettingsExpanded = !it.trackSettingsExpanded) } }
+                ) {
                         Spacer(Modifier.height(4.dp))
                         Column(
                             modifier = Modifier.fillMaxWidth()
@@ -3270,11 +3189,120 @@ private fun GeneralSettings(
                                 onToColorSelected = { c -> onUpdateSettings { it.copy(trackingColorPinnedTo = c) } }
                             )
                         }
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // ── Markers overlay toggle — grouped card ───────────────────
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(ComposeColor(AppConfig.uiCardBackground))
+                .padding(vertical = 8.dp)
+        ) {
+            // Inline toggle row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Markers",
+                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = "User-created pins, circles, corridors and auto-markers",
+                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        fontSize = 13.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Switch(
+                    checked = settings.markerLayerState != MarkerLayerState.HIDDEN,
+                    onCheckedChange = { visible ->
+                        onUpdateSettings { it.copy(markerLayerState = if (visible) MarkerLayerState.SHOW_ALL else MarkerLayerState.HIDDEN) }
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                    )
+                )
+            }
+
+            // Appearance settings — always visible, persisted expander
+            Spacer(Modifier.height(8.dp))
+            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                SettingsExpander(
+                    label = "Appearance",
+                    expanded = settings.markerAppearanceExpanded,
+                    onToggle = { onUpdateSettings { it.copy(markerAppearanceExpanded = !it.markerAppearanceExpanded) } }
+                ) {
+                        Spacer(Modifier.height(8.dp))
+                        Column(
+                            modifier = Modifier.fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(ComposeColor(0x0DFFFFFF))
+                                .border(1.dp, ComposeColor(0x40FFFFFF), RoundedCornerShape(12.dp))
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        ) {
+                            Text(
+                                text = "Show zone shapes (corridor edges, circle outlines) and proximity previews",
+                                color = ComposeColor(AppConfig.uiDashboardTextMuted),
+                                fontSize = 13.sp,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Zone shapes",
+                                    color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Switch(
+                                    checked = settings.markerZonesVisible,
+                                    onCheckedChange = { visible ->
+                                        onUpdateSettings { it.copy(markerZonesVisible = visible) }
+                                    },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
+                                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                                    )
+                                )
+                            }
                     }
                 }
-                Spacer(Modifier.height(8.dp))
             }
+            Spacer(Modifier.height(16.dp))
         }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // ── Coastline overlay toggle ──────────────────────────────────
+        SettingsToggleRow(
+            label = stringResource(R.string.settings_coastline_label),
+            description = stringResource(R.string.settings_coastline_desc),
+            checked = settings.coastlineVisible,
+            onCheckedChange = { visible ->
+                onUpdateSettings { it.copy(coastlineVisible = visible) }
+            }
+        )
 
         Spacer(modifier = Modifier.height(12.dp))
 
@@ -3840,21 +3868,6 @@ private fun SystemSettings(
         }
 
         Spacer(modifier = Modifier.height(24.dp))
-
-        // ── EMODnet shallow filter — moved from General tab ────────────
-        SectionHeader(title = stringResource(R.string.settings_emodnet_section_label))
-        Spacer(modifier = Modifier.height(8.dp))
-        SettingsSliderGroup {
-            SliderRowContent(
-                label = stringResource(R.string.settings_emodnet_cutoff_label),
-                description = stringResource(R.string.settings_emodnet_cutoff_desc),
-                valueLabel = stringResource(R.string.settings_value_depth, settings.emodnetShallowCutoffM),
-                value = settings.emodnetShallowCutoffM,
-                valueRange = 0f..5f,
-                steps = 9,
-                onValueChange = { v -> onUpdateSettings { it.copy(emodnetShallowCutoffM = (v * 2f).roundToInt() / 2f) } }
-            )
-        }
 
         Spacer(modifier = Modifier.height(24.dp))
 

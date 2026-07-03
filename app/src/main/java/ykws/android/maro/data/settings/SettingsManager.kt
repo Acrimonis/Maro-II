@@ -109,6 +109,14 @@ data class AppSettings(
     val boatSizeM: Double = BuildConfig.REGULATED_ZONES_DEFAULT_VESSEL_LENGTH_M,
     /** Whether the regulation info expander in settings is expanded. */
     val regulationInfoExpanded: Boolean = false,
+    /** Whether the depth settings expander in settings is expanded. */
+    val depthSettingsExpanded: Boolean = false,
+    /** Whether the low-depth warning settings expander is expanded. */
+    val lowDepthWarningSettingsExpanded: Boolean = false,
+    /** Whether the marker appearance expander in settings is expanded. */
+    val markerAppearanceExpanded: Boolean = false,
+    /** Whether the track settings expander in settings is expanded. */
+    val trackSettingsExpanded: Boolean = false,
     /** Whether the category visibility expander in settings is expanded. */
     val categoryFilterExpanded: Boolean = false,
     /** Whether the boat size expander in settings is expanded. */
@@ -337,6 +345,10 @@ class SettingsManager(
         regulatedZonesVisible = prefs.getBoolean(KEY_REGULATED_ZONES_VISIBLE, BuildConfig.LAYER_REGULATED_ZONES_DEFAULT),
         regulationInfoVisible = prefs.getBoolean(KEY_REGULATION_INFO_VISIBLE, false),
         regulationInfoExpanded = prefs.getBoolean(KEY_REGULATION_INFO_EXPANDED, false),
+        depthSettingsExpanded = prefs.getBoolean(KEY_DEPTH_SETTINGS_EXPANDED, false),
+        lowDepthWarningSettingsExpanded = prefs.getBoolean(KEY_LOW_DEPTH_SETTINGS_EXPANDED, false),
+        markerAppearanceExpanded = prefs.getBoolean(KEY_MARKER_APPEARANCE_EXPANDED, false),
+        trackSettingsExpanded = prefs.getBoolean(KEY_TRACK_SETTINGS_EXPANDED, false),
         boatSizeM = prefs.getFloat(KEY_BOAT_SIZE_M, BuildConfig.REGULATED_ZONES_DEFAULT_VESSEL_LENGTH_M.toFloat()).toDouble(),
         categoryFilterExpanded = prefs.getBoolean(KEY_CATEGORY_FILTER_EXPANDED, false),
         boatSizeFilterExpanded = prefs.getBoolean(KEY_BOAT_SIZE_FILTER_EXPANDED, false),
@@ -452,6 +464,10 @@ class SettingsManager(
             .putBoolean(KEY_SHOW_CATEGORY_INFORMATION, updated.showCategoryInformation)
             .putBoolean(KEY_REGULATION_INFO_VISIBLE, updated.regulationInfoVisible)
             .putBoolean(KEY_REGULATION_INFO_EXPANDED, updated.regulationInfoExpanded)
+            .putBoolean(KEY_DEPTH_SETTINGS_EXPANDED, updated.depthSettingsExpanded)
+            .putBoolean(KEY_LOW_DEPTH_SETTINGS_EXPANDED, updated.lowDepthWarningSettingsExpanded)
+            .putBoolean(KEY_MARKER_APPEARANCE_EXPANDED, updated.markerAppearanceExpanded)
+            .putBoolean(KEY_TRACK_SETTINGS_EXPANDED, updated.trackSettingsExpanded)
             .putBoolean(KEY_CATEGORY_FILTER_EXPANDED, updated.categoryFilterExpanded)
             .putBoolean(KEY_BOAT_SIZE_FILTER_EXPANDED, updated.boatSizeFilterExpanded)
             .putBoolean(KEY_DEMO_HEADING_UP, updated.demoHeadingUp)
@@ -545,6 +561,10 @@ class SettingsManager(
         private const val KEY_BOAT_SIZE_FILTER_EXPANDED = "boat_size_filter_expanded"
         private const val KEY_REGULATION_INFO_VISIBLE = "regulation_info_visible"
         private const val KEY_REGULATION_INFO_EXPANDED = "regulation_info_expanded"
+        private const val KEY_DEPTH_SETTINGS_EXPANDED = "depth_settings_expanded"
+        private const val KEY_LOW_DEPTH_SETTINGS_EXPANDED = "low_depth_settings_expanded"
+        private const val KEY_MARKER_APPEARANCE_EXPANDED = "marker_appearance_expanded"
+        private const val KEY_TRACK_SETTINGS_EXPANDED = "track_settings_expanded"
         private const val KEY_DEMO_HEADING_UP = "demo_heading_up"
         private const val KEY_SPEED_ZONES_VISIBLE = "speed_zones_visible"
         private const val KEY_SPEED_ZONE_AUTOSHOW_GPS = "speed_zone_autoshow_gps"
