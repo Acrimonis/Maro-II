@@ -250,12 +250,6 @@ private fun ViewingContent(
                         .weight(1f)
                         .padding(horizontal = 8.dp, vertical = 4.dp)
                 ) {
-                // Geometry desc — numeric-only compact format
-                Text(
-                    text = markerFormatText(marker),
-                    color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                    fontSize = 14.sp
-                )
 
                 // Direction + distance (if boatPosition available)
                 if (boatPosition != null) {
@@ -278,31 +272,61 @@ private fun ViewingContent(
                     )
                 }
 
-                // Description
-                if (marker.description.isNotBlank()) {
+                // Divider + name
+                if (boatPosition != null) {
                     Spacer(Modifier.height(6.dp))
                     HorizontalDivider(
                         thickness = 0.5.dp,
                         color = ComposeColor(AppConfig.uiSettingsDivider)
                     )
                     Spacer(Modifier.height(6.dp))
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Text(
-                        text = marker.description,
+                        text = marker.name,
+                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        text = MarkerGeometry.iconFor(marker.geometry),
                         color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = 13.sp
+                        fontSize = 11.sp
                     )
                 }
 
-                // Page counter (bottom-right of card)
-                if (hasMultiple) {
+                // Description + page counter (counter right-aligned on same row when hasMultiple)
+                val hasDesc = marker.description.isNotBlank()
+                if (hasDesc || hasMultiple) {
                     Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = "${selectedIndex + 1}/${selectedIds.size}",
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 12.sp,
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Right
-                    )
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (hasDesc) {
+                            Text(
+                                text = marker.description,
+                                color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                                fontSize = 13.sp,
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                        if (hasMultiple) {
+                            Text(
+                                text = "${selectedIndex + 1}/${selectedIds.size}",
+                                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
                 }
             }  // closes inner Column
             }  // closes Row (info card)
@@ -575,29 +599,6 @@ private fun cardinalDirection(bearingDeg: Double): String {
         normalized < 247.5 -> "SW"
         normalized < 292.5 -> "W"
         else -> "NW"
-    }
-}
-
-/** Numeric-only compact format: "📍 0 200", "⭕ 200 200", "🔴 100 200". */
-private fun markerFormatText(marker: UserMarker): String {
-    val icon = MarkerGeometry.iconFor(marker.geometry)
-    val proximityM = marker.proximityOverrideM
-        ?: when (val g = marker.geometry) {
-            is MarkerGeometry.Pin -> AppConfig.markerProximityPinM
-            is MarkerGeometry.Circle -> g.radiusM * AppConfig.markerProximityZoneMultiplier
-            is MarkerGeometry.Corridor -> g.widthM * AppConfig.markerProximityZoneMultiplier
-        }
-    val prox = proximityM.toLong().toString()
-    return when (marker.geometry) {
-        is MarkerGeometry.Pin -> "$icon 0 $prox"
-        is MarkerGeometry.Circle -> {
-            val r = marker.geometry.radiusM.toLong().toString()
-            "$icon $r $prox"
-        }
-        is MarkerGeometry.Corridor -> {
-            val w = marker.geometry.widthM.toLong().toString()
-            "$icon $w $prox"
-        }
     }
 }
 

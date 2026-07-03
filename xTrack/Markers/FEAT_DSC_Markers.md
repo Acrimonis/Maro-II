@@ -60,10 +60,9 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-o
 ## Implemented
 
 ### marker-card (2026-07-03)
-- Removed `markerFormatText()` line and function, removed divider/spacer between header and name
-- Type icon (`MarkerGeometry.iconFor`) moved into `coordinateHeader` prefix
-- Card is now: accent bar → icon + coords + controls → name → description
-- 1 file, -22 lines net. Build: ✅
+- List card: removed `markerFormatText()` line + function, removed divider/spacer between header and name. Type icon moved into `coordinateHeader` prefix. Card: accent bar → icon+coords+controls → name → description.
+- Viewing drawer: removed `markerFormatText()` call from info card + deleted function. Drawer now shows: name → direction/distance → description. Size/proximity info removed from both list and detail views.
+- 2 files, -51 lines net. Build: ✅
 
 ### wizard-cleanup-race (2026-07-02)
 - Moved `_wizardStep`/`editingMarkerId`/`_selectedMarkerId` cleanup from `wizardFinish()` into `saveMarker()`/`updateMarker()` coroutines
