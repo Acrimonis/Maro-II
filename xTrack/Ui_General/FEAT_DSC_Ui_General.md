@@ -1,9 +1,8 @@
----
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-07-02 22:28
-active_subfeature: filter everywhere
+modified: 2026-07-03 14:33
+active_subfeature: tweak drawer
 ---
 
 # Feature: Ui_General
@@ -175,6 +174,32 @@ Wrap drawer menu items (Position Source toggle, Manage Tracks link) in card back
 
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt`
+
+### tweak drawer  [x]
+
+Normalize all drawer headers: extract `DrawerScaffold` + `DrawerHeader` as shared components, fix the `← [title]` header to stay fixed when content scrolls. Applied to MarkerDrawer (ViewingContent + MatchResultContent) and MenuDrawerOverlay.
+
+#### Implemented
+- [`DrawerScaffold.kt`](app/src/main/java/ykws/android/maro/ui/components/DrawerScaffold.kt) — `DrawerHeader` (promoted from private in MarkerDrawer) + `DrawerScaffold` with fixed-header + scrollable/static body, `contentPadding`, `statusBarsInset`, `headerActions` RowScope slot
+- [`MarkerDrawer.kt`](app/src/main/java/ykws/android/maro/ui/map/MarkerDrawer.kt) — removed outer Box wrapper + private `DrawerHeader`; `ViewingContent` and `MatchResultContent` use `DrawerScaffold(scrollable=true, headerHorizontalPadding=12.dp, shape=panelShape)`
+- [`MenuDrawerOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt) — outer Box replaced with `DrawerScaffold(scrollable=false, statusBarsInset=true, contentPadding=24.dp, headerActions={Settings gear})`
+- [`ui-drawer-guidelines.md`](docs/ui-drawer-guidelines.md) — added §12 (DrawerScaffold API + consumer table + migration guide), updated §4 (canonical skeleton now points to DrawerScaffold), updated §6 (header tokens reference DrawerHeader location), added I22 decision log entry
+- BUILD SUCCESSFUL
+
+#### Rules
+- `DrawerScaffold` owns the fixed-header + scrollable-body structure: `Column(fillMaxSize)` → `DrawerHeader` + `Box(weight(1f))` for content
+- `DrawerHeader` matches canonical tokens from [`ui-drawer-guidelines.md` §6](docs/ui-drawer-guidelines.md:187)
+- Header padding parameterized: default `24.dp` h / `3.dp` v; MarkerDrawer overrides to `12.dp` h
+- Content padding preserved via `contentPadding` per consumer: 12dp (MarkerDrawer), 24dp (MenuDrawer)
+
+#### Plan
+- `xTrack/Ui_General/FEAT_PLN_Ui_General_tweak-drawer.md`
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/components/DrawerScaffold.kt` (new)
+- `app/src/main/java/ykws/android/maro/ui/map/MarkerDrawer.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt`
+- `docs/ui-drawer-guidelines.md`
 
 ### list sort  [x]
 

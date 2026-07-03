@@ -119,9 +119,9 @@ Every drawer composable must follow this contract to work with `DrawerSlot`:
 2. **No scrim** — the unified scrim is rendered once in `OverlayLayer`
 3. **No shadow** — the gradient shadow is drawn by `DrawerSlot.drawBehind`
 4. **`BackHandler` inside the composable** — guarded by `isOpen` or `showXxx`
-5. **Pure content** — a `Box`/`Column` with `fillMaxSize()`, `clip(shape)`, `.background(uiSettingsBackground)`, then content
+5. **Pure content** — a `Box`/`Column` with `fillMaxSize()`, `clip(shape)`, `.background(uiSettingsBackground)`, then content. **New drawers should use [`DrawerScaffold`](#12-drawerscaffold--fixed-header-scrollable-body) (§12) as the foundation** — it provides a fixed header, optional scrolling, and status-bar insets out of the box.
 
-### Canonical Drawer Skeleton
+### Canonical Drawer Skeleton (pre-DrawerScaffold)
 
 ```kotlin
 @Composable
@@ -141,6 +141,25 @@ fun XxxDrawer(
             .background(Color(AppConfig.uiSettingsBackground))
     ) {
         // content
+    }
+}
+```
+
+### Preferred: DrawerScaffold Skeleton
+
+```kotlin
+@Composable
+fun XxxDrawer(isOpen: Boolean, onDismiss: () -> Unit) {
+    if (isOpen) { BackHandler { onDismiss() } }
+
+    DrawerScaffold(
+        title = "My Drawer",
+        onClose = onDismiss,
+        scrollable = true,                 // false for fixed content
+        statusBarsInset = false,           // true for full-screen panels
+        headerActions = { /* optional row-end actions */ }
+    ) {
+        // scrollable content body
     }
 }
 ```
@@ -170,7 +189,7 @@ fun XxxDrawer(
 
 ## 6. Header Tokens
 
-All drawer headers share these tokens:
+All drawer headers share these tokens, canonically implemented in [`DrawerHeader`](../app/src/main/java/ykws/android/maro/ui/components/DrawerScaffold.kt) (see [§12](#12-drawerscaffold--fixed-header-scrollable-body)).
 
 | Token | Value |
 |-------|-------|
@@ -182,10 +201,10 @@ All drawer headers share these tokens:
 | Title font | 17sp, Bold, `uiSettingsTextPrimary` |
 | Back→title spacer | `16dp` |
 | Header horizontal padding | 24dp (menu, track history); 12dp (wizard, marker viewer) |
-| Header vertical padding | 6dp (wizard, marker viewer); 8dp (menu); 3dp (track history) |
+| Header vertical padding | 6dp (canonical default); 12dp (wizard); 12dp (marker viewer — 6dp per side) |
 
 ```kotlin
-// Canonical header pattern
+// Canonical header pattern — use DrawerHeader() composable from DrawerScaffold.kt
 Row(
     modifier = Modifier.fillMaxWidth()
         .padding(horizontal = 24.dp, vertical = 8.dp),
@@ -379,3 +398,112 @@ Row(
 | I16 | 2026-06-25 | Previous/Next buttons match wizard pill style | `Box(RoundedCornerShape(8dp), uiSettingsAccent bg, Bold 14sp)` — same as `WizardButtonRow`. |
 | I17 | 2026-06-25 | Selected marker highlight via 2.5× stroke multiplier | Thicker stroke + `mapCenterRequest` on Previous/Next navigation. |
 | I18 | 2026-06-25 | Proximity zone uses marker's own color (50% stroke / 10% fill) | Replaces hardcoded cyan. Fill = `dimColor(markerColor, ZONE_FILL_ALPHA_FRACTION/2)`. |
+| I22 | 2026-07-03 | `DrawerScaffold` + `DrawerHeader` extracted from MarkerDrawer | Fixed-header + scrollable-body pattern promoted to reusable scaffold. See §12. |
+
+---
+
+## 12. DrawerScaffold — Fixed Header + Scrollable Body
+
+[`DrawerScaffold`](../app/src/main/java/ykws/android/maro/ui/components/DrawerScaffold.kt) is the canonical drawer shell. It provides a **fixed** [`DrawerHeader`](../app/src/main/java/ykws/android/maro/ui/components/DrawerScaffold.kt) at the top and a scrollable (or static) body below — so the back button and title never scroll off screen.
+
+### API
+
+```kotlin
+@Composable
+fun DrawerScaffold(
+    title: String,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier,
+    headerActions: @Composable RowScope.() -> Unit = {},
+    headerHorizontalPadding: Dp = 24.dp,
+    headerVerticalPadding: Dp = 3.dp,
+    contentPadding: PaddingValues = PaddingValues(horizontal = 12.dp),
+    scrollable: Boolean = true,
+    statusBarsInset: Boolean = false,
+    shape: Shape = RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp),
+    content: @Composable ColumnScope.() -> Unit
+)
+```
+
+Parameter | Default | Purpose |
+|-----------|---------|---------|
+`title` | *(required)* | Header title text (17sp Bold, single-line, ellipsis overflow) |
+`onClose` | *(required)* | Back-button callback |
+`modifier` | `Modifier` | Outer modifier on the root `Box` |
+`headerActions` | `{}` | Composable slot in the header `Row` (right-aligned) |
+`headerHorizontalPadding` | `24.dp` | Horizontal padding for the header `Row` |
+`headerVerticalPadding` | `3.dp` | Vertical padding for the header `Row` |
+`contentPadding` | `PaddingValues(horizontal = 12.dp)` | Padding around the scrollable content body |
+`scrollable` | `true` | `true` = `verticalScroll` around content; `false` = static body |
+`statusBarsInset` | `false` | `true` = applies `.windowInsetsPadding(statusBars)` after background |
+`shape` | `RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp)` | Clip shape for the root `Box` |
+
+### Structure
+
+```
+Box(fillMaxSize, clip(shape), background(uiSettingsBackground), modifier, +statusBarsInset)
+  └─ Column(fillMaxSize)
+       ├─ DrawerHeader(title, onClose, headerActions, hPad, vPad)  ← FIXED
+       └─ Box(Modifier.weight(1f).fillMaxWidth())                   ← scroll host
+            └─ if (scrollable) Column(verticalScroll, contentPadding) { content() }
+               else Column(contentPadding) { content() }
+```
+
+### Consumers
+
+Consumer | File | scrollable | headerActions | hPad | statusBarsInset |
+|----------|------|:---:|---|---|:---:|
+MarkerDrawer ViewingContent | `MarkerDrawer.kt` | true | edit + delete + icon buttons | 12.dp | false |
+MarkerDrawer MatchResult | `MarkerDrawer.kt` | true | none | 12.dp | false |
+MenuDrawerOverlay | `MenuDrawerOverlay.kt` | false | Settings gear button | 24.dp | true |
+
+### Not Migrated
+
+Component | Reason |
+|-----------|--------|
+`ListOverlayScaffold` | Already has correctly-fixed header + section label/sort/filter controls between header and `LazyColumn` |
+`WizardDrawer` | Uses `WizardTopBar` (step dots, different layout) + `WizardButtonRow` at bottom |
+Settings | Has 24sp title, tab bar, `HorizontalPager` — different structure |
+
+### Migration Guide
+
+**Before (ad-hoc pattern):**
+```kotlin
+Box(fillMaxSize, clip(shape), bg) {
+    Column(verticalScroll, padding(24.dp)) {
+        Row { /* back + title */ }   // scrolls away!
+        // ... content ...
+    }
+}
+```
+
+**After (DrawerScaffold):**
+```kotlin
+DrawerScaffold(
+    title = "My Drawer",
+    onClose = onDismiss,
+    headerHorizontalPadding = 24.dp,
+    contentPadding = PaddingValues(horizontal = 24.dp),
+    scrollable = true
+) {
+    // content body — header stays fixed
+}
+```
+
+### DrawerHeader (standalone)
+
+`DrawerHeader` is also available as a standalone composable for cases where `DrawerScaffold`'s full structure isn't needed:
+
+```kotlin
+@Composable
+fun DrawerHeader(
+    title: String,
+    onClose: () -> Unit,
+    modifier: Modifier = Modifier,
+    actions: @Composable RowScope.() -> Unit = {},
+    horizontalPadding: Dp = 24.dp,
+    verticalPadding: Dp = 3.dp,
+)
+```
+
+Tokens match [§6](#6-header-tokens) exactly: 32dp `CircleShape` back button, 18dp `ArrowBack`, 16dp spacer, 17sp Bold title, optional `actions` slot.
