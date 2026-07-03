@@ -295,11 +295,13 @@ private fun ViewingContent(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
                     )
-                    Text(
-                        text = MarkerGeometry.iconFor(marker.geometry),
-                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = 11.sp
-                    )
+                    if (marker.icon != null) {
+                        Text(
+                            text = marker.icon!!,
+                            color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                            fontSize = 11.sp
+                        )
+                    }
                 }
 
                 // Description + page counter (counter right-aligned on same row when hasMultiple)
@@ -477,6 +479,7 @@ private fun MatchRow(match: WhereAmIMatch, boatPosition: LatLng?) {
         is WhereAmIMatch.ZoneMatch -> match.marker
         is WhereAmIMatch.LineOfSightMatch -> match.marker
     }
+    val icon = marker.icon
 
     Row(
         modifier = Modifier
@@ -493,36 +496,47 @@ private fun MatchRow(match: WhereAmIMatch, boatPosition: LatLng?) {
                 .background(ComposeColor(MarkerColors.of(marker.colorIndex)))
         )
 
-        Text(
-            text = buildMatchText(match, boatPosition),
-            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Medium,
+        Column(
             modifier = Modifier
                 .weight(1f)
                 .padding(horizontal = 8.dp, vertical = 4.dp)
-        )
-    }
-}
-
-/** Builds the display text for a match row. */
-private fun buildMatchText(match: WhereAmIMatch, boatPosition: LatLng?): String {
-    return when (match) {
-        is WhereAmIMatch.ZoneMatch -> {
-            val icon = match.marker.icon ?: MarkerGeometry.iconFor(match.marker.geometry)
-            "${match.marker.name} · $icon"
-        }
-        is WhereAmIMatch.LineOfSightMatch -> {
-            val icon = match.marker.icon ?: MarkerGeometry.iconFor(match.marker.geometry)
-            val dir = cardinalDirection(match.bearingDeg)
-            val name = "$dir of ${match.marker.name}"
-            if (boatPosition != null) {
-                val dist = geometricDistanceToZone(boatPosition, match.marker.geometry)
-                val distStr = if (dist < 1000.0) "${dist.toLong()} m"
-                    else "%.1f km".format(dist / 1000.0)
-                "$name · $icon · $distStr"
-            } else {
-                "$name · $icon"
+        ) {
+            // Direction + distance (LineOfSightMatch only)
+            if (match is WhereAmIMatch.LineOfSightMatch) {
+                val dir = cardinalDirection(match.bearingDeg)
+                val distStr = if (boatPosition != null) {
+                    val dist = geometricDistanceToZone(boatPosition, marker.geometry)
+                    if (dist < 1000.0) "${dist.toLong()} m" else "%.1f km".format(dist / 1000.0)
+                } else null
+                val text = if (distStr != null) "$dir of boat - $distStr" else dir
+                Text(
+                    text = text,
+                    color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                    fontSize = 11.sp
+                )
+            }
+            // Name + icon row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = marker.name,
+                    color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                if (icon != null) {
+                    Text(
+                        text = icon,
+                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        fontSize = 11.sp
+                    )
+                }
             }
         }
     }

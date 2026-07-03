@@ -2,7 +2,7 @@
 name: Markers
 status: active
 created: 2026-06-22 11:52
-modified: 2026-07-03 13:07
+modified: 2026-07-03 14:23
 active_subfeature: marker-card
 ---
 
@@ -48,11 +48,14 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-o
 ### marker-card  [x]
 
 #### Todos
-- [x] List card: remove [type] [size/prox] line, insert type icon top-left of GPS coords
-- [x] Remove divider between header and name
+- [x] List card: remove [type] [size/prox] line, remove divider, type icon in coordinateHeader
+- [x] Viewing drawer: remove markerFormatText, add title+icon row, direction+divider+name+icon+desc+counter
+- [x] Match cards: normalize to accent bar + direction + name+icon row, delete buildMatchText
+- [x] Icon: use marker.icon only (user-set emoji), no geometry fallback, hidden when null
 
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MarkerManagementOverlay.kt` — MarkerCardContent, coordinateHeader
+- `app/src/main/java/ykws/android/maro/ui/map/MarkerDrawer.kt` — ViewingContent, MatchRow
 
 ## Todos
 - [ ] fix proximity of date points — rays hit/test all of them
@@ -60,9 +63,10 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-o
 ## Implemented
 
 ### marker-card (2026-07-03)
-- List card: removed `markerFormatText()` line + function, removed divider/spacer between header and name. Type icon moved into `coordinateHeader` prefix. Card: accent bar → icon+coords+controls → name → description.
-- Viewing drawer: removed `markerFormatText()` call from info card + deleted function. Drawer now shows: name → direction/distance → description. Size/proximity info removed from both list and detail views.
-- 2 files, -51 lines net. Build: ✅
+- List card: removed `markerFormatText()` line + function, removed divider. Type icon in `coordinateHeader` prefix. Card: accent bar → icon+coords+controls → name → description.
+- Viewing drawer: removed `markerFormatText()`. Card: direction → divider → name+icon → description → counter. Icon always visible (user-set emoji only), counter on desc row (hasMultiple).
+- Match cards: normalized `MatchRow` — accent bar + direction (LineOfSightMatch) + name+icon row. Deleted `buildMatchText()`. Icon = `marker.icon` only, hidden when null.
+- 2 files. Build: ✅
 
 ### wizard-cleanup-race (2026-07-02)
 - Moved `_wizardStep`/`editingMarkerId`/`_selectedMarkerId` cleanup from `wizardFinish()` into `saveMarker()`/`updateMarker()` coroutines
