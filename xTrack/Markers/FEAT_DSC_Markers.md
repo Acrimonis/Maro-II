@@ -2,8 +2,8 @@
 name: Markers
 status: active
 created: 2026-06-22 11:52
-modified: 2026-07-02 23:53
-active_subfeature: setting-markers
+modified: 2026-07-03 13:07
+active_subfeature: marker-card
 ---
 
 # Feature: Markers
@@ -45,10 +45,25 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-o
 - `app/src/main/java/ykws/android/maro/ui/map/MarkerOverlay.kt` — drawGeometry line 168
 - `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — migration + version bump
 
+### marker-card  [x]
+
+#### Todos
+- [x] List card: remove [type] [size/prox] line, insert type icon top-left of GPS coords
+- [x] Remove divider between header and name
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MarkerManagementOverlay.kt` — MarkerCardContent, coordinateHeader
+
 ## Todos
 - [ ] fix proximity of date points — rays hit/test all of them
 
 ## Implemented
+
+### marker-card (2026-07-03)
+- Removed `markerFormatText()` line and function, removed divider/spacer between header and name
+- Type icon (`MarkerGeometry.iconFor`) moved into `coordinateHeader` prefix
+- Card is now: accent bar → icon + coords + controls → name → description
+- 1 file, -22 lines net. Build: ✅
 
 ### wizard-cleanup-race (2026-07-02)
 - Moved `_wizardStep`/`editingMarkerId`/`_selectedMarkerId` cleanup from `wizardFinish()` into `saveMarker()`/`updateMarker()` coroutines
