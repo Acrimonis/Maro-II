@@ -221,24 +221,12 @@ private fun MarkerCardContent(
                 }
             }
 
-            Spacer(Modifier.height(2.dp))
-            HorizontalDivider(thickness = 0.5.dp, color = Color(AppConfig.uiSettingsDivider))
-            Spacer(Modifier.height(2.dp))
-
             Text(
                 text = marker.name,
                 color = Color(AppConfig.uiSettingsTextPrimary),
                 fontSize = MARKER_TITLE_FONT_SIZE,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            Text(
-                text = markerFormatText(marker),
-                color = Color(AppConfig.uiSettingsTextPrimary),
-                fontSize = MARKER_GEOMETRY_FONT_SIZE,
-                maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
 
@@ -257,34 +245,13 @@ private fun MarkerCardContent(
 }
 
 private fun coordinateHeader(marker: UserMarker): String {
+    val icon = MarkerGeometry.iconFor(marker.geometry)
     fun fmt(ll: ykws.android.maro.data.model.LatLng) =
         "%.4f, %.4f".format(ll.latitude, ll.longitude)
     return when (val g = marker.geometry) {
-        is MarkerGeometry.Pin -> "[${fmt(g.position)}]"
-        is MarkerGeometry.Circle -> "[${fmt(g.center)}]"
-        is MarkerGeometry.Corridor -> "[${fmt(g.p1)}] \u2192 [${fmt(g.p2)}]"
-    }
-}
-
-private fun markerFormatText(marker: UserMarker): String {
-    val icon = MarkerGeometry.iconFor(marker.geometry)
-    val proximityM = marker.proximityOverrideM
-        ?: when (val g = marker.geometry) {
-            is MarkerGeometry.Pin -> AppConfig.markerProximityPinM
-            is MarkerGeometry.Circle -> g.radiusM * AppConfig.markerProximityZoneMultiplier
-            is MarkerGeometry.Corridor -> g.widthM * AppConfig.markerProximityZoneMultiplier
-        }
-    val prox = "${proximityM.toLong()}m prox"
-    return when (marker.geometry) {
-        is MarkerGeometry.Pin -> "$icon - $prox"
-        is MarkerGeometry.Circle -> {
-            val r = "${marker.geometry.radiusM.toLong()}m r"
-            "$icon - $r - $prox"
-        }
-        is MarkerGeometry.Corridor -> {
-            val w = "${marker.geometry.widthM.toLong()}m w"
-            "$icon - $w - $prox"
-        }
+        is MarkerGeometry.Pin -> "$icon [${fmt(g.position)}]"
+        is MarkerGeometry.Circle -> "$icon [${fmt(g.center)}]"
+        is MarkerGeometry.Corridor -> "$icon [${fmt(g.p1)}] \u2192 [${fmt(g.p2)}]"
     }
 }
 

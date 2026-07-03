@@ -2,11 +2,10 @@
 
 ## Active Session Pointers
 - **Active Feature:** Markers
-- **Active Subfeature:** setting-markers
-- **Last Updated:** 2026-07-02 23:53
+- **Active Subfeature:** marker-card
+- **Last Updated:** 2026-07-03 13:06
 - **Last Bake:** 2026-07-02 23:53 (Markers — wizard-cleanup-race: wizard state cleanup moved into coroutine; auto-marker-proximity: 300m default + defensive fallback; builder: moved wizard cleanup into save/updateMarker coroutines)
-- **Last Bake:** 2026-07-01 17:05 (BoatTrace — boat-markers: full implementation)
-- **Branch:** feature/markers-settings
+- **Branch:** feature/marker-cards
 
 ## Routing Map
 | Keyword | Feature File |
