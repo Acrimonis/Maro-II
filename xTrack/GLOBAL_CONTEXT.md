@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** Markers
-- **Active Subfeature:** marker-card
-- **Last Updated:** 2026-07-03 13:06
-- **Last Bake:** 2026-07-02 23:53 (Markers — wizard-cleanup-race: wizard state cleanup moved into coroutine; auto-marker-proximity: 300m default + defensive fallback; builder: moved wizard cleanup into save/updateMarker coroutines)
-- **Branch:** feature/marker-cards
+- **Active Feature:** Ui_General
+- **Active Subfeature:** tweak drawer
+- **Last Updated:** 2026-07-03 14:33
+- **Last Bake:** 2026-07-03 15:42 (feature/ui-drawer — drawer header normalization with DrawerScaffold)
+- **Branch:** feature/ui-drawer
 
 ## Routing Map
 | Keyword | Feature File |

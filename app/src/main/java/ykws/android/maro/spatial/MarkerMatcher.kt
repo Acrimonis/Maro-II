@@ -202,7 +202,8 @@ object MarkerMatcher {
         // ── 3. Depth-first, leaves-first traversal ──
         val display = depthFirstLeavesFirst(roots)
 
-        return WhereAmIResult(display)
+        val (user, auto) = display.partition { markerOf(it).origin != MarkerOrigin.IDLE_AUTO }
+        return WhereAmIResult(user + auto)
     }
 
     // ─────────────────────────────────────────────────────────────────────

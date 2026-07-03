@@ -7,6 +7,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -24,7 +25,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
@@ -51,6 +51,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color as ComposeColor
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -64,6 +65,7 @@ import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.WhereAmIMatch
 import ykws.android.maro.spatial.WhereAmIResult
+import ykws.android.maro.ui.components.DrawerScaffold
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public composable
@@ -93,18 +95,10 @@ fun MarkerDrawer(
     val panelShape = if (isLandscape) RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp)
         else RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
 
-    // ── Panel ──
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .clip(panelShape)
-            .background(ComposeColor(AppConfig.uiSettingsBackground))
-    ) {
-        when (drawerState) {
-            is MarkerDrawerState.Viewing -> ViewingContent(viewModel, onClose, boatPosition)
-            is MarkerDrawerState.MatchResult -> MatchResultContent(viewModel, onClose, boatPosition)
-            else -> { /* Creating/Editing handled by WizardDrawer */ }
-        }
+    when (drawerState) {
+        is MarkerDrawerState.Viewing -> ViewingContent(viewModel, onClose, boatPosition, panelShape)
+        is MarkerDrawerState.MatchResult -> MatchResultContent(viewModel, onClose, boatPosition, panelShape)
+        else -> { /* Creating/Editing handled by WizardDrawer */ }
     }
 
     // Back handler when drawer is open
@@ -121,7 +115,8 @@ fun MarkerDrawer(
 private fun ViewingContent(
     viewModel: MarkersViewModel,
     onClose: () -> Unit,
-    boatPosition: LatLng? = null
+    boatPosition: LatLng? = null,
+    shape: Shape
 ) {
     val markers by viewModel.markers.collectAsState()
     val selectedIds by viewModel.selectedMarkerIds.collectAsState()
@@ -133,43 +128,14 @@ private fun ViewingContent(
 
     var showDeleteConfirm by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 12.dp, vertical = 6.dp)
-    ) {
-        // ── Header: back + title + edit/delete icons inline right-aligned ──
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 3.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(
-                onClick = onClose,
-                modifier = Modifier
-                    .size(32.dp)
-                    .clip(CircleShape)
-                    .background(ComposeColor(AppConfig.uiSettingsSwitchTrackInactive))
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Close",
-                    tint = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                    modifier = Modifier.size(18.dp)
-                )
-            }
-            Spacer(Modifier.width(16.dp))
-            Text(
-                text = marker?.name ?: "Marker",
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f)
-            )
+    DrawerScaffold(
+        title = marker?.name ?: "Marker",
+        onClose = onClose,
+        headerHorizontalPadding = 12.dp,
+        scrollable = true,
+        shape = shape,
+        contentPadding = PaddingValues(horizontal = 12.dp),
+        headerActions = {
             if (marker != null) {
                 Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                     var showIconPicker by remember { mutableStateOf(false) }
@@ -226,7 +192,7 @@ private fun ViewingContent(
                 }
             }
         }
-
+    ) {
         if (marker != null) {
             Spacer(Modifier.height(8.dp))
 
@@ -423,26 +389,19 @@ private fun ViewingContent(
 private fun MatchResultContent(
     viewModel: MarkersViewModel,
     onClose: () -> Unit,
-    boatPosition: LatLng? = null
+    boatPosition: LatLng? = null,
+    shape: Shape
 ) {
     val result by viewModel.matchResult.collectAsState()
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 12.dp, vertical = 8.dp)
+    DrawerScaffold(
+        title = "Where Am I?",
+        onClose = onClose,
+        headerHorizontalPadding = 12.dp,
+        scrollable = true,
+        shape = shape,
+        contentPadding = PaddingValues(horizontal = 12.dp)
     ) {
-        DrawerHeader(title = "Where Am I?", onClose = onClose)
-
-        Spacer(Modifier.height(12.dp))
-        Text(
-            text = "MATCH RESULTS",
-            color = ComposeColor(AppConfig.uiSettingsAccent),
-            fontSize = 17.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 1.sp
-        )
         Spacer(Modifier.height(8.dp))
 
         val matches = result?.allMatches ?: emptyList()
@@ -553,50 +512,6 @@ private fun geometricDistanceToZone(boat: LatLng, geometry: MarkerGeometry): Dou
         is MarkerGeometry.Corridor -> {
             val dSeg = SpatialOperations.pointToSegmentDistance(boat, geometry.p1, geometry.p2)
             (dSeg - geometry.widthM / 2.0).coerceAtLeast(0.0)
-        }
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Shared components
-// ─────────────────────────────────────────────────────────────────────────────
-
-@Composable
-private fun DrawerHeader(
-    title: String,
-    onClose: () -> Unit,
-    actions: (@Composable () -> Unit)? = null
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 3.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconButton(
-            onClick = onClose,
-            modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(ComposeColor(AppConfig.uiSettingsSwitchTrackInactive))
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Close",
-                tint = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                modifier = Modifier.size(18.dp)
-            )
-        }
-        Spacer(Modifier.width(16.dp))
-        Text(
-            text = title,
-            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-            fontSize = 17.sp,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f)
-        )
-        if (actions != null) {
-            actions()
         }
     }
 }
