@@ -104,6 +104,26 @@ Box(Modifier.fillMaxWidth().height(1.dp).background(0x26FFFFFF))
 Spacer(6.dp)
 ```
 
+**Example — Regulated zones card (merged expander):**
+
+```
+┌─ Regulated zones ────────────────────────────────┐
+│  Show regulated zones                    [Switch] │
+│                                                    │
+│  ▼ Regulated zones settings                       │
+│  ┌──────────────────────────────────────────┐     │
+│  │  Info text visible                [Switch]│     │
+│  │  ─────────────────────────────────────   │     │  ← divider (§2.6)
+│  │  Boat length slider                      │     │
+│  └──────────────────────────────────────────┘     │
+│                                                    │
+│  ▼ Categories                                      │  ← expander 2
+│  └──────────────────────────────────────────┘     │
+└────────────────────────────────────────────────────┘
+```
+
+Expander label: `"Regulated zones settings"`. Both toggles and sliders live in the same nested card, separated by a visible divider (§2.6).
+
 ---
 
 ## 3. Spacing Quick Reference

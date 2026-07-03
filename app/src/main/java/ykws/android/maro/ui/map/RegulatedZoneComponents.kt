@@ -370,15 +370,19 @@ fun RegulatedZoneCategoryToggles(
 @Composable
 fun BoatSizeSlider(
     settings: AppSettings,
-    onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit
+    onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
+    nested: Boolean = false
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(ComposeColor(0x0DFFFFFF))
-            .border(1.dp, ComposeColor(0x40FFFFFF), RoundedCornerShape(12.dp))
-            .padding(horizontal = 16.dp, vertical = 2.dp)
+        modifier = if (nested) {
+            Modifier.fillMaxWidth().padding(horizontal = 0.dp, vertical = 2.dp)
+        } else {
+            Modifier.fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(ComposeColor(0x0DFFFFFF))
+                .border(1.dp, ComposeColor(0x40FFFFFF), RoundedCornerShape(12.dp))
+                .padding(horizontal = 16.dp, vertical = 2.dp)
+        }
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),

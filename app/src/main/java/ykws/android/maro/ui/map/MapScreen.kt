@@ -2848,7 +2848,7 @@ private fun GeneralSettings(
                 // Regulation info — collapsible toggle for info text panel
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                     SettingsExpander(
-                        label = "Regulation info",
+                        label = "Regulated zones settings",
                         expanded = settings.regulationInfoExpanded,
                         onToggle = { onUpdateSettings { it.copy(regulationInfoExpanded = !it.regulationInfoExpanded) } }
                     ) {
@@ -2887,6 +2887,10 @@ private fun GeneralSettings(
                                     )
                                 )
                             }
+                            Spacer(Modifier.height(4.dp))
+                            Box(Modifier.fillMaxWidth().height(1.dp).background(ComposeColor(AppConfig.uiSettingsDivider)))
+                            Spacer(Modifier.height(4.dp))
+                            BoatSizeSlider(settings, onUpdateSettings, nested = true)
                         }
                     }
                 }
@@ -2899,18 +2903,6 @@ private fun GeneralSettings(
                     ) {
                         Spacer(modifier = Modifier.height(8.dp))
                         RegulatedZoneCategoryToggles(settings, onUpdateSettings)
-                    }
-                }
-                // Boat size in its own collapsible
-                Spacer(Modifier.height(8.dp))
-                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    SettingsExpander(
-                        label = "Boat size",
-                        expanded = settings.boatSizeFilterExpanded,
-                        onToggle = { onUpdateSettings { it.copy(boatSizeFilterExpanded = !it.boatSizeFilterExpanded) } }
-                    ) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        BoatSizeSlider(settings, onUpdateSettings)
                     }
                 }
             Spacer(Modifier.height(16.dp))
