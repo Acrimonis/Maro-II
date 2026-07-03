@@ -340,6 +340,9 @@ class NavigationViewModel(
     val autoFollowSuppressed: StateFlow<Boolean> = _autoFollowSuppressed.asStateFlow()
     private var resumeJob: Job? = null
 
+    /** True while any drawer is open — pauses the pan-resume timer. */
+    private var drawerOpen = false
+
     // ── Adaptive acquisition + compass gating ───────────────────────────────
     /** Stationary detector (always on): decides ACTIVE vs IDLE fix cadence from movement. */
     private val adaptivePolicy = AdaptiveGpsPolicy()
@@ -382,10 +385,42 @@ class NavigationViewModel(
     /**
      * Called on each user map touch. Pauses GPS auto-follow + auto-orientation, then resumes the
      * user-configured recenter delay (settings.recenterDelaySeconds, 1–10 s) after the last touch
-     * (snaps back to the GPS position, heading-up).
+     * (snaps back to the GPS position, heading-up). Timer is skipped while a drawer is open.
      */
     fun notifyUserInteraction() {
         _autoFollowSuppressed.value = true
+        resumeJob?.cancel()
+        if (!drawerOpen) startTimer()
+    }
+
+    /**
+     * Called when any drawer opens or closes. Pauses the pan-resume timer while a drawer is open
+     * so the map doesn't snap back during marker creation, settings, or other drawer operations.
+     * On close, restarts the timer if auto-follow was suppressed by a prior pan.
+     */
+    fun setDrawerOpen(open: Boolean) {
+        drawerOpen = open
+        if (open) {
+            resumeJob?.cancel()
+        } else if (_autoFollowSuppressed.value) {
+            startTimer()
+        }
+    }
+
+    /** Freeze auto-follow immediately — used when entering the marker creation/editing wizard. */
+    fun freezeFollow() {
+        _autoFollowSuppressed.value = true
+        resumeJob?.cancel()
+    }
+
+    /** Immediately recenter the map to the GPS position, cancelling any pending timer. */
+    fun recenterNow() {
+        resumeJob?.cancel()
+        _autoFollowSuppressed.value = false
+    }
+
+    /** Start (or restart) the auto-follow resume timer. */
+    private fun startTimer() {
         resumeJob?.cancel()
         resumeJob = viewModelScope.launch {
             delay(settings.value.recenterDelaySeconds.coerceIn(1, 10).toLong() * 1_000L)
