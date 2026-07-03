@@ -2,8 +2,8 @@
 name: GPS
 status: active
 created: 2026-06-07 00:00
-modified: 2026-06-28 17:51
-active_subfeature: background-recording
+modified: 2026-07-03 12:49
+active_subfeature: auto-recenter
 ---
 
 # Feature: GpsPlugin
@@ -221,3 +221,5 @@ ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 **troubleshoot-gps-turns (2026-06-22):** Spike rejection lock-in fix — added `STALE_FIX_TIMEOUT_MS` (10s), `lastAcceptedTimeMs` field, timeout check before Gates 0-3 in `TrackRecorder.addPoint()`. Breaks lock-in on sharp turns (stale `lastValidCourseDeg`/`lastValidPoint`) and silent GPS recovery (no `emitNoLock` → Gate 0 missed). BuildConfig:`tracking.checkpointIntervalMs=30000`, `tracking.staleFixTimeoutMs=10000` in `maro.properties`.
 
 **track-simplification (2026-06-22):** Two-pass track simplification at finalize. `TrackSimplifier.kt`: Douglas-Peucker spatial (ε=3m) + speed-aware reinsertion (δ=3kn). Integrated in `TrackRecorder.finalizeTrack()` before save. AppSettings: `trackSimplifyEnabled`, `trackSimplifyEpsilonM`, `trackSimplifySpeedDeltaKn` with SharedPreferences persistence. Tunables in `maro.properties`. Expected 92-99% point reduction. Build: ✅.
+
+**auto-recenter (2026-07-03):** Drawer-aware pan-resume timer gate + recenter button. NavigationViewModel: `drawerOpen` flag pauses timer while any drawer is open; `freezeFollow()` immediately suppresses on wizard entry; `recenterNow()` cancels timer and recenters; `startTimer()` extracted helper. MapScreen: `LaunchedEffect(anyDrawerOpen)` wires 5 drawer states; `LaunchedEffect(drawerState)` freezes on Creating/Editing wizard; status row reordered to Earth→Track→GPS→Recenter; GPS hidden in demo mode; RecenterButton appears only when GPS mode + autoFollowSuppressed, uses 🎯 icon. Track recording confirmed independent (uses real `_gpsPosition`, not map center). 2 files, ~60 lines. Build: ✅.

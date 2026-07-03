@@ -1141,6 +1141,20 @@ fun MapScreen(
                 mv.controller.animateTo(org.osmdroid.util.GeoPoint(target.latitude, target.longitude))
             }
 
+            // ── F2b: Pause auto-follow timer while any drawer is open ──
+            val anyDrawerOpen = showSettings || showTrackDrawer || showTrackHistory ||
+                showMarkerManagement || drawerState !is MarkerDrawerState.Hidden
+            LaunchedEffect(anyDrawerOpen) {
+                viewModel.setDrawerOpen(anyDrawerOpen)
+            }
+
+            // ── F2c: Freeze auto-follow when entering marker creation/editing wizard ──
+            LaunchedEffect(drawerState) {
+                if (drawerState is MarkerDrawerState.Creating || drawerState is MarkerDrawerState.Editing) {
+                    viewModel.freezeFollow()
+                }
+            }
+
             // ── F3: During Creating/Editing, track map center for marker position ──
             // wizardStep intentionally NOT a key — prevents premature form overwrite
             // when recenterMapOnStep triggers map animation (mapCenter hasn't moved yet).
@@ -1263,6 +1277,8 @@ fun MapScreen(
                 onDismissFan = { expandedFanId = null },
                 showExitBanner = showExitBanner,
                 rasterProgress = rasterProgress,
+                autoFollowSuppressed = autoFollowSuppressed,
+                onRecenter = { viewModel.recenterNow() },
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(
@@ -1576,6 +1592,8 @@ private fun MapContent(
     showExitBanner: Boolean,
     rasterProgress: RasterProgress? = null,
     showCrosshair: Boolean = false,
+    autoFollowSuppressed: Boolean = false,
+    onRecenter: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier.clipToBounds()) {
@@ -1669,14 +1687,19 @@ private fun MapContent(
             // ── LEFT COLUMN: top + middle + btm ──────────────────────────
             Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
 
-                // top zone: GPS status + EarthWater (statusBars minus 6dp)
+                // top zone: Earth, Track, GPS, Recenter (statusBars minus 6dp)
                 Row(
                     modifier = Modifier
                         .padding(top = topInset, start = 6.dp),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    GpsStatusIcon(state = gpsIconState)
+                    EarthWaterIcon(
+                        emoji = if (isWater) "🌊" else "🏔️",
+                        isActive = true,
+                        activeColor = if (isWater) ComposeColor(AppConfig.statusEarthWaterWater) else ComposeColor(AppConfig.statusEarthWaterLand),
+                        contentDescription = if (isWater) stringResource(R.string.side_water) else stringResource(R.string.side_land),
+                    )
                     TrackStatusIcon(
                         recorderState = trackRecorderState,
                         onClick = if (trackRecorderState.state == ykws.android.maro.data.track.TrackRecorderState.ON)
@@ -1684,12 +1707,12 @@ private fun MapContent(
                         else
                             onStartRecording
                     )
-                    EarthWaterIcon(
-                        emoji = if (isWater) "🌊" else "🏔️",
-                        isActive = true,
-                        activeColor = if (isWater) ComposeColor(AppConfig.statusEarthWaterWater) else ComposeColor(AppConfig.statusEarthWaterLand),
-                        contentDescription = if (isWater) stringResource(R.string.side_water) else stringResource(R.string.side_land),
-                    )
+                    if (appSettings.gpsMode) {
+                        GpsStatusIcon(state = gpsIconState)
+                    }
+                    if (appSettings.gpsMode && autoFollowSuppressed) {
+                        RecenterButton(onClick = onRecenter)
+                    }
                 }
 
                 // middle zone: no overlay — map fills here
@@ -2531,6 +2554,31 @@ private fun GpsStatusIcon(
             text = "📡",
             fontSize = 22.sp,
             modifier = if (contentAlpha < 1f) Modifier.alpha(contentAlpha) else Modifier
+        )
+    }
+}
+
+/**
+ * Recenter button — appears in the top-left status row when the map is frozen
+ * (auto-follow suppressed by pan, drawer, or wizard). Tapping immediately
+ * smooth-scrolls back to the GPS position.
+ */
+@Composable
+private fun RecenterButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .size(44.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(ComposeColor(0xFF2196F3).copy(alpha = 0.30f))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "📍",
+            fontSize = 22.sp
         )
     }
 }
