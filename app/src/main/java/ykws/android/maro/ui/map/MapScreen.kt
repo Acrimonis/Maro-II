@@ -2804,15 +2804,104 @@ private fun GeneralSettings(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // ── Marker zones toggle ───────────────────────────────────────
-        SettingsToggleRow(
-            label = "Marker zones",
-            description = "Show zone shapes (corridor edges, circle outlines) and proximity previews",
-            checked = settings.markerZonesVisible,
-            onCheckedChange = { visible ->
-                onUpdateSettings { it.copy(markerZonesVisible = visible) }
+        // ── Markers overlay toggle — grouped card ───────────────────
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(ComposeColor(AppConfig.uiCardBackground))
+                .padding(vertical = 8.dp)
+        ) {
+            // Inline toggle row
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Markers",
+                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = "User-created pins, circles, corridors and auto-markers",
+                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        fontSize = 13.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Switch(
+                    checked = settings.markerLayerState != MarkerLayerState.HIDDEN,
+                    onCheckedChange = { visible ->
+                        onUpdateSettings { it.copy(markerLayerState = if (visible) MarkerLayerState.SHOW_ALL else MarkerLayerState.HIDDEN) }
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                    )
+                )
             }
-        )
+
+            // Appearance settings — collapsible, only visible when layer is ON
+            if (settings.markerLayerState != MarkerLayerState.HIDDEN) {
+                Spacer(Modifier.height(8.dp))
+                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    var markerExpanded by remember { mutableStateOf(false) }
+                    SettingsExpander(
+                        label = "Appearance",
+                        expanded = markerExpanded,
+                        onToggle = { markerExpanded = !markerExpanded }
+                    ) {
+                        Spacer(Modifier.height(8.dp))
+                        Column(
+                            modifier = Modifier.fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(ComposeColor(0x0DFFFFFF))
+                                .border(1.dp, ComposeColor(0x40FFFFFF), RoundedCornerShape(12.dp))
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        ) {
+                            Text(
+                                text = "Show zone shapes (corridor edges, circle outlines) and proximity previews",
+                                color = ComposeColor(AppConfig.uiDashboardTextMuted),
+                                fontSize = 13.sp,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Zone shapes",
+                                    color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Switch(
+                                    checked = settings.markerZonesVisible,
+                                    onCheckedChange = { visible ->
+                                        onUpdateSettings { it.copy(markerZonesVisible = visible) }
+                                    },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
+                                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+            }
+        }
 
         Spacer(modifier = Modifier.height(12.dp))
 

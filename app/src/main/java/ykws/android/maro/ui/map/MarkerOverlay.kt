@@ -163,15 +163,11 @@ fun MarkerOverlay(
             val proxColor = dimColor(markerColor, PROXIMITY_ALPHA_FRACTION)
             val proxFillColor = dimColor(markerColor, ZONE_FILL_ALPHA_FRACTION / 2.0f)
 
-            // Master gate: suppress geometry for non-selected markers in SHOW_PINNED.
-            // Unconfirmed (creating/editing) always renders full geometry.
-            val drawGeometry = !confirmed
-                || markerLayerState != MarkerLayerState.SHOW_PINNED
-                || marker.id == selectedMarkerId
+            // Always render full geometry — only SHOW_ALL state now (no SHOW_PINNED).
+            val drawGeometry = true
 
             // Zone shapes gated by markerZonesVisible for confirmed markers;
             // unconfirmed (creating/editing) always show full geometry.
-            // In SHOW_PINNED, zones only render for the selected marker.
             val drawZones = drawGeometry && (!confirmed || markerZonesVisible)
 
             // Suppress center/p1/p2 dots when pinned — icon replaces the point marker.

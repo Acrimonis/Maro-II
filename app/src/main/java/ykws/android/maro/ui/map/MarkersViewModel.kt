@@ -54,7 +54,7 @@ sealed class MarkerDrawerState {
 }
 
 /** Tri-state for the fan layer marker toggle. */
-enum class MarkerLayerState { HIDDEN, SHOW_ALL, SHOW_PINNED }
+enum class MarkerLayerState { HIDDEN, SHOW_ALL }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Create/edit form state

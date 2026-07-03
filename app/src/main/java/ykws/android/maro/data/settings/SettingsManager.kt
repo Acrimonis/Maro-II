@@ -284,6 +284,13 @@ class SettingsManager(
                 editor.remove(KEY_TRACK_LIST_SORT)
                     .remove(KEY_MARKER_LIST_SORT)
             }
+            if (savedVersion < 5) {
+                // Force SHOW_PINNED → SHOW_ALL (enum value removed in marker settings rework)
+                val oldState = prefs.getString(KEY_MARKER_LAYER_STATE, "SHOW_ALL")
+                if (oldState == "SHOW_PINNED") {
+                    editor.putString(KEY_MARKER_LAYER_STATE, "SHOW_ALL")
+                }
+            }
             editor.putInt(KEY_PREFS_VERSION, CURRENT_VERSION).apply()
         }
     }
@@ -575,6 +582,6 @@ class SettingsManager(
         private const val KEY_TRACK_LIST_FILTER = "track_list_filter"
         private const val KEY_MARKER_LIST_FILTER = "marker_list_filter"
         private const val KEY_PREFS_VERSION = "prefs_version"
-        private const val CURRENT_VERSION = 4
+        private const val CURRENT_VERSION = 5
     }
 }

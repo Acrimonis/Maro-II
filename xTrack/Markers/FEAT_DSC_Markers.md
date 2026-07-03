@@ -3,7 +3,7 @@ name: Markers
 status: active
 created: 2026-06-22 11:52
 modified: 2026-07-02 23:53
-active_subfeature: wizard-cleanup-race
+active_subfeature: setting-markers
 ---
 
 # Feature: Markers
@@ -29,6 +29,21 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-o
 ### marker-pin-tri-state  [x]
 ### icon  [x]
 ### 2-gate-simplification  [x]
+
+### setting-markers  [x]
+
+#### Todos
+- [x] Replace standalone SettingsToggleRow with grouped card (inline toggle + SettingsExpander "Appearance")
+- [x] Remove SHOW_PINNED from MarkerLayerState enum → binary HIDDEN/SHOW_ALL
+- [x] Simplify drawGeometry in MarkerOverlay (always true in SHOW_ALL)
+- [x] Add SettingsManager migration v5: SHOW_PINNED → SHOW_ALL
+- [x] Build ✅
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — grouped card at ~line 2807
+- `app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt` — MarkerLayerState enum line 57
+- `app/src/main/java/ykws/android/maro/ui/map/MarkerOverlay.kt` — drawGeometry line 168
+- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — migration + version bump
 
 ## Todos
 - [ ] fix proximity of date points — rays hit/test all of them
