@@ -1,6 +1,7 @@
 package ykws.android.maro.data.markers
 
 import android.content.Context
+import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
@@ -29,6 +30,8 @@ class UserMarkerRepository(
 
     constructor(context: Context) : this(File(context.filesDir, MARKERS_DIR_NAME))
 
+    private var lastKnownGood: List<UserMarker>? = null
+
     private val json = Json {
         ignoreUnknownKeys = true
         prettyPrint = true
@@ -42,15 +45,20 @@ class UserMarkerRepository(
         try {
             val text = markersFile.readText()
             if (text.isBlank()) return@withContext emptyList()
-            json.decodeFromString<List<UserMarker>>(text)
+            val result = json.decodeFromString<List<UserMarker>>(text)
+            lastKnownGood = result
+            result
         } catch (e: Exception) {
-            // Corrupt file — return empty; backup is written on next save.
-            emptyList()
+            Log.e(TAG, "Failed to load markers, falling back to last-known-good cache", e)
+            lastKnownGood ?: emptyList()
         }
     }
 
     /** Persist the full list of markers atomically (write-to-tmp + rename). */
     suspend fun saveAll(markers: List<UserMarker>) = withContext(Dispatchers.IO) {
+        if (markersFile.exists()) {
+            markersFile.copyTo(File(markersDir, MARKERS_BACKUP_NAME), overwrite = true)
+        }
         val tmp = File(markersDir, MARKERS_TMP_NAME)
         tmp.writeText(
             json.encodeToString(
@@ -59,6 +67,7 @@ class UserMarkerRepository(
             )
         )
         tmp.renameTo(markersFile)
+        lastKnownGood = markers
     }
 
     /** Add a single marker and persist. */
@@ -111,5 +120,7 @@ class UserMarkerRepository(
         private const val MARKERS_DIR_NAME = "markers"
         private const val MARKERS_FILE_NAME = "user_markers.json"
         private const val MARKERS_TMP_NAME = "user_markers.json.tmp"
+        private const val MARKERS_BACKUP_NAME = "user_markers.json.bak"
+        private const val TAG = "UserMarkerRepo"
     }
 }

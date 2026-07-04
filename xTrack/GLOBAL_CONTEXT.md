@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** Ui_General
-- **Active Subfeature:** tweak drawer
-- **Last Updated:** 2026-07-03 14:33
-- **Last Bake:** 2026-07-03 15:42 (feature/ui-drawer — drawer header normalization with DrawerScaffold)
-- **Branch:** feature/ui-drawer
+- **Active Feature:** UI_Map
+- **Active Subfeature:** map refresh
+- **Last Updated:** 2026-07-04 16:48
+- **Last Bake:** 2026-07-04 16:48 (feature/fan — per-layer LaunchedEffect overlay updates)
+- **Branch:** feature/fan
 
 ## Routing Map
 | Keyword | Feature File |

@@ -25,11 +25,20 @@ class OverlayTracker {
     val coastline = mutableListOf<Any>()
 
     var lastDepthBitmap: Bitmap? = null
-    var lastLowDepthBitmap: Bitmap? = null
-    var lastIsobaths: List<Isobath> = emptyList()
-    var lastRegulatedZones: RegulatedZoneSet? = null
-    var lastZone300: Zone300Data? = null
-    var lastSegments: List<CoastlineSegment> = emptyList()
     var lastDepthBox: BoundingBox? = null
-    var lastZoom: Double = -1.0
+    var lastDepthZoom: Double = -1.0
+
+    var lastLowDepthBitmap: Bitmap? = null
+    var lastLowDepthZoom: Double = -1.0
+
+    var lastIsobaths: List<Isobath> = emptyList()
+    var lastIsobathZoom: Double = -1.0
+
+    var lastRegulatedZones: RegulatedZoneSet? = null
+    var lastRegZoneZoom: Double = -1.0
+
+    var lastZone300: Zone300Data? = null
+    var lastZone300Zoom: Double = -1.0
+
+    var lastSegments: List<CoastlineSegment> = emptyList()
 }

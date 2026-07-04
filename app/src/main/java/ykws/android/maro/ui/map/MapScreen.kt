@@ -459,8 +459,7 @@ fun MapScreen(
 
     // Rasterise the colour map once per grid, off the main thread (~7 M cells).
     val depthBitmap by produceState<Bitmap?>(initialValue = null, depthGrid,
-        appSettings.lowDepthWarningMaxM, appSettings.lowDepthWarningMinOpacityPct,
-        appSettings.emodnetShallowCutoffM, coastlineReady) {
+        appSettings.emodnetShallowCutoffM) {
         // If cache exists, skip the expensive live build
         val cached = depthGrid?.let {
             depthViewModel.readCached(context, RasterCache.Step.DEPTH_COLOUR, appSettings)
@@ -1423,10 +1422,12 @@ fun MapScreen(
             },
             markerFilterState = appSettings.markerListFilter,
             onMarkerFilterChange = { newFilter ->
+                android.util.Log.d("MaroMapRefresh", "onMarkerFilterChange: $newFilter")
                 viewModel.updateSettings { it.copy(markerListFilter = newFilter) }
                 markersViewModel.refreshSort()
             },
             onMarkerReset = {
+                android.util.Log.d("MaroMapRefresh", "onMarkerReset")
                 viewModel.updateSettings { it.copy(markerListSort = ykws.android.maro.data.model.ListSortState(), markerListFilter = ykws.android.maro.data.model.ListFilter()) }
                 markersViewModel.refreshSort()
             },
@@ -1640,8 +1641,6 @@ private fun MapContent(
             zoomLevel = zoomLevel,
             center = mapCenter,
             initialZoom = zoomLevel,
-            boatPosition = boatPosition,
-            headingDeg = headingDeg,
             onCenterChanged = onCenterChanged,
             onZoomChanged = onZoomChanged,
             onMapViewReady = onMapViewReady,
@@ -2085,8 +2084,6 @@ private fun CoastlineMapView(
     zoomLevel: Double,
     center: LatLng,
     initialZoom: Double,
-    boatPosition: LatLng? = null,
-    headingDeg: Double = -1.0,
     onCenterChanged: (Double, Double) -> Unit = { _, _ -> },
     onZoomChanged: (Double) -> Unit = {},
     onMapViewReady: (MapView) -> Unit = {},
@@ -2124,15 +2121,19 @@ private fun CoastlineMapView(
                 drawZone300(this, zone300, zoomLevel, tracker.zone300)
                 drawCoastline(this, segments, tracker.coastline)
 
-                // Seed last-known state so the first update call sees no changes.
+                // Seed per-layer last-known state so LaunchedEffects don't fire on first composition.
                 tracker.lastDepthBitmap = depthBitmap
-                tracker.lastLowDepthBitmap = lowDepthWarningBitmap
-                tracker.lastIsobaths = isobaths
-                tracker.lastRegulatedZones = regulatedZones
-                tracker.lastZone300 = zone300
-                tracker.lastSegments = segments
                 tracker.lastDepthBox = depthBox
-                tracker.lastZoom = zoomLevel
+                tracker.lastDepthZoom = zoomLevel
+                tracker.lastLowDepthBitmap = lowDepthWarningBitmap
+                tracker.lastLowDepthZoom = zoomLevel
+                tracker.lastIsobaths = isobaths
+                tracker.lastIsobathZoom = zoomLevel
+                tracker.lastRegulatedZones = regulatedZones
+                tracker.lastRegZoneZoom = zoomLevel
+                tracker.lastZone300 = zone300
+                tracker.lastZone300Zoom = zoomLevel
+                tracker.lastSegments = segments
 
                 // Force-sync the ViewModel zoom level to match the actual MapView
                 // zoom right after construction, so the boat marker immediately
@@ -2158,86 +2159,91 @@ private fun CoastlineMapView(
                 localMapView.value = mv
                 onMapViewReady(mv)
             }
-        },
-        update = { mapView ->
-            var dirty = false
-
-            // ── Zone300 layer ──────────────────────────────────────────────
-            if (zone300 !== tracker.lastZone300 || zoomLevel != tracker.lastZoom) {
-                mapView.overlays.removeAll(tracker.zone300)
-                tracker.zone300.clear()
-                drawZone300(mapView, zone300, zoomLevel, tracker.zone300)
-                tracker.lastZone300 = zone300
-                dirty = true
-            }
-
-            // ── Regulated zones layer ──────────────────────────────────────
-            if (regulatedZones !== tracker.lastRegulatedZones || zoomLevel != tracker.lastZoom) {
-                mapView.overlays.removeAll(tracker.regulatedZones)
-                tracker.regulatedZones.clear()
-                drawRegulatedZones(mapView, regulatedZones, zoomLevel, tracker.regulatedZones)
-                tracker.lastRegulatedZones = regulatedZones
-                dirty = true
-            }
-
-            // ── Depth colour raster layer ──────────────────────────────────
-            if (depthBitmap !== tracker.lastDepthBitmap ||
-                depthBox !== tracker.lastDepthBox ||
-                zoomLevel != tracker.lastZoom
-            ) {
-                mapView.overlays.removeAll(tracker.depth)
-                tracker.depth.clear()
-                drawDepthMap(mapView, depthBitmap, depthBox, zoomLevel, tracker.depth)
-                tracker.lastDepthBitmap = depthBitmap
-                tracker.lastDepthBox = depthBox
-                dirty = true
-            }
-
-            // ── Low-depth warning layer ────────────────────────────────────
-            if (lowDepthWarningBitmap !== tracker.lastLowDepthBitmap ||
-                depthBox !== tracker.lastDepthBox ||
-                zoomLevel != tracker.lastZoom
-            ) {
-                mapView.overlays.removeAll(tracker.lowDepth)
-                tracker.lowDepth.clear()
-                drawLowDepthWarning(mapView, lowDepthWarningBitmap, depthBox, zoomLevel, tracker.lowDepth)
-                tracker.lastLowDepthBitmap = lowDepthWarningBitmap
-                dirty = true
-            }
-
-            // ── Isobaths layer ─────────────────────────────────────────────
-            if (isobaths !== tracker.lastIsobaths || zoomLevel != tracker.lastZoom) {
-                mapView.overlays.removeAll(tracker.isobaths)
-                tracker.isobaths.clear()
-                drawIsobaths(mapView, isobaths, zoomLevel, tracker.isobaths)
-                tracker.lastIsobaths = isobaths
-                dirty = true
-            }
-
-            // ── Coastline layer ────────────────────────────────────────────
-            if (segments !== tracker.lastSegments || zoomLevel != tracker.lastZoom) {
-                mapView.overlays.removeAll(tracker.coastline)
-                tracker.coastline.clear()
-                drawCoastline(mapView, segments, tracker.coastline)
-                tracker.lastSegments = segments
-                dirty = true
-            }
-
-            tracker.lastZoom = zoomLevel
-            if (dirty) mapView.invalidate()
         }
     )
 
+    // ── Per-layer LaunchedEffect blocks ──────────────────────────────────────
+    // Each keyed on only its own data + zoomLevel, with an early-return guard
+    // comparing against the tracker's per-layer last-known state.
+
+    // Zone300 layer
+    LaunchedEffect(zone300, zoomLevel) {
+        val mv = localMapView.value ?: return@LaunchedEffect
+        if (zone300 === tracker.lastZone300 && zoomLevel == tracker.lastZone300Zoom) return@LaunchedEffect
+        mv.overlays.removeAll(tracker.zone300)
+        tracker.zone300.clear()
+        drawZone300(mv, zone300, zoomLevel, tracker.zone300)
+        tracker.lastZone300 = zone300
+        tracker.lastZone300Zoom = zoomLevel
+        mv.invalidate()
+    }
+
+    // Regulated zones layer
+    LaunchedEffect(regulatedZones, zoomLevel) {
+        val mv = localMapView.value ?: return@LaunchedEffect
+        if (regulatedZones === tracker.lastRegulatedZones && zoomLevel == tracker.lastRegZoneZoom) return@LaunchedEffect
+        mv.overlays.removeAll(tracker.regulatedZones)
+        tracker.regulatedZones.clear()
+        drawRegulatedZones(mv, regulatedZones, zoomLevel, tracker.regulatedZones)
+        tracker.lastRegulatedZones = regulatedZones
+        tracker.lastRegZoneZoom = zoomLevel
+        mv.invalidate()
+    }
+
+    // Depth colour raster layer
+    LaunchedEffect(depthBitmap, depthBox, zoomLevel) {
+        val mv = localMapView.value ?: return@LaunchedEffect
+        if (depthBitmap === tracker.lastDepthBitmap &&
+            depthBox === tracker.lastDepthBox &&
+            zoomLevel == tracker.lastDepthZoom
+        ) return@LaunchedEffect
+        mv.overlays.removeAll(tracker.depth)
+        tracker.depth.clear()
+        drawDepthMap(mv, depthBitmap, depthBox, zoomLevel, tracker.depth)
+        tracker.lastDepthBitmap = depthBitmap
+        tracker.lastDepthBox = depthBox
+        tracker.lastDepthZoom = zoomLevel
+        mv.invalidate()
+    }
+
+    // Low-depth warning layer
+    LaunchedEffect(lowDepthWarningBitmap, depthBox, zoomLevel) {
+        val mv = localMapView.value ?: return@LaunchedEffect
+        if (lowDepthWarningBitmap === tracker.lastLowDepthBitmap &&
+            zoomLevel == tracker.lastLowDepthZoom
+        ) return@LaunchedEffect
+        mv.overlays.removeAll(tracker.lowDepth)
+        tracker.lowDepth.clear()
+        drawLowDepthWarning(mv, lowDepthWarningBitmap, depthBox, zoomLevel, tracker.lowDepth)
+        tracker.lastLowDepthBitmap = lowDepthWarningBitmap
+        tracker.lastLowDepthZoom = zoomLevel
+        mv.invalidate()
+    }
+
+    // Isobaths layer
+    LaunchedEffect(isobaths, zoomLevel) {
+        val mv = localMapView.value ?: return@LaunchedEffect
+        if (isobaths === tracker.lastIsobaths && zoomLevel == tracker.lastIsobathZoom) return@LaunchedEffect
+        mv.overlays.removeAll(tracker.isobaths)
+        tracker.isobaths.clear()
+        drawIsobaths(mv, isobaths, zoomLevel, tracker.isobaths)
+        tracker.lastIsobaths = isobaths
+        tracker.lastIsobathZoom = zoomLevel
+        mv.invalidate()
+    }
+
+    // Coastline layer
+    LaunchedEffect(segments) {
+        val mv = localMapView.value ?: return@LaunchedEffect
+        if (segments === tracker.lastSegments) return@LaunchedEffect
+        mv.overlays.removeAll(tracker.coastline)
+        tracker.coastline.clear()
+        drawCoastline(mv, segments, tracker.coastline)
+        tracker.lastSegments = segments
+        mv.invalidate()
+    }
+
     // ── Cone + dashed line: DISABLED — see more-dedebug subfeature ──────────────
-    // These were causing excessive mapView.invalidate() calls during drag.
-    // Re-enable once the decoupled rendering is implemented.
-    // LaunchedEffect(headingAheadResult, zoomLevel, boatPosition, headingDeg) {
-    //     val mv = localMapView.value ?: return@LaunchedEffect
-    //     drawZoneAheadCone(mv, boatPosition, headingAheadResult, zoomLevel, headingDeg)
-    //     val hitPt = headingAheadResult?.intersectionLatLng
-    //     drawZoneAheadLine(mv, boatPosition, hitPt, zoomLevel)
-    //     mv.invalidate()
-    // }
 }
 
 // ── Center marker overlay ────────────────────────────────────────────────────

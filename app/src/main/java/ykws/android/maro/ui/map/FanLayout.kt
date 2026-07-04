@@ -166,7 +166,8 @@ fun FanLayout(
                         onClick = {
                             // In toggle mode, report the current state so caller can toggle
                             if (config.toggleChildren) {
-                                onChildClick?.invoke(i, !config.isOpen)
+                                val childActive = activeStates.getOrElse(i) { config.toggleChildren }
+                                onChildClick?.invoke(i, childActive)
                             } else {
                                 onChildClick?.invoke(i, false)
                             }

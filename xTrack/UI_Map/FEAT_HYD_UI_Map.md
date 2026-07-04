@@ -1,39 +1,38 @@
 # UI_Map — Hydration Snapshot
 
-**Baked:** 2026-06-25 16:55 UTC+2
+**Baked:** 2026-07-04 16:48 UTC+2
 
 ## Active State
-- **Subfeature:** overlay-layer
-- **Branch:** feature/map-migration
+- **Subfeature:** map refresh
+- **Branch:** feature/fan
 
 ## What Changed This Session
-1. **DrawerSlot created** — reusable `AnimatedVisibility` wrapper: `SlideDirection` + `ShadowEdge` enums, spring enter + tween exit, 8dp gradient shadow via `drawBehind`
-2. **OverlayLayer created** — unified Layer 1 compositor: all 7 transient surfaces + scrim in one self-contained composable
-3. **Wizard steps extracted** to `markers/wizard/` — 6 new files: `WizardTopBar`, `WizardButtonRow`, `TypeSelectStep`, `PositionStep`, `SliderStep`, `TextInputStep`
-4. **Wizard blank fixed** — `WizardDrawer` receives `step: WizardStep` as non-null parameter
-5. **Drawer cleanup** — `MarkerDrawer`, `MenuDrawerOverlay`, `TrackHistoryOverlay`, `WizardDrawer` stripped of AnimatedVisibility/scrim/shadow → pure content
-6. **MapScreen integrated** — `OverlayLayer(...)` call at line 1036 replaces inline drawer rendering
-7. **Build: SUCCESS** — `assembleDebug` green, 41 tasks up-to-date
-8. **`docs/ui-drawer-guidelines.md` updated** — §1–§5 new: architecture, DrawerSlot API, surfaces table, composable contract, how-to-add-a-drawer checklist; decisions I7–I11
+1. **Depth produceState over-keying fixed** — removed `lowDepthWarningMaxM`, `lowDepthWarningMinOpacityPct`, `coastlineReady` from depth bitmap keys (only affects low-depth warning)
+2. **Dead params removed** — `boatPosition` and `headingDeg` dropped from `CoastlineMapView` signature (passed but never read)
+3. **Monolithic update split** — `AndroidView.update` replaced with 6 per-layer `LaunchedEffect` blocks, each keyed on only its layer's data + `zoomLevel`
+4. **OverlayTracker per-layer zoom** — single `lastZoom`/`lastDepthBox` replaced with per-layer zoom fields
+5. **Coastline zoom independence** — coastline LaunchedEffect keyed on `segments` only; `drawCoastline()` takes no zoom param (osmdroid auto-scales)
+6. **Build: SUCCESS** — `assembleDebug` green (twice — initial + coastline fix)
 
 ## Design Decisions
-- 9 copy-pasted `AnimatedVisibility` blocks → 9 `DrawerSlot` calls (~270 lines → ~72 lines)
-- `Modifier.shadow()` (invisible on dark) → 8dp black@18% gradient via `drawBehind`
-- Wizard steps are independent composables in `markers/wizard/steps/`; `WizardDrawer.kt` is a thin shell
-- Layer 0 (dashboard/map/controls) is permanent; Layer 1 (OverlayLayer) is transient
-- Any new overlay follows the 6-step checklist in `docs/ui-drawer-guidelines.md` §5
+- `LaunchedEffect` (async, 1-frame delay) chosen over `SideEffect` (sync but no key mechanism)
+- Per-layer zoom tracking: each layer independently decides whether its zoom changed since last draw
+- All runtime settings flow through data parameters (visibility gates, produceState, filterRegulatedZones) — no additional LaunchedEffect keys needed
+- Coastline excluded from zoom dependency: polylines are static, osmdroid handles scaling
+
+## Net Effect
+| Trigger | Before (checks) | After (LaunchedEffects) |
+|---------|----------------|--------------------------|
+| Zoom gesture | 6 | 5 (coastline excluded) |
+| GPS tick (1 Hz) | 6 | 0 |
+| depthBitmap loads | 6 | 1 (depth only) |
+| zone300 toggle | 6 | 1 (zone300 only) |
+| boatSizeM slider | 6 | 1 (regulatedZones only) |
+| Low-depth warning slider | 6 + depth produceState | 1 (lowDepth only) |
 
 ## Target Files
-- `app/src/main/java/ykws/android/maro/ui/map/DrawerSlot.kt` — NEW
-- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt` — NEW
-- `app/src/main/java/ykws/android/maro/ui/markers/wizard/WizardTopBar.kt` — NEW
-- `app/src/main/java/ykws/android/maro/ui/markers/wizard/WizardButtonRow.kt` — NEW
-- `app/src/main/java/ykws/android/maro/ui/markers/wizard/steps/TypeSelectStep.kt` — NEW
-- `app/src/main/java/ykws/android/maro/ui/markers/wizard/steps/PositionStep.kt` — NEW
-- `app/src/main/java/ykws/android/maro/ui/markers/wizard/steps/SliderStep.kt` — NEW
-- `app/src/main/java/ykws/android/maro/ui/markers/wizard/steps/TextInputStep.kt` — NEW
-- `app/src/main/java/ykws/android/maro/ui/map/WizardDrawer.kt` — modified (thin shell)
-- `docs/ui-drawer-guidelines.md` — updated
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — modified
+- `app/src/main/java/ykws/android/maro/ui/map/OverlayTracker.kt` — modified
 
-## Next Steps
-- On-device verify all 7 surfaces open/close with correct animations and shadows
+## Plan
+- `plans/coastline-mapview-per-layer-update.md`
