@@ -493,13 +493,22 @@ class NavigationViewModel(
                         val zone = szQuery.allInsideZones.firstOrNull()
                         if (zone != null) {
                             val dist = abs(szQuery.distanceToBoundaryM ?: 0.0)
+                            val etaS = if (sogKnH != null && sogKnH > 0f) {
+                                (dist / (sogKnH * KNOTS_TO_MPS)).coerceAtLeast(0.0)
+                            } else null
+                            val exitPos = SpatialOperations.pointAlongBearing(
+                                center.latitude, center.longitude, headingDegH, dist
+                            )
+                            val beyond = determineBeyondType(exitPos, headingDegH, szIdx)
                             ZoneBoundaryInfo(
                                 distanceM = dist,
+                                etaSeconds = etaS,
                                 zoneName = zone.name,
                                 speedLimitKn = szQuery.mostRestrictiveSpeedKn!!,
                                 currentSpeedKnots = sogKnH,
                                 isCompliant = sogKnH == null || sogKnH < szQuery.mostRestrictiveSpeedKn!!.toFloat(),
-                                beyondType = BeyondType.OPEN_SEA,
+                                beyondType = beyond.first,
+                                beyondName = beyond.second,
                             )
                         } else null
                     } else if (inZone) {
@@ -927,11 +936,13 @@ class NavigationViewModel(
      */
     fun toggleZone300Visibility() {
         val current = settings.value.zone300Visible
+        Log.d("MaroMapRefresh", "toggleZone300 → ${!current}")
         settingsManager.update { it.copy(zone300Visible = !current) }
         bandEnteredSinceReveal = false
         if (current) { // was visible → now hiding (user manually hid it)
             zone300ManuallyHidden = true
             zone300AutoRevealed = false  // fresh manual hide, reset auto state
+            _zone300OverlayVisible.value = false // reset auto-show so OR in MapScreen has effect
         } else { // was hidden → now showing (user manually toggled back on)
             zone300ManuallyHidden = false
             zone300AutoRevealed = false
@@ -966,6 +977,7 @@ class NavigationViewModel(
             } else { // was on → now off (user manually hid it)
                 zone300ManuallyHidden = true
                 zone300AutoRevealed = false
+                _zone300OverlayVisible.value = false // reset auto-show so OR in MapScreen has effect
             }
         }
         // Track manual hide/reveal for regulated zone auto-reveal state machine
@@ -976,6 +988,7 @@ class NavigationViewModel(
             } else { // was on → now off (user manually hid it)
                 regulatedZoneManuallyHidden = true
                 regulatedZoneAutoRevealed = false
+                _regulatedZoneOverlayVisible.value = false // reset auto-show so OR in MapScreen has effect
             }
         }
     }
@@ -986,10 +999,12 @@ class NavigationViewModel(
      */
     fun toggleRegulatedZonesVisibility() {
         val current = settings.value.regulatedZonesVisible
+        Log.d("MaroMapRefresh", "toggleRegulatedZones → ${!current}")
         settingsManager.update { it.copy(regulatedZonesVisible = !current) }
         if (current) { // was visible → now hiding (user manually hid it)
             regulatedZoneManuallyHidden = true
             regulatedZoneAutoRevealed = false
+            _regulatedZoneOverlayVisible.value = false // reset auto-show so OR in MapScreen has effect
         } else { // was hidden → now showing (user manually toggled back on)
             regulatedZoneManuallyHidden = false
             regulatedZoneAutoRevealed = false
@@ -1017,6 +1032,7 @@ class NavigationViewModel(
      * Plain on/off — unlike the 300 m band there is no auto-reveal state to manage.
      */
     fun toggleLowDepthWarningVisibility() {
+        Log.d("MaroMapRefresh", "toggleLowDepthWarning → ${!settings.value.lowDepthWarningVisible}")
         settingsManager.update { it.copy(lowDepthWarningVisible = !it.lowDepthWarningVisible) }
     }
 
@@ -1024,6 +1040,7 @@ class NavigationViewModel(
      * Toggles the depth colour map + isobath contour overlay visibility.
      */
     fun toggleDepthLayerVisibility() {
+        Log.d("MaroMapRefresh", "toggleDepthLayer → ${!settings.value.depthLayerVisible}")
         settingsManager.update { it.copy(depthLayerVisible = !it.depthLayerVisible) }
     }
 
@@ -1031,6 +1048,7 @@ class NavigationViewModel(
      * Toggle the tracks overlay layer visibility on/off.
      */
     fun toggleTracksVisibility() {
+        Log.d("MaroMapRefresh", "toggleTracks → ${!settings.value.tracksVisible}")
         settingsManager.update { it.copy(tracksVisible = !it.tracksVisible) }
     }
 
@@ -1513,19 +1531,19 @@ class NavigationViewModel(
         val blo = boundaryPos.longitude
         // 1. Check for another zone ahead (instant, independent of distance)
         val nextZone = speedZoneIndex?.firstSpeedZoneAhead(blt, blo, headingDeg)
-        if (nextZone != null) return BeyondType.ZONE to nextZone.first.name
+        val zoneDist = nextZone?.second ?: Double.MAX_VALUE
 
-        // 2. Exponential land probe: 25 → 50 → 100 → 200 → 400 → 500 (cap)
-        var probe = 25.0
-        while (probe <= 500.0) {
+        // 2. Land probe with zone-distance gating: 5 -> 10 -> 30 -> 60 -> 120 -> 240 -> 480
+        val probes = doubleArrayOf(5.0, 10.0, 15.0, 20.0)
+        for (probe in probes) {
+            if (probe >= zoneDist) return BeyondType.ZONE to nextZone!!.first.name
             val pt = SpatialOperations.pointAlongBearing(blt, blo, headingDeg, probe)
             if (!repository.isOnWater(pt.latitude, pt.longitude)) return BeyondType.LAND to null
-            probe *= 2
         }
-        return BeyondType.OPEN_SEA to null
-    }
+        return if (nextZone != null) BeyondType.ZONE to nextZone.first.name else BeyondType.OPEN_SEA to null
 
     /** GPS subscription parameters — flatMapLatest re-subscribes the listener when any field changes. */
+    }
     private data class GpsParams(val on: Boolean, val intervalMs: Long, val minDistanceM: Float)
 
     /** Result of one throttled recompute: shore distance + water flag + 300 m zone + speed zone data + unified zone situation. */

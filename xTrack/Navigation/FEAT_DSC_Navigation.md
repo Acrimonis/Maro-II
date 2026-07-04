@@ -2,8 +2,8 @@
 name: Navigation
 status: active
 created: 2026-06-10 08:40
-modified: 2026-06-11 11:55
-active_subfeature: cap
+modified: 2026-07-04 16:57
+active_subfeature: dash distance
 ---
 
 # Feature: Navigation
@@ -50,6 +50,48 @@ Navigation aids on the map overlay — heading/speed indicator and direction lin
 #### Docs
 - `xTrack/Navigation/FEAT_PLN_Navigation_cap-arrow.md` — original cap arrow design spec
 - `xTrack/Navigation/FEAT_PLN_Navigation_atomic-render.md` — atomic data flow + rendering analysis
+
+### dash distance  [x]
+
+Unified distance tile logic: single-branch compare replaces P1-P4 cascade. Shows nearest zone boundary on heading cone, compares speed limits, renders amber (more restrictive) / green (less restrictive) / coastline (default).
+
+#### Todos
+- [x] Audit all distance setters feeding the dashboard distance tile
+- [x] Decide P1–P4 logic → unified compare (amber=more restrictive, green=less restrictive, coastline=default)
+- [x] Implement: add etaSeconds to SHOM exit ZoneBoundaryInfo
+- [x] Implement: rewrite DistanceCard with unified compare logic
+- [x] Implement: remove dead nextZoneAhead variable
+- [x] Implement: always positive distance, always ↑ prefix
+- [x] Fix 1: shore-bound 300m gate (heading landward → coastline)
+- [x] Fix 2: zone-ahead priority over exit (only when beyondType = OPEN_SEA)
+- [x] Fix 3: SHOM exit calls determineBeyondType() for real beyondType
+- [x] Fix 4: land probes shortened to 5-10-15-20m (immediate-shore only)
+- [x] Lérins "outside channel" zone override: 3kn → 5kn
+- [x] Build green
+
+#### Rules
+- Alert thresholds: `autoRevealDistanceM` (100m) + `autoRevealTimeS` (10s)
+- Heading cone: ±15° (CONE_HALF_ANGLE), heading-ray only
+- SHOM exit beyondType kept as OPEN_SEA (deferred)
+- LAND beyond exit → excluded → coastline
+- Same-limit transition → coastline (no alert)
+- Ahead zone only overrides exit when beyondType = OPEN_SEA
+- Land probes: 5→10→15→20m from zone boundary
+- Lérins "outside channel" zone: `description.contains("outside channel")` OR `(name == "other" && speedLimitKn == 3.0)` → 5kn
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt` — DistanceCard unified logic + fixes
+- `app/src/main/java/ykws/android/maro/ui/map/NavigationViewModel.kt` — etaSeconds, determineBeyondType, SHOM exit beyondType
+- `app/src/main/java/ykws/android/maro/data/regulation/SpeedZoneBuilder.kt` — Lérins 3kn→5kn override
+- `app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneComponents.kt` — bottom-left tag override
+
+#### Docs
+
+## Implemented
+
+| Date | Summary |
+|------|---------|
+| 2026-07-04 | **dash distance:** Unified distance tile — single-branch speed-limit compare. Amber=more restrictive, green=less restrictive, coastline=default. ETA for SHOM exit. Dead `nextZoneAhead` removed. Always positive `↑`. Fixes: shore-bound 300m gate, zone-ahead priority (OPEN_SEA only), SHOM exit real beyondType, land probes shortened to 5-20m, Lérins "outside channel" 3kn→5kn override. Build green. |
 
 ## Todos
 - [ ] On-device visual verification of all navigation features

@@ -2,13 +2,40 @@
 name: UI_Map
 status: active
 created: 2026-06-07 00:00
-modified: 2026-06-25 16:55
-active_subfeature: overlay-layer
+modified: 2026-07-04 16:48
+active_subfeature: map refresh
 ---
 
 **Description:** Map display layer management — depth layer, color depth layer, and orientation-aware rendering.
 
 ## Subfeatures
+
+### map refresh  [-]
+
+Investigation into intermittent rendering issues: fan layer toggle inconsistency, marker effects not updating, markers disappearing until restart.
+
+#### Todos
+- [x] Add logging to toggle chain: onChildClick → settingsManager.update → CoastlineMapView.update
+- [ ] Fix OverlayTracker reference staleness after ON→OFF→ON toggle cycles
+- [ ] Verify StateFlow timing between SharedPreferences write and Compose collectAsState
+- [ ] Add logging for markerLayerState transitions and mapView nullity
+- [ ] Fix UserMarkerRepository error handling with fallback cache
+- [ ] Verify marker list identity changes on CRUD for DisposableEffect restart
+- [ ] Add marker generation counter to force MarkerOverlay DisposableEffect restart
+- [x] Isolate mv.overlays mutations to prevent cross-effect race conditions — split monolithic AndroidView.update into 6 per-layer LaunchedEffect blocks, each keyed on only its layer's data; removed dead params boatPosition/headingDeg; fixed depth produceState over-keying; coastline LaunchedEffect excludes zoomLevel (drawCoastline takes no zoom param)
+- [ ] Build + on-device verify all three issues are resolved
+
+#### Docs
+- `xTrack/UI_Map/FEAT_PLN_UI_Map_map-refresh-troubleshooting.md` — full troubleshooting plan
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/NavigationViewModel.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MarkerOverlay.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/OverlayTracker.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/FanLayout.kt`
+- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt`
 
 ### layer refresh  [x]
 

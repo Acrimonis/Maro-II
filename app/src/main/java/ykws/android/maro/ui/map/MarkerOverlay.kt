@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.DashPathEffect
 import android.graphics.Paint
 import android.graphics.drawable.BitmapDrawable
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -131,7 +132,8 @@ fun MarkerOverlay(
         }
     }?.toSet() ?: emptySet()
 
-    DisposableEffect(markers, unconfirmedMarker, mv, matchResult, selectedMarkerId) {
+    DisposableEffect(markers, unconfirmedMarker, mv, matchResult, selectedMarkerId, markerZonesVisible) {
+        Log.d("MaroMapRefresh", "MarkerOverlay DisposableEffect restart: markers=${markers.size} mv=${mv.hashCode()} zonesVisible=$markerZonesVisible")
         // ── Remove old marker overlays, then add new ones ─────────────────────
         removeAllMarkerOverlays()
 

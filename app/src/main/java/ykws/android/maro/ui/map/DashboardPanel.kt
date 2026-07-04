@@ -349,73 +349,131 @@ private fun DistanceCard(
         return
     }
 
-    // ── Dynamic relevance: show the nearest relevant boundary ──────────
+    // ── Find next zone boundary ahead on heading cone ──────────────────
     val currentZone = zoneSituation?.currentZone
-    val nearestZone = zoneSituation?.zonesAround?.firstOrNull()
+    val nearestAhead = zoneSituation?.zonesAround?.firstOrNull()
 
-    // Helper: inside zone AND within exit-preview thresholds (distance OR time)
-    val isNearExit = currentZone != null && (abs(currentZone.distanceM) <= autoRevealDistanceM ||
-        (currentZone.etaSeconds != null && currentZone.etaSeconds <= autoRevealTimeS))
-
-    // Helper: zone entry closer than shore AND within threshold
-    val isNearEntry = nearestZone != null && nearestZone.distanceM < distanceToShore &&
-        nearestZone.distanceM > 0.0 &&
-        (nearestZone.distanceM <= autoRevealDistanceM ||
-            (nearestZone.etaSeconds != null && nearestZone.etaSeconds <= autoRevealTimeS))
-
-    // Next zone ahead (beyond current zone's boundary) — from zonesAround with ↑ arrow
-    val nextZoneAhead = zoneSituation?.zonesAround?.firstOrNull { it.directionArrow == "\u2191" }
-
-    val (displayDist, displayLabel) = when {
-        // Priority 1: Inside zone AND within reveal thresholds → show exit distance + beyond type
-        // NOTE: nextZoneAhead is intentionally ignored here — when inside a zone, the distance tile
-        // shows where you're heading beyond the CURRENT zone's boundary (beyondType), not the next
-        // unrelated zone ahead. nextZoneAhead is for the zone tile (SpeedLimitCard) which shows
-        // regulation previews for zones on the heading.
-        isNearExit -> {
-            val label = when (currentZone!!.beyondType) {
-                BeyondType.OPEN_SEA -> "open water"
-                BeyondType.ZONE -> "\u2192 ${currentZone.beyondName ?: currentZone.zoneName}"
-                BeyondType.LAND -> "land"
-            }
-            -abs(currentZone.distanceM) to label
-        }
-        // Priority 2: Zone entry closer than shore → show entry distance (negative)
-        isNearEntry ->
-            -nearestZone!!.distanceM to "\u2192 ${nearestZone.zoneName}"
-        // Priority 3: Inside zone, beyond reveal thresholds → show shore (default)
-        currentZone != null ->
-            distanceToShore to stringResource(R.string.dash_distance_from_shore)
-        // Priority 4: Default → show shore
-        else ->
-            distanceToShore to stringResource(R.string.dash_distance_from_shore)
+    // Fix 1: Inside 300m band heading towards shore — exit ray-march fails
+    // (heading landward, coastDist never exceeds ZONE_DISTANCE_M).
+    // Treat as LAND exclusion before zonesAround can hijack the boundary.
+    if (currentZone == null && isWater && distanceToShore != null && distanceToShore <= 300.0) {
+        DashboardCard(
+            title = stringResource(R.string.dash_distance_title),
+            value = distanceText(distanceToShore),
+            subtitle = stringResource(R.string.dash_distance_from_shore),
+            cardColor = DashboardColors.cardBg,
+            modifier = modifier
+        )
+        return
     }
 
-    val displayText = distanceText(displayDist)
-    val etaSeconds = when {
-        isNearExit -> currentZone!!.etaSeconds
-        isNearEntry -> nearestZone!!.etaSeconds
+    // Compute exit's effective next-limit (what's beyond the exit boundary)
+    val exitNextLimit: Double? = if (currentZone != null) {
+        when (currentZone.beyondType) {
+            BeyondType.OPEN_SEA -> Double.MAX_VALUE
+            BeyondType.ZONE -> {
+                zoneSituation?.zonesAround
+                    ?.firstOrNull { it.zoneName == currentZone.beyondName }
+                    ?.speedLimitKn ?: currentZone.speedLimitKn
+            }
+            BeyondType.LAND -> null  // excluded below
+        }
+    } else null
+
+    // Fix 2: Only prefer ahead zone when exit is to open water (no zone beyond).
+    // If beyondType is already ZONE or LAND, the exit boundary is meaningful.
+    // If beyondType is OPEN_SEA, there might be a zone ahead (e.g. 300m band)
+    // that the exit does not account for -- show that instead.
+    val boundary: ZoneBoundaryInfo? = when {
+        currentZone != null && nearestAhead != null && exitNextLimit != null -> {
+            if (currentZone.beyondType == BeyondType.OPEN_SEA) nearestAhead else currentZone
+        }
+        currentZone != null -> currentZone
+        nearestAhead != null -> nearestAhead
         else -> null
     }
-    val labelWithEta = if (etaSeconds != null) {
-        val etaStr = formatEta(etaSeconds)
-        if (etaStr != null) "$displayLabel - $etaStr" else displayLabel
-    } else displayLabel
 
-    // Card color by boundary type
-    val cardColor = when {
-        // Inside zone within reveal thresholds → beyond type determines color
-        isNearExit -> when (currentZone!!.beyondType) {
-            BeyondType.ZONE -> DashboardColors.zoneEntry  // 🟠 amber — next zone ahead
-            BeyondType.LAND -> DashboardColors.cardBg     // 🔵 blue — land boundary, informational
-            BeyondType.OPEN_SEA -> DashboardColors.zoneExit // 🟢 green — clear exit
-        }
-        // Approaching a zone — amber only if directly ahead (↑)
-        isNearEntry && nearestZone!!.directionArrow == "\u2191" ->
-            DashboardColors.zoneEntry
-        // Default → blue
-        else -> DashboardColors.cardBg
+    // No zone boundary ahead → coastline
+    if (boundary == null) {
+        DashboardCard(
+            title = stringResource(R.string.dash_distance_title),
+            value = distanceText(distanceToShore),
+            subtitle = stringResource(R.string.dash_distance_from_shore),
+            cardColor = DashboardColors.cardBg,
+            modifier = modifier
+        )
+        return
     }
+
+    // ── Gate: within alert thresholds? ─────────────────────────────────
+    val withinDistance = boundary.distanceM <= autoRevealDistanceM
+    val withinTime = boundary.etaSeconds != null && boundary.etaSeconds <= autoRevealTimeS
+    if (!withinDistance && !withinTime) {
+        // Beyond thresholds → coastline
+        DashboardCard(
+            title = stringResource(R.string.dash_distance_title),
+            value = distanceText(distanceToShore),
+            subtitle = stringResource(R.string.dash_distance_from_shore),
+            cardColor = DashboardColors.cardBg,
+            modifier = modifier
+        )
+        return
+    }
+
+    // ── Exclusion: exit with LAND ahead → coastline ────────────────────
+    if (boundary == currentZone && currentZone != null && currentZone.beyondType == BeyondType.LAND) {
+        DashboardCard(
+            title = stringResource(R.string.dash_distance_title),
+            value = distanceText(distanceToShore),
+            subtitle = stringResource(R.string.dash_distance_from_shore),
+            cardColor = DashboardColors.cardBg,
+            modifier = modifier
+        )
+        return
+    }
+
+    // ── Compare speed limits ───────────────────────────────────────────
+    val currentLimit = currentZone?.speedLimitKn ?: Double.MAX_VALUE
+    val nextLimit = if (boundary == currentZone) {
+        exitNextLimit!!  // exit boundary: next is what's beyond
+    } else {
+        boundary.speedLimitKn  // entry boundary: next is the zone's limit
+    }
+
+    // ── Same limit → coastline (no alert) ──────────────────────────────
+    if (nextLimit == currentLimit) {
+        DashboardCard(
+            title = stringResource(R.string.dash_distance_title),
+            value = distanceText(distanceToShore),
+            subtitle = stringResource(R.string.dash_distance_from_shore),
+            cardColor = DashboardColors.cardBg,
+            modifier = modifier
+        )
+        return
+    }
+
+    // ── Render alert ───────────────────────────────────────────────────
+    val isMoreRestrictive = nextLimit < currentLimit
+    val displayDist = abs(boundary.distanceM)
+    val displayText = "\u2191 ${distanceText(displayDist)}"
+    val label = if (boundary == currentZone) {
+        // Exiting: show what's beyond
+        when (currentZone!!.beyondType) {
+            BeyondType.OPEN_SEA -> "open water"
+            BeyondType.ZONE -> currentZone.beyondName ?: currentZone.zoneName
+            BeyondType.LAND -> "land" // unreachable due to exclusion above
+        }
+    } else {
+        // Entering zone ahead
+        boundary.zoneName
+    }
+    val labelWithEta = if (boundary.etaSeconds != null) {
+        val etaStr = formatEta(boundary.etaSeconds)
+        if (etaStr != null) "$label - $etaStr" else label
+    } else label
+
+    val cardColor = if (isMoreRestrictive) DashboardColors.zoneEntry   // amber
+                    else DashboardColors.zoneExit                      // green
 
     DashboardCard(
         title = stringResource(R.string.dash_distance_title),

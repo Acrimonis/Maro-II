@@ -245,6 +245,7 @@ class MarkersViewModel(
     /** Toggles the marker layer between HIDDEN and SHOW_ALL (binary). */
     fun toggleMarkerLayer() {
         val next = if (markerLayerState.value == MarkerLayerState.HIDDEN) MarkerLayerState.SHOW_ALL else MarkerLayerState.HIDDEN
+        Log.d("MaroMapRefresh", "toggleMarkerLayer: ${markerLayerState.value} → $next")
         settingsManager.update { it.copy(markerLayerState = next) }
     }
 
