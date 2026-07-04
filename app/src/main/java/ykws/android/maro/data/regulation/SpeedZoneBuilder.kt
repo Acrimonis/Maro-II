@@ -23,15 +23,23 @@ object SpeedZoneBuilder {
         return zoneSet.zones
             .filter { it.speedLimitKn != null }
             .map { zone ->
+                // Compute effective speed before name — the name fallback
+                // uses the speed value, so it must reflect any overrides.
+                val effectiveKn = when {
+                    // Lérins "outside channel" zone: SHOM says 3 kn,
+                    // but treated as 5 kn for consistency with the 300m band.
+                    zone.description.contains("outside channel", ignoreCase = true) ||
+                        (zone.name == "other" && zone.speedLimitKn == 3.0) -> 5.0
+                    else -> zone.speedLimitKn!!
+                }
                 SpeedZone(
                     id = zone.sourceRef.ifBlank { zone.name },
                     // Filter SHOM's literal "null" string (unnamed zones) so the
                     // dashboard tile displays a human-readable name instead.
-                    // Use "Zone X kn" format when we have a speed limit but no real name.
                     name = zone.name
                         .takeIf { it != "null" && it.isNotBlank() }
-                        ?: "Zone ${"%.0f".format(zone.speedLimitKn)} kn",
-                    speedLimitKn = zone.speedLimitKn!!,
+                        ?: "Zone ${"%.0f".format(effectiveKn)} kn",
+                    speedLimitKn = effectiveKn,
                     outerRing = zone.outerRing,
                     holes = zone.holes,
                     source = zone.source

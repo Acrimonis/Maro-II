@@ -86,8 +86,12 @@ fun RegulatedZoneWarningStrip(
             } else {
                 zones
                     .flatMap { zone ->
-                        val speed = zone.speedLimitKn
-                            ?: parseSpeedFromDescription(zone.description)
+                        val speed = when {
+                            zone.description.contains("outside channel", ignoreCase = true) ||
+                                (zone.name == "other" && zone.speedLimitKn == 3.0) -> 5.0
+                            else -> zone.speedLimitKn
+                                ?: parseSpeedFromDescription(zone.description)
+                        }
                         zone.displayCategories().map { cat -> cat to speed }
                     }
                     .filter { (cat, speed) -> cat != ZoneDisplayCategory.SPEED_LIMIT || speed != null }
@@ -224,8 +228,12 @@ fun RegulatedZoneInfoText(
             } else {
                 zones
                     .flatMap { zone ->
-                        val speed = zone.speedLimitKn
-                            ?: parseSpeedFromDescription(zone.description)
+                        val speed = when {
+                            zone.description.contains("outside channel", ignoreCase = true) ||
+                                (zone.name == "other" && zone.speedLimitKn == 3.0) -> 5.0
+                            else -> zone.speedLimitKn
+                                ?: parseSpeedFromDescription(zone.description)
+                        }
                         // Pair each display category with the zone it came from
                         zone.displayCategories().map { cat -> Triple(cat, speed, zone) }
                     }
