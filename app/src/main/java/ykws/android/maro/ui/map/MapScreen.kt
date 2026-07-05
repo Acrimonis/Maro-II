@@ -1400,6 +1400,12 @@ fun MapScreen(
             gpsMode = appSettings.gpsMode,
             onGpsModeChange = onGpsModeChange,
             gpsToggleColor = gpsToggleColor,
+            markerZonesVisible = appSettings.markerZonesVisible,
+            onToggleMarkerZones = {
+                Log.d("MaroMapRefresh", "MenuDrawer toggle: markerZonesVisible ${appSettings.markerZonesVisible} -> ${!appSettings.markerZonesVisible}")
+                viewModel.updateSettings { it.copy(markerZonesVisible = !appSettings.markerZonesVisible) }
+                mapView?.invalidate()
+            },
             onTrackAction = { action ->
                 when (action) {
                     is ykws.android.maro.data.model.ListAction.ExportGpx -> shareTrackGpx(context, trackViewModel, action.id, trackScope)

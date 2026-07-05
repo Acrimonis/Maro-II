@@ -84,6 +84,8 @@ fun OverlayLayer(
     gpsMode: Boolean,
     onGpsModeChange: (Boolean) -> Unit,
     gpsToggleColor: ComposeColor,
+    markerZonesVisible: Boolean = true,
+    onToggleMarkerZones: () -> Unit = {},
 
     // ── Track history data ───────────────────────────────────────────────
     onTrackAction: (ykws.android.maro.data.model.ListAction) -> Unit,
@@ -246,7 +248,9 @@ fun OverlayLayer(
                 markerFilterState = markerFilterState,
                 onMarkerFilterChange = onMarkerFilterChange,
                 onMarkerReset = onMarkerReset,
-                markerFilterAxes = ykws.android.maro.data.model.markerFilterAxes()
+                markerFilterAxes = ykws.android.maro.data.model.markerFilterAxes(),
+                markerZonesVisible = markerZonesVisible,
+                onToggleMarkerZones = onToggleMarkerZones
             )
         }
 

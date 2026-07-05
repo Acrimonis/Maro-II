@@ -76,6 +76,8 @@ fun MenuDrawerOverlay(
     onStopRecording: () -> Unit,
     onViewTrackList: () -> Unit,
     onManageMarkers: () -> Unit = {},
+    markerZonesVisible: Boolean = true,
+    onToggleMarkerZones: () -> Unit = {},
     onDismiss: () -> Unit,
     onOpenSettings: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -293,6 +295,35 @@ fun MenuDrawerOverlay(
                 .background(Color(AppConfig.uiCardBackground))
                 .padding(horizontal = 16.dp, vertical = 10.dp)
         ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Show Zones on Map",
+                    color = Color(AppConfig.uiSettingsTextPrimary),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Switch(
+                    checked = markerZonesVisible,
+                    onCheckedChange = { onToggleMarkerZones() },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color(AppConfig.uiSettingsAccent),
+                        checkedTrackColor = Color(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                        uncheckedThumbColor = Color(AppConfig.uiSettingsTextMuted),
+                        uncheckedTrackColor = Color(AppConfig.uiSettingsSwitchTrackInactive)
+                    )
+                )
+            }
+
+            Spacer(Modifier.height(6.dp))
+            HorizontalDivider(thickness = 0.5.dp, color = Color(AppConfig.uiSettingsDivider))
+            Spacer(Modifier.height(6.dp))
+
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
