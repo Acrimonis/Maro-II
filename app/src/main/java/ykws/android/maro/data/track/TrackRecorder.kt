@@ -18,8 +18,12 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import ykws.android.maro.data.model.LatLng
+import ykws.android.maro.data.model.markers.MarkerOrigin
+import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.data.track.TrackEvent.*
 import ykws.android.maro.spatial.SpatialOperations
+import ykws.android.maro.spatial.WhereAmIMatch
+import ykws.android.maro.spatial.WhereAmIResult
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -58,6 +62,9 @@ private const val LAND_DETECTION_REJECTIONS = 5
 /** Consecutive accepted fixes ≤32 kn before switching back to sea. */
 private const val SEA_RECOVERY_CONSECUTIVE = 10
 
+/** Interval (ms) between title poll ticks. */
+private const val TITLE_POLL_INTERVAL_MS = 180_000L
+
 /** The track recorder state machine states. */
 enum class TrackRecorderState { OFF, ON }
 
@@ -77,7 +84,8 @@ data class TrackRecorderUiState(
     val distanceNm: Float = 0f,
     val recordingPoints: List<TrackPoint> = emptyList(),
     val isMoving: Boolean = false,
-    val idleDurationSec: Long = 0L
+    val idleDurationSec: Long = 0L,
+    val infoError: String? = null
 )
 
 /**
@@ -100,6 +108,8 @@ data class TrackRecorderUiState(
  * @param simplifyEpsilonM        Douglas-Peucker tolerance (metres). Lower = more points kept.
  * @param simplifySpeedDeltaKn    Speed deviation threshold (knots) to re-insert a point during simplification.
  * @param dispatcher              Coroutine dispatcher for the state machine loop.
+ * @param whereAmI                Synchronous whereAmI lookup — nullable; when null the feature is dormant.
+ * @param markerChangeNotifier    Flow that emits when external markers change — nullable.
  */
 class TrackRecorder(
     private val repository: TrackRepository,
@@ -114,7 +124,9 @@ class TrackRecorder(
     private val simplifySpeedDeltaKn: Double = 3.0,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val idleThresholdSec: Long = 60,
-    private val idleThresholdCallback: IdleThresholdCallback? = null
+    private val idleThresholdCallback: IdleThresholdCallback? = null,
+    private val whereAmI: ((LatLng) -> WhereAmIResult)? = null,
+    private val markerChangeNotifier: Flow<Unit>? = null
 ) {
     private val _uiState = MutableStateFlow(TrackRecorderUiState())
     val uiState: StateFlow<TrackRecorderUiState> = _uiState.asStateFlow()
@@ -179,6 +191,8 @@ class TrackRecorder(
     private var collectingJob: Job? = null
     private var checkpointJob: Job? = null
     private var elapsedTimerJob: Job? = null
+    private var titlePollJob: Job? = null
+    private var markerObserverJob: Job? = null
 
     /** Called by MapScreen to set the 🕐 auto-marker ID on the active idle session. */
     fun setActiveSessionAutoMarkerId(id: String) {
@@ -221,6 +235,8 @@ class TrackRecorder(
         scope?.launch {
             currentTrack?.let { repository.saveCheckpoint(it) }
         }
+        recomputeDescription()
+        pollTitle()
     }
 
     /**
@@ -262,6 +278,11 @@ class TrackRecorder(
             currentTrack?.let { repository.saveCheckpoint(it) }
         }
         Log.d(TAG, "updateCurrentTrackMeta: name=${currentTrack?.name} comment=${currentTrack?.comment}")
+    }
+
+    /** Clear the track info error — dismisses the ErrorOverlay. */
+    fun clearInfoError() {
+        _uiState.update { it.copy(infoError = null) }
     }
 
     /** Manually start recording (bypasses auto-detection). */
@@ -369,6 +390,7 @@ class TrackRecorder(
         Log.d(TAG, "beginRecording: id=$id name=$name isManual=$isManual startSample=${startSample != null}")
         _events.tryEmit(Started)
         startCheckpointJob()
+        startPolling()
 
         startSample?.let { addPoint(it) }
     }
@@ -403,6 +425,8 @@ class TrackRecorder(
                 _uiState.update { it.copy(idleDurationSec = idleDurationSec) }
                 if (session != null) {
                     closeOpenBoatMarker(now)
+                    recomputeDescription()
+                    pollTitle()
                     if (session.drawerAutoOpened) {
                         _events.tryEmit(DrawerAutoCloseRequested)
                     }
@@ -638,6 +662,7 @@ class TrackRecorder(
     private fun finalizeTrack() {
         val track = currentTrack ?: return
         stopCheckpointJob()
+        stopPolling()
         cancelIdleTimer()
         stopDebounceStartTime = null
 
@@ -676,7 +701,10 @@ class TrackRecorder(
         }
         activeSession = null
 
-        val finalized = track.copy(
+        // Re-read currentTrack after closeOpenBoatMarker to include updated boatMarkers
+        val trackAfterClose = currentTrack ?: track
+
+        val finalized = trackAfterClose.copy(
             trackPoints = simplifiedPoints,
             endTimeMs = System.currentTimeMillis(),
             pausedDurationSec = 0,
@@ -686,11 +714,15 @@ class TrackRecorder(
             navigatingDurationSec = totalElapsedSec - idleDurationSec,
             updatedAtEpochMs = System.currentTimeMillis()
         )
-        currentTrack = finalized
+
+        // Compute destination-based title (after closeOpenBoatMarker, before final copy)
+        val finalName = computeFinalTitle(finalized)
+        val finalizedWithTitle = if (finalName != null) finalized.copy(name = finalName) else finalized
+        currentTrack = finalizedWithTitle
 
         scope?.launch {
-            repository.deleteCheckpoint(finalized.id)
-            repository.save(finalized)
+            repository.deleteCheckpoint(finalizedWithTitle.id)
+            repository.save(finalizedWithTitle)
             _events.tryEmit(Stopped)
         }
 
@@ -771,7 +803,7 @@ class TrackRecorder(
                     val seqIdx = (track.boatMarkers.lastOrNull()?.sequenceIndex ?: -1) + 1
                     val bm = BoatMarker(
                         trigger = BoatMarkerTrigger.IDLE,
-                        startTimeMs = System.currentTimeMillis(),
+                        startTimeMs = startMs,
                         markers = result.entries,
                         boatLat = lat,
                         boatLon = lon,
@@ -780,6 +812,8 @@ class TrackRecorder(
                     currentTrack = track.copy(boatMarkers = track.boatMarkers + bm)
                     session.boatMarkerIndex = currentTrack!!.boatMarkers.lastIndex
                     repository.saveCheckpoint(currentTrack!!)
+                    recomputeDescription()
+                    pollTitle()
                 }
                 if (result.autoMarkerId != null) {
                     session.autoMarkerId = result.autoMarkerId
@@ -816,6 +850,7 @@ class TrackRecorder(
     }
 
     private fun cleanup() {
+        stopPolling()
         cancelIdleTimer()
         collectingJob?.cancel()
         checkpointJob?.cancel()
@@ -831,5 +866,263 @@ class TrackRecorder(
     /** Release all resources. */
     fun dispose() {
         cleanup()
+    }
+
+    // ── Track info: description + title ──────────────────────────────────
+
+    /** Extract UserMarker from a WhereAmIMatch (local helper, mirrors MarkerMatcher.markerOf). */
+    private fun markerOf(match: WhereAmIMatch): UserMarker = when (match) {
+        is WhereAmIMatch.ZoneMatch -> match.marker
+        is WhereAmIMatch.LineOfSightMatch -> match.marker
+    }
+
+    /** Extract top 2 non-IDLE_AUTO zone names from a WhereAmIResult, in whereAmI sort order. */
+    private fun topZoneNames(result: WhereAmIResult): List<String> {
+        return result.allMatches
+            .filter { markerOf(it).origin != MarkerOrigin.IDLE_AUTO }
+            .take(2)
+            .map { markerOf(it).name }
+    }
+
+    /** Extract top 2 non-IDLE_AUTO names from pre-captured MarkerSnapshots. */
+    private fun topSnapshotNames(snapshots: List<MarkerSnapshot>): List<String> {
+        return snapshots
+            .filter { it.name.isNotBlank() }
+            .take(2)
+            .map { it.name }
+    }
+
+    /** Check if a WhereAmIResult has at least one named (non-IDLE_AUTO) match. */
+    private fun isNamed(result: WhereAmIResult): Boolean {
+        return result.allMatches.any { markerOf(it).origin != MarkerOrigin.IDLE_AUTO }
+    }
+
+    /** Extract top named location from WhereAmIResult, or null if unnamed. */
+    private fun topLocationName(result: WhereAmIResult): String? {
+        return result.allMatches
+            .firstOrNull { markerOf(it).origin != MarkerOrigin.IDLE_AUTO }
+            ?.let { markerOf(it).name }
+    }
+
+    /** Check if a WhereAmIResult contains a pinned marker with the 🤿 diving icon. */
+    private fun hasDivingPinnedMarker(result: WhereAmIResult): Boolean {
+        return result.allMatches.any { match ->
+            val m = markerOf(match)
+            m.pinned && m.icon == "\uD83E\uDD3F"  // 🤿
+        }
+    }
+
+    /** Extract the name of the first pinned 🤿 marker in the result, or null. */
+    private fun divingLocationName(result: WhereAmIResult): String? {
+        return result.allMatches
+            .firstOrNull { match ->
+                val m = markerOf(match)
+                m.pinned && m.icon == "\uD83E\uDD3F"
+            }
+            ?.let { markerOf(it).name }
+    }
+
+    /** Extract the icon from the first non-IDLE_AUTO match whose marker is pinned with an icon, or null. */
+    private fun topLocationIcon(result: WhereAmIResult): String? {
+        return result.allMatches
+            .firstOrNull { match ->
+                val m = markerOf(match)
+                m.origin != MarkerOrigin.IDLE_AUTO && m.pinned && m.icon != null
+            }
+            ?.let { markerOf(it).icon }
+    }
+
+    /** Human-readable duration: "3min" or "1h 15min". */
+    private fun formatDuration(totalSec: Long): String {
+        val h = totalSec / 3600
+        val m = (totalSec % 3600) / 60
+        return when {
+            h > 0 && m > 0 -> "${h}h ${m}min"
+            h > 0 -> "${h}h"
+            else -> "${m}min"
+        }
+    }
+
+    /** Format a single description bullet line for one BoatMarker. */
+    private fun formatStopLine(bm: BoatMarker, zoneNames: List<String>): String {
+        val time = SimpleDateFormat("HH:mm", Locale.US).format(Date(bm.startTimeMs))
+        val zones = if (zoneNames.isEmpty()) "" else " at [${zoneNames.joinToString(", ")}]"
+        val durSuffix = if (bm.endTimeMs != null) {
+            val dur = (bm.endTimeMs - bm.startTimeMs) / 1000
+            " for ${formatDuration(dur)}"
+        } else {
+            ""
+        }
+        return "  - stopped$zones @ $time$durSuffix"
+    }
+
+    /**
+     * Rebuild the track description from the full BoatMarker history.
+     * Called on every trigger: idle start, idle end, manual marker, title poll, marker change.
+     * Reuses existing updateCurrentTrackMeta() for comment persistence.
+     */
+    private fun recomputeDescription() {
+        try {
+            val wia = whereAmI ?: return
+            val track = currentTrack ?: return
+
+            val lines = track.boatMarkers.map { bm ->
+                val zones = when (bm.trigger) {
+                    BoatMarkerTrigger.IDLE -> {
+                        val result = wia(LatLng(bm.boatLat, bm.boatLon))
+                        topZoneNames(result)
+                    }
+                    BoatMarkerTrigger.MANUAL -> {
+                        topSnapshotNames(bm.markers)
+                    }
+                }
+                formatStopLine(bm, zones)
+            }
+
+            val newComment = lines.joinToString("\n")
+            if (track.comment != newComment) {
+                updateCurrentTrackMeta(comment = newComment)
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "recomputeDescription failed", e)
+            _uiState.update { it.copy(infoError = "Track info: ${e.message}") }
+        }
+    }
+
+    // ── Title polling ────────────────────────────────────────────────────
+
+    private fun startPolling() {
+        val wia = whereAmI ?: return
+        titlePollJob?.cancel()
+        titlePollJob = scope?.launch {
+            while (true) {
+                delay(TITLE_POLL_INTERVAL_MS)
+                recomputeDescription()
+                pollTitle()
+            }
+        }
+        markerObserverJob?.cancel()
+        markerObserverJob = markerChangeNotifier?.let { flow ->
+            scope?.launch {
+                flow.collect {
+                    if (state == TrackRecorderState.ON && currentTrack != null) {
+                        recomputeDescription()
+                        pollTitle()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun stopPolling() {
+        titlePollJob?.cancel()
+        titlePollJob = null
+        markerObserverJob?.cancel()
+        markerObserverJob = null
+    }
+
+    private fun pollTitle() {
+        try {
+            val wia = whereAmI ?: return
+            val track = currentTrack ?: return
+            val markers = track.boatMarkers
+            if (markers.isEmpty()) return
+
+            // ── Tier 1: 🤿 diving pinned marker (highest priority) ──
+            for (bm in markers) {
+                val result = wia(LatLng(bm.boatLat, bm.boatLon))
+                if (hasDivingPinnedMarker(result)) {
+                    val name = divingLocationName(result) ?: continue
+                    val icon = topLocationIcon(result)
+                    val displayName = if (icon != null) "$icon$name" else name
+                    if (track.name != displayName) updateCurrentTrackMeta(name = displayName)
+                    return
+                }
+            }
+
+            // ── Tier 2: MANUAL priority ──
+            val manualMarkers = markers.filter { it.trigger == BoatMarkerTrigger.MANUAL }
+            if (manualMarkers.isNotEmpty()) {
+                val latest = manualMarkers.maxByOrNull { it.startTimeMs } ?: return
+                val result = wia(LatLng(latest.boatLat, latest.boatLon))
+                val name = topLocationName(result) ?: return
+                val icon = topLocationIcon(result)
+                val displayName = if (icon != null) "$icon$name" else name
+                if (track.name != displayName) updateCurrentTrackMeta(name = displayName)
+                return
+            }
+
+            // ── Tier 3: IDLE longest duration ──
+            val now = System.currentTimeMillis()
+            val longest = markers
+                .filter { it.trigger == BoatMarkerTrigger.IDLE }
+                .maxByOrNull { (it.endTimeMs ?: now) - it.startTimeMs } ?: return
+
+            val result = wia(LatLng(longest.boatLat, longest.boatLon))
+            val name = topLocationName(result) ?: return
+            val icon = topLocationIcon(result)
+            val displayName = if (icon != null) "$icon$name" else name
+
+            if (track.name != displayName) updateCurrentTrackMeta(name = displayName)
+        } catch (e: Exception) {
+            Log.w(TAG, "pollTitle failed", e)
+            _uiState.update { it.copy(infoError = "Track info: ${e.message}") }
+        }
+    }
+
+    /**
+     * Compute the final track title from BoatMarker history at finalize time.
+     * Uses the 3-tier priority: 🤿 diving > MANUAL > IDLE duration.
+     */
+    private fun computeFinalTitle(track: Track): String? {
+        try {
+            val wia = whereAmI ?: return null
+            if (track.boatMarkers.isEmpty()) return null
+
+            data class NamedStop(val name: String, val tier: Int, val durationSec: Long, val icon: String?)
+            // tier: 1 = diving, 2 = manual, 3 = idle
+
+            val now = System.currentTimeMillis()
+            val namedStops = track.boatMarkers.mapNotNull { bm ->
+                val result = wia(LatLng(bm.boatLat, bm.boatLon))
+                val name = when {
+                    hasDivingPinnedMarker(result) -> divingLocationName(result)
+                    else -> topLocationName(result)
+                }
+                if (name != null) {
+                    val dur = ((bm.endTimeMs ?: now) - bm.startTimeMs) / 1000
+                    val tier = when {
+                        hasDivingPinnedMarker(result) -> 1
+                        bm.trigger == BoatMarkerTrigger.MANUAL -> 2
+                        else -> 3
+                    }
+                    val icon = topLocationIcon(result)
+                    NamedStop(name, tier, dur, icon)
+                } else null
+            }.sortedWith(compareBy({ it.tier }, { -it.durationSec }))
+
+            val diving = namedStops.filter { it.tier == 1 }
+            val manuals = namedStops.filter { it.tier == 2 }
+            val idles = namedStops.filter { it.tier == 3 }
+
+            fun display(stop: NamedStop) = "${stop.icon.orEmpty()}${stop.name}"
+
+            return when {
+                diving.size >= 2 -> "${display(diving[0])} -> ${display(diving[1])}"
+                diving.size == 1 && manuals.isNotEmpty() -> "${display(diving[0])} -> ${display(manuals[0])}"
+                diving.size == 1 && idles.isNotEmpty() -> "${display(diving[0])} -> ${display(idles[0])}"
+                diving.size == 1 -> display(diving[0])
+                manuals.size >= 2 -> "${display(manuals[0])} -> ${display(manuals[1])}"
+                manuals.size == 1 && idles.isNotEmpty() -> "${display(manuals[0])} -> ${display(idles[0])}"
+                manuals.size == 1 -> display(manuals[0])
+                idles.size >= 2 -> "${display(idles[0])} -> ${display(idles[1])}"
+                idles.size == 1 -> display(idles[0])
+                else -> null
+            }
+        } catch (e: Exception) {
+            Log.w(TAG, "computeFinalTitle failed", e)
+            _uiState.update { it.copy(infoError = "Track info: ${e.message}") }
+            return null
+        }
     }
 }

@@ -153,6 +153,7 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
@@ -323,6 +324,7 @@ fun MapScreen(
     val trackSummaries by trackViewModel.summaries.collectAsState()
     val recoveryTrack by trackViewModel.recoveryTrack.collectAsState()
     val trackScope = rememberCoroutineScope()
+    val markerChangeFlow = remember { MutableSharedFlow<Unit>(extraBufferCapacity = 1) }
     val anyFanExpanded = expandedFanId != null
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val displayScrollState = rememberScrollState()
@@ -569,6 +571,26 @@ fun MapScreen(
         }
     }
 
+    // ── Marker change watcher: emit to markerChangeFlow when user markers are saved/edited/deleted ──
+    val markerCount = userMarkers.size
+    var skipFirstComposition by remember { mutableStateOf(true) }
+    LaunchedEffect(markerCount) {
+        if (skipFirstComposition) {
+            skipFirstComposition = false
+            return@LaunchedEffect
+        }
+        markerChangeFlow.tryEmit(Unit)
+    }
+
+    // ── Track info error auto-dismiss after 8 seconds ──
+    LaunchedEffect(trackRecorderState.infoError) {
+        val error = trackRecorderState.infoError
+        if (error != null) {
+            delay(8_000L)
+            trackViewModel.clearInfoError()
+        }
+    }
+
     // ── BoatMarker idle callback — wired to marker matching engine ──
     val idleCallback = remember {
         object : IdleThresholdCallback {
@@ -629,8 +651,10 @@ fun MapScreen(
                             }
                             markersViewModel.confirmAutoMarker(id, title, desc)
                             trackViewModel.setBoatMarkerAutoMarkerId(id)
+                            markerChangeFlow.tryEmit(Unit)
                         } else {
                             markersViewModel.deleteMarker(id)
+                            markerChangeFlow.tryEmit(Unit)
                         }
                     } catch (e: Exception) {
                         Log.w("MaroII_Map", "autoMarker finalize failed", e)
@@ -755,7 +779,9 @@ fun MapScreen(
             )
         }.filterNotNull()
         trackViewModel.setStoppedSource(viewModel.isStopped)
-        trackViewModel.startRecorder(sampleFlow, appSettings, idleCallback)
+        trackViewModel.startRecorder(sampleFlow, appSettings, idleCallback,
+            whereAmI = markersViewModel::whereAmISync,
+            markerChangeNotifier = markerChangeFlow)
 
         // Periodic demo position feed: when GPS is off, re-feed the map center
         // every second so the adaptive policy timer advances toward IDLE even
@@ -1333,13 +1359,14 @@ fun MapScreen(
                 rasterProgress = rasterProgress,
                 autoFollowSuppressed = autoFollowSuppressed,
                 onRecenter = { viewModel.recenterNow() },
+                onClearTrackInfoError = { trackViewModel.clearInfoError() },
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(
                         if (isLandscape) PaddingValues(start = landscapeDashboardWidth, top = 0.dp, end = 0.dp, bottom = 0.dp)
                         else PaddingValues(start = 0.dp, top = 0.dp, end = 0.dp, bottom = portraitDashboardHeight)
                     )
-            )
+        )
 
             // ── Dashboard (always rendered, Layer 0) ────────────────────────
             if (isLandscape) {
@@ -1835,6 +1862,7 @@ private fun MapContent(
     showCrosshair: Boolean = false,
     autoFollowSuppressed: Boolean = false,
     onRecenter: () -> Unit = {},
+    onClearTrackInfoError: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Box(modifier = modifier.clipToBounds()) {
@@ -2011,6 +2039,14 @@ private fun MapContent(
                             ErrorOverlay(
                                 message = (state as CoastlineState.Error).message,
                                 onRetry = onRetry
+                            )
+                        }
+                        // Track info error (from populate-track-info)
+                        val trackInfoError = trackRecorderState.infoError
+                        if (trackInfoError != null) {
+                            ErrorOverlay(
+                                message = trackInfoError,
+                                onRetry = onClearTrackInfoError
                             )
                         }
                     }

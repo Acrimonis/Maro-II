@@ -107,7 +107,9 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
     fun startRecorder(
         sampleFlow: Flow<TrackSample>,
         settings: AppSettings,
-        idleThresholdCallback: IdleThresholdCallback? = null
+        idleThresholdCallback: IdleThresholdCallback? = null,
+        whereAmI: ((ykws.android.maro.data.model.LatLng) -> ykws.android.maro.spatial.WhereAmIResult)? = null,
+        markerChangeNotifier: Flow<Unit>? = null
     ) {
         stopRecorder()
         val rec = TrackRecorder(
@@ -122,7 +124,9 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
             simplifyEpsilonM = settings.trackSimplifyEpsilonM,
             simplifySpeedDeltaKn = settings.trackSimplifySpeedDeltaKn,
             idleThresholdSec = ykws.android.maro.config.AppConfig.boatMarkerIdleThresholdSec,
-            idleThresholdCallback = idleThresholdCallback
+            idleThresholdCallback = idleThresholdCallback,
+            whereAmI = whereAmI,
+            markerChangeNotifier = markerChangeNotifier
         )
         recorder = rec
         rec.start(sampleFlow)
@@ -330,6 +334,11 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
     /** Update the active recording track's name and/or comment. Persisted to checkpoint. */
     fun updateLiveTrackMeta(name: String? = null, comment: String? = null) {
         recorder?.updateCurrentTrackMeta(name, comment)
+    }
+
+    /** Clear the track info error — dismisses the ErrorOverlay. */
+    fun clearInfoError() {
+        recorder?.clearInfoError()
     }
 
     override fun onCleared() {

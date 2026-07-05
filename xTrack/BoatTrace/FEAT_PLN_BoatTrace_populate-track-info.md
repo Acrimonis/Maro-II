@@ -2,39 +2,54 @@
 
 > **Feature:** BoatTrace | **Subfeature:** populate-track-info
 > **Created:** 2026-07-05 07:44
-> **Status:** planned
+> **Status:** implemented
 
 ## Summary
 
-During track recording, auto-populate track **title** (name) and **description** (comment) from silent `whereAmI()` calls at idle-stop positions. The title reflects the boat's destination; the description is a living bullet log recomputed from the full BoatMarker history — so newly-added markers retroactively name past stops.
+During track recording, auto-populate track **title** (name) and **description** (comment) from silent `whereAmI()` calls at idle-stop positions. The title reflects the boat's destination; the description is a living bullet log recomputed from the full BoatMarker history — so newly-added markers retroactively name past stops. MANUAL BoatMarkers (explicit user taps) have absolute title priority.
 
 ## Design Decisions
 
 ### "Named" vs "nowhere"
-A `whereAmI()` result is **named** if it contains ≥1 match whose `marker.origin != MarkerOrigin.IDLE_AUTO`. IDLE_AUTO markers (🕐 pins) are excluded — they don't represent real locations. `resolveAllMarkers()` already partitions user markers before auto markers (MarkerMatcher.kt:205), so filtering is trivial.
+A `whereAmI()` result is **named** if it contains ≥1 match whose `marker.origin != MarkerOrigin.IDLE_AUTO`. IDLE_AUTO markers (🕐 pins) are excluded — they don't represent real locations. `resolveAllMarkers()` already partitions user markers before auto markers (MarkerMatcher.kt:205).
 
-### No hard duration gate
-Title logic is purely rank-based (longest idle wins), no 30-minute threshold. Any stop can become the title if it's the longest.
+### Title priority tiers (highest to lowest)
+
+| Tier | Condition | Title behaviour |
+|------|-----------|----------------|
+| 1. 🤿 Diving | Any BoatMarker where `whereAmI()` matches a UserMarker with `pinned=true` AND `icon == "🤿"` (`\uD83E\uDD3F`) | That location name wins unconditionally |
+| 2. MANUAL | BoatMarker with `trigger == MANUAL` | Most recent MANUAL marker wins (if no 🤿 match) |
+| 3. IDLE duration | BoatMarker with `trigger == IDLE` | Longest idle duration wins (if no 🤿 or MANUAL) |
+
+The 🤿 icon is the only diving-priority icon from `ICON_SET` (IconPickerDialog.kt:29). The check is: `whereAmI` result contains ≥1 match where `marker.pinned && marker.icon == "\uD83E\uDD3F"`.
+
+### IDLE vs MANUAL BoatMarkers
+
+| Aspect | IDLE | MANUAL |
+|--------|------|--------|
+| Trigger | Auto-detected stillness (60s threshold) | User taps boat-marker button |
+| Description zone names | `whereAmI()` at position → top 2 non-IDLE_AUTO names | Pre-captured `MarkerSnapshot` names (filtered to non-IDLE_AUTO) |
+| Title priority | Lowest — longest duration wins (after 🤿 and MANUAL) | Middle — most recent MANUAL marker wins (after 🤿) |
+| `endTimeMs` | Set when boat moves | Always `null` (instant snapshot, no duration) |
 
 ### Recompute, not append
-The description is always a **pure function** of `track.boatMarkers` — rebuilt from scratch each time anything changes. This means:
-- If a user creates a new marker mid-trip, past "nowhere" stops retroactively get named
-- The description never goes stale relative to the current marker set
-- No append/update logic — a single `recomputeDescription()` handles all cases
+The description is always a **pure function** of `track.boatMarkers` — rebuilt from scratch each time anything changes. New markers retroactively name past stops.
 
 ### Triggers for recomputation
+
 | Trigger | What happens |
 |---|---|
 | Idle threshold reached (BoatMarker added) | Recompute description + poll title |
 | Idle period ends (BoatMarker closed) | Recompute description + poll title |
+| MANUAL BoatMarker added | Recompute description + poll title |
 | Title poll tick (every 3 min) | Recompute description + poll title |
 | Markers added/edited (external flow) | Recompute description + poll title |
 
 ### whereAmI integration
-TrackRecorder receives a `(LatLng) -> WhereAmIResult` lambda injected by MapScreen. This avoids coupling TrackRecorder to MarkersViewModel/CoastlineSpatialIndex directly. The lambda is synchronous (`whereAmISync` already exists).
+TrackRecorder receives a `(LatLng) -> WhereAmIResult` lambda injected by MapScreen. Synchronous (`whereAmISync` already exists). Nullable — when null, the feature is dormant.
 
 ### Marker change notification
-TrackRecorder accepts a `Flow<Unit>` for external "markers changed" events. MapScreen provides a flow that emits when a marker is saved or edited. TrackRecorder observes this flow and triggers recomputation.
+TrackRecorder accepts a `Flow<Unit>` for external "markers changed" events. MapScreen provides a flow that emits when a marker is saved or edited.
 
 ---
 
@@ -52,23 +67,25 @@ The `comment` field is fully rebuilt on every trigger:
 
 **Format:**
 - Each BoatMarker = one bullet line prefixed with `  - `
-- Zone names comma-separated within brackets (top 2 non-IDLE_AUTO matches)
-- Time = `HH:mm` (24h) of idle start
+- IDLE: zone names from `whereAmI()` at position (top 2 non-IDLE_AUTO, whereAmI sort order)
+- MANUAL: zone names from pre-captured `MarkerSnapshot` names (top 2 non-IDLE_AUTO)
+- Time = `HH:mm` (24h) of stop start
 - Open idle periods (no `endTimeMs`): omit `for Xmin` suffix
 - Closed idle periods: append `for Xh Ymin` duration
-- If `whereAmI` returns 0 non-IDLE_AUTO matches → no zone names: `  - stopped @ 14:22 for 5min`
+- If 0 non-IDLE_AUTO matches → no zone names: `  - stopped @ 14:22 for 5min`
 - If only 1 zone matches → `  - stopped at [NameA] @ 14:22 for 5min`
+- MANUAL markers always have `endTimeMs = null` → never show duration suffix
 
 ### 2. Title — during recording (poll every 3 min)
 
-1. Scan all `currentTrack.boatMarkers`, compute idle duration for each:
-   - Closed: `(endTimeMs - startTimeMs) / 1000`
-   - Open: `(now - startTimeMs) / 1000`
-2. Find the one with the **maximum** duration
-3. Run `whereAmI()` at `(boatLat, boatLon)`
-4. If named (≥1 non-IDLE_AUTO match) → set `track.name = topMatch.marker.name`
-5. If unnamed → keep existing title
-6. If a different stop later becomes the longest, title updates accordingly
+Priority: 🤿 diving > MANUAL > IDLE duration.
+
+1. Scan all BoatMarkers. For each, run `whereAmI()` at position.
+2. If any whereAmI result contains a pinned 🤿 marker → use that location name as title.
+3. Else if ≥1 MANUAL BoatMarker exists → use most recent MANUAL's whereAmI name.
+4. Else → use longest IDLE stop's whereAmI name.
+5. If unnamed at any tier → fall through to next tier.
+6. If no tier produces a name → keep existing title.
 
 **Edge case: no BoatMarkers yet** → keep default auto-name.
 
@@ -76,13 +93,63 @@ The `comment` field is fully rebuilt on every trigger:
 
 In `finalizeTrack()`, after computing the finalized track but before saving:
 
-1. Collect all BoatMarkers with their idle durations
-2. Run `whereAmI()` at each position, filter to **named only**
-3. Sort named stops by idle duration descending
-4. Format title:
-   - **≥2 named stops:** `[longestName -> secondLongestName]`
-   - **1 named stop:** `[longestName]`
-   - **0 named stops:** keep default auto-name (`yyyy-MM-dd HH:mm`)
+Priority: 🤿 diving > MANUAL > IDLE duration.
+
+1. Collect all BoatMarkers, run `whereAmI()` at each, classify:
+   - **Diving:** whereAmI contains pinned 🤿 marker
+   - **MANUAL:** trigger == MANUAL, not diving
+   - **IDLE:** trigger == IDLE, not diving
+2. Sort each group by duration desc (MANUAL by recency = now - startTimeMs)
+3. Build title from highest-priority stops first:
+
+| Diving | MANUAL | IDLE | Format |
+|--------|--------|------|--------|
+| ≥2 | - | - | `[🤿1 -> 🤿2]` |
+| 1 | ≥1 | - | `[🤿 -> manualName]` |
+| 1 | 0 | ≥1 named | `[🤿 -> longestIdleName]` |
+| 1 | 0 | 0 | `[🤿]` |
+| 0 | ≥2 | - | `[M1 -> M2]` |
+| 0 | 1 | ≥1 named | `[M -> longestIdle]` |
+| 0 | 1 | 0 | `[M]` |
+| 0 | 0 | ≥2 named | `[longestIdle -> secondLongestIdle]` |
+| 0 | 0 | 1 named | `[name]` |
+| 0 | 0 | 0 | default auto-name |
+
+---
+
+### 4. Error reporting
+
+All three new methods (`recomputeDescription`, `pollTitle`, `computeFinalTitle`) are wrapped in try-catch. On failure, the exception message is surfaced via `TrackRecorderUiState.infoError`. MapScreen renders the existing [`ErrorOverlay`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:2072) at `BottomCenter` with a Dismiss action.
+
+**TrackRecorderUiState** — add field:
+```kotlin
+val infoError: String? = null
+```
+
+**Error handling pattern:**
+```kotlin
+private fun recomputeDescription() {
+    try {
+        // ... existing logic ...
+    } catch (e: Exception) {
+        Log.w(TAG, "recomputeDescription failed", e)
+        _uiState.update { it.copy(infoError = "Track info: ${e.message}") }
+    }
+}
+```
+
+**MapScreen** — in the error overlay slot (line 1819), add:
+```kotlin
+val trackInfoError = trackRecorderState.infoError
+if (trackInfoError != null) {
+    ErrorOverlay(
+        message = trackInfoError,
+        onRetry = { /* dismiss — clears the error */ }
+    )
+}
+```
+
+A `LaunchedEffect(trackInfoError)` auto-clears the error after 8 seconds, or the user taps Dismiss.
 
 ---
 
@@ -92,7 +159,6 @@ In `finalizeTrack()`, after computing the finalized track but before saving:
 
 **File:** `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt`
 
-Add constructor parameters:
 ```kotlin
 class TrackRecorder(
     // ... existing params ...
@@ -101,9 +167,23 @@ class TrackRecorder(
 )
 ```
 
-Both nullable — when null, the feature is dormant (backward compatible).
+### Step 2 — Fix BoatMarker startTimeMs (existing code bug)
 
-### Step 2 — Helper functions
+**File:** `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt`
+
+In `startIdleTimer()`, the `startMs` parameter is already passed but unused. Currently:
+```kotlin
+val bm = BoatMarker(startTimeMs = System.currentTimeMillis(), ...)  // BUG: timer fire time
+```
+
+Fix:
+```kotlin
+val bm = BoatMarker(startTimeMs = startMs, ...)  // actual idle start time
+```
+
+This is a one-line change. Makes the BoatMarker semantically correct and ensures description times match reality.
+
+### Step 3 — Helper functions
 
 **File:** `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt`
 
@@ -114,13 +194,24 @@ private fun markerOf(match: ykws.android.maro.spatial.WhereAmIMatch): ykws.andro
     is ykws.android.maro.spatial.WhereAmIMatch.LineOfSightMatch -> match.marker
 }
 
-/** Extract top 2 non-IDLE_AUTO zone names from a WhereAmIResult. */
+/** Extract top 2 non-IDLE_AUTO zone names from a WhereAmIResult, in whereAmI sort order. */
 private fun topZoneNames(result: ykws.android.maro.spatial.WhereAmIResult): List<String> {
     return result.allMatches
         .filter { markerOf(it).origin != ykws.android.maro.data.model.markers.MarkerOrigin.IDLE_AUTO }
         .take(2)
         .map { markerOf(it).name }
 }
+
+/** Extract top 2 non-IDLE_AUTO names from pre-captured MarkerSnapshots. */
+private fun topSnapshotNames(snapshots: List<MarkerSnapshot>): List<String> {
+    return snapshots
+        .filter { it.name.isNotBlank() }
+        .take(2)
+        .map { it.name }
+}
+// Note: MarkerSnapshot has no 'origin' field, so we filter by non-blank name as a proxy.
+// IDLE_AUTO markers have date-format names like "2026-07-05" which are distinct from
+// user-marker names like "Anse de la Salis".
 
 /** Check if a WhereAmIResult has at least one named (non-IDLE_AUTO) match. */
 private fun isNamed(result: ykws.android.maro.spatial.WhereAmIResult): Boolean {
@@ -131,6 +222,24 @@ private fun isNamed(result: ykws.android.maro.spatial.WhereAmIResult): Boolean {
 private fun topLocationName(result: ykws.android.maro.spatial.WhereAmIResult): String? {
     return result.allMatches
         .firstOrNull { markerOf(it).origin != ykws.android.maro.data.model.markers.MarkerOrigin.IDLE_AUTO }
+        ?.let { markerOf(it).name }
+}
+
+/** Check if a WhereAmIResult contains a pinned marker with the 🤿 diving icon. */
+private fun hasDivingPinnedMarker(result: ykws.android.maro.spatial.WhereAmIResult): Boolean {
+    return result.allMatches.any { match ->
+        val m = markerOf(match)
+        m.pinned && m.icon == "\uD83E\uDD3F"  // 🤿
+    }
+}
+
+/** Extract the name of the first pinned 🤿 marker in the result, or null. */
+private fun divingLocationName(result: ykws.android.maro.spatial.WhereAmIResult): String? {
+    return result.allMatches
+        .firstOrNull { match ->
+            val m = markerOf(match)
+            m.pinned && m.icon == "\uD83E\uDD3F"
+        }
         ?.let { markerOf(it).name }
 }
 
@@ -146,11 +255,7 @@ private fun formatDuration(totalSec: Long): String {
 }
 
 /** Format a single description bullet line for one BoatMarker. */
-private fun formatStopLine(
-    bm: BoatMarker,
-    zoneNames: List<String>,
-    nowMs: Long
-): String {
+private fun formatStopLine(bm: BoatMarker, zoneNames: List<String>): String {
     val time = SimpleDateFormat("HH:mm", Locale.US).format(Date(bm.startTimeMs))
     val zones = if (zoneNames.isEmpty()) "" else " at [${zoneNames.joinToString(", ")}]"
     val durSuffix = if (bm.endTimeMs != null) {
@@ -163,52 +268,61 @@ private fun formatStopLine(
 }
 ```
 
-### Step 3 — recomputeDescription()
+### Step 4 — recomputeDescription()
 
 **File:** `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt`
 
 ```kotlin
 /**
  * Rebuild the track description from the full BoatMarker history.
- * Called on every trigger: idle start, idle end, title poll, marker change.
+ * Called on every trigger: idle start, idle end, manual marker, title poll, marker change.
+ * Reuses existing updateCurrentTrackMeta() for comment persistence.
  */
 private fun recomputeDescription() {
     val wia = whereAmI ?: return
     val track = currentTrack ?: return
-    val now = System.currentTimeMillis()
 
     val lines = track.boatMarkers.map { bm ->
-        val result = wia(ykws.android.maro.data.model.LatLng(bm.boatLat, bm.boatLon))
-        val zones = topZoneNames(result)
-        formatStopLine(bm, zones, now)
+        val zones = when (bm.trigger) {
+            BoatMarkerTrigger.IDLE -> {
+                val result = wia(ykws.android.maro.data.model.LatLng(bm.boatLat, bm.boatLon))
+                topZoneNames(result)
+            }
+            BoatMarkerTrigger.MANUAL -> {
+                topSnapshotNames(bm.markers)
+            }
+        }
+        formatStopLine(bm, zones)
     }
 
     val newComment = lines.joinToString("\n")
     if (track.comment != newComment) {
-        currentTrack = track.copy(comment = newComment)
-        scope?.launch { currentTrack?.let { repository.saveCheckpoint(it) } }
+        updateCurrentTrackMeta(comment = newComment)
     }
 }
 ```
 
-### Step 4 — Triggers: call recomputeDescription() at each event
+### Step 5 — Triggers
 
 **File:** `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt`
 
-- In `startIdleTimer()` → after BoatMarker is appended to `currentTrack` → call `recomputeDescription()`
-- In `closeOpenBoatMarker()` → after `endTimeMs` is set → call `recomputeDescription()`
-- In `pollTitle()` (see Step 5) → call `recomputeDescription()` before title check
+- In `startIdleTimer()` → after BoatMarker appended → `recomputeDescription()`
+- In `addManualBoatMarker()` → after BoatMarker appended → `recomputeDescription()`
+- In `addPoint()` idle→moving transition → after `closeOpenBoatMarker()` → `recomputeDescription()` + `pollTitle()`
+- In `pollTitle()` (Step 6) → `recomputeDescription()` before title check
 
-### Step 5 — Title polling + description recompute (every 3 min)
+**Important:** `closeOpenBoatMarker()` itself does NOT trigger recompute. Callers are responsible for calling recompute after close. This avoids async save races in `finalizeTrack()`.
+
+### Step 6 — Title polling (every 3 min)
 
 **File:** `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt`
 
 Add fields:
 ```kotlin
 private var titlePollJob: Job? = null
+private var markerObserverJob: Job? = null
 ```
 
-Add methods:
 ```kotlin
 private fun startPolling() {
     val wia = whereAmI ?: return
@@ -217,7 +331,18 @@ private fun startPolling() {
         while (isActive) {
             delay(180_000L) // 3 minutes
             recomputeDescription()
-            pollTitle(wia)
+            pollTitle()
+        }
+    }
+    markerObserverJob?.cancel()
+    markerObserverJob = markerChangeNotifier?.let { flow ->
+        scope?.launch {
+            flow.collect {
+                if (state == TrackRecorderState.ON && currentTrack != null) {
+                    recomputeDescription()
+                    pollTitle()
+                }
+            }
         }
     }
 }
@@ -225,86 +350,105 @@ private fun startPolling() {
 private fun stopPolling() {
     titlePollJob?.cancel()
     titlePollJob = null
+    markerObserverJob?.cancel()
+    markerObserverJob = null
 }
 
-private fun pollTitle(wia: (ykws.android.maro.data.model.LatLng) -> ykws.android.maro.spatial.WhereAmIResult) {
+private fun pollTitle() {
+    val wia = whereAmI ?: return
     val track = currentTrack ?: return
     val markers = track.boatMarkers
     if (markers.isEmpty()) return
 
-    val now = System.currentTimeMillis()
-    val longest = markers.maxByOrNull { bm ->
-        (bm.endTimeMs ?: now) - bm.startTimeMs
-    } ?: return
-
-    val result = wia(ykws.android.maro.data.model.LatLng(longest.boatLat, longest.boatLon))
-    val name = topLocationName(result) ?: return  // unnamed → no update
-
-    if (track.name != name) {
-        currentTrack = track.copy(name = name)
-        scope?.launch { currentTrack?.let { repository.saveCheckpoint(it) } }
-        _uiState.update { it.copy(currentTrackName = name) }
-    }
-}
-```
-
-Wire `startPolling()` in `startTrack()` (state ON entry).
-Wire `stopPolling()` in `finalizeTrack()` and `transitionTo(OFF)`.
-
-### Step 6 — Marker change observer
-
-**File:** `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt`
-
-In `startTrack()` (or init), launch a coroutine to observe `markerChangeNotifier`:
-
-```kotlin
-// In startTrack(), after startPolling():
-markerChangeNotifier?.let { flow ->
-    scope?.launch {
-        flow.collect {
-            if (state == TrackRecorderState.ON && currentTrack != null) {
-                recomputeDescription()
-                whereAmI?.let { pollTitle(it) }
-            }
+    // ── Tier 1: 🤿 diving pinned marker (highest priority) ──
+    for (bm in markers) {
+        val result = wia(ykws.android.maro.data.model.LatLng(bm.boatLat, bm.boatLon))
+        if (hasDivingPinnedMarker(result)) {
+            val name = divingLocationName(result) ?: continue
+            if (track.name != name) updateCurrentTrackMeta(name = name)
+            return
         }
     }
+
+    // ── Tier 2: MANUAL priority ──
+    val manualMarkers = markers.filter { it.trigger == BoatMarkerTrigger.MANUAL }
+    if (manualMarkers.isNotEmpty()) {
+        val latest = manualMarkers.maxByOrNull { it.startTimeMs } ?: return
+        val result = wia(ykws.android.maro.data.model.LatLng(latest.boatLat, latest.boatLon))
+        val name = topLocationName(result) ?: return
+        if (track.name != name) updateCurrentTrackMeta(name = name)
+        return
+    }
+
+    // ── Tier 3: IDLE longest duration ──
+    val now = System.currentTimeMillis()
+    val longest = markers
+        .filter { it.trigger == BoatMarkerTrigger.IDLE }
+        .maxByOrNull { (it.endTimeMs ?: now) - it.startTimeMs } ?: return
+
+    val result = wia(ykws.android.maro.data.model.LatLng(longest.boatLat, longest.boatLon))
+    val name = topLocationName(result) ?: return
+
+    if (track.name != name) updateCurrentTrackMeta(name = name)
 }
 ```
+
+Wire `startPolling()` in `beginRecording()` (after `startCheckpointJob()`).
+Wire `stopPolling()` at the **top** of `finalizeTrack()` and in `transitionTo(OFF)`.
 
 ### Step 7 — Finalize title
 
 **File:** `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt`
 
-In `finalizeTrack()`, after computing `finalized` but before `currentTrack = finalized`:
+In `finalizeTrack()`, after flushing the idle session and closing the open BoatMarker, but before `currentTrack = finalized`:
 
 ```kotlin
-// Compute destination-based title
+// Compute destination-based title (after closeOpenBoatMarker, before final copy)
 val finalName = computeFinalTitle(finalized)
 val finalizedWithTitle = if (finalName != null) finalized.copy(name = finalName) else finalized
 ```
 
-Add method:
 ```kotlin
 private fun computeFinalTitle(track: Track): String? {
     val wia = whereAmI ?: return null
     if (track.boatMarkers.isEmpty()) return null
 
-    data class NamedStop(val name: String, val durationSec: Long)
-    val now = System.currentTimeMillis()
-    val namedStops = track.boatMarkers
-        .map { bm ->
-            val dur = ((bm.endTimeMs ?: now) - bm.startTimeMs) / 1000
-            val result = wia(ykws.android.maro.data.model.LatLng(bm.boatLat, bm.boatLon))
-            val name = topLocationName(result)
-            if (name != null) NamedStop(name, dur) else null
-        }
-        .filterNotNull()
-        .sortedByDescending { it.durationSec }
+    data class NamedStop(val name: String, val tier: Int, val durationSec: Long)
+    // tier: 1 = diving, 2 = manual, 3 = idle
 
-    return when (namedStops.size) {
-        0 -> null
-        1 -> "[${namedStops[0].name}]"
-        else -> "[${namedStops[0].name} -> ${namedStops[1].name}]"
+    val now = System.currentTimeMillis()
+    val namedStops = track.boatMarkers.mapNotNull { bm ->
+        val result = wia(ykws.android.maro.data.model.LatLng(bm.boatLat, bm.boatLon))
+        val name = when {
+            hasDivingPinnedMarker(result) -> divingLocationName(result)
+            else -> topLocationName(result)
+        }
+        if (name != null) {
+            val dur = ((bm.endTimeMs ?: now) - bm.startTimeMs) / 1000
+            val tier = when {
+                hasDivingPinnedMarker(result) -> 1
+                bm.trigger == BoatMarkerTrigger.MANUAL -> 2
+                else -> 3
+            }
+            NamedStop(name, tier, dur)
+        } else null
+    }.sortedWith(compareBy({ it.tier }, { -it.durationSec }))
+
+    val diving = namedStops.filter { it.tier == 1 }
+    val manuals = namedStops.filter { it.tier == 2 }
+    val idles = namedStops.filter { it.tier == 3 }
+
+    return when {
+        diving.size >= 2 -> "[${diving[0].name} -> ${diving[1].name}]"
+        diving.size == 1 && manuals.isNotEmpty() -> "[${diving[0].name} -> ${manuals[0].name}]"
+        diving.size == 1 && idles.isNotEmpty() -> "[${diving[0].name} -> ${idles[0].name}]"
+        diving.size == 1 -> "[${diving[0].name}]"
+        manuals.size >= 2 -> "[${manuals[0].name} -> ${manuals[1].name}]"
+        manuals.size == 1 && idles.isNotEmpty() -> "[${manuals[0].name} -> ${idles[0].name}]"
+        manuals.size == 1 -> "[${manuals[0].name}]"
+        idles.size >= 2 -> "[${idles[0].name} -> ${idles[1].name}]"
+        idles.size == 1 -> "[${idles[0].name}]"
+        else -> null
     }
 }
 ```
@@ -313,7 +457,7 @@ private fun computeFinalTitle(track: Track): String? {
 
 **File:** `app/src/main/java/ykws/android/maro/data/track/TrackViewModel.kt`
 
-Add `whereAmI` and `markerChangeNotifier` passthrough params to the TrackRecorder construction chain.
+Add `whereAmI` and `markerChangeNotifier` passthrough params to `startRecorder()` → `TrackRecorder()` construction.
 
 ### Step 9 — Wire in MapScreen
 
@@ -326,11 +470,38 @@ Add `whereAmI` and `markerChangeNotifier` passthrough params to the TrackRecorde
 
 2. Pass `markersViewModel::whereAmISync` and `markerChangeFlow` to TrackViewModel/Recorder.
 
-3. After marker save/edit operations, emit to the flow:
+3. After marker save/edit operations, emit:
    ```kotlin
-   // After saveMarker() / updateMarker() / confirmAutoMarker():
    markerChangeFlow.tryEmit(Unit)
    ```
+
+### Step 10 — Wire error display in MapScreen
+
+**File:** `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
+
+In the error overlay slot (around line 1819), add after the existing `CoastlineState.Error` check:
+
+```kotlin
+// Track info error (from populate-track-info)
+val trackInfoError = trackRecorderState.infoError
+if (trackInfoError != null) {
+    ErrorOverlay(
+        message = trackInfoError,
+        onRetry = { trackViewModel.clearInfoError() }
+    )
+}
+```
+
+Add `clearInfoError()` to TrackViewModel → delegates to `recorder?.clearInfoError()`.
+
+In TrackRecorder:
+```kotlin
+fun clearInfoError() {
+    _uiState.update { it.copy(infoError = null) }
+}
+```
+
+Auto-dismiss: `LaunchedEffect(trackInfoError)` delays 8s then calls `clearInfoError()`.
 
 ---
 
@@ -338,16 +509,16 @@ Add `whereAmI` and `markerChangeNotifier` passthrough params to the TrackRecorde
 
 | File | Change |
 |------|--------|
-| `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt` | +whereAmI param, +markerChangeNotifier param, +helper functions, +recomputeDescription, +title polling, +finalize title logic, +marker change observer |
-| `app/src/main/java/ykws/android/maro/data/track/TrackViewModel.kt` | +whereAmI + markerChangeNotifier passthrough params |
-| `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` | Wire whereAmISync + markerChangeFlow → TrackRecorder; emit on marker save/edit |
+| `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt` | Fix startTimeMs bug; +infoError UiState field; +whereAmI param; +markerChangeNotifier param; +8 helper functions; +recomputeDescription (with try-catch); +title polling with MANUAL priority (with try-catch); +computeFinalTitle (with try-catch); +clearInfoError(); +marker change observer |
+| `app/src/main/java/ykws/android/maro/data/track/TrackViewModel.kt` | +whereAmI + markerChangeNotifier passthrough params; +clearInfoError() delegate |
+| `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` | Wire whereAmISync + markerChangeFlow; emit on marker save/edit; render ErrorOverlay for trackInfoError; auto-dismiss LaunchedEffect |
 
 ## Key Files (reference)
 
 - `app/src/main/java/ykws/android/maro/data/track/Track.kt` — `name` (title), `comment` (description), `boatMarkers: List<BoatMarker>`
-- `app/src/main/java/ykws/android/maro/data/track/BoatMarker.kt` — `boatLat`, `boatLon`, `startTimeMs`, `endTimeMs`
+- `app/src/main/java/ykws/android/maro/data/track/BoatMarker.kt` — `boatLat`, `boatLon`, `startTimeMs`, `endTimeMs`, `trigger`, `markers`
 - `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt` — state machine, idle timer, finalize
-- `app/src/main/java/ykws/android/maro/data/track/IdleThresholdCallback.kt` — existing callback interface (unchanged)
+- `app/src/main/java/ykws/android/maro/data/track/IdleThresholdCallback.kt` — existing callback (unchanged)
 - `app/src/main/java/ykws/android/maro/spatial/MarkerMatcher.kt` — `WhereAmIResult`, `WhereAmIMatch`, `resolveAllMarkers`
 - `app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt` — `whereAmISync()`
 - `app/src/main/java/ykws/android/maro/data/track/TrackRepository.kt` — `saveCheckpoint()` (unchanged)
@@ -357,7 +528,12 @@ Add `whereAmI` and `markerChangeNotifier` passthrough params to the TrackRecorde
 - whereAmI lambda is nullable — when null, the feature is entirely dormant
 - markerChangeNotifier is nullable — when null, only idle/poll events trigger recomputation
 - Description replaces `comment` field during recording (auto-content overwrites user text)
-- Title polling respects the 3-minute interval; also triggered immediately on idle-end and marker changes
-- `markerOf()` local helper mirrors `MarkerMatcher.markerOf()` (private in MarkerMatcher, so duplicated)
-- IDLE_AUTO filter uses `MarkerOrigin.IDLE_AUTO` — same constant used by `resolveAllMarkers` partition
+- Title polling: 3-minute interval + immediate trigger on idle-end, manual marker, and marker changes
+- MANUAL BoatMarkers have absolute title priority (most recent wins)
+- `closeOpenBoatMarker()` does NOT trigger recompute — callers are responsible
+- `stopPolling()` is called at the TOP of `finalizeTrack()` to cancel all background jobs before any mutations
 - `recomputeDescription()` is idempotent — checks `track.comment != newComment` before writing
+- `markerOf()` local helper mirrors `MarkerMatcher.markerOf()` (private in MarkerMatcher, so duplicated)
+- IDLE_AUTO filter for `whereAmI` results uses `MarkerOrigin.IDLE_AUTO`
+- IDLE_AUTO filter for `MarkerSnapshot` uses non-blank name check (snapshots lack `origin` field)
+- `formatStopLine` no longer takes `nowMs` parameter (unused after Step 2 fix)

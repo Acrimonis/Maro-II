@@ -1,7 +1,7 @@
 # BoatTrace — Hydration Snapshot
 
-**Baked at:** 2026-07-05 08:09 UTC
-**Active Subfeature:** populate-track-info
+**Baked at:** 2026-07-05 10:34 UTC
+**Active Subfeature:** populate-track-info (implemented)
 **Branch:** feature/track-info
 
 ## Session Summary
