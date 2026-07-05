@@ -1,7 +1,8 @@
 # Ui_General → Track Click-N-Move — Implementation Plan
 
 **Created:** 2026-07-05 09:45 UTC+2
-**Status:** planned
+**Modified:** 2026-07-05 12:19 UTC+2
+**Status:** implemented
 **Parent:** Click-N-Move (see [`FEAT_PLN_Ui_General_click-n-move.md`](FEAT_PLN_Ui_General_click-n-move.md) for markers implementation)
 
 ## Summary
@@ -377,3 +378,24 @@ onNavigateToTrack = { id -> onTrackAction(ListAction.NavigateToItem(id)) },
 - **Single-point guard:** Tracks with <2 points skip `zoomToBoundingBox`, just `animateTo` the single point
 - **Error handling:** try/catch around track load; silent failure on corrupt data
 - **TrackCardContent reuse:** Changed to `internal` visibility; same card content as list, rendered in drawer
+
+## Implemented
+
+**Branch:** `feature/view-track`
+**Commit:** `d757d4d`
+
+### What was built
+
+| File | Change |
+|------|--------|
+| [`TrackHistoryOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt) | `onNavigateToTrack` param; `TrackCardContent` `private→internal`; chevron `KeyboardArrowRight` icon at `BottomEnd`; `.clickable { onTap?.invoke() }` on card Row |
+| [`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt) | `PreNavigationState`/`TrackNavigateState`/`TrackDrawerState` data classes; `highlightedTrackId`/`highlightedMarkerId`/`previousMarkerZonesVisible` state; `computeTrackNavigateTarget` helper (longest-idle or last point); `NavigateToItem` handlers in `onTrackAction` + `onMarkerAction`; `onNavigateToTrack` inline handler; `LaunchedEffect(trackNavigateState)` for `zoomToBoundingBox`; `LaunchedEffect(mapCenterState)` interaction detection; track drawer `BackHandler` with zoom/center restore; `onTrackDrawerClose` callback; `onMarkerDrawerClose` restores `markerZonesVisible`; gold highlight in polyline rendering loop (`highlightedTrackId`); BackHandler guard on default exit handler; auto-toggle `tracksVisible` before list dismiss; auto-toggle `markerZonesVisible` + `markersViewModel.showLayer()` before list dismiss |
+| [`OverlayLayer.kt`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt) | `showTrackInfoDrawer`/`trackInfoDrawerData`/`onTrackDrawerClose`/`onNavigateToTrack` params; track info `DrawerSlot` (landscape/portrait, no scrim) with `DrawerScaffold` header (back arrow + track name); `TrackCardContent` reused via `TrackSummary` construction |
+| [`MarkerOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/MarkerOverlay.kt) | `highlightedMarkerId` param + `COLOR_HIGHLIGHT` gold; gold dot + zone for highlighted marker; zone forced visible for highlighted marker regardless of `markerZonesVisible` |
+
+### Deviations from plan
+
+- **Marker auto-toggle:** Uses `markersViewModel.showLayer()` (layer visibility) + `markerZonesVisible = true` (zone visibility), not just `markerZonesVisible` alone
+- **Marker highlight:** Added `highlightedMarkerId` gold rendering in `MarkerOverlay` — not in original plan
+- **Track auto-toggle:** `updateSettings` runs *before* `showTrackHistory = false` to avoid race
+- **Marker zone restore:** `previousMarkerZonesVisible` saved on tap, restored on drawer close via `onMarkerDrawerClose` callback
