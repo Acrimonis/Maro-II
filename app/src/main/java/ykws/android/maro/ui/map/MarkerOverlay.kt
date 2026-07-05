@@ -47,6 +47,9 @@ private const val DOT_RADIUS_DP = 6
 /** Confirmed marker colour (semantic.info blue). */
 private val COLOR_CONFIRMED = AppConfig.semanticInfo
 
+/** Highlight colour for click-n-move (gold). */
+private val COLOR_HIGHLIGHT = 0xFFFFD700.toInt()
+
 /** Unconfirmed marker colour (semantic.caution amber). */
 private val COLOR_UNCONFIRMED = AppConfig.semanticCaution
 
@@ -109,7 +112,8 @@ fun MarkerOverlay(
     matchResult: WhereAmIResult? = null,
     markerZonesVisible: Boolean = true,
     selectedMarkerId: String? = null,
-    markerLayerState: MarkerLayerState = MarkerLayerState.SHOW_ALL
+    markerLayerState: MarkerLayerState = MarkerLayerState.SHOW_ALL,
+    highlightedMarkerId: String? = null
 ) {
     val mv = mapView ?: return
     val context = LocalContext.current
@@ -132,7 +136,7 @@ fun MarkerOverlay(
         }
     }?.toSet() ?: emptySet()
 
-    DisposableEffect(markers, unconfirmedMarker, mv, matchResult, selectedMarkerId, markerZonesVisible) {
+    DisposableEffect(markers, unconfirmedMarker, mv, matchResult, selectedMarkerId, markerZonesVisible, highlightedMarkerId) {
         Log.d("MaroMapRefresh", "MarkerOverlay DisposableEffect restart: markers=${markers.size} mv=${mv.hashCode()} zonesVisible=$markerZonesVisible")
         // ── Remove old marker overlays, then add new ones ─────────────────────
         removeAllMarkerOverlays()
@@ -152,7 +156,9 @@ fun MarkerOverlay(
             val isMatched = matchResult != null && matchedIds.contains(marker.id)
             val markerColor = MarkerColors.of(marker.colorIndex)
             // Unconfirmed: unconfirmed colour. Confirmed + not matched + has result: dim.
-            val baseColor = when {
+            val baseColor = if (marker.id == highlightedMarkerId) {
+                COLOR_HIGHLIGHT
+            } else when {
                 !confirmed -> COLOR_UNCONFIRMED
                 matchResult != null && !isMatched -> dimColor(markerColor, DIMMED_ALPHA_FRACTION)
                 else -> markerColor
@@ -170,7 +176,7 @@ fun MarkerOverlay(
 
             // Zone shapes gated by markerZonesVisible for confirmed markers;
             // unconfirmed (creating/editing) always show full geometry.
-            val drawZones = drawGeometry && (!confirmed || markerZonesVisible)
+            val drawZones = drawGeometry && (!confirmed || markerZonesVisible || marker.id == highlightedMarkerId)
 
             // Suppress center/p1/p2 dots when pinned — icon replaces the point marker.
             // Only applies to confirmed markers; unconfirmed always shows dots.
