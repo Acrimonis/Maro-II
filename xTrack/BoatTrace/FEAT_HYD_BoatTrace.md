@@ -1,10 +1,22 @@
 # BoatTrace — Hydration Snapshot
 
-**Baked at:** 2026-07-01 17:05 UTC
-**Active Subfeature:** boat-markers (implemented)
-**Branch:** feature/track+markers
+**Baked at:** 2026-07-05 08:09 UTC
+**Active Subfeature:** populate-track-info
+**Branch:** feature/track-info
 
 ## Session Summary
+
+Q&A session clarified requirements for populate-track-info. Plan written to `FEAT_PLN_BoatTrace_populate-track-info.md`.
+
+**Design decisions:**
+- Description recomputed from full BoatMarker history (not appended) — new markers retroactively name past stops
+- "Named" = whereAmI returns ≥1 non-IDLE_AUTO match
+- Title = whereAmI name of longest idle stop, polled every 3 min
+- Finalize title = `[longestNamedLoc -> secondLongestNamedLoc]`
+- Marker change notifier (Flow<Unit>) triggers recomputation on marker add/edit
+- whereAmI lambda injected via constructor, nullable for backward compat
+
+## Previous Session (boat-markers)
 
 BoatMarker infrastructure fully implemented — design finalised, all 12 steps coded and built:
 

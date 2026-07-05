@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** Ui_Menu
-- **Active Subfeature:** toggle-zones-marker-in-menu
-- **Last Updated:** 2026-07-05 07:08
-- **Last Bake:** 2026-07-05 07:08 (Ui_Menu — "Show Zones on Map" Switch in menu drawer MARKERS card)
-- **Branch:** feature/toggle-zones-marker-in-menu
+- **Active Feature:** BoatTrace
+- **Active Subfeature:** populate-track-info
+- **Last Updated:** 2026-07-05 08:09
+- **Last Bake:** 2026-07-05 08:09 (BoatTrace — populate-track-info plan written, recompute-based description + title polling)
+- **Branch:** feature/track-info
 
 ## Routing Map
 | Keyword | Feature File |
