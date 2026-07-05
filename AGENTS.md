@@ -12,12 +12,20 @@
   (user said "done", "goodbye", "that's all", or topic clearly exhausted) →
   THEN you MAY add 1 high-level future-direction bullet at the very end.
 
+- **🗣️ CONCISE: Minimum viable communication.**
+  Say what must be said — nothing more. Zero fluff, zero extrapolation,
+  zero speculative prose. IF a sentence doesn't carry signal → cut it.
+
 - **⛔ SCOPE LOCK: Zero scope creep.**
   IF the prompt doesn't explicitly request it → do NOT implement it.
   IF you spot an adjacent opportunity → log it as a post-task suggestion,
   never as code in the current delivery. Unrequested features are defects.
 
-- **🔴 MODE LOCK: Do not switch to Code or implement without explicit go-ahead.**
+- **🔴 NEVER ASSUME: Do not assume broader architecture outside task scope.**
+  IF the prompt doesn't reference a system, component, or pattern →
+  do NOT fabricate assumptions about it. Stick to what's stated.
+
+- **🔴 MODE LOCK: Do not switch to Code to implement feature or fx without explicit go-ahead.**
   Architect mode is for discussion, design, and workflow management (shell commands,
   git branch operations). Code mode is for source file modifications only.
   IF the user hasn't said "implement", "go ahead", "switch to Code", or similar →
@@ -36,14 +44,6 @@
   Feature work lives on `feature/*` branches; merges to `develop`/`main`
   are done via GitHub pull request only.
 
-- **🗣️ CONCISE: Minimum viable communication.**
-  Say what must be said — nothing more. Zero fluff, zero extrapolation,
-  zero speculative prose. IF a sentence doesn't carry signal → cut it.
-
-- **🔴 NEVER ASSUME: Do not assume broader architecture outside task scope.**
-  IF the prompt doesn't reference a system, component, or pattern →
-  do NOT fabricate assumptions about it. Stick to what's stated.
-
 - **🔴 WRITE-ONCE: Write each source file exactly once per task.**
   No edit-after-write cycles. No save-compile-rewrite loops.
   IF a file needs changing → combine all edits into a single write.
@@ -54,10 +54,9 @@
   `.nc` files.** Treat spatial data files as opaque blobs.
   Read metadata and parsing code only.
 
-- **📋 TASK COMPLETION: Summarize only if it adds information.**
-  IF the response already answered clearly and concisely → stop.
-  No summary needed. IF the task involved multi-step changes, code modifications,
-  or non-obvious decisions → emit:
+- **🔴 Context: Assume . (the project root folder) represents Maro_II_b. Do not attempt to read Maro_II_b as a file.
+
+- **📋 TASK COMPLETION:** If the tool output already answered the request, emit only `"Done."` — do not re-describe what was already displayed. Summarize only when multi-step changes, code modifications, or non-obvious decisions occurred. IF the task involved multi-step changes → emit:
   1. Bullet list of what changed (files touched, logic altered, config).
   2. ELI16 explanation — one or two plain-language sentences explaining the
      *purpose* of the change. Strip Android/Kotlin jargon where possible.
