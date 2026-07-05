@@ -224,7 +224,7 @@ fun MenuDrawerOverlay(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = "View track list",
                     tint = Color(AppConfig.uiSettingsTextMuted),
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(28.dp)
                 )
             }
 
@@ -311,7 +311,7 @@ fun MenuDrawerOverlay(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = "Manage markers",
                     tint = Color(AppConfig.uiSettingsTextMuted),
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(28.dp)
                 )
             }
         }

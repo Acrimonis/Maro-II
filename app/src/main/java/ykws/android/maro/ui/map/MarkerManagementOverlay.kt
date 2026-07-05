@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.outlined.LocationOff
@@ -103,7 +104,7 @@ fun MarkerManagementOverlay(
         cardContent = { marker ->
             MarkerCardContent(
                 marker = marker,
-                onTap = { onAction(ykws.android.maro.data.model.ListAction.SelectItem(marker.id)) },
+                onTap = { onAction(ykws.android.maro.data.model.ListAction.NavigateToItem(marker.id)) },
                 onEdit = { onAction(ykws.android.maro.data.model.ListAction.EditItem(marker.id)) },
                 onSetIcon = onSetIcon
             )
@@ -149,98 +150,110 @@ private fun MarkerCardContent(
     onEdit: () -> Unit,
     onSetIcon: (String, String?) -> Unit
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(IntrinsicSize.Min)
-            .clip(RoundedCornerShape(MARKER_CARD_RADIUS))
-            .background(Color(AppConfig.uiCardBackground))
-    ) {
-        Box(
+    Box {
+        Row(
             modifier = Modifier
-                .width(MARKER_ACCENT_BAR_WIDTH)
-                .fillMaxHeight()
-                .background(Color(MarkerColors.of(marker.colorIndex)))
-        )
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(horizontal = MARKER_CONTENT_PAD_H, vertical = MARKER_CONTENT_PAD_V)
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min)
+                .clip(RoundedCornerShape(MARKER_CARD_RADIUS))
+                .background(Color(AppConfig.uiCardBackground))
+                .clickable { onTap() }
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            Box(
+                modifier = Modifier
+                    .width(MARKER_ACCENT_BAR_WIDTH)
+                    .fillMaxHeight()
+                    .background(Color(MarkerColors.of(marker.colorIndex)))
+            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = MARKER_CONTENT_PAD_H, vertical = MARKER_CONTENT_PAD_V)
             ) {
-                Text(
-                    text = coordinateHeader(marker),
-                    color = Color(AppConfig.uiSettingsTextMuted),
-                    fontSize = MARKER_HEADER_FONT_SIZE,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    var showIconPicker by remember { mutableStateOf(false) }
-                    IconButton(
-                        onClick = { showIconPicker = true },
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        if (marker.icon != null) {
-                            Text(marker.icon!!, fontSize = 20.sp)
-                        } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = coordinateHeader(marker),
+                        color = Color(AppConfig.uiSettingsTextMuted),
+                        fontSize = MARKER_HEADER_FONT_SIZE,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                        var showIconPicker by remember { mutableStateOf(false) }
+                        IconButton(
+                            onClick = { showIconPicker = true },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            if (marker.icon != null) {
+                                Text(marker.icon!!, fontSize = 20.sp)
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Outlined.LocationOff,
+                                    contentDescription = "Set icon",
+                                    tint = ButtonColors.icon,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+                        if (showIconPicker) {
+                            IconPickerDialog(
+                                currentIcon = marker.icon,
+                                onIconSelected = { icon ->
+                                    onSetIcon(marker.id, icon)
+                                    showIconPicker = false
+                                },
+                                onDismiss = { showIconPicker = false }
+                            )
+                        }
+                        IconButton(
+                            onClick = onEdit,
+                            modifier = Modifier.size(36.dp)
+                        ) {
                             Icon(
-                                imageVector = Icons.Outlined.LocationOff,
-                                contentDescription = "Set icon",
+                                imageVector = Icons.Filled.Edit,
+                                contentDescription = "Edit",
                                 tint = ButtonColors.icon,
                                 modifier = Modifier.size(24.dp)
                             )
                         }
                     }
-                    if (showIconPicker) {
-                        IconPickerDialog(
-                            currentIcon = marker.icon,
-                            onIconSelected = { icon ->
-                                onSetIcon(marker.id, icon)
-                                showIconPicker = false
-                            },
-                            onDismiss = { showIconPicker = false }
-                        )
-                    }
-                    IconButton(
-                        onClick = onEdit,
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Edit,
-                            contentDescription = "Edit",
-                            tint = ButtonColors.icon,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
                 }
-            }
 
-            Text(
-                text = marker.name,
-                color = Color(AppConfig.uiSettingsTextPrimary),
-                fontSize = MARKER_TITLE_FONT_SIZE,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
-
-            if (marker.description.isNotBlank()) {
-                Spacer(Modifier.height(4.dp))
                 Text(
-                    text = marker.description,
-                    color = Color(AppConfig.uiSettingsTextMuted),
-                    fontSize = MARKER_DESC_FONT_SIZE,
-                    maxLines = 2,
+                    text = marker.name,
+                    color = Color(AppConfig.uiSettingsTextPrimary),
+                    fontSize = MARKER_TITLE_FONT_SIZE,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+
+                if (marker.description.isNotBlank()) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = marker.description,
+                        color = Color(AppConfig.uiSettingsTextMuted),
+                        fontSize = MARKER_DESC_FONT_SIZE,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
         }
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = "View marker",
+            tint = Color(AppConfig.uiSettingsTextMuted),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 4.dp, bottom = 4.dp)
+                .size(28.dp)
+        )
     }
 }
 

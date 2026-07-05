@@ -374,7 +374,7 @@ Row(
 | Row type | Pattern | Example |
 |----------|---------|---------|
 | Setting | Label + inline control (Switch) | GPS mode toggle |
-| Navigation | Label + trailing chevron (→) | "Manage Tracks" |
+| Navigation | Label + trailing chevron `KeyboardArrowRight` 28dp `uiSettingsTextMuted` | "Manage Tracks" |
 | Content | Text / sliders / stats inside card | Marker details, live stats |
 
 ---
@@ -397,6 +397,7 @@ Row(
 | I21 | 2026-06-25 | Unified list item card pattern (Track + Marker) | `Row(height(IntrinsicSize.Min), clip(12dp), uiCardBackground)` + `Box(4dp, fillMaxHeight, accentColor)` + `Column(weight 1f, pad 8×4dp)`. Canonical pattern in §9. Consolidates I14/I15/I19/I20. Per-type variations: accent color source, header metadata, detail text, action icons. |
 | I16 | 2026-06-25 | Previous/Next buttons match wizard pill style | `Box(RoundedCornerShape(8dp), uiSettingsAccent bg, Bold 14sp)` — same as `WizardButtonRow`. |
 | I17 | 2026-06-25 | Selected marker highlight via 2.5× stroke multiplier | Thicker stroke + `mapCenterRequest` on Previous/Next navigation. |
+| I23 | 2026-07-05 | Navigation chevrons normalized to 28dp | Menu drawer (20dp) and marker card (18dp) chevrons inconsistently sized. Unified at 28dp — clear affordance, matches standard icon size. Applies to `MenuDrawerOverlay` navigation rows + `MarkerManagementOverlay` card chevrons. |
 | I18 | 2026-06-25 | Proximity zone uses marker's own color (50% stroke / 10% fill) | Replaces hardcoded cyan. Fill = `dimColor(markerColor, ZONE_FILL_ALPHA_FRACTION/2)`. |
 | I22 | 2026-07-03 | `DrawerScaffold` + `DrawerHeader` extracted from MarkerDrawer | Fixed-header + scrollable-body pattern promoted to reusable scaffold. See §12. |
 

@@ -313,3 +313,25 @@ switch; filters only apply when the layer is ON.
 
 **Live track exemption:** Live tracks bypass `dateRange` filter only (always visible regardless of date).
 They respect `pinned` filter.
+
+---
+
+## Card Tap & Navigation Chevron
+
+Marker cards in [`MarkerManagementOverlay`](app/src/main/java/ykws/android/maro/ui/map/MarkerManagementOverlay.kt) emit `ListAction.NavigateToItem(id)` on tap — this triggers the click-N-move flow: dismiss list → animate map to marker → whereAmI → open drawer.
+
+**Card tap:**
+- The card `Row` carries a `.clickable { onTap() }` modifier — the entire card is tappable
+- Tap is handled at the card content level (`MarkerCardContent`), not in `SwipeableItemCard`
+- `SwipeableItemCard` handles only swipe gestures; taps pass through to `cardContent`
+
+**Chevron affordance:**
+- Each marker card carries a `KeyboardArrowRight` chevron at `Alignment.BottomEnd`
+- Size: **28dp** — consistent with menu drawer navigation chevrons
+- Color: `uiSettingsTextMuted`
+- Padding: `end = 4.dp, bottom = 4.dp`
+- The chevron is rendered in a `Box` wrapper around the card `Row` — it overlays the card, does not affect layout
+
+**Consistency rule:** All navigation chevrons (`KeyboardArrowRight`) across the app use the same 28dp size and `uiSettingsTextMuted` color. This covers:
+- Marker card chevrons (list overlay)
+- Menu drawer navigation rows ("Manage Tracks", "Manage Markers")
