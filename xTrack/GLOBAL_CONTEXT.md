@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** UI_Map
-- **Active Subfeature:** map refresh
-- **Last Updated:** 2026-07-04 16:48
-- **Last Bake:** 2026-07-04 16:48 (feature/fan — per-layer LaunchedEffect overlay updates)
-- **Branch:** feature/fan
+- **Active Feature:** Ui_Menu
+- **Active Subfeature:** toggle-zones-marker-in-menu
+- **Last Updated:** 2026-07-05 07:08
+- **Last Bake:** 2026-07-05 07:08 (Ui_Menu — "Show Zones on Map" Switch in menu drawer MARKERS card)
+- **Branch:** feature/toggle-zones-marker-in-menu
 
 ## Routing Map
 | Keyword | Feature File |
@@ -32,6 +32,7 @@
 | | workflow, rules, ambiguity, merge, agents, gitops | xTrack/WorkflowAmbiguityFix/FEAT_DSC_WorkflowAmbiguityFix.md |
 | | ui, tweaks, polish, small-potatoes, ui-small-potatoes, small potatoes | xTrack/ui-small-potatoes/FEAT_DSC_ui-small-potatoes.md |
 | | markers, pin, circle, corridor, usermarker, user marker, where am i | xTrack/Markers/FEAT_DSC_Markers.md |
+| | menu, menu drawer, hamburger, track drawer, position source, menu overlay | xTrack/Ui_Menu/FEAT_DSC_Ui_Menu.md |
 
 ## Feature Summaries
 
@@ -62,6 +63,7 @@
 | | **WorkflowAmbiguityFix** | **Eliminate ambiguity between AGENTS.md rules — #merge direction, §5 reinforcement, command doc alignment. Absorbed into WorkflowImprovement 2026-06-28.** | **2026-06-20 14:51** | **2026-06-28 13:51** | **done** |
 | | **ui-small-potatoes** | **UI polish, refinements, and small fixes across the app** | **2026-06-22 13:50** | **2026-06-22 14:20** | **active** |
 | | **Markers** | **User-defined map markers (Pin, Circle, Corridor) with sea-distance-gated proximity matching, percentage-based sort scoring, and on-demand "where am I?" query — 14/14 subfeatures done; 7 fixes + sort v2 implemented** | **2026-06-22 11:52** | **2026-06-30 10:25** | **active** |
+| | **Ui_Menu** | **Hamburger menu drawer — position source, track recording, marker management sections; right-side sliding panel via OverlayLayer/DrawerSlot** | **2026-07-05 06:57** | **2026-07-05 07:08** | **active** |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).
