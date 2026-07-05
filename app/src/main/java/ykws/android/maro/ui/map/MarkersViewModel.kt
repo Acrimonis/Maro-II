@@ -258,18 +258,23 @@ class MarkersViewModel(
     // ── Drawer control ────────────────────────────────────────────────────
 
     /** Opens drawer in viewing mode for a single marker (convenience). */
-    fun openEditDrawer(markerId: String) {
-        openEditDrawer(listOf(markerId))
+    fun openEditDrawer(markerId: String, selectedId: String? = null) {
+        openEditDrawer(listOf(markerId), selectedId = selectedId)
     }
 
     /** Opens drawer in viewing mode for one or more markers (§11 multi-marker). */
-    fun openEditDrawer(markerIds: List<String>) {
+    fun openEditDrawer(markerIds: List<String>, selectedId: String? = null) {
         if (markerIds.isEmpty()) return
         _selectedMarkerIds.value = markerIds
-        _selectedMarkerIndex.value = 0
-        val firstId = markerIds.first()
-        val marker = _markers.value.find { it.id == firstId } ?: return
-        _selectedMarkerId.value = firstId
+        val index = if (selectedId != null) {
+            markerIds.indexOf(selectedId).coerceAtLeast(0)
+        } else {
+            0
+        }
+        _selectedMarkerIndex.value = index
+        val lookupId = markerIds[index]
+        val marker = _markers.value.find { it.id == lookupId } ?: return
+        _selectedMarkerId.value = lookupId
         val pos = when (val g = marker.geometry) {
             is MarkerGeometry.Pin -> g.position
             is MarkerGeometry.Circle -> g.center

@@ -1,8 +1,8 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-07-03 14:33
-active_subfeature: tweak drawer
+modified: 2026-07-05 09:17
+active_subfeature: click-N-move
 ---
 
 # Feature: Ui_General
@@ -492,18 +492,44 @@ Track list (TrackHistoryOverlay) color review — ensure track cards, stats, lab
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — toast Surface, LoadingOverlay, ErrorOverlay
 
+### click-N-move  [x]
+
+Click on a marker in the markers list closes the list, moves the map to the marker (point for zones & points, central segment point for corridors), runs whereAmI at boat position, then opens the Viewing drawer with the clicked marker selected (prev/next among whereAmI matches).
+
+#### Implemented
+- [`ListAction.kt`](app/src/main/java/ykws/android/maro/data/model/ListAction.kt:17) — `NavigateToItem(id)` added between `SelectItem` and `EditItem`
+- [`UserMarker.kt`](app/src/main/java/ykws/android/maro/data/model/markers/UserMarker.kt:51) — `centerPoint` computed property: Pin→position, Circle→center, Corridor→midpoint(p1,p2)
+- [`MarkerManagementOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/MarkerManagementOverlay.kt:106) — card tap emits `NavigateToItem` instead of `SelectItem`
+- [`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1344) — `NavigateTarget` + `LaunchedEffect`: dismiss list → `animateTo(600ms)` → `delay(650ms)` → `withContext(Dispatchers.Default) { whereAmISync }` → `openEditDrawer(matchedIds + clickedId, selectedId)`
+- [`MarkersViewModel.kt`](app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt:266) — `openEditDrawer(markerIds, selectedId?)`: uses `selectedId` for index + form lookup, backward compatible
+- [`MarkerManagementOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/MarkerManagementOverlay.kt:153) — card Row wrapper: `Box` + `.clickable { onTap() }` fix + `KeyboardArrowRight` chevron at `BottomEnd`
+- BUILD SUCCESSFUL (×2, initial + chevron fix)
+
+#### Rules
+- Map animation: 600ms `animateTo`, sequential after list dismiss
+- Corridor center = midpoint of p1/p2 (single-segment geometry)
+- `whereAmISync` wrapped in `withContext(Dispatchers.Default)` to avoid main-thread jank
+- Clicked marker always unioned into `matchedIds` via `+ target.markerId).distinct()`
+- `SelectItem` preserved for future batch selection; not repurposed
+- `openEditDrawer` backward compatible: `selectedId` defaults to null
+
+#### Key Files
+- `ListAction.kt`, `MarkerManagementOverlay.kt`, `MapScreen.kt`, `MarkersViewModel.kt`, `UserMarker.kt`
+
+#### Plan
+- `xTrack/Ui_General/FEAT_PLN_Ui_General_click-n-move.md`
+
+---
+
 ## Rules
 
 ## Key Files
 
 ## Docs
-- `docs/ui-lists-guidelines.md` — ListOverlayScaffold API, filter system, sort+filter popup styling, swipe-to-delete, ViewModel pipeline
+- `docs/ui-lists-guidelines.md` — ListOverlayScaffold API, filter system, sort+filter popup styling, swipe-to-delete, card tap & navigation chevron (28dp)
+- `docs/ui-drawer-guidelines.md` — DrawerScaffold API, row types (including navigation chevron 28dp), I23 chevron normalization decision
 - `docs/material-icons-standalone-guide.md` — standalone icon registry (FilterAlt, FilterList, Refresh)
 - `xTrack/Ui_General/FEAT_PLN_Ui_General_portrait-bottom-space.md` — analysis of portrait bottom space and status bar immersion
-- `plans/btn-color-harmonization.md` — button color harmonization: match map control buttons to dashboard dark theme
 - `docs/color-scheme.md` — canonical reference for all colour tokens in the app
-- `plans/color-props-migration-plan.md` — migration plan: all colours → colors.properties
-- `plans/button-colors-discussion.md` — discussion: UI round button color identification and exploration
-- `plans/right-edge-controls-gap-asymmetry-analysis.md` — root cause analysis of asymmetric gap between right-edge controls and map edges after immersive rework
 - `plans/map-overlay-layout-rationalization.md` — complete layout refactor: 2-column Row structure, symmetric 6dp margins, orientation-aware insets
 - `plans/map-overlay-layout-inventory.md` — current overlay inventory and planned evolution audit

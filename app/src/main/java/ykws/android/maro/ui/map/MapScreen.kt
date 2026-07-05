@@ -197,6 +197,9 @@ private const val GPS_ANIMATION_DURATION_MS = 600L
 /** Computed polyline rendering appearance: ARGB color + stroke width. */
 data class TrackPolylineAppearance(val argb: Int, val strokeWidth: Float)
 
+/** One-shot target for click-N-move navigation: dismiss list → animate map → open drawer. */
+private data class NavigateTarget(val geoPoint: GeoPoint, val markerId: String)
+
 /**
  * Compute a track polyline's ARGB color and stroke width from its position
  * in a same-type group and the current rendering settings.
@@ -267,6 +270,7 @@ fun MapScreen(
     var showTrackDrawer by remember { mutableStateOf(false) }
     var showTrackHistory by remember { mutableStateOf(false) }
     var showMarkerManagement by remember { mutableStateOf(false) }
+    var navigateToTarget by remember { mutableStateOf<NavigateTarget?>(null) }
     val trackViewModel: ykws.android.maro.data.track.TrackViewModel =
         androidx.lifecycle.viewmodel.compose.viewModel()
     val markersViewModel: MarkersViewModel =
@@ -1336,6 +1340,38 @@ fun MapScreen(
                 )
             }
 
+        // ── Click-N-Move: sequential navigate flow ──────────────────────────
+        LaunchedEffect(navigateToTarget) {
+            val target = navigateToTarget ?: return@LaunchedEffect
+            val mv = mapView ?: return@LaunchedEffect
+
+            // 1. Animate map to marker centre
+            mv.controller.animateTo(target.geoPoint, null, GPS_ANIMATION_DURATION_MS)
+
+            // 2. Wait for animation to settle
+            delay(GPS_ANIMATION_DURATION_MS + 50L)
+
+            // 3. Run whereAmI synchronously on background thread
+            val boatPos = gpsPosition ?: mapCenter
+            val result = withContext(Dispatchers.Default) {
+                markersViewModel.whereAmISync(boatPos)
+            }
+
+            // 4. Build navigation set: whereAmI matches + clicked marker (always included)
+            val whereAmIIds = result.allMatches.map { match ->
+                when (match) {
+                    is ykws.android.maro.spatial.WhereAmIMatch.ZoneMatch -> match.marker.id
+                    is ykws.android.maro.spatial.WhereAmIMatch.LineOfSightMatch -> match.marker.id
+                }
+            }
+            val matchedIds = (whereAmIIds + target.markerId).distinct()
+
+            // 5. Open drawer with clicked marker selected
+            markersViewModel.openEditDrawer(matchedIds, selectedId = target.markerId)
+
+            navigateToTarget = null
+        }
+
         // ── Layer 1: Overlay (transient drawers, Wizard, Settings, scrim) ──
         val showWizard = drawerState is MarkerDrawerState.Creating || drawerState is MarkerDrawerState.Editing
         val mgmtMarkers by markersViewModel.markers.collectAsState()
@@ -1405,7 +1441,14 @@ fun MapScreen(
             markers = mgmtMarkers,
             onMarkerAction = { action ->
                 when (action) {
-                    is ykws.android.maro.data.model.ListAction.SelectItem -> markersViewModel.openEditDrawer(action.id)
+                    is ykws.android.maro.data.model.ListAction.NavigateToItem -> {
+                        showMarkerManagement = false
+                        val marker = mgmtMarkers.find { it.id == action.id } ?: return@OverlayLayer
+                        navigateToTarget = NavigateTarget(
+                            geoPoint = GeoPoint(marker.centerPoint.latitude, marker.centerPoint.longitude),
+                            markerId = action.id
+                        )
+                    }
                     is ykws.android.maro.data.model.ListAction.EditItem -> {
                         showMarkerManagement = false
                         markersViewModel.startWizard(action.id)

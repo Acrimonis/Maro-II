@@ -47,6 +47,16 @@ data class UserMarker(
     override val title: String get() = name
     override val isPinned: Boolean get() = pinned
 
+    /** Visual centre of the marker geometry for map navigation. */
+    val centerPoint: LatLng get() = when (val g = geometry) {
+        is MarkerGeometry.Pin -> g.position
+        is MarkerGeometry.Circle -> g.center
+        is MarkerGeometry.Corridor -> LatLng(
+            (g.p1.latitude  + g.p2.latitude)  / 2.0,
+            (g.p1.longitude + g.p2.longitude) / 2.0
+        )
+    }
+
     /**
      * Axis-aligned lat/lon bounding box for cheap pre-filter before expensive
      * land-blocking checks. Computed lazily from [geometry] on first access.

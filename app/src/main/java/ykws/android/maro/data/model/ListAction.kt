@@ -13,6 +13,8 @@ sealed class ListAction {
     // ── Item interaction ──────────────────────────────────────────────
     /** Item tapped — show details / open viewer. */
     data class SelectItem(val id: String) : ListAction()
+    /** Navigate to marker on map — dismiss list, animate map, open drawer. */
+    data class NavigateToItem(val id: String) : ListAction()
     /** Edit action triggered — open wizard / editor. */
     data class EditItem(val id: String) : ListAction()
     /** Export GPX — share track file. */
