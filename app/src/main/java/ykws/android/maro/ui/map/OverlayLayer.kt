@@ -24,6 +24,7 @@ import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.depth.RasterCache
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.UserMarker
+import ykws.android.maro.ui.components.DrawerScaffold
 
 /** Returns the step sequence for the given marker type (mirror of VM method for UI use). */
 private fun stepSequenceFor(type: MarkerType): List<WizardStep> = when (type) {
@@ -107,6 +108,12 @@ fun OverlayLayer(
 
     // ── Marker drawer data ───────────────────────────────────────────────
     boatPosition: LatLng?,
+
+    // ── Track info drawer data ───────────────────────────────────────────
+    showTrackInfoDrawer: Boolean = false,
+    trackInfoDrawerData: ykws.android.maro.data.track.Track? = null,
+    onTrackDrawerClose: () -> Unit = {},
+    onNavigateToTrack: (String) -> Unit = {},
 
     // ── Marker management data ───────────────────────────────────────────
     markers: List<UserMarker>,
@@ -291,6 +298,101 @@ fun OverlayLayer(
             }
         }
 
+        // ── 4b. TrackInfoDrawer (no scrim — map stays interactive) ────────
+        if (isLandscape) {
+            DrawerSlot(
+                visible = showTrackInfoDrawer,
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .width(landscapeDashboardWidth)
+                    .fillMaxHeight(),
+                slideDirection = SlideDirection.FROM_LEFT,
+                shadowEdge = ShadowEdge.RIGHT
+            ) {
+                trackInfoDrawerData?.let { track ->
+                    val summary = ykws.android.maro.data.track.TrackSummary(
+                        id = track.id,
+                        name = track.name,
+                        comment = track.comment,
+                        startTimeMs = track.startTimeMs,
+                        endTimeMs = track.endTimeMs,
+                        fastestSpeedMps = track.fastestSpeedMps,
+                        distanceNm = track.distanceNm,
+                        visibleOnMap = track.visibleOnMap,
+                        navigatingDurationSec = track.navigatingDurationSec,
+                        pausedDurationSec = track.pausedDurationSec,
+                        averageSpeedMps = track.averageSpeedMps,
+                        pinned = track.pinned,
+                        pointCount = track.trackPoints.size,
+                        idleDurationSec = track.idleDurationSec
+                    )
+                    DrawerScaffold(
+                        title = track.name,
+                        onClose = onTrackDrawerClose,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp)
+                    ) {
+                        TrackCardContent(
+                            summary = summary,
+                            dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US),
+                            accentColor = ComposeColor(0xFFFFD700.toInt()),
+                            onUpdateTrack = { id, name, comment, pinned ->
+                                pinned?.let { trackViewModel.setPinned(id, it) }
+                                trackViewModel.updateTrack(id, name, comment)
+                            },
+                            onShareGpx = { },
+                            onTap = null
+                        )
+                    }
+                }
+            }
+        } else {
+            DrawerSlot(
+                visible = showTrackInfoDrawer,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(portraitDashboardHeight),
+                slideDirection = SlideDirection.FROM_BOTTOM,
+                shadowEdge = ShadowEdge.TOP
+            ) {
+                trackInfoDrawerData?.let { track ->
+                    val summary = ykws.android.maro.data.track.TrackSummary(
+                        id = track.id,
+                        name = track.name,
+                        comment = track.comment,
+                        startTimeMs = track.startTimeMs,
+                        endTimeMs = track.endTimeMs,
+                        fastestSpeedMps = track.fastestSpeedMps,
+                        distanceNm = track.distanceNm,
+                        visibleOnMap = track.visibleOnMap,
+                        navigatingDurationSec = track.navigatingDurationSec,
+                        pausedDurationSec = track.pausedDurationSec,
+                        averageSpeedMps = track.averageSpeedMps,
+                        pinned = track.pinned,
+                        pointCount = track.trackPoints.size,
+                        idleDurationSec = track.idleDurationSec
+                    )
+                    DrawerScaffold(
+                        title = track.name,
+                        onClose = onTrackDrawerClose,
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+                    ) {
+                        TrackCardContent(
+                            summary = summary,
+                            dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US),
+                            accentColor = ComposeColor(0xFFFFD700.toInt()),
+                            onUpdateTrack = { id, name, comment, pinned ->
+                                pinned?.let { trackViewModel.setPinned(id, it) }
+                                trackViewModel.updateTrack(id, name, comment)
+                            },
+                            onShareGpx = { },
+                            onTap = null
+                        )
+                    }
+                }
+            }
+        }
+
         // ── 5. TrackHistory ──────────────────────────────────────────────
         DrawerSlot(
             visible = showTrackHistory,
@@ -310,6 +412,7 @@ fun OverlayLayer(
                 },
                 onAction = onTrackAction,
                 onDismiss = onDismissTrackHistory,
+                onNavigateToTrack = onNavigateToTrack,
                 sortState = trackSortState,
                 onSortStateChange = onTrackSortStateChange,
                 filterState = trackFilterState,

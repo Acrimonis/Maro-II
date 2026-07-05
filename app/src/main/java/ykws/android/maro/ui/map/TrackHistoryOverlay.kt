@@ -47,6 +47,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.outlined.LocationOff
@@ -133,6 +134,7 @@ fun TrackHistoryOverlay(
     onUpdateLiveTrack: ((name: String?, comment: String?) -> Unit)? = null,
     onAction: (ListAction) -> Unit,
     onDismiss: () -> Unit,
+    onNavigateToTrack: (String) -> Unit = {},
     sortState: ListSortState,
     onSortStateChange: (ListSortState) -> Unit,
     filterState: ListFilter = ListFilter(),
@@ -224,7 +226,8 @@ fun TrackHistoryOverlay(
                 dateFormat = dateFormat,
                 accentColor = accentColorMap[summary.id] ?: Color(AppConfig.uiSettingsTextMuted).copy(alpha = 0.15f),
                 onUpdateTrack = onUpdateTrack,
-                onShareGpx = { onAction(ListAction.ExportGpx(summary.id)) }
+                onShareGpx = { onAction(ListAction.ExportGpx(summary.id)) },
+                onTap = { onNavigateToTrack(summary.id) }
             )
         },
         liveCardContent = if (liveState != null && liveState.state == TrackRecorderState.ON) {
@@ -248,12 +251,13 @@ fun TrackHistoryOverlay(
  * - One field at a time (name ↔ comment mutual exclusion)
  */
 @Composable
-private fun TrackCardContent(
+internal fun TrackCardContent(
     summary: TrackSummary,
     dateFormat: SimpleDateFormat,
     accentColor: Color = Color.Unspecified,
     onUpdateTrack: (String, name: String?, comment: String?, pinned: Boolean?) -> Unit,
-    onShareGpx: (String) -> Unit
+    onShareGpx: (String) -> Unit,
+    onTap: (() -> Unit)? = null
 ) {
     // Original values for revert-on-back
     val originalName = remember(summary.id) { summary.name }
@@ -291,25 +295,27 @@ private fun TrackCardContent(
         }
     }
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(IntrinsicSize.Min)
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color(AppConfig.uiCardBackground))
-    ) {
-        // Left-edge accent bar — previews the track's polyline render color
-        Box(
+    Box {
+        Row(
             modifier = Modifier
-                .width(4.dp)
-                .fillMaxHeight()
-                .background(accentColor)
-        )
-        Column(
-            modifier = Modifier
-                .weight(1f)
-                .padding(horizontal = 8.dp, vertical = 4.dp)
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(AppConfig.uiCardBackground))
+                .clickable { onTap?.invoke() }
         ) {
+            // Left-edge accent bar — previews the track's polyline render color
+            Box(
+                modifier = Modifier
+                    .width(4.dp)
+                    .fillMaxHeight()
+                    .background(accentColor)
+            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
         // ── Date + time range + action icons ────────────────────────
         val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.US) }
         val dateLabel = remember(summary.id) {
@@ -477,7 +483,17 @@ private fun TrackCardContent(
             Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_idle), fmtDuration(summary.idleDurationSec)) }
             Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_max), fmtKnFromMps(summary.fastestSpeedMps)) }
         }
-        }
+    }
+    }
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = "View track",
+            tint = Color(AppConfig.uiSettingsTextMuted),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(end = 4.dp, bottom = 4.dp)
+                .size(28.dp)
+        )
     }
 }
 
