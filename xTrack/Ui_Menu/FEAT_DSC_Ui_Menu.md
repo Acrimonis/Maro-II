@@ -45,3 +45,4 @@ mirroring the POSITION SOURCE GPS toggle pattern. Controls `AppSettings.markerZo
 
 ## Docs
 - `docs/ui-drawer-guidelines.md`
+- `xTrack/Ui_Menu/FEAT_DOC_Ui_Menu_decisions.md`
