@@ -113,6 +113,13 @@ object AppConfig {
     /** Enable visual whereAmI debug rays on the map. Set via `marker.debug.rays.enabled` in maro.properties. */
     var markerDebugRaysEnabled: Boolean = false
 
+    /** Gap distance threshold (m) for inserting GAP markers on track resume. Set via `tracking.gapDistanceThresholdM` in maro.properties. */
+    var trackingGapDistanceThresholdM: Double = 200.0
+        private set
+    /** Gap time threshold (s) for inserting GAP markers on track resume. Set via `tracking.gapTimeThresholdSec` in maro.properties. */
+    var trackingGapTimeThresholdSec: Long = 120L
+        private set
+
     // ── Marker sort scoring ─────────────────────────────────────────
     /** Pin type weight. Lower = higher priority. */
     var markerSortTypeWeightPin: Double = 0.5
@@ -532,6 +539,14 @@ object AppConfig {
             }
             props.getProperty("track.boatMarker.autoMarker.proximityM")?.toDoubleOrNull()?.let {
                 boatMarkerAutoMarkerProximityM = it.coerceAtLeast(0.0)
+            }
+
+            // ── Track gap detection (resume after crash) ────────────────────
+            props.getProperty("tracking.gapDistanceThresholdM")?.toDoubleOrNull()?.let {
+                trackingGapDistanceThresholdM = it.coerceAtLeast(0.0)
+            }
+            props.getProperty("tracking.gapTimeThresholdSec")?.toLongOrNull()?.let {
+                trackingGapTimeThresholdSec = it.coerceAtLeast(0L)
             }
 
             // ── Marker debug rays ───────────────────────────────────────

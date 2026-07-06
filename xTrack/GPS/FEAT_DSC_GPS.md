@@ -2,8 +2,8 @@
 name: GPS
 status: active
 created: 2026-06-07 00:00
-modified: 2026-07-03 12:49
-active_subfeature: auto-recenter
+modified: 2026-07-06 14:43
+active_subfeature: gps-background
 ---
 
 # Feature: GpsPlugin
@@ -194,6 +194,11 @@ ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 **yarefact (2026-06-25, Phase A+B+C):** Removed duplicate `AdaptiveGpsPolicy` from TrackRecorder — unified stillness detection via single `isStopped` StateFlow from NavigationViewModel. Reordered `adaptivePolicy.onFix()` before `GpsSignalWatchdog` block, gated both on `_acquisitionMode != IDLE`. Added `feedDemoPosition()` for demo-mode stop detection with periodic 1Hz convergence. `setStoppedSource()` forwarding mechanism on TrackViewModel. Created `TrackSample` data class. Migrated entire recording pipeline from virtual `GpsFix` to `TrackSample`. Phase C: `_newPoint` SharedFlow emits each captured point for incremental polyline append in MapScreen — removed full-list `recordingPoints` copy from `_uiState.update`. Fixes: stale `remember` closure on `appSettings`, periodic demo position feed for stop convergence. Build: ✅.
 
 **background-recording (2026-06-28):** One-line conditional in MapScreen `ON_PAUSE` handler — don't kill GPS (`setGpsActive(false)`) when track recording is active. GPS survives backgrounding while `TrackRecorderState.ON`; foreground service (`TrackRecordingService`, START_STICKY) keeps process alive. `isStopped` gate + dormant GPS cadence still apply. 1 file, 1 line. Build: ✅.
+
+### gps-background  [x]
+
+Harden background GPS to match Waze/GMaps best practices + recording-aware exit guard + crash-resilient track recording.
+
 
 ## Todos
 - [ ] back to GPS point → replace delay by swipe of card
