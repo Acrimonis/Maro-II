@@ -4,7 +4,7 @@
 - **Active Feature:** ui-small-potatoes
 - **Active Subfeature:** translation
 - **Last Updated:** 2026-07-06 13:56
-- **Last Bake:** 2026-07-06 13:56 (ui-small-potatoes — translation: 57 strings extracted to strings.xml, 13 source files updated, en+fr complete)
+- **Last Bake:** 2026-07-06 14:19 (ui-small-potatoes — translation: 84 strings total, Settings page pass added 27 more, en+fr complete)
 - **Branch:** feature/localization
 
 ## Routing Map

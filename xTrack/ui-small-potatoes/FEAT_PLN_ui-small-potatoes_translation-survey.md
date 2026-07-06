@@ -141,6 +141,72 @@ Most visible strings — always on screen in menu drawer.
 | 56 | `ListOverlayScaffold.kt` | `"\"%s\" deleted"`, `"Undo"` | Snackbar messages |
 | 57 | `RegulatedZoneComponents.kt` | `"10"` | Boat size slider min label — likely a numeric constant, not user-facing text |
 
+## Hardcoded — Priority 5 (Settings Page — Missed in Initial Pass)
+
+Navigation tab + System tab strings that were previously missed.
+
+| # | File | Line(s) | Current Text | Proposed Key |
+|---|------|---------|-------------|-------------|
+| 58 | `MapScreen.kt` | 3491 | `"Show zone info text beside the icon strip"` | `settings_reg_info_desc` |
+| 59 | `MapScreen.kt` | 3502 | `"Info text visible"` | `settings_reg_info_visible` |
+| 60 | `MapScreen.kt` | 3597 | `"Tracks"` | `settings_section_tracks` |
+| 61 | `MapScreen.kt` | 3603 | `"Show recorded tracks on the map"` | `settings_tracks_desc` |
+| 62 | `MapScreen.kt` | 3639 | `"Number of tracks"` | `settings_tracks_count_label` |
+| 63 | `MapScreen.kt` | 3650 | `"Recent tracks to render (0-20)"` | `settings_tracks_count_desc` |
+| 64 | `MapScreen.kt` | 3687 | `"Transparency"` | `settings_transparency_label` |
+| 65 | `MapScreen.kt` | 3693 | `"Left thumb = newest track, right thumb = oldest. 0% = opaque, 100% = invisible."` | `settings_transparency_desc` |
+| 66 | `MapScreen.kt` | 3698 | `"Newest %d%%  –  Oldest %d%%"` | `settings_transparency_value_fmt` |
+| 67 | `MapScreen.kt` | 3735 | `"Pinned transparency"` | `settings_pinned_transparency_label` |
+| 68 | `MapScreen.kt` | 3741 | `"Pinned tracks are always visible regardless of count. 0% = opaque, 100% = invisible."` | `settings_pinned_transparency_desc` |
+| 69 | `MapScreen.kt` | 3746 | `"Newest %d%%  –  Oldest %d%%"` | `settings_transparency_value_fmt` (reuse) |
+| 70 | `MapScreen.kt` | 3780 | `"Colors"` | `settings_colors_label` |
+| 71 | `MapScreen.kt` | 3786 | `"Past tracks: color gradient from newest (From) to oldest (To). Pinned tracks: amber/orange gradient."` | `settings_colors_desc` |
+| 72 | `MapScreen.kt` | 3836 | `"Markers"` | `settings_section_markers` |
+| 73 | `MapScreen.kt` | 3842 | `"User-created pins, circles, corridors and auto-markers"` | `settings_markers_desc` |
+| 74 | `MapScreen.kt` | 3879 | `"Show zone shapes (corridor edges, circle outlines) and proximity previews"` | `settings_zone_shapes_desc` |
+| 75 | `MapScreen.kt` | 3890 | `"Zone shapes"` | `settings_zone_shapes_label` |
+| 76 | `MapScreen.kt` | 4125 | `"Speed zone alert (GPS)"` | `settings_speed_alert_gps_label` |
+| 77 | `MapScreen.kt` | 4131 | `"Auto-show speed zones when approaching in GPS mode"` | `settings_speed_alert_gps_desc` |
+| 78 | `MapScreen.kt` | 4162 | `"Speed zone alert (Demo)"` | `settings_speed_alert_demo_label` |
+| 79 | `MapScreen.kt` | 4168 | `"Auto-show speed zones when panning the map toward a zone"` | `settings_speed_alert_demo_desc` |
+| 80 | `MapScreen.kt` | 4199 | `"Regulated zone alert (GPS)"` | `settings_reg_alert_gps_label` |
+| 81 | `MapScreen.kt` | 4205 | `"Auto-show regulated zones when approaching a speed-enforced zone"` | `settings_reg_alert_gps_desc` |
+| 82 | `MapScreen.kt` | 4236 | `"Regulated zone alert (Demo)"` | `settings_reg_alert_demo_label` |
+| 83 | `MapScreen.kt` | 4242 | `"Auto-show regulated zones when panning toward a speed-enforced zone"` | `settings_reg_alert_demo_desc` |
+| 84 | `MapScreen.kt` | 4494 | `"Regenerate Layers"` | `settings_regenerate_layers` |
+| 85 | `MapScreen.kt` | 4857 | `"Pick"` | `color_picker_pick` |
+
+**FR translations:**
+| Key | EN | FR |
+|-----|----|----|
+| `settings_reg_info_desc` | Show zone info text beside the icon strip | Afficher le texte d'info à côté des icônes |
+| `settings_reg_info_visible` | Info text visible | Texte d'info visible |
+| `settings_section_tracks` | Tracks | Traces |
+| `settings_tracks_desc` | Show recorded tracks on the map | Afficher les traces enregistrées |
+| `settings_tracks_count_label` | Number of tracks | Nombre de traces |
+| `settings_tracks_count_desc` | Recent tracks to render (0-20) | Traces récentes à afficher (0-20) |
+| `settings_transparency_label` | Transparency | Transparence |
+| `settings_transparency_desc` | Left thumb = newest track, right thumb = oldest. 0% = opaque, 100% = invisible. | Curseur gauche = plus récent, droit = plus ancien. 0% = opaque, 100% = invisible. |
+| `settings_transparency_value_fmt` | Newest %d%%  –  Oldest %d%% | Récent %d%%  –  Ancien %d%% |
+| `settings_pinned_transparency_label` | Pinned transparency | Transparence épinglés |
+| `settings_pinned_transparency_desc` | Pinned tracks are always visible regardless of count. 0% = opaque, 100% = invisible. | Les traces épinglées sont toujours visibles. 0% = opaque, 100% = invisible. |
+| `settings_colors_label` | Colors | Couleurs |
+| `settings_colors_desc` | Past tracks: color gradient from newest (From) to oldest (To). Pinned tracks: amber/orange gradient. | Anciennes traces : dégradé du plus récent (De) au plus ancien (Vers). Épinglées : dégradé ambre/orange. |
+| `settings_section_markers` | Markers | Repères |
+| `settings_markers_desc` | User-created pins, circles, corridors and auto-markers | Repères, cercles, corridors et repères automatiques |
+| `settings_zone_shapes_desc` | Show zone shapes (corridor edges, circle outlines) and proximity previews | Afficher les formes de zone et aperçus de proximité |
+| `settings_zone_shapes_label` | Zone shapes | Formes de zone |
+| `settings_speed_alert_gps_label` | Speed zone alert (GPS) | Alerte zone de vitesse (GPS) |
+| `settings_speed_alert_gps_desc` | Auto-show speed zones when approaching in GPS mode | Afficher les zones de vitesse à l'approche en mode GPS |
+| `settings_speed_alert_demo_label` | Speed zone alert (Demo) | Alerte zone de vitesse (Démo) |
+| `settings_speed_alert_demo_desc` | Auto-show speed zones when panning the map toward a zone | Afficher les zones de vitesse en naviguant vers une zone |
+| `settings_reg_alert_gps_label` | Regulated zone alert (GPS) | Alerte zone réglementée (GPS) |
+| `settings_reg_alert_gps_desc` | Auto-show regulated zones when approaching a speed-enforced zone | Afficher les zones réglementées à l'approche |
+| `settings_reg_alert_demo_label` | Regulated zone alert (Demo) | Alerte zone réglementée (Démo) |
+| `settings_reg_alert_demo_desc` | Auto-show regulated zones when panning toward a speed-enforced zone | Afficher les zones réglementées en naviguant vers une zone |
+| `settings_regenerate_layers` | Regenerate Layers | Régénérer les couches |
+| `color_picker_pick` | Pick | Choisir |
+
 ## Files Requiring No Changes
 
 These already use `stringResource` consistently or contain no user-facing strings:

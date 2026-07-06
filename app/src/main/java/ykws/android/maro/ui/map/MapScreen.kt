@@ -3488,7 +3488,7 @@ private fun GeneralSettings(
                                 .padding(horizontal = 16.dp, vertical = 12.dp)
                         ) {
                             Text(
-                                text = "Show zone info text beside the icon strip",
+                                text = stringResource(R.string.settings_reg_info_desc),
                                 color = ComposeColor(AppConfig.uiDashboardTextMuted),
                                 fontSize = 13.sp,
                                 modifier = Modifier.padding(bottom = 8.dp)
@@ -3499,7 +3499,7 @@ private fun GeneralSettings(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "Info text visible",
+                                    text = stringResource(R.string.settings_reg_info_visible),
                                     color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                                     fontSize = 14.sp
                                 )
@@ -3594,13 +3594,13 @@ private fun GeneralSettings(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Tracks",
+                        text = stringResource(R.string.settings_section_tracks),
                         color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
                     Text(
-                        text = "Show recorded tracks on the map",
+                        text = stringResource(R.string.settings_tracks_desc),
                         color = ComposeColor(AppConfig.uiSettingsTextMuted),
                         fontSize = 13.sp
                     )
@@ -3636,7 +3636,7 @@ private fun GeneralSettings(
                         ) {
                             // Number of tracks
                             Text(
-                                text = "Number of tracks",
+                                text = stringResource(R.string.settings_tracks_count_label),
                                 color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium
@@ -3647,7 +3647,7 @@ private fun GeneralSettings(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "Recent tracks to render (0-20)",
+                                    text = stringResource(R.string.settings_tracks_count_desc),
                                     color = ComposeColor(AppConfig.uiSettingsTextMuted),
                                     fontSize = 13.sp,
                                     modifier = Modifier.weight(1f)
@@ -3684,18 +3684,18 @@ private fun GeneralSettings(
 
                             // Transparency
                             Text(
-                                text = "Transparency",
+                                text = stringResource(R.string.settings_transparency_label),
                                 color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium
                             )
                             Text(
-                                text = "Left thumb = newest track, right thumb = oldest. 0% = opaque, 100% = invisible.",
+                                text = stringResource(R.string.settings_transparency_desc),
                                 color = ComposeColor(AppConfig.uiSettingsTextMuted),
                                 fontSize = 12.sp
                             )
                             Text(
-                                text = "Newest %d%%  –  Oldest %d%%".format(settings.trackingTransparencyNewest, settings.trackingTransparencyOldest),
+                                text = stringResource(R.string.settings_transparency_value_fmt, settings.trackingTransparencyNewest, settings.trackingTransparencyOldest),
                                 color = ComposeColor(AppConfig.uiSettingsAccent),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
@@ -3732,18 +3732,18 @@ private fun GeneralSettings(
 
                             // Pinned tracks transparency
                             Text(
-                                text = "Pinned transparency",
+                                text = stringResource(R.string.settings_pinned_transparency_label),
                                 color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium
                             )
                             Text(
-                                text = "Pinned tracks are always visible regardless of count. 0% = opaque, 100% = invisible.",
+                                text = stringResource(R.string.settings_pinned_transparency_desc),
                                 color = ComposeColor(AppConfig.uiSettingsTextMuted),
                                 fontSize = 12.sp
                             )
                             Text(
-                                text = "Newest %d%%  –  Oldest %d%%".format(
+                                text = stringResource(R.string.settings_transparency_value_fmt,
                                     settings.trackingTransparencyPinnedNewest,
                                     settings.trackingTransparencyPinnedOldest
                                 ),
@@ -3777,13 +3777,13 @@ private fun GeneralSettings(
 
                             // Colors
                             Text(
-                                text = "Colors",
+                                text = stringResource(R.string.settings_colors_label),
                                 color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Medium
                             )
                             Text(
-                                text = "Past tracks: color gradient from newest (From) to oldest (To). Pinned tracks: amber/orange gradient.",
+                                text = stringResource(R.string.settings_colors_desc),
                                 color = ComposeColor(AppConfig.uiSettingsTextMuted),
                                 fontSize = 12.sp
                             )
@@ -3833,13 +3833,13 @@ private fun GeneralSettings(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Markers",
+                        text = stringResource(R.string.settings_section_markers),
                         color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
                     Text(
-                        text = "User-created pins, circles, corridors and auto-markers",
+                        text = stringResource(R.string.settings_markers_desc),
                         color = ComposeColor(AppConfig.uiSettingsTextMuted),
                         fontSize = 13.sp
                     )
@@ -3876,7 +3876,7 @@ private fun GeneralSettings(
                                 .padding(horizontal = 16.dp, vertical = 12.dp)
                         ) {
                             Text(
-                                text = "Show zone shapes (corridor edges, circle outlines) and proximity previews",
+                                text = stringResource(R.string.settings_zone_shapes_desc),
                                 color = ComposeColor(AppConfig.uiDashboardTextMuted),
                                 fontSize = 13.sp,
                                 modifier = Modifier.padding(bottom = 8.dp)
@@ -3887,7 +3887,7 @@ private fun GeneralSettings(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "Zone shapes",
+                                    text = stringResource(R.string.settings_zone_shapes_label),
                                     color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Medium
@@ -4122,13 +4122,13 @@ private fun NavigationSettings(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Speed zone alert (GPS)",
+                        text = stringResource(R.string.settings_speed_alert_gps_label),
                         color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
                     Text(
-                        text = "Auto-show speed zones when approaching in GPS mode",
+                        text = stringResource(R.string.settings_speed_alert_gps_desc),
                         color = ComposeColor(AppConfig.uiSettingsTextMuted),
                         fontSize = 13.sp
                     )
@@ -4159,13 +4159,13 @@ private fun NavigationSettings(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Speed zone alert (Demo)",
+                        text = stringResource(R.string.settings_speed_alert_demo_label),
                         color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
                     Text(
-                        text = "Auto-show speed zones when panning the map toward a zone",
+                        text = stringResource(R.string.settings_speed_alert_demo_desc),
                         color = ComposeColor(AppConfig.uiSettingsTextMuted),
                         fontSize = 13.sp
                     )
@@ -4196,13 +4196,13 @@ private fun NavigationSettings(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Regulated zone alert (GPS)",
+                        text = stringResource(R.string.settings_reg_alert_gps_label),
                         color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
                     Text(
-                        text = "Auto-show regulated zones when approaching a speed-enforced zone",
+                        text = stringResource(R.string.settings_reg_alert_gps_desc),
                         color = ComposeColor(AppConfig.uiSettingsTextMuted),
                         fontSize = 13.sp
                     )
@@ -4233,13 +4233,13 @@ private fun NavigationSettings(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Regulated zone alert (Demo)",
+                        text = stringResource(R.string.settings_reg_alert_demo_label),
                         color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
                     Text(
-                        text = "Auto-show regulated zones when panning toward a speed-enforced zone",
+                        text = stringResource(R.string.settings_reg_alert_demo_desc),
                         color = ComposeColor(AppConfig.uiSettingsTextMuted),
                         fontSize = 13.sp
                     )
@@ -4491,7 +4491,7 @@ private fun SystemSettings(
         Spacer(modifier = Modifier.height(24.dp))
 
         // ── Regenerate Layers ─────────────────────────────────────────
-        SectionHeader(title = "Regenerate Layers")
+        SectionHeader(title = stringResource(R.string.settings_regenerate_layers))
         Spacer(modifier = Modifier.height(4.dp))
         SettingsToggleRow(
             label = "Depth grid",
@@ -4854,7 +4854,7 @@ private fun ColorSwatchRow(
             if (showPickLabel) {
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Pick",
+                    text = stringResource(R.string.color_picker_pick),
                     color = ComposeColor(AppConfig.uiSettingsAccent),
                     fontSize = 13.sp,
                     modifier = Modifier.clickable { showPicker = true }

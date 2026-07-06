@@ -21,10 +21,10 @@ extract them to `strings.xml`, and translate into corresponding locales (en + fr
 Both locales must be complete — English as baseline, French as translation.
 
 #### Implemented
-- 57 EN string resources added to `values/strings.xml` (menu_, track_, marker_, filter_, action_, cd_, settings_, snackbar_ groups)
-- 57 FR translations added to `values-fr/strings.xml`
-- 13 source files updated: `MenuDrawerOverlay`, `MarkerDrawer`, `IconPickerDialog`, `MarkerManagementOverlay`, `ListOverlayScaffold`, `MapScreen`, `WizardTopBar`, `DrawerScaffold`, `TypeSelectStep`, `TrackHistoryOverlay`, `DashboardPanel`
-- BUILD SUCCESSFUL
+- 84 EN string resources added to `values/strings.xml` (menu_, track_, marker_, filter_, action_, cd_, settings_, snackbar_, color_picker_ groups)
+- 84 FR translations added to `values-fr/strings.xml`
+- 14 source files updated: `MenuDrawerOverlay`, `MarkerDrawer`, `IconPickerDialog`, `MarkerManagementOverlay`, `ListOverlayScaffold`, `MapScreen` (incl. Settings Navigation/System tabs), `WizardTopBar`, `DrawerScaffold`, `TypeSelectStep`, `TrackHistoryOverlay`, `DashboardPanel`
+- BUILD SUCCESSFUL (×2)
 
 #### Plan
 - `xTrack/ui-small-potatoes/FEAT_PLN_ui-small-potatoes_translation-survey.md`

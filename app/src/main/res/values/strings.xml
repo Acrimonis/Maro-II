@@ -211,6 +211,35 @@
     <string name="settings_depth_desc">Show depth color layer on the map</string>
     <string name="action_regenerate">Regenerate</string>
 
+    <!-- Settings — Priority 5 (Navigation + System tabs) -->
+    <string name="settings_reg_info_desc">Show zone info text beside the icon strip</string>
+    <string name="settings_reg_info_visible">Info text visible</string>
+    <string name="settings_section_tracks">Tracks</string>
+    <string name="settings_tracks_desc">Show recorded tracks on the map</string>
+    <string name="settings_tracks_count_label">Number of tracks</string>
+    <string name="settings_tracks_count_desc">Recent tracks to render (0-20)</string>
+    <string name="settings_transparency_label">Transparency</string>
+    <string name="settings_transparency_desc" formatted="false">Left thumb = newest track, right thumb = oldest. 0% = opaque, 100% = invisible.</string>
+    <string name="settings_transparency_value_fmt">Newest %1$d%%  –  Oldest %2$d%%</string>
+    <string name="settings_pinned_transparency_label">Pinned transparency</string>
+    <string name="settings_pinned_transparency_desc" formatted="false">Pinned tracks are always visible regardless of count. 0% = opaque, 100% = invisible.</string>
+    <string name="settings_colors_label">Colors</string>
+    <string name="settings_colors_desc">Past tracks: color gradient from newest (From) to oldest (To). Pinned tracks: amber/orange gradient.</string>
+    <string name="settings_section_markers">Markers</string>
+    <string name="settings_markers_desc">User-created pins, circles, corridors and auto-markers</string>
+    <string name="settings_zone_shapes_desc">Show zone shapes (corridor edges, circle outlines) and proximity previews</string>
+    <string name="settings_zone_shapes_label">Zone shapes</string>
+    <string name="settings_speed_alert_gps_label">Speed zone alert (GPS)</string>
+    <string name="settings_speed_alert_gps_desc">Auto-show speed zones when approaching in GPS mode</string>
+    <string name="settings_speed_alert_demo_label">Speed zone alert (Demo)</string>
+    <string name="settings_speed_alert_demo_desc">Auto-show speed zones when panning the map toward a zone</string>
+    <string name="settings_reg_alert_gps_label">Regulated zone alert (GPS)</string>
+    <string name="settings_reg_alert_gps_desc">Auto-show regulated zones when approaching a speed-enforced zone</string>
+    <string name="settings_reg_alert_demo_label">Regulated zone alert (Demo)</string>
+    <string name="settings_reg_alert_demo_desc">Auto-show regulated zones when panning toward a speed-enforced zone</string>
+    <string name="settings_regenerate_layers">Regenerate Layers</string>
+    <string name="color_picker_pick">Pick</string>
+
     <!-- Content descriptions (accessibility) -->
     <string name="cd_cancel">Cancel</string>
     <string name="cd_close">Close</string>
