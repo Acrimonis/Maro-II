@@ -33,9 +33,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color as ComposeColor
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.ui.icons.Conversion_path
 import ykws.android.maro.ui.map.ButtonColors
@@ -126,7 +128,7 @@ internal fun TypeSelectStep(viewModel: MarkersViewModel) {
             } else {
                 Icon(
                     imageVector = Icons.Outlined.LocationOff,
-                    contentDescription = "Pin this marker",
+                    contentDescription = stringResource(R.string.cd_pin_marker),
                     tint = ButtonColors.icon,
                     modifier = Modifier.size(24.dp)
                 )

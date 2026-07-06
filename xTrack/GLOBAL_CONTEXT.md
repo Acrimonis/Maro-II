@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** GPS
-- **Active Subfeature:** gps-background
-- **Last Updated:** 2026-07-06 11:15
-- **Last Bake:** 2026-07-06 11:15 (GPS — gps-background: planning phase, branch feature/gps-background)
-- **Branch:** feature/gps-background
+- **Active Feature:** ui-small-potatoes
+- **Active Subfeature:** translation
+- **Last Updated:** 2026-07-06 13:56
+- **Last Bake:** 2026-07-06 13:56 (ui-small-potatoes — translation: 57 strings extracted to strings.xml, 13 source files updated, en+fr complete)
+- **Branch:** feature/localization
 
 ## Routing Map
 | Keyword | Feature File |
@@ -61,7 +61,7 @@
 | | **CheckDev** | **Dev-branch health monitoring — remote branch state, ahead/behind analysis, workflow hygiene validation** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
 | | **Health** | **Application health monitoring — diagnostics, crash reporting, memory/performance telemetry** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
 | | **WorkflowAmbiguityFix** | **Eliminate ambiguity between AGENTS.md rules — #merge direction, §5 reinforcement, command doc alignment. Absorbed into WorkflowImprovement 2026-06-28.** | **2026-06-20 14:51** | **2026-06-28 13:51** | **done** |
-| | **ui-small-potatoes** | **UI polish, refinements, and small fixes across the app** | **2026-06-22 13:50** | **2026-06-22 14:20** | **active** |
+| | **ui-small-potatoes** | **UI polish, refinements, and small fixes across the app** | **2026-06-22 13:50** | **2026-07-06 13:56** | **active** |
 | | **Markers** | **User-defined map markers (Pin, Circle, Corridor) with sea-distance-gated proximity matching, percentage-based sort scoring, and on-demand "where am I?" query — 14/14 subfeatures done; 7 fixes + sort v2 implemented** | **2026-06-22 11:52** | **2026-06-30 10:25** | **active** |
 | | **Ui_Menu** | **Hamburger menu drawer — position source, track recording, marker management sections; right-side sliding panel via OverlayLayer/DrawerSlot** | **2026-07-05 06:57** | **2026-07-05 07:08** | **active** |
 

@@ -172,4 +172,67 @@
     <string name="battery_opt_message">Pour garder le suivi GPS quand l\'écran est éteint,\nMaro II doit être exempté de l\'optimisation de la batterie.</string>
     <string name="battery_opt_open_settings">Ouvrir Paramètres</string>
     <string name="battery_opt_not_now">Pas maintenant</string>
+
+    <!-- Menu drawer -->
+    <string name="menu_section_position">SOURCE DE POSITION</string>
+    <string name="menu_section_tracks">TRACES</string>
+    <string name="menu_section_markers">REPÈRES</string>
+    <string name="menu_manage_tracks">Gérer les traces</string>
+    <string name="menu_show_zones">Afficher les zones</string>
+    <string name="menu_manage_markers">Gérer les repères</string>
+    <string name="track_status_recording">● Enregistrement</string>
+    <string name="track_status_idle">● En attente</string>
+    <string name="track_stat_state">État</string>
+    <string name="track_stat_elapsed">Écoulé</string>
+    <string name="track_stat_points">Points</string>
+    <string name="track_stat_distance">Distance</string>
+    <string name="track_stat_max_speed">Vitesse max</string>
+    <string name="track_stat_avg_speed">Vitesse moy</string>
+    <string name="menu_stat_distance_nm">%.2f nm</string>
+    <string name="menu_stat_speed_kn">%.1f kn</string>
+
+    <!-- Marker drawer & dialogs -->
+    <string name="marker_delete_title">Supprimer le repère</string>
+    <string name="marker_delete_confirm">Supprimer \"%1$s\" ? Action irréversible.</string>
+    <string name="marker_unnamed">ce repère</string>
+    <string name="action_delete">Supprimer</string>
+    <string name="action_cancel">Annuler</string>
+    <string name="marker_color_title">Couleur du repère</string>
+    <string name="marker_icon_title">Icône du repère</string>
+    <string name="marker_icon_none">Aucune (✕)</string>
+    <string name="marker_empty">Aucun repère</string>
+    <string name="marker_create_first">Créer un repère</string>
+    <string name="filter_section_general">Général</string>
+    <string name="filter_no_match">Aucun résultat</string>
+    <string name="filter_clear">Effacer les filtres</string>
+    <string name="color_picker_title">Choisir une couleur</string>
+    <string name="settings_depth_label">Profondeur</string>
+    <string name="settings_depth_desc">Afficher les fonds marins</string>
+    <string name="action_regenerate">Régénérer</string>
+
+    <!-- Content descriptions (accessibility) -->
+    <string name="cd_cancel">Annuler</string>
+    <string name="cd_close">Fermer</string>
+    <string name="cd_settings">Paramètres</string>
+    <string name="cd_reset_filter">Réinitialiser le filtre</string>
+    <string name="cd_view_tracks">Voir la liste des traces</string>
+    <string name="cd_manage_markers">Gérer les repères</string>
+    <string name="cd_set_icon">Définir l\'icône</string>
+    <string name="cd_edit">Modifier</string>
+    <string name="cd_delete">Supprimer</string>
+    <string name="cd_view_marker">Voir le repère</string>
+    <string name="cd_export_gpx">Exporter GPX</string>
+    <string name="cd_view_track">Voir la trace</string>
+    <string name="cd_sort">Trier par</string>
+    <string name="cd_filter">Filtrer</string>
+    <string name="cd_reset">Réinitialiser</string>
+    <string name="cd_menu">Menu</string>
+    <string name="cd_pin_marker">Épingler ce repère</string>
+    <string name="cd_descending">Décroissant</string>
+    <string name="cd_ascending">Croissant</string>
+
+    <!-- Misc -->
+    <string name="settings_language_english">English</string>
+    <string name="snackbar_deleted">« %s » supprimé</string>
+    <string name="action_undo">Annuler</string>
 </resources>

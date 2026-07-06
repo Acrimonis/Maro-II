@@ -794,7 +794,7 @@ fun depthSourceLabel(source: DepthSource): String = when (source) {
     DepthSource.SDB -> stringResource(R.string.src_satellite)
     DepthSource.GEBCO -> "GEBCO"
     DepthSource.INTERPOLATED -> stringResource(R.string.src_interpolated)
-    DepthSource.NONE -> "—"
+    DepthSource.NONE -> stringResource(R.string.dash_empty)
 }
 
 /** Readout tint by band: collision (≤5 m) → status error, shallow (≤10 m) → status warning, profiling → status neutral. */

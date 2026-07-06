@@ -358,7 +358,7 @@ internal fun TrackCardContent(
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Upload,
-                        contentDescription = "Export GPX",
+                        contentDescription = stringResource(R.string.cd_export_gpx),
                         tint = ButtonColors.icon,
                         modifier = Modifier.size(24.dp)
                     )
@@ -487,7 +487,7 @@ internal fun TrackCardContent(
     }
         Icon(
             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = "View track",
+            contentDescription = stringResource(R.string.cd_view_track),
             tint = Color(AppConfig.uiSettingsTextMuted),
             modifier = Modifier
                 .align(Alignment.BottomEnd)

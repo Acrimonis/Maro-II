@@ -3084,7 +3084,7 @@ private fun EarthWaterIcon(
 private fun HamburgerIcon() {
     Icon(
         imageVector = Icons.Filled.Menu,
-        contentDescription = "Menu",
+        contentDescription = stringResource(R.string.cd_menu),
         tint = ButtonColors.icon,
         modifier = Modifier.size(36.dp)
     )
@@ -3546,8 +3546,8 @@ private fun GeneralSettings(
                 horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text("Depth", color = ComposeColor(AppConfig.uiSettingsTextPrimary), fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                    Text("Show depth color layer on the map", color = ComposeColor(AppConfig.uiSettingsTextMuted), fontSize = 13.sp)
+                    Text(stringResource(R.string.settings_depth_label), color = ComposeColor(AppConfig.uiSettingsTextPrimary), fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.settings_depth_desc), color = ComposeColor(AppConfig.uiSettingsTextMuted), fontSize = 13.sp)
                 }
                 Spacer(modifier = Modifier.width(16.dp))
                 Switch(checked = settings.depthLayerVisible,
@@ -4535,7 +4535,7 @@ private fun SystemSettings(
                 colors = ButtonDefaults.buttonColors(containerColor = ComposeColor(AppConfig.uiSettingsAccent)),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Regenerate", color = ComposeColor(AppConfig.uiSettingsTextPrimary))
+                Text(stringResource(R.string.action_regenerate), color = ComposeColor(AppConfig.uiSettingsTextPrimary))
             }
         }
 
@@ -4569,7 +4569,7 @@ private fun SettingsLanguageRow(
     // (code, label) — endonyms (English/Français) are shown the same in every locale.
     val options = listOf(
         "system" to stringResource(R.string.settings_language_system),
-        "en" to "English",
+        "en" to stringResource(R.string.settings_language_english),
         "fr" to "Français"
     )
     Row(
@@ -4903,7 +4903,7 @@ private fun ColorPickerDialog(
     }
     androidx.compose.material3.AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Pick color") },
+        title = { Text(stringResource(R.string.color_picker_title)) },
         text = {
             Column {
                 LazyVerticalGrid(

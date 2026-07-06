@@ -34,8 +34,10 @@ import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import androidx.compose.ui.graphics.Shape
 
@@ -77,7 +79,7 @@ fun DrawerHeader(
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Close",
+                contentDescription = stringResource(R.string.cd_close),
                 tint = ComposeColor(AppConfig.uiSettingsTextPrimary),
                 modifier = Modifier.size(18.dp)
             )

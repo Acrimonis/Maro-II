@@ -110,7 +110,7 @@ fun MenuDrawerOverlay(
             ) {
                 Icon(
                     imageVector = Icons.Default.Settings,
-                    contentDescription = "Settings",
+                    contentDescription = stringResource(R.string.cd_settings),
                     tint = Color(AppConfig.uiSettingsTextPrimary),
                     modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
                 )
@@ -121,7 +121,7 @@ fun MenuDrawerOverlay(
 
         // ── POSITION SOURCE section ──────────────────────
         Text(
-            text = "POSITION SOURCE",
+            text = stringResource(R.string.menu_section_position),
             color = Color(AppConfig.uiSettingsAccent),
             fontSize = 17.sp,
             fontWeight = FontWeight.Bold,
@@ -169,7 +169,7 @@ fun MenuDrawerOverlay(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "TRACKS",
+                text = stringResource(R.string.menu_section_tracks),
                 color = Color(AppConfig.uiSettingsAccent),
                 fontSize = 17.sp,
                 fontWeight = FontWeight.Bold,
@@ -189,7 +189,7 @@ fun MenuDrawerOverlay(
                 ) {
                     Icon(
                         imageVector = Refresh,
-                        contentDescription = "Reset track filter",
+                        contentDescription = stringResource(R.string.cd_reset_filter),
                         tint = ButtonColors.icon,
                         modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
                             .alpha(if (hasActiveTrackFilter) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha)
@@ -217,14 +217,14 @@ fun MenuDrawerOverlay(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "Manage Tracks",
+                    text = stringResource(R.string.menu_manage_tracks),
                     color = Color(AppConfig.uiSettingsTextPrimary),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium
                 )
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = "View track list",
+                    contentDescription = stringResource(R.string.cd_view_tracks),
                     tint = Color(AppConfig.uiSettingsTextMuted),
                     modifier = Modifier.size(28.dp)
                 )
@@ -238,13 +238,13 @@ fun MenuDrawerOverlay(
                 Column(
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    StatRow("State", if (recorderState.isMoving) "\u25CF Recording" else "\u25CF Idle")
-                    StatRow("Elapsed", formatDuration(recorderState.elapsedSeconds))
-                    StatRow("Points", "${recorderState.pointCount}")
-                    StatRow("Distance", "${"%.2f".format(recorderState.distanceNm)} nm")
-                    StatRow("Max Speed", "${"%.1f".format(recorderState.maxSpeedKn)} kn")
-                    StatRow("Avg Speed", "${"%.1f".format(recorderState.avgSpeedKn)} kn")
-                    StatRow("Idle", formatDuration(recorderState.idleDurationSec))
+                    StatRow(stringResource(R.string.track_stat_state), if (recorderState.isMoving) stringResource(R.string.track_status_recording) else stringResource(R.string.track_status_idle))
+                    StatRow(stringResource(R.string.track_stat_elapsed), formatDuration(recorderState.elapsedSeconds))
+                    StatRow(stringResource(R.string.track_stat_points), "${recorderState.pointCount}")
+                    StatRow(stringResource(R.string.track_stat_distance), stringResource(R.string.menu_stat_distance_nm, recorderState.distanceNm))
+                    StatRow(stringResource(R.string.track_stat_max_speed), stringResource(R.string.menu_stat_speed_kn, recorderState.maxSpeedKn))
+                    StatRow(stringResource(R.string.track_stat_avg_speed), stringResource(R.string.menu_stat_speed_kn, recorderState.avgSpeedKn))
+                    StatRow(stringResource(R.string.track_stat_idle), formatDuration(recorderState.idleDurationSec))
                 }
             }
         }
@@ -257,7 +257,7 @@ fun MenuDrawerOverlay(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "MARKERS",
+                text = stringResource(R.string.menu_section_markers),
                 color = Color(AppConfig.uiSettingsAccent),
                 fontSize = 17.sp,
                 fontWeight = FontWeight.Bold,
@@ -277,7 +277,7 @@ fun MenuDrawerOverlay(
                 ) {
                     Icon(
                         imageVector = Refresh,
-                        contentDescription = "Reset marker filter",
+                        contentDescription = stringResource(R.string.cd_reset_filter),
                         tint = ButtonColors.icon,
                         modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
                             .alpha(if (hasActiveMarkerFilter) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha)
@@ -303,7 +303,7 @@ fun MenuDrawerOverlay(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Show Zones on Map",
+                    text = stringResource(R.string.menu_show_zones),
                     color = Color(AppConfig.uiSettingsTextPrimary),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium
@@ -333,14 +333,14 @@ fun MenuDrawerOverlay(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "Manage Markers",
+                    text = stringResource(R.string.menu_manage_markers),
                     color = Color(AppConfig.uiSettingsTextPrimary),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium
                 )
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = "Manage markers",
+                    contentDescription = stringResource(R.string.cd_manage_markers),
                     tint = Color(AppConfig.uiSettingsTextMuted),
                     modifier = Modifier.size(28.dp)
                 )
