@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** BoatTrace
-- **Active Subfeature:** populate-track-info
-- **Last Updated:** 2026-07-05 13:09
-- **Last Bake:** 2026-07-05 13:09 (BoatTrace — populate-track-info: pin icons in title, no brackets, stale-track bug fixed)
-- **Branch:** feature/track-info
+- **Active Feature:** GPS
+- **Active Subfeature:** gps-background
+- **Last Updated:** 2026-07-06 11:15
+- **Last Bake:** 2026-07-06 11:15 (GPS — gps-background: planning phase, branch feature/gps-background)
+- **Branch:** feature/gps-background
 
 ## Routing Map
 | Keyword | Feature File |

@@ -110,6 +110,8 @@ data class TrackRecorderUiState(
  * @param dispatcher              Coroutine dispatcher for the state machine loop.
  * @param whereAmI                Synchronous whereAmI lookup — nullable; when null the feature is dormant.
  * @param markerChangeNotifier    Flow that emits when external markers change — nullable.
+ * @param gapDistanceThresholdM   Distance threshold (metres) to insert a GAP marker on resume.
+ * @param gapTimeThresholdSec     Time threshold (seconds) to insert a GAP marker on resume.
  */
 class TrackRecorder(
     private val repository: TrackRepository,
@@ -126,7 +128,9 @@ class TrackRecorder(
     private val idleThresholdSec: Long = 60,
     private val idleThresholdCallback: IdleThresholdCallback? = null,
     private val whereAmI: ((LatLng) -> WhereAmIResult)? = null,
-    private val markerChangeNotifier: Flow<Unit>? = null
+    private val markerChangeNotifier: Flow<Unit>? = null,
+    private val gapDistanceThresholdM: Double = 200.0,
+    private val gapTimeThresholdSec: Long = 120L
 ) {
     private val _uiState = MutableStateFlow(TrackRecorderUiState())
     val uiState: StateFlow<TrackRecorderUiState> = _uiState.asStateFlow()
@@ -186,6 +190,10 @@ class TrackRecorder(
     // ── BoatMarker idle-session tracking ──
     private var activeSession: IdleSessionContext? = null
     private var idleTimerJob: Job? = null
+
+    // ── Resume gap detection ──
+    private var isResuming: Boolean = false
+    private var checkpointFileDeleted: Boolean = false
 
     private var scope: CoroutineScope? = null
     private var collectingJob: Job? = null
@@ -250,6 +258,91 @@ class TrackRecorder(
             sampleFlow.collect { sample -> processSample(sample) }
         }
         startElapsedTimer()
+    }
+
+    /**
+     * Resume recording from a checkpointed track (crash/force-stop recovery).
+     *
+     * Restores the recorder state from a pre-existing [Track] (loaded from checkpoint),
+     * then starts processing [sampleFlow]. On the first new point, if the gap between
+     * the last checkpointed point and the first new point exceeds [gapDistanceThresholdM]
+     * or [gapTimeThresholdSec], a GAP marker point is inserted.
+     *
+     * @param track        The checkpointed track to resume (from repository).
+     * @param sampleFlow   The sample flow to start processing.
+     */
+    fun resume(track: Track, sampleFlow: Flow<TrackSample>) {
+        if (state != TrackRecorderState.OFF) {
+            Log.w(TAG, "resume: ignored — state=$state (not OFF)")
+            return
+        }
+
+        val now = System.currentTimeMillis()
+        val points = track.trackPoints
+        val lastPoint = points.lastOrNull()
+
+        // Restore track state
+        currentTrack = track
+        recordingStartTimeMs = track.startTimeMs
+        cumulativeDistanceNm = track.distanceNm
+        speedSumMps = track.averageSpeedMps * track.trackPoints.size.coerceAtLeast(1)
+        speedCount = track.trackPoints.size
+        lastPointLat = lastPoint?.lat
+        lastPointLon = lastPoint?.lon
+        lastValidPointLat = lastPoint?.lat
+        lastValidPointLon = lastPoint?.lon
+        lastValidPointTimeMs = if (lastPoint != null) track.startTimeMs + lastPoint.timeOffsetMs else 0L
+        lastValidCourseDeg = null
+        courseHistory.clear()
+        lastValidSpeedKn = 0.0
+        consecutiveRejections = 0
+        seaConfidenceCounter = 0
+        isOnLand = false
+        lastHadLock = true
+        lastAcceptedTimeMs = System.currentTimeMillis()
+        lastTimeOffsetMs = lastPoint?.timeOffsetMs ?: 0L
+        pointsSinceLastCheckpoint = 0
+        stopDebounceStartTime = null
+        idleDurationSec = track.idleDurationSec
+        idleStartMs = 0L
+        wasStopped = false
+        cancelIdleTimer()
+        activeSession = null
+        isResuming = lastPoint != null
+        checkpointFileDeleted = false
+
+        transitionTo(TrackRecorderState.ON)
+        _uiState.update {
+            TrackRecorderUiState(
+                state = TrackRecorderState.ON,
+                currentTrackId = track.id,
+                currentTrackName = track.name,
+                currentTrackComment = track.comment,
+                isMoving = false,
+                pointCount = points.size,
+                distanceNm = track.distanceNm,
+                avgSpeedKn = track.averageSpeedMps * 1.94384f,
+                maxSpeedKn = track.fastestSpeedMps * 1.94384f,
+                elapsedSeconds = (now - track.startTimeMs) / 1000
+            )
+        }
+
+        Log.d(TAG, "resume: id=${track.id} name=${track.name} existingPoints=${points.size} isResuming=$isResuming")
+
+        collectingJob?.cancel()
+        scope = CoroutineScope(dispatcher + SupervisorJob())
+        // Emit Resumed event with existing points so MapScreen restores the polyline
+        if (points.isNotEmpty()) {
+            _events.tryEmit(Resumed(points))
+        }
+        collectingJob = scope?.launch {
+            sampleFlow.collect { sample -> processSample(sample) }
+        }
+        startElapsedTimer()
+        startCheckpointJob()
+        startPolling()
+
+        _events.tryEmit(Started)
     }
 
     /** Stop the recorder — finalizes the current track if recording. */
@@ -378,6 +471,8 @@ class TrackRecorder(
         wasStopped = false
         cancelIdleTimer()
         activeSession = null
+        isResuming = false
+        checkpointFileDeleted = false
         transitionTo(TrackRecorderState.ON)
         _uiState.update {
             TrackRecorderUiState(
@@ -395,8 +490,56 @@ class TrackRecorder(
         startSample?.let { addPoint(it) }
     }
 
+    /**
+     * Detect gap between the last checkpointed point and the incoming sample.
+     * Inserts a GAP marker if distance > [gapDistanceThresholdM] or time gap > [gapTimeThresholdSec].
+     */
+    private fun detectAndInsertGap(sample: TrackSample) {
+        val track = currentTrack ?: return
+        val lastPt = track.trackPoints.lastOrNull() ?: return
+        if (lastPt.type == PointType.GAP) return  // already has a gap marker
+
+        val lastTimeMs = recordingStartTimeMs + lastPt.timeOffsetMs
+        val dtSec = (sample.timestampEpochMs - lastTimeMs) / 1000.0
+        val distM = SpatialOperations.haversine(
+            LatLng(lastPt.lat, lastPt.lon),
+            sample.position
+        )
+
+        if (distM > gapDistanceThresholdM || dtSec > gapTimeThresholdSec) {
+            Log.d(TAG, "GAP detected: dist=${"%.0f".format(distM)}m dt=${"%.0f".format(dtSec)}s — inserting GAP marker")
+            val gapPoint = TrackPoint(
+                lat = lastPt.lat,
+                lon = lastPt.lon,
+                speedMps = null,
+                bearingDeg = null,
+                timeOffsetSec = lastPt.timeOffsetSec,
+                timeOffsetMs = lastPt.timeOffsetMs + 1,
+                type = PointType.GAP
+            )
+            currentTrack = track.copy(
+                trackPoints = track.trackPoints + gapPoint
+            )
+            pointsSinceLastCheckpoint++
+            _events.tryEmit(PointCaptured(gapPoint))
+            _newPoint.tryEmit(gapPoint)
+            _uiState.update { it.copy(pointCount = it.pointCount + 1) }
+        }
+    }
+
     private fun addPoint(sample: TrackSample) {
         val track = currentTrack ?: return
+
+        // ── Resume gap detection: first point after resume ──
+        if (isResuming) {
+            isResuming = false
+            detectAndInsertGap(sample)
+            // Delete checkpoint after first new point is captured (resume is confirmed)
+            if (!checkpointFileDeleted) {
+                checkpointFileDeleted = true
+                scope?.launch { repository.deleteCheckpoint(track.id) }
+            }
+        }
 
         val stopped = isStopped.value
         _uiState.update { it.copy(isMoving = !stopped) }

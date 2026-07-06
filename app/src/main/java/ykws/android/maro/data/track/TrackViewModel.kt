@@ -67,6 +67,11 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
     /** Source of truth for isStopped — set once by MapScreen from NavigationViewModel. */
     private var stoppedSource: StateFlow<Boolean> = MutableStateFlow(false)
 
+    /** Cached sample flow reference for use by resumeOrphanedCheckpoint. */
+    private var cachedSampleFlow: Flow<TrackSample>? = null
+    /** Cached settings from last startRecorder call, for use by resumeOrphanedCheckpoint. */
+    private var cachedSettings: AppSettings? = null
+
     init {
         viewModelScope.launch {
             recoverOrphanedCheckpoints()
@@ -111,6 +116,8 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         whereAmI: ((ykws.android.maro.data.model.LatLng) -> ykws.android.maro.spatial.WhereAmIResult)? = null,
         markerChangeNotifier: Flow<Unit>? = null
     ) {
+        cachedSampleFlow = sampleFlow
+        cachedSettings = settings
         stopRecorder()
         val rec = TrackRecorder(
             repository = repository,
@@ -130,6 +137,8 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         )
         recorder = rec
         rec.start(sampleFlow)
+        // Wire activeRecorder for notification stop action
+        TrackRecordingService.activeRecorder = rec
         viewModelScope.launch {
             rec.uiState.collect { state ->
                 _uiState.value = state
@@ -146,6 +155,7 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
     fun stopRecorder() {
         eventsForwardingJob?.cancel()
         eventsForwardingJob = null
+        TrackRecordingService.activeRecorder = null
         recorder?.dispose()
         recorder = null
     }
@@ -164,6 +174,7 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
             initRecorder()
         }
         recorder?.stop()
+        TrackRecordingService.activeRecorder = null
         viewModelScope.launch {
             kotlinx.coroutines.delay(500)
             refreshSummaries()
@@ -185,6 +196,7 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         )
         rec.start(kotlinx.coroutines.flow.emptyFlow())
         recorder = rec
+        TrackRecordingService.activeRecorder = rec
         viewModelScope.launch {
             rec.uiState.collect { state ->
                 _uiState.value = state
@@ -297,12 +309,57 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         recorder?.setBoatMarkerAutoMarkerId(id)
     }
 
-    /** Resolve orphaned checkpoint: resume recording. */
+    /**
+     * Resume an orphaned checkpoint as a live recording (Continue button in recovery dialog).
+     *
+     * Re-initializes the TrackRecorder with the checkpointed track data,
+     * restarts the sampleFlow pipeline, and appends new points to the existing track.
+     * If the time/distance gap exceeds the threshold, a GAP marker is inserted.
+     */
     fun resumeOrphanedCheckpoint(track: Track) {
         _recoveryTrack.value = null
-        // The existing recorder will pick up — the checkpoint data is intact
+        val sampleFlow = cachedSampleFlow ?: return
+        stopRecorder()
+
+        // Load gap thresholds from AppConfig (falls back to defaults)
+        val gapDistM = ykws.android.maro.config.AppConfig.trackingGapDistanceThresholdM
+        val gapTimeSec = ykws.android.maro.config.AppConfig.trackingGapTimeThresholdSec
+
+        val s = cachedSettings
+        val rec = TrackRecorder(
+            repository = repository,
+            gpsMode = s?.gpsMode ?: true,
+            geofenceOriginLat = s?.trackOriginLat ?: 43.55,
+            geofenceOriginLon = s?.trackOriginLon ?: 7.00,
+            geofenceRadiusM = s?.trackGeofenceRadiusM ?: 500.0,
+            geofenceEnabled = s?.trackGeofenceEnabled ?: true,
+            isStopped = stoppedSource,
+            simplifyEnabled = s?.trackSimplifyEnabled ?: true,
+            simplifyEpsilonM = s?.trackSimplifyEpsilonM ?: 3.0,
+            simplifySpeedDeltaKn = s?.trackSimplifySpeedDeltaKn ?: 3.0,
+            idleThresholdSec = ykws.android.maro.config.AppConfig.boatMarkerIdleThresholdSec,
+            gapDistanceThresholdM = gapDistM,
+            gapTimeThresholdSec = gapTimeSec
+        )
+        recorder = rec
+        // Set up collectors BEFORE resume() so Resumed event is captured
+        eventsForwardingJob?.cancel()
+        eventsForwardingJob = viewModelScope.launch {
+            rec.events.collect { _events.emit(it) }
+        }
         viewModelScope.launch {
-            repository.deleteCheckpoint(track.id)
+            rec.uiState.collect { state ->
+                _uiState.value = state
+            }
+        }
+        TrackRecordingService.activeRecorder = rec
+        rec.resume(track, sampleFlow)
+        // Emit directly to ViewModel events so MapScreen restores polyline
+        if (track.trackPoints.isNotEmpty()) {
+            _events.tryEmit(ykws.android.maro.data.track.TrackEvent.Resumed(track.trackPoints))
+        }
+        viewModelScope.launch {
+            kotlinx.coroutines.delay(500)
             refreshSummaries()
         }
     }

@@ -12,7 +12,9 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.SystemClock
+import android.provider.Settings
 import android.view.MotionEvent
 import android.graphics.Bitmap
 import android.graphics.Color
@@ -332,6 +334,10 @@ fun MapScreen(
     val systemScrollState = rememberScrollState()
 
     val context = LocalContext.current
+    // ── Background location permission dialog state (A2) ─────────────────
+    var showBgLocationDialog by remember { mutableStateOf(false) }
+    // ── Battery optimization dialog state (A4, triggered on recording start) ──
+    var showBatteryOptDialog by remember { mutableStateOf(false) }
     val autoFollowSuppressed by viewModel.autoFollowSuppressed.collectAsState()
     val navigationState by viewModel.navigationState.collectAsState()
     val gpsPosition by viewModel.gpsPosition.collectAsState()
@@ -376,6 +382,24 @@ fun MapScreen(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         if (granted) viewModel.updateSettings { it.copy(gpsMode = true) }
+    }
+
+    // Background location permission launcher (A2): native system dialog with "Allow all the time" option.
+    val bgLocationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            // Proceed: battery prompt → recording
+            val prefs = context.getSharedPreferences("maro_battery_prefs", Context.MODE_PRIVATE)
+            if (!prefs.getBoolean("battery_opt_prompted", false)) {
+                showBatteryOptDialog = true
+            } else {
+                trackViewModel.startRecording()
+            }
+        } else {
+            // Denied — show fallback dialog with Settings link
+            showBgLocationDialog = true
+        }
     }
     // Permission-aware handler wired to the GPS settings switch.
     val onGpsModeChange: (Boolean) -> Unit = { enable ->
@@ -661,6 +685,71 @@ fun MapScreen(
                     }
                     pendingAutoMarkerId = null
                 }
+                is ykws.android.maro.data.track.TrackEvent.Resumed -> {
+                    // Restore checkpoint points to the live polyline on Continue.
+                    // The polyline may not exist yet (Compose hasn't recomposed after state→ON),
+                    // so create it directly if needed.
+                    val mv = mapView ?: return@collect
+                    // Clear any existing live-track polylines (from polyline creation LaunchedEffect)
+                    mv.overlays.removeAll {
+                        (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording"
+                    }
+                    val points = event.points
+                    if (points.isEmpty()) return@collect
+                    // Build solid polyline segments, splitting at GAP markers
+                    var segmentStart = 0
+                    for (i in points.indices) {
+                        if (points[i].type == ykws.android.maro.data.track.PointType.GAP) {
+                            // Finalize solid segment before the gap
+                            if (i > segmentStart) {
+                                val solidPts = points.subList(segmentStart, i).map {
+                                    org.osmdroid.util.GeoPoint(it.lat, it.lon)
+                                }
+                                if (solidPts.size >= 2) {
+                                    val solid = org.osmdroid.views.overlay.Polyline().apply {
+                                        title = "track_recording"
+                                        outlinePaint.color = appSettings.trackingColorActive
+                                        outlinePaint.strokeWidth = 10f
+                                        setPoints(solidPts)
+                                    }
+                                    mv.overlays.add(solid)
+                                }
+                            }
+                            // Add dashed gap segment
+                            val gapPts = listOf(
+                                org.osmdroid.util.GeoPoint(points[i].lat, points[i].lon),
+                                if (i + 1 < points.size)
+                                    org.osmdroid.util.GeoPoint(points[i + 1].lat, points[i + 1].lon)
+                                else org.osmdroid.util.GeoPoint(points[i].lat, points[i].lon)
+                            )
+                            val gap = org.osmdroid.views.overlay.Polyline().apply {
+                                title = "track_recording"
+                                outlinePaint.color = appSettings.trackingColorActive
+                                outlinePaint.strokeWidth = 10f
+                                outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(20f, 10f), 0f)
+                                setPoints(gapPts)
+                            }
+                            mv.overlays.add(gap)
+                            segmentStart = i + 1
+                        }
+                    }
+                    // Final solid segment after the last gap (or the whole track if no gaps)
+                    if (segmentStart < points.size) {
+                        val finalPts = points.subList(segmentStart, points.size).map {
+                            org.osmdroid.util.GeoPoint(it.lat, it.lon)
+                        }
+                        if (finalPts.size >= 2) {
+                            val finalSolid = org.osmdroid.views.overlay.Polyline().apply {
+                                title = "track_recording"
+                                outlinePaint.color = appSettings.trackingColorActive
+                                outlinePaint.strokeWidth = 10f
+                                setPoints(finalPts)
+                            }
+                            mv.overlays.add(finalSolid)
+                        }
+                    }
+                    mv.invalidate()
+                }
                 else -> { /* Started, Stopped, PointCaptured — handled elsewhere */ }
             }
         }
@@ -864,15 +953,52 @@ fun MapScreen(
                 )
             }
 
-            val polyline = org.osmdroid.views.overlay.Polyline().apply {
-                title = "track_hist_${summary.id}"
-                outlinePaint.color = appearance.argb
-                outlinePaint.strokeWidth = appearance.strokeWidth
-                setPoints(track.trackPoints.map { pt ->
-                    org.osmdroid.util.GeoPoint(pt.lat, pt.lon)
-                })
+            // Split at GAP markers: solid segments between gaps, dashed for gap segments
+            val points = track.trackPoints
+            var segmentStart = 0
+            for (i in points.indices) {
+                if (points[i].type == ykws.android.maro.data.track.PointType.GAP) {
+                    if (i > segmentStart) {
+                        val solidPoints = points.subList(segmentStart, i).map { pt ->
+                            org.osmdroid.util.GeoPoint(pt.lat, pt.lon)
+                        }
+                        if (solidPoints.size >= 2) {
+                            val solidPolyline = org.osmdroid.views.overlay.Polyline().apply {
+                                title = "track_hist_${summary.id}"
+                                outlinePaint.color = appearance.argb
+                                outlinePaint.strokeWidth = appearance.strokeWidth
+                                setPoints(solidPoints)
+                            }
+                            mv.overlays.add(solidPolyline)
+                        }
+                    }
+                    val gapFrom = org.osmdroid.util.GeoPoint(points[i].lat, points[i].lon)
+                    val gapTo = if (i + 1 < points.size)
+                        org.osmdroid.util.GeoPoint(points[i + 1].lat, points[i + 1].lon)
+                    else gapFrom
+                    val gapLine = org.osmdroid.views.overlay.Polyline().apply {
+                        title = "track_hist_${summary.id}"
+                        outlinePaint.color = appearance.argb
+                        outlinePaint.strokeWidth = appearance.strokeWidth
+                        outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(20f, 10f), 0f)
+                        setPoints(listOf(gapFrom, gapTo))
+                    }
+                    mv.overlays.add(gapLine)
+                    segmentStart = i + 1
+                }
             }
-            mv.overlays.add(polyline)
+            if (segmentStart < points.size && points.size - segmentStart >= 2) {
+                val solidPoints = points.subList(segmentStart, points.size).map { pt ->
+                    org.osmdroid.util.GeoPoint(pt.lat, pt.lon)
+                }
+                val solidPolyline = org.osmdroid.views.overlay.Polyline().apply {
+                    title = "track_hist_${summary.id}"
+                    outlinePaint.color = appearance.argb
+                    outlinePaint.strokeWidth = appearance.strokeWidth
+                    setPoints(solidPoints)
+                }
+                mv.overlays.add(solidPolyline)
+            }
 
             // ── Auto-marker 🕐 pins for this history track ──
             for (bm in track.boatMarkers) {
@@ -926,15 +1052,52 @@ fun MapScreen(
                 )
             }
 
-            val polyline = org.osmdroid.views.overlay.Polyline().apply {
-                title = "track_pin_${summary.id}"
-                outlinePaint.color = appearance.argb
-                outlinePaint.strokeWidth = appearance.strokeWidth
-                setPoints(track.trackPoints.map { pt ->
-                    org.osmdroid.util.GeoPoint(pt.lat, pt.lon)
-                })
+            // Split at GAP markers: solid segments between gaps, dashed for gap segments
+            val points = track.trackPoints
+            var segmentStart = 0
+            for (i in points.indices) {
+                if (points[i].type == ykws.android.maro.data.track.PointType.GAP) {
+                    if (i > segmentStart) {
+                        val solidPoints = points.subList(segmentStart, i).map { pt ->
+                            org.osmdroid.util.GeoPoint(pt.lat, pt.lon)
+                        }
+                        if (solidPoints.size >= 2) {
+                            val solidPolyline = org.osmdroid.views.overlay.Polyline().apply {
+                                title = "track_pin_${summary.id}"
+                                outlinePaint.color = appearance.argb
+                                outlinePaint.strokeWidth = appearance.strokeWidth
+                                setPoints(solidPoints)
+                            }
+                            mv.overlays.add(solidPolyline)
+                        }
+                    }
+                    val gapFrom = org.osmdroid.util.GeoPoint(points[i].lat, points[i].lon)
+                    val gapTo = if (i + 1 < points.size)
+                        org.osmdroid.util.GeoPoint(points[i + 1].lat, points[i + 1].lon)
+                    else gapFrom
+                    val gapLine = org.osmdroid.views.overlay.Polyline().apply {
+                        title = "track_pin_${summary.id}"
+                        outlinePaint.color = appearance.argb
+                        outlinePaint.strokeWidth = appearance.strokeWidth
+                        outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(20f, 10f), 0f)
+                        setPoints(listOf(gapFrom, gapTo))
+                    }
+                    mv.overlays.add(gapLine)
+                    segmentStart = i + 1
+                }
             }
-            mv.overlays.add(polyline)
+            if (segmentStart < points.size && points.size - segmentStart >= 2) {
+                val solidPoints = points.subList(segmentStart, points.size).map { pt ->
+                    org.osmdroid.util.GeoPoint(pt.lat, pt.lon)
+                }
+                val solidPolyline = org.osmdroid.views.overlay.Polyline().apply {
+                    title = "track_pin_${summary.id}"
+                    outlinePaint.color = appearance.argb
+                    outlinePaint.strokeWidth = appearance.strokeWidth
+                    setPoints(solidPoints)
+                }
+                mv.overlays.add(solidPolyline)
+            }
 
             // ── Auto-marker 🕐 pins for this pinned track ──
             for (bm in track.boatMarkers) {
@@ -1002,15 +1165,46 @@ fun MapScreen(
 
     // ── Incremental point appending: observe newPoint stream for live polyline ─┐
     // Keyed on recorder state so a stop→restart cycle re-obtains the new SharedFlow.
+    // GAP markers split the live polyline: solid for normal segments, dashed for gaps.
     LaunchedEffect(mapView, trackRecorderState.state) {
         val mv = mapView ?: return@LaunchedEffect
         val stream = trackViewModel.newPointStream ?: return@LaunchedEffect
         stream.collect { point ->
-            val polyline = mv.overlays.firstOrNull {
-                (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording"
-            } as? org.osmdroid.views.overlay.Polyline ?: return@collect
-            polyline.addPoint(org.osmdroid.util.GeoPoint(point.lat, point.lon))
-            mv.invalidate()
+            if (point.type == ykws.android.maro.data.track.PointType.GAP) {
+                // Find the last active solid polyline and finalize it
+                val lastSolid = mv.overlays.filter {
+                    (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording" &&
+                    (it as org.osmdroid.views.overlay.Polyline).outlinePaint.pathEffect == null
+                }.lastOrNull() as? org.osmdroid.views.overlay.Polyline
+                val lastPt = lastSolid?.actualPoints?.lastOrNull()
+                if (lastPt != null) {
+                    val gapLine = org.osmdroid.views.overlay.Polyline().apply {
+                        title = "track_recording"
+                        outlinePaint.color = appSettings.trackingColorActive
+                        outlinePaint.strokeWidth = 10f
+                        outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(20f, 10f), 0f)
+                        isVisible = true
+                        setPoints(listOf(lastPt, org.osmdroid.util.GeoPoint(point.lat, point.lon)))
+                    }
+                    mv.overlays.add(gapLine)
+                }
+                val resumedLine = org.osmdroid.views.overlay.Polyline().apply {
+                    title = "track_recording"
+                    outlinePaint.color = appSettings.trackingColorActive
+                    outlinePaint.strokeWidth = 10f
+                    isVisible = true
+                    addPoint(org.osmdroid.util.GeoPoint(point.lat, point.lon))
+                }
+                mv.overlays.add(resumedLine)
+                mv.invalidate()
+            } else {
+                val polyline = mv.overlays.filter {
+                    (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording" &&
+                    (it as org.osmdroid.views.overlay.Polyline).outlinePaint.pathEffect == null
+                }.lastOrNull() as? org.osmdroid.views.overlay.Polyline ?: return@collect
+                polyline.addPoint(org.osmdroid.util.GeoPoint(point.lat, point.lon))
+                mv.invalidate()
+            }
         }
     }
 
@@ -1156,9 +1350,19 @@ fun MapScreen(
         // ── Otherwise require a second back press within 2 s to exit ───────
         BackHandler(enabled = !showSettings && !showTrackHistory && !showMarkerManagement && !anyFanExpanded && !trackDrawerState.isOpen) {
             val now = SystemClock.elapsedRealtime()
+            val isRecording = trackRecorderState.state == ykws.android.maro.data.track.TrackRecorderState.ON
             if (now - lastBackAt <= 2_000L) {
-                context.stopService(Intent(context, ykws.android.maro.data.track.TrackRecordingService::class.java))
-                context.findActivity()?.finishAffinity()
+                if (isRecording) {
+                    trackViewModel.stopRecording()
+                    kotlinx.coroutines.MainScope().launch {
+                        kotlinx.coroutines.delay(300)
+                        context.stopService(Intent(context, ykws.android.maro.data.track.TrackRecordingService::class.java))
+                        context.findActivity()?.finishAffinity()
+                    }
+                } else {
+                    context.stopService(Intent(context, ykws.android.maro.data.track.TrackRecordingService::class.java))
+                    context.findActivity()?.finishAffinity()
+                }
             } else {
                 lastBackAt = now
                 showExitBanner = true
@@ -1312,7 +1516,30 @@ fun MapScreen(
                 trackRecorderState = trackRecorderState,
                 trackSummaries = trackSummaries,
                 recoveryTrack = recoveryTrack,
-                onStartRecording = { trackViewModel.startRecording() },
+                onStartRecording = {
+                    val startRecordingWithBatteryCheck: () -> Unit = {
+                        val prefs = context.getSharedPreferences("maro_battery_prefs", Context.MODE_PRIVATE)
+                        if (!prefs.getBoolean("battery_opt_prompted", false)) {
+                            showBatteryOptDialog = true
+                        } else {
+                            trackViewModel.startRecording()
+                        }
+                    }
+                    // A2: Check background location permission before recording
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                        val bgGranted = ContextCompat.checkSelfPermission(
+                            context, Manifest.permission.ACCESS_BACKGROUND_LOCATION
+                        ) == PackageManager.PERMISSION_GRANTED
+                        if (!bgGranted) {
+                            // Launch native permission dialog (shows "Allow all the time" option)
+                            bgLocationLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+                        } else {
+                            startRecordingWithBatteryCheck()
+                        }
+                    } else {
+                        startRecordingWithBatteryCheck()
+                    }
+                },
                 onStopRecording = { trackViewModel.stopRecording() },
                 onViewTrackList = { showTrackHistory = true },
                 onDismissTrackHistory = { showTrackHistory = false },
@@ -1734,20 +1961,82 @@ fun MapScreen(
         // ── Process-death recovery dialog ─────────────────────────────
         recoveryTrack?.let { track ->
             androidx.compose.material3.AlertDialog(
-                onDismissRequest = { trackViewModel.discardOrphanedCheckpoint(track) },
-                title = { androidx.compose.material3.Text("Unfinished Recording") },
+                onDismissRequest = { trackViewModel.saveOrphanedCheckpoint(track) },
+                title = { androidx.compose.material3.Text(stringResource(R.string.recovery_title)) },
                 text = { androidx.compose.material3.Text(
-                    "Found an unfinished recording from ${track.name}."
+                    stringResource(R.string.recovery_found, track.name)
                 ) },
                 confirmButton = {
                     androidx.compose.material3.TextButton(
-                        onClick = { trackViewModel.saveOrphanedCheckpoint(track) }
-                    ) { androidx.compose.material3.Text("Save") }
+                        onClick = { trackViewModel.resumeOrphanedCheckpoint(track) }
+                    ) { androidx.compose.material3.Text(stringResource(R.string.recovery_continue)) }
                 },
                 dismissButton = {
                     androidx.compose.material3.TextButton(
-                        onClick = { trackViewModel.discardOrphanedCheckpoint(track) }
-                    ) { androidx.compose.material3.Text("Discard") }
+                        onClick = { trackViewModel.saveOrphanedCheckpoint(track) }
+                    ) { androidx.compose.material3.Text(stringResource(R.string.recovery_save)) }
+                }
+            )
+        }
+
+        // ── Background location permission dialog (A2) ──────────────────
+        if (showBgLocationDialog) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { showBgLocationDialog = false },
+                title = { androidx.compose.material3.Text(stringResource(R.string.bg_location_title)) },
+                text = { androidx.compose.material3.Text(stringResource(R.string.bg_location_message)) },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(
+                        onClick = {
+                            showBgLocationDialog = false
+                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.parse("package:${context.packageName}")
+                            }
+                            context.startActivity(intent)
+                        }
+                    ) { androidx.compose.material3.Text(stringResource(R.string.bg_location_open_settings)) }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(
+                        onClick = { showBgLocationDialog = false }
+                    ) { androidx.compose.material3.Text(stringResource(R.string.bg_location_not_now)) }
+                }
+            )
+        }
+
+        // ── Battery optimization dialog (A4, triggered on recording start) ──
+        if (showBatteryOptDialog) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = {
+                    showBatteryOptDialog = false
+                    context.getSharedPreferences("maro_battery_prefs", Context.MODE_PRIVATE)
+                        .edit().putBoolean("battery_opt_prompted", true).apply()
+                },
+                title = { androidx.compose.material3.Text(stringResource(R.string.battery_opt_title)) },
+                text = { androidx.compose.material3.Text(stringResource(R.string.battery_opt_message)) },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(
+                        onClick = {
+                            showBatteryOptDialog = false
+                            context.getSharedPreferences("maro_battery_prefs", Context.MODE_PRIVATE)
+                                .edit().putBoolean("battery_opt_prompted", true).apply()
+                            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                data = Uri.parse("package:${context.packageName}")
+                            }
+                            context.startActivity(intent)
+                            trackViewModel.startRecording()
+                        }
+                    ) { androidx.compose.material3.Text(stringResource(R.string.battery_opt_open_settings)) }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(
+                        onClick = {
+                            showBatteryOptDialog = false
+                            context.getSharedPreferences("maro_battery_prefs", Context.MODE_PRIVATE)
+                                .edit().putBoolean("battery_opt_prompted", true).apply()
+                            trackViewModel.startRecording()
+                        }
+                    ) { androidx.compose.material3.Text(stringResource(R.string.battery_opt_not_now)) }
                 }
             )
         }
@@ -2053,6 +2342,11 @@ private fun MapContent(
 
                     // Top layer: exit toast (conditional)
                     if (showExitBanner) {
+                        val isRecording = trackRecorderState.state == ykws.android.maro.data.track.TrackRecorderState.ON
+                        val borderColor = if (isRecording)
+                            ComposeColor(AppConfig.uiDashboardZoneDanger)
+                        else
+                            ComposeColor(AppConfig.uiDashboardBackground)
                         Box(
                             modifier = Modifier
                                 .align(Alignment.BottomCenter)
@@ -2064,11 +2358,14 @@ private fun MapContent(
                                 shape = RoundedCornerShape(14.dp),
                                 color = ComposeColor(AppConfig.buttonActionBgColor),
                                 shadowElevation = 8.dp,
-                                modifier = Modifier.border(2.dp, ComposeColor(AppConfig.uiDashboardBackground), RoundedCornerShape(14.dp))
+                                modifier = Modifier.border(2.dp, borderColor, RoundedCornerShape(14.dp))
                             ) {
                                 Box(modifier = Modifier.background(ComposeColor(AppConfig.uiCardBackground))) {
                                     Text(
-                                    text = stringResource(R.string.exit_press_back_again),
+                                    text = if (isRecording)
+                                        stringResource(R.string.exit_press_back_again_recording)
+                                    else
+                                        stringResource(R.string.exit_press_back_again),
                                     color = ComposeColor(AppConfig.uiSettingsToastText),
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Medium,

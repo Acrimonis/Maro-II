@@ -3,6 +3,7 @@ package ykws.android.maro.data.track
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -30,6 +31,12 @@ import ykws.android.maro.R
  * Stores the boat's water-state ([lastKnownOnWater]) from incoming [ACTION_UPDATE]
  * intents. On toggle, fires [ACTION_WATER_STATE_CHANGED] so Tasker can react
  * immediately. Also answers [ACTION_QUERY_WATER_STATE] on demand.
+ *
+ * ## Stop Recording via Notification
+ * The recording notification includes a "Stop" action button. When tapped, it sends
+ * [ACTION_STOP_RECORDING] to the manifest-registered [StopRecordingReceiver], which
+ * routes it back to this service's [onStartCommand]. The service then calls
+ * [activeRecorder]?.stop() to finalize the track.
  */
 class TrackRecordingService : Service() {
 
@@ -65,6 +72,16 @@ class TrackRecordingService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // ── Stop recording via notification action ────────────────────────
+        if (intent?.action == ACTION_STOP_RECORDING) {
+            activeRecorder?.stop()
+            activeRecorder = null
+            // Rebuild notification as "Ready"
+            val notif = buildNotification(null, lastKnownOnWater, recording = false)
+            startForeground(NOTIFICATION_ID, notif)
+            return START_STICKY
+        }
+
         // ── Water state update (may ride along with notification update or arrive standalone) ──
         if (intent != null && intent.hasExtra(EXTRA_ON_WATER)) {
             val newOnWater = intent.getBooleanExtra(EXTRA_ON_WATER, false)
@@ -91,8 +108,8 @@ class TrackRecordingService : Service() {
 
     // ── Notification building ──────────────────────────────────────────────
 
-    private fun buildNotification(intent: Intent?, isOnWater: Boolean): Notification {
-        val recording = intent?.getBooleanExtra(EXTRA_RECORDING, false) ?: false
+    private fun buildNotification(intent: Intent?, isOnWater: Boolean, recording: Boolean? = null): Notification {
+        val isRecording = recording ?: (intent?.getBooleanExtra(EXTRA_RECORDING, false) ?: false)
         val isDemo = intent?.getBooleanExtra(EXTRA_IS_DEMO, false) ?: false
         val isMoving = intent?.getBooleanExtra(EXTRA_IS_MOVING, false) ?: false
         val speedKn = intent?.getFloatExtra(EXTRA_SPEED_KN, 0f) ?: 0f
@@ -105,7 +122,7 @@ class TrackRecordingService : Service() {
 
         // 5-segment title: "Maro II • [GPS|Demo] • [Navigating|Idle|Moving] • [Recording|Ready] • [On Water|On Land]"
         val modeLabel = if (isDemo) "Demo" else "GPS"
-        val recLabel = if (recording) "Recording" else "Ready"
+        val recLabel = if (isRecording) "Recording" else "Ready"
         val navLabel = when {
             !isMoving -> "Idle"
             isOnWater -> "Navigating"
@@ -120,6 +137,24 @@ class TrackRecordingService : Service() {
             .setSmallIcon(R.mipmap.ic_launcher)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setOngoing(true)
+
+        // ── Stop action when recording ──────────────────────────────────────
+        if (isRecording) {
+            val stopIntent = Intent(this@TrackRecordingService, StopRecordingReceiver::class.java).apply {
+                action = ACTION_STOP_RECORDING
+            }
+            val stopPendingIntent = PendingIntent.getBroadcast(
+                this, 0, stopIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            builder.addAction(
+                NotificationCompat.Action.Builder(
+                    0,
+                    "Stop",
+                    stopPendingIntent
+                ).build()
+            )
+        }
 
         return builder.build()
     }
@@ -162,6 +197,15 @@ class TrackRecordingService : Service() {
 
         /** Intent action: update the foreground notification with current recording stats. */
         const val ACTION_UPDATE = "ykws.android.maro.action.UPDATE_NOTIFICATION"
+
+        /** Intent action: stop recording from notification action button. */
+        const val ACTION_STOP_RECORDING = "ykws.android.maro.action.STOP_RECORDING"
+
+        /** Active recorder reference — set by [TrackViewModel.initRecorder], cleared on stop.
+         *  Used by [onStartCommand] to stop recording via notification action. */
+        @Volatile
+        var activeRecorder: TrackRecorder? = null
+
         const val EXTRA_RECORDING = "recording"
         const val EXTRA_IS_DEMO = "is_demo"
 

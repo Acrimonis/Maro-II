@@ -8,6 +8,9 @@ sealed class TrackEvent {
     /** Recording has started (OFF → ON). */
     data object Started : TrackEvent()
 
+    /** Recording resumed from a checkpoint — points list is restored track data. */
+    data class Resumed(val points: List<TrackPoint>) : TrackEvent()
+
     /** Recording has stopped and track was saved (ON → OFF). */
     data object Stopped : TrackEvent()
 

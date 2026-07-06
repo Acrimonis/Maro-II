@@ -16,6 +16,7 @@
     <string name="marker_position_water">Position (eau)</string>
     <string name="marker_position_land">Position (terre)</string>
     <string name="exit_press_back_again">Appuyez à nouveau pour quitter</string>
+    <string name="exit_press_back_again_recording">⚠ Enregistrement en cours — appuyez encore pour arrêter et quitter</string>
 
     <!-- Settings -->
     <string name="settings_title">Paramètres</string>
@@ -153,4 +154,22 @@
     <string name="sort_custom_moving_time">Temps navigation</string>
     <string name="sort_custom_origin">Origine</string>
     <string name="sort_group_pinned">Grouper éléments épinglés</string>
+
+    <!-- Recovery dialog -->
+    <string name="recovery_title">Enregistrement inachevé</string>
+    <string name="recovery_found">Enregistrement inachevé trouvé du %1$s.</string>
+    <string name="recovery_continue">Continuer</string>
+    <string name="recovery_save">Sauvegarder</string>
+
+    <!-- Background location permission -->
+    <string name="bg_location_title">Position en arrière-plan</string>
+    <string name="bg_location_message">Le suivi en arrière-plan nécessite la permission \'Autoriser tout le temps\'.</string>
+    <string name="bg_location_open_settings">Ouvrir Paramètres</string>
+    <string name="bg_location_not_now">Pas maintenant</string>
+
+    <!-- Battery optimization -->
+    <string name="battery_opt_title">Optimisation de la batterie</string>
+    <string name="battery_opt_message">Pour garder le suivi GPS quand l\'écran est éteint,\nMaro II doit être exempté de l\'optimisation de la batterie.</string>
+    <string name="battery_opt_open_settings">Ouvrir Paramètres</string>
+    <string name="battery_opt_not_now">Pas maintenant</string>
 </resources>

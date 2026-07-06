@@ -3,18 +3,25 @@ package ykws.android.maro
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.content.res.Resources
 import android.graphics.drawable.ColorDrawable
+import android.net.Uri
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import android.view.WindowInsetsController
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.WindowCompat
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -22,9 +29,12 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -102,6 +112,38 @@ class MainActivity : ComponentActivity() {
                             depthViewModel.initCache(this@MainActivity)
                         }
 
+                        // ── Battery optimization prompt on startup (recovery scenario) ──
+                        var showBatteryDialog by remember { mutableStateOf(false) }
+                        val prefs = remember { getSharedPreferences(PREFS_NAME, MODE_PRIVATE) }
+                        LaunchedEffect(Unit) {
+                            val wasPrompted = prefs.getBoolean(KEY_BATTERY_OPT_PROMPTED, false)
+                            if (!wasPrompted) {
+                                // Check if recording was active — orphaned checkpoint implies it was
+                                val orphans = ykws.android.maro.data.track.TrackRepository(this@MainActivity)
+                                    .recoverOrphanedCheckpoints()
+                                if (orphans.isNotEmpty()) {
+                                    showBatteryDialog = true
+                                }
+                            }
+                        }
+
+                        if (showBatteryDialog) {
+                            BatteryOptimizationDialog(
+                                onOpenSettings = {
+                                    showBatteryDialog = false
+                                    prefs.edit().putBoolean(KEY_BATTERY_OPT_PROMPTED, true).apply()
+                                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                                        data = Uri.parse("package:$packageName")
+                                    }
+                                    startActivity(intent)
+                                },
+                                onNotNow = {
+                                    showBatteryDialog = false
+                                    prefs.edit().putBoolean(KEY_BATTERY_OPT_PROMPTED, true).apply()
+                                }
+                            )
+                        }
+
                         MapScreen(
                             viewModel = viewModel,
                             depthViewModel = depthViewModel,
@@ -116,6 +158,38 @@ class MainActivity : ComponentActivity() {
         // The service shows a persistent "Maro II — Ready" notification.
         startForegroundService(Intent(this, ykws.android.maro.data.track.TrackRecordingService::class.java))
     }
+
+    companion object {
+        private const val PREFS_NAME = "maro_battery_prefs"
+        const val KEY_BATTERY_OPT_PROMPTED = "battery_opt_prompted"
+    }
+}
+
+/**
+ * Battery optimization exemption dialog — shown once at recording start or startup recovery.
+ */
+@Composable
+fun BatteryOptimizationDialog(
+    onOpenSettings: () -> Unit,
+    onNotNow: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onNotNow,
+        title = { Text(stringResource(R.string.battery_opt_title)) },
+        text = {
+            Text(stringResource(R.string.battery_opt_message))
+        },
+        confirmButton = {
+            TextButton(onClick = onOpenSettings) {
+                Text(stringResource(R.string.battery_opt_open_settings))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onNotNow) {
+                Text(stringResource(R.string.battery_opt_not_now))
+            }
+        }
+    )
 }
 
 /**
