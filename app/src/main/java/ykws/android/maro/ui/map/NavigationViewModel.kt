@@ -492,7 +492,17 @@ class NavigationViewModel(
                         // 300m band (which may have a different beyond-type).
                         val zone = szQuery.allInsideZones.firstOrNull()
                         if (zone != null) {
-                            val dist = abs(szQuery.distanceToBoundaryM ?: 0.0)
+                            // Use heading-aware distance: firstSpeedZoneAhead finds the exit
+                            // edge along heading, which may differ from nearest-edge distance
+                            // (e.g. heading seaward but shore-side edge is closer).
+                            val aheadHit = szIdx?.firstSpeedZoneAhead(
+                                center.latitude, center.longitude, headingDegH, maxSearchM
+                            )
+                            val dist = if (aheadHit != null && aheadHit.first.name == zone.name) {
+                                aheadHit.second  // heading-aware exit distance
+                            } else {
+                                abs(szQuery.distanceToBoundaryM ?: 0.0)  // fallback
+                            }
                             val etaS = if (sogKnH != null && sogKnH > 0f) {
                                 (dist / (sogKnH * KNOTS_TO_MPS)).coerceAtLeast(0.0)
                             } else null
@@ -1211,8 +1221,13 @@ class NavigationViewModel(
         currentDistToCoast: Double,
         maxSearchM: Double = 500.0
     ): Double? {
-        // Already inside the band
-        if (currentDistToCoast <= CoastlineRepository.ZONE_DISTANCE_M) return 0.0
+        // Inside the band: return distance to shore when heading landward,
+        // so zonesAroundBoat can include BANDE 300M for the distance tile alert.
+        if (currentDistToCoast <= CoastlineRepository.ZONE_DISTANCE_M) {
+            val probePt = SpatialOperations.pointAlongBearing(lat, lon, headingDeg, 5.0)
+            val probeDist = repository.distanceToCoastMeters(probePt.latitude, probePt.longitude)
+            return if (probeDist < currentDistToCoast) currentDistToCoast else null
+        }
 
         // Ray-march in 10m steps
         val stepM = 10.0
@@ -1539,6 +1554,13 @@ class NavigationViewModel(
             if (probe >= zoneDist) return BeyondType.ZONE to nextZone!!.first.name
             val pt = SpatialOperations.pointAlongBearing(blt, blo, headingDeg, probe)
             if (!repository.isOnWater(pt.latitude, pt.longitude)) return BeyondType.LAND to null
+        }
+        // 3. Coastline band check: if the boundary point itself is within/near
+        //    the 300m band, the beyond-type is BANDE 300M (not OPEN_SEA).
+        val coastDistAtBoundary = repository.distanceToCoastMeters(blt, blo)
+        if (coastDistAtBoundary < CoastlineRepository.ZONE_DISTANCE_M &&
+            zoneDist > coastDistAtBoundary) {
+            return BeyondType.ZONE to "BANDE 300M"
         }
         return if (nextZone != null) BeyondType.ZONE to nextZone.first.name else BeyondType.OPEN_SEA to null
 

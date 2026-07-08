@@ -386,7 +386,7 @@ private fun DistanceCard(
     // that the exit does not account for -- show that instead.
     val boundary: ZoneBoundaryInfo? = when {
         currentZone != null && nearestAhead != null && exitNextLimit != null -> {
-            if (currentZone.beyondType == BeyondType.OPEN_SEA) nearestAhead else currentZone
+            if (nearestAhead.speedLimitKn < currentZone.speedLimitKn) nearestAhead else currentZone
         }
         currentZone != null -> currentZone
         nearestAhead != null -> nearestAhead
@@ -464,8 +464,12 @@ private fun DistanceCard(
             BeyondType.LAND -> "land" // unreachable due to exclusion above
         }
     } else {
-        // Entering zone ahead
-        boundary.zoneName
+        // Entering zone ahead — but if it's the 300m band and we're already
+        // inside it (heading deeper), label "→ shore" instead of "BANDE 300M".
+        if (boundary.zoneName == "BANDE 300M" && distanceToShore != null && distanceToShore <= 300.0)
+            "\u2192 shore"
+        else
+            boundary.zoneName
     }
     val labelWithEta = if (boundary.etaSeconds != null) {
         val etaStr = formatEta(boundary.etaSeconds)
