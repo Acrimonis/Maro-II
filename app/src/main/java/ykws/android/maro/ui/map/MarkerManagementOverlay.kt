@@ -44,6 +44,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.sp
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
@@ -113,14 +114,14 @@ fun MarkerManagementOverlay(
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 CenteredPinIcon(sizeDp = 64)
                 Spacer(modifier = Modifier.height(24.dp))
-                Text("No markers yet", color = Color(AppConfig.uiSettingsTextMuted), fontSize = 18.sp, fontWeight = FontWeight.Medium)
+                Text(stringResource(R.string.marker_empty), color = Color(AppConfig.uiSettingsTextMuted), fontSize = 18.sp, fontWeight = FontWeight.Medium)
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(
                     onClick = onCreateFirst,
                     colors = ButtonDefaults.buttonColors(containerColor = Color(AppConfig.buttonActionBgColor)),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Create First Marker", color = Color(AppConfig.buttonActionIconColor), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.marker_create_first), color = Color(AppConfig.buttonActionIconColor), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         },
@@ -194,7 +195,7 @@ private fun MarkerCardContent(
                             } else {
                                 Icon(
                                     imageVector = Icons.Outlined.LocationOff,
-                                    contentDescription = "Set icon",
+                                    contentDescription = stringResource(R.string.cd_set_icon),
                                     tint = ButtonColors.icon,
                                     modifier = Modifier.size(24.dp)
                                 )
@@ -216,7 +217,7 @@ private fun MarkerCardContent(
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.Edit,
-                                contentDescription = "Edit",
+                                contentDescription = stringResource(R.string.cd_edit),
                                 tint = ButtonColors.icon,
                                 modifier = Modifier.size(24.dp)
                             )
@@ -247,7 +248,7 @@ private fun MarkerCardContent(
         }
         Icon(
             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = "View marker",
+            contentDescription = stringResource(R.string.cd_view_marker),
             tint = Color(AppConfig.uiSettingsTextMuted),
             modifier = Modifier
                 .align(Alignment.BottomEnd)

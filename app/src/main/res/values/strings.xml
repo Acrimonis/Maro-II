@@ -173,4 +173,96 @@
     <string name="battery_opt_message">To keep GPS tracking when the screen is off,\nMaro II needs to be exempt from battery optimization.</string>
     <string name="battery_opt_open_settings">Open Settings</string>
     <string name="battery_opt_not_now">Not Now</string>
+
+    <!-- Menu drawer -->
+    <string name="menu_section_position">POSITION SOURCE</string>
+    <string name="menu_section_tracks">TRACKS</string>
+    <string name="menu_section_markers">MARKERS</string>
+    <string name="menu_manage_tracks">Manage Tracks</string>
+    <string name="menu_show_zones">Show Zones on Map</string>
+    <string name="menu_manage_markers">Manage Markers</string>
+    <string name="track_status_recording">● Recording</string>
+    <string name="track_status_idle">● Idle</string>
+    <string name="track_stat_state">State</string>
+    <string name="track_stat_elapsed">Elapsed</string>
+    <string name="track_stat_points">Points</string>
+    <string name="track_stat_distance">Distance</string>
+    <string name="track_stat_max_speed">Max Speed</string>
+    <string name="track_stat_avg_speed">Avg Speed</string>
+    <string name="menu_stat_distance_nm">%.2f nm</string>
+    <string name="menu_stat_speed_kn">%.1f kn</string>
+
+    <!-- Marker drawer & dialogs -->
+    <string name="marker_delete_title">Delete Marker</string>
+    <string name="marker_delete_confirm">Delete \"%1$s\"? This cannot be undone.</string>
+    <string name="marker_unnamed">this marker</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="marker_color_title">Marker Color</string>
+    <string name="marker_icon_title">Marker Icon</string>
+    <string name="marker_icon_none">None (✕)</string>
+    <string name="marker_empty">No markers yet</string>
+    <string name="marker_create_first">Create First Marker</string>
+    <string name="filter_section_general">General</string>
+    <string name="filter_no_match">No items match filters</string>
+    <string name="filter_clear">Clear filters</string>
+    <string name="color_picker_title">Pick color</string>
+    <string name="settings_depth_label">Depth</string>
+    <string name="settings_depth_desc">Show depth color layer on the map</string>
+    <string name="action_regenerate">Regenerate</string>
+
+    <!-- Settings — Priority 5 (Navigation + System tabs) -->
+    <string name="settings_reg_info_desc">Show zone info text beside the icon strip</string>
+    <string name="settings_reg_info_visible">Info text visible</string>
+    <string name="settings_section_tracks">Tracks</string>
+    <string name="settings_tracks_desc">Show recorded tracks on the map</string>
+    <string name="settings_tracks_count_label">Number of tracks</string>
+    <string name="settings_tracks_count_desc">Recent tracks to render (0-20)</string>
+    <string name="settings_transparency_label">Transparency</string>
+    <string name="settings_transparency_desc" formatted="false">Left thumb = newest track, right thumb = oldest. 0% = opaque, 100% = invisible.</string>
+    <string name="settings_transparency_value_fmt">Newest %1$d%%  –  Oldest %2$d%%</string>
+    <string name="settings_pinned_transparency_label">Pinned transparency</string>
+    <string name="settings_pinned_transparency_desc" formatted="false">Pinned tracks are always visible regardless of count. 0% = opaque, 100% = invisible.</string>
+    <string name="settings_colors_label">Colors</string>
+    <string name="settings_colors_desc">Past tracks: color gradient from newest (From) to oldest (To). Pinned tracks: amber/orange gradient.</string>
+    <string name="settings_section_markers">Markers</string>
+    <string name="settings_markers_desc">User-created pins, circles, corridors and auto-markers</string>
+    <string name="settings_zone_shapes_desc">Show zone shapes (corridor edges, circle outlines) and proximity previews</string>
+    <string name="settings_zone_shapes_label">Zone shapes</string>
+    <string name="settings_speed_alert_gps_label">Speed zone alert (GPS)</string>
+    <string name="settings_speed_alert_gps_desc">Auto-show speed zones when approaching in GPS mode</string>
+    <string name="settings_speed_alert_demo_label">Speed zone alert (Demo)</string>
+    <string name="settings_speed_alert_demo_desc">Auto-show speed zones when panning the map toward a zone</string>
+    <string name="settings_reg_alert_gps_label">Regulated zone alert (GPS)</string>
+    <string name="settings_reg_alert_gps_desc">Auto-show regulated zones when approaching a speed-enforced zone</string>
+    <string name="settings_reg_alert_demo_label">Regulated zone alert (Demo)</string>
+    <string name="settings_reg_alert_demo_desc">Auto-show regulated zones when panning toward a speed-enforced zone</string>
+    <string name="settings_regenerate_layers">Regenerate Layers</string>
+    <string name="color_picker_pick">Pick</string>
+
+    <!-- Content descriptions (accessibility) -->
+    <string name="cd_cancel">Cancel</string>
+    <string name="cd_close">Close</string>
+    <string name="cd_settings">Settings</string>
+    <string name="cd_reset_filter">Reset filter</string>
+    <string name="cd_view_tracks">View track list</string>
+    <string name="cd_manage_markers">Manage markers</string>
+    <string name="cd_set_icon">Set icon</string>
+    <string name="cd_edit">Edit</string>
+    <string name="cd_delete">Delete</string>
+    <string name="cd_view_marker">View marker</string>
+    <string name="cd_export_gpx">Export GPX</string>
+    <string name="cd_view_track">View track</string>
+    <string name="cd_sort">Sort by</string>
+    <string name="cd_filter">Filter</string>
+    <string name="cd_reset">Reset</string>
+    <string name="cd_menu">Menu</string>
+    <string name="cd_pin_marker">Pin this marker</string>
+    <string name="cd_descending">Descending</string>
+    <string name="cd_ascending">Ascending</string>
+
+    <!-- Misc -->
+    <string name="settings_language_english">English</string>
+    <string name="snackbar_deleted">\"%s\" deleted</string>
+    <string name="action_undo">Undo</string>
 </resources>

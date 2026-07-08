@@ -21,9 +21,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color as ComposeColor
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ykws.android.maro.R
 
 /** 16 POI icons available for markers — 4×4 grid. */
 val ICON_SET = listOf(
@@ -57,7 +59,7 @@ fun IconPickerDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Marker Icon") },
+        title = { Text(stringResource(R.string.marker_icon_title)) },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 // 4 rows × 4 columns
@@ -103,12 +105,12 @@ fun IconPickerDialog(
         },
         confirmButton = {
             TextButton(onClick = { onIconSelected(null) }) {
-                Text("None (✕)", color = ComposeColor(0xFFE53935.toInt()))
+                Text(stringResource(R.string.marker_icon_none), color = ComposeColor(0xFFE53935.toInt()))
             }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.action_cancel))
             }
         }
     )

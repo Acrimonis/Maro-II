@@ -172,4 +172,96 @@
     <string name="battery_opt_message">Pour garder le suivi GPS quand l\'écran est éteint,\nMaro II doit être exempté de l\'optimisation de la batterie.</string>
     <string name="battery_opt_open_settings">Ouvrir Paramètres</string>
     <string name="battery_opt_not_now">Pas maintenant</string>
+
+    <!-- Menu drawer -->
+    <string name="menu_section_position">SOURCE DE POSITION</string>
+    <string name="menu_section_tracks">TRACES</string>
+    <string name="menu_section_markers">REPÈRES</string>
+    <string name="menu_manage_tracks">Gérer les traces</string>
+    <string name="menu_show_zones">Afficher les zones</string>
+    <string name="menu_manage_markers">Gérer les repères</string>
+    <string name="track_status_recording">● Enregistrement</string>
+    <string name="track_status_idle">● En attente</string>
+    <string name="track_stat_state">État</string>
+    <string name="track_stat_elapsed">Écoulé</string>
+    <string name="track_stat_points">Points</string>
+    <string name="track_stat_distance">Distance</string>
+    <string name="track_stat_max_speed">Vitesse max</string>
+    <string name="track_stat_avg_speed">Vitesse moy</string>
+    <string name="menu_stat_distance_nm">%.2f nm</string>
+    <string name="menu_stat_speed_kn">%.1f kn</string>
+
+    <!-- Marker drawer & dialogs -->
+    <string name="marker_delete_title">Supprimer le repère</string>
+    <string name="marker_delete_confirm">Supprimer \"%1$s\" ? Action irréversible.</string>
+    <string name="marker_unnamed">ce repère</string>
+    <string name="action_delete">Supprimer</string>
+    <string name="action_cancel">Annuler</string>
+    <string name="marker_color_title">Couleur du repère</string>
+    <string name="marker_icon_title">Icône du repère</string>
+    <string name="marker_icon_none">Aucune (✕)</string>
+    <string name="marker_empty">Aucun repère</string>
+    <string name="marker_create_first">Créer un repère</string>
+    <string name="filter_section_general">Général</string>
+    <string name="filter_no_match">Aucun résultat</string>
+    <string name="filter_clear">Effacer les filtres</string>
+    <string name="color_picker_title">Choisir une couleur</string>
+    <string name="settings_depth_label">Profondeur</string>
+    <string name="settings_depth_desc">Afficher les fonds marins</string>
+    <string name="action_regenerate">Régénérer</string>
+
+    <!-- Settings — Priority 5 (Navigation + System tabs) -->
+    <string name="settings_reg_info_desc">Afficher le texte d\'info à côté des icônes</string>
+    <string name="settings_reg_info_visible">Texte d\'info visible</string>
+    <string name="settings_section_tracks">Traces</string>
+    <string name="settings_tracks_desc">Afficher les traces enregistrées</string>
+    <string name="settings_tracks_count_label">Nombre de traces</string>
+    <string name="settings_tracks_count_desc">Traces récentes à afficher (0-20)</string>
+    <string name="settings_transparency_label">Transparence</string>
+    <string name="settings_transparency_desc" formatted="false">Curseur gauche = plus récent, droit = plus ancien. 0% = opaque, 100% = invisible.</string>
+    <string name="settings_transparency_value_fmt">Récent %1$d%%  –  Ancien %2$d%%</string>
+    <string name="settings_pinned_transparency_label">Transparence épinglés</string>
+    <string name="settings_pinned_transparency_desc" formatted="false">Les traces épinglées sont toujours visibles. 0% = opaque, 100% = invisible.</string>
+    <string name="settings_colors_label">Couleurs</string>
+    <string name="settings_colors_desc">Anciennes traces : dégradé du plus récent (De) au plus ancien (Vers). Épinglées : dégradé ambre/orange.</string>
+    <string name="settings_section_markers">Repères</string>
+    <string name="settings_markers_desc">Repères, cercles, corridors et repères automatiques</string>
+    <string name="settings_zone_shapes_desc">Afficher les formes de zone et aperçus de proximité</string>
+    <string name="settings_zone_shapes_label">Formes de zone</string>
+    <string name="settings_speed_alert_gps_label">Alerte zone de vitesse (GPS)</string>
+    <string name="settings_speed_alert_gps_desc">Afficher les zones de vitesse à l\'approche en mode GPS</string>
+    <string name="settings_speed_alert_demo_label">Alerte zone de vitesse (Démo)</string>
+    <string name="settings_speed_alert_demo_desc">Afficher les zones de vitesse en naviguant vers une zone</string>
+    <string name="settings_reg_alert_gps_label">Alerte zone réglementée (GPS)</string>
+    <string name="settings_reg_alert_gps_desc">Afficher les zones réglementées à l\'approche</string>
+    <string name="settings_reg_alert_demo_label">Alerte zone réglementée (Démo)</string>
+    <string name="settings_reg_alert_demo_desc">Afficher les zones réglementées en naviguant vers une zone</string>
+    <string name="settings_regenerate_layers">Régénérer les couches</string>
+    <string name="color_picker_pick">Choisir</string>
+
+    <!-- Content descriptions (accessibility) -->
+    <string name="cd_cancel">Annuler</string>
+    <string name="cd_close">Fermer</string>
+    <string name="cd_settings">Paramètres</string>
+    <string name="cd_reset_filter">Réinitialiser le filtre</string>
+    <string name="cd_view_tracks">Voir la liste des traces</string>
+    <string name="cd_manage_markers">Gérer les repères</string>
+    <string name="cd_set_icon">Définir l\'icône</string>
+    <string name="cd_edit">Modifier</string>
+    <string name="cd_delete">Supprimer</string>
+    <string name="cd_view_marker">Voir le repère</string>
+    <string name="cd_export_gpx">Exporter GPX</string>
+    <string name="cd_view_track">Voir la trace</string>
+    <string name="cd_sort">Trier par</string>
+    <string name="cd_filter">Filtrer</string>
+    <string name="cd_reset">Réinitialiser</string>
+    <string name="cd_menu">Menu</string>
+    <string name="cd_pin_marker">Épingler ce repère</string>
+    <string name="cd_descending">Décroissant</string>
+    <string name="cd_ascending">Croissant</string>
+
+    <!-- Misc -->
+    <string name="settings_language_english">English</string>
+    <string name="snackbar_deleted">« %s » supprimé</string>
+    <string name="action_undo">Annuler</string>
 </resources>

@@ -47,6 +47,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
@@ -58,6 +59,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.MarkerGeometry
@@ -148,7 +150,7 @@ private fun ViewingContent(
                         } else {
                             Icon(
                                 imageVector = Icons.Outlined.LocationOff,
-                                contentDescription = "Set icon",
+                                contentDescription = stringResource(R.string.cd_set_icon),
                                 tint = ButtonColors.icon,
                                 modifier = Modifier.size(24.dp)
                             )
@@ -173,7 +175,7 @@ private fun ViewingContent(
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Edit,
-                            contentDescription = "Edit",
+                            contentDescription = stringResource(R.string.cd_edit),
                             tint = ButtonColors.icon,
                             modifier = Modifier.size(24.dp)
                         )
@@ -184,7 +186,7 @@ private fun ViewingContent(
                     ) {
                         Icon(
                             imageVector = Icons.Filled.Delete,
-                            contentDescription = "Delete",
+                            contentDescription = stringResource(R.string.cd_delete),
                             tint = ButtonColors.icon,
                             modifier = Modifier.size(24.dp)
                         )
@@ -361,19 +363,19 @@ private fun ViewingContent(
         if (showDeleteConfirm) {
             AlertDialog(
                 onDismissRequest = { showDeleteConfirm = false },
-                title = { Text("Delete Marker") },
-                text = { Text("Delete \"${marker?.name ?: "this marker"}\"? This cannot be undone.") },
+                title = { Text(stringResource(R.string.marker_delete_title)) },
+                text = { Text(stringResource(R.string.marker_delete_confirm, marker?.name ?: stringResource(R.string.marker_unnamed))) },
                 confirmButton = {
                     TextButton(onClick = {
                         showDeleteConfirm = false
                         currentId?.let { viewModel.deleteMarker(it) }
                     }) {
-                        Text("Delete", color = ComposeColor(AppConfig.semanticDanger))
+                        Text(stringResource(R.string.action_delete), color = ComposeColor(AppConfig.semanticDanger))
                     }
                 },
                 dismissButton = {
                     TextButton(onClick = { showDeleteConfirm = false }) {
-                        Text("Cancel")
+                        Text(stringResource(R.string.action_cancel))
                     }
                 }
             )
@@ -545,7 +547,7 @@ fun MarkerColorPickerDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Marker Color") },
+        title = { Text(stringResource(R.string.marker_color_title)) },
         text = {
             Column {
                 LazyVerticalGrid(
@@ -576,7 +578,7 @@ fun MarkerColorPickerDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.action_cancel))
             }
         }
     )

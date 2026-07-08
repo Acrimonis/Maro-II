@@ -107,7 +107,7 @@ private fun SortControl(
         ) {
             Icon(
                 imageVector = FilterList,
-                contentDescription = "Sort by",
+                contentDescription = stringResource(R.string.cd_sort),
                 tint = ButtonColors.icon,
                 modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
                     .alpha(sortAlpha)
@@ -127,7 +127,7 @@ private fun SortControl(
                 ) {
                     Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         // General section
-                        Text("General",
+                        Text(stringResource(R.string.filter_section_general),
                             color = Color(AppConfig.uiDashboardTextMuted),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.SemiBold,
@@ -209,7 +209,7 @@ internal fun FilterControl(
         ) {
             Icon(
                 imageVector = FilterAlt,
-                contentDescription = "Filter",
+                contentDescription = stringResource(R.string.cd_filter),
                 tint = ButtonColors.icon,
                 modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
                     .alpha(if (hasActiveFilter) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha)
@@ -355,9 +355,9 @@ private fun SnackbarSlot(name: String, onUndo: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text("\u201C$name\u201D deleted", color = Color(AppConfig.uiSettingsTextPrimary), fontSize = 14.sp, maxLines = 3, modifier = Modifier.weight(1f))
+        Text(stringResource(R.string.snackbar_deleted, name), color = Color(AppConfig.uiSettingsTextPrimary), fontSize = 14.sp, maxLines = 3, modifier = Modifier.weight(1f))
         Spacer(Modifier.width(8.dp))
-        TextButton(onClick = onUndo) { Text("Undo", color = Color(AppConfig.uiSettingsAccent), fontWeight = FontWeight.Bold, fontSize = 14.sp) }
+        TextButton(onClick = onUndo) { Text(stringResource(R.string.action_undo), color = Color(AppConfig.uiSettingsAccent), fontWeight = FontWeight.Bold, fontSize = 14.sp) }
     }
 }
 
@@ -445,7 +445,7 @@ fun <T : ListableItem> ListOverlayScaffold(
                     ) {
                         Icon(
                             imageVector = if (sortState.descending) Icons.Filled.ArrowDropDown else Icons.Filled.ArrowDropUp,
-                            contentDescription = if (sortState.descending) "Descending" else "Ascending",
+                            contentDescription = if (sortState.descending) stringResource(R.string.cd_descending) else stringResource(R.string.cd_ascending),
                             tint = ButtonColors.icon,
                             modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
                                 .alpha(sortAlpha)
@@ -459,7 +459,7 @@ fun <T : ListableItem> ListOverlayScaffold(
                     ) {
                         Icon(
                             imageVector = Refresh,
-                            contentDescription = "Reset",
+                            contentDescription = stringResource(R.string.cd_reset),
                             tint = ButtonColors.icon,
                             modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
                                 .alpha(if (hasActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha)
@@ -474,10 +474,10 @@ fun <T : ListableItem> ListOverlayScaffold(
                     // Filter active + empty → show "No items match filters" + clear button
                     Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text("No items match filters", color = Color(AppConfig.uiSettingsTextMuted), fontSize = 18.sp, fontWeight = FontWeight.Medium)
+                            Text(stringResource(R.string.filter_no_match), color = Color(AppConfig.uiSettingsTextMuted), fontSize = 18.sp, fontWeight = FontWeight.Medium)
                             Spacer(Modifier.height(16.dp))
                             TextButton(onClick = onReset) {
-                                Text("Clear filters", color = Color(AppConfig.uiSettingsAccent), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                                Text(stringResource(R.string.filter_clear), color = Color(AppConfig.uiSettingsAccent), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                             }
                         }
                     }
