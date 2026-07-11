@@ -1620,6 +1620,7 @@ fun MapScreen(
                         .align(Alignment.CenterStart)
                         .width(landscapeDashboardWidth)
                         .fillMaxHeight()
+                        .windowInsetsPadding(WindowInsets.statusBars)
                 )
             } else {
                 DashboardPanel(
