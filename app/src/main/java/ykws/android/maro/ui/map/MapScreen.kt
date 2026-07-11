@@ -2702,6 +2702,9 @@ private fun CoastlineMapView(
     // Per-layer persistent overlay tracker — survives recompositions so we can
     // selectively rebuild only layers whose input data actually changed.
     val tracker = remember { OverlayTracker() }
+    // Gate that prevents setMapCenterOffset-triggered scroll events from feeding
+    // back into demo speed computation (avoids an infinite feedback loop).
+    val suppressScrollCallbacks = remember { mutableStateOf(false) }
 
     AndroidView(
         modifier = modifier,
@@ -2721,7 +2724,11 @@ private fun CoastlineMapView(
                 controller.setZoom(initialZoom)
                 controller.setCenter(GeoPoint(center.latitude, center.longitude))
                 if (centerOffsetYPx != 0) {
+                    suppressScrollCallbacks.value = true
                     setMapCenterOffset(0, centerOffsetYPx)
+                    android.os.Handler(android.os.Looper.getMainLooper()).post {
+                        suppressScrollCallbacks.value = false
+                    }
                 }
                 // Draw all layers bottom-to-top; each appends to both mapView.overlays
                 // and the corresponding tracker list for later selective rebuild.
@@ -2754,12 +2761,14 @@ private fun CoastlineMapView(
                 // Listen for map pan/zoom to report new center & zoom in real time
                 addMapListener(object : MapListener {
                     override fun onScroll(event: ScrollEvent): Boolean {
+                        if (suppressScrollCallbacks.value) return false
                         val geo = this@apply.mapCenter
                         onCenterChanged(geo.latitude, geo.longitude)
                         return false
                     }
 
                     override fun onZoom(event: ZoomEvent): Boolean {
+                        if (suppressScrollCallbacks.value) return false
                         val geo = this@apply.mapCenter
                         onCenterChanged(geo.latitude, geo.longitude)
                         onZoomChanged(this@apply.zoomLevelDouble)
@@ -2855,8 +2864,15 @@ private fun CoastlineMapView(
     }
 
     // ── Map center offset: reactively update when speed changes ────────────
+    //     Suppresses scroll callbacks during the call so OSMdroid scroll events
+    //     triggered by the offset change don't feed back into demo speed.
     LaunchedEffect(centerOffsetYPx, localMapView.value) {
-        localMapView.value?.setMapCenterOffset(0, centerOffsetYPx)
+        val mv = localMapView.value ?: return@LaunchedEffect
+        suppressScrollCallbacks.value = true
+        mv.setMapCenterOffset(0, centerOffsetYPx)
+        android.os.Handler(android.os.Looper.getMainLooper()).post {
+            suppressScrollCallbacks.value = false
+        }
     }
 
     // ── Cone + dashed line: DISABLED — see more-dedebug subfeature ──────────────
