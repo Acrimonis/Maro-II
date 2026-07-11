@@ -218,6 +218,16 @@ object AppConfig {
     var mapNavigationLineColor: Int = 0x4D1565C0.toInt()
         private set
 
+    /** Speed (knots) at which the map look-ahead offset reaches its maximum.
+     *  Default 20.0. Set via `map.lookAhead.speedKn` in maro.properties. */
+    var mapLookAheadSpeedKn: Double = 20.0
+        private set
+    /** Fraction of screen height for maximum look-ahead offset.
+     *  Default 1/6 (~0.167) shifts center from H/2 → 2H/3 from top, placing boat at bottom 1/3.
+     *  Set via `map.lookAhead.maxFraction` in maro.properties. */
+    var mapLookAheadMaxFraction: Double = 1.0 / 6.0
+        private set
+
     /** Depth NoData cell colour. Default #60FFF59D (pale yellow, ~38% alpha). Set via `map.depth.nodata.color` in colors.properties. */
     var mapDepthNodataColor: Int = 0x60FFF59D.toInt()
         private set
@@ -625,6 +635,14 @@ object AppConfig {
 
             props.getProperty("map.navigation.arrow.color")?.let { parseColorOrNull(it) }?.let { mapNavigationArrowColor = it }
             props.getProperty("map.navigation.line.color")?.let { parseColorOrNull(it) }?.let { mapNavigationLineColor = it }
+
+            // ── Map look-ahead offset (dynamic speed-based center shift) ──
+            props.getProperty("map.lookAhead.speedKn")?.toDoubleOrNull()?.let {
+                mapLookAheadSpeedKn = it.coerceIn(1.0, 50.0)
+            }
+            props.getProperty("map.lookAhead.maxFraction")?.toDoubleOrNull()?.let {
+                mapLookAheadMaxFraction = it.coerceIn(0.05, 0.4)
+            }
 
             props.getProperty("map.depth.nodata.color")?.let { parseColorOrNull(it) }?.let { mapDepthNodataColor = it }
 

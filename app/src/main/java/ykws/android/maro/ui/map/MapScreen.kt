@@ -128,6 +128,7 @@ import androidx.core.content.ContextCompat
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -1394,6 +1395,19 @@ fun MapScreen(
             val portraitDashboardHeight = maxWidth * 3 / 5
             val landscapeDashboardWidth = maxHeight * 100 / 100
 
+            // ── Dynamic map offset from speed — configurable via maro.properties ──
+            val fullOffsetSpeedKn = AppConfig.mapLookAheadSpeedKn
+            val maxOffsetFraction = AppConfig.mapLookAheadMaxFraction
+            val effectiveSpeedKn = navigationState.speedKnots ?: navigationState.demoSpeedKnots
+            val targetFraction = ((effectiveSpeedKn ?: 0f) / fullOffsetSpeedKn.toFloat())
+                .coerceIn(0f, 1f)
+            val animatedFraction by animateFloatAsState(
+                targetValue = targetFraction,
+                animationSpec = spring(dampingRatio = 0.8f, stiffness = 200f),
+                label = "mapOffsetFraction"
+            )
+            val mapCenterOffsetDp = (animatedFraction * maxHeight.value * maxOffsetFraction.toFloat()).dp
+
             // ── F2: Build synthetic unconfirmed marker for overlay preview ─────
             val createForm by markersViewModel.createForm.collectAsState()
             val drawerState by markersViewModel.drawerState.collectAsState()
@@ -1602,7 +1616,8 @@ fun MapScreen(
                     .padding(
                         if (isLandscape) PaddingValues(start = landscapeDashboardWidth, top = 0.dp, end = 0.dp, bottom = 0.dp)
                         else PaddingValues(start = 0.dp, top = 0.dp, end = 0.dp, bottom = portraitDashboardHeight)
-                    )
+                    ),
+                mapCenterOffsetDp = mapCenterOffsetDp
         )
 
             // ── Dashboard (always rendered, Layer 0) ────────────────────────
@@ -2163,7 +2178,8 @@ private fun MapContent(
     autoFollowSuppressed: Boolean = false,
     onRecenter: () -> Unit = {},
     onClearTrackInfoError: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    mapCenterOffsetDp: Dp = 0.dp,
 ) {
     Box(modifier = modifier.clipToBounds()) {
         // ── Compute top inset: full statusBars in landscape, -6dp in portrait ──
@@ -2172,6 +2188,7 @@ private fun MapContent(
             val raw = WindowInsets.statusBars.getTop(this).toDp()
             if (isLandscape) raw else (raw - 6.dp).coerceAtLeast(0.dp)
         }
+        val centerOffsetYPx = with(density) { mapCenterOffsetDp.roundToPx() }
 
         // Memoize per state instance so panning (which does not change state) keeps a
         // stable list identity → no spurious overlay rebuilds.
@@ -2212,7 +2229,8 @@ private fun MapContent(
             onCenterChanged = onCenterChanged,
             onZoomChanged = onZoomChanged,
             onMapViewReady = onMapViewReady,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
+            centerOffsetYPx = centerOffsetYPx
         )
 
         // ── Scrim: transparent full-screen tap catcher when any fan is expanded ──
@@ -2229,14 +2247,18 @@ private fun MapContent(
         // ── Layer 0 overlays: direction line + center marker ─────────────
         val moving = navigationState.speedKnots != null || navigationState.demoSpeedKnots != null
         if (moving && appSettings.headingLineVisible) {
-            DirectionLine(modifier = Modifier.fillMaxSize())
+            DirectionLine(
+                modifier = Modifier.fillMaxSize(),
+                centerOffsetYDp = mapCenterOffsetDp
+            )
         }
 
         CapArrowOverlay(
             zoomLevel = zoomLevel,
             navigationState = navigationState,
             showCapArrow = appSettings.capArrowVisible,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
+            centerOffsetYDp = mapCenterOffsetDp
         )
 
         CenterMarkerOverlay(
@@ -2245,7 +2267,8 @@ private fun MapContent(
             distanceToShore = distanceToShore,
             showCrosshair = showCrosshair,
             onClick = { onWhereAmI() },
-            modifier = Modifier.align(Alignment.Center)
+            modifier = Modifier.align(Alignment.Center),
+            centerOffsetYDp = mapCenterOffsetDp
         )
 
         // ── Layer 1: 2-column overlay row (left fills, right content-sized) ──
@@ -2671,7 +2694,8 @@ private fun CoastlineMapView(
     onCenterChanged: (Double, Double) -> Unit = { _, _ -> },
     onZoomChanged: (Double) -> Unit = {},
     onMapViewReady: (MapView) -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    centerOffsetYPx: Int = 0,
 ) {
     val context = LocalContext.current
     val localMapView = remember { mutableStateOf<MapView?>(null) }
@@ -2696,6 +2720,9 @@ private fun CoastlineMapView(
                 maxZoomLevel = 18.0
                 controller.setZoom(initialZoom)
                 controller.setCenter(GeoPoint(center.latitude, center.longitude))
+                if (centerOffsetYPx != 0) {
+                    setMapCenterOffset(0, centerOffsetYPx)
+                }
                 // Draw all layers bottom-to-top; each appends to both mapView.overlays
                 // and the corresponding tracker list for later selective rebuild.
                 drawDepthMap(this, depthBitmap, depthBox, zoomLevel, tracker.depth)
@@ -2827,6 +2854,11 @@ private fun CoastlineMapView(
         mv.invalidate()
     }
 
+    // ── Map center offset: reactively update when speed changes ────────────
+    LaunchedEffect(centerOffsetYPx, localMapView.value) {
+        localMapView.value?.setMapCenterOffset(0, centerOffsetYPx)
+    }
+
     // ── Cone + dashed line: DISABLED — see more-dedebug subfeature ──────────────
 }
 
@@ -2901,7 +2933,8 @@ private fun CenterMarkerOverlay(
     distanceToShore: Double?,
     showCrosshair: Boolean = false,
     onClick: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    centerOffsetYDp: Dp = 0.dp,
 ) {
     // ── Crosshair mode: replace boat/dot with a target icon during position-step wizard ──
     if (showCrosshair) {
@@ -2912,6 +2945,7 @@ private fun CenterMarkerOverlay(
         Box(
             modifier = modifier
                 .size(if (finalSizeDp < 48.dp) 48.dp else finalSizeDp)
+                .offset(y = centerOffsetYDp)
                 .clickable(onClick = onClick),
             contentAlignment = Alignment.Center
         ) {
@@ -2957,6 +2991,7 @@ private fun CenterMarkerOverlay(
     Box(
         modifier = modifier
             .size(touchSizeDp)
+            .offset(y = centerOffsetYDp)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
@@ -2986,7 +3021,8 @@ private fun CapArrowOverlay(
     zoomLevel: Double,
     navigationState: NavigationState,
     showCapArrow: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    centerOffsetYDp: Dp = 0.dp,
 ) {
     val effectiveSpeedKn = navigationState.speedKnots ?: navigationState.demoSpeedKnots
     val hasSpeed = effectiveSpeedKn != null && effectiveSpeedKn > CAP_MIN_SPEED_KNOTS
@@ -3000,7 +3036,7 @@ private fun CapArrowOverlay(
     Canvas(modifier = modifier) {
         val arrowLenPx = arrowDp.toPx()
         val cX = size.width / 2
-        val midY = size.height / 2
+        val midY = size.height / 2 + centerOffsetYDp.toPx()
         val endY = midY - arrowLenPx
 
         drawLine(
@@ -3036,12 +3072,13 @@ private fun CapArrowOverlay(
  */
 @Composable
 private fun DirectionLine(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    centerOffsetYDp: Dp = 0.dp,
 ) {
     val lineColor = ComposeColor(AppConfig.mapNavigationLineColor)
     Canvas(modifier = modifier) {
         val cX = size.width / 2
-        val cY = size.height / 2
+        val cY = size.height / 2 + centerOffsetYDp.toPx()
 
         drawLine(
             color = lineColor,
