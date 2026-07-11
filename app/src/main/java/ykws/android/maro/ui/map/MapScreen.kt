@@ -939,10 +939,13 @@ fun MapScreen(
             val track = trackViewModel.loadTrackDetailCached(summary.id) ?: continue
             if (track.trackPoints.isEmpty()) continue
 
-            val appearance = if (summary.id == highlightedTrackId) {
-                TrackPolylineAppearance(0xFFFFD700.toInt() or (0xFF shl 24), 10f)
+            val appearances = if (summary.id == highlightedTrackId) {
+                listOf(
+                    TrackPolylineAppearance(0xCC000000.toInt(), 16f),
+                    TrackPolylineAppearance(0xFFFFD700.toInt() or (0xFF shl 24), 8f)
+                )
             } else {
-                computeTrackPolylineAppearance(
+                listOf(computeTrackPolylineAppearance(
                     index = index,
                     total = total,
                     transparencyNewest = appSettings.trackingTransparencyNewest,
@@ -950,54 +953,56 @@ fun MapScreen(
                     colorFrom = appSettings.trackingColorPastFrom,
                     colorTo = appSettings.trackingColorPastTo,
                     strokeWidth = if (index == 0) 8f else 6f
-                )
+                ))
             }
 
-            // Split at GAP markers: solid segments between gaps, dashed for gap segments
-            val points = track.trackPoints
-            var segmentStart = 0
-            for (i in points.indices) {
-                if (points[i].type == ykws.android.maro.data.track.PointType.GAP) {
-                    if (i > segmentStart) {
-                        val solidPoints = points.subList(segmentStart, i).map { pt ->
-                            org.osmdroid.util.GeoPoint(pt.lat, pt.lon)
-                        }
-                        if (solidPoints.size >= 2) {
-                            val solidPolyline = org.osmdroid.views.overlay.Polyline().apply {
-                                title = "track_hist_${summary.id}"
-                                outlinePaint.color = appearance.argb
-                                outlinePaint.strokeWidth = appearance.strokeWidth
-                                setPoints(solidPoints)
+            for (appearance in appearances) {
+                // Split at GAP markers: solid segments between gaps, dashed for gap segments
+                val points = track.trackPoints
+                var segmentStart = 0
+                for (i in points.indices) {
+                    if (points[i].type == ykws.android.maro.data.track.PointType.GAP) {
+                        if (i > segmentStart) {
+                            val solidPoints = points.subList(segmentStart, i).map { pt ->
+                                org.osmdroid.util.GeoPoint(pt.lat, pt.lon)
                             }
-                            mv.overlays.add(solidPolyline)
+                            if (solidPoints.size >= 2) {
+                                val solidPolyline = org.osmdroid.views.overlay.Polyline().apply {
+                                    title = "track_hist_${summary.id}"
+                                    outlinePaint.color = appearance.argb
+                                    outlinePaint.strokeWidth = appearance.strokeWidth
+                                    setPoints(solidPoints)
+                                }
+                                mv.overlays.add(solidPolyline)
+                            }
                         }
+                        val gapFrom = org.osmdroid.util.GeoPoint(points[i].lat, points[i].lon)
+                        val gapTo = if (i + 1 < points.size)
+                            org.osmdroid.util.GeoPoint(points[i + 1].lat, points[i + 1].lon)
+                        else gapFrom
+                        val gapLine = org.osmdroid.views.overlay.Polyline().apply {
+                            title = "track_hist_${summary.id}"
+                            outlinePaint.color = appearance.argb
+                            outlinePaint.strokeWidth = appearance.strokeWidth
+                            outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(20f, 10f), 0f)
+                            setPoints(listOf(gapFrom, gapTo))
+                        }
+                        mv.overlays.add(gapLine)
+                        segmentStart = i + 1
                     }
-                    val gapFrom = org.osmdroid.util.GeoPoint(points[i].lat, points[i].lon)
-                    val gapTo = if (i + 1 < points.size)
-                        org.osmdroid.util.GeoPoint(points[i + 1].lat, points[i + 1].lon)
-                    else gapFrom
-                    val gapLine = org.osmdroid.views.overlay.Polyline().apply {
+                }
+                if (segmentStart < points.size && points.size - segmentStart >= 2) {
+                    val solidPoints = points.subList(segmentStart, points.size).map { pt ->
+                        org.osmdroid.util.GeoPoint(pt.lat, pt.lon)
+                    }
+                    val solidPolyline = org.osmdroid.views.overlay.Polyline().apply {
                         title = "track_hist_${summary.id}"
                         outlinePaint.color = appearance.argb
                         outlinePaint.strokeWidth = appearance.strokeWidth
-                        outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(20f, 10f), 0f)
-                        setPoints(listOf(gapFrom, gapTo))
+                        setPoints(solidPoints)
                     }
-                    mv.overlays.add(gapLine)
-                    segmentStart = i + 1
+                    mv.overlays.add(solidPolyline)
                 }
-            }
-            if (segmentStart < points.size && points.size - segmentStart >= 2) {
-                val solidPoints = points.subList(segmentStart, points.size).map { pt ->
-                    org.osmdroid.util.GeoPoint(pt.lat, pt.lon)
-                }
-                val solidPolyline = org.osmdroid.views.overlay.Polyline().apply {
-                    title = "track_hist_${summary.id}"
-                    outlinePaint.color = appearance.argb
-                    outlinePaint.strokeWidth = appearance.strokeWidth
-                    setPoints(solidPoints)
-                }
-                mv.overlays.add(solidPolyline)
             }
 
             // ── Auto-marker 🕐 pins for this history track ──
@@ -1010,7 +1015,7 @@ fun MapScreen(
                     val bitmap = android.graphics.Bitmap.createBitmap(48, 48, android.graphics.Bitmap.Config.ARGB_8888)
                     val canvas = android.graphics.Canvas(bitmap)
                     val paint = android.graphics.Paint().apply {
-                        color = appearance.argb
+                        color = appearances.last().argb
                         textSize = 36f
                         textAlign = android.graphics.Paint.Align.CENTER
                         isAntiAlias = true
@@ -1038,10 +1043,13 @@ fun MapScreen(
             val track = trackViewModel.loadTrackDetailCached(summary.id) ?: continue
             if (track.trackPoints.isEmpty()) continue
 
-            val appearance = if (summary.id == highlightedTrackId) {
-                TrackPolylineAppearance(0xFFFFD700.toInt() or (0xFF shl 24), 10f)
+            val appearances = if (summary.id == highlightedTrackId) {
+                listOf(
+                    TrackPolylineAppearance(0xCC000000.toInt(), 16f),
+                    TrackPolylineAppearance(0xFFFFD700.toInt() or (0xFF shl 24), 8f)
+                )
             } else {
-                computeTrackPolylineAppearance(
+                listOf(computeTrackPolylineAppearance(
                     index = index,
                     total = pinnedTotal,
                     transparencyNewest = appSettings.trackingTransparencyPinnedNewest,
@@ -1049,54 +1057,56 @@ fun MapScreen(
                     colorFrom = appSettings.trackingColorPinnedFrom,
                     colorTo = appSettings.trackingColorPinnedTo,
                     strokeWidth = 6f
-                )
+                ))
             }
 
-            // Split at GAP markers: solid segments between gaps, dashed for gap segments
-            val points = track.trackPoints
-            var segmentStart = 0
-            for (i in points.indices) {
-                if (points[i].type == ykws.android.maro.data.track.PointType.GAP) {
-                    if (i > segmentStart) {
-                        val solidPoints = points.subList(segmentStart, i).map { pt ->
-                            org.osmdroid.util.GeoPoint(pt.lat, pt.lon)
-                        }
-                        if (solidPoints.size >= 2) {
-                            val solidPolyline = org.osmdroid.views.overlay.Polyline().apply {
-                                title = "track_pin_${summary.id}"
-                                outlinePaint.color = appearance.argb
-                                outlinePaint.strokeWidth = appearance.strokeWidth
-                                setPoints(solidPoints)
+            for (appearance in appearances) {
+                // Split at GAP markers: solid segments between gaps, dashed for gap segments
+                val points = track.trackPoints
+                var segmentStart = 0
+                for (i in points.indices) {
+                    if (points[i].type == ykws.android.maro.data.track.PointType.GAP) {
+                        if (i > segmentStart) {
+                            val solidPoints = points.subList(segmentStart, i).map { pt ->
+                                org.osmdroid.util.GeoPoint(pt.lat, pt.lon)
                             }
-                            mv.overlays.add(solidPolyline)
+                            if (solidPoints.size >= 2) {
+                                val solidPolyline = org.osmdroid.views.overlay.Polyline().apply {
+                                    title = "track_pin_${summary.id}"
+                                    outlinePaint.color = appearance.argb
+                                    outlinePaint.strokeWidth = appearance.strokeWidth
+                                    setPoints(solidPoints)
+                                }
+                                mv.overlays.add(solidPolyline)
+                            }
                         }
+                        val gapFrom = org.osmdroid.util.GeoPoint(points[i].lat, points[i].lon)
+                        val gapTo = if (i + 1 < points.size)
+                            org.osmdroid.util.GeoPoint(points[i + 1].lat, points[i + 1].lon)
+                        else gapFrom
+                        val gapLine = org.osmdroid.views.overlay.Polyline().apply {
+                            title = "track_pin_${summary.id}"
+                            outlinePaint.color = appearance.argb
+                            outlinePaint.strokeWidth = appearance.strokeWidth
+                            outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(20f, 10f), 0f)
+                            setPoints(listOf(gapFrom, gapTo))
+                        }
+                        mv.overlays.add(gapLine)
+                        segmentStart = i + 1
                     }
-                    val gapFrom = org.osmdroid.util.GeoPoint(points[i].lat, points[i].lon)
-                    val gapTo = if (i + 1 < points.size)
-                        org.osmdroid.util.GeoPoint(points[i + 1].lat, points[i + 1].lon)
-                    else gapFrom
-                    val gapLine = org.osmdroid.views.overlay.Polyline().apply {
+                }
+                if (segmentStart < points.size && points.size - segmentStart >= 2) {
+                    val solidPoints = points.subList(segmentStart, points.size).map { pt ->
+                        org.osmdroid.util.GeoPoint(pt.lat, pt.lon)
+                    }
+                    val solidPolyline = org.osmdroid.views.overlay.Polyline().apply {
                         title = "track_pin_${summary.id}"
                         outlinePaint.color = appearance.argb
                         outlinePaint.strokeWidth = appearance.strokeWidth
-                        outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(20f, 10f), 0f)
-                        setPoints(listOf(gapFrom, gapTo))
+                        setPoints(solidPoints)
                     }
-                    mv.overlays.add(gapLine)
-                    segmentStart = i + 1
+                    mv.overlays.add(solidPolyline)
                 }
-            }
-            if (segmentStart < points.size && points.size - segmentStart >= 2) {
-                val solidPoints = points.subList(segmentStart, points.size).map { pt ->
-                    org.osmdroid.util.GeoPoint(pt.lat, pt.lon)
-                }
-                val solidPolyline = org.osmdroid.views.overlay.Polyline().apply {
-                    title = "track_pin_${summary.id}"
-                    outlinePaint.color = appearance.argb
-                    outlinePaint.strokeWidth = appearance.strokeWidth
-                    setPoints(solidPoints)
-                }
-                mv.overlays.add(solidPolyline)
             }
 
             // ── Auto-marker 🕐 pins for this pinned track ──
@@ -1109,7 +1119,7 @@ fun MapScreen(
                     val bitmap = android.graphics.Bitmap.createBitmap(48, 48, android.graphics.Bitmap.Config.ARGB_8888)
                     val canvas = android.graphics.Canvas(bitmap)
                     val paint = android.graphics.Paint().apply {
-                        color = appearance.argb
+                        color = appearances.last().argb
                         textSize = 36f
                         textAlign = android.graphics.Paint.Align.CENTER
                         isAntiAlias = true

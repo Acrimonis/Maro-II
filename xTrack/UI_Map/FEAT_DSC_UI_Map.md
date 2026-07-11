@@ -2,13 +2,31 @@
 name: UI_Map
 status: active
 created: 2026-06-07 00:00
-modified: 2026-07-04 16:48
+modified: 2026-07-11 12:00
 active_subfeature: map refresh
 ---
 
-**Description:** Map display layer management — depth layer, color depth layer, and orientation-aware rendering.
+**Description:** Map display layer management — depth layer, color depth layer, orientation-aware rendering, marker highlight.
 
 ## Subfeatures
+
+### marker highlight dual-outline  [x]
+
+Dark under-stroke (`0xCC000000`, +6f) rendered before gold highlight geometry on markers — same pattern as track highlight. Applied to all 5 geometry builders in `MarkerOverlay.kt` (pin dots, circle outlines, corridor centerlines/parallels/caps). `isHighlighted` flag threaded through all overlay builders, defaults to `false`.
+
+#### Todos
+- [x] Add `COLOR_HIGHLIGHT_UNDER` + `HIGHLIGHT_UNDER_STROKE_ADD` constants
+- [x] Add `isHighlighted` param to `addPinOverlay`, `addCircleOverlay`, `addCorridorOverlay`, `addCorridorParallels`, `addSemiCircleCaps`
+- [x] Wire dark under-strokes before gold in each function
+- [x] Compute `isHighlighted = marker.id == highlightedMarkerId` at call sites
+- [x] Build: SUCCESS (`gradlew assembleDebug`)
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MarkerOverlay.kt`
+
+#### Docs
+- `plans/marker-hilite-dual-outline-plan.md`
+- `docs/ui-component-guidelines.md` §5.4
 
 ### map refresh  [-]
 
