@@ -188,6 +188,42 @@ Three-line `Column` inside a rounded card (`8dp` radius, `4×2dp` pad, `uiCardBa
 Source: [`DashboardPanel.kt`](../app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt) — `DashboardCard` composable, `DashboardColors` object.
 ---
 
+### 5.4 Map Overlay Highlight — Dual-Outline Pattern
+
+When a map element (track polyline, marker geometry) enters a highlighted state (click-n-move), it renders a **dark under-stroke before the gold geometry** — a drop-shadow technique that guarantees contrast against any map background.
+
+**Constants** (in [`MarkerOverlay.kt`](../app/src/main/java/ykws/android/maro/ui/map/MarkerOverlay.kt)):
+
+| Constant | Value | Role |
+|----------|-------|------|
+| `COLOR_HIGHLIGHT_UNDER` | `0xCC000000` | Dark under-stroke (black at 80% opacity) |
+| `COLOR_HIGHLIGHT` | `0xFFFFD700` | Gold core stroke |
+| `HIGHLIGHT_UNDER_STROKE_ADD` | `6f` | Extra width added to under-stroke vs core |
+
+**Render-order contract:** Under-stroke FIRST, gold SECOND. The dark layer is wider (`baseStrokeWidth + HIGHLIGHT_UNDER_STROKE_ADD`) so it peeks out from behind like a frame. No click listeners on under-stroke elements — interaction only on gold layer.
+
+**Applied to these geometry types:**
+
+| Geometry | Under-stroke | Gold |
+|----------|-------------|------|
+| Pin dot | 1.5x radius dark dot (`_ul` suffix, no click) | Normal dot |
+| Circle outline | Dark polyline at `4f x multiplier + 6f` | Gold polyline at `4f x multiplier` |
+| Corridor centerline | Dark polyline at `2f x multiplier + 6f` | Gold polyline at `2f x multiplier` |
+| Corridor parallels | Dark left+right at `strokeWidth + 6f` | Gold left+right at `strokeWidth` |
+| Corridor caps | Dark p1+p2 caps at `strokeWidth + 6f` | Gold p1+p2 caps at `strokeWidth` |
+
+**How to add to a new geometry type:**
+
+1. Add `isHighlighted: Boolean = false` parameter (defaults to off — no behavior change for non-highlighted elements)
+2. When `isHighlighted` is true, emit dark versions BEFORE gold versions using `COLOR_HIGHLIGHT_UNDER` and `baseWidth + HIGHLIGHT_UNDER_STROKE_ADD`
+3. Compute `isHighlighted` at call site: `val isHighlighted = element.id == highlightedElementId`
+
+🔴 Never apply under-strokes to proximity previews or fill polygons — highlights only.
+
+Source: [`MarkerOverlay.kt`](../app/src/main/java/ykws/android/maro/ui/map/MarkerOverlay.kt) + track polyline rendering in [`MapScreen.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt).
+
+---
+
 ## 6. Global Layout Rules
 
 ### 6.1 Screen Bottom Padding

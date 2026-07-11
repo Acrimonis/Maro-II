@@ -391,7 +391,18 @@ onNavigateToTrack = { id -> onTrackAction(ListAction.NavigateToItem(id)) },
 | [`TrackHistoryOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt) | `onNavigateToTrack` param; `TrackCardContent` `private→internal`; chevron `KeyboardArrowRight` icon at `BottomEnd`; `.clickable { onTap?.invoke() }` on card Row |
 | [`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt) | `PreNavigationState`/`TrackNavigateState`/`TrackDrawerState` data classes; `highlightedTrackId`/`highlightedMarkerId`/`previousMarkerZonesVisible` state; `computeTrackNavigateTarget` helper (longest-idle or last point); `NavigateToItem` handlers in `onTrackAction` + `onMarkerAction`; `onNavigateToTrack` inline handler; `LaunchedEffect(trackNavigateState)` for `zoomToBoundingBox`; `LaunchedEffect(mapCenterState)` interaction detection; track drawer `BackHandler` with zoom/center restore; `onTrackDrawerClose` callback; `onMarkerDrawerClose` restores `markerZonesVisible`; gold highlight in polyline rendering loop (`highlightedTrackId`); BackHandler guard on default exit handler; auto-toggle `tracksVisible` before list dismiss; auto-toggle `markerZonesVisible` + `markersViewModel.showLayer()` before list dismiss |
 | [`OverlayLayer.kt`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt) | `showTrackInfoDrawer`/`trackInfoDrawerData`/`onTrackDrawerClose`/`onNavigateToTrack` params; track info `DrawerSlot` (landscape/portrait, no scrim) with `DrawerScaffold` header (back arrow + track name); `TrackCardContent` reused via `TrackSummary` construction |
-| [`MarkerOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/MarkerOverlay.kt) | `highlightedMarkerId` param + `COLOR_HIGHLIGHT` gold; gold dot + zone for highlighted marker; zone forced visible for highlighted marker regardless of `markerZonesVisible` |
+| [`MarkerOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/MarkerOverlay.kt) | `highlightedMarkerId` param + `COLOR_HIGHLIGHT` gold + `COLOR_HIGHLIGHT_UNDER` dark under-stroke + `HIGHLIGHT_UNDER_STROKE_ADD` constant; dual-outline (dark under → gold) in all 5 geometry builders (pin dot, circle outline, corridor centerline, corridor parallels, corridor caps); `isHighlighted` flag threaded through all builders; zone forced visible for highlighted marker regardless of `markerZonesVisible`; `DisposableEffect` key includes `highlightedMarkerId` |
+
+### Code Review — Marker Highlight Dual-Outline
+
+**Result: Pass.** No correctness bugs. No edge-case gaps.
+
+| Area | Finding |
+|------|---------|
+| Correctness | All 7 change points applied cleanly. `isHighlighted = false` defaulted everywhere — non-highlighted markers render identically to before. |
+| Consistency | Same colors as track (`0xCC000000` under, `0xFFFFD700` gold), same under-before-gold render order. Under-to-gold width ratio varies across geometry types (1.5×–4×) vs track's consistent 2× due to flat `HIGHLIGHT_UNDER_STROKE_ADD = +6f`. Cosmetic nit — corridor centerline has the largest ratio at 4×. |
+| Edge cases | `highlightedMarkerId = null` → zero under-strokes. Marker deleted while highlighted → no crash (`DisposableEffect` rebuild clears it). Highlighted + selected → `COLOR_HIGHLIGHT` wins in `baseColor`, `SELECTED_STROKE_MULTIPLIER` applies in `strokeMultiplier`. Proximity previews never get under-strokes (`isHighlighted = false` hardcoded). |
+| Code health | Low duplication — `_ul` suffix consistent, `isHighlighted` computed once on line 176 and threaded. `baseColor` check on line 164 repeats same comparison — minor. Flat `HIGHLIGHT_UNDER_STROKE_ADD` means future base-stroke changes require re-evaluating balance (low probability). |
 
 ### Deviations from plan
 
