@@ -1,21 +1,17 @@
 # Hydration — Ui_Dashboard
 
-**Last Bake:** 2026-07-01 12:23 UTC
-**Branch:** feature/markers-zones
+**Last Bake:** 2026-07-11 12:30 UTC
+**Branch:** feature/landscape
 **Build:** green
 
 ## Session State
 
-WhereAmI match-result drawer overhaul: centered italic "in the middle of nowhere" empty state, per-row color accent bars (4dp) matching marker colors, icons (custom emoji or type-default 📍/⭕/🔴), flight-of-bird geometric distance for LineOfSightMatch, icon repositioned between name and distance ("NW of Cap Camarat · 🏖️ · 406 m"). Removed obsolete pin/unpin button from ViewingContent header. Unified all drawer header left padding to 24dp.
+Landscape dashboard status bar overlap fix: added `.windowInsetsPadding(WindowInsets.statusBars)` to landscape `DashboardPanel` modifier in MapScreen.kt so the dashboard renders below the system status bar instead of under it. Previously `fillMaxHeight()` started at y=0 with no top inset.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/ui/map/MarkerDrawer.kt` — MatchResultContent rewrite, buildMatchText icons+position, MatchRow composable, geometricDistanceToZone, DrawerHeader padding, removed pin/unpin button
-- `app/src/main/java/ykws/android/maro/data/model/markers/UserMarker.kt` — MarkerGeometry.iconFor() companion
-- `app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt` — typeIcon updated (📍/⭕/🔴)
-- `app/src/main/java/ykws/android/maro/ui/map/MarkerManagementOverlay.kt` — markerFormatText uses iconFor()
-- `app/src/main/java/ykws/android/maro/ui/markers/wizard/WizardTopBar.kt` — padding 16→24dp
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — landscape DashboardPanel modifier: + `.windowInsetsPadding(WindowInsets.statusBars)` at line 1623
 
 ## Next Step
 
-Verify match-row rendering with multiple overlapping markers. Test no-icon, custom-icon, and type-default icon cases.
+Verify landscape dashboard renders with visible gap below status bar. Test on devices with different status bar heights (normal, notch, punch-hole).
