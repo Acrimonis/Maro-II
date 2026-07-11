@@ -2,8 +2,8 @@
 name: Ui_Dashboard
 status: active
 created: 2026-06-06 00:00
-modified: 2026-07-01 12:24
-active_subfeature: distance tile
+modified: 2026-07-11 10:59
+active_subfeature: tile bottom line
 ---
 
 # Feature: Dashboard
@@ -194,6 +194,20 @@ Investigate and fix dashboard sizing in immersive edge-to-edge mode: ensure the 
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — BoxWithConstraints layout, dashboard positioning
 - `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt` — Dashboard composable sizing
 
+### tile bottom line  [x]
+
+Make the 3rd/bottom line (subtitle) of dashboard tiles more readable — larger font, better contrast.
+
+#### Todos
+- [x] Decide target fontSize for subtitle (currently 9.sp) → **13.sp**
+- [x] Decide whether to change subtitle color from textMuted to textPrimary → **textMutedBright (#B0BEC5)**
+- [x] Implement chosen approach in DashboardCard composable
+
+#### Docs
+- `xTrack/Ui_Dashboard/FEAT_PLN_Ui_Dashboard_tile-bottom-line.md` — sizing & contrast discussion
+
+#### Implemented
+- [`DashboardPanel.kt`](app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt): title `fontSize` 13.sp → 15.sp, subtitle `fontSize` 9.sp → 13.sp, default `subtitleColor` textMuted → textMutedBright (#B0BEC5). Added `textMutedBright` to `DashboardColors`. Build green.
 ## Todos
 - [x] Fix AutoSizeValue px/dp unit mismatch — `onSizeChanged` returns pixels, not dp. Added `LocalDensity` conversion to restore correct density-independent auto-sizing.
 - [x] Fix AutoSizeValue vertical centering — moved `onSizeChanged` from Text (with fillMaxSize) to outer Box, removed fillMaxSize, so Box's contentAlignment centers the value text properly.
