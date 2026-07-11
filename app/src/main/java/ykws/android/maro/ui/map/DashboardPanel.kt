@@ -50,6 +50,7 @@ private object DashboardColors {
     val cardBg get() = Color(AppConfig.uiDashboardCardBackground)
     val textPrimary get() = Color(AppConfig.uiDashboardTextPrimary)
     val textMuted get() = Color(AppConfig.uiDashboardTextMuted)
+    val textMutedBright get() = Color(0xFFB0BEC5)
     val success get() = Color(AppConfig.uiDashboardStatusSuccess)
     val warning get() = Color(AppConfig.uiDashboardStatusWarning)
     val error get() = Color(AppConfig.uiDashboardStatusError)
@@ -182,7 +183,7 @@ private fun DashboardCard(
     cardColor: Color = DashboardColors.cardBg,
     titleColor: Color = DashboardColors.textPrimary,
     valueColor: Color = DashboardColors.textPrimary,
-    subtitleColor: Color = DashboardColors.textMuted,
+    subtitleColor: Color = DashboardColors.textMutedBright,
     subtitleWeight: FontWeight = FontWeight.Medium,
     isEmpty: Boolean = false,
     modifier: Modifier = Modifier
@@ -201,7 +202,7 @@ private fun DashboardCard(
             Text(
                 text = title.uppercase(),
                 color = titleColor,
-                fontSize = 13.sp,
+                fontSize = 15.sp,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -239,7 +240,7 @@ private fun DashboardCard(
             Text(
                 text = subtitle ?: "",
                 color = subtitleColor,
-                fontSize = 9.sp,
+                fontSize = 13.sp,
                 fontWeight = subtitleWeight,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

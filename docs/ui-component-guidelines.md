@@ -163,6 +163,29 @@ Same `uiCardBackground` + 12dp radius. Rows: 16×10dp pad, `heightIn(min = 48dp)
 
 Unified pattern documented in [`ui-drawer-guidelines.md` §9](ui-drawer-guidelines.md#9-list-item-card-pattern-track--marker). Shell: `Row(height(IntrinsicSize.Min), clip(12dp), uiCardBackground)` + `Box(4dp, fillMaxHeight, accentColor)` + `Column(weight 1f, pad 8×4dp)`. Shared tokens for header (11sp muted), title (15sp SemiBold white), detail (14sp white), comment (13sp muted), action icons (`IconButton(36dp)` + `Icon(24dp, tint=ButtonColors.icon)`). Per-type variations in accent color source and metadata format.
 
+### 5.3 Dashboard Tiles (`DashboardCard`)
+
+Three-line `Column` inside a rounded card (`8dp` radius, `4×2dp` pad, `uiCardBackground`). Used in the 2×2 dashboard grid (Distance, Zone, Depth, Speed).
+
+```
+┌────────────────────┐
+│  TITLE (15.sp)     │  ← SemiBold, textPrimary (#E0E0E0), uppercase
+│                    │
+│  VALUE (auto)      │  ← AutoSizeValue, weight(1f), Bold, textPrimary, 14–64.sp
+│                    │
+│ subtitle (13.sp)   │  ← Medium, textMutedBright (#B0BEC5)
+└────────────────────┘
+```
+
+| Line | fontSize | weight | color | Token |
+|------|:--------:|:------:|-------|-------|
+| Title | 15.sp | SemiBold | `#E0E0E0` | `ui.dashboard.text.primary` |
+| Value | auto (14–64.sp) | Bold | `#E0E0E0` | `ui.dashboard.text.primary` |
+| Subtitle | 13.sp | Medium | `#B0BEC5` | hardcoded in `DashboardColors.textMutedBright` |
+
+🔴 The value uses `Modifier.weight(1f)` — it fills all remaining space after title + subtitle measure. Any font size increase on title or subtitle reduces the value's auto-sized ceiling. Keep title + subtitle combined height ≤ ~34dp to preserve value readability.
+
+Source: [`DashboardPanel.kt`](../app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt) — `DashboardCard` composable, `DashboardColors` object.
 ---
 
 ## 6. Global Layout Rules
