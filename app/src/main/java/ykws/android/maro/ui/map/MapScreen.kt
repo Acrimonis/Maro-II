@@ -2099,7 +2099,8 @@ private fun shareTrackGpx(
     scope.launch(kotlinx.coroutines.Dispatchers.IO) {
         val track = trackViewModel.loadTrackDetail(trackId) ?: return@launch
         val gpx = track.toGpx()
-        val gpxFile = java.io.File(context.filesDir, "tracks/${trackId}.gpx")
+        val safeName = track.name.replace(Regex("""[/\\:*?"<>|]"""), "_").take(100)
+        val gpxFile = java.io.File(context.filesDir, "tracks/$safeName.gpx")
         gpxFile.parentFile?.mkdirs()
         gpxFile.writeText(gpx)
         val uri = androidx.core.content.FileProvider.getUriForFile(
@@ -2125,17 +2126,20 @@ private fun shareTracksZip(
     trackIds: Set<String>,
     scope: kotlinx.coroutines.CoroutineScope
 ) {
-    scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+    scope.launch {
         val timestamp = java.text.SimpleDateFormat("yyyy_MM_dd_HHmmss", java.util.Locale.US).format(java.util.Date())
-        val zipFile = java.io.File(context.cacheDir, "maro-tracks-$timestamp.zip")
-        java.util.zip.ZipOutputStream(java.io.BufferedOutputStream(java.io.FileOutputStream(zipFile))).use { zos ->
-            trackIds.forEach { id ->
-                val track = trackViewModel.loadTrackDetail(id)
-                if (track != null) {
-                    val gpx = track.toGpx()
-                    zos.putNextEntry(java.util.zip.ZipEntry("${id}.gpx"))
-                    zos.write(gpx.toByteArray())
-                    zos.closeEntry()
+        val zipFile = java.io.File(context.filesDir, "tracks/maro-tracks-$timestamp.zip")
+        zipFile.parentFile?.mkdirs()
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            java.util.zip.ZipOutputStream(java.io.BufferedOutputStream(java.io.FileOutputStream(zipFile))).use { zos ->
+                trackIds.forEach { id ->
+                    val track = trackViewModel.loadTrackDetail(id)
+                    if (track != null) {
+                        val gpx = track.toGpx()
+                        zos.putNextEntry(java.util.zip.ZipEntry("${id}.gpx"))
+                        zos.write(gpx.toByteArray())
+                        zos.closeEntry()
+                    }
                 }
             }
         }

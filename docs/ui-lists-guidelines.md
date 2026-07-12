@@ -370,18 +370,28 @@ ListOverlayScaffold<T>
 
 ```kotlin
 data class MultiActionSpec(
-    val id: String,                              // "delete", "export", "pin", "unpin"
+    val id: String,                              // "delete", "export", "pin"
     val label: String,                           // displayed on button
     val icon: ImageVector,                       // button icon
-    val action: (Set<String>) -> Unit,           // consumer lambda — receives selected IDs
+    val action: (Set<String>) -> Unit = {},      // consumer lambda — receives selected IDs
     val enabled: (Set<String>) -> Boolean = { it.isNotEmpty() },  // dynamic dimming
-    val isDestructive: Boolean = false           // uiDashboardZoneDanger tint when true
+    val isDestructive: Boolean = false,          // uiDashboardZoneDanger tint when true
+    val confirmMessage: String? = null,          // if non-null, AlertDialog before firing
+    val subActions: List<MultiActionSubSpec> = emptyList()  // if non-empty, DropdownMenu
+)
+
+data class MultiActionSubSpec(
+    val id: String,                              // "pin_all", "unpin_all", "toggle"
+    val label: String,                           // "Pin all", "Unpin all", "Toggle pins"
+    val action: (Set<String>) -> Unit
 )
 ```
 
 - **`enabled`** receives current `selectedIds` set. Consumer captures items in closure to inspect per-item state.
-- **`isDestructive`** switches button tint to `uiDashboardZoneDanger` (#C62828). Delete only.
-- **`action`** fires with selected IDs. Scaffold auto-exits multiselect after action.
+- **`isDestructive`** switches button tint to `uiDashboardZoneDanger` (#C62828).
+- **`confirmMessage`** — if non-null, scaffold shows `AlertDialog` before firing `action`. Only fires on confirm. Used for destructive actions (delete).
+- **`subActions`** — if non-empty, tapping the button opens a `DropdownMenu` instead of firing `action` directly. Each `MultiActionSubSpec` is a menu item.
+- **`action`** defaults to `{}` — unused when `subActions` is non-empty.
 - **Select-all is scaffold-owned**, not a `MultiActionSpec`.
 
 ### State Machine
@@ -453,8 +463,14 @@ In multiselect mode, horizontal drags are ignored.
 
 ### Consumer Integration
 
-**MarkerManagementOverlay** injects: delete, pin, unpin.
-**TrackHistoryOverlay** injects: delete, export, pin, unpin.
+**MarkerManagementOverlay:** multiselect deactivated (`multiActions = emptyList()`). Framework stays in place for later re-enablement.
 
-Each uses `remember(items)` to capture the item list for `enabled` predicates,
-and `onAction` / `onUpdateTrack` / `onTogglePin` for the action lambdas.
+**TrackHistoryOverlay** injects three actions:
+
+| Action | Behavior |
+|---|---|
+| Delete | Confirmation dialog (`confirmMessage`), destructive tint, per-item `PermanentDelete` |
+| Export | 1 track → `.gpx` file (named by track title); 2+ tracks → `maro-tracks-yyyy_MM_dd_HHmmss.zip` via `BatchExportGpx` |
+| Pin | `DropdownMenu` with 3 sub-actions: Pin all, Unpin all, Toggle pins (always enabled) |
+
+Uses `remember(trackSummaries)` to capture the item list for pin sub-action closures.
