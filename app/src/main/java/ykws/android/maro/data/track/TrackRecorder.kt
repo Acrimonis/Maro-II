@@ -212,6 +212,8 @@ class TrackRecorder(
     // ── Resume gap detection ──
     private var isResuming: Boolean = false
     private var checkpointFileDeleted: Boolean = false
+    /** Inter-session gap in seconds when resuming a finalized track (D10). */
+    private var resumeGapDurationSec: Long = 0L
 
     private var scope: CoroutineScope? = null
     private var collectingJob: Job? = null
@@ -289,7 +291,7 @@ class TrackRecorder(
      * @param track        The checkpointed track to resume (from repository).
      * @param sampleFlow   The sample flow to start processing.
      */
-    fun resume(track: Track, sampleFlow: Flow<TrackSample>) {
+    fun resume(track: Track, sampleFlow: Flow<TrackSample>, fromCheckpoint: Boolean = true) {
         if (state != TrackRecorderState.OFF) {
             Log.w(TAG, "resume: ignored — state=$state (not OFF)")
             return
@@ -299,9 +301,21 @@ class TrackRecorder(
         val points = track.trackPoints
         val lastPoint = points.lastOrNull()
 
+        // Compute inter-session gap BEFORE clearing endTimeMs (D10)
+        resumeGapDurationSec = if (!fromCheckpoint && track.endTimeMs != null) {
+            (now - track.endTimeMs) / 1000
+        } else 0L
+
+        // If resuming a finalized track, clear endTimeMs (it's being recorded again)
+        val resumedTrack = if (!fromCheckpoint && track.endTimeMs != null) {
+            track.copy(endTimeMs = null)
+        } else {
+            track
+        }
+
         // Restore track state
-        currentTrack = track
-        recordingStartTimeMs = track.startTimeMs
+        currentTrack = resumedTrack
+        recordingStartTimeMs = resumedTrack.startTimeMs
         cumulativeDistanceNm = track.distanceNm
         speedSumMps = track.averageSpeedMps * track.trackPoints.size.coerceAtLeast(1)
         speedCount = track.trackPoints.size
@@ -331,21 +345,21 @@ class TrackRecorder(
         cancelIdleTimer()
         activeSession = null
         isResuming = lastPoint != null
-        checkpointFileDeleted = false
+        checkpointFileDeleted = !fromCheckpoint
 
         transitionTo(TrackRecorderState.ON)
         _uiState.update {
             TrackRecorderUiState(
                 state = TrackRecorderState.ON,
-                currentTrackId = track.id,
-                currentTrackName = track.name,
-                currentTrackComment = track.comment,
+                currentTrackId = resumedTrack.id,
+                currentTrackName = resumedTrack.name,
+                currentTrackComment = resumedTrack.comment,
                 isMoving = false,
                 pointCount = points.size,
-                distanceNm = track.distanceNm,
-                avgSpeedKn = track.averageSpeedMps * 1.94384f,
-                maxSpeedKn = track.fastestSpeedMps * 1.94384f,
-                elapsedSeconds = (now - track.startTimeMs) / 1000
+                distanceNm = resumedTrack.distanceNm,
+                avgSpeedKn = resumedTrack.averageSpeedMps * 1.94384f,
+                maxSpeedKn = resumedTrack.fastestSpeedMps * 1.94384f,
+                elapsedSeconds = (now - resumedTrack.startTimeMs - resumeGapDurationSec) / 1000
             )
         }
 
@@ -940,12 +954,14 @@ class TrackRecorder(
             idleDurationSec = idleDurationSec,
             averageSpeedMps = avgMps,
             distanceNm = cumulativeDistanceNm,
-            navigatingDurationSec = totalElapsedSec - idleDurationSec,
-            updatedAtEpochMs = System.currentTimeMillis()
+            navigatingDurationSec = totalElapsedSec - idleDurationSec - resumeGapDurationSec,
+            updatedAtEpochMs = System.currentTimeMillis(),
+            visibleOnMap = true
         )
 
-        // Compute destination-based title (after closeOpenBoatMarker, before final copy)
-        val finalName = computeFinalTitle(finalized)
+        // Only auto-rename if the current name matches the auto-generated pattern (D6)
+        val isAutoName = trackAfterClose.name.matches(Regex("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}"))
+        val finalName = if (isAutoName) computeFinalTitle(finalized) else null
         val finalizedWithTitle = if (finalName != null) finalized.copy(name = finalName) else finalized
         currentTrack = finalizedWithTitle
 

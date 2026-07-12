@@ -156,43 +156,67 @@ fun mergeTracks(trackIds: List<String>, mergedName: String, keepOriginals: Boole
 }
 ```
 
-#### Step 3: `TrackHistoryOverlay` — multi-select mode
+#### Step 3: `TrackHistoryOverlay` — add Merge action to existing multi-select
 
 **File:** [`app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt)
 
-- Header: add "Select" text button (hidden when list empty)
-- Select mode: each card shows leading `Checkbox`, "Select" → "Cancel", bottom bar slides in
-- Bottom bar: `"Merge (n)"` button, disabled when n < 2
-- On merge tap: show `AlertDialog` with:
-  - Title: "Merge Tracks"
-  - Pre-filled `TextField` with auto-generated name
-  - `Checkbox` "Keep original tracks" (default checked)
-  - Cancel / Merge buttons
-- On confirm: `viewModel.mergeTracks(ids, name, keepOriginals)`
-- Exit select mode, show `Snackbar` "Merged into [name]"
+**Note:** [`ListOverlayScaffold`](app/src/main/java/ykws/android/maro/ui/components/ListOverlayScaffold.kt:451) already has a complete multi-select framework (long-press to enter, checkboxes, select-all header, animated action bar). `TrackHistoryOverlay` already uses it with `trackMultiActions` containing Delete, Export, and Pin actions. We just add one more:
 
-#### Step 4: `TrackEvent.TracksMerged` — new event
+```kotlin
+MultiActionSpec(
+    id = "merge",
+    label = "Merge",
+    icon = Icons.Filled.MergeType,  // or CallMerge
+    enabled = { ids -> ids.size >= 2 },
+    action = { ids ->
+        // Trigger merge flow — fires name dialog via onAction callback
+        onAction(ListAction.MergeTracks(ids))
+    }
+)
+```
+
+**Naming dialog:** `MultiActionSpec` doesn't support custom dialogs (only `confirmMessage`). Handle the name dialog in `TrackHistoryOverlay`'s `onAction` handler when `ListAction.MergeTracks` is received:
+
+```kotlin
+is ListAction.MergeTracks -> {
+    // Show AlertDialog with:
+    // - Pre-filled TextField: auto-generated name (M6)
+    // - Checkbox "Keep original tracks" (default checked, M7)
+    // - Cancel / Merge buttons
+    // On confirm: viewModel.mergeTracks(action.ids, name, keepOriginals)
+    // Show Snackbar "Merged into [name]"
+}
+```
+
+All other multi-select behavior (checkboxes, header, select-all, back handler, auto-exit after action) is handled by the scaffold — zero new code for those.
+
+#### Step 4: `ListAction.MergeTracks` + `TrackEvent.TracksMerged` — new types
+
+**File:** [`app/src/main/java/ykws/android/maro/data/model/ListAction.kt`](app/src/main/java/ykws/android/maro/data/model/ListAction.kt)
+
+```kotlin
+/** Merge selected tracks into a single new track. */
+data class MergeTracks(val ids: Set<String>) : ListAction()
+```
 
 **File:** [`app/src/main/java/ykws/android/maro/data/track/TrackEvent.kt`](app/src/main/java/ykws/android/maro/data/track/TrackEvent.kt)
 
 ```kotlin
+/** Tracks were successfully merged. */
 data class TracksMerged(val mergedId: String, val mergedName: String) : TrackEvent()
 ```
-
-Emitted after successful merge so MapScreen can optionally react (e.g., auto-pin the new track).
 
 ### Edge Cases
 
 | Scenario | Handling |
 |---|---|
-| Single track selected | "Merge (1)" button disabled — need ≥ 2 |
+| Single track selected | `enabled` predicate: `ids.size >= 2` → button dimmed |
 | Track with zero points in selection | Filtered out in `mergeTracks()` — if fewer than 2 remain, abort |
 | Merging tracks with different colors | Uses first (earliest) track's color (M8) |
 | Some pinned, some not | Merged track is pinned only if ALL are pinned (M9) |
 | Merge, then undo | Originals kept by default — delete merged track and retry |
 | Merge, then resume merged track | Works — merged track is a normal finalized track |
-| 10+ tracks merged | Fully supported. Performance: O(totalPoints) for the copy loop — acceptable for infrequent operation |
-| Merged track name collision | UUID-based ID prevents file collision. Name collision is cosmetic — user can rename. |
+| 10+ tracks merged | Fully supported. Performance: O(totalPoints) for copy loop |
 
 ### Files Touched
 
@@ -200,7 +224,8 @@ Emitted after successful merge so MapScreen can optionally react (e.g., auto-pin
 |---|---|
 | **New:** `TrackMerger.kt` | Pure merge logic |
 | `TrackViewModel.kt` | New `mergeTracks()` method |
-| `TrackHistoryOverlay.kt` | Multi-select mode, "Select" button, checkboxes, "Merge (n)" bar, name dialog |
+| `TrackHistoryOverlay.kt` | Add `MultiActionSpec("merge")` to `trackMultiActions` + name dialog in `onAction` |
+| `ListAction.kt` | New `MergeTracks(ids)` action |
 | `TrackEvent.kt` | New `TracksMerged` event |
 | `TrackRepository.kt` | No changes needed |
 ---
@@ -392,7 +417,7 @@ fun resumeTrack(trackId: String) {
 }
 ```
 
-Note: `buildRecorder()` is a private helper extracted from `resumeOrphanedCheckpoint()` to avoid duplicating the 11-parameter constructor call. If not already factored out, create it.
+Note: No `buildRecorder()` helper exists — the constructor is duplicated inline in [`startRecorder()`](app/src/main/java/ykws/android/maro/data/track/TrackViewModel.kt:122), [`resumeOrphanedCheckpoint()`](app/src/main/java/ykws/android/maro/data/track/TrackViewModel.kt:329), and [`initRecorder()`](app/src/main/java/ykws/android/maro/data/track/TrackViewModel.kt:184). Either duplicate inline (consistent with existing pattern) or extract a shared helper.
 
 #### Step 4: `TrackHistoryOverlay` — Resume button
 

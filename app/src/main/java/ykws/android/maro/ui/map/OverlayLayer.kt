@@ -414,6 +414,10 @@ fun OverlayLayer(
                 onAction = onTrackAction,
                 onDismiss = onDismissTrackHistory,
                 onNavigateToTrack = onNavigateToTrack,
+                onResumeTrack = { id ->
+                    trackViewModel.resumeTrack(id)
+                    onDismissTrackHistory()
+                },
                 sortState = trackSortState,
                 onSortStateChange = onTrackSortStateChange,
                 filterState = trackFilterState,
