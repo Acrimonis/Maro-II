@@ -272,6 +272,7 @@
     <string name="action_unpin_all">Tout désépingler</string>
     <string name="action_toggle_pins">Inverser les épingles</string>
     <string name="confirm_delete_tracks">Supprimer les traces sélectionnées?</string>
+    <string name="confirm_batch_delete_title">Supprimer</string>
 
     <!-- Misc -->
     <string name="settings_language_english">English</string>

@@ -33,6 +33,7 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.outlined.LocationOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
+import ykws.android.maro.ui.components.ConfirmSheet
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
@@ -361,23 +362,14 @@ private fun ViewingContent(
 
         // ── Delete confirmation dialog ───────────────────────────────────
         if (showDeleteConfirm) {
-            AlertDialog(
-                onDismissRequest = { showDeleteConfirm = false },
-                title = { Text(stringResource(R.string.marker_delete_title)) },
-                text = { Text(stringResource(R.string.marker_delete_confirm, marker?.name ?: stringResource(R.string.marker_unnamed))) },
-                confirmButton = {
-                    TextButton(onClick = {
-                        showDeleteConfirm = false
-                        currentId?.let { viewModel.deleteMarker(it) }
-                    }) {
-                        Text(stringResource(R.string.action_delete), color = ComposeColor(AppConfig.semanticDanger))
-                    }
+            ConfirmSheet(
+                title = stringResource(R.string.marker_delete_title),
+                message = stringResource(R.string.marker_delete_confirm, marker?.name ?: stringResource(R.string.marker_unnamed)),
+                onConfirm = {
+                    showDeleteConfirm = false
+                    currentId?.let { viewModel.deleteMarker(it) }
                 },
-                dismissButton = {
-                    TextButton(onClick = { showDeleteConfirm = false }) {
-                        Text(stringResource(R.string.action_cancel))
-                    }
-                }
+                onDismiss = { showDeleteConfirm = false }
             )
         }
     }
