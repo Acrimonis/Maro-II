@@ -1,12 +1,18 @@
 # BoatTrace — Hydration Snapshot
 
-**Baked at:** 2026-07-05 10:34 UTC
-**Active Subfeature:** populate-track-info (implemented)
-**Branch:** feature/track-info
+**Baked at:** 2026-07-12 14:30 UTC
+**Active Subfeature:** merge-tracks (planned)
+**Branch:** feature/merge-tracks
 
 ## Session Summary
 
-Q&A session clarified requirements for populate-track-info. Plan written to `FEAT_PLN_BoatTrace_populate-track-info.md`.
+Designed two features for handling interrupted recordings:
+
+**Resume Existing Track:** Extend `TrackRecorder.resume()` to accept finalized tracks via `fromCheckpoint` flag. Critical `resumeGapDurationSec` fix prevents navigating-duration inflation across session gaps. ▶ button on track cards in TrackHistoryOverlay. 11 decisions, 4 implementation steps.
+
+**Merge Tracks:** New `TrackMerger` utility — concatenate points with `timeOffsetMs` rebasing, GAP markers between segments, summed stats, renumbered BoatMarkers. Multi-select UI with checkbox mode + name dialog. 10 decisions, 4 implementation steps.
+
+Full plan in `FEAT_PLN_BoatTrace_merge-tracks.md`. Recommended order: Resume first, Merge second.
 
 **Design decisions:**
 - Description recomputed from full BoatMarker history (not appended) — new markers retroactively name past stops

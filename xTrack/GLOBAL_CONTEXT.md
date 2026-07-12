@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** Ui_General
-- **Active Subfeature:** multi-select
-- **Last Updated:** 2026-07-12 14:29
-- **Last Bake:** 2026-07-06 14:19 (ui-small-potatoes — translation: 84 strings total, Settings page pass added 27 more, en+fr complete)
-- **Branch:** feature/multiselect
+- **Active Feature:** BoatTrace
+- **Active Subfeature:** merge-tracks
+- **Last Updated:** 2026-07-12 14:30
+- **Last Bake:** 2026-07-12 14:30 (BoatTrace — merge-tracks: Resume + Merge plans designed, 21 decisions, 8 steps)
+- **Branch:** feature/merge-tacks
 
 ## Routing Map
 | Keyword | Feature File |

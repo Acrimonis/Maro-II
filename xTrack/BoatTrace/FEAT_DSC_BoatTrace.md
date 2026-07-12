@@ -1,8 +1,8 @@
 name: BoatTrace
 status: active
 created: 2026-06-15 21:43
-modified: 2026-07-05 13:09
-active_subfeature: populate-track-info
+modified: 2026-07-12 14:30
+active_subfeature: merge-tracks
 ---
 
 # Feature: BoatTrace
@@ -260,6 +260,11 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 
 #### Docs
 - `xTrack/BoatTrace/FEAT_PLN_BoatTrace_idle-time-always-zero.md` — root cause + fix plan + implementation record
+
+### merge-tracks  [ ]
+
+#### Docs
+- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_merge-tracks.md` — discussion plan: merge tracks vs resume track
 
 ### populate-track-info  [x]
 
