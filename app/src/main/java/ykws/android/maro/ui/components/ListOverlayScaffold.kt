@@ -49,7 +49,6 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowDropUp
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -703,29 +702,20 @@ fun <T : ListableItem> ListOverlayScaffold(
                                         }
                                     }
                                 }
-                            }
 
-                            // Confirmation dialog
-                            if (spec.confirmMessage != null && showConfirmDialog) {
-                                AlertDialog(
-                                    onDismissRequest = { showConfirmDialog = false },
-                                    title = { Text(spec.label) },
-                                    text = { Text(spec.confirmMessage!!) },
-                                    confirmButton = {
-                                        TextButton(onClick = {
+                                // Confirmation bottom sheet (unified pattern)
+                                if (spec.confirmMessage != null && showConfirmDialog) {
+                                    ConfirmSheet(
+                                        title = stringResource(R.string.confirm_batch_delete_title),
+                                        message = spec.confirmMessage,
+                                        onConfirm = {
                                             spec.action(selectedIds.toSet())
                                             showConfirmDialog = false
                                             exitMultiselect()
-                                        }) {
-                                            Text(spec.label, color = Color(AppConfig.uiDashboardZoneDanger))
-                                        }
-                                    },
-                                    dismissButton = {
-                                        TextButton(onClick = { showConfirmDialog = false }) {
-                                            Text(stringResource(R.string.action_cancel))
-                                        }
-                                    }
-                                )
+                                        },
+                                        onDismiss = { showConfirmDialog = false }
+                                    )
+                                }
                             }
                         }
                     }

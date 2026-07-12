@@ -29,7 +29,7 @@ data class MultiActionSubSpec(
  *                       button dimming. Consumer captures items in closure to
  *                       inspect per-item state (e.g. pin status).
  * @param isDestructive  When true, button tint switches to uiDashboardZoneDanger.
- * @param confirmMessage When non-null, an [AlertDialog] is shown before firing
+ * @param confirmMessage When non-null, a [ConfirmDialog] is shown before firing
  *                       [action]. Only fires on confirm.
  * @param subActions     When non-empty, a [DropdownMenu] is shown instead of
  *                       firing [action] directly. Each item fires its own lambda.
