@@ -1840,6 +1840,7 @@ fun MapScreen(
                         }
                     }
                     is ykws.android.maro.data.model.ListAction.ExportGpx -> shareTrackGpx(context, trackViewModel, action.id, trackScope)
+                    is ykws.android.maro.data.model.ListAction.BatchExportGpx -> shareTracksZip(context, trackViewModel, action.ids, trackScope)
                     is ykws.android.maro.data.model.ListAction.PermanentDelete -> trackViewModel.deleteTrack(action.id)
                     is ykws.android.maro.data.model.ListAction.RefreshList -> trackViewModel.refreshSummaries(action.sortState)
                     is ykws.android.maro.data.model.ListAction.RefreshLayer -> mapView?.invalidate()
@@ -1971,6 +1972,7 @@ fun MapScreen(
                 markersViewModel.startWizard(initialPos = mapCenter)
             },
             onSetIcon = { id, icon -> markersViewModel.setMarkerIcon(id, icon) },
+            onToggleMarkerPin = { id, _ -> markersViewModel.togglePin(id) },
         )
 
         // ── Post-save undo Snackbar (P5) ────────────────────────────────
@@ -2097,7 +2099,8 @@ private fun shareTrackGpx(
     scope.launch(kotlinx.coroutines.Dispatchers.IO) {
         val track = trackViewModel.loadTrackDetail(trackId) ?: return@launch
         val gpx = track.toGpx()
-        val gpxFile = java.io.File(context.filesDir, "tracks/${trackId}.gpx")
+        val safeName = track.name.replace(Regex("""[/\\:*?"<>|]"""), "_").take(100)
+        val gpxFile = java.io.File(context.filesDir, "tracks/$safeName.gpx")
         gpxFile.parentFile?.mkdirs()
         gpxFile.writeText(gpx)
         val uri = androidx.core.content.FileProvider.getUriForFile(
@@ -2111,6 +2114,46 @@ private fun shareTrackGpx(
             addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
         context.startActivity(android.content.Intent.createChooser(intent, "Share GPX"))
+    }
+}
+
+/**
+ * Zip multiple track GPX files and share via Android's share intent.
+ */
+private fun shareTracksZip(
+    context: android.content.Context,
+    trackViewModel: ykws.android.maro.data.track.TrackViewModel,
+    trackIds: Set<String>,
+    scope: kotlinx.coroutines.CoroutineScope
+) {
+    scope.launch {
+        val timestamp = java.text.SimpleDateFormat("yyyy_MM_dd_HHmmss", java.util.Locale.US).format(java.util.Date())
+        val zipFile = java.io.File(context.filesDir, "tracks/maro-tracks-$timestamp.zip")
+        zipFile.parentFile?.mkdirs()
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            java.util.zip.ZipOutputStream(java.io.BufferedOutputStream(java.io.FileOutputStream(zipFile))).use { zos ->
+                trackIds.forEach { id ->
+                    val track = trackViewModel.loadTrackDetail(id)
+                    if (track != null) {
+                        val gpx = track.toGpx()
+                        zos.putNextEntry(java.util.zip.ZipEntry("${id}.gpx"))
+                        zos.write(gpx.toByteArray())
+                        zos.closeEntry()
+                    }
+                }
+            }
+        }
+        val uri = androidx.core.content.FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            zipFile
+        )
+        val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            type = "application/zip"
+            putExtra(android.content.Intent.EXTRA_STREAM, uri)
+            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(android.content.Intent.createChooser(intent, "Share Tracks"))
     }
 }
 

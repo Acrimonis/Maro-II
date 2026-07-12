@@ -7,12 +7,19 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,6 +39,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.clickable
@@ -39,12 +47,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowDropUp
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableFloatStateOf
@@ -79,6 +94,7 @@ import ykws.android.maro.data.model.ListFilter
 import ykws.android.maro.data.model.ListSortField
 import ykws.android.maro.data.model.ListSortState
 import ykws.android.maro.data.model.ListableItem
+import ykws.android.maro.data.model.MultiActionSpec
 import ykws.android.maro.ui.icons.FilterAlt
 import ykws.android.maro.ui.icons.FilterList
 import ykws.android.maro.ui.icons.Refresh
@@ -285,6 +301,7 @@ private const val DRAG_THRESHOLD = 0.30f
 private const val ANIM_DURATION_MS = 200
 private const val SNACK_ANIM_MS = 250
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun <T : ListableItem> SwipeableItemCard(
     item: T,
@@ -292,7 +309,10 @@ private fun <T : ListableItem> SwipeableItemCard(
     cardContent: @Composable (T) -> Unit,
     onSoftDelete: (T) -> Unit,
     onUndoDelete: (T) -> Unit,
-    onPermanentDelete: (T) -> Unit
+    onPermanentDelete: (T) -> Unit,
+    isMultiSelectMode: Boolean = false,
+    isSelected: Boolean = false,
+    onToggleSelection: () -> Unit = {}
 ) {
     var state by remember(item.id) { mutableStateOf(SwipeState.CARD) }
     val scope = rememberCoroutineScope()
@@ -314,14 +334,52 @@ private fun <T : ListableItem> SwipeableItemCard(
                 modifier = Modifier.fillMaxWidth()
                     .offset { IntOffset(cardSwipeOffset.roundToInt(), 0) }
                     .onSizeChanged { cardWidthPx = it.width.toFloat() }
-                    .then(if (state == SwipeState.CARD && !cardDismissed) Modifier.pointerInput(item.id) {
-                        detectHorizontalDragGestures(onDragEnd = {
-                            val threshold = cardWidthPx * DRAG_THRESHOLD
-                            if (cardDragOffset < -threshold) { scope.launch { cardDragOffset = -cardWidthPx; delay(220); cardDismissed = true; state = SwipeState.SNACKBAR; onSoftDelete(item) } }
-                            else cardDragOffset = 0f
-                        }) { _, dragAmount -> cardDragOffset = (cardDragOffset + dragAmount).coerceIn(-cardWidthPx, 0f) }
-                    } else Modifier)
-            ) { cardContent(item) }
+                    .then(
+                        if (state == SwipeState.CARD && !cardDismissed && !isMultiSelectMode)
+                            Modifier.pointerInput(item.id) {
+                                detectHorizontalDragGestures(onDragEnd = {
+                                    val threshold = cardWidthPx * DRAG_THRESHOLD
+                                    if (cardDragOffset < -threshold) { scope.launch { cardDragOffset = -cardWidthPx; delay(220); cardDismissed = true; state = SwipeState.SNACKBAR; onSoftDelete(item) } }
+                                    else cardDragOffset = 0f
+                                }) { _, dragAmount -> cardDragOffset = (cardDragOffset + dragAmount).coerceIn(-cardWidthPx, 0f) }
+                            }
+                        else Modifier
+                    )
+            ) {
+                // Layer 1: consumer's card content
+                cardContent(item)
+                // Layer 2: multiselect visuals — tonal shift + checkmark (only when selected)
+                if (isSelected) {
+                    Box(
+                        modifier = Modifier.matchParentSize()
+                            .background(Color.White.copy(alpha = 0.15f))
+                    )
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(4.dp)
+                            .size(24.dp)
+                            .clip(CircleShape)
+                            .background(Color(AppConfig.uiSettingsAccent)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Check,
+                            contentDescription = stringResource(R.string.cd_selected),
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
+                // Layer 3: tap interceptor overlay — only in multiselect mode
+                if (isMultiSelectMode) {
+                    Box(
+                        modifier = Modifier
+                            .matchParentSize()
+                            .clickable { onToggleSelection() }
+                    )
+                }
+            }
         }
 
         AnimatedVisibility(
@@ -365,6 +423,7 @@ private fun SnackbarSlot(name: String, onUndo: () -> Unit) {
 // Main scaffold
 // ─────────────────────────────────────────────────────────────────────────────
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun <T : ListableItem> ListOverlayScaffold(
     items: List<T>,
@@ -379,19 +438,82 @@ fun <T : ListableItem> ListOverlayScaffold(
     onFilterChange: (ListFilter) -> Unit = {},
     onReset: () -> Unit = {},
     accentColors: (List<T>) -> Map<String, Color>,
-    cardContent: @Composable (T) -> Unit,
+    cardContent: @Composable (T, onLongPress: (() -> Unit)?) -> Unit,
     liveCardContent: @Composable (T) -> Unit = {},
     emptyState: @Composable () -> Unit = {},
     onAction: (ListAction) -> Unit,
     onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    multiActions: List<MultiActionSpec> = emptyList()
 ) {
     val pendingDeletes = remember { mutableStateListOf<String>() }
 
-    BackHandler {
-        pendingDeletes.forEach { id -> onAction(ListAction.PermanentDelete(id)) }
+    // ── Multiselect state ──────────────────────────────────────────────
+    var isMultiSelectMode by remember { mutableStateOf(false) }
+    val selectedIds = remember { mutableStateListOf<String>() }
+    val nonLiveCount = items.count { !it.isLive }
+    val selectedCount = selectedIds.size
+    val allSelected = selectedCount == nonLiveCount && nonLiveCount > 0
+
+    // Enter multiselect: commit pending deletes first
+    fun enterMultiselect(id: String) {
+        if (isMultiSelectMode) return
+        // Commit any pending soft-deletes before entering multiselect
+        pendingDeletes.forEach { pid -> onAction(ListAction.PermanentDelete(pid)) }
         pendingDeletes.clear()
-        onDismiss()
+        isMultiSelectMode = true
+        selectedIds.add(id)
+    }
+
+    fun exitMultiselect() {
+        isMultiSelectMode = false
+        selectedIds.clear()
+    }
+
+    fun toggleSelection(id: String) {
+        if (selectedIds.contains(id)) {
+            selectedIds.remove(id)
+            if (selectedIds.isEmpty()) exitMultiselect()
+        } else {
+            selectedIds.add(id)
+        }
+    }
+
+    fun selectAll() {
+        selectedIds.clear()
+        selectedIds.addAll(items.filter { !it.isLive }.map { it.id })
+    }
+
+    fun deselectAll() {
+        selectedIds.clear()
+        exitMultiselect()
+    }
+
+    // ── BackHandler ────────────────────────────────────────────────────
+    BackHandler {
+        if (isMultiSelectMode) {
+            exitMultiselect()
+        } else {
+            pendingDeletes.forEach { id -> onAction(ListAction.PermanentDelete(id)) }
+            pendingDeletes.clear()
+            onDismiss()
+        }
+    }
+
+    // ── Item reconciliation: drop stale selected IDs ───────────────────
+    LaunchedEffect(items) {
+        val currentIds = items.map { it.id }.toSet()
+        selectedIds.removeAll { it !in currentIds }
+        if (selectedIds.isEmpty() && isMultiSelectMode) {
+            exitMultiselect()
+        }
+    }
+
+    // ── Auto-exit when no non-live items ───────────────────────────────
+    LaunchedEffect(nonLiveCount) {
+        if (nonLiveCount == 0 && isMultiSelectMode) {
+            exitMultiselect()
+        }
     }
 
     val colorMap = remember(items, accentColors) { accentColors(items) }
@@ -405,72 +527,214 @@ fun <T : ListableItem> ListOverlayScaffold(
             .windowInsetsPadding(WindowInsets.statusBars)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
-            // Header
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 3.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = { pendingDeletes.forEach { id -> onAction(ListAction.PermanentDelete(id)) }; pendingDeletes.clear(); onDismiss() },
-                    modifier = Modifier.size(32.dp).clip(CircleShape).background(Color(AppConfig.uiSettingsSwitchTrackInactive))
+            // ── Header ─────────────────────────────────────────────────
+            if (isMultiSelectMode) {
+                // Multiselect header: Close (X) + "N selected" + select-all chip
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color(AppConfig.uiSettingsTextPrimary), modifier = Modifier.size(18.dp))
+                    IconButton(
+                        onClick = { exitMultiselect() },
+                        modifier = Modifier.size(32.dp).clip(CircleShape).background(Color(AppConfig.uiSettingsSwitchTrackInactive))
+                    ) {
+                        Icon(Icons.Filled.Close, "Close multiselect", tint = Color(AppConfig.uiSettingsTextPrimary), modifier = Modifier.size(18.dp))
+                    }
+                    Spacer(Modifier.width(16.dp))
+                    Text(
+                        stringResource(R.string.multiselect_count, selectedCount),
+                        color = Color(AppConfig.uiSettingsTextPrimary),
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (nonLiveCount > 0) {
+                        TextButton(onClick = { if (allSelected) deselectAll() else selectAll() }) {
+                            Text(
+                                if (allSelected) stringResource(R.string.multiselect_deselect_all) else stringResource(R.string.multiselect_select_all),
+                                color = Color(AppConfig.uiSettingsAccent),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
                 }
-                Spacer(Modifier.width(16.dp))
-                Text(title, color = Color(AppConfig.uiSettingsTextPrimary), fontSize = 17.sp, fontWeight = FontWeight.Bold)
+            } else {
+                // Normal header: Back + Title
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 3.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = { pendingDeletes.forEach { id -> onAction(ListAction.PermanentDelete(id)) }; pendingDeletes.clear(); onDismiss() },
+                        modifier = Modifier.size(32.dp).clip(CircleShape).background(Color(AppConfig.uiSettingsSwitchTrackInactive))
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color(AppConfig.uiSettingsTextPrimary), modifier = Modifier.size(18.dp))
+                    }
+                    Spacer(Modifier.width(16.dp))
+                    Text(title, color = Color(AppConfig.uiSettingsTextPrimary), fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                }
             }
 
-            Spacer(Modifier.height(16.dp))
+            if (!isMultiSelectMode) Spacer(Modifier.height(16.dp))
 
-            // Section label + controls row
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            // ── Section label + controls row (hidden in multiselect) ───
+            if (!isMultiSelectMode) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(sectionLabel, color = Color(AppConfig.uiSettingsAccent), fontSize = 17.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Filter
+                        if (filterAxes.isNotEmpty()) {
+                            FilterControl(filterState = filterState, filterAxes = filterAxes, onFilterChange = onFilterChange)
+                        }
+                        // Sort
+                        SortControl(state = sortState, customFields = customSortFields, customSectionLabel = customSortLabel, onStateChange = onSortStateChange)
+                        // Direction toggle
+                        val isSortDefault = sortState.field == ListSortField.CREATED && sortState.customFieldKey == null && sortState.descending
+                        val sortAlpha = if (isSortDefault) ButtonColors.inactiveAlpha else ButtonColors.activeAlpha
+                        IconButton(
+                            onClick = { onSortStateChange(sortState.copy(descending = !sortState.descending)) },
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (sortState.descending) Icons.Filled.ArrowDropDown else Icons.Filled.ArrowDropUp,
+                                contentDescription = if (sortState.descending) stringResource(R.string.cd_descending) else stringResource(R.string.cd_ascending),
+                                tint = ButtonColors.icon,
+                                modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
+                                    .alpha(sortAlpha)
+                            )
+                        }
+                        // Reset
+                        val hasActive = hasActiveFilter || !isSortDefault
+                        IconButton(
+                            onClick = onReset,
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Icon(
+                                imageVector = Refresh,
+                                contentDescription = stringResource(R.string.cd_reset),
+                                tint = ButtonColors.icon,
+                                modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
+                                    .alpha(if (hasActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha)
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+            } else {
+                Spacer(Modifier.height(4.dp))
+            }
+
+            // ── Action bar (multiselect mode, in-flow between header and list) ──
+            AnimatedVisibility(
+                visible = isMultiSelectMode && multiActions.isNotEmpty(),
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
             ) {
-                Text(sectionLabel, color = Color(AppConfig.uiSettingsAccent), fontSize = 17.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    // Filter
-                    if (filterAxes.isNotEmpty()) {
-                        FilterControl(filterState = filterState, filterAxes = filterAxes, onFilterChange = onFilterChange)
-                    }
-                    // Sort
-                    SortControl(state = sortState, customFields = customSortFields, customSectionLabel = customSortLabel, onStateChange = onSortStateChange)
-                    // Direction toggle
-                    val isSortDefault = sortState.field == ListSortField.CREATED && sortState.customFieldKey == null && sortState.descending
-                    val sortAlpha = if (isSortDefault) ButtonColors.inactiveAlpha else ButtonColors.activeAlpha
-                    IconButton(
-                        onClick = { onSortStateChange(sortState.copy(descending = !sortState.descending)) },
-                        modifier = Modifier.size(40.dp)
+                Column {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Color(AppConfig.uiSettingsBackground))
+                            .horizontalScroll(rememberScrollState())
+                            .padding(horizontal = 8.dp, vertical = 6.dp),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(
-                            imageVector = if (sortState.descending) Icons.Filled.ArrowDropDown else Icons.Filled.ArrowDropUp,
-                            contentDescription = if (sortState.descending) stringResource(R.string.cd_descending) else stringResource(R.string.cd_ascending),
-                            tint = ButtonColors.icon,
-                            modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
-                                .alpha(sortAlpha)
-                        )
+                        multiActions.forEach { spec ->
+                            val isActionEnabled = spec.enabled(selectedIds.toSet())
+                            val tint = when {
+                                spec.isDestructive -> Color(AppConfig.uiDashboardZoneDanger)
+                                else -> ButtonColors.icon
+                            }
+                            var showConfirmDialog by remember { mutableStateOf(false) }
+                            var showDropdown by remember { mutableStateOf(false) }
+
+                            Box {
+                                TextButton(
+                                    onClick = {
+                                        if (isActionEnabled) {
+                                            when {
+                                                spec.subActions.isNotEmpty() -> showDropdown = true
+                                                spec.confirmMessage != null -> showConfirmDialog = true
+                                                else -> {
+                                                    spec.action(selectedIds.toSet())
+                                                    exitMultiselect()
+                                                }
+                                            }
+                                        }
+                                    },
+                                    enabled = isActionEnabled
+                                ) {
+                                    Icon(
+                                        imageVector = spec.icon,
+                                        contentDescription = spec.label,
+                                        tint = if (isActionEnabled) tint else tint.copy(alpha = 0.25f),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(
+                                        spec.label,
+                                        color = if (isActionEnabled) tint else tint.copy(alpha = 0.25f),
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+
+                                // Sub-actions dropdown
+                                if (spec.subActions.isNotEmpty()) {
+                                    DropdownMenu(
+                                        expanded = showDropdown,
+                                        onDismissRequest = { showDropdown = false }
+                                    ) {
+                                        spec.subActions.forEach { sub ->
+                                            DropdownMenuItem(
+                                                text = { Text(sub.label) },
+                                                onClick = {
+                                                    sub.action(selectedIds.toSet())
+                                                    showDropdown = false
+                                                    exitMultiselect()
+                                                }
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Confirmation dialog
+                            if (spec.confirmMessage != null && showConfirmDialog) {
+                                AlertDialog(
+                                    onDismissRequest = { showConfirmDialog = false },
+                                    title = { Text(spec.label) },
+                                    text = { Text(spec.confirmMessage!!) },
+                                    confirmButton = {
+                                        TextButton(onClick = {
+                                            spec.action(selectedIds.toSet())
+                                            showConfirmDialog = false
+                                            exitMultiselect()
+                                        }) {
+                                            Text(spec.label, color = Color(AppConfig.uiDashboardZoneDanger))
+                                        }
+                                    },
+                                    dismissButton = {
+                                        TextButton(onClick = { showConfirmDialog = false }) {
+                                            Text(stringResource(R.string.action_cancel))
+                                        }
+                                    }
+                                )
+                            }
+                        }
                     }
-                    // Reset
-                    val hasActive = hasActiveFilter || !isSortDefault
-                    IconButton(
-                        onClick = onReset,
-                        modifier = Modifier.size(40.dp)
-                    ) {
-                        Icon(
-                            imageVector = Refresh,
-                            contentDescription = stringResource(R.string.cd_reset),
-                            tint = ButtonColors.icon,
-                            modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
-                                .alpha(if (hasActive) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha)
-                        )
-                    }
+                    HorizontalDivider(thickness = 0.5.dp, color = Color(AppConfig.uiSettingsDivider))
                 }
             }
-            Spacer(Modifier.height(8.dp))
 
             if (sortedItems.isEmpty()) {
-                if (hasActiveFilter) {
+                if (hasActiveFilter && !isMultiSelectMode) {
                     // Filter active + empty → show "No items match filters" + clear button
                     Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -485,25 +749,43 @@ fun <T : ListableItem> ListOverlayScaffold(
                     Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) { emptyState() }
                 }
             } else {
-                LazyColumn(Modifier.fillMaxSize().padding(horizontal = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                LazyColumn(
+                    Modifier.fillMaxSize().padding(horizontal = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
                     items(sortedItems, key = { it.id }) { item ->
                         if (item.isLive) {
                             key(item.id) { liveCardContent(item) }
                         } else {
                             key(item.id) {
-                                SwipeableItemCard(
-                                    item = item,
-                                    accentColor = colorMap[item.id] ?: Color.Unspecified,
-                                    cardContent = { cardContent(it) },
-                                    onSoftDelete = { pendingDeletes.add(it.id); onAction(ListAction.SoftDelete(it.id, it.title)) },
-                                    onUndoDelete = { pendingDeletes.remove(it.id); onAction(ListAction.UndoDelete(it.id)) },
-                                    onPermanentDelete = { pendingDeletes.remove(it.id); onAction(ListAction.PermanentDelete(it.id)) }
-                                )
+                                val isSelected = selectedIds.contains(item.id)
+                                val cardShape = RoundedCornerShape(12.dp)
+                                Box(
+                                    modifier = Modifier
+                                        .clip(cardShape)
+                                        .then(
+                                            if (isSelected) Modifier.border(1.dp, Color(AppConfig.uiSettingsAccent), cardShape)
+                                            else Modifier
+                                        )
+                                ) {
+                                    SwipeableItemCard(
+                                        item = item,
+                                        accentColor = colorMap[item.id] ?: Color.Unspecified,
+                                        cardContent = { cardContent(it, if (multiActions.isNotEmpty() && !isMultiSelectMode) { { enterMultiselect(item.id) } } else null) },
+                                        onSoftDelete = { pendingDeletes.add(it.id); onAction(ListAction.SoftDelete(it.id, it.title)) },
+                                        onUndoDelete = { pendingDeletes.remove(it.id); onAction(ListAction.UndoDelete(it.id)) },
+                                        onPermanentDelete = { pendingDeletes.remove(it.id); onAction(ListAction.PermanentDelete(it.id)) },
+                                        isMultiSelectMode = isMultiSelectMode,
+                                        isSelected = isSelected,
+                                        onToggleSelection = { toggleSelection(item.id) }
+                                    )
+                                }
                             }
                         }
                     }
                 }
             }
         }
+
     }
 }

@@ -321,9 +321,10 @@ They respect `pinned` filter.
 Marker cards in [`MarkerManagementOverlay`](app/src/main/java/ykws/android/maro/ui/map/MarkerManagementOverlay.kt) emit `ListAction.NavigateToItem(id)` on tap — this triggers the click-N-move flow: dismiss list → animate map to marker → whereAmI → open drawer.
 
 **Card tap:**
-- The card `Row` carries a `.clickable { onTap() }` modifier — the entire card is tappable
-- Tap is handled at the card content level (`MarkerCardContent`), not in `SwipeableItemCard`
-- `SwipeableItemCard` handles only swipe gestures; taps pass through to `cardContent`
+- The card `Row` carries a `.combinedClickable(onClick = { onTap() }, onLongClick = onLongPress)` modifier — the entire card is tappable and long-pressable
+- Tap and long-press are handled at the card content level (`MarkerCardContent` / `TrackCardContent`), not in `SwipeableItemCard`
+- `SwipeableItemCard` handles only swipe gestures; taps/long-presses pass through to `cardContent`
+- The scaffold provides the `onLongPress` callback through `cardContent` slot signature `(T, onLongPress: (() -> Unit)?)`
 
 **Chevron affordance:**
 - Each marker card carries a `KeyboardArrowRight` chevron at `Alignment.BottomEnd`
@@ -335,3 +336,141 @@ Marker cards in [`MarkerManagementOverlay`](app/src/main/java/ykws/android/maro/
 **Consistency rule:** All navigation chevrons (`KeyboardArrowRight`) across the app use the same 28dp size and `uiSettingsTextMuted` color. This covers:
 - Marker card chevrons (list overlay)
 - Menu drawer navigation rows ("Manage Tracks", "Manage Markers")
+
+---
+
+## Multiselect Framework
+
+Long-press on any non-live card enters multiselect mode. The scaffold owns all selection
+state; consumers inject per-type multi-actions via [`MultiActionSpec`](app/src/main/java/ykws/android/maro/data/model/MultiActionSpec.kt).
+
+### Architecture
+
+```
+ListOverlayScaffold<T>
+├── isMultiSelectMode: Boolean              (internal state)
+├── selectedIds: SnapshotStateList<String>  (internal state)
+├── multiActions: List<MultiActionSpec>     (consumer-injected)
+│
+├── Header (normal mode)
+│   └── Back + Title + filter/sort row
+│
+├── Header (multiselect mode)
+│   ├── Close (X) + "N selected"
+│   ├── "Select all" / "Deselect all" chip
+│   ├── Action bar: scrollable Row of action buttons (in-flow, 4dp below header)
+│   │   └── HorizontalDivider(uiSettingsDivider) below
+│   └── Filter/sort row hidden
+│
+└── LazyColumn (fillMaxSize)
+    └── Cards with checkmark overlay + tonal shift + border on selected
+```
+
+### MultiActionSpec
+
+```kotlin
+data class MultiActionSpec(
+    val id: String,                              // "delete", "export", "pin"
+    val label: String,                           // displayed on button
+    val icon: ImageVector,                       // button icon
+    val action: (Set<String>) -> Unit = {},      // consumer lambda — receives selected IDs
+    val enabled: (Set<String>) -> Boolean = { it.isNotEmpty() },  // dynamic dimming
+    val isDestructive: Boolean = false,          // uiDashboardZoneDanger tint when true
+    val confirmMessage: String? = null,          // if non-null, AlertDialog before firing
+    val subActions: List<MultiActionSubSpec> = emptyList()  // if non-empty, DropdownMenu
+)
+
+data class MultiActionSubSpec(
+    val id: String,                              // "pin_all", "unpin_all", "toggle"
+    val label: String,                           // "Pin all", "Unpin all", "Toggle pins"
+    val action: (Set<String>) -> Unit
+)
+```
+
+- **`enabled`** receives current `selectedIds` set. Consumer captures items in closure to inspect per-item state.
+- **`isDestructive`** switches button tint to `uiDashboardZoneDanger` (#C62828).
+- **`confirmMessage`** — if non-null, scaffold shows `AlertDialog` before firing `action`. Only fires on confirm. Used for destructive actions (delete).
+- **`subActions`** — if non-empty, tapping the button opens a `DropdownMenu` instead of firing `action` directly. Each `MultiActionSubSpec` is a menu item.
+- **`action`** defaults to `{}` — unused when `subActions` is non-empty.
+- **Select-all is scaffold-owned**, not a `MultiActionSpec`.
+
+### State Machine
+
+| Trigger | Action |
+|---------|--------|
+| Long-press non-live card | Enter multiselect, select that item |
+| Tap card (multiselect) | Toggle selection |
+| Last selected deselected | Auto-exit multiselect |
+| Close (X) / Back press | Exit multiselect, clear selection |
+| Multi-action fired | Execute action, exit multiselect |
+| Items list becomes empty | Exit multiselect |
+| All non-live items removed | Exit multiselect |
+
+### Entry Conditions
+
+| Condition | Behavior |
+|---|---|
+| 1+ non-live item + `multiActions` not empty | Long-press enters multiselect |
+| All items are live (`isLive=true`) | Long-press is no-op |
+| `multiActions` is empty | Long-press is no-op (no actions to perform) |
+
+### Pending Deletes
+
+On entering multiselect, any existing `pendingDeletes` (from prior swipe-to-delete in normal
+mode) are committed immediately — `ListAction.PermanentDelete` emitted for each, then
+`pendingDeletes` cleared.
+
+### Visual Feedback
+
+| Layer | Token / Spec |
+|---|---|
+| Tonal shift | `uiCardBackground` + `Color.White.copy(alpha = 0.15f)` overlay |
+| Border | 1dp `uiSettingsAccent` (#1565C0), `RoundedCornerShape(12.dp)` |
+| Checkmark circle | 24dp, `uiSettingsAccent` fill, `CircleShape` |
+| Checkmark icon | White `Icons.Filled.Check`, 16dp, centered in circle |
+| Position | `Alignment.TopEnd`, 4dp padding |
+
+### Long-Press Entry
+
+Consumers use `combinedClickable(onClick, onLongClick)` on their card `Row` instead of plain
+`clickable`. The scaffold passes an `onLongPress` callback through the `cardContent` slot
+signature `(T, onLongPress: (() -> Unit)?) -> Unit`. In multiselect mode, the scaffold
+replaces the consumer's tap behavior with a selection toggle via a transparent `.clickable`
+overlay inside `SwipeableItemCard`.
+
+**Why not an overlay in normal mode?** Compose dispatches pointer events innermost-first.
+A parent `combinedClickable` cannot detect long-press if a child `.clickable` consumes
+the down event first. The consumer must own the `combinedClickable`.
+
+### Swipe Gate
+
+`SwipeableItemCard`'s horizontal drag gesture is gated on `!isMultiSelectMode`.
+In multiselect mode, horizontal drags are ignored.
+
+### Action Bar
+
+| Property | Value |
+|---|---|
+| Position | In-flow between multiselect header and LazyColumn — 4dp below header |
+| Height | ~44dp (content-driven, 6dp vertical padding) |
+| Background | `uiSettingsBackground` (solid opaque) |
+| Separator | `HorizontalDivider(uiSettingsDivider)` below the button row |
+| Layout | `Row`, `Arrangement.SpaceEvenly`, `horizontalScroll` |
+| Button | `TextButton` with icon (20dp) + label, `ButtonColors.icon` tint |
+| Destructive | `uiDashboardZoneDanger` tint when `isDestructive = true` |
+| Disabled | 0.25 alpha when `enabled(selectedIds)` is false |
+| Animation | `AnimatedVisibility(enter = expandVertically + fadeIn, exit = shrinkVertically + fadeOut)` |
+
+### Consumer Integration
+
+**MarkerManagementOverlay:** multiselect deactivated (`multiActions = emptyList()`). Framework stays in place for later re-enablement.
+
+**TrackHistoryOverlay** injects three actions:
+
+| Action | Behavior |
+|---|---|
+| Delete | Confirmation dialog (`confirmMessage`), destructive tint, per-item `PermanentDelete` |
+| Export | 1 track → `.gpx` file (named by track title); 2+ tracks → `maro-tracks-yyyy_MM_dd_HHmmss.zip` via `BatchExportGpx` |
+| Pin | `DropdownMenu` with 3 sub-actions: Pin all, Unpin all, Toggle pins (always enabled) |
+
+Uses `remember(trackSummaries)` to capture the item list for pin sub-action closures.

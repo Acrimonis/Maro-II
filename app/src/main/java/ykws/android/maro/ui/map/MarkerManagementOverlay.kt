@@ -2,7 +2,7 @@ package ykws.android.maro.ui.map
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Box
@@ -20,9 +20,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.LocationOff
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -51,6 +54,7 @@ import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.CustomSortField
 import ykws.android.maro.data.model.FilterAxisSpec
 import ykws.android.maro.data.model.ListFilter
+import ykws.android.maro.data.model.MultiActionSpec
 import ykws.android.maro.data.model.markerFilterAxes
 import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.UserMarker
@@ -76,6 +80,7 @@ fun MarkerManagementOverlay(
     onCreateFirst: () -> Unit,
     onDismiss: () -> Unit,
     onSetIcon: (String, String?) -> Unit = { _, _ -> },
+    onTogglePin: (String, Boolean) -> Unit = { _, _ -> },
     sortState: ykws.android.maro.data.model.ListSortState,
     onSortStateChange: (ykws.android.maro.data.model.ListSortState) -> Unit,
     filterState: ListFilter = ListFilter(),
@@ -102,12 +107,13 @@ fun MarkerManagementOverlay(
         onFilterChange = onFilterChange,
         onReset = onReset,
         accentColors = { list -> list.associate { it.id to Color(ykws.android.maro.ui.map.MarkerColors.of(it.colorIndex)) } },
-        cardContent = { marker ->
+        cardContent = { marker, onLongPress ->
             MarkerCardContent(
                 marker = marker,
                 onTap = { onAction(ykws.android.maro.data.model.ListAction.NavigateToItem(marker.id)) },
                 onEdit = { onAction(ykws.android.maro.data.model.ListAction.EditItem(marker.id)) },
-                onSetIcon = onSetIcon
+                onSetIcon = onSetIcon,
+                onLongPress = onLongPress
             )
         },
         emptyState = {
@@ -127,7 +133,8 @@ fun MarkerManagementOverlay(
         },
         onAction = onAction,
         onDismiss = onDismiss,
-        modifier = modifier
+        modifier = modifier,
+        multiActions = emptyList()
     )
 }
 
@@ -149,7 +156,8 @@ private fun MarkerCardContent(
     marker: UserMarker,
     onTap: () -> Unit,
     onEdit: () -> Unit,
-    onSetIcon: (String, String?) -> Unit
+    onSetIcon: (String, String?) -> Unit,
+    onLongPress: (() -> Unit)? = null
 ) {
     Box {
         Row(
@@ -158,7 +166,10 @@ private fun MarkerCardContent(
                 .height(IntrinsicSize.Min)
                 .clip(RoundedCornerShape(MARKER_CARD_RADIUS))
                 .background(Color(AppConfig.uiCardBackground))
-                .clickable { onTap() }
+                .combinedClickable(
+                    onClick = onTap,
+                    onLongClick = onLongPress
+                )
         ) {
             Box(
                 modifier = Modifier

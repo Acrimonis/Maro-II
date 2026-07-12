@@ -20,6 +20,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -48,9 +49,13 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.outlined.LocationOff
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -100,6 +105,8 @@ import ykws.android.maro.data.model.FilterAxisSpec
 import ykws.android.maro.data.model.ListAction
 import ykws.android.maro.data.model.ListFilter
 import ykws.android.maro.data.model.ListSortState
+import ykws.android.maro.data.model.MultiActionSpec
+import ykws.android.maro.data.model.MultiActionSubSpec
 import ykws.android.maro.data.model.trackFilterAxes
 import ykws.android.maro.data.track.TrackRecorderState
 import ykws.android.maro.data.track.TrackRecorderUiState
@@ -207,6 +214,66 @@ fun TrackHistoryOverlay(
 
     val liveState = liveTrackState
 
+    val deleteLabel = stringResource(R.string.action_delete)
+    val exportLabel = stringResource(R.string.action_export)
+    val pinLabel = stringResource(R.string.action_pin)
+    val confirmDeleteMsg = stringResource(R.string.confirm_delete_tracks)
+    val pinAllLabel = stringResource(R.string.action_pin_all)
+    val unpinAllLabel = stringResource(R.string.action_unpin_all)
+    val togglePinsLabel = stringResource(R.string.action_toggle_pins)
+
+    val trackMultiActions = remember(trackSummaries) {
+        listOf(
+            MultiActionSpec(
+                id = "delete",
+                label = deleteLabel,
+                icon = Icons.Filled.Delete,
+                isDestructive = true,
+                confirmMessage = confirmDeleteMsg,
+                action = { ids -> ids.forEach { onAction(ListAction.PermanentDelete(it)) } }
+            ),
+            MultiActionSpec(
+                id = "export",
+                label = exportLabel,
+                icon = Icons.Filled.Share,
+                action = { ids ->
+                    if (ids.size == 1) {
+                        onAction(ListAction.ExportGpx(ids.first()))
+                    } else {
+                        onAction(ListAction.BatchExportGpx(ids))
+                    }
+                }
+            ),
+            MultiActionSpec(
+                id = "pin",
+                label = pinLabel,
+                icon = Icons.Filled.PushPin,
+                subActions = listOf(
+                    MultiActionSubSpec(
+                        id = "pin_all",
+                        label = pinAllLabel,
+                        action = { ids -> ids.forEach { onUpdateTrack(it, null, null, true) } }
+                    ),
+                    MultiActionSubSpec(
+                        id = "unpin_all",
+                        label = unpinAllLabel,
+                        action = { ids -> ids.forEach { onUpdateTrack(it, null, null, false) } }
+                    ),
+                    MultiActionSubSpec(
+                        id = "toggle_pins",
+                        label = togglePinsLabel,
+                        action = { ids ->
+                            ids.forEach { id ->
+                                val current = trackSummaries.find { it.id == id }?.pinned ?: false
+                                onUpdateTrack(id, null, null, !current)
+                            }
+                        }
+                    )
+                )
+            )
+        )
+    }
+
     ListOverlayScaffold(
         items = trackSummaries,
         title = "Track History",
@@ -220,14 +287,15 @@ fun TrackHistoryOverlay(
         onFilterChange = onFilterChange,
         onReset = onReset,
         accentColors = { accentColorMap },
-        cardContent = { summary ->
+        cardContent = { summary, onLongPress ->
             TrackCardContent(
                 summary = summary,
                 dateFormat = dateFormat,
                 accentColor = accentColorMap[summary.id] ?: Color(AppConfig.uiSettingsTextMuted).copy(alpha = 0.15f),
                 onUpdateTrack = onUpdateTrack,
                 onShareGpx = { onAction(ListAction.ExportGpx(summary.id)) },
-                onTap = { onNavigateToTrack(summary.id) }
+                onTap = { onNavigateToTrack(summary.id) },
+                onLongPress = onLongPress
             )
         },
         liveCardContent = if (liveState != null && liveState.state == TrackRecorderState.ON) {
@@ -237,7 +305,8 @@ fun TrackHistoryOverlay(
         },
         onAction = onAction,
         onDismiss = onDismiss,
-        modifier = modifier
+        modifier = modifier,
+        multiActions = trackMultiActions
     )
 }
 
@@ -257,7 +326,8 @@ internal fun TrackCardContent(
     accentColor: Color = Color.Unspecified,
     onUpdateTrack: (String, name: String?, comment: String?, pinned: Boolean?) -> Unit,
     onShareGpx: (String) -> Unit,
-    onTap: (() -> Unit)? = null
+    onTap: (() -> Unit)? = null,
+    onLongPress: (() -> Unit)? = null
 ) {
     // Original values for revert-on-back
     val originalName = remember(summary.id) { summary.name }
@@ -302,7 +372,10 @@ internal fun TrackCardContent(
                 .height(IntrinsicSize.Min)
                 .clip(RoundedCornerShape(12.dp))
                 .background(Color(AppConfig.uiCardBackground))
-                .clickable { onTap?.invoke() }
+                .combinedClickable(
+                    onClick = { onTap?.invoke() },
+                    onLongClick = onLongPress
+                )
         ) {
             // Left-edge accent bar — previews the track's polyline render color
             Box(
