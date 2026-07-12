@@ -418,6 +418,9 @@ fun OverlayLayer(
                     trackViewModel.resumeTrack(id)
                     onDismissTrackHistory()
                 },
+                onMergeTracks = { ids, name, keepOriginals ->
+                    trackViewModel.mergeTracks(ids, name, keepOriginals)
+                },
                 sortState = trackSortState,
                 onSortStateChange = onTrackSortStateChange,
                 filterState = trackFilterState,

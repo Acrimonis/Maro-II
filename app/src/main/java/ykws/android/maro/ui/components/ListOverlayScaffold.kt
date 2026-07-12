@@ -662,6 +662,7 @@ fun <T : ListableItem> ListOverlayScaffold(
                                         if (isActionEnabled) {
                                             when {
                                                 spec.subActions.isNotEmpty() -> showDropdown = true
+                                                spec.confirmContent != null -> showConfirmDialog = true
                                                 spec.confirmMessage != null -> showConfirmDialog = true
                                                 else -> {
                                                     spec.action(selectedIds.toSet())
@@ -706,12 +707,24 @@ fun <T : ListableItem> ListOverlayScaffold(
                                     }
                                 }
 
-                                // Confirmation bottom sheet (unified pattern)
-                                if (spec.confirmMessage != null && showConfirmDialog) {
-                                    ConfirmSheet(
-                                        title = stringResource(R.string.confirm_batch_delete_title),
-                                        message = spec.confirmMessage,
-                                        onConfirm = {
+                            // Custom confirmation dialog (mutually exclusive with confirmMessage)
+                            if (spec.confirmContent != null && showConfirmDialog) {
+                                spec.confirmContent!!(
+                                    selectedIds.toSet(),
+                                    { showConfirmDialog = false },
+                                    {
+                                        showConfirmDialog = false
+                                        exitMultiselect()
+                                    }
+                                )
+                            }
+
+                            // Simple confirmation (ConfirmSheet unified pattern)
+                            if (spec.confirmMessage != null && showConfirmDialog) {
+                                ConfirmSheet(
+                                    title = stringResource(R.string.confirm_batch_delete_title),
+                                    message = spec.confirmMessage,
+                                    onConfirm = {
                                             spec.action(selectedIds.toSet())
                                             showConfirmDialog = false
                                             exitMultiselect()

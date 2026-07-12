@@ -39,4 +39,7 @@ sealed class TrackEvent {
         val durationSec: Long,        // delta for this period, NOT cumulative
         val autoMarkerId: String?     // ID of 🕐 pin, null if none
     ) : TrackEvent()
+
+    /** Tracks were successfully merged into a single new track. */
+    data class TracksMerged(val mergedId: String, val mergedName: String) : TrackEvent()
 }

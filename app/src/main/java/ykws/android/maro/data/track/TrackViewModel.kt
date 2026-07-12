@@ -444,6 +444,36 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * Merge multiple finalized tracks into a single new track.
+     *
+     * Loads all tracks by ID, validates they are finalized, merges via [TrackMerger],
+     * saves the result, and optionally deletes the originals.
+     */
+    fun mergeTracks(trackIds: Set<String>, mergedName: String, keepOriginals: Boolean) {
+        viewModelScope.launch {
+            val tracks = trackIds.mapNotNull { repository.load(it) }
+                .filter { it.endTimeMs != null && it.trackPoints.isNotEmpty() }
+                .sortedBy { it.startTimeMs }
+            if (tracks.size < 2) return@launch
+
+            val merger = TrackMerger()
+            val merged = merger.merge(tracks, mergedName)
+
+            repository.save(merged)
+
+            if (!keepOriginals) {
+                trackIds.forEach { id ->
+                    invalidateTrackCache(id)
+                    repository.delete(id)
+                }
+            }
+
+            refreshSummaries()
+            _events.emit(TrackEvent.TracksMerged(merged.id, merged.name))
+        }
+    }
+
     /** Resolve orphaned checkpoint: save as completed track. */
     fun saveOrphanedCheckpoint(track: Track) {
         _recoveryTrack.value = null

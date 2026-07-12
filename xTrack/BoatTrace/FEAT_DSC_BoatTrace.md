@@ -1,7 +1,7 @@
 name: BoatTrace
 status: active
 created: 2026-06-15 21:43
-modified: 2026-07-14 08:45
+modified: 2026-07-12 18:19
 active_subfeature: merge-tracks
 ---
 
@@ -261,17 +261,12 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 #### Docs
 - `xTrack/BoatTrace/FEAT_PLN_BoatTrace_idle-time-always-zero.md` — root cause + fix plan + implementation record
 
-### merge-tracks  [ ]
+### merge-tracks  [x]
 
 #### Docs
 - `xTrack/BoatTrace/FEAT_PLN_BoatTrace_merge-tracks.md` — discussion plan: merge tracks vs resume track
 
 ### populate-track-info  [x]
-
-### gpx-extension-roundtrip  [x]
-
-#### Docs
-- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_gpx-extension-roundtrip.md` — GPX extension round-trip design: protobuf blob in `<extensions>`, multi-select ZIP export, name-based anti-collision import
 
 ## Docs
 - `plans/boat-trace-design-discussion.md` — final design and implementation plan
@@ -283,7 +278,6 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 - `xTrack/BoatTrace/FEAT_PLN_BoatTrace_spike-rejection-v2.md` — Spike rejection v2: 4-gate algorithm design plan
 - `xTrack/BoatTrace/FEAT_PLN_BoatTrace_adaptive-isstill.md` — adaptive GPS stillness detection plan
 - `xTrack/BoatTrace/FEAT_PLN_BoatTrace_pinned-tracks.md` — Pinned tracks: replace eye-icon with pin-icon, separate transparency, z-order
-- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_gpx-extension-roundtrip.md` — GPX extension round-trip design
 
 ## Implemented
 
@@ -299,7 +293,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 
 **TrackViewModel:** `StateFlow<TrackRecorderUiState>` bridge. LRU detail cache (`LinkedHashMap`, max 30). Track list sorted by `startTimeMs` desc. Auto-naming `yyyy-MM-dd HH:mm`.
 
-**UI:** `TrackStatusIcon` — 3 states (OFF dimmed, ON+moving green+red dot, ON+idle blue+blue dot), click toggles recording. `MenuDrawerOverlay` — right panel (75% width), hamburger always visible (36dp), unified ON/OFF switch + Track List. `TrackHistoryOverlay` — LazyColumn with inline editing, visibility toggle, swipe-to-delete with snackbar undo, GPX share/import, resume ▶ PlayArrow. `LiveTrackCard` at position 0 during recording with pulsing border.
+**UI:** `TrackStatusIcon` — 3 states (OFF dimmed, ON+moving green+red dot, ON+idle blue+blue dot), click toggles recording. `MenuDrawerOverlay` — right panel (75% width), hamburger always visible (36dp), unified ON/OFF switch + Track List. `TrackHistoryOverlay` — LazyColumn with inline editing, visibility toggle, swipe-to-delete with snackbar undo, GPX share. `LiveTrackCard` at position 0 during recording with pulsing border.
 
 **Settings:** Unified Tracking section in General → Display → Layers card; 3 expandable subsections (Number of tracks, Transparency RangeSlider, Colors). Canvas HSV color pickers (Active single, Past from→to, Pinned from→to). Transparency semantics: 0%=opaque, 100%=invisible. Newest track gets `trackingTransparencyNewest` (default 20), oldest gets `trackingTransparencyOldest` (default 80). Past/pinned colors + transparency fields persisted to SharedPreferences.
 
@@ -330,7 +324,3 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 **resume-track (2026-07-12):** Resume a finalized track as a live recording. `TrackRecorder.resume()` extended with `fromCheckpoint` flag (default true for backward compat) — computes `resumeGapDurationSec` from inter-session wall-clock gap, clears `endTimeMs` on finalized tracks. `finalizeTrack()` subtracts gap from navigating duration (D10 prevents 50h inflation on 2-day gap), pattern-guards title recompute to preserve user-edited names (D6), forces `visibleOnMap=true` (D7). New `TrackViewModel.resumeTrack(trackId)` — 9-step setup mirroring `resumeOrphanedCheckpoint()`, only diff: `fromCheckpoint=false`. `TrackHistoryOverlay`: ▶ `PlayArrow` icon between pin and share on finalized track cards, visible when `endTimeMs != null && !isRecording`. Post-fix: `stopRecording()` invalidates `trackDetailCache` to prevent stale map polylines; `onResumeTrack` dismisses overlay. Wired via `OverlayLayer.kt`. Build: ✅
 
 **merge-tracks (2026-07-12):** Merge 2+ finalized tracks into a single new track. New `TrackMerger` utility — concatenates points with `timeOffsetMs` rebasing to earliest start, GAP markers between segments, renumbered BoatMarkers, synthesized stats (sum per-track distance/idle/navigating, weighted avg speed, max fastest). `TrackViewModel.mergeTracks(ids, name, keepOriginals)` — load, merge, save, optional delete originals with cache invalidation. `TrackHistoryOverlay`: `MultiActionSpec("merge")` reuses existing `ListOverlayScaffold` multi-select; self-contained `AlertDialog` with auto-generated name (`"A + B"` / `"A ... Z"`) and "Keep original tracks" checkbox (default checked). New `ListAction.MergeTracks` + `TrackEvent.TracksMerged`. Build: ✅
-
-**checkmark-bottom-right (2026-07-14):** Moved multi-select check mark badge from `Alignment.TopEnd` to `Alignment.BottomEnd` in `SwipeableItemCard` (`ListOverlayScaffold.kt`). Reduces visual collision with card titles/subtitles clustered at top. Build: ✅
-
-**gpx-extension-roundtrip (2026-07-14):** GPX export now includes `<maro:data>` base64-encoded protobuf blob for lossless round-trip. New `GpxImporter` — parses MaroII blob, falls back to standard `<trkpt>` for foreign GPX files. ZIP archive support with path-traversal guard and name-based anti-collision. Multi-select ZIP export with sanitized track names. Import button via new `headerActions` scaffold slot with `ActivityResultContracts.OpenDocument` file picker. Build: ✅
