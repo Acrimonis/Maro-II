@@ -4324,97 +4324,102 @@ private fun NavigationSettings(
 
     // ── Automatic map offset ──────────────────────────────────────────────
     SectionHeader(title = "Automatic map offset")
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
-            .height(1.dp)
-            .background(ComposeColor(AppConfig.uiSettingsDivider))
-    )
 
-    // GPS mode toggle
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 2.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+    Column(
+        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+            .background(ComposeColor(AppConfig.uiCardBackground)).padding(vertical = 8.dp)
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = "GPS mode",
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = "Shift map center ahead when navigating with GPS",
-                color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                fontSize = 13.sp
+        // GPS mode toggle
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "GPS mode",
+                    color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = "Shift map center ahead when navigating with GPS",
+                    color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                    fontSize = 13.sp
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Switch(
+                checked = settings.mapOffsetGps,
+                onCheckedChange = { on -> onUpdateSettings { it.copy(mapOffsetGps = on) } },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                    checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                    uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
+                    uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                )
             )
         }
-        Spacer(modifier = Modifier.width(16.dp))
-        Switch(
-            checked = settings.mapOffsetGps,
-            onCheckedChange = { on -> onUpdateSettings { it.copy(mapOffsetGps = on) } },
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
-                uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-            )
-        )
-    }
 
-    Spacer(Modifier.height(4.dp))
+        Spacer(Modifier.height(4.dp))
 
-    // Demo mode toggle
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 2.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = "Demo mode",
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = "Shift map center ahead when panning in free mode",
-                color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                fontSize = 13.sp
+        // Demo mode toggle
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Demo mode",
+                    color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = "Shift map center ahead when panning in free mode",
+                    color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                    fontSize = 13.sp
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Switch(
+                checked = settings.mapOffsetDemo,
+                onCheckedChange = { on -> onUpdateSettings { it.copy(mapOffsetDemo = on) } },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                    checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                    uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
+                    uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                )
             )
         }
-        Spacer(modifier = Modifier.width(16.dp))
-        Switch(
-            checked = settings.mapOffsetDemo,
-            onCheckedChange = { on -> onUpdateSettings { it.copy(mapOffsetDemo = on) } },
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
-                uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+
+        Spacer(Modifier.height(6.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(1.dp)
+                .background(ComposeColor(0x26FFFFFF))
+        )
+        Spacer(Modifier.height(6.dp))
+
+        // Boat-from-bottom slider
+        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+            SliderRowContent(
+                label = "Boat position from bottom",
+                description = "Where the boat sits at speed. 50% = disabled (centered). Lower = more ahead.",
+                valueLabel = "${settings.mapOffsetBoatFromBottomPct}%",
+                value = settings.mapOffsetBoatFromBottomPct.toFloat(),
+                valueRange = 5f..50f,
+                steps = 9,
+                onValueChange = { v -> onUpdateSettings { it.copy(mapOffsetBoatFromBottomPct = v.roundToInt()) } }
             )
-        )
-    }
-
-    Spacer(Modifier.height(8.dp))
-
-    // Boat-from-bottom slider
-    Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-        SliderRowContent(
-            label = "Boat position from bottom",
-            description = "Where the boat sits at speed. 50% = disabled (centered). Lower = more ahead.",
-            valueLabel = "${settings.mapOffsetBoatFromBottomPct}%",
-            value = settings.mapOffsetBoatFromBottomPct.toFloat(),
-            valueRange = 5f..50f,
-            steps = 9,
-            onValueChange = { v -> onUpdateSettings { it.copy(mapOffsetBoatFromBottomPct = v.roundToInt()) } }
-        )
+        }
     }
 
 }
