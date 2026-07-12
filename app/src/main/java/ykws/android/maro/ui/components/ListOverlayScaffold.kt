@@ -49,6 +49,9 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.ArrowDropUp
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Icon
@@ -648,27 +651,80 @@ fun <T : ListableItem> ListOverlayScaffold(
                                 spec.isDestructive -> Color(AppConfig.uiDashboardZoneDanger)
                                 else -> ButtonColors.icon
                             }
-                            TextButton(
-                                onClick = {
-                                    if (isActionEnabled) {
-                                        spec.action(selectedIds.toSet())
-                                        exitMultiselect()
+                            var showConfirmDialog by remember { mutableStateOf(false) }
+                            var showDropdown by remember { mutableStateOf(false) }
+
+                            Box {
+                                TextButton(
+                                    onClick = {
+                                        if (isActionEnabled) {
+                                            when {
+                                                spec.subActions.isNotEmpty() -> showDropdown = true
+                                                spec.confirmMessage != null -> showConfirmDialog = true
+                                                else -> {
+                                                    spec.action(selectedIds.toSet())
+                                                    exitMultiselect()
+                                                }
+                                            }
+                                        }
+                                    },
+                                    enabled = isActionEnabled
+                                ) {
+                                    Icon(
+                                        imageVector = spec.icon,
+                                        contentDescription = spec.label,
+                                        tint = if (isActionEnabled) tint else tint.copy(alpha = 0.25f),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    Text(
+                                        spec.label,
+                                        color = if (isActionEnabled) tint else tint.copy(alpha = 0.25f),
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+
+                                // Sub-actions dropdown
+                                if (spec.subActions.isNotEmpty()) {
+                                    DropdownMenu(
+                                        expanded = showDropdown,
+                                        onDismissRequest = { showDropdown = false }
+                                    ) {
+                                        spec.subActions.forEach { sub ->
+                                            DropdownMenuItem(
+                                                text = { Text(sub.label) },
+                                                onClick = {
+                                                    sub.action(selectedIds.toSet())
+                                                    showDropdown = false
+                                                    exitMultiselect()
+                                                }
+                                            )
+                                        }
                                     }
-                                },
-                                enabled = isActionEnabled
-                            ) {
-                                Icon(
-                                    imageVector = spec.icon,
-                                    contentDescription = spec.label,
-                                    tint = if (isActionEnabled) tint else tint.copy(alpha = 0.25f),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text(
-                                    spec.label,
-                                    color = if (isActionEnabled) tint else tint.copy(alpha = 0.25f),
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium
+                                }
+                            }
+
+                            // Confirmation dialog
+                            if (spec.confirmMessage != null && showConfirmDialog) {
+                                AlertDialog(
+                                    onDismissRequest = { showConfirmDialog = false },
+                                    title = { Text(spec.label) },
+                                    text = { Text(spec.confirmMessage!!) },
+                                    confirmButton = {
+                                        TextButton(onClick = {
+                                            spec.action(selectedIds.toSet())
+                                            showConfirmDialog = false
+                                            exitMultiselect()
+                                        }) {
+                                            Text(spec.label, color = Color(AppConfig.uiDashboardZoneDanger))
+                                        }
+                                    },
+                                    dismissButton = {
+                                        TextButton(onClick = { showConfirmDialog = false }) {
+                                            Text(stringResource(R.string.action_cancel))
+                                        }
+                                    }
                                 )
                             }
                         }

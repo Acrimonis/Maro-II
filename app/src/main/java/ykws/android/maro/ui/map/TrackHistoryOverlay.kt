@@ -106,6 +106,7 @@ import ykws.android.maro.data.model.ListAction
 import ykws.android.maro.data.model.ListFilter
 import ykws.android.maro.data.model.ListSortState
 import ykws.android.maro.data.model.MultiActionSpec
+import ykws.android.maro.data.model.MultiActionSubSpec
 import ykws.android.maro.data.model.trackFilterAxes
 import ykws.android.maro.data.track.TrackRecorderState
 import ykws.android.maro.data.track.TrackRecorderUiState
@@ -216,7 +217,10 @@ fun TrackHistoryOverlay(
     val deleteLabel = stringResource(R.string.action_delete)
     val exportLabel = stringResource(R.string.action_export)
     val pinLabel = stringResource(R.string.action_pin)
-    val unpinLabel = stringResource(R.string.action_unpin)
+    val confirmDeleteMsg = stringResource(R.string.confirm_delete_tracks)
+    val pinAllLabel = stringResource(R.string.action_pin_all)
+    val unpinAllLabel = stringResource(R.string.action_unpin_all)
+    val togglePinsLabel = stringResource(R.string.action_toggle_pins)
 
     val trackMultiActions = remember(trackSummaries) {
         listOf(
@@ -225,27 +229,47 @@ fun TrackHistoryOverlay(
                 label = deleteLabel,
                 icon = Icons.Filled.Delete,
                 isDestructive = true,
+                confirmMessage = confirmDeleteMsg,
                 action = { ids -> ids.forEach { onAction(ListAction.PermanentDelete(it)) } }
             ),
             MultiActionSpec(
                 id = "export",
                 label = exportLabel,
                 icon = Icons.Filled.Share,
-                action = { ids -> ids.forEach { onAction(ListAction.ExportGpx(it)) } }
+                action = { ids ->
+                    if (ids.size == 1) {
+                        onAction(ListAction.ExportGpx(ids.first()))
+                    } else {
+                        onAction(ListAction.BatchExportGpx(ids))
+                    }
+                }
             ),
             MultiActionSpec(
                 id = "pin",
                 label = pinLabel,
                 icon = Icons.Filled.PushPin,
-                enabled = { ids -> ids.any { id -> trackSummaries.any { it.id == id && !it.isPinned } } },
-                action = { ids -> ids.forEach { onUpdateTrack(it, null, null, true) } }
-            ),
-            MultiActionSpec(
-                id = "unpin",
-                label = unpinLabel,
-                icon = Icons.Outlined.PushPin,
-                enabled = { ids -> ids.any { id -> trackSummaries.any { it.id == id && it.isPinned } } },
-                action = { ids -> ids.forEach { onUpdateTrack(it, null, null, false) } }
+                subActions = listOf(
+                    MultiActionSubSpec(
+                        id = "pin_all",
+                        label = pinAllLabel,
+                        action = { ids -> ids.forEach { onUpdateTrack(it, null, null, true) } }
+                    ),
+                    MultiActionSubSpec(
+                        id = "unpin_all",
+                        label = unpinAllLabel,
+                        action = { ids -> ids.forEach { onUpdateTrack(it, null, null, false) } }
+                    ),
+                    MultiActionSubSpec(
+                        id = "toggle_pins",
+                        label = togglePinsLabel,
+                        action = { ids ->
+                            ids.forEach { id ->
+                                val current = trackSummaries.find { it.id == id }?.pinned ?: false
+                                onUpdateTrack(id, null, null, !current)
+                            }
+                        }
+                    )
+                )
             )
         )
     }

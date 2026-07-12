@@ -94,36 +94,6 @@ fun MarkerManagementOverlay(
         )
     }
 
-    val deleteLabel = stringResource(R.string.action_delete)
-    val pinLabel = stringResource(R.string.action_pin)
-    val unpinLabel = stringResource(R.string.action_unpin)
-
-    val markerMultiActions = remember(markers) {
-        listOf(
-            MultiActionSpec(
-                id = "delete",
-                label = deleteLabel,
-                icon = Icons.Filled.Delete,
-                isDestructive = true,
-                action = { ids -> ids.forEach { onAction(ykws.android.maro.data.model.ListAction.PermanentDelete(it)) } }
-            ),
-            MultiActionSpec(
-                id = "pin",
-                label = pinLabel,
-                icon = Icons.Filled.PushPin,
-                enabled = { ids -> ids.any { id -> markers.any { it.id == id && !it.isPinned } } },
-                action = { ids -> ids.forEach { onTogglePin(it, true) } }
-            ),
-            MultiActionSpec(
-                id = "unpin",
-                label = unpinLabel,
-                icon = Icons.Outlined.PushPin,
-                enabled = { ids -> ids.any { id -> markers.any { it.id == id && it.isPinned } } },
-                action = { ids -> ids.forEach { onTogglePin(it, false) } }
-            )
-        )
-    }
-
     ListOverlayScaffold(
         items = markers,
         title = "Markers \u00B7 ${markers.size}",
@@ -164,7 +134,7 @@ fun MarkerManagementOverlay(
         onAction = onAction,
         onDismiss = onDismiss,
         modifier = modifier,
-        multiActions = markerMultiActions
+        multiActions = emptyList()
     )
 }
 

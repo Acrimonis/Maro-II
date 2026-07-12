@@ -269,6 +269,10 @@
     <string name="action_pin">Pin</string>
     <string name="action_unpin">Unpin</string>
     <string name="action_export">Export</string>
+    <string name="action_pin_all">Pin all</string>
+    <string name="action_unpin_all">Unpin all</string>
+    <string name="action_toggle_pins">Toggle pins</string>
+    <string name="confirm_delete_tracks">Delete selected tracks?</string>
 
     <!-- Misc -->
     <string name="settings_language_english">English</string>

@@ -346,6 +346,84 @@ val trackMultiActions = remember(tracks) {
 | `docs/ui-lists-guidelines.md` | Multiselect framework section |
 | `xTrack/Ui_General/FEAT_DSC_Ui_General.md` | Update multi-select subfeature (already scaffolded) |
 
+## Phase 2 — Track Action Refinements
+
+### 1. Deactivate Markers
+
+`MarkerManagementOverlay`: `multiActions = emptyList()`. Long-press becomes no-op in marker list.
+
+### 2. Batch Export
+
+| Selection | Behavior |
+|---|---|
+| 1 track | Single `.gpx` (unchanged) |
+| 2+ tracks | Zip into `maro-tracks-yyyy_MM_dd_HHmmss.zip` |
+
+New method in `TrackViewModel` or `MapScreen`: collect GPX data for selected IDs, zip to cache dir, share intent.
+
+### 3. Confirmation Dialog
+
+```kotlin
+// MultiActionSpec new field:
+val confirmMessage: String? = null
+```
+
+Scaffold: if `confirmMessage != null`, show `AlertDialog` before firing `action`. Only delete gets confirmation. Pin/Export — no dialog.
+
+### 4. Pin Multi-Choice
+
+Replace Pin+Unpin buttons with one "Pin" button that opens `DropdownMenu`:
+
+```kotlin
+data class MultiActionSubSpec(
+    val id: String,
+    val label: String,
+    val action: (Set<String>) -> Unit
+)
+```
+
+```kotlin
+// MultiActionSpec new field:
+val subActions: List<MultiActionSubSpec> = emptyList()
+```
+
+Options: "Pin all", "Unpin all", "Toggle pins". Always enabled.
+
+### Final MultiActionSpec
+
+```kotlin
+data class MultiActionSpec(
+    val id: String,
+    val label: String,
+    val icon: ImageVector,
+    val action: (Set<String>) -> Unit = {},
+    val enabled: (Set<String>) -> Boolean = { it.isNotEmpty() },
+    val isDestructive: Boolean = false,
+    val confirmMessage: String? = null,
+    val subActions: List<MultiActionSubSpec> = emptyList()
+)
+```
+
+### Track Action Bar (final)
+
+```
+[Delete] [Export] [Pin]
+   ^         ^       ^
+ confirm    zip     popup: Pin all / Unpin all / Toggle
+ dialog     2+
+```
+
+### Files Changed
+
+| File | Change |
+|---|---|
+| `MultiActionSpec.kt` | +`confirmMessage`, +`subActions`, +`MultiActionSubSpec` |
+| `ListOverlayScaffold.kt` | AlertDialog for confirm, DropdownMenu for subActions |
+| `TrackHistoryOverlay.kt` | Pin multi-choice, delete confirm, export zip |
+| `MarkerManagementOverlay.kt` | `multiActions = emptyList()` |
+| `TrackViewModel.kt` / `MapScreen.kt` | Batch export zip |
+| `strings.xml` + `values-fr/` | Confirm delete, pin sub-action labels |
+
 ## Open Questions
 
 - **Batch pin/unpin at ViewModel level:** Does `TrackViewModel` / `MarkersViewModel` have batch pin methods? Will follow existing per-item pattern initially via `onAction` loop.

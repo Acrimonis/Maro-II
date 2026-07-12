@@ -19,6 +19,8 @@ sealed class ListAction {
     data class EditItem(val id: String) : ListAction()
     /** Export GPX — share track file. */
     data class ExportGpx(val id: String) : ListAction()
+    /** Batch export — zip multiple track GPX files and share. */
+    data class BatchExportGpx(val ids: Set<String>) : ListAction()
 
     // ── Refresh ───────────────────────────────────────────────────────
     /** Re-sort and refresh the card list with the given sort state. */
