@@ -1073,7 +1073,9 @@ class NavigationViewModel(
      * In demo mode (!gpsMode), also extrapolates pan velocity → simulated speed in knots.
      */
     fun updateMapCenter(latitude: Double, longitude: Double) {
-        _mapCenter.value = LatLng(latitude, longitude)
+        val newCenter = LatLng(latitude, longitude)
+        if (_mapCenter.value == newCenter) return
+        _mapCenter.value = newCenter
         // Throttle settings persistence to ~1 Hz — every scroll event (60 fps) would trigger
         // appSettings StateFlow → Compose recomposition at 60 fps, bypassing uiMapCenter throttle.
         // Full position is persisted via savePosition() at ON_PAUSE for crash recovery.

@@ -218,6 +218,25 @@ object AppConfig {
     var mapNavigationLineColor: Int = 0x4D1565C0.toInt()
         private set
 
+    /** Speed (knots) at which the map look-ahead offset reaches its maximum.
+     *  Default 20.0. Set via `map.offset.lookahead.maxspeedKn` in maro.properties.
+     *  Range: 1–50. */
+    var mapOffsetLookaheadMaxSpeedKn: Double = 20.0
+        private set
+    /** Boat position from screen bottom at full offset, as percentage of screen height.
+     *  50 = centered / disabled. 33 = ~1/3 from bottom (default). Lower = more forward view.
+     *  Set via `map.offset.lookahead.boatFromBottomPct` in maro.properties. Range: 5–50. */
+    var mapOffsetLookaheadBoatFromBottomPct: Int = 33
+        private set
+    /** Enable automatic map offset in GPS navigation mode.
+     *  Default true. Set via `map.offset.gps` in maro.properties. */
+    var mapOffsetGps: Boolean = true
+        private set
+    /** Enable automatic map offset in demo/manual mode.
+     *  Default false. Set via `map.offset.demo` in maro.properties. */
+    var mapOffsetDemo: Boolean = false
+        private set
+
     /** Depth NoData cell colour. Default #60FFF59D (pale yellow, ~38% alpha). Set via `map.depth.nodata.color` in colors.properties. */
     var mapDepthNodataColor: Int = 0x60FFF59D.toInt()
         private set
@@ -625,6 +644,20 @@ object AppConfig {
 
             props.getProperty("map.navigation.arrow.color")?.let { parseColorOrNull(it) }?.let { mapNavigationArrowColor = it }
             props.getProperty("map.navigation.line.color")?.let { parseColorOrNull(it) }?.let { mapNavigationLineColor = it }
+
+            // ── Map look-ahead offset (dynamic speed-based center shift) ──
+            props.getProperty("map.offset.lookahead.maxspeedKn")?.toDoubleOrNull()?.let {
+                mapOffsetLookaheadMaxSpeedKn = it.coerceIn(1.0, 50.0)
+            }
+            props.getProperty("map.offset.lookahead.boatFromBottomPct")?.toIntOrNull()?.let {
+                mapOffsetLookaheadBoatFromBottomPct = it.coerceIn(5, 50)
+            }
+            props.getProperty("map.offset.gps")?.toBooleanStrictOrNull()?.let {
+                mapOffsetGps = it
+            }
+            props.getProperty("map.offset.demo")?.toBooleanStrictOrNull()?.let {
+                mapOffsetDemo = it
+            }
 
             props.getProperty("map.depth.nodata.color")?.let { parseColorOrNull(it) }?.let { mapDepthNodataColor = it }
 

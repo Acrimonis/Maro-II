@@ -18,6 +18,7 @@ New setting?
   ├─ Toggle + sub-settings?      → Grouped card (§2.3)
   │   ├─ Sub = sliders?          → SettingsSliderGroup(nested=true)  (§2.4a)
   │   └─ Sub = text/toggles/etc? → Nested card inline              (§2.4b)
+  ├─ Toggle group + slider?      → Grouped card (§2.3)
   └─ Drawer/Track card?          → Same card surface, specific rows (§5)
 ```
 
@@ -145,7 +146,6 @@ Full token list: [`ui-tokens.properties`](../app/src/main/assets/ui-tokens.prope
 
 ## 4. Anti-Patterns
 
-- ❌ `SettingsToggleRow` inside a grouped card (double-wrapping)
 - ❌ Inner content card using `uiCardBackground` (stacked 15% white)
 - ❌ Per-call `labelStyle` on `SettingsExpander`
 - ❌ Visible dividers between top-level cards (use spacer)

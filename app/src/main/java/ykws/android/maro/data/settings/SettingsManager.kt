@@ -245,7 +245,13 @@ data class AppSettings(
     /** Filter state for the track history list. */
     val trackListFilter: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
     /** Filter state for the marker management list. */
-    val markerListFilter: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter()
+    val markerListFilter: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
+    /** Enable automatic map offset in GPS navigation mode. Default true. */
+    val mapOffsetGps: Boolean = true,
+    /** Enable automatic map offset in demo/manual mode. Default false. */
+    val mapOffsetDemo: Boolean = false,
+    /** Boat position from screen bottom at full offset (%). 50=centered, 33=default, 5=extreme forward. */
+    val mapOffsetBoatFromBottomPct: Int = 33,
 ) {
     /** Check whether a [ZoneDisplayCategory] is enabled in the current settings. */
     fun isCategoryVisible(cat: ZoneDisplayCategory): Boolean = when (cat) {
@@ -399,7 +405,10 @@ class SettingsManager(
         trackListSort = ykws.android.maro.data.model.ListSortState.parse(prefs.getString(KEY_TRACK_LIST_SORT, null)),
         markerListSort = ykws.android.maro.data.model.ListSortState.parse(prefs.getString(KEY_MARKER_LIST_SORT, null)),
         trackListFilter = ykws.android.maro.data.model.ListFilter.parse(prefs.getString(KEY_TRACK_LIST_FILTER, null)),
-        markerListFilter = ykws.android.maro.data.model.ListFilter.parse(prefs.getString(KEY_MARKER_LIST_FILTER, null))
+        markerListFilter = ykws.android.maro.data.model.ListFilter.parse(prefs.getString(KEY_MARKER_LIST_FILTER, null)),
+        mapOffsetGps = prefs.getBoolean(KEY_MAP_OFFSET_GPS, true),
+        mapOffsetDemo = prefs.getBoolean(KEY_MAP_OFFSET_DEMO, false),
+        mapOffsetBoatFromBottomPct = prefs.getInt(KEY_MAP_OFFSET_BOAT_FROM_BOTTOM_PCT, 33).coerceIn(5, 50),
     )
 
     /**
@@ -506,6 +515,9 @@ class SettingsManager(
             .putString(KEY_MARKER_LIST_SORT, ykws.android.maro.data.model.ListSortState.format(updated.markerListSort))
             .putString(KEY_TRACK_LIST_FILTER, ykws.android.maro.data.model.ListFilter.format(updated.trackListFilter))
             .putString(KEY_MARKER_LIST_FILTER, ykws.android.maro.data.model.ListFilter.format(updated.markerListFilter))
+            .putBoolean(KEY_MAP_OFFSET_GPS, updated.mapOffsetGps)
+            .putBoolean(KEY_MAP_OFFSET_DEMO, updated.mapOffsetDemo)
+            .putInt(KEY_MAP_OFFSET_BOAT_FROM_BOTTOM_PCT, updated.mapOffsetBoatFromBottomPct)
             .apply()
     }
 
@@ -601,6 +613,9 @@ class SettingsManager(
         private const val KEY_MARKER_LIST_SORT = "marker_list_sort"
         private const val KEY_TRACK_LIST_FILTER = "track_list_filter"
         private const val KEY_MARKER_LIST_FILTER = "marker_list_filter"
+        private const val KEY_MAP_OFFSET_GPS = "map_offset_gps"
+        private const val KEY_MAP_OFFSET_DEMO = "map_offset_demo"
+        private const val KEY_MAP_OFFSET_BOAT_FROM_BOTTOM_PCT = "map_offset_boat_from_bottom_pct"
         private const val KEY_PREFS_VERSION = "prefs_version"
         private const val CURRENT_VERSION = 5
     }
