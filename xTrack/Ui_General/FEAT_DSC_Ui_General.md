@@ -1,8 +1,8 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-07-05 09:17
-active_subfeature: click-N-move
+modified: 2026-07-12 14:29
+active_subfeature: multi-select
 ---
 
 # Feature: Ui_General
@@ -518,6 +518,16 @@ Click on a marker in the markers list closes the list, moves the map to the mark
 
 #### Plan
 - `xTrack/Ui_General/FEAT_PLN_Ui_General_click-n-move.md`
+
+### multi-select  [ ]
+
+Long-press to enter multiselect mode on list items. Scaffold owns selection state (selected IDs set, mode flag), renders a contextual bottom action bar. Consumer-injected multi-actions per list type (batch delete, batch export, batch pin/unpin). Single-tap behavior changes in multiselect mode: tap toggles selection instead of navigate.
+
+#### Todos
+
+#### Rules
+
+#### Key Files
 
 ---
 

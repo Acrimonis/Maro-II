@@ -260,6 +260,15 @@
     <string name="cd_pin_marker">Pin this marker</string>
     <string name="cd_descending">Descending</string>
     <string name="cd_ascending">Ascending</string>
+    <string name="cd_selected">Selected</string>
+
+    <!-- Multiselect -->
+    <string name="multiselect_count">%d selected</string>
+    <string name="multiselect_select_all">Select all</string>
+    <string name="multiselect_deselect_all">Deselect all</string>
+    <string name="action_pin">Pin</string>
+    <string name="action_unpin">Unpin</string>
+    <string name="action_export">Export</string>
 
     <!-- Misc -->
     <string name="settings_language_english">English</string>

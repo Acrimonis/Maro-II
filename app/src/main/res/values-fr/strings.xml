@@ -259,6 +259,15 @@
     <string name="cd_pin_marker">Épingler ce repère</string>
     <string name="cd_descending">Décroissant</string>
     <string name="cd_ascending">Croissant</string>
+    <string name="cd_selected">Sélectionné</string>
+
+    <!-- Multiselect -->
+    <string name="multiselect_count">%d sélectionnés</string>
+    <string name="multiselect_select_all">Tout sélectionner</string>
+    <string name="multiselect_deselect_all">Tout désélectionner</string>
+    <string name="action_pin">Épingler</string>
+    <string name="action_unpin">Désépingler</string>
+    <string name="action_export">Exporter</string>
 
     <!-- Misc -->
     <string name="settings_language_english">English</string>

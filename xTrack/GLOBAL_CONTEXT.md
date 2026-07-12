@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** ui-small-potatoes
-- **Active Subfeature:** translation
-- **Last Updated:** 2026-07-06 13:56
+- **Active Feature:** Ui_General
+- **Active Subfeature:** multi-select
+- **Last Updated:** 2026-07-12 14:29
 - **Last Bake:** 2026-07-06 14:19 (ui-small-potatoes — translation: 84 strings total, Settings page pass added 27 more, en+fr complete)
-- **Branch:** feature/localization
+- **Branch:** feature/multiselect
 
 ## Routing Map
 | Keyword | Feature File |

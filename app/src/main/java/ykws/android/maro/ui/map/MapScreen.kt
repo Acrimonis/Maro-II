@@ -1971,6 +1971,7 @@ fun MapScreen(
                 markersViewModel.startWizard(initialPos = mapCenter)
             },
             onSetIcon = { id, icon -> markersViewModel.setMarkerIcon(id, icon) },
+            onToggleMarkerPin = { id, _ -> markersViewModel.togglePin(id) },
         )
 
         // ── Post-save undo Snackbar (P5) ────────────────────────────────
