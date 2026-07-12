@@ -1396,17 +1396,32 @@ fun MapScreen(
             val landscapeDashboardWidth = maxHeight * 100 / 100
 
             // ── Dynamic map offset from speed — configurable via maro.properties ──
-            val fullOffsetSpeedKn = AppConfig.mapLookAheadSpeedKn
-            val maxOffsetFraction = AppConfig.mapLookAheadMaxFraction
-            val effectiveSpeedKn = navigationState.speedKnots ?: navigationState.demoSpeedKnots
-            val targetFraction = ((effectiveSpeedKn ?: 0f) / fullOffsetSpeedKn.toFloat())
-                .coerceIn(0f, 1f)
+            //     MapContent already has bottom padding equal to dashboard height,
+            //     so the MapView only fills the visible area. Offset is relative
+            //     to that visible height (full height in landscape).
+            val visibleMapHeightDp = if (isLandscape) maxHeight
+                else maxHeight - portraitDashboardHeight
+            val boatFromBottomPct = appSettings.mapOffsetBoatFromBottomPct
+            val maxMapShift = ((50 - boatFromBottomPct) / 100.0).coerceIn(0.0, 0.45)
+            val fullOffsetSpeedKn = AppConfig.mapOffsetLookaheadMaxSpeedKn
+
+            // Gate effective speed by mode toggle: only apply offset if the
+            // corresponding toggle (GPS or Demo) is enabled for the active mode.
+            val effectiveSpeedKn = when {
+                appSettings.gpsMode && appSettings.mapOffsetGps -> navigationState.speedKnots
+                !appSettings.gpsMode && appSettings.mapOffsetDemo -> navigationState.demoSpeedKnots
+                else -> null  // offset disabled
+            }
+
+            val targetFraction = if (effectiveSpeedKn != null)
+                ((effectiveSpeedKn / fullOffsetSpeedKn.toFloat()).coerceIn(0f, 1f))
+            else 0f
             val animatedFraction by animateFloatAsState(
                 targetValue = targetFraction,
                 animationSpec = spring(dampingRatio = 0.8f, stiffness = 200f),
                 label = "mapOffsetFraction"
             )
-            val mapCenterOffsetDp = (animatedFraction * maxHeight.value * maxOffsetFraction.toFloat()).dp
+            val mapCenterOffsetDp = (animatedFraction * visibleMapHeightDp.value * maxMapShift.toFloat()).dp
 
             // ── F2: Build synthetic unconfirmed marker for overlay preview ─────
             val createForm by markersViewModel.createForm.collectAsState()
@@ -2702,10 +2717,6 @@ private fun CoastlineMapView(
     // Per-layer persistent overlay tracker — survives recompositions so we can
     // selectively rebuild only layers whose input data actually changed.
     val tracker = remember { OverlayTracker() }
-    // Gate that prevents setMapCenterOffset-triggered scroll events from feeding
-    // back into demo speed computation (avoids an infinite feedback loop).
-    val suppressScrollCallbacks = remember { mutableStateOf(false) }
-
     AndroidView(
         modifier = modifier,
         factory = { ctx ->
@@ -2724,11 +2735,7 @@ private fun CoastlineMapView(
                 controller.setZoom(initialZoom)
                 controller.setCenter(GeoPoint(center.latitude, center.longitude))
                 if (centerOffsetYPx != 0) {
-                    suppressScrollCallbacks.value = true
                     setMapCenterOffset(0, centerOffsetYPx)
-                    android.os.Handler(android.os.Looper.getMainLooper()).post {
-                        suppressScrollCallbacks.value = false
-                    }
                 }
                 // Draw all layers bottom-to-top; each appends to both mapView.overlays
                 // and the corresponding tracker list for later selective rebuild.
@@ -2761,14 +2768,12 @@ private fun CoastlineMapView(
                 // Listen for map pan/zoom to report new center & zoom in real time
                 addMapListener(object : MapListener {
                     override fun onScroll(event: ScrollEvent): Boolean {
-                        if (suppressScrollCallbacks.value) return false
                         val geo = this@apply.mapCenter
                         onCenterChanged(geo.latitude, geo.longitude)
                         return false
                     }
 
                     override fun onZoom(event: ZoomEvent): Boolean {
-                        if (suppressScrollCallbacks.value) return false
                         val geo = this@apply.mapCenter
                         onCenterChanged(geo.latitude, geo.longitude)
                         onZoomChanged(this@apply.zoomLevelDouble)
@@ -2864,15 +2869,8 @@ private fun CoastlineMapView(
     }
 
     // ── Map center offset: reactively update when speed changes ────────────
-    //     Suppresses scroll callbacks during the call so OSMdroid scroll events
-    //     triggered by the offset change don't feed back into demo speed.
     LaunchedEffect(centerOffsetYPx, localMapView.value) {
-        val mv = localMapView.value ?: return@LaunchedEffect
-        suppressScrollCallbacks.value = true
-        mv.setMapCenterOffset(0, centerOffsetYPx)
-        android.os.Handler(android.os.Looper.getMainLooper()).post {
-            suppressScrollCallbacks.value = false
-        }
+        localMapView.value?.setMapCenterOffset(0, centerOffsetYPx)
     }
 
     // ── Cone + dashed line: DISABLED — see more-dedebug subfeature ──────────────
@@ -4322,7 +4320,104 @@ private fun NavigationSettings(
             }
         }
 
+    Spacer(modifier = Modifier.height(12.dp))
+
+    // ── Automatic map offset ──────────────────────────────────────────────
+    SectionHeader(title = "Automatic map offset")
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .height(1.dp)
+            .background(ComposeColor(AppConfig.uiSettingsDivider))
+    )
+
+    // GPS mode toggle
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "GPS mode",
+                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = "Shift map center ahead when navigating with GPS",
+                color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                fontSize = 13.sp
+            )
+        }
+        Spacer(modifier = Modifier.width(16.dp))
+        Switch(
+            checked = settings.mapOffsetGps,
+            onCheckedChange = { on -> onUpdateSettings { it.copy(mapOffsetGps = on) } },
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
+                uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+            )
+        )
     }
+
+    Spacer(Modifier.height(4.dp))
+
+    // Demo mode toggle
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Demo mode",
+                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium
+            )
+            Text(
+                text = "Shift map center ahead when panning in free mode",
+                color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                fontSize = 13.sp
+            )
+        }
+        Spacer(modifier = Modifier.width(16.dp))
+        Switch(
+            checked = settings.mapOffsetDemo,
+            onCheckedChange = { on -> onUpdateSettings { it.copy(mapOffsetDemo = on) } },
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
+                uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+            )
+        )
+    }
+
+    Spacer(Modifier.height(8.dp))
+
+    // Boat-from-bottom slider
+    Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+        SliderRowContent(
+            label = "Boat position from bottom",
+            description = "Where the boat sits at speed. 50% = disabled (centered). Lower = more ahead.",
+            valueLabel = "${settings.mapOffsetBoatFromBottomPct}%",
+            value = settings.mapOffsetBoatFromBottomPct.toFloat(),
+            valueRange = 5f..50f,
+            steps = 9,
+            onValueChange = { v -> onUpdateSettings { it.copy(mapOffsetBoatFromBottomPct = v.roundToInt()) } }
+        )
+    }
+
+}
 }
 
 // ── System tab ───────────────────────────────────────────────────────────
