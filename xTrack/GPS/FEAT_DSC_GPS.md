@@ -2,8 +2,8 @@
 name: GPS
 status: active
 created: 2026-06-07 00:00
-modified: 2026-07-14 08:41
-active_subfeature: checks
+modified: 2026-07-14 17:17
+active_subfeature: still-spike-fix
 ---
 
 # Feature: GpsPlugin
@@ -251,6 +251,8 @@ Harden background GPS to match Waze/GMaps best practices + recording-aware exit 
 - `xTrack/UI_Map/FEAT_DOC_UI_Map_marker-sizing.md` — sizing/behaviour of the centred boat marker that GPS positions on the map.
 - `docs/MARO_ARCHITECTURE.md` — spatial-engine constraints (Nice–Fréjus bounding box, async/map rules) GPS positions operate within.
 - `xTrack/Coastline/FEAT_DOC_Coastline_300m-line-design.md` — the 300 m regulatory band + 5-knot rule the dashboard speed colour-coding enforces.
+- `xTrack/GPS/FEAT_DOC_GPS_spike-rejection.md` — Spike rejection architecture: gate pipeline, still-spike fix, land mode auto-detection
+- `xTrack/GPS/FEAT_PLN_GPS_still-spike-fix.md` — Still-spike fix plan (lastGenuine anchor, bearing sanity, idle gate)
 - `xTrack/GPS/FEAT_PLN_GPS_demo-speed-tuning.md` — Demo mode speed tuning discussion
 - `xTrack/GPS/FEAT_PLN_GPS_loss-investigation.md` — GPS tracking loss investigation report
 - `xTrack/GPS/FEAT_PLN_GPS_loss-fix-plan.md` — GPS loss fix plan

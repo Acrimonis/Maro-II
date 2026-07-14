@@ -192,6 +192,13 @@ class TrackRecorder(
     /** Last assigned timeOffsetMs — ensures monotonic uniqueness even when fixes share the same ms. */
     private var lastTimeOffsetMs: Long = 0L
 
+    // ── Still-spike fix fields ──
+    /** Last position confirmed by GPS speed ≥ 2kn — anchor for drift detection. */
+    private var lastGenuineLat: Double? = null
+    private var lastGenuineLon: Double? = null
+    /** Sliding window of last 5 accepted bearings (degrees) for trajectory sanity. */
+    private val bearingWindow = ArrayDeque<Double>(5)
+
     // ── Fix D: dedup fields ──
     /** Latitude of last accepted point — for same-position dedup (Fix D). */
     private var lastAcceptedLat: Double? = null
@@ -337,6 +344,10 @@ class TrackRecorder(
         lastAcceptedLat = null
         lastAcceptedLon = null
         lastAcceptedTimeWallMs = 0L
+        // Still-spike fix reset
+        lastGenuineLat = null
+        lastGenuineLon = null
+        bearingWindow.clear()
         pointsSinceLastCheckpoint = 0
         stopDebounceStartTime = null
         idleDurationSec = track.idleDurationSec
@@ -504,6 +515,10 @@ class TrackRecorder(
         lastAcceptedLat = null
         lastAcceptedLon = null
         lastAcceptedTimeWallMs = 0L
+        // Still-spike fix reset
+        lastGenuineLat = null
+        lastGenuineLon = null
+        bearingWindow.clear()
         pointsSinceLastCheckpoint = 0
         stopDebounceStartTime = null
         idleDurationSec = 0L
@@ -653,8 +668,32 @@ class TrackRecorder(
 
         // ── Spike rejection v2: four-gate algorithm (GPS mode only) ────
         if (gpsMode) {
+            // ── Still-spike gate: contradiction check (speed=0 + position jump) ──
+            if (lastGenuineLat != null && lastGenuineLon != null) {
+                val gpsSpeedKn = sample.speedMps?.let { it * 1.94384 } ?: 0.0
+                if (gpsSpeedKn < 2.0) {
+                    val distFromGenuine = SpatialOperations.haversine(
+                        LatLng(lastGenuineLat!!, lastGenuineLon!!), sample.position
+                    )
+                    if (distFromGenuine > MAX_STATIONARY_DRIFT_M) {
+                        logRejection("still-spike", distFromGenuine, MAX_STATIONARY_DRIFT_M.toDouble())
+                        return
+                    }
+                    // ── Trajectory consistency: bearing sanity (sea only) ──
+                    if (!isOnLand && bearingWindow.size >= 3) {
+                        val bearingFromGenuine = SpatialOperations.initialBearing(
+                            LatLng(lastGenuineLat!!, lastGenuineLon!!), sample.position
+                        )
+                        val medianBearing = bearingWindow.sorted().let { it[it.size / 2] }
+                        if (angularDistance(bearingFromGenuine, medianBearing) > 90.0) {
+                            logRejection("bearing sanity", angularDistance(bearingFromGenuine, medianBearing), 90.0)
+                            return
+                        }
+                    }
+                }
+            }
             // Timeout reset: if no sample accepted for >STALE_FIX_TIMEOUT_MS, accept with relaxed check.
-            if (lastAcceptedTimeMs > 0L && System.currentTimeMillis() - lastAcceptedTimeMs > STALE_FIX_TIMEOUT_MS) {
+            if (!stopped && lastAcceptedTimeMs > 0L && System.currentTimeMillis() - lastAcceptedTimeMs > STALE_FIX_TIMEOUT_MS) {
                 Log.w(TAG, "Spike reset: ${(System.currentTimeMillis() - lastAcceptedTimeMs) / 1000}s since last accepted sample")
                 lastHadLock = sample.hasLock
                 // Fix C: stationary drift check — reject implausible position jumps while stationary
@@ -710,9 +749,18 @@ class TrackRecorder(
             if (lastValidPointLat != null && lastValidPointLon != null && lastValidPointTimeMs > 0L) {
                 val lastValidPos = LatLng(lastValidPointLat!!, lastValidPointLon!!)
                 val distM = SpatialOperations.haversine(lastValidPos, sample.position)
-                // Fix C: absolute distance cap when stationary
+                // Fix C: absolute distance cap when stationary — anchored to last genuine position
                 val gpsSpeedKn = sample.speedMps?.let { it * 1.94384 } ?: 0.0
-                if (gpsSpeedKn < 2.0 && distM > MAX_STATIONARY_DRIFT_M) {
+                if (lastGenuineLat != null && lastGenuineLon != null && gpsSpeedKn < 2.0) {
+                    val distFromGenuine = SpatialOperations.haversine(LatLng(lastGenuineLat!!, lastGenuineLon!!), sample.position)
+                    if (distFromGenuine > MAX_STATIONARY_DRIFT_M) {
+                        logRejection("stationary drift", distFromGenuine, MAX_STATIONARY_DRIFT_M.toDouble())
+                        consecutiveRejections++
+                        checkLandDetection(sample)
+                        return
+                    }
+                } else if (gpsSpeedKn < 2.0 && distM > MAX_STATIONARY_DRIFT_M) {
+                    // Fallback to lastValidPoint when no genuine anchor yet
                     logRejection("stationary drift", distM, MAX_STATIONARY_DRIFT_M.toDouble())
                     consecutiveRejections++
                     checkLandDetection(sample)
@@ -860,6 +908,20 @@ class TrackRecorder(
             } else {
                 landModeAcceptCounter = 0
             }
+        }
+
+        // ── Update genuine anchor + bearing window ──
+        if (acceptedSpeedKn >= 2.0) {
+            // Compute bearing of this movement segment
+            if (lastGenuineLat != null && lastGenuineLon != null) {
+                val bearing = SpatialOperations.initialBearing(
+                    LatLng(lastGenuineLat!!, lastGenuineLon!!), LatLng(point.lat, point.lon)
+                )
+                if (bearingWindow.size >= 5) bearingWindow.removeFirst()
+                bearingWindow.addLast(bearing)
+            }
+            lastGenuineLat = point.lat
+            lastGenuineLon = point.lon
         }
 
         updateCourseHistory(sample.position)
