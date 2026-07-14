@@ -1350,6 +1350,7 @@ fun MapScreen(
     // ── Double-back-to-exit state ─────────────────────────────────────────
     var lastBackAt by remember { mutableStateOf(0L) }
     var showExitBanner by remember { mutableStateOf(false) }
+    var showExitDialog by remember { mutableStateOf(false) }
 
     Box(
         modifier = modifier
@@ -1382,12 +1383,7 @@ fun MapScreen(
             val isRecording = trackRecorderState.state == ykws.android.maro.data.track.TrackRecorderState.ON
             if (now - lastBackAt <= 2_000L) {
                 if (isRecording) {
-                    trackViewModel.stopRecording()
-                    kotlinx.coroutines.MainScope().launch {
-                        kotlinx.coroutines.delay(300)
-                        context.stopService(Intent(context, ykws.android.maro.data.track.TrackRecordingService::class.java))
-                        context.findActivity()?.finishAffinity()
-                    }
+                    showExitDialog = true
                 } else {
                     context.stopService(Intent(context, ykws.android.maro.data.track.TrackRecordingService::class.java))
                     context.findActivity()?.finishAffinity()
@@ -1402,6 +1398,36 @@ fun MapScreen(
                 delay(2_000L)
                 showExitBanner = false
             }
+        }
+
+        // ── Recording-aware exit dialog (shown on double-back while recording) ──
+        if (showExitDialog) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { showExitDialog = false },
+                title = { androidx.compose.material3.Text("Recording in progress") },
+                text = { androidx.compose.material3.Text("A track is being recorded. What would you like to do?") },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(
+                        onClick = {
+                            showExitDialog = false
+                            trackViewModel.stopRecording()
+                            kotlinx.coroutines.MainScope().launch {
+                                kotlinx.coroutines.delay(300)
+                                context.stopService(Intent(context, ykws.android.maro.data.track.TrackRecordingService::class.java))
+                                context.findActivity()?.finishAffinity()
+                            }
+                        }
+                    ) { androidx.compose.material3.Text("Stop & Exit") }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(
+                        onClick = {
+                            showExitDialog = false
+                            context.findActivity()?.moveTaskToBack(true)
+                        }
+                    ) { androidx.compose.material3.Text("Keep Recording") }
+                }
+            )
         }
 
         // ── Main content (map + dashboard) ────────────────────────────────

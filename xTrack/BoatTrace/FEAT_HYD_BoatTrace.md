@@ -1,69 +1,28 @@
 # BoatTrace — Hydration Snapshot
 
-**Baked at:** 2026-07-12 18:19 UTC
-**Active Subfeature:** merge-tracks (Resume + Merge implemented, scaffold extended)
-**Branch:** feature/merge-tracks
+**Baked at:** 2026-07-14 09:22 UTC
+**Active Subfeature:** notif-lifecycle (notification lifecycle hardening: tap-to-open, post-kill resilience, recording-aware exit)
+**Branch:** feature/notif
 
 ## Session Summary
 
-**Resume Existing Track — IMPLEMENTED.** See FEAT_DSC_BoatTrace.md ## Implemented.
+**Notification Lifecycle Hardening — IMPLEMENTED.** Three fixes across 2 files, BUILD SUCCESSFUL.
 
-**Merge Tracks — IMPLEMENTED.** New `TrackMerger` utility — concatenates points with `timeOffsetMs` rebasing, GAP markers, renumbered BoatMarkers, synthesized stats. `TrackViewModel.mergeTracks(ids, name, keepOriginals)`. Merge action via existing `ListOverlayScaffold` multi-select with `MultiActionSpec("merge")`. Name + keep-originals dialog via new `confirmContent` scaffold slot.
+### Fix 1: Tap-to-Open
+`TrackRecordingService.buildNotification()` now calls `builder.setContentIntent()` with `PendingIntent.getActivity(MainActivity)`, `FLAG_ACTIVITY_SINGLE_TOP | FLAG_ACTIVITY_CLEAR_TOP`. Tapping the persistent notification opens the app.
 
-**Scaffold extension — IMPLEMENTED.** `MultiActionSpec.confirmContent: @Composable (Set<String>, () -> Unit, () -> Unit) -> Unit` — custom dialog slot receiving selected IDs + onDismiss/onConfirm callbacks. Scaffold manages `showConfirmDialog` lifecycle and `exitMultiselect` via `onConfirm`. Merge dialog folded into this slot (state managed via `remember` inside lambda).
+### Fix 2: Post-Kill Resilience
+- `lastKnownOnWater` persisted to SharedPreferences (`"maro_service_prefs"`, key `"pref_last_water_state"`) — read in `onCreate()`, written on every toggle in `onStartCommand()`. Survives process death.
+- Lightweight orphan checkpoint scan in `onCreate()`: `File.listFiles(FileFilter { it.extension == "checkpoint" })` — no protobuf I/O. Sets `hasOrphans` flag. `buildNotification()` shows `"Recovery available"` label when orphans exist.
 
-## Previous Session (boat-markers)
+### Fix 3: Recording-Aware Exit Dialog
+Double-back while recording shows `AlertDialog` ("Stop & Exit" / "Keep Recording") instead of auto-killing the recording. "Keep Recording" calls `moveTaskToBack(true)` — app backgrounds, foreground service + GPS + recording continue. Non-recording double-back unchanged.
 
-BoatMarker infrastructure fully implemented — design finalised, all 12 steps coded and built:
+## Key Files (modified)
 
-### Data model
-- `BoatMarkerTrigger`, `MarkerSnapshot`, `BoatMarker` (ProtoNumber 1-8, including `autoMarkerId`)
-- `IdleCaptureResult`, `IdleThresholdCallback` interface, `IdleSessionContext` class
-- Track `@ProtoNumber(16) boatMarkers: List<BoatMarker>`
-- TrackEvent: `IdlePeriodStarted/Completed`, `DrawerAutoOpenRequested/CloseRequested`
-- UserMarker: `MarkerOrigin` enum, `origin`, `keepable` fields
+- `app/src/main/java/ykws/android/maro/data/track/TrackRecordingService.kt` — Fixes 1, 2a, 2b
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — Fix 3
 
-### Logic
-- TrackRecorder: idle threshold timer (60s default), session context lifecycle, BoatMarker append/close with checkpoint saves, `addManualBoatMarker()`, `setBoatMarkerAutoMarkerId()`, `setActiveSessionAutoMarkerId()`
-- TrackViewModel: persistent `_events` MutableSharedFlow with forwarding coroutine, passthrough methods, idle callback wiring
-- MarkersViewModel: `whereAmISync()`, `addTempAutoMarker()`, `confirmAutoMarker(id, name, desc)`, top-level `toMarkerSnapshot()`
+## Plan
 
-### UI
-- MapScreen: idle callback (whereAmISync snapshots + drawer auto-open), event observation (IdlePeriodStarted → temp 🕐 pin, IdlePeriodCompleted → confirm/delete), MANUAL boat-marker button snapshots, startup cleanup of `keepable=false`
-- MarkerOverlay: proximity ring suppressed for IDLE_AUTO, icon tooltip suppressed, icon opacity from config
-- ICON_SET: 16 icons, 4×4 grid (🐬🐚🏖️🕐)
-- History tracks: 🕐 pins rendered with track polyline transparency
-
-### Config
-- `track.boatMarker.autoMarker.idleThresholdSec=10`, `minDurationSec=30`, `opacity=50`
-- Single `maro.properties` in assets (root copy deleted, `syncMaroProperties` Gradle task removed)
-
-## Key Files (implemented)
-
-### New
-- `app/src/main/java/ykws/android/maro/data/track/BoatMarker.kt`
-- `app/src/main/java/ykws/android/maro/data/track/IdleThresholdCallback.kt`
-- `app/src/main/java/ykws/android/maro/data/track/IdleSessionContext.kt`
-
-### Modified
-- `app/src/main/java/ykws/android/maro/data/track/Track.kt` — ProtoNumber 16
-- `app/src/main/java/ykws/android/maro/data/track/TrackEvent.kt` — 4 new events
-- `app/src/main/java/ykws/android/maro/data/model/markers/UserMarker.kt` — MarkerOrigin + keepable
-- `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt` — idle timer, BoatMarker lifecycle
-- `app/src/main/java/ykws/android/maro/data/track/TrackViewModel.kt` — events forwarding, passthrough
-- `app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt` — whereAmISync, auto-marker CRUD
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — callback wiring, event observation
-- `app/src/main/java/ykws/android/maro/ui/map/MarkerOverlay.kt` — proximity/tooltip/opacity
-- `app/src/main/java/ykws/android/maro/ui/map/IconPickerDialog.kt` — 16 icons
-- `app/src/main/java/ykws/android/maro/config/AppConfig.kt` — parsed config
-- `app/src/main/assets/maro.properties` — auto-marker config keys
-- `app/build.gradle.kts` — single maro.properties reference
-
-### Deleted
-- `maro.properties` (root — consolidated to assets)
-
-## Next Steps
-- [ ] Build + deploy to device
-- [ ] E2E: Verify idle auto-marker 🕐 pin appears during recording
-- [ ] E2E: Verify proximity ring hidden, icon dimmed
-- [ ] E2E: Verify history track shows 🕐 pins at idle positions
+- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_notif-lifecycle-hardening.md`
