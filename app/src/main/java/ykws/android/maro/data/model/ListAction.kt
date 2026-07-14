@@ -27,6 +27,9 @@ sealed class ListAction {
     // ── Refresh ───────────────────────────────────────────────────────
     /** Re-sort and refresh the card list with the given sort state. */
     data class RefreshList(val sortState: ykws.android.maro.data.model.ListSortState) : ListAction()
+    /** Merge selected tracks into a single new track. */
+    data class MergeTracks(val ids: Set<String>) : ListAction()
+
     /** Invalidate and redraw the map overlay layer (polylines, markers). */
     data object RefreshLayer : ListAction()
 }
