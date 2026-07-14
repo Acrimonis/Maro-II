@@ -61,6 +61,16 @@ private const val COURSE_SIDEWAYS_MULTIPLIER = 0.5
 private const val LAND_DETECTION_REJECTIONS = 5
 /** Consecutive accepted fixes ≤32 kn before switching back to sea. */
 private const val SEA_RECOVERY_CONSECUTIVE = 10
+/** Window (ms) to skip identical positions — dedup gate (Fix D). */
+private const val DEDUP_WINDOW_MS = 500L
+/** GPS speed below this (m/s, ~2 kn) triggers low-speed tier in stale timeout (Fix A). */
+private const val LOW_SPEED_MPS = 1.0
+/** Multiplier × BOAT_MAX_SPEED_KN when GPS speed < LOW_SPEED_MPS (Fix A). */
+private const val STALE_CAP_LOW_SPEED = 1.5
+/** Multiplier × BOAT_MAX_SPEED_KN when GPS speed ≥ LOW_SPEED_MPS (Fix A). */
+private const val STALE_CAP_NORMAL = 3.0
+/** Max plausible drift distance (m) while stationary (Fix C). */
+private const val MAX_STATIONARY_DRIFT_M = 150
 
 /** Interval (ms) between title poll ticks. */
 private const val TITLE_POLL_INTERVAL_MS = 180_000L
@@ -171,8 +181,8 @@ class TrackRecorder(
     private var lastValidSpeedKn: Double = 0.0
     /** Consecutive GPS fixes rejected by any gate. */
     private var consecutiveRejections: Int = 0
-    /** Counter of consecutive accepted fixes at sea speed — builds confidence for sea recovery. */
-    private var seaConfidenceCounter: Int = 0
+    /** Counter of consecutive accepted fixes at sea speed while on land — builds confidence for sea recovery. */
+    private var landModeAcceptCounter: Int = 0
     /** True when auto-detection determines we're on land (car mode). */
     private var isOnLand: Boolean = false
     /** Previous fix's lock state — used to detect GPS recovery transitions. */
@@ -181,6 +191,14 @@ class TrackRecorder(
     private var lastAcceptedTimeMs: Long = 0L
     /** Last assigned timeOffsetMs — ensures monotonic uniqueness even when fixes share the same ms. */
     private var lastTimeOffsetMs: Long = 0L
+
+    // ── Fix D: dedup fields ──
+    /** Latitude of last accepted point — for same-position dedup (Fix D). */
+    private var lastAcceptedLat: Double? = null
+    /** Longitude of last accepted point — for same-position dedup (Fix D). */
+    private var lastAcceptedLon: Double? = null
+    /** Wall-clock time (ms) of last accepted point — for dedup window (Fix D). */
+    private var lastAcceptedTimeWallMs: Long = 0L
 
     // ── Idle duration accumulator ──
     private var idleDurationSec: Long = 0L
@@ -296,11 +314,15 @@ class TrackRecorder(
         courseHistory.clear()
         lastValidSpeedKn = 0.0
         consecutiveRejections = 0
-        seaConfidenceCounter = 0
+        landModeAcceptCounter = 0
         isOnLand = false
         lastHadLock = true
         lastAcceptedTimeMs = System.currentTimeMillis()
         lastTimeOffsetMs = lastPoint?.timeOffsetMs ?: 0L
+        // Fix D: reset dedup fields
+        lastAcceptedLat = null
+        lastAcceptedLon = null
+        lastAcceptedTimeWallMs = 0L
         pointsSinceLastCheckpoint = 0
         stopDebounceStartTime = null
         idleDurationSec = track.idleDurationSec
@@ -459,11 +481,15 @@ class TrackRecorder(
         courseHistory.clear()
         lastValidSpeedKn = 0.0
         consecutiveRejections = 0
-        seaConfidenceCounter = 0
+        landModeAcceptCounter = 0
         isOnLand = false
         lastHadLock = true
         lastAcceptedTimeMs = System.currentTimeMillis()
         lastTimeOffsetMs = 0L
+        // Fix D: reset dedup fields
+        lastAcceptedLat = null
+        lastAcceptedLon = null
+        lastAcceptedTimeWallMs = 0L
         pointsSinceLastCheckpoint = 0
         stopDebounceStartTime = null
         idleDurationSec = 0L
@@ -541,6 +567,19 @@ class TrackRecorder(
             }
         }
 
+        // ── Fix D: dedup identical positions within DEDUP_WINDOW_MS ──
+        val nowWall = System.currentTimeMillis()
+        if (lastAcceptedLat != null && lastAcceptedLon != null &&
+            sample.position.latitude == lastAcceptedLat &&
+            sample.position.longitude == lastAcceptedLon &&
+            nowWall - lastAcceptedTimeWallMs < DEDUP_WINDOW_MS) {
+            Log.v(TAG, "Dedup: skipped identical position within ${nowWall - lastAcceptedTimeWallMs}ms")
+            return
+        }
+        lastAcceptedLat = sample.position.latitude
+        lastAcceptedLon = sample.position.longitude
+        lastAcceptedTimeWallMs = nowWall
+
         val stopped = isStopped.value
         _uiState.update { it.copy(isMoving = !stopped) }
 
@@ -604,37 +643,67 @@ class TrackRecorder(
             if (lastAcceptedTimeMs > 0L && System.currentTimeMillis() - lastAcceptedTimeMs > STALE_FIX_TIMEOUT_MS) {
                 Log.w(TAG, "Spike reset: ${(System.currentTimeMillis() - lastAcceptedTimeMs) / 1000}s since last accepted sample")
                 lastHadLock = sample.hasLock
-                // Relaxed check: reject only physically impossible jumps (>6× boat max speed ≈ 192 kn).
-                // This catches GPS spikes (e.g. 4 km in 14s = 560 kn) while allowing legitimate
-                // position recovery after a recording pause.
+                // Fix C: stationary drift check — reject implausible position jumps while stationary
                 if (lastValidPointLat != null && lastValidPointLon != null && lastValidPointTimeMs > 0L) {
                     val refPos = LatLng(lastValidPointLat!!, lastValidPointLon!!)
                     val distM = SpatialOperations.haversine(refPos, sample.position)
+                    val gpsSpeedKn = sample.speedMps?.let { it * 1.94384 } ?: 0.0
+                    if (gpsSpeedKn < 2.0 && distM > MAX_STATIONARY_DRIFT_M) {
+                        logRejection("stale drift", distM, MAX_STATIONARY_DRIFT_M.toDouble())
+                        return
+                    }
                     val dtSec = (sample.timestampEpochMs - lastValidPointTimeMs) / 1000.0
                     if (dtSec > 0.0) {
                         val impliedKn = (distM / dtSec) * 1.94384
-                        if (impliedKn > BOAT_MAX_SPEED_KN * 6.0) {
-                            Log.w(TAG, "Spike reset REJECTED: implied=${"%.1f".format(impliedKn)}kn dist=${"%.0f".format(distM)}m dt=${"%.1f".format(dtSec)}s")
+                        val isLowSpeed = (sample.speedMps?.toDouble() ?: 0.0) < LOW_SPEED_MPS
+                        val staleCap = BOAT_MAX_SPEED_KN * if (isLowSpeed) STALE_CAP_LOW_SPEED else STALE_CAP_NORMAL
+                        if (impliedKn > staleCap) {
+                            Log.w(TAG, "Spike reset REJECTED (${if (isLowSpeed) "low-speed" else "normal"}): implied=${"%.1f".format(impliedKn)}kn cap=${"%.1f".format(staleCap)}kn dist=${"%.0f".format(distM)}m")
                             return
                         }
                     }
                 }
+                consecutiveRejections = 0
                 captureAcceptedPoint(sample)
+                // Clear course history — don't trust spike position for direction
+                lastValidCourseDeg = null
+                courseHistory.clear()
                 return
             }
 
             // Gate 0: GPS recovery — skip all checks when lock transitions false→true
             if (!lastHadLock && sample.hasLock) {
                 lastHadLock = true
+                consecutiveRejections = 0
                 captureAcceptedPoint(sample)
                 return
             }
             lastHadLock = sample.hasLock
 
+            // Fix B: Gate 0.5 — GPS-reported speed cap (sea mode only)
+            if (!isOnLand) {
+                val gpsSpeedKn = sample.speedMps?.let { it * 1.94384 } ?: 0.0
+                val gpsSpeedCap = BOAT_MAX_SPEED_KN * 1.25  // 40 kn
+                if (gpsSpeedKn > gpsSpeedCap) {
+                    logRejection("gps speed", gpsSpeedKn, gpsSpeedCap)
+                    consecutiveRejections++
+                    checkLandDetection(sample)
+                    return
+                }
+            }
+
             // Need at least one valid point for gates 1-3
             if (lastValidPointLat != null && lastValidPointLon != null && lastValidPointTimeMs > 0L) {
                 val lastValidPos = LatLng(lastValidPointLat!!, lastValidPointLon!!)
                 val distM = SpatialOperations.haversine(lastValidPos, sample.position)
+                // Fix C: absolute distance cap when stationary
+                val gpsSpeedKn = sample.speedMps?.let { it * 1.94384 } ?: 0.0
+                if (gpsSpeedKn < 2.0 && distM > MAX_STATIONARY_DRIFT_M) {
+                    logRejection("stationary drift", distM, MAX_STATIONARY_DRIFT_M.toDouble())
+                    consecutiveRejections++
+                    checkLandDetection(sample)
+                    return
+                }
                 val timeDeltaSec = (sample.timestampEpochMs - lastValidPointTimeMs) / 1000.0
                 if (timeDeltaSec > 0.0) {
                     val impliedSpeedKn = (distM / timeDeltaSec) * 1.94384
@@ -669,6 +738,7 @@ class TrackRecorder(
                     if (accelKnPerSec > accelLimit) {
                         logRejection("acceleration", accelKnPerSec, accelLimit)
                         consecutiveRejections++
+                        checkLandDetection(sample)
                         return
                     }
 
@@ -681,6 +751,7 @@ class TrackRecorder(
                     if (distM > 30.0) {
                         logRejection("same-ms jump", distM, 30.0)
                         consecutiveRejections++
+                        checkLandDetection(sample)
                         return
                     }
                     // Accepted — reset rejection counter (mirrors line 403 in dt>0 path)
@@ -762,6 +833,21 @@ class TrackRecorder(
         // Update spike-rejection trackers
         val acceptedSpeedKn = sample.speedMps?.let { it * 1.94384 } ?: _uiState.value.currentSpeedKn.toDouble()
         lastValidSpeedKn = acceptedSpeedKn
+
+        // Land-to-sea recovery: count consecutive sea-speed fixes while on land
+        if (isOnLand) {
+            val sampleSpeedKn = (sample.speedMps ?: 0f) * 1.94384
+            if (sampleSpeedKn <= BOAT_MAX_SPEED_KN) {
+                landModeAcceptCounter++
+                if (landModeAcceptCounter >= SEA_RECOVERY_CONSECUTIVE) {
+                    isOnLand = false
+                    landModeAcceptCounter = 0
+                }
+            } else {
+                landModeAcceptCounter = 0
+            }
+        }
+
         updateCourseHistory(sample.position)
     }
 
@@ -900,18 +986,6 @@ class TrackRecorder(
                 isOnLand = true
                 consecutiveRejections = 0
                 lastValidCourseDeg = null  // reset course — direction check now off
-            }
-        }
-        if (isOnLand && consecutiveRejections == 0) {
-            val speedKn = sample.speedMps?.let { it * 1.94384 } ?: 0.0
-            if (speedKn <= BOAT_MAX_SPEED_KN) {
-                seaConfidenceCounter++
-                if (seaConfidenceCounter >= SEA_RECOVERY_CONSECUTIVE) {
-                    isOnLand = false
-                    seaConfidenceCounter = 0
-                }
-            } else {
-                seaConfidenceCounter = 0
             }
         }
     }

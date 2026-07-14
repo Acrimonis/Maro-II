@@ -1,9 +1,10 @@
 # Hydration — GPS
 
-**Last Bake:** 2026-07-06 14:43
-**State:** gps-background: implemented, built, verified. 16 files, all subfeatures complete.
+**Last Bake:** 2026-07-12 19:40
+**State:** fix-spike: implemented, built, verified. 1 file, 4 fixes, ~65 lines.
 
 ## Summary
+- **fix-spike** — Fix D: dedup identical positions within 500ms. Fix A: stale-timeout two-tier cap (48/96 kn) + course clear. Fix B: GPS-reported speed gate (40 kn, !isOnLand guard). Fix C: stationary distance cap (150m at <2 kn). Bonus: fixed dead sea-recovery (`landModeAcceptCounter`), added missing `checkLandDetection` calls, reset `consecutiveRejections` on stale/Gate 0 acceptance.
 - yarefact Phase A+B+C — TrackSample, unified isStopped, incremental polyline
 - background-recording — ON_PAUSE GPS-kill gated behind recording state
 - **gps-background** — A1: FGS location + FOREGROUND_SERVICE_LOCATION. A2: ACCESS_BACKGROUND_LOCATION + native permission dialog. A3: notification Stop via StopRecordingReceiver→service pattern. A4: battery exemption dual-trigger prompt. B1: recording-aware BackHandler (red border, ⚠, 300ms delay). C2: recovery dialog Continue/Save, full recorder resume with Resumed event for polyline restore. C3: GAP markers + DashPathEffect on live+saved tracks.

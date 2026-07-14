@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** BoatTrace
-- **Active Subfeature:** merge-tracks
-- **Last Updated:** 2026-07-12 14:30
-- **Last Bake:** 2026-07-12 14:30 (BoatTrace — merge-tracks: Resume + Merge plans designed, 21 decisions, 8 steps)
-- **Branch:** feature/merge-tacks
+- **Active Feature:** GPS
+- **Active Subfeature:** fix-spike
+- **Last Updated:** 2026-07-12 19:01
+- **Last Bake:** 2026-07-12 19:40 (GPS — fix-spike: 4 fixes, dead sea-recovery fixed, build ✅)
+- **Branch:** feature/fix-tracking
 
 ## Routing Map
 | Keyword | Feature File |
