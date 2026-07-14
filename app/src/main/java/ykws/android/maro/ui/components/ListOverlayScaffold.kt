@@ -443,7 +443,8 @@ fun <T : ListableItem> ListOverlayScaffold(
     onAction: (ListAction) -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
-    multiActions: List<MultiActionSpec> = emptyList()
+    multiActions: List<MultiActionSpec> = emptyList(),
+    headerActions: @Composable () -> Unit = {}
 ) {
     val pendingDeletes = remember { mutableStateListOf<String>() }
 
@@ -586,6 +587,8 @@ fun <T : ListableItem> ListOverlayScaffold(
                 ) {
                     Text(sectionLabel, color = Color(AppConfig.uiSettingsAccent), fontSize = 17.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                     Row(verticalAlignment = Alignment.CenterVertically) {
+                        // Header actions (e.g. import button)
+                        headerActions()
                         // Filter
                         if (filterAxes.isNotEmpty()) {
                             FilterControl(filterState = filterState, filterAxes = filterAxes, onFilterChange = onFilterChange)

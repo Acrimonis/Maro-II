@@ -1,19 +1,30 @@
 package ykws.android.maro.data.track
 
+import android.util.Base64
+import kotlinx.serialization.protobuf.ProtoBuf
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
 private val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
+private val proto = ProtoBuf.Default
+
+/** MaroII namespace URI — never change this or old exports lose MaroII data on re-import. */
+const val MARO_NS = "https://maro.ykws.android/track/1"
 
 /**
- * Convert [track] to GPX 1.1 XML.
+ * Convert [track] to GPX 1.1 XML with a MaroII extension blob for lossless round-trip.
+ *
+ * Standard GPX consumers (QGIS, Google Earth, OsmAnd) parse the GPX normally and
+ * ignore the `<maro:data>` extension. MaroII re-import decodes the protobuf blob
+ * directly for full fidelity including markers, pinned state, color, etc.
  */
 fun Track.toGpx(): String = buildString {
     append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>")
     append("<gpx version=\"1.1\" creator=\"Maro II\"")
     append(" xmlns=\"http://www.topografix.com/GPX/1/1\"")
     append(" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"")
+    append(" xmlns:maro=\"$MARO_NS\"")
     append(" xsi:schemaLocation=\"http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd\">")
     append("<trk>")
     append("<name>")
@@ -39,11 +50,18 @@ fun Track.toGpx(): String = buildString {
         append("</trkpt>")
     }
     append("</trkseg>")
+    // ── MaroII extension blob: base64-encoded protobuf of the full Track ──
+    val blob = Base64.encodeToString(proto.encodeToByteArray(Track.serializer(), this@toGpx), Base64.NO_WRAP)
+    append("<extensions>")
+    append("<maro:data>")
+    append(blob)
+    append("</maro:data>")
+    append("</extensions>")
     append("</trk>")
     append("</gpx>")
 }
 
-private fun escapeXml(text: String): String = buildString {
+internal fun escapeXml(text: String): String = buildString {
     for (c in text) {
         when (c) {
             '&' -> { append('&'); append('a'); append('m'); append('p'); append(';') }
