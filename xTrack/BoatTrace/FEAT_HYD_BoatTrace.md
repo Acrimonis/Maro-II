@@ -1,24 +1,16 @@
 # BoatTrace — Hydration Snapshot
 
-**Baked at:** 2026-07-14 08:02 UTC
-**Active Subfeature:** more-stuff (implemented — GPX round-trip)
-**Branch:** feature/track-save-finalization
+**Baked at:** 2026-07-12 18:19 UTC
+**Active Subfeature:** merge-tracks (Resume + Merge implemented, scaffold extended)
+**Branch:** feature/merge-tracks
 
 ## Session Summary
 
-Implemented GPX extension round-trip export/import:
+**Resume Existing Track — IMPLEMENTED.** See FEAT_DSC_BoatTrace.md ## Implemented.
 
-**Export:** `GpxExporter.toGpx()` now includes `<maro:data>` base64-encoded protobuf blob in GPX `<extensions>`. Full Track fidelity including BoatMarkers, pinned state, color, durations. Standards-compatible — other tools ignore unknown extensions.
+**Merge Tracks — IMPLEMENTED.** New `TrackMerger` utility — concatenates points with `timeOffsetMs` rebasing, GAP markers, renumbered BoatMarkers, synthesized stats. `TrackViewModel.mergeTracks(ids, name, keepOriginals)`. Merge action via existing `ListOverlayScaffold` multi-select with `MultiActionSpec("merge")`. Name + keep-originals dialog via new `confirmContent` scaffold slot.
 
-**Import:** New `GpxImporter` — parses GPX, extracts MaroII blob for lossless round-trip, falls back to standard `<trkpt>` for foreign files. ZIP archive support with path-traversal guard. Name-based anti-collision (`"Name (2)"`).
-
-**Multi-select ZIP:** Filenames use sanitized track names with `ZipEntry.time` set to track `startTimeMs`.
-
-**UI:** Import button in track list header via new `headerActions` slot in `ListOverlayScaffold`. File picker via `ActivityResultContracts.OpenDocument`. Toast feedback.
-
-**Files:** 10 changed (GpxExporter, GpxImporter new, ListAction, TrackViewModel, ListOverlayScaffold, TrackHistoryOverlay, OverlayLayer, MapScreen, strings EN+FR).
-
-**Build:** ✅
+**Scaffold extension — IMPLEMENTED.** `MultiActionSpec.confirmContent: @Composable (Set<String>, () -> Unit, () -> Unit) -> Unit` — custom dialog slot receiving selected IDs + onDismiss/onConfirm callbacks. Scaffold manages `showConfirmDialog` lifecycle and `exitMultiselect` via `onConfirm`. Merge dialog folded into this slot (state managed via `remember` inside lambda).
 
 ## Previous Session (boat-markers)
 

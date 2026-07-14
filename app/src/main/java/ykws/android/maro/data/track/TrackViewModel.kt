@@ -173,8 +173,10 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         if (recorder == null) {
             initRecorder()
         }
+        val trackId = _uiState.value.currentTrackId
         recorder?.stop()
         TrackRecordingService.activeRecorder = null
+        if (trackId != null) invalidateTrackCache(trackId)
         viewModelScope.launch {
             kotlinx.coroutines.delay(500)
             refreshSummaries()
@@ -361,6 +363,114 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             kotlinx.coroutines.delay(500)
             refreshSummaries()
+        }
+    }
+
+    /**
+     * Resume a finalized track as a live recording.
+     *
+     * Loads the finalized track, forces visibleOnMap, re-initializes the TrackRecorder
+     * with fromCheckpoint=false, and appends new points. The inter-session gap is
+     * tracked (resumeGapDurationSec) and excluded from navigating duration at finalize.
+     */
+    fun resumeTrack(trackId: String) {
+        // Guard: cannot resume while already recording
+        if (_uiState.value.state == TrackRecorderState.ON) {
+            android.util.Log.w("MaroII_TrackVM", "resumeTrack: already recording")
+            return
+        }
+        viewModelScope.launch {
+            // 1. Load and validate the track
+            val track = repository.load(trackId) ?: return@launch
+            if (track.endTimeMs == null) {
+                android.util.Log.w("MaroII_TrackVM", "resumeTrack: track $trackId is not finalized")
+                return@launch
+            }
+            // Force visible (D7)
+            if (!track.visibleOnMap) {
+                repository.save(track.copy(visibleOnMap = true))
+            }
+
+            // 2. Stop any existing recorder
+            val sampleFlow = cachedSampleFlow ?: return@launch
+            stopRecorder()
+
+            // 3-4. Build new recorder (same params as resumeOrphanedCheckpoint)
+            val s = cachedSettings
+            val gapDistM = ykws.android.maro.config.AppConfig.trackingGapDistanceThresholdM
+            val gapTimeSec = ykws.android.maro.config.AppConfig.trackingGapTimeThresholdSec
+            val rec = TrackRecorder(
+                repository = repository,
+                gpsMode = s?.gpsMode ?: true,
+                geofenceOriginLat = s?.trackOriginLat ?: 43.55,
+                geofenceOriginLon = s?.trackOriginLon ?: 7.00,
+                geofenceRadiusM = s?.trackGeofenceRadiusM ?: 500.0,
+                geofenceEnabled = s?.trackGeofenceEnabled ?: true,
+                isStopped = stoppedSource,
+                simplifyEnabled = s?.trackSimplifyEnabled ?: true,
+                simplifyEpsilonM = s?.trackSimplifyEpsilonM ?: 3.0,
+                simplifySpeedDeltaKn = s?.trackSimplifySpeedDeltaKn ?: 3.0,
+                idleThresholdSec = ykws.android.maro.config.AppConfig.boatMarkerIdleThresholdSec,
+                gapDistanceThresholdM = gapDistM,
+                gapTimeThresholdSec = gapTimeSec
+            )
+            recorder = rec
+
+            // 5-6. Wire events + UI state
+            eventsForwardingJob?.cancel()
+            eventsForwardingJob = viewModelScope.launch {
+                rec.events.collect { _events.emit(it) }
+            }
+            viewModelScope.launch {
+                rec.uiState.collect { state ->
+                    _uiState.value = state
+                }
+            }
+
+            // 7. Register with foreground service
+            TrackRecordingService.activeRecorder = rec
+
+            // 8. Resume with fromCheckpoint=false
+            rec.resume(track, sampleFlow, fromCheckpoint = false)
+
+            // 9. Emit Resumed + refresh summaries
+            if (track.trackPoints.isNotEmpty()) {
+                _events.tryEmit(ykws.android.maro.data.track.TrackEvent.Resumed(track.trackPoints))
+            }
+            viewModelScope.launch {
+                kotlinx.coroutines.delay(500)
+                refreshSummaries()
+            }
+        }
+    }
+
+    /**
+     * Merge multiple finalized tracks into a single new track.
+     *
+     * Loads all tracks by ID, validates they are finalized, merges via [TrackMerger],
+     * saves the result, and optionally deletes the originals.
+     */
+    fun mergeTracks(trackIds: Set<String>, mergedName: String, keepOriginals: Boolean) {
+        viewModelScope.launch {
+            val tracks = trackIds.mapNotNull { repository.load(it) }
+                .filter { it.endTimeMs != null && it.trackPoints.isNotEmpty() }
+                .sortedBy { it.startTimeMs }
+            if (tracks.size < 2) return@launch
+
+            val merger = TrackMerger()
+            val merged = merger.merge(tracks, mergedName)
+
+            repository.save(merged)
+
+            if (!keepOriginals) {
+                trackIds.forEach { id ->
+                    invalidateTrackCache(id)
+                    repository.delete(id)
+                }
+            }
+
+            refreshSummaries()
+            _events.emit(TrackEvent.TracksMerged(merged.id, merged.name))
         }
     }
 

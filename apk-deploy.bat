@@ -25,10 +25,11 @@ echo  [OK] Build succeeded.
 
 echo  [2/3] Pushing APK to device...
 call "%~dp0apk-push.bat"
+call "%~dp0_timestamp.bat"
 if errorlevel 1 (
-    echo  Maro II - Deploy FAILED.
+    echo  Maro II - Deploy FAILED. [%TS%]
 ) else (
-    echo  Maro II - Deploy completed successfully.
+    echo  Maro II - Deploy completed successfully. [%TS%]
 )
 
 :end

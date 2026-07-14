@@ -51,11 +51,15 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.automirrored.filled.MergeType
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.outlined.LocationOff
 import androidx.compose.material.icons.outlined.PushPin
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -142,6 +146,8 @@ fun TrackHistoryOverlay(
     onAction: (ListAction) -> Unit,
     onDismiss: () -> Unit,
     onNavigateToTrack: (String) -> Unit = {},
+    onResumeTrack: ((String) -> Unit)? = null,
+    onMergeTracks: ((Set<String>, String, Boolean) -> Unit)? = null,
     sortState: ListSortState,
     onSortStateChange: (ListSortState) -> Unit,
     filterState: ListFilter = ListFilter(),
@@ -224,7 +230,7 @@ fun TrackHistoryOverlay(
     val unpinAllLabel = stringResource(R.string.action_unpin_all)
     val togglePinsLabel = stringResource(R.string.action_toggle_pins)
 
-    val trackMultiActions = remember(trackSummaries) {
+    val trackMultiActions = remember(trackSummaries, onMergeTracks) {
         listOf(
             MultiActionSpec(
                 id = "delete",
@@ -272,6 +278,84 @@ fun TrackHistoryOverlay(
                         }
                     )
                 )
+            ),
+            MultiActionSpec(
+                id = "merge",
+                label = "Merge",
+                icon = Icons.AutoMirrored.Filled.MergeType,
+                enabled = { ids -> ids.size >= 2 },
+                confirmContent = { ids, onDismiss, onConfirm ->
+                    val nameById = trackSummaries
+                        .filter { it.id in ids }
+                        .sortedBy { it.startTimeMs }
+                        .map { it.name }
+                    val defaultName = remember(ids) {
+                        if (nameById.size == 2) "${nameById[0]} + ${nameById[1]}"
+                        else "${nameById.first()} ... ${nameById.last()}"
+                    }
+                    var name by remember { mutableStateOf(defaultName) }
+                    var keepOriginals by remember { mutableStateOf(true) }
+
+                    AlertDialog(
+                        onDismissRequest = onDismiss,
+                        title = { Text("Merge ${ids.size} Tracks") },
+                        text = {
+                            Column {
+                                Text(
+                                    "Enter a name for the merged track:",
+                                    color = Color(AppConfig.uiSettingsTextMuted),
+                                    fontSize = 13.sp
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                TextField(
+                                    value = name,
+                                    onValueChange = { name = it },
+                                    singleLine = true,
+                                    textStyle = androidx.compose.ui.text.TextStyle(
+                                        color = Color(AppConfig.uiSettingsTextPrimary),
+                                        fontSize = 15.sp
+                                    ),
+                                    colors = TextFieldDefaults.colors(
+                                        focusedContainerColor = Color.Transparent,
+                                        unfocusedContainerColor = Color.Transparent,
+                                        focusedTextColor = Color(AppConfig.uiSettingsTextPrimary),
+                                        unfocusedTextColor = Color(AppConfig.uiSettingsTextPrimary),
+                                        cursorColor = Color(AppConfig.uiSettingsTextPrimary)
+                                    ),
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                Spacer(Modifier.height(8.dp))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Checkbox(
+                                        checked = keepOriginals,
+                                        onCheckedChange = { keepOriginals = it }
+                                    )
+                                    Text(
+                                        "Keep original tracks",
+                                        color = Color(AppConfig.uiSettingsTextPrimary),
+                                        fontSize = 14.sp
+                                    )
+                                }
+                            }
+                        },
+                        confirmButton = {
+                            TextButton(
+                                onClick = {
+                                    onMergeTracks?.invoke(ids, name.ifBlank { "Merged Track" }, keepOriginals)
+                                    onConfirm()
+                                }
+                            ) {
+                                Text("Merge")
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = onDismiss) {
+                                Text("Cancel")
+                            }
+                        },
+                        containerColor = Color(0xFF2D2D2D)
+                    )
+                }
             )
         )
     }
@@ -297,7 +381,9 @@ fun TrackHistoryOverlay(
                 onUpdateTrack = onUpdateTrack,
                 onShareGpx = { onAction(ListAction.ExportGpx(summary.id)) },
                 onTap = { onNavigateToTrack(summary.id) },
-                onLongPress = onLongPress
+                onLongPress = onLongPress,
+                onResumeTrack = onResumeTrack,
+                isRecording = liveState?.state == TrackRecorderState.ON
             )
         },
         liveCardContent = if (liveState != null && liveState.state == TrackRecorderState.ON) {
@@ -346,7 +432,9 @@ internal fun TrackCardContent(
     onUpdateTrack: (String, name: String?, comment: String?, pinned: Boolean?) -> Unit,
     onShareGpx: (String) -> Unit,
     onTap: (() -> Unit)? = null,
-    onLongPress: (() -> Unit)? = null
+    onLongPress: (() -> Unit)? = null,
+    onResumeTrack: ((String) -> Unit)? = null,
+    isRecording: Boolean = false
 ) {
     // Original values for revert-on-back
     val originalName = remember(summary.id) { summary.name }
@@ -443,6 +531,19 @@ internal fun TrackCardContent(
                         tint = ButtonColors.icon,
                         modifier = Modifier.size(24.dp)
                     )
+                }
+                if (summary.endTimeMs != null && !isRecording && onResumeTrack != null) {
+                    IconButton(
+                        onClick = { onResumeTrack(summary.id) },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.PlayArrow,
+                            contentDescription = "Resume recording",
+                            tint = ButtonColors.icon,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                 }
                 IconButton(
                     onClick = { onShareGpx(summary.id) },

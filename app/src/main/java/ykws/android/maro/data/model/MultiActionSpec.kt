@@ -42,5 +42,6 @@ data class MultiActionSpec(
     val enabled: (Set<String>) -> Boolean = { it.isNotEmpty() },
     val isDestructive: Boolean = false,
     val confirmMessage: String? = null,
+    val confirmContent: (@androidx.compose.runtime.Composable (Set<String>, () -> Unit, () -> Unit) -> Unit)? = null,
     val subActions: List<MultiActionSubSpec> = emptyList()
 )

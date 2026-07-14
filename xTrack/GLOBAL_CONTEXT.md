@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** GPS
-- **Active Subfeature:** checks
-- **Last Updated:** 2026-07-14 08:41
-- **Last Bake:** 2026-07-14 08:41 (GPS — checks: continuous DR + setCenter, 2 files, build ✅)
-- **Branch:** feature/gps-checks
+- **Active Feature:** BoatTrace
+- **Active Subfeature:** merge-tracks
+- **Last Updated:** 2026-07-12 18:19
+- **Last Bake:** 2026-07-12 18:19 (BoatTrace — merge-tracks: Resume + Merge implemented, scaffold extended with confirmContent slot)
+- **Branch:** feature/merge-tracks
 
 ## Routing Map
 | Keyword | Feature File |

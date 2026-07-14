@@ -1,8 +1,8 @@
 name: BoatTrace
 status: active
 created: 2026-06-15 21:43
-modified: 2026-07-14 08:02
-active_subfeature: more-stuff
+modified: 2026-07-14 08:23
+active_subfeature: merge-tracks
 ---
 
 # Feature: BoatTrace
@@ -261,7 +261,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 #### Docs
 - `xTrack/BoatTrace/FEAT_PLN_BoatTrace_idle-time-always-zero.md` — root cause + fix plan + implementation record
 
-### merge-tracks  [ ]
+### merge-tracks  [x]
 
 #### Docs
 - `xTrack/BoatTrace/FEAT_PLN_BoatTrace_merge-tracks.md` — discussion plan: merge tracks vs resume track
@@ -321,10 +321,8 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 
 **populate-track-info (2026-07-05):** Auto-populated track title and description from silent `whereAmI()` calls at idle-stop positions. Title uses 3-tier priority: 🤿 diving pinned marker > MANUAL BoatMarker > longest IDLE duration. Description is a living bullet log recomputed from full BoatMarker history on every trigger (idle start/end, manual marker, 3-min poll, marker add/edit via `Flow<Unit>`). IDLE BoatMarkers query `whereAmI()` for zone names; MANUAL BoatMarkers use pre-captured `MarkerSnapshot` names. Track finalize title: `[loc1 -> loc2]` from top 2 named stops per priority tier. Fixed `BoatMarker.startTimeMs` bug (was timer-fire time, now actual idle start). Error surface via existing `ErrorOverlay` with 8s auto-dismiss. Added `infoError: String?` to `TrackRecorderUiState`, `clearInfoError()`, `hasDivingPinnedMarker()`, `divingLocationName()`, `topSnapshotNames()`. Build: ✅
 
-### more-stuff  [ ]
+**resume-track (2026-07-12):** Resume a finalized track as a live recording. `TrackRecorder.resume()` extended with `fromCheckpoint` flag (default true for backward compat) — computes `resumeGapDurationSec` from inter-session wall-clock gap, clears `endTimeMs` on finalized tracks. `finalizeTrack()` subtracts gap from navigating duration (D10 prevents 50h inflation on 2-day gap), pattern-guards title recompute to preserve user-edited names (D6), forces `visibleOnMap=true` (D7). New `TrackViewModel.resumeTrack(trackId)` — 9-step setup mirroring `resumeOrphanedCheckpoint()`, only diff: `fromCheckpoint=false`. `TrackHistoryOverlay`: ▶ `PlayArrow` icon between pin and share on finalized track cards, visible when `endTimeMs != null && !isRecording`. Post-fix: `stopRecording()` invalidates `trackDetailCache` to prevent stale map polylines; `onResumeTrack` dismisses overlay. Wired via `OverlayLayer.kt`. Build: ✅
 
-#### Todos
-- [ ] Define scope and requirements
+**merge-tracks (2026-07-12):** Merge 2+ finalized tracks into a single new track. New `TrackMerger` utility — concatenates points with `timeOffsetMs` rebasing to earliest start, GAP markers between segments, renumbered BoatMarkers, synthesized stats (sum per-track distance/idle/navigating, weighted avg speed, max fastest). `TrackViewModel.mergeTracks(ids, name, keepOriginals)` — load, merge, save, optional delete originals with cache invalidation. `TrackHistoryOverlay`: `MultiActionSpec("merge")` reuses existing `ListOverlayScaffold` multi-select; self-contained `AlertDialog` with auto-generated name (`"A + B"` / `"A ... Z"`) and "Keep original tracks" checkbox (default checked). New `ListAction.MergeTracks` + `TrackEvent.TracksMerged`. Build: ✅
 
-#### Docs
-- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_gpx-extension-roundtrip.md` — GPX extension round-trip design: protobuf blob in `<extensions>`, multi-select ZIP export, name-based anti-collision import
+**checkmark-bottom-right (2026-07-14):** Moved multi-select check mark badge from `Alignment.TopEnd` to `Alignment.BottomEnd` in `SwipeableItemCard` (`ListOverlayScaffold.kt`). Reduces visual collision with card titles/subtitles clustered at top. Build: ✅
