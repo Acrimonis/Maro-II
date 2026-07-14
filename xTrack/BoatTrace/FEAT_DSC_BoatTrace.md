@@ -1,8 +1,8 @@
 name: BoatTrace
 status: active
 created: 2026-06-15 21:43
-modified: 2026-07-12 14:30
-active_subfeature: merge-tracks
+modified: 2026-07-14 08:02
+active_subfeature: more-stuff
 ---
 
 # Feature: BoatTrace
@@ -320,3 +320,11 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 **idle-time-tracking (2026-06-28):** Added `idleDurationSec` to Track/TrackSummary (proto #15/#14). Transition-based accumulator in TrackRecorder.addPoint() — timestamps idle-entry/exit and accumulates delta. Flushes open idle period on finalizeTrack(). Fixed `navigatingDurationSec = totalElapsedSec - idleDurationSec`. Mapped through TrackRepository rebuildIndex and orphan finalization. Display in 3 locations: track history summary cards, live track card (Nav corrected, Idle now real), menu drawer recording status. Real-time UiState refresh during idle via per-sample update. Build: ✅
 
 **populate-track-info (2026-07-05):** Auto-populated track title and description from silent `whereAmI()` calls at idle-stop positions. Title uses 3-tier priority: 🤿 diving pinned marker > MANUAL BoatMarker > longest IDLE duration. Description is a living bullet log recomputed from full BoatMarker history on every trigger (idle start/end, manual marker, 3-min poll, marker add/edit via `Flow<Unit>`). IDLE BoatMarkers query `whereAmI()` for zone names; MANUAL BoatMarkers use pre-captured `MarkerSnapshot` names. Track finalize title: `[loc1 -> loc2]` from top 2 named stops per priority tier. Fixed `BoatMarker.startTimeMs` bug (was timer-fire time, now actual idle start). Error surface via existing `ErrorOverlay` with 8s auto-dismiss. Added `infoError: String?` to `TrackRecorderUiState`, `clearInfoError()`, `hasDivingPinnedMarker()`, `divingLocationName()`, `topSnapshotNames()`. Build: ✅
+
+### more-stuff  [ ]
+
+#### Todos
+- [ ] Define scope and requirements
+
+#### Docs
+- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_gpx-extension-roundtrip.md` — GPX extension round-trip design: protobuf blob in `<extensions>`, multi-select ZIP export, name-based anti-collision import

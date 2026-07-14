@@ -402,6 +402,32 @@ fun MapScreen(
             showBgLocationDialog = true
         }
     }
+
+    // Track import file picker launcher
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            trackScope.launch(Dispatchers.IO) {
+                try {
+                    val extension = uri.toString().substringAfterLast('.').lowercase().take(10)
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        val count = trackViewModel.importTracks(input, extension)
+                        withContext(Dispatchers.Main) {
+                            android.widget.Toast.makeText(context,
+                                if (count > 0) "Imported $count track${if (count != 1) "s" else ""}"
+                                else "Import failed — no valid tracks found",
+                                android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                } catch (_: Exception) {
+                    withContext(Dispatchers.Main) {
+                        android.widget.Toast.makeText(context, "Import failed", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        }
+    }
     // Permission-aware handler wired to the GPS settings switch.
     val onGpsModeChange: (Boolean) -> Unit = { enable ->
         if (enable) {
@@ -1841,6 +1867,7 @@ fun MapScreen(
                     }
                     is ykws.android.maro.data.model.ListAction.ExportGpx -> shareTrackGpx(context, trackViewModel, action.id, trackScope)
                     is ykws.android.maro.data.model.ListAction.BatchExportGpx -> shareTracksZip(context, trackViewModel, action.ids, trackScope)
+                    is ykws.android.maro.data.model.ListAction.ImportTracks -> importLauncher?.launch(arrayOf("application/gpx+xml", "application/zip", "*/*"))
                     is ykws.android.maro.data.model.ListAction.PermanentDelete -> trackViewModel.deleteTrack(action.id)
                     is ykws.android.maro.data.model.ListAction.RefreshList -> trackViewModel.refreshSummaries(action.sortState)
                     is ykws.android.maro.data.model.ListAction.RefreshLayer -> mapView?.invalidate()
@@ -2136,7 +2163,10 @@ private fun shareTracksZip(
                     val track = trackViewModel.loadTrackDetail(id)
                     if (track != null) {
                         val gpx = track.toGpx()
-                        zos.putNextEntry(java.util.zip.ZipEntry("${id}.gpx"))
+                        val safeName = track.name.replace(Regex("""[/\\:*?"<>|]"""), "_").take(100)
+                        val entry = java.util.zip.ZipEntry("$safeName.gpx")
+                        entry.time = track.startTimeMs
+                        zos.putNextEntry(entry)
                         zos.write(gpx.toByteArray())
                         zos.closeEntry()
                     }

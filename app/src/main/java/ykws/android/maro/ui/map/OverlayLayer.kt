@@ -428,7 +428,8 @@ fun OverlayLayer(
                 trackingTransparencyPinnedNewest = appSettings.trackingTransparencyPinnedNewest,
                 trackingTransparencyPinnedOldest = appSettings.trackingTransparencyPinnedOldest,
                 trackingColorPinnedFrom = appSettings.trackingColorPinnedFrom,
-                trackingColorPinnedTo = appSettings.trackingColorPinnedTo
+                trackingColorPinnedTo = appSettings.trackingColorPinnedTo,
+                onImportClick = { onTrackAction(ykws.android.maro.data.model.ListAction.ImportTracks) }
             )
         }
 

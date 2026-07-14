@@ -1,11 +1,12 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** UI_Map
-- **Active Subfeature:** decenter-map
-- **Last Updated:** 2026-07-14 08:40
-- **Last Bake:** 2026-07-14 08:40 (UI_Map/decenter-map — decenter animation smoothed: spring→tween 2s)
-- **Branch:** feature/map-offset-smmothness
+- **Active Feature:** BoatTrace
+- **Active Subfeature:** more-stuff
+- **Last Updated:** 2026-07-14 08:02
+- **Last Bake:** 2026-07-14 08:02 (BoatTrace — more-stuff: GPX extension round-trip export/import, GpxImporter, multi-select ZIP with track-name filenames, import button in track list, build ✅)
+- **Branch:** feature/track-save-finalization
+
 ## Routing Map
 | Keyword | Feature File |
 |---|---|

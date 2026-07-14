@@ -398,6 +398,25 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         recorder?.clearInfoError()
     }
 
+    /**
+     * Import tracks from a GPX file or ZIP archive.
+     * Saves each imported track via [TrackRepository.save], applying anti-collision
+     * name resolution against existing track names.
+     *
+     * @param input     InputStream from the file picker URI.
+     * @param extension "gpx" or "zip".
+     * @return Number of tracks imported.
+     */
+    suspend fun importTracks(input: java.io.InputStream, extension: String): Int {
+        val existingNames = _allSummaries.value.map { it.name }.toSet()
+        val tracks = GpxImporter.import(input, extension, existingNames)
+        for (track in tracks) {
+            repository.save(track)
+        }
+        refreshSummaries()
+        return tracks.size
+    }
+
     override fun onCleared() {
         super.onCleared()
         stopRecorder()

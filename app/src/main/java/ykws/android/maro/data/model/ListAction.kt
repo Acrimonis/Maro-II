@@ -21,6 +21,8 @@ sealed class ListAction {
     data class ExportGpx(val id: String) : ListAction()
     /** Batch export — zip multiple track GPX files and share. */
     data class BatchExportGpx(val ids: Set<String>) : ListAction()
+    /** Import tracks — trigger file picker for .gpx or .zip. */
+    data object ImportTracks : ListAction()
 
     // ── Refresh ───────────────────────────────────────────────────────
     /** Re-sort and refresh the card list with the given sort state. */

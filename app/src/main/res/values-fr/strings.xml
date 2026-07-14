@@ -268,6 +268,7 @@
     <string name="action_pin">Épingler</string>
     <string name="action_unpin">Désépingler</string>
     <string name="action_export">Exporter</string>
+    <string name="action_import">Importer</string>
     <string name="action_pin_all">Tout épingler</string>
     <string name="action_unpin_all">Tout désépingler</string>
     <string name="action_toggle_pins">Inverser les épingles</string>

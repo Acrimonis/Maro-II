@@ -1,26 +1,24 @@
 # BoatTrace — Hydration Snapshot
 
-**Baked at:** 2026-07-12 14:30 UTC
-**Active Subfeature:** merge-tracks (planned)
-**Branch:** feature/merge-tracks
+**Baked at:** 2026-07-14 08:02 UTC
+**Active Subfeature:** more-stuff (implemented — GPX round-trip)
+**Branch:** feature/track-save-finalization
 
 ## Session Summary
 
-Designed two features for handling interrupted recordings:
+Implemented GPX extension round-trip export/import:
 
-**Resume Existing Track:** Extend `TrackRecorder.resume()` to accept finalized tracks via `fromCheckpoint` flag. Critical `resumeGapDurationSec` fix prevents navigating-duration inflation across session gaps. ▶ button on track cards in TrackHistoryOverlay. 11 decisions, 4 implementation steps.
+**Export:** `GpxExporter.toGpx()` now includes `<maro:data>` base64-encoded protobuf blob in GPX `<extensions>`. Full Track fidelity including BoatMarkers, pinned state, color, durations. Standards-compatible — other tools ignore unknown extensions.
 
-**Merge Tracks:** New `TrackMerger` utility — concatenate points with `timeOffsetMs` rebasing, GAP markers between segments, summed stats, renumbered BoatMarkers. Multi-select UI with checkbox mode + name dialog. 10 decisions, 4 implementation steps.
+**Import:** New `GpxImporter` — parses GPX, extracts MaroII blob for lossless round-trip, falls back to standard `<trkpt>` for foreign files. ZIP archive support with path-traversal guard. Name-based anti-collision (`"Name (2)"`).
 
-Full plan in `FEAT_PLN_BoatTrace_merge-tracks.md`. Recommended order: Resume first, Merge second.
+**Multi-select ZIP:** Filenames use sanitized track names with `ZipEntry.time` set to track `startTimeMs`.
 
-**Design decisions:**
-- Description recomputed from full BoatMarker history (not appended) — new markers retroactively name past stops
-- "Named" = whereAmI returns ≥1 non-IDLE_AUTO match
-- Title = whereAmI name of longest idle stop, polled every 3 min
-- Finalize title = `[longestNamedLoc -> secondLongestNamedLoc]`
-- Marker change notifier (Flow<Unit>) triggers recomputation on marker add/edit
-- whereAmI lambda injected via constructor, nullable for backward compat
+**UI:** Import button in track list header via new `headerActions` slot in `ListOverlayScaffold`. File picker via `ActivityResultContracts.OpenDocument`. Toast feedback.
+
+**Files:** 10 changed (GpxExporter, GpxImporter new, ListAction, TrackViewModel, ListOverlayScaffold, TrackHistoryOverlay, OverlayLayer, MapScreen, strings EN+FR).
+
+**Build:** ✅
 
 ## Previous Session (boat-markers)
 
