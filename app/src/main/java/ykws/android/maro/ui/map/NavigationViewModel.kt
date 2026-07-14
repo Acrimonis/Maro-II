@@ -251,6 +251,10 @@ class NavigationViewModel(
     private val _gpsPosition = MutableStateFlow<LatLng?>(null)
     val gpsPosition: StateFlow<LatLng?> = _gpsPosition.asStateFlow()
 
+    /** Display position for smooth map centering — driven by continuous dead reckoning at 20 Hz.
+     *  Resets to raw GPS fix on each new fix; extrapolates between fixes for fluid map updates. */
+    private val _displayPosition = MutableStateFlow<LatLng?>(null)
+
     /**
      * Atomic navigation state (bearing + speed) for the boat marker and cap arrow.
      * Exposed as a single StateFlow so Compose reads all values from the same
@@ -296,6 +300,13 @@ class NavigationViewModel(
     )
     private var deadReckoningState: DeadReckoningState? = null
     private var deadReckoningJob: Job? = null
+
+    // ── Continuous display dead reckoning (20 Hz) ──────────────────────────
+    private var lastDisplayFixPosition: LatLng? = null
+    private var lastDisplayFixBearing: Float = 0f
+    private var lastDisplayFixSpeedMps: Float = 0f
+    private var lastDisplayFixTimestampMs: Long = 0L
+    private var displayPositionJob: Job? = null
 
     // ── Demo-mode pan speed tracking ──────────────────────────────────────────
     private var lastPanLat = 0.0
@@ -378,7 +389,7 @@ class NavigationViewModel(
             .map { (1_000L / it.mapRefreshFps.coerceIn(5, 50)).coerceAtLeast(1L) }
             .distinctUntilChanged()
             .flatMapLatest { periodMs ->
-                combine(_gpsPosition.filterNotNull(), _navigationState) { p, nav -> CameraTarget(p, nav.bearingDeg) }
+                combine(_displayPosition.filterNotNull(), _navigationState) { p, nav -> CameraTarget(p, nav.bearingDeg) }
                     .sample(periodMs)
             }
 
@@ -780,6 +791,13 @@ class NavigationViewModel(
                         timestampElapsedMs = now
                     )
                 }
+
+                // Update continuous display dead reckoning state + reset to ground truth
+                lastDisplayFixPosition = fix.position
+                lastDisplayFixBearing = fix.bearingDeg ?: lastDisplayFixBearing
+                lastDisplayFixSpeedMps = fix.speedMps ?: lastDisplayFixSpeedMps
+                lastDisplayFixTimestampMs = now
+                _displayPosition.value = fix.position
                 if (fix.hasCourse && fix.bearingDeg != null) {
                     lastGpsBearingMs = now
                     _needsCompass.value = false                 // GPS course present → compass off
@@ -793,6 +811,41 @@ class NavigationViewModel(
                 } else {
                     Log.w(TAG, "GPS flow error", e)
                     _gpsStale.value = true
+                }
+            }
+            .launchIn(viewModelScope)
+
+        // ── Continuous display dead reckoning (20 Hz) ──────────────────────
+        // Provides smooth map centering by extrapolating position between GPS fixes.
+        // Runs whenever GPS mode is active; resets to ground truth on each new fix.
+        enabled
+            .onEach { on ->
+                if (on) {
+                    displayPositionJob?.cancel()
+                    displayPositionJob = viewModelScope.launch {
+                        while (isActive) {
+                            val pos = lastDisplayFixPosition
+                            if (pos != null) {
+                                val speed = lastDisplayFixSpeedMps
+                                if (speed < MIN_LEAD_SPEED_MPS) {
+                                    _displayPosition.value = pos
+                                } else {
+                                    val elapsed = (SystemClock.elapsedRealtime() - lastDisplayFixTimestampMs) / 1000f
+                                    val leadM = minOf(speed.toDouble() * elapsed, MAX_LEAD_M)
+                                    _displayPosition.value = SpatialOperations.pointAlongBearing(
+                                        pos.latitude, pos.longitude,
+                                        lastDisplayFixBearing.toDouble(),
+                                        leadM
+                                    )
+                                }
+                            }
+                            delay(DISPLAY_POSITION_INTERVAL_MS)
+                        }
+                    }
+                } else {
+                    displayPositionJob?.cancel()
+                    displayPositionJob = null
+                    _displayPosition.value = null
                 }
             }
             .launchIn(viewModelScope)
@@ -847,6 +900,7 @@ class NavigationViewModel(
             .onEach { on ->
                 if (!on) {
                     _gpsPosition.value = null
+                    _displayPosition.value = null
                     _boatIsWater.value = false
                     _navigationState.value = NavigationState()
                     lastGpsBearingMs = 0L
@@ -870,6 +924,9 @@ class NavigationViewModel(
                     deadReckoningState = null
                     _isEstimating.value = false
                     _forceReconnect.value = false
+                    displayPositionJob?.cancel()
+                    displayPositionJob = null
+                    lastDisplayFixPosition = null
                 }
             }
             .launchIn(viewModelScope)
@@ -1624,6 +1681,15 @@ class NavigationViewModel(
 
         /** Dead reckoning: maximum duration before falling back to LOST (ms). */
         private const val DEAD_RECKONING_MAX_MS = 30_000L
+
+        /** Continuous display dead reckoning: interval between position updates (ms). 50 ms = 20 Hz. */
+        private const val DISPLAY_POSITION_INTERVAL_MS = 50L
+
+        /** Minimum speed (m/s) for display dead reckoning lead. Below this (~3 kn), no lead is applied. */
+        private const val MIN_LEAD_SPEED_MPS = 1.54
+
+        /** Maximum lead distance (meters) for display dead reckoning — caps wild extrapolation. */
+        private const val MAX_LEAD_M = 30.0
 
         /**
          * Factory for [NavigationViewModel] — required because the primary constructor

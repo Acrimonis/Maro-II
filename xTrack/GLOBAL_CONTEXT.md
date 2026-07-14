@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** BoatTrace
-- **Active Subfeature:** more-stuff
-- **Last Updated:** 2026-07-14 08:02
-- **Last Bake:** 2026-07-14 08:02 (BoatTrace — more-stuff: GPX extension round-trip export/import, GpxImporter, multi-select ZIP with track-name filenames, import button in track list, build ✅)
-- **Branch:** feature/track-save-finalization
+- **Active Feature:** GPS
+- **Active Subfeature:** checks
+- **Last Updated:** 2026-07-14 08:41
+- **Last Bake:** 2026-07-14 08:41 (GPS — checks: continuous DR + setCenter, 2 files, build ✅)
+- **Branch:** feature/gps-checks
 
 ## Routing Map
 | Keyword | Feature File |
