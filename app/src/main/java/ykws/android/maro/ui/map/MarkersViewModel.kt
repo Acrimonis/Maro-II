@@ -634,12 +634,41 @@ class MarkersViewModel(
 
     /**
      * Create a temporary 🕐 auto-marker pin at the idle position.
-     * Returns the marker ID so MapScreen can pass it to TrackRecorder.
+     * Returns the marker ID so MapScreen can pass it to TrackRecorder,
+     * or an empty string if a nearby auto-marker already exists.
      *
      * Title = date only (e.g. "2026-07-01").
      * Description = timing placeholder (e.g. "@ 14:15 -> ...").
      */
     fun addTempAutoMarker(lat: Double, lon: Double, startTimeMs: Long): String {
+        val dedupRadiusM = AppConfig.boatMarkerAutoMarkerDedupRadiusM
+        val newPos = LatLng(lat, lon)
+
+        // ── Proximity dedup: scan existing IDLE_AUTO markers within dedupRadiusM ──
+        val existingAutoMarkers = _allMarkers.value.filter { it.origin == ykws.android.maro.data.model.markers.MarkerOrigin.IDLE_AUTO }
+        val nearest = existingAutoMarkers.minByOrNull { ykws.android.maro.spatial.SpatialOperations.haversine(newPos, it.centerPoint) }
+        if (nearest != null) {
+            val dist = ykws.android.maro.spatial.SpatialOperations.haversine(newPos, nearest.centerPoint)
+            if (dist <= dedupRadiusM) {
+                if (!nearest.confirmed) {
+                    // Reuse the existing temp marker — update its position
+                    val updated = nearest.copy(geometry = MarkerGeometry.Pin(newPos))
+                    viewModelScope.launch {
+                        withContext(Dispatchers.IO) { repo.update(updated) }
+                        val all = withContext(Dispatchers.IO) { repo.loadAll() }
+                        val settings = settingsManager.settings.value
+                        _allMarkers.value = all
+                        _markers.value = sortMarkers(all.filter { it.matchesFilter(settings.markerListFilter) }, settings.markerListSort)
+                    }
+                    return nearest.id
+                } else {
+                    // Already have a confirmed auto-marker here — skip
+                    return ""
+                }
+            }
+        }
+
+        // No nearby auto-marker → create normally
         val now = Date()
         val title = dateFormat.get()!!.format(now)
         val startTime = SimpleDateFormat("HH:mm", Locale.US).format(Date(startTimeMs))
@@ -648,7 +677,7 @@ class MarkersViewModel(
             id = UUID.randomUUID().toString(),
             name = title,
             description = desc,
-            geometry = MarkerGeometry.Pin(LatLng(lat, lon)),
+            geometry = MarkerGeometry.Pin(newPos),
             proximityOverrideM = AppConfig.boatMarkerAutoMarkerProximityM,
             confirmed = false,
             pinned = true,

@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** BoatTrace
-- **Active Subfeature:** merge-tracks
-- **Last Updated:** 2026-07-12 18:19
-- **Last Bake:** 2026-07-12 18:19 (BoatTrace — merge-tracks: Resume + Merge implemented, scaffold extended with confirmContent slot)
-- **Branch:** feature/merge-tracks
+- **Active Feature:** Markers
+- **Active Subfeature:** auto-marker-dedup
+- **Last Updated:** 2026-07-14 08:50
+- **Last Bake:** 2026-07-14 08:50 (Markers — auto-marker-dedup: implemented. 4 files, BUILD SUCCESSFUL)
+- **Branch:** feature/markers-auto-merge
 
 ## Routing Map
 | Keyword | Feature File |
