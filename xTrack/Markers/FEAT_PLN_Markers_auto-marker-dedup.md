@@ -2,7 +2,7 @@
 name: Markers
 subfeature: auto-marker-dedup
 created: 2026-07-14 08:44
-status: plan
+status: implemented
 ---
 
 # Auto-Marker Proximity Dedup

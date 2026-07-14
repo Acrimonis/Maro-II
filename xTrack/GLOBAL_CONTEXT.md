@@ -3,8 +3,8 @@
 ## Active Session Pointers
 - **Active Feature:** Markers
 - **Active Subfeature:** auto-marker-dedup
-- **Last Updated:** 2026-07-14 08:47
-- **Last Bake:** 2026-07-14 08:47 (Markers — auto-marker-dedup: plan written and reviewed, ready for implementation)
+- **Last Updated:** 2026-07-14 08:50
+- **Last Bake:** 2026-07-14 08:50 (Markers — auto-marker-dedup: implemented. 4 files, BUILD SUCCESSFUL)
 - **Branch:** feature/markers-auto-merge
 
 ## Routing Map

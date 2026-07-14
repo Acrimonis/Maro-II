@@ -2,7 +2,7 @@
 name: Markers
 status: active
 created: 2026-06-22 11:52
-modified: 2026-07-14 08:47
+modified: 2026-07-14 08:50
 active_subfeature: auto-marker-dedup
 ---
 
@@ -14,7 +14,7 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-o
 ## Subfeatures
 15/15 complete.
 
-### auto-marker-dedup  [ ]
+### auto-marker-dedup  [x]
 
 ### data-model  [x]
 ### persistence  [x]

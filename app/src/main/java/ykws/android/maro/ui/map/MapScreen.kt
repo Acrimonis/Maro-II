@@ -659,8 +659,10 @@ fun MapScreen(
                 is ykws.android.maro.data.track.TrackEvent.IdlePeriodStarted -> {
                     val markerId = markersViewModel.addTempAutoMarker(
                         event.entryLat, event.entryLon, event.startTimeMs)
-                    pendingAutoMarkerId = markerId
-                    trackViewModel.setActiveSessionAutoMarkerId(markerId)
+                    if (markerId.isNotEmpty()) {
+                        pendingAutoMarkerId = markerId
+                        trackViewModel.setActiveSessionAutoMarkerId(markerId)
+                    }
                 }
                 is ykws.android.maro.data.track.TrackEvent.DrawerAutoOpenRequested -> {
                     if (markersViewModel.drawerState.value == MarkerDrawerState.Hidden) {
