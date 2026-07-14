@@ -2,8 +2,8 @@
 name: GPS
 status: active
 created: 2026-06-07 00:00
-modified: 2026-07-06 14:43
-active_subfeature: gps-background
+modified: 2026-07-12 19:40
+active_subfeature: fix-spike
 ---
 
 # Feature: GpsPlugin
@@ -200,6 +200,23 @@ ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 Harden background GPS to match Waze/GMaps best practices + recording-aware exit guard + crash-resilient track recording.
 
 
+### fix-spike  [x]
+
+#### Todos
+- [ ] Investigate root cause of duplicate/spike points in recorded tracks (Bad-spikes.gpx: identical lat/lon/speed/course, different timestamps, ≤1ms apart)
+- [ ] Design fix: deduplicate consecutive identical fixes in TrackRecorder before capture
+- [ ] Implement fix
+- [ ] Build (apk-build.bat) + verify with Bad-spikes.gpx scenario
+
+#### Rules
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt` — addPoint(), spike rejection Gates 0-3
+- `Bad-spikes.gpx` — reproduction data: duplicate fixes at 19:29:58.663–.246 (identical pos/speed/course)
+
+#### Docs
+- `xTrack/GPS/FEAT_PLN_GPS_fix-spike.md` — root cause analysis & fix plans for all 3 anomaly categories
+
 ## Todos
 - [ ] back to GPS point → replace delay by swipe of card
 - [ ] normalize localisation and fill holes
@@ -228,3 +245,5 @@ Harden background GPS to match Waze/GMaps best practices + recording-aware exit 
 **track-simplification (2026-06-22):** Two-pass track simplification at finalize. `TrackSimplifier.kt`: Douglas-Peucker spatial (ε=3m) + speed-aware reinsertion (δ=3kn). Integrated in `TrackRecorder.finalizeTrack()` before save. AppSettings: `trackSimplifyEnabled`, `trackSimplifyEpsilonM`, `trackSimplifySpeedDeltaKn` with SharedPreferences persistence. Tunables in `maro.properties`. Expected 92-99% point reduction. Build: ✅.
 
 **auto-recenter (2026-07-03):** Drawer-aware pan-resume timer gate + recenter button. NavigationViewModel: `drawerOpen` flag pauses timer while any drawer is open; `freezeFollow()` immediately suppresses on wizard entry; `recenterNow()` cancels timer and recenters; `startTimer()` extracted helper. MapScreen: `LaunchedEffect(anyDrawerOpen)` wires 5 drawer states; `LaunchedEffect(drawerState)` freezes on Creating/Editing wizard; status row reordered to Earth→Track→GPS→Recenter; GPS hidden in demo mode; RecenterButton appears only when GPS mode + autoFollowSuppressed, uses 🎯 icon. Track recording confirmed independent (uses real `_gpsPosition`, not map center). 2 files, ~60 lines. Build: ✅.
+
+**fix-spike (2026-07-12):** Four-gate spike rejection hardening. Fix D (P0): dedup identical positions within 500ms, hoisted above `isStopped` — catches 30+ sub-ms code-level double-emissions and 11-point GPS chipset bursts. Fix A (P0): stale-timeout two-tier cap — 48 kn when stationary (<2 kn GPS), 96 kn otherwise — plus course-history clearing to prevent spike positions poisoning direction tracking. Fix B (P1): GPS-reported speed gate at 40 kn with `!isOnLand` guard — catches impossible speed readings (44-45 kn). Fix C (P0): stationary distance cap (150m when GPS speed <2 kn) in both stale-timeout and Gate 1 paths — catches slow-drift spikes that sail under speed caps. Bonus: fixed pre-existing dead sea-recovery path (`landModeAcceptCounter` in `captureAcceptedPoint`), added missing `checkLandDetection` calls to Gate 3 and same-ms jump paths, reset `consecutiveRejections` on stale-timeout/Gate 0 acceptance. Expected impact on Bad-spikes.gpx: all 3 anomaly categories eliminated. 1 file, ~65 lines, no new dependencies. Build: ✅.
