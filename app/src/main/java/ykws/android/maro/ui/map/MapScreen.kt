@@ -1418,7 +1418,7 @@ fun MapScreen(
             else 0f
             val animatedFraction by animateFloatAsState(
                 targetValue = targetFraction,
-                animationSpec = spring(dampingRatio = 0.8f, stiffness = 200f),
+                animationSpec = tween(durationMillis = 2000, easing = FastOutSlowInEasing),
                 label = "mapOffsetFraction"
             )
             val mapCenterOffsetDp = (animatedFraction * visibleMapHeightDp.value * maxMapShift.toFloat()).dp
