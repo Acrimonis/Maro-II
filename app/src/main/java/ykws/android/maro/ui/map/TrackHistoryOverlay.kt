@@ -159,8 +159,10 @@ fun TrackHistoryOverlay(
     trackingTransparencyPinnedNewest: Int = 0,
     trackingTransparencyPinnedOldest: Int = 20,
     trackingColorPinnedFrom: Int = 0xFFFF6F00.toInt(),
-    trackingColorPinnedTo: Int = 0xFFFF8F00.toInt()
+    trackingColorPinnedTo: Int = 0xFFFF8F00.toInt(),
+    onImportClick: (() -> Unit)? = null
 ) {
+    val importLabel = stringResource(R.string.action_import)
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US) }
 
     val trackCustomSortFields = remember {
@@ -306,7 +308,24 @@ fun TrackHistoryOverlay(
         onAction = onAction,
         onDismiss = onDismiss,
         modifier = modifier,
-        multiActions = trackMultiActions
+        multiActions = trackMultiActions,
+        headerActions = if (onImportClick != null) {
+            {
+                IconButton(
+                    onClick = onImportClick,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Upload,
+                        contentDescription = importLabel,
+                        tint = ButtonColors.icon,
+                        modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
+                    )
+                }
+            }
+        } else {
+            {}
+        }
     )
 }
 
