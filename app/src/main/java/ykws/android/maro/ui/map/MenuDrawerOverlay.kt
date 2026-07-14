@@ -29,7 +29,9 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.IconButton
 import ykws.android.maro.ui.components.FilterControl
 import ykws.android.maro.ui.icons.FilterAlt
+import ykws.android.maro.ui.icons.Publish
 import ykws.android.maro.ui.icons.Refresh
+import ykws.android.maro.ui.icons.Upload
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -78,6 +80,8 @@ fun MenuDrawerOverlay(
     onManageMarkers: () -> Unit = {},
     markerZonesVisible: Boolean = true,
     onToggleMarkerZones: () -> Unit = {},
+    onImportTracks: () -> Unit = {},
+    onExportAllTracks: () -> Unit = {},
     onDismiss: () -> Unit,
     onOpenSettings: () -> Unit = {},
     modifier: Modifier = Modifier,
@@ -228,6 +232,50 @@ fun MenuDrawerOverlay(
                     tint = Color(AppConfig.uiSettingsTextMuted),
                     modifier = Modifier.size(28.dp)
                 )
+            }
+
+            // ── Import / Export row ────────────────────────
+            Spacer(Modifier.height(6.dp))
+            HorizontalDivider(thickness = 0.5.dp, color = Color(AppConfig.uiSettingsDivider))
+            Spacer(Modifier.height(6.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Import / Export",
+                    color = Color(AppConfig.uiSettingsTextPrimary),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Row {
+                    IconButton(
+                        onClick = onImportTracks,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Publish,
+                            contentDescription = "Import tracks",
+                            tint = ButtonColors.icon,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    IconButton(
+                        onClick = onExportAllTracks,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Upload,
+                            contentDescription = "Export all tracks",
+                            tint = ButtonColors.icon,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
             }
 
             // ── Live stats (only when recording) ──────────

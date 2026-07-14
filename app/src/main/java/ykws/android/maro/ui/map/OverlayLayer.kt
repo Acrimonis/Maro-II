@@ -258,7 +258,9 @@ fun OverlayLayer(
                 onMarkerReset = onMarkerReset,
                 markerFilterAxes = ykws.android.maro.data.model.markerFilterAxes(),
                 markerZonesVisible = markerZonesVisible,
-                onToggleMarkerZones = onToggleMarkerZones
+                onToggleMarkerZones = onToggleMarkerZones,
+                onImportTracks = { onTrackAction(ykws.android.maro.data.model.ListAction.ImportTracks) },
+                onExportAllTracks = { onTrackAction(ykws.android.maro.data.model.ListAction.BatchExportGpx(trackSummaries.map { it.id }.toSet())) }
             )
         }
 
@@ -435,8 +437,7 @@ fun OverlayLayer(
                 trackingTransparencyPinnedNewest = appSettings.trackingTransparencyPinnedNewest,
                 trackingTransparencyPinnedOldest = appSettings.trackingTransparencyPinnedOldest,
                 trackingColorPinnedFrom = appSettings.trackingColorPinnedFrom,
-                trackingColorPinnedTo = appSettings.trackingColorPinnedTo,
-                onImportClick = { onTrackAction(ykws.android.maro.data.model.ListAction.ImportTracks) }
+                trackingColorPinnedTo = appSettings.trackingColorPinnedTo
             )
         }
 
