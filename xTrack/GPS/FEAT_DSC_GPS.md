@@ -2,8 +2,8 @@
 name: GPS
 status: active
 created: 2026-06-07 00:00
-modified: 2026-07-12 19:40
-active_subfeature: fix-spike
+modified: 2026-07-14 08:41
+active_subfeature: checks
 ---
 
 # Feature: GpsPlugin
@@ -217,6 +217,25 @@ Harden background GPS to match Waze/GMaps best practices + recording-aware exit 
 #### Docs
 - `xTrack/GPS/FEAT_PLN_GPS_fix-spike.md` — root cause analysis & fix plans for all 3 anomaly categories
 
+### checks  [x]
+
+#### Todos
+- [x] Confirm all spike gates are documented end-to-end (capture → buffer → finalize → save)
+- [x] Identify adaptive cadence thresholds governing map update frequency
+- [x] Check if dead reckoning interpolation is active during recording
+- [x] Determine animateTo vs setCenter for track-capture map updates
+- [x] Implement unified continuous dead reckoning + setCenter: _displayPosition StateFlow, 20 Hz DR coroutine, setCenter in MapScreen
+
+#### Rules
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt` — spike rejection Gates 0-3, addPoint()
+- `app/src/main/java/ykws/android/maro/ui/map/NavigationViewModel.kt` — _displayPosition, continuous DR coroutine (20 Hz), cameraUpdates source
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — setCenter in GPS follow, updated comments
+
+#### Docs
+- `xTrack/GPS/FEAT_PLN_GPS_checks.md` — spike gate audit & map smoothness fix design
+
 ## Todos
 - [ ] back to GPS point → replace delay by swipe of card
 - [ ] normalize localisation and fill holes
@@ -247,3 +266,5 @@ Harden background GPS to match Waze/GMaps best practices + recording-aware exit 
 **auto-recenter (2026-07-03):** Drawer-aware pan-resume timer gate + recenter button. NavigationViewModel: `drawerOpen` flag pauses timer while any drawer is open; `freezeFollow()` immediately suppresses on wizard entry; `recenterNow()` cancels timer and recenters; `startTimer()` extracted helper. MapScreen: `LaunchedEffect(anyDrawerOpen)` wires 5 drawer states; `LaunchedEffect(drawerState)` freezes on Creating/Editing wizard; status row reordered to Earth→Track→GPS→Recenter; GPS hidden in demo mode; RecenterButton appears only when GPS mode + autoFollowSuppressed, uses 🎯 icon. Track recording confirmed independent (uses real `_gpsPosition`, not map center). 2 files, ~60 lines. Build: ✅.
 
 **fix-spike (2026-07-12):** Four-gate spike rejection hardening. Fix D (P0): dedup identical positions within 500ms, hoisted above `isStopped` — catches 30+ sub-ms code-level double-emissions and 11-point GPS chipset bursts. Fix A (P0): stale-timeout two-tier cap — 48 kn when stationary (<2 kn GPS), 96 kn otherwise — plus course-history clearing to prevent spike positions poisoning direction tracking. Fix B (P1): GPS-reported speed gate at 40 kn with `!isOnLand` guard — catches impossible speed readings (44-45 kn). Fix C (P0): stationary distance cap (150m when GPS speed <2 kn) in both stale-timeout and Gate 1 paths — catches slow-drift spikes that sail under speed caps. Bonus: fixed pre-existing dead sea-recovery path (`landModeAcceptCounter` in `captureAcceptedPoint`), added missing `checkLandDetection` calls to Gate 3 and same-ms jump paths, reset `consecutiveRejections` on stale-timeout/Gate 0 acceptance. Expected impact on Bad-spikes.gpx: all 3 anomaly categories eliminated. 1 file, ~65 lines, no new dependencies. Build: ✅.
+
+**checks (2026-07-14):** Unified continuous dead reckoning + setCenter map smoothness fix. Root cause: `animateTo(fix, 600ms)` caused speed-proportional map-center lag (1.9m at 6kn, 6.2m at 20kn) because the animation always targeted a stale position. Fix: added `_displayPosition` StateFlow with continuous 20 Hz dead-reckoning coroutine that extrapolates between GPS fixes (gated <3kn, capped 30m). `cameraUpdates` reads from `_displayPosition` instead of `_gpsPosition`. MapScreen replaced `animateTo` with `setCenter` — smoothness from DR, accuracy from instant positioning. `_gpsPosition` remains raw truth for track recording, zones, dashboard. 2 files, ~60 lines. Build: ✅.
