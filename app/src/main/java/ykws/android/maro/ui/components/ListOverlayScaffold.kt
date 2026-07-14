@@ -355,7 +355,7 @@ private fun <T : ListableItem> SwipeableItemCard(
                     )
                     Box(
                         modifier = Modifier
-                            .align(Alignment.TopEnd)
+                            .align(Alignment.BottomEnd)
                             .padding(4.dp)
                             .size(24.dp)
                             .clip(CircleShape)

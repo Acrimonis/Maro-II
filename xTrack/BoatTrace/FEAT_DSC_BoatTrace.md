@@ -1,7 +1,7 @@
 name: BoatTrace
 status: active
 created: 2026-06-15 21:43
-modified: 2026-07-12 18:19
+modified: 2026-07-14 08:23
 active_subfeature: merge-tracks
 ---
 
@@ -324,3 +324,5 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 **resume-track (2026-07-12):** Resume a finalized track as a live recording. `TrackRecorder.resume()` extended with `fromCheckpoint` flag (default true for backward compat) — computes `resumeGapDurationSec` from inter-session wall-clock gap, clears `endTimeMs` on finalized tracks. `finalizeTrack()` subtracts gap from navigating duration (D10 prevents 50h inflation on 2-day gap), pattern-guards title recompute to preserve user-edited names (D6), forces `visibleOnMap=true` (D7). New `TrackViewModel.resumeTrack(trackId)` — 9-step setup mirroring `resumeOrphanedCheckpoint()`, only diff: `fromCheckpoint=false`. `TrackHistoryOverlay`: ▶ `PlayArrow` icon between pin and share on finalized track cards, visible when `endTimeMs != null && !isRecording`. Post-fix: `stopRecording()` invalidates `trackDetailCache` to prevent stale map polylines; `onResumeTrack` dismisses overlay. Wired via `OverlayLayer.kt`. Build: ✅
 
 **merge-tracks (2026-07-12):** Merge 2+ finalized tracks into a single new track. New `TrackMerger` utility — concatenates points with `timeOffsetMs` rebasing to earliest start, GAP markers between segments, renumbered BoatMarkers, synthesized stats (sum per-track distance/idle/navigating, weighted avg speed, max fastest). `TrackViewModel.mergeTracks(ids, name, keepOriginals)` — load, merge, save, optional delete originals with cache invalidation. `TrackHistoryOverlay`: `MultiActionSpec("merge")` reuses existing `ListOverlayScaffold` multi-select; self-contained `AlertDialog` with auto-generated name (`"A + B"` / `"A ... Z"`) and "Keep original tracks" checkbox (default checked). New `ListAction.MergeTracks` + `TrackEvent.TracksMerged`. Build: ✅
+
+**checkmark-bottom-right (2026-07-14):** Moved multi-select check mark badge from `Alignment.TopEnd` to `Alignment.BottomEnd` in `SwipeableItemCard` (`ListOverlayScaffold.kt`). Reduces visual collision with card titles/subtitles clustered at top. Build: ✅

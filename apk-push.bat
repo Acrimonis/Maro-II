@@ -53,10 +53,11 @@ call :launch_app
 :end
 echo/
 echo ======================================
+call "%~dp0_timestamp.bat"
 if !EXIT_CODE! EQU 0 (
-    echo  !APP_NAME! — Push completed successfully!
+    echo  !APP_NAME! — Push completed successfully^! [!TS!]
 ) else (
-    echo  !APP_NAME! — Push FAILED ^(exit code: !EXIT_CODE!^)
+    echo  !APP_NAME! — Push FAILED ^(exit code: !EXIT_CODE!^) [!TS!]
 )
 echo ======================================
 echo/
