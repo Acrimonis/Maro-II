@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** GPS
-- **Active Subfeature:** checks
-- **Last Updated:** 2026-07-14 08:41
-- **Last Bake:** 2026-07-14 08:41 (GPS — checks: continuous DR + setCenter, 2 files, build ✅)
-- **Branch:** feature/gps-checks
+- **Active Feature:** Markers
+- **Active Subfeature:** auto-marker-dedup
+- **Last Updated:** 2026-07-14 08:47
+- **Last Bake:** 2026-07-14 08:47 (Markers — auto-marker-dedup: plan written and reviewed, ready for implementation)
+- **Branch:** feature/markers-auto-merge
 
 ## Routing Map
 | Keyword | Feature File |

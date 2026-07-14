@@ -1,7 +1,7 @@
 # Hydration — Markers
 
-**Last Bake:** 2026-07-02 23:53
-**State:** wizard-cleanup-race: wizard state cleanup moved into coroutine. auto-marker-proximity: 300m default. Build ✅.
+**Last Bake:** 2026-07-14 08:47
+**State:** auto-marker-dedup: plan written and reviewed — proximity dedup at creation time, 50m radius, skip-or-update strategy. Ready for implementation.
 
 ## Summary
 - **auto-marker-proximity** — `addTempAutoMarker()` sets `proximityOverrideM = AppConfig.boatMarkerAutoMarkerProximityM` (300m default). Defensive fallback in `proximityRange()` for `IDLE_AUTO` + `null` → 300m. New config key `track.boatMarker.autoMarker.proximityM=300`.
