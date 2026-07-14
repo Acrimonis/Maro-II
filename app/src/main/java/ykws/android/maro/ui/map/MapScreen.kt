@@ -601,6 +601,14 @@ fun MapScreen(
         markersViewModel.coastlineIndex = viewModel.spatialIndex
     }
 
+    // ── Wire shared settings into child ViewModels (framework fix) ──
+    LaunchedEffect(Unit) {
+        markersViewModel.observeSettings(viewModel.settings, viewModel::updateSettings)
+    }
+    LaunchedEffect(Unit) {
+        trackViewModel.observeSettings(viewModel.settings)
+    }
+
     // ── Startup: clean up non-keepable auto-markers (orphaned from crash) ──
     LaunchedEffect(Unit) {
         val nonKeepable = userMarkers.filter { !it.keepable }
@@ -1718,7 +1726,7 @@ fun MapScreen(
                 val matchResult by markersViewModel.matchResult.collectAsState()
                 val selectedMarkerId by markersViewModel.selectedMarkerId.collectAsState()
                 MarkerOverlay(
-                    markers = userMarkers.filter { it.matchesFilter(appSettings.markerListFilter) },
+                    markers = userMarkers,
                     mapView = mapView,
                     proximityZoneMultiplier = AppConfig.markerProximityZoneMultiplier,
                     unconfirmedMarker = unconfirmedMarker,
@@ -1887,7 +1895,7 @@ fun MapScreen(
                     is ykws.android.maro.data.model.ListAction.BatchExportGpx -> shareTracksZip(context, trackViewModel, action.ids, trackScope)
                     is ykws.android.maro.data.model.ListAction.ImportTracks -> importLauncher?.launch(arrayOf("application/gpx+xml", "application/zip", "*/*"))
                     is ykws.android.maro.data.model.ListAction.PermanentDelete -> trackViewModel.deleteTrack(action.id)
-                    is ykws.android.maro.data.model.ListAction.RefreshList -> trackViewModel.refreshSummaries(action.sortState)
+                    is ykws.android.maro.data.model.ListAction.RefreshList -> trackViewModel.refreshSummaries(action.sortState, reloadFromDisk = false)
                     is ykws.android.maro.data.model.ListAction.RefreshLayer -> mapView?.invalidate()
                     else -> {}
                 }
@@ -1895,17 +1903,18 @@ fun MapScreen(
             trackSortState = appSettings.trackListSort,
             onTrackSortStateChange = { newState ->
                 viewModel.updateSettings { it.copy(trackListSort = newState) }
-                trackViewModel.refreshSummaries(newState)
+                trackViewModel.refreshSummaries(newState, reloadFromDisk = false)
                 mapView?.invalidate()
             },
             trackFilterState = appSettings.trackListFilter,
             onTrackFilterChange = { newFilter ->
                 viewModel.updateSettings { it.copy(trackListFilter = newFilter) }
-                trackViewModel.refreshSummaries()
+                trackViewModel.refreshSummaries(filter = newFilter, reloadFromDisk = false)
             },
             onTrackReset = {
-                viewModel.updateSettings { it.copy(trackListSort = ykws.android.maro.data.model.ListSortState(), trackListFilter = ykws.android.maro.data.model.ListFilter()) }
-                trackViewModel.refreshSummaries()
+                val resetFilter = ykws.android.maro.data.model.ListFilter()
+                viewModel.updateSettings { it.copy(trackListSort = ykws.android.maro.data.model.ListSortState(), trackListFilter = resetFilter) }
+                trackViewModel.refreshSummaries(filter = resetFilter, reloadFromDisk = false)
                 mapView?.invalidate()
             },
             appSettings = appSettings,
@@ -2005,12 +2014,13 @@ fun MapScreen(
             onMarkerFilterChange = { newFilter ->
                 android.util.Log.d("MaroMapRefresh", "onMarkerFilterChange: $newFilter")
                 viewModel.updateSettings { it.copy(markerListFilter = newFilter) }
-                markersViewModel.refreshSort()
+                markersViewModel.refreshSort(filter = newFilter)
             },
             onMarkerReset = {
                 android.util.Log.d("MaroMapRefresh", "onMarkerReset")
-                viewModel.updateSettings { it.copy(markerListSort = ykws.android.maro.data.model.ListSortState(), markerListFilter = ykws.android.maro.data.model.ListFilter()) }
-                markersViewModel.refreshSort()
+                val resetFilter = ykws.android.maro.data.model.ListFilter()
+                viewModel.updateSettings { it.copy(markerListSort = ykws.android.maro.data.model.ListSortState(), markerListFilter = resetFilter) }
+                markersViewModel.refreshSort(filter = resetFilter)
             },
             onCreateFirst = {
                 showMarkerManagement = false

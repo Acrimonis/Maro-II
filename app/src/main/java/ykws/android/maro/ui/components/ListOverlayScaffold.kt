@@ -58,6 +58,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -261,6 +262,7 @@ internal fun FilterControl(
                                             modifier = Modifier.fillMaxWidth().clickable(enabled = !isDisabled) {
                                                 val newAxes = if (option.isDefault) filterState.axes - axis.key else filterState.axes + (axis.key to option.value)
                                                 onFilterChange(ListFilter(newAxes))
+                                                expanded = false
                                             }.padding(horizontal = 16.dp, vertical = 2.dp),
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
@@ -500,6 +502,16 @@ fun <T : ListableItem> ListOverlayScaffold(
         }
     }
 
+    // ── Commit pending deletes on disposal (covers scrim dismiss) ──────
+    DisposableEffect(Unit) {
+        onDispose {
+            if (pendingDeletes.isNotEmpty()) {
+                pendingDeletes.forEach { id -> onAction(ListAction.PermanentDelete(id)) }
+                pendingDeletes.clear()
+            }
+        }
+    }
+
     // ── Item reconciliation: drop stale selected IDs ───────────────────
     LaunchedEffect(items) {
         val currentIds = items.map { it.id }.toSet()
@@ -516,7 +528,7 @@ fun <T : ListableItem> ListOverlayScaffold(
         }
     }
 
-    val colorMap = remember(items, accentColors) { accentColors(items) }
+    val colorMap = remember(items) { accentColors(items) }
     val sortedItems = remember(items) { items.sortedByDescending { it.isLive } }
     val shape = RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp)
     val hasActiveFilter = filterState.axes.isNotEmpty()

@@ -18,7 +18,6 @@ import ykws.android.maro.data.model.ListSortState
 import ykws.android.maro.data.model.matchesFilter
 import ykws.android.maro.data.model.todayMidnightMs
 import ykws.android.maro.data.settings.AppSettings
-import ykws.android.maro.data.settings.SettingsManager
 
 /**
  * ViewModel bridge between [TrackRecorder] / [TrackRepository] and the Compose UI.
@@ -29,11 +28,10 @@ import ykws.android.maro.data.settings.SettingsManager
 class TrackViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = TrackRepository(application)
-    private val settingsManager = ykws.android.maro.data.settings.SettingsManager(
-        application, ykws.android.maro.config.AppConfig.zoneAutoRevealDistanceM,
-        ykws.android.maro.config.AppConfig.zoneAutoRevealTimeS,
-        ykws.android.maro.config.AppConfig.overlayLowDepthMinOpacity
-    )
+
+    // ── Settings injection (set via observeSettings from MapScreen) ──
+
+    private var settingsFlow: StateFlow<AppSettings>? = null
 
     private var recorder: TrackRecorder? = null
 
@@ -72,18 +70,29 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
     /** Cached settings from last startRecorder call, for use by resumeOrphanedCheckpoint. */
     private var cachedSettings: AppSettings? = null
 
-    init {
+    private var isLoaded = false
+
+    /**
+     * Injects shared settings flow from NavigationViewModel.
+     * Must be called once by MapScreen before the ViewModel is used.
+     */
+    fun observeSettings(flow: StateFlow<AppSettings>) {
+        this.settingsFlow = flow
         viewModelScope.launch {
-            recoverOrphanedCheckpoints()
-        }
-        refreshSummaries()
-        viewModelScope.launch {
-            settingsManager.settings.collect { settings ->
+            flow.collect { settings ->
+                if (!isLoaded) return@collect
                 val midnightMs = todayMidnightMs()
                 val filtered = _allSummaries.value.filter { it.matchesFilter(settings.trackListFilter, midnightMs) }
                 _summaries.value = sortSummaries(filtered, settings.trackListSort)
             }
         }
+    }
+
+    init {
+        viewModelScope.launch {
+            recoverOrphanedCheckpoints()
+        }
+        refreshSummaries()
     }
 
     /**
@@ -207,16 +216,25 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /** Reload track summaries, mark active track as [ListableItem.isLive]. */
-    fun refreshSummaries(sortState: ListSortState? = null) {
+    fun refreshSummaries(sortState: ListSortState? = null, reloadFromDisk: Boolean = true, filter: ListFilter? = null) {
         viewModelScope.launch {
-            val settings = settingsManager.settings.value
-            val effectiveSort = sortState ?: settings.trackListSort
+            val settings = settingsFlow?.value
+            val effectiveSort = sortState ?: settings?.trackListSort ?: ListSortState()
+            val effectiveFilter = filter ?: settings?.trackListFilter ?: ListFilter()
+            if (!reloadFromDisk && _allSummaries.value.isNotEmpty()) {
+                // Filter/sort change — filter in memory
+                val midnightMs = todayMidnightMs()
+                val filtered = _allSummaries.value.filter { it.matchesFilter(effectiveFilter, midnightMs) }
+                _summaries.value = sortSummaries(filtered, effectiveSort)
+                return@launch
+            }
             val summaries = repository.listTracks()
             // Mark the active track: most recent summary with no endTimeMs
             summaries.firstOrNull { it.endTimeMs == null }?.isLive = true
             _allSummaries.value = summaries
+            isLoaded = true
             val midnightMs = todayMidnightMs()
-            val filtered = summaries.filter { it.matchesFilter(settings.trackListFilter, midnightMs) }
+            val filtered = summaries.filter { it.matchesFilter(effectiveFilter, midnightMs) }
             _summaries.value = sortSummaries(filtered, effectiveSort)
         }
     }

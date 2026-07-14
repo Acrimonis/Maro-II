@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** BoatTrace
-- **Active Subfeature:** merge-tracks
-- **Last Updated:** 2026-07-14 09:10
-- **Last Bake:** 2026-07-12 18:19 (BoatTrace — merge-tracks: Resume + Merge implemented, scaffold extended with confirmContent slot)
-- **Branch:** feature/notif
+- **Active Feature:** Ui_General
+- **Active Subfeature:** filter-sort-fixes
+- **Last Updated:** 2026-07-14 14:09
+- **Last Bake:** 2026-07-14 14:09 (Ui_General — filter-sort-fixes: framework fix. Duplicate SettingsManagers removed, shared StateFlow injected. Filter/popup/scrim/whereAmI fixes. BUILD SUCCESSFUL)
+- **Branch:** feature/marker-list-fixes
 
 ## Routing Map
 | Keyword | Feature File |

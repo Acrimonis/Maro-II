@@ -1,6 +1,6 @@
 # Hydration: Ui_General
 
-**Session:** click-N-move — implemented + bugfix + chevron + guidelines. `NavigateToItem`: dismiss → animate(600ms) → whereAmISync(Default) → openEditDrawer. Card tap fixed (`.clickable`). Chevrons normalized to 28dp. Guidelines updated.
+**Session:** filter-sort-fixes — framework fix. Removed duplicate `SettingsManager` instances from MarkersViewModel + TrackViewModel. Replaced with shared `StateFlow<AppSettings>` injected from NavigationViewModel via `observeSettings()`. MarkersViewModel also receives `updateSettings` callback for writes. Filter/sort callbacks pass `filter` param directly. Also: `whereAmISync`/`whereAmI` use `_allMarkers`, init races gated, FilterControl popup closes on selection, pending deletes committed on disposal. BUILD SUCCESSFUL.
 
 **State:**
 - `click-N-move [x]` — complete (6/6 steps + bugfix + chevron + docs)

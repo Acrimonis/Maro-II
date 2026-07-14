@@ -20,7 +20,6 @@ import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.data.model.matchesFilter
 import ykws.android.maro.data.settings.AppSettings
-import ykws.android.maro.data.settings.SettingsManager
 import ykws.android.maro.spatial.CoastlineSpatialIndex
 import ykws.android.maro.spatial.DebugSegment
 import ykws.android.maro.spatial.MarkerMatcher
@@ -113,9 +112,10 @@ class MarkersViewModel(
     private val repo: UserMarkerRepository =
         UserMarkerRepository(java.io.File(application.filesDir, "markers"))
 
-    private val settingsManager: SettingsManager =
-        SettingsManager(application, AppConfig.zoneAutoRevealDistanceM,
-            AppConfig.zoneAutoRevealTimeS, AppConfig.overlayLowDepthMinOpacity)
+    // ── Settings injection (set via observeSettings from NavigationViewModel) ──
+
+    private var settingsFlow: StateFlow<AppSettings>? = null
+    private var updateSettings: (((AppSettings) -> AppSettings) -> Unit)? = null
 
     // ── StateFlows ────────────────────────────────────────────────────────
 
@@ -131,13 +131,8 @@ class MarkersViewModel(
     val markers: StateFlow<List<UserMarker>> = _markers.asStateFlow()
 
     /** Tri-state layer visibility (FanLayout toggle). */
-    val markerLayerState: StateFlow<MarkerLayerState> =
-        settingsManager.settings.let { flow ->
-            val initial = flow.value.markerLayerState
-            MutableStateFlow(initial).also { sf ->
-                viewModelScope.launch { flow.collect { sf.value = it.markerLayerState } }
-            }.asStateFlow()
-        }
+    private val _markerLayerState = MutableStateFlow(MarkerLayerState.HIDDEN)
+    val markerLayerState: StateFlow<MarkerLayerState> = _markerLayerState.asStateFlow()
 
     /** Derived: true when layer is not hidden. */
     val userMarkersVisible: StateFlow<Boolean> =
@@ -212,19 +207,34 @@ class MarkersViewModel(
 
     // ── Init ──────────────────────────────────────────────────────────────
 
+    private var isLoaded = false
+
+    /**
+     * Injects shared settings flow + updater from NavigationViewModel.
+     * Must be called once by MapScreen before the ViewModel is used.
+     */
+    fun observeSettings(flow: StateFlow<AppSettings>, updater: ((AppSettings) -> AppSettings) -> Unit) {
+        this.settingsFlow = flow
+        this.updateSettings = updater
+        _markerLayerState.value = flow.value.markerLayerState
+        viewModelScope.launch {
+            flow.collect { settings ->
+                if (isLoaded) {
+                    val filtered = _allMarkers.value.filter { it.matchesFilter(settings.markerListFilter) }
+                    _markers.value = sortMarkers(filtered, settings.markerListSort)
+                }
+                _markerLayerState.value = settings.markerLayerState
+            }
+        }
+    }
+
     init {
         viewModelScope.launch {
             val loaded = withContext(Dispatchers.IO) { repo.loadAll() }
-            val settings = settingsManager.settings.value
             _allMarkers.value = loaded
-            val filtered = loaded.filter { it.matchesFilter(settings.markerListFilter) }
-            _markers.value = sortMarkers(filtered, settings.markerListSort)
-        }
-        viewModelScope.launch {
-            settingsManager.settings.collect { settings ->
-                val filtered = _allMarkers.value.filter { it.matchesFilter(settings.markerListFilter) }
-                _markers.value = sortMarkers(filtered, settings.markerListSort)
-            }
+            // Initial sort: no filter applied until observeSettings wires up the flow
+            _markers.value = sortMarkers(loaded, ykws.android.maro.data.model.ListSortState())
+            isLoaded = true
         }
     }
 
@@ -246,13 +256,13 @@ class MarkersViewModel(
     fun toggleMarkerLayer() {
         val next = if (markerLayerState.value == MarkerLayerState.HIDDEN) MarkerLayerState.SHOW_ALL else MarkerLayerState.HIDDEN
         Log.d("MaroMapRefresh", "toggleMarkerLayer: ${markerLayerState.value} → $next")
-        settingsManager.update { it.copy(markerLayerState = next) }
+        updateSettings?.invoke { it.copy(markerLayerState = next) }
     }
 
     /** Shows the user markers layer (sets to SHOW_ALL) if currently HIDDEN. */
     fun showLayer() {
         if (markerLayerState.value == MarkerLayerState.HIDDEN)
-            settingsManager.update { it.copy(markerLayerState = MarkerLayerState.SHOW_ALL) }
+            updateSettings?.invoke { it.copy(markerLayerState = MarkerLayerState.SHOW_ALL) }
     }
 
     // ── Drawer control ────────────────────────────────────────────────────
@@ -326,10 +336,11 @@ class MarkersViewModel(
     }
 
     /** Re-apply filter + sort with current settings. */
-    fun refreshSort(sortState: ykws.android.maro.data.model.ListSortState? = null) {
-        val settings = settingsManager.settings.value
-        val effective = sortState ?: settings.markerListSort
-        val filtered = _allMarkers.value.filter { it.matchesFilter(settings.markerListFilter) }
+    fun refreshSort(sortState: ykws.android.maro.data.model.ListSortState? = null, filter: ListFilter? = null) {
+        val settings = settingsFlow?.value
+        val effective = sortState ?: settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
+        val effectiveFilter = filter ?: settings?.markerListFilter ?: ListFilter()
+        val filtered = _allMarkers.value.filter { it.matchesFilter(effectiveFilter) }
         _markers.value = sortMarkers(filtered, effective)
     }
 
@@ -563,9 +574,11 @@ class MarkersViewModel(
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repo.add(marker) }
             val all = withContext(Dispatchers.IO) { repo.loadAll() }
-            val settings = settingsManager.settings.value
+            val settings = settingsFlow?.value
             _allMarkers.value = all
-            _markers.value = sortMarkers(all.filter { it.matchesFilter(settings.markerListFilter) }, settings.markerListSort)
+            val filter = settings?.markerListFilter ?: ListFilter()
+            val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
+            _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
             _drawerState.value = MarkerDrawerState.Hidden
             _lastSavedMarkerId.value = marker.id
             _wizardStep.value = null
@@ -608,9 +621,11 @@ class MarkersViewModel(
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repo.update(updated) }
             val all = withContext(Dispatchers.IO) { repo.loadAll() }
-            val settings = settingsManager.settings.value
+            val settings = settingsFlow?.value
             _allMarkers.value = all
-            _markers.value = sortMarkers(all.filter { it.matchesFilter(settings.markerListFilter) }, settings.markerListSort)
+            val filter = settings?.markerListFilter ?: ListFilter()
+            val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
+            _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
             _drawerState.value = MarkerDrawerState.Hidden
             _wizardStep.value = null
             editingMarkerId = null
@@ -623,9 +638,11 @@ class MarkersViewModel(
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repo.delete(markerId) }
             val all = withContext(Dispatchers.IO) { repo.loadAll() }
-            val settings = settingsManager.settings.value
+            val settings = settingsFlow?.value
             _allMarkers.value = all
-            _markers.value = sortMarkers(all.filter { it.matchesFilter(settings.markerListFilter) }, settings.markerListSort)
+            val filter = settings?.markerListFilter ?: ListFilter()
+            val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
+            _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
             _drawerState.value = MarkerDrawerState.Hidden
         }
     }
@@ -656,9 +673,11 @@ class MarkersViewModel(
                     viewModelScope.launch {
                         withContext(Dispatchers.IO) { repo.update(updated) }
                         val all = withContext(Dispatchers.IO) { repo.loadAll() }
-                        val settings = settingsManager.settings.value
+                        val settings = settingsFlow?.value
                         _allMarkers.value = all
-                        _markers.value = sortMarkers(all.filter { it.matchesFilter(settings.markerListFilter) }, settings.markerListSort)
+                        val filter = settings?.markerListFilter ?: ListFilter()
+                        val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
+                        _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
                     }
                     return nearest.id
                 } else {
@@ -689,9 +708,11 @@ class MarkersViewModel(
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repo.add(marker) }
             val all = withContext(Dispatchers.IO) { repo.loadAll() }
-            val settings = settingsManager.settings.value
+            val settings = settingsFlow?.value
             _allMarkers.value = all
-            _markers.value = sortMarkers(all.filter { it.matchesFilter(settings.markerListFilter) }, settings.markerListSort)
+            val filter = settings?.markerListFilter ?: ListFilter()
+            val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
+            _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
         }
         return marker.id
     }
@@ -706,9 +727,11 @@ class MarkersViewModel(
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repo.update(updated) }
             val all = withContext(Dispatchers.IO) { repo.loadAll() }
-            val settings = settingsManager.settings.value
+            val settings = settingsFlow?.value
             _allMarkers.value = all
-            _markers.value = sortMarkers(all.filter { it.matchesFilter(settings.markerListFilter) }, settings.markerListSort)
+            val filter = settings?.markerListFilter ?: ListFilter()
+            val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
+            _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
         }
     }
 
@@ -719,9 +742,11 @@ class MarkersViewModel(
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repo.update(updated) }
             val all = withContext(Dispatchers.IO) { repo.loadAll() }
-            val settings = settingsManager.settings.value
+            val settings = settingsFlow?.value
             _allMarkers.value = all
-            _markers.value = sortMarkers(all.filter { it.matchesFilter(settings.markerListFilter) }, settings.markerListSort)
+            val filter = settings?.markerListFilter ?: ListFilter()
+            val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
+            _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
         }
     }
 
@@ -752,9 +777,11 @@ class MarkersViewModel(
                 ids.forEach { id -> repo.delete(id) }
             }
             val all = withContext(Dispatchers.IO) { repo.loadAll() }
-            val settings = settingsManager.settings.value
+            val settings = settingsFlow?.value
             _allMarkers.value = all
-            _markers.value = sortMarkers(all.filter { it.matchesFilter(settings.markerListFilter) }, settings.markerListSort)
+            val filter = settings?.markerListFilter ?: ListFilter()
+            val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
+            _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
         }
     }
 
@@ -769,9 +796,11 @@ class MarkersViewModel(
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repo.update(updated) }
             val all = withContext(Dispatchers.IO) { repo.loadAll() }
-            val settings = settingsManager.settings.value
+            val settings = settingsFlow?.value
             _allMarkers.value = all
-            _markers.value = sortMarkers(all.filter { it.matchesFilter(settings.markerListFilter) }, settings.markerListSort)
+            val filter = settings?.markerListFilter ?: ListFilter()
+            val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
+            _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
         }
     }
 
@@ -800,7 +829,7 @@ class MarkersViewModel(
      */
     fun whereAmISync(boatPos: LatLng): WhereAmIResult {
         val index = coastlineIndex ?: return WhereAmIResult(emptyList())
-        val all = _markers.value
+        val all = _allMarkers.value
         if (all.isEmpty()) return WhereAmIResult(emptyList())
         MarkerMatcher.debugger.clear()
         return MarkerMatcher.resolveAllMarkers(boatPos, all, index)
@@ -815,7 +844,7 @@ class MarkersViewModel(
      */
     fun whereAmI(boatPos: LatLng) {
         val index = coastlineIndex ?: return
-        val all = _markers.value
+        val all = _allMarkers.value
         if (all.isEmpty()) {
             _matchResult.value = WhereAmIResult(emptyList())
             _drawerState.value = MarkerDrawerState.MatchResult
