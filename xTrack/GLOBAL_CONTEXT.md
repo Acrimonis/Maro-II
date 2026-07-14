@@ -1,12 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** GPS
-- **Active Subfeature:** fix-spike
-- **Last Updated:** 2026-07-12 19:01
-- **Last Bake:** 2026-07-12 19:40 (GPS — fix-spike: 4 fixes, dead sea-recovery fixed, build ✅)
-- **Branch:** feature/fix-tracking
-
+- **Active Feature:** UI_Map
+- **Active Subfeature:** decenter-map
+- **Last Updated:** 2026-07-14 08:40
+- **Last Bake:** 2026-07-14 08:40 (UI_Map/decenter-map — decenter animation smoothed: spring→tween 2s)
+- **Branch:** feature/map-offset-smmothness
 ## Routing Map
 | Keyword | Feature File |
 |---|---|
