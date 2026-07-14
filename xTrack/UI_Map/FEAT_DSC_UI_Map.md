@@ -2,8 +2,8 @@
 name: UI_Map
 status: active
 created: 2026-06-07 00:00
-modified: 2026-07-11 12:00
-active_subfeature: map refresh
+modified: 2026-07-14 08:40
+active_subfeature: decenter-map
 ---
 
 **Description:** Map display layer management — depth layer, color depth layer, orientation-aware rendering, marker highlight.
