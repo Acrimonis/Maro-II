@@ -2,10 +2,10 @@
 
 ## Active Session Pointers
 - **Active Feature:** Ui_General
-- **Active Subfeature:** filter-sort-fixes
-- **Last Updated:** 2026-07-14 14:09
-- **Last Bake:** 2026-07-14 14:09 (Ui_General — filter-sort-fixes: framework fix. Duplicate SettingsManagers removed, shared StateFlow injected. Filter/popup/scrim/whereAmI fixes. BUILD SUCCESSFUL)
-- **Branch:** feature/marker-list-fixes
+- **Active Subfeature:** menu-import-export
+- **Last Updated:** 2026-07-14 15:01
+- **Last Bake:** 2026-07-14 15:01 (Ui_General — menu-import-export: Import moved from list header to menu drawer TRACKS card. Import/Export icon pair with standalone Material Symbols Publish/Upload. Export all via BatchExportGpx. BUILD SUCCESSFUL)
+- **Branch:** feature/export
 
 ## Routing Map
 | Keyword | Feature File |
