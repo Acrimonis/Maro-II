@@ -12,7 +12,9 @@ import android.content.IntentFilter
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import ykws.android.maro.MainActivity
 import ykws.android.maro.R
+import java.io.File
 
 /**
  * Foreground service that keeps Maro II alive when backgrounded.
@@ -43,12 +45,23 @@ class TrackRecordingService : Service() {
     /** Last known boat water state — persisted across Activity lifecycle for query support. */
     private var lastKnownOnWater: Boolean = false
 
+    /** True when orphaned checkpoint files exist in filesDir/tracks/ (lightweight scan, no protobuf I/O). */
+    private var hasOrphans: Boolean = false
+
     /** Dynamically registered receiver for [ACTION_QUERY_WATER_STATE]. */
     private var waterQueryReceiver: BroadcastReceiver? = null
 
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+
+        // Restore persisted water state (survives process death)
+        val prefs = getSharedPreferences("maro_service_prefs", Context.MODE_PRIVATE)
+        lastKnownOnWater = prefs.getBoolean("pref_last_water_state", false)
+
+        // Lightweight orphan checkpoint scan (no protobuf deserialization)
+        val trackDir = File(filesDir, "tracks")
+        hasOrphans = trackDir.listFiles(java.io.FileFilter { it.extension == "checkpoint" })?.isNotEmpty() == true
 
         // Register query receiver so Tasker can poll water state on demand
         waterQueryReceiver = object : BroadcastReceiver() {
@@ -87,6 +100,9 @@ class TrackRecordingService : Service() {
             val newOnWater = intent.getBooleanExtra(EXTRA_ON_WATER, false)
             if (newOnWater != lastKnownOnWater) {
                 lastKnownOnWater = newOnWater
+                // Persist across process death
+                getSharedPreferences("maro_service_prefs", Context.MODE_PRIVATE)
+                    .edit().putBoolean("pref_last_water_state", newOnWater).apply()
                 // Push broadcast to Tasker on every land↔water toggle
                 sendBroadcast(Intent(ACTION_WATER_STATE_CHANGED).apply {
                     putExtra(EXTRA_ON_WATER, newOnWater)
@@ -122,7 +138,7 @@ class TrackRecordingService : Service() {
 
         // 5-segment title: "Maro II • [GPS|Demo] • [Navigating|Idle|Moving] • [Recording|Ready] • [On Water|On Land]"
         val modeLabel = if (isDemo) "Demo" else "GPS"
-        val recLabel = if (isRecording) "Recording" else "Ready"
+        val recLabel = if (hasOrphans) "Recovery available" else if (isRecording) "Recording" else "Ready"
         val navLabel = when {
             !isMoving -> "Idle"
             isOnWater -> "Navigating"
@@ -155,6 +171,16 @@ class TrackRecordingService : Service() {
                 ).build()
             )
         }
+
+        // Tap notification → open MainActivity (SINGLE_TOP | CLEAR_TOP avoids duplicate)
+        val openIntent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        }
+        val pendingIntent = PendingIntent.getActivity(
+            this, 0, openIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+        builder.setContentIntent(pendingIntent)
 
         return builder.build()
     }

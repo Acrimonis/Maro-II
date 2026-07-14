@@ -1,8 +1,8 @@
 name: BoatTrace
 status: active
 created: 2026-06-15 21:43
-modified: 2026-07-14 08:23
-active_subfeature: merge-tracks
+modified: 2026-07-14 09:22
+active_subfeature: notif-lifecycle
 ---
 
 # Feature: BoatTrace
@@ -266,6 +266,15 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 #### Docs
 - `xTrack/BoatTrace/FEAT_PLN_BoatTrace_merge-tracks.md` — discussion plan: merge tracks vs resume track
 
+### notif-lifecycle  [x]
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/data/track/TrackRecordingService.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
+
+#### Docs
+- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_notif-lifecycle-hardening.md` — design & implementation plan
+
 ### populate-track-info  [x]
 
 ## Docs
@@ -326,3 +335,5 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 **merge-tracks (2026-07-12):** Merge 2+ finalized tracks into a single new track. New `TrackMerger` utility — concatenates points with `timeOffsetMs` rebasing to earliest start, GAP markers between segments, renumbered BoatMarkers, synthesized stats (sum per-track distance/idle/navigating, weighted avg speed, max fastest). `TrackViewModel.mergeTracks(ids, name, keepOriginals)` — load, merge, save, optional delete originals with cache invalidation. `TrackHistoryOverlay`: `MultiActionSpec("merge")` reuses existing `ListOverlayScaffold` multi-select; self-contained `AlertDialog` with auto-generated name (`"A + B"` / `"A ... Z"`) and "Keep original tracks" checkbox (default checked). New `ListAction.MergeTracks` + `TrackEvent.TracksMerged`. Build: ✅
 
 **checkmark-bottom-right (2026-07-14):** Moved multi-select check mark badge from `Alignment.TopEnd` to `Alignment.BottomEnd` in `SwipeableItemCard` (`ListOverlayScaffold.kt`). Reduces visual collision with card titles/subtitles clustered at top. Build: ✅
+
+**notif-lifecycle-hardening (2026-07-14):** Three notification lifecycle fixes. (1) Tap-to-open: `setContentIntent(PendingIntent.getActivity(MainActivity))` with `SINGLE_TOP | CLEAR_TOP`. (2) Post-kill resilience: persist `lastKnownOnWater` to SharedPreferences; lightweight orphan checkpoint scan (`File.listFiles { extension == "checkpoint" }`) shows "Recovery available" label. (3) Recording-aware exit: double-back while recording shows AlertDialog ("Stop & Exit" / "Keep Recording" → `moveTaskToBack`). Non-recording double-back unchanged. 2 files, 0 new permissions. Build: ✅
