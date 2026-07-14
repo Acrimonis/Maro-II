@@ -1,8 +1,8 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-07-12 14:29
-active_subfeature: multi-select
+modified: 2026-07-14 14:09
+active_subfeature: filter-sort-fixes
 ---
 
 # Feature: Ui_General
