@@ -45,6 +45,9 @@ fun Track.toGpx(): String = buildString {
         if (point.bearingDeg != null) {
             append("<course>${point.bearingDeg}</course>")
         }
+        if (point.accuracyM != null) {
+            append("<accuracy>${"%.1f".format(point.accuracyM)}</accuracy>")
+        }
         val pointTime = Date(startTimeMs + point.timeOffsetMs)
         append("<time>${isoFormat.format(pointTime)}</time>")
         append("</trkpt>")
