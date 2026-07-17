@@ -3,8 +3,8 @@
 ## Active Session Pointers
 - **Active Feature:** GPS
 - **Active Subfeature:** poor-reception
-- **Last Updated:** 2026-07-17 09:37
-- **Last Bake:** 2026-07-17 09:37 (GPS — poor-reception: 6-layer plan — accuracy plumbing, speed-aware policy, IDLE floor, recording gates, WEAK icon. 1 plan file, Ask-reviewed.)
+- **Last Updated:** 2026-07-17 10:52
+- **Last Bake:** 2026-07-17 10:52 (GPS — poor-reception: 9 items finalized — 8 P0 on-the-fly + 1 P1 BoatMarker merge. 3 Ask reviews, zero known issues. Constants table + maro.properties section defined.)
 - **Branch:** feature/gps-still-spikes
 
 ## Routing Map

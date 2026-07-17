@@ -2,7 +2,7 @@
 name: GPS
 status: active
 created: 2026-06-07 00:00
-modified: 2026-07-17 09:37
+modified: 2026-07-17 10:52
 active_subfeature: poor-reception
 ---
 

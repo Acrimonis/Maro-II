@@ -1,10 +1,10 @@
 # GPS Poor-Reception Handling — Comprehensive Plan
 
 > **Feature:** GPS | **Subfeature:** poor-reception
-> **Created:** 2026-07-17 09:11 UTC | **Updated:** 2026-07-17 09:29 UTC (code-reviewed)
-> **Status:** Plan — reviewed against current codebase
-> **Branch:** (not yet created)
-> **Scope:** 8 P0 items across 6 files | P1-P3 additive
+> **Created:** 2026-07-17 09:11 UTC | **Updated:** 2026-07-17 10:40 UTC (finalized)
+> **Status:** Plan — two Ask reviews, zero known issues
+> **Branch:** feature/gps-still-spikes
+> **Scope:** 9 items (8 P0 on-the-fly + 1 P1 post-hoc) across 7 source files
 
 ---
 
@@ -208,9 +208,19 @@ combine(
 }
 ```
 
-**maro.properties additions:**
+**maro.properties — new GPS section:**
 ```properties
+# ── GPS position processing ─────────────────────────
+# Maximum interval (ms) between GPS fixes when the adaptive policy
+# declares the boat stationary (IDLE) and accuracy is poor (>goodThresholdM).
+# Prevents the default 36s dormant interval from starving the policy of
+# data during marginal reception. Only activates when accuracy is known-poor.
 gps.idle.maxIntervalMs=10000
+
+# Accuracy threshold (metres) below which GPS reception is considered
+# "good". Above this value the IDLE fix-rate floor activates, the WEAK
+# GPS icon state displays, and adaptive policy displacement thresholds
+# are widened to the accuracy value (see ACCURACY_FLOOR_THRESHOLD_M).
 gps.accuracy.goodThresholdM=10
 ```
 
@@ -228,7 +238,15 @@ if (sample.accuracyM != null && sample.accuracyM > maxRecordingAccuracyM) {
 }
 ```
 
-**New setting:** `tracking.maxRecordingAccuracyM: Float = 30f` in `AppSettings` + `SettingsManager` + `maro.properties`.
+**New setting:** `tracking.maxRecordingAccuracyM: Float = 30f` in `AppSettings` + `SettingsManager`.
+
+**maro.properties:**
+```properties
+# Maximum GPS self-reported accuracy (metres) for a fix to be recorded.
+# Fixes with accuracy worse than this are rejected. Prevents ±45m indoor
+# fixes from polluting the track. Default 30m. Configurable in Settings.
+tracking.maxRecordingAccuracyM=30
+```
 
 **Wiring path:** `SettingsManager` → `AppSettings.maxRecordingAccuracyM` → `TrackViewModel` constructor (reads from `settings` StateFlow, same pattern as `gpsMode`) → `TrackRecorder` constructor parameter. TrackRecorder already receives `gpsMode: Boolean` this way — `maxRecordingAccuracyM` follows the identical pattern.
 
@@ -272,7 +290,7 @@ val gpsIconState = remember(appSettings.gpsMode, gpsPosition, gpsStale, acquisit
         gpsPosition == null && !isEstimating -> GpsIconState.ACQUIRING
         isEstimating -> GpsIconState.ESTIMATING
         gpsStale -> GpsIconState.STALE
-        gpsAccuracy != null && gpsAccuracy > ACCURACY_WEAK_THRESHOLD_M -> GpsIconState.WEAK  // NEW
+        gpsAccuracy != null && gpsAccuracy > GPS_ACCURACY_GOOD_THRESHOLD_M -> GpsIconState.WEAK  // NEW (same constant as IDLE floor)
         acquisitionMode == AcquisitionMode.IDLE -> GpsIconState.IDLE
         else -> GpsIconState.HEALTHY
     }
@@ -286,7 +304,82 @@ val gpsIconState = remember(appSettings.gpsMode, gpsPosition, gpsStale, acquisit
 
 ---
 
-## P1-P3 Items (summarized)
+## P1 Items — Post-Hoc Cleanup
+
+### 9. Merge duplicate BoatMarkers — reopen instead of re-create (1 file)
+
+**File:** [`TrackRecorder.startIdleTimer()`](app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt:1088)
+
+When a new idle period starts at the same location as a previous BoatMarker within `dedupRadiusM`, check whether the boat actually traveled between them. If cumulative track point distance between the two markers is below `MIN_TRAVEL_BETWEEN_STOPS_M` (no real movement), **reopen the existing BoatMarker** instead of creating a new one. This accumulates idle duration correctly.
+
+If there WAS real travel (cumulative distance ≥ threshold), create a new BoatMarker — the boat genuinely left and returned.
+
+```kotlin
+val dedupRadiusM = AppConfig.boatMarkerAutoMarkerDedupRadiusM
+val nowMs = System.currentTimeMillis()
+val existingNearby = track.boatMarkers.findLast { bm ->
+    bm.trigger == BoatMarkerTrigger.IDLE &&
+    SpatialOperations.haversine(LatLng(lat, lon), LatLng(bm.boatLat, bm.boatLon)) <= dedupRadiusM
+}
+if (existingNearby != null) {
+    // Was there real travel between the two idle periods?
+    val trackStartMs = currentTrack!!.startTimeMs
+    val pointsBetween = track.trackPoints.filter { pt ->
+        val absTimeMs = trackStartMs + pt.timeOffsetMs
+        absTimeMs > existingNearby.startTimeMs && absTimeMs < nowMs
+    }
+    var cumulativeDist = 0.0
+    for (i in 1 until pointsBetween.size) {
+        cumulativeDist += SpatialOperations.haversine(
+            LatLng(pointsBetween[i-1].lat, pointsBetween[i-1].lon),
+            LatLng(pointsBetween[i].lat, pointsBetween[i].lon)
+        )
+    }
+    if (cumulativeDist < MIN_TRAVEL_BETWEEN_STOPS_M) {
+        // No real travel — GPS noise → merge by reopening
+        val idx = track.boatMarkers.indexOf(existingNearby)
+        val reopened = existingNearby.copy(endTimeMs = null)
+        currentTrack = track.copy(
+            boatMarkers = track.boatMarkers.toMutableList().also { it[idx] = reopened }
+        )
+        session.boatMarkerIndex = idx
+        session.boatMarkerMerged = true
+        return@launch
+    }
+    // else: real travel → fall through, create new BoatMarker
+}
+```
+
+**New config:** `track.boatMarker.autoMarker.minTravelBetweenStopsM=25` in `maro.properties` + `AppConfig.boatMarkerMinTravelBetweenStopsM: Double`.
+
+**Snapshot merging:** Union old and new `whereAmI` snapshots by deduplicating on `MarkerSnapshot.markerId`, keeping newer entries when both exist. Ensures the merged BoatMarker reflects marker changes across both idle periods.
+
+```kotlin
+val mergedMarkers = unionMarkerSnapshots(existingNearby.markers, result.entries)
+// unionMarkerSnapshots: LinkedHashMap by markerId, new overwrites old
+val reopened = existingNearby.copy(endTimeMs = null, markers = mergedMarkers)
+```
+
+**Why cumulative distance replaces the time gate:** The track data already proves whether movement was real. If the boat sailed 500m and returned → track points show displacement → new marker. If GPS noise caused ACTIVE↔IDLE oscillation → track points show near-zero displacement → merge. No arbitrary time window needed.
+
+**Edge cases resolved:**
+- Boat returns to same mooring after real trip → cumulative distance >> 25m → new marker ✅
+- Poor reception oscillation at same spot → cumulative distance ≈ 0 → merge ✅
+- Boat at anchor, genuine 20m wind swing, re-settles → cumulative distance < 25m → merge (correct — same stop)
+- First idle too short to create BoatMarker → no existing marker → new marker ✅
+
+**New maro.properties entry** (under existing `# ── Auto-marker idle tracking ──` section):
+```properties
+# Minimum cumulative track point distance (metres) between two idle periods
+# at the same location required to consider them separate stops.
+# Below this threshold, the BoatMarker is reopened (merged) instead of
+# creating a new one — handles poor-reception ACTIVE↔IDLE churn.
+track.boatMarker.autoMarker.minTravelBetweenStopsM=25
+```
+
+---
+
+## P2-P3 Items (summarized)
 
 | Pri | Item | Files | Notes |
 |-----|------|-------|-------|
@@ -310,6 +403,25 @@ val gpsIconState = remember(appSettings.gpsMode, gpsPosition, gpsStale, acquisit
 | Good reception outdoors | New gates could reject valid points | All gates self-bypass when accuracy < 10m AND speed > 1kn |
 | Proto backward compat | Old tracks break on deserialization | New field 11 is nullable with default null |
 | GPS re-subscription churn | IDLE floor triggers unnecessary reconnects | `distinctUntilChanged()` on `_accuracyIsPoor` — only fires on good↔poor transitions |
+
+---
+
+## Constants & Config Reference
+
+| Constant | Value | Location | Note |
+|----------|-------|----------|------|
+| `MIN_MOVEMENT_SPEED_MPS` | 0.5f | [`GpsLocationSource.MIN_SPEED_MPS`](app/src/main/java/ykws/android/maro/data/location/GpsLocationSource.kt:169) | Already exists — reuse |
+| `ACCURACY_FLOOR_THRESHOLD_M` | 20.0 | `AdaptiveGpsPolicy` companion | New — item 4 |
+| `GPS_ACCURACY_GOOD_THRESHOLD_M` | 10 | BuildConfig (from maro.properties) | New — items 5, 8 |
+| `GPS_IDLE_MAX_INTERVAL_MS` | 10000 | BuildConfig (from maro.properties) | New — item 5 |
+| `MAX_STATIONARY_DRIFT_M` | 150.0 | [`TrackRecorder`](app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt) | Already exists |
+| `MIN_TRAVEL_BETWEEN_STOPS_M` | 25.0 | `AppConfig.boatMarkerMinTravelBetweenStopsM` | New — item 9 |
+
+**Wiring note:** `GPS_IDLE_MAX_INTERVAL_MS` and `GPS_ACCURACY_GOOD_THRESHOLD_M` are `BuildConfig` constants. Add `buildConfigField` entries in [`build.gradle.kts`](app/build.gradle.kts) using `propInt(...)` pattern — same as existing `STOP_DETECTION_GPS_DORMANT_PCT`.
+
+**New field on `IdleSessionContext`:** Add `var boatMarkerMerged: Boolean = false` for item 9.
+
+**`tracking.maxRecordingAccuracyM`** is a user-facing setting persisted by `SettingsManager` (in `AppSettings`). The `maro.properties` entry provides the default value (30f), not the canonical storage.
 
 ---
 
