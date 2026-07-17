@@ -351,13 +351,16 @@ fun MapScreen(
     val effectiveHeadingDeg = if (appSettings.gpsMode) navigationState.bearingDeg.toDouble()
         else navigationState.demoBearingDeg?.toDouble() ?: 0.0
 
-    // Derive the GPS icon state from ViewModel state (6-state model).
-    val gpsIconState = remember(appSettings.gpsMode, gpsPosition, gpsStale, acquisitionMode, isEstimating) {
+    // Derive the GPS icon state from ViewModel state (7-state model).
+    val gpsAccuracy by viewModel.gpsAccuracy.collectAsState()
+    val gpsIconState = remember(appSettings.gpsMode, gpsPosition, gpsStale, acquisitionMode, isEstimating, gpsAccuracy) {
+        val acc = gpsAccuracy
         when {
             !appSettings.gpsMode -> GpsIconState.DEMO
             gpsPosition == null -> GpsIconState.ACQUIRING
             isEstimating -> GpsIconState.ESTIMATING
             gpsStale -> GpsIconState.STALE
+            acc != null && acc > ykws.android.maro.BuildConfig.GPS_ACCURACY_GOOD_THRESHOLD_M -> GpsIconState.WEAK
             acquisitionMode == ykws.android.maro.data.location.AcquisitionMode.IDLE -> GpsIconState.IDLE
             else -> GpsIconState.HEALTHY
         }
@@ -372,6 +375,7 @@ fun MapScreen(
             GpsIconState.IDLE -> AppConfig.statusGpsIdle
             GpsIconState.STALE -> AppConfig.statusGpsStale
             GpsIconState.ESTIMATING -> AppConfig.statusGpsEstimating
+            GpsIconState.WEAK -> AppConfig.statusGpsAcquiring
         }
         ComposeColor(raw)
     }
@@ -891,7 +895,8 @@ fun MapScreen(
                 speedMps = speedMs,
                 bearingDeg = bearing,
                 hasLock = isGps,
-                timestampEpochMs = System.currentTimeMillis()
+                timestampEpochMs = System.currentTimeMillis(),
+                accuracyM = if (isGps) viewModel.gpsAccuracy.value else null
             )
         }.filterNotNull()
         trackViewModel.setStoppedSource(viewModel.isStopped)
@@ -3263,7 +3268,7 @@ private fun HamburgerIcon() {
  * - [IDLE]: GPS fix but stationary (reduced cadence), cyan background
  * - [STALE]: GPS lost / hasLock false / error, red background
  */
-private enum class GpsIconState { DEMO, ACQUIRING, HEALTHY, IDLE, STALE, ESTIMATING }
+private enum class GpsIconState { DEMO, ACQUIRING, HEALTHY, IDLE, STALE, ESTIMATING, WEAK }
 
 @Composable
 private fun GpsStatusIcon(
@@ -3284,6 +3289,7 @@ private fun GpsStatusIcon(
         GpsIconState.IDLE -> { baseColor = ComposeColor(AppConfig.statusGpsIdle); bgAlpha = AppConfig.statusGpsAlphaActive; contentAlpha = 1f }
         GpsIconState.STALE -> { baseColor = ComposeColor(AppConfig.statusGpsStale); bgAlpha = AppConfig.statusGpsAlphaActive; contentAlpha = 1f }
         GpsIconState.ESTIMATING -> { baseColor = ComposeColor(AppConfig.statusGpsEstimating); bgAlpha = AppConfig.statusGpsAlphaActive; contentAlpha = 1f }
+        GpsIconState.WEAK -> { baseColor = ComposeColor(AppConfig.statusGpsAcquiring); bgAlpha = AppConfig.statusGpsAlphaActive; contentAlpha = 1f }
     }
     Box(
         modifier = modifier

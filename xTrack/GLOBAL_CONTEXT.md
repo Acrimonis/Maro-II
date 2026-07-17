@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** Documentation
-- **Active Subfeature:** maro-code-map
-- **Last Updated:** 2026-07-17 09:10
-- **Last Bake:** 2026-07-14 17:17 (GPS — still-spike-fix: lastGenuine anchor, bearing sanity window, stale timeout idle gate. 1 file, BUILD SUCCESSFUL)
-- **Branch:** feature/doc-update
+- **Active Feature:** GPS
+- **Active Subfeature:** poor-reception
+- **Last Updated:** 2026-07-17 10:52
+- **Last Bake:** 2026-07-17 10:52 (GPS — poor-reception: 9 items finalized — 8 P0 on-the-fly + 1 P1 BoatMarker merge. 3 Ask reviews, zero known issues. Constants table + maro.properties section defined.)
+- **Branch:** feature/gps-still-spikes
 
 ## Routing Map
 | Keyword | Feature File |
@@ -74,7 +74,6 @@
 - **🔴 MODE LOCK: Do not switch to Code mode or invoke `#implement` pipeline without explicit user go-ahead (`#implement` tag or "go ahead" / "implement now").** Never suggest "ready for #implement" — it implies permission. Architect mode stays in Architect until user explicitly directs otherwise. See AGENTS.md Core Directives for full mode permissions.
 - **🔴 QUESTIONS: Answer before acting.** A question is not an implicit implementation order. Answer it first, then wait for direction.
 - **Auto-switch for commands:** When a task requires executing shell commands (git, gradlew, adb) and the current mode lacks terminal access, automatically `switch_mode("code")` to run the command, then switch back to the original mode.
-- **Passive drift detection for `maro-code.md`:** When navigating to a file/class based on a `maro-code.md` reference and the target is missing, renamed, or structurally wrong — flag it in the active feature's hydration file under `## Drift Log`. Append a one-liner (e.g., `- [STALE] Anchor class FooRepository renamed to FooStore — maro-code.md §Anchor Classes`). `#doctor` surfaces accumulated drift; `#doctor fix` clears acknowledged items.
 
 ## Global Todos
 - [ ] Validate the intermittent Overpass-outage theory — confirm the coastline OSM fetch failures are transient (succeeded 13:52, failing ~16:52 on 2026-06-08), not a persistent network / cert / IPv6 block. Quick checks: retry `bake-coastline` later; `curl -sk https://overpass-api.de/api/status`; race other mirrors.
@@ -89,7 +88,6 @@ Docs available via `#doc read [name]` from any feature. Fuzzy-resolve searches t
 | | `color-scheme.md` | ColorManagement | Color tokens, palette, alias chains |
 | | `settings-page-guidelines.md` | Ui_Settings | Settings page UI patterns and layout rules |
 | | `material-icons-standalone-guide.md` | Ui_General | How to add Material Symbols icons as standalone ImageVector .kt files |
-| | | `maro-code.md` | Documentation | Feature-to-code navigation map — package layout, anchor classes, dependency flow |
 
 ## Always-Loaded Context
 These files are loaded into context at the start of every session to maximize the AI prefix-cache hit rate:

@@ -15,5 +15,6 @@ data class TrackSample(
     val speedMps: Float?,
     val bearingDeg: Float?,
     val hasLock: Boolean,
-    val timestampEpochMs: Long
+    val timestampEpochMs: Long,
+    val accuracyM: Float? = null
 )

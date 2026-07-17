@@ -32,7 +32,8 @@ data class GpsFix(
     val hasCourse: Boolean,
     val speedMps: Float?,
     val hasLock: Boolean = true,
-    val timestampEpochMs: Long = System.currentTimeMillis()
+    val timestampEpochMs: Long = System.currentTimeMillis(),
+    val accuracyM: Float? = null
 )
 
 /**
@@ -81,7 +82,8 @@ class GpsLocationSource(private val context: Context) {
                     hasCourse = moving,
                     speedMps = if (loc.hasSpeed()) loc.speed else null,
                     hasLock = lock,
-                    timestampEpochMs = nowMs
+                    timestampEpochMs = nowMs,
+                    accuracyM = if (loc.hasAccuracy()) loc.accuracy else null
                 )
             )
             lastTimestamp = nowMs

@@ -113,6 +113,9 @@ object AppConfig {
     /** Dedup radius (m) — skip auto-marker creation if an existing IDLE_AUTO marker is within this distance. */
     var boatMarkerAutoMarkerDedupRadiusM: Double = 50.0
         private set
+    /** Minimum cumulative track point distance (m) between idle periods at same location to consider them separate stops. */
+    var boatMarkerMinTravelBetweenStopsM: Double = 25.0
+        private set
 
     /** Enable visual whereAmI debug rays on the map. Set via `marker.debug.rays.enabled` in maro.properties. */
     var markerDebugRaysEnabled: Boolean = false
@@ -565,6 +568,9 @@ object AppConfig {
             }
             props.getProperty("track.boatMarker.autoMarker.dedupRadiusM")?.toDoubleOrNull()?.let {
                 boatMarkerAutoMarkerDedupRadiusM = it.coerceAtLeast(1.0)
+            }
+            props.getProperty("track.boatMarker.autoMarker.minTravelBetweenStopsM")?.toDoubleOrNull()?.let {
+                boatMarkerMinTravelBetweenStopsM = it.coerceAtLeast(1.0)
             }
 
             // ── Track gap detection (resume after crash) ────────────────────

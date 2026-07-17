@@ -27,5 +27,6 @@ data class TrackPoint(
     @ProtoNumber(4) val bearingDeg: Float? = null,
     @ProtoNumber(5) val timeOffsetSec: Int = 0,
     @ProtoNumber(15) val timeOffsetMs: Long = 0L,
-    @ProtoNumber(10) val type: PointType = PointType.NORMAL
+    @ProtoNumber(10) val type: PointType = PointType.NORMAL,
+    @ProtoNumber(11) val accuracyM: Float? = null
 )

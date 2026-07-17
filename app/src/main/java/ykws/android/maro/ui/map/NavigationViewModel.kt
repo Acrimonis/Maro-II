@@ -364,6 +364,14 @@ class NavigationViewModel(
     /** Current GPS acquisition mode — exposed for the GPS status icon on the map. */
     val acquisitionMode: StateFlow<AcquisitionMode> = _acquisitionMode.asStateFlow()
 
+    /** True when the last GPS fix had accuracy worse than the good threshold (poor reception). */
+    private val _accuracyIsPoor = MutableStateFlow(false)
+    val accuracyIsPoor: StateFlow<Boolean> = _accuracyIsPoor.asStateFlow()
+
+    /** Accuracy (metres) of the last GPS fix, or null if unknown. Exposed for WEAK icon state. */
+    private val _gpsAccuracy = MutableStateFlow<Float?>(null)
+    val gpsAccuracy: StateFlow<Float?> = _gpsAccuracy.asStateFlow()
+
     /**
      * True when the GPS adaptive policy has classified the device as stationary
      * (within [AppSettings.stopDetectionDistanceM] of an anchor for [AppSettings.stopDetectionTimeSec]).
@@ -703,12 +711,15 @@ class NavigationViewModel(
                 listOf(it.gpsActiveIntervalSec, it.gpsActiveMinDistanceM, it.stopDetectionEnabled, it.stopDetectionTimeSec, it.stopDetectionDistanceM, it.stopDetectionDelayGps)
             },
             _acquisitionMode,
+            _accuracyIsPoor,
             _forceReconnect
-        ) { on, s, mode, forceReconnect ->
+        ) { on, s, mode, accuracyPoor, forceReconnect ->
             val intervalMs = when {
                 forceReconnect -> 0L
-                mode == AcquisitionMode.IDLE && s.stopDetectionDelayGps ->
-                    s.stopDetectionTimeSec * 1000L * BuildConfig.STOP_DETECTION_GPS_DORMANT_PCT / 100
+                mode == AcquisitionMode.IDLE && s.stopDetectionDelayGps -> {
+                    val dormant = s.stopDetectionTimeSec * 1000L * BuildConfig.STOP_DETECTION_GPS_DORMANT_PCT / 100
+                    if (accuracyPoor) minOf(dormant, BuildConfig.GPS_IDLE_MAX_INTERVAL_MS) else dormant
+                }
                 else -> s.gpsActiveIntervalSec * 1_000L
             }
             val distM = when {
@@ -736,8 +747,11 @@ class NavigationViewModel(
                 val s = settings.value
                 _acquisitionMode.value = adaptivePolicy.onFix(
                     now, fix.position,
-                    s.stopDetectionTimeSec * 1_000L, s.stopDetectionDistanceM.toDouble()
+                    s.stopDetectionTimeSec * 1_000L, s.stopDetectionDistanceM.toDouble(),
+                    fix.speedMps, fix.accuracyM
                 )
+                _gpsAccuracy.value = fix.accuracyM
+                _accuracyIsPoor.value = fix.accuracyM != null && fix.accuracyM > BuildConfig.GPS_ACCURACY_GOOD_THRESHOLD_M
                 if (_acquisitionMode.value == AcquisitionMode.IDLE) {
                     deadReckoningState = null
                 }
