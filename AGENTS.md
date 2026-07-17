@@ -150,6 +150,7 @@ Load these only when the task domain matches:
 
 | Task domain | Load |
 |-------------|------|
+| Code navigation, source structure, package layout, feature-to-code mapping | `docs/maro-code.md` |
 | Spatial, bathymetry, depth, coastline | `docs/MARO_ARCHITECTURE.md` |
 | UI components, layouts, theme | `docs/ui-component-guidelines.md` |
 | Drawers, bottom sheets, overlays | `docs/ui-drawer-guidelines.md` |

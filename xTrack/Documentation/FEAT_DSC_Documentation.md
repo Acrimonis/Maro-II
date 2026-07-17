@@ -2,16 +2,37 @@
 name: Documentation
 status: active
 created: 2026-06-11 06:42
-modified: 2026-06-11 10:38
-active_subfeature: none
+modified: 2026-07-17 09:32
+active_subfeature: maro-code-map
 ---
 
 # Feature: Documentation
 
 **Description:**
-Cross-cutting project documentation — README, FAQs, setup guides, architecture docs, git workflow, and maintenance of docs/ directory. Ensures all plans and reference docs are properly organized and attached to the correct features.
+Cross-cutting project documentation — README, FAQs, setup guides, architecture docs, git workflow, code navigation map, and maintenance of docs/ directory. Ensures all plans and reference docs are properly organized and attached to the correct features.
 
 ## Subfeatures
+
+### maro-code-map  [x]
+
+#### Todos
+- [x] Design: granularity compromise (package-level + anchor classes), passive drift detection, replace ## Key Files
+- [x] Create `docs/maro-code.md` — package map, feature→package cross-reference, anchor class index, dependency flow
+- [x] Integrate into AGENTS.md Lazy-Load Index
+- [x] Add to GLOBAL_CONTEXT.md cross-reference docs + passive drift detection rule
+- [x] Update Documentation feature file (this file)
+- [x] Update hydration file
+- [x] Replace `## Key Files` in remaining feature files → deferred to follow-up task
+
+#### Rules
+- `docs/maro-code.md` is the single source of truth for feature-to-code mapping.
+- Granularity: package-level skeleton + ~20 anchor classes — stable identifiers, low rot.
+- Passive drift: when maro-code.md reference is stale, flag in hydration `## Drift Log`; `#doctor` surfaces it.
+- Feature files' `## Key Files` → replace with `see docs/maro-code.md §[Feature]`. Keep only transient/WIP file references.
+
+#### Key Files
+- `docs/maro-code.md` — the code map (core deliverable)
+- `xTrack/Documentation/FEAT_PLN_Documentation_maro-code-map.md` — design discussion & decisions
 
 ### cleanup  [x]
 
@@ -113,9 +134,15 @@ Cross-cutting project documentation — README, FAQs, setup guides, architecture
 
 ## Rules
 - Feature-scoped discussion/plan files go in `xTrack/[Feature]/FEAT_PLN_[Feature]_[topic].md` (not in `plans/`). The `plans/` directory is legacy; new plans use the `FEAT_PLN_` convention under the target feature's xTrack directory.
+- `docs/maro-code.md` is the single source of truth for feature-to-code mapping. Feature files reference it; do not duplicate file listings.
 ## Key Files
+- `docs/maro-code.md` — feature-to-code navigation map (primary reference)
+- `AGENTS.md` — Lazy-Load Index entry
+- `xTrack/GLOBAL_CONTEXT.md` — Cross-Reference Docs + passive drift rule
 
 ## Docs
+- `docs/maro-code.md` — Feature-to-code navigation map
+- `xTrack/Documentation/FEAT_PLN_Documentation_maro-code-map.md` — Design discussion & decisions
 - `docs/FAQ.md` — Project FAQ
 - `docs/SETUP.md` — Project setup guide
 - `xTrack/Documentation/FEAT_PLN_Documentation_git-protection-workflow.md` — Git protection enforcement flow design
