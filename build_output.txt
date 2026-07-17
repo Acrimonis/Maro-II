@@ -36,7 +36,17 @@
 > Task :app:validateSigningDebug UP-TO-DATE
 > Task :app:writeDebugAppMetadata UP-TO-DATE
 > Task :app:writeDebugSigningConfigVersions UP-TO-DATE
+
 > Task :app:compileDebugKotlin
+w: file:///D:/.src/Maro_II/app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:914:21 Condition is always 'true'.
+w: file:///D:/.src/Maro_II/app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1343:26 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
+w: file:///D:/.src/Maro_II/app/src/main/java/ykws/android/maro/MainActivity.kt:227:78 'constructor(p0: String!): Locale' is deprecated. Deprecated in Java.
+w: file:///D:/.src/Maro_II/app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:914:21 Condition is always 'true'.
+w: file:///D:/.src/Maro_II/app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1343:26 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
+w: file:///D:/.src/Maro_II/app/src/main/java/ykws/android/maro/ui/map/NavigationViewModel.kt:1856:32 Condition is always 'true'.
+w: file:///D:/.src/Maro_II/app/src/main/java/ykws/android/maro/ui/map/NavigationViewModel.kt:1858:53 Condition is always 'true'.
+w: file:///D:/.src/Maro_II/app/src/main/java/ykws/android/maro/ui/map/NavigationViewModel.kt:1895:71 Condition is always 'true'.
+
 > Task :app:compileDebugJavaWithJavac UP-TO-DATE
 > Task :app:dexBuilderDebug
 > Task :app:mergeDebugGlobalSynthetics UP-TO-DATE
@@ -47,5 +57,5 @@
 > Task :app:createDebugApkListingFileRedirect UP-TO-DATE
 > Task :app:assembleDebug
 
-BUILD SUCCESSFUL in 2s
+BUILD SUCCESSFUL in 15s
 41 actionable tasks: 4 executed, 37 up-to-date

@@ -131,6 +131,7 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         val rec = TrackRecorder(
             repository = repository,
             gpsMode = settings.gpsMode,
+            maxRecordingAccuracyM = settings.maxRecordingAccuracyM,
             geofenceOriginLat = settings.trackOriginLat,
             geofenceOriginLon = settings.trackOriginLon,
             geofenceRadiusM = settings.trackGeofenceRadiusM,
@@ -196,6 +197,7 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         val rec = TrackRecorder(
             repository = repository,
             gpsMode = settings?.gpsMode ?: true,
+            maxRecordingAccuracyM = settings?.maxRecordingAccuracyM ?: 30f,
             geofenceOriginLat = settings?.trackOriginLat ?: 43.55,
             geofenceOriginLon = settings?.trackOriginLon ?: 7.00,
             geofenceRadiusM = settings?.trackGeofenceRadiusM ?: 500.0,
@@ -349,6 +351,7 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         val rec = TrackRecorder(
             repository = repository,
             gpsMode = s?.gpsMode ?: true,
+            maxRecordingAccuracyM = s?.maxRecordingAccuracyM ?: 30f,
             geofenceOriginLat = s?.trackOriginLat ?: 43.55,
             geofenceOriginLon = s?.trackOriginLon ?: 7.00,
             geofenceRadiusM = s?.trackGeofenceRadiusM ?: 500.0,
@@ -420,6 +423,7 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
             val rec = TrackRecorder(
                 repository = repository,
                 gpsMode = s?.gpsMode ?: true,
+                maxRecordingAccuracyM = s?.maxRecordingAccuracyM ?: 30f,
                 geofenceOriginLat = s?.trackOriginLat ?: 43.55,
                 geofenceOriginLon = s?.trackOriginLon ?: 7.00,
                 geofenceRadiusM = s?.trackGeofenceRadiusM ?: 500.0,

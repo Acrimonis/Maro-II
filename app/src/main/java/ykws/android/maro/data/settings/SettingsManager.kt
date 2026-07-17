@@ -173,6 +173,8 @@ data class AppSettings(
     val trackGeofenceRadiusM: Double = BuildConfig.TRACK_GEOFENCE_RADIUS_M,
     /** When false, recording starts on movement alone (no geofence check). */
     val trackGeofenceEnabled: Boolean = true,
+    /** Maximum GPS self-reported accuracy (m) for a fix to be recorded. Fixes with worse accuracy are rejected. */
+    val maxRecordingAccuracyM: Float = 30f,
     /** Whether the tracks overlay layer is visible on the map. */
     /** Tri-state marker layer visibility: HIDDEN, SHOW_ALL, SHOW_PINNED. */
     val markerLayerState: ykws.android.maro.ui.map.MarkerLayerState = ykws.android.maro.ui.map.MarkerLayerState.SHOW_ALL,
@@ -409,6 +411,7 @@ class SettingsManager(
         mapOffsetGps = prefs.getBoolean(KEY_MAP_OFFSET_GPS, true),
         mapOffsetDemo = prefs.getBoolean(KEY_MAP_OFFSET_DEMO, false),
         mapOffsetBoatFromBottomPct = prefs.getInt(KEY_MAP_OFFSET_BOAT_FROM_BOTTOM_PCT, 33).coerceIn(5, 50),
+        maxRecordingAccuracyM = prefs.getFloat(KEY_MAX_RECORDING_ACCURACY_M, 30f),
     )
 
     /**
@@ -518,6 +521,7 @@ class SettingsManager(
             .putBoolean(KEY_MAP_OFFSET_GPS, updated.mapOffsetGps)
             .putBoolean(KEY_MAP_OFFSET_DEMO, updated.mapOffsetDemo)
             .putInt(KEY_MAP_OFFSET_BOAT_FROM_BOTTOM_PCT, updated.mapOffsetBoatFromBottomPct)
+            .putFloat(KEY_MAX_RECORDING_ACCURACY_M, updated.maxRecordingAccuracyM)
             .apply()
     }
 
@@ -616,6 +620,7 @@ class SettingsManager(
         private const val KEY_MAP_OFFSET_GPS = "map_offset_gps"
         private const val KEY_MAP_OFFSET_DEMO = "map_offset_demo"
         private const val KEY_MAP_OFFSET_BOAT_FROM_BOTTOM_PCT = "map_offset_boat_from_bottom_pct"
+        private const val KEY_MAX_RECORDING_ACCURACY_M = "max_recording_accuracy_m"
         private const val KEY_PREFS_VERSION = "prefs_version"
         private const val CURRENT_VERSION = 5
     }

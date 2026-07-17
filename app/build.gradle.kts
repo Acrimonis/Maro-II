@@ -52,6 +52,8 @@ android {
             maroProps[key]?.toDoubleOrNull() ?: default
         fun propString(key: String, default: String): String =
             maroProps[key] ?: default
+        fun propLong(key: String, default: Long): Long =
+            maroProps[key]?.toLongOrNull() ?: default
 
         buildConfigField("boolean", "LAYER_ZONE300_DEFAULT", propBool("layer.zone300.default", true).toString())
         buildConfigField("boolean", "LAYER_REGULATED_ZONES_DEFAULT", propBool("layer.regulatedZones.default", false).toString())
@@ -105,6 +107,12 @@ android {
         // ── Stop detection GPS dormant percent from maro.properties ──────
         buildConfigField("int", "STOP_DETECTION_GPS_DORMANT_PCT",
             propInt("stopDetection.gpsDormantPct", 80).toString())
+
+        // ── GPS position processing from maro.properties ──────────────────
+        buildConfigField("long", "GPS_IDLE_MAX_INTERVAL_MS",
+            propLong("gps.idle.maxIntervalMs", 10000).toString())
+        buildConfigField("int", "GPS_ACCURACY_GOOD_THRESHOLD_M",
+            propInt("gps.accuracy.goodThresholdM", 10).toString())
 
         // ── User marker proximity defaults from maro.properties ──────────
         buildConfigField("double", "MARKER_PROXIMITY_PIN_M",

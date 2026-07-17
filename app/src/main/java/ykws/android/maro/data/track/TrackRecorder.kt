@@ -17,6 +17,8 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import ykws.android.maro.config.AppConfig
+import ykws.android.maro.data.location.GpsLocationSource
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.MarkerOrigin
 import ykws.android.maro.data.model.markers.UserMarker
@@ -61,8 +63,10 @@ private const val COURSE_SIDEWAYS_MULTIPLIER = 0.5
 private const val LAND_DETECTION_REJECTIONS = 5
 /** Consecutive accepted fixes ≤32 kn before switching back to sea. */
 private const val SEA_RECOVERY_CONSECUTIVE = 10
-/** Window (ms) to skip identical positions — dedup gate (Fix D). */
-private const val DEDUP_WINDOW_MS = 500L
+/** Window (ms) to skip identical positions when moving — dedup gate (Fix D). */
+private const val MOVING_DEDUP_WINDOW_MS = 500L
+/** Window (ms) to skip identical positions when stationary — dedup gate (Fix D). */
+private const val STATIONARY_DEDUP_WINDOW_MS = 5000L
 /** GPS speed below this (m/s, ~2 kn) triggers low-speed tier in stale timeout (Fix A). */
 private const val LOW_SPEED_MPS = 1.0
 /** Multiplier × BOAT_MAX_SPEED_KN when GPS speed < LOW_SPEED_MPS (Fix A). */
@@ -130,6 +134,7 @@ class TrackRecorder(
     private val geofenceRadiusM: Double = 500.0,
     private val geofenceEnabled: Boolean = true,
     private val gpsMode: Boolean = true,
+    private val maxRecordingAccuracyM: Float = 30f,
     val isStopped: StateFlow<Boolean> = MutableStateFlow(false),
     private val simplifyEnabled: Boolean = true,
     private val simplifyEpsilonM: Double = 3.0,
@@ -596,12 +601,17 @@ class TrackRecorder(
             }
         }
 
-        // ── Fix D: dedup identical positions within DEDUP_WINDOW_MS ──
+        // ── Fix D: dedup identical positions — dynamic window ──
         val nowWall = System.currentTimeMillis()
+        val dedupWindowMs = if (sample.speedMps != null && sample.speedMps < GpsLocationSource.MIN_SPEED_MPS) {
+            STATIONARY_DEDUP_WINDOW_MS
+        } else {
+            MOVING_DEDUP_WINDOW_MS
+        }
         if (lastAcceptedLat != null && lastAcceptedLon != null &&
             sample.position.latitude == lastAcceptedLat &&
             sample.position.longitude == lastAcceptedLon &&
-            nowWall - lastAcceptedTimeWallMs < DEDUP_WINDOW_MS) {
+            nowWall - lastAcceptedTimeWallMs < dedupWindowMs) {
             Log.v(TAG, "Dedup: skipped identical position within ${nowWall - lastAcceptedTimeWallMs}ms")
             return
         }
@@ -665,6 +675,12 @@ class TrackRecorder(
         // Skip points without speed data — transient GPS state at recording start / post-pause.
         // These create gaps in GPX export (missing <speed> elements) with no tracking value.
         if (sample.speedMps == null) return
+
+        // ── Accuracy gate: reject fixes with poor self-reported accuracy ──
+        if (sample.accuracyM != null && sample.accuracyM > maxRecordingAccuracyM) {
+            Log.v(TAG, "Accuracy gate: rejected fix with accuracy=${"%.1f".format(sample.accuracyM)}m > ${maxRecordingAccuracyM}m")
+            return
+        }
 
         // ── Spike rejection v2: four-gate algorithm (GPS mode only) ────
         if (gpsMode) {
@@ -841,7 +857,8 @@ class TrackRecorder(
             speedMps = sample.speedMps,
             bearingDeg = sample.bearingDeg,
             timeOffsetSec = timeOffsetSec,
-            timeOffsetMs = timeOffsetMs
+            timeOffsetMs = timeOffsetMs,
+            accuracyM = sample.accuracyM
         )
 
         // Accumulate stats
@@ -1085,6 +1102,14 @@ class TrackRecorder(
 
     // ── Idle threshold timer + BoatMarker helpers ──
 
+    /** Merge two lists of [MarkerSnapshot] by [MarkerSnapshot.markerId], keeping newer entries when both exist. */
+    private fun unionMarkerSnapshots(old: List<MarkerSnapshot>, new: List<MarkerSnapshot>): List<MarkerSnapshot> {
+        val map = LinkedHashMap<String, MarkerSnapshot>()
+        for (s in old) map[s.markerId] = s
+        for (s in new) map[s.markerId] = s  // overwrite with newer
+        return map.values.toList()
+    }
+
     private fun startIdleTimer(lat: Double, lon: Double, startMs: Long) {
         idleTimerJob?.cancel()
         val callback = idleThresholdCallback ?: return
@@ -1095,6 +1120,46 @@ class TrackRecorder(
                 val session = activeSession ?: return@launch
                 if (result.entries.isNotEmpty()) {
                     val track = currentTrack ?: return@launch
+
+                    // ── BoatMarker merge: check for nearby existing IDLE marker ──
+                    val dedupRadiusM = AppConfig.boatMarkerAutoMarkerDedupRadiusM
+                    val nowMs = System.currentTimeMillis()
+                    val existingNearby = track.boatMarkers.findLast { bm ->
+                        bm.trigger == BoatMarkerTrigger.IDLE &&
+                        SpatialOperations.haversine(LatLng(lat, lon), LatLng(bm.boatLat, bm.boatLon)) <= dedupRadiusM
+                    }
+                    if (existingNearby != null) {
+                        // Was there real travel between the two idle periods?
+                        val trackStartMs = currentTrack!!.startTimeMs
+                        val pointsBetween = track.trackPoints.filter { pt ->
+                            val absTimeMs = trackStartMs + pt.timeOffsetMs
+                            absTimeMs > existingNearby.startTimeMs && absTimeMs < nowMs
+                        }
+                        var cumulativeDist = 0.0
+                        for (i in 1 until pointsBetween.size) {
+                            cumulativeDist += SpatialOperations.haversine(
+                                LatLng(pointsBetween[i - 1].lat, pointsBetween[i - 1].lon),
+                                LatLng(pointsBetween[i].lat, pointsBetween[i].lon)
+                            )
+                        }
+                        if (cumulativeDist < AppConfig.boatMarkerMinTravelBetweenStopsM) {
+                            // No real travel — GPS noise → merge by reopening
+                            val idx = track.boatMarkers.indexOf(existingNearby)
+                            val mergedMarkers = unionMarkerSnapshots(existingNearby.markers, result.entries)
+                            val reopened = existingNearby.copy(endTimeMs = null, markers = mergedMarkers)
+                            currentTrack = track.copy(
+                                boatMarkers = track.boatMarkers.toMutableList().also { it[idx] = reopened }
+                            )
+                            session.boatMarkerIndex = idx
+                            session.boatMarkerMerged = true
+                            repository.saveCheckpoint(currentTrack!!)
+                            recomputeDescription()
+                            pollTitle()
+                            return@launch
+                        }
+                        // else: real travel → fall through, create new BoatMarker
+                    }
+
                     val seqIdx = (track.boatMarkers.lastOrNull()?.sequenceIndex ?: -1) + 1
                     val bm = BoatMarker(
                         trigger = BoatMarkerTrigger.IDLE,

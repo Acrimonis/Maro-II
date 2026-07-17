@@ -22,5 +22,6 @@ class IdleSessionContext(
     val entryLon: Double,
     var boatMarkerIndex: Int? = null,
     var drawerAutoOpened: Boolean = false,
-    var autoMarkerId: String? = null
+    var autoMarkerId: String? = null,
+    var boatMarkerMerged: Boolean = false
 )
