@@ -3,7 +3,7 @@
 **Created:** 2026-07-05 09:45 UTC+2
 **Modified:** 2026-07-05 12:19 UTC+2
 **Status:** implemented
-**Parent:** Click-N-Move (see [`FEAT_PLN_Ui_General_click-n-move.md`](FEAT_PLN_Ui_General_click-n-move.md) for markers implementation)
+**Parent:** Click-N-Move (see [`260705_FEAT_PLN_Ui_General_click-n-move.md`](260705_FEAT_PLN_Ui_General_click-n-move.md) for markers implementation)
 
 ## Summary
 

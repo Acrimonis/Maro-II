@@ -11,4 +11,4 @@
 - `MenuDrawerOverlay.kt`, `MarkerDrawer.kt`, `IconPickerDialog.kt`, `MarkerManagementOverlay.kt`, `ListOverlayScaffold.kt`, `MapScreen.kt`, `WizardTopBar.kt`, `DrawerScaffold.kt`, `TypeSelectStep.kt`, `TrackHistoryOverlay.kt`, `DashboardPanel.kt`
 
 **Plan:**
-- `xTrack/ui-small-potatoes/FEAT_PLN_ui-small-potatoes_translation-survey.md`
+- `xTrack/ui-small-potatoes/260706_FEAT_PLN_ui-small-potatoes_translation-survey.md`

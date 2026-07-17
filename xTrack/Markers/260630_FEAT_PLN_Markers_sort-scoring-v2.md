@@ -2,7 +2,7 @@
 
 > **Feature:** Markers | **Subfeature:** sort-scoring
 > **Created:** 2026-06-30 | **Status:** Plan — final
-> **Supersedes:** `FEAT_PLN_Markers_sort-scoring.md` (v1 with absolute distance + W)
+> **Supersedes:** `260630_FEAT_PLN_Markers_sort-scoring.md` (v1 with absolute distance + W)
 
 ## Ordering Rules (3 layers)
 

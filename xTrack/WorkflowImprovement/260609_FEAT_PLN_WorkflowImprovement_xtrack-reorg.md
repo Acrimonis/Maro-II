@@ -19,15 +19,15 @@ xTrack/
     FEAT_DSC_Coastline.md
     FEAT_DOC_Coastline_300m-line-design.md
     FEAT_DOC_Coastline_300m-line-plan.md
-    FEAT_PLN_Coastline_distance-algorithm.md
-    FEAT_PLN_Coastline_distance-to-shore.md
-    FEAT_PLN_Coastline_granularity-metrics.md
-    FEAT_PLN_Coastline_migration-design.md
-    FEAT_PLN_Coastline_migration-status.md
-    FEAT_PLN_Coastline_overpass-race-fix.md
-    FEAT_PLN_Coastline_persistence-optimization.md
-    FEAT_PLN_Coastline_protobuf-cache-plan.md
-    FEAT_PLN_Coastline_zone-strategy.md
+    260529_FEAT_PLN_Coastline_distance-algorithm.md
+    260529_FEAT_PLN_Coastline_distance-to-shore.md
+    260529_FEAT_PLN_Coastline_granularity-metrics.md
+    260528_FEAT_PLN_Coastline_migration-design.md
+    260528_FEAT_PLN_Coastline_migration-status.md
+    260529_FEAT_PLN_Coastline_overpass-race-fix.md
+    260529_FEAT_PLN_Coastline_persistence-optimization.md
+    260529_FEAT_PLN_Coastline_protobuf-cache-plan.md
+    260529_FEAT_PLN_Coastline_zone-strategy.md
   CodeReview/
     FEAT_DSC_CodeReview.md
     FEAT_HYD_CodeReview.md
@@ -40,12 +40,12 @@ xTrack/
     FEAT_DOC_DepthMapping_design.md
     FEAT_DOC_DepthMapping_plan.md
     FEAT_DOC_DepthMapping_sources.md
-    FEAT_PLN_DepthMapping_baro-alt-sources.md
-    FEAT_PLN_DepthMapping_litto3d-shallow-coverage.md
+    260605_FEAT_PLN_DepthMapping_baro-alt-sources.md
+    260608_FEAT_PLN_DepthMapping_litto3d-shallow-coverage.md
   DepthSafety/
     FEAT_DSC_DepthSafety.md
     FEAT_HYD_DepthSafety.md
-    FEAT_PLN_DepthSafety_plan.md
+    260608_FEAT_PLN_DepthSafety_plan.md
   GpsPlugin/
     FEAT_DSC_GpsPlugin.md
   isOnWaterAgain/
@@ -70,12 +70,12 @@ xTrack/
   WorkflowImprovement/
     FEAT_DSC_WorkflowImprovement.md
     FEAT_HYD_WorkflowImprovement.md
-    FEAT_PLN_WorkflowImprovement_feat-summary-layer.md
-    FEAT_PLN_WorkflowImprovement_help-cmd-extension.md
-    FEAT_PLN_WorkflowImprovement_phase2-prompt-for-ai.md
-    FEAT_PLN_WorkflowImprovement_planning.md
-    FEAT_PLN_WorkflowImprovement_subfeature-context.md
-    FEAT_PLN_WorkflowImprovement_xtrack-review.md
+    260609_FEAT_PLN_WorkflowImprovement_feat-summary-layer.md
+    260608_FEAT_PLN_WorkflowImprovement_help-cmd-extension.md
+    260529_FEAT_PLN_WorkflowImprovement_phase2-prompt-for-ai.md
+    260608_FEAT_PLN_WorkflowImprovement_planning.md
+    260603_FEAT_PLN_WorkflowImprovement_subfeature-context.md
+    260608_FEAT_PLN_WorkflowImprovement_xtrack-review.md
   Zone300/
     FEAT_DSC_Zone300.md
 ```
@@ -112,31 +112,31 @@ Also: `Localisation` if `FEAT_DSC_Localisation.md` exists.
 | `FEAT_HYD_CodeReview.md` | `xTrack/CodeReview/` |
 | `FEAT_HYD_DepthSafety.md` | `xTrack/DepthSafety/` |
 | `FEAT_HYD_WorkflowImprovement.md` | `xTrack/WorkflowImprovement/` |
-| `FEAT_PLN_Coastline_distance-algorithm.md` | `xTrack/Coastline/` |
-| `FEAT_PLN_Coastline_distance-to-shore.md` | `xTrack/Coastline/` |
-| `FEAT_PLN_Coastline_granularity-metrics.md` | `xTrack/Coastline/` |
-| `FEAT_PLN_Coastline_migration-design.md` | `xTrack/Coastline/` |
-| `FEAT_PLN_Coastline_migration-status.md` | `xTrack/Coastline/` |
-| `FEAT_PLN_Coastline_overpass-race-fix.md` | `xTrack/Coastline/` |
-| `FEAT_PLN_Coastline_persistence-optimization.md` | `xTrack/Coastline/` |
-| `FEAT_PLN_Coastline_protobuf-cache-plan.md` | `xTrack/Coastline/` |
-| `FEAT_PLN_Coastline_zone-strategy.md` | `xTrack/Coastline/` |
+| `260529_FEAT_PLN_Coastline_distance-algorithm.md` | `xTrack/Coastline/` |
+| `260529_FEAT_PLN_Coastline_distance-to-shore.md` | `xTrack/Coastline/` |
+| `260529_FEAT_PLN_Coastline_granularity-metrics.md` | `xTrack/Coastline/` |
+| `260528_FEAT_PLN_Coastline_migration-design.md` | `xTrack/Coastline/` |
+| `260528_FEAT_PLN_Coastline_migration-status.md` | `xTrack/Coastline/` |
+| `260529_FEAT_PLN_Coastline_overpass-race-fix.md` | `xTrack/Coastline/` |
+| `260529_FEAT_PLN_Coastline_persistence-optimization.md` | `xTrack/Coastline/` |
+| `260529_FEAT_PLN_Coastline_protobuf-cache-plan.md` | `xTrack/Coastline/` |
+| `260529_FEAT_PLN_Coastline_zone-strategy.md` | `xTrack/Coastline/` |
 | `FEAT_PLN_Dashboard_redesign-plan.md` | `xTrack/Dashboard/` |
-| `FEAT_PLN_DepthMapping_baro-alt-sources.md` | `xTrack/DepthMapping/` |
-| `FEAT_PLN_DepthMapping_litto3d-shallow-coverage.md` | `xTrack/DepthMapping/` |
-| `FEAT_PLN_DepthSafety_plan.md` | `xTrack/DepthSafety/` |
+| `260605_FEAT_PLN_DepthMapping_baro-alt-sources.md` | `xTrack/DepthMapping/` |
+| `260608_FEAT_PLN_DepthMapping_litto3d-shallow-coverage.md` | `xTrack/DepthMapping/` |
+| `260608_FEAT_PLN_DepthSafety_plan.md` | `xTrack/DepthSafety/` |
 | `FEAT_PLN_isOnWaterAgain_bad-points.md` | `xTrack/isOnWaterAgain/` |
 | `FEAT_PLN_isOnWaterAgain_raycast.md` | `xTrack/isOnWaterAgain/` |
 | `FEAT_PLN_isOnWaterAgain_redesign.md` | `xTrack/isOnWaterAgain/` |
 | `FEAT_PLN_ProjectDocumentation_phase1-complete-summary.md` | `xTrack/ProjectDocumentation/` |
 | `FEAT_PLN_UiThingies_icon-files-needed.md` | `xTrack/UiThingies/` |
 | `FEAT_PLN_UiThingies_icons-list.md` | `xTrack/UiThingies/` |
-| `FEAT_PLN_WorkflowImprovement_feat-summary-layer.md` | `xTrack/WorkflowImprovement/` |
-| `FEAT_PLN_WorkflowImprovement_help-cmd-extension.md` | `xTrack/WorkflowImprovement/` |
-| `FEAT_PLN_WorkflowImprovement_phase2-prompt-for-ai.md` | `xTrack/WorkflowImprovement/` |
-| `FEAT_PLN_WorkflowImprovement_planning.md` | `xTrack/WorkflowImprovement/` |
-| `FEAT_PLN_WorkflowImprovement_subfeature-context.md` | `xTrack/WorkflowImprovement/` |
-| `FEAT_PLN_WorkflowImprovement_xtrack-review.md` | `xTrack/WorkflowImprovement/` |
+| `260609_FEAT_PLN_WorkflowImprovement_feat-summary-layer.md` | `xTrack/WorkflowImprovement/` |
+| `260608_FEAT_PLN_WorkflowImprovement_help-cmd-extension.md` | `xTrack/WorkflowImprovement/` |
+| `260529_FEAT_PLN_WorkflowImprovement_phase2-prompt-for-ai.md` | `xTrack/WorkflowImprovement/` |
+| `260608_FEAT_PLN_WorkflowImprovement_planning.md` | `xTrack/WorkflowImprovement/` |
+| `260603_FEAT_PLN_WorkflowImprovement_subfeature-context.md` | `xTrack/WorkflowImprovement/` |
+| `260608_FEAT_PLN_WorkflowImprovement_xtrack-review.md` | `xTrack/WorkflowImprovement/` |
 
 ### Phase 3: Move FEAT_DSC_* from xTrack/ root into subdirs
 
@@ -224,16 +224,16 @@ All `## Docs` entries in FEAT_DSC_ files that reference `FEAT_DOC_*` or `FEAT_PL
 | `FEAT_DSC_Performance.md` | `FEAT_DOC_Performance_battery-design.md` | `xTrack/Performance/` |
 | `FEAT_DSC_isOnWaterAgain.md` | `FEAT_DOC_isOnWaterAgain_nearest-segment-design.md` | `xTrack/isOnWaterAgain/` |
 | `FEAT_DSC_GpsPlugin.md` | `FEAT_DOC_MapDisplay_marker-sizing.md`, `FEAT_DOC_Coastline_300m-line-design.md` | `xTrack/MapDisplay/`, `xTrack/Coastline/` |
-| `FEAT_DSC_DepthSafety.md` | `FEAT_PLN_DepthSafety_plan.md` | `xTrack/DepthSafety/` |
+| `FEAT_DSC_DepthSafety.md` | `260608_FEAT_PLN_DepthSafety_plan.md` | `xTrack/DepthSafety/` |
 | `FEAT_DSC_DepthMapping.md` | `FEAT_DOC_DepthMapping_design.md`, `FEAT_DOC_DepthMapping_plan.md`, `FEAT_DOC_DepthMapping_bake.md`, `FEAT_DOC_DepthMapping_sources.md` | `xTrack/DepthMapping/` |
-| `FEAT_DSC_BakeNormalization.md` | `FEAT_DOC_DepthMapping_bake.md`, `FEAT_PLN_DepthMapping_litto3d-shallow-coverage.md` | `xTrack/DepthMapping/` |
-| `FEAT_DSC_WorkflowImprovement.md` | `FEAT_PLN_WorkflowImprovement_planning.md`, `FEAT_PLN_WorkflowImprovement_feat-summary-layer.md` | `xTrack/WorkflowImprovement/` |
+| `FEAT_DSC_BakeNormalization.md` | `FEAT_DOC_DepthMapping_bake.md`, `260608_FEAT_PLN_DepthMapping_litto3d-shallow-coverage.md` | `xTrack/DepthMapping/` |
+| `FEAT_DSC_WorkflowImprovement.md` | `260608_FEAT_PLN_WorkflowImprovement_planning.md`, `260609_FEAT_PLN_WorkflowImprovement_feat-summary-layer.md` | `xTrack/WorkflowImprovement/` |
 
 ### Phase 8: Update FEAT_HYD_* files
 
 `FEAT_HYD_WorkflowImprovement.md` contains path references to `FEAT_DOC_*`, `FEAT_PLN_*`, `FEAT_HYD_*` that need updating.
 
-### Phase 9: Update FEAT_PLN_WorkflowImprovement_feat-summary-layer.md
+### Phase 9: Update 260609_FEAT_PLN_WorkflowImprovement_feat-summary-layer.md
 
 Taxonomy table and file lists reference bare `FEAT_DOC_*/FEAT_PLN_*/FEAT_HYD_*` names — update to `xTrack/*/` paths.
 

@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** GPS
-- **Active Subfeature:** poor-reception
-- **Last Updated:** 2026-07-17 10:52
+- **Active Feature:** Documentation
+- **Active Subfeature:** (none)
+- **Last Updated:** 2026-07-17 13:22
 - **Last Bake:** 2026-07-17 10:52 (GPS — poor-reception: 9 items finalized — 8 P0 on-the-fly + 1 P1 BoatMarker merge. 3 Ask reviews, zero known issues. Constants table + maro.properties section defined.)
-- **Branch:** feature/gps-still-spikes
+- **Branch:** feature/doc
 
 ## Routing Map
 | Keyword | Feature File |
@@ -39,7 +39,7 @@
 | Feature | One-Liner | Created | Modified | Status |
 |---------|-----------|---------|----------|--------|
 | | **ColorManagement** | **Centralised colour palette — all tokens in colors.properties with alias interpolation, documented in color-scheme.md** | **2026-06-16 14:05** | **2026-06-17 14:39** | **active** |
-| | **Documentation** | **README, FAQs, setup guides, architecture docs, and plans cleanup** | **2026-06-11 06:42** | **2026-06-11 10:36** | **active** |
+| | **Documentation** | **README, FAQs, setup guides, architecture docs, and plans cleanup** | **2026-06-11 06:42** | **2026-07-17 13:30** | **active** |
 | | WorkflowImprovement | xTrack #command system, git shortcuts, mode handoff protocol, hard rules enforcement, AGENTS.md trunk-to-leaf optimization, #merge hybrid strategy, and spec consolidation. Absorbed WorkflowAmbiguityFix 2026-06-28. | 2026-06-03 00:00 | 2026-06-28 16:10 | active |
 | | Zone300 | 300m zone generation from coastline with water-only constraint | 2026-05-20 00:00 | 2026-06-03 00:00 | active |
 | | DepthMapping | Bathymetry / depth mapping from Litto3D, SHOM, EMODnet sources | 2026-05-10 00:00 | 2026-06-10 12:13 | active |

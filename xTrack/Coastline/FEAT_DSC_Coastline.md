@@ -3,7 +3,7 @@ name: Coastline
 status: active
 created: 2026-06-05 00:00
 modified: 2026-06-23 07:08
-active_subfeature: extend-to-menton
+active_subfeature: none
 ---
 
 # Feature: Coastline
@@ -70,3 +70,5 @@ small WFS GetFeature client; reuse Overpass HTTP plumbing from CoastlineGenerato
 ## Docs
 - `xTrack/Coastline/FEAT_DOC_Coastline_300m-line-design.md` — 300m line design document
 - `xTrack/Coastline/FEAT_DOC_Coastline_300m-line-plan.md` — 300m line plan document
+- `xTrack/Coastline/260704_FEAT_PLN_Coastline_coastline-mapview-per-layer-update.md` — Coastline MapView per-layer update
+- `xTrack/Coastline/260623_FEAT_PLN_Coastline_extend-coastline-to-menton.md` — Extend coastline to Menton

@@ -25,4 +25,4 @@ Double-back while recording shows `AlertDialog` ("Stop & Exit" / "Keep Recording
 
 ## Plan
 
-- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_notif-lifecycle-hardening.md`
+- `xTrack/BoatTrace/260714_FEAT_PLN_BoatTrace_notif-lifecycle-hardening.md`

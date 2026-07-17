@@ -50,11 +50,11 @@
 - `docs/cmd_help_doc_sync.md` — #doc sync detail
 - `docs/cmd_help_doc_audit.md` — #doc audit detail
 - `docs/GIT_WORKFLOW.md` — Git workflow conventions
-- `xTrack/WorkflowImprovement/FEAT_PLN_WorkflowImprovement_planning.md` — Zero-Piecemeal Writes discussion exception design
-- `xTrack/WorkflowImprovement/FEAT_PLN_WorkflowImprovement_feat-summary-layer.md` — FEAT_ summary layer token optimization discussion
-- `xTrack/WorkflowImprovement/FEAT_PLN_WorkflowImprovement_xtrack-reorg.md` — xTrack FEAT_* file reorganization implementation spec
-- `plans/merge-conflict-resolution.md` — AI-assisted #merge conflict resolution spec
-- `xTrack/Documentation/FEAT_PLN_Documentation_git-merge-command.md` — Git merge command design
+- `xTrack/WorkflowImprovement/260608_FEAT_PLN_WorkflowImprovement_planning.md` — Zero-Piecemeal Writes discussion exception design
+- `xTrack/WorkflowImprovement/260609_FEAT_PLN_WorkflowImprovement_feat-summary-layer.md` — FEAT_ summary layer token optimization discussion
+- `xTrack/WorkflowImprovement/260609_FEAT_PLN_WorkflowImprovement_xtrack-reorg.md` — xTrack FEAT_* file reorganization implementation spec
+- `xTrack/WorkflowImprovement/260617_FEAT_PLN_WorkflowImprovement_merge-conflict-resolution.md` — AI-assisted #merge conflict resolution spec
+- `xTrack/Documentation/260610_FEAT_PLN_Documentation_git-merge-command.md` — Git merge command design
 
 ## Remaining Todos
 

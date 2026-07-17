@@ -95,10 +95,10 @@ Redesign the bottom panel into a proper dashboard for quick reading of indicator
 
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt` — DashboardCard composable, lines 189-197
-- `xTrack/Ui_Dashboard/FEAT_PLN_Ui_Dashboard_tile-titles.md` — sizing analysis
+- `xTrack/Ui_Dashboard/260610_FEAT_PLN_Ui_Dashboard_tile-titles.md` — sizing analysis
 
 #### Docs
-- `xTrack/Ui_Dashboard/FEAT_PLN_Ui_Dashboard_tile-titles.md` — sizing & prominence analysis for tile titles
+- `xTrack/Ui_Dashboard/260610_FEAT_PLN_Ui_Dashboard_tile-titles.md` — sizing & prominence analysis for tile titles
 
 ### tile subdued font  [x]
 
@@ -204,7 +204,7 @@ Make the 3rd/bottom line (subtitle) of dashboard tiles more readable — larger 
 - [x] Implement chosen approach in DashboardCard composable
 
 #### Docs
-- `xTrack/Ui_Dashboard/FEAT_PLN_Ui_Dashboard_tile-bottom-line.md` — sizing & contrast discussion
+- `xTrack/Ui_Dashboard/260711_FEAT_PLN_Ui_Dashboard_tile-bottom-line.md` — sizing & contrast discussion
 
 #### Implemented
 - [`DashboardPanel.kt`](app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt): title `fontSize` 13.sp → 15.sp, subtitle `fontSize` 9.sp → 13.sp, default `subtitleColor` textMuted → textMutedBright (#B0BEC5). Added `textMutedBright` to `DashboardColors`. Build green.
@@ -219,5 +219,8 @@ Make the 3rd/bottom line (subtitle) of dashboard tiles more readable — larger 
 ## Key Files
 
 ## Docs
-- `xTrack/Ui_Dashboard/FEAT_PLN_Ui_Dashboard_readability-improvements.md` — Readability & space management discussion plan (format padding, reduced paddings, font weight bumps)
-- `xTrack/Ui_Dashboard/FEAT_PLN_Ui_Dashboard_tile-titles.md` — Dashboard tile titles sizing & prominence design
+- `xTrack/Ui_Dashboard/260610_FEAT_PLN_Ui_Dashboard_readability-improvements.md` — Readability & space management discussion plan (format padding, reduced paddings, font weight bumps)
+- `xTrack/Ui_Dashboard/260610_FEAT_PLN_Ui_Dashboard_tile-titles.md` — Dashboard tile titles sizing & prominence design
+- `xTrack/Ui_Dashboard/260704_FEAT_PLN_Ui_Dashboard_dash-distance-combined-fixes.md` — Dash distance combined fixes
+- `xTrack/Ui_Dashboard/260704_FEAT_PLN_Ui_Dashboard_dash-distance-shom-beyondtype-fix.md` — Dash distance SHOM beyond type fix
+- `xTrack/Ui_Dashboard/260704_FEAT_PLN_Ui_Dashboard_dash-distance-shore-bound-300m-gate.md` — Dash distance shore bound 300m gate

@@ -3,7 +3,7 @@
 ## Active Session
 - **Subfeature:** extend-to-menton
 - **Branch:** feature/extend-coastline
-- **Plan:** plans/extend-coastline-to-menton.md
+- **Plan:** xTrack/Coastline/260623_FEAT_PLN_Coastline_extend-coastline-to-menton.md
 
 ## Completed
 - Eastern bound: 7.31°E → 7.55°E (Nice–Menton) in gradle.properties

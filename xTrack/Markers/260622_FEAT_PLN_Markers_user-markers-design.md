@@ -426,7 +426,7 @@ Hamburger drawer:
 
 ### 8.9 Management page
 
-Full list of all markers. **Delete uses the exact same paradigm as track list** (per [`FEAT_PLN_BoatTrace_TrackList_Design.md`](xTrack/BoatTrace/FEAT_PLN_BoatTrace_TrackList_Design.md)):
+Full list of all markers. **Delete uses the exact same paradigm as track list** (per [`260618_FEAT_PLN_BoatTrace_TrackList_Design.md`](xTrack/BoatTrace/260618_FEAT_PLN_BoatTrace_TrackList_Design.md)):
 
 | Behavior | Detail |
 |----------|--------|

@@ -4,7 +4,7 @@
 **Updated:** 2026-07-01 15:47 UTC
 **Branch:** feature/track+markers
 **Status:** finalised
-**Depends on:** `FEAT_PLN_BoatTrace_boat-markers.md`
+**Depends on:** `260701_FEAT_PLN_BoatTrace_boat-markers.md`
 
 ## Goal
 

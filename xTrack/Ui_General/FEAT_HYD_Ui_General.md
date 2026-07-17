@@ -10,6 +10,6 @@
 - `docs/ui-lists-guidelines.md`, `docs/ui-drawer-guidelines.md`
 
 **Plan:**
-- `xTrack/Ui_General/FEAT_PLN_Ui_General_click-n-move.md`
+- `xTrack/Ui_General/260705_FEAT_PLN_Ui_General_click-n-move.md`
 
 **Last Bake:** 2026-07-05 09:17 UTC+2

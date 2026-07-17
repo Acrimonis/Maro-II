@@ -11,4 +11,4 @@
 - `MapScreen.kt` — wired appSettings.markerZonesVisible + toggle lambda
 
 **Plan:**
-- `xTrack/Ui_Menu/FEAT_PLN_Ui_Menu_toggle-zones-marker-in-menu.md`
+- `xTrack/Ui_Menu/260705_FEAT_PLN_Ui_Menu_toggle-zones-marker-in-menu.md`

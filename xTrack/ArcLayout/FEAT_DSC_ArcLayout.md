@@ -108,10 +108,13 @@ active_subfeature: none
 - No library dependencies — pure Compose custom layout
 
 ## Docs
-- `xTrack/ArcLayout/FEAT_PLN_ArcLayout_button-analysis.md` — Button analysis
-- `xTrack/ArcLayout/FEAT_PLN_ArcLayout_feature-plan.md` — Full feature plan
-- `xTrack/ArcLayout/FEAT_PLN_ArcLayout_fan-btn-hide-ozers-plan.md` — Fan button hide ozers plan
-- `xTrack/ArcLayout/FEAT_PLN_ArcLayout_child-centering-rule.md` — Child centering rule
-- `xTrack/ArcLayout/FEAT_PLN_ArcLayout_equidistance-rule.md` — Equidistance rule
-- `xTrack/ArcLayout/FEAT_PLN_ArcLayout_extension-discussion.md` — Extension discussion
-- `xTrack/ArcLayout/FEAT_PLN_ArcLayout_badge-clipping-fix.md` — Badge clipping fix
+- `xTrack/ArcLayout/260614_FEAT_PLN_ArcLayout_button-analysis.md` — Button analysis
+- `xTrack/ArcLayout/260613_FEAT_PLN_ArcLayout_feature-plan.md` — Full feature plan
+- `xTrack/ArcLayout/260614_FEAT_PLN_ArcLayout_fan-btn-hide-ozers-plan.md` — Fan button hide ozers plan
+- `xTrack/ArcLayout/260614_FEAT_PLN_ArcLayout_child-centering-rule.md` — Child centering rule
+- `xTrack/ArcLayout/260614_FEAT_PLN_ArcLayout_equidistance-rule.md` — Equidistance rule
+- `xTrack/ArcLayout/260614_FEAT_PLN_ArcLayout_extension-discussion.md` — Extension discussion
+- `xTrack/ArcLayout/260613_FEAT_PLN_ArcLayout_badge-clipping-fix.md` — Badge clipping fix
+- `xTrack/ArcLayout/260625_FEAT_PLN_ArcLayout_fan-layer-button-visibility-rules.md` — Fan layer button visibility rules
+- `xTrack/ArcLayout/260712_FEAT_PLN_ArcLayout_confirm-sheet-migration-plan.md` — Confirm sheet migration plan
+- `xTrack/ArcLayout/260625_FEAT_PLN_ArcLayout_overlay-layer-framework-plan.md` — Overlay layer framework plan

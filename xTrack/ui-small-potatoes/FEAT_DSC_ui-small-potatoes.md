@@ -3,7 +3,7 @@ name: ui-small-potatoes
 status: active
 created: 2026-07-06 13:43
 modified: 2026-07-06 13:56
-active_subfeature: translation
+active_subfeature: none
 ---
 
 # Feature: ui-small-potatoes
@@ -27,7 +27,7 @@ Both locales must be complete — English as baseline, French as translation.
 - BUILD SUCCESSFUL (×2)
 
 #### Plan
-- `xTrack/ui-small-potatoes/FEAT_PLN_ui-small-potatoes_translation-survey.md`
+- `xTrack/ui-small-potatoes/260706_FEAT_PLN_ui-small-potatoes_translation-survey.md`
 
 #### Key Files
 - `app/src/main/res/values/strings.xml`

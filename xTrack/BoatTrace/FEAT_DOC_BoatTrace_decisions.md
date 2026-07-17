@@ -40,7 +40,7 @@
 
 ### 2.1 Coroutine State Machine: OFF ⇄ ON (2-State)
 - **Decision:** Simplified from 5-state (`IDLE → RECORDING ⇄ PAUSED → FINALIZING → IDLE`) to 2-state (`OFF ⇄ ON`).
-- **Rationale:** The PAUSED and FINALIZING states added complexity without user-facing benefit. `isStill()` gates point capture within ON state — recording never truly pauses, it just stops collecting points. See [`tracking-states-triggers` plan](FEAT_PLN_BoatTrace_tracking-states-triggers.md).
+- **Rationale:** The PAUSED and FINALIZING states added complexity without user-facing benefit. `isStill()` gates point capture within ON state — recording never truly pauses, it just stops collecting points. See [`tracking-states-triggers` plan](260618_FEAT_PLN_BoatTrace_tracking-states-triggers.md).
 - **Filed:** [`TrackRecorder.kt`](app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt:41)
 
 ### 2.2 Geofence Auto-Detection (Port Salis)

@@ -14,7 +14,7 @@ Three passes completed on feature/wf-plus:
 ## Target Files
 - `AGENTS.md` — deduplicated, condensed, Lazy-Load Index
 - `xTrack/GLOBAL_CONTEXT.md` — Global Instructions tightened
-- `xTrack/WorkflowImprovement/FEAT_PLN_WorkflowImprovement_trunk-to-leaf.md` — full design spec
+- `xTrack/WorkflowImprovement/260628_FEAT_PLN_WorkflowImprovement_trunk-to-leaf.md` — full design spec
 
 ## Next Step
 User direction. Branch feature/wf-plus ready for commit.

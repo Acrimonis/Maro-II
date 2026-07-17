@@ -132,14 +132,16 @@ active_subfeature: render-tweaks
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
 
 ## Docs
-- `xTrack/Ui_Settings/FEAT_PLN_Ui_Settings_render-tweaks.md` — card rendering tweaks discussion (padding, bg darkness, nested surfaces)
-- `xTrack/Ui_Settings/FEAT_PLN_Ui_Settings_apply-on-close.md` — settings apply-on-close UX design
-- `xTrack/Ui_Settings/FEAT_PLN_Ui_Settings_scroll-persistence.md` — discussion: hoist `ScrollState` to survive overlay dismiss/reopen within a session
-- `xTrack/Ui_Settings/FEAT_PLN_Ui_Settings_scroll-persistence-analysis.md` — scroll persistence analysis
-- `xTrack/Ui_Settings/FEAT_PLN_Ui_Settings_tab-organization.md` — discussion: organize settings into tabs/sections
-- `xTrack/Ui_Settings/FEAT_PLN_Ui_Settings_tab-reorder-discussion.md` — Tab reorder discussion
-- `xTrack/Ui_Settings/FEAT_PLN_Ui_Settings_vertical-padding.md` — Vertical padding discussion
-- `xTrack/Ui_Settings/FEAT_PLN_Ui_Settings_landscape-font-sizing.md` — Landscape font sizing discussion
-- `xTrack/Ui_Settings/FEAT_PLN_Ui_Settings_zoneconfig-to-appconfig.md` — ZoneConfig to AppConfig rename
-- `xTrack/Ui_Settings/FEAT_PLN_Ui_Settings_track-drawer-settings-btn.md` — Settings button in Track Drawer header row
+- `xTrack/Ui_Settings/260625_FEAT_PLN_Ui_Settings_render-tweaks.md` — card rendering tweaks discussion (padding, bg darkness, nested surfaces)
+- `xTrack/Ui_Settings/260609_FEAT_PLN_Ui_Settings_apply-on-close.md` — settings apply-on-close UX design
+- `xTrack/Ui_Settings/260609_FEAT_PLN_Ui_Settings_scroll-persistence.md` — discussion: hoist `ScrollState` to survive overlay dismiss/reopen within a session
+- `xTrack/Ui_Settings/260609_FEAT_PLN_Ui_Settings_scroll-persistence-analysis.md` — scroll persistence analysis
+- `xTrack/Ui_Settings/260610_FEAT_PLN_Ui_Settings_tab-organization.md` — discussion: organize settings into tabs/sections
+- `xTrack/Ui_Settings/260611_FEAT_PLN_Ui_Settings_tab-reorder-discussion.md` — Tab reorder discussion
+- `xTrack/Ui_Settings/260616_FEAT_PLN_Ui_Settings_vertical-padding.md` — Vertical padding discussion
+- `xTrack/Ui_Settings/260615_FEAT_PLN_Ui_Settings_landscape-font-sizing.md` — Landscape font sizing discussion
+- `xTrack/Ui_Settings/260616_FEAT_PLN_Ui_Settings_zoneconfig-to-appconfig.md` — ZoneConfig to AppConfig rename
+- `xTrack/Ui_Settings/260618_FEAT_PLN_Ui_Settings_track-drawer-settings-btn.md` — Settings button in Track Drawer header row
 - `docs/settings-page-guidelines.md` — Settings page UI patterns and layout rules
+- `xTrack/Ui_Settings/260617_FEAT_PLN_Ui_Settings_auto-show-settings-decoupling-design.md` — Auto show settings decoupling design
+- `xTrack/Ui_Settings/260616_FEAT_PLN_Ui_Settings_settings-vertical-padding-discussion.md` — Settings vertical padding discussion

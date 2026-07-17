@@ -110,8 +110,8 @@ and compass-gating are unconditional correct behaviour. Framework `LocationManag
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `animateTo` in GPS auto-follow collector (lines ~198-222)
 
 #### Docs
-- `xTrack/GPS/FEAT_PLN_GPS_refreshing-discussion.md` — GPS refresh rate: app vs chipset, real perf advantage
-- `xTrack/Performance/FEAT_PLN_Performance_animateTo-interaction-analysis.md` — `animateTo` interaction with `mapRefreshFps`
+- `xTrack/GPS/260610_FEAT_PLN_GPS_refreshing-discussion.md` — GPS refresh rate: app vs chipset, real perf advantage
+- `xTrack/Performance/260610_FEAT_PLN_Performance_animateTo-interaction-analysis.md` — `animateTo` interaction with `mapRefreshFps`
 
 ### settings-ui  [ ]
 
@@ -146,6 +146,6 @@ and compass-gating are unconditional correct behaviour. Framework `LocationManag
 ## Docs
 - `xTrack/Performance/FEAT_DOC_Performance_battery-design.md` — battery hotspot analysis, presets/defaults, adaptive-policy contract, refresh-cap mechanism.
 - `docs/MARO_ARCHITECTURE.md` — spatial-engine constraints (async render rules) the map/refresh changes operate within.
-- `xTrack/GPS/FEAT_PLN_GPS_refreshing-discussion.md` — GPS refresh rate: app vs chipset, real perf advantage (subfeature `gps-refreshing`)
-- `xTrack/Performance/FEAT_PLN_Performance_drag-stutter-event-chain.md` — Drag stutter complete event chain analysis
-- `xTrack/Performance/FEAT_PLN_Performance_drag-stutter-analysis.md` — Drag stutter performance analysis
+- `xTrack/GPS/260610_FEAT_PLN_GPS_refreshing-discussion.md` — GPS refresh rate: app vs chipset, real perf advantage (subfeature `gps-refreshing`)
+- `xTrack/Performance/260614_FEAT_PLN_Performance_drag-stutter-event-chain.md` — Drag stutter complete event chain analysis
+- `xTrack/Performance/260614_FEAT_PLN_Performance_drag-stutter-analysis.md` — Drag stutter performance analysis

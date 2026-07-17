@@ -2,8 +2,8 @@
 name: Documentation
 status: active
 created: 2026-06-11 06:42
-modified: 2026-07-17 09:32
-active_subfeature: maro-code-map
+modified: 2026-07-17 13:30
+active_subfeature: none
 ---
 
 # Feature: Documentation
@@ -32,7 +32,7 @@ Cross-cutting project documentation — README, FAQs, setup guides, architecture
 
 #### Key Files
 - `docs/maro-code.md` — the code map (core deliverable)
-- `xTrack/Documentation/FEAT_PLN_Documentation_maro-code-map.md` — design discussion & decisions
+- `xTrack/Documentation/260717_FEAT_PLN_Documentation_maro-code-map.md` — design discussion & decisions
 
 ### cleanup  [x]
 
@@ -142,12 +142,13 @@ Cross-cutting project documentation — README, FAQs, setup guides, architecture
 
 ## Docs
 - `docs/maro-code.md` — Feature-to-code navigation map
-- `xTrack/Documentation/FEAT_PLN_Documentation_maro-code-map.md` — Design discussion & decisions
+- `xTrack/Documentation/260717_FEAT_PLN_Documentation_maro-code-map.md` — Design discussion & decisions
 - `docs/FAQ.md` — Project FAQ
 - `docs/SETUP.md` — Project setup guide
-- `xTrack/Documentation/FEAT_PLN_Documentation_git-protection-workflow.md` — Git protection enforcement flow design
-- `xTrack/Documentation/FEAT_PLN_Documentation_instruction-consolidation-audit.md` — Scattered/duplicated instructions audit findings
-- `xTrack/Documentation/FEAT_PLN_Documentation_readme-update.md` — README update discussion & proposed changes
-- `xTrack/Documentation/FEAT_PLN_Documentation_git-merge-command.md` — Git merge command design
-- `xTrack/Documentation/FEAT_PLN_Documentation_git-move-command.md` — Git move/rename command design
-- `xTrack/Documentation/FEAT_PLN_Documentation_round-1-summary-round-2-plan.md` — Round 1 summary and round 2 plan
+- `xTrack/Documentation/260611_FEAT_PLN_Documentation_git-protection-workflow.md` — Git protection enforcement flow design
+- `xTrack/Documentation/260611_FEAT_PLN_Documentation_instruction-consolidation-audit.md` — Scattered/duplicated instructions audit findings
+- `xTrack/Documentation/260611_FEAT_PLN_Documentation_readme-update.md` — README update discussion & proposed changes
+- `xTrack/Documentation/260610_FEAT_PLN_Documentation_git-merge-command.md` — Git merge command design
+- `xTrack/Documentation/260610_FEAT_PLN_Documentation_git-move-command.md` — Git move/rename command design
+- `xTrack/Documentation/260612_FEAT_PLN_Documentation_round-1-summary-round-2-plan.md` — Round 1 summary and round 2 plan
+- `xTrack/Documentation/260717_FEAT_PLN_Documentation_file-naming-and-cleanup.md` — File naming and cleanup plan
