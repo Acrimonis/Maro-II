@@ -148,10 +148,11 @@ Feature-scoped reference documentation (created by `#doc create` when
 
 ---
 
-## `FEAT_PLN_[Feature]_[topic].md`
+## `YYMMDD_FEAT_PLN_[Feature]_[topic].md`
 
 Feature-scoped plan / design discussion file (migrated from `plans/*.md` or
 created by `#doc create` when "Feature-scoped" is chosen with a plan topic).
+The `YYMMDD` prefix is the creation date (from git history or filesystem).
 Scope tag is `feature`.
 
 ```markdown

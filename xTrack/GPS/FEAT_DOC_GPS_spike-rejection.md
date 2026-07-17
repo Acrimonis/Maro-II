@@ -92,6 +92,6 @@ After 5 consecutive rejections with GPS speed > 32kn, the system switches to lan
 
 ## Related Docs
 
-- [`FEAT_PLN_GPS_fix-spike.md`](xTrack/GPS/FEAT_PLN_GPS_fix-spike.md) — Fix A-D design (stale timeout, GPS speed gate, stationary drift, dedup)
-- [`FEAT_PLN_GPS_still-spike-fix.md`](xTrack/GPS/FEAT_PLN_GPS_still-spike-fix.md) — Still-spike fix plan
-- [`FEAT_PLN_GPS_checks.md`](xTrack/GPS/FEAT_PLN_GPS_checks.md) — Spike gate audit & map smoothness
+- [`260714_FEAT_PLN_GPS_fix-spike.md`](xTrack/GPS/260714_FEAT_PLN_GPS_fix-spike.md) — Fix A-D design (stale timeout, GPS speed gate, stationary drift, dedup)
+- [`260714_FEAT_PLN_GPS_still-spike-fix.md`](xTrack/GPS/260714_FEAT_PLN_GPS_still-spike-fix.md) — Still-spike fix plan
+- [`260714_FEAT_PLN_GPS_checks.md`](xTrack/GPS/260714_FEAT_PLN_GPS_checks.md) — Spike gate audit & map smoothness

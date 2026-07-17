@@ -33,7 +33,7 @@ List filters with sort UX normalization. Extensible `ListFilter` (Map-based), fi
 #### Docs
 - `docs/ui-lists-guidelines.md`
 - `docs/material-icons-standalone-guide.md`
-- `xTrack/Ui_General/FEAT_PLN_Ui_General_filter.md`
+- `xTrack/Ui_General/260702_FEAT_PLN_Ui_General_filter.md`
 
 ---
 
@@ -75,7 +75,7 @@ Display concerns (colors, transparency, render count, sort) unchanged.
 - `SettingsManager.kt` (no change), `ListFilter.kt` (no change)
 
 #### Docs
-- `xTrack/Ui_General/FEAT_PLN_Ui_General_filter-everywhere.md`
+- `xTrack/Ui_General/260702_FEAT_PLN_Ui_General_filter-everywhere.md`
 
 ---
 
@@ -193,7 +193,7 @@ Normalize all drawer headers: extract `DrawerScaffold` + `DrawerHeader` as share
 - Content padding preserved via `contentPadding` per consumer: 12dp (MarkerDrawer), 24dp (MenuDrawer)
 
 #### Plan
-- `xTrack/Ui_General/FEAT_PLN_Ui_General_tweak-drawer.md`
+- `xTrack/Ui_General/260703_FEAT_PLN_Ui_General_tweak-drawer.md`
 
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/components/DrawerScaffold.kt` (new)
@@ -364,7 +364,7 @@ Scaffold also exposes `onDismiss: () -> Unit` for overlay close. All inter-compo
 Extend `ListSortField` to support per-type sort fields via `CustomSortField` data class + `customFieldKey: String?` in `ListSortState`. Track fields: Distance (`distanceNm`), Total Time (computed), Moving Time (computed). Marker fields: Origin (`origin`). Serialization backward-compatible (`"UPDATED:true:false:distanceNm"`). All labels localized (EN + FR via `stringResource()` — ResId approach).
 
 #### Plan
-- [`FEAT_PLN_Ui_General_list-extra-sort.md`](xTrack/Ui_General/FEAT_PLN_Ui_General_list-extra-sort.md) — full design (CustomSortField approach, ListSortState extension, SortControl dropdown UX, ViewModel comparators, consumer wiring)
+- [`260702_FEAT_PLN_Ui_General_list-extra-sort.md`](xTrack/Ui_General/260702_FEAT_PLN_Ui_General_list-extra-sort.md) — full design (CustomSortField approach, ListSortState extension, SortControl dropdown UX, ViewModel comparators, consumer wiring)
 
 #### Implemented
 - [`ListSortOrder.kt`](app/src/main/java/ykws/android/maro/data/model/ListSortOrder.kt) — `CustomSortField` data class, `ListSortState` extended with `customFieldKey: String?`, `parse()` handles 4-part format, `format()` emits 4-part when custom active
@@ -415,7 +415,7 @@ Track list (TrackHistoryOverlay) color review — ensure track cards, stats, lab
 - `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — regulated zone auto-show block, `insideZoneReveal`/`exitedZone`/`locationUnknown` in `zoneAutoShowDecision()`
 - `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — `regulatedZoneAutoShowGps`/`regulatedZoneAutoShowDemo` fields
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — settings toggles, `onToggleRegulatedZones` wiring
-- `plans/speed-enforcement-zone-auto-show-plan.md` — design plan
+- `xTrack/ZoneTile/260617_FEAT_PLN_ZoneTile_speed-enforcement-zone-auto-show-plan.md` — design plan
 
 ### fan tweak  [x]
 
@@ -517,7 +517,7 @@ Click on a marker in the markers list closes the list, moves the map to the mark
 - `ListAction.kt`, `MarkerManagementOverlay.kt`, `MapScreen.kt`, `MarkersViewModel.kt`, `UserMarker.kt`
 
 #### Plan
-- `xTrack/Ui_General/FEAT_PLN_Ui_General_click-n-move.md`
+- `xTrack/Ui_General/260705_FEAT_PLN_Ui_General_click-n-move.md`
 
 ### multi-select  [ ]
 
@@ -539,7 +539,9 @@ Long-press to enter multiselect mode on list items. Scaffold owns selection stat
 - `docs/ui-lists-guidelines.md` — ListOverlayScaffold API, filter system, sort+filter popup styling, swipe-to-delete, card tap & navigation chevron (28dp)
 - `docs/ui-drawer-guidelines.md` — DrawerScaffold API, row types (including navigation chevron 28dp), I23 chevron normalization decision
 - `docs/material-icons-standalone-guide.md` — standalone icon registry (FilterAlt, FilterList, Refresh)
-- `xTrack/Ui_General/FEAT_PLN_Ui_General_portrait-bottom-space.md` — analysis of portrait bottom space and status bar immersion
+- `xTrack/Ui_General/260615_FEAT_PLN_Ui_General_portrait-bottom-space.md` — analysis of portrait bottom space and status bar immersion
 - `docs/color-scheme.md` — canonical reference for all colour tokens in the app
-- `plans/map-overlay-layout-rationalization.md` — complete layout refactor: 2-column Row structure, symmetric 6dp margins, orientation-aware insets
-- `plans/map-overlay-layout-inventory.md` — current overlay inventory and planned evolution audit
+- `xTrack/UI_Map/260616_FEAT_PLN_UI_Map_map-overlay-layout-rationalization.md` — complete layout refactor: 2-column Row structure, symmetric 6dp margins, orientation-aware insets
+- `xTrack/UI_Map/260616_FEAT_PLN_UI_Map_map-overlay-layout-inventory.md` — current overlay inventory and planned evolution audit
+- `xTrack/Ui_General/260625_FEAT_PLN_Ui_General_drawer-visual-differentiation-plan.md` — Drawer visual differentiation plan
+- `xTrack/Ui_General/260712_FEAT_PLN_Ui_General_multiselect-list-plan.md` — Multiselect list plan

@@ -51,7 +51,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 
 #### Docs
 - `plans/boat-trace-design-discussion.md` — full design & implementation plan (data model, state machine, UI components, design tokens)
-- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_TrackList_Design.md` — track list UI design (swipe-to-delete, inline snackbar, animation spec)
+- `xTrack/BoatTrace/260618_FEAT_PLN_BoatTrace_TrackList_Design.md` — track list UI design (swipe-to-delete, inline snackbar, animation spec)
 
 ### track-list  [ ]
 
@@ -64,14 +64,14 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 - [ ] E2E: Create test tracks, verify all card fields display correctly
 
 #### Rules
-- Track list UI must follow FEAT_PLN_BoatTrace_TrackList_Design.md spec
+- Track list UI must follow 260618_FEAT_PLN_BoatTrace_TrackList_Design.md spec
 - Styling must match Settings overlay patterns (AppConfig tokens)
 
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt`
 
 #### Docs
-- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_TrackList_Design.md` — track list UI design and 26 requirements
+- `xTrack/BoatTrace/260618_FEAT_PLN_BoatTrace_TrackList_Design.md` — track list UI design and 26 requirements
 
 ### track-list-render-indicator  [x]
 
@@ -80,7 +80,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 - `app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt`
 
 #### Docs
-- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_track-list-render-indicator.md` — design plan
+- `xTrack/BoatTrace/260624_FEAT_PLN_BoatTrace_track-list-render-indicator.md` — design plan
 
 ### tracking-status-n-triggers  [x]
 
@@ -116,7 +116,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 - `app/build.gradle.kts`
 
 #### Docs
-- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_adaptive-isstill.md` — full plan
+- `xTrack/BoatTrace/260618_FEAT_PLN_BoatTrace_adaptive-isstill.md` — full plan
 
 ### hamburger-btn  [x]
 
@@ -177,7 +177,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
 
 #### Docs
-- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_gps-background.md`
+- `xTrack/BoatTrace/260620_FEAT_PLN_BoatTrace_gps-background.md`
 
 ### gps-line-acquisition  [x]
 
@@ -192,7 +192,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 - `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt`
 
 #### Docs
-- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_gps-line-acquisition.md`
+- `xTrack/BoatTrace/260620_FEAT_PLN_BoatTrace_gps-line-acquisition.md`
 
 ### track now demo  [x]
 
@@ -229,7 +229,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 - `app/build.gradle.kts` — BuildConfig defaults (TRACKING_TRANSPARENCY_PINNED_FROM/TO)
 
 #### Docs
-- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_pinned-tracks.md` — full design & implementation plan
+- `xTrack/BoatTrace/260622_FEAT_PLN_BoatTrace_pinned-tracks.md` — full design & implementation plan
 
 ## Rules
 - Feature-scoped plans go in `xTrack/[Feature]/FEAT_PLN_[Feature]_[topic].md`, NOT in `plans/`. The `plans/` directory is for cross-cutting or legacy plans only.
@@ -259,12 +259,12 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 - `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt`
 
 #### Docs
-- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_idle-time-always-zero.md` — root cause + fix plan + implementation record
+- `xTrack/BoatTrace/260628_FEAT_PLN_BoatTrace_idle-time-always-zero.md` — root cause + fix plan + implementation record
 
 ### merge-tracks  [x]
 
 #### Docs
-- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_merge-tracks.md` — discussion plan: merge tracks vs resume track
+- `xTrack/BoatTrace/260714_FEAT_PLN_BoatTrace_merge-tracks.md` — discussion plan: merge tracks vs resume track
 
 ### notif-lifecycle  [x]
 
@@ -273,20 +273,20 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
 
 #### Docs
-- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_notif-lifecycle-hardening.md` — design & implementation plan
+- `xTrack/BoatTrace/260714_FEAT_PLN_BoatTrace_notif-lifecycle-hardening.md` — design & implementation plan
 
 ### populate-track-info  [x]
 
 ## Docs
 - `plans/boat-trace-design-discussion.md` — final design and implementation plan
-- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_TrackList_Design.md` — track list UI requirements, animation design, component architecture
-- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_render-tracks.md` — render-tracks implementation plan
+- `xTrack/BoatTrace/260618_FEAT_PLN_BoatTrace_TrackList_Design.md` — track list UI requirements, animation design, component architecture
+- `xTrack/BoatTrace/260618_FEAT_PLN_BoatTrace_render-tracks.md` — render-tracks implementation plan
 - `xTrack/BoatTrace/FEAT_DOC_BoatTrace_decisions.md` — comprehensive functional/architectural decisions record (7 categories, 40+ decisions)
-- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_gps-line-acquisition.md` — GPS point acquisition: outlier rejection (speed gate) + passive listener removal (ordering fix)
-- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_gps-background.md` — Persistent foreground service: always-on notification with live recording stats, demo-aware
-- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_spike-rejection-v2.md` — Spike rejection v2: 4-gate algorithm design plan
-- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_adaptive-isstill.md` — adaptive GPS stillness detection plan
-- `xTrack/BoatTrace/FEAT_PLN_BoatTrace_pinned-tracks.md` — Pinned tracks: replace eye-icon with pin-icon, separate transparency, z-order
+- `xTrack/BoatTrace/260620_FEAT_PLN_BoatTrace_gps-line-acquisition.md` — GPS point acquisition: outlier rejection (speed gate) + passive listener removal (ordering fix)
+- `xTrack/BoatTrace/260620_FEAT_PLN_BoatTrace_gps-background.md` — Persistent foreground service: always-on notification with live recording stats, demo-aware
+- `xTrack/BoatTrace/260622_FEAT_PLN_BoatTrace_spike-rejection-v2.md` — Spike rejection v2: 4-gate algorithm design plan
+- `xTrack/BoatTrace/260618_FEAT_PLN_BoatTrace_adaptive-isstill.md` — adaptive GPS stillness detection plan
+- `xTrack/BoatTrace/260622_FEAT_PLN_BoatTrace_pinned-tracks.md` — Pinned tracks: replace eye-icon with pin-icon, separate transparency, z-order
 
 ## Implemented
 
@@ -337,3 +337,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 **checkmark-bottom-right (2026-07-14):** Moved multi-select check mark badge from `Alignment.TopEnd` to `Alignment.BottomEnd` in `SwipeableItemCard` (`ListOverlayScaffold.kt`). Reduces visual collision with card titles/subtitles clustered at top. Build: ✅
 
 **notif-lifecycle-hardening (2026-07-14):** Three notification lifecycle fixes. (1) Tap-to-open: `setContentIntent(PendingIntent.getActivity(MainActivity))` with `SINGLE_TOP | CLEAR_TOP`. (2) Post-kill resilience: persist `lastKnownOnWater` to SharedPreferences; lightweight orphan checkpoint scan (`File.listFiles { extension == "checkpoint" }`) shows "Recovery available" label. (3) Recording-aware exit: double-back while recording shows AlertDialog ("Stop & Exit" / "Keep Recording" → `moveTaskToBack`). Non-recording double-back unchanged. 2 files, 0 new permissions. Build: ✅
+- `xTrack/BoatTrace/260618_FEAT_PLN_BoatTrace_adaptive-isstill-settings-redesign.md` — Adaptive isStill settings redesign
+- `xTrack/BoatTrace/260617_FEAT_PLN_BoatTrace_boat-trace-fresh-import-plan.md` — Boat trace fresh import plan
+- `xTrack/BoatTrace/260618_FEAT_PLN_BoatTrace_boat-trace-ui-refinement-plan.md` — Boat trace UI refinement plan
+- `xTrack/BoatTrace/260625_FEAT_PLN_BoatTrace_track-system-simplification-plan.md` — Track system simplification plan

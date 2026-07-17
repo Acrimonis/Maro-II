@@ -3,7 +3,7 @@ name: DepthSafety
 status: active
 created: 2026-06-08 18:25
 modified: 2026-06-09 12:01
-active_subfeature: caching
+active_subfeature: none
 ---
 
 # Feature: DepthSafety
@@ -117,8 +117,8 @@ Runtime layer bitmap caching — avoid rebuilding the ~7 M-cell depth colour map
 - `data/depth/RasterCache.kt` (new: RawBuf disk I/O)
 - `data/model/GenerationProgress.kt` (reused for progress reporting)
 #### Docs
-- `xTrack/DepthMapping/FEAT_PLN_DepthMapping_caching.md` — measurement results and RawBuf decision
-- `xTrack/DepthMapping/FEAT_PLN_DepthMapping_caching-rawbuf.md` — implementation plan for RawBuf cache with progress UI
+- `xTrack/DepthMapping/260609_FEAT_PLN_DepthMapping_caching.md` — measurement results and RawBuf decision
+- `xTrack/DepthMapping/260609_FEAT_PLN_DepthMapping_caching-rawbuf.md` — implementation plan for RawBuf cache with progress UI
 
 ## Rules
 - Branch-per-feature off `feature/litto3d-shallow`: B1, B2, B3 from the base; **B4 from B3**. Commit only on explicit instruction.
@@ -129,4 +129,4 @@ Runtime layer bitmap caching — avoid rebuilding the ~7 M-cell depth colour map
 - See per-subfeature Key Files.
 
 ## Docs
-- `xTrack/DepthSafety/FEAT_PLN_DepthSafety_plan.md` — the branch-per-feature workflow + per-branch design.
+- `xTrack/DepthSafety/260608_FEAT_PLN_DepthSafety_plan.md` — the branch-per-feature workflow + per-branch design.

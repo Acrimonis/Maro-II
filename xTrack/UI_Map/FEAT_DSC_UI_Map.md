@@ -25,7 +25,7 @@ Dark under-stroke (`0xCC000000`, +6f) rendered before gold highlight geometry on
 - `app/src/main/java/ykws/android/maro/ui/map/MarkerOverlay.kt`
 
 #### Docs
-- `plans/marker-hilite-dual-outline-plan.md`
+- `xTrack/Markers/260711_FEAT_PLN_Markers_marker-hilite-dual-outline-plan.md`
 - `docs/ui-component-guidelines.md` §5.4
 
 ### map refresh  [-]
@@ -44,7 +44,7 @@ Investigation into intermittent rendering issues: fan layer toggle inconsistency
 - [ ] Build + on-device verify all three issues are resolved
 
 #### Docs
-- `xTrack/UI_Map/FEAT_PLN_UI_Map_map-refresh-troubleshooting.md` — full troubleshooting plan
+- `xTrack/UI_Map/260704_FEAT_PLN_UI_Map_map-refresh-troubleshooting.md` — full troubleshooting plan
 
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
@@ -360,11 +360,17 @@ content — no `AnimatedVisibility`, scrim, or shadow of their own. Wizard steps
 
 ## Docs
 - `xTrack/MapDisplay/FEAT_DOC_MapDisplay_marker-sizing.md` — centred boat marker sizing & behaviour on the map
-- `xTrack/Performance/FEAT_PLN_Performance_animateTo-interaction-analysis.md` — animateTo interaction with map refresh FPS analysis
-- `xTrack/UI_Map/FEAT_PLN_UI_Map_boat-marker-offset-discussion.md` — Boat marker offset discussion
-- `xTrack/UI_Map/FEAT_PLN_UI_Map_right-edge-gap-asymmetry.md` — Right edge controls gap asymmetry analysis
-- `xTrack/UI_Map/FEAT_PLN_UI_Map_overlay-layout-inventory.md` — Map overlay layout inventory
-- `xTrack/UI_Map/FEAT_PLN_UI_Map_overlay-layout-rationalization.md` — Map overlay layout rationalization
-- `xTrack/UI_Map/FEAT_PLN_UI_Map_icon-rendering-overhaul.md` — Icon rendering overhaul plan
-- `xTrack/UI_Map/FEAT_PLN_UI_Map_decenter-map-discussion.md` — Decenter map: dynamic downward offset analysis and design discussion
+- `xTrack/Performance/260610_FEAT_PLN_Performance_animateTo-interaction-analysis.md` — animateTo interaction with map refresh FPS analysis
+- `xTrack/UI_Map/260614_FEAT_PLN_UI_Map_boat-marker-offset-discussion.md` — Boat marker offset discussion
+- `xTrack/UI_Map/260616_FEAT_PLN_UI_Map_right-edge-gap-asymmetry.md` — Right edge controls gap asymmetry analysis
+- `xTrack/UI_Map/260616_FEAT_PLN_UI_Map_overlay-layout-inventory.md` — Map overlay layout inventory
+- `xTrack/UI_Map/260616_FEAT_PLN_UI_Map_overlay-layout-rationalization.md` — Map overlay layout rationalization
+- `xTrack/UI_Map/260612_FEAT_PLN_UI_Map_icon-rendering-overhaul.md` — Icon rendering overhaul plan
+- `xTrack/UI_Map/260620_FEAT_PLN_UI_Map_decenter-map-discussion.md` — Decenter map: dynamic downward offset analysis and design discussion
 - `docs/map-lib-migration-plan.md` — Full migration plan: osmdroid → MapLibre GL, with CameraOptions.padding for decenter and pitch for tilt
+- `xTrack/UI_Map/260711_FEAT_PLN_UI_Map_map-offset-dynamic-plan.md` — Map offset dynamic plan
+- `xTrack/UI_Map/260712_FEAT_PLN_UI_Map_map-offset-phase2-properties-settings.md` — Map offset phase 2 properties settings
+- `xTrack/UI_Map/260712_FEAT_PLN_UI_Map_map-offset-scroll-fix-clean.md` — Map offset scroll fix clean
+- `xTrack/UI_Map/260616_FEAT_PLN_UI_Map_map-overlay-layout-inventory.md` — Map overlay layout inventory
+- `xTrack/UI_Map/260616_FEAT_PLN_UI_Map_map-overlay-layout-rationalization.md` — Map overlay layout rationalization
+- `xTrack/UI_Map/260616_FEAT_PLN_UI_Map_right-edge-controls-gap-asymmetry-analysis.md` — Right edge controls gap asymmetry analysis

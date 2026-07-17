@@ -158,14 +158,21 @@ See [`FEAT_HYD_Markers.md`](xTrack/Markers/FEAT_HYD_Markers.md) for current bug 
 ## Docs
 - `xTrack/Markers/FEAT_DOC_Markers_decisions.md` — architectural decisions with rationale and source references
 - `xTrack/Markers/FEAT_HYD_Markers.md` — hydration snapshot + known issues (single source of truth)
-- `xTrack/Markers/FEAT_PLN_Markers_user-markers-design.md` — original design plan (all phases ✅)
-- `xTrack/Markers/FEAT_PLN_Markers_create-zones-flow.md` — wizard creation flow design
-- `xTrack/Markers/FEAT_PLN_Markers_whereami-rework.md` — whereAmI rework design (implemented)
-- `xTrack/Markers/FEAT_PLN_Markers_debug-wia.md` — debug instrumentation design (implemented)
-- `xTrack/Markers/FEAT_PLN_Markers_whereami-gaps.md` — current angular shadow over-blocking analysis
-- `xTrack/Markers/FEAT_PLN_Markers_icon.md` — POI icon system design (implemented)
-- `xTrack/Markers/FEAT_PLN_Markers_icon-fixes.md` — icon bug-fix plan (partial: management icon picker ✅, duplicate imports ❌)
-- `xTrack/Markers/FEAT_PLN_Markers_marker-pin.md` — pin toggle design (implemented)
-- `xTrack/Markers/FEAT_PLN_Markers_marker-pin-tri-state.md` — tri-state layer toggle design (implemented)
-- `xTrack/Markers/FEAT_PLN_Markers_area-tap-and-wizard-buttons.md` — area tap + wizard buttons + corridor caps + color settings (area tap ✅, buttons ✅, caps ✅, color settings ❌)
-- `xTrack/Markers/FEAT_PLN_Markers_next-session-ui-polish.md` — UI polish plan (format ❌, color picker ✅, edit icon ✅, viewing drawer ✅)
+- `xTrack/Markers/260622_FEAT_PLN_Markers_user-markers-design.md` — original design plan (all phases ✅)
+- `xTrack/Markers/260623_FEAT_PLN_Markers_create-zones-flow.md` — wizard creation flow design
+- `xTrack/Markers/260625_FEAT_PLN_Markers_whereami-rework.md` — whereAmI rework design (implemented)
+- `xTrack/Markers/260625_FEAT_PLN_Markers_debug-wia.md` — debug instrumentation design (implemented)
+- `xTrack/Markers/260630_FEAT_PLN_Markers_whereami-gaps.md` — current angular shadow over-blocking analysis
+- `xTrack/Markers/260626_FEAT_PLN_Markers_icon.md` — POI icon system design (implemented)
+- `xTrack/Markers/260628_FEAT_PLN_Markers_icon-fixes.md` — icon bug-fix plan (partial: management icon picker ✅, duplicate imports ❌)
+- `xTrack/Markers/260626_FEAT_PLN_Markers_marker-pin.md` — pin toggle design (implemented)
+- `xTrack/Markers/260626_FEAT_PLN_Markers_marker-pin-tri-state.md` — tri-state layer toggle design (implemented)
+- `xTrack/Markers/260624_FEAT_PLN_Markers_area-tap-and-wizard-buttons.md` — area tap + wizard buttons + corridor caps + color settings (area tap ✅, buttons ✅, caps ✅, color settings ❌)
+- `xTrack/Markers/260625_FEAT_PLN_Markers_next-session-ui-polish.md` — UI polish plan (format ❌, color picker ✅, edit icon ✅, viewing drawer ✅)
+- `xTrack/Markers/260702_FEAT_PLN_Markers_auto-marker-proximity-fix.md` — Auto marker proximity fix
+- `xTrack/Markers/260711_FEAT_PLN_Markers_marker-hilite-dual-outline-plan.md` — Marker highlight dual outline plan
+- `xTrack/Markers/260623_FEAT_PLN_Markers_marker-proximity-wizard-normalization.md` — Marker proximity wizard normalization
+- `xTrack/Markers/260624_FEAT_PLN_Markers_markers-section-normalization.md` — Markers section normalization
+- `xTrack/Markers/260701_FEAT_PLN_Markers_remove-proximity-range-gates.md` — Remove proximity range gates
+- `xTrack/Markers/260711_FEAT_PLN_Markers_track-hilite-dual-outline-plan.md` — Track highlight dual outline plan
+- `xTrack/Markers/260701_FEAT_PLN_Markers_whereami-flow.md` — WhereAmI flow

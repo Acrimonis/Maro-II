@@ -30,8 +30,8 @@ Track the canonical colour taxonomy and ensure every new colour follows the nami
 - `app/src/main/assets/colors.properties`
 - `app/src/main/java/ykws/android/maro/config/AppConfig.kt`
 - `docs/color-scheme.md`
-- `plans/color-taxonomy-hardcoded-whites-audit.md`
-- `plans/color-taxonomy-alpha-values.md`
+- `xTrack/ColorManagement/260617_FEAT_PLN_ColorManagement_color-taxonomy-hardcoded-whites-audit.md`
+- `xTrack/ColorManagement/260617_FEAT_PLN_ColorManagement_color-taxonomy-alpha-values.md`
 
 ### Alias Interpolation  [x]
 
@@ -73,11 +73,11 @@ The `${key}` resolver in `AppConfig.init()` allows properties to reference each 
 
 ## Docs
 - `docs/color-scheme.md`
-- `xTrack/ColorManagement/FEAT_PLN_ColorManagement_btn-color-harmonization.md` — Button color harmonization
-- `xTrack/ColorManagement/FEAT_PLN_ColorManagement_button-colors-discussion.md` — Button colors discussion
-- `xTrack/ColorManagement/FEAT_PLN_ColorManagement_props-migration.md` — Color props migration plan
-- `plans/color-taxonomy-hardcoded-whites-audit.md` — Hardcoded ComposeColor.White audit and fix plan
-- `plans/color-taxonomy-alpha-values.md` — Alpha/opacity value centralization plan
+- `xTrack/ColorManagement/260616_FEAT_PLN_ColorManagement_btn-color-harmonization.md` — Button color harmonization
+- `xTrack/ColorManagement/260616_FEAT_PLN_ColorManagement_button-colors-discussion.md` — Button colors discussion
+- `xTrack/ColorManagement/260616_FEAT_PLN_ColorManagement_props-migration.md` — Color props migration plan
+- `xTrack/ColorManagement/260617_FEAT_PLN_ColorManagement_color-taxonomy-hardcoded-whites-audit.md` — Hardcoded ComposeColor.White audit and fix plan
+- `xTrack/ColorManagement/260617_FEAT_PLN_ColorManagement_color-taxonomy-alpha-values.md` — Alpha/opacity value centralization plan
 
 ## Colour Modification Prompt
 

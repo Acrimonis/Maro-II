@@ -3,7 +3,7 @@ name: GPS
 status: active
 created: 2026-06-07 00:00
 modified: 2026-07-17 10:52
-active_subfeature: poor-reception
+active_subfeature: none
 ---
 
 # Feature: GpsPlugin
@@ -97,7 +97,7 @@ ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 - `app/src/main/assets/maro.properties` — tunables
 
 #### Docs
-- `xTrack/GPS/FEAT_PLN_GPS_track-simplification.md` — design & implementation plan
+- `xTrack/GPS/260622_FEAT_PLN_GPS_track-simplification.md` — design & implementation plan
 
 ### troubleshoot-gps-turns  [ ]
 
@@ -116,7 +116,7 @@ ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 - `app/src/main/java/ykws/android/maro/data/location/GpsLocationSource.kt` — `GpsFix.hasLock`, `emitNoLock`, GNSS status monitoring
 
 #### Docs
-- `xTrack/GPS/FEAT_PLN_GPS_troubleshoot-gps-turns.md` — investigation & fix plan
+- `xTrack/GPS/260622_FEAT_PLN_GPS_troubleshoot-gps-turns.md` — investigation & fix plan
 
 ### validation-idle  [ ]
 
@@ -151,7 +151,7 @@ ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 - `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt` — addPoint() receives GpsFix with hasLock=true
 
 #### Docs
-- `xTrack/GPS/FEAT_PLN_GPS_fix-track-extrapolation.md` — analysis & fix plan
+- `xTrack/GPS/260623_FEAT_PLN_GPS_fix-track-extrapolation.md` — analysis & fix plan
 
 ### background-recording  [x]
 
@@ -189,7 +189,7 @@ ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 - `app/src/main/java/ykws/android/maro/data/track/TrackSample.kt` — new file
 
 #### Docs
-- `xTrack/GPS/FEAT_PLN_GPS_yarefact.md` — refined consolidation plan
+- `xTrack/GPS/260625_FEAT_PLN_GPS_yarefact.md` — refined consolidation plan
 
 **yarefact (2026-06-25, Phase A+B+C):** Removed duplicate `AdaptiveGpsPolicy` from TrackRecorder — unified stillness detection via single `isStopped` StateFlow from NavigationViewModel. Reordered `adaptivePolicy.onFix()` before `GpsSignalWatchdog` block, gated both on `_acquisitionMode != IDLE`. Added `feedDemoPosition()` for demo-mode stop detection with periodic 1Hz convergence. `setStoppedSource()` forwarding mechanism on TrackViewModel. Created `TrackSample` data class. Migrated entire recording pipeline from virtual `GpsFix` to `TrackSample`. Phase C: `_newPoint` SharedFlow emits each captured point for incremental polyline append in MapScreen — removed full-list `recordingPoints` copy from `_uiState.update`. Fixes: stale `remember` closure on `appSettings`, periodic demo position feed for stop convergence. Build: ✅.
 
@@ -215,7 +215,7 @@ Harden background GPS to match Waze/GMaps best practices + recording-aware exit 
 - `Bad-spikes.gpx` — reproduction data: duplicate fixes at 19:29:58.663–.246 (identical pos/speed/course)
 
 #### Docs
-- `xTrack/GPS/FEAT_PLN_GPS_fix-spike.md` — root cause analysis & fix plans for all 3 anomaly categories
+- `xTrack/GPS/260714_FEAT_PLN_GPS_fix-spike.md` — root cause analysis & fix plans for all 3 anomaly categories
 
 ### checks  [x]
 
@@ -234,7 +234,7 @@ Harden background GPS to match Waze/GMaps best practices + recording-aware exit 
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — setCenter in GPS follow, updated comments
 
 #### Docs
-- `xTrack/GPS/FEAT_PLN_GPS_checks.md` — spike gate audit & map smoothness fix design
+- `xTrack/GPS/260714_FEAT_PLN_GPS_checks.md` — spike gate audit & map smoothness fix design
 
 ## Todos
 - [ ] back to GPS point → replace delay by swipe of card
@@ -252,10 +252,10 @@ Harden background GPS to match Waze/GMaps best practices + recording-aware exit 
 - `docs/MARO_ARCHITECTURE.md` — spatial-engine constraints (Nice–Fréjus bounding box, async/map rules) GPS positions operate within.
 - `xTrack/Coastline/FEAT_DOC_Coastline_300m-line-design.md` — the 300 m regulatory band + 5-knot rule the dashboard speed colour-coding enforces.
 - `xTrack/GPS/FEAT_DOC_GPS_spike-rejection.md` — Spike rejection architecture: gate pipeline, still-spike fix, land mode auto-detection
-- `xTrack/GPS/FEAT_PLN_GPS_still-spike-fix.md` — Still-spike fix plan (lastGenuine anchor, bearing sanity, idle gate)
-- `xTrack/GPS/FEAT_PLN_GPS_demo-speed-tuning.md` — Demo mode speed tuning discussion
-- `xTrack/GPS/FEAT_PLN_GPS_loss-investigation.md` — GPS tracking loss investigation report
-- `xTrack/GPS/FEAT_PLN_GPS_loss-fix-plan.md` — GPS loss fix plan
+- `xTrack/GPS/260714_FEAT_PLN_GPS_still-spike-fix.md` — Still-spike fix plan (lastGenuine anchor, bearing sanity, idle gate)
+- `xTrack/GPS/260610_FEAT_PLN_GPS_demo-speed-tuning.md` — Demo mode speed tuning discussion
+- `xTrack/GPS/260611_FEAT_PLN_GPS_loss-investigation.md` — GPS tracking loss investigation report
+- `xTrack/GPS/260611_FEAT_PLN_GPS_loss-fix-plan.md` — GPS loss fix plan
 
 ## Implemented
 
@@ -272,3 +272,4 @@ Harden background GPS to match Waze/GMaps best practices + recording-aware exit 
 **checks (2026-07-14):** Unified continuous dead reckoning + setCenter map smoothness fix. Root cause: `animateTo(fix, 600ms)` caused speed-proportional map-center lag (1.9m at 6kn, 6.2m at 20kn) because the animation always targeted a stale position. Fix: added `_displayPosition` StateFlow with continuous 20 Hz dead-reckoning coroutine that extrapolates between GPS fixes (gated <3kn, capped 30m). `cameraUpdates` reads from `_displayPosition` instead of `_gpsPosition`. MapScreen replaced `animateTo` with `setCenter` — smoothness from DR, accuracy from instant positioning. `_gpsPosition` remains raw truth for track recording, zones, dashboard. 2 files, ~60 lines. Build: ✅.
 
 **poor-reception (2026-07-17):** 9-item multi-layer poor reception handling. Data layer: `accuracyM` field threaded through GpsFix→TrackSample→TrackPoint (proto field 11). `GpsLocationSource.emitFix()` captures `Location.getAccuracy()`. AdaptiveGpsPolicy: speed-aware tiebreaker with re-anchor (prevents slow-drift IDLE lock-in) + accuracy-widened displacement thresholds. NavigationViewModel: `_accuracyIsPoor`/`_gpsAccuracy` StateFlows, IDLE fix-rate floor (10s when accuracy poor via `BuildConfig.GPS_IDLE_MAX_INTERVAL_MS`). TrackRecorder: accuracy recording gate (`maxRecordingAccuracyM=30f`), dynamic stationary dedup (5000ms vs 500ms), BoatMarker merge with cumulative track distance gate (25m) + snapshot union. MapScreen: WEAK GPS icon state (amber). Config: `gps.*` section in maro.properties, `boatMarkerMinTravelBetweenStopsM`, `propLong` helper in build.gradle.kts. 12 files, ~150 lines. 4 Ask reviews. Build: ✅.
+- `xTrack/GPS/260628_FEAT_PLN_GPS_spike-rejection-stale-timeout-fix.md` — Spike rejection stale timeout fix

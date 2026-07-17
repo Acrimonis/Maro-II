@@ -21,8 +21,8 @@ Full color centralization pass:
 - `app/src/main/java/ykws/android/maro/ui/map/FanLayout.kt`
 - `app/src/main/assets/colors.properties`
 - `app/src/main/assets/maro.properties`
-- `plans/color-taxonomy-hardcoded-whites-audit.md`
-- `plans/color-taxonomy-alpha-values.md`
+- `xTrack/ColorManagement/260617_FEAT_PLN_ColorManagement_color-taxonomy-hardcoded-whites-audit.md`
+- `xTrack/ColorManagement/260617_FEAT_PLN_ColorManagement_color-taxonomy-alpha-values.md`
 
 ## Next Step
 None — session complete. Ready for commit.

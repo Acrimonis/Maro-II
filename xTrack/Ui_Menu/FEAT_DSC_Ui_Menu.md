@@ -29,7 +29,7 @@ mirroring the POSITION SOURCE GPS toggle pattern. Controls `AppSettings.markerZo
 - BUILD SUCCESSFUL
 
 #### Plan
-- `xTrack/Ui_Menu/FEAT_PLN_Ui_Menu_toggle-zones-marker-in-menu.md`
+- `xTrack/Ui_Menu/260705_FEAT_PLN_Ui_Menu_toggle-zones-marker-in-menu.md`
 
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt`

@@ -176,4 +176,4 @@
 ### WIA Debug Mode
 **Decision:** Long-press boat marker → debug mode ON → map tap runs `debugResolveAllMarkers()` with structured `Log.d("WIA", ...)` trace. Output via `adb logcat -s WIA`.
 **Rationale:** Non-invasive diagnostic instrumentation. No persistent setting, no UI overlay.
-**Source:** [`FEAT_PLN_Markers_debug-wia.md`](xTrack/Markers/FEAT_PLN_Markers_debug-wia.md)
+**Source:** [`260625_FEAT_PLN_Markers_debug-wia.md`](xTrack/Markers/260625_FEAT_PLN_Markers_debug-wia.md)

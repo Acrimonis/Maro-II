@@ -13,7 +13,7 @@
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — guard `setActiveSessionAutoMarkerId` on non-empty return
 - `app/src/main/assets/maro.properties` — `track.boatMarker.autoMarker.dedupRadiusM=50`
 - `app/src/main/java/ykws/android/maro/config/AppConfig.kt` — `boatMarkerAutoMarkerDedupRadiusM` field + loading
-- `xTrack/Markers/FEAT_PLN_Markers_auto-marker-dedup.md` — plan
+- `xTrack/Markers/260714_FEAT_PLN_Markers_auto-marker-dedup.md` — plan
 - `xTrack/Markers/FEAT_DSC_Markers.md` — front-matter, subfeature checkmark
 
 ## Pending
