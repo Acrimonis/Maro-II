@@ -1,9 +1,10 @@
 # Hydration — GPS
 
-**Last Bake:** 2026-07-14 08:41
-**State:** checks: implemented, built. 2 files, ~60 lines.
+**Last Bake:** 2026-07-17 09:37
+**State:** poor-reception: plan finalized, Ask-reviewed. 1 plan file.
 
 ## Summary
+- **poor-reception** — 8 P0-item plan: accuracy plumbing (GpsFix→TrackSample→TrackPoint), speed-aware + accuracy-aware adaptive policy, IDLE fix-rate floor (10s when poor), accuracy recording gate, extended stationary dedup, WEAK GPS icon state. Critical slow-drift regression caught and fixed in Ask review.
 - **checks** — Unified continuous dead reckoning + setCenter map smoothness. `_displayPosition` StateFlow + 20 Hz DR coroutine (gated <3kn, capped 30m). `cameraUpdates` reads `_displayPosition`. MapScreen: `setCenter` replaces `animateTo`. `_gpsPosition` stays raw truth.
 - **fix-spike** — Fix D: dedup identical positions within 500ms. Fix A: stale-timeout two-tier cap (48/96 kn) + course clear. Fix B: GPS-reported speed gate (40 kn, !isOnLand guard). Fix C: stationary distance cap (150m at <2 kn). Bonus: fixed dead sea-recovery (`landModeAcceptCounter`), added missing `checkLandDetection` calls, reset `consecutiveRejections` on stale/Gate 0 acceptance.
 - yarefact Phase A+B+C — TrackSample, unified isStopped, incremental polyline

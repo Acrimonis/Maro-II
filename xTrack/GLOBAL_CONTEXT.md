@@ -2,9 +2,9 @@
 
 ## Active Session Pointers
 - **Active Feature:** GPS
-- **Active Subfeature:** still-spike-fix
-- **Last Updated:** 2026-07-14 17:17
-- **Last Bake:** 2026-07-14 17:17 (GPS — still-spike-fix: lastGenuine anchor, bearing sanity window, stale timeout idle gate. 1 file, BUILD SUCCESSFUL)
+- **Active Subfeature:** poor-reception
+- **Last Updated:** 2026-07-17 09:37
+- **Last Bake:** 2026-07-17 09:37 (GPS — poor-reception: 6-layer plan — accuracy plumbing, speed-aware policy, IDLE floor, recording gates, WEAK icon. 1 plan file, Ask-reviewed.)
 - **Branch:** feature/gps-still-spikes
 
 ## Routing Map

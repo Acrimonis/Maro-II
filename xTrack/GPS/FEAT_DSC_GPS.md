@@ -2,8 +2,8 @@
 name: GPS
 status: active
 created: 2026-06-07 00:00
-modified: 2026-07-14 17:17
-active_subfeature: still-spike-fix
+modified: 2026-07-17 09:37
+active_subfeature: poor-reception
 ---
 
 # Feature: GpsPlugin
