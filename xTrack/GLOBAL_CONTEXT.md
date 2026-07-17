@@ -5,7 +5,7 @@
 - **Active Subfeature:** (none)
 - **Last Updated:** 2026-07-17 13:22
 - **Last Bake:** 2026-07-17 10:52 (GPS — poor-reception: 9 items finalized — 8 P0 on-the-fly + 1 P1 BoatMarker merge. 3 Ask reviews, zero known issues. Constants table + maro.properties section defined.)
-- **Branch:** feature/doc
+- **Branch:** feature/doc-conso
 
 ## Routing Map
 | Keyword | Feature File |
@@ -30,7 +30,6 @@
 | | zone300speed, 300m badge, speed badge, 300m speed | xTrack/Zone300SpeedBadge/FEAT_DSC_Zone300SpeedBadge.md |
 | | boat, trace, trip, boat-trace, boat-tracing, track, recording, port-salis, journey | xTrack/BoatTrace/FEAT_DSC_BoatTrace.md |
 | | workflow, rules, ambiguity, merge, agents, gitops | xTrack/WorkflowAmbiguityFix/FEAT_DSC_WorkflowAmbiguityFix.md |
-| | ui, tweaks, polish, small-potatoes, ui-small-potatoes, small potatoes | xTrack/ui-small-potatoes/FEAT_DSC_ui-small-potatoes.md |
 | | markers, pin, circle, corridor, usermarker, user marker, where am i | xTrack/Markers/FEAT_DSC_Markers.md |
 | | menu, menu drawer, hamburger, track drawer, position source, menu overlay | xTrack/Ui_Menu/FEAT_DSC_Ui_Menu.md |
 
@@ -61,7 +60,6 @@
 | | **CheckDev** | **Dev-branch health monitoring — remote branch state, ahead/behind analysis, workflow hygiene validation** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
 | | **Health** | **Application health monitoring — diagnostics, crash reporting, memory/performance telemetry** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
 | | **WorkflowAmbiguityFix** | **Eliminate ambiguity between AGENTS.md rules — #merge direction, §5 reinforcement, command doc alignment. Absorbed into WorkflowImprovement 2026-06-28.** | **2026-06-20 14:51** | **2026-06-28 13:51** | **done** |
-| | **ui-small-potatoes** | **UI polish, refinements, and small fixes across the app** | **2026-06-22 13:50** | **2026-07-06 13:56** | **active** |
 | | **Markers** | **User-defined map markers (Pin, Circle, Corridor) with sea-distance-gated proximity matching, percentage-based sort scoring, and on-demand "where am I?" query — 14/14 subfeatures done; 7 fixes + sort v2 implemented** | **2026-06-22 11:52** | **2026-06-30 10:25** | **active** |
 | | **Ui_Menu** | **Hamburger menu drawer — position source, track recording, marker management sections; right-side sliding panel via OverlayLayer/DrawerSlot** | **2026-07-05 06:57** | **2026-07-05 07:08** | **active** |
 
