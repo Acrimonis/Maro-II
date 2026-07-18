@@ -1281,6 +1281,41 @@ fun MapScreen(
         }
     }
 
+    // ── Trailing polyline: interpolated segment from last accepted point ──
+    // to the dead-reckoned display position, updated at 20 Hz. Display only —
+    // never recorded. Semi-transparent solid (not dashed) to distinguish from
+    // GAP markers. Cleaned up on recorder OFF.
+    LaunchedEffect(mapView, trackRecorderState.state) {
+        val mv = mapView ?: return@LaunchedEffect
+        if (trackRecorderState.state != ykws.android.maro.data.track.TrackRecorderState.ON) {
+            mv.overlays.removeAll { (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_trailing" }
+            mv.invalidate()
+            return@LaunchedEffect
+        }
+        snapshotFlow { viewModel.displayPosition.value }
+            .collect { displayPos ->
+                // Remove previous trailing polyline
+                mv.overlays.removeAll { (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_trailing" }
+                if (displayPos == null) return@collect
+                // Find the last accepted point from the recording polyline
+                val recordingLine = mv.overlays.filter {
+                    (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording" &&
+                    (it as org.osmdroid.views.overlay.Polyline).outlinePaint.pathEffect == null
+                }.lastOrNull() as? org.osmdroid.views.overlay.Polyline
+                val lastPt = recordingLine?.actualPoints?.lastOrNull() ?: return@collect
+                // Draw trailing segment: last accepted point → display position
+                val trailing = org.osmdroid.views.overlay.Polyline().apply {
+                    title = "track_trailing"
+                    outlinePaint.color = (appSettings.trackingColorActive and 0x00FFFFFF) or (0x66000000.toInt())  // ~40% alpha
+                    outlinePaint.strokeWidth = 10f
+                    isVisible = true
+                    setPoints(listOf(lastPt, org.osmdroid.util.GeoPoint(displayPos.latitude, displayPos.longitude)))
+                }
+                mv.overlays.add(trailing)
+                mv.invalidate()
+            }
+    }
+
     // ── WhereAmI debug segments: visual overlay on the map ─────────────────
     // Green = clear line-of-sight, Red = blocked by land.
     LaunchedEffect(mapView, debugSegments) {

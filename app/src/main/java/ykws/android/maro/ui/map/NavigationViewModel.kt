@@ -254,6 +254,9 @@ class NavigationViewModel(
     /** Display position for smooth map centering — driven by continuous dead reckoning at 20 Hz.
      *  Resets to raw GPS fix on each new fix; extrapolates between fixes for fluid map updates. */
     private val _displayPosition = MutableStateFlow<LatLng?>(null)
+    /** Public read-only view of the dead-reckoned display position, updated at 20 Hz
+     *  for smooth map centering and trailing polyline interpolation. */
+    val displayPosition: StateFlow<LatLng?> = _displayPosition.asStateFlow()
 
     /**
      * Atomic navigation state (bearing + speed) for the boat marker and cap arrow.

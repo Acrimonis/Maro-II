@@ -2,7 +2,7 @@
 name: GPS
 status: active
 created: 2026-06-07 00:00
-modified: 2026-07-17 10:52
+modified: 2026-07-18 05:12
 active_subfeature: none
 ---
 
@@ -272,4 +272,6 @@ Harden background GPS to match Waze/GMaps best practices + recording-aware exit 
 **checks (2026-07-14):** Unified continuous dead reckoning + setCenter map smoothness fix. Root cause: `animateTo(fix, 600ms)` caused speed-proportional map-center lag (1.9m at 6kn, 6.2m at 20kn) because the animation always targeted a stale position. Fix: added `_displayPosition` StateFlow with continuous 20 Hz dead-reckoning coroutine that extrapolates between GPS fixes (gated <3kn, capped 30m). `cameraUpdates` reads from `_displayPosition` instead of `_gpsPosition`. MapScreen replaced `animateTo` with `setCenter` — smoothness from DR, accuracy from instant positioning. `_gpsPosition` remains raw truth for track recording, zones, dashboard. 2 files, ~60 lines. Build: ✅.
 
 **poor-reception (2026-07-17):** 9-item multi-layer poor reception handling. Data layer: `accuracyM` field threaded through GpsFix→TrackSample→TrackPoint (proto field 11). `GpsLocationSource.emitFix()` captures `Location.getAccuracy()`. AdaptiveGpsPolicy: speed-aware tiebreaker with re-anchor (prevents slow-drift IDLE lock-in) + accuracy-widened displacement thresholds. NavigationViewModel: `_accuracyIsPoor`/`_gpsAccuracy` StateFlows, IDLE fix-rate floor (10s when accuracy poor via `BuildConfig.GPS_IDLE_MAX_INTERVAL_MS`). TrackRecorder: accuracy recording gate (`maxRecordingAccuracyM=30f`), dynamic stationary dedup (5000ms vs 500ms), BoatMarker merge with cumulative track distance gate (25m) + snapshot union. MapScreen: WEAK GPS icon state (amber). Config: `gps.*` section in maro.properties, `boatMarkerMinTravelBetweenStopsM`, `propLong` helper in build.gradle.kts. 12 files, ~150 lines. 4 Ask reviews. Build: ✅.
+
+**resolution-display (2026-07-18):** 7-item track resolution & display improvement. SettingsManager: `gpsActiveIntervalSec` default 2→1s, `gpsActiveMinDistanceM` default 5→0m — doubles fix rate. TrackRecorder: boat/land speed caps → `maro.properties` (`tracking.boatMaxSpeedKn=32`, `tracking.landMaxSpeedKn=90`) via `propDouble()`; land detection 5→2 rejections (recovers 3 points per transition); Gate 2 speed-gate — bypasses sideways ×0.5 multiplier at ≥10 kn GPS speed (trusts bearing changes at meaningful speed); accuracy gate speed-aware — 50m threshold when moving (speed validates position), 30m when stationary (drift guard). NavigationViewModel: exposed `displayPosition` StateFlow. MapScreen: trailing polyline segment (title `track_trailing`) — semi-transparent solid line from last accepted point to `_displayPosition` at 20 Hz, cleaned up on recorder OFF. 6 files, ~45 lines. 1 Ask review. Build: ✅.
 - `xTrack/GPS/260628_FEAT_PLN_GPS_spike-rejection-stale-timeout-fix.md` — Spike rejection stale timeout fix

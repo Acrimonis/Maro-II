@@ -1,31 +1,25 @@
 # Hydration — GPS
 
-**Last Bake:** 2026-07-17 10:52
-**State:** poor-reception: plan finalized, 3 Ask reviews, zero known issues. 1 plan file.
+**Last Bake:** 2026-07-18 05:12
+**State:** resolution-display: 7 items implemented across 6 files. Build SUCCESSFUL. On-device car-speed verification pending.
 
 ## Summary
-- **poor-reception** — 9 items (8 P0 on-the-fly + 1 P1 post-hoc): accuracy plumbing, speed-aware + accuracy-aware policy with re-anchor, IDLE floor (10s when poor), accuracy recording gate, extended stationary dedup, WEAK GPS icon, BoatMarker merge with cumulative travel distance gate (25m). Constants table + maro.properties section defined.
-- **checks** — Unified continuous dead reckoning + setCenter map smoothness. `_displayPosition` StateFlow + 20 Hz DR coroutine (gated <3kn, capped 30m). `cameraUpdates` reads `_displayPosition`. MapScreen: `setCenter` replaces `animateTo`. `_gpsPosition` stays raw truth.
-- **fix-spike** — Fix D: dedup identical positions within 500ms. Fix A: stale-timeout two-tier cap (48/96 kn) + course clear. Fix B: GPS-reported speed gate (40 kn, !isOnLand guard). Fix C: stationary distance cap (150m at <2 kn). Bonus: fixed dead sea-recovery (`landModeAcceptCounter`), added missing `checkLandDetection` calls, reset `consecutiveRejections` on stale/Gate 0 acceptance.
+- **resolution-display** — GPS interval 2→1s, minDistance 5→0m (doubles fix rate). Boat/land speed caps → maro.properties (32/90 kn via propDouble). Land detection 5→2 rejections. Gate 2 speed-gate: bypass sideways ×0.5 at ≥10 kn GPS speed. Accuracy gate speed-aware: 50m moving / 30m stationary. Trailing polyline: semi-transparent segment from last accepted point to _displayPosition at 20 Hz.
+- **poor-reception** — 9 items: accuracy plumbing, speed/accuracy-aware policy, IDLE floor, accuracy recording gate, extended dedup, WEAK icon, BoatMarker merge.
+- **checks** — _displayPosition + 20 Hz DR + setCenter map smoothness.
+- **fix-spike** — Fix A-D: dedup, stale-timeout, GPS speed gate, stationary drift cap.
 - yarefact Phase A+B+C — TrackSample, unified isStopped, incremental polyline
 - background-recording — ON_PAUSE GPS-kill gated behind recording state
-- **gps-background** — A1: FGS location + FOREGROUND_SERVICE_LOCATION. A2: ACCESS_BACKGROUND_LOCATION + native permission dialog. A3: notification Stop via StopRecordingReceiver→service pattern. A4: battery exemption dual-trigger prompt. B1: recording-aware BackHandler (red border, ⚠, 300ms delay). C2: recovery dialog Continue/Save, full recorder resume with Resumed event for polyline restore. C3: GAP markers + DashPathEffect on live+saved tracks.
-- Fixes: stale remember closure, Coastline→Navigation rename, notification explicit intent, onDismiss→save, background location native dialog, eventsForwardingJob ordering, Resumed polyline creation.
+- **gps-background** — FGS location, bg permission, notification Stop, battery exemption, recording-aware exit guard, crash-resilient resume w/ GAP markers.
 - Build: ✅ SUCCESSFUL
 
-## Modified Files (16)
-- `AndroidManifest.xml` — FGS location, FOREGROUND_SERVICE_LOCATION, ACCESS_BACKGROUND_LOCATION, REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, StopRecordingReceiver
-- `TrackRecordingService.kt` — ACTION_STOP_RECORDING, activeRecorder, notification Stop action, onStartCommand handler
-- `StopRecordingReceiver.kt` — new manifest BroadcastReceiver
-- `TrackRecorder.kt` — resume() with gap detection, detectAndInsertGap(), Resumed event emission
-- `TrackViewModel.kt` — resumeOrphanedCheckpoint (full resume), cachedSettings, activeRecorder wiring, eventsForwardingJob ordering
-- `TrackPoint.kt` — PointType enum (NORMAL/GAP), type field ProtoNumber 10
-- `TrackEvent.kt` — Resumed(points) event
-- `MapScreen.kt` — BackHandler (recording-aware), exit banner (red border), recovery dialog (Continue/Save), bgLocationLauncher, battery prompt, Resumed handler (polyline restore), GAP polyline (live+saved)
-- `MainActivity.kt` — BatteryOptimizationDialog (stringResource), battery prompt on startup
-- `AppConfig.kt` — trackingGapDistanceThresholdM, trackingGapTimeThresholdSec
-- `maro.properties` — tracking.gapDistanceThresholdM=200, tracking.gapTimeThresholdSec=120
-- `strings.xml` (EN+FR) — 10 new strings
+## Modified Files (6 — this session)
+- `SettingsManager.kt` — gpsActiveIntervalSec 2→1, gpsActiveMinDistanceM 5f→0f
+- `maro.properties` — tracking.boatMaxSpeedKn=32, tracking.landMaxSpeedKn=90
+- `build.gradle.kts` — TRACKING_BOAT_MAX_SPEED_KN, TRACKING_LAND_MAX_SPEED_KN (propDouble)
+- `TrackRecorder.kt` — caps→BuildConfig, LAND_DETECTION 5→2, Gate 2 speed-gate, accuracy gate speed-aware
+- `NavigationViewModel.kt` — exposed displayPosition StateFlow
+- `MapScreen.kt` — trailing polyline LaunchedEffect (title "track_trailing")
 
 ## Next Step
-On-device verification: crash during recording → restart → Continue → verify track resumes with polyline restored.
+On-device car-speed verification: highway, turns, stops, acceleration.
