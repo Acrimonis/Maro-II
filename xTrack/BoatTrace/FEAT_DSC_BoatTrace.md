@@ -1,8 +1,8 @@
 name: BoatTrace
 status: active
 created: 2026-06-15 21:43
-modified: 2026-07-14 09:22
-active_subfeature: notif-lifecycle
+modified: 2026-07-17 16:15
+active_subfeature: tracks-paint-order
 ---
 
 # Feature: BoatTrace
@@ -277,6 +277,14 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 
 ### populate-track-info  [x]
 
+### tracks-paint-order  [x]
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
+
+#### Docs
+- `xTrack/BoatTrace/260717_FEAT_PLN_BoatTrace_tracks-paint-order.md` — design & implementation plan
+
 ## Docs
 - `plans/boat-trace-design-discussion.md` — final design and implementation plan
 - `xTrack/BoatTrace/260618_FEAT_PLN_BoatTrace_TrackList_Design.md` — track list UI requirements, animation design, component architecture
@@ -287,6 +295,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 - `xTrack/BoatTrace/260622_FEAT_PLN_BoatTrace_spike-rejection-v2.md` — Spike rejection v2: 4-gate algorithm design plan
 - `xTrack/BoatTrace/260618_FEAT_PLN_BoatTrace_adaptive-isstill.md` — adaptive GPS stillness detection plan
 - `xTrack/BoatTrace/260622_FEAT_PLN_BoatTrace_pinned-tracks.md` — Pinned tracks: replace eye-icon with pin-icon, separate transparency, z-order
+- `xTrack/BoatTrace/260717_FEAT_PLN_BoatTrace_tracks-paint-order.md` — Tracks paint order: flip z-order (newest-on-top) + highlight-to-top above active
 
 ## Implemented
 
@@ -337,6 +346,8 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 **checkmark-bottom-right (2026-07-14):** Moved multi-select check mark badge from `Alignment.TopEnd` to `Alignment.BottomEnd` in `SwipeableItemCard` (`ListOverlayScaffold.kt`). Reduces visual collision with card titles/subtitles clustered at top. Build: ✅
 
 **notif-lifecycle-hardening (2026-07-14):** Three notification lifecycle fixes. (1) Tap-to-open: `setContentIntent(PendingIntent.getActivity(MainActivity))` with `SINGLE_TOP | CLEAR_TOP`. (2) Post-kill resilience: persist `lastKnownOnWater` to SharedPreferences; lightweight orphan checkpoint scan (`File.listFiles { extension == "checkpoint" }`) shows "Recovery available" label. (3) Recording-aware exit: double-back while recording shows AlertDialog ("Stop & Exit" / "Keep Recording" → `moveTaskToBack`). Non-recording double-back unchanged. 2 files, 0 new permissions. Build: ✅
+
+**tracks-paint-order (2026-07-17):** Flipped track z-order from oldest-on-top to newest-on-top for both history and pinned tracks. History and pinned overlays accumulated into temp lists, reversed, then `mv.overlays.addAll()` — preserves `computeTrackPolylineAppearance` index semantics. Added highlight-to-top: when a track is selected from the list (`highlightedTrackId != null`), its polylines (Polyline.title exact match) and auto-marker 🕐 pins (Marker.title startsWith with trailing `_` delimiter) are filtered, removed, and re-added at end — above the active recording track. Final z-order: oldest history → newest history → oldest pinned → newest pinned → active → highlighted. 1 file, BUILD SUCCESSFUL.
 - `xTrack/BoatTrace/260618_FEAT_PLN_BoatTrace_adaptive-isstill-settings-redesign.md` — Adaptive isStill settings redesign
 - `xTrack/BoatTrace/260617_FEAT_PLN_BoatTrace_boat-trace-fresh-import-plan.md` — Boat trace fresh import plan
 - `xTrack/BoatTrace/260618_FEAT_PLN_BoatTrace_boat-trace-ui-refinement-plan.md` — Boat trace UI refinement plan

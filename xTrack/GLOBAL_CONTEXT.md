@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** Documentation
-- **Active Subfeature:** (none)
-- **Last Updated:** 2026-07-17 13:22
-- **Last Bake:** 2026-07-17 10:52 (GPS — poor-reception: 9 items finalized — 8 P0 on-the-fly + 1 P1 BoatMarker merge. 3 Ask reviews, zero known issues. Constants table + maro.properties section defined.)
-- **Branch:** feature/doc-conso
+- **Active Feature:** BoatTrace
+- **Active Subfeature:** tracks-paint-order
+- **Last Updated:** 2026-07-17 16:17
+- **Last Bake:** 2026-07-17 16:15 (BoatTrace — tracks-paint-order: flipped z-order newest-on-top for history+pinned, highlight-to-top above active. 1 file, BUILD SUCCESSFUL.)
+- **Branch:** feature/tracks-paint-order
 
 ## Routing Map
 | Keyword | Feature File |
