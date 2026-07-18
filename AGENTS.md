@@ -87,6 +87,7 @@
 
 # 7a. xTrack — Stack, Bootstrap & Lifecycle
 - **Memory Stack:** Context footprint: `xTrack/` (features) + `GLOBAL_CONTEXT.md` (routing), `xTrack/[Feature]/FEAT_DSC_[Feature].md` (epics), `xTrack/[Feature]/FEAT_HYD_[Feature].md` (session state). Auto-create on first `#track`/`#focus`.
+- **🔴 PLAN FILE PLACEMENT: All `FEAT_PLN_*.md`, `FEAT_DOC_*.md`, and feature-scoped design files MUST be created in `xTrack/[Feature]/` — NEVER in `plans/`.** The `plans/` directory is a legacy landing zone; new plan files go directly to the feature directory with proper `YYMMDD_FEAT_PLN_[Feature]_[topic].md` naming.
 - **Turn 1 Protocol:** Self-contained request → answer directly. Ambiguous/continuing work → read `GLOBAL_CONTEXT.md`, match intent against Routing Map, open matching feature file + hydration. No match → ask scoping question.
 
 # 7b. xTrack — Command Reference

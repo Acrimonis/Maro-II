@@ -2,7 +2,7 @@
 
 > **Purpose:** Canonical reference for rendering any drawer/panel surface in Maro II.
 > **Created:** 2026-06-24 — normalisation pass (I1–I6).
-> **Updated:** 2026-06-25 — OverlayLayer + DrawerSlot architecture (I7–I12); wizard sub-package extraction; unified list item card pattern (I21).
+> **Updated:** 2026-07-18 — Menu drawer clickability pass: 56dp rows, 2dp divider spacers, 48dp icon buttons (I24).
 
 ---
 
@@ -294,6 +294,11 @@ Column(
 ```
 
 **Row minimum height:** Rows with text + control use `Modifier.heightIn(min = 48.dp)`.
+**🔴 Menu override:** Menu drawer clickable rows use `56.dp` — larger tap zone for frequently-used primary actions (Manage Track, Manage Markers, Import/Export).
+
+**Divider internal spacing:** Horizontal dividers inside cards use `Spacer(2.dp)` above and below (tightened from `6.dp` — card padding already provides separation).
+
+**Icon-only action rows:** Icon buttons in content rows (e.g., Import/Export) use `Modifier.size(48.dp)` for comfortable tap targets (Android minimum: 48dp).
 
 **Panel background:** `uiSettingsBackground` — use plain `Box`/`Column` with `.background()`, not `ModalDrawerSheet`.
 
@@ -400,6 +405,7 @@ Row(
 | I23 | 2026-07-05 | Navigation chevrons normalized to 28dp | Menu drawer (20dp) and marker card (18dp) chevrons inconsistently sized. Unified at 28dp — clear affordance, matches standard icon size. Applies to `MenuDrawerOverlay` navigation rows + `MarkerManagementOverlay` card chevrons. |
 | I18 | 2026-06-25 | Proximity zone uses marker's own color (50% stroke / 10% fill) | Replaces hardcoded cyan. Fill = `dimColor(markerColor, ZONE_FILL_ALPHA_FRACTION/2)`. |
 | I22 | 2026-07-03 | `DrawerScaffold` + `DrawerHeader` extracted from MarkerDrawer | Fixed-header + scrollable-body pattern promoted to reusable scaffold. See §12. |
+| I24 | 2026-07-18 | Menu drawer clickability: 56dp rows, 2dp divider spacers, 48dp icon buttons | Larger tap zones by increasing row height from 48→56dp while tightening divider gaps from 6→2dp. Import/Export icons enlarged from 40→48dp. Net vertical height unchanged. MARKERS card reordered: "Manage Markers" primary action above divider, "Show Zones on Map" toggle below. See §8. |
 
 ---
 
