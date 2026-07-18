@@ -967,7 +967,9 @@ fun MapScreen(
 
         val total = sortedDesired.size
 
+        val historyOverlays = mutableListOf<List<org.osmdroid.views.overlay.Overlay>>()
         for ((index, summary) in sortedDesired.withIndex()) {
+            val trackOverlays = mutableListOf<org.osmdroid.views.overlay.Overlay>()
             val track = trackViewModel.loadTrackDetailCached(summary.id) ?: continue
             if (track.trackPoints.isEmpty()) continue
 
@@ -1005,7 +1007,7 @@ fun MapScreen(
                                     outlinePaint.strokeWidth = appearance.strokeWidth
                                     setPoints(solidPoints)
                                 }
-                                mv.overlays.add(solidPolyline)
+                                trackOverlays.add(solidPolyline)
                             }
                         }
                         val gapFrom = org.osmdroid.util.GeoPoint(points[i].lat, points[i].lon)
@@ -1019,7 +1021,7 @@ fun MapScreen(
                             outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(20f, 10f), 0f)
                             setPoints(listOf(gapFrom, gapTo))
                         }
-                        mv.overlays.add(gapLine)
+                        trackOverlays.add(gapLine)
                         segmentStart = i + 1
                     }
                 }
@@ -1033,7 +1035,7 @@ fun MapScreen(
                         outlinePaint.strokeWidth = appearance.strokeWidth
                         setPoints(solidPoints)
                     }
-                    mv.overlays.add(solidPolyline)
+                    trackOverlays.add(solidPolyline)
                 }
             }
 
@@ -1055,8 +1057,13 @@ fun MapScreen(
                     canvas.drawText("\uD83D\uDD50", 24f, 34f, paint)
                     icon = android.graphics.drawable.BitmapDrawable(mv.context.resources, bitmap)
                 }
-                mv.overlays.add(iconMarker)
+                trackOverlays.add(iconMarker)
             }
+            historyOverlays.add(trackOverlays)
+        }
+        historyOverlays.reverse()
+        for (trackOverlays in historyOverlays) {
+            mv.overlays.addAll(trackOverlays)
         }
 
         // ── Pinned tracks: always render all, separate colors/transparency ──
@@ -1071,7 +1078,9 @@ fun MapScreen(
         } else emptyList()
 
         val pinnedTotal = pinnedSummaries.size
+        val pinnedOverlays = mutableListOf<List<org.osmdroid.views.overlay.Overlay>>()
         for ((index, summary) in pinnedSummaries.withIndex()) {
+            val trackOverlays = mutableListOf<org.osmdroid.views.overlay.Overlay>()
             val track = trackViewModel.loadTrackDetailCached(summary.id) ?: continue
             if (track.trackPoints.isEmpty()) continue
 
@@ -1109,7 +1118,7 @@ fun MapScreen(
                                     outlinePaint.strokeWidth = appearance.strokeWidth
                                     setPoints(solidPoints)
                                 }
-                                mv.overlays.add(solidPolyline)
+                                trackOverlays.add(solidPolyline)
                             }
                         }
                         val gapFrom = org.osmdroid.util.GeoPoint(points[i].lat, points[i].lon)
@@ -1123,7 +1132,7 @@ fun MapScreen(
                             outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(20f, 10f), 0f)
                             setPoints(listOf(gapFrom, gapTo))
                         }
-                        mv.overlays.add(gapLine)
+                        trackOverlays.add(gapLine)
                         segmentStart = i + 1
                     }
                 }
@@ -1137,7 +1146,7 @@ fun MapScreen(
                         outlinePaint.strokeWidth = appearance.strokeWidth
                         setPoints(solidPoints)
                     }
-                    mv.overlays.add(solidPolyline)
+                    trackOverlays.add(solidPolyline)
                 }
             }
 
@@ -1159,8 +1168,13 @@ fun MapScreen(
                     canvas.drawText("\uD83D\uDD50", 24f, 34f, paint)
                     icon = android.graphics.drawable.BitmapDrawable(mv.context.resources, bitmap)
                 }
-                mv.overlays.add(iconMarker)
+                trackOverlays.add(iconMarker)
             }
+            pinnedOverlays.add(trackOverlays)
+        }
+        pinnedOverlays.reverse()
+        for (trackOverlays in pinnedOverlays) {
+            mv.overlays.addAll(trackOverlays)
         }
 
         // Ensure active track stays on top of pinned (z-order: history → pinned → active)
@@ -1170,6 +1184,23 @@ fun MapScreen(
         if (activePolyline != null) {
             mv.overlays.remove(activePolyline)
             mv.overlays.add(activePolyline)
+        }
+
+        // Move highlighted track above active (z-order: ... → active → highlighted)
+        if (highlightedTrackId != null) {
+            val highlightedOverlays = mv.overlays.filter { overlay ->
+                val polyTitle = (overlay as? org.osmdroid.views.overlay.Polyline)?.title
+                if (polyTitle != null) {
+                    polyTitle == "track_hist_$highlightedTrackId" ||
+                    polyTitle == "track_pin_$highlightedTrackId"
+                } else {
+                    val markerTitle = (overlay as? org.osmdroid.views.overlay.Marker)?.title
+                    markerTitle?.startsWith("track_auto_hist_${highlightedTrackId}_") == true ||
+                    markerTitle?.startsWith("track_auto_pin_${highlightedTrackId}_") == true
+                }
+            }
+            mv.overlays.removeAll(highlightedOverlays)
+            mv.overlays.addAll(highlightedOverlays)
         }
 
         renderedTrackIds.value = desiredIds
