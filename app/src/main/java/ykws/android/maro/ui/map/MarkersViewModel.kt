@@ -750,6 +750,63 @@ class MarkersViewModel(
         }
     }
 
+    // ── Auto-marker merge ─────────────────────────────────────────────────
+
+    /**
+     * Merge multiple IDLE_AUTO markers into a single consolidated marker at
+     * the centroid of their positions.
+     *
+     * @param ids           Selected marker IDs (non-auto markers are silently filtered out).
+     * @param name          Name for the merged marker.
+     * @param keepOriginals If false, source auto-markers are deleted after merge.
+     */
+    fun mergeAutoMarkers(ids: Set<String>, name: String, keepOriginals: Boolean) {
+        val autoMarkers = _allMarkers.value.filter {
+            it.id in ids && it.origin == ykws.android.maro.data.model.markers.MarkerOrigin.IDLE_AUTO
+        }
+        if (autoMarkers.size < 2) return
+
+        // Compute centroid
+        val avgLat = autoMarkers.map { it.centerPoint.latitude }.average()
+        val avgLon = autoMarkers.map { it.centerPoint.longitude }.average()
+        val centroid = LatLng(avgLat, avgLon)
+
+        // Date range for description
+        val earliest = autoMarkers.minOf { it.createdAtEpochMs }
+        val latest = autoMarkers.maxOf { it.createdAtEpochMs }
+        val dateFmt = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+        val desc = "Merged from ${autoMarkers.size} auto markers: ${dateFmt.format(Date(earliest))} → ${dateFmt.format(Date(latest))}"
+
+        val merged = UserMarker(
+            id = UUID.randomUUID().toString(),
+            name = name,
+            geometry = MarkerGeometry.Pin(centroid),
+            description = desc,
+            proximityOverrideM = AppConfig.boatMarkerAutoMarkerProximityM,
+            confirmed = false,
+            pinned = true,
+            icon = "\uD83D\uDD50",  // 🕐
+            createdAtEpochMs = System.currentTimeMillis(),
+            origin = ykws.android.maro.data.model.markers.MarkerOrigin.IDLE_AUTO,
+            keepable = false
+        )
+
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                repo.add(merged)
+                if (!keepOriginals) {
+                    autoMarkers.forEach { repo.delete(it.id) }
+                }
+            }
+            val all = withContext(Dispatchers.IO) { repo.loadAll() }
+            val settings = settingsFlow?.value
+            _allMarkers.value = all
+            val filter = settings?.markerListFilter ?: ListFilter()
+            val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
+            _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
+        }
+    }
+
     // ── Soft-delete for management page undo ──────────────────────────────
 
     /** Set of marker IDs pending deletion (not yet persisted). */

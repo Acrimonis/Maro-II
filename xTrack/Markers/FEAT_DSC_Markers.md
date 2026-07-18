@@ -2,8 +2,8 @@
 name: Markers
 status: active
 created: 2026-06-22 11:52
-modified: 2026-07-14 08:50
-active_subfeature: auto-marker-dedup
+modified: 2026-07-18 06:11
+active_subfeature: multi-select-merge
 ---
 
 # Feature: Markers
@@ -12,7 +12,9 @@ active_subfeature: auto-marker-dedup
 User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-of-sight matching with proximity-zone pre-filter (land-blocking via coastline spatial index + 10m grazing tolerance). On-demand "where am I?" query via boat marker tap. Step-by-step wizard for creation/editing. Viewing drawer (card layout) + match result display. Management page with swipe-to-delete. OSMdroid native overlays. Tri-state layer toggle (HIDDEN/SHOW_ALL/SHOW_PINNED). POI emoji icons on pinned markers.
 
 ## Subfeatures
-15/15 complete.
+16/16 complete.
+
+### multi-select-merge  [x]
 
 ### auto-marker-dedup  [x]
 
@@ -63,6 +65,14 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-o
 - [ ] fix proximity of date points — rays hit/test all of them
 
 ## Implemented
+
+### multi-select-merge (2026-07-18)
+- Re-enabled multi-select on marker management list with 3 actions: Delete (destructive, confirm dialog), Pin (dropdown: pin_all/unpin_all/toggle), Merge (auto-markers only, custom dialog with distance summary + name field + keep-originals checkbox)
+- `mergeAutoMarkers(ids, name, keepOriginals)` in MarkersViewModel: filters to IDLE_AUTO, computes centroid via lat/lon averaging, creates consolidated Pin marker with 🕐 icon, conditionally deletes source markers
+- Merge enabled when ≥2 IDLE_AUTO markers selected; non-auto markers in selection silently filtered out
+- Wired through OverlayLayer → MapScreen following existing callback patterns
+- Added `confirm_delete_markers` string resource
+- Build: ✅
 
 ### marker-card (2026-07-03)
 - List card: removed `markerFormatText()` line + function, removed divider. Type icon in `coordinateHeader` prefix. Card: accent bar → icon+coords+controls → name → description.

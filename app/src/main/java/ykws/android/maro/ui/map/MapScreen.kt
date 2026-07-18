@@ -2099,6 +2099,7 @@ fun MapScreen(
             },
             onSetIcon = { id, icon -> markersViewModel.setMarkerIcon(id, icon) },
             onToggleMarkerPin = { id, _ -> markersViewModel.togglePin(id) },
+            onMergeMarkers = { ids, name, keep -> markersViewModel.mergeAutoMarkers(ids, name, keep) },
         )
 
         // ── Post-save undo Snackbar (P5) ────────────────────────────────

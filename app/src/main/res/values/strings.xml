@@ -275,6 +275,7 @@
     <string name="action_unpin_all">Unpin all</string>
     <string name="action_toggle_pins">Toggle pins</string>
     <string name="confirm_delete_tracks">Delete selected tracks?</string>
+    <string name="confirm_delete_markers">Delete selected markers?</string>
     <string name="confirm_batch_delete_title">Delete</string>
 
     <!-- Misc -->
