@@ -215,7 +215,7 @@ fun MenuDrawerOverlay(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 48.dp)
+                    .heightIn(min = 56.dp)
                     .clickable(onClick = onViewTrackList),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -235,19 +235,19 @@ fun MenuDrawerOverlay(
             }
 
             // ── Import / Export row ────────────────────────
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(2.dp))
             HorizontalDivider(thickness = 0.5.dp, color = Color(AppConfig.uiSettingsDivider))
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(2.dp))
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 48.dp),
+                    .heightIn(min = 56.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
-                    text = "Import / Export",
+                    text = stringResource(R.string.menu_import_export),
                     color = Color(AppConfig.uiSettingsTextPrimary),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium
@@ -255,7 +255,7 @@ fun MenuDrawerOverlay(
                 Row {
                     IconButton(
                         onClick = onImportTracks,
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier.size(48.dp)
                     ) {
                         Icon(
                             imageVector = Publish,
@@ -266,7 +266,7 @@ fun MenuDrawerOverlay(
                     }
                     IconButton(
                         onClick = onExportAllTracks,
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier.size(48.dp)
                     ) {
                         Icon(
                             imageVector = Upload,
@@ -280,9 +280,9 @@ fun MenuDrawerOverlay(
 
             // ── Live stats (only when recording) ──────────
             if (recorderState.state == TrackRecorderState.ON) {
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(2.dp))
                 HorizontalDivider(thickness = 0.5.dp, color = Color(AppConfig.uiSettingsDivider))
-                Spacer(Modifier.height(6.dp))
+                Spacer(Modifier.height(2.dp))
                 Column(
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
@@ -346,7 +346,33 @@ fun MenuDrawerOverlay(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 48.dp),
+                    .heightIn(min = 56.dp)
+                    .clickable(onClick = onManageMarkers),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = stringResource(R.string.menu_manage_markers),
+                    color = Color(AppConfig.uiSettingsTextPrimary),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = stringResource(R.string.cd_manage_markers),
+                    tint = Color(AppConfig.uiSettingsTextMuted),
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+
+            Spacer(Modifier.height(2.dp))
+            HorizontalDivider(thickness = 0.5.dp, color = Color(AppConfig.uiSettingsDivider))
+            Spacer(Modifier.height(2.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 56.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -365,32 +391,6 @@ fun MenuDrawerOverlay(
                         uncheckedThumbColor = Color(AppConfig.uiSettingsTextMuted),
                         uncheckedTrackColor = Color(AppConfig.uiSettingsSwitchTrackInactive)
                     )
-                )
-            }
-
-            Spacer(Modifier.height(6.dp))
-            HorizontalDivider(thickness = 0.5.dp, color = Color(AppConfig.uiSettingsDivider))
-            Spacer(Modifier.height(6.dp))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 48.dp)
-                    .clickable(onClick = onManageMarkers),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = stringResource(R.string.menu_manage_markers),
-                    color = Color(AppConfig.uiSettingsTextPrimary),
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = stringResource(R.string.cd_manage_markers),
-                    tint = Color(AppConfig.uiSettingsTextMuted),
-                    modifier = Modifier.size(28.dp)
                 )
             }
         }

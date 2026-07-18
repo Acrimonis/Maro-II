@@ -150,8 +150,9 @@ Feature-scoped reference documentation (created by `#doc create` when
 
 ## `YYMMDD_FEAT_PLN_[Feature]_[topic].md`
 
-Feature-scoped plan / design discussion file (migrated from `plans/*.md` or
-created by `#doc create` when "Feature-scoped" is chosen with a plan topic).
+Feature-scoped plan / design discussion file. **MUST be created in
+`xTrack/[Feature]/` — NEVER in `plans/`.** The `plans/` directory is a legacy
+landing zone; all new plan files go directly to the feature directory.
 The `YYMMDD` prefix is the creation date (from git history or filesystem).
 Scope tag is `feature`.
 

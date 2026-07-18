@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** GPS
+- **Active Feature:** Ui_Menu
 - **Active Subfeature:** none
-- **Last Updated:** 2026-07-18 04:32
-- **Last Bake:** 2026-07-17 10:52
-- **Branch:** feature/ya-gps
+- **Last Updated:** 2026-07-18 05:54
+- **Last Bake:** 2026-07-18 05:54
+- **Branch:** feature/ya-manu
 
 ## Routing Map
 | Keyword | Feature File |
@@ -61,7 +61,7 @@
 | | **Health** | **Application health monitoring — diagnostics, crash reporting, memory/performance telemetry** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
 | | **WorkflowAmbiguityFix** | **Eliminate ambiguity between AGENTS.md rules — #merge direction, §5 reinforcement, command doc alignment. Absorbed into WorkflowImprovement 2026-06-28.** | **2026-06-20 14:51** | **2026-06-28 13:51** | **done** |
 | | **Markers** | **User-defined map markers (Pin, Circle, Corridor) with sea-distance-gated proximity matching, percentage-based sort scoring, and on-demand "where am I?" query — 14/14 subfeatures done; 7 fixes + sort v2 implemented** | **2026-06-22 11:52** | **2026-06-30 10:25** | **active** |
-| | **Ui_Menu** | **Hamburger menu drawer — position source, track recording, marker management sections; right-side sliding panel via OverlayLayer/DrawerSlot** | **2026-07-05 06:57** | **2026-07-05 07:08** | **active** |
+| | **Ui_Menu** | **Hamburger menu drawer — position source, track recording, marker management sections; right-side sliding panel via OverlayLayer/DrawerSlot** | **2026-07-05 06:57** | **2026-07-18 05:54** | **active** |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).
@@ -72,6 +72,7 @@
 - **🔴 MODE LOCK: Do not switch to Code mode or invoke `#implement` pipeline without explicit user go-ahead (`#implement` tag or "go ahead" / "implement now").** Never suggest "ready for #implement" — it implies permission. Architect mode stays in Architect until user explicitly directs otherwise. See AGENTS.md Core Directives for full mode permissions.
 - **🔴 QUESTIONS: Answer before acting.** A question is not an implicit implementation order. Answer it first, then wait for direction.
 - **Auto-switch for commands:** When a task requires executing shell commands (git, gradlew, adb) and the current mode lacks terminal access, automatically `switch_mode("code")` to run the command, then switch back to the original mode.
+- **🔴 PLAN FILE PLACEMENT: All `FEAT_PLN_*.md`, `FEAT_DOC_*.md`, and feature-scoped design files MUST be created in `xTrack/[Feature]/` — NEVER in `plans/`.** See AGENTS.md §7a. `plans/` is a legacy directory; new files go directly to the feature's xTrack subdirectory with proper naming.
 
 ## Global Todos
 - [ ] Validate the intermittent Overpass-outage theory — confirm the coastline OSM fetch failures are transient (succeeded 13:52, failing ~16:52 on 2026-06-08), not a persistent network / cert / IPv6 block. Quick checks: retry `bake-coastline` later; `curl -sk https://overpass-api.de/api/status`; race other mirrors.
