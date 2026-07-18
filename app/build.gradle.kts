@@ -114,6 +114,12 @@ android {
         buildConfigField("int", "GPS_ACCURACY_GOOD_THRESHOLD_M",
             propInt("gps.accuracy.goodThresholdM", 10).toString())
 
+        // ── Track recording speed caps from maro.properties ─────────────
+        buildConfigField("double", "TRACKING_BOAT_MAX_SPEED_KN",
+            propDouble("tracking.boatMaxSpeedKn", 32.0).toString())
+        buildConfigField("double", "TRACKING_LAND_MAX_SPEED_KN",
+            propDouble("tracking.landMaxSpeedKn", 90.0).toString())
+
         // ── User marker proximity defaults from maro.properties ──────────
         buildConfigField("double", "MARKER_PROXIMITY_PIN_M",
             propDouble("marker.proximity.pin_m", 200.0).toString())

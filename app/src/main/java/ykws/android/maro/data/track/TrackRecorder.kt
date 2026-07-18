@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import ykws.android.maro.BuildConfig
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.location.GpsLocationSource
 import ykws.android.maro.data.model.LatLng
@@ -45,10 +46,10 @@ private const val CHECKPOINT_INTERVAL_MS = 30_000L
 /** Timeout (ms) after last accepted fix before spike rejection resets — prevents lock-in on sharp turns and silent GPS recovery. */
 private const val STALE_FIX_TIMEOUT_MS = 10_000L
 
-/** Maximum hull speed for a recreational boat (kn). */
-private const val BOAT_MAX_SPEED_KN = 32.0
-/** Maximum plausible speed on land (kn) — covers highway driving. */
-private const val LAND_MAX_SPEED_KN = 120.0
+/** Maximum hull speed for a recreational boat (kn). Gate 1 sea-mode cap. */
+private val boatMaxSpeedKn: Double get() = BuildConfig.TRACKING_BOAT_MAX_SPEED_KN
+/** Maximum plausible speed on land (kn). Gate 1 land-mode cap. */
+private val landMaxSpeedKn: Double get() = BuildConfig.TRACKING_LAND_MAX_SPEED_KN
 /** Max acceleration at sea (kn/s) — boats don't teleport. */
 private const val MAX_ACCEL_KN_PER_SEC_SEA = 10.0
 /** Max acceleration on land (kn/s) — cars can launch harder. */
@@ -60,7 +61,7 @@ private const val COURSE_ALIGNED_MULTIPLIER = 1.5
 /** Speed cap multiplier when bearing is sideways to recent course. */
 private const val COURSE_SIDEWAYS_MULTIPLIER = 0.5
 /** Consecutive rejections before switching to land mode. */
-private const val LAND_DETECTION_REJECTIONS = 5
+private const val LAND_DETECTION_REJECTIONS = 2
 /** Consecutive accepted fixes ≤32 kn before switching back to sea. */
 private const val SEA_RECOVERY_CONSECUTIVE = 10
 /** Window (ms) to skip identical positions when moving — dedup gate (Fix D). */
@@ -75,6 +76,13 @@ private const val STALE_CAP_LOW_SPEED = 1.5
 private const val STALE_CAP_NORMAL = 3.0
 /** Max plausible drift distance (m) while stationary (Fix C). */
 private const val MAX_STATIONARY_DRIFT_M = 150
+
+/** GPS speed (m/s, ~10 kn) above which sideways course changes are trusted as real navigation. */
+private const val SIDEWAYS_SPEED_THRESHOLD_MPS = 5.0f
+/** Multiplier applied to accuracy threshold when GPS speed indicates movement (>0.5 kn). */
+private const val ACCURACY_MOVING_MULTIPLIER = 1.7f
+/** GPS speed (m/s, ~0.5 kn) below which the stationary accuracy threshold applies. */
+private const val MIN_MOVEMENT_SPEED_FOR_ACCURACY_MPS = (1.0 / 1.94384).toFloat()
 
 /** Interval (ms) between title poll ticks. */
 private const val TITLE_POLL_INTERVAL_MS = 180_000L
@@ -676,9 +684,16 @@ class TrackRecorder(
         // These create gaps in GPX export (missing <speed> elements) with no tracking value.
         if (sample.speedMps == null) return
 
-        // ── Accuracy gate: reject fixes with poor self-reported accuracy ──
-        if (sample.accuracyM != null && sample.accuracyM > maxRecordingAccuracyM) {
-            Log.v(TAG, "Accuracy gate: rejected fix with accuracy=${"%.1f".format(sample.accuracyM)}m > ${maxRecordingAccuracyM}m")
+        // ── Accuracy gate: speed-aware threshold ──
+        // When moving (GPS speed ≥ ~0.5 kn), the speed sensor validates the position —
+        // relax the accuracy threshold. When stationary, keep tight guard against drift.
+        val effectiveMaxAccuracy = if (sample.speedMps != null && sample.speedMps >= MIN_MOVEMENT_SPEED_FOR_ACCURACY_MPS) {
+            maxRecordingAccuracyM * ACCURACY_MOVING_MULTIPLIER
+        } else {
+            maxRecordingAccuracyM
+        }
+        if (sample.accuracyM != null && sample.accuracyM > effectiveMaxAccuracy) {
+            Log.v(TAG, "Accuracy gate: rejected fix with accuracy=${"%.1f".format(sample.accuracyM)}m > ${effectiveMaxAccuracy}m")
             return
         }
 
@@ -725,7 +740,7 @@ class TrackRecorder(
                     if (dtSec > 0.0) {
                         val impliedKn = (distM / dtSec) * 1.94384
                         val isLowSpeed = (sample.speedMps?.toDouble() ?: 0.0) < LOW_SPEED_MPS
-                        val staleCap = BOAT_MAX_SPEED_KN * if (isLowSpeed) STALE_CAP_LOW_SPEED else STALE_CAP_NORMAL
+                        val staleCap = boatMaxSpeedKn * if (isLowSpeed) STALE_CAP_LOW_SPEED else STALE_CAP_NORMAL
                         if (impliedKn > staleCap) {
                             Log.w(TAG, "Spike reset REJECTED (${if (isLowSpeed) "low-speed" else "normal"}): implied=${"%.1f".format(impliedKn)}kn cap=${"%.1f".format(staleCap)}kn dist=${"%.0f".format(distM)}m")
                             return
@@ -752,7 +767,7 @@ class TrackRecorder(
             // Fix B: Gate 0.5 — GPS-reported speed cap (sea mode only)
             if (!isOnLand) {
                 val gpsSpeedKn = sample.speedMps?.let { it * 1.94384 } ?: 0.0
-                val gpsSpeedCap = BOAT_MAX_SPEED_KN * 1.25  // 40 kn
+                val gpsSpeedCap = boatMaxSpeedKn * 1.25  // 40 kn
                 if (gpsSpeedKn > gpsSpeedCap) {
                     logRejection("gps speed", gpsSpeedKn, gpsSpeedCap)
                     consecutiveRejections++
@@ -787,7 +802,7 @@ class TrackRecorder(
                     val impliedSpeedKn = (distM / timeDeltaSec) * 1.94384
 
                     // Gate 1: Context speed cap
-                    val baseCap = if (isOnLand) LAND_MAX_SPEED_KN else BOAT_MAX_SPEED_KN
+                    val baseCap = if (isOnLand) landMaxSpeedKn else boatMaxSpeedKn
 
                     // Gate 2: Direction (sea only)
                     val effectiveCap = if (!isOnLand && lastValidCourseDeg != null) {
@@ -795,6 +810,8 @@ class TrackRecorder(
                         val delta = angularDistance(bearingToSample, lastValidCourseDeg!!)
                         when {
                             delta <= COURSE_ALIGNED_DEG -> baseCap * COURSE_ALIGNED_MULTIPLIER
+                            // At meaningful GPS speed, a bearing change is real navigation, not drift
+                            sample.speedMps != null && sample.speedMps >= SIDEWAYS_SPEED_THRESHOLD_MPS -> baseCap
                             else -> baseCap * COURSE_SIDEWAYS_MULTIPLIER
                         }
                     } else {
@@ -916,7 +933,7 @@ class TrackRecorder(
         // Land-to-sea recovery: count consecutive sea-speed fixes while on land
         if (isOnLand) {
             val sampleSpeedKn = (sample.speedMps ?: 0f) * 1.94384
-            if (sampleSpeedKn <= BOAT_MAX_SPEED_KN) {
+            if (sampleSpeedKn <= boatMaxSpeedKn) {
                 landModeAcceptCounter++
                 if (landModeAcceptCounter >= SEA_RECOVERY_CONSECUTIVE) {
                     isOnLand = false
@@ -1077,7 +1094,7 @@ class TrackRecorder(
     private fun checkLandDetection(sample: TrackSample) {
         if (consecutiveRejections >= LAND_DETECTION_REJECTIONS) {
             val speedKn = sample.speedMps?.let { it * 1.94384 } ?: 0.0
-            if (speedKn > BOAT_MAX_SPEED_KN) {
+            if (speedKn > boatMaxSpeedKn) {
                 isOnLand = true
                 consecutiveRejections = 0
                 lastValidCourseDeg = null  // reset course — direction check now off
