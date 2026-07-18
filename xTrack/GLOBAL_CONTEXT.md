@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** Ui_Menu
+- **Active Feature:** Markers
 - **Active Subfeature:** none
-- **Last Updated:** 2026-07-18 05:54
-- **Last Bake:** 2026-07-18 05:54
-- **Branch:** feature/ya-manu
+- **Last Updated:** 2026-07-18 06:01
+- **Last Bake:** 2026-07-18 06:01
+- **Branch:** feature/markers-list
 
 ## Routing Map
 | Keyword | Feature File |
