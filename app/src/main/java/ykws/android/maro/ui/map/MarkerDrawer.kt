@@ -30,7 +30,9 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.LocationOff
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import ykws.android.maro.ui.components.ConfirmSheet
@@ -90,7 +92,8 @@ fun MarkerDrawer(
     viewModel: MarkersViewModel,
     isLandscape: Boolean,
     onClose: () -> Unit,
-    boatPosition: LatLng? = null
+    boatPosition: LatLng? = null,
+    onRequestDelete: (String, String) -> Unit = { _, _ -> }
 ) {
     val drawerState by viewModel.drawerState.collectAsState()
     val isOpen = drawerState !is MarkerDrawerState.Hidden
@@ -99,7 +102,7 @@ fun MarkerDrawer(
         else RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
 
     when (drawerState) {
-        is MarkerDrawerState.Viewing -> ViewingContent(viewModel, onClose, boatPosition, panelShape)
+        is MarkerDrawerState.Viewing -> ViewingContent(viewModel, onClose, boatPosition, panelShape, onRequestDelete)
         is MarkerDrawerState.MatchResult -> MatchResultContent(viewModel, onClose, boatPosition, panelShape)
         else -> { /* Creating/Editing handled by WizardDrawer */ }
     }
@@ -119,7 +122,8 @@ private fun ViewingContent(
     viewModel: MarkersViewModel,
     onClose: () -> Unit,
     boatPosition: LatLng? = null,
-    shape: Shape
+    shape: Shape,
+    onRequestDelete: (String, String) -> Unit = { _, _ -> }
 ) {
     val markers by viewModel.markers.collectAsState()
     val selectedIds by viewModel.selectedMarkerIds.collectAsState()
@@ -128,8 +132,6 @@ private fun ViewingContent(
     val currentId = selectedIds.getOrNull(selectedIndex)
     val marker = currentId?.let { id -> markers.find { it.id == id } }
     val hasMultiple = selectedIds.size > 1
-
-    var showDeleteConfirm by remember { mutableStateOf(false) }
 
     DrawerScaffold(
         title = marker?.name ?: "Marker",
@@ -141,6 +143,18 @@ private fun ViewingContent(
         headerActions = {
             if (marker != null) {
                 Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                    val pinned = marker.pinned
+                    IconButton(
+                        onClick = { viewModel.togglePin(marker.id) },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
+                            contentDescription = if (pinned) "Unpin" else "Pin",
+                            tint = ButtonColors.icon,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
                     var showIconPicker by remember { mutableStateOf(false) }
                     IconButton(
                         onClick = { showIconPicker = true },
@@ -182,7 +196,7 @@ private fun ViewingContent(
                         )
                     }
                     IconButton(
-                        onClick = { showDeleteConfirm = true },
+                        onClick = { onRequestDelete(marker.id, marker.name) },
                         modifier = Modifier.size(36.dp)
                     ) {
                         Icon(
@@ -309,6 +323,10 @@ private fun ViewingContent(
                 Spacer(Modifier.height(8.dp))
                 val accentBg = ComposeColor(AppConfig.uiSettingsAccent)
                 val accentFg = ComposeColor(AppConfig.uiSettingsTextPrimary)
+                val disabledAlpha = 0.35f
+                val isListMode = viewModel.drawerSource == DrawerSource.LIST
+                val isAtFirst = isListMode && selectedIndex == 0
+                val isAtLast = isListMode && selectedIndex == selectedIds.lastIndex
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -319,14 +337,17 @@ private fun ViewingContent(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(accentBg)
-                            .clickable { viewModel.viewPreviousMarker() }
+                            .background(accentBg.copy(alpha = if (isAtFirst) disabledAlpha else 1f))
+                            .then(
+                                if (!isAtFirst) Modifier.clickable { viewModel.viewPreviousMarker() }
+                                else Modifier
+                            )
                             .padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = "Previous",
-                            color = accentFg,
+                            color = accentFg.copy(alpha = if (isAtFirst) disabledAlpha else 1f),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -335,14 +356,17 @@ private fun ViewingContent(
                         modifier = Modifier
                             .weight(1f)
                             .clip(RoundedCornerShape(8.dp))
-                            .background(accentBg)
-                            .clickable { viewModel.viewNextMarker() }
+                            .background(accentBg.copy(alpha = if (isAtLast) disabledAlpha else 1f))
+                            .then(
+                                if (!isAtLast) Modifier.clickable { viewModel.viewNextMarker() }
+                                else Modifier
+                            )
                             .padding(vertical = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = "Next",
-                            color = accentFg,
+                            color = accentFg.copy(alpha = if (isAtLast) disabledAlpha else 1f),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -359,19 +383,6 @@ private fun ViewingContent(
         }
 
         Spacer(Modifier.height(4.dp))
-
-        // ── Delete confirmation dialog ───────────────────────────────────
-        if (showDeleteConfirm) {
-            ConfirmSheet(
-                title = stringResource(R.string.marker_delete_title),
-                message = stringResource(R.string.marker_delete_confirm, marker?.name ?: stringResource(R.string.marker_unnamed)),
-                onConfirm = {
-                    showDeleteConfirm = false
-                    currentId?.let { viewModel.deleteMarker(it) }
-                },
-                onDismiss = { showDeleteConfirm = false }
-            )
-        }
     }
 }
 

@@ -1,8 +1,8 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-07-14 15:01
-active_subfeature: menu-import-export
+modified: 2026-08-02 15:10
+active_subfeature: list-detail-navigation
 ---
 
 # Feature: Ui_General

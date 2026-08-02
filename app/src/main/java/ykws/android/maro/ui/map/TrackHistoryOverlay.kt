@@ -41,7 +41,9 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
@@ -116,6 +118,7 @@ import ykws.android.maro.data.track.TrackRecorderState
 import ykws.android.maro.data.track.TrackRecorderUiState
 import ykws.android.maro.data.track.TrackSummary
 import ykws.android.maro.ui.components.ListOverlayScaffold
+import ykws.android.maro.ui.components.SavedScrollState
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -155,6 +158,8 @@ fun TrackHistoryOverlay(
     onReset: () -> Unit = {},
     isOpen: Boolean = true,
     modifier: Modifier = Modifier,
+    lazyListState: LazyListState = rememberLazyListState(),
+    restoredScrollState: SavedScrollState? = null,
     // ── Render preview settings ───────────────────────────────────────
     tracksVisible: Boolean = true,
     trackingRenderNb: Int = 20,
@@ -392,7 +397,9 @@ fun TrackHistoryOverlay(
         onAction = onAction,
         onDismiss = onDismiss,
         modifier = modifier,
-        multiActions = trackMultiActions
+        multiActions = trackMultiActions,
+        lazyListState = lazyListState,
+        restoredScrollState = restoredScrollState
     )
 }
 
