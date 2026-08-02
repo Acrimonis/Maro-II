@@ -1,15 +1,12 @@
 # Hydration: Ui_General
 
-**Session:** filter-sort-fixes — framework fix. Removed duplicate `SettingsManager` instances from MarkersViewModel + TrackViewModel. Replaced with shared `StateFlow<AppSettings>` injected from NavigationViewModel via `observeSettings()`. MarkersViewModel also receives `updateSettings` callback for writes. Filter/sort callbacks pass `filter` param directly. Also: `whereAmISync`/`whereAmI` use `_allMarkers`, init races gated, FilterControl popup closes on selection, pending deletes committed on disposal. BUILD SUCCESSFUL.
+**Session:** list-detail-navigation — implemented. Scroll preservation (hoisted LazyListState), prev/next through filtered list (clamped LIST, wrap WHERE_AM_I), track share+delete wiring, marker pin toggle, exit conditions (map interaction/wizard/menu clear flag), track metadata edit refresh (reactive LaunchedEffect), drawer delete undo (snackbar + undo + reopen, replaces ConfirmSheet). BUILD SUCCESSFUL.
 
-**State:**
-- `click-N-move [x]` — complete (6/6 steps + bugfix + chevron + docs)
+**Target files:**
+- `MapScreen.kt`, `ListOverlayScaffold.kt`, `OverlayLayer.kt`, `TrackHistoryOverlay.kt`, `MarkerManagementOverlay.kt`, `MarkersViewModel.kt`, `MarkerDrawer.kt`
 
-**Key Files:**
-- `ListAction.kt`, `MarkerManagementOverlay.kt`, `MapScreen.kt`, `MarkersViewModel.kt`, `UserMarker.kt`, `MenuDrawerOverlay.kt`
-- `docs/ui-lists-guidelines.md`, `docs/ui-drawer-guidelines.md`
+**Plans:**
+- `xTrack/Ui_General/260802_FEAT_PLN_Ui_General_list-detail-navigation.md`
+- `xTrack/Ui_General/260802_FEAT_PLN_Ui_General_drawer-delete-undo.md`
 
-**Plan:**
-- `xTrack/Ui_General/260705_FEAT_PLN_Ui_General_click-n-move.md`
-
-**Last Bake:** 2026-07-05 09:17 UTC+2
+**Last Bake:** 2026-08-02 15:10 UTC

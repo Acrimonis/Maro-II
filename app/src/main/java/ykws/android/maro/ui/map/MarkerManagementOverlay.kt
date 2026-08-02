@@ -43,6 +43,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -70,6 +72,7 @@ import ykws.android.maro.data.model.markers.MarkerOrigin
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.ui.components.ListOverlayScaffold
+import ykws.android.maro.ui.components.SavedScrollState
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -101,7 +104,9 @@ fun MarkerManagementOverlay(
     filterState: ListFilter = ListFilter(),
     onFilterChange: (ListFilter) -> Unit = {},
     onReset: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    lazyListState: LazyListState = rememberLazyListState(),
+    restoredScrollState: SavedScrollState? = null
 ) {
     val markerCustomSortFields = remember {
         listOf(
@@ -304,7 +309,9 @@ fun MarkerManagementOverlay(
         onAction = onAction,
         onDismiss = onDismiss,
         modifier = modifier,
-        multiActions = markerMultiActions
+        multiActions = markerMultiActions,
+        lazyListState = lazyListState,
+        restoredScrollState = restoredScrollState
     )
 }
 

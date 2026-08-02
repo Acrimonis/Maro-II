@@ -55,6 +55,14 @@ sealed class MarkerDrawerState {
 /** Tri-state for the fan layer marker toggle. */
 enum class MarkerLayerState { HIDDEN, SHOW_ALL }
 
+/** Source of drawer opening — controls prev/next navigation behavior. */
+enum class DrawerSource {
+    /** Opened from the marker list → prev/next follows filtered list, clamps at edges. */
+    LIST,
+    /** Opened from whereAmI query → prev/next wraps, existing behavior. */
+    WHERE_AM_I
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Create/edit form state
 // ─────────────────────────────────────────────────────────────────────────────
@@ -145,6 +153,10 @@ class MarkersViewModel(
     /** Current drawer mode. */
     private val _drawerState = MutableStateFlow<MarkerDrawerState>(MarkerDrawerState.Hidden)
     val drawerState: StateFlow<MarkerDrawerState> = _drawerState.asStateFlow()
+
+    /** Source of the current drawer opening — controls prev/next behavior. */
+    var drawerSource: DrawerSource = DrawerSource.WHERE_AM_I
+        private set
 
     /** Current wizard step (null when wizard is not active). */
     private val _wizardStep = MutableStateFlow<WizardStep?>(null)
@@ -268,13 +280,14 @@ class MarkersViewModel(
     // ── Drawer control ────────────────────────────────────────────────────
 
     /** Opens drawer in viewing mode for a single marker (convenience). */
-    fun openEditDrawer(markerId: String, selectedId: String? = null) {
-        openEditDrawer(listOf(markerId), selectedId = selectedId)
+    fun openEditDrawer(markerId: String, selectedId: String? = null, source: DrawerSource = DrawerSource.WHERE_AM_I) {
+        openEditDrawer(listOf(markerId), selectedId = selectedId, source = source)
     }
 
     /** Opens drawer in viewing mode for one or more markers (§11 multi-marker). */
-    fun openEditDrawer(markerIds: List<String>, selectedId: String? = null) {
+    fun openEditDrawer(markerIds: List<String>, selectedId: String? = null, source: DrawerSource = DrawerSource.WHERE_AM_I) {
         if (markerIds.isEmpty()) return
+        drawerSource = source
         _selectedMarkerIds.value = markerIds
         val index = if (selectedId != null) {
             markerIds.indexOf(selectedId).coerceAtLeast(0)
@@ -315,24 +328,51 @@ class MarkersViewModel(
         _drawerState.value = MarkerDrawerState.Viewing
     }
 
-    /** Navigate to the previous marker in the multi-marker selection (§11). */
+    /** Navigate to the previous marker. Clamps when LIST source, wraps when WHERE_AM_I. */
     fun viewPreviousMarker() {
         val ids = _selectedMarkerIds.value
         if (ids.size <= 1) return
         val current = _selectedMarkerIndex.value
-        val newIndex = if (current > 0) current - 1 else ids.lastIndex
+        val newIndex = if (drawerSource == DrawerSource.LIST) {
+            (current - 1).coerceAtLeast(0)
+        } else {
+            if (current > 0) current - 1 else ids.lastIndex  // wrap (WHERE_AM_I)
+        }
+        if (newIndex == current) return  // clamped at edge
         _selectedMarkerIndex.value = newIndex
         _selectedMarkerId.value = ids[newIndex]
+        if (drawerSource == DrawerSource.LIST) {
+            emitMapCenterForMarker(ids[newIndex])
+        }
     }
 
-    /** Navigate to the next marker in the multi-marker selection (§11). */
+    /** Navigate to the next marker. Clamps when LIST source, wraps when WHERE_AM_I. */
     fun viewNextMarker() {
         val ids = _selectedMarkerIds.value
         if (ids.size <= 1) return
         val current = _selectedMarkerIndex.value
-        val newIndex = if (current < ids.lastIndex) current + 1 else 0
+        val newIndex = if (drawerSource == DrawerSource.LIST) {
+            (current + 1).coerceAtMost(ids.lastIndex)
+        } else {
+            if (current < ids.lastIndex) current + 1 else 0  // wrap (WHERE_AM_I)
+        }
+        if (newIndex == current) return  // clamped at edge
         _selectedMarkerIndex.value = newIndex
         _selectedMarkerId.value = ids[newIndex]
+        if (drawerSource == DrawerSource.LIST) {
+            emitMapCenterForMarker(ids[newIndex])
+        }
+    }
+
+    /** Emit a map-center request for the given marker ID (LIST-mode prev/next). */
+    private fun emitMapCenterForMarker(markerId: String) {
+        val marker = _markers.value.find { it.id == markerId } ?: return
+        val pos = when (val g = marker.geometry) {
+            is MarkerGeometry.Pin -> g.position
+            is MarkerGeometry.Circle -> g.center
+            is MarkerGeometry.Corridor -> g.p1
+        }
+        _mapCenterRequest.value = pos
     }
 
     /** Re-apply filter + sort with current settings. */

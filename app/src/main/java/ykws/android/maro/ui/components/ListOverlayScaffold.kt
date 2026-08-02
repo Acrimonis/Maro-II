@@ -38,7 +38,9 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -100,6 +102,16 @@ import ykws.android.maro.ui.icons.FilterList
 import ykws.android.maro.ui.icons.Refresh
 import ykws.android.maro.ui.map.ButtonColors
 import kotlin.math.roundToInt
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Saved scroll state for list-detail navigation
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Snapshot of a LazyListState for save/restore across composition cycles. */
+data class SavedScrollState(
+    val firstVisibleItemIndex: Int,
+    val scrollOffset: Int
+)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sort dropdown — field selector (no direction arrow, no pinned grouping)
@@ -446,9 +458,18 @@ fun <T : ListableItem> ListOverlayScaffold(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     multiActions: List<MultiActionSpec> = emptyList(),
-    headerActions: @Composable () -> Unit = {}
+    headerActions: @Composable () -> Unit = {},
+    lazyListState: LazyListState = rememberLazyListState(),
+    restoredScrollState: SavedScrollState? = null
 ) {
     val pendingDeletes = remember { mutableStateListOf<String>() }
+
+    // ── Restore scroll position on reopen ──────────────────────────────
+    LaunchedEffect(restoredScrollState) {
+        restoredScrollState?.let { state ->
+            lazyListState.scrollToItem(state.firstVisibleItemIndex, state.scrollOffset)
+        }
+    }
 
     // ── Multiselect state ──────────────────────────────────────────────
     var isMultiSelectMode by remember { mutableStateOf(false) }
@@ -769,6 +790,7 @@ fun <T : ListableItem> ListOverlayScaffold(
             } else {
                 LazyColumn(
                     Modifier.fillMaxSize().padding(horizontal = 24.dp),
+                    state = lazyListState,
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(sortedItems, key = { it.id }) { item ->

@@ -2,7 +2,10 @@ package ykws.android.maro.ui.map
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -10,21 +13,38 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.depth.RasterCache
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.ui.components.DrawerScaffold
+import ykws.android.maro.ui.components.SavedScrollState
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 
 /** Returns the step sequence for the given marker type (mirror of VM method for UI use). */
 private fun stepSequenceFor(type: MarkerType): List<WizardStep> = when (type) {
@@ -114,6 +134,19 @@ fun OverlayLayer(
     trackInfoDrawerData: ykws.android.maro.data.track.Track? = null,
     onTrackDrawerClose: () -> Unit = {},
     onNavigateToTrack: (String) -> Unit = {},
+    trackListIds: List<String> = emptyList(),
+    currentTrackIndex: Int = -1,
+    onTrackPrev: () -> Unit = {},
+    onTrackNext: () -> Unit = {},
+    onShareTrack: (String) -> Unit = {},
+    onTrackMetadataChanged: () -> Unit = {},
+    onRequestMarkerDelete: (String, String) -> Unit = { _, _ -> },
+    onDeleteTrack: (String) -> Unit = {},
+    // ── List overlay scroll state ────────────────────────────────────────
+    trackListState: LazyListState = rememberLazyListState(),
+    markerListState: LazyListState = rememberLazyListState(),
+    trackRestoredScrollState: SavedScrollState? = null,
+    markerRestoredScrollState: SavedScrollState? = null,
 
     // ── Marker management data ───────────────────────────────────────────
     markers: List<UserMarker>,
@@ -280,7 +313,8 @@ fun OverlayLayer(
                     viewModel = markersViewModel,
                     isLandscape = true,
                     onClose = onMarkerDrawerClose,
-                    boatPosition = boatPosition
+                    boatPosition = boatPosition,
+                    onRequestDelete = onRequestMarkerDelete
                 )
             }
         } else {
@@ -297,12 +331,15 @@ fun OverlayLayer(
                     viewModel = markersViewModel,
                     isLandscape = false,
                     onClose = onMarkerDrawerClose,
-                    boatPosition = boatPosition
+                    boatPosition = boatPosition,
+                    onRequestDelete = onRequestMarkerDelete
                 )
             }
         }
 
         // ── 4b. TrackInfoDrawer (no scrim — map stays interactive) ────────
+        val isAtTrackFirst = currentTrackIndex <= 0
+        val isAtTrackLast = currentTrackIndex >= trackListIds.lastIndex
         if (isLandscape) {
             DrawerSlot(
                 visible = showTrackInfoDrawer,
@@ -333,7 +370,17 @@ fun OverlayLayer(
                     DrawerScaffold(
                         title = track.name,
                         onClose = onTrackDrawerClose,
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp)
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp),
+                        headerActions = {
+                            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                IconButton(onClick = { onShareTrack(track.id) }, modifier = Modifier.size(36.dp)) {
+                                    Icon(Icons.Filled.Share, "Share GPX", tint = ButtonColors.icon, modifier = Modifier.size(24.dp))
+                                }
+                                IconButton(onClick = { onDeleteTrack(track.id) }, modifier = Modifier.size(36.dp)) {
+                                    Icon(Icons.Filled.Delete, "Delete", tint = ButtonColors.icon, modifier = Modifier.size(24.dp))
+                                }
+                            }
+                        }
                     ) {
                         TrackCardContent(
                             summary = summary,
@@ -343,9 +390,32 @@ fun OverlayLayer(
                                 pinned?.let { trackViewModel.setPinned(id, it) }
                                 trackViewModel.updateTrack(id, name, comment)
                             },
-                            onShareGpx = { },
+                            onShareGpx = { onShareTrack(track.id) },
                             onTap = null
                         )
+                        // ── Prev/Next pills ──────────────────────────
+                        if (trackListIds.size > 1) {
+                            Spacer(Modifier.height(12.dp))
+                            HorizontalDivider(color = ComposeColor(AppConfig.uiSettingsDivider))
+                            Spacer(Modifier.height(8.dp))
+                            val accentBg = ComposeColor(AppConfig.uiSettingsAccent)
+                            val accentFg = ComposeColor(AppConfig.uiSettingsTextPrimary)
+                            val disabledAlpha = 0.35f
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Box(Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
+                                    .background(accentBg.copy(alpha = if (isAtTrackFirst) disabledAlpha else 1f))
+                                    .then(if (!isAtTrackFirst) Modifier.clickable { onTrackPrev() } else Modifier)
+                                    .padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
+                                    Text("Previous", color = accentFg.copy(alpha = if (isAtTrackFirst) disabledAlpha else 1f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                }
+                                Box(Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
+                                    .background(accentBg.copy(alpha = if (isAtTrackLast) disabledAlpha else 1f))
+                                    .then(if (!isAtTrackLast) Modifier.clickable { onTrackNext() } else Modifier)
+                                    .padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
+                                    Text("Next", color = accentFg.copy(alpha = if (isAtTrackLast) disabledAlpha else 1f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -379,7 +449,17 @@ fun OverlayLayer(
                     DrawerScaffold(
                         title = track.name,
                         onClose = onTrackDrawerClose,
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+                        headerActions = {
+                            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                                IconButton(onClick = { onShareTrack(track.id) }, modifier = Modifier.size(36.dp)) {
+                                    Icon(Icons.Filled.Share, "Share GPX", tint = ButtonColors.icon, modifier = Modifier.size(24.dp))
+                                }
+                                IconButton(onClick = { onDeleteTrack(track.id) }, modifier = Modifier.size(36.dp)) {
+                                    Icon(Icons.Filled.Delete, "Delete", tint = ButtonColors.icon, modifier = Modifier.size(24.dp))
+                                }
+                            }
+                        }
                     ) {
                         TrackCardContent(
                             summary = summary,
@@ -389,9 +469,32 @@ fun OverlayLayer(
                                 pinned?.let { trackViewModel.setPinned(id, it) }
                                 trackViewModel.updateTrack(id, name, comment)
                             },
-                            onShareGpx = { },
+                            onShareGpx = { onShareTrack(track.id) },
                             onTap = null
                         )
+                        // ── Prev/Next pills ──────────────────────────
+                        if (trackListIds.size > 1) {
+                            Spacer(Modifier.height(12.dp))
+                            HorizontalDivider(color = ComposeColor(AppConfig.uiSettingsDivider))
+                            Spacer(Modifier.height(8.dp))
+                            val accentBg = ComposeColor(AppConfig.uiSettingsAccent)
+                            val accentFg = ComposeColor(AppConfig.uiSettingsTextPrimary)
+                            val disabledAlpha = 0.35f
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Box(Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
+                                    .background(accentBg.copy(alpha = if (isAtTrackFirst) disabledAlpha else 1f))
+                                    .then(if (!isAtTrackFirst) Modifier.clickable { onTrackPrev() } else Modifier)
+                                    .padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
+                                    Text("Previous", color = accentFg.copy(alpha = if (isAtTrackFirst) disabledAlpha else 1f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                }
+                                Box(Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
+                                    .background(accentBg.copy(alpha = if (isAtTrackLast) disabledAlpha else 1f))
+                                    .then(if (!isAtTrackLast) Modifier.clickable { onTrackNext() } else Modifier)
+                                    .padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
+                                    Text("Next", color = accentFg.copy(alpha = if (isAtTrackLast) disabledAlpha else 1f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -438,7 +541,9 @@ fun OverlayLayer(
                 trackingTransparencyPinnedNewest = appSettings.trackingTransparencyPinnedNewest,
                 trackingTransparencyPinnedOldest = appSettings.trackingTransparencyPinnedOldest,
                 trackingColorPinnedFrom = appSettings.trackingColorPinnedFrom,
-                trackingColorPinnedTo = appSettings.trackingColorPinnedTo
+                trackingColorPinnedTo = appSettings.trackingColorPinnedTo,
+                lazyListState = trackListState,
+                restoredScrollState = trackRestoredScrollState
             )
         }
 
@@ -461,7 +566,9 @@ fun OverlayLayer(
                 onSortStateChange = onMarkerSortStateChange,
                 filterState = markerFilterState,
                 onFilterChange = onMarkerFilterChange,
-                onReset = onMarkerReset
+                onReset = onMarkerReset,
+                lazyListState = markerListState,
+                restoredScrollState = markerRestoredScrollState
             )
         }
 
