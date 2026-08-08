@@ -2,7 +2,7 @@
 name: GPS
 status: active
 created: 2026-06-07 00:00
-modified: 2026-07-18 05:12
+modified: 2026-08-08 15:24
 active_subfeature: none
 ---
 
@@ -274,4 +274,8 @@ Harden background GPS to match Waze/GMaps best practices + recording-aware exit 
 **poor-reception (2026-07-17):** 9-item multi-layer poor reception handling. Data layer: `accuracyM` field threaded through GpsFix→TrackSample→TrackPoint (proto field 11). `GpsLocationSource.emitFix()` captures `Location.getAccuracy()`. AdaptiveGpsPolicy: speed-aware tiebreaker with re-anchor (prevents slow-drift IDLE lock-in) + accuracy-widened displacement thresholds. NavigationViewModel: `_accuracyIsPoor`/`_gpsAccuracy` StateFlows, IDLE fix-rate floor (10s when accuracy poor via `BuildConfig.GPS_IDLE_MAX_INTERVAL_MS`). TrackRecorder: accuracy recording gate (`maxRecordingAccuracyM=30f`), dynamic stationary dedup (5000ms vs 500ms), BoatMarker merge with cumulative track distance gate (25m) + snapshot union. MapScreen: WEAK GPS icon state (amber). Config: `gps.*` section in maro.properties, `boatMarkerMinTravelBetweenStopsM`, `propLong` helper in build.gradle.kts. 12 files, ~150 lines. 4 Ask reviews. Build: ✅.
 
 **resolution-display (2026-07-18):** 7-item track resolution & display improvement. SettingsManager: `gpsActiveIntervalSec` default 2→1s, `gpsActiveMinDistanceM` default 5→0m — doubles fix rate. TrackRecorder: boat/land speed caps → `maro.properties` (`tracking.boatMaxSpeedKn=32`, `tracking.landMaxSpeedKn=90`) via `propDouble()`; land detection 5→2 rejections (recovers 3 points per transition); Gate 2 speed-gate — bypasses sideways ×0.5 multiplier at ≥10 kn GPS speed (trusts bearing changes at meaningful speed); accuracy gate speed-aware — 50m threshold when moving (speed validates position), 30m when stationary (drift guard). NavigationViewModel: exposed `displayPosition` StateFlow. MapScreen: trailing polyline segment (title `track_trailing`) — semi-transparent solid line from last accepted point to `_displayPosition` at 20 Hz, cleaned up on recorder OFF. 6 files, ~45 lines. 1 Ask review. Build: ✅.
+
+**position-dash (2026-08-08):** Fixed dashboard-vs-marker position mismatch caused by dynamic map offset. Root cause: `setMapCenterOffset` shifts osmdroid's native `mapCenter` property → scroll events feed offset coordinate into `_mapCenter` → shore pipeline (isOnWater, distanceToShore, zoneSituation) and DepthViewModel (depthAtCenter) query wrong position. Fix: gated `onCenterChanged` callback in `MapScreen.kt` — skip `updateMapCenter` during GPS auto-follow, since the GPS fix handler (NavVM:746) already sets `_mapCenter` correctly. Scroll/zoom events only update `_mapCenter` when user is manually panning (`autoFollowSuppressed`) or in demo mode. 1 file, ~5 lines. 2 Ask reviews. Build: ✅.
+
+- `xTrack/GPS/260808_FEAT_PLN_GPS_position-dash.md` — root cause analysis & fix design
 - `xTrack/GPS/260628_FEAT_PLN_GPS_spike-rejection-stale-timeout-fix.md` — Spike rejection stale timeout fix

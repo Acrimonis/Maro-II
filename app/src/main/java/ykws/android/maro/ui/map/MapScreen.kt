@@ -1415,11 +1415,18 @@ fun MapScreen(
     // The map centre drives BOTH layers: coastline (distance/zone) and depth-at-centre.
     val onCenterChanged: (Double, Double) -> Unit = remember(viewModel, depthViewModel, appSettings) {
         { lat, lon ->
-            viewModel.updateMapCenter(lat, lon)
-            depthViewModel.updateMapCenter(lat, lon)
-            // In demo mode, feed map center into adaptive policy for stop detection
-            if (!appSettings.gpsMode) {
-                viewModel.feedDemoPosition(lat, lon)
+            // In GPS auto-follow mode, scroll events are artifacts of setCenter +
+            // setMapCenterOffset — they carry the offset map-center and would
+            // contaminate _mapCenter. The GPS fix handler (NavVM:746) already
+            // sets _mapCenter to the correct GPS position on each fix.
+            // Only accept scroll updates when the user is manually panning
+            // (autoFollowSuppressed) or in demo mode (no GPS driving the map).
+            if (!appSettings.gpsMode || viewModel.autoFollowSuppressed.value) {
+                viewModel.updateMapCenter(lat, lon)
+                depthViewModel.updateMapCenter(lat, lon)
+                if (!appSettings.gpsMode) {
+                    viewModel.feedDemoPosition(lat, lon)
+                }
             }
         }
     }
