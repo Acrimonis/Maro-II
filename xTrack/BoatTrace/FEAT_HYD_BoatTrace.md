@@ -1,28 +1,23 @@
 # BoatTrace — Hydration Snapshot
 
-**Baked at:** 2026-07-17 16:15 UTC
-**Active Subfeature:** tracks-paint-order (z-order flip + highlight-to-top)
-**Branch:** feature/tracks-paint-order
+**Baked at:** 2026-08-08 16:01 UTC
+**Active Subfeature:** merge-idle-gap (inter-track gap as idle + moving)
+**Branch:** feature/merge-track-idling
 
 ## Session Summary
 
-**Tracks Paint Order — IMPLEMENTED.** Three changes in MapScreen.kt, BUILD SUCCESSFUL.
+**Merge Idle Gap — IMPLEMENTED.** TrackMerger.kt now estimates inter-track gap time as idle + moving, BUILD SUCCESSFUL.
 
-### Change 1: History tracks z-order flip
-Accumulated all history overlays (solid segments, gap lines, auto-marker 🕐 pins) into `historyOverlays: MutableList<Overlay>`, reversed, then `mv.overlays.addAll()`. Flips from oldest-on-top to newest-on-top. `computeTrackPolylineAppearance` index unchanged (0=newest).
+For each adjacent pair of merged tracks, the time gap between `track[N].endTimeMs` and `track[N+1].startTimeMs` is split:
+- **Moving:** `distance(lastPoint, firstPoint) / weightedAvgSpeed` (clamped to gap duration)
+- **Idle:** remaining gap time
 
-### Change 2: Pinned tracks z-order flip
-Same `pinnedOverlays` accumulation + reverse pattern.
-
-### Change 3: Highlight-to-top
-After active track move-to-end, if `highlightedTrackId != null`, filters overlays by `Polyline.title ==` (exact) for polylines and `Marker.title.startsWith` (with trailing `_` delimiter) for auto-marker pins. Remove + re-add at end.
-
-Final z-order: `oldest history → newest history → oldest pinned → newest pinned → active → highlighted`
+Both added to `navigatingDurationSec` and `idleDurationSec`. Invariant `navigating + idle = totalElapsed` now holds.
 
 ## Key Files (modified)
 
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — All three changes
+- `app/src/main/java/ykws/android/maro/data/track/TrackMerger.kt` — Gap-aware stats assembly (lines 88-121), +2 imports
 
 ## Plan
 
-- `xTrack/BoatTrace/260717_FEAT_PLN_BoatTrace_tracks-paint-order.md`
+- `xTrack/BoatTrace/260808_FEAT_PLN_BoatTrace_merge-idle-gap.md`
