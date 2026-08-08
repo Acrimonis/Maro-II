@@ -1,8 +1,8 @@
 name: BoatTrace
 status: active
 created: 2026-06-15 21:43
-modified: 2026-07-17 16:15
-active_subfeature: tracks-paint-order
+modified: 2026-08-08 16:01
+active_subfeature: merge-idle-gap
 ---
 
 # Feature: BoatTrace

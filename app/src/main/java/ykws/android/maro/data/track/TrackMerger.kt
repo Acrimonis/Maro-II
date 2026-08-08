@@ -1,5 +1,7 @@
 package ykws.android.maro.data.track
 
+import ykws.android.maro.data.model.LatLng
+import ykws.android.maro.spatial.SpatialOperations
 import java.util.UUID
 
 /**
@@ -83,7 +85,42 @@ class TrackMerger {
             tracks.sumOf { it.averageSpeedMps.toDouble() * it.trackPoints.size } / totalPoints
         } else 0.0
 
-        // ── 4. Assemble merged track ──
+        // ── 4. Inter-track gap idle/moving estimation ──
+        var gapIdleAccum = 0.0
+        var gapMovingAccum = 0.0
+
+        for (i in 0 until tracks.size - 1) {
+            val a = tracks[i]
+            val b = tracks[i + 1]
+            val gapMs = b.startTimeMs - a.endTimeMs!!
+            if (gapMs <= 0) continue
+
+            val gapSec = gapMs / 1000.0
+            val lastPt = a.trackPoints.last()
+            val firstPt = b.trackPoints.first()
+            val gapDistM = SpatialOperations.haversine(
+                LatLng(lastPt.lat, lastPt.lon),
+                LatLng(firstPt.lat, firstPt.lon)
+            )
+
+            val pA = a.trackPoints.size.toDouble()
+            val pB = b.trackPoints.size.toDouble()
+            val pairAvgMps = if (pA + pB > 0.0) {
+                (a.averageSpeedMps.toDouble() * pA + b.averageSpeedMps.toDouble() * pB) / (pA + pB)
+            } else avgSpeedMps
+
+            val estMovingSec = if (pairAvgMps > 0.0) {
+                minOf(gapDistM / pairAvgMps, gapSec)
+            } else 0.0
+
+            gapMovingAccum += estMovingSec
+            gapIdleAccum += (gapSec - estMovingSec)
+        }
+
+        val gapMovingSec = gapMovingAccum.toLong()
+        val gapIdleSec = gapIdleAccum.toLong()
+
+        // ── 5. Assemble merged track ──
         return Track(
             id = UUID.randomUUID().toString(),
             name = mergedName,
@@ -94,8 +131,8 @@ class TrackMerger {
             distanceNm = tracks.sumOf { it.distanceNm.toDouble() }.toFloat(),
             fastestSpeedMps = tracks.maxOf { it.fastestSpeedMps },
             averageSpeedMps = avgSpeedMps.toFloat(),
-            navigatingDurationSec = tracks.sumOf { it.navigatingDurationSec },
-            idleDurationSec = tracks.sumOf { it.idleDurationSec },
+            navigatingDurationSec = tracks.sumOf { it.navigatingDurationSec } + gapMovingSec,
+            idleDurationSec = tracks.sumOf { it.idleDurationSec } + gapIdleSec,
             trackColorArgb = tracks.first().trackColorArgb,
             pinned = tracks.all { it.pinned },
             visibleOnMap = true,
