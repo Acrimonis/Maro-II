@@ -1619,7 +1619,8 @@ fun MapScreen(
 
             // ── F2b: Pause auto-follow timer while any drawer is open ──
             val anyDrawerOpen = showSettings || showTrackDrawer || showTrackHistory ||
-                showMarkerManagement || drawerState !is MarkerDrawerState.Hidden
+                showMarkerManagement || trackDrawerState.isOpen || trackNavigateState != null ||
+                drawerState !is MarkerDrawerState.Hidden
             LaunchedEffect(anyDrawerOpen) {
                 viewModel.setDrawerOpen(anyDrawerOpen)
             }
@@ -1627,6 +1628,13 @@ fun MapScreen(
             // ── F2c: Freeze auto-follow when entering marker creation/editing wizard ──
             LaunchedEffect(drawerState) {
                 if (drawerState is MarkerDrawerState.Creating || drawerState is MarkerDrawerState.Editing) {
+                    viewModel.freezeFollow()
+                }
+            }
+
+            // ── F2c2: Freeze auto-follow while viewing/editing a track (map is navigated away) ──
+            LaunchedEffect(trackDrawerState.isOpen, trackNavigateState) {
+                if (trackDrawerState.isOpen || trackNavigateState != null) {
                     viewModel.freezeFollow()
                 }
             }

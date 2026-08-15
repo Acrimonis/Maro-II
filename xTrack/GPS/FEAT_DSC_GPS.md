@@ -2,7 +2,7 @@
 name: GPS
 status: active
 created: 2026-06-07 00:00
-modified: 2026-08-08 15:24
+modified: 2026-08-15 15:21
 active_subfeature: none
 ---
 
@@ -236,6 +236,23 @@ Harden background GPS to match Waze/GMaps best practices + recording-aware exit 
 #### Docs
 - `xTrack/GPS/260714_FEAT_PLN_GPS_checks.md` — spike gate audit & map smoothness fix design
 
+### back-to-hold  [x]
+
+#### Todos
+- [x] Evaluate hold-on cases for the GPS auto-follow spring-back (track detail view, marker create/edit, lists, settings, menu)
+- [x] Implement hold: add track info drawer + track zoom-to-fit to the drawer gate; suppress active follow while viewing a track
+- [ ] On-device verification of pan→view-track and list→view-track flows
+
+#### Rules
+- Spring-back stays on hold while viewing/editing any entity (track detail, marker), not only drawers and lists.
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/NavigationViewModel.kt` — notifyUserInteraction/setDrawerOpen/freezeFollow/recenterNow/startTimer
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — anyDrawerOpen gate (line 1621), trackDrawerState, trackNavigateState
+
+#### Docs
+- `xTrack/GPS/260815_FEAT_PLN_GPS_back-to-hold-cases.md` — case evaluation & gap analysis
+
 ## Todos
 - [ ] back to GPS point → replace delay by swipe of card
 - [ ] normalize localisation and fill holes
@@ -279,3 +296,5 @@ Harden background GPS to match Waze/GMaps best practices + recording-aware exit 
 
 - `xTrack/GPS/260808_FEAT_PLN_GPS_position-dash.md` — root cause analysis & fix design
 - `xTrack/GPS/260628_FEAT_PLN_GPS_spike-rejection-stale-timeout-fix.md` — Spike rejection stale timeout fix
+
+**back-to-hold (2026-08-15):** Spring-back hold gap fix. Root cause: the track info drawer (`trackDrawerState.isOpen`) and track zoom-to-fit (`trackNavigateState`) were absent from the `anyDrawerOpen` gate, so the GPS auto-follow timer fired while viewing/editing a track and active follow fought the zoom-to-fit animation. Fix: extended `anyDrawerOpen` with both states and added a `LaunchedEffect` that calls `freezeFollow()` while a track is open/navigating, mirroring the marker-wizard path. Marker create/edit, lists, settings, and menu were already held. Closing a hold now springs back immediately via `recenterNow()` instead of restarting the delay timer. 2 files, ~10 lines, no new dependencies. Build: ✅.

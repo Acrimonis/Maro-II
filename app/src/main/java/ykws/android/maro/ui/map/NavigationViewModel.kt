@@ -418,14 +418,14 @@ class NavigationViewModel(
     /**
      * Called when any drawer opens or closes. Pauses the pan-resume timer while a drawer is open
      * so the map doesn't snap back during marker creation, settings, or other drawer operations.
-     * On close, restarts the timer if auto-follow was suppressed by a prior pan.
+     * On close, springs back to the GPS position immediately if auto-follow was suppressed.
      */
     fun setDrawerOpen(open: Boolean) {
         drawerOpen = open
         if (open) {
             resumeJob?.cancel()
         } else if (_autoFollowSuppressed.value) {
-            startTimer()
+            recenterNow()
         }
     }
 
