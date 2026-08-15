@@ -157,6 +157,7 @@ class TrackRecordingService : Service() {
             }
             ACTION_STOP_RECORDING -> recorder?.stop()
             ACTION_DISCARD_RECORDING -> recorder?.discard()
+            ACTION_REPLAY_LIVE_TRACK -> replayLiveTrack()
             ACTION_RESUME_ORPHANED_CHECKPOINT -> resumeOrphanedCheckpoint(intent)
             ACTION_RESUME_TRACK -> resumeTrack(intent)
             ACTION_ADD_MANUAL_BOAT_MARKER -> addManualBoatMarker(intent)
@@ -240,6 +241,14 @@ class TrackRecordingService : Service() {
         serviceScope.launch { rec.events.collect { _events.tryEmit(it) } }
         serviceScope.launch { rec.newPoint.collect { _newPoint.tryEmit(it) } }
         startGpsSampling()
+    }
+
+    /** Replay the live track's existing points so a re-attached UI can redraw the polyline. */
+    private fun replayLiveTrack() {
+        val rec = recorder ?: return
+        if (rec.uiState.value.state == TrackRecorderState.ON) {
+            _events.tryEmit(TrackEvent.Resumed(rec.snapshotPoints()))
+        }
     }
 
     /** Assemble GPS [TrackSample]s from a service-owned LocationManager listener. */
@@ -406,6 +415,9 @@ class TrackRecordingService : Service() {
 
         /** Intent action: discard the in-progress recording. */
         const val ACTION_DISCARD_RECORDING = "ykws.android.maro.action.DISCARD_RECORDING"
+
+        /** Intent action: replay the live track's existing points for UI restore. */
+        const val ACTION_REPLAY_LIVE_TRACK = "ykws.android.maro.action.REPLAY_LIVE_TRACK"
 
         /** Intent action: resume an orphaned checkpoint. */
         const val ACTION_RESUME_ORPHANED_CHECKPOINT = "ykws.android.maro.action.RESUME_ORPHANED_CHECKPOINT"

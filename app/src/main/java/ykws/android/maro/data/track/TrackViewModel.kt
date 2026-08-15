@@ -91,6 +91,9 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         }
         viewModelScope.launch {
             recoverOrphanedCheckpoints()
+            if (TrackRecordingService.isRecording.value) {
+                startService(TrackRecordingService.ACTION_REPLAY_LIVE_TRACK)
+            }
         }
         refreshSummaries()
     }
@@ -348,6 +351,9 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private suspend fun recoverOrphanedCheckpoints() {
+        // The service-owned recorder's active checkpoint is not orphaned — skip the
+        // recovery prompt while a recording is live (state is mirrored via uiState).
+        if (TrackRecordingService.isRecording.value) return
         val orphans = repository.recoverOrphanedCheckpoints()
         if (orphans.isNotEmpty()) {
             _recoveryTrack.value = orphans.first()
