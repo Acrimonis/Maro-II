@@ -1,29 +1,35 @@
 package ykws.android.maro.data.track
 
 import android.app.Application
+import android.content.Intent
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import ykws.android.maro.data.model.ListFilter
-import ykws.android.maro.data.model.ListSortField
 import ykws.android.maro.data.model.ListSortState
 import ykws.android.maro.data.model.matchesFilter
 import ykws.android.maro.data.model.todayMidnightMs
 import ykws.android.maro.data.settings.AppSettings
 
 /**
- * ViewModel bridge between [TrackRecorder] / [TrackRepository] and the Compose UI.
+ * ViewModel bridge between the [TrackRecordingService]-owned [TrackRecorder] /
+ * [TrackRepository] and the Compose UI.
  *
- * Observes settings changes, manages recorder lifecycle, and exposes StateFlows
- * for the UI layer.
+ * The recorder and its GPS sample assembly live in [TrackRecordingService] so
+ * recording survives Activity destruction / task removal. This ViewModel is a
+ * pure observer of service state: it mirrors [TrackRecordingService.uiState],
+ * forwards [TrackRecordingService.events]/[TrackRecordingService.newPoint], and
+ * routes recording control (start/stop/discard/resume) through service intents.
  */
 class TrackViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -33,20 +39,13 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
 
     private var settingsFlow: StateFlow<AppSettings>? = null
 
-    private var recorder: TrackRecorder? = null
-
     private val _uiState = MutableStateFlow(TrackRecorderUiState())
     val uiState: StateFlow<TrackRecorderUiState> = _uiState.asStateFlow()
 
-    /** Incoming track sample stream — MapScreen pushes position data here. */
-    private val _trackSample = MutableSharedFlow<TrackSample>(extraBufferCapacity = 8)
-    val trackSample: SharedFlow<TrackSample> = _trackSample.asSharedFlow()
-
     /** Recorder event stream — MapScreen observes for idle/marker events.
-     *  Persistent flow that forwards from whatever recorder is active. */
+     *  Forwards from the service-owned recorder. */
     private val _events = MutableSharedFlow<TrackEvent>(extraBufferCapacity = 64)
     val events: SharedFlow<TrackEvent> = _events.asSharedFlow()
-    private var eventsForwardingJob: kotlinx.coroutines.Job? = null
 
     /** Unfiltered source of truth — reloaded from repository. */
     private val _allSummaries = MutableStateFlow<List<TrackSummary>>(emptyList())
@@ -54,21 +53,12 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
     private val _summaries = MutableStateFlow<List<TrackSummary>>(emptyList())
     val summaries: StateFlow<List<TrackSummary>> = _summaries.asStateFlow()
 
-    /** Accessor for the recorder's incremental new-point stream (null when recorder isn't active). */
-    val newPointStream: SharedFlow<TrackPoint>?
-        get() = recorder?.newPoint
+    /** Accessor for the service-owned recorder's incremental new-point stream. */
+    val newPointStream: SharedFlow<TrackPoint> = TrackRecordingService.newPoint
 
     // Recovery state — non-null when an orphaned checkpoint is found
     private val _recoveryTrack = MutableStateFlow<Track?>(null)
     val recoveryTrack: StateFlow<Track?> = _recoveryTrack.asStateFlow()
-
-    /** Source of truth for isStopped — set once by MapScreen from NavigationViewModel. */
-    private var stoppedSource: StateFlow<Boolean> = MutableStateFlow(false)
-
-    /** Cached sample flow reference for use by resumeOrphanedCheckpoint. */
-    private var cachedSampleFlow: Flow<TrackSample>? = null
-    /** Cached settings from last startRecorder call, for use by resumeOrphanedCheckpoint. */
-    private var cachedSettings: AppSettings? = null
 
     private var isLoaded = false
 
@@ -89,131 +79,125 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     init {
+        // Mirror service-owned recorder state (survives Activity destruction).
+        viewModelScope.launch {
+            TrackRecordingService.uiState.collect { state ->
+                _uiState.value = state
+            }
+        }
+        // Forward service recorder events to the persistent flow MapScreen observes.
+        viewModelScope.launch {
+            TrackRecordingService.events.collect { _events.emit(it) }
+        }
         viewModelScope.launch {
             recoverOrphanedCheckpoints()
         }
         refreshSummaries()
     }
 
-    /**
-     * Push a position sample into the recording pipeline.
-     * Called by MapScreen from the TrackSample combine flow.
-     */
-    fun pushTrackSample(sample: TrackSample) {
-        _trackSample.tryEmit(sample)
-    }
+    // ── Recording control — routed to TrackRecordingService ──────────────
 
-    /**
-     * Set the source-of-truth for boat-stopped state.
-     * Called once by MapScreen from NavigationViewModel.isStopped.
-     */
-    fun setStoppedSource(flow: StateFlow<Boolean>) {
-        stoppedSource = flow
-        recorder?.let { rec ->
-            // Re-create recorder with updated isStopped source (only happens before pipeline start)
+    private fun startService(action: String, extras: Intent.() -> Unit = {}) {
+        val intent = Intent(getApplication<Application>(), TrackRecordingService::class.java).apply {
+            this.action = action
+            extras()
         }
+        getApplication<Application>().startService(intent)
     }
 
-    /**
-     * Start the recorder with a TrackSample flow and current settings.
-     * Call once when the GPS pipeline is ready.
-     */
-    fun startRecorder(
-        sampleFlow: Flow<TrackSample>,
-        settings: AppSettings,
-        idleThresholdCallback: IdleThresholdCallback? = null,
-        whereAmI: ((ykws.android.maro.data.model.LatLng) -> ykws.android.maro.spatial.WhereAmIResult)? = null,
-        markerChangeNotifier: Flow<Unit>? = null
-    ) {
-        cachedSampleFlow = sampleFlow
-        cachedSettings = settings
-        stopRecorder()
-        val rec = TrackRecorder(
-            repository = repository,
-            gpsMode = settings.gpsMode,
-            maxRecordingAccuracyM = settings.maxRecordingAccuracyM,
-            geofenceOriginLat = settings.trackOriginLat,
-            geofenceOriginLon = settings.trackOriginLon,
-            geofenceRadiusM = settings.trackGeofenceRadiusM,
-            geofenceEnabled = settings.trackGeofenceEnabled,
-            isStopped = stoppedSource,
-            simplifyEnabled = settings.trackSimplifyEnabled,
-            simplifyEpsilonM = settings.trackSimplifyEpsilonM,
-            simplifySpeedDeltaKn = settings.trackSimplifySpeedDeltaKn,
-            idleThresholdSec = ykws.android.maro.config.AppConfig.boatMarkerIdleThresholdSec,
-            idleThresholdCallback = idleThresholdCallback,
-            whereAmI = whereAmI,
-            markerChangeNotifier = markerChangeNotifier
-        )
-        recorder = rec
-        rec.start(sampleFlow)
-        // Wire activeRecorder for notification stop action
-        TrackRecordingService.activeRecorder = rec
-        viewModelScope.launch {
-            rec.uiState.collect { state ->
-                _uiState.value = state
-            }
-        }
-        // Forward recorder events to persistent flow so MapScreen sees them
-        eventsForwardingJob?.cancel()
-        eventsForwardingJob = viewModelScope.launch {
-            rec.events.collect { _events.emit(it) }
-        }
-    }
-
-    /** Stop the recorder and release resources. */
-    fun stopRecorder() {
-        eventsForwardingJob?.cancel()
-        eventsForwardingJob = null
-        TrackRecordingService.activeRecorder = null
-        recorder?.dispose()
-        recorder = null
-    }
-
-    /** Manually start recording. Lazily creates the recorder if not yet initialised. */
+    /** Manually start recording. */
     fun startRecording() {
-        if (recorder == null) {
-            initRecorder()
-        }
-        recorder?.startManual()
+        startService(TrackRecordingService.ACTION_START_RECORDING)
     }
 
     /** Manually stop recording (finalizes current track). */
     fun stopRecording() {
-        if (recorder == null) {
-            initRecorder()
-        }
         val trackId = _uiState.value.currentTrackId
-        recorder?.stop()
-        TrackRecordingService.activeRecorder = null
+        startService(TrackRecordingService.ACTION_STOP_RECORDING)
         if (trackId != null) invalidateTrackCache(trackId)
         viewModelScope.launch {
-            kotlinx.coroutines.delay(500)
+            delay(500)
             refreshSummaries()
         }
     }
 
-    private fun initRecorder(settings: ykws.android.maro.data.settings.AppSettings? = null) {
-        val rec = TrackRecorder(
-            repository = repository,
-            gpsMode = settings?.gpsMode ?: true,
-            maxRecordingAccuracyM = settings?.maxRecordingAccuracyM ?: 30f,
-            geofenceOriginLat = settings?.trackOriginLat ?: 43.55,
-            geofenceOriginLon = settings?.trackOriginLon ?: 7.00,
-            geofenceRadiusM = settings?.trackGeofenceRadiusM ?: 500.0,
-            geofenceEnabled = settings?.trackGeofenceEnabled ?: true,
-            isStopped = stoppedSource,
-            simplifyEnabled = settings?.trackSimplifyEnabled ?: true,
-            simplifyEpsilonM = settings?.trackSimplifyEpsilonM ?: 3.0,
-            simplifySpeedDeltaKn = settings?.trackSimplifySpeedDeltaKn ?: 3.0
-        )
-        rec.start(kotlinx.coroutines.flow.emptyFlow())
-        recorder = rec
-        TrackRecordingService.activeRecorder = rec
+    /** Discard the in-progress recording without finalizing (deletes track + checkpoint). */
+    fun discardRecording() {
+        val trackId = _uiState.value.currentTrackId
+        startService(TrackRecordingService.ACTION_DISCARD_RECORDING)
+        if (trackId != null) invalidateTrackCache(trackId)
         viewModelScope.launch {
-            rec.uiState.collect { state ->
-                _uiState.value = state
-            }
+            delay(500)
+            refreshSummaries()
+        }
+    }
+
+    /** Add manual BoatMarker snapshots to the current track. */
+    fun addManualBoatMarker(snapshots: List<MarkerSnapshot>) {
+        val json = Json.encodeToString(snapshots)
+        startService(TrackRecordingService.ACTION_ADD_MANUAL_BOAT_MARKER) {
+            putExtra(TrackRecordingService.EXTRA_MARKER_SNAPSHOTS_JSON, json)
+        }
+    }
+
+    /** Set the auto-marker ID on the active idle session. */
+    fun setActiveSessionAutoMarkerId(id: String) {
+        startService(TrackRecordingService.ACTION_SET_ACTIVE_SESSION_AUTO_MARKER_ID) {
+            putExtra(TrackRecordingService.EXTRA_AUTO_MARKER_ID, id)
+        }
+    }
+
+    /** Store the confirmed auto-marker ID in the track's BoatMarker entry. */
+    fun setBoatMarkerAutoMarkerId(id: String) {
+        startService(TrackRecordingService.ACTION_SET_BOAT_MARKER_AUTO_MARKER_ID) {
+            putExtra(TrackRecordingService.EXTRA_BOAT_MARKER_AUTO_MARKER_ID, id)
+        }
+    }
+
+    /** Update the active recording track's name and/or comment. Persisted to checkpoint. */
+    fun updateLiveTrackMeta(name: String? = null, comment: String? = null) {
+        startService(TrackRecordingService.ACTION_UPDATE_LIVE_TRACK_META) {
+            if (name != null) putExtra(TrackRecordingService.EXTRA_TRACK_NAME, name)
+            if (comment != null) putExtra(TrackRecordingService.EXTRA_TRACK_COMMENT, comment)
+        }
+    }
+
+    /** Clear the track info error — dismisses the ErrorOverlay. */
+    fun clearInfoError() {
+        startService(TrackRecordingService.ACTION_CLEAR_INFO_ERROR)
+    }
+
+    /**
+     * Resume an orphaned checkpoint as a live recording (Continue button in recovery dialog).
+     * Routes to the service which restores the checkpointed track and resumes recording.
+     */
+    fun resumeOrphanedCheckpoint(track: Track) {
+        _recoveryTrack.value = null
+        startService(TrackRecordingService.ACTION_RESUME_ORPHANED_CHECKPOINT) {
+            putExtra(TrackRecordingService.EXTRA_TRACK_ID, track.id)
+        }
+        viewModelScope.launch {
+            delay(500)
+            refreshSummaries()
+        }
+    }
+
+    /**
+     * Resume a finalized track as a live recording.
+     * Routes to the service which loads the track, forces visibleOnMap, and resumes.
+     */
+    fun resumeTrack(trackId: String) {
+        // Guard: cannot resume while already recording
+        if (_uiState.value.state == TrackRecorderState.ON) {
+            Log.w("MaroII_TrackVM", "resumeTrack: already recording")
+            return
+        }
+        startService(TrackRecordingService.ACTION_RESUME_TRACK) {
+            putExtra(TrackRecordingService.EXTRA_TRACK_ID, trackId)
+        }
+        viewModelScope.launch {
+            delay(500)
+            refreshSummaries()
         }
     }
 
@@ -316,156 +300,6 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** Add manual BoatMarker snapshots to the current track. */
-    fun addManualBoatMarker(snapshots: List<MarkerSnapshot>) {
-        recorder?.addManualBoatMarker(snapshots)
-    }
-
-    /** Set the auto-marker ID on the active idle session. */
-    fun setActiveSessionAutoMarkerId(id: String) {
-        recorder?.setActiveSessionAutoMarkerId(id)
-    }
-
-    /** Store the confirmed auto-marker ID in the track's BoatMarker entry. */
-    fun setBoatMarkerAutoMarkerId(id: String) {
-        recorder?.setBoatMarkerAutoMarkerId(id)
-    }
-
-    /**
-     * Resume an orphaned checkpoint as a live recording (Continue button in recovery dialog).
-     *
-     * Re-initializes the TrackRecorder with the checkpointed track data,
-     * restarts the sampleFlow pipeline, and appends new points to the existing track.
-     * If the time/distance gap exceeds the threshold, a GAP marker is inserted.
-     */
-    fun resumeOrphanedCheckpoint(track: Track) {
-        _recoveryTrack.value = null
-        val sampleFlow = cachedSampleFlow ?: return
-        stopRecorder()
-
-        // Load gap thresholds from AppConfig (falls back to defaults)
-        val gapDistM = ykws.android.maro.config.AppConfig.trackingGapDistanceThresholdM
-        val gapTimeSec = ykws.android.maro.config.AppConfig.trackingGapTimeThresholdSec
-
-        val s = cachedSettings
-        val rec = TrackRecorder(
-            repository = repository,
-            gpsMode = s?.gpsMode ?: true,
-            maxRecordingAccuracyM = s?.maxRecordingAccuracyM ?: 30f,
-            geofenceOriginLat = s?.trackOriginLat ?: 43.55,
-            geofenceOriginLon = s?.trackOriginLon ?: 7.00,
-            geofenceRadiusM = s?.trackGeofenceRadiusM ?: 500.0,
-            geofenceEnabled = s?.trackGeofenceEnabled ?: true,
-            isStopped = stoppedSource,
-            simplifyEnabled = s?.trackSimplifyEnabled ?: true,
-            simplifyEpsilonM = s?.trackSimplifyEpsilonM ?: 3.0,
-            simplifySpeedDeltaKn = s?.trackSimplifySpeedDeltaKn ?: 3.0,
-            idleThresholdSec = ykws.android.maro.config.AppConfig.boatMarkerIdleThresholdSec,
-            gapDistanceThresholdM = gapDistM,
-            gapTimeThresholdSec = gapTimeSec
-        )
-        recorder = rec
-        // Set up collectors BEFORE resume() so Resumed event is captured
-        eventsForwardingJob?.cancel()
-        eventsForwardingJob = viewModelScope.launch {
-            rec.events.collect { _events.emit(it) }
-        }
-        viewModelScope.launch {
-            rec.uiState.collect { state ->
-                _uiState.value = state
-            }
-        }
-        TrackRecordingService.activeRecorder = rec
-        rec.resume(track, sampleFlow)
-        // Emit directly to ViewModel events so MapScreen restores polyline
-        if (track.trackPoints.isNotEmpty()) {
-            _events.tryEmit(ykws.android.maro.data.track.TrackEvent.Resumed(track.trackPoints))
-        }
-        viewModelScope.launch {
-            kotlinx.coroutines.delay(500)
-            refreshSummaries()
-        }
-    }
-
-    /**
-     * Resume a finalized track as a live recording.
-     *
-     * Loads the finalized track, forces visibleOnMap, re-initializes the TrackRecorder
-     * with fromCheckpoint=false, and appends new points. The inter-session gap is
-     * tracked (resumeGapDurationSec) and excluded from navigating duration at finalize.
-     */
-    fun resumeTrack(trackId: String) {
-        // Guard: cannot resume while already recording
-        if (_uiState.value.state == TrackRecorderState.ON) {
-            android.util.Log.w("MaroII_TrackVM", "resumeTrack: already recording")
-            return
-        }
-        viewModelScope.launch {
-            // 1. Load and validate the track
-            val track = repository.load(trackId) ?: return@launch
-            if (track.endTimeMs == null) {
-                android.util.Log.w("MaroII_TrackVM", "resumeTrack: track $trackId is not finalized")
-                return@launch
-            }
-            // Force visible (D7)
-            if (!track.visibleOnMap) {
-                repository.save(track.copy(visibleOnMap = true))
-            }
-
-            // 2. Stop any existing recorder
-            val sampleFlow = cachedSampleFlow ?: return@launch
-            stopRecorder()
-
-            // 3-4. Build new recorder (same params as resumeOrphanedCheckpoint)
-            val s = cachedSettings
-            val gapDistM = ykws.android.maro.config.AppConfig.trackingGapDistanceThresholdM
-            val gapTimeSec = ykws.android.maro.config.AppConfig.trackingGapTimeThresholdSec
-            val rec = TrackRecorder(
-                repository = repository,
-                gpsMode = s?.gpsMode ?: true,
-                maxRecordingAccuracyM = s?.maxRecordingAccuracyM ?: 30f,
-                geofenceOriginLat = s?.trackOriginLat ?: 43.55,
-                geofenceOriginLon = s?.trackOriginLon ?: 7.00,
-                geofenceRadiusM = s?.trackGeofenceRadiusM ?: 500.0,
-                geofenceEnabled = s?.trackGeofenceEnabled ?: true,
-                isStopped = stoppedSource,
-                simplifyEnabled = s?.trackSimplifyEnabled ?: true,
-                simplifyEpsilonM = s?.trackSimplifyEpsilonM ?: 3.0,
-                simplifySpeedDeltaKn = s?.trackSimplifySpeedDeltaKn ?: 3.0,
-                idleThresholdSec = ykws.android.maro.config.AppConfig.boatMarkerIdleThresholdSec,
-                gapDistanceThresholdM = gapDistM,
-                gapTimeThresholdSec = gapTimeSec
-            )
-            recorder = rec
-
-            // 5-6. Wire events + UI state
-            eventsForwardingJob?.cancel()
-            eventsForwardingJob = viewModelScope.launch {
-                rec.events.collect { _events.emit(it) }
-            }
-            viewModelScope.launch {
-                rec.uiState.collect { state ->
-                    _uiState.value = state
-                }
-            }
-
-            // 7. Register with foreground service
-            TrackRecordingService.activeRecorder = rec
-
-            // 8. Resume with fromCheckpoint=false
-            rec.resume(track, sampleFlow, fromCheckpoint = false)
-
-            // 9. Emit Resumed + refresh summaries
-            if (track.trackPoints.isNotEmpty()) {
-                _events.tryEmit(ykws.android.maro.data.track.TrackEvent.Resumed(track.trackPoints))
-            }
-            viewModelScope.launch {
-                kotlinx.coroutines.delay(500)
-                refreshSummaries()
-            }
-        }
-    }
-
     /**
      * Merge multiple finalized tracks into a single new track.
      *
@@ -520,16 +354,6 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** Update the active recording track's name and/or comment. Persisted to checkpoint. */
-    fun updateLiveTrackMeta(name: String? = null, comment: String? = null) {
-        recorder?.updateCurrentTrackMeta(name, comment)
-    }
-
-    /** Clear the track info error — dismisses the ErrorOverlay. */
-    fun clearInfoError() {
-        recorder?.clearInfoError()
-    }
-
     /**
      * Import tracks from a GPX file or ZIP archive.
      * Saves each imported track via [TrackRepository.save], applying anti-collision
@@ -547,10 +371,5 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         }
         refreshSummaries()
         return tracks.size
-    }
-
-    override fun onCleared() {
-        super.onCleared()
-        stopRecorder()
     }
 }

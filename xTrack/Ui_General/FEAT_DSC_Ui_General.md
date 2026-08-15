@@ -1,8 +1,8 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-08-02 15:10
-active_subfeature: list-detail-navigation
+modified: 2026-08-15 14:13
+active_subfeature: notification-lifecycle
 ---
 
 # Feature: Ui_General
@@ -14,6 +14,18 @@ app is running. Extended with page-layout concerns: edge-to-edge rendering, stat
 bar immersion, and WindowInsets management.
 
 ## Subfeatures
+
+### notification-lifecycle  [x]
+
+Foreground notification follows recording state: task-removed + not recording → service stops (notification gone); recording → notification stays and the track keeps recording in background (recorder + GPS moved into `TrackRecordingService`, `TrackViewModel` is a pure observer). Double-back exit dialog offers Save track / Continue recording / Discard track. Fixed startup NPE (service deps were field initializers using the un-attached context → `by lazy`).
+
+#### Key Files
+- `TrackRecordingService.kt`, `TrackViewModel.kt`, `TrackRecorder.kt`, `MapScreen.kt`, `StopRecordingReceiver.kt`, `WhereAmIProvider.kt`
+
+#### Docs
+- `xTrack/Ui_General/260815_FEAT_PLN_Ui_General_notification-lifecycle.md`
+
+---
 
 ### filter  [x]
 
