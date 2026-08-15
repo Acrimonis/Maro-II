@@ -11,7 +11,7 @@ import android.content.Intent
  * business logic.
  *
  * Chain: Notification "Stop" tapped → this receiver → startService(ACTION_STOP_RECORDING)
- *        → TrackRecordingService.onStartCommand() → activeRecorder?.stop()
+ *        → TrackRecordingService.onStartCommand() → recorder?.stop()
  */
 class StopRecordingReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {

@@ -420,6 +420,32 @@ class TrackRecorder(
         }
     }
 
+    /**
+     * Discard the in-progress recording without finalizing.
+     * Deletes the current track file and its checkpoint, then returns to OFF.
+     */
+    fun discard() {
+        if (state == TrackRecorderState.ON) {
+            val trackId = currentTrack?.id
+            stopCheckpointJob()
+            stopPolling()
+            cancelIdleTimer()
+            stopDebounceStartTime = null
+            scope?.launch {
+                if (trackId != null) {
+                    repository.delete(trackId)
+                    repository.deleteCheckpoint(trackId)
+                }
+                _events.tryEmit(Stopped)
+            }
+            transitionTo(TrackRecorderState.OFF)
+            currentTrack = null
+            _uiState.update { TrackRecorderUiState() }
+        } else {
+            cleanup()
+        }
+    }
+
     /** Update the current track's name and/or comment in memory and checkpoint. */
     fun updateCurrentTrackMeta(name: String? = null, comment: String? = null) {
         val track = currentTrack ?: return

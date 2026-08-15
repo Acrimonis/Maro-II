@@ -195,6 +195,7 @@ import ykws.android.maro.ui.map.MarkerDrawer
 import ykws.android.maro.ui.map.toMarkerSnapshot
 import ykws.android.maro.data.track.IdleThresholdCallback
 import ykws.android.maro.data.track.IdleCaptureResult
+import ykws.android.maro.data.track.WhereAmIProvider
 
 /** Animation duration per GPS-follow scroll (ms). Must be < min GPS fix interval (1s). */
 private const val GPS_ANIMATION_DURATION_MS = 600L
@@ -654,19 +655,10 @@ fun MapScreen(
         markerChangeFlow.tryEmit(Unit)
     }
 
-    // ── Track info error auto-dismiss after 8 seconds ──
-    LaunchedEffect(trackRecorderState.infoError) {
-        val error = trackRecorderState.infoError
-        if (error != null) {
-            delay(8_000L)
-            trackViewModel.clearInfoError()
-        }
-    }
-
     // ── BoatMarker idle callback — wired to marker matching engine ──
     val idleCallback = remember {
         object : IdleThresholdCallback {
-            override suspend fun onIdleThresholdReached(position: ykws.android.maro.data.model.LatLng): IdleCaptureResult {
+            override suspend fun onIdleThresholdReached(position: LatLng): IdleCaptureResult {
                 return try {
                     val result = markersViewModel.whereAmISync(position)
                     val snapshots = result.allMatches.map { it.toMarkerSnapshot() }
@@ -679,6 +671,24 @@ fun MapScreen(
                     IdleCaptureResult(emptyList(), false)
                 }
             }
+        }
+    }
+
+    // ── Register process-scoped bridge for the service-owned recorder ──
+    // The service builds TrackRecorder with lazy delegating callbacks, so it
+    // reads these registrations at invocation time (survives Activity recreation).
+    LaunchedEffect(Unit) {
+        WhereAmIProvider.whereAmI = markersViewModel::whereAmISync
+        WhereAmIProvider.idleCapture = { pos -> idleCallback.onIdleThresholdReached(pos) }
+        markerChangeFlow.collect { WhereAmIProvider.markerChanges.tryEmit(Unit) }
+    }
+
+    // ── Track info error auto-dismiss after 8 seconds ──
+    LaunchedEffect(trackRecorderState.infoError) {
+        val error = trackRecorderState.infoError
+        if (error != null) {
+            delay(8_000L)
+            trackViewModel.clearInfoError()
         }
     }
 
@@ -870,15 +880,25 @@ fun MapScreen(
     val effectiveLowDepthWarning = if (generatingStep == RasterCache.Step.LOW_DEPTH_WARNING) null
         else (lowDepthWarningCached ?: lowDepthWarningBitmap)
 
-    // ── Virtual GpsFix flow: feed TrackRecorder from existing ViewModel state ──
-    // In demo mode, a 1 Hz ticker keeps the AdaptiveGpsPolicy timer advancing even
-    // when the map is stationary (no pan events → stall without ticker).
-    // In GPS mode, the real location listener provides periodic fixes — no ticker needed.
-    // NOTE: LaunchedEffect(Unit) — NOT keyed on gpsMode. Toggling the position source
-    // must NOT tear down / restart the recorder (would kill active track recording).
-    // The ticker adapts dynamically via flatMapLatest; the combine lambda reads
-    // appSettings.gpsMode at each emission for position/speed/bearing selection.
+    // ── Demo-mode sample feed → service-owned recorder ───────────────────
+    // GPS mode: TrackRecordingService owns its own LocationManager sampling,
+    // so recording survives Activity destruction / task removal.
+    // Demo mode has no real GPS — the UI assembles TrackSamples from the
+    // virtual position (map center) and pushes them into the service via
+    // TrackRecordingService.pushSample. The UI also mirrors its stationary
+    // flag into the service (GPS mode self-computes it from its own stream).
+    // NOTE: LaunchedEffect(Unit) — NOT keyed on gpsMode. Toggling the position
+    // source must NOT tear down / restart this feed.
     LaunchedEffect(Unit) {
+        // Mirror the UI's stationary flag into the service (demo mode only).
+        launch {
+            viewModel.isStopped.collect { stopped ->
+                if (!appSettings.gpsMode) {
+                    TrackRecordingService.updateStopped(stopped)
+                }
+            }
+        }
+
         val ticker = snapshotFlow { appSettings.gpsMode }
             .flatMapLatest { isGps ->
                 if (!isGps) {
@@ -907,8 +927,6 @@ fun MapScreen(
             val speedKn = if (isGps) nav.speedKnots else nav.demoSpeedKnots
             val speedMs = speedKn?.let { it * 0.514444f }
             val bearing = if (isGps) nav.bearingDeg else nav.demoBearingDeg
-            android.util.Log.d("MaroII_Track",
-                "TrackSample: gpsPos=${gpsPos != null} demoSpeed=${nav.demoSpeedKnots} speedKn=$speedKn speedMs=$speedMs")
             ykws.android.maro.data.track.TrackSample(
                 position = pos,
                 speedMps = speedMs,
@@ -918,10 +936,16 @@ fun MapScreen(
                 accuracyM = if (isGps) viewModel.gpsAccuracy.value else null
             )
         }.filterNotNull()
-        trackViewModel.setStoppedSource(viewModel.isStopped)
-        trackViewModel.startRecorder(sampleFlow, appSettings, idleCallback,
-            whereAmI = markersViewModel::whereAmISync,
-            markerChangeNotifier = markerChangeFlow)
+
+        launch {
+            sampleFlow.collect { sample ->
+                // Only demo-mode samples are UI-assembled; GPS samples arrive
+                // from the service's own LocationManager listener.
+                if (!appSettings.gpsMode) {
+                    TrackRecordingService.pushSample(sample)
+                }
+            }
+        }
 
         // Periodic demo position feed: when GPS is off, re-feed the map center
         // every second so the adaptive policy timer advances toward IDLE even
@@ -1512,26 +1536,38 @@ fun MapScreen(
                 title = { androidx.compose.material3.Text("Recording in progress") },
                 text = { androidx.compose.material3.Text("A track is being recorded. What would you like to do?") },
                 confirmButton = {
-                    androidx.compose.material3.TextButton(
-                        onClick = {
-                            showExitDialog = false
-                            trackViewModel.stopRecording()
-                            kotlinx.coroutines.MainScope().launch {
-                                kotlinx.coroutines.delay(300)
-                                context.stopService(Intent(context, ykws.android.maro.data.track.TrackRecordingService::class.java))
-                                context.findActivity()?.finishAffinity()
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        androidx.compose.material3.TextButton(
+                            onClick = {
+                                showExitDialog = false
+                                trackViewModel.stopRecording()
+                                kotlinx.coroutines.MainScope().launch {
+                                    kotlinx.coroutines.delay(300)
+                                    context.stopService(Intent(context, ykws.android.maro.data.track.TrackRecordingService::class.java))
+                                    context.findActivity()?.finishAffinity()
+                                }
                             }
-                        }
-                    ) { androidx.compose.material3.Text("Stop & Exit") }
+                        ) { androidx.compose.material3.Text("Save track") }
+                        androidx.compose.material3.TextButton(
+                            onClick = {
+                                showExitDialog = false
+                                context.findActivity()?.moveTaskToBack(true)
+                            }
+                        ) { androidx.compose.material3.Text("Continue recording") }
+                        androidx.compose.material3.TextButton(
+                            onClick = {
+                                showExitDialog = false
+                                trackViewModel.discardRecording()
+                                kotlinx.coroutines.MainScope().launch {
+                                    kotlinx.coroutines.delay(300)
+                                    context.stopService(Intent(context, ykws.android.maro.data.track.TrackRecordingService::class.java))
+                                    context.findActivity()?.finishAffinity()
+                                }
+                            }
+                        ) { androidx.compose.material3.Text("Discard track") }
+                    }
                 },
-                dismissButton = {
-                    androidx.compose.material3.TextButton(
-                        onClick = {
-                            showExitDialog = false
-                            context.findActivity()?.moveTaskToBack(true)
-                        }
-                    ) { androidx.compose.material3.Text("Keep Recording") }
-                }
+                dismissButton = null
             )
         }
 
