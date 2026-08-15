@@ -84,6 +84,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -1529,45 +1532,32 @@ fun MapScreen(
             }
         }
 
-        // ── Recording-aware exit dialog (shown on double-back while recording) ──
+        // ── Recording-aware exit sheet (shown on double-back while recording) ──
         if (showExitDialog) {
-            androidx.compose.material3.AlertDialog(
-                onDismissRequest = { showExitDialog = false },
-                title = { androidx.compose.material3.Text("Recording in progress") },
-                text = { androidx.compose.material3.Text("A track is being recorded. What would you like to do?") },
-                confirmButton = {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        androidx.compose.material3.TextButton(
-                            onClick = {
-                                showExitDialog = false
-                                trackViewModel.stopRecording()
-                                kotlinx.coroutines.MainScope().launch {
-                                    kotlinx.coroutines.delay(300)
-                                    context.stopService(Intent(context, ykws.android.maro.data.track.TrackRecordingService::class.java))
-                                    context.findActivity()?.finishAffinity()
-                                }
-                            }
-                        ) { androidx.compose.material3.Text("Save track") }
-                        androidx.compose.material3.TextButton(
-                            onClick = {
-                                showExitDialog = false
-                                context.findActivity()?.moveTaskToBack(true)
-                            }
-                        ) { androidx.compose.material3.Text("Continue recording") }
-                        androidx.compose.material3.TextButton(
-                            onClick = {
-                                showExitDialog = false
-                                trackViewModel.discardRecording()
-                                kotlinx.coroutines.MainScope().launch {
-                                    kotlinx.coroutines.delay(300)
-                                    context.stopService(Intent(context, ykws.android.maro.data.track.TrackRecordingService::class.java))
-                                    context.findActivity()?.finishAffinity()
-                                }
-                            }
-                        ) { androidx.compose.material3.Text("Discard track") }
+            RecordingExitSheet(
+                onSave = {
+                    showExitDialog = false
+                    trackViewModel.stopRecording()
+                    kotlinx.coroutines.MainScope().launch {
+                        kotlinx.coroutines.delay(300)
+                        context.stopService(Intent(context, ykws.android.maro.data.track.TrackRecordingService::class.java))
+                        context.findActivity()?.finishAffinity()
                     }
                 },
-                dismissButton = null
+                onContinue = {
+                    showExitDialog = false
+                    context.findActivity()?.moveTaskToBack(true)
+                },
+                onDiscard = {
+                    showExitDialog = false
+                    trackViewModel.discardRecording()
+                    kotlinx.coroutines.MainScope().launch {
+                        kotlinx.coroutines.delay(300)
+                        context.stopService(Intent(context, ykws.android.maro.data.track.TrackRecordingService::class.java))
+                        context.findActivity()?.finishAffinity()
+                    }
+                },
+                onDismiss = { showExitDialog = false }
             )
         }
 
@@ -5690,6 +5680,72 @@ private fun SettingsTextFieldRow(
                 cursorColor = ComposeColor(AppConfig.uiSettingsTextPrimary)
             )
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun RecordingExitSheet(
+    onSave: () -> Unit,
+    onContinue: () -> Unit,
+    onDiscard: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+        containerColor = ComposeColor(AppConfig.uiSettingsBackground)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                "Recording in progress",
+                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                "A track is being recorded. What would you like to do?",
+                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                fontSize = 14.sp
+            )
+            Spacer(Modifier.height(16.dp))
+            Button(
+                onClick = onSave,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ComposeColor(AppConfig.uiSettingsAccent)
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Save track", color = ComposeColor.White, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = onContinue,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Continue recording", color = ComposeColor(AppConfig.uiSettingsAccent))
+            }
+            Spacer(Modifier.height(8.dp))
+            Button(
+                onClick = onDiscard,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ComposeColor(AppConfig.semanticDanger)
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text("Discard track", color = ComposeColor.White, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.height(16.dp))
+        }
     }
 }
 
