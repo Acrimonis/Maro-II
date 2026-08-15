@@ -3,9 +3,9 @@
 ## Active Session Pointers
 - **Active Feature:** Ui_General
 - **Active Subfeature:** notification-lifecycle
-- **Last Updated:** 2026-08-15 14:34
-- **Last Bake:** 2026-08-15 14:34 (Ui_General — notification-lifecycle: notification follows recording state, 3-choice exit dialog via ModalBottomSheet, service-owned recorder, startup NPE fix)
-- **Branch:** feature/notification
+- **Last Updated:** 2026-08-15 14:59
+- **Last Bake:** 2026-08-15 14:59 (Ui_General — notification-lifecycle: notification follows recording state, 3-choice exit dialog via ModalBottomSheet, service-owned recorder, startup NPE fix, relaunch resume gate, live polyline restore)
+- **Branch:** feature/feature-next
 
 ## Routing Map
 | Keyword | Feature File |

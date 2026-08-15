@@ -420,6 +420,9 @@ class TrackRecorder(
         }
     }
 
+    /** Snapshot of the current track's points — used to restore the live polyline after UI re-attach. */
+    fun snapshotPoints(): List<TrackPoint> = currentTrack?.trackPoints.orEmpty()
+
     /**
      * Discard the in-progress recording without finalizing.
      * Deletes the current track file and its checkpoint, then returns to OFF.
