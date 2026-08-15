@@ -5,8 +5,11 @@ import kotlinx.serialization.protobuf.ProtoBuf
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.TimeZone
 
-private val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
+private val isoFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
+    timeZone = TimeZone.getTimeZone("UTC")
+}
 private val proto = ProtoBuf.Default
 
 /** MaroII namespace URI — never change this or old exports lose MaroII data on re-import. */

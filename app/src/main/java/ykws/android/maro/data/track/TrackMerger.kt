@@ -4,6 +4,11 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.spatial.SpatialOperations
 import java.util.UUID
 
+/** Implied-speed ceiling (m/s, ~1 kn) for the reconciled-idle classifier (mirrors TrackRecorder). */
+private const val IDLE_MAX_SPEED_MPS = 0.5
+/** Net-displacement ceiling (m) for the reconciled-idle classifier (mirrors TrackRecorder). */
+private const val IDLE_MAX_DRIFT_M = 500.0
+
 /**
  * Pure utility to merge 2+ finalized tracks into a single new track.
  * No Android dependencies — operates entirely on in-memory [Track] objects.
@@ -102,6 +107,12 @@ class TrackMerger {
                 LatLng(lastPt.lat, lastPt.lon),
                 LatLng(firstPt.lat, firstPt.lon)
             )
+
+            // Compound same-area shortcut: slow AND within the area → whole gap idle.
+            if (gapDistM / gapSec < IDLE_MAX_SPEED_MPS && gapDistM < IDLE_MAX_DRIFT_M) {
+                gapIdleAccum += gapSec
+                continue
+            }
 
             val pA = a.trackPoints.size.toDouble()
             val pB = b.trackPoints.size.toDouble()

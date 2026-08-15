@@ -76,6 +76,10 @@ private const val STALE_CAP_LOW_SPEED = 1.5
 private const val STALE_CAP_NORMAL = 3.0
 /** Max plausible drift distance (m) while stationary (Fix C). */
 private const val MAX_STATIONARY_DRIFT_M = 150
+/** Implied-speed ceiling (m/s, ~1 kn) for the reconciled-idle classifier. */
+private const val IDLE_MAX_SPEED_MPS = 0.5
+/** Net-displacement ceiling (m) for the reconciled-idle classifier. */
+private const val IDLE_MAX_DRIFT_M = 500.0
 
 /** GPS speed (m/s, ~10 kn) above which sideways course changes are trusted as real navigation. */
 private const val SIDEWAYS_SPEED_THRESHOLD_MPS = 5.0f
@@ -232,6 +236,8 @@ class TrackRecorder(
     // ── Resume gap detection ──
     private var isResuming: Boolean = false
     private var checkpointFileDeleted: Boolean = false
+    /** Guards against checkpoint re-writes racing the finalize checkpoint delete + save. */
+    private var isFinalizing = false
     /** Inter-session gap in seconds when resuming a finalized track (D10). */
     private var resumeGapDurationSec: Long = 0L
 
@@ -427,8 +433,10 @@ class TrackRecorder(
                 currentTrackComment = currentTrack?.comment
             )
         }
-        scope?.launch {
-            currentTrack?.let { repository.saveCheckpoint(it) }
+        if (!isFinalizing) {
+            scope?.launch {
+                currentTrack?.let { repository.saveCheckpoint(it) }
+            }
         }
         Log.d(TAG, "updateCurrentTrackMeta: name=${currentTrack?.name} comment=${currentTrack?.comment}")
     }
@@ -562,7 +570,7 @@ class TrackRecorder(
      * Detect gap between the last checkpointed point and the incoming sample.
      * Inserts a GAP marker if distance > [gapDistanceThresholdM] or time gap > [gapTimeThresholdSec].
      */
-    private fun detectAndInsertGap(sample: TrackSample) {
+    private fun detectAndInsertGap(sample: TrackSample, force: Boolean = false) {
         val track = currentTrack ?: return
         val lastPt = track.trackPoints.lastOrNull() ?: return
         if (lastPt.type == PointType.GAP) return  // already has a gap marker
@@ -574,7 +582,7 @@ class TrackRecorder(
             sample.position
         )
 
-        if (distM > gapDistanceThresholdM || dtSec > gapTimeThresholdSec) {
+        if (force || distM > gapDistanceThresholdM || dtSec > gapTimeThresholdSec) {
             Log.d(TAG, "GAP detected: dist=${"%.0f".format(distM)}m dt=${"%.0f".format(dtSec)}s — inserting GAP marker")
             val gapPoint = TrackPoint(
                 lat = lastPt.lat,
@@ -595,13 +603,34 @@ class TrackRecorder(
         }
     }
 
+    /**
+     * Derive idle duration from the raw point timeline using the compound idle predicate.
+     * Runs on RAW points (before simplification); skips pairs adjacent to a GAP seam.
+     */
+    private fun computeTimelineIdleSec(points: List<TrackPoint>): Long {
+        var idle = 0L
+        for (i in 1 until points.size) {
+            if (points[i].type == PointType.GAP || points[i - 1].type == PointType.GAP) continue
+            val dtSec = (points[i].timeOffsetMs - points[i - 1].timeOffsetMs) / 1000.0
+            if (dtSec <= 0) continue
+            val dM = SpatialOperations.haversine(
+                LatLng(points[i - 1].lat, points[i - 1].lon),
+                LatLng(points[i].lat, points[i].lon)
+            )
+            if (dM / dtSec < IDLE_MAX_SPEED_MPS && dM < IDLE_MAX_DRIFT_M) {
+                idle += dtSec.toLong()
+            }
+        }
+        return idle
+    }
+
     private fun addPoint(sample: TrackSample) {
         val track = currentTrack ?: return
 
         // ── Resume gap detection: first point after resume ──
         if (isResuming) {
             isResuming = false
-            detectAndInsertGap(sample)
+            detectAndInsertGap(sample, force = true)
             // Delete checkpoint after first new point is captured (resume is confirmed)
             if (!checkpointFileDeleted) {
                 checkpointFileDeleted = true
@@ -999,15 +1028,18 @@ class TrackRecorder(
     }
 
     private fun finalizeTrack() {
+        isFinalizing = true
         val track = currentTrack ?: return
         stopCheckpointJob()
         stopPolling()
         cancelIdleTimer()
         stopDebounceStartTime = null
 
+        val finalizeTimeMs = System.currentTimeMillis()
+
         val avgMps = if (speedCount > 0) speedSumMps / speedCount else 0f
         val totalElapsedSec = if (recordingStartTimeMs > 0) {
-            (System.currentTimeMillis() - recordingStartTimeMs) / 1000
+            (finalizeTimeMs - recordingStartTimeMs) / 1000
         } else 0L
         val simplifiedPoints = if (simplifyEnabled && track.trackPoints.size >= 3) {
             try {
@@ -1043,15 +1075,26 @@ class TrackRecorder(
         // Re-read currentTrack after closeOpenBoatMarker to include updated boatMarkers
         val trackAfterClose = currentTrack ?: track
 
+        val reconciledIdleSec = maxOf(idleDurationSec, computeTimelineIdleSec(track.trackPoints))
+            .coerceAtMost(totalElapsedSec)
+
+        // Sweep-close any open IDLE BoatMarkers (defensive — active marker already closed above).
+        val finalMarkers = trackAfterClose.boatMarkers.map { bm ->
+            if (bm.trigger == BoatMarkerTrigger.IDLE && bm.endTimeMs == null) {
+                bm.copy(endTimeMs = finalizeTimeMs)
+            } else bm
+        }
+
         val finalized = trackAfterClose.copy(
             trackPoints = simplifiedPoints,
-            endTimeMs = System.currentTimeMillis(),
+            boatMarkers = finalMarkers,
+            endTimeMs = finalizeTimeMs,
             pausedDurationSec = 0,
-            idleDurationSec = idleDurationSec,
+            idleDurationSec = reconciledIdleSec,
             averageSpeedMps = avgMps,
             distanceNm = cumulativeDistanceNm,
-            navigatingDurationSec = totalElapsedSec - idleDurationSec - resumeGapDurationSec,
-            updatedAtEpochMs = System.currentTimeMillis(),
+            navigatingDurationSec = (totalElapsedSec - reconciledIdleSec - resumeGapDurationSec).coerceAtLeast(0),
+            updatedAtEpochMs = finalizeTimeMs,
             visibleOnMap = true
         )
 
@@ -1061,9 +1104,13 @@ class TrackRecorder(
         val finalizedWithTitle = if (finalName != null) finalized.copy(name = finalName) else finalized
         currentTrack = finalizedWithTitle
 
+        // Refresh description so sweep-closed IDLE durations appear in the comment (Fix 3).
+        recomputeDescription()
+        val finalizedTrack = currentTrack ?: finalizedWithTitle
+
         scope?.launch {
-            repository.deleteCheckpoint(finalizedWithTitle.id)
-            repository.save(finalizedWithTitle)
+            repository.deleteCheckpoint(finalizedTrack.id)
+            repository.save(finalizedTrack)
             _events.tryEmit(Stopped)
         }
 

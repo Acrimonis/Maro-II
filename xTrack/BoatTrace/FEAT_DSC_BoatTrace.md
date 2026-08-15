@@ -1,8 +1,8 @@
 name: BoatTrace
 status: active
 created: 2026-06-15 21:43
-modified: 2026-08-08 16:01
-active_subfeature: merge-idle-gap
+modified: 2026-08-15 14:31
+active_subfeature: idle-reconciliation
 ---
 
 # Feature: BoatTrace
@@ -348,6 +348,8 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 **notif-lifecycle-hardening (2026-07-14):** Three notification lifecycle fixes. (1) Tap-to-open: `setContentIntent(PendingIntent.getActivity(MainActivity))` with `SINGLE_TOP | CLEAR_TOP`. (2) Post-kill resilience: persist `lastKnownOnWater` to SharedPreferences; lightweight orphan checkpoint scan (`File.listFiles { extension == "checkpoint" }`) shows "Recovery available" label. (3) Recording-aware exit: double-back while recording shows AlertDialog ("Stop & Exit" / "Keep Recording" → `moveTaskToBack`). Non-recording double-back unchanged. 2 files, 0 new permissions. Build: ✅
 
 **tracks-paint-order (2026-07-17):** Flipped track z-order from oldest-on-top to newest-on-top for both history and pinned tracks. History and pinned overlays accumulated into temp lists, reversed, then `mv.overlays.addAll()` — preserves `computeTrackPolylineAppearance` index semantics. Added highlight-to-top: when a track is selected from the list (`highlightedTrackId != null`), its polylines (Polyline.title exact match) and auto-marker 🕐 pins (Marker.title startsWith with trailing `_` delimiter) are filtered, removed, and re-added at end — above the active recording track. Final z-order: oldest history → newest history → oldest pinned → newest pinned → active → highlighted. 1 file, BUILD SUCCESSFUL.
+
+**idle-reconciliation (2026-08-15):** Unified compound idle predicate `(d/Δt < 0.5 m/s) AND (d < 500 m)`. `TrackRecorder.computeTimelineIdleSec()` re-derives idle from the raw point timeline at finalize — long screen-off/backgrounded stops (e.g. 2h34m dive stop) now count as idle instead of silently becoming navigating; finalize sweep-closes open IDLE BoatMarkers (never MANUAL) with a single `finalizeTimeMs`; resume seam always marked with a forced GAP. `TrackMerger` applies the same predicate as a same-area shortcut before its `d/v_ref` decomposition. `GpxExporter` writes UTC timestamps. 3 files, BUILD SUCCESSFUL.
 - `xTrack/BoatTrace/260618_FEAT_PLN_BoatTrace_adaptive-isstill-settings-redesign.md` — Adaptive isStill settings redesign
 - `xTrack/BoatTrace/260617_FEAT_PLN_BoatTrace_boat-trace-fresh-import-plan.md` — Boat trace fresh import plan
 - `xTrack/BoatTrace/260618_FEAT_PLN_BoatTrace_boat-trace-ui-refinement-plan.md` — Boat trace UI refinement plan
