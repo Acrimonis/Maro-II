@@ -27,6 +27,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -124,6 +127,8 @@ fun DrawerHeader(
  * @param headerVerticalPadding    Vertical padding for the header Row (default 3dp).
  * @param contentPadding           Padding applied around the scrollable content body.
  * @param scrollable               Whether the body scrolls (true) or is static (false).
+ * @param suppressOverscrollWhenFits If true, disables the overscroll effect while the
+ *                                 body content fits the viewport (no scroll range).
  * @param statusBarsInset          If true, applies .windowInsetsPadding(statusBars)
  *                                 after the background (for full-screen drawer panels).
  * @param shape                    Clip shape for the root Box (default left-side drawer).
@@ -139,6 +144,7 @@ fun DrawerScaffold(
     headerVerticalPadding: Dp = 6.dp,
     contentPadding: PaddingValues = PaddingValues(horizontal = 12.dp),
     scrollable: Boolean = true,
+    suppressOverscrollWhenFits: Boolean = false,
     statusBarsInset: Boolean = false,
     shape: Shape = RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp),
     content: @Composable ColumnScope.() -> Unit
@@ -166,10 +172,21 @@ fun DrawerScaffold(
                     .fillMaxWidth()
             ) {
                 if (scrollable) {
+                    val scrollState = rememberScrollState()
+                    val canScroll by remember(scrollState) {
+                        derivedStateOf { scrollState.maxValue > 0 }
+                    }
+                    val suppressOverscroll = suppressOverscrollWhenFits && !canScroll
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .verticalScroll(rememberScrollState())
+                            .then(
+                                if (suppressOverscroll) {
+                                    Modifier.verticalScroll(state = scrollState, overscrollEffect = null)
+                                } else {
+                                    Modifier.verticalScroll(state = scrollState)
+                                }
+                            )
                             .padding(contentPadding),
                         content = content
                     )

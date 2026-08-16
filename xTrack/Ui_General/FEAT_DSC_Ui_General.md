@@ -1,8 +1,8 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-08-15 14:13
-active_subfeature: notification-lifecycle
+modified: 2026-08-16 08:05
+active_subfeature: landscape-menu-drawer
 ---
 
 # Feature: Ui_General
@@ -14,6 +14,22 @@ app is running. Extended with page-layout concerns: edge-to-edge rendering, stat
 bar immersion, and WindowInsets management.
 
 ## Subfeatures
+
+### landscape-menu-drawer  [x]
+
+Landscape menu drawer overflow fix: the body now scrolls only when its content is
+taller than the viewport (`DrawerScaffold(scrollable = true)`), with the overscroll
+effect suppressed while the content fits (`suppressOverscrollWhenFits`, opt-in, toggles
+`overscrollEffect = null` via `derivedStateOf { scrollState.maxValue > 0 }`). Fixed
+header stays pinned. Portrait unchanged — zero scroll range, no glow. BUILD SUCCESSFUL.
+
+#### Key Files
+- `DrawerScaffold.kt`, `MenuDrawerOverlay.kt`
+
+#### Docs
+- `xTrack/Ui_General/260816_FEAT_PLN_Ui_General_landscape-menu-drawer.md`
+
+---
 
 ### notification-lifecycle  [x]
 

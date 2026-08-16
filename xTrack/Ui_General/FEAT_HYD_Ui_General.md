@@ -1,11 +1,20 @@
 # Hydration: Ui_General
 
-**Session:** notification-lifecycle — implemented. Foreground notification follows recording state (task-removed + idle → stopSelf; recording → notification + background recording persist via service-owned recorder + GPS). Double-back exit dialog: Save track / Continue recording / Discard track, rendered via ModalBottomSheet `RecordingExitSheet`. Idle BoatMarker + title polling re-wired via process-scoped WhereAmIProvider. Startup NPE fixed (service deps `by lazy`). Relaunch while recording skips the orphan resume prompt (gate on `isRecording`); live track polyline restored via `ACTION_REPLAY_LIVE_TRACK`. BUILD SUCCESSFUL.
+**Session:** landscape-menu-drawer — implemented. Landscape menu drawer overflow fixed:
+the body now scrolls when content exceeds the viewport. `MenuDrawerOverlay` passes
+`DrawerScaffold(scrollable = true, suppressOverscrollWhenFits = true)`. The scaffold
+hoists `rememberScrollState()` and tracks `canScroll` via
+`derivedStateOf { scrollState.maxValue > 0 }`, passing `overscrollEffect = null` while
+content fits. Portrait (content fits, zero scroll range) therefore renders identically
+to before with no overscroll glow; landscape and any future menu growth scroll
+automatically. The fixed header (back + "Maro II" + settings gear) stays pinned. The new
+opt-in `suppressOverscrollWhenFits` param defaults to false, leaving MarkerDrawer and
+TrackInfoDrawer unchanged. BUILD SUCCESSFUL.
 
 **Target files:**
-- `TrackRecordingService.kt`, `TrackViewModel.kt`, `TrackRecorder.kt`, `MapScreen.kt`, `StopRecordingReceiver.kt`, `WhereAmIProvider.kt`
+- `DrawerScaffold.kt`, `MenuDrawerOverlay.kt`
 
 **Plans:**
-- `xTrack/Ui_General/260815_FEAT_PLN_Ui_General_notification-lifecycle.md`
+- `xTrack/Ui_General/260816_FEAT_PLN_Ui_General_landscape-menu-drawer.md`
 
-**Last Bake:** 2026-08-15 14:13 UTC
+**Last Bake:** 2026-08-16 08:05 UTC
