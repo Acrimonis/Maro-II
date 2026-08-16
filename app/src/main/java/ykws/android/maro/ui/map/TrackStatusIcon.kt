@@ -36,7 +36,7 @@ import ykws.android.maro.data.track.TrackRecorderUiState
  * States:
  * - **OFF:** Not tracking. White background at dimmed alpha (like GPS DEMO). No dot.
  * - **ON + moving:** Tracking and recording points. Green background, red pulsing dot.
- * - **ON + idle:** Tracking but stationary, not recording points. Blue background, blue pulsing dot.
+ * - **ON + idle:** Tracking but stationary, not recording points. Blue background, red pulsing dot.
  */
 @Composable
 fun TrackStatusIcon(

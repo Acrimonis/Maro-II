@@ -302,8 +302,8 @@ object AppConfig {
     /** Tracking icon dot colour when recording (moving). Default from semantic.danger = #CCB71C1C (red 80%). Set via `status.tracking.dot.recording` in colors.properties. */
     var statusTrackingDotRecording: Int = 0xCCB71C1C.toInt()
         private set
-    /** Tracking icon dot colour when idle (stationary). Default from semantic.inactive = #33FFFFFF (white 20%). Set via `status.tracking.dot.idle` in colors.properties. */
-    var statusTrackingDotIdle: Int = 0x33FFFFFF.toInt()
+    /** Tracking icon dot colour when idle (stationary). Default from semantic.danger = #CCB71C1C (red 80%). Set via `status.tracking.dot.idle` in colors.properties. */
+    var statusTrackingDotIdle: Int = 0xCCB71C1C.toInt()
         private set
     /** Tracking icon active-state background alpha (0.0–1.0). Default 0.75. Set via `status.tracking.alpha.active` in colors.properties. */
     var statusTrackingAlphaActive: Float = 0.75f

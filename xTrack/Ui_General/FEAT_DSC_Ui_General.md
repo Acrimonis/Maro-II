@@ -1,7 +1,7 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-08-16 08:35
+modified: 2026-08-16 09:03
 active_subfeature: top-left-icons
 ---
 
@@ -20,7 +20,7 @@ bar immersion, and WindowInsets management.
 Top-left status icons reordered to GPS → Tracking → Land/Water. GPS icon always
 visible (gray DEMO state when GPS off) and now clickable — toggles GPS ↔ demo via the
 permission-aware `onGpsModeChange`. Tracking icon 🚤 → 🐾 paw prints. RecenterButton
-stays last, GPS-only. BUILD SUCCESSFUL.
+stays last, GPS-only. Idle-state pulsing dot recolored red (semantic.danger). BUILD SUCCESSFUL.
 
 #### Key Files
 - `MapScreen.kt`, `TrackStatusIcon.kt`
