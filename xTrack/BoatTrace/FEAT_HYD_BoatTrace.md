@@ -1,23 +1,27 @@
 # BoatTrace — Hydration Snapshot
 
-**Baked at:** 2026-08-16 08:55 UTC
-**Active Subfeature:** gps-recording-regression (re-arm cooldown + permission dialog)
-**Branch:** feature/track-gps
+**Baked at:** 2026-08-16 18:23 UTC
+**Active Subfeature:** gps-recording-regression (service GPS sampling — Looper fix)
+**Branch:** feature/fix-track-gps
 
 ## Session Summary
 
-**GPS recording regression — FIXED + hardened.** The service-owned recorder's GPS producer now re-arms after a
-startup `SecurityException`, throttled to once per 15s. A new `gpsPermissionMissing` StateFlow is set on
-`SecurityException` and cleared on the first successful fix; `MapScreen` shows a once-per-episode AlertDialog
-with Open Settings / Not Now (EN+FR strings), gated on GPS mode. Clean build (`gradlew clean assembleDebug`)
-SUCCESSFUL — 42 tasks, pre-existing warnings only.
+**Root cause of "GPS mode records no points":** the service-owned recorder's GPS producer
+([`TrackRecordingService.startGpsSampling()`](app/src/main/java/ykws/android/maro/data/track/TrackRecordingService.kt:279))
+collected [`GpsLocationSource.locationUpdates()`](app/src/main/java/ykws/android/maro/data/location/GpsLocationSource.kt:64)
+on `Dispatchers.Default`, which has no `Looper`. `LocationManager.registerGnssStatusCallback` therefore
+threw `RuntimeException: Can't create handler … Looper.prepare()` on every attempt and the flow died
+before any fix arrived. The UI's `NavigationViewModel` collects the same source on `Dispatchers.Main`,
+which is why the map position kept updating while the track stayed at 0 points.
+
+**Fix:** added `.flowOn(Dispatchers.Main.immediate)` to the GPS sampling flow so the listener registers
+on the main thread. Verified on device: logcat showed `locationUpdates: GPS listener registered` with no
+exception. The temporary diagnostic logs were removed; only the `flowOn` line and its import remain.
 
 ## Key Files (modified)
 
-- `app/src/main/java/ykws/android/maro/data/track/TrackRecordingService.kt` — cooldown + gpsPermissionMissing
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — permission-missing AlertDialog
-- `app/src/main/res/values/strings.xml`, `values-fr/strings.xml` — gps_permission_title + gps_permission_message
+- `app/src/main/java/ykws/android/maro/data/track/TrackRecordingService.kt` — `.flowOn(Dispatchers.Main.immediate)`
 
 ## Next Step
 
-- On-device verification: fresh install and upgrade both record GPS points; permission dialog appears when denied.
+- On-water E2E: start recording in GPS mode and confirm points are captured (point count > 0).

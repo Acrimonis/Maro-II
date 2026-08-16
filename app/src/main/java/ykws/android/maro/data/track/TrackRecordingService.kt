@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
@@ -283,6 +284,7 @@ class TrackRecordingService : Service() {
                 .flatMapLatest { demo ->
                     if (demo) emptyFlow<GpsFix>() else gpsSource.locationUpdates(1_000L, 1f)
                 }
+                .flowOn(Dispatchers.Main.immediate)
                 .catch { e ->
                     if (e is SecurityException) _gpsPermissionMissing.value = true
                     Log.w(TAG, "GPS sampling failed (${e.javaClass.simpleName}: ${e.message})", e)

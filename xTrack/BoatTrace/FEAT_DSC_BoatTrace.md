@@ -1,8 +1,8 @@
 name: BoatTrace
 status: active
 created: 2026-06-15 21:43
-modified: 2026-08-15 14:31
-active_subfeature: idle-reconciliation
+modified: 2026-08-16 18:23
+active_subfeature: gps-recording-regression
 ---
 
 # Feature: BoatTrace
@@ -230,6 +230,14 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 
 #### Docs
 - `xTrack/BoatTrace/260622_FEAT_PLN_BoatTrace_pinned-tracks.md` — full design & implementation plan
+
+### gps-recording-regression  [x]
+
+**Purpose:** Service-owned recorder GPS producer crashed at registration — `RuntimeException: Can't create handler … Looper.prepare()` — because `startGpsSampling()` collected `GpsLocationSource.locationUpdates()` on `Dispatchers.Default`. Fixed with `.flowOn(Dispatchers.Main.immediate)`.
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/data/track/TrackRecordingService.kt`
+- `app/src/main/java/ykws/android/maro/data/location/GpsLocationSource.kt`
 
 ## Rules
 - Feature-scoped plans go in `xTrack/[Feature]/FEAT_PLN_[Feature]_[topic].md`, NOT in `plans/`. The `plans/` directory is for cross-cutting or legacy plans only.
