@@ -1,27 +1,24 @@
 # BoatTrace — Hydration Snapshot
 
-**Baked at:** 2026-08-16 18:23 UTC
-**Active Subfeature:** gps-recording-regression (service GPS sampling — Looper fix)
+**Baked at:** 2026-08-16 18:42 UTC
+**Active Subfeature:** gps-switch-confirm (confirm before switching position source while recording)
 **Branch:** feature/fix-track-gps
 
 ## Session Summary
 
-**Root cause of "GPS mode records no points":** the service-owned recorder's GPS producer
-([`TrackRecordingService.startGpsSampling()`](app/src/main/java/ykws/android/maro/data/track/TrackRecordingService.kt:279))
-collected [`GpsLocationSource.locationUpdates()`](app/src/main/java/ykws/android/maro/data/location/GpsLocationSource.kt:64)
-on `Dispatchers.Default`, which has no `Looper`. `LocationManager.registerGnssStatusCallback` therefore
-threw `RuntimeException: Can't create handler … Looper.prepare()` on every attempt and the flow died
-before any fix arrived. The UI's `NavigationViewModel` collects the same source on `Dispatchers.Main`,
-which is why the map position kept updating while the track stayed at 0 points.
-
-**Fix:** added `.flowOn(Dispatchers.Main.immediate)` to the GPS sampling flow so the listener registers
-on the main thread. Verified on device: logcat showed `locationUpdates: GPS listener registered` with no
-exception. The temporary diagnostic logs were removed; only the `flowOn` line and its import remain.
+**Confirm before switching position source while recording.** Toggling GPS↔demo while a track is
+recording used to swap the sample pipeline silently, mixing real and simulated points into one track.
+Now [`MapScreen`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt) intercepts the toggle at the
+single `onGpsModeChange` choke point: when `TrackRecorderState.ON`, it stashes a pending value and shows
+[`ConfirmSheet`](app/src/main/java/ykws/android/maro/ui/components/ConfirmSheet.kt) (bottom sheet, dashboard
+space). Confirm applies the permission-aware switch; cancel/dismiss reverts the switch. Covers all three
+entry points (drawer, settings, top-left icon); settings sheet still closes immediately.
 
 ## Key Files (modified)
 
-- `app/src/main/java/ykws/android/maro/data/track/TrackRecordingService.kt` — `.flowOn(Dispatchers.Main.immediate)`
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — guard + ConfirmSheet rendering
+- `app/src/main/res/values/strings.xml`, `values-fr/strings.xml` — `gps_switch_confirm_*` strings
 
 ## Next Step
 
-- On-water E2E: start recording in GPS mode and confirm points are captured (point count > 0).
+- On-device E2E: record a track, toggle position source, verify the confirm sheet appears; confirm/cancel behave correctly.

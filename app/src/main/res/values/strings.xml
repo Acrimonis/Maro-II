@@ -172,6 +172,11 @@
     <string name="gps_permission_title">Location Permission Needed</string>
     <string name="gps_permission_message">Location permission is not active. GPS tracks cannot be recorded until you enable it.</string>
 
+    <!-- GPS source-switch confirmation while recording -->
+    <string name="gps_switch_confirm_title">Switch position source?</string>
+    <string name="gps_switch_confirm_message">A track is being recorded. Changing the position source will switch how points are captured.</string>
+    <string name="gps_switch_confirm_action">Switch</string>
+
     <!-- Battery optimization -->
     <string name="battery_opt_title">Battery Optimization</string>
     <string name="battery_opt_message">To keep GPS tracking when the screen is off,\nMaro II needs to be exempt from battery optimization.</string>
