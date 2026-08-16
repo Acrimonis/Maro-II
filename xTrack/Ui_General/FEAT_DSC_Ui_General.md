@@ -1,7 +1,7 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-08-16 11:10
+modified: 2026-08-16 11:48
 active_subfeature: delete-advance-next
 ---
 
@@ -26,6 +26,10 @@ Snackbar stack sits at the bottom of the map area, never over the dashboard. BUI
 Hardening: per-snackbar unique uid key (fixes duplicate-key crash on re-delete); track
 navigation (delete advance, Prev, Next) skips empty-point tracks via `openFirstValidTrack`
 (fixes `NoSuchElementException` crash).
+
+UI polish: snackbar stack + bottom overlays left-aligned and clear of the right-edge
+controls (`RIGHT_CONTROL_COLUMN_INSET`, paint-only reserve); landscape drawers clear the
+status bar; Undo refocuses the restored track/marker.
 
 #### Key Files
 - `MapScreen.kt`, `MarkersViewModel.kt`

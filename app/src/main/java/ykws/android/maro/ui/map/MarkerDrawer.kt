@@ -102,8 +102,8 @@ fun MarkerDrawer(
         else RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
 
     when (drawerState) {
-        is MarkerDrawerState.Viewing -> ViewingContent(viewModel, onClose, boatPosition, panelShape, onRequestDelete)
-        is MarkerDrawerState.MatchResult -> MatchResultContent(viewModel, onClose, boatPosition, panelShape)
+        is MarkerDrawerState.Viewing -> ViewingContent(viewModel, onClose, boatPosition, panelShape, onRequestDelete, isLandscape)
+        is MarkerDrawerState.MatchResult -> MatchResultContent(viewModel, onClose, boatPosition, panelShape, isLandscape)
         else -> { /* Creating/Editing handled by WizardDrawer */ }
     }
 
@@ -123,7 +123,8 @@ private fun ViewingContent(
     onClose: () -> Unit,
     boatPosition: LatLng? = null,
     shape: Shape,
-    onRequestDelete: (String, String) -> Unit = { _, _ -> }
+    onRequestDelete: (String, String) -> Unit = { _, _ -> },
+    isLandscape: Boolean
 ) {
     val markers by viewModel.markers.collectAsState()
     val selectedIds by viewModel.selectedMarkerIds.collectAsState()
@@ -138,6 +139,7 @@ private fun ViewingContent(
         onClose = onClose,
         headerHorizontalPadding = 12.dp,
         scrollable = true,
+        statusBarsInset = isLandscape,
         shape = shape,
         contentPadding = PaddingValues(horizontal = 12.dp),
         headerActions = {
@@ -395,7 +397,8 @@ private fun MatchResultContent(
     viewModel: MarkersViewModel,
     onClose: () -> Unit,
     boatPosition: LatLng? = null,
-    shape: Shape
+    shape: Shape,
+    isLandscape: Boolean
 ) {
     val result by viewModel.matchResult.collectAsState()
 
@@ -404,6 +407,7 @@ private fun MatchResultContent(
         onClose = onClose,
         headerHorizontalPadding = 12.dp,
         scrollable = true,
+        statusBarsInset = isLandscape,
         shape = shape,
         contentPadding = PaddingValues(horizontal = 12.dp)
     ) {

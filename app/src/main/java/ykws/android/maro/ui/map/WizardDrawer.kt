@@ -20,6 +20,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -105,6 +108,7 @@ fun WizardDrawer(
             .fillMaxSize()
             .clip(drawerShape)
             .background(ComposeColor(AppConfig.uiSettingsBackground))
+            .then(if (isLandscape) Modifier.windowInsetsPadding(WindowInsets.statusBars) else Modifier)
     ) {
             // ── Top bar: Cancel ← + title + dot progress ────────────────────
             WizardTopBar(

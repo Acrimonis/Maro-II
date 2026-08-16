@@ -370,6 +370,7 @@ fun OverlayLayer(
                     DrawerScaffold(
                         title = track.name,
                         onClose = onTrackDrawerClose,
+                        statusBarsInset = true,
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp),
                         headerActions = {
                             Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {

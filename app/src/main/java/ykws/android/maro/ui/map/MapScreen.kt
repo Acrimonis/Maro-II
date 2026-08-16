@@ -203,6 +203,9 @@ import ykws.android.maro.data.track.WhereAmIProvider
 /** Animation duration per GPS-follow scroll (ms). Must be < min GPS fix interval (1s). */
 private const val GPS_ANIMATION_DURATION_MS = 600L
 
+/** Right-edge control column width (12 gap + 64 button + 6 end). Paint-only reserve for transient overlays; the map itself is never padded by this. */
+private val RIGHT_CONTROL_COLUMN_INSET = 82.dp
+
 /** Computed polyline rendering appearance: ARGB color + stroke width. */
 data class TrackPolylineAppearance(val argb: Int, val strokeWidth: Float)
 
@@ -424,15 +427,24 @@ fun MapScreen(
                 pendingDeleteIds.remove("t:${snack.id}")
                 trackScope.launch {
                     val track = trackViewModel.loadTrackDetailCached(snack.id)
-                    if (track != null) {
+                    if (track != null && track.trackPoints.isNotEmpty()) {
                         highlightedTrackId = snack.id
-                        trackDrawerState = TrackDrawerState(isOpen = true, track = track)
+                        trackDrawerState = TrackDrawerState(isOpen = true, track = track, mapWasInteracted = false)
+                        val tp = computeTrackNavigateTarget(track)
+                        val gp = GeoPoint(tp.first, tp.second)
+                        val bbox = if (track.trackPoints.size >= 2) org.osmdroid.util.BoundingBox(
+                            track.trackPoints.maxOf { it.lat }, track.trackPoints.maxOf { it.lon },
+                            track.trackPoints.minOf { it.lat }, track.trackPoints.minOf { it.lon }
+                        ) else null
+                        if (bbox != null) trackNavigateState = TrackNavigateState(gp, bbox, snack.id)
+                        else mapView?.controller?.animateTo(gp, null, GPS_ANIMATION_DURATION_MS)
                     }
                 }
             }
             is ActiveSnack.MarkerDelete -> {
                 pendingDeleteIds.remove("m:${snack.id}")
                 markersViewModel.openEditDrawer(snack.selection, selectedId = snack.id, source = snack.source)
+                highlightedMarkerId = snack.id
             }
             is ActiveSnack.CreateUndo -> markersViewModel.undoCreateMarker()
         }
@@ -2430,12 +2442,12 @@ fun MapScreen(
         Box(modifier = Modifier.fillMaxSize()) {
             Column(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
+                    .align(Alignment.BottomStart)
                     .padding(
                         bottom = if (isLandscape) 0.dp else portraitDashboardHeight,
                         start = if (isLandscape) landscapeDashboardWidth else 0.dp
                     )
-                    .padding(horizontal = 12.dp),
+                    .padding(start = 12.dp, end = RIGHT_CONTROL_COLUMN_INSET),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 activeSnacks.forEach { snack ->
@@ -2888,10 +2900,10 @@ private fun MapContent(
                     // Middle layer: loading/error overlay (conditional)
                     Box(
                         modifier = Modifier
-                            .align(Alignment.BottomCenter)
+                            .align(Alignment.BottomStart)
                             .fillMaxWidth()
                             .padding(start = 6.dp, end = 6.dp),
-                        contentAlignment = Alignment.Center
+                        contentAlignment = Alignment.CenterStart
                     ) {
                         if (rasterProgress != null && rasterProgress!!.globalProgress < 100) {
                             val rp = rasterProgress!!
@@ -2925,10 +2937,10 @@ private fun MapContent(
                             ComposeColor(AppConfig.uiDashboardBackground)
                         Box(
                             modifier = Modifier
-                                .align(Alignment.BottomCenter)
+                                .align(Alignment.BottomStart)
                                 .fillMaxWidth()
                                 .padding(start = 6.dp, end = 6.dp),
-                            contentAlignment = Alignment.Center
+                            contentAlignment = Alignment.CenterStart
                         ) {
                             Surface(
                                 shape = RoundedCornerShape(14.dp),
