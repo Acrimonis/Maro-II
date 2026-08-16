@@ -367,6 +367,12 @@ fun MapScreen(
     val acquisitionMode by viewModel.acquisitionMode.collectAsState()
     val isEstimating by viewModel.isEstimating.collectAsState()
     val boatIsWater by viewModel.boatIsWater.collectAsState()
+    // ── Service GPS permission signal (missing → re-prompt once per episode) ──
+    val gpsPermissionMissing by TrackRecordingService.gpsPermissionMissing.collectAsState()
+    var gpsPermissionDialogDismissed by remember { mutableStateOf(false) }
+    LaunchedEffect(gpsPermissionMissing) {
+        if (!gpsPermissionMissing) gpsPermissionDialogDismissed = false
+    }
     // Effective heading for the zone-ahead cone:
     // GPS mode → GPS bearing (COG/compass, boat faces direction of travel)
     // Demo mode → 0° = north (boat marker always points up/top of map).
@@ -2379,6 +2385,31 @@ fun MapScreen(
                 dismissButton = {
                     androidx.compose.material3.TextButton(
                         onClick = { showBgLocationDialog = false }
+                    ) { androidx.compose.material3.Text(stringResource(R.string.bg_location_not_now)) }
+                }
+            )
+        }
+
+        // ── GPS permission-missing dialog (shown once per missing-permission episode) ──
+        if (gpsPermissionMissing && !gpsPermissionDialogDismissed && appSettings.gpsMode) {
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { gpsPermissionDialogDismissed = true },
+                title = { androidx.compose.material3.Text(stringResource(R.string.gps_permission_title)) },
+                text = { androidx.compose.material3.Text(stringResource(R.string.gps_permission_message)) },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(
+                        onClick = {
+                            gpsPermissionDialogDismissed = true
+                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.parse("package:${context.packageName}")
+                            }
+                            context.startActivity(intent)
+                        }
+                    ) { androidx.compose.material3.Text(stringResource(R.string.bg_location_open_settings)) }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(
+                        onClick = { gpsPermissionDialogDismissed = true }
                     ) { androidx.compose.material3.Text(stringResource(R.string.bg_location_not_now)) }
                 }
             )
