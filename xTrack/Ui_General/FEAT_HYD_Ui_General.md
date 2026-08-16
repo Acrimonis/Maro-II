@@ -1,11 +1,18 @@
 # Hydration: Ui_General
 
-**Session:** notification-lifecycle — implemented. Foreground notification follows recording state (task-removed + idle → stopSelf; recording → notification + background recording persist via service-owned recorder + GPS). Double-back exit dialog: Save track / Continue recording / Discard track, rendered via ModalBottomSheet `RecordingExitSheet`. Idle BoatMarker + title polling re-wired via process-scoped WhereAmIProvider. Startup NPE fixed (service deps `by lazy`). Relaunch while recording skips the orphan resume prompt (gate on `isRecording`); live track polyline restored via `ACTION_REPLAY_LIVE_TRACK`. BUILD SUCCESSFUL.
+**Session:** top-left-icons — implemented. Top-left status row reordered to
+GPS → Tracking → Land/Water. GPS icon (`GpsStatusIcon`) now always visible: in demo
+mode it renders the gray DEMO state, and it is clickable — `onClick` toggles GPS ↔ demo
+via the permission-aware `onGpsModeChange` threaded through a new `onGpsModeToggle`
+param on `MapContent`. Tracking icon emoji changed from 🚤 to 🐾 paw prints. The
+idle-state (ON + stationary) pulsing dot recolored red via `status.tracking.dot.idle`
+→ `semantic.danger` (`AppConfig.statusTrackingDotIdle` = #CCB71C1C). `RecenterButton`
+remains last and GPS-only. BUILD SUCCESSFUL.
 
 **Target files:**
-- `TrackRecordingService.kt`, `TrackViewModel.kt`, `TrackRecorder.kt`, `MapScreen.kt`, `StopRecordingReceiver.kt`, `WhereAmIProvider.kt`
+- `MapScreen.kt`, `TrackStatusIcon.kt`, `AppConfig.kt`, `colors.properties`
 
 **Plans:**
-- `xTrack/Ui_General/260815_FEAT_PLN_Ui_General_notification-lifecycle.md`
+- `xTrack/Ui_General/260816_FEAT_PLN_Ui_General_top-left-icons-reorder.md`
 
-**Last Bake:** 2026-08-15 14:13 UTC
+**Last Bake:** 2026-08-16 09:03 UTC

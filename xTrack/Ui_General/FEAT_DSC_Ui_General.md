@@ -1,8 +1,8 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-08-15 14:13
-active_subfeature: notification-lifecycle
+modified: 2026-08-16 09:03
+active_subfeature: top-left-icons
 ---
 
 # Feature: Ui_General
@@ -14,6 +14,37 @@ app is running. Extended with page-layout concerns: edge-to-edge rendering, stat
 bar immersion, and WindowInsets management.
 
 ## Subfeatures
+
+### top-left-icons  [x]
+
+Top-left status icons reordered to GPS → Tracking → Land/Water. GPS icon always
+visible (gray DEMO state when GPS off) and now clickable — toggles GPS ↔ demo via the
+permission-aware `onGpsModeChange`. Tracking icon 🚤 → 🐾 paw prints. RecenterButton
+stays last, GPS-only. Idle-state pulsing dot recolored red (semantic.danger). BUILD SUCCESSFUL.
+
+#### Key Files
+- `MapScreen.kt`, `TrackStatusIcon.kt`
+
+#### Docs
+- `xTrack/Ui_General/260816_FEAT_PLN_Ui_General_top-left-icons-reorder.md`
+
+---
+
+### landscape-menu-drawer  [x]
+
+Landscape menu drawer overflow fix: the body now scrolls only when its content is
+taller than the viewport (`DrawerScaffold(scrollable = true)`), with the overscroll
+effect suppressed while the content fits (`suppressOverscrollWhenFits`, opt-in, toggles
+`overscrollEffect = null` via `derivedStateOf { scrollState.maxValue > 0 }`). Fixed
+header stays pinned. Portrait unchanged — zero scroll range, no glow. BUILD SUCCESSFUL.
+
+#### Key Files
+- `DrawerScaffold.kt`, `MenuDrawerOverlay.kt`
+
+#### Docs
+- `xTrack/Ui_General/260816_FEAT_PLN_Ui_General_landscape-menu-drawer.md`
+
+---
 
 ### notification-lifecycle  [x]
 

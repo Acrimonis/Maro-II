@@ -30,13 +30,13 @@ import ykws.android.maro.data.track.TrackRecorderUiState
 /**
  * Tracking status icon — matches [GpsStatusIcon] and [EarthWaterIcon] styling.
  *
- * 44×44 dp rounded square with 🚤 speedboat emoji, colored background per state.
+ * 44×44 dp rounded square with 🐾 paw-prints emoji, colored background per state.
  * A pulsing dot in the top-right quadrant indicates sub-state (recording vs idle).
  *
  * States:
  * - **OFF:** Not tracking. White background at dimmed alpha (like GPS DEMO). No dot.
  * - **ON + moving:** Tracking and recording points. Green background, red pulsing dot.
- * - **ON + idle:** Tracking but stationary, not recording points. Blue background, blue pulsing dot.
+ * - **ON + idle:** Tracking but stationary, not recording points. Blue background, red pulsing dot.
  */
 @Composable
 fun TrackStatusIcon(
@@ -95,7 +95,7 @@ fun TrackStatusIcon(
         contentAlignment = Alignment.Center
     ) {
         Text(
-            text = "\uD83D\uDEA4", // 🚤 speedboat
+            text = "\uD83D\uDC3E", // 🐾 paw prints
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold
         )

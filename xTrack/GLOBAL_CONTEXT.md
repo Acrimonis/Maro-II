@@ -2,10 +2,10 @@
 
 ## Active Session Pointers
 - **Active Feature:** Ui_General
-- **Active Subfeature:** notification-lifecycle
-- **Last Updated:** 2026-08-15 14:59
-- **Last Bake:** 2026-08-15 14:59 (Ui_General — notification-lifecycle: notification follows recording state, 3-choice exit dialog via ModalBottomSheet, service-owned recorder, startup NPE fix, relaunch resume gate, live polyline restore)
-- **Branch:** feature/feature-next
+- **Active Subfeature:** top-left-icons
+- **Last Updated:** 2026-08-16 09:03
+- **Last Bake:** 2026-08-16 09:03 (Ui_General — top-left-icons: GPS→tracking→land/water order, GPS icon always visible + click-to-toggle GPS↔demo, tracking icon 🐾, idle dot red)
+- **Branch:** feature/GPS-ui
 
 ## Routing Map
 | Keyword | Feature File |
@@ -49,7 +49,7 @@
 | | Performance | Battery optimization, adaptive GPS tuning, compass gate, map refresh | 2026-05-20 00:00 | 2026-06-05 00:00 | active |
 | | BakeNormalization | APK bake/build/deploy pipeline and prebake data processing | 2026-06-01 00:00 | 2026-06-05 00:00 | active |
 | | DepthSafety | Danger depth alerts, shallow water grounding prevention, isobath precision | 2026-06-03 00:00 | 2026-06-05 00:00 | active |
-| | Ui_General | App-lifecycle UX: back-to-exit guard, keep-screen-on wakelock, edge-to-edge rendering, WindowInsets, list normalization (ListOverlayScaffold, sort, swipe-to-delete, per-type custom sort fields, localized EN+FR), list-detail navigation (scroll preservation, prev/next, exit conditions), drawer delete undo (snackbar + undo + reopen), notification lifecycle (foreground notification follows recording state, 3-choice exit dialog, service-owned recorder) | 2026-06-08 16:43 | 2026-08-15 14:13 | active |
+| | Ui_General | App-lifecycle UX: back-to-exit guard, keep-screen-on wakelock, edge-to-edge rendering, WindowInsets, list normalization (ListOverlayScaffold, sort, swipe-to-delete, per-type custom sort fields, localized EN+FR), list-detail navigation (scroll preservation, prev/next, exit conditions), drawer delete undo (snackbar + undo + reopen), notification lifecycle (foreground notification follows recording state, 3-choice exit dialog, service-owned recorder), landscape menu drawer (scroll-when-overflow, overscroll suppressed when content fits), top-left icons (GPS→tracking→land/water, GPS click-to-toggle, 🐾, idle dot red) | 2026-06-08 16:43 | 2026-08-16 09:03 | active |
 | | Ui_Settings | Settings page UI, persistence, widgets, and UX enhancements | 2026-06-09 15:28 | 2026-06-18 19:10 | active |
 | | **Navigation** | **Navigation aids — heading/speed arrow and direction line on map overlay** | **2026-06-10 08:40** | **2026-06-11 11:55** | **active** |
 | | **RegulatedZones** | **Maritime regulatory zones — multi-source normalization (SHOM INSPIRE + IGN Natura 2000), sealed classification, 8-category icon mapping, keyword-driven display logic** | **2026-06-11 18:00** | **2026-06-12 22:37** | **active** |

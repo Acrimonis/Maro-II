@@ -101,7 +101,8 @@ fun MenuDrawerOverlay(
         title = "Maro II",
         onClose = onDismiss,
         modifier = modifier,
-        scrollable = false,
+        scrollable = true,
+        suppressOverscrollWhenFits = true,
         statusBarsInset = true,
         contentPadding = PaddingValues(horizontal = 24.dp),
         headerActions = {
