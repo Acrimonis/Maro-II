@@ -228,10 +228,11 @@ private data class TrackDrawerState(
 
 /** Snackbar entry for the vertical stack — track/marker deletes + marker-created undo. */
 private sealed class ActiveSnack(val id: String, val name: String) {
-    val key: String get() = when (this) {
-        is TrackDelete -> "t:$id"
-        is MarkerDelete -> "m:$id"
-        is CreateUndo -> "c:$id"
+    val uid: Int = nextUid()
+
+    private companion object {
+        private var uidCounter = 0
+        private fun nextUid() = uidCounter++
     }
 
     class TrackDelete(id: String, name: String) : ActiveSnack(id, name)
@@ -247,7 +248,7 @@ private sealed class ActiveSnack(val id: String, val name: String) {
 @Composable
 private fun SnackRow(
     message: String,
-    snackKey: String,
+    snackKey: Int,
     onUndo: () -> Unit,
     onTimeout: () -> Unit
 ) {
@@ -452,6 +453,34 @@ fun MapScreen(
             is ActiveSnack.CreateUndo -> markersViewModel.dismissLastSaved()
         }
         promoteQueued()
+    }
+
+    fun openFirstValidTrack(candidateIds: List<String>, onNone: () -> Unit) {
+        if (candidateIds.isEmpty()) {
+            onNone()
+            return
+        }
+        trackScope.launch {
+            var opened = false
+            for (candidateId in candidateIds) {
+                val track = trackViewModel.loadTrackDetailCached(candidateId)
+                if (track != null && track.trackPoints.isNotEmpty()) {
+                    highlightedTrackId = candidateId
+                    trackDrawerState = TrackDrawerState(isOpen = true, track = track, mapWasInteracted = false)
+                    val tp = computeTrackNavigateTarget(track)
+                    val gp = GeoPoint(tp.first, tp.second)
+                    val bbox = if (track.trackPoints.size >= 2) org.osmdroid.util.BoundingBox(
+                        track.trackPoints.maxOf { it.lat }, track.trackPoints.maxOf { it.lon },
+                        track.trackPoints.minOf { it.lat }, track.trackPoints.minOf { it.lon }
+                    ) else null
+                    if (bbox != null) trackNavigateState = TrackNavigateState(gp, bbox, candidateId)
+                    else mapView?.controller?.animateTo(gp, null, GPS_ANIMATION_DURATION_MS)
+                    opened = true
+                    break
+                }
+            }
+            if (!opened) onNone()
+        }
     }
 
     val markerChangeFlow = remember { MutableSharedFlow<Unit>(extraBufferCapacity = 1) }
@@ -2323,45 +2352,15 @@ fun MapScreen(
             onTrackPrev = {
                 val ids = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id }
                 val idx = ids.indexOf(trackDrawerState.track?.id ?: "")
-                val prevIdx = (idx - 1).coerceAtLeast(0)
-                if (prevIdx != idx) {
-                    trackScope.launch {
-                        val track = trackViewModel.loadTrackDetailCached(ids[prevIdx])
-                        if (track != null) {
-                            highlightedTrackId = ids[prevIdx]
-                            trackDrawerState = TrackDrawerState(isOpen = true, track = track, mapWasInteracted = false)
-                            val tp = computeTrackNavigateTarget(track)
-                            val gp = GeoPoint(tp.first, tp.second)
-                            val bbox = if (track.trackPoints.size >= 2) org.osmdroid.util.BoundingBox(
-                                track.trackPoints.maxOf { it.lat }, track.trackPoints.maxOf { it.lon },
-                                track.trackPoints.minOf { it.lat }, track.trackPoints.minOf { it.lon }
-                            ) else null
-                            if (bbox != null) trackNavigateState = TrackNavigateState(gp, bbox, ids[prevIdx])
-                            else mapView?.controller?.animateTo(gp, null, GPS_ANIMATION_DURATION_MS)
-                        }
-                    }
+                if (idx > 0) {
+                    openFirstValidTrack(ids.subList(0, idx).asReversed()) { }
                 }
             },
             onTrackNext = {
                 val ids = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id }
                 val idx = ids.indexOf(trackDrawerState.track?.id ?: "")
-                val nextIdx = (idx + 1).coerceAtMost(ids.lastIndex)
-                if (nextIdx != idx) {
-                    trackScope.launch {
-                        val track = trackViewModel.loadTrackDetailCached(ids[nextIdx])
-                        if (track != null) {
-                            highlightedTrackId = ids[nextIdx]
-                            trackDrawerState = TrackDrawerState(isOpen = true, track = track, mapWasInteracted = false)
-                            val tp = computeTrackNavigateTarget(track)
-                            val gp = GeoPoint(tp.first, tp.second)
-                            val bbox = if (track.trackPoints.size >= 2) org.osmdroid.util.BoundingBox(
-                                track.trackPoints.maxOf { it.lat }, track.trackPoints.maxOf { it.lon },
-                                track.trackPoints.minOf { it.lat }, track.trackPoints.minOf { it.lon }
-                            ) else null
-                            if (bbox != null) trackNavigateState = TrackNavigateState(gp, bbox, ids[nextIdx])
-                            else mapView?.controller?.animateTo(gp, null, GPS_ANIMATION_DURATION_MS)
-                        }
-                    }
+                if (idx >= 0 && idx < ids.lastIndex) {
+                    openFirstValidTrack(ids.subList(idx + 1, ids.size)) { }
                 }
             },
             onShareTrack = { id -> shareTrackGpx(context, trackViewModel, id, trackScope) },
@@ -2369,38 +2368,16 @@ fun MapScreen(
                 val track = trackDrawerState.track
                 enqueueSnack(ActiveSnack.TrackDelete(id, track?.name ?: "Unknown"))
                 pendingDeleteIds.add("t:$id")
-                // Advance to adjacent track: next → previous → close.
+                // Advance to adjacent track: next → previous, skipping pending + empty tracks.
                 val fullIds = trackSummaries.filter { !it.isLive }.map { it.id }
                 val i = fullIds.indexOf(id)
-                var targetIdx = -1
-                var j = i + 1
-                while (j < fullIds.size && targetIdx < 0) {
-                    if ("t:${fullIds[j]}" !in pendingDeleteIds) targetIdx = j else j++
-                }
-                if (targetIdx < 0) {
-                    j = i - 1
-                    while (j >= 0 && targetIdx < 0) {
-                        if ("t:${fullIds[j]}" !in pendingDeleteIds) targetIdx = j else j--
-                    }
-                }
-                if (targetIdx >= 0) {
-                    val targetId = fullIds[targetIdx]
-                    trackScope.launch {
-                        val next = trackViewModel.loadTrackDetailCached(targetId)
-                        if (next != null) {
-                            highlightedTrackId = targetId
-                            trackDrawerState = TrackDrawerState(isOpen = true, track = next, mapWasInteracted = false)
-                            val tp = computeTrackNavigateTarget(next)
-                            val gp = GeoPoint(tp.first, tp.second)
-                            val bbox = if (next.trackPoints.size >= 2) org.osmdroid.util.BoundingBox(
-                                next.trackPoints.maxOf { it.lat }, next.trackPoints.maxOf { it.lon },
-                                next.trackPoints.minOf { it.lat }, next.trackPoints.minOf { it.lon }
-                            ) else null
-                            if (bbox != null) trackNavigateState = TrackNavigateState(gp, bbox, targetId)
-                            else mapView?.controller?.animateTo(gp, null, GPS_ANIMATION_DURATION_MS)
-                        }
-                    }
-                } else {
+                val after = if (i >= 0) {
+                    fullIds.subList(i + 1, fullIds.size).filter { "t:$it" !in pendingDeleteIds }
+                } else emptyList()
+                val before = if (i >= 0) {
+                    fullIds.subList(0, i).asReversed().filter { "t:$it" !in pendingDeleteIds }
+                } else emptyList()
+                openFirstValidTrack(after + before) {
                     highlightedTrackId = null
                     trackDrawerState = TrackDrawerState()
                     preNavigationState = null
@@ -2462,14 +2439,14 @@ fun MapScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 activeSnacks.forEach { snack ->
-                    androidx.compose.runtime.key(snack.key) {
+                    androidx.compose.runtime.key(snack.uid) {
                         SnackRow(
                             message = when (snack) {
                                 is ActiveSnack.TrackDelete -> "Track '${snack.name}' deleted"
                                 is ActiveSnack.MarkerDelete -> "Marker '${snack.name}' deleted"
                                 is ActiveSnack.CreateUndo -> "Marker \"${snack.name}\" created"
                             },
-                            snackKey = snack.key,
+                            snackKey = snack.uid,
                             onUndo = { onSnackUndo(snack) },
                             onTimeout = { onSnackTimeout(snack) }
                         )

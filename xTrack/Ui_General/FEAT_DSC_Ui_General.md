@@ -1,7 +1,7 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-08-16 10:45
+modified: 2026-08-16 11:10
 active_subfeature: delete-advance-next
 ---
 
@@ -22,6 +22,10 @@ just closing, with a vertical snackbar stack (cap 3 visible, FIFO overflow) for 
 All snackbars share the stack: track delete, marker delete, and marker-created undo.
 `deleteMarker` gained a `closeDrawer` flag so the advanced drawer stays open on timeout.
 Snackbar stack sits at the bottom of the map area, never over the dashboard. BUILD SUCCESSFUL.
+
+Hardening: per-snackbar unique uid key (fixes duplicate-key crash on re-delete); track
+navigation (delete advance, Prev, Next) skips empty-point tracks via `openFirstValidTrack`
+(fixes `NoSuchElementException` crash).
 
 #### Key Files
 - `MapScreen.kt`, `MarkersViewModel.kt`
