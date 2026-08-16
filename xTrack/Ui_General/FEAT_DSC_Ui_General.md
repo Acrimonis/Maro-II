@@ -1,8 +1,8 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-08-16 11:48
-active_subfeature: delete-advance-next
+modified: 2026-08-16 12:13
+active_subfeature: menu-drawer-rows
 ---
 
 # Feature: Ui_General
@@ -14,6 +14,22 @@ app is running. Extended with page-layout concerns: edge-to-edge rendering, stat
 bar immersion, and WindowInsets management.
 
 ## Subfeatures
+
+### menu-drawer-rows  [x]
+
+Menu drawer rows renamed "Manage Tracks"→"Tracks" / "Manage Markers"→"Markers"
+(EN+FR, no ellipsis). Row tap opens the list; the trailing chevron is now its own
+IconButton that opens the detail drawer on the first item of the current
+filtered/sorted list (track: first non-live + non-pending-delete; marker: first of
+`markers`), disabled when there is no first item. BUILD SUCCESSFUL.
+
+#### Key Files
+- `MenuDrawerOverlay.kt`, `OverlayLayer.kt`, `MapScreen.kt`, `strings.xml` (EN+FR)
+
+#### Docs
+- `xTrack/Ui_General/260816_FEAT_PLN_Ui_General_menu-drawer-rows.md`
+
+---
 
 ### delete-advance-next  [x]
 

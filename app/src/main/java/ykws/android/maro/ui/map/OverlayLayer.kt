@@ -96,6 +96,8 @@ fun OverlayLayer(
     onOpenTrackHistoryFromMenu: () -> Unit,
     onOpenMarkerManagementFromMenu: () -> Unit,
     onOpenSettingsFromMenu: () -> Unit,
+    onOpenFirstTrack: (String) -> Unit = {},
+    onOpenFirstMarker: (String) -> Unit = {},
 
     // ── ViewModels ───────────────────────────────────────────────────────
     markersViewModel: MarkersViewModel,
@@ -107,6 +109,8 @@ fun OverlayLayer(
     gpsToggleColor: ComposeColor,
     markerZonesVisible: Boolean = true,
     onToggleMarkerZones: () -> Unit = {},
+    firstTrackId: String? = null,
+    firstMarkerId: String? = null,
 
     // ── Track history data ───────────────────────────────────────────────
     onTrackAction: (ykws.android.maro.data.model.ListAction) -> Unit,
@@ -278,6 +282,8 @@ fun OverlayLayer(
                     onDismissMenu()
                     onOpenMarkerManagementFromMenu()
                 },
+                onOpenFirstTrack = firstTrackId?.let { id -> { onDismissMenu(); onOpenFirstTrack(id) } },
+                onOpenFirstMarker = firstMarkerId?.let { id -> { onDismissMenu(); onOpenFirstMarker(id) } },
                 onDismiss = onDismissMenu,
                 onOpenSettings = {
                     onDismissMenu()

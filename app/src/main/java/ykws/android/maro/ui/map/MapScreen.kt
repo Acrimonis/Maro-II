@@ -2118,6 +2118,83 @@ fun MapScreen(
         // ── Layer 1: Overlay (transient drawers, Wizard, Settings, scrim) ──
         val showWizard = drawerState is MarkerDrawerState.Creating || drawerState is MarkerDrawerState.Editing
         val mgmtMarkers by markersViewModel.markers.collectAsState()
+
+        // ── Menu chevron shortcuts: first item of the current filtered/sorted list ──
+        val firstTrackId = trackSummaries.firstOrNull { !it.isLive && "t:${it.id}" !in pendingDeleteIds }?.id
+        val firstMarkerId = mgmtMarkers.firstOrNull()?.id
+
+        fun openTrackDetail(id: String, fromList: Boolean) {
+            if (!appSettings.tracksVisible) {
+                viewModel.updateSettings { it.copy(tracksVisible = true) }
+            }
+            if (fromList) {
+                trackOpenedFromList = true
+                trackListScrollState = SavedScrollState(
+                    trackListState.firstVisibleItemIndex,
+                    trackListState.firstVisibleItemScrollOffset
+                )
+            }
+            showTrackHistory = false
+            trackScope.launch {
+                try {
+                    val track = trackViewModel.loadTrackDetailCached(id)
+                    if (track == null || track.trackPoints.isEmpty()) return@launch
+
+                    val targetPoint = computeTrackNavigateTarget(track)
+                    val geoPoint = GeoPoint(targetPoint.first, targetPoint.second)
+
+                    val bbox = if (track.trackPoints.size >= 2) {
+                        org.osmdroid.util.BoundingBox(
+                            track.trackPoints.maxOf { it.lat },
+                            track.trackPoints.maxOf { it.lon },
+                            track.trackPoints.minOf { it.lat },
+                            track.trackPoints.minOf { it.lon }
+                        )
+                    } else null
+
+                    preNavigationState = mapView?.let { mv ->
+                        val c = mv.mapCenter
+                        PreNavigationState(mv.zoomLevelDouble, c.latitude, c.longitude)
+                    }
+
+                    highlightedTrackId = id
+                    trackDrawerState = TrackDrawerState(
+                        isOpen = true,
+                        track = track,
+                        mapWasInteracted = false
+                    )
+
+                    if (bbox != null) {
+                        trackNavigateState = TrackNavigateState(geoPoint, bbox, id)
+                    } else {
+                        // Single-point track: just animate, no bounding box zoom
+                        mapView?.controller?.animateTo(geoPoint, null, GPS_ANIMATION_DURATION_MS)
+                    }
+                } catch (_: Exception) {
+                    // Silently fail — track data unavailable
+                }
+            }
+        }
+
+        fun openMarkerDetail(id: String, fromList: Boolean) {
+            val marker = mgmtMarkers.find { it.id == id } ?: return
+            navigationZonesVisible = true
+            markersViewModel.showLayer()
+            highlightedMarkerId = id
+            if (fromList) {
+                markerOpenedFromList = true
+                markerListScrollState = SavedScrollState(
+                    markerListState.firstVisibleItemIndex,
+                    markerListState.firstVisibleItemScrollOffset
+                )
+            }
+            showMarkerManagement = false
+            navigateToTarget = NavigateTarget(
+                geoPoint = GeoPoint(marker.centerPoint.latitude, marker.centerPoint.longitude),
+                markerId = id
+            )
+        }
+
         OverlayLayer(
             showSettings = showSettings,
             showTrackDrawer = showTrackDrawer,
@@ -2146,6 +2223,8 @@ fun MapScreen(
             onOpenTrackHistoryFromMenu = { trackOpenedFromList = false; showTrackHistory = true },
             onOpenMarkerManagementFromMenu = { markerOpenedFromList = false; showMarkerManagement = true },
             onOpenSettingsFromMenu = { showSettings = true },
+            onOpenFirstTrack = { id -> openTrackDetail(id, fromList = false) },
+            onOpenFirstMarker = { id -> openMarkerDetail(id, fromList = false) },
             markersViewModel = markersViewModel,
             trackViewModel = trackViewModel,
             gpsMode = appSettings.gpsMode,
@@ -2157,58 +2236,11 @@ fun MapScreen(
                 viewModel.updateSettings { it.copy(markerZonesVisible = !appSettings.markerZonesVisible) }
                 mapView?.invalidate()
             },
+            firstTrackId = firstTrackId,
+            firstMarkerId = firstMarkerId,
             onTrackAction = { action ->
                 when (action) {
-                    is ykws.android.maro.data.model.ListAction.NavigateToItem -> {
-                        if (!appSettings.tracksVisible) {
-                            viewModel.updateSettings { it.copy(tracksVisible = true) }
-                        }
-                        trackOpenedFromList = true
-                        trackListScrollState = SavedScrollState(
-                            trackListState.firstVisibleItemIndex,
-                            trackListState.firstVisibleItemScrollOffset
-                        )
-                        showTrackHistory = false
-                        trackScope.launch {
-                            try {
-                                val track = trackViewModel.loadTrackDetailCached(action.id)
-                                if (track == null || track.trackPoints.isEmpty()) return@launch
-
-                                val targetPoint = computeTrackNavigateTarget(track)
-                                val geoPoint = GeoPoint(targetPoint.first, targetPoint.second)
-
-                                val bbox = if (track.trackPoints.size >= 2) {
-                                    org.osmdroid.util.BoundingBox(
-                                        track.trackPoints.maxOf { it.lat },
-                                        track.trackPoints.maxOf { it.lon },
-                                        track.trackPoints.minOf { it.lat },
-                                        track.trackPoints.minOf { it.lon }
-                                    )
-                                } else null
-
-                                preNavigationState = mapView?.let { mv ->
-                                    val c = mv.mapCenter
-                                    PreNavigationState(mv.zoomLevelDouble, c.latitude, c.longitude)
-                                }
-
-                                highlightedTrackId = action.id
-                                trackDrawerState = TrackDrawerState(
-                                    isOpen = true,
-                                    track = track,
-                                    mapWasInteracted = false
-                                )
-
-                                if (bbox != null) {
-                                    trackNavigateState = TrackNavigateState(geoPoint, bbox, action.id)
-                                } else {
-                                    // Single-point track: just animate, no bounding box zoom
-                                    mapView?.controller?.animateTo(geoPoint, null, GPS_ANIMATION_DURATION_MS)
-                                }
-                            } catch (_: Exception) {
-                                // Silently fail — track data unavailable
-                            }
-                        }
-                    }
+                    is ykws.android.maro.data.model.ListAction.NavigateToItem -> openTrackDetail(action.id, fromList = true)
                     is ykws.android.maro.data.model.ListAction.ExportGpx -> shareTrackGpx(context, trackViewModel, action.id, trackScope)
                     is ykws.android.maro.data.model.ListAction.BatchExportGpx -> shareTracksZip(context, trackViewModel, action.ids, trackScope)
                     is ykws.android.maro.data.model.ListAction.ImportTracks -> importLauncher?.launch(arrayOf("application/gpx+xml", "application/zip", "*/*"))
@@ -2251,22 +2283,7 @@ fun MapScreen(
             markers = mgmtMarkers,
             onMarkerAction = { action ->
                 when (action) {
-                    is ykws.android.maro.data.model.ListAction.NavigateToItem -> {
-                        navigationZonesVisible = true
-                        markersViewModel.showLayer()
-                        highlightedMarkerId = action.id
-                        markerOpenedFromList = true
-                        markerListScrollState = SavedScrollState(
-                            markerListState.firstVisibleItemIndex,
-                            markerListState.firstVisibleItemScrollOffset
-                        )
-                        showMarkerManagement = false
-                        val marker = mgmtMarkers.find { it.id == action.id } ?: return@OverlayLayer
-                        navigateToTarget = NavigateTarget(
-                            geoPoint = GeoPoint(marker.centerPoint.latitude, marker.centerPoint.longitude),
-                            markerId = action.id
-                        )
-                    }
+                    is ykws.android.maro.data.model.ListAction.NavigateToItem -> openMarkerDetail(action.id, fromList = true)
                     is ykws.android.maro.data.model.ListAction.EditItem -> {
                         showMarkerManagement = false
                         markerOpenedFromList = false
@@ -2295,44 +2312,7 @@ fun MapScreen(
                     showTrackHistory = true
                 }
             },
-            onNavigateToTrack = { id ->
-                trackOpenedFromList = true
-                if (!appSettings.tracksVisible) {
-                    viewModel.updateSettings { it.copy(tracksVisible = true) }
-                }
-                showTrackHistory = false
-                trackScope.launch {
-                    try {
-                        val track = trackViewModel.loadTrackDetailCached(id)
-                        if (track == null || track.trackPoints.isEmpty()) return@launch
-                        val targetPoint = computeTrackNavigateTarget(track)
-                        val geoPoint = GeoPoint(targetPoint.first, targetPoint.second)
-                        val bbox = if (track.trackPoints.size >= 2) {
-                            org.osmdroid.util.BoundingBox(
-                                track.trackPoints.maxOf { it.lat },
-                                track.trackPoints.maxOf { it.lon },
-                                track.trackPoints.minOf { it.lat },
-                                track.trackPoints.minOf { it.lon }
-                            )
-                        } else null
-                        preNavigationState = mapView?.let { mv ->
-                            val c = mv.mapCenter
-                            PreNavigationState(mv.zoomLevelDouble, c.latitude, c.longitude)
-                        }
-                        if (!appSettings.tracksVisible) {
-                            viewModel.updateSettings { it.copy(tracksVisible = true) }
-                            mapView?.invalidate()
-                        }
-                        highlightedTrackId = id
-                        trackDrawerState = TrackDrawerState(isOpen = true, track = track, mapWasInteracted = false)
-                        if (bbox != null) {
-                            trackNavigateState = TrackNavigateState(geoPoint, bbox, id)
-                        } else {
-                            mapView?.controller?.animateTo(geoPoint, null, GPS_ANIMATION_DURATION_MS)
-                        }
-                    } catch (_: Exception) { }
-                }
-            },
+            onNavigateToTrack = { id -> openTrackDetail(id, fromList = true) },
             markerSortState = appSettings.markerListSort,
             onMarkerSortStateChange = { newState ->
                 viewModel.updateSettings { it.copy(markerListSort = newState) }
