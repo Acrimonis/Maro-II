@@ -1,8 +1,8 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-08-16 09:03
-active_subfeature: top-left-icons
+modified: 2026-08-16 10:45
+active_subfeature: delete-advance-next
 ---
 
 # Feature: Ui_General
@@ -14,6 +14,22 @@ app is running. Extended with page-layout concerns: edge-to-edge rendering, stat
 bar immersion, and WindowInsets management.
 
 ## Subfeatures
+
+### delete-advance-next  [x]
+
+Drawer delete now advances to the adjacent item (next → previous → close) instead of
+just closing, with a vertical snackbar stack (cap 3 visible, FIFO overflow) for undo.
+All snackbars share the stack: track delete, marker delete, and marker-created undo.
+`deleteMarker` gained a `closeDrawer` flag so the advanced drawer stays open on timeout.
+Snackbar stack sits at the bottom of the map area, never over the dashboard. BUILD SUCCESSFUL.
+
+#### Key Files
+- `MapScreen.kt`, `MarkersViewModel.kt`
+
+#### Docs
+- `xTrack/Ui_General/260816_FEAT_PLN_Ui_General_delete-advance-next.md`
+
+---
 
 ### top-left-icons  [x]
 

@@ -1,18 +1,16 @@
 # Hydration: Ui_General
 
-**Session:** top-left-icons — implemented. Top-left status row reordered to
-GPS → Tracking → Land/Water. GPS icon (`GpsStatusIcon`) now always visible: in demo
-mode it renders the gray DEMO state, and it is clickable — `onClick` toggles GPS ↔ demo
-via the permission-aware `onGpsModeChange` threaded through a new `onGpsModeToggle`
-param on `MapContent`. Tracking icon emoji changed from 🚤 to 🐾 paw prints. The
-idle-state (ON + stationary) pulsing dot recolored red via `status.tracking.dot.idle`
-→ `semantic.danger` (`AppConfig.statusTrackingDotIdle` = #CCB71C1C). `RecenterButton`
-remains last and GPS-only. BUILD SUCCESSFUL.
+**Session:** delete-advance-next — implemented. Drawer delete advances to the adjacent
+item (next → previous → close) instead of just closing. Deletes are deferred and surface
+in a vertical snackbar stack (max 3 visible, FIFO overflow) shared with the marker-created
+undo snackbar; each row has its own ~4s timer + Undo. `deleteMarker(closeDrawer=false)`
+keeps the advanced drawer open on timeout. Stack positioned at the bottom of the map area,
+never over the dashboard. BUILD SUCCESSFUL.
 
 **Target files:**
-- `MapScreen.kt`, `TrackStatusIcon.kt`, `AppConfig.kt`, `colors.properties`
+- `MapScreen.kt`, `MarkersViewModel.kt`
 
 **Plans:**
-- `xTrack/Ui_General/260816_FEAT_PLN_Ui_General_top-left-icons-reorder.md`
+- `xTrack/Ui_General/260816_FEAT_PLN_Ui_General_delete-advance-next.md`
 
-**Last Bake:** 2026-08-16 09:03 UTC
+**Last Bake:** 2026-08-16 10:45 UTC
