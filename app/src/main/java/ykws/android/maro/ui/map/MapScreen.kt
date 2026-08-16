@@ -1714,6 +1714,7 @@ fun MapScreen(
                 mapView = mapView,
                 navigationState = navigationState,
                 gpsIconState = gpsIconState,
+                onGpsModeToggle = { onGpsModeChange(!appSettings.gpsMode) },
                 // Demo mode (gpsPosition == null): use mapCenter as fallback so
                 // geo-fence still works when panning the map in demo/manual mode.
                 boatPosition = gpsPosition ?: mapCenter,
@@ -2565,6 +2566,7 @@ private fun MapContent(
     onToggleLowDepthWarning: () -> Unit,
     onToggleDepthLayer: () -> Unit,
     onToggleTracks: () -> Unit = {},
+    onGpsModeToggle: () -> Unit = {},
     isLandscape: Boolean = false,
     expandedFanId: ControlId? = null,
     onDismissFan: () -> Unit = {},
@@ -2681,11 +2683,9 @@ private fun MapContent(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    EarthWaterIcon(
-                        emoji = if (isWater) "🌊" else "🏔️",
-                        isActive = true,
-                        activeColor = if (isWater) ComposeColor(AppConfig.statusEarthWaterWater) else ComposeColor(AppConfig.statusEarthWaterLand),
-                        contentDescription = if (isWater) stringResource(R.string.side_water) else stringResource(R.string.side_land),
+                    GpsStatusIcon(
+                        state = gpsIconState,
+                        onClick = onGpsModeToggle
                     )
                     TrackStatusIcon(
                         recorderState = trackRecorderState,
@@ -2694,9 +2694,12 @@ private fun MapContent(
                         else
                             onStartRecording
                     )
-                    if (appSettings.gpsMode) {
-                        GpsStatusIcon(state = gpsIconState)
-                    }
+                    EarthWaterIcon(
+                        emoji = if (isWater) "🌊" else "🏔️",
+                        isActive = true,
+                        activeColor = if (isWater) ComposeColor(AppConfig.statusEarthWaterWater) else ComposeColor(AppConfig.statusEarthWaterLand),
+                        contentDescription = if (isWater) stringResource(R.string.side_water) else stringResource(R.string.side_land),
+                    )
                     if (appSettings.gpsMode && autoFollowSuppressed) {
                         RecenterButton(onClick = onRecenter)
                     }
@@ -3535,7 +3538,7 @@ private fun HamburgerIcon() {
 }
 
 /**
- * 5-state GPS indicator icon — placed top-left to the left of [EarthWaterIcon].
+ * 5-state GPS indicator icon — leftmost in the top-left status row.
  *
  * States match the derived [GpsIconState] enum:
  * - [DEMO]: GPS toggle off, gray satellite outline
@@ -3549,6 +3552,7 @@ private enum class GpsIconState { DEMO, ACQUIRING, HEALTHY, IDLE, STALE, ESTIMAT
 @Composable
 private fun GpsStatusIcon(
     state: GpsIconState,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val baseColor: ComposeColor
@@ -3571,7 +3575,8 @@ private fun GpsStatusIcon(
         modifier = modifier
             .size(44.dp)
             .clip(RoundedCornerShape(8.dp))
-            .background(baseColor.copy(alpha = bgAlpha)),
+            .background(baseColor.copy(alpha = bgAlpha))
+            .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Text(

@@ -1,20 +1,16 @@
 # Hydration: Ui_General
 
-**Session:** landscape-menu-drawer — implemented. Landscape menu drawer overflow fixed:
-the body now scrolls when content exceeds the viewport. `MenuDrawerOverlay` passes
-`DrawerScaffold(scrollable = true, suppressOverscrollWhenFits = true)`. The scaffold
-hoists `rememberScrollState()` and tracks `canScroll` via
-`derivedStateOf { scrollState.maxValue > 0 }`, passing `overscrollEffect = null` while
-content fits. Portrait (content fits, zero scroll range) therefore renders identically
-to before with no overscroll glow; landscape and any future menu growth scroll
-automatically. The fixed header (back + "Maro II" + settings gear) stays pinned. The new
-opt-in `suppressOverscrollWhenFits` param defaults to false, leaving MarkerDrawer and
-TrackInfoDrawer unchanged. BUILD SUCCESSFUL.
+**Session:** top-left-icons — implemented. Top-left status row reordered to
+GPS → Tracking → Land/Water. GPS icon (`GpsStatusIcon`) now always visible: in demo
+mode it renders the gray DEMO state, and it is clickable — `onClick` toggles GPS ↔ demo
+via the permission-aware `onGpsModeChange` threaded through a new `onGpsModeToggle`
+param on `MapContent`. Tracking icon emoji changed from 🚤 to 🐾 paw prints.
+`RecenterButton` remains last and GPS-only. BUILD SUCCESSFUL.
 
 **Target files:**
-- `DrawerScaffold.kt`, `MenuDrawerOverlay.kt`
+- `MapScreen.kt`, `TrackStatusIcon.kt`
 
 **Plans:**
-- `xTrack/Ui_General/260816_FEAT_PLN_Ui_General_landscape-menu-drawer.md`
+- `xTrack/Ui_General/260816_FEAT_PLN_Ui_General_top-left-icons-reorder.md`
 
-**Last Bake:** 2026-08-16 08:05 UTC
+**Last Bake:** 2026-08-16 08:35 UTC
