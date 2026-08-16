@@ -78,6 +78,8 @@ fun MenuDrawerOverlay(
     onStopRecording: () -> Unit,
     onViewTrackList: () -> Unit,
     onManageMarkers: () -> Unit = {},
+    onOpenFirstTrack: (() -> Unit)? = null,
+    onOpenFirstMarker: (() -> Unit)? = null,
     markerZonesVisible: Boolean = true,
     onToggleMarkerZones: () -> Unit = {},
     onImportTracks: () -> Unit = {},
@@ -227,12 +229,18 @@ fun MenuDrawerOverlay(
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium
                 )
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = stringResource(R.string.cd_view_tracks),
-                    tint = Color(AppConfig.uiSettingsTextMuted),
-                    modifier = Modifier.size(28.dp)
-                )
+                IconButton(
+                    onClick = { onOpenFirstTrack?.invoke() },
+                    enabled = onOpenFirstTrack != null,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = stringResource(R.string.cd_open_first_track),
+                        tint = Color(AppConfig.uiSettingsTextMuted).copy(alpha = if (onOpenFirstTrack != null) 1f else 0.35f),
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
             }
 
             // ── Import / Export row ────────────────────────
@@ -358,12 +366,18 @@ fun MenuDrawerOverlay(
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium
                 )
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = stringResource(R.string.cd_manage_markers),
-                    tint = Color(AppConfig.uiSettingsTextMuted),
-                    modifier = Modifier.size(28.dp)
-                )
+                IconButton(
+                    onClick = { onOpenFirstMarker?.invoke() },
+                    enabled = onOpenFirstMarker != null,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = stringResource(R.string.cd_open_first_marker),
+                        tint = Color(AppConfig.uiSettingsTextMuted).copy(alpha = if (onOpenFirstMarker != null) 1f else 0.35f),
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
             }
 
             Spacer(Modifier.height(2.dp))
