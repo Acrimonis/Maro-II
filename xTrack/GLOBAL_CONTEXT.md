@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** BoatTrace
-- **Active Subfeature:** gps-recording-regression
-- **Last Updated:** 2026-08-16 08:55
-- **Last Bake:** 2026-08-16 08:55 (BoatTrace — gps-recording-regression: re-arm cooldown + permission-missing dialog)
-- **Branch:** feature/track-gps
+- **Active Feature:** Route
+- **Active Subfeature:** none
+- **Last Updated:** 2026-08-16 11:46
+- **Last Bake:** 2026-08-16 11:46 (Route — planning + isolation design finalized)
+- **Branch:** feature/route
 
 ## Routing Map
 | Keyword | Feature File |
@@ -32,6 +32,7 @@
 | | workflow, rules, ambiguity, merge, agents, gitops | xTrack/WorkflowAmbiguityFix/FEAT_DSC_WorkflowAmbiguityFix.md |
 | | markers, pin, circle, corridor, usermarker, user marker, where am i | xTrack/Markers/FEAT_DSC_Markers.md |
 | | menu, menu drawer, hamburger, track drawer, position source, menu overlay | xTrack/Ui_Menu/FEAT_DSC_Ui_Menu.md |
+| | route, routing, destination, destination point, goto, fastest route, water route, pathfinding, route mesh | xTrack/Route/FEAT_DSC_Route.md |
 
 ## Feature Summaries
 
@@ -62,6 +63,7 @@
 | | **WorkflowAmbiguityFix** | **Eliminate ambiguity between AGENTS.md rules — #merge direction, §5 reinforcement, command doc alignment. Absorbed into WorkflowImprovement 2026-06-28.** | **2026-06-20 14:51** | **2026-06-28 13:51** | **done** |
 | | **Markers** | **User-defined map markers (Pin, Circle, Corridor) with sea-distance-gated proximity matching, percentage-based sort scoring, and on-demand "where am I?" query — 14/14 subfeatures done; 7 fixes + sort v2 implemented** | **2026-06-22 11:52** | **2026-06-30 10:25** | **active** |
 | | **Ui_Menu** | **Hamburger menu drawer — position source, track recording, marker management sections; right-side sliding panel via OverlayLayer/DrawerSlot** | **2026-07-05 06:57** | **2026-07-18 05:54** | **active** |
+| | **Route** | **On-water route planning — set a destination, compute the fastest water-constrained route via A* over a prebaked adaptive navigation mesh, minimizing time inside speed-limit zones** | **2026-08-16 10:44** | **2026-08-16 11:46** | **active** |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).
