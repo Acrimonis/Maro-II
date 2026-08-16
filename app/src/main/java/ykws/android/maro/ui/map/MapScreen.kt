@@ -187,6 +187,7 @@ import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.data.markers.UserMarkerRepository
+import ykws.android.maro.ui.components.ConfirmSheet
 import ykws.android.maro.ui.components.SavedScrollState
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.DebugSegment
@@ -520,6 +521,9 @@ fun MapScreen(
     LaunchedEffect(gpsPermissionMissing) {
         if (!gpsPermissionMissing) gpsPermissionDialogDismissed = false
     }
+
+    // Pending GPS-mode toggle awaiting confirmation while a track is recording.
+    var pendingGpsModeToggle by remember { mutableStateOf<Boolean?>(null) }
     // Effective heading for the zone-ahead cone:
     // GPS mode → GPS bearing (COG/compass, boat faces direction of travel)
     // Demo mode → 0° = north (boat marker always points up/top of map).
@@ -607,7 +611,7 @@ fun MapScreen(
         }
     }
     // Permission-aware handler wired to the GPS settings switch.
-    val onGpsModeChange: (Boolean) -> Unit = { enable ->
+    val applyGpsMode: (Boolean) -> Unit = { enable ->
         if (enable) {
             val granted = ContextCompat.checkSelfPermission(
                 context, Manifest.permission.ACCESS_FINE_LOCATION
@@ -616,6 +620,16 @@ fun MapScreen(
             else gpsPermissionLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
         } else {
             viewModel.updateSettings { it.copy(gpsMode = false) }
+        }
+    }
+    val onGpsModeChange: (Boolean) -> Unit = { enable ->
+        if (enable != appSettings.gpsMode) {
+            if (trackRecorderState.state == ykws.android.maro.data.track.TrackRecorderState.ON) {
+                // Recording in progress — confirm before switching the sample source.
+                pendingGpsModeToggle = enable
+            } else {
+                applyGpsMode(enable)
+            }
         }
     }
 
@@ -2515,6 +2529,21 @@ fun MapScreen(
                         onClick = { gpsPermissionDialogDismissed = true }
                     ) { androidx.compose.material3.Text(stringResource(R.string.bg_location_not_now)) }
                 }
+            )
+        }
+
+        // ── GPS source-switch confirmation while recording (bottom sheet, dashboard space) ──
+        pendingGpsModeToggle?.let { enable ->
+            ConfirmSheet(
+                title = stringResource(R.string.gps_switch_confirm_title),
+                message = stringResource(R.string.gps_switch_confirm_message),
+                confirmLabel = stringResource(R.string.gps_switch_confirm_action),
+                isDestructive = false,
+                onConfirm = {
+                    pendingGpsModeToggle = null
+                    applyGpsMode(enable)
+                },
+                onDismiss = { pendingGpsModeToggle = null }
             )
         }
 
