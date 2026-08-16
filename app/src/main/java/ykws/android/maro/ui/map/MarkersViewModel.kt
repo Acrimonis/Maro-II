@@ -673,8 +673,8 @@ class MarkersViewModel(
         }
     }
 
-    /** Delete a marker by ID. */
-    fun deleteMarker(markerId: String) {
+    /** Delete a marker by ID. [closeDrawer] is false when the drawer is already showing another marker. */
+    fun deleteMarker(markerId: String, closeDrawer: Boolean = true) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repo.delete(markerId) }
             val all = withContext(Dispatchers.IO) { repo.loadAll() }
@@ -683,7 +683,9 @@ class MarkersViewModel(
             val filter = settings?.markerListFilter ?: ListFilter()
             val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
             _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
-            _drawerState.value = MarkerDrawerState.Hidden
+            if (closeDrawer) {
+                _drawerState.value = MarkerDrawerState.Hidden
+            }
         }
     }
 

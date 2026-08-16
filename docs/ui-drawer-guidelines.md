@@ -32,6 +32,13 @@ Layer 1 is a single composable call: [`OverlayLayer`](../app/src/main/java/ykws/
 
 **Key rule:** Layer 0 components must never be conditional. Dashboard, controls, and status icons are always present. Only Layer 1 surfaces appear/disappear.
 
+**Right-edge control column rule (paint-only):** the right-edge controls (zoom `+`/`−`, fan, add-zone) float over the map; the map itself always renders full-bleed and must never be padded by the control column. Every transient bottom overlay must stay clear of that column:
+
+- Overlays rendered inside the map's left overlay column (exit toast, loading/error) are already bounded by the column layout — align them `BottomStart`/`CenterStart` like the snackbar and do not add extra `end` padding.
+- Overlays rendered outside it (e.g. the undo snackbar stack) anchor `BottomStart` — never `BottomCenter`/`BottomEnd` — and reserve the column on the overlay itself via `end = RIGHT_CONTROL_COLUMN_INSET` (82dp: 12dp gap + 64dp button + 6dp end).
+
+**Full-height landscape drawer rule:** drawers anchored to the left edge in landscape (Marker, TrackInfo, Wizard) are full-height and must clear the status bar — pass `statusBarsInset = true` to `DrawerScaffold` (or apply `windowInsetsPadding(WindowInsets.statusBars)` for drawers that don't use `DrawerScaffold`).
+
 ---
 
 ## 2. DrawerSlot — Reusable Animation + Shadow Wrapper

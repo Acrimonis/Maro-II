@@ -203,6 +203,9 @@ import ykws.android.maro.data.track.WhereAmIProvider
 /** Animation duration per GPS-follow scroll (ms). Must be < min GPS fix interval (1s). */
 private const val GPS_ANIMATION_DURATION_MS = 600L
 
+/** Right-edge control column width (12 gap + 64 button + 6 end). Paint-only reserve for transient overlays; the map itself is never padded by this. */
+private val RIGHT_CONTROL_COLUMN_INSET = 82.dp
+
 /** Computed polyline rendering appearance: ARGB color + stroke width. */
 data class TrackPolylineAppearance(val argb: Int, val strokeWidth: Float)
 
@@ -226,11 +229,66 @@ private data class TrackDrawerState(
     val mapWasInteracted: Boolean = false
 )
 
-/** Deferred delete state for snackbar + undo pattern. */
-private data class PendingDelete(
-    val id: String,
-    val name: String
-)
+/** Snackbar entry for the vertical stack — track/marker deletes + marker-created undo. */
+private sealed class ActiveSnack(val id: String, val name: String) {
+    val uid: Int = nextUid()
+
+    private companion object {
+        private var uidCounter = 0
+        private fun nextUid() = uidCounter++
+    }
+
+    class TrackDelete(id: String, name: String) : ActiveSnack(id, name)
+    class MarkerDelete(
+        id: String,
+        name: String,
+        val selection: List<String>,
+        val source: DrawerSource
+    ) : ActiveSnack(id, name)
+    class CreateUndo(id: String, name: String) : ActiveSnack(id, name)
+}
+
+@Composable
+private fun SnackRow(
+    message: String,
+    snackKey: Int,
+    onUndo: () -> Unit,
+    onTimeout: () -> Unit
+) {
+    LaunchedEffect(snackKey) {
+        kotlinx.coroutines.delay(4000L)
+        onTimeout()
+    }
+    var entered by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { entered = true }
+    androidx.compose.animation.AnimatedVisibility(
+        visible = entered,
+        enter = androidx.compose.animation.slideInVertically(initialOffsetY = { it }) + androidx.compose.animation.fadeIn()
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(ComposeColor(0xE62A2A2A))
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = message,
+                color = ComposeColor.White,
+                fontSize = 14.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(Modifier.width(12.dp))
+            androidx.compose.material3.TextButton(onClick = onUndo) {
+                Text("Undo", color = ComposeColor(0xFF80CBC4), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            }
+        }
+    }
+}
 
 /**
  * Compute a track polyline's ARGB color and stroke width from its position
@@ -337,8 +395,9 @@ fun MapScreen(
     var markerListScrollState by remember { mutableStateOf<SavedScrollState?>(null) }
     var trackOpenedFromList by remember { mutableStateOf(false) }
     var markerOpenedFromList by remember { mutableStateOf(false) }
-    var pendingTrackDelete by remember { mutableStateOf<PendingDelete?>(null) }
-    var pendingMarkerDelete by remember { mutableStateOf<PendingDelete?>(null) }
+    val activeSnacks = remember { androidx.compose.runtime.mutableStateListOf<ActiveSnack>() }
+    val queuedSnacks = remember { androidx.compose.runtime.mutableStateListOf<ActiveSnack>() }
+    val pendingDeleteIds = remember { androidx.compose.runtime.mutableStateListOf<String>() }
     val trackViewModel: ykws.android.maro.data.track.TrackViewModel =
         androidx.lifecycle.viewmodel.compose.viewModel()
     val markersViewModel: MarkersViewModel =
@@ -348,6 +407,94 @@ fun MapScreen(
     val trackSummaries by trackViewModel.summaries.collectAsState()
     val recoveryTrack by trackViewModel.recoveryTrack.collectAsState()
     val trackScope = rememberCoroutineScope()
+
+    // ── Vertical snackbar stack state helpers ────────────────────────────
+    fun enqueueSnack(snack: ActiveSnack) {
+        if (activeSnacks.size < 3) activeSnacks.add(snack)
+        else queuedSnacks.add(snack)
+    }
+
+    fun promoteQueued() {
+        while (activeSnacks.size < 3 && queuedSnacks.isNotEmpty()) {
+            activeSnacks.add(queuedSnacks.removeAt(0))
+        }
+    }
+
+    fun onSnackUndo(snack: ActiveSnack) {
+        activeSnacks.remove(snack)
+        when (snack) {
+            is ActiveSnack.TrackDelete -> {
+                pendingDeleteIds.remove("t:${snack.id}")
+                trackScope.launch {
+                    val track = trackViewModel.loadTrackDetailCached(snack.id)
+                    if (track != null && track.trackPoints.isNotEmpty()) {
+                        highlightedTrackId = snack.id
+                        trackDrawerState = TrackDrawerState(isOpen = true, track = track, mapWasInteracted = false)
+                        val tp = computeTrackNavigateTarget(track)
+                        val gp = GeoPoint(tp.first, tp.second)
+                        val bbox = if (track.trackPoints.size >= 2) org.osmdroid.util.BoundingBox(
+                            track.trackPoints.maxOf { it.lat }, track.trackPoints.maxOf { it.lon },
+                            track.trackPoints.minOf { it.lat }, track.trackPoints.minOf { it.lon }
+                        ) else null
+                        if (bbox != null) trackNavigateState = TrackNavigateState(gp, bbox, snack.id)
+                        else mapView?.controller?.animateTo(gp, null, GPS_ANIMATION_DURATION_MS)
+                    }
+                }
+            }
+            is ActiveSnack.MarkerDelete -> {
+                pendingDeleteIds.remove("m:${snack.id}")
+                markersViewModel.openEditDrawer(snack.selection, selectedId = snack.id, source = snack.source)
+                highlightedMarkerId = snack.id
+            }
+            is ActiveSnack.CreateUndo -> markersViewModel.undoCreateMarker()
+        }
+        promoteQueued()
+    }
+
+    fun onSnackTimeout(snack: ActiveSnack) {
+        activeSnacks.remove(snack)
+        when (snack) {
+            is ActiveSnack.TrackDelete -> {
+                pendingDeleteIds.remove("t:${snack.id}")
+                trackViewModel.deleteTrack(snack.id)
+            }
+            is ActiveSnack.MarkerDelete -> {
+                pendingDeleteIds.remove("m:${snack.id}")
+                markersViewModel.deleteMarker(snack.id, closeDrawer = false)
+            }
+            is ActiveSnack.CreateUndo -> markersViewModel.dismissLastSaved()
+        }
+        promoteQueued()
+    }
+
+    fun openFirstValidTrack(candidateIds: List<String>, onNone: () -> Unit) {
+        if (candidateIds.isEmpty()) {
+            onNone()
+            return
+        }
+        trackScope.launch {
+            var opened = false
+            for (candidateId in candidateIds) {
+                val track = trackViewModel.loadTrackDetailCached(candidateId)
+                if (track != null && track.trackPoints.isNotEmpty()) {
+                    highlightedTrackId = candidateId
+                    trackDrawerState = TrackDrawerState(isOpen = true, track = track, mapWasInteracted = false)
+                    val tp = computeTrackNavigateTarget(track)
+                    val gp = GeoPoint(tp.first, tp.second)
+                    val bbox = if (track.trackPoints.size >= 2) org.osmdroid.util.BoundingBox(
+                        track.trackPoints.maxOf { it.lat }, track.trackPoints.maxOf { it.lon },
+                        track.trackPoints.minOf { it.lat }, track.trackPoints.minOf { it.lon }
+                    ) else null
+                    if (bbox != null) trackNavigateState = TrackNavigateState(gp, bbox, candidateId)
+                    else mapView?.controller?.animateTo(gp, null, GPS_ANIMATION_DURATION_MS)
+                    opened = true
+                    break
+                }
+            }
+            if (!opened) onNone()
+        }
+    }
+
     val markerChangeFlow = remember { MutableSharedFlow<Unit>(extraBufferCapacity = 1) }
     val anyFanExpanded = expandedFanId != null
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
@@ -2212,65 +2359,70 @@ fun MapScreen(
             onToggleMarkerPin = { id, _ -> markersViewModel.togglePin(id) },
             onMergeMarkers = { ids, name, keep -> markersViewModel.mergeAutoMarkers(ids, name, keep) },
             // ── List-detail navigation ──────────────────────────────────
-            trackListIds = trackSummaries.filter { !it.isLive }.map { it.id },
-            currentTrackIndex = trackSummaries.filter { !it.isLive }.map { it.id }.indexOf(trackDrawerState.track?.id ?: "").coerceAtLeast(0),
+            trackListIds = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id },
+            currentTrackIndex = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id }.indexOf(trackDrawerState.track?.id ?: "").coerceAtLeast(0),
             onTrackPrev = {
-                val ids = trackSummaries.filter { !it.isLive }.map { it.id }
+                val ids = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id }
                 val idx = ids.indexOf(trackDrawerState.track?.id ?: "")
-                val prevIdx = (idx - 1).coerceAtLeast(0)
-                if (prevIdx != idx) {
-                    trackScope.launch {
-                        val track = trackViewModel.loadTrackDetailCached(ids[prevIdx])
-                        if (track != null) {
-                            highlightedTrackId = ids[prevIdx]
-                            trackDrawerState = TrackDrawerState(isOpen = true, track = track, mapWasInteracted = false)
-                            val tp = computeTrackNavigateTarget(track)
-                            val gp = GeoPoint(tp.first, tp.second)
-                            val bbox = if (track.trackPoints.size >= 2) org.osmdroid.util.BoundingBox(
-                                track.trackPoints.maxOf { it.lat }, track.trackPoints.maxOf { it.lon },
-                                track.trackPoints.minOf { it.lat }, track.trackPoints.minOf { it.lon }
-                            ) else null
-                            if (bbox != null) trackNavigateState = TrackNavigateState(gp, bbox, ids[prevIdx])
-                            else mapView?.controller?.animateTo(gp, null, GPS_ANIMATION_DURATION_MS)
-                        }
-                    }
+                if (idx > 0) {
+                    openFirstValidTrack(ids.subList(0, idx).asReversed()) { }
                 }
             },
             onTrackNext = {
-                val ids = trackSummaries.filter { !it.isLive }.map { it.id }
+                val ids = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id }
                 val idx = ids.indexOf(trackDrawerState.track?.id ?: "")
-                val nextIdx = (idx + 1).coerceAtMost(ids.lastIndex)
-                if (nextIdx != idx) {
-                    trackScope.launch {
-                        val track = trackViewModel.loadTrackDetailCached(ids[nextIdx])
-                        if (track != null) {
-                            highlightedTrackId = ids[nextIdx]
-                            trackDrawerState = TrackDrawerState(isOpen = true, track = track, mapWasInteracted = false)
-                            val tp = computeTrackNavigateTarget(track)
-                            val gp = GeoPoint(tp.first, tp.second)
-                            val bbox = if (track.trackPoints.size >= 2) org.osmdroid.util.BoundingBox(
-                                track.trackPoints.maxOf { it.lat }, track.trackPoints.maxOf { it.lon },
-                                track.trackPoints.minOf { it.lat }, track.trackPoints.minOf { it.lon }
-                            ) else null
-                            if (bbox != null) trackNavigateState = TrackNavigateState(gp, bbox, ids[nextIdx])
-                            else mapView?.controller?.animateTo(gp, null, GPS_ANIMATION_DURATION_MS)
-                        }
-                    }
+                if (idx >= 0 && idx < ids.lastIndex) {
+                    openFirstValidTrack(ids.subList(idx + 1, ids.size)) { }
                 }
             },
             onShareTrack = { id -> shareTrackGpx(context, trackViewModel, id, trackScope) },
             onDeleteTrack = { id ->
                 val track = trackDrawerState.track
-                pendingTrackDelete = PendingDelete(id, track?.name ?: "Unknown")
-                highlightedTrackId = null
-                trackDrawerState = TrackDrawerState()
-                preNavigationState = null
+                enqueueSnack(ActiveSnack.TrackDelete(id, track?.name ?: "Unknown"))
+                pendingDeleteIds.add("t:$id")
+                // Advance to adjacent track: next → previous, skipping pending + empty tracks.
+                val fullIds = trackSummaries.filter { !it.isLive }.map { it.id }
+                val i = fullIds.indexOf(id)
+                val after = if (i >= 0) {
+                    fullIds.subList(i + 1, fullIds.size).filter { "t:$it" !in pendingDeleteIds }
+                } else emptyList()
+                val before = if (i >= 0) {
+                    fullIds.subList(0, i).asReversed().filter { "t:$it" !in pendingDeleteIds }
+                } else emptyList()
+                openFirstValidTrack(after + before) {
+                    highlightedTrackId = null
+                    trackDrawerState = TrackDrawerState()
+                    preNavigationState = null
+                }
             },
             onTrackMetadataChanged = {},
             onRequestMarkerDelete = { id, name ->
-                markerOpenedFromList = false  // don't reopen list on delete
-                pendingMarkerDelete = PendingDelete(id, name)
-                markersViewModel.closeDrawer()
+                val selection = markersViewModel.selectedMarkerIds.value
+                val source = markersViewModel.drawerSource
+                enqueueSnack(ActiveSnack.MarkerDelete(id, name, selection, source))
+                pendingDeleteIds.add("m:$id")
+                // Advance to adjacent marker: next → previous → close. Map highlight follows the target.
+                val i = selection.indexOf(id)
+                var targetIdx = -1
+                var j = i + 1
+                while (j < selection.size && targetIdx < 0) {
+                    if ("m:${selection[j]}" !in pendingDeleteIds) targetIdx = j else j++
+                }
+                if (targetIdx < 0) {
+                    j = i - 1
+                    while (j >= 0 && targetIdx < 0) {
+                        if ("m:${selection[j]}" !in pendingDeleteIds) targetIdx = j else j--
+                    }
+                }
+                if (targetIdx >= 0) {
+                    val targetId = selection[targetIdx]
+                    val filtered = selection.filter { "m:$it" !in pendingDeleteIds }
+                    markersViewModel.openEditDrawer(filtered, selectedId = targetId, source = source)
+                    highlightedMarkerId = targetId
+                } else {
+                    highlightedMarkerId = null
+                    markersViewModel.closeDrawer()
+                }
             },
             trackListState = trackListState,
             markerListState = markerListState,
@@ -2278,70 +2430,41 @@ fun MapScreen(
             markerRestoredScrollState = markerListScrollState,
         )
 
-        // ── Post-save undo Snackbar (P5) ────────────────────────────────
+        // ── Post-save undo → stack entry ────────────────────────────────
         val lastSavedId by markersViewModel.lastSavedMarkerId.collectAsState()
-        val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
-        lastSavedId?.let { id ->
+        LaunchedEffect(lastSavedId) {
+            val id = lastSavedId ?: return@LaunchedEffect
             val savedMarker = userMarkers.find { it.id == id }
-            LaunchedEffect(id) {
-                val result = snackbarHostState.showSnackbar(
-                    message = "Marker \"${savedMarker?.name ?: "Unknown"}\" created",
-                    actionLabel = "Undo",
-                    duration = androidx.compose.material3.SnackbarDuration.Short
-                )
-                if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
-                    markersViewModel.undoCreateMarker()
-                } else {
-                    markersViewModel.dismissLastSaved()
-                }
-            }
+            enqueueSnack(ActiveSnack.CreateUndo(id, savedMarker?.name ?: "Unknown"))
         }
 
-        // ── Delete snackbar — Track ──────────────────────────────────────
-        LaunchedEffect(pendingTrackDelete) {
-            pendingTrackDelete?.let { pending ->
-                val result = snackbarHostState.showSnackbar(
-                    message = "Track '${pending.name}' deleted",
-                    actionLabel = "Undo",
-                    duration = androidx.compose.material3.SnackbarDuration.Short
-                )
-                if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
-                    trackScope.launch {
-                        val track = trackViewModel.loadTrackDetailCached(pending.id)
-                        if (track != null) {
-                            highlightedTrackId = pending.id
-                            trackDrawerState = TrackDrawerState(isOpen = true, track = track)
-                        }
-                    }
-                } else {
-                    trackViewModel.deleteTrack(pending.id)
-                }
-                pendingTrackDelete = null
-            }
-        }
-
-        // ── Delete snackbar — Marker ─────────────────────────────────────
-        LaunchedEffect(pendingMarkerDelete) {
-            pendingMarkerDelete?.let { pending ->
-                val result = snackbarHostState.showSnackbar(
-                    message = "Marker '${pending.name}' deleted",
-                    actionLabel = "Undo",
-                    duration = androidx.compose.material3.SnackbarDuration.Short
-                )
-                if (result == androidx.compose.material3.SnackbarResult.ActionPerformed) {
-                    markersViewModel.openEditDrawer(pending.id)
-                } else {
-                    markersViewModel.deleteMarker(pending.id)
-                }
-                pendingMarkerDelete = null
-            }
-        }
+        // ── Vertical snackbar stack at the bottom of the map area ────────
         Box(modifier = Modifier.fillMaxSize()) {
-            // SnackbarHost positioned at bottom, above dashboard/wizard area
-            androidx.compose.material3.SnackbarHost(
-                hostState = snackbarHostState,
-                modifier = Modifier.align(Alignment.BottomCenter)
-            )
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(
+                        bottom = if (isLandscape) 0.dp else portraitDashboardHeight,
+                        start = if (isLandscape) landscapeDashboardWidth else 0.dp
+                    )
+                    .padding(start = 12.dp, end = RIGHT_CONTROL_COLUMN_INSET),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                activeSnacks.forEach { snack ->
+                    androidx.compose.runtime.key(snack.uid) {
+                        SnackRow(
+                            message = when (snack) {
+                                is ActiveSnack.TrackDelete -> "Track '${snack.name}' deleted"
+                                is ActiveSnack.MarkerDelete -> "Marker '${snack.name}' deleted"
+                                is ActiveSnack.CreateUndo -> "Marker \"${snack.name}\" created"
+                            },
+                            snackKey = snack.uid,
+                            onUndo = { onSnackUndo(snack) },
+                            onTimeout = { onSnackTimeout(snack) }
+                        )
+                    }
+                }
+            }
         }
 
         // ── Process-death recovery dialog ─────────────────────────────
@@ -2777,10 +2900,10 @@ private fun MapContent(
                     // Middle layer: loading/error overlay (conditional)
                     Box(
                         modifier = Modifier
-                            .align(Alignment.BottomCenter)
+                            .align(Alignment.BottomStart)
                             .fillMaxWidth()
                             .padding(start = 6.dp, end = 6.dp),
-                        contentAlignment = Alignment.Center
+                        contentAlignment = Alignment.CenterStart
                     ) {
                         if (rasterProgress != null && rasterProgress!!.globalProgress < 100) {
                             val rp = rasterProgress!!
@@ -2814,10 +2937,10 @@ private fun MapContent(
                             ComposeColor(AppConfig.uiDashboardBackground)
                         Box(
                             modifier = Modifier
-                                .align(Alignment.BottomCenter)
+                                .align(Alignment.BottomStart)
                                 .fillMaxWidth()
                                 .padding(start = 6.dp, end = 6.dp),
-                            contentAlignment = Alignment.Center
+                            contentAlignment = Alignment.CenterStart
                         ) {
                             Surface(
                                 shape = RoundedCornerShape(14.dp),
