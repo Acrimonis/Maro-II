@@ -168,6 +168,10 @@
     <string name="bg_location_open_settings">Open Settings</string>
     <string name="bg_location_not_now">Not Now</string>
 
+    <!-- GPS permission missing -->
+    <string name="gps_permission_title">Location Permission Needed</string>
+    <string name="gps_permission_message">Location permission is not active. GPS tracks cannot be recorded until you enable it.</string>
+
     <!-- Battery optimization -->
     <string name="battery_opt_title">Battery Optimization</string>
     <string name="battery_opt_message">To keep GPS tracking when the screen is off,\nMaro II needs to be exempt from battery optimization.</string>

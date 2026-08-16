@@ -1,28 +1,23 @@
 # BoatTrace — Hydration Snapshot
 
-**Baked at:** 2026-08-16 08:19 UTC
-**Active Subfeature:** gps-recording-regression (service GPS producer re-arm)
+**Baked at:** 2026-08-16 08:55 UTC
+**Active Subfeature:** gps-recording-regression (re-arm cooldown + permission dialog)
 **Branch:** feature/track-gps
 
 ## Session Summary
 
-**GPS recording regression — FIXED.** The 2026-08-15 service-owned-recorder refactor moved GPS sample
-assembly into `TrackRecordingService`, whose run-once GPS producer died on a startup `SecurityException`
-(fresh install / permission not yet granted) and never restarted. The recorder stayed ON with zero samples —
-blue idle icon, 0 points, no polyline, empty drawer dash — while demo mode and the UI GPS pipeline stayed healthy.
-
-**Fix:** added `TrackRecordingService.ensureGpsSampling()`, called from `onStartCommand`, which re-arms the
-GPS producer only when `demoMode` is false and the sampling job is inactive. `startGpsSampling()` now calls
-`adaptivePolicy.reset()` on restart and logs the exception type + message. `gradlew assembleDebug` BUILD SUCCESSFUL.
-
-Side-effect review (Debug mode): no blocking side effects — no double listener, demo gating intact,
-START_STICKY restart correct, no stale `_stopped`. Two low notes: negligible `adaptivePolicy` reset-vs-onFix
-race and bounded `SecurityException` log spam while permission is missing. No further change required.
+**GPS recording regression — FIXED + hardened.** The service-owned recorder's GPS producer now re-arms after a
+startup `SecurityException`, throttled to once per 15s. A new `gpsPermissionMissing` StateFlow is set on
+`SecurityException` and cleared on the first successful fix; `MapScreen` shows a once-per-episode AlertDialog
+with Open Settings / Not Now (EN+FR strings), gated on GPS mode. Clean build (`gradlew clean assembleDebug`)
+SUCCESSFUL — 42 tasks, pre-existing warnings only.
 
 ## Key Files (modified)
 
-- `app/src/main/java/ykws/android/maro/data/track/TrackRecordingService.kt` — ensureGpsSampling + re-arm hardening
+- `app/src/main/java/ykws/android/maro/data/track/TrackRecordingService.kt` — cooldown + gpsPermissionMissing
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — permission-missing AlertDialog
+- `app/src/main/res/values/strings.xml`, `values-fr/strings.xml` — gps_permission_title + gps_permission_message
 
 ## Next Step
 
-- On-device verification: fresh install and upgrade both record GPS points.
+- On-device verification: fresh install and upgrade both record GPS points; permission dialog appears when denied.

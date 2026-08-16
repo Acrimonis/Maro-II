@@ -3,8 +3,8 @@
 ## Active Session Pointers
 - **Active Feature:** BoatTrace
 - **Active Subfeature:** gps-recording-regression
-- **Last Updated:** 2026-08-16 08:19
-- **Last Bake:** 2026-08-16 08:19 (BoatTrace — gps-recording-regression: service GPS producer re-arm fix)
+- **Last Updated:** 2026-08-16 08:55
+- **Last Bake:** 2026-08-16 08:55 (BoatTrace — gps-recording-regression: re-arm cooldown + permission-missing dialog)
 - **Branch:** feature/track-gps
 
 ## Routing Map
@@ -56,7 +56,7 @@
 | | **ArcLayout** | **Layer toggle arc menu — pure-Compose semicircle fan-out with layer toggles, FanLayout framework, fixed child centering using effectiveTheta=180/currentCount** | **2026-06-13 07:34** | **2026-06-14 14:50** | **active** |
 | | **ZoneTile** | **Zone information tiles and map overlay rendering — zone-ahead cone/line, speed zone display, ETA, zone state management** | **2026-06-17 09:45** | **2026-06-17 09:45** | **active** |
 | | **Zone300SpeedBadge** | **300m zone speed limit badge integrated into regulated zone icon stack as highest-priority SPEED_LIMIT entry** | **2026-06-14 17:42** | **2026-06-14 17:42** | **done** |
-| | **BoatTrace** | **Boat movement tracking: record tracks from GPS fixes, persist, display on map with configurable render layers, GPX export, track history UI, render preview indicator, idle-period marker snapshots (BoatMarker), auto-marker 🕐 pins at idle spots with transparency, service GPS producer re-arm fix** | **2026-06-15 21:43** | **2026-08-16 08:19** | **active** |
+| | **BoatTrace** | **Boat movement tracking: record tracks from GPS fixes, persist, display on map with configurable render layers, GPX export, track history UI, render preview indicator, idle-period marker snapshots (BoatMarker), auto-marker 🕐 pins at idle spots with transparency, service GPS re-arm + permission-missing dialog** | **2026-06-15 21:43** | **2026-08-16 08:55** | **active** |
 | | **CheckDev** | **Dev-branch health monitoring — remote branch state, ahead/behind analysis, workflow hygiene validation** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
 | | **Health** | **Application health monitoring — diagnostics, crash reporting, memory/performance telemetry** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
 | | **WorkflowAmbiguityFix** | **Eliminate ambiguity between AGENTS.md rules — #merge direction, §5 reinforcement, command doc alignment. Absorbed into WorkflowImprovement 2026-06-28.** | **2026-06-20 14:51** | **2026-06-28 13:51** | **done** |

@@ -45,6 +45,9 @@ import java.io.File
 
 private const val TAG = "MaroII_TrackService"
 
+/** Minimum interval between GPS re-arm attempts — silences repeated SecurityException logs. */
+private const val GPS_REARM_COOLDOWN_MS = 15_000L
+
 /**
  * Foreground service that keeps Maro II alive when backgrounded.
  *
@@ -99,6 +102,9 @@ class TrackRecordingService : Service() {
 
     /** GPS sampling job (cancelled on destroy or when demo mode activates). */
     private var gpsJob: Job? = null
+
+    /** Last GPS re-arm attempt (elapsedRealtime ms) — throttles retries to [GPS_REARM_COOLDOWN_MS]. */
+    private var lastGpsReArmAttemptMs = 0L
 
     /** Authoritative recording flag — mirrors the recorder's live state synchronously. */
     private val recordingNow: Boolean
@@ -262,6 +268,9 @@ class TrackRecordingService : Service() {
     private fun ensureGpsSampling() {
         if (demoMode.value) return           // never sample in demo mode
         if (gpsJob?.isActive == true) return // already sampling
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastGpsReArmAttemptMs < GPS_REARM_COOLDOWN_MS) return
+        lastGpsReArmAttemptMs = now
         startGpsSampling()
     }
 
@@ -275,9 +284,11 @@ class TrackRecordingService : Service() {
                     if (demo) emptyFlow<GpsFix>() else gpsSource.locationUpdates(1_000L, 1f)
                 }
                 .catch { e ->
+                    if (e is SecurityException) _gpsPermissionMissing.value = true
                     Log.w(TAG, "GPS sampling failed (${e.javaClass.simpleName}: ${e.message})", e)
                 }
                 .collect { fix ->
+                    _gpsPermissionMissing.value = false
                     val s = settingsManager.settings.value
                     val mode = adaptivePolicy.onFix(
                         SystemClock.elapsedRealtime(),
@@ -465,6 +476,9 @@ class TrackRecordingService : Service() {
         val isRecording: StateFlow<Boolean> = _isRecording.asStateFlow()
 
         private val _stopped = MutableStateFlow(false)
+
+        private val _gpsPermissionMissing = MutableStateFlow(false)
+        val gpsPermissionMissing: StateFlow<Boolean> = _gpsPermissionMissing.asStateFlow()
 
         private val _events = MutableSharedFlow<TrackEvent>(extraBufferCapacity = 64)
         val events: SharedFlow<TrackEvent> = _events.asSharedFlow()
