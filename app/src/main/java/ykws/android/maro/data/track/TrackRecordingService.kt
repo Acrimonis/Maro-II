@@ -192,6 +192,9 @@ class TrackRecordingService : Service() {
             demoMode.value = intent.getBooleanExtra(EXTRA_IS_DEMO, false)
         }
 
+        // ── Re-arm GPS sampling if it died (e.g., startup SecurityException) ──
+        ensureGpsSampling()
+
         val notification = buildNotification(intent, lastKnownOnWater, recording = recordingNow)
         startForeground(NOTIFICATION_ID, notification)
         return START_STICKY
@@ -251,15 +254,29 @@ class TrackRecordingService : Service() {
         }
     }
 
+    /**
+     * Re-arm GPS sampling if it is not currently running. Guards against the
+     * run-once producer dying on a startup SecurityException (fresh install
+     * before permission) — the next intent in GPS mode restarts it.
+     */
+    private fun ensureGpsSampling() {
+        if (demoMode.value) return           // never sample in demo mode
+        if (gpsJob?.isActive == true) return // already sampling
+        startGpsSampling()
+    }
+
     /** Assemble GPS [TrackSample]s from a service-owned LocationManager listener. */
     private fun startGpsSampling() {
         gpsJob?.cancel()
+        adaptivePolicy.reset()
         gpsJob = serviceScope.launch {
             demoMode
                 .flatMapLatest { demo ->
                     if (demo) emptyFlow<GpsFix>() else gpsSource.locationUpdates(1_000L, 1f)
                 }
-                .catch { e -> Log.w(TAG, "GPS sampling failed", e) }
+                .catch { e ->
+                    Log.w(TAG, "GPS sampling failed (${e.javaClass.simpleName}: ${e.message})", e)
+                }
                 .collect { fix ->
                     val s = settingsManager.settings.value
                     val mode = adaptivePolicy.onFix(

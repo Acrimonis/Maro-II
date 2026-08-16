@@ -1,34 +1,28 @@
 # BoatTrace — Hydration Snapshot
 
-**Baked at:** 2026-08-15 14:48 UTC
-**Active Subfeature:** idle-reconciliation (compound idle predicate + BoatMarker sweep + GPX UTC)
-**Branch:** feature/tracks-mgt
+**Baked at:** 2026-08-16 08:19 UTC
+**Active Subfeature:** gps-recording-regression (service GPS producer re-arm)
+**Branch:** feature/track-gps
 
 ## Session Summary
 
-**Idle Reconciliation — IMPLEMENTED.** Unified compound idle predicate `(d/Δt < 0.5 m/s) AND (d < 500 m)` applied at finalize and at merge. BUILD SUCCESSFUL (×2).
+**GPS recording regression — FIXED.** The 2026-08-15 service-owned-recorder refactor moved GPS sample
+assembly into `TrackRecordingService`, whose run-once GPS producer died on a startup `SecurityException`
+(fresh install / permission not yet granted) and never restarted. The recorder stayed ON with zero samples —
+blue idle icon, 0 points, no polyline, empty drawer dash — while demo mode and the UI GPS pipeline stayed healthy.
 
-### Fix 1: Within-track idle reconciliation on save
-`TrackRecorder.computeTimelineIdleSec()` re-derives idle from the RAW point timeline at finalize. Long screen-off/backgrounded stops (e.g. the 2h34m dive stop) now count as idle instead of silently becoming navigating. `maxOf(live, timeline)` + clamps.
+**Fix:** added `TrackRecordingService.ensureGpsSampling()`, called from `onStartCommand`, which re-arms the
+GPS producer only when `demoMode` is false and the sampling job is inactive. `startGpsSampling()` now calls
+`adaptivePolicy.reset()` on restart and logs the exception type + message. `gradlew assembleDebug` BUILD SUCCESSFUL.
 
-### Fix 2: Resume seam always marked
-`detectAndInsertGap(force = true)` on the first post-resume point — the seam is always a GAP marker, so timeline idle computation skips it deterministically.
-
-### Fix 3: BoatMarker finalize sweep
-Open IDLE BoatMarkers (never MANUAL) are closed at finalize with a single `finalizeTimeMs`. `recomputeDescription()` re-run after sweep so durations land in the comment. Checkpoint-write race fixed with `isFinalizing` guard.
-
-### Fix 4: Merge same-area shortcut
-`TrackMerger` applies the same compound predicate before its `d/v_ref` decomposition — a gap where the boat stayed in the area is fully idle.
-
-### Fix 5: GPX export UTC
-`GpxExporter.isoFormat` now writes UTC timestamps (was device-local + literal `Z`).
+Side-effect review (Debug mode): no blocking side effects — no double listener, demo gating intact,
+START_STICKY restart correct, no stale `_stopped`. Two low notes: negligible `adaptivePolicy` reset-vs-onFix
+race and bounded `SecurityException` log spam while permission is missing. No further change required.
 
 ## Key Files (modified)
 
-- `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt` — compound predicate, forced resume GAP, finalize reconciliation + marker sweep + isFinalizing
-- `app/src/main/java/ykws/android/maro/data/track/TrackMerger.kt` — same-area shortcut before d/v_ref
-- `app/src/main/java/ykws/android/maro/data/track/GpxExporter.kt` — UTC isoFormat
+- `app/src/main/java/ykws/android/maro/data/track/TrackRecordingService.kt` — ensureGpsSampling + re-arm hardening
 
-## Plan
+## Next Step
 
-- `xTrack/BoatTrace/260815_FEAT_PLN_BoatTrace_idle-reconciliation-fixes.md`
+- On-device verification: fresh install and upgrade both record GPS points.
