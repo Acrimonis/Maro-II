@@ -383,7 +383,7 @@ fun MapScreen(
     // ── Click-N-Move state ─────────────────────────────────────────────
     var highlightedTrackId by remember { mutableStateOf<String?>(null) }
     var highlightedMarkerId by remember { mutableStateOf<String?>(null) }
-    var previousMarkerZonesVisible by remember { mutableStateOf(true) }
+    var navigationZonesVisible by remember { mutableStateOf(false) }
     var preNavigationState by remember { mutableStateOf<PreNavigationState?>(null) }
     var trackNavigateState by remember { mutableStateOf<TrackNavigateState?>(null) }
     var trackDrawerState by remember { mutableStateOf(TrackDrawerState()) }
@@ -2021,7 +2021,7 @@ fun MapScreen(
                     unconfirmedMarker = unconfirmedMarker,
                     onMarkerTap = { ids -> markersViewModel.openEditDrawer(ids) },
                     matchResult = if (drawerState is MarkerDrawerState.MatchResult) matchResult else null,
-                    markerZonesVisible = appSettings.markerZonesVisible,
+                    markerZonesVisible = appSettings.markerZonesVisible || navigationZonesVisible,
                     selectedMarkerId = selectedMarkerId,
                     markerLayerState = markerLayerState,
                     highlightedMarkerId = highlightedMarkerId
@@ -2135,7 +2135,7 @@ fun MapScreen(
             onDismissMarkerManagement = { showMarkerManagement = false },
             onWizardCancel = { markersViewModel.wizardCancel() },
             onMarkerDrawerClose = {
-                viewModel.updateSettings { it.copy(markerZonesVisible = previousMarkerZonesVisible) }
+                navigationZonesVisible = false
                 highlightedMarkerId = null
                 markersViewModel.closeDrawer()
                 if (markerOpenedFromList) {
@@ -2252,9 +2252,8 @@ fun MapScreen(
             onMarkerAction = { action ->
                 when (action) {
                     is ykws.android.maro.data.model.ListAction.NavigateToItem -> {
-                        previousMarkerZonesVisible = appSettings.markerZonesVisible
+                        navigationZonesVisible = true
                         markersViewModel.showLayer()
-                        viewModel.updateSettings { it.copy(markerZonesVisible = true) }
                         highlightedMarkerId = action.id
                         markerOpenedFromList = true
                         markerListScrollState = SavedScrollState(
@@ -2420,6 +2419,7 @@ fun MapScreen(
                     markersViewModel.openEditDrawer(filtered, selectedId = targetId, source = source)
                     highlightedMarkerId = targetId
                 } else {
+                    navigationZonesVisible = false
                     highlightedMarkerId = null
                     markersViewModel.closeDrawer()
                 }
