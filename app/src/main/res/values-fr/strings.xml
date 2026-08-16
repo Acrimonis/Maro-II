@@ -181,9 +181,9 @@
     <string name="menu_section_position">SOURCE DE POSITION</string>
     <string name="menu_section_tracks">TRACES</string>
     <string name="menu_section_markers">REPÈRES</string>
-    <string name="menu_manage_tracks">Gérer les traces</string>
+    <string name="menu_manage_tracks">Traces</string>
     <string name="menu_show_zones">Afficher les zones</string>
-    <string name="menu_manage_markers">Gérer les repères</string>
+    <string name="menu_manage_markers">Repères</string>
     <string name="track_status_recording">● Enregistrement</string>
     <string name="track_status_idle">● En attente</string>
     <string name="track_stat_state">État</string>
@@ -250,6 +250,8 @@
     <string name="cd_reset_filter">Réinitialiser le filtre</string>
     <string name="cd_view_tracks">Voir la liste des traces</string>
     <string name="cd_manage_markers">Gérer les repères</string>
+    <string name="cd_open_first_track">Ouvrir la première trace</string>
+    <string name="cd_open_first_marker">Ouvrir le premier repère</string>
     <string name="cd_set_icon">Définir l\'icône</string>
     <string name="cd_edit">Modifier</string>
     <string name="cd_delete">Supprimer</string>

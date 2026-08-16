@@ -182,10 +182,10 @@
     <string name="menu_section_position">POSITION SOURCE</string>
     <string name="menu_section_tracks">TRACKS</string>
     <string name="menu_section_markers">MARKERS</string>
-    <string name="menu_manage_tracks">Manage Tracks</string>
+    <string name="menu_manage_tracks">Tracks</string>
     <string name="menu_import_export">Import / Export</string>
     <string name="menu_show_zones">Show Zones on Map</string>
-    <string name="menu_manage_markers">Manage Markers</string>
+    <string name="menu_manage_markers">Markers</string>
     <string name="track_status_recording">● Recording</string>
     <string name="track_status_idle">● Idle</string>
     <string name="track_stat_state">State</string>
@@ -252,6 +252,8 @@
     <string name="cd_reset_filter">Reset filter</string>
     <string name="cd_view_tracks">View track list</string>
     <string name="cd_manage_markers">Manage markers</string>
+    <string name="cd_open_first_track">Open first track</string>
+    <string name="cd_open_first_marker">Open first marker</string>
     <string name="cd_set_icon">Set icon</string>
     <string name="cd_edit">Edit</string>
     <string name="cd_delete">Delete</string>
