@@ -121,11 +121,9 @@ class TrackRepository(
     /** Finalize an orphaned checkpoint into a complete track. */
     suspend fun finalizeOrphanedCheckpoint(track: Track): Track = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
-        val dataEndMs = track.lastRealPointTimeMsOrNull() ?: now
-        val finalized = track.copy(
-            endTimeMs = dataEndMs,
-            lastPointTimeMs = dataEndMs,
-            navigatingDurationSec = ((dataEndMs - track.startTimeMs) / 1000 - track.idleDurationSec).coerceAtLeast(0),
+        val derived = track.withDerivedStats()
+        val finalized = derived.copy(
+            endTimeMs = derived.lastPointTimeMs.takeIf { it != 0L } ?: now,
             updatedAtEpochMs = now
         )
         save(finalized)
@@ -134,24 +132,29 @@ class TrackRepository(
     }
 
     /**
-     * One-time backfill: ensure every finalized track has a non-zero [Track.lastPointTimeMs].
-     * Runs on first launch after the schema bump; idempotent. Returns the number of tracks updated.
+     * One-time migration: repair stats + lastPointTimeMs on tracks saved before those fields were
+     * populated (recovered-from-checkpoint signature). Runs on first launch after the schema bump;
+     * idempotent. Returns the number of tracks updated.
      */
-    suspend fun backfillLastPointTimeMs(): Int = withContext(Dispatchers.IO) {
+    suspend fun migrateTrackStats(): Int = withContext(Dispatchers.IO) {
         var updated = 0
         tracksDir.listFiles()
             ?.filter { it.extension == "bin" && !it.name.endsWith("_checkpoint.bin") && it.name != INDEX_FILE_NAME }
             ?.forEach { file ->
                 try {
                     val track = proto.decodeFromByteArray(Track.serializer(), file.readBytes())
-                    if (track.endTimeMs != null && track.lastPointTimeMs == 0L) {
-                        val lpt = track.lastRealPointTimeMsOrNull() ?: 0L
-                        if (lpt != 0L) {
-                            val tmp = File(file.parentFile, "${file.name}.tmp")
-                            tmp.writeBytes(proto.encodeToByteArray(Track.serializer(), track.copy(lastPointTimeMs = lpt)))
-                            atomicReplace(tmp, file)
-                            updated++
-                        }
+                    if (track.endTimeMs == null) return@forEach
+                    val needsStats = track.distanceNm == 0f && track.averageSpeedMps == 0f &&
+                        track.idleDurationSec == 0L && track.fastestSpeedMps > 0f &&
+                        track.trackPoints.size >= 2
+                    val needsLastPoint = track.lastPointTimeMs == 0L
+                    if (needsStats || needsLastPoint) {
+                        val repaired = if (needsStats) track.withDerivedStats()
+                            else track.copy(lastPointTimeMs = track.lastRealPointTimeMsOrNull() ?: 0L)
+                        val tmp = File(file.parentFile, "${file.name}.tmp")
+                        tmp.writeBytes(proto.encodeToByteArray(Track.serializer(), repaired))
+                        atomicReplace(tmp, file)
+                        updated++
                     }
                 } catch (_: Exception) {
                     // Skip corrupt files — load/rebuildIndex already delete those on read.

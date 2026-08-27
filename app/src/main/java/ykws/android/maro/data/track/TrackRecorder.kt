@@ -77,10 +77,6 @@ private const val STALE_CAP_LOW_SPEED = 1.5
 private const val STALE_CAP_NORMAL = 3.0
 /** Max plausible drift distance (m) while stationary (Fix C). */
 private const val MAX_STATIONARY_DRIFT_M = 150
-/** Implied-speed ceiling (m/s, ~1 kn) for the reconciled-idle classifier. */
-private const val IDLE_MAX_SPEED_MPS = 0.5
-/** Net-displacement ceiling (m) for the reconciled-idle classifier. */
-private const val IDLE_MAX_DRIFT_M = 500.0
 
 /** GPS speed (m/s, ~10 kn) above which sideways course changes are trusted as real navigation. */
 private const val SIDEWAYS_SPEED_THRESHOLD_MPS = 5.0f
@@ -633,27 +629,6 @@ class TrackRecorder(
         }
     }
 
-    /**
-     * Derive idle duration from the raw point timeline using the compound idle predicate.
-     * Runs on RAW points (before simplification); skips pairs adjacent to a GAP seam.
-     */
-    private fun computeTimelineIdleSec(points: List<TrackPoint>): Long {
-        var idle = 0L
-        for (i in 1 until points.size) {
-            if (points[i].type == PointType.GAP || points[i - 1].type == PointType.GAP) continue
-            val dtSec = (points[i].timeOffsetMs - points[i - 1].timeOffsetMs) / 1000.0
-            if (dtSec <= 0) continue
-            val dM = SpatialOperations.haversine(
-                LatLng(points[i - 1].lat, points[i - 1].lon),
-                LatLng(points[i].lat, points[i].lon)
-            )
-            if (dM / dtSec < IDLE_MAX_SPEED_MPS && dM < IDLE_MAX_DRIFT_M) {
-                idle += dtSec.toLong()
-            }
-        }
-        return idle
-    }
-
     private fun addPoint(sample: TrackSample) {
         val track = currentTrack ?: return
 
@@ -1105,7 +1080,7 @@ class TrackRecorder(
         // Re-read currentTrack after closeOpenBoatMarker to include updated boatMarkers
         val trackAfterClose = currentTrack ?: track
 
-        val reconciledIdleSec = maxOf(idleDurationSec, computeTimelineIdleSec(track.trackPoints))
+        val reconciledIdleSec = maxOf(idleDurationSec, timelineIdleSec(track.trackPoints))
             .coerceAtMost(totalElapsedSec)
 
         // Sweep-close any open IDLE BoatMarkers (defensive — active marker already closed above).

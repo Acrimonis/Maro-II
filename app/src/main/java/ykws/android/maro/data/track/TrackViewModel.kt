@@ -383,18 +383,18 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         return tracks.size
     }
 
-    /** One-time schema backfill: populate `lastPointTimeMs` on tracks saved before the field existed. */
+    /** One-time schema migration: repair stats + lastPointTimeMs on tracks saved before those fields existed. */
     private suspend fun runTrackSchemaMigration() {
         val prefs = getApplication<Application>()
             .getSharedPreferences("maro_track_schema", android.content.Context.MODE_PRIVATE)
         if (prefs.getInt(KEY_TRACK_SCHEMA_VERSION, 0) < TRACK_SCHEMA_VERSION) {
-            repository.backfillLastPointTimeMs()
+            repository.migrateTrackStats()
             prefs.edit().putInt(KEY_TRACK_SCHEMA_VERSION, TRACK_SCHEMA_VERSION).apply()
         }
     }
 
     companion object {
-        private const val TRACK_SCHEMA_VERSION = 1
+        private const val TRACK_SCHEMA_VERSION = 2
         private const val KEY_TRACK_SCHEMA_VERSION = "track_schema_version"
     }
 }
