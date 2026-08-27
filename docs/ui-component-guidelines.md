@@ -251,13 +251,21 @@ semantic palette) and exposes them via
 | GPS | `semantic.inactive` | acquiring=`semantic.caution`, healthy=`semantic.compliant`, idle=`semantic.info`, stale/weak=`semantic.danger` |
 | Tracking | `semantic.inactive` | moving=`semantic.compliant`, idle=`semantic.info` |
 | Earth/Water | `semantic.inactive` | water=`semantic.info`, land=`semantic.compliant` |
-| Screen lock | `semantic.inactive` (📱 unlocked) | locked=`semantic.caution` (🔒) |
+| Screen lock | `semantic.inactive` (📵) | locked=`semantic.caution` (📵) |
 
 > Exception: `EarthWaterIcon` keeps its emoji at full alpha in the inactive state (no
 > contentAlpha dimming) and reuses `statusGpsAlphaActive` for its active bg alpha.
 
 🔴 New icons must: declare a `status.<name>.*` token family, parse it in `AppConfig`, and follow
 the alpha/contentAlpha recipe above — never hardcode hex in the composable.
+
+**Lock-screen overlay placement:** the lock toggle sits right of the Earth/Water icon in the
+top-left status row (GPS → Tracking → Earth/Water → Lock → Recenter). When locked, the overlay
+recreates the same controls above the input-blocking scrim (duplicate unlock button, `ZoomControls`,
+`LockBanner`); those duplicates must live inside a `Box` padded exactly like `MapContent`'s
+dashboard padding (portrait: bottom = `portraitDashboardHeight`; landscape: start =
+`landscapeDashboardWidth`) so they align over the originals in both orientations. The locked
+zoom controls accept a double-tap only (single splash taps are ignored).
 
 ---
 
