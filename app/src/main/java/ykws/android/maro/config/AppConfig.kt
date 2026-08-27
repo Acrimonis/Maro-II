@@ -290,6 +290,19 @@ object AppConfig {
     var statusEarthWaterInactive: Int = 0x33FFFFFF.toInt()
         private set
 
+    /** Screen-lock icon OFF (unlocked) background colour. Default from semantic.inactive = #33FFFFFF (white 20%). Set via `status.lock.off` in colors.properties. */
+    var statusLockOff: Int = 0x33FFFFFF.toInt()
+        private set
+    /** Screen-lock icon ON (locked) background colour. Default from semantic.info = #FF1565C0 (blue). Set via `status.lock.on` in colors.properties. */
+    var statusLockOn: Int = 0xFF1565C0.toInt()
+        private set
+    /** Screen-lock icon active-state background alpha (0.0–1.0). Default 0.75. Set via `status.lock.alpha.active` in colors.properties. */
+    var statusLockAlphaActive: Float = 0.75f
+        private set
+    /** Screen-lock icon dimmed-state background alpha (0.0–1.0). Default 0.50. Set via `status.lock.alpha.dimmed` in colors.properties. */
+    var statusLockAlphaDimmed: Float = 0.50f
+        private set
+
     /** Tracking icon HEALTHY state (ON + moving, recording) colour. Default #CC4CAF50. Set via `status.tracking.healthy` in colors.properties. */
     var statusTrackingHealthy: Int = 0xCC4CAF50.toInt()
         private set
@@ -697,6 +710,11 @@ object AppConfig {
             props.getProperty("status.earthWater.water")?.let { parseColorOrNull(it) }?.let { statusEarthWaterWater = it }
             props.getProperty("status.earthWater.land")?.let { parseColorOrNull(it) }?.let { statusEarthWaterLand = it }
             props.getProperty("status.earthWater.inactive")?.let { parseColorOrNull(it) }?.let { statusEarthWaterInactive = it }
+
+            props.getProperty("status.lock.off")?.let { parseColorOrNull(it) }?.let { statusLockOff = it }
+            props.getProperty("status.lock.on")?.let { parseColorOrNull(it) }?.let { statusLockOn = it }
+            props.getProperty("status.lock.alpha.active")?.toFloatOrNull()?.let { statusLockAlphaActive = it.coerceIn(0f, 1f) }
+            props.getProperty("status.lock.alpha.dimmed")?.toFloatOrNull()?.let { statusLockAlphaDimmed = it.coerceIn(0f, 1f) }
 
             // ── Dashboard depth readout tints ─────────────────────────────────
             props.getProperty("ui.dashboard.readout.collision")?.let { parseColorOrNull(it) }?.let { uiDashboardReadoutCollision = it }

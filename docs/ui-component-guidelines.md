@@ -224,6 +224,51 @@ Source: [`MarkerOverlay.kt`](../app/src/main/java/ykws/android/maro/ui/map/Marke
 
 ---
 
+### 5.5 Top-Left Status Icons (`GpsStatusIcon` / `TrackStatusIcon` / `EarthWaterIcon` / `LockScreenButton`)
+
+44×44dp rounded square (8dp radius) with a 22sp emoji glyph, one slot each in the top-left
+status row ([`MapScreen.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt)). Every
+icon family declares its own colour tokens in
+[`colors.properties`](../app/src/main/assets/colors.properties) (alias-interpolated from the
+semantic palette) and exposes them via
+[`AppConfig.kt`](../app/src/main/java/ykws/android/maro/config/AppConfig.kt).
+
+**Visual recipe:**
+
+| Aspect | Value |
+|---|---|
+| Size / radius | 44dp / 8dp |
+| Glyph | emoji, 22sp |
+| Active bg alpha | `status.*.alpha.active` = 0.75 |
+| Dimmed bg alpha | `status.*.alpha.dimmed` = 0.50 |
+| Inactive content alpha | 0.50 (emoji dimmed) |
+| Inactive bg | `${semantic.inactive}` (#33FFFFFF) |
+
+**State → colour mapping:**
+
+| Icon | Off / inactive | Active states |
+|---|---|---|
+| GPS | `semantic.inactive` | acquiring=`semantic.caution`, healthy=`semantic.compliant`, idle=`semantic.info`, stale/weak=`semantic.danger` |
+| Tracking | `semantic.inactive` | moving=`semantic.compliant`, idle=`semantic.info` |
+| Earth/Water | `semantic.inactive` | water=`semantic.info`, land=`semantic.compliant` |
+| Screen lock | `semantic.inactive` (📵) | locked=`semantic.info` (📵) |
+
+> Exception: `EarthWaterIcon` keeps its emoji at full alpha in the inactive state (no
+> contentAlpha dimming) and reuses `statusGpsAlphaActive` for its active bg alpha.
+
+🔴 New icons must: declare a `status.<name>.*` token family, parse it in `AppConfig`, and follow
+the alpha/contentAlpha recipe above — never hardcode hex in the composable.
+
+**Lock-screen overlay placement:** the lock toggle sits right of the Earth/Water icon in the
+top-left status row (GPS → Tracking → Earth/Water → Lock → Recenter). When locked, the overlay
+recreates the same controls above the input-blocking scrim (duplicate unlock button, `ZoomControls`,
+`LockBanner`); those duplicates must live inside a `Box` padded exactly like `MapContent`'s
+dashboard padding (portrait: bottom = `portraitDashboardHeight`; landscape: start =
+`landscapeDashboardWidth`) so they align over the originals in both orientations. The locked
+zoom controls accept a double-tap only (single splash taps are ignored).
+
+---
+
 ## 6. Global Layout Rules
 
 ### 6.1 Screen Bottom Padding

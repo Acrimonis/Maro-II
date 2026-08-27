@@ -111,6 +111,8 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -380,6 +382,10 @@ fun MapScreen(
     var showTrackHistory by remember { mutableStateOf(false) }
     var showMarkerManagement by remember { mutableStateOf(false) }
     var navigateToTarget by remember { mutableStateOf<NavigateTarget?>(null) }
+    // ── Screen-lock state (splash-proof touch guard) ────────────────────
+    var screenLocked by rememberSaveable { mutableStateOf(false) }
+    // Lock/unlock transient banner: null = hidden, true = locked, false = unlocked.
+    var lockBanner by remember { mutableStateOf<Boolean?>(null) }
 
     // ── Click-N-Move state ─────────────────────────────────────────────
     var highlightedTrackId by remember { mutableStateOf<String?>(null) }
@@ -504,6 +510,18 @@ fun MapScreen(
     val systemScrollState = rememberScrollState()
 
     val context = LocalContext.current
+    // ── Screen-lock toggle: flip state + toast ──────────────────────────
+    val onToggleScreenLock = {
+        val newLocked = !screenLocked
+        screenLocked = newLocked
+        lockBanner = newLocked
+    }
+    LaunchedEffect(lockBanner) {
+        if (lockBanner != null) {
+            delay(2_000L)
+            lockBanner = null
+        }
+    }
     // ── Background location permission dialog state (A2) ─────────────────
     var showBgLocationDialog by remember { mutableStateOf(false) }
     // ── Battery optimization dialog state (A4, triggered on recording start) ──
@@ -2002,6 +2020,8 @@ fun MapScreen(
                 autoFollowSuppressed = autoFollowSuppressed,
                 onRecenter = { viewModel.recenterNow() },
                 onClearTrackInfoError = { trackViewModel.clearInfoError() },
+                screenLocked = screenLocked,
+                onToggleScreenLock = onToggleScreenLock,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(
@@ -2605,6 +2625,65 @@ fun MapScreen(
                 }
             )
         }
+
+        // ── Screen lock: full-screen input scrim + top-most unlock button ──
+        //     The scrim consumes every pointer event so nothing below it (map,
+        //     dashboard, drawers, controls) receives touch while locked. The
+        //     duplicate button sits above the scrim so the lock can be toggled off.
+        val lockTopInset = with(LocalDensity.current) {
+            val raw = WindowInsets.statusBars.getTop(this).toDp()
+            if (isLandscape) raw else (raw - 6.dp).coerceAtLeast(0.dp)
+        }
+        if (screenLocked) {
+            LockScrim()
+        }
+        // Locked-overlay controls sit inside the map area: mirror MapContent's
+        // dashboard padding (portrait: bottom; landscape: start) so the duplicate
+        // lock button, zoom controls, and banner align over the originals.
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(
+                    if (isLandscape)
+                        PaddingValues(start = landscapeDashboardWidth, top = 0.dp, end = 0.dp, bottom = 0.dp)
+                    else
+                        PaddingValues(start = 0.dp, top = 0.dp, end = 0.dp, bottom = portraitDashboardHeight)
+                )
+        ) {
+            if (screenLocked) {
+                LockScreenButton(
+                    locked = true,
+                    onClick = onToggleScreenLock,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(top = lockTopInset, start = 6.dp + (44.dp + 6.dp) * 3)
+                )
+                ZoomControls(
+                    onZoomIn = {
+                        mapView?.let { mv ->
+                            mv.controller.zoomIn()
+                            viewModel.updateZoomLevel(mv.zoomLevelDouble)
+                        }
+                    },
+                    onZoomOut = {
+                        mapView?.let { mv ->
+                            mv.controller.zoomOut()
+                            viewModel.updateZoomLevel(mv.zoomLevelDouble)
+                        }
+                    },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(end = 6.dp, bottom = 6.dp),
+                    doubleTap = true
+                )
+            }
+            if (lockBanner != null) {
+                LockBanner(
+                    locked = lockBanner == true,
+                    modifier = Modifier.align(Alignment.BottomStart)
+                )
+            }
+        }
     }
 }
 }
@@ -2762,6 +2841,8 @@ private fun MapContent(
     autoFollowSuppressed: Boolean = false,
     onRecenter: () -> Unit = {},
     onClearTrackInfoError: () -> Unit = {},
+    screenLocked: Boolean = false,
+    onToggleScreenLock: () -> Unit = {},
     modifier: Modifier = Modifier,
     mapCenterOffsetDp: Dp = 0.dp,
 ) {
@@ -2884,6 +2965,10 @@ private fun MapContent(
                         isActive = true,
                         activeColor = if (isWater) ComposeColor(AppConfig.statusEarthWaterWater) else ComposeColor(AppConfig.statusEarthWaterLand),
                         contentDescription = if (isWater) stringResource(R.string.side_water) else stringResource(R.string.side_land),
+                    )
+                    LockScreenButton(
+                        locked = screenLocked,
+                        onClick = onToggleScreenLock
                     )
                     if (appSettings.gpsMode && autoFollowSuppressed) {
                         RecenterButton(onClick = onRecenter)
@@ -3113,25 +3198,20 @@ private fun MapContent(
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     if (mapView != null) {
-                        Column(
-                            verticalArrangement = Arrangement.spacedBy(6.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            MapControlButton(
-                                onClick = {
-                                    val mv = mapView ?: return@MapControlButton
+                        ZoomControls(
+                            onZoomIn = {
+                                mapView?.let { mv ->
                                     mv.controller.zoomIn()
                                     onZoomChanged(mv.zoomLevelDouble)
                                 }
-                            ) { PlusIcon() }
-                            MapControlButton(
-                                onClick = {
-                                    val mv = mapView ?: return@MapControlButton
+                            },
+                            onZoomOut = {
+                                mapView?.let { mv ->
                                     mv.controller.zoomOut()
                                     onZoomChanged(mv.zoomLevelDouble)
                                 }
-                            ) { MinusIcon() }
-                        }
+                            }
+                        )
                     }
                     // Future bottom controls can be added here
                 }
@@ -3794,6 +3874,145 @@ private fun RecenterButton(
             text = "📍",
             fontSize = 22.sp
         )
+    }
+}
+
+/**
+ * Screen-lock toggle — leftmost in the top-left status row. 📱 (unlocked,
+ * dimmed inactive) ↔ 🔒 (locked, caution/amber active). Matches the
+ * GpsStatusIcon / TrackStatusIcon recipe: 44dp box, 8dp radius, 22sp emoji.
+ */
+@Composable
+private fun LockScreenButton(
+    locked: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val baseColor = if (locked) ComposeColor(AppConfig.statusLockOn) else ComposeColor(AppConfig.statusLockOff)
+    val bgAlpha = if (locked) AppConfig.statusLockAlphaActive else AppConfig.statusLockAlphaDimmed
+    val contentAlpha = if (locked) 1f else 0.50f
+    val cd = stringResource(if (locked) R.string.cd_unlock_screen else R.string.cd_lock_screen)
+    Box(
+        modifier = modifier
+            .size(44.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(baseColor.copy(alpha = bgAlpha))
+            .clickable(onClick = onClick)
+            .semantics { contentDescription = cd }
+            .alpha(contentAlpha),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "\uD83D\uDCF5",
+            fontSize = 22.sp
+        )
+    }
+}
+
+/**
+ * Full-screen transparent input blocker shown when the screen is locked.
+ * Consumes every pointer event (tap, drag, pinch) so nothing below it —
+ * osmdroid map, dashboard, drawers, controls — receives touch.
+ */
+@Composable
+private fun LockScrim(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        event.changes.forEach { it.consume() }
+                    }
+                }
+            }
+    )
+}
+
+/**
+ * Zoom +/− control pair — two 64dp buttons with a 6dp gap. Shared by the normal
+ * right column and the locked-screen overlay so both stay identical.
+ *
+ * @param doubleTap When true, each button zooms only on a double-tap (single
+ *                  splash taps are ignored); when false, normal single-tap.
+ */
+@Composable
+private fun ZoomControls(
+    onZoomIn: () -> Unit,
+    onZoomOut: () -> Unit,
+    modifier: Modifier = Modifier,
+    doubleTap: Boolean = false
+) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        ZoomButton(onClick = onZoomIn, doubleTap = doubleTap) { PlusIcon() }
+        ZoomButton(onClick = onZoomOut, doubleTap = doubleTap) { MinusIcon() }
+    }
+}
+
+@Composable
+private fun ZoomButton(
+    onClick: () -> Unit,
+    doubleTap: Boolean,
+    icon: @Composable () -> Unit
+) {
+    if (doubleTap) {
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .clip(CircleShape)
+                .background(ButtonColors.bg)
+                .pointerInput(Unit) {
+                    detectTapGestures(onDoubleTap = { onClick() })
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            icon()
+        }
+    } else {
+        MapControlButton(onClick = onClick) { icon() }
+    }
+}
+
+/**
+ * Lock/unlock feedback banner — reuses the generic exit-toast style (rounded
+ * Surface, 2dp border, card background) at the bottom-left of the map, left of
+ * the right-edge control column. Non-interactive.
+ */
+@Composable
+private fun LockBanner(
+    locked: Boolean,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(start = 6.dp, end = RIGHT_CONTROL_COLUMN_INSET),
+        contentAlignment = Alignment.CenterStart
+    ) {
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = ComposeColor(AppConfig.buttonActionBgColor),
+            shadowElevation = 8.dp,
+            modifier = Modifier.border(2.dp, ComposeColor(AppConfig.uiDashboardBackground), RoundedCornerShape(14.dp))
+        ) {
+            Box(modifier = Modifier.background(ComposeColor(AppConfig.uiCardBackground))) {
+                Text(
+                    text = stringResource(
+                        if (locked) R.string.toast_screen_locked else R.string.toast_screen_unlocked
+                    ),
+                    color = ComposeColor(AppConfig.uiSettingsToastText),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                )
+            }
+        }
     }
 }
 
