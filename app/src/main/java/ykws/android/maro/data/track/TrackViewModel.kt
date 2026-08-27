@@ -394,7 +394,7 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     companion object {
-        private const val TRACK_SCHEMA_VERSION = 2
+        private const val TRACK_SCHEMA_VERSION = 4
         private const val KEY_TRACK_SCHEMA_VERSION = "track_schema_version"
     }
 }

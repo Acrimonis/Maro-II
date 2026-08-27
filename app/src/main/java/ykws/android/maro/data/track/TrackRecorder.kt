@@ -1080,7 +1080,7 @@ class TrackRecorder(
         // Re-read currentTrack after closeOpenBoatMarker to include updated boatMarkers
         val trackAfterClose = currentTrack ?: track
 
-        val reconciledIdleSec = maxOf(idleDurationSec, timelineIdleSec(track.trackPoints))
+        val reconciledIdleSec = maxOf(idleDurationSec, timelineIdleSec(simplifiedPoints))
             .coerceAtMost(totalElapsedSec)
 
         // Sweep-close any open IDLE BoatMarkers (defensive — active marker already closed above).

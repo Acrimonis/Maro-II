@@ -10,18 +10,19 @@ const val IDLE_MAX_SPEED_MPS = 0.5
 const val IDLE_MAX_DRIFT_M = 500.0
 
 /**
- * Derive idle duration from the raw point timeline using the compound idle predicate.
- * Skips pairs adjacent to a GAP seam.
+ * Derive idle duration from the point timeline using the compound idle predicate.
+ * GAP markers are filtered out first, so a long stop that produced no points is classified
+ * by the displacement vs duration across the gap (idle if the boat stayed put).
  */
 fun timelineIdleSec(points: List<TrackPoint>): Long {
+    val real = points.filter { it.type != PointType.GAP }
     var idle = 0L
-    for (i in 1 until points.size) {
-        if (points[i].type == PointType.GAP || points[i - 1].type == PointType.GAP) continue
-        val dtSec = (points[i].timeOffsetMs - points[i - 1].timeOffsetMs) / 1000.0
+    for (i in 1 until real.size) {
+        val dtSec = (real[i].timeOffsetMs - real[i - 1].timeOffsetMs) / 1000.0
         if (dtSec <= 0) continue
         val dM = SpatialOperations.haversine(
-            LatLng(points[i - 1].lat, points[i - 1].lon),
-            LatLng(points[i].lat, points[i].lon)
+            LatLng(real[i - 1].lat, real[i - 1].lon),
+            LatLng(real[i].lat, real[i].lon)
         )
         if (dM / dtSec < IDLE_MAX_SPEED_MPS && dM < IDLE_MAX_DRIFT_M) {
             idle += dtSec.toLong()

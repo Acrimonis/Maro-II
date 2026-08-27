@@ -143,14 +143,39 @@ class TrackRepository(
             ?.forEach { file ->
                 try {
                     val track = proto.decodeFromByteArray(Track.serializer(), file.readBytes())
-                    if (track.endTimeMs == null) return@forEach
+                    val endMs = track.endTimeMs ?: return@forEach
+                    var repaired = track
+                    var changed = false
+
+                    // Recovered-checkpoint signature: stats all zero but points + max speed exist.
                     val needsStats = track.distanceNm == 0f && track.averageSpeedMps == 0f &&
                         track.idleDurationSec == 0L && track.fastestSpeedMps > 0f &&
                         track.trackPoints.size >= 2
-                    val needsLastPoint = track.lastPointTimeMs == 0L
-                    if (needsStats || needsLastPoint) {
-                        val repaired = if (needsStats) track.withDerivedStats()
-                            else track.copy(lastPointTimeMs = track.lastRealPointTimeMsOrNull() ?: 0L)
+                    if (needsStats) {
+                        repaired = track.withDerivedStats()
+                        changed = true
+                    } else if (track.lastPointTimeMs == 0L) {
+                        repaired = track.copy(lastPointTimeMs = track.lastRealPointTimeMsOrNull() ?: 0L)
+                        changed = true
+                    }
+
+                    // Idle under-count repair (raw-vs-simplified jitter): raise idle, never lower.
+                    val lpt = repaired.lastPointTimeMs
+                    if (lpt != 0L && repaired.trackPoints.size >= 2) {
+                        val spanSec = (lpt - repaired.startTimeMs) / 1000
+                        val tlIdle = timelineIdleSec(repaired.trackPoints)
+                        val tailSec = maxOf(0L, (endMs - lpt) / 1000)
+                        val storedDataIdle = maxOf(0L, repaired.idleDurationSec - tailSec)
+                        if (tlIdle > storedDataIdle + 60) {
+                            repaired = repaired.copy(
+                                idleDurationSec = tlIdle,
+                                navigatingDurationSec = maxOf(0L, spanSec - tlIdle)
+                            )
+                            changed = true
+                        }
+                    }
+
+                    if (changed) {
                         val tmp = File(file.parentFile, "${file.name}.tmp")
                         tmp.writeBytes(proto.encodeToByteArray(Track.serializer(), repaired))
                         atomicReplace(tmp, file)
