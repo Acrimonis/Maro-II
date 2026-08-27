@@ -132,11 +132,14 @@ class TrackMerger {
         val gapIdleSec = gapIdleAccum.toLong()
 
         // ── 5. Assemble merged track ──
+        val mergedLastPointTimeMs = mergedPoints.lastOrNull { it.type != PointType.GAP }
+            ?.let { mergedStartMs + it.timeOffsetMs } ?: mergedEndMs
         return Track(
             id = UUID.randomUUID().toString(),
             name = mergedName,
             startTimeMs = mergedStartMs,
             endTimeMs = mergedEndMs,
+            lastPointTimeMs = mergedLastPointTimeMs,
             trackPoints = mergedPoints,
             boatMarkers = mergedMarkers,
             distanceNm = tracks.sumOf { it.distanceNm.toDouble() }.toFloat(),

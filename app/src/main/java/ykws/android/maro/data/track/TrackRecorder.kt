@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import ykws.android.maro.BuildConfig
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.location.GpsLocationSource
@@ -1125,7 +1126,7 @@ class TrackRecorder(
             navigatingDurationSec = (totalElapsedSec - reconciledIdleSec - resumeGapDurationSec).coerceAtLeast(0),
             updatedAtEpochMs = finalizeTimeMs,
             visibleOnMap = true
-        )
+        ).let { it.copy(lastPointTimeMs = it.lastRealPointTimeMsOrNull() ?: 0L) }
 
         // Only auto-rename if the current name matches the auto-generated pattern (D6)
         val isAutoName = trackAfterClose.name.matches(Regex("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}"))
@@ -1137,11 +1138,14 @@ class TrackRecorder(
         recomputeDescription()
         val finalizedTrack = currentTrack ?: finalizedWithTitle
 
-        scope?.launch {
-            repository.deleteCheckpoint(finalizedTrack.id)
+        // D: transactional finalize — persist the finalized track and remove the checkpoint
+        // synchronously on IO so the Stop tap is durable before the recorder leaves ON state.
+        // A: save before delete, so a crash leaves a complete copy (finalized .bin or checkpoint).
+        runBlocking(Dispatchers.IO) {
             repository.save(finalizedTrack)
-            _events.tryEmit(Stopped)
+            repository.deleteCheckpoint(finalizedTrack.id)
         }
+        _events.tryEmit(Stopped)
 
         transitionTo(TrackRecorderState.OFF)
         currentTrack = null
