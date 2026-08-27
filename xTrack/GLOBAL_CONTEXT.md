@@ -2,10 +2,10 @@
 
 ## Active Session Pointers
 - **Active Feature:** BoatTrace
-- **Active Subfeature:** gps-switch-confirm
-- **Last Updated:** 2026-08-16 18:42
+- **Active Subfeature:** none
+- **Last Updated:** 2026-08-27 07:10
 - **Last Bake:** 2026-08-16 18:42 (BoatTrace — gps-switch-confirm: confirm before switching position source while recording)
-- **Branch:** feature/fix-track-gps
+- **Branch:** feature/persist-track-tweak
 
 ## Routing Map
 | Keyword | Feature File |

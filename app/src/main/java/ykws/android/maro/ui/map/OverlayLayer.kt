@@ -272,8 +272,6 @@ fun OverlayLayer(
                 onGpsModeChange = onGpsModeChange,
                 gpsToggleColor = gpsToggleColor,
                 recorderState = trackRecorderState,
-                onStartRecording = { trackViewModel.startRecording() },
-                onStopRecording = { trackViewModel.stopRecording() },
                 onViewTrackList = {
                     onDismissMenu()
                     onOpenTrackHistoryFromMenu()

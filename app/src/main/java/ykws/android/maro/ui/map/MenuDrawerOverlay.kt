@@ -61,8 +61,6 @@ import ykws.android.maro.data.track.TrackRecorderUiState
  *
  * @param isOpen           Whether the panel is visible (for BackHandler guard).
  * @param recorderState    Current recorder state from [TrackViewModel].
- * @param onStartRecording  Triggered when user taps Start.
- * @param onStopRecording   Triggered when user taps Stop.
  * @param onViewTrackList   Triggered when user taps "Track List".
  * @param onManageMarkers   Triggered when user taps "Manage Markers".
  * @param onDismiss         Triggered to close the panel.
@@ -74,8 +72,6 @@ fun MenuDrawerOverlay(
     onGpsModeChange: (Boolean) -> Unit,
     gpsToggleColor: Color,
     recorderState: TrackRecorderUiState,
-    onStartRecording: () -> Unit,
-    onStopRecording: () -> Unit,
     onViewTrackList: () -> Unit,
     onManageMarkers: () -> Unit = {},
     onOpenFirstTrack: (() -> Unit)? = null,
