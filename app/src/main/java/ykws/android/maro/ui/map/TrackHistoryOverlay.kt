@@ -595,13 +595,17 @@ internal fun TrackCardContent(
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth()
                     .padding(horizontal = 8.dp, vertical = 4.dp)
-                    .clickable {
-                        // Commit currently-edited field before switching
-                        if (editingField == EditingField.COMMENT) {
-                            onUpdateTrack(summary.id, null, commentField.text, null)
+                    .combinedClickable(
+                        onClick = { onTap?.invoke() },
+                        onDoubleClick = {
+                            // Commit currently-edited field before switching
+                            if (editingField == EditingField.COMMENT) {
+                                onUpdateTrack(summary.id, null, commentField.text, null)
+                            }
+                            nameField = TextFieldValue(summary.name, TextRange(0, summary.name.length))
+                            editingField = EditingField.NAME
                         }
-                        editingField = EditingField.NAME
-                    }
+                    )
             )
         }
 
@@ -643,7 +647,13 @@ internal fun TrackCardContent(
                 fontSize = 13.sp, maxLines = 3,
                 modifier = Modifier.fillMaxWidth()
                     .padding(horizontal = 8.dp, vertical = 4.dp)
-                    .clickable { editingField = EditingField.COMMENT }
+                    .combinedClickable(
+                        onClick = { onTap?.invoke() },
+                        onDoubleClick = {
+                            commentField = TextFieldValue(summary.comment, TextRange(0, summary.comment.length))
+                            editingField = EditingField.COMMENT
+                        }
+                    )
             )
         }
 

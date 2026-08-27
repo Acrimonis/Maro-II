@@ -2371,6 +2371,7 @@ fun MapScreen(
             },
             onSetIcon = { id, icon -> markersViewModel.setMarkerIcon(id, icon) },
             onToggleMarkerPin = { id, _ -> markersViewModel.togglePin(id) },
+            onUpdateMarkerText = { id, name, desc -> markersViewModel.updateMarkerText(id, name, desc) },
             onMergeMarkers = { ids, name, keep -> markersViewModel.mergeAutoMarkers(ids, name, keep) },
             // ── List-detail navigation ──────────────────────────────────
             trackListIds = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id },

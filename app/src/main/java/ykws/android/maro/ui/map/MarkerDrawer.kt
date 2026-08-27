@@ -101,15 +101,16 @@ fun MarkerDrawer(
     val panelShape = if (isLandscape) RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp)
         else RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
 
+    // Back handler when drawer is open — registered before content so the card's
+    // edit-revert BackHandler (composed later) wins while editing.
+    if (isOpen) {
+        BackHandler { onClose() }
+    }
+
     when (drawerState) {
         is MarkerDrawerState.Viewing -> ViewingContent(viewModel, onClose, boatPosition, panelShape, onRequestDelete, isLandscape)
         is MarkerDrawerState.MatchResult -> MatchResultContent(viewModel, onClose, boatPosition, panelShape, isLandscape)
         else -> { /* Creating/Editing handled by WizardDrawer */ }
-    }
-
-    // Back handler when drawer is open
-    if (isOpen) {
-        BackHandler { onClose() }
     }
 }
 
@@ -145,58 +146,6 @@ private fun ViewingContent(
         headerActions = {
             if (marker != null) {
                 Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    val pinned = marker.pinned
-                    IconButton(
-                        onClick = { viewModel.togglePin(marker.id) },
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
-                            contentDescription = if (pinned) "Unpin" else "Pin",
-                            tint = ButtonColors.icon,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                    var showIconPicker by remember { mutableStateOf(false) }
-                    IconButton(
-                        onClick = { showIconPicker = true },
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        if (marker.icon != null) {
-                            Text(marker.icon!!, fontSize = 20.sp)
-                        } else {
-                            Icon(
-                                imageVector = Icons.Outlined.LocationOff,
-                                contentDescription = stringResource(R.string.cd_set_icon),
-                                tint = ButtonColors.icon,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    }
-                    if (showIconPicker) {
-                        IconPickerDialog(
-                            currentIcon = marker.icon,
-                            onIconSelected = { icon ->
-                                viewModel.setMarkerIcon(marker.id, icon)
-                                showIconPicker = false
-                            },
-                            onDismiss = { showIconPicker = false }
-                        )
-                    }
-                    IconButton(
-                        onClick = {
-                            viewModel.closeDrawer()
-                            viewModel.startWizard(marker.id)
-                        },
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Edit,
-                            contentDescription = stringResource(R.string.cd_edit),
-                            tint = ButtonColors.icon,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
                     IconButton(
                         onClick = { onRequestDelete(marker.id, marker.name) },
                         modifier = Modifier.size(36.dp)
@@ -215,108 +164,39 @@ private fun ViewingContent(
         if (marker != null) {
             Spacer(Modifier.height(8.dp))
 
-            // ── Info card with left accent bar + content ──────────────────
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(IntrinsicSize.Min)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(ComposeColor(AppConfig.uiCardBackground))
-            ) {
-                // Left accent bar — same rendering as list items
-                Box(
-                    modifier = Modifier
-                        .width(4.dp)
-                        .fillMaxHeight()
-                        .background(ComposeColor(MarkerColors.of(marker.colorIndex)))
+            // Direction + distance (if boatPosition available)
+            if (boatPosition != null) {
+                val markerPos = when (val g = marker.geometry) {
+                    is MarkerGeometry.Pin -> g.position
+                    is MarkerGeometry.Circle -> g.center
+                    is MarkerGeometry.Corridor -> g.p1
+                }
+                val bearing = SpatialOperations.initialBearing(boatPosition, markerPos)
+                val distM = SpatialOperations.haversine(markerPos, boatPosition)
+                val dir = cardinalDirection(bearing)
+                val distStr = if (distM < 1000.0) "${distM.toLong()} m"
+                    else "%.1f km".format(distM / 1000.0)
+                Text(
+                    text = "$dir of boat - $distStr",
+                    color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                    fontSize = 13.sp
                 )
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .padding(horizontal = 8.dp, vertical = 4.dp)
-                ) {
+                Spacer(Modifier.height(6.dp))
+            }
 
-                // Direction + distance (if boatPosition available)
-                if (boatPosition != null) {
-                    val markerPos = when (val g = marker.geometry) {
-                        is MarkerGeometry.Pin -> g.position
-                        is MarkerGeometry.Circle -> g.center
-                        is MarkerGeometry.Corridor -> g.p1
-                    }
-                    val bearing = SpatialOperations.initialBearing(boatPosition, markerPos)
-                    val distM = SpatialOperations.haversine(markerPos, boatPosition)
-                    val dir = cardinalDirection(bearing)
-                    val distStr = if (distM < 1000.0) "${distM.toLong()} m"
-                        else "%.1f km".format(distM / 1000.0)
-
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = "$dir of boat - $distStr",
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 13.sp
-                    )
-                }
-
-                // Divider + name
-                if (boatPosition != null) {
-                    Spacer(Modifier.height(6.dp))
-                    HorizontalDivider(
-                        thickness = 0.5.dp,
-                        color = ComposeColor(AppConfig.uiSettingsDivider)
-                    )
-                    Spacer(Modifier.height(6.dp))
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = marker.name,
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-                    if (marker.icon != null) {
-                        Text(
-                            text = marker.icon!!,
-                            color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                            fontSize = 11.sp
-                        )
-                    }
-                }
-
-                // Description + page counter (counter right-aligned on same row when hasMultiple)
-                val hasDesc = marker.description.isNotBlank()
-                if (hasDesc || hasMultiple) {
-                    Spacer(Modifier.height(4.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (hasDesc) {
-                            Text(
-                                text = marker.description,
-                                color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                                fontSize = 13.sp,
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                        if (hasMultiple) {
-                            Text(
-                                text = "${selectedIndex + 1}/${selectedIds.size}",
-                                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                                fontSize = 12.sp
-                            )
-                        }
-                    }
-                }
-            }  // closes inner Column
-            }  // closes Row (info card)
+            MarkerCardContent(
+                marker = marker,
+                onTap = {},
+                onEdit = {
+                    viewModel.closeDrawer()
+                    viewModel.startWizard(marker.id)
+                },
+                onSetIcon = { id, icon -> viewModel.setMarkerIcon(id, icon) },
+                onTogglePin = { viewModel.togglePin(marker.id) },
+                onUpdateText = { name, desc -> viewModel.updateMarkerText(marker.id, name, desc) },
+                onLongPress = null,
+                showChevron = false
+            )
 
             // ── Previous/Next navigation (wizard-style pills) ─────────────
             if (hasMultiple) {

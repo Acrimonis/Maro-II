@@ -328,12 +328,22 @@ Marker cards in [`MarkerManagementOverlay`](app/src/main/java/ykws/android/maro/
 
 **Chevron affordance:**
 - Each marker card carries a `KeyboardArrowRight` chevron at `Alignment.BottomEnd`
-- Size: **28dp** — consistent with menu drawer navigation chevrons
-- Color: `uiSettingsTextMuted`
-- Padding: `end = 4.dp, bottom = 4.dp`
-- The chevron is rendered in a `Box` wrapper around the card `Row` — it overlays the card, does not affect layout
+- The chevron is a **48dp tappable gutter** (`Box` + `.clickable(onClick = onTap)`) so it's a real hit target, not a decorative icon
+- Icon size: **28dp**; color: `uiSettingsTextMuted`
+- The chevron is **hidden in the detail drawer** (`showChevron = false` in `MarkerCardContent`) — list only
 
-**Consistency rule:** All navigation chevrons (`KeyboardArrowRight`) across the app use the same 28dp size and `uiSettingsTextMuted` color. This covers:
+**Inline editing (double-click to edit):**
+- Card text fields (marker name/description, track name/comment) are edited inline
+- **Single tap** on the text = default card action (`onTap`) — navigate in the list
+- **Double tap** on the text = enter inline edit (`combinedClickable(onClick, onDoubleClick)`), with the field seeded from the current value
+- Commit on IME `Done`; Back reverts (the card's edit-revert `BackHandler` must win over the drawer close handler — see drawer guidelines)
+- Blank marker description shows a muted "Add description…" placeholder (mirrors the track card's "Add a comment…")
+
+**Delete:**
+- List → swipe-to-delete (`SwipeableItemCard`)
+- Detail drawer header → trash icon (track header = `Close · Title · Delete`; marker header = `Delete` only)
+
+**Consistency rule:** All navigation chevrons (`KeyboardArrowRight`) use the 28dp icon size and `uiSettingsTextMuted` color; the marker card wraps it in the 48dp tappable gutter. This covers:
 - Marker card chevrons (list overlay)
 - Menu drawer navigation rows ("Manage Tracks", "Manage Markers")
 
