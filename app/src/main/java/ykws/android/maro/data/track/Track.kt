@@ -41,8 +41,16 @@ data class Track(
     @ProtoNumber(14) val pinned: Boolean = false,
     @ProtoNumber(15) val idleDurationSec: Long = 0,
     @ProtoNumber(16) val boatMarkers: List<BoatMarker> = emptyList(),
-    @ProtoNumber(17) val updatedAtEpochMs: Long = 0L
+    @ProtoNumber(17) val updatedAtEpochMs: Long = 0L,
+    @ProtoNumber(18) val lastPointTimeMs: Long = 0L
 )
+
+/**
+ * Absolute epoch millis of the last real (non-GAP) track point, or null if there are none.
+ * GAP markers carry a synthetic `timeOffsetMs` one ms after the preceding point, so they are skipped.
+ */
+fun Track.lastRealPointTimeMsOrNull(): Long? =
+    trackPoints.lastOrNull { it.type != PointType.GAP }?.let { startTimeMs + it.timeOffsetMs }
 
 /**
  * Lightweight summary of a [Track] for list display — no polyline points.
@@ -64,7 +72,8 @@ data class TrackSummary(
     @ProtoNumber(12) val pinned: Boolean = false,
     @ProtoNumber(13) val pointCount: Int = 0,
     @ProtoNumber(14) val idleDurationSec: Long = 0,
-    @ProtoNumber(15) override val updatedAtEpochMs: Long = 0L
+    @ProtoNumber(15) override val updatedAtEpochMs: Long = 0L,
+    @ProtoNumber(16) val lastPointTimeMs: Long = 0L
 ) : ListableItem {
     override val title: String get() = name
     override val description: String get() = comment

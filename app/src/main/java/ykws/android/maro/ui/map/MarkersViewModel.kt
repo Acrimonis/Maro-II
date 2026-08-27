@@ -673,6 +673,24 @@ class MarkersViewModel(
         }
     }
 
+    /** Inline text edit (name/description) — persists like [updateMarker] without touching geometry. */
+    fun updateMarkerText(id: String, name: String? = null, description: String? = null) {
+        val existing = _markers.value.find { it.id == id } ?: return
+        val updated = existing.copy(
+            name = name?.takeIf { it.isNotBlank() } ?: existing.name,
+            description = description ?: existing.description
+        )
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { repo.update(updated) }
+            val all = withContext(Dispatchers.IO) { repo.loadAll() }
+            val settings = settingsFlow?.value
+            _allMarkers.value = all
+            val filter = settings?.markerListFilter ?: ListFilter()
+            val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
+            _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
+        }
+    }
+
     /** Delete a marker by ID. [closeDrawer] is false when the drawer is already showing another marker. */
     fun deleteMarker(markerId: String, closeDrawer: Boolean = true) {
         viewModelScope.launch {

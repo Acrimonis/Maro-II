@@ -492,7 +492,10 @@ internal fun TrackCardContent(
         val startTime = remember(summary.id) {
             timeFormat.format(Date(summary.startTimeMs))
         }
-        val endTime = summary.endTimeMs?.let { timeFormat.format(Date(it)) }
+        val endTime = summary.endTimeMs?.let { finalizeMs ->
+            val displayMs = summary.lastPointTimeMs.takeIf { it != 0L } ?: finalizeMs
+            timeFormat.format(Date(displayMs))
+        }
 
         Row(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
@@ -592,13 +595,17 @@ internal fun TrackCardContent(
                 maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth()
                     .padding(horizontal = 8.dp, vertical = 4.dp)
-                    .clickable {
-                        // Commit currently-edited field before switching
-                        if (editingField == EditingField.COMMENT) {
-                            onUpdateTrack(summary.id, null, commentField.text, null)
+                    .combinedClickable(
+                        onClick = { onTap?.invoke() },
+                        onDoubleClick = {
+                            // Commit currently-edited field before switching
+                            if (editingField == EditingField.COMMENT) {
+                                onUpdateTrack(summary.id, null, commentField.text, null)
+                            }
+                            nameField = TextFieldValue(summary.name, TextRange(0, summary.name.length))
+                            editingField = EditingField.NAME
                         }
-                        editingField = EditingField.NAME
-                    }
+                    )
             )
         }
 
@@ -640,7 +647,13 @@ internal fun TrackCardContent(
                 fontSize = 13.sp, maxLines = 3,
                 modifier = Modifier.fillMaxWidth()
                     .padding(horizontal = 8.dp, vertical = 4.dp)
-                    .clickable { editingField = EditingField.COMMENT }
+                    .combinedClickable(
+                        onClick = { onTap?.invoke() },
+                        onDoubleClick = {
+                            commentField = TextFieldValue(summary.comment, TextRange(0, summary.comment.length))
+                            editingField = EditingField.COMMENT
+                        }
+                    )
             )
         }
 
@@ -652,8 +665,10 @@ internal fun TrackCardContent(
         Spacer(Modifier.height(2.dp))
 
         // ── Stats grid: 3-column × 2-row ───────────────────────────
-        val totalSec = if (summary.endTimeMs != null)
-            (summary.endTimeMs - summary.startTimeMs) / 1000 else 0L
+        val totalSec = if (summary.endTimeMs != null) {
+            val endMs = summary.lastPointTimeMs.takeIf { it != 0L } ?: summary.endTimeMs!!
+            (endMs - summary.startTimeMs) / 1000
+        } else 0L
         Row(modifier = Modifier.fillMaxWidth()) {
             Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_total), fmtDuration(totalSec)) }
             Box(Modifier.weight(1f)) { StatCell(stringResource(R.string.track_stat_nav), fmtDuration(summary.navigatingDurationSec)) }

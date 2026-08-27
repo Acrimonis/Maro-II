@@ -158,6 +158,7 @@ fun OverlayLayer(
     onCreateFirst: () -> Unit,
     onSetIcon: (String, String?) -> Unit,
     onToggleMarkerPin: (String, Boolean) -> Unit = { _, _ -> },
+    onUpdateMarkerText: (String, String?, String?) -> Unit = { _, _, _ -> },
     onMergeMarkers: (Set<String>, String, Boolean) -> Unit = { _, _, _ -> },
     markerSortState: ykws.android.maro.data.model.ListSortState,
     onMarkerSortStateChange: (ykws.android.maro.data.model.ListSortState) -> Unit,
@@ -272,8 +273,6 @@ fun OverlayLayer(
                 onGpsModeChange = onGpsModeChange,
                 gpsToggleColor = gpsToggleColor,
                 recorderState = trackRecorderState,
-                onStartRecording = { trackViewModel.startRecording() },
-                onStopRecording = { trackViewModel.stopRecording() },
                 onViewTrackList = {
                     onDismissMenu()
                     onOpenTrackHistoryFromMenu()
@@ -363,6 +362,7 @@ fun OverlayLayer(
                         comment = track.comment,
                         startTimeMs = track.startTimeMs,
                         endTimeMs = track.endTimeMs,
+                        lastPointTimeMs = track.lastPointTimeMs,
                         fastestSpeedMps = track.fastestSpeedMps,
                         distanceNm = track.distanceNm,
                         visibleOnMap = track.visibleOnMap,
@@ -380,9 +380,6 @@ fun OverlayLayer(
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp),
                         headerActions = {
                             Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                                IconButton(onClick = { onShareTrack(track.id) }, modifier = Modifier.size(36.dp)) {
-                                    Icon(Icons.Filled.Share, "Share GPX", tint = ButtonColors.icon, modifier = Modifier.size(24.dp))
-                                }
                                 IconButton(onClick = { onDeleteTrack(track.id) }, modifier = Modifier.size(36.dp)) {
                                     Icon(Icons.Filled.Delete, "Delete", tint = ButtonColors.icon, modifier = Modifier.size(24.dp))
                                 }
@@ -443,6 +440,7 @@ fun OverlayLayer(
                         comment = track.comment,
                         startTimeMs = track.startTimeMs,
                         endTimeMs = track.endTimeMs,
+                        lastPointTimeMs = track.lastPointTimeMs,
                         fastestSpeedMps = track.fastestSpeedMps,
                         distanceNm = track.distanceNm,
                         visibleOnMap = track.visibleOnMap,
@@ -459,9 +457,6 @@ fun OverlayLayer(
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
                         headerActions = {
                             Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                                IconButton(onClick = { onShareTrack(track.id) }, modifier = Modifier.size(36.dp)) {
-                                    Icon(Icons.Filled.Share, "Share GPX", tint = ButtonColors.icon, modifier = Modifier.size(24.dp))
-                                }
                                 IconButton(onClick = { onDeleteTrack(track.id) }, modifier = Modifier.size(36.dp)) {
                                     Icon(Icons.Filled.Delete, "Delete", tint = ButtonColors.icon, modifier = Modifier.size(24.dp))
                                 }
@@ -568,6 +563,7 @@ fun OverlayLayer(
                 onDismiss = onDismissMarkerManagement,
                 onSetIcon = onSetIcon,
                 onTogglePin = onToggleMarkerPin,
+                onUpdateMarkerText = onUpdateMarkerText,
                 onMergeMarkers = onMergeMarkers,
                 sortState = markerSortState,
                 onSortStateChange = onMarkerSortStateChange,

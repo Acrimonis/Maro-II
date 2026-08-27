@@ -1650,6 +1650,8 @@ fun MapScreen(
     var lastBackAt by remember { mutableStateOf(0L) }
     var showExitBanner by remember { mutableStateOf(false) }
     var showExitDialog by remember { mutableStateOf(false) }
+    // Stop-recording confirmation (🐾 icon + menu drawer stop) — same 3-way sheet as exit.
+    var showStopRecordingSheet by remember { mutableStateOf(false) }
 
     Box(
         modifier = modifier
@@ -1725,6 +1727,25 @@ fun MapScreen(
                     }
                 },
                 onDismiss = { showExitDialog = false }
+            )
+        }
+
+        // ── Stop-recording confirmation (🐾 icon toggle / menu drawer stop) ──
+        // Same 3-way sheet as exit-while-recording; "Continue" just dismisses.
+        if (showStopRecordingSheet) {
+            RecordingExitSheet(
+                onSave = {
+                    showStopRecordingSheet = false
+                    trackViewModel.stopRecording()
+                },
+                onContinue = {
+                    showStopRecordingSheet = false
+                },
+                onDiscard = {
+                    showStopRecordingSheet = false
+                    trackViewModel.discardRecording()
+                },
+                onDismiss = { showStopRecordingSheet = false }
             )
         }
 
@@ -1934,7 +1955,7 @@ fun MapScreen(
                         startRecordingWithBatteryCheck()
                     }
                 },
-                onStopRecording = { trackViewModel.stopRecording() },
+                onStopRecording = { showStopRecordingSheet = true },
                 onViewTrackList = { showTrackHistory = true },
                 onDismissTrackHistory = { showTrackHistory = false },
                 onUpdateTrack = { id, name, comment, pinned ->
@@ -2350,6 +2371,7 @@ fun MapScreen(
             },
             onSetIcon = { id, icon -> markersViewModel.setMarkerIcon(id, icon) },
             onToggleMarkerPin = { id, _ -> markersViewModel.togglePin(id) },
+            onUpdateMarkerText = { id, name, desc -> markersViewModel.updateMarkerText(id, name, desc) },
             onMergeMarkers = { ids, name, keep -> markersViewModel.mergeAutoMarkers(ids, name, keep) },
             // ── List-detail navigation ──────────────────────────────────
             trackListIds = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id },

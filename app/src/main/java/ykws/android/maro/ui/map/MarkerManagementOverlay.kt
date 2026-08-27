@@ -2,7 +2,13 @@ package ykws.android.maro.ui.map
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Box
@@ -98,6 +104,7 @@ fun MarkerManagementOverlay(
     onDismiss: () -> Unit,
     onSetIcon: (String, String?) -> Unit = { _, _ -> },
     onTogglePin: (String, Boolean) -> Unit = { _, _ -> },
+    onUpdateMarkerText: (String, String?, String?) -> Unit = { _, _, _ -> },
     onMergeMarkers: (Set<String>, String, Boolean) -> Unit = { _, _, _ -> },
     sortState: ykws.android.maro.data.model.ListSortState,
     onSortStateChange: (ykws.android.maro.data.model.ListSortState) -> Unit,
@@ -288,6 +295,8 @@ fun MarkerManagementOverlay(
                 onTap = { onAction(ykws.android.maro.data.model.ListAction.NavigateToItem(marker.id)) },
                 onEdit = { onAction(ykws.android.maro.data.model.ListAction.EditItem(marker.id)) },
                 onSetIcon = onSetIcon,
+                onTogglePin = { onTogglePin(marker.id, !marker.pinned) },
+                onUpdateText = { name, desc -> onUpdateMarkerText(marker.id, name, desc) },
                 onLongPress = onLongPress
             )
         },
@@ -329,13 +338,24 @@ private val MARKER_GEOMETRY_FONT_SIZE = 14.sp
 private val MARKER_DESC_FONT_SIZE = 13.sp
 
 @Composable
-private fun MarkerCardContent(
+internal fun MarkerCardContent(
     marker: UserMarker,
     onTap: () -> Unit,
     onEdit: () -> Unit,
     onSetIcon: (String, String?) -> Unit,
-    onLongPress: (() -> Unit)? = null
+    onTogglePin: () -> Unit,
+    onUpdateText: (String?, String?) -> Unit,
+    onLongPress: (() -> Unit)? = null,
+    showChevron: Boolean = true
 ) {
+    var editingField by remember(marker.id) { mutableStateOf<String?>(null) }
+    var nameText by remember(marker.id) { mutableStateOf(marker.name) }
+    var descText by remember(marker.id) { mutableStateOf(marker.description) }
+    val keyboard = LocalSoftwareKeyboardController.current
+    BackHandler(enabled = editingField != null) {
+        editingField = null
+        keyboard?.hide()
+    }
     Box {
         Row(
             modifier = Modifier
@@ -373,6 +393,17 @@ private fun MarkerCardContent(
                         modifier = Modifier.weight(1f)
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                        IconButton(
+                            onClick = onTogglePin,
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (marker.pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
+                                contentDescription = if (marker.pinned) "Unpin" else "Pin",
+                                tint = ButtonColors.icon,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                         var showIconPicker by remember { mutableStateOf(false) }
                         IconButton(
                             onClick = { showIconPicker = true },
@@ -413,36 +444,109 @@ private fun MarkerCardContent(
                     }
                 }
 
-                Text(
-                    text = marker.name,
-                    color = Color(AppConfig.uiSettingsTextPrimary),
-                    fontSize = MARKER_TITLE_FONT_SIZE,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                if (marker.description.isNotBlank()) {
-                    Spacer(Modifier.height(4.dp))
+                if (editingField == "name") {
+                    TextField(
+                        value = nameText,
+                        onValueChange = { nameText = it },
+                        singleLine = true,
+                        textStyle = TextStyle(
+                            color = Color(AppConfig.uiSettingsTextPrimary),
+                            fontSize = MARKER_TITLE_FONT_SIZE,
+                            fontWeight = FontWeight.SemiBold
+                        ),
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedTextColor = Color(AppConfig.uiSettingsTextPrimary),
+                            unfocusedTextColor = Color(AppConfig.uiSettingsTextPrimary),
+                            cursorColor = Color(AppConfig.uiSettingsTextPrimary)
+                        ),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = {
+                            onUpdateText(nameText.trim(), null)
+                            editingField = null
+                            keyboard?.hide()
+                        }),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                } else {
                     Text(
-                        text = marker.description,
-                        color = Color(AppConfig.uiSettingsTextMuted),
+                        text = marker.name,
+                        color = Color(AppConfig.uiSettingsTextPrimary),
+                        fontSize = MARKER_TITLE_FONT_SIZE,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth().combinedClickable(
+                            onClick = onTap,
+                            onDoubleClick = {
+                                nameText = marker.name
+                                editingField = "name"
+                            }
+                        )
+                    )
+                }
+
+                Spacer(Modifier.height(4.dp))
+                if (editingField == "description") {
+                    TextField(
+                        value = descText,
+                        onValueChange = { descText = it },
+                        singleLine = false,
+                        minLines = 1,
+                        maxLines = 3,
+                        textStyle = TextStyle(color = Color(AppConfig.uiSettingsTextMuted), fontSize = MARKER_DESC_FONT_SIZE),
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            focusedTextColor = Color(AppConfig.uiSettingsTextMuted),
+                            unfocusedTextColor = Color(AppConfig.uiSettingsTextMuted),
+                            cursorColor = Color(AppConfig.uiSettingsTextPrimary)
+                        ),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = {
+                            onUpdateText(null, descText.trim())
+                            editingField = null
+                            keyboard?.hide()
+                        }),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                } else {
+                    Text(
+                        text = marker.description.ifBlank { "Add description..." },
+                        color = if (marker.description.isBlank()) Color(AppConfig.uiSettingsTextMuted).copy(alpha = 0.4f)
+                                else Color(AppConfig.uiSettingsTextMuted),
                         fontSize = MARKER_DESC_FONT_SIZE,
                         maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth().combinedClickable(
+                            onClick = onTap,
+                            onDoubleClick = {
+                                descText = marker.description
+                                editingField = "description"
+                            }
+                        )
                     )
                 }
             }
         }
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = stringResource(R.string.cd_view_marker),
-            tint = Color(AppConfig.uiSettingsTextMuted),
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 4.dp, bottom = 4.dp)
-                .size(28.dp)
-        )
+        if (showChevron) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(4.dp)
+                    .size(48.dp)
+                    .clickable(onClick = onTap),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = stringResource(R.string.cd_view_marker),
+                    tint = Color(AppConfig.uiSettingsTextMuted),
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+        }
     }
 }
 

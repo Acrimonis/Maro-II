@@ -5,6 +5,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.protobuf.ProtoBuf
 import java.io.File
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 
 /**
  * Protobuf file CRUD for [Track] persistence.
@@ -32,7 +34,10 @@ class TrackRepository(
     suspend fun save(track: Track) = withContext(Dispatchers.IO) {
         val stamped = track.copy(updatedAtEpochMs = System.currentTimeMillis())
         val file = trackFile(stamped.id)
-        file.writeBytes(proto.encodeToByteArray(Track.serializer(), stamped))
+        // Atomic write: temp + atomic move so a crash never leaves a corrupt .bin.
+        val tmp = File(file.parentFile, "${file.name}.tmp")
+        tmp.writeBytes(proto.encodeToByteArray(Track.serializer(), stamped))
+        atomicReplace(tmp, file)
         updateIndex()
     }
 
@@ -101,7 +106,10 @@ class TrackRepository(
             ?.filter { it.name.endsWith("_checkpoint.bin") }
             ?.mapNotNull { file ->
                 try {
-                    proto.decodeFromByteArray(Track.serializer(), file.readBytes())
+                    val track = proto.decodeFromByteArray(Track.serializer(), file.readBytes())
+                    // Guard: if the finalized .bin already exists, this checkpoint was already
+                    // persisted — delete it to avoid a duplicate recovery prompt.
+                    if (trackFile(track.id).exists()) { file.delete(); null } else track
                 } catch (e: Exception) {
                     file.delete()
                     null
@@ -113,14 +121,72 @@ class TrackRepository(
     /** Finalize an orphaned checkpoint into a complete track. */
     suspend fun finalizeOrphanedCheckpoint(track: Track): Track = withContext(Dispatchers.IO) {
         val now = System.currentTimeMillis()
-        val finalized = track.copy(
-            endTimeMs = now,
-            navigatingDurationSec = (now - track.startTimeMs) / 1000 - track.idleDurationSec,
+        val derived = track.withDerivedStats()
+        val finalized = derived.copy(
+            endTimeMs = derived.lastPointTimeMs.takeIf { it != 0L } ?: now,
             updatedAtEpochMs = now
         )
-        deleteCheckpoint(track.id)
         save(finalized)
+        deleteCheckpoint(track.id)
         finalized
+    }
+
+    /**
+     * One-time migration: repair stats + lastPointTimeMs on tracks saved before those fields were
+     * populated (recovered-from-checkpoint signature). Runs on first launch after the schema bump;
+     * idempotent. Returns the number of tracks updated.
+     */
+    suspend fun migrateTrackStats(): Int = withContext(Dispatchers.IO) {
+        var updated = 0
+        tracksDir.listFiles()
+            ?.filter { it.extension == "bin" && !it.name.endsWith("_checkpoint.bin") && it.name != INDEX_FILE_NAME }
+            ?.forEach { file ->
+                try {
+                    val track = proto.decodeFromByteArray(Track.serializer(), file.readBytes())
+                    val endMs = track.endTimeMs ?: return@forEach
+                    var repaired = track
+                    var changed = false
+
+                    // Recovered-checkpoint signature: stats all zero but points + max speed exist.
+                    val needsStats = track.distanceNm == 0f && track.averageSpeedMps == 0f &&
+                        track.idleDurationSec == 0L && track.fastestSpeedMps > 0f &&
+                        track.trackPoints.size >= 2
+                    if (needsStats) {
+                        repaired = track.withDerivedStats()
+                        changed = true
+                    } else if (track.lastPointTimeMs == 0L) {
+                        repaired = track.copy(lastPointTimeMs = track.lastRealPointTimeMsOrNull() ?: 0L)
+                        changed = true
+                    }
+
+                    // Idle under-count repair (raw-vs-simplified jitter): raise idle, never lower.
+                    val lpt = repaired.lastPointTimeMs
+                    if (lpt != 0L && repaired.trackPoints.size >= 2) {
+                        val spanSec = (lpt - repaired.startTimeMs) / 1000
+                        val tlIdle = timelineIdleSec(repaired.trackPoints)
+                        val tailSec = maxOf(0L, (endMs - lpt) / 1000)
+                        val storedDataIdle = maxOf(0L, repaired.idleDurationSec - tailSec)
+                        if (tlIdle > storedDataIdle + 60) {
+                            repaired = repaired.copy(
+                                idleDurationSec = tlIdle,
+                                navigatingDurationSec = maxOf(0L, spanSec - tlIdle)
+                            )
+                            changed = true
+                        }
+                    }
+
+                    if (changed) {
+                        val tmp = File(file.parentFile, "${file.name}.tmp")
+                        tmp.writeBytes(proto.encodeToByteArray(Track.serializer(), repaired))
+                        atomicReplace(tmp, file)
+                        updated++
+                    }
+                } catch (_: Exception) {
+                    // Skip corrupt files — load/rebuildIndex already delete those on read.
+                }
+            }
+        if (updated > 0) rebuildIndex()
+        updated
     }
 
     // ── Internal helpers ──────────────────────────────────────────────────
@@ -151,7 +217,9 @@ class TrackRepository(
                         averageSpeedMps = track.averageSpeedMps,
                         pinned = track.pinned,
                         pointCount = track.trackPoints.size,
-                        updatedAtEpochMs = track.updatedAtEpochMs
+                        updatedAtEpochMs = track.updatedAtEpochMs,
+                        lastPointTimeMs = track.lastPointTimeMs.takeIf { it != 0L }
+                            ?: (track.lastRealPointTimeMsOrNull() ?: 0L)
                     )
                 } catch (e: Exception) {
                     file.delete()
@@ -167,6 +235,17 @@ class TrackRepository(
     /** Write the index from current track files. */
     private suspend fun updateIndex() = withContext(Dispatchers.IO) {
         rebuildIndex()
+    }
+
+    /** Atomically replace [dest] with [src] (same-directory temp file). */
+    private fun atomicReplace(src: File, dest: File) {
+        try {
+            Files.move(src.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+        } catch (_: Exception) {
+            // ATOMIC_MOVE unsupported on some filesystems — fall back to plain replace.
+            src.copyTo(dest, overwrite = true)
+            src.delete()
+        }
     }
 
     companion object {

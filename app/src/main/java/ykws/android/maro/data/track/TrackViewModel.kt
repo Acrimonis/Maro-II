@@ -90,12 +90,13 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
             TrackRecordingService.events.collect { _events.emit(it) }
         }
         viewModelScope.launch {
+            runTrackSchemaMigration()
             recoverOrphanedCheckpoints()
+            refreshSummaries()
             if (TrackRecordingService.isRecording.value) {
                 startService(TrackRecordingService.ACTION_REPLAY_LIVE_TRACK)
             }
         }
-        refreshSummaries()
     }
 
     // ── Recording control — routed to TrackRecordingService ──────────────
@@ -237,7 +238,10 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         return state.applySort(summaries) { key ->
             when (key) {
                 "distanceNm" -> compareBy { it.distanceNm }
-                "totalTimeSec" -> compareBy { (it.endTimeMs ?: nowMs) - it.startTimeMs }
+                "totalTimeSec" -> compareBy { s ->
+                    val end = s.lastPointTimeMs.takeIf { it != 0L } ?: s.endTimeMs ?: nowMs
+                    end - s.startTimeMs
+                }
                 "movingTimeSec" -> compareBy { s ->
                     val totalMs = (s.endTimeMs ?: nowMs) - s.startTimeMs
                     totalMs - s.idleDurationSec * 1000L
@@ -377,5 +381,20 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         }
         refreshSummaries()
         return tracks.size
+    }
+
+    /** One-time schema migration: repair stats + lastPointTimeMs on tracks saved before those fields existed. */
+    private suspend fun runTrackSchemaMigration() {
+        val prefs = getApplication<Application>()
+            .getSharedPreferences("maro_track_schema", android.content.Context.MODE_PRIVATE)
+        if (prefs.getInt(KEY_TRACK_SCHEMA_VERSION, 0) < TRACK_SCHEMA_VERSION) {
+            repository.migrateTrackStats()
+            prefs.edit().putInt(KEY_TRACK_SCHEMA_VERSION, TRACK_SCHEMA_VERSION).apply()
+        }
+    }
+
+    companion object {
+        private const val TRACK_SCHEMA_VERSION = 4
+        private const val KEY_TRACK_SCHEMA_VERSION = "track_schema_version"
     }
 }

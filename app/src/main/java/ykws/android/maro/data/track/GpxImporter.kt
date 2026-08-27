@@ -93,9 +93,13 @@ object GpxImporter {
             val maroBlob = extractMaroBlob(xml)
             if (maroBlob != null) {
                 val track = proto.decodeFromByteArray(Track.serializer(), maroBlob)
+                // Normalize lastPointTimeMs for exports saved before the field existed.
+                val normalized = if (track.endTimeMs != null && track.lastPointTimeMs == 0L) {
+                    track.copy(lastPointTimeMs = track.lastRealPointTimeMsOrNull() ?: 0L)
+                } else track
                 // Anti-collision on name
-                val safeName = resolveNameCollision(track.name, existingNames)
-                if (safeName != track.name) track.copy(name = safeName) else track
+                val safeName = resolveNameCollision(normalized.name, existingNames)
+                if (safeName != normalized.name) normalized.copy(name = safeName) else normalized
             } else {
                 // Foreign GPX — parse standard elements (lossy)
                 parseStandardGpx(bytes, existingNames)
@@ -218,6 +222,7 @@ object GpxImporter {
             comment = trackComment,
             startTimeMs = startMs,
             endTimeMs = endMs,
+            lastPointTimeMs = endMs,
             trackPoints = points,
             trackColorArgb = 0xFFFF6F00.toInt(),
             pinned = false,

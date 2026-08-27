@@ -2,10 +2,10 @@
 
 ## Active Session Pointers
 - **Active Feature:** BoatTrace
-- **Active Subfeature:** gps-switch-confirm
-- **Last Updated:** 2026-08-16 18:42
-- **Last Bake:** 2026-08-16 18:42 (BoatTrace — gps-switch-confirm: confirm before switching position source while recording)
-- **Branch:** feature/fix-track-gps
+- **Active Subfeature:** none
+- **Last Updated:** 2026-08-27 12:12
+- **Last Bake:** 2026-08-27 12:12 (BoatTrace + Ui_Menu — track finalize durability, data-derived end/idle/nav with gap classification, unified track/marker card with double-click inline edit)
+- **Branch:** feature/persist-track-tweak
 
 ## Routing Map
 | Keyword | Feature File |
@@ -56,12 +56,12 @@
 | | **ArcLayout** | **Layer toggle arc menu — pure-Compose semicircle fan-out with layer toggles, FanLayout framework, fixed child centering using effectiveTheta=180/currentCount** | **2026-06-13 07:34** | **2026-06-14 14:50** | **active** |
 | | **ZoneTile** | **Zone information tiles and map overlay rendering — zone-ahead cone/line, speed zone display, ETA, zone state management** | **2026-06-17 09:45** | **2026-06-17 09:45** | **active** |
 | | **Zone300SpeedBadge** | **300m zone speed limit badge integrated into regulated zone icon stack as highest-priority SPEED_LIMIT entry** | **2026-06-14 17:42** | **2026-06-14 17:42** | **done** |
-| | **BoatTrace** | **Boat movement tracking: record tracks from GPS fixes, persist, display on map with configurable render layers, GPX export, track history UI, render preview indicator, idle-period marker snapshots (BoatMarker), auto-marker 🕐 pins at idle spots with transparency, service GPS re-arm + permission-missing dialog, service GPS sampling pinned to Main dispatcher (Looper fix), confirm before switching position source while recording** | **2026-06-15 21:43** | **2026-08-16 18:42** | **active** |
+| | **BoatTrace** | **Boat movement tracking: record tracks from GPS fixes, persist, display on map with configurable render layers, GPX export, track history UI, render preview indicator, idle-period marker snapshots (BoatMarker), auto-marker 🕐 pins at idle spots with transparency, service GPS re-arm + permission-missing dialog, service GPS sampling pinned to Main dispatcher (Looper fix), confirm before switching position source while recording; finalize durability (atomic save + transactional stop), data-derived end/idle/nav (simplified-points + gap-idle classification), stats recompute migration (schema 4)** | **2026-06-15 21:43** | **2026-08-27 12:12** | **active** |
 | | **CheckDev** | **Dev-branch health monitoring — remote branch state, ahead/behind analysis, workflow hygiene validation** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
 | | **Health** | **Application health monitoring — diagnostics, crash reporting, memory/performance telemetry** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
 | | **WorkflowAmbiguityFix** | **Eliminate ambiguity between AGENTS.md rules — #merge direction, §5 reinforcement, command doc alignment. Absorbed into WorkflowImprovement 2026-06-28.** | **2026-06-20 14:51** | **2026-06-28 13:51** | **done** |
 | | **Markers** | **User-defined map markers (Pin, Circle, Corridor) with sea-distance-gated proximity matching, percentage-based sort scoring, and on-demand "where am I?" query — 14/14 subfeatures done; 7 fixes + sort v2 implemented** | **2026-06-22 11:52** | **2026-06-30 10:25** | **active** |
-| | **Ui_Menu** | **Hamburger menu drawer — position source, track recording, marker management sections; right-side sliding panel via OverlayLayer/DrawerSlot** | **2026-07-05 06:57** | **2026-07-18 05:54** | **active** |
+| | **Ui_Menu** | **Hamburger menu drawer — position source, track recording, marker management sections; right-side sliding panel via OverlayLayer/DrawerSlot; track/marker action normalization (shared list/detail card, double-click inline edit, chevron tappable gutter, delete = swipe/header-trash)** | **2026-07-05 06:57** | **2026-08-27 12:12** | **active** |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).
