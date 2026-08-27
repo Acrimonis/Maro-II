@@ -270,6 +270,10 @@
     <string name="cd_reset">Reset</string>
     <string name="cd_menu">Menu</string>
     <string name="cd_pin_marker">Pin this marker</string>
+    <string name="cd_lock_screen">Lock screen</string>
+    <string name="cd_unlock_screen">Unlock screen</string>
+    <string name="toast_screen_locked">Screen locked</string>
+    <string name="toast_screen_unlocked">Screen unlocked</string>
     <string name="cd_descending">Descending</string>
     <string name="cd_ascending">Ascending</string>
     <string name="cd_selected">Selected</string>

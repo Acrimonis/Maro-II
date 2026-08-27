@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** BoatTrace
+- **Active Feature:** Ui_General
 - **Active Subfeature:** none
-- **Last Updated:** 2026-08-27 12:12
+- **Last Updated:** 2026-08-27 12:22
 - **Last Bake:** 2026-08-27 12:12 (BoatTrace + Ui_Menu — track finalize durability, data-derived end/idle/nav with gap classification, unified track/marker card with double-click inline edit)
-- **Branch:** feature/persist-track-tweak
+- **Branch:** feature/lock-screen-btn
 
 ## Routing Map
 | Keyword | Feature File |

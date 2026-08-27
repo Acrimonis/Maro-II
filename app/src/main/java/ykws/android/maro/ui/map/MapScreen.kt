@@ -111,6 +111,8 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -380,6 +382,8 @@ fun MapScreen(
     var showTrackHistory by remember { mutableStateOf(false) }
     var showMarkerManagement by remember { mutableStateOf(false) }
     var navigateToTarget by remember { mutableStateOf<NavigateTarget?>(null) }
+    // ── Screen-lock state (splash-proof touch guard) ────────────────────
+    var screenLocked by rememberSaveable { mutableStateOf(false) }
 
     // ── Click-N-Move state ─────────────────────────────────────────────
     var highlightedTrackId by remember { mutableStateOf<String?>(null) }
@@ -504,6 +508,17 @@ fun MapScreen(
     val systemScrollState = rememberScrollState()
 
     val context = LocalContext.current
+    // ── Screen-lock toggle: flip state + toast ──────────────────────────
+    val onToggleScreenLock = {
+        val newLocked = !screenLocked
+        screenLocked = newLocked
+        android.widget.Toast.makeText(
+            context,
+            if (newLocked) context.getString(R.string.toast_screen_locked)
+            else context.getString(R.string.toast_screen_unlocked),
+            android.widget.Toast.LENGTH_SHORT
+        ).show()
+    }
     // ── Background location permission dialog state (A2) ─────────────────
     var showBgLocationDialog by remember { mutableStateOf(false) }
     // ── Battery optimization dialog state (A4, triggered on recording start) ──
@@ -2002,6 +2017,8 @@ fun MapScreen(
                 autoFollowSuppressed = autoFollowSuppressed,
                 onRecenter = { viewModel.recenterNow() },
                 onClearTrackInfoError = { trackViewModel.clearInfoError() },
+                screenLocked = screenLocked,
+                onToggleScreenLock = onToggleScreenLock,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(
@@ -2605,6 +2622,25 @@ fun MapScreen(
                 }
             )
         }
+
+        // ── Screen lock: full-screen input scrim + top-most unlock button ──
+        //     The scrim consumes every pointer event so nothing below it (map,
+        //     dashboard, drawers, controls) receives touch while locked. The
+        //     duplicate button sits above the scrim so the lock can be toggled off.
+        val lockTopInset = with(LocalDensity.current) {
+            val raw = WindowInsets.statusBars.getTop(this).toDp()
+            if (isLandscape) raw else (raw - 6.dp).coerceAtLeast(0.dp)
+        }
+        if (screenLocked) {
+            LockScrim()
+            LockScreenButton(
+                locked = true,
+                onClick = onToggleScreenLock,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(top = lockTopInset, start = 6.dp + (44.dp + 6.dp) * 3)
+            )
+        }
     }
 }
 }
@@ -2762,6 +2798,8 @@ private fun MapContent(
     autoFollowSuppressed: Boolean = false,
     onRecenter: () -> Unit = {},
     onClearTrackInfoError: () -> Unit = {},
+    screenLocked: Boolean = false,
+    onToggleScreenLock: () -> Unit = {},
     modifier: Modifier = Modifier,
     mapCenterOffsetDp: Dp = 0.dp,
 ) {
@@ -2884,6 +2922,10 @@ private fun MapContent(
                         isActive = true,
                         activeColor = if (isWater) ComposeColor(AppConfig.statusEarthWaterWater) else ComposeColor(AppConfig.statusEarthWaterLand),
                         contentDescription = if (isWater) stringResource(R.string.side_water) else stringResource(R.string.side_land),
+                    )
+                    LockScreenButton(
+                        locked = screenLocked,
+                        onClick = onToggleScreenLock
                     )
                     if (appSettings.gpsMode && autoFollowSuppressed) {
                         RecenterButton(onClick = onRecenter)
@@ -3795,6 +3837,59 @@ private fun RecenterButton(
             fontSize = 22.sp
         )
     }
+}
+
+/**
+ * Screen-lock toggle — leftmost in the top-left status row. 📱 (unlocked,
+ * dimmed inactive) ↔ 🔒 (locked, caution/amber active). Matches the
+ * GpsStatusIcon / TrackStatusIcon recipe: 44dp box, 8dp radius, 22sp emoji.
+ */
+@Composable
+private fun LockScreenButton(
+    locked: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val baseColor = if (locked) ComposeColor(AppConfig.statusLockOn) else ComposeColor(AppConfig.statusLockOff)
+    val bgAlpha = if (locked) AppConfig.statusLockAlphaActive else AppConfig.statusLockAlphaDimmed
+    val contentAlpha = if (locked) 1f else 0.50f
+    val cd = stringResource(if (locked) R.string.cd_unlock_screen else R.string.cd_lock_screen)
+    Box(
+        modifier = modifier
+            .size(44.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(baseColor.copy(alpha = bgAlpha))
+            .clickable(onClick = onClick)
+            .semantics { contentDescription = cd }
+            .alpha(contentAlpha),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = if (locked) "\uD83D\uDD12" else "\uD83D\uDCF1",
+            fontSize = 22.sp
+        )
+    }
+}
+
+/**
+ * Full-screen transparent input blocker shown when the screen is locked.
+ * Consumes every pointer event (tap, drag, pinch) so nothing below it —
+ * osmdroid map, dashboard, drawers, controls — receives touch.
+ */
+@Composable
+private fun LockScrim(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        event.changes.forEach { it.consume() }
+                    }
+                }
+            }
+    )
 }
 
 // ── Settings overlay (full-screen page) ─────────────────────────────────────
