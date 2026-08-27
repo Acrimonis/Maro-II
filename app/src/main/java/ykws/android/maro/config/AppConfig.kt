@@ -293,8 +293,8 @@ object AppConfig {
     /** Screen-lock icon OFF (unlocked) background colour. Default from semantic.inactive = #33FFFFFF (white 20%). Set via `status.lock.off` in colors.properties. */
     var statusLockOff: Int = 0x33FFFFFF.toInt()
         private set
-    /** Screen-lock icon ON (locked) background colour. Default from semantic.caution = #CCEF6C00 (amber 80%). Set via `status.lock.on` in colors.properties. */
-    var statusLockOn: Int = 0xCCEF6C00.toInt()
+    /** Screen-lock icon ON (locked) background colour. Default from semantic.info = #FF1565C0 (blue). Set via `status.lock.on` in colors.properties. */
+    var statusLockOn: Int = 0xFF1565C0.toInt()
         private set
     /** Screen-lock icon active-state background alpha (0.0–1.0). Default 0.75. Set via `status.lock.alpha.active` in colors.properties. */
     var statusLockAlphaActive: Float = 0.75f

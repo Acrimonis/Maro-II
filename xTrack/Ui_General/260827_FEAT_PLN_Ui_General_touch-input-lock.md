@@ -22,8 +22,8 @@ Hardware back stays active. Lock state is transient (not persisted).
 | D4 | Unlock affordance = top-most duplicate `LockScreenButton` at `TopStart` (`top = lockTopInset`, `start = 6.dp + 3 × (44.dp + 6.dp) = 156.dp`) rendered only when locked, aligned over the row's 4th icon. |
 | D5 | Hardware back untouched ([`BackHandler`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1682)) — input lock only. |
 | D6 | Feedback = icon colour change + generic bottom banner (exit-toast style) showing "Screen locked"/"Screen unlocked" at the bottom of the map, left of the +/− buttons, auto-dismissing ~2s; **no dim** so the map stays readable. |
-| D7 | Icon = emoji 📵 U+1F4F5 in **both** states (state shown by colour: `semantic.inactive` dimmed ↔ `semantic.caution` active); `contentDescription` (`cd_lock_screen` / `cd_unlock_screen`) + EN/FR strings distinguish the state. |
-| D8 | Styling = status-icon recipe (44dp / 8dp radius / 22sp emoji) with a new `status.lock.*` token family in `colors.properties` + `AppConfig`: unlocked = `semantic.inactive` (dimmed, contentAlpha 0.50), locked = `semantic.caution` (active, contentAlpha 1f). |
+| D7 | Icon = emoji 📵 U+1F4F5 in **both** states (state shown by colour: `semantic.inactive` dimmed ↔ `semantic.info` active); `contentDescription` (`cd_lock_screen` / `cd_unlock_screen`) + EN/FR strings distinguish the state. |
+| D8 | Styling = status-icon recipe (44dp / 8dp radius / 22sp emoji) with a new `status.lock.*` token family in `colors.properties` + `AppConfig`: unlocked = `semantic.inactive` (dimmed, contentAlpha 0.50), locked = `semantic.info` (active, contentAlpha 1f). |
 | D9 | Locked exception — zoom controls: extract the +/− pair into a shared `ZoomControls` composable (64dp buttons, 6dp gap, centered). When locked, render `ZoomControls` above the scrim at `Alignment.BottomEnd` + `padding(end = 6.dp, bottom = 6.dp)` with `doubleTap = true` — a single splash tap is ignored, a double-tap zooms one step; the scrim still blocks everything else. |
 
 ## Key facts
@@ -51,7 +51,7 @@ Hardware back stays active. Lock state is transient (not persisted).
 3. Duplicate alignment: `top = lockTopInset`; `start = 6.dp + 3 * (44.dp + 6.dp)` (= 156.dp) since the lock is the 4th icon (after GPS, Tracking, Earth/Water).
 4. Lock banner (replaces `Toast.makeText`): transient `showLockBanner` state with 2s auto-dismiss; render top-most (above the scrim) at `BottomStart` with `end = RIGHT_CONTROL_COLUMN_INSET`, reusing the exit-toast style (14dp `Surface` + 2dp border + `buttonActionBgColor` + `uiCardBackground` + `uiSettingsToastText`). Text from `toast_screen_locked` / `toast_screen_unlocked`.
 5. Build: `gradlew assembleDebug` (or `apk-build.bat`) after changes.
-6. `colors.properties`: `status.lock.off=${semantic.inactive}`, `status.lock.on=${semantic.caution}`, `status.lock.alpha.active=0.75`, `status.lock.alpha.dimmed=0.50`; mirror the existing `status.gps.*` parsing in `AppConfig`.
+6. `colors.properties`: `status.lock.off=${semantic.inactive}`, `status.lock.on=${semantic.info}`, `status.lock.alpha.active=0.75`, `status.lock.alpha.dimmed=0.50`; mirror the existing `status.gps.*` parsing in `AppConfig`.
 7. `ZoomControls(onZoomIn, onZoomOut, doubleTap = false)`: two 64dp buttons (`PlusIcon` / `MinusIcon`) in a centered `Column` with 6dp spacing. Hoist `onZoomIn`/`onZoomOut` in `MapScreen`; the normal right column uses single-tap, the locked duplicate uses `doubleTap = true` (`detectTapGestures(onDoubleTap)` — single splash taps ignored, double-tap zooms one step).
 
 ## Implemented

@@ -1,15 +1,17 @@
 # Hydration: Ui_General
 
-**Session:** menu-drawer-rows — implemented. Menu drawer rows renamed to "Tracks"/
-"Markers" (EN+FR, no ellipsis). Row tap opens the list; the trailing chevron is now
-its own IconButton that opens the detail drawer on the first item of the current
-filtered/sorted list (track: first non-live + non-pending-delete; marker: first of
-`markers`), disabled when there is no first item. BUILD SUCCESSFUL.
+**Session:** screen-lock — implemented. Touch-input lock (splash guard): a 📵 toggle
+(right of the Earth/Water icon) locks the screen so the map ignores all touch except the
+unlock toggle and the zoom +/− buttons (double-tap only while locked — single splash taps
+ignored). Full-screen consume-all `LockScrim`; top-most duplicate unlock button +
+`ZoomControls` + `LockBanner` (exit-toast style, 2s auto-dismiss); locked state colour =
+`semantic.info` (blue). `status.lock.*` tokens in `colors.properties` + `AppConfig`.
+BUILD SUCCESSFUL.
 
 **Target files:**
-- `MenuDrawerOverlay.kt`, `OverlayLayer.kt`, `MapScreen.kt`, `strings.xml` (EN+FR)
+- `MapScreen.kt`, `MapControlButton.kt`, `colors.properties`, `AppConfig.kt`, `strings.xml` (EN+FR)
 
 **Plans:**
-- `xTrack/Ui_General/260816_FEAT_PLN_Ui_General_menu-drawer-rows.md`
+- `xTrack/Ui_General/260827_FEAT_PLN_Ui_General_touch-input-lock.md`
 
-**Last Bake:** 2026-08-16 12:13 UTC
+**Last Bake:** 2026-08-27 14:04 UTC

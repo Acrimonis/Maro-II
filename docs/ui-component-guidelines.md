@@ -251,7 +251,7 @@ semantic palette) and exposes them via
 | GPS | `semantic.inactive` | acquiring=`semantic.caution`, healthy=`semantic.compliant`, idle=`semantic.info`, stale/weak=`semantic.danger` |
 | Tracking | `semantic.inactive` | moving=`semantic.compliant`, idle=`semantic.info` |
 | Earth/Water | `semantic.inactive` | water=`semantic.info`, land=`semantic.compliant` |
-| Screen lock | `semantic.inactive` (📵) | locked=`semantic.caution` (📵) |
+| Screen lock | `semantic.inactive` (📵) | locked=`semantic.info` (📵) |
 
 > Exception: `EarthWaterIcon` keeps its emoji at full alpha in the inactive state (no
 > contentAlpha dimming) and reuses `statusGpsAlphaActive` for its active bg alpha.

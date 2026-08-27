@@ -1,8 +1,8 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-08-16 12:13
-active_subfeature: menu-drawer-rows
+modified: 2026-08-27 14:04
+active_subfeature: screen-lock
 ---
 
 # Feature: Ui_General
@@ -14,6 +14,24 @@ app is running. Extended with page-layout concerns: edge-to-edge rendering, stat
 bar immersion, and WindowInsets management.
 
 ## Subfeatures
+
+### screen-lock  [x]
+
+Touch-input lock (splash guard): a 📵 toggle in the top-left status row (right of the
+Earth/Water icon) locks the screen so the map ignores all touch except the unlock toggle
+and the zoom +/− buttons (double-tap only while locked — single splash taps ignored).
+Full-screen consume-all `LockScrim`; top-most duplicate unlock button + `ZoomControls` +
+`LockBanner` (exit-toast style, 2s auto-dismiss); locked state colour = `semantic.info`
+(blue). `status.lock.*` tokens in `colors.properties` + `AppConfig`. BUILD SUCCESSFUL.
+
+#### Key Files
+- `MapScreen.kt`, `MapControlButton.kt`, `colors.properties`, `AppConfig.kt`, `strings.xml` (EN+FR)
+
+#### Docs
+- `xTrack/Ui_General/260827_FEAT_PLN_Ui_General_touch-input-lock.md`
+- `docs/ui-component-guidelines.md` (§5.5)
+
+---
 
 ### menu-drawer-rows  [x]
 
