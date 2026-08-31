@@ -36,6 +36,7 @@ import ykws.android.maro.MainActivity
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.location.AcquisitionMode
+import ykws.android.maro.data.markers.AutoMarkerManager
 import ykws.android.maro.data.location.AdaptiveGpsPolicy
 import ykws.android.maro.data.location.GpsFix
 import ykws.android.maro.data.location.GpsLocationSource
@@ -85,6 +86,9 @@ class TrackRecordingService : Service() {
 
     /** Track persistence layer. */
     private val repository by lazy { TrackRepository(this) }
+
+    /** Auto-marker lifecycle owner (shared with the service-owned recorder). */
+    private val autoMarkerManager by lazy { AutoMarkerManager(this) }
 
     /** Process-scoped recording engine coroutines (GPS sampling + flow forwarding). */
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -168,10 +172,6 @@ class TrackRecordingService : Service() {
             ACTION_RESUME_ORPHANED_CHECKPOINT -> resumeOrphanedCheckpoint(intent)
             ACTION_RESUME_TRACK -> resumeTrack(intent)
             ACTION_ADD_MANUAL_BOAT_MARKER -> addManualBoatMarker(intent)
-            ACTION_SET_ACTIVE_SESSION_AUTO_MARKER_ID ->
-                recorder?.setActiveSessionAutoMarkerId(intent.getStringExtra(EXTRA_AUTO_MARKER_ID).orEmpty())
-            ACTION_SET_BOAT_MARKER_AUTO_MARKER_ID ->
-                recorder?.setBoatMarkerAutoMarkerId(intent.getStringExtra(EXTRA_BOAT_MARKER_AUTO_MARKER_ID).orEmpty())
             ACTION_UPDATE_LIVE_TRACK_META -> recorder?.updateCurrentTrackMeta(
                 name = if (intent.hasExtra(EXTRA_TRACK_NAME)) intent.getStringExtra(EXTRA_TRACK_NAME) else null,
                 comment = if (intent.hasExtra(EXTRA_TRACK_COMMENT)) intent.getStringExtra(EXTRA_TRACK_COMMENT) else null
@@ -238,7 +238,8 @@ class TrackRecordingService : Service() {
             },
             markerChangeNotifier = WhereAmIProvider.markerChanges,
             gapDistanceThresholdM = AppConfig.trackingGapDistanceThresholdM,
-            gapTimeThresholdSec = AppConfig.trackingGapTimeThresholdSec
+            gapTimeThresholdSec = AppConfig.trackingGapTimeThresholdSec,
+            autoMarkerManager = autoMarkerManager
         )
         recorder = rec
         rec.start(_sampleInput)
@@ -458,12 +459,6 @@ class TrackRecordingService : Service() {
         /** Intent action: append manual BoatMarker snapshots to the live track. */
         const val ACTION_ADD_MANUAL_BOAT_MARKER = "ykws.android.maro.action.ADD_MANUAL_BOAT_MARKER"
 
-        /** Intent action: set the 🕐 auto-marker ID on the active idle session. */
-        const val ACTION_SET_ACTIVE_SESSION_AUTO_MARKER_ID = "ykws.android.maro.action.SET_ACTIVE_SESSION_AUTO_MARKER_ID"
-
-        /** Intent action: store the confirmed auto-marker ID in the track's BoatMarker entry. */
-        const val ACTION_SET_BOAT_MARKER_AUTO_MARKER_ID = "ykws.android.maro.action.SET_BOAT_MARKER_AUTO_MARKER_ID"
-
         /** Intent action: update the live track's name/comment. */
         const val ACTION_UPDATE_LIVE_TRACK_META = "ykws.android.maro.action.UPDATE_LIVE_TRACK_META"
 
@@ -519,8 +514,6 @@ class TrackRecordingService : Service() {
         // Recording-control extras
         const val EXTRA_TRACK_ID = "track_id"
         const val EXTRA_MARKER_SNAPSHOTS_JSON = "marker_snapshots_json"
-        const val EXTRA_AUTO_MARKER_ID = "auto_marker_id"
-        const val EXTRA_BOAT_MARKER_AUTO_MARKER_ID = "boat_marker_auto_marker_id"
         const val EXTRA_TRACK_NAME = "track_name"
         const val EXTRA_TRACK_COMMENT = "track_comment"
 

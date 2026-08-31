@@ -144,20 +144,6 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    /** Set the auto-marker ID on the active idle session. */
-    fun setActiveSessionAutoMarkerId(id: String) {
-        startService(TrackRecordingService.ACTION_SET_ACTIVE_SESSION_AUTO_MARKER_ID) {
-            putExtra(TrackRecordingService.EXTRA_AUTO_MARKER_ID, id)
-        }
-    }
-
-    /** Store the confirmed auto-marker ID in the track's BoatMarker entry. */
-    fun setBoatMarkerAutoMarkerId(id: String) {
-        startService(TrackRecordingService.ACTION_SET_BOAT_MARKER_AUTO_MARKER_ID) {
-            putExtra(TrackRecordingService.EXTRA_BOAT_MARKER_AUTO_MARKER_ID, id)
-        }
-    }
-
     /** Update the active recording track's name and/or comment. Persisted to checkpoint. */
     fun updateLiveTrackMeta(name: String? = null, comment: String? = null) {
         startService(TrackRecordingService.ACTION_UPDATE_LIVE_TRACK_META) {
