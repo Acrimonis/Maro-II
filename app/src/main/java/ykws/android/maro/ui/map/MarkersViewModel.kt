@@ -8,8 +8,11 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ykws.android.maro.config.AppConfig
@@ -138,6 +141,11 @@ class MarkersViewModel(
     private val _markers = MutableStateFlow<List<UserMarker>>(emptyList())
     val markers: StateFlow<List<UserMarker>> = _markers.asStateFlow()
 
+    /** Unfiltered all-marker ID set — ghost-pin render-time existence checks. */
+    val allMarkerIds: StateFlow<Set<String>> = _allMarkers
+        .map { list -> list.mapTo(HashSet()) { it.id } }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
+
     /** Tri-state layer visibility (FanLayout toggle). */
     private val _markerLayerState = MutableStateFlow(MarkerLayerState.HIDDEN)
     val markerLayerState: StateFlow<MarkerLayerState> = _markerLayerState.asStateFlow()
@@ -247,6 +255,17 @@ class MarkersViewModel(
             // Initial sort: no filter applied until observeSettings wires up the flow
             _markers.value = sortMarkers(loaded, ykws.android.maro.data.model.ListSortState())
             isLoaded = true
+        }
+        // Keep _allMarkers fresh after service-side writes (AutoMarkerManager).
+        viewModelScope.launch {
+            UserMarkerRepository.markerChanges.collect {
+                val all = withContext(Dispatchers.IO) { repo.loadAll() }
+                val settings = settingsFlow?.value
+                _allMarkers.value = all
+                val filter = settings?.markerListFilter ?: ListFilter()
+                val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
+                _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
+            }
         }
     }
 
@@ -843,12 +862,12 @@ class MarkersViewModel(
             geometry = MarkerGeometry.Pin(centroid),
             description = desc,
             proximityOverrideM = AppConfig.boatMarkerAutoMarkerProximityM,
-            confirmed = false,
+            confirmed = true,
             pinned = true,
             icon = "\uD83D\uDD50",  // 🕐
             createdAtEpochMs = System.currentTimeMillis(),
             origin = ykws.android.maro.data.model.markers.MarkerOrigin.IDLE_AUTO,
-            keepable = false
+            keepable = true
         )
 
         viewModelScope.launch {

@@ -188,6 +188,7 @@ import ykws.android.maro.data.regulation.RegulatedZoneSet
 import ykws.android.maro.data.regulation.RegulatedZonesRepository
 import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.model.markers.MarkerGeometry
+import ykws.android.maro.data.model.markers.MarkerOrigin
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.data.markers.UserMarkerRepository
 import ykws.android.maro.ui.components.ConfirmSheet
@@ -809,6 +810,7 @@ fun MapScreen(
 
     // ── User markers: from MarkersViewModel ─────────────────────────────────────────
     val userMarkers by markersViewModel.markers.collectAsState()
+    val allMarkerIds by markersViewModel.allMarkerIds.collectAsState()
     val markerLayerState by markersViewModel.markerLayerState.collectAsState()
     val markerLayerVisible = markerLayerState != MarkerLayerState.HIDDEN
 
@@ -825,14 +827,14 @@ fun MapScreen(
         trackViewModel.observeSettings(viewModel.settings)
     }
 
-    // ── Startup: clean up non-keepable auto-markers (orphaned from crash) ──
+    // ── Startup: clean up crash-orphaned auto-markers (IDLE_AUTO && !keepable) ──
     LaunchedEffect(Unit) {
-        val nonKeepable = userMarkers.filter { !it.keepable }
-        for (m in nonKeepable) {
+        val crashOrphans = userMarkers.filter { it.origin == MarkerOrigin.IDLE_AUTO && !it.keepable }
+        for (m in crashOrphans) {
             markersViewModel.deleteMarker(m.id)
         }
-        if (nonKeepable.isNotEmpty()) {
-            Log.d("MaroII_Map", "Startup cleanup: removed ${nonKeepable.size} non-keepable markers")
+        if (crashOrphans.isNotEmpty()) {
+            Log.d("MaroII_Map", "Startup cleanup: removed ${crashOrphans.size} crash-orphan auto-markers")
         }
     }
 
@@ -884,19 +886,10 @@ fun MapScreen(
         }
     }
 
-    // ── Track event observation: idle auto-marker lifecycle ──
-    var pendingAutoMarkerId by remember { mutableStateOf<String?>(null) }
+    // ── Track event observation: drawer auto-open/close + live polyline restore ──
     LaunchedEffect(Unit) {
         trackViewModel.events.collect { event ->
             when (event) {
-                is ykws.android.maro.data.track.TrackEvent.IdlePeriodStarted -> {
-                    val markerId = markersViewModel.addTempAutoMarker(
-                        event.entryLat, event.entryLon, event.startTimeMs)
-                    if (markerId.isNotEmpty()) {
-                        pendingAutoMarkerId = markerId
-                        trackViewModel.setActiveSessionAutoMarkerId(markerId)
-                    }
-                }
                 is ykws.android.maro.data.track.TrackEvent.DrawerAutoOpenRequested -> {
                     if (markersViewModel.drawerState.value == MarkerDrawerState.Hidden) {
                         val pos = gpsPosition ?: mapCenter
@@ -907,35 +900,6 @@ fun MapScreen(
                     if (markersViewModel.drawerState.value == MarkerDrawerState.MatchResult) {
                         markersViewModel.closeDrawer()
                     }
-                }
-                is ykws.android.maro.data.track.TrackEvent.IdlePeriodCompleted -> {
-                    val id = event.autoMarkerId ?: return@collect
-                    try {
-                        val minDuration = AppConfig.boatMarkerAutoMarkerMinDurationSec
-                        if (event.durationSec >= minDuration || event.endTimeMs == 0L) {
-                            val title = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
-                                .format(java.util.Date(event.startTimeMs))
-                            val startFmt = java.text.SimpleDateFormat("HH:mm", java.util.Locale.US)
-                                .format(java.util.Date(event.startTimeMs))
-                            val durMin = event.durationSec / 60
-                            val desc = if (event.endTimeMs == 0L) {
-                                "@ $startFmt -> ?"
-                            } else {
-                                val endFmt = java.text.SimpleDateFormat("HH:mm", java.util.Locale.US)
-                                    .format(java.util.Date(event.endTimeMs))
-                                "@ $startFmt -> $endFmt ($durMin min)"
-                            }
-                            markersViewModel.confirmAutoMarker(id, title, desc)
-                            trackViewModel.setBoatMarkerAutoMarkerId(id)
-                            markerChangeFlow.tryEmit(Unit)
-                        } else {
-                            markersViewModel.deleteMarker(id)
-                            markerChangeFlow.tryEmit(Unit)
-                        }
-                    } catch (e: Exception) {
-                        Log.w("MaroII_Map", "autoMarker finalize failed", e)
-                    }
-                    pendingAutoMarkerId = null
                 }
                 is ykws.android.maro.data.track.TrackEvent.Resumed -> {
                     // Restore checkpoint points to the live polyline on Continue.
@@ -1163,7 +1127,7 @@ fun MapScreen(
         appSettings.trackingTransparencyNewest, appSettings.trackingTransparencyOldest,
         appSettings.trackingColorPinnedFrom, appSettings.trackingColorPinnedTo,
         appSettings.trackingTransparencyPinnedNewest, appSettings.trackingTransparencyPinnedOldest,
-        appSettings.trackListFilter, trackSummaries, highlightedTrackId) {
+        appSettings.trackListFilter, trackSummaries, highlightedTrackId, allMarkerIds) {
         val mv = mapView ?: return@LaunchedEffect
 
         // Apply filter before display split
@@ -1277,6 +1241,7 @@ fun MapScreen(
             // ── Auto-marker 🕐 pins for this history track ──
             for (bm in track.boatMarkers) {
                 val markerId = bm.autoMarkerId ?: continue
+                if (markerId !in allMarkerIds) continue  // ghost-pin guard
                 val iconMarker = org.osmdroid.views.overlay.Marker(mv).apply {
                     position = org.osmdroid.util.GeoPoint(bm.boatLat, bm.boatLon)
                     setAnchor(org.osmdroid.views.overlay.Marker.ANCHOR_CENTER, org.osmdroid.views.overlay.Marker.ANCHOR_CENTER)
@@ -1388,6 +1353,7 @@ fun MapScreen(
             // ── Auto-marker 🕐 pins for this pinned track ──
             for (bm in track.boatMarkers) {
                 val markerId = bm.autoMarkerId ?: continue
+                if (markerId !in allMarkerIds) continue  // ghost-pin guard
                 val iconMarker = org.osmdroid.views.overlay.Marker(mv).apply {
                     position = org.osmdroid.util.GeoPoint(bm.boatLat, bm.boatLon)
                     setAnchor(org.osmdroid.views.overlay.Marker.ANCHOR_CENTER, org.osmdroid.views.overlay.Marker.ANCHOR_CENTER)

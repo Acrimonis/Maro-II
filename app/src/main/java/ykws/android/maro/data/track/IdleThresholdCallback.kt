@@ -8,15 +8,10 @@ import ykws.android.maro.data.model.LatLng
  * @property entries            Marker snapshots captured at the idle position.
  * @property shouldOpenDrawer   True if the marker drawer should auto-open
  *                              (typically when snapshots are non-empty).
- * @property autoMarkerId       ID of the temporary 🕐 auto-marker pin, set
- *                              externally by MapScreen after creating it.
- *                              The callback itself returns null here —
- *                              MapScreen sets it on [TrackRecorder] afterwards.
  */
 data class IdleCaptureResult(
     val entries: List<MarkerSnapshot>,
-    val shouldOpenDrawer: Boolean,
-    val autoMarkerId: String? = null
+    val shouldOpenDrawer: Boolean
 )
 
 /**

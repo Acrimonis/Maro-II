@@ -1,24 +1,22 @@
 # BoatTrace — Hydration Snapshot
 
-**Baked at:** 2026-08-16 18:42 UTC
-**Active Subfeature:** gps-switch-confirm (confirm before switching position source while recording)
-**Branch:** feature/fix-track-gps
+**Baked at:** 2026-08-31 13:16 UTC
+**Active Subfeature:** auto-marker-cleanup (🕐 IDLE_AUTO marker lifecycle hardening)
+**Branch:** feature/track-n-markers (pending — not yet created from origin/develop)
 
 ## Session Summary
 
-**Confirm before switching position source while recording.** Toggling GPS↔demo while a track is
-recording used to swap the sample pipeline silently, mixing real and simulated points into one track.
-Now [`MapScreen`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt) intercepts the toggle at the
-single `onGpsModeChange` choke point: when `TrackRecorderState.ON`, it stashes a pending value and shows
-[`ConfirmSheet`](app/src/main/java/ykws/android/maro/ui/components/ConfirmSheet.kt) (bottom sheet, dashboard
-space). Confirm applies the permission-aware switch; cancel/dismiss reverts the switch. Covers all three
-entry points (drawer, settings, top-left icon); settings sheet still closes immediately.
+Planned hardening of the auto-created marker (🕐 IDLE_AUTO) lifecycle. Temp markers are created `confirmed=false, keepable=false` and confirmed or deleted when the idle period ends; the decision currently lives in the MapScreen composable, which dies on backgrounding while the foreground service keeps recording. Plan (Ask-reviewed, approved with 5 amendments): move createTemp/confirm/delete into a recorder-owned AutoMarkerManager; serialize repository writes; remove dead ACTION_SET_* intents and set*AutoMarkerId plumbing; confirm before persisting BoatMarker.autoMarkerId with a durable finalize fallback; render-time existence check for ghost pins; scope startup cleanup to crash orphans only; fix merged markers to confirmed+keepable. Final open idle at finalize stays kept by design.
 
-## Key Files (modified)
+## Key Files (target)
 
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — guard + ConfirmSheet rendering
-- `app/src/main/res/values/strings.xml`, `values-fr/strings.xml` — `gps_switch_confirm_*` strings
+- `app/src/main/java/ykws/android/maro/data/markers/UserMarkerRepository.kt` — add Mutex
+- `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt` — recorder wiring
+- `app/src/main/java/ykws/android/maro/data/track/TrackRecordingService.kt` — dead code removal
+- `app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt` — merge fix, expose unfiltered ids
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — ghost-pin check, startup cleanup scope
+- `xTrack/BoatTrace/260831_FEAT_PLN_BoatTrace_auto-marker-cleanup.md` — plan
 
 ## Next Step
 
-- On-device E2E: record a track, toggle position source, verify the confirm sheet appears; confirm/cancel behave correctly.
+Implement the plan (pending user go-ahead); then build + deploy + E2E cleanup scenarios.
