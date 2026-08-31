@@ -1,22 +1,27 @@
 # BoatTrace — Hydration Snapshot
 
-**Baked at:** 2026-08-31 13:16 UTC
-**Active Subfeature:** auto-marker-cleanup (🕐 IDLE_AUTO marker lifecycle hardening)
-**Branch:** feature/track-n-markers (pending — not yet created from origin/develop)
+**Baked at:** 2026-08-31 16:20 UTC
+**Active Subfeature:** marker-export-import
+**Branch:** feature/track-n-markers
 
 ## Session Summary
 
-Planned hardening of the auto-created marker (🕐 IDLE_AUTO) lifecycle. Temp markers are created `confirmed=false, keepable=false` and confirmed or deleted when the idle period ends; the decision currently lives in the MapScreen composable, which dies on backgrounding while the foreground service keeps recording. Plan (Ask-reviewed, approved with 5 amendments): move createTemp/confirm/delete into a recorder-owned AutoMarkerManager; serialize repository writes; remove dead ACTION_SET_* intents and set*AutoMarkerId plumbing; confirm before persisting BoatMarker.autoMarkerId with a durable finalize fallback; render-time existence check for ghost pins; scope startup cleanup to crash orphans only; fix merged markers to confirmed+keepable. Final open idle at finalize stays kept by design.
+Auto-marker lifecycle + marker-track relationship rework, in phases:
 
-## Key Files (target)
-
-- `app/src/main/java/ykws/android/maro/data/markers/UserMarkerRepository.kt` — add Mutex
-- `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt` — recorder wiring
-- `app/src/main/java/ykws/android/maro/data/track/TrackRecordingService.kt` — dead code removal
-- `app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt` — merge fix, expose unfiltered ids
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — ghost-pin check, startup cleanup scope
-- `xTrack/BoatTrace/260831_FEAT_PLN_BoatTrace_auto-marker-cleanup.md` — plan
+- **Phase 1 (auto-marker cleanup):** recorder-owned `AutoMarkerManager` (createTemp/confirm/delete), `UserMarkerRepository` Mutex + change channel, durable finalize fallback, startup crash-orphan cleanup, merged markers keepable. BUILD SUCCESSFUL.
+- **Phase 2 (marker-track link):** single `UserMarker.trackId` set at creation; one-time backfill migration; removed persisted `BoatMarker.autoMarkerId`; delete-track deletes its IDLE_AUTO markers; markers rendered from unfiltered `_allMarkers`; marker badge + "Belongs to track" row. BUILD SUCCESSFUL.
+- **Track export:** fixed duplicate-entry crash (unique names), Windows-safe filename sanitization, `yyyy_MM_dd_HH_mm-title-counter.gpx` naming, menu Import/Export reorder with labeled controls.
+- **Track import modes:** single GPX → Skip/Update/New dialog; ZIP → silent skip; update prefers edited `<trkpt>` points and recomputes stats. BUILD SUCCESSFUL.
+- **Phase 3** (cross-navigation) planned, deferred. **Phase 4** marker export/import planned, partially implemented (track import modes done).
 
 ## Next Step
 
-Implement the plan (pending user go-ahead); then build + deploy + E2E cleanup scenarios.
+On-device E2E for all implemented work; then Phase 4 marker export/import; then Phase 3 cross-navigation.
+
+## Key Files
+
+- `app/src/main/java/ykws/android/maro/data/markers/AutoMarkerManager.kt`
+- `app/src/main/java/ykws/android/maro/data/markers/UserMarkerRepository.kt`
+- `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt`
+- `app/src/main/java/ykws/android/maro/data/track/GpxImporter.kt`, `GpxExporter.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`, `MarkerManagementOverlay.kt`, `MarkerDrawer.kt`, `MenuDrawerOverlay.kt`
