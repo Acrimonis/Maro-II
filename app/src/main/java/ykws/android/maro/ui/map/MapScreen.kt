@@ -98,6 +98,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
@@ -386,6 +387,8 @@ fun MapScreen(
     var screenLocked by rememberSaveable { mutableStateOf(false) }
     // Lock/unlock transient banner: null = hidden, true = locked, false = unlocked.
     var lockBanner by remember { mutableStateOf<Boolean?>(null) }
+    // Monotonic timestamp key: each show/refresh bumps this so the 2s timeout restarts (no queue).
+    var lockBannerAt by remember { mutableStateOf(0L) }
 
     // ── Click-N-Move state ─────────────────────────────────────────────
     var highlightedTrackId by remember { mutableStateOf<String?>(null) }
@@ -515,8 +518,9 @@ fun MapScreen(
         val newLocked = !screenLocked
         screenLocked = newLocked
         lockBanner = newLocked
+        lockBannerAt = SystemClock.elapsedRealtime()
     }
-    LaunchedEffect(lockBanner) {
+    LaunchedEffect(lockBannerAt) {
         if (lockBanner != null) {
             delay(2_000L)
             lockBanner = null
@@ -2635,7 +2639,12 @@ fun MapScreen(
             if (isLandscape) raw else (raw - 6.dp).coerceAtLeast(0.dp)
         }
         if (screenLocked) {
-            LockScrim()
+            LockScrim(
+                onInterceptedTap = {
+                    lockBanner = true
+                    lockBannerAt = SystemClock.elapsedRealtime()
+                }
+            )
         }
         // Locked-overlay controls sit inside the map area: mirror MapContent's
         // dashboard padding (portrait: bottom; landscape: start) so the duplicate
@@ -3055,8 +3064,8 @@ private fun MapContent(
                             modifier = Modifier
                                 .align(Alignment.BottomStart)
                                 .fillMaxWidth()
-                                .padding(start = 6.dp, end = 6.dp),
-                            contentAlignment = Alignment.CenterStart
+                                .padding(start = 6.dp, end = RIGHT_CONTROL_COLUMN_INSET),
+                            contentAlignment = Alignment.Center
                         ) {
                             Surface(
                                 shape = RoundedCornerShape(14.dp),
@@ -3073,7 +3082,7 @@ private fun MapContent(
                                     color = ComposeColor(AppConfig.uiSettingsToastText),
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Medium,
-                                    textAlign = TextAlign.Center,
+                                    textAlign = TextAlign.Start,
                                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
                                     )
                                 }
@@ -3915,7 +3924,11 @@ private fun LockScreenButton(
  * osmdroid map, dashboard, drawers, controls — receives touch.
  */
 @Composable
-private fun LockScrim(modifier: Modifier = Modifier) {
+private fun LockScrim(
+    onInterceptedTap: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val currentOnTap by rememberUpdatedState(onInterceptedTap)
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -3923,6 +3936,9 @@ private fun LockScrim(modifier: Modifier = Modifier) {
                 awaitPointerEventScope {
                     while (true) {
                         val event = awaitPointerEvent()
+                        if (event.changes.any { it.pressed && !it.previousPressed }) {
+                            currentOnTap()
+                        }
                         event.changes.forEach { it.consume() }
                     }
                 }
@@ -3991,8 +4007,8 @@ private fun LockBanner(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = 6.dp, end = RIGHT_CONTROL_COLUMN_INSET),
-        contentAlignment = Alignment.CenterStart
+            .padding(start = 6.dp, end = RIGHT_CONTROL_COLUMN_INSET, bottom = 6.dp),
+        contentAlignment = Alignment.Center
     ) {
         Surface(
             shape = RoundedCornerShape(14.dp),
@@ -4008,7 +4024,7 @@ private fun LockBanner(
                     color = ComposeColor(AppConfig.uiSettingsToastText),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,
-                    textAlign = TextAlign.Center,
+                    textAlign = TextAlign.Start,
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
                 )
             }
