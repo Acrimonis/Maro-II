@@ -97,7 +97,6 @@ import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -592,7 +591,6 @@ internal fun TrackCardContent(
                 text = summary.name,
                 color = Color(AppConfig.uiSettingsTextPrimary),
                 fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth()
                     .padding(horizontal = 8.dp, vertical = 4.dp)
                     .combinedClickable(
@@ -834,7 +832,6 @@ private fun LiveTrackCard(
                 text = liveState.currentTrackName ?: "Recording...",
                 color = Color(AppConfig.uiSettingsTextPrimary),
                 fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth()
                     .padding(horizontal = 8.dp, vertical = 2.dp)
                     .clickable { editingField = EditingField.NAME }

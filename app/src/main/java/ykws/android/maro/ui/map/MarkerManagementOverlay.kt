@@ -475,8 +475,6 @@ internal fun MarkerCardContent(
                         color = Color(AppConfig.uiSettingsTextPrimary),
                         fontSize = MARKER_TITLE_FONT_SIZE,
                         fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.fillMaxWidth().combinedClickable(
                             onClick = onTap,
                             onDoubleClick = {
