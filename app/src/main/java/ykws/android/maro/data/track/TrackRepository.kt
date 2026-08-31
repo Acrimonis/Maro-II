@@ -3,7 +3,11 @@ package ykws.android.maro.data.track
 import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoBuf
+import kotlinx.serialization.protobuf.ProtoNumber
+import ykws.android.maro.data.markers.UserMarkerRepository
+import ykws.android.maro.data.model.markers.MarkerOrigin
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
@@ -20,13 +24,17 @@ import java.nio.file.StandardCopyOption
  * - `tracks/index.bin` — serialised [TrackSummaryList] for fast listing
  */
 class TrackRepository(
-    private val tracksDir: File
+    private val tracksDir: File,
+    private val markerRepo: UserMarkerRepository? = null
 ) {
     init {
         tracksDir.mkdirs()
     }
 
-    constructor(context: Context) : this(File(context.filesDir, TRACKS_DIR_NAME))
+    constructor(context: Context) : this(
+        File(context.filesDir, TRACKS_DIR_NAME),
+        UserMarkerRepository(context)
+    )
 
     private val proto = ProtoBuf.Default
 
@@ -66,8 +74,25 @@ class TrackRepository(
         }
     }
 
-    /** Delete a track and remove it from the index. */
-    suspend fun delete(id: String) = withContext(Dispatchers.IO) {
+    /**
+     * Delete a track and remove it from the index.
+     *
+     * Cascades to derived IDLE_AUTO markers in a single loadAll → filter → saveAll:
+     * every marker whose [ykws.android.maro.data.model.markers.UserMarker.trackId]
+     * equals [id] is removed. [excludeActiveTrackId] protects the live recording's
+     * markers — when it equals [id], the cascade is skipped (never touch the active
+     * recording track's temp marker).
+     */
+    suspend fun delete(id: String, excludeActiveTrackId: String? = null) = withContext(Dispatchers.IO) {
+        markerRepo?.let { repo ->
+            if (id != excludeActiveTrackId) {
+                val markers = repo.loadAll()
+                val remaining = markers.filterNot { m ->
+                    m.origin == MarkerOrigin.IDLE_AUTO && m.trackId == id
+                }
+                if (remaining.size != markers.size) repo.saveAll(remaining)
+            }
+        }
         trackFile(id).delete()
         deleteCheckpoint(id)
         updateIndex()
@@ -189,6 +214,47 @@ class TrackRepository(
         updated
     }
 
+    /**
+     * One-time backfill: map legacy `BoatMarker.autoMarkerId` (protobuf field 8,
+     * now removed from the model) → [UserMarker.trackId] on the matching marker.
+     *
+     * Reads the old `.bin` files with a legacy schema that still carries field 8,
+     * then writes a single `saveAll` of the updated marker list. Idempotent — the
+     * caller gates it behind a version flag. Returns the number of markers linked.
+     */
+    suspend fun migrateMarkerTrackLink(): Int = withContext(Dispatchers.IO) {
+        val repo = markerRepo ?: return@withContext 0
+
+        // autoMarkerId → owning track id (from persisted protobuf field 8).
+        val linkMap = mutableMapOf<String, String>()
+        tracksDir.listFiles()
+            ?.filter { it.extension == "bin" && !it.name.endsWith("_checkpoint.bin") && it.name != INDEX_FILE_NAME }
+            ?.forEach { file ->
+                try {
+                    val legacy = proto.decodeFromByteArray(LegacyTrack.serializer(), file.readBytes())
+                    for (bm in legacy.boatMarkers) {
+                        val markerId = bm.autoMarkerId ?: continue
+                        linkMap[markerId] = legacy.id
+                    }
+                } catch (_: Exception) {
+                    // Skip corrupt files — load/rebuildIndex already delete those on read.
+                }
+            }
+
+        if (linkMap.isEmpty()) return@withContext 0
+        val markers = repo.loadAll()
+        var changed = 0
+        val updated = markers.map { m ->
+            val ownerId = if (m.trackId == null) linkMap[m.id] else null
+            if (ownerId != null) {
+                changed++
+                m.copy(trackId = ownerId)
+            } else m
+        }
+        if (changed > 0) repo.saveAll(updated)
+        changed
+    }
+
     // ── Internal helpers ──────────────────────────────────────────────────
 
     private fun trackFile(id: String): File = File(tracksDir, "${id}.bin")
@@ -253,3 +319,19 @@ class TrackRepository(
         private const val INDEX_FILE_NAME = "index.bin"
     }
 }
+
+// ── Legacy protobuf schema for the one-time marker↔track backfill ─────────────
+// `BoatMarker.autoMarkerId` (@ProtoNumber 8) was removed from the live model.
+// These minimal mirrors still read field 8 so pre-migration `.bin` files can be
+// decoded for the backfill. Field numbers must match the old live schema.
+
+@Serializable
+private data class LegacyTrack(
+    @ProtoNumber(1) val id: String = "",
+    @ProtoNumber(16) val boatMarkers: List<LegacyBoatMarker> = emptyList()
+)
+
+@Serializable
+private data class LegacyBoatMarker(
+    @ProtoNumber(8) val autoMarkerId: String? = null
+)

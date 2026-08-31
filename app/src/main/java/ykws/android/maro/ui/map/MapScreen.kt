@@ -416,6 +416,7 @@ fun MapScreen(
     val debugSegments by markersViewModel.debugSegments.collectAsState()
     val trackRecorderState by trackViewModel.uiState.collectAsState()
     val trackSummaries by trackViewModel.summaries.collectAsState()
+    val allTrackSummaries by trackViewModel.allSummaries.collectAsState()
     val recoveryTrack by trackViewModel.recoveryTrack.collectAsState()
     val trackScope = rememberCoroutineScope()
 
@@ -810,7 +811,7 @@ fun MapScreen(
 
     // ── User markers: from MarkersViewModel ─────────────────────────────────────────
     val userMarkers by markersViewModel.markers.collectAsState()
-    val allMarkerIds by markersViewModel.allMarkerIds.collectAsState()
+    val allMarkers by markersViewModel.allMarkers.collectAsState()
     val markerLayerState by markersViewModel.markerLayerState.collectAsState()
     val markerLayerVisible = markerLayerState != MarkerLayerState.HIDDEN
 
@@ -1127,7 +1128,7 @@ fun MapScreen(
         appSettings.trackingTransparencyNewest, appSettings.trackingTransparencyOldest,
         appSettings.trackingColorPinnedFrom, appSettings.trackingColorPinnedTo,
         appSettings.trackingTransparencyPinnedNewest, appSettings.trackingTransparencyPinnedOldest,
-        appSettings.trackListFilter, trackSummaries, highlightedTrackId, allMarkerIds) {
+        appSettings.trackListFilter, trackSummaries, highlightedTrackId) {
         val mv = mapView ?: return@LaunchedEffect
 
         // Apply filter before display split
@@ -1147,10 +1148,9 @@ fun MapScreen(
             } else emptySet()
         } else emptySet()
 
-        // Remove all existing track history overlays + auto-marker pins — rebuild from scratch
+        // Remove all existing track history overlays — rebuild from scratch
         val toRemove = mv.overlays.filter { overlay ->
-            (overlay as? org.osmdroid.views.overlay.Polyline)?.title?.startsWith("track_hist_") == true ||
-            (overlay as? org.osmdroid.views.overlay.Marker)?.title?.startsWith("track_auto_hist_") == true
+            (overlay as? org.osmdroid.views.overlay.Polyline)?.title?.startsWith("track_hist_") == true
         }
         mv.overlays.removeAll(toRemove)
 
@@ -1238,27 +1238,6 @@ fun MapScreen(
                 }
             }
 
-            // ── Auto-marker 🕐 pins for this history track ──
-            for (bm in track.boatMarkers) {
-                val markerId = bm.autoMarkerId ?: continue
-                if (markerId !in allMarkerIds) continue  // ghost-pin guard
-                val iconMarker = org.osmdroid.views.overlay.Marker(mv).apply {
-                    position = org.osmdroid.util.GeoPoint(bm.boatLat, bm.boatLon)
-                    setAnchor(org.osmdroid.views.overlay.Marker.ANCHOR_CENTER, org.osmdroid.views.overlay.Marker.ANCHOR_CENTER)
-                    title = "track_auto_hist_${summary.id}_${bm.sequenceIndex}"
-                    val bitmap = android.graphics.Bitmap.createBitmap(48, 48, android.graphics.Bitmap.Config.ARGB_8888)
-                    val canvas = android.graphics.Canvas(bitmap)
-                    val paint = android.graphics.Paint().apply {
-                        color = appearances.last().argb
-                        textSize = 36f
-                        textAlign = android.graphics.Paint.Align.CENTER
-                        isAntiAlias = true
-                    }
-                    canvas.drawText("\uD83D\uDD50", 24f, 34f, paint)
-                    icon = android.graphics.drawable.BitmapDrawable(mv.context.resources, bitmap)
-                }
-                trackOverlays.add(iconMarker)
-            }
             historyOverlays.add(trackOverlays)
         }
         historyOverlays.reverse()
@@ -1268,8 +1247,7 @@ fun MapScreen(
 
         // ── Pinned tracks: always render all, separate colors/transparency ──
         val toRemovePinned = mv.overlays.filter { overlay ->
-            (overlay as? org.osmdroid.views.overlay.Polyline)?.title?.startsWith("track_pin_") == true ||
-            (overlay as? org.osmdroid.views.overlay.Marker)?.title?.startsWith("track_auto_pin_") == true
+            (overlay as? org.osmdroid.views.overlay.Polyline)?.title?.startsWith("track_pin_") == true
         }
         mv.overlays.removeAll(toRemovePinned)
 
@@ -1350,27 +1328,6 @@ fun MapScreen(
                 }
             }
 
-            // ── Auto-marker 🕐 pins for this pinned track ──
-            for (bm in track.boatMarkers) {
-                val markerId = bm.autoMarkerId ?: continue
-                if (markerId !in allMarkerIds) continue  // ghost-pin guard
-                val iconMarker = org.osmdroid.views.overlay.Marker(mv).apply {
-                    position = org.osmdroid.util.GeoPoint(bm.boatLat, bm.boatLon)
-                    setAnchor(org.osmdroid.views.overlay.Marker.ANCHOR_CENTER, org.osmdroid.views.overlay.Marker.ANCHOR_CENTER)
-                    title = "track_auto_pin_${summary.id}_${bm.sequenceIndex}"
-                    val bitmap = android.graphics.Bitmap.createBitmap(48, 48, android.graphics.Bitmap.Config.ARGB_8888)
-                    val canvas = android.graphics.Canvas(bitmap)
-                    val paint = android.graphics.Paint().apply {
-                        color = appearances.last().argb
-                        textSize = 36f
-                        textAlign = android.graphics.Paint.Align.CENTER
-                        isAntiAlias = true
-                    }
-                    canvas.drawText("\uD83D\uDD50", 24f, 34f, paint)
-                    icon = android.graphics.drawable.BitmapDrawable(mv.context.resources, bitmap)
-                }
-                trackOverlays.add(iconMarker)
-            }
             pinnedOverlays.add(trackOverlays)
         }
         pinnedOverlays.reverse()
@@ -1391,14 +1348,8 @@ fun MapScreen(
         if (highlightedTrackId != null) {
             val highlightedOverlays = mv.overlays.filter { overlay ->
                 val polyTitle = (overlay as? org.osmdroid.views.overlay.Polyline)?.title
-                if (polyTitle != null) {
-                    polyTitle == "track_hist_$highlightedTrackId" ||
-                    polyTitle == "track_pin_$highlightedTrackId"
-                } else {
-                    val markerTitle = (overlay as? org.osmdroid.views.overlay.Marker)?.title
-                    markerTitle?.startsWith("track_auto_hist_${highlightedTrackId}_") == true ||
-                    markerTitle?.startsWith("track_auto_pin_${highlightedTrackId}_") == true
-                }
+                polyTitle == "track_hist_$highlightedTrackId" ||
+                polyTitle == "track_pin_$highlightedTrackId"
             }
             mv.overlays.removeAll(highlightedOverlays)
             mv.overlays.addAll(highlightedOverlays)
@@ -2040,7 +1991,7 @@ fun MapScreen(
                 val matchResult by markersViewModel.matchResult.collectAsState()
                 val selectedMarkerId by markersViewModel.selectedMarkerId.collectAsState()
                 MarkerOverlay(
-                    markers = userMarkers,
+                    markers = allMarkers,
                     mapView = mapView,
                     proximityZoneMultiplier = AppConfig.markerProximityZoneMultiplier,
                     unconfirmedMarker = unconfirmedMarker,
@@ -2306,6 +2257,7 @@ fun MapScreen(
             },
             boatPosition = gpsPosition ?: mapCenter,
             markers = mgmtMarkers,
+            trackTitleLookup = { id -> allTrackSummaries.firstOrNull { it.id == id }?.name },
             onMarkerAction = { action ->
                 when (action) {
                     is ykws.android.maro.data.model.ListAction.NavigateToItem -> openMarkerDetail(action.id, fromList = true)

@@ -247,18 +247,6 @@ class TrackRecorder(
     private var titlePollJob: Job? = null
     private var markerObserverJob: Job? = null
 
-    /** Persist the confirmed auto-marker ID onto the session's BoatMarker (after confirm). */
-    private fun setBoatMarkerAutoMarkerId(id: String, session: IdleSessionContext) {
-        val idx = session.boatMarkerIndex ?: return
-        val track = currentTrack ?: return
-        if (idx in track.boatMarkers.indices) {
-            val bm = track.boatMarkers[idx]
-            val updated = track.boatMarkers.toMutableList().also { it[idx] = bm.copy(autoMarkerId = id) }
-            currentTrack = track.copy(boatMarkers = updated)
-            scope?.launch { currentTrack?.let { repository.saveCheckpoint(it) } }
-        }
-    }
-
     /**
      * Manually append a BoatMarker to the current track.
      * Used by the boat-marker button in MapScreen (MANUAL trigger).
@@ -673,7 +661,7 @@ class TrackRecorder(
             val session = IdleSessionContext(startTimeMs = now, entryLat = lat, entryLon = lon)
             activeSession = session
             session.autoMarkerJob = scope?.launch {
-                val id = autoMarkerManager?.createTemp(lat, lon, now).orEmpty()
+                val id = autoMarkerManager?.createTemp(lat, lon, now, currentTrack?.id).orEmpty()
                 session.autoMarkerId = id.ifEmpty { null }
             }
             _events.tryEmit(IdlePeriodStarted(entryLat = lat, entryLon = lon, startTimeMs = now))
@@ -1105,19 +1093,16 @@ class TrackRecorder(
         // D: transactional finalize — persist the finalized track and remove the checkpoint
         // synchronously on IO so the Stop tap is durable before the recorder leaves ON state.
         // A: save before delete, so a crash leaves a complete copy (finalized .bin or checkpoint).
-        // Resolve the final open idle's auto-marker BEFORE persisting BoatMarker.autoMarkerId:
-        // confirm on success, fallback delete on failure (§4).
+        // Resolve the final open idle's auto-marker: confirm on success, fallback delete on failure (§4).
+        // The marker's trackId was set at creation — no BoatMarker link to persist here.
         runBlocking(Dispatchers.IO) {
             val mgr = autoMarkerManager
-            val sessionIdx = session?.boatMarkerIndex
-            var confirmedId: String? = null
             if (mgr != null && session != null) {
                 session.autoMarkerJob?.join()
                 val id = session.autoMarkerId
                 if (id != null) {
                     try {
                         mgr.confirm(id, session.startTimeMs, 0L, 0L)
-                        confirmedId = id
                     } catch (e: Exception) {
                         Log.w(TAG, "finalizeTrack: confirm failed — fallback delete", e)
                         try {
@@ -1128,19 +1113,8 @@ class TrackRecorder(
                     }
                 }
             }
-            val trackToSave = if (confirmedId != null && sessionIdx != null &&
-                sessionIdx in finalizedTrack.boatMarkers.indices) {
-                val bm = finalizedTrack.boatMarkers[sessionIdx]
-                finalizedTrack.copy(
-                    boatMarkers = finalizedTrack.boatMarkers.toMutableList().also {
-                        it[sessionIdx] = bm.copy(autoMarkerId = confirmedId)
-                    }
-                )
-            } else {
-                finalizedTrack
-            }
-            repository.save(trackToSave)
-            repository.deleteCheckpoint(trackToSave.id)
+            repository.save(finalizedTrack)
+            repository.deleteCheckpoint(finalizedTrack.id)
         }
         _events.tryEmit(Stopped)
 
@@ -1302,9 +1276,8 @@ class TrackRecorder(
 
     /**
      * Resolve a completed idle session's auto-marker: confirm (duration ≥ min, or
-     * finalize) then persist the BoatMarker.autoMarkerId, or delete when too short.
-     * Confirm happens BEFORE persisting autoMarkerId; on confirm failure we delete
-     * and skip the link so no dangling reference is ever written.
+     * finalize) or delete when too short. The marker's trackId is set at creation,
+     * so no BoatMarker link needs to be persisted here.
      */
     private suspend fun resolveAutoMarker(
         session: IdleSessionContext,
@@ -1327,7 +1300,6 @@ class TrackRecorder(
                 }
                 return
             }
-            setBoatMarkerAutoMarkerId(id, session)
         } else {
             try {
                 mgr.delete(id)

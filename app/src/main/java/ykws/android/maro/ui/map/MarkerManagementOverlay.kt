@@ -99,6 +99,7 @@ import java.util.Locale
 @Composable
 fun MarkerManagementOverlay(
     markers: List<UserMarker>,
+    trackTitleLookup: (String) -> String? = { null },
     onAction: (ykws.android.maro.data.model.ListAction) -> Unit,
     onCreateFirst: () -> Unit,
     onDismiss: () -> Unit,
@@ -292,6 +293,7 @@ fun MarkerManagementOverlay(
         cardContent = { marker, onLongPress ->
             MarkerCardContent(
                 marker = marker,
+                trackTitle = marker.trackId?.let(trackTitleLookup),
                 onTap = { onAction(ykws.android.maro.data.model.ListAction.NavigateToItem(marker.id)) },
                 onEdit = { onAction(ykws.android.maro.data.model.ListAction.EditItem(marker.id)) },
                 onSetIcon = onSetIcon,
@@ -340,6 +342,7 @@ private val MARKER_DESC_FONT_SIZE = 13.sp
 @Composable
 internal fun MarkerCardContent(
     marker: UserMarker,
+    trackTitle: String? = null,
     onTap: () -> Unit,
     onEdit: () -> Unit,
     onSetIcon: (String, String?) -> Unit,
@@ -482,6 +485,18 @@ internal fun MarkerCardContent(
                                 editingField = "name"
                             }
                         )
+                    )
+                }
+
+                if (trackTitle != null) {
+                    Spacer(Modifier.height(2.dp))
+                    Text(
+                        text = "\uD83D\uDEE4 $trackTitle",
+                        color = Color(AppConfig.uiSettingsAccent),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 

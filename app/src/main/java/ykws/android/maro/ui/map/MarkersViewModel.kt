@@ -137,6 +137,9 @@ class MarkersViewModel(
     /** Unfiltered source of truth — reloaded from repository. */
     private val _allMarkers = MutableStateFlow<List<UserMarker>>(emptyList())
 
+    /** Unfiltered marker list — map pins render from this so list filtering never hides them. */
+    val allMarkers: StateFlow<List<UserMarker>> = _allMarkers.asStateFlow()
+
     /** Loaded user markers (reactive, filtered + sorted). */
     private val _markers = MutableStateFlow<List<UserMarker>>(emptyList())
     val markers: StateFlow<List<UserMarker>> = _markers.asStateFlow()

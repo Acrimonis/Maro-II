@@ -41,6 +41,8 @@ data class UserMarker(
     val icon: String? = null,          // POI emoji/unicode icon, null = no icon
     override val createdAtEpochMs: Long = 0L,   // 0 = legacy marker
     val origin: MarkerOrigin = MarkerOrigin.USER,
+    /** ID of the owning [ykws.android.maro.data.track.Track], or null for standalone markers. */
+    val trackId: String? = null,
     val keepable: Boolean = true,      // user-created markers are keepable by default
     override val updatedAtEpochMs: Long = createdAtEpochMs  // defaults to creation time for legacy
 ) : ListableItem {

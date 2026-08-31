@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import ykws.android.maro.data.markers.UserMarkerRepository
 import ykws.android.maro.data.model.ListFilter
 import ykws.android.maro.data.model.ListSortState
 import ykws.android.maro.data.model.matchesFilter
@@ -34,6 +35,7 @@ import ykws.android.maro.data.settings.AppSettings
 class TrackViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = TrackRepository(application)
+    private val markerRepository = UserMarkerRepository(application)
 
     // ── Settings injection (set via observeSettings from MapScreen) ──
 
@@ -49,6 +51,7 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Unfiltered source of truth — reloaded from repository. */
     private val _allSummaries = MutableStateFlow<List<TrackSummary>>(emptyList())
+    val allSummaries: StateFlow<List<TrackSummary>> = _allSummaries.asStateFlow()
 
     private val _summaries = MutableStateFlow<List<TrackSummary>>(emptyList())
     val summaries: StateFlow<List<TrackSummary>> = _summaries.asStateFlow()
@@ -91,6 +94,7 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         }
         viewModelScope.launch {
             runTrackSchemaMigration()
+            runMarkerLinkMigration()
             recoverOrphanedCheckpoints()
             refreshSummaries()
             if (TrackRecordingService.isRecording.value) {
@@ -266,11 +270,11 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
     /** Load a full track by ID for detail view. */
     suspend fun loadTrackDetail(id: String): Track? = repository.load(id)
 
-    /** Delete a track by ID. */
+    /** Delete a track by ID — cascade removes its IDLE_AUTO markers first. */
     fun deleteTrack(id: String) {
         invalidateTrackCache(id)
         viewModelScope.launch {
-            repository.delete(id)
+            repository.delete(id, excludeActiveTrackId = _uiState.value.currentTrackId)
             refreshSummaries()
         }
     }
@@ -311,16 +315,31 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
 
             repository.save(merged)
 
+            // Reassign source markers → merged.id BEFORE deleting originals, so the
+            // delete cascade never sweeps the very markers being reassigned.
+            // Applies for both keepOriginals=true and false.
+            reassignMarkersToTrack(trackIds, merged.id)
+
             if (!keepOriginals) {
                 trackIds.forEach { id ->
                     invalidateTrackCache(id)
-                    repository.delete(id)
+                    repository.delete(id, excludeActiveTrackId = _uiState.value.currentTrackId)
                 }
             }
 
             refreshSummaries()
             _events.emit(TrackEvent.TracksMerged(merged.id, merged.name))
         }
+    }
+
+    /** Re-point every marker owned by a source track at [mergedTrackId] (single saveAll). */
+    private suspend fun reassignMarkersToTrack(sourceTrackIds: Set<String>, mergedTrackId: String) {
+        val all = markerRepository.loadAll()
+        if (all.none { it.trackId != null && it.trackId in sourceTrackIds }) return
+        val updated = all.map { m ->
+            if (m.trackId != null && m.trackId in sourceTrackIds) m.copy(trackId = mergedTrackId) else m
+        }
+        markerRepository.saveAll(updated)
     }
 
     /** Resolve orphaned checkpoint: save as completed track. */
@@ -379,8 +398,24 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * One-time backfill: map legacy BoatMarker.autoMarkerId → UserMarker.trackId.
+     * Must run before the persisted field is fully superseded; idempotent, version-gated.
+     */
+    private suspend fun runMarkerLinkMigration() {
+        val prefs = getApplication<Application>()
+            .getSharedPreferences("maro_marker_link_schema", android.content.Context.MODE_PRIVATE)
+        if (prefs.getInt(KEY_MARKER_LINK_SCHEMA_VERSION, 0) < MARKER_LINK_SCHEMA_VERSION) {
+            repository.migrateMarkerTrackLink()
+            prefs.edit().putInt(KEY_MARKER_LINK_SCHEMA_VERSION, MARKER_LINK_SCHEMA_VERSION).apply()
+        }
+    }
+
     companion object {
         private const val TRACK_SCHEMA_VERSION = 4
         private const val KEY_TRACK_SCHEMA_VERSION = "track_schema_version"
+
+        private const val MARKER_LINK_SCHEMA_VERSION = 1
+        private const val KEY_MARKER_LINK_SCHEMA_VERSION = "marker_link_schema_version"
     }
 }
