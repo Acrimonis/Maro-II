@@ -161,6 +161,13 @@
     <string name="recovery_continue">Continuer</string>
     <string name="recovery_save">Sauvegarder</string>
 
+    <!-- Track import match dialog -->
+    <string name="import_match_title">Trace existante trouvée</string>
+    <string name="import_match_message">Ce fichier correspond à \"%1$s\". Comment voulez-vous l\'importer ?</string>
+    <string name="import_skip">Ignorer</string>
+    <string name="import_update">Mettre à jour</string>
+    <string name="import_new">Nouvelle</string>
+
     <!-- Background location permission -->
     <string name="bg_location_title">Position en arrière-plan</string>
     <string name="bg_location_message">Le suivi en arrière-plan nécessite la permission \'Autoriser tout le temps\'.</string>

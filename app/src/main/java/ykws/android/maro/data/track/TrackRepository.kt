@@ -49,6 +49,13 @@ class TrackRepository(
         updateIndex()
     }
 
+    /**
+     * Upsert a track by id: replaces the existing file when the id already exists.
+     * Used by the import UPDATE path, which keeps the matched track's id so
+     * marker→track links survive.
+     */
+    suspend fun saveOrReplace(track: Track) = save(track)
+
     /** Load a single track by ID. */
     suspend fun load(id: String): Track? = withContext(Dispatchers.IO) {
         val file = trackFile(id)

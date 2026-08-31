@@ -4,8 +4,6 @@ import android.util.Base64
 import kotlinx.serialization.protobuf.ProtoBuf
 import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
-import java.io.File
-import java.io.FileOutputStream
 import java.io.InputStream
 import java.util.UUID
 import java.util.zip.ZipInputStream
@@ -15,44 +13,87 @@ import java.util.zip.ZipInputStream
  *
  * **Dispatch:**
  * - Single `.gpx` → import one track
- * - `.zip` archive → extract all `.gpx` files, import each
+ * - `.zip` archive → extract all `.gpx` files, import each (always [ImportMode.SKIP_EXISTING])
  *
- * **Per-track import logic:**
- * 1. Parse GPX XML
- * 2. If `<maro:data>` extension present → protobuf decode → **lossless round-trip**
- * 3. If absent (foreign GPX) → parse standard `<trkpt>` elements → lossy fallback
- * 4. **Anti-collision:** if a track with the same name exists, append " (2)", " (3)", etc.
+ * **Identity:** a track's identity is its `id` when a `<maro:data>` blob is present,
+ * else its `name` (foreign GPX). [ImportMode] decides what happens on a match.
  */
 object GpxImporter {
 
     private val proto = ProtoBuf.Default
 
     /**
-     * Import tracks from an [InputStream]. Dispatch based on content type.
+     * Import tracks from a byte array. Dispatch based on content type.
      *
-     * @param input     The file/stream to import (GPX or ZIP).
-     * @param extension File extension hint ("gpx" or "zip").
-     * @param existingNames Set of existing track names for anti-collision.
+     * @param input            The file/stream bytes (GPX or ZIP).
+     * @param extension        File extension hint ("gpx" or "zip").
+     * @param existingNames    Set of existing track names (anti-collision / foreign match).
+     * @param existingIds      Set of existing track ids (Maro blob match).
+     * @param existingIdByName Existing name → id lookup, so a foreign UPDATE can keep the existing id.
+     * @param mode             How to treat matches. ZIP input is always [ImportMode.SKIP_EXISTING].
      * @return List of successfully imported [Track] objects.
      */
-    fun import(input: InputStream, extension: String, existingNames: Set<String>): List<Track> {
+    fun import(
+        input: ByteArray,
+        extension: String,
+        existingNames: Set<String>,
+        existingIds: Set<String>,
+        existingIdByName: Map<String, String> = emptyMap(),
+        mode: ImportMode = ImportMode.SKIP_EXISTING
+    ): List<Track> {
         return when (extension.lowercase()) {
-            "zip" -> importZip(input, existingNames)
+            "zip" -> importZip(input, existingNames, existingIds, existingIdByName)
             else -> {
-                val track = importSingleGpx(input, existingNames)
+                val track = importSingleGpx(input, existingNames, existingIds, existingIdByName, mode)
                 if (track != null) listOf(track) else emptyList()
             }
         }
     }
 
     /**
+     * Peek at a single GPX input and report whether it matches an existing track.
+     * Returns the matched track's id + name, or null when there is no match or the
+     * input is a ZIP (batch imports never prompt).
+     */
+    fun peekImportMatch(
+        input: ByteArray,
+        extension: String,
+        existingIds: Set<String>,
+        existingIdByName: Map<String, String>
+    ): ImportMatch? {
+        if (extension.lowercase() == "zip") return null
+        return try {
+            val xml = String(input, Charsets.UTF_8)
+            val maroBlob = extractMaroBlob(xml)
+            if (maroBlob != null) {
+                val track = proto.decodeFromByteArray(Track.serializer(), maroBlob)
+                if (track.id in existingIds) ImportMatch(track.id, track.name) else null
+            } else {
+                val name = parseStandardGpxData(input)?.name ?: return null
+                val existingId = existingIdByName[name]
+                if (existingId != null) ImportMatch(existingId, name) else null
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /**
      * Import tracks from a ZIP archive containing `.gpx` files.
+     * Always uses [ImportMode.SKIP_EXISTING] (idempotent re-import, no dialog).
      * Guards against path traversal (rejects `../` and absolute paths).
      */
-    private fun importZip(input: InputStream, existingNames: Set<String>): List<Track> {
+    private fun importZip(
+        input: ByteArray,
+        existingNames: Set<String>,
+        existingIds: Set<String>,
+        existingIdByName: Map<String, String>
+    ): List<Track> {
         val tracks = mutableListOf<Track>()
         val nameSet = existingNames.toMutableSet()
-        ZipInputStream(input).use { zis ->
+        val idSet = existingIds.toMutableSet()
+        val idByName = existingIdByName.toMutableMap()
+        ZipInputStream(input.inputStream()).use { zis ->
             var entry = zis.nextEntry
             while (entry != null) {
                 val entryName = entry.name
@@ -62,17 +103,12 @@ object GpxImporter {
                     continue
                 }
                 if (entryName.endsWith(".gpx", ignoreCase = true) && !entry.isDirectory) {
-                    // Copy to temp file for XmlPullParser (needs a stream we can read fully)
-                    val tempFile = File.createTempFile("maro_import_", ".gpx")
-                    try {
-                        FileOutputStream(tempFile).use { fos -> zis.copyTo(fos) }
-                        val track = importSingleGpx(tempFile.inputStream(), nameSet)
-                        if (track != null) {
-                            tracks.add(track)
-                            nameSet.add(track.name)
-                        }
-                    } finally {
-                        tempFile.delete()
+                    val track = importSingleGpx(zis.readBytes(), nameSet, idSet, idByName, ImportMode.SKIP_EXISTING)
+                    if (track != null) {
+                        tracks.add(track)
+                        nameSet.add(track.name)
+                        idSet.add(track.id)
+                        idByName[track.name] = track.id
                     }
                 }
                 entry = zis.nextEntry
@@ -82,31 +118,92 @@ object GpxImporter {
     }
 
     /**
-     * Parse a single GPX file and return a [Track], or null on failure.
+     * Parse a single GPX file and return a [Track], or null on failure/skip.
      */
-    fun importSingleGpx(input: InputStream, existingNames: Set<String>): Track? {
+    fun importSingleGpx(
+        input: ByteArray,
+        existingNames: Set<String>,
+        existingIds: Set<String>,
+        existingIdByName: Map<String, String> = emptyMap(),
+        mode: ImportMode = ImportMode.SKIP_EXISTING
+    ): Track? {
         return try {
-            val bytes = input.readBytes()
-            val xml = String(bytes, Charsets.UTF_8)
+            val xml = String(input, Charsets.UTF_8)
 
-            // Try MaroII extension blob first (lossless round-trip)
+            // Try MaroII extension blob first (lossless round-trip, carries the Track id).
             val maroBlob = extractMaroBlob(xml)
             if (maroBlob != null) {
-                val track = proto.decodeFromByteArray(Track.serializer(), maroBlob)
+                val decoded = proto.decodeFromByteArray(Track.serializer(), maroBlob)
                 // Normalize lastPointTimeMs for exports saved before the field existed.
-                val normalized = if (track.endTimeMs != null && track.lastPointTimeMs == 0L) {
-                    track.copy(lastPointTimeMs = track.lastRealPointTimeMsOrNull() ?: 0L)
-                } else track
-                // Anti-collision on name
-                val safeName = resolveNameCollision(normalized.name, existingNames)
-                if (safeName != normalized.name) normalized.copy(name = safeName) else normalized
+                val track = if (decoded.endTimeMs != null && decoded.lastPointTimeMs == 0L) {
+                    decoded.copy(lastPointTimeMs = decoded.lastRealPointTimeMsOrNull() ?: 0L)
+                } else decoded
+
+                when (mode) {
+                    ImportMode.SKIP_EXISTING -> {
+                        if (track.id in existingIds) null else track
+                    }
+                    ImportMode.IMPORT_NEW -> {
+                        val safeName = resolveNameCollision(track.name, existingNames)
+                        track.copy(id = UUID.randomUUID().toString(), name = safeName)
+                    }
+                    ImportMode.UPDATE_EXISTING -> {
+                        if (track.id in existingIds) {
+                            updateTrackFromBlob(track, input)
+                        } else {
+                            val safeName = resolveNameCollision(track.name, existingNames)
+                            track.copy(id = UUID.randomUUID().toString(), name = safeName)
+                        }
+                    }
+                }
             } else {
-                // Foreign GPX — parse standard elements (lossy)
-                parseStandardGpx(bytes, existingNames)
+                // Foreign GPX — parse standard elements (lossy, fresh id).
+                val std = parseStandardGpxData(input) ?: return null
+                val name = std.name ?: return null
+                when (mode) {
+                    ImportMode.SKIP_EXISTING -> {
+                        if (name in existingNames) null else buildForeignTrack(std, name)
+                    }
+                    ImportMode.IMPORT_NEW -> {
+                        val safeName = resolveNameCollision(name, existingNames)
+                        buildForeignTrack(std, safeName)
+                    }
+                    ImportMode.UPDATE_EXISTING -> {
+                        val existingId = existingIdByName[name]
+                        if (existingId != null) {
+                            // Update by name — keep the existing track's id.
+                            buildForeignTrack(std, name).copy(id = existingId)
+                        } else {
+                            val safeName = resolveNameCollision(name, existingNames)
+                            buildForeignTrack(std, safeName)
+                        }
+                    }
+                }
             }
         } catch (_: Exception) {
             null
         }
+    }
+
+    /**
+     * UPDATE a Maro-blob track whose id matched: prefer standard `<trkpt>` points
+     * when present (the human-editable part); metadata (name/comment/color/pinned/
+     * boatMarkers) stays from the blob; derived stats are recomputed from the final points.
+     */
+    private fun updateTrackFromBlob(blob: Track, input: ByteArray): Track {
+        val std = parseStandardGpxData(input)
+        val updated = if (std != null && std.points.isNotEmpty()) {
+            val firstMs = std.firstTimeMs ?: blob.startTimeMs
+            val lastOffset = std.points.lastOrNull { it.type != PointType.GAP }?.timeOffsetMs ?: 0L
+            blob.copy(
+                trackPoints = std.points,
+                startTimeMs = firstMs,
+                endTimeMs = firstMs + lastOffset
+            )
+        } else {
+            blob
+        }
+        return updated.withDerivedStats()
     }
 
     /**
@@ -126,10 +223,19 @@ object GpxImporter {
         }
     }
 
+    /** Raw data extracted from a standard (foreign) GPX `<trk>` element. */
+    private data class StandardGpx(
+        val name: String?,
+        val comment: String,
+        val points: List<TrackPoint>,
+        val firstTimeMs: Long?
+    )
+
     /**
-     * Parse a standard GPX file (no MaroII extension) into a Track with defaults.
+     * Parse a standard GPX file (no MaroII extension) into raw track data.
+     * Returns null when the track has no name or no points.
      */
-    private fun parseStandardGpx(bytes: ByteArray, existingNames: Set<String>): Track? {
+    private fun parseStandardGpxData(bytes: ByteArray): StandardGpx? {
         val factory = XmlPullParserFactory.newInstance()
         val parser = factory.newPullParser()
         parser.setInput(bytes.inputStream(), "UTF-8")
@@ -208,22 +314,30 @@ object GpxImporter {
         }
 
         if (trackName == null || points.isEmpty()) return null
+        return StandardGpx(
+            name = trackName,
+            comment = trackComment,
+            points = points,
+            firstTimeMs = firstTimeMs
+        )
+    }
 
+    /** Build a fresh [Track] from standard GPX data with a fresh UUID. */
+    private fun buildForeignTrack(std: StandardGpx, name: String): Track {
         val now = System.currentTimeMillis()
-        val safeName = resolveNameCollision(trackName, existingNames)
-        val startMs = firstTimeMs ?: now
-        val endMs = if (points.isNotEmpty() && firstTimeMs != null) {
-            firstTimeMs + points.last().timeOffsetMs
+        val startMs = std.firstTimeMs ?: now
+        val endMs = if (std.points.isNotEmpty() && std.firstTimeMs != null) {
+            std.firstTimeMs + std.points.last().timeOffsetMs
         } else now
 
         return Track(
             id = UUID.randomUUID().toString(),
-            name = safeName,
-            comment = trackComment,
+            name = name,
+            comment = std.comment,
             startTimeMs = startMs,
             endTimeMs = endMs,
             lastPointTimeMs = endMs,
-            trackPoints = points,
+            trackPoints = std.points,
             trackColorArgb = 0xFFFF6F00.toInt(),
             pinned = false,
             distanceNm = 0f,
@@ -259,3 +373,12 @@ object GpxImporter {
         }
     }
 }
+
+/** How a track import should treat an existing track with the same identity. */
+enum class ImportMode { SKIP_EXISTING, UPDATE_EXISTING, IMPORT_NEW }
+
+/** Result of a single-GPX match peek: the existing track that would be affected. */
+data class ImportMatch(
+    val id: String,
+    val name: String
+)
