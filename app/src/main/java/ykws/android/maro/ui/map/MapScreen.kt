@@ -4,6 +4,7 @@ import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.track.TrackRecordingService
 import ykws.android.maro.data.model.matchesFilter
 import ykws.android.maro.data.track.toGpx
+import ykws.android.maro.data.track.ImportMode
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -234,6 +235,23 @@ private data class TrackDrawerState(
     val mapWasInteracted: Boolean = false
 )
 
+/** Held while the user decides how to import a single GPX that matches an existing track. */
+private data class PendingTrackImport(
+    val bytes: ByteArray,
+    val extension: String,
+    val matchName: String
+)
+
+/** Toast for a completed import (skip/update/new all funnel through importTracks). */
+private fun showImportToast(context: android.content.Context, count: Int) {
+    android.widget.Toast.makeText(
+        context,
+        if (count > 0) "Imported $count track${if (count != 1) "s" else ""}"
+        else "Import failed — no valid tracks found",
+        android.widget.Toast.LENGTH_SHORT
+    ).show()
+}
+
 /** Snackbar entry for the vertical stack — track/marker deletes + marker-created undo. */
 private sealed class ActiveSnack(val id: String, val name: String) {
     val uid: Int = nextUid()
@@ -419,6 +437,8 @@ fun MapScreen(
     val allTrackSummaries by trackViewModel.allSummaries.collectAsState()
     val recoveryTrack by trackViewModel.recoveryTrack.collectAsState()
     val trackScope = rememberCoroutineScope()
+    // Single-GPX import whose match dialog is pending a Skip / Update / New choice.
+    var pendingTrackImport by remember { mutableStateOf<PendingTrackImport?>(null) }
 
     // ── Vertical snackbar stack state helpers ────────────────────────────
     fun enqueueSnack(snack: ActiveSnack) {
@@ -617,13 +637,20 @@ fun MapScreen(
             trackScope.launch(Dispatchers.IO) {
                 try {
                     val extension = uri.toString().substringAfterLast('.').lowercase().take(10)
-                    context.contentResolver.openInputStream(uri)?.use { input ->
-                        val count = trackViewModel.importTracks(input, extension)
-                        withContext(Dispatchers.Main) {
-                            android.widget.Toast.makeText(context,
-                                if (count > 0) "Imported $count track${if (count != 1) "s" else ""}"
-                                else "Import failed — no valid tracks found",
-                                android.widget.Toast.LENGTH_SHORT).show()
+                    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                        ?: return@launch
+                    if (extension == "zip") {
+                        val count = trackViewModel.importTracks(bytes, extension, ImportMode.SKIP_EXISTING)
+                        withContext(Dispatchers.Main) { showImportToast(context, count) }
+                    } else {
+                        val match = trackViewModel.peekImportMatch(bytes, extension)
+                        if (match != null) {
+                            withContext(Dispatchers.Main) {
+                                pendingTrackImport = PendingTrackImport(bytes, extension, match.name)
+                            }
+                        } else {
+                            val count = trackViewModel.importTracks(bytes, extension, ImportMode.IMPORT_NEW)
+                            withContext(Dispatchers.Main) { showImportToast(context, count) }
                         }
                     }
                 } catch (_: Exception) {
@@ -2442,6 +2469,48 @@ fun MapScreen(
                     androidx.compose.material3.TextButton(
                         onClick = { trackViewModel.saveOrphanedCheckpoint(track) }
                     ) { androidx.compose.material3.Text(stringResource(R.string.recovery_save)) }
+                }
+            )
+        }
+
+        // ── Single-GPX import match dialog (Skip / Update / New) ────────
+        pendingTrackImport?.let { pending ->
+            fun runImport(mode: ImportMode) {
+                pendingTrackImport = null
+                trackScope.launch(Dispatchers.IO) {
+                    try {
+                        val count = trackViewModel.importTracks(pending.bytes, pending.extension, mode)
+                        withContext(Dispatchers.Main) { showImportToast(context, count) }
+                    } catch (_: Exception) {
+                        withContext(Dispatchers.Main) {
+                            android.widget.Toast.makeText(context, "Import failed", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { pendingTrackImport = null },
+                title = { androidx.compose.material3.Text(stringResource(R.string.import_match_title)) },
+                text = {
+                    Column {
+                        androidx.compose.material3.Text(
+                            stringResource(R.string.import_match_message, pending.matchName)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        androidx.compose.material3.TextButton(
+                            onClick = { runImport(ImportMode.IMPORT_NEW) }
+                        ) { androidx.compose.material3.Text(stringResource(R.string.import_new)) }
+                    }
+                },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(
+                        onClick = { runImport(ImportMode.UPDATE_EXISTING) }
+                    ) { androidx.compose.material3.Text(stringResource(R.string.import_update)) }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(
+                        onClick = { pendingTrackImport = null }
+                    ) { androidx.compose.material3.Text(stringResource(R.string.import_skip)) }
                 }
             )
         }

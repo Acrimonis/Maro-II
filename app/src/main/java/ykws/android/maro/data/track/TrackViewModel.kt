@@ -370,19 +370,38 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Import tracks from a GPX file or ZIP archive.
-     * Saves each imported track via [TrackRepository.save], applying anti-collision
-     * name resolution against existing track names.
+     * Peek at a single GPX input and report whether it matches an existing track.
+     * Returns the matched track's id + name, or null when there is no match or the
+     * input is a ZIP (batch imports never prompt).
      *
-     * @param input     InputStream from the file picker URI.
+     * @param input     File bytes from the file picker URI (read once, reused for import).
      * @param extension "gpx" or "zip".
+     */
+    suspend fun peekImportMatch(input: ByteArray, extension: String): ImportMatch? {
+        val summaries = _allSummaries.value
+        val existingIds = summaries.map { it.id }.toSet()
+        val existingIdByName = summaries.associate { it.name to it.id }
+        return GpxImporter.peekImportMatch(input, extension, existingIds, existingIdByName)
+    }
+
+    /**
+     * Import tracks from a GPX file or ZIP archive.
+     * Saves each imported track via [TrackRepository.saveOrReplace]: UPDATE keeps the
+     * matched id (replacing in place), NEW/foreign imports get fresh ids.
+     *
+     * @param input     File bytes from the file picker URI (read once).
+     * @param extension "gpx" or "zip".
+     * @param mode      How to treat matches. ZIP input is always SKIP_EXISTING.
      * @return Number of tracks imported.
      */
-    suspend fun importTracks(input: java.io.InputStream, extension: String): Int {
-        val existingNames = _allSummaries.value.map { it.name }.toSet()
-        val tracks = GpxImporter.import(input, extension, existingNames)
+    suspend fun importTracks(input: ByteArray, extension: String, mode: ImportMode): Int {
+        val summaries = _allSummaries.value
+        val existingNames = summaries.map { it.name }.toSet()
+        val existingIds = summaries.map { it.id }.toSet()
+        val existingIdByName = summaries.associate { it.name to it.id }
+        val tracks = GpxImporter.import(input, extension, existingNames, existingIds, existingIdByName, mode)
         for (track in tracks) {
-            repository.save(track)
+            repository.saveOrReplace(track)
         }
         refreshSummaries()
         return tracks.size
