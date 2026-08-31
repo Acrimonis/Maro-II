@@ -2616,6 +2616,39 @@ fun MapScreen(
 }
 
 /**
+ * Sanitizes a track name for use as a filesystem file name.
+ *
+ * Replaces Windows-forbidden and control characters (0x00-1F), trims trailing
+ * spaces/dots, caps length at 100, falls back to "track" when blank, and guards
+ * against reserved device names (CON, PRN, AUX, NUL, COM1-9, LPT1-9).
+ */
+private fun sanitizeFileName(name: String): String {
+    val sanitized = name
+        .replace(Regex("""[\\/:*?"<>|\u0000-\u001F]"""), "_")
+        .trim(' ', '.')
+        .take(100)
+    val fallback = sanitized.ifBlank { "track" }
+    val base = fallback.substringBefore('.').uppercase()
+    val reserved = base == "CON" || base == "PRN" || base == "AUX" || base == "NUL" ||
+        base.startsWith("COM") && base.removePrefix("COM").toIntOrNull() in 1..9 ||
+        base.startsWith("LPT") && base.removePrefix("LPT").toIntOrNull() in 1..9
+    return if (reserved) "_$fallback" else fallback
+}
+
+/**
+ * Builds the shared file base name for a track: `yyyy_MM_dd_HH_mm-title`.
+ *
+ * Uses the track's start time (falling back to now when unknown) and sanitizes
+ * the title (spaces become underscores) via [sanitizeFileName].
+ */
+private fun trackFileBaseName(name: String, startTimeMs: Long): String {
+    val ts = java.text.SimpleDateFormat("yyyy_MM_dd_HH_mm", java.util.Locale.US)
+        .format(java.util.Date(if (startTimeMs == 0L) System.currentTimeMillis() else startTimeMs))
+    val title = sanitizeFileName(name.replace(" ", "_"))
+    return "$ts-$title"
+}
+
+/**
  * Share a track as a GPX file via Android's share intent.
  */
 private fun shareTrackGpx(
@@ -2627,7 +2660,7 @@ private fun shareTrackGpx(
     scope.launch(kotlinx.coroutines.Dispatchers.IO) {
         val track = trackViewModel.loadTrackDetail(trackId) ?: return@launch
         val gpx = track.toGpx()
-        val safeName = track.name.replace(Regex("""[/\\:*?"<>|]"""), "_").take(100)
+        val safeName = "${trackFileBaseName(track.name, track.startTimeMs)}-1"
         val gpxFile = java.io.File(context.filesDir, "tracks/$safeName.gpx")
         gpxFile.parentFile?.mkdirs()
         gpxFile.writeText(gpx)
@@ -2655,22 +2688,26 @@ private fun shareTracksZip(
     scope: kotlinx.coroutines.CoroutineScope
 ) {
     scope.launch {
+        if (trackIds.isEmpty()) return@launch
         val timestamp = java.text.SimpleDateFormat("yyyy_MM_dd_HHmmss", java.util.Locale.US).format(java.util.Date())
         val zipFile = java.io.File(context.filesDir, "tracks/maro-tracks-$timestamp.zip")
         zipFile.parentFile?.mkdirs()
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val tracks = trackIds
+                .mapNotNull { id -> trackViewModel.loadTrackDetail(id) }
+                .sortedWith(compareBy({ it.startTimeMs }, { it.id }))
+            val counters = HashMap<String, Int>()
             java.util.zip.ZipOutputStream(java.io.BufferedOutputStream(java.io.FileOutputStream(zipFile))).use { zos ->
-                trackIds.forEach { id ->
-                    val track = trackViewModel.loadTrackDetail(id)
-                    if (track != null) {
-                        val gpx = track.toGpx()
-                        val safeName = track.name.replace(Regex("""[/\\:*?"<>|]"""), "_").take(100)
-                        val entry = java.util.zip.ZipEntry("$safeName.gpx")
-                        entry.time = track.startTimeMs
-                        zos.putNextEntry(entry)
-                        zos.write(gpx.toByteArray())
-                        zos.closeEntry()
-                    }
+                tracks.forEach { track ->
+                    val gpx = track.toGpx()
+                    val base = trackFileBaseName(track.name, track.startTimeMs)
+                    val counter = (counters[base] ?: -1) + 1
+                    counters[base] = counter
+                    val entry = java.util.zip.ZipEntry("$base-$counter.gpx")
+                    entry.time = track.startTimeMs
+                    zos.putNextEntry(entry)
+                    zos.write(gpx.toByteArray())
+                    zos.closeEntry()
                 }
             }
         }

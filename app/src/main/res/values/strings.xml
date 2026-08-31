@@ -188,7 +188,7 @@
     <string name="menu_section_tracks">TRACKS</string>
     <string name="menu_section_markers">MARKERS</string>
     <string name="menu_manage_tracks">Tracks</string>
-    <string name="menu_import_export">Import / Export</string>
+    <string name="menu_import_export">Export / Import</string>
     <string name="menu_show_zones">Show Zones on Map</string>
     <string name="menu_manage_markers">Markers</string>
     <string name="track_status_recording">● Recording</string>
