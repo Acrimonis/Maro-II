@@ -1,8 +1,8 @@
 name: BoatTrace
 status: active
 created: 2026-06-15 21:43
-modified: 2026-08-31 13:16
-active_subfeature: auto-marker-cleanup
+modified: 2026-08-31 16:20
+active_subfeature: marker-export-import
 ---
 
 # Feature: BoatTrace
@@ -247,23 +247,45 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
 - `app/src/main/res/values/strings.xml`, `values-fr/strings.xml`
 
-### auto-marker-cleanup  [ ]
+### auto-marker-cleanup  [x]
 
 **Purpose:** Harden 🕐 IDLE_AUTO marker lifecycle — move createTemp/confirm/delete into a recorder-owned `AutoMarkerManager` so cleanup is deterministic regardless of Activity state; fix merged-marker keepability, ghost pins, finalize fallback; keep startup cleanup as crash recovery only.
 
 #### Todos
-- [ ] Add AutoMarkerManager with UserMarkerRepository + dedup parity in createTemp
-- [ ] Serialize repo writes (Mutex + service→UI change channel)
-- [ ] Wire recorder: createTemp on idle start, confirm/delete on idle end (confirm before persisting BoatMarker.autoMarkerId)
-- [ ] Durable finalize fallback delete in runBlocking(Dispatchers.IO)
-- [ ] Expose unfiltered all-marker id set; ghost-pin render-time existence check
-- [ ] Remove dead code (ACTION_SET_* intents, setActiveSessionAutoMarkerId, setBoatMarkerAutoMarkerId, IdleCaptureResult.autoMarkerId)
-- [ ] Scope startup cleanup to IDLE_AUTO non-keepable crash orphans only
-- [ ] Fix merged markers confirmed=true, keepable=true
-- [ ] Build + deploy + E2E verify cleanup scenarios
+- [x] Add AutoMarkerManager with UserMarkerRepository + dedup parity in createTemp
+- [x] Serialize repo writes (Mutex + service→UI change channel)
+- [x] Wire recorder: createTemp on idle start, confirm/delete on idle end (confirm before persisting BoatMarker.autoMarkerId)
+- [x] Durable finalize fallback delete in runBlocking(Dispatchers.IO)
+- [x] Expose unfiltered all-marker id set; ghost-pin render-time existence check
+- [x] Remove dead code (ACTION_SET_* intents, setActiveSessionAutoMarkerId, setBoatMarkerAutoMarkerId, IdleCaptureResult.autoMarkerId)
+- [x] Scope startup cleanup to IDLE_AUTO non-keepable crash orphans only
+- [x] Fix merged markers confirmed=true, keepable=true
+- [x] Build (apk-build.bat) — BUILD SUCCESSFUL
+- [ ] Deploy + E2E verify cleanup scenarios
 
 #### Docs
 - `xTrack/BoatTrace/260831_FEAT_PLN_BoatTrace_auto-marker-cleanup.md` — cleanup hardening plan (Ask-reviewed)
+
+### marker-track-link  [x]
+
+**Purpose:** Single canonical back-reference `UserMarker.trackId` (set at creation) replacing `BoatMarker.autoMarkerId`; one-time backfill migration; delete-track deletes its IDLE_AUTO markers; marker list badge + "Belongs to track" row.
+
+#### Docs
+- `xTrack/BoatTrace/260831_FEAT_PLN_BoatTrace_marker-track-link.md` — plan (Ask-reviewed)
+
+### marker-track-nav  [ ]  (DEFERRED)
+
+**Purpose:** Cross-navigation between track detail and marker detail via `>` links, with a minimal `OverlayBackStack`.
+
+#### Docs
+- `xTrack/BoatTrace/260831_FEAT_PLN_BoatTrace_marker-track-nav.md` — plan
+
+### marker-export-import  [-]
+
+**Purpose:** Track export hardening (unique names, Windows-safe sanitization, `yyyy_MM_dd_HH_mm-title-counter.gpx`) and track import modes (single GPX Skip/Update/New dialog, ZIP silent skip). Marker export/import pending.
+
+#### Docs
+- `xTrack/BoatTrace/260831_FEAT_PLN_BoatTrace_marker-export-import.md` — plan
 
 ## Rules
 - Feature-scoped plans go in `xTrack/[Feature]/FEAT_PLN_[Feature]_[topic].md`, NOT in `plans/`. The `plans/` directory is for cross-cutting or legacy plans only.
