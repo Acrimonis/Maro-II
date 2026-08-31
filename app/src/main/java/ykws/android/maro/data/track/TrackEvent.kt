@@ -36,8 +36,7 @@ sealed class TrackEvent {
         val entryLon: Double,
         val startTimeMs: Long,
         val endTimeMs: Long,          // 0 = track finalized during idle
-        val durationSec: Long,        // delta for this period, NOT cumulative
-        val autoMarkerId: String?     // ID of 🕐 pin, null if none
+        val durationSec: Long         // delta for this period, NOT cumulative
     ) : TrackEvent()
 
     /** Tracks were successfully merged into a single new track. */

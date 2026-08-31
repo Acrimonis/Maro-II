@@ -29,7 +29,7 @@ class AutoMarkerManager(context: Context) {
      * temp marker within [AppConfig.boatMarkerAutoMarkerDedupRadiusM], skip
      * (return "") if a confirmed marker already exists there, otherwise create.
      */
-    suspend fun createTemp(lat: Double, lon: Double, startTimeMs: Long): String {
+    suspend fun createTemp(lat: Double, lon: Double, startTimeMs: Long, trackId: String?): String {
         val dedupRadiusM = AppConfig.boatMarkerAutoMarkerDedupRadiusM
         val newPos = LatLng(lat, lon)
 
@@ -40,8 +40,8 @@ class AutoMarkerManager(context: Context) {
             val dist = SpatialOperations.haversine(newPos, nearest.centerPoint)
             if (dist <= dedupRadiusM) {
                 if (!nearest.confirmed) {
-                    // Reuse the existing temp marker — update its position
-                    repo.update(nearest.copy(geometry = MarkerGeometry.Pin(newPos)))
+                    // Reuse the existing temp marker — update its position + ownership
+                    repo.update(nearest.copy(geometry = MarkerGeometry.Pin(newPos), trackId = trackId))
                     return nearest.id
                 } else {
                     // Already have a confirmed auto-marker here — skip
@@ -64,6 +64,7 @@ class AutoMarkerManager(context: Context) {
             icon = "\uD83D\uDD50",  // 🕐
             createdAtEpochMs = System.currentTimeMillis(),
             origin = MarkerOrigin.IDLE_AUTO,
+            trackId = trackId,
             keepable = false
         )
         repo.add(marker)

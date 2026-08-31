@@ -154,6 +154,7 @@ fun OverlayLayer(
 
     // ── Marker management data ───────────────────────────────────────────
     markers: List<UserMarker>,
+    trackTitleLookup: (String) -> String? = { null },
     onMarkerAction: (ykws.android.maro.data.model.ListAction) -> Unit,
     onCreateFirst: () -> Unit,
     onSetIcon: (String, String?) -> Unit,
@@ -319,7 +320,8 @@ fun OverlayLayer(
                     isLandscape = true,
                     onClose = onMarkerDrawerClose,
                     boatPosition = boatPosition,
-                    onRequestDelete = onRequestMarkerDelete
+                    onRequestDelete = onRequestMarkerDelete,
+                    trackTitleLookup = trackTitleLookup
                 )
             }
         } else {
@@ -337,7 +339,8 @@ fun OverlayLayer(
                     isLandscape = false,
                     onClose = onMarkerDrawerClose,
                     boatPosition = boatPosition,
-                    onRequestDelete = onRequestMarkerDelete
+                    onRequestDelete = onRequestMarkerDelete,
+                    trackTitleLookup = trackTitleLookup
                 )
             }
         }
@@ -558,6 +561,7 @@ fun OverlayLayer(
         ) {
             MarkerManagementOverlay(
                 markers = markers,
+                trackTitleLookup = trackTitleLookup,
                 onAction = onMarkerAction,
                 onCreateFirst = onCreateFirst,
                 onDismiss = onDismissMarkerManagement,

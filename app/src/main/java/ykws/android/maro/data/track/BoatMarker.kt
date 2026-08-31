@@ -57,6 +57,7 @@ data class BoatMarker(
     @ProtoNumber(4) val markers: List<MarkerSnapshot> = emptyList(),
     @ProtoNumber(5) val boatLat: Double = 0.0,
     @ProtoNumber(6) val boatLon: Double = 0.0,
-    @ProtoNumber(7) val sequenceIndex: Int = 0,
-    @ProtoNumber(8) val autoMarkerId: String? = null
+    @ProtoNumber(7) val sequenceIndex: Int = 0
+    // NOTE: @ProtoNumber(8) is reserved — it previously held autoMarkerId and must
+    // never be reused for a different type.
 )
