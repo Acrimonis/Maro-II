@@ -161,12 +161,25 @@
     <string name="recovery_continue">Continuer</string>
     <string name="recovery_save">Sauvegarder</string>
 
-    <!-- Track import match dialog -->
+    <!-- Track import match dialog / sheet -->
     <string name="import_match_title">Trace existante trouvée</string>
     <string name="import_match_message">Ce fichier correspond à \"%1$s\". Comment voulez-vous l\'importer ?</string>
-    <string name="import_skip">Ignorer</string>
-    <string name="import_update">Mettre à jour</string>
-    <string name="import_new">Nouvelle</string>
+    <string name="import_duplicate">Dupliquer</string>
+    <string name="import_override">Remplacer</string>
+
+    <!-- Track import result feedback -->
+    <string name="import_failed">Échec de l\'importation</string>
+    <string name="import_result_format">%1$s, %2$s</string>
+    <string name="exporting_tracks">Exportation des pistes…</string>
+    <string name="importing_tracks">Importation des pistes…</string>
+    <plurals name="import_result_imported">
+        <item quantity="one">%d piste importée</item>
+        <item quantity="other">%d pistes importées</item>
+    </plurals>
+    <plurals name="import_result_ignored">
+        <item quantity="one">%d piste ignorée</item>
+        <item quantity="other">%d pistes ignorées</item>
+    </plurals>
 
     <!-- Background location permission -->
     <string name="bg_location_title">Position en arrière-plan</string>
@@ -276,6 +289,8 @@
     <string name="cd_reset">Réinitialiser</string>
     <string name="cd_menu">Menu</string>
     <string name="cd_pin_marker">Épingler ce repère</string>
+    <string name="cd_pin">Épingler</string>
+    <string name="cd_unpin">Désépingler</string>
     <string name="cd_lock_screen">Verrouiller l\'écran</string>
     <string name="cd_unlock_screen">Déverrouiller l\'écran</string>
     <string name="toast_screen_locked">Écran verrouillé</string>
@@ -295,6 +310,9 @@
     <string name="action_pin_all">Tout épingler</string>
     <string name="action_unpin_all">Tout désépingler</string>
     <string name="action_toggle_pins">Inverser les épingles</string>
+    <string name="action_set_icon_all">Définir l\'icône</string>
+    <string name="action_clear_icon_all">Effacer l\'icône</string>
+    <string name="action_icon">Icône</string>
     <string name="confirm_delete_tracks">Supprimer les traces sélectionnées?</string>
     <string name="confirm_batch_delete_title">Supprimer</string>
 

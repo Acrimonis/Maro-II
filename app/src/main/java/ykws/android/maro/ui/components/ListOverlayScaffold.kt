@@ -167,7 +167,7 @@ private fun SortControl(
                                     Row(
                                         modifier = Modifier.fillMaxWidth().clickable {
                                             if (isSelected) onStateChange(state.copy(descending = !state.descending))
-                                            else onStateChange(state.copy(field = field, customFieldKey = null))
+                                            else onStateChange(state.copy(field = field, customFieldKey = null, descending = (field == ListSortField.CREATED)))
                                             expanded = false
                                         }.padding(horizontal = 16.dp, vertical = 2.dp),
                                         verticalAlignment = Alignment.CenterVertically
@@ -195,7 +195,7 @@ private fun SortControl(
                                         Row(
                                             modifier = Modifier.fillMaxWidth().clickable {
                                                 if (isSelected) onStateChange(state.copy(descending = !state.descending))
-                                                else onStateChange(state.copy(field = ListSortField.CREATED, customFieldKey = cf.key))
+                                                else onStateChange(state.copy(field = ListSortField.CREATED, customFieldKey = cf.key, descending = cf.descendingDefault))
                                                 expanded = false
                                             }.padding(horizontal = 16.dp, vertical = 2.dp),
                                             verticalAlignment = Alignment.CenterVertically
@@ -257,8 +257,9 @@ internal fun FilterControl(
                 ) {
                     Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         filterAxes.forEach { axis ->
-                            val isDisabled = axis.dependsOn != null && axis.dependsOnValue != null &&
-                                filterState.axes[axis.dependsOn] == axis.dependsOnValue
+                            val gatingValue = axis.dependsOn?.let { filterState.axes[it] }
+                            val isDisabled = gatingValue != null && axis.dependsOnValues != null &&
+                                gatingValue in axis.dependsOnValues
                             val currentValue = filterState.axes[axis.key] ?: axis.options.firstOrNull { it.isDefault }?.value ?: "ALL"
                             
                             Text(axis.label,

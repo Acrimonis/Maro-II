@@ -52,13 +52,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.automirrored.filled.MergeType
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Upload
-import androidx.compose.material.icons.outlined.LocationOff
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
@@ -516,8 +514,8 @@ internal fun TrackCardContent(
                     modifier = Modifier.size(36.dp)
                 ) {
                     Icon(
-                        imageVector = if (pinned) Icons.Filled.LocationOn else Icons.Outlined.LocationOff,
-                        contentDescription = if (pinned) "Unpin" else "Pin",
+                        imageVector = if (pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
+                        contentDescription = if (pinned) stringResource(R.string.cd_unpin) else stringResource(R.string.cd_pin),
                         tint = ButtonColors.icon,
                         modifier = Modifier.size(24.dp)
                     )

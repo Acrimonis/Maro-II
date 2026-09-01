@@ -29,10 +29,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.PushPin
-import androidx.compose.material.icons.outlined.LocationOff
-import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import ykws.android.maro.ui.components.ConfirmSheet
@@ -194,7 +190,6 @@ private fun ViewingContent(
                     viewModel.startWizard(marker.id)
                 },
                 onSetIcon = { id, icon -> viewModel.setMarkerIcon(id, icon) },
-                onTogglePin = { viewModel.togglePin(marker.id) },
                 onUpdateText = { name, desc -> viewModel.updateMarkerText(marker.id, name, desc) },
                 onLongPress = null,
                 showChevron = false

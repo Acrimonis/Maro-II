@@ -131,6 +131,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.core.content.ContextCompat
@@ -242,14 +243,10 @@ private data class PendingTrackImport(
     val matchName: String
 )
 
-/** Toast for a completed import (skip/update/new all funnel through importTracks). */
-private fun showImportToast(context: android.content.Context, count: Int) {
-    android.widget.Toast.makeText(
-        context,
-        if (count > 0) "Imported $count track${if (count != 1) "s" else ""}"
-        else "Import failed — no valid tracks found",
-        android.widget.Toast.LENGTH_SHORT
-    ).show()
+/** Transient import feedback: result counts or a hard failure. */
+private sealed interface ImportBannerState {
+    data class Result(val imported: Int, val ignored: Int) : ImportBannerState
+    data object Failed : ImportBannerState
 }
 
 /** Snackbar entry for the vertical stack — track/marker deletes + marker-created undo. */
@@ -437,8 +434,17 @@ fun MapScreen(
     val allTrackSummaries by trackViewModel.allSummaries.collectAsState()
     val recoveryTrack by trackViewModel.recoveryTrack.collectAsState()
     val trackScope = rememberCoroutineScope()
-    // Single-GPX import whose match dialog is pending a Skip / Update / New choice.
+    // Single-GPX import whose match dialog is pending a Duplicate / Override / Cancel choice.
     var pendingTrackImport by remember { mutableStateOf<PendingTrackImport?>(null) }
+    // Import feedback banner: null = hidden; Result / Failed shows briefly at the map bottom.
+    var importBanner by remember { mutableStateOf<ImportBannerState?>(null) }
+    var importBannerAt by remember { mutableStateOf(0L) }
+    fun showImportBanner(banner: ImportBannerState) {
+        importBanner = banner
+        importBannerAt = SystemClock.elapsedRealtime()
+    }
+    // Transient track-operation status banner (export/import in progress): null = hidden.
+    var trackOpStatus by remember { mutableStateOf<String?>(null) }
 
     // ── Vertical snackbar stack state helpers ────────────────────────────
     fun enqueueSnack(snack: ActiveSnack) {
@@ -548,6 +554,12 @@ fun MapScreen(
             lockBanner = null
         }
     }
+    LaunchedEffect(importBannerAt) {
+        if (importBanner != null) {
+            delay(2_000L)
+            importBanner = null
+        }
+    }
     // ── Background location permission dialog state (A2) ─────────────────
     var showBgLocationDialog by remember { mutableStateOf(false) }
     // ── Battery optimization dialog state (A4, triggered on recording start) ──
@@ -634,28 +646,41 @@ fun MapScreen(
         ActivityResultContracts.OpenDocument()
     ) { uri ->
         if (uri != null) {
+            trackOpStatus = context.getString(R.string.importing_tracks)
             trackScope.launch(Dispatchers.IO) {
                 try {
-                    val extension = uri.toString().substringAfterLast('.').lowercase().take(10)
                     val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
-                        ?: return@launch
-                    if (extension == "zip") {
-                        val count = trackViewModel.importTracks(bytes, extension, ImportMode.SKIP_EXISTING)
-                        withContext(Dispatchers.Main) { showImportToast(context, count) }
+                    if (bytes == null) {
+                        withContext(Dispatchers.Main) { trackOpStatus = null }
+                        return@launch
+                    }
+                    val isZip = bytes.size >= 2 && bytes[0] == 'P'.code.toByte() && bytes[1] == 'K'.code.toByte()
+                    val extension = if (isZip) "zip" else "gpx"
+                    if (isZip) {
+                        val result = trackViewModel.importTracks(bytes, extension, ImportMode.SKIP_EXISTING)
+                        withContext(Dispatchers.Main) {
+                            trackOpStatus = null
+                            showImportBanner(ImportBannerState.Result(result.imported, result.ignored))
+                        }
                     } else {
                         val match = trackViewModel.peekImportMatch(bytes, extension)
                         if (match != null) {
                             withContext(Dispatchers.Main) {
+                                trackOpStatus = null
                                 pendingTrackImport = PendingTrackImport(bytes, extension, match.name)
                             }
                         } else {
-                            val count = trackViewModel.importTracks(bytes, extension, ImportMode.IMPORT_NEW)
-                            withContext(Dispatchers.Main) { showImportToast(context, count) }
+                            val result = trackViewModel.importTracks(bytes, extension, ImportMode.IMPORT_NEW)
+                            withContext(Dispatchers.Main) {
+                                trackOpStatus = null
+                                showImportBanner(ImportBannerState.Result(result.imported, result.ignored))
+                            }
                         }
                     }
                 } catch (_: Exception) {
                     withContext(Dispatchers.Main) {
-                        android.widget.Toast.makeText(context, "Import failed", android.widget.Toast.LENGTH_SHORT).show()
+                        trackOpStatus = null
+                        showImportBanner(ImportBannerState.Failed)
                     }
                 }
             }
@@ -1926,7 +1951,7 @@ fun MapScreen(
                 onDismissTrackHistory = { showTrackHistory = false },
                 onUpdateTrack = { id, name, comment, pinned ->
                     pinned?.let { trackViewModel.setPinned(id, it) }
-                    trackViewModel.updateTrack(id, name, comment)
+                    if (name != null || comment != null) trackViewModel.updateTrack(id, name, comment)
                 },
                 onDeleteTrack = { id -> trackViewModel.deleteTrack(id) },
                 onShareGpx = { id ->
@@ -1964,6 +1989,8 @@ fun MapScreen(
                 onToggleFan = { id -> expandedFanId = if (expandedFanId == id) null else id },
                 onDismissFan = { expandedFanId = null },
                 showExitBanner = showExitBanner,
+                importBanner = importBanner,
+                trackOpStatus = trackOpStatus,
                 rasterProgress = rasterProgress,
                 autoFollowSuppressed = autoFollowSuppressed,
                 onRecenter = { viewModel.recenterNow() },
@@ -2244,8 +2271,8 @@ fun MapScreen(
             onTrackAction = { action ->
                 when (action) {
                     is ykws.android.maro.data.model.ListAction.NavigateToItem -> openTrackDetail(action.id, fromList = true)
-                    is ykws.android.maro.data.model.ListAction.ExportGpx -> shareTrackGpx(context, trackViewModel, action.id, trackScope)
-                    is ykws.android.maro.data.model.ListAction.BatchExportGpx -> shareTracksZip(context, trackViewModel, action.ids, trackScope)
+                    is ykws.android.maro.data.model.ListAction.ExportGpx -> shareTrackGpx(context, trackViewModel, action.id, trackScope, onProgress = { trackOpStatus = it })
+                    is ykws.android.maro.data.model.ListAction.BatchExportGpx -> shareTracksZip(context, trackViewModel, action.ids, trackScope, onProgress = { trackOpStatus = it })
                     is ykws.android.maro.data.model.ListAction.ImportTracks -> importLauncher?.launch(arrayOf("application/gpx+xml", "application/zip", "*/*"))
                     is ykws.android.maro.data.model.ListAction.PermanentDelete -> trackViewModel.deleteTrack(action.id)
                     is ykws.android.maro.data.model.ListAction.RefreshList -> trackViewModel.refreshSummaries(action.sortState, reloadFromDisk = false)
@@ -2339,9 +2366,7 @@ fun MapScreen(
                 markersViewModel.startWizard(initialPos = mapCenter)
             },
             onSetIcon = { id, icon -> markersViewModel.setMarkerIcon(id, icon) },
-            onToggleMarkerPin = { id, _ -> markersViewModel.togglePin(id) },
             onUpdateMarkerText = { id, name, desc -> markersViewModel.updateMarkerText(id, name, desc) },
-            onMergeMarkers = { ids, name, keep -> markersViewModel.mergeAutoMarkers(ids, name, keep) },
             // ── List-detail navigation ──────────────────────────────────
             trackListIds = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id },
             currentTrackIndex = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id }.indexOf(trackDrawerState.track?.id ?: "").coerceAtLeast(0),
@@ -2359,7 +2384,7 @@ fun MapScreen(
                     openFirstValidTrack(ids.subList(idx + 1, ids.size)) { }
                 }
             },
-            onShareTrack = { id -> shareTrackGpx(context, trackViewModel, id, trackScope) },
+            onShareTrack = { id -> shareTrackGpx(context, trackViewModel, id, trackScope, onProgress = { trackOpStatus = it }) },
             onDeleteTrack = { id ->
                 val track = trackDrawerState.track
                 enqueueSnack(ActiveSnack.TrackDelete(id, track?.name ?: "Unknown"))
@@ -2473,45 +2498,32 @@ fun MapScreen(
             )
         }
 
-        // ── Single-GPX import match dialog (Skip / Update / New) ────────
+        // ── Single-GPX import conflict sheet (Duplicate / Override / Cancel) ──
         pendingTrackImport?.let { pending ->
             fun runImport(mode: ImportMode) {
                 pendingTrackImport = null
+                trackOpStatus = context.getString(R.string.importing_tracks)
                 trackScope.launch(Dispatchers.IO) {
                     try {
-                        val count = trackViewModel.importTracks(pending.bytes, pending.extension, mode)
-                        withContext(Dispatchers.Main) { showImportToast(context, count) }
+                        val result = trackViewModel.importTracks(pending.bytes, pending.extension, mode)
+                        withContext(Dispatchers.Main) {
+                            trackOpStatus = null
+                            showImportBanner(ImportBannerState.Result(result.imported, result.ignored))
+                        }
                     } catch (_: Exception) {
                         withContext(Dispatchers.Main) {
-                            android.widget.Toast.makeText(context, "Import failed", android.widget.Toast.LENGTH_SHORT).show()
+                            trackOpStatus = null
+                            showImportBanner(ImportBannerState.Failed)
                         }
                     }
                 }
             }
-            androidx.compose.material3.AlertDialog(
-                onDismissRequest = { pendingTrackImport = null },
-                title = { androidx.compose.material3.Text(stringResource(R.string.import_match_title)) },
-                text = {
-                    Column {
-                        androidx.compose.material3.Text(
-                            stringResource(R.string.import_match_message, pending.matchName)
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        androidx.compose.material3.TextButton(
-                            onClick = { runImport(ImportMode.IMPORT_NEW) }
-                        ) { androidx.compose.material3.Text(stringResource(R.string.import_new)) }
-                    }
-                },
-                confirmButton = {
-                    androidx.compose.material3.TextButton(
-                        onClick = { runImport(ImportMode.UPDATE_EXISTING) }
-                    ) { androidx.compose.material3.Text(stringResource(R.string.import_update)) }
-                },
-                dismissButton = {
-                    androidx.compose.material3.TextButton(
-                        onClick = { pendingTrackImport = null }
-                    ) { androidx.compose.material3.Text(stringResource(R.string.import_skip)) }
-                }
+            ImportConflictSheet(
+                matchName = pending.matchName,
+                onDuplicate = { runImport(ImportMode.IMPORT_NEW) },
+                onOverride = { runImport(ImportMode.UPDATE_EXISTING) },
+                onCancel = { pendingTrackImport = null },
+                onDismiss = { pendingTrackImport = null }
             )
         }
 
@@ -2724,10 +2736,16 @@ private fun shareTrackGpx(
     context: android.content.Context,
     trackViewModel: ykws.android.maro.data.track.TrackViewModel,
     trackId: String,
-    scope: kotlinx.coroutines.CoroutineScope
+    scope: kotlinx.coroutines.CoroutineScope,
+    onProgress: (String?) -> Unit = {}
 ) {
     scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-        val track = trackViewModel.loadTrackDetail(trackId) ?: return@launch
+        onProgress(context.getString(R.string.exporting_tracks))
+        val track = trackViewModel.loadTrackDetail(trackId)
+        if (track == null) {
+            onProgress(null)
+            return@launch
+        }
         val gpx = track.toGpx()
         val safeName = "${trackFileBaseName(track.name, track.startTimeMs)}-1"
         val gpxFile = java.io.File(context.filesDir, "tracks/$safeName.gpx")
@@ -2743,6 +2761,7 @@ private fun shareTrackGpx(
             putExtra(android.content.Intent.EXTRA_STREAM, uri)
             addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
+        onProgress(null)
         context.startActivity(android.content.Intent.createChooser(intent, "Share GPX"))
     }
 }
@@ -2754,10 +2773,12 @@ private fun shareTracksZip(
     context: android.content.Context,
     trackViewModel: ykws.android.maro.data.track.TrackViewModel,
     trackIds: Set<String>,
-    scope: kotlinx.coroutines.CoroutineScope
+    scope: kotlinx.coroutines.CoroutineScope,
+    onProgress: (String?) -> Unit = {}
 ) {
     scope.launch {
         if (trackIds.isEmpty()) return@launch
+        onProgress(context.getString(R.string.exporting_tracks))
         val timestamp = java.text.SimpleDateFormat("yyyy_MM_dd_HHmmss", java.util.Locale.US).format(java.util.Date())
         val zipFile = java.io.File(context.filesDir, "tracks/maro-tracks-$timestamp.zip")
         zipFile.parentFile?.mkdirs()
@@ -2790,6 +2811,7 @@ private fun shareTracksZip(
             putExtra(android.content.Intent.EXTRA_STREAM, uri)
             addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
+        onProgress(null)
         context.startActivity(android.content.Intent.createChooser(intent, "Share Tracks"))
     }
 }
@@ -2869,6 +2891,8 @@ private fun MapContent(
     onDismissFan: () -> Unit = {},
     onToggleFan: (ControlId) -> Unit = {},
     showExitBanner: Boolean,
+    importBanner: ImportBannerState? = null,
+    trackOpStatus: String? = null,
     rasterProgress: RasterProgress? = null,
     showCrosshair: Boolean = false,
     autoFollowSuppressed: Boolean = false,
@@ -3250,6 +3274,37 @@ private fun MapContent(
                 }
             }
 
+        }
+
+        // ── Import feedback banner (bottom, centered left of the zoom column) ──
+        importBanner?.let { banner ->
+            val message = when (banner) {
+                is ImportBannerState.Result ->
+                    if (banner.imported == 0 && banner.ignored == 0) {
+                        stringResource(R.string.import_failed)
+                    } else {
+                        val importedText = pluralStringResource(
+                            R.plurals.import_result_imported, banner.imported, banner.imported
+                        )
+                        val ignoredText = pluralStringResource(
+                            R.plurals.import_result_ignored, banner.ignored, banner.ignored
+                        )
+                        stringResource(R.string.import_result_format, importedText, ignoredText)
+                    }
+                ImportBannerState.Failed -> stringResource(R.string.import_failed)
+            }
+            MapStatusBanner(
+                message = message,
+                modifier = Modifier.align(Alignment.BottomStart)
+            )
+        }
+
+        // ── Transient track-operation status banner (export/import in progress) ──
+        trackOpStatus?.let { message ->
+            MapStatusBanner(
+                message = message,
+                modifier = Modifier.align(Alignment.BottomStart)
+            )
         }
     }
 }
@@ -4045,6 +4100,44 @@ private fun LockBanner(
                     text = stringResource(
                         if (locked) R.string.toast_screen_locked else R.string.toast_screen_unlocked
                     ),
+                    color = ComposeColor(AppConfig.uiSettingsToastText),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    textAlign = TextAlign.Start,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp)
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Map status banner — generic transient toast-style banner reusing the
+ * exit-toast / LockBanner style (14dp Surface, 2dp border, card background)
+ * at the bottom of the map, centered in the space left of the right-edge
+ * control column. Non-interactive. Used for import results and in-progress
+ * track operations (export/import).
+ */
+@Composable
+private fun MapStatusBanner(
+    message: String,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(start = 6.dp, end = RIGHT_CONTROL_COLUMN_INSET, bottom = 6.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = ComposeColor(AppConfig.buttonActionBgColor),
+            shadowElevation = 8.dp,
+            modifier = Modifier.border(2.dp, ComposeColor(AppConfig.uiDashboardBackground), RoundedCornerShape(14.dp))
+        ) {
+            Box(modifier = Modifier.background(ComposeColor(AppConfig.uiCardBackground))) {
+                Text(
+                    text = message,
                     color = ComposeColor(AppConfig.uiSettingsToastText),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,
@@ -6182,6 +6275,7 @@ private fun RecordingExitSheet(
             ) {
                 Text("Continue recording", color = ComposeColor(AppConfig.uiSettingsAccent))
             }
+            
             Spacer(Modifier.height(8.dp))
             Button(
                 onClick = onDiscard,
@@ -6192,6 +6286,78 @@ private fun RecordingExitSheet(
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text("Discard track", color = ComposeColor.White, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.height(16.dp))
+        }
+    }
+}
+
+/**
+ * Single-GPX import conflict sheet — three actions modeled on RecordingExitSheet:
+ * Duplicate (import as new copy, accent), Override (replace existing, destructive
+ * red), Cancel (dismiss silently).
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ImportConflictSheet(
+    matchName: String,
+    onDuplicate: () -> Unit,
+    onOverride: () -> Unit,
+    onCancel: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+        containerColor = ComposeColor(AppConfig.uiSettingsBackground)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                stringResource(R.string.import_match_title),
+                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold
+            )
+            Spacer(Modifier.height(12.dp))
+            Text(
+                stringResource(R.string.import_match_message, matchName),
+                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                fontSize = 14.sp
+            )
+            Spacer(Modifier.height(16.dp))
+            Button(
+                onClick = onDuplicate,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ComposeColor(AppConfig.uiSettingsAccent)
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(stringResource(R.string.import_duplicate), color = ComposeColor.White, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.height(8.dp))
+            Button(
+                onClick = onOverride,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ComposeColor(AppConfig.semanticDanger)
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(stringResource(R.string.import_override), color = ComposeColor.White, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(
+                onClick = onCancel,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Text(stringResource(R.string.action_cancel), color = ComposeColor(AppConfig.uiSettingsAccent))
             }
             Spacer(Modifier.height(16.dp))
         }

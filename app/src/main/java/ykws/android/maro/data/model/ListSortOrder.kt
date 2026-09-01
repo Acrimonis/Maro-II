@@ -11,7 +11,12 @@ enum class ListSortField(val labelResId: Int) {
 }
 
 /** Per-type sort field not present on [ListableItem]. Key is used for serialization + ViewModel dispatch. */
-data class CustomSortField(val key: String, val labelResId: Int)
+data class CustomSortField(
+    val key: String,
+    val labelResId: Int,
+    /** Direction to apply when this field is first selected, before the user toggles. */
+    val descendingDefault: Boolean = true
+)
 
 /** Persisted sort state: field + direction. */
 data class ListSortState(
@@ -26,7 +31,8 @@ data class ListSortState(
      * @param items       The list to sort (not mutated).
      * @param customComparator  Called when [customFieldKey] is non-null; receives the key,
      *                          returns a [Comparator] for the concrete type, or null to fall
-     *                          back to `updatedAtEpochMs` descending.
+     *                          back to `updatedAtEpochMs` ascending, with direction applied
+     *                          by the shared `descending` flag.
      *                          Callers that need the wall clock for live-track duration
      *                          computation (e.g. `totalTimeSec`) should capture
      *                          `val nowMs = System.currentTimeMillis()` before calling.
@@ -40,7 +46,7 @@ data class ListSortState(
             customFieldKey != null -> customComparator(customFieldKey!!)
                 ?: compareBy { it.updatedAtEpochMs }  // ascending base — .reversed() below handles direction
             else -> when (field) {
-                ListSortField.TITLE -> compareBy { it.title.lowercase() }
+                ListSortField.TITLE -> compareBy { it.title.dropWhile { !it.isLetterOrDigit() }.lowercase() }
                 ListSortField.CREATED -> compareBy { it.createdAtEpochMs }
             }
         }
@@ -54,8 +60,11 @@ data class ListSortState(
             val parts = raw.split(":")
             val field = try { ListSortField.valueOf(parts[0]) } catch (_: Exception) { ListSortField.CREATED }
             val descending = if (parts.size > 1) parts[1].toBooleanStrictOrNull() ?: true else true
-            // parts[2] was pinnedGrouped (removed) — skip
-            val customFieldKey = if (parts.size > 3) parts[3].ifBlank { null } else null
+            val customFieldKey = when {
+                parts.size >= 4 -> parts[3].ifBlank { null }  // legacy 4-part: skip pinnedGrouped at parts[2]
+                parts.size == 3 -> parts[2].ifBlank { null }
+                else -> null
+            }
             return ListSortState(field, descending, customFieldKey)
         }
         fun format(state: ListSortState): String {

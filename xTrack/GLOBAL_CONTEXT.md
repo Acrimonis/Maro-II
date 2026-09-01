@@ -3,8 +3,8 @@
 ## Active Session Pointers
 - **Active Feature:** BoatTrace
 - **Active Subfeature:** marker-export-import
-- **Last Updated:** 2026-08-31 16:20
-- **Last Bake:** 2026-08-31 16:20 (BoatTrace — auto-marker cleanup, marker-track link, track export/import modes)
+- **Last Updated:** 2026-09-01 17:52
+- **Last Bake:** 2026-09-01 17:52 (BoatTrace — marker icon actions + title sort fix)
 - **Branch:** feature/track-n-markers
 
 ## Routing Map

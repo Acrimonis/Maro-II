@@ -158,9 +158,7 @@ fun OverlayLayer(
     onMarkerAction: (ykws.android.maro.data.model.ListAction) -> Unit,
     onCreateFirst: () -> Unit,
     onSetIcon: (String, String?) -> Unit,
-    onToggleMarkerPin: (String, Boolean) -> Unit = { _, _ -> },
     onUpdateMarkerText: (String, String?, String?) -> Unit = { _, _, _ -> },
-    onMergeMarkers: (Set<String>, String, Boolean) -> Unit = { _, _, _ -> },
     markerSortState: ykws.android.maro.data.model.ListSortState,
     onMarkerSortStateChange: (ykws.android.maro.data.model.ListSortState) -> Unit,
     markerFilterState: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
@@ -299,8 +297,8 @@ fun OverlayLayer(
                 markerFilterAxes = ykws.android.maro.data.model.markerFilterAxes(),
                 markerZonesVisible = markerZonesVisible,
                 onToggleMarkerZones = onToggleMarkerZones,
-                onImportTracks = { onTrackAction(ykws.android.maro.data.model.ListAction.ImportTracks) },
-                onExportAllTracks = { onTrackAction(ykws.android.maro.data.model.ListAction.BatchExportGpx(trackSummaries.map { it.id }.toSet())) }
+                onImportTracks = { onDismissMenu(); onTrackAction(ykws.android.maro.data.model.ListAction.ImportTracks) },
+                onExportAllTracks = { onDismissMenu(); onTrackAction(ykws.android.maro.data.model.ListAction.BatchExportGpx(trackSummaries.map { it.id }.toSet())) }
             )
         }
 
@@ -395,7 +393,7 @@ fun OverlayLayer(
                             accentColor = ComposeColor(0xFFFFD700.toInt()),
                             onUpdateTrack = { id, name, comment, pinned ->
                                 pinned?.let { trackViewModel.setPinned(id, it) }
-                                trackViewModel.updateTrack(id, name, comment)
+                                if (name != null || comment != null) trackViewModel.updateTrack(id, name, comment)
                             },
                             onShareGpx = { onShareTrack(track.id) },
                             onTap = null
@@ -472,7 +470,7 @@ fun OverlayLayer(
                             accentColor = ComposeColor(0xFFFFD700.toInt()),
                             onUpdateTrack = { id, name, comment, pinned ->
                                 pinned?.let { trackViewModel.setPinned(id, it) }
-                                trackViewModel.updateTrack(id, name, comment)
+                                if (name != null || comment != null) trackViewModel.updateTrack(id, name, comment)
                             },
                             onShareGpx = { onShareTrack(track.id) },
                             onTap = null
@@ -517,7 +515,7 @@ fun OverlayLayer(
                 liveTrackState = trackRecorderState,
                 onUpdateTrack = { id, name, comment, pinned ->
                     pinned?.let { trackViewModel.setPinned(id, it) }
-                    trackViewModel.updateTrack(id, name, comment)
+                    if (name != null || comment != null) trackViewModel.updateTrack(id, name, comment)
                 },
                 onUpdateLiveTrack = { name, comment ->
                     trackViewModel.updateLiveTrackMeta(name, comment)
@@ -566,9 +564,7 @@ fun OverlayLayer(
                 onCreateFirst = onCreateFirst,
                 onDismiss = onDismissMarkerManagement,
                 onSetIcon = onSetIcon,
-                onTogglePin = onToggleMarkerPin,
                 onUpdateMarkerText = onUpdateMarkerText,
-                onMergeMarkers = onMergeMarkers,
                 sortState = markerSortState,
                 onSortStateChange = onMarkerSortStateChange,
                 filterState = markerFilterState,

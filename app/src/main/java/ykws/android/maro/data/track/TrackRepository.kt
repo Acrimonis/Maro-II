@@ -43,7 +43,7 @@ class TrackRepository(
         val stamped = track.copy(updatedAtEpochMs = System.currentTimeMillis())
         val file = trackFile(stamped.id)
         // Atomic write: temp + atomic move so a crash never leaves a corrupt .bin.
-        val tmp = File(file.parentFile, "${file.name}.tmp")
+        val tmp = File(file.parentFile, "${file.name}.${java.util.UUID.randomUUID()}.tmp")
         tmp.writeBytes(proto.encodeToByteArray(Track.serializer(), stamped))
         atomicReplace(tmp, file)
         updateIndex()
@@ -316,8 +316,13 @@ class TrackRepository(
             Files.move(src.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
         } catch (_: Exception) {
             // ATOMIC_MOVE unsupported on some filesystems — fall back to plain replace.
-            src.copyTo(dest, overwrite = true)
-            src.delete()
+            try {
+                src.copyTo(dest, overwrite = true)
+                src.delete()
+            } catch (_: Exception) {
+                // Source temp file already consumed by a concurrent save — dest write
+                // has already been done by the other coroutine.
+            }
         }
     }
 

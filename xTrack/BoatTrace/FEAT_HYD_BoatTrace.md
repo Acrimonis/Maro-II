@@ -1,6 +1,6 @@
 # BoatTrace — Hydration Snapshot
 
-**Baked at:** 2026-08-31 16:20 UTC
+**Baked at:** 2026-09-01 17:52 UTC
 **Active Subfeature:** marker-export-import
 **Branch:** feature/track-n-markers
 
@@ -12,7 +12,15 @@ Auto-marker lifecycle + marker-track relationship rework, in phases:
 - **Phase 2 (marker-track link):** single `UserMarker.trackId` set at creation; one-time backfill migration; removed persisted `BoatMarker.autoMarkerId`; delete-track deletes its IDLE_AUTO markers; markers rendered from unfiltered `_allMarkers`; marker badge + "Belongs to track" row. BUILD SUCCESSFUL.
 - **Track export:** fixed duplicate-entry crash (unique names), Windows-safe filename sanitization, `yyyy_MM_dd_HH_mm-title-counter.gpx` naming, menu Import/Export reorder with labeled controls.
 - **Track import modes:** single GPX → Skip/Update/New dialog; ZIP → silent skip; update prefers edited `<trkpt>` points and recomputes stats. BUILD SUCCESSFUL.
-- **Phase 3** (cross-navigation) planned, deferred. **Phase 4** marker export/import planned, partially implemented (track import modes done).
+- **Bug fix (track-pin crash):** `save()` shared-tmp race → `NoSuchFileException`; fixed with unique temp filename + guarded `atomicReplace` fallback + collapsed redundant double-save in `onUpdateTrack` handlers. BUILD SUCCESSFUL.
+- **Import UX normalization:** magic-byte ZIP/GPX sniffing, `ImportResult(imported, ignored)`, normalized Compose result banner, 3-action conflict sheet (Duplicate/Override/Cancel), localized strings. BUILD SUCCESSFUL.
+- **Drawer Import/Export:** whole control clickable + dismiss-then-action; "Exporting/Importing…" status banner. BUILD SUCCESSFUL.
+- **Pin unification:** PushPin icon + `cd_pin`/`cd_unpin` across track/marker cards + multi-select. BUILD SUCCESSFUL.
+- **Marker pinned→icon simplification:** drop `pinned`, derive from `icon != null`; one-time migration; geometry filter split (Pins/Circles/Corridors); origin sort Manual-first; "Icon" filter labels; emojis 📍/🎯/🛤️. BUILD SUCCESSFUL.
+- **Marker icon multi-select:** "Set icon" opens the emoji picker (applies to selection; "None" clears), "Clear icon" clears; removed "Toggle icon" + dead onTogglePin/togglePin plumbing; removed marker "Merge" (dedup radius already prevents duplicate auto-markers). BUILD SUCCESSFUL.
+- **Auto-marker dedup radius:** default 50 → 25 m (AppConfig.kt fallback + maro.properties).
+- **Title sort fix:** per-field direction defaults (Title A→Z, Created newest-first, origin USER-first), legacy parse branch, emoji-stripping title key. BUILD SUCCESSFUL.
+- **Phase 3** (cross-navigation) planned, deferred. **Phase 4** marker export/import planned (track import modes done).
 
 ## Next Step
 

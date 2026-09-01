@@ -278,7 +278,7 @@ class MarkersViewModel(
     ): List<UserMarker> {
         return state.applySort(markers) { key ->
             when (key) {
-                "origin" -> compareBy { it.origin.name }
+                "origin" -> compareBy { it.origin }
                 else -> null  // fallback to updatedAtEpochMs
             }
         }
@@ -435,11 +435,11 @@ class MarkersViewModel(
         )
     }
 
-    /** Icon matching the geometry type: 📍 ⭕ 🔴 */
+    /** Icon matching the geometry type: 📍 🎯 🛤️ */
     private fun typeIcon(type: MarkerType): String = when (type) {
         MarkerType.PIN -> "\uD83D\uDCCD"     // 📍
-        MarkerType.CIRCLE -> "\u2B55"         // ⭕
-        MarkerType.CORRIDOR -> "\uD83D\uDD34" // 🔴
+        MarkerType.CIRCLE -> "\uD83C\uDFAF"   // 🎯
+        MarkerType.CORRIDOR -> "\uD83D\uDEE4" // 🛤️
     }
 
     /** Human-readable name for a color index (0-15). */
@@ -629,7 +629,6 @@ class MarkersViewModel(
             confirmed = true,
             colorIndex = form.colorIndex,
             icon = form.icon,
-            pinned = form.icon != null,
             createdAtEpochMs = System.currentTimeMillis()
         )
 
@@ -676,8 +675,7 @@ class MarkersViewModel(
             geometry = geometry,
             description = form.description,
             proximityOverrideM = proximityOverride,
-            icon = form.icon,
-            pinned = form.icon != null
+            icon = form.icon
         )
 
         viewModelScope.launch {
@@ -781,7 +779,6 @@ class MarkersViewModel(
             geometry = MarkerGeometry.Pin(newPos),
             proximityOverrideM = AppConfig.boatMarkerAutoMarkerProximityM,
             confirmed = false,
-            pinned = true,
             icon = "\uD83D\uDD50",  // 🕐
             createdAtEpochMs = System.currentTimeMillis(),
             origin = ykws.android.maro.data.model.markers.MarkerOrigin.IDLE_AUTO,
@@ -808,78 +805,6 @@ class MarkersViewModel(
         val updated = marker.copy(confirmed = true, keepable = true, name = name, description = description)
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repo.update(updated) }
-            val all = withContext(Dispatchers.IO) { repo.loadAll() }
-            val settings = settingsFlow?.value
-            _allMarkers.value = all
-            val filter = settings?.markerListFilter ?: ListFilter()
-            val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
-            _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
-        }
-    }
-
-    /** Toggle the pinned state of a marker. */
-    fun togglePin(markerId: String) {
-        val marker = _markers.value.find { it.id == markerId } ?: return
-        val updated = marker.copy(pinned = !marker.pinned)
-        viewModelScope.launch {
-            withContext(Dispatchers.IO) { repo.update(updated) }
-            val all = withContext(Dispatchers.IO) { repo.loadAll() }
-            val settings = settingsFlow?.value
-            _allMarkers.value = all
-            val filter = settings?.markerListFilter ?: ListFilter()
-            val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
-            _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
-        }
-    }
-
-    // ── Auto-marker merge ─────────────────────────────────────────────────
-
-    /**
-     * Merge multiple IDLE_AUTO markers into a single consolidated marker at
-     * the centroid of their positions.
-     *
-     * @param ids           Selected marker IDs (non-auto markers are silently filtered out).
-     * @param name          Name for the merged marker.
-     * @param keepOriginals If false, source auto-markers are deleted after merge.
-     */
-    fun mergeAutoMarkers(ids: Set<String>, name: String, keepOriginals: Boolean) {
-        val autoMarkers = _allMarkers.value.filter {
-            it.id in ids && it.origin == ykws.android.maro.data.model.markers.MarkerOrigin.IDLE_AUTO
-        }
-        if (autoMarkers.size < 2) return
-
-        // Compute centroid
-        val avgLat = autoMarkers.map { it.centerPoint.latitude }.average()
-        val avgLon = autoMarkers.map { it.centerPoint.longitude }.average()
-        val centroid = LatLng(avgLat, avgLon)
-
-        // Date range for description
-        val earliest = autoMarkers.minOf { it.createdAtEpochMs }
-        val latest = autoMarkers.maxOf { it.createdAtEpochMs }
-        val dateFmt = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-        val desc = "Merged from ${autoMarkers.size} auto markers: ${dateFmt.format(Date(earliest))} → ${dateFmt.format(Date(latest))}"
-
-        val merged = UserMarker(
-            id = UUID.randomUUID().toString(),
-            name = name,
-            geometry = MarkerGeometry.Pin(centroid),
-            description = desc,
-            proximityOverrideM = AppConfig.boatMarkerAutoMarkerProximityM,
-            confirmed = true,
-            pinned = true,
-            icon = "\uD83D\uDD50",  // 🕐
-            createdAtEpochMs = System.currentTimeMillis(),
-            origin = ykws.android.maro.data.model.markers.MarkerOrigin.IDLE_AUTO,
-            keepable = true
-        )
-
-        viewModelScope.launch {
-            withContext(Dispatchers.IO) {
-                repo.add(merged)
-                if (!keepOriginals) {
-                    autoMarkers.forEach { repo.delete(it.id) }
-                }
-            }
             val all = withContext(Dispatchers.IO) { repo.loadAll() }
             val settings = settingsFlow?.value
             _allMarkers.value = all
@@ -931,7 +856,7 @@ class MarkersViewModel(
     /** Set the icon on a marker (null = remove icon, unpin). */
     fun setMarkerIcon(markerId: String, icon: String?) {
         val marker = _allMarkers.value.find { it.id == markerId } ?: return
-        val updated = marker.copy(icon = icon, pinned = icon != null)
+        val updated = marker.copy(icon = icon)
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repo.update(updated) }
             val all = withContext(Dispatchers.IO) { repo.loadAll() }
