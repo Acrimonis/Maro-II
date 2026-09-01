@@ -37,7 +37,6 @@ data class UserMarker(
     val proximityOverrideM: Double? = null,
     val confirmed: Boolean = true,
     val colorIndex: Int? = null,      // null = default colour, 0-15 = 16-colour palette
-    val pinned: Boolean = false,
     val icon: String? = null,          // POI emoji/unicode icon, null = no icon
     override val createdAtEpochMs: Long = 0L,   // 0 = legacy marker
     val origin: MarkerOrigin = MarkerOrigin.USER,
@@ -47,7 +46,10 @@ data class UserMarker(
     override val updatedAtEpochMs: Long = createdAtEpochMs  // defaults to creation time for legacy
 ) : ListableItem {
     override val title: String get() = name
-    override val isPinned: Boolean get() = pinned
+    override val isPinned: Boolean get() = icon != null
+
+    /** Derived pin flag — a marker is pinned when it carries an icon. */
+    val pinned: Boolean get() = icon != null
 
     /** Visual centre of the marker geometry for map navigation. */
     val centerPoint: LatLng get() = when (val g = geometry) {
@@ -172,8 +174,8 @@ sealed class MarkerGeometry {
         /** Default emoji icon for each geometry type. */
         fun iconFor(geometry: MarkerGeometry): String = when (geometry) {
             is Pin -> "\uD83D\uDCCD"     // 📍
-            is Circle -> "\u2B55"         // ⭕
-            is Corridor -> "\uD83D\uDD34" // 🔴
+            is Circle -> "\uD83C\uDFAF"   // 🎯
+            is Corridor -> "\uD83D\uDEE4" // 🛤️
         }
     }
 }

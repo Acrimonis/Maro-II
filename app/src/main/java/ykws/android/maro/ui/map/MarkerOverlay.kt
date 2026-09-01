@@ -184,9 +184,9 @@ fun MarkerOverlay(
             // unconfirmed (creating/editing) always show full geometry.
             val drawZones = drawGeometry && (!confirmed || markerZonesVisible || marker.id == highlightedMarkerId)
 
-            // Suppress center/p1/p2 dots when pinned — icon replaces the point marker.
+            // Suppress center/p1/p2 dots when an icon is set — icon replaces the point marker.
             // Only applies to confirmed markers; unconfirmed always shows dots.
-            val skipDots = marker.pinned && confirmed
+            val skipDots = marker.icon != null && confirmed
 
             // Auto-markers (IDLE_AUTO) never show proximity rings — they keep
             // proximity for whereAmI matching but suppress visual clutter.
@@ -319,7 +319,7 @@ fun MarkerOverlay(
 
         // ── Icon markers for pinned markers ──────────────────────────────
         for (marker in allMarkers) {
-            val iconText = marker.icon ?: if (marker.pinned) "\uD83D\uDCCD" else null ?: continue
+            val iconText = marker.icon ?: continue
             val positions = when (marker.geometry) {
                 is MarkerGeometry.Pin -> listOf(marker.geometry.position)
                 is MarkerGeometry.Circle -> listOf(marker.geometry.center)

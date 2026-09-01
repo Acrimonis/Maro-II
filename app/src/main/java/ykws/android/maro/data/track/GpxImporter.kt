@@ -6,6 +6,7 @@ import org.xmlpull.v1.XmlPullParser
 import org.xmlpull.v1.XmlPullParserFactory
 import java.io.InputStream
 import java.util.UUID
+import java.util.zip.ZipException
 import java.util.zip.ZipInputStream
 
 /**
@@ -22,6 +23,13 @@ object GpxImporter {
 
     private val proto = ProtoBuf.Default
 
+    /** Outcome of a single-GPX import attempt. */
+    private sealed interface SingleImportOutcome {
+        data class Imported(val track: Track) : SingleImportOutcome
+        data object SkippedDuplicate : SingleImportOutcome
+        data object Invalid : SingleImportOutcome
+    }
+
     /**
      * Import tracks from a byte array. Dispatch based on content type.
      *
@@ -31,7 +39,7 @@ object GpxImporter {
      * @param existingIds      Set of existing track ids (Maro blob match).
      * @param existingIdByName Existing name → id lookup, so a foreign UPDATE can keep the existing id.
      * @param mode             How to treat matches. ZIP input is always [ImportMode.SKIP_EXISTING].
-     * @return List of successfully imported [Track] objects.
+     * @return Full batch result: imported tracks plus aggregate counts.
      */
     fun import(
         input: ByteArray,
@@ -40,12 +48,13 @@ object GpxImporter {
         existingIds: Set<String>,
         existingIdByName: Map<String, String> = emptyMap(),
         mode: ImportMode = ImportMode.SKIP_EXISTING
-    ): List<Track> {
+    ): ImportBatch {
         return when (extension.lowercase()) {
             "zip" -> importZip(input, existingNames, existingIds, existingIdByName)
-            else -> {
-                val track = importSingleGpx(input, existingNames, existingIds, existingIdByName, mode)
-                if (track != null) listOf(track) else emptyList()
+            else -> when (val outcome = importSingleGpx(input, existingNames, existingIds, existingIdByName, mode)) {
+                is SingleImportOutcome.Imported -> ImportBatch(listOf(outcome.track), 1, 0)
+                SingleImportOutcome.SkippedDuplicate -> ImportBatch(emptyList(), 0, 1)
+                SingleImportOutcome.Invalid -> ImportBatch(emptyList(), 0, 0)
             }
         }
     }
@@ -88,45 +97,54 @@ object GpxImporter {
         existingNames: Set<String>,
         existingIds: Set<String>,
         existingIdByName: Map<String, String>
-    ): List<Track> {
+    ): ImportBatch {
         val tracks = mutableListOf<Track>()
+        var ignored = 0
         val nameSet = existingNames.toMutableSet()
         val idSet = existingIds.toMutableSet()
         val idByName = existingIdByName.toMutableMap()
-        ZipInputStream(input.inputStream()).use { zis ->
-            var entry = zis.nextEntry
-            while (entry != null) {
-                val entryName = entry.name
-                // Path traversal guard
-                if (entryName.contains("..") || entryName.startsWith("/")) {
-                    entry = zis.nextEntry
-                    continue
-                }
-                if (entryName.endsWith(".gpx", ignoreCase = true) && !entry.isDirectory) {
-                    val track = importSingleGpx(zis.readBytes(), nameSet, idSet, idByName, ImportMode.SKIP_EXISTING)
-                    if (track != null) {
-                        tracks.add(track)
-                        nameSet.add(track.name)
-                        idSet.add(track.id)
-                        idByName[track.name] = track.id
+        try {
+            ZipInputStream(input.inputStream()).use { zis ->
+                var entry = zis.nextEntry
+                while (entry != null) {
+                    val entryName = entry.name
+                    // Path traversal guard
+                    if (entryName.contains("..") || entryName.startsWith("/")) {
+                        entry = zis.nextEntry
+                        continue
                     }
+                    if (entryName.endsWith(".gpx", ignoreCase = true) && !entry.isDirectory) {
+                        when (val outcome = importSingleGpx(zis.readBytes(), nameSet, idSet, idByName, ImportMode.SKIP_EXISTING)) {
+                            is SingleImportOutcome.Imported -> {
+                                tracks.add(outcome.track)
+                                nameSet.add(outcome.track.name)
+                                idSet.add(outcome.track.id)
+                                idByName[outcome.track.name] = outcome.track.id
+                            }
+                            SingleImportOutcome.SkippedDuplicate -> ignored++
+                            SingleImportOutcome.Invalid -> Unit
+                        }
+                    }
+                    entry = zis.nextEntry
                 }
-                entry = zis.nextEntry
             }
+        } catch (_: ZipException) {
+            // Corrupt archive — surface the partial result instead of propagating.
         }
-        return tracks
+        return ImportBatch(tracks, tracks.size, ignored)
     }
 
     /**
-     * Parse a single GPX file and return a [Track], or null on failure/skip.
+     * Parse a single GPX file and report the outcome: [SingleImportOutcome.Imported],
+     * [SingleImportOutcome.SkippedDuplicate], or [SingleImportOutcome.Invalid].
      */
-    fun importSingleGpx(
+    private fun importSingleGpx(
         input: ByteArray,
         existingNames: Set<String>,
         existingIds: Set<String>,
         existingIdByName: Map<String, String> = emptyMap(),
         mode: ImportMode = ImportMode.SKIP_EXISTING
-    ): Track? {
+    ): SingleImportOutcome {
         return try {
             val xml = String(input, Charsets.UTF_8)
 
@@ -141,47 +159,49 @@ object GpxImporter {
 
                 when (mode) {
                     ImportMode.SKIP_EXISTING -> {
-                        if (track.id in existingIds) null else track
+                        if (track.id in existingIds) SingleImportOutcome.SkippedDuplicate
+                        else SingleImportOutcome.Imported(track)
                     }
                     ImportMode.IMPORT_NEW -> {
                         val safeName = resolveNameCollision(track.name, existingNames)
-                        track.copy(id = UUID.randomUUID().toString(), name = safeName)
+                        SingleImportOutcome.Imported(track.copy(id = UUID.randomUUID().toString(), name = safeName))
                     }
                     ImportMode.UPDATE_EXISTING -> {
                         if (track.id in existingIds) {
-                            updateTrackFromBlob(track, input)
+                            SingleImportOutcome.Imported(updateTrackFromBlob(track, input))
                         } else {
                             val safeName = resolveNameCollision(track.name, existingNames)
-                            track.copy(id = UUID.randomUUID().toString(), name = safeName)
+                            SingleImportOutcome.Imported(track.copy(id = UUID.randomUUID().toString(), name = safeName))
                         }
                     }
                 }
             } else {
                 // Foreign GPX — parse standard elements (lossy, fresh id).
-                val std = parseStandardGpxData(input) ?: return null
-                val name = std.name ?: return null
+                val std = parseStandardGpxData(input) ?: return SingleImportOutcome.Invalid
+                val name = std.name ?: return SingleImportOutcome.Invalid
                 when (mode) {
                     ImportMode.SKIP_EXISTING -> {
-                        if (name in existingNames) null else buildForeignTrack(std, name)
+                        if (name in existingNames) SingleImportOutcome.SkippedDuplicate
+                        else SingleImportOutcome.Imported(buildForeignTrack(std, name))
                     }
                     ImportMode.IMPORT_NEW -> {
                         val safeName = resolveNameCollision(name, existingNames)
-                        buildForeignTrack(std, safeName)
+                        SingleImportOutcome.Imported(buildForeignTrack(std, safeName))
                     }
                     ImportMode.UPDATE_EXISTING -> {
                         val existingId = existingIdByName[name]
                         if (existingId != null) {
                             // Update by name — keep the existing track's id.
-                            buildForeignTrack(std, name).copy(id = existingId)
+                            SingleImportOutcome.Imported(buildForeignTrack(std, name).copy(id = existingId))
                         } else {
                             val safeName = resolveNameCollision(name, existingNames)
-                            buildForeignTrack(std, safeName)
+                            SingleImportOutcome.Imported(buildForeignTrack(std, safeName))
                         }
                     }
                 }
             }
         } catch (_: Exception) {
-            null
+            SingleImportOutcome.Invalid
         }
     }
 
@@ -372,6 +392,14 @@ object GpxImporter {
             }
         }
     }
+}
+
+/** Aggregate import counts: tracks persisted vs. duplicates skipped. */
+data class ImportResult(val imported: Int, val ignored: Int)
+
+/** Full batch result: imported [Track] objects plus aggregate counts. */
+data class ImportBatch(val tracks: List<Track>, val imported: Int, val ignored: Int) {
+    val result: ImportResult get() = ImportResult(imported, ignored)
 }
 
 /** How a track import should treat an existing track with the same identity. */

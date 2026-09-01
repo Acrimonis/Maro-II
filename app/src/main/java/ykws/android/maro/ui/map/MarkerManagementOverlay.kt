@@ -29,7 +29,6 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.MergeType
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.LocationOff
 import androidx.compose.material.icons.outlined.PushPin
@@ -125,9 +124,9 @@ fun MarkerManagementOverlay(
     val deleteLabel = stringResource(R.string.action_delete)
     val pinLabel = stringResource(R.string.action_pin)
     val confirmDeleteMsg = stringResource(R.string.confirm_delete_markers)
-    val pinAllLabel = stringResource(R.string.action_pin_all)
-    val unpinAllLabel = stringResource(R.string.action_unpin_all)
-    val togglePinsLabel = stringResource(R.string.action_toggle_pins)
+    val setIconAllLabel = stringResource(R.string.action_set_icon_all)
+    val clearIconAllLabel = stringResource(R.string.action_clear_icon_all)
+    val toggleIconsLabel = stringResource(R.string.action_toggle_icons)
 
     val markerMultiActions = remember(markers, onMergeMarkers) {
         listOf(
@@ -146,17 +145,17 @@ fun MarkerManagementOverlay(
                 subActions = listOf(
                     MultiActionSubSpec(
                         id = "pin_all",
-                        label = pinAllLabel,
+                        label = setIconAllLabel,
                         action = { ids -> ids.forEach { onTogglePin(it, true) } }
                     ),
                     MultiActionSubSpec(
                         id = "unpin_all",
-                        label = unpinAllLabel,
+                        label = clearIconAllLabel,
                         action = { ids -> ids.forEach { onTogglePin(it, false) } }
                     ),
                     MultiActionSubSpec(
                         id = "toggle_pins",
-                        label = togglePinsLabel,
+                        label = toggleIconsLabel,
                         action = { ids ->
                             ids.forEach { id ->
                                 val current = markers.find { it.id == id }?.pinned ?: false
@@ -402,7 +401,7 @@ internal fun MarkerCardContent(
                         ) {
                             Icon(
                                 imageVector = if (marker.pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
-                                contentDescription = if (marker.pinned) "Unpin" else "Pin",
+                                contentDescription = if (marker.pinned) stringResource(R.string.cd_unpin) else stringResource(R.string.cd_pin),
                                 tint = ButtonColors.icon,
                                 modifier = Modifier.size(24.dp)
                             )

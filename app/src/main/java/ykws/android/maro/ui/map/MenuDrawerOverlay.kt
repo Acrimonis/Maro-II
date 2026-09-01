@@ -44,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -251,43 +252,51 @@ fun MenuDrawerOverlay(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .heightIn(min = 48.dp)
+                        .clickable(onClick = onExportAllTracks)
+                        .padding(horizontal = 12.dp)
+                        .semantics(mergeDescendants = true) {},
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Text(
                         text = stringResource(R.string.action_export),
                         color = Color(AppConfig.uiSettingsTextPrimary),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
-                    IconButton(
-                        onClick = onExportAllTracks,
-                        modifier = Modifier.size(48.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Upload,
-                            contentDescription = "Export all tracks",
-                            tint = ButtonColors.icon,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Filled.Upload,
+                        contentDescription = null,
+                        tint = ButtonColors.icon,
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .heightIn(min = 48.dp)
+                        .clickable(onClick = onImportTracks)
+                        .padding(horizontal = 12.dp)
+                        .semantics(mergeDescendants = true) {},
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     Text(
                         text = stringResource(R.string.action_import),
                         color = Color(AppConfig.uiSettingsTextPrimary),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
-                    IconButton(
-                        onClick = onImportTracks,
-                        modifier = Modifier.size(48.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Download,
-                            contentDescription = "Import tracks",
-                            tint = ButtonColors.icon,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
+                    Icon(
+                        imageVector = Icons.Filled.Download,
+                        contentDescription = null,
+                        tint = ButtonColors.icon,
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
             }
 

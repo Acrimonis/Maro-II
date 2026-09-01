@@ -257,8 +257,9 @@ internal fun FilterControl(
                 ) {
                     Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         filterAxes.forEach { axis ->
-                            val isDisabled = axis.dependsOn != null && axis.dependsOnValue != null &&
-                                filterState.axes[axis.dependsOn] == axis.dependsOnValue
+                            val gatingValue = axis.dependsOn?.let { filterState.axes[it] }
+                            val isDisabled = gatingValue != null && axis.dependsOnValues != null &&
+                                gatingValue in axis.dependsOnValues
                             val currentValue = filterState.axes[axis.key] ?: axis.options.firstOrNull { it.isDefault }?.value ?: "ALL"
                             
                             Text(axis.label,

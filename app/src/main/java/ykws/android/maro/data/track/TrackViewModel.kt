@@ -392,19 +392,19 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
      * @param input     File bytes from the file picker URI (read once).
      * @param extension "gpx" or "zip".
      * @param mode      How to treat matches. ZIP input is always SKIP_EXISTING.
-     * @return Number of tracks imported.
+     * @return Aggregate counts: tracks imported vs. duplicates ignored.
      */
-    suspend fun importTracks(input: ByteArray, extension: String, mode: ImportMode): Int {
+    suspend fun importTracks(input: ByteArray, extension: String, mode: ImportMode): ImportResult {
         val summaries = _allSummaries.value
         val existingNames = summaries.map { it.name }.toSet()
         val existingIds = summaries.map { it.id }.toSet()
         val existingIdByName = summaries.associate { it.name to it.id }
-        val tracks = GpxImporter.import(input, extension, existingNames, existingIds, existingIdByName, mode)
-        for (track in tracks) {
+        val batch = GpxImporter.import(input, extension, existingNames, existingIds, existingIdByName, mode)
+        for (track in batch.tracks) {
             repository.saveOrReplace(track)
         }
         refreshSummaries()
-        return tracks.size
+        return batch.result
     }
 
     /** One-time schema migration: repair stats + lastPointTimeMs on tracks saved before those fields existed. */

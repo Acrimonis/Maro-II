@@ -162,12 +162,25 @@
     <string name="recovery_continue">Continue</string>
     <string name="recovery_save">Save</string>
 
-    <!-- Track import match dialog -->
+    <!-- Track import match dialog / sheet -->
     <string name="import_match_title">Existing track found</string>
     <string name="import_match_message">This file matches \"%1$s\". How would you like to import it?</string>
-    <string name="import_skip">Skip</string>
-    <string name="import_update">Update</string>
-    <string name="import_new">New</string>
+    <string name="import_duplicate">Duplicate</string>
+    <string name="import_override">Override</string>
+
+    <!-- Track import result feedback -->
+    <string name="import_failed">Import failed</string>
+    <string name="import_result_format">%1$s, %2$s</string>
+    <string name="exporting_tracks">Exporting tracks…</string>
+    <string name="importing_tracks">Importing tracks…</string>
+    <plurals name="import_result_imported">
+        <item quantity="one">%d track imported</item>
+        <item quantity="other">%d tracks imported</item>
+    </plurals>
+    <plurals name="import_result_ignored">
+        <item quantity="one">%d track ignored</item>
+        <item quantity="other">%d tracks ignored</item>
+    </plurals>
 
     <!-- Background location permission -->
     <string name="bg_location_title">Background Location</string>
@@ -277,6 +290,8 @@
     <string name="cd_reset">Reset</string>
     <string name="cd_menu">Menu</string>
     <string name="cd_pin_marker">Pin this marker</string>
+    <string name="cd_pin">Pin</string>
+    <string name="cd_unpin">Unpin</string>
     <string name="cd_lock_screen">Lock screen</string>
     <string name="cd_unlock_screen">Unlock screen</string>
     <string name="toast_screen_locked">Screen locked</string>
@@ -296,6 +311,9 @@
     <string name="action_pin_all">Pin all</string>
     <string name="action_unpin_all">Unpin all</string>
     <string name="action_toggle_pins">Toggle pins</string>
+    <string name="action_set_icon_all">Set icon</string>
+    <string name="action_clear_icon_all">Clear icon</string>
+    <string name="action_toggle_icons">Toggle icon</string>
     <string name="confirm_delete_tracks">Delete selected tracks?</string>
     <string name="confirm_delete_markers">Delete selected markers?</string>
     <string name="confirm_batch_delete_title">Delete</string>

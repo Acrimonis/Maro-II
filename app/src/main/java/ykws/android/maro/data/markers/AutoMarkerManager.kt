@@ -60,7 +60,6 @@ class AutoMarkerManager(context: Context) {
             geometry = MarkerGeometry.Pin(newPos),
             proximityOverrideM = AppConfig.boatMarkerAutoMarkerProximityM,
             confirmed = false,
-            pinned = true,
             icon = "\uD83D\uDD50",  // 🕐
             createdAtEpochMs = System.currentTimeMillis(),
             origin = MarkerOrigin.IDLE_AUTO,

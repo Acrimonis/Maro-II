@@ -278,7 +278,7 @@ class MarkersViewModel(
     ): List<UserMarker> {
         return state.applySort(markers) { key ->
             when (key) {
-                "origin" -> compareBy { it.origin.name }
+                "origin" -> compareByDescending { it.origin }
                 else -> null  // fallback to updatedAtEpochMs
             }
         }
@@ -435,11 +435,11 @@ class MarkersViewModel(
         )
     }
 
-    /** Icon matching the geometry type: 📍 ⭕ 🔴 */
+    /** Icon matching the geometry type: 📍 🎯 🛤️ */
     private fun typeIcon(type: MarkerType): String = when (type) {
         MarkerType.PIN -> "\uD83D\uDCCD"     // 📍
-        MarkerType.CIRCLE -> "\u2B55"         // ⭕
-        MarkerType.CORRIDOR -> "\uD83D\uDD34" // 🔴
+        MarkerType.CIRCLE -> "\uD83C\uDFAF"   // 🎯
+        MarkerType.CORRIDOR -> "\uD83D\uDEE4" // 🛤️
     }
 
     /** Human-readable name for a color index (0-15). */
@@ -629,7 +629,6 @@ class MarkersViewModel(
             confirmed = true,
             colorIndex = form.colorIndex,
             icon = form.icon,
-            pinned = form.icon != null,
             createdAtEpochMs = System.currentTimeMillis()
         )
 
@@ -676,8 +675,7 @@ class MarkersViewModel(
             geometry = geometry,
             description = form.description,
             proximityOverrideM = proximityOverride,
-            icon = form.icon,
-            pinned = form.icon != null
+            icon = form.icon
         )
 
         viewModelScope.launch {
@@ -781,7 +779,6 @@ class MarkersViewModel(
             geometry = MarkerGeometry.Pin(newPos),
             proximityOverrideM = AppConfig.boatMarkerAutoMarkerProximityM,
             confirmed = false,
-            pinned = true,
             icon = "\uD83D\uDD50",  // 🕐
             createdAtEpochMs = System.currentTimeMillis(),
             origin = ykws.android.maro.data.model.markers.MarkerOrigin.IDLE_AUTO,
@@ -817,19 +814,10 @@ class MarkersViewModel(
         }
     }
 
-    /** Toggle the pinned state of a marker. */
-    fun togglePin(markerId: String) {
+    /** Toggle the pinned state of a marker (pin = set icon, unpin = clear icon). */
+    fun togglePin(markerId: String, pinned: Boolean) {
         val marker = _markers.value.find { it.id == markerId } ?: return
-        val updated = marker.copy(pinned = !marker.pinned)
-        viewModelScope.launch {
-            withContext(Dispatchers.IO) { repo.update(updated) }
-            val all = withContext(Dispatchers.IO) { repo.loadAll() }
-            val settings = settingsFlow?.value
-            _allMarkers.value = all
-            val filter = settings?.markerListFilter ?: ListFilter()
-            val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
-            _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
-        }
+        setMarkerIcon(markerId, if (pinned) marker.icon ?: "\uD83D\uDCCD" else null)
     }
 
     // ── Auto-marker merge ─────────────────────────────────────────────────
@@ -866,7 +854,6 @@ class MarkersViewModel(
             description = desc,
             proximityOverrideM = AppConfig.boatMarkerAutoMarkerProximityM,
             confirmed = true,
-            pinned = true,
             icon = "\uD83D\uDD50",  // 🕐
             createdAtEpochMs = System.currentTimeMillis(),
             origin = ykws.android.maro.data.model.markers.MarkerOrigin.IDLE_AUTO,
@@ -931,7 +918,7 @@ class MarkersViewModel(
     /** Set the icon on a marker (null = remove icon, unpin). */
     fun setMarkerIcon(markerId: String, icon: String?) {
         val marker = _allMarkers.value.find { it.id == markerId } ?: return
-        val updated = marker.copy(icon = icon, pinned = icon != null)
+        val updated = marker.copy(icon = icon)
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repo.update(updated) }
             val all = withContext(Dispatchers.IO) { repo.loadAll() }

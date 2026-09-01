@@ -86,13 +86,16 @@ fun UserMarker.matchesFilter(f: ListFilter): Boolean =
                 (value == "PINNED" && this.pinned) ||
                 (value == "UNPINNED" && !this.pinned)
             "geometry" -> value == "ALL" || geometryMatches(this.geometry, value)
-            "origin" -> f.axes["geometry"] == "ZONES" || value == "ALL" || originMatches(this.origin, value)
+            "origin" -> f.axes["geometry"] in setOf("ZONES", "CIRCLES", "CORRIDORS") ||
+                value == "ALL" || originMatches(this.origin, value)
             else -> true
         }
     }
 
 fun geometryMatches(geometry: MarkerGeometry, value: String): Boolean = when (value) {
     "PINS" -> geometry is MarkerGeometry.Pin
+    "CIRCLES" -> geometry is MarkerGeometry.Circle
+    "CORRIDORS" -> geometry is MarkerGeometry.Corridor
     "ZONES" -> geometry !is MarkerGeometry.Pin
     else -> true
 }
@@ -119,10 +122,10 @@ data class FilterAxisSpec(
     val key: String,
     val label: String,
     val options: List<FilterOptionSpec>,
-    /** Optional key of the axis that gates this axis. If the gating axis has
-     *  the given [dependsOnValue], this axis is disabled + grayed out. */
+    /** Optional key of the axis that gates this axis. If the gating axis value
+     *  is in [dependsOnValues], this axis is disabled + grayed out. */
     val dependsOn: String? = null,
-    val dependsOnValue: String? = null
+    val dependsOnValues: List<String>? = null
 )
 
 /** Track filter axes. */
@@ -148,15 +151,15 @@ fun trackFilterAxes(): List<FilterAxisSpec> = listOf(
     )
 )
 
-/** Marker filter axes. Origin is disabled when geometry=ZONES. */
+/** Marker filter axes. Origin is disabled when geometry is CIRCLES or CORRIDORS. */
 fun markerFilterAxes(): List<FilterAxisSpec> = listOf(
     FilterAxisSpec(
         key = "pinned",
-        label = "Pinned",
+        label = "Icon",
         options = listOf(
             FilterOptionSpec("ALL", "All", isDefault = true),
-            FilterOptionSpec("PINNED", "Pinned"),
-            FilterOptionSpec("UNPINNED", "Unpinned")
+            FilterOptionSpec("PINNED", "With icon"),
+            FilterOptionSpec("UNPINNED", "Without icon")
         )
     ),
     FilterAxisSpec(
@@ -165,7 +168,8 @@ fun markerFilterAxes(): List<FilterAxisSpec> = listOf(
         options = listOf(
             FilterOptionSpec("ALL", "All", isDefault = true),
             FilterOptionSpec("PINS", "Pins"),
-            FilterOptionSpec("ZONES", "Zones")
+            FilterOptionSpec("CIRCLES", "Circles"),
+            FilterOptionSpec("CORRIDORS", "Corridors")
         )
     ),
     FilterAxisSpec(
@@ -177,6 +181,6 @@ fun markerFilterAxes(): List<FilterAxisSpec> = listOf(
             FilterOptionSpec("AUTO", "Auto")
         ),
         dependsOn = "geometry",
-        dependsOnValue = "ZONES"
+        dependsOnValues = listOf("CIRCLES", "CORRIDORS")
     )
 )

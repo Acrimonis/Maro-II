@@ -299,8 +299,8 @@ fun OverlayLayer(
                 markerFilterAxes = ykws.android.maro.data.model.markerFilterAxes(),
                 markerZonesVisible = markerZonesVisible,
                 onToggleMarkerZones = onToggleMarkerZones,
-                onImportTracks = { onTrackAction(ykws.android.maro.data.model.ListAction.ImportTracks) },
-                onExportAllTracks = { onTrackAction(ykws.android.maro.data.model.ListAction.BatchExportGpx(trackSummaries.map { it.id }.toSet())) }
+                onImportTracks = { onDismissMenu(); onTrackAction(ykws.android.maro.data.model.ListAction.ImportTracks) },
+                onExportAllTracks = { onDismissMenu(); onTrackAction(ykws.android.maro.data.model.ListAction.BatchExportGpx(trackSummaries.map { it.id }.toSet())) }
             )
         }
 
