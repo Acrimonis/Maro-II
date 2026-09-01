@@ -1,3 +1,4 @@
+<!-- scope: reference -->
 ## #focus
 
 Switch the active feature/subfeature for the current session.

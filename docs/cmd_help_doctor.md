@@ -1,3 +1,4 @@
+<!-- scope: reference -->
 ## #doctor
 
 Lint the xTrack stack for structural drift.

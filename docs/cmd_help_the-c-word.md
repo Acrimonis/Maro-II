@@ -1,3 +1,4 @@
+<!-- scope: reference -->
 ## #the-c-word
 
 Placeholder / easter-egg command in the xTrack command list. Referenced from AGENTS.md §7b.8.

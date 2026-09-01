@@ -1,4 +1,4 @@
-<!-- scope: core -->
+<!-- scope: feature -->
 
 # Prebake Batch
 

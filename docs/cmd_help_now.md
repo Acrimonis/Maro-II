@@ -1,3 +1,4 @@
+<!-- scope: reference -->
 ## #now
 
 Display lightweight orientation or a compact feature dashboard.

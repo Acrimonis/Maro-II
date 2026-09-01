@@ -1,3 +1,4 @@
+<!-- scope: reference -->
 ## #rule
 
 Manage context rules at three scope levels.

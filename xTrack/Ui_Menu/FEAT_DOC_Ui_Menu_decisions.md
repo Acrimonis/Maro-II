@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # Ui_Menu — Architectural Decisions
 
 ## 1. Feature Scope

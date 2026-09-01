@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # BARO — Bathymetry & Depth Feature for Maro II
 
 > **Feature codename**: BARO (from "bathymétrie")

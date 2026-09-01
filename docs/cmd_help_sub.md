@@ -1,3 +1,4 @@
+<!-- scope: reference -->
 ## #sub
 
 Add or list subfeatures within the active feature.

@@ -1,3 +1,4 @@
+<!-- scope: reference -->
 # UI Component Guidelines
 
 > **Canonical patterns** for cards, expanders, toggles, sliders, and drawers across the app.

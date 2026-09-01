@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # GPS Trace Pipeline — Complete Reference
 
 > **Updated:** 2026-07-17 | **Status:** Current as of poor-reception implementation

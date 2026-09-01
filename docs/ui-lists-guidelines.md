@@ -1,3 +1,4 @@
+<!-- scope: reference -->
 # UI Lists Guidelines
 
 Canonical reference for `ListOverlayScaffold<T : ListableItem>` — the shared list

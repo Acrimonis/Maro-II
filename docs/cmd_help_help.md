@@ -1,3 +1,4 @@
+<!-- scope: reference -->
 ## #help
 
 Display command reference.

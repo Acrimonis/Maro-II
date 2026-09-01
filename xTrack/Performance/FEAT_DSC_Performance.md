@@ -4,9 +4,6 @@ status: active
 created: 2026-06-07 00:00
 modified: 2026-06-10 06:14
 active_subfeature: none
-subs_total: 6
-subs_done: 5
-one_liner: Cut battery drain by making GPS acquisition tunable + movement-adaptive, capping map re-render rate, and powering the compass only when needed.
 ---
 
 # Feature: Performance

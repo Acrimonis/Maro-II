@@ -1,3 +1,4 @@
+<!-- scope: reference -->
 ## #doc
 
 Manage documentation attached to a feature scope.

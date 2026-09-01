@@ -1,3 +1,4 @@
+<!-- scope: reference -->
 ## #status
 
 Show a detailed single-feature dashboard, or diff since last bake.

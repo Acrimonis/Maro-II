@@ -1,3 +1,4 @@
+<!-- scope: reference -->
 ## #bake
 
 Snapshot the current session into per-feature hydration memory.

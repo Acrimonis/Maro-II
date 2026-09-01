@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # BARO — Step 01: Data Sources Analysis
 
 > **Parent**: [BARO - general concepts.md](plans/BARO - general concepts.md)

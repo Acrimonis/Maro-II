@@ -1,3 +1,4 @@
+<!-- scope: reference -->
 ## Git — workflow shortcuts
 
 Convenience wrappers over standard git. **🔴 See [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md) for the Hard Rule — `#merge`/`#push`/`#commit` refuse on `develop`/`main`.**

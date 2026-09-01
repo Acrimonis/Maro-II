@@ -1,3 +1,4 @@
+<!-- scope: reference -->
 ## #todo
 
 Track todos at three scope levels.

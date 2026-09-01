@@ -1,3 +1,4 @@
+<!-- scope: reference -->
 ## #doc update
 
 Refresh the active feature's documentation to match current implementation reality.

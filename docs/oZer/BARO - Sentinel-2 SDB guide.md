@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # BARO — Sentinel-2 Satellite-Derived Bathymetry (SDB) Guide
 
 > **Parent**: [BARO - general concepts.md](plans/BARO - general concepts.md)

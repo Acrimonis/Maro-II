@@ -1,3 +1,4 @@
+---
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
@@ -659,6 +660,7 @@ Both locales must be complete — English as baseline, French as translation.
 
 ## Docs
 - `docs/ui-lists-guidelines.md` — ListOverlayScaffold API, filter system, sort+filter popup styling, swipe-to-delete, card tap & navigation chevron (28dp)
+- `docs/ui-component-guidelines.md` — canonical UI component patterns (cards, buttons, surfaces, spacing)
 - `docs/ui-drawer-guidelines.md` — DrawerScaffold API, row types (including navigation chevron 28dp), I23 chevron normalization decision
 - `docs/material-icons-standalone-guide.md` — standalone icon registry (FilterAlt, FilterList, Refresh)
 - `xTrack/Ui_General/260615_FEAT_PLN_Ui_General_portrait-bottom-space.md` — analysis of portrait bottom space and status bar immersion

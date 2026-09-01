@@ -1,3 +1,4 @@
+<!-- scope: reference -->
 # Drawer UI Guidelines
 
 > **Purpose:** Canonical reference for rendering any drawer/panel surface in Maro II.

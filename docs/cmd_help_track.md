@@ -1,3 +1,4 @@
+<!-- scope: reference -->
 ## #track
 
 Create a new tracked feature.

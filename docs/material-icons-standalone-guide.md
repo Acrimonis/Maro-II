@@ -1,3 +1,4 @@
+<!-- scope: reference -->
 # Material Symbols — Standalone Icon Import
 
 > How to add Google Fonts Material Symbols icons as standalone Compose `ImageVector` files, without the `material-icons-extended` library.

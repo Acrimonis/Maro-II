@@ -1,3 +1,4 @@
+<!-- scope: reference -->
 ## #doc audit
 
 Audit all documentation for structural issues.

@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # BARO — Alternative Bathymetry Sources (finer than HOMONIM 100m)
 
 > **Parent**: [BARO - Step 01 - Data sources discussion](plans/BARO - Step 01 - Data sources discussion.md)

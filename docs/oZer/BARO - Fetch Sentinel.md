@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # BARO — Fetching Sentinel-2 Data
 
 > **Parent**: [BARO - Sentinel-2 SDB guide](plans/BARO - Sentinel-2 SDB guide.md)

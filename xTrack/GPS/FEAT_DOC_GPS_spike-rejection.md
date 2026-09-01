@@ -1,3 +1,4 @@
+<!-- scope: feature -->
 # GPS Spike Rejection — Architecture & Gates
 
 **Updated:** 2026-07-14

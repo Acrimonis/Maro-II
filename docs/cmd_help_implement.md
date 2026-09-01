@@ -1,3 +1,4 @@
+<!-- scope: reference -->
 ## #implement
 
 Full implementation pipeline: Code → build → Ask review → Architect report.

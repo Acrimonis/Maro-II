@@ -1,3 +1,4 @@
+<!-- scope: reference -->
 View:     #now                 current context: active feature + subs list + working path [alias #context #here #feat #feature]
           #list                compact feature table with Modified column, sorted by Modified desc (from GLOBAL_CONTEXT.md summaries) [alias #features]
           #status              feature details (active, subfeature-scoped when focused)
