@@ -1926,7 +1926,7 @@ fun MapScreen(
                 onDismissTrackHistory = { showTrackHistory = false },
                 onUpdateTrack = { id, name, comment, pinned ->
                     pinned?.let { trackViewModel.setPinned(id, it) }
-                    trackViewModel.updateTrack(id, name, comment)
+                    if (name != null || comment != null) trackViewModel.updateTrack(id, name, comment)
                 },
                 onDeleteTrack = { id -> trackViewModel.deleteTrack(id) },
                 onShareGpx = { id ->

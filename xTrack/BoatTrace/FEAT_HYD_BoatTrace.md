@@ -1,6 +1,6 @@
 # BoatTrace — Hydration Snapshot
 
-**Baked at:** 2026-08-31 16:20 UTC
+**Baked at:** 2026-09-01 07:48 UTC
 **Active Subfeature:** marker-export-import
 **Branch:** feature/track-n-markers
 
@@ -12,6 +12,7 @@ Auto-marker lifecycle + marker-track relationship rework, in phases:
 - **Phase 2 (marker-track link):** single `UserMarker.trackId` set at creation; one-time backfill migration; removed persisted `BoatMarker.autoMarkerId`; delete-track deletes its IDLE_AUTO markers; markers rendered from unfiltered `_allMarkers`; marker badge + "Belongs to track" row. BUILD SUCCESSFUL.
 - **Track export:** fixed duplicate-entry crash (unique names), Windows-safe filename sanitization, `yyyy_MM_dd_HH_mm-title-counter.gpx` naming, menu Import/Export reorder with labeled controls.
 - **Track import modes:** single GPX → Skip/Update/New dialog; ZIP → silent skip; update prefers edited `<trkpt>` points and recomputes stats. BUILD SUCCESSFUL.
+- **Bug fix (track-pin crash):** `save()` shared-tmp race → `NoSuchFileException`; fixed with unique temp filename + guarded `atomicReplace` fallback + collapsed redundant double-save in `onUpdateTrack` handlers. BUILD SUCCESSFUL.
 - **Phase 3** (cross-navigation) planned, deferred. **Phase 4** marker export/import planned, partially implemented (track import modes done).
 
 ## Next Step

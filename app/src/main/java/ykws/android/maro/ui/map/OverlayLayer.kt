@@ -395,7 +395,7 @@ fun OverlayLayer(
                             accentColor = ComposeColor(0xFFFFD700.toInt()),
                             onUpdateTrack = { id, name, comment, pinned ->
                                 pinned?.let { trackViewModel.setPinned(id, it) }
-                                trackViewModel.updateTrack(id, name, comment)
+                                if (name != null || comment != null) trackViewModel.updateTrack(id, name, comment)
                             },
                             onShareGpx = { onShareTrack(track.id) },
                             onTap = null
@@ -472,7 +472,7 @@ fun OverlayLayer(
                             accentColor = ComposeColor(0xFFFFD700.toInt()),
                             onUpdateTrack = { id, name, comment, pinned ->
                                 pinned?.let { trackViewModel.setPinned(id, it) }
-                                trackViewModel.updateTrack(id, name, comment)
+                                if (name != null || comment != null) trackViewModel.updateTrack(id, name, comment)
                             },
                             onShareGpx = { onShareTrack(track.id) },
                             onTap = null
@@ -517,7 +517,7 @@ fun OverlayLayer(
                 liveTrackState = trackRecorderState,
                 onUpdateTrack = { id, name, comment, pinned ->
                     pinned?.let { trackViewModel.setPinned(id, it) }
-                    trackViewModel.updateTrack(id, name, comment)
+                    if (name != null || comment != null) trackViewModel.updateTrack(id, name, comment)
                 },
                 onUpdateLiveTrack = { name, comment ->
                     trackViewModel.updateLiveTrackMeta(name, comment)
