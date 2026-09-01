@@ -1,5 +1,7 @@
 package ykws.android.maro.data.track
 
+import kotlinx.coroutines.Job
+
 /**
  * Per-idle-period context — created on idle entry, consumed on exit.
  *
@@ -13,8 +15,8 @@ package ykws.android.maro.data.track
  *                             for the open BoatMarker, or null.
  * @property drawerAutoOpened  True if the drawer was auto-opened during
  *                             this idle session.
- * @property autoMarkerId      ID of the temporary 🕐 pin created by
- *                             MapScreen, or null.
+ * @property autoMarkerId      ID of the temporary 🕐 pin, or null.
+ * @property autoMarkerJob     In-flight createTemp job; joined before resolve.
  */
 class IdleSessionContext(
     val startTimeMs: Long,
@@ -23,5 +25,6 @@ class IdleSessionContext(
     var boatMarkerIndex: Int? = null,
     var drawerAutoOpened: Boolean = false,
     var autoMarkerId: String? = null,
-    var boatMarkerMerged: Boolean = false
+    var boatMarkerMerged: Boolean = false,
+    var autoMarkerJob: Job? = null
 )

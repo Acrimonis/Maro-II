@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import ykws.android.maro.data.markers.UserMarkerRepository
 import ykws.android.maro.data.model.ListFilter
 import ykws.android.maro.data.model.ListSortState
 import ykws.android.maro.data.model.matchesFilter
@@ -34,6 +35,7 @@ import ykws.android.maro.data.settings.AppSettings
 class TrackViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = TrackRepository(application)
+    private val markerRepository = UserMarkerRepository(application)
 
     // ── Settings injection (set via observeSettings from MapScreen) ──
 
@@ -49,6 +51,7 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Unfiltered source of truth — reloaded from repository. */
     private val _allSummaries = MutableStateFlow<List<TrackSummary>>(emptyList())
+    val allSummaries: StateFlow<List<TrackSummary>> = _allSummaries.asStateFlow()
 
     private val _summaries = MutableStateFlow<List<TrackSummary>>(emptyList())
     val summaries: StateFlow<List<TrackSummary>> = _summaries.asStateFlow()
@@ -91,6 +94,7 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         }
         viewModelScope.launch {
             runTrackSchemaMigration()
+            runMarkerLinkMigration()
             recoverOrphanedCheckpoints()
             refreshSummaries()
             if (TrackRecordingService.isRecording.value) {
@@ -141,20 +145,6 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         val json = Json.encodeToString(snapshots)
         startService(TrackRecordingService.ACTION_ADD_MANUAL_BOAT_MARKER) {
             putExtra(TrackRecordingService.EXTRA_MARKER_SNAPSHOTS_JSON, json)
-        }
-    }
-
-    /** Set the auto-marker ID on the active idle session. */
-    fun setActiveSessionAutoMarkerId(id: String) {
-        startService(TrackRecordingService.ACTION_SET_ACTIVE_SESSION_AUTO_MARKER_ID) {
-            putExtra(TrackRecordingService.EXTRA_AUTO_MARKER_ID, id)
-        }
-    }
-
-    /** Store the confirmed auto-marker ID in the track's BoatMarker entry. */
-    fun setBoatMarkerAutoMarkerId(id: String) {
-        startService(TrackRecordingService.ACTION_SET_BOAT_MARKER_AUTO_MARKER_ID) {
-            putExtra(TrackRecordingService.EXTRA_BOAT_MARKER_AUTO_MARKER_ID, id)
         }
     }
 
@@ -280,11 +270,11 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
     /** Load a full track by ID for detail view. */
     suspend fun loadTrackDetail(id: String): Track? = repository.load(id)
 
-    /** Delete a track by ID. */
+    /** Delete a track by ID — cascade removes its IDLE_AUTO markers first. */
     fun deleteTrack(id: String) {
         invalidateTrackCache(id)
         viewModelScope.launch {
-            repository.delete(id)
+            repository.delete(id, excludeActiveTrackId = _uiState.value.currentTrackId)
             refreshSummaries()
         }
     }
@@ -325,16 +315,31 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
 
             repository.save(merged)
 
+            // Reassign source markers → merged.id BEFORE deleting originals, so the
+            // delete cascade never sweeps the very markers being reassigned.
+            // Applies for both keepOriginals=true and false.
+            reassignMarkersToTrack(trackIds, merged.id)
+
             if (!keepOriginals) {
                 trackIds.forEach { id ->
                     invalidateTrackCache(id)
-                    repository.delete(id)
+                    repository.delete(id, excludeActiveTrackId = _uiState.value.currentTrackId)
                 }
             }
 
             refreshSummaries()
             _events.emit(TrackEvent.TracksMerged(merged.id, merged.name))
         }
+    }
+
+    /** Re-point every marker owned by a source track at [mergedTrackId] (single saveAll). */
+    private suspend fun reassignMarkersToTrack(sourceTrackIds: Set<String>, mergedTrackId: String) {
+        val all = markerRepository.loadAll()
+        if (all.none { it.trackId != null && it.trackId in sourceTrackIds }) return
+        val updated = all.map { m ->
+            if (m.trackId != null && m.trackId in sourceTrackIds) m.copy(trackId = mergedTrackId) else m
+        }
+        markerRepository.saveAll(updated)
     }
 
     /** Resolve orphaned checkpoint: save as completed track. */
@@ -365,19 +370,38 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Import tracks from a GPX file or ZIP archive.
-     * Saves each imported track via [TrackRepository.save], applying anti-collision
-     * name resolution against existing track names.
+     * Peek at a single GPX input and report whether it matches an existing track.
+     * Returns the matched track's id + name, or null when there is no match or the
+     * input is a ZIP (batch imports never prompt).
      *
-     * @param input     InputStream from the file picker URI.
+     * @param input     File bytes from the file picker URI (read once, reused for import).
      * @param extension "gpx" or "zip".
+     */
+    suspend fun peekImportMatch(input: ByteArray, extension: String): ImportMatch? {
+        val summaries = _allSummaries.value
+        val existingIds = summaries.map { it.id }.toSet()
+        val existingIdByName = summaries.associate { it.name to it.id }
+        return GpxImporter.peekImportMatch(input, extension, existingIds, existingIdByName)
+    }
+
+    /**
+     * Import tracks from a GPX file or ZIP archive.
+     * Saves each imported track via [TrackRepository.saveOrReplace]: UPDATE keeps the
+     * matched id (replacing in place), NEW/foreign imports get fresh ids.
+     *
+     * @param input     File bytes from the file picker URI (read once).
+     * @param extension "gpx" or "zip".
+     * @param mode      How to treat matches. ZIP input is always SKIP_EXISTING.
      * @return Number of tracks imported.
      */
-    suspend fun importTracks(input: java.io.InputStream, extension: String): Int {
-        val existingNames = _allSummaries.value.map { it.name }.toSet()
-        val tracks = GpxImporter.import(input, extension, existingNames)
+    suspend fun importTracks(input: ByteArray, extension: String, mode: ImportMode): Int {
+        val summaries = _allSummaries.value
+        val existingNames = summaries.map { it.name }.toSet()
+        val existingIds = summaries.map { it.id }.toSet()
+        val existingIdByName = summaries.associate { it.name to it.id }
+        val tracks = GpxImporter.import(input, extension, existingNames, existingIds, existingIdByName, mode)
         for (track in tracks) {
-            repository.save(track)
+            repository.saveOrReplace(track)
         }
         refreshSummaries()
         return tracks.size
@@ -393,8 +417,24 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /**
+     * One-time backfill: map legacy BoatMarker.autoMarkerId → UserMarker.trackId.
+     * Must run before the persisted field is fully superseded; idempotent, version-gated.
+     */
+    private suspend fun runMarkerLinkMigration() {
+        val prefs = getApplication<Application>()
+            .getSharedPreferences("maro_marker_link_schema", android.content.Context.MODE_PRIVATE)
+        if (prefs.getInt(KEY_MARKER_LINK_SCHEMA_VERSION, 0) < MARKER_LINK_SCHEMA_VERSION) {
+            repository.migrateMarkerTrackLink()
+            prefs.edit().putInt(KEY_MARKER_LINK_SCHEMA_VERSION, MARKER_LINK_SCHEMA_VERSION).apply()
+        }
+    }
+
     companion object {
         private const val TRACK_SCHEMA_VERSION = 4
         private const val KEY_TRACK_SCHEMA_VERSION = "track_schema_version"
+
+        private const val MARKER_LINK_SCHEMA_VERSION = 1
+        private const val KEY_MARKER_LINK_SCHEMA_VERSION = "marker_link_schema_version"
     }
 }

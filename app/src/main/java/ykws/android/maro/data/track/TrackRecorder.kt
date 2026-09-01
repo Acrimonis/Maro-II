@@ -21,6 +21,7 @@ import kotlinx.coroutines.runBlocking
 import ykws.android.maro.BuildConfig
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.location.GpsLocationSource
+import ykws.android.maro.data.markers.AutoMarkerManager
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.MarkerOrigin
 import ykws.android.maro.data.model.markers.UserMarker
@@ -154,7 +155,8 @@ class TrackRecorder(
     private val whereAmI: ((LatLng) -> WhereAmIResult)? = null,
     private val markerChangeNotifier: Flow<Unit>? = null,
     private val gapDistanceThresholdM: Double = 200.0,
-    private val gapTimeThresholdSec: Long = 120L
+    private val gapTimeThresholdSec: Long = 120L,
+    private val autoMarkerManager: AutoMarkerManager? = null
 ) {
     private val _uiState = MutableStateFlow(TrackRecorderUiState())
     val uiState: StateFlow<TrackRecorderUiState> = _uiState.asStateFlow()
@@ -244,24 +246,6 @@ class TrackRecorder(
     private var elapsedTimerJob: Job? = null
     private var titlePollJob: Job? = null
     private var markerObserverJob: Job? = null
-
-    /** Called by MapScreen to set the 🕐 auto-marker ID on the active idle session. */
-    fun setActiveSessionAutoMarkerId(id: String) {
-        activeSession?.autoMarkerId = id
-    }
-
-    /** Called by MapScreen when an auto-marker is confirmed — stores the ID in the track's BoatMarker. */
-    fun setBoatMarkerAutoMarkerId(id: String) {
-        val session = activeSession ?: return
-        val idx = session.boatMarkerIndex ?: return
-        val track = currentTrack ?: return
-        if (idx in track.boatMarkers.indices) {
-            val bm = track.boatMarkers[idx]
-            val updated = track.boatMarkers.toMutableList().also { it[idx] = bm.copy(autoMarkerId = id) }
-            currentTrack = track.copy(boatMarkers = updated)
-            scope?.launch { currentTrack?.let { repository.saveCheckpoint(it) } }
-        }
-    }
 
     /**
      * Manually append a BoatMarker to the current track.
@@ -674,7 +658,12 @@ class TrackRecorder(
             idleStartMs = now
             val lat = sample.position.latitude
             val lon = sample.position.longitude
-            activeSession = IdleSessionContext(startTimeMs = now, entryLat = lat, entryLon = lon)
+            val session = IdleSessionContext(startTimeMs = now, entryLat = lat, entryLon = lon)
+            activeSession = session
+            session.autoMarkerJob = scope?.launch {
+                val id = autoMarkerManager?.createTemp(lat, lon, now, currentTrack?.id).orEmpty()
+                session.autoMarkerId = id.ifEmpty { null }
+            }
             _events.tryEmit(IdlePeriodStarted(entryLat = lat, entryLon = lon, startTimeMs = now))
             startIdleTimer(lat, lon, now)
         } else if (!stopped && wasStopped) {
@@ -693,14 +682,10 @@ class TrackRecorder(
                     if (session.drawerAutoOpened) {
                         _events.tryEmit(DrawerAutoCloseRequested)
                     }
-                    _events.tryEmit(IdlePeriodCompleted(
-                        entryLat = session.entryLat,
-                        entryLon = session.entryLon,
-                        startTimeMs = session.startTimeMs,
-                        endTimeMs = now,
-                        durationSec = delta,
-                        autoMarkerId = session.autoMarkerId
-                    ))
+                    scope?.launch {
+                        session.autoMarkerJob?.join()
+                        resolveAutoMarker(session, now, delta, finalized = false)
+                    }
                 }
             }
             activeSession = null
@@ -1058,21 +1043,13 @@ class TrackRecorder(
             track.trackPoints
         }
 
-        // Flush idle session — close open BoatMarker + emit IdlePeriodCompleted
+        // Flush idle session — close open BoatMarker (final open idle is kept, §9)
         val session = activeSession
         if (wasStopped && idleStartMs > 0) {
             val delta = (System.currentTimeMillis() - idleStartMs) / 1000
             idleDurationSec += delta
             if (session != null) {
                 closeOpenBoatMarker(System.currentTimeMillis())
-                _events.tryEmit(IdlePeriodCompleted(
-                    entryLat = session.entryLat,
-                    entryLon = session.entryLon,
-                    startTimeMs = session.startTimeMs,
-                    endTimeMs = 0L,
-                    durationSec = 0L,
-                    autoMarkerId = session.autoMarkerId
-                ))
             }
         }
         activeSession = null
@@ -1116,7 +1093,26 @@ class TrackRecorder(
         // D: transactional finalize — persist the finalized track and remove the checkpoint
         // synchronously on IO so the Stop tap is durable before the recorder leaves ON state.
         // A: save before delete, so a crash leaves a complete copy (finalized .bin or checkpoint).
+        // Resolve the final open idle's auto-marker: confirm on success, fallback delete on failure (§4).
+        // The marker's trackId was set at creation — no BoatMarker link to persist here.
         runBlocking(Dispatchers.IO) {
+            val mgr = autoMarkerManager
+            if (mgr != null && session != null) {
+                session.autoMarkerJob?.join()
+                val id = session.autoMarkerId
+                if (id != null) {
+                    try {
+                        mgr.confirm(id, session.startTimeMs, 0L, 0L)
+                    } catch (e: Exception) {
+                        Log.w(TAG, "finalizeTrack: confirm failed — fallback delete", e)
+                        try {
+                            mgr.delete(id)
+                        } catch (e2: Exception) {
+                            Log.w(TAG, "finalizeTrack: fallback delete also failed", e2)
+                        }
+                    }
+                }
+            }
             repository.save(finalizedTrack)
             repository.deleteCheckpoint(finalizedTrack.id)
         }
@@ -1247,9 +1243,6 @@ class TrackRecorder(
                     recomputeDescription()
                     pollTitle()
                 }
-                if (result.autoMarkerId != null) {
-                    session.autoMarkerId = result.autoMarkerId
-                }
                 if (result.shouldOpenDrawer) {
                     session.drawerAutoOpened = true
                     _events.tryEmit(DrawerAutoOpenRequested)
@@ -1277,6 +1270,41 @@ class TrackRecorder(
             )
             scope?.launch {
                 currentTrack?.let { repository.saveCheckpoint(it) }
+            }
+        }
+    }
+
+    /**
+     * Resolve a completed idle session's auto-marker: confirm (duration ≥ min, or
+     * finalize) or delete when too short. The marker's trackId is set at creation,
+     * so no BoatMarker link needs to be persisted here.
+     */
+    private suspend fun resolveAutoMarker(
+        session: IdleSessionContext,
+        endTimeMs: Long,
+        durationSec: Long,
+        finalized: Boolean
+    ) {
+        val mgr = autoMarkerManager ?: return
+        val id = session.autoMarkerId ?: return
+        val minDuration = AppConfig.boatMarkerAutoMarkerMinDurationSec
+        if (finalized || durationSec >= minDuration) {
+            try {
+                mgr.confirm(id, session.startTimeMs, endTimeMs, durationSec)
+            } catch (e: Exception) {
+                Log.w(TAG, "resolveAutoMarker: confirm failed — fallback delete", e)
+                try {
+                    mgr.delete(id)
+                } catch (e2: Exception) {
+                    Log.w(TAG, "resolveAutoMarker: fallback delete also failed", e2)
+                }
+                return
+            }
+        } else {
+            try {
+                mgr.delete(id)
+            } catch (e: Exception) {
+                Log.w(TAG, "resolveAutoMarker: delete failed", e)
             }
         }
     }

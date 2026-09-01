@@ -162,6 +162,13 @@
     <string name="recovery_continue">Continue</string>
     <string name="recovery_save">Save</string>
 
+    <!-- Track import match dialog -->
+    <string name="import_match_title">Existing track found</string>
+    <string name="import_match_message">This file matches \"%1$s\". How would you like to import it?</string>
+    <string name="import_skip">Skip</string>
+    <string name="import_update">Update</string>
+    <string name="import_new">New</string>
+
     <!-- Background location permission -->
     <string name="bg_location_title">Background Location</string>
     <string name="bg_location_message">Background tracking needs \'Allow all the time\' location permission.</string>
@@ -188,7 +195,7 @@
     <string name="menu_section_tracks">TRACKS</string>
     <string name="menu_section_markers">MARKERS</string>
     <string name="menu_manage_tracks">Tracks</string>
-    <string name="menu_import_export">Import / Export</string>
+    <string name="menu_import_export">Export / Import</string>
     <string name="menu_show_zones">Show Zones on Map</string>
     <string name="menu_manage_markers">Markers</string>
     <string name="track_status_recording">● Recording</string>

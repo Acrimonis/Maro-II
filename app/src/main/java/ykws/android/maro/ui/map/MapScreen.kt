@@ -4,6 +4,7 @@ import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.track.TrackRecordingService
 import ykws.android.maro.data.model.matchesFilter
 import ykws.android.maro.data.track.toGpx
+import ykws.android.maro.data.track.ImportMode
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -188,6 +189,7 @@ import ykws.android.maro.data.regulation.RegulatedZoneSet
 import ykws.android.maro.data.regulation.RegulatedZonesRepository
 import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.model.markers.MarkerGeometry
+import ykws.android.maro.data.model.markers.MarkerOrigin
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.data.markers.UserMarkerRepository
 import ykws.android.maro.ui.components.ConfirmSheet
@@ -232,6 +234,23 @@ private data class TrackDrawerState(
     val track: ykws.android.maro.data.track.Track? = null,
     val mapWasInteracted: Boolean = false
 )
+
+/** Held while the user decides how to import a single GPX that matches an existing track. */
+private data class PendingTrackImport(
+    val bytes: ByteArray,
+    val extension: String,
+    val matchName: String
+)
+
+/** Toast for a completed import (skip/update/new all funnel through importTracks). */
+private fun showImportToast(context: android.content.Context, count: Int) {
+    android.widget.Toast.makeText(
+        context,
+        if (count > 0) "Imported $count track${if (count != 1) "s" else ""}"
+        else "Import failed — no valid tracks found",
+        android.widget.Toast.LENGTH_SHORT
+    ).show()
+}
 
 /** Snackbar entry for the vertical stack — track/marker deletes + marker-created undo. */
 private sealed class ActiveSnack(val id: String, val name: String) {
@@ -415,8 +434,11 @@ fun MapScreen(
     val debugSegments by markersViewModel.debugSegments.collectAsState()
     val trackRecorderState by trackViewModel.uiState.collectAsState()
     val trackSummaries by trackViewModel.summaries.collectAsState()
+    val allTrackSummaries by trackViewModel.allSummaries.collectAsState()
     val recoveryTrack by trackViewModel.recoveryTrack.collectAsState()
     val trackScope = rememberCoroutineScope()
+    // Single-GPX import whose match dialog is pending a Skip / Update / New choice.
+    var pendingTrackImport by remember { mutableStateOf<PendingTrackImport?>(null) }
 
     // ── Vertical snackbar stack state helpers ────────────────────────────
     fun enqueueSnack(snack: ActiveSnack) {
@@ -615,13 +637,20 @@ fun MapScreen(
             trackScope.launch(Dispatchers.IO) {
                 try {
                     val extension = uri.toString().substringAfterLast('.').lowercase().take(10)
-                    context.contentResolver.openInputStream(uri)?.use { input ->
-                        val count = trackViewModel.importTracks(input, extension)
-                        withContext(Dispatchers.Main) {
-                            android.widget.Toast.makeText(context,
-                                if (count > 0) "Imported $count track${if (count != 1) "s" else ""}"
-                                else "Import failed — no valid tracks found",
-                                android.widget.Toast.LENGTH_SHORT).show()
+                    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                        ?: return@launch
+                    if (extension == "zip") {
+                        val count = trackViewModel.importTracks(bytes, extension, ImportMode.SKIP_EXISTING)
+                        withContext(Dispatchers.Main) { showImportToast(context, count) }
+                    } else {
+                        val match = trackViewModel.peekImportMatch(bytes, extension)
+                        if (match != null) {
+                            withContext(Dispatchers.Main) {
+                                pendingTrackImport = PendingTrackImport(bytes, extension, match.name)
+                            }
+                        } else {
+                            val count = trackViewModel.importTracks(bytes, extension, ImportMode.IMPORT_NEW)
+                            withContext(Dispatchers.Main) { showImportToast(context, count) }
                         }
                     }
                 } catch (_: Exception) {
@@ -809,6 +838,7 @@ fun MapScreen(
 
     // ── User markers: from MarkersViewModel ─────────────────────────────────────────
     val userMarkers by markersViewModel.markers.collectAsState()
+    val allMarkers by markersViewModel.allMarkers.collectAsState()
     val markerLayerState by markersViewModel.markerLayerState.collectAsState()
     val markerLayerVisible = markerLayerState != MarkerLayerState.HIDDEN
 
@@ -825,14 +855,14 @@ fun MapScreen(
         trackViewModel.observeSettings(viewModel.settings)
     }
 
-    // ── Startup: clean up non-keepable auto-markers (orphaned from crash) ──
+    // ── Startup: clean up crash-orphaned auto-markers (IDLE_AUTO && !keepable) ──
     LaunchedEffect(Unit) {
-        val nonKeepable = userMarkers.filter { !it.keepable }
-        for (m in nonKeepable) {
+        val crashOrphans = userMarkers.filter { it.origin == MarkerOrigin.IDLE_AUTO && !it.keepable }
+        for (m in crashOrphans) {
             markersViewModel.deleteMarker(m.id)
         }
-        if (nonKeepable.isNotEmpty()) {
-            Log.d("MaroII_Map", "Startup cleanup: removed ${nonKeepable.size} non-keepable markers")
+        if (crashOrphans.isNotEmpty()) {
+            Log.d("MaroII_Map", "Startup cleanup: removed ${crashOrphans.size} crash-orphan auto-markers")
         }
     }
 
@@ -884,19 +914,10 @@ fun MapScreen(
         }
     }
 
-    // ── Track event observation: idle auto-marker lifecycle ──
-    var pendingAutoMarkerId by remember { mutableStateOf<String?>(null) }
+    // ── Track event observation: drawer auto-open/close + live polyline restore ──
     LaunchedEffect(Unit) {
         trackViewModel.events.collect { event ->
             when (event) {
-                is ykws.android.maro.data.track.TrackEvent.IdlePeriodStarted -> {
-                    val markerId = markersViewModel.addTempAutoMarker(
-                        event.entryLat, event.entryLon, event.startTimeMs)
-                    if (markerId.isNotEmpty()) {
-                        pendingAutoMarkerId = markerId
-                        trackViewModel.setActiveSessionAutoMarkerId(markerId)
-                    }
-                }
                 is ykws.android.maro.data.track.TrackEvent.DrawerAutoOpenRequested -> {
                     if (markersViewModel.drawerState.value == MarkerDrawerState.Hidden) {
                         val pos = gpsPosition ?: mapCenter
@@ -907,35 +928,6 @@ fun MapScreen(
                     if (markersViewModel.drawerState.value == MarkerDrawerState.MatchResult) {
                         markersViewModel.closeDrawer()
                     }
-                }
-                is ykws.android.maro.data.track.TrackEvent.IdlePeriodCompleted -> {
-                    val id = event.autoMarkerId ?: return@collect
-                    try {
-                        val minDuration = AppConfig.boatMarkerAutoMarkerMinDurationSec
-                        if (event.durationSec >= minDuration || event.endTimeMs == 0L) {
-                            val title = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
-                                .format(java.util.Date(event.startTimeMs))
-                            val startFmt = java.text.SimpleDateFormat("HH:mm", java.util.Locale.US)
-                                .format(java.util.Date(event.startTimeMs))
-                            val durMin = event.durationSec / 60
-                            val desc = if (event.endTimeMs == 0L) {
-                                "@ $startFmt -> ?"
-                            } else {
-                                val endFmt = java.text.SimpleDateFormat("HH:mm", java.util.Locale.US)
-                                    .format(java.util.Date(event.endTimeMs))
-                                "@ $startFmt -> $endFmt ($durMin min)"
-                            }
-                            markersViewModel.confirmAutoMarker(id, title, desc)
-                            trackViewModel.setBoatMarkerAutoMarkerId(id)
-                            markerChangeFlow.tryEmit(Unit)
-                        } else {
-                            markersViewModel.deleteMarker(id)
-                            markerChangeFlow.tryEmit(Unit)
-                        }
-                    } catch (e: Exception) {
-                        Log.w("MaroII_Map", "autoMarker finalize failed", e)
-                    }
-                    pendingAutoMarkerId = null
                 }
                 is ykws.android.maro.data.track.TrackEvent.Resumed -> {
                     // Restore checkpoint points to the live polyline on Continue.
@@ -1183,10 +1175,9 @@ fun MapScreen(
             } else emptySet()
         } else emptySet()
 
-        // Remove all existing track history overlays + auto-marker pins — rebuild from scratch
+        // Remove all existing track history overlays — rebuild from scratch
         val toRemove = mv.overlays.filter { overlay ->
-            (overlay as? org.osmdroid.views.overlay.Polyline)?.title?.startsWith("track_hist_") == true ||
-            (overlay as? org.osmdroid.views.overlay.Marker)?.title?.startsWith("track_auto_hist_") == true
+            (overlay as? org.osmdroid.views.overlay.Polyline)?.title?.startsWith("track_hist_") == true
         }
         mv.overlays.removeAll(toRemove)
 
@@ -1274,26 +1265,6 @@ fun MapScreen(
                 }
             }
 
-            // ── Auto-marker 🕐 pins for this history track ──
-            for (bm in track.boatMarkers) {
-                val markerId = bm.autoMarkerId ?: continue
-                val iconMarker = org.osmdroid.views.overlay.Marker(mv).apply {
-                    position = org.osmdroid.util.GeoPoint(bm.boatLat, bm.boatLon)
-                    setAnchor(org.osmdroid.views.overlay.Marker.ANCHOR_CENTER, org.osmdroid.views.overlay.Marker.ANCHOR_CENTER)
-                    title = "track_auto_hist_${summary.id}_${bm.sequenceIndex}"
-                    val bitmap = android.graphics.Bitmap.createBitmap(48, 48, android.graphics.Bitmap.Config.ARGB_8888)
-                    val canvas = android.graphics.Canvas(bitmap)
-                    val paint = android.graphics.Paint().apply {
-                        color = appearances.last().argb
-                        textSize = 36f
-                        textAlign = android.graphics.Paint.Align.CENTER
-                        isAntiAlias = true
-                    }
-                    canvas.drawText("\uD83D\uDD50", 24f, 34f, paint)
-                    icon = android.graphics.drawable.BitmapDrawable(mv.context.resources, bitmap)
-                }
-                trackOverlays.add(iconMarker)
-            }
             historyOverlays.add(trackOverlays)
         }
         historyOverlays.reverse()
@@ -1303,8 +1274,7 @@ fun MapScreen(
 
         // ── Pinned tracks: always render all, separate colors/transparency ──
         val toRemovePinned = mv.overlays.filter { overlay ->
-            (overlay as? org.osmdroid.views.overlay.Polyline)?.title?.startsWith("track_pin_") == true ||
-            (overlay as? org.osmdroid.views.overlay.Marker)?.title?.startsWith("track_auto_pin_") == true
+            (overlay as? org.osmdroid.views.overlay.Polyline)?.title?.startsWith("track_pin_") == true
         }
         mv.overlays.removeAll(toRemovePinned)
 
@@ -1385,26 +1355,6 @@ fun MapScreen(
                 }
             }
 
-            // ── Auto-marker 🕐 pins for this pinned track ──
-            for (bm in track.boatMarkers) {
-                val markerId = bm.autoMarkerId ?: continue
-                val iconMarker = org.osmdroid.views.overlay.Marker(mv).apply {
-                    position = org.osmdroid.util.GeoPoint(bm.boatLat, bm.boatLon)
-                    setAnchor(org.osmdroid.views.overlay.Marker.ANCHOR_CENTER, org.osmdroid.views.overlay.Marker.ANCHOR_CENTER)
-                    title = "track_auto_pin_${summary.id}_${bm.sequenceIndex}"
-                    val bitmap = android.graphics.Bitmap.createBitmap(48, 48, android.graphics.Bitmap.Config.ARGB_8888)
-                    val canvas = android.graphics.Canvas(bitmap)
-                    val paint = android.graphics.Paint().apply {
-                        color = appearances.last().argb
-                        textSize = 36f
-                        textAlign = android.graphics.Paint.Align.CENTER
-                        isAntiAlias = true
-                    }
-                    canvas.drawText("\uD83D\uDD50", 24f, 34f, paint)
-                    icon = android.graphics.drawable.BitmapDrawable(mv.context.resources, bitmap)
-                }
-                trackOverlays.add(iconMarker)
-            }
             pinnedOverlays.add(trackOverlays)
         }
         pinnedOverlays.reverse()
@@ -1425,14 +1375,8 @@ fun MapScreen(
         if (highlightedTrackId != null) {
             val highlightedOverlays = mv.overlays.filter { overlay ->
                 val polyTitle = (overlay as? org.osmdroid.views.overlay.Polyline)?.title
-                if (polyTitle != null) {
-                    polyTitle == "track_hist_$highlightedTrackId" ||
-                    polyTitle == "track_pin_$highlightedTrackId"
-                } else {
-                    val markerTitle = (overlay as? org.osmdroid.views.overlay.Marker)?.title
-                    markerTitle?.startsWith("track_auto_hist_${highlightedTrackId}_") == true ||
-                    markerTitle?.startsWith("track_auto_pin_${highlightedTrackId}_") == true
-                }
+                polyTitle == "track_hist_$highlightedTrackId" ||
+                polyTitle == "track_pin_$highlightedTrackId"
             }
             mv.overlays.removeAll(highlightedOverlays)
             mv.overlays.addAll(highlightedOverlays)
@@ -2074,7 +2018,7 @@ fun MapScreen(
                 val matchResult by markersViewModel.matchResult.collectAsState()
                 val selectedMarkerId by markersViewModel.selectedMarkerId.collectAsState()
                 MarkerOverlay(
-                    markers = userMarkers,
+                    markers = allMarkers,
                     mapView = mapView,
                     proximityZoneMultiplier = AppConfig.markerProximityZoneMultiplier,
                     unconfirmedMarker = unconfirmedMarker,
@@ -2340,6 +2284,7 @@ fun MapScreen(
             },
             boatPosition = gpsPosition ?: mapCenter,
             markers = mgmtMarkers,
+            trackTitleLookup = { id -> allTrackSummaries.firstOrNull { it.id == id }?.name },
             onMarkerAction = { action ->
                 when (action) {
                     is ykws.android.maro.data.model.ListAction.NavigateToItem -> openMarkerDetail(action.id, fromList = true)
@@ -2528,6 +2473,48 @@ fun MapScreen(
             )
         }
 
+        // ── Single-GPX import match dialog (Skip / Update / New) ────────
+        pendingTrackImport?.let { pending ->
+            fun runImport(mode: ImportMode) {
+                pendingTrackImport = null
+                trackScope.launch(Dispatchers.IO) {
+                    try {
+                        val count = trackViewModel.importTracks(pending.bytes, pending.extension, mode)
+                        withContext(Dispatchers.Main) { showImportToast(context, count) }
+                    } catch (_: Exception) {
+                        withContext(Dispatchers.Main) {
+                            android.widget.Toast.makeText(context, "Import failed", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            }
+            androidx.compose.material3.AlertDialog(
+                onDismissRequest = { pendingTrackImport = null },
+                title = { androidx.compose.material3.Text(stringResource(R.string.import_match_title)) },
+                text = {
+                    Column {
+                        androidx.compose.material3.Text(
+                            stringResource(R.string.import_match_message, pending.matchName)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        androidx.compose.material3.TextButton(
+                            onClick = { runImport(ImportMode.IMPORT_NEW) }
+                        ) { androidx.compose.material3.Text(stringResource(R.string.import_new)) }
+                    }
+                },
+                confirmButton = {
+                    androidx.compose.material3.TextButton(
+                        onClick = { runImport(ImportMode.UPDATE_EXISTING) }
+                    ) { androidx.compose.material3.Text(stringResource(R.string.import_update)) }
+                },
+                dismissButton = {
+                    androidx.compose.material3.TextButton(
+                        onClick = { pendingTrackImport = null }
+                    ) { androidx.compose.material3.Text(stringResource(R.string.import_skip)) }
+                }
+            )
+        }
+
         // ── Background location permission dialog (A2) ──────────────────
         if (showBgLocationDialog) {
             androidx.compose.material3.AlertDialog(
@@ -2698,6 +2685,39 @@ fun MapScreen(
 }
 
 /**
+ * Sanitizes a track name for use as a filesystem file name.
+ *
+ * Replaces Windows-forbidden and control characters (0x00-1F), trims trailing
+ * spaces/dots, caps length at 100, falls back to "track" when blank, and guards
+ * against reserved device names (CON, PRN, AUX, NUL, COM1-9, LPT1-9).
+ */
+private fun sanitizeFileName(name: String): String {
+    val sanitized = name
+        .replace(Regex("""[\\/:*?"<>|\u0000-\u001F]"""), "_")
+        .trim(' ', '.')
+        .take(100)
+    val fallback = sanitized.ifBlank { "track" }
+    val base = fallback.substringBefore('.').uppercase()
+    val reserved = base == "CON" || base == "PRN" || base == "AUX" || base == "NUL" ||
+        base.startsWith("COM") && base.removePrefix("COM").toIntOrNull() in 1..9 ||
+        base.startsWith("LPT") && base.removePrefix("LPT").toIntOrNull() in 1..9
+    return if (reserved) "_$fallback" else fallback
+}
+
+/**
+ * Builds the shared file base name for a track: `yyyy_MM_dd_HH_mm-title`.
+ *
+ * Uses the track's start time (falling back to now when unknown) and sanitizes
+ * the title (spaces become underscores) via [sanitizeFileName].
+ */
+private fun trackFileBaseName(name: String, startTimeMs: Long): String {
+    val ts = java.text.SimpleDateFormat("yyyy_MM_dd_HH_mm", java.util.Locale.US)
+        .format(java.util.Date(if (startTimeMs == 0L) System.currentTimeMillis() else startTimeMs))
+    val title = sanitizeFileName(name.replace(" ", "_"))
+    return "$ts-$title"
+}
+
+/**
  * Share a track as a GPX file via Android's share intent.
  */
 private fun shareTrackGpx(
@@ -2709,7 +2729,7 @@ private fun shareTrackGpx(
     scope.launch(kotlinx.coroutines.Dispatchers.IO) {
         val track = trackViewModel.loadTrackDetail(trackId) ?: return@launch
         val gpx = track.toGpx()
-        val safeName = track.name.replace(Regex("""[/\\:*?"<>|]"""), "_").take(100)
+        val safeName = "${trackFileBaseName(track.name, track.startTimeMs)}-1"
         val gpxFile = java.io.File(context.filesDir, "tracks/$safeName.gpx")
         gpxFile.parentFile?.mkdirs()
         gpxFile.writeText(gpx)
@@ -2737,22 +2757,26 @@ private fun shareTracksZip(
     scope: kotlinx.coroutines.CoroutineScope
 ) {
     scope.launch {
+        if (trackIds.isEmpty()) return@launch
         val timestamp = java.text.SimpleDateFormat("yyyy_MM_dd_HHmmss", java.util.Locale.US).format(java.util.Date())
         val zipFile = java.io.File(context.filesDir, "tracks/maro-tracks-$timestamp.zip")
         zipFile.parentFile?.mkdirs()
         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            val tracks = trackIds
+                .mapNotNull { id -> trackViewModel.loadTrackDetail(id) }
+                .sortedWith(compareBy({ it.startTimeMs }, { it.id }))
+            val counters = HashMap<String, Int>()
             java.util.zip.ZipOutputStream(java.io.BufferedOutputStream(java.io.FileOutputStream(zipFile))).use { zos ->
-                trackIds.forEach { id ->
-                    val track = trackViewModel.loadTrackDetail(id)
-                    if (track != null) {
-                        val gpx = track.toGpx()
-                        val safeName = track.name.replace(Regex("""[/\\:*?"<>|]"""), "_").take(100)
-                        val entry = java.util.zip.ZipEntry("$safeName.gpx")
-                        entry.time = track.startTimeMs
-                        zos.putNextEntry(entry)
-                        zos.write(gpx.toByteArray())
-                        zos.closeEntry()
-                    }
+                tracks.forEach { track ->
+                    val gpx = track.toGpx()
+                    val base = trackFileBaseName(track.name, track.startTimeMs)
+                    val counter = (counters[base] ?: -1) + 1
+                    counters[base] = counter
+                    val entry = java.util.zip.ZipEntry("$base-$counter.gpx")
+                    entry.time = track.startTimeMs
+                    zos.putNextEntry(entry)
+                    zos.write(gpx.toByteArray())
+                    zos.closeEntry()
                 }
             }
         }

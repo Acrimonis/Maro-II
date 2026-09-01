@@ -93,7 +93,8 @@ fun MarkerDrawer(
     isLandscape: Boolean,
     onClose: () -> Unit,
     boatPosition: LatLng? = null,
-    onRequestDelete: (String, String) -> Unit = { _, _ -> }
+    onRequestDelete: (String, String) -> Unit = { _, _ -> },
+    trackTitleLookup: (String) -> String? = { null }
 ) {
     val drawerState by viewModel.drawerState.collectAsState()
     val isOpen = drawerState !is MarkerDrawerState.Hidden
@@ -108,7 +109,7 @@ fun MarkerDrawer(
     }
 
     when (drawerState) {
-        is MarkerDrawerState.Viewing -> ViewingContent(viewModel, onClose, boatPosition, panelShape, onRequestDelete, isLandscape)
+        is MarkerDrawerState.Viewing -> ViewingContent(viewModel, onClose, boatPosition, panelShape, onRequestDelete, isLandscape, trackTitleLookup)
         is MarkerDrawerState.MatchResult -> MatchResultContent(viewModel, onClose, boatPosition, panelShape, isLandscape)
         else -> { /* Creating/Editing handled by WizardDrawer */ }
     }
@@ -125,7 +126,8 @@ private fun ViewingContent(
     boatPosition: LatLng? = null,
     shape: Shape,
     onRequestDelete: (String, String) -> Unit = { _, _ -> },
-    isLandscape: Boolean
+    isLandscape: Boolean,
+    trackTitleLookup: (String) -> String? = { null }
 ) {
     val markers by viewModel.markers.collectAsState()
     val selectedIds by viewModel.selectedMarkerIds.collectAsState()
@@ -197,6 +199,34 @@ private fun ViewingContent(
                 onLongPress = null,
                 showChevron = false
             )
+
+            // ── Belongs-to-track row (display-only — no tap navigation) ────
+            val owningTrackTitle = marker.trackId?.let(trackTitleLookup)
+            if (owningTrackTitle != null) {
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(ComposeColor(AppConfig.uiCardBackground))
+                        .padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "\uD83D\uDEE4",
+                        color = ComposeColor(AppConfig.uiSettingsAccent),
+                        fontSize = 16.sp
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        text = "Belongs to track: $owningTrackTitle",
+                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                        fontSize = 13.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
 
             // ── Previous/Next navigation (wizard-style pills) ─────────────
             if (hasMultiple) {

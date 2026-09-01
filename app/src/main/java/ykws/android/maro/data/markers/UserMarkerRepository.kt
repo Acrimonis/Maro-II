@@ -4,6 +4,11 @@ import android.content.Context
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import ykws.android.maro.data.model.markers.MarkerGeometry
@@ -37,6 +42,9 @@ class UserMarkerRepository(
         prettyPrint = true
     }
 
+    /** Serializes load-modify-save cycles — two writers (UI VM + service) share the file. */
+    private val writeMutex = Mutex()
+
     private val markersFile: File get() = File(markersDir, MARKERS_FILE_NAME)
 
     /** Load all markers from disk. Returns empty list if the file does not exist. */
@@ -68,17 +76,18 @@ class UserMarkerRepository(
         )
         tmp.renameTo(markersFile)
         lastKnownGood = markers
+        _markerChanges.tryEmit(Unit)
     }
 
-    /** Add a single marker and persist. */
-    suspend fun add(marker: UserMarker) = withContext(Dispatchers.IO) {
+    /** Add a single marker and persist. Serialized against concurrent writers. */
+    suspend fun add(marker: UserMarker) = writeMutex.withLock {
         val all = loadAll().toMutableList()
         all.add(marker)
         saveAll(all)
     }
 
-    /** Update an existing marker by ID (no-op if not found). */
-    suspend fun update(marker: UserMarker) = withContext(Dispatchers.IO) {
+    /** Update an existing marker by ID (no-op if not found). Serialized against concurrent writers. */
+    suspend fun update(marker: UserMarker) = writeMutex.withLock {
         val all = loadAll().toMutableList()
         val idx = all.indexOfFirst { it.id == marker.id }
         if (idx >= 0) {
@@ -87,8 +96,8 @@ class UserMarkerRepository(
         }
     }
 
-    /** Delete a marker by ID. */
-    suspend fun delete(id: String) = withContext(Dispatchers.IO) {
+    /** Delete a marker by ID. Serialized against concurrent writers. */
+    suspend fun delete(id: String) = writeMutex.withLock {
         val all = loadAll().toMutableList()
         all.removeAll { it.id == id }
         saveAll(all)
@@ -122,5 +131,10 @@ class UserMarkerRepository(
         private const val MARKERS_TMP_NAME = "user_markers.json.tmp"
         private const val MARKERS_BACKUP_NAME = "user_markers.json.bak"
         private const val TAG = "UserMarkerRepo"
+
+        private val _markerChanges = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+        /** Process-scoped change channel — emits whenever any instance persists markers. */
+        val markerChanges: SharedFlow<Unit> = _markerChanges.asSharedFlow()
     }
 }

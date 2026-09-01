@@ -25,13 +25,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.IconButton
 import ykws.android.maro.ui.components.FilterControl
 import ykws.android.maro.ui.icons.FilterAlt
-import ykws.android.maro.ui.icons.Publish
 import ykws.android.maro.ui.icons.Refresh
-import ykws.android.maro.ui.icons.Upload
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -251,31 +251,39 @@ fun MenuDrawerOverlay(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    text = stringResource(R.string.menu_import_export),
-                    color = Color(AppConfig.uiSettingsTextPrimary),
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Row {
-                    IconButton(
-                        onClick = onImportTracks,
-                        modifier = Modifier.size(48.dp)
-                    ) {
-                        Icon(
-                            imageVector = Publish,
-                            contentDescription = "Import tracks",
-                            tint = ButtonColors.icon,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = stringResource(R.string.action_export),
+                        color = Color(AppConfig.uiSettingsTextPrimary),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
                     IconButton(
                         onClick = onExportAllTracks,
                         modifier = Modifier.size(48.dp)
                     ) {
                         Icon(
-                            imageVector = Upload,
+                            imageVector = Icons.Filled.Upload,
                             contentDescription = "Export all tracks",
+                            tint = ButtonColors.icon,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = stringResource(R.string.action_import),
+                        color = Color(AppConfig.uiSettingsTextPrimary),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    IconButton(
+                        onClick = onImportTracks,
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Download,
+                            contentDescription = "Import tracks",
                             tint = ButtonColors.icon,
                             modifier = Modifier.size(24.dp)
                         )
