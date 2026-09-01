@@ -26,21 +26,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.filled.MergeType
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.LocationOff
-import androidx.compose.material.icons.outlined.PushPin
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
@@ -73,14 +67,9 @@ import ykws.android.maro.data.model.MultiActionSpec
 import ykws.android.maro.data.model.MultiActionSubSpec
 import ykws.android.maro.data.model.markerFilterAxes
 import ykws.android.maro.data.model.markers.MarkerGeometry
-import ykws.android.maro.data.model.markers.MarkerOrigin
 import ykws.android.maro.data.model.markers.UserMarker
-import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.ui.components.ListOverlayScaffold
 import ykws.android.maro.ui.components.SavedScrollState
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 /**
  * Full-screen overlay displaying a LazyColumn of user marker cards with
@@ -103,9 +92,7 @@ fun MarkerManagementOverlay(
     onCreateFirst: () -> Unit,
     onDismiss: () -> Unit,
     onSetIcon: (String, String?) -> Unit = { _, _ -> },
-    onTogglePin: (String, Boolean) -> Unit = { _, _ -> },
     onUpdateMarkerText: (String, String?, String?) -> Unit = { _, _, _ -> },
-    onMergeMarkers: (Set<String>, String, Boolean) -> Unit = { _, _, _ -> },
     sortState: ykws.android.maro.data.model.ListSortState,
     onSortStateChange: (ykws.android.maro.data.model.ListSortState) -> Unit,
     filterState: ListFilter = ListFilter(),
@@ -117,18 +104,18 @@ fun MarkerManagementOverlay(
 ) {
     val markerCustomSortFields = remember {
         listOf(
-            CustomSortField("origin", R.string.sort_custom_origin)
+            CustomSortField("origin", R.string.sort_custom_origin, descendingDefault = false)
         )
     }
 
     val deleteLabel = stringResource(R.string.action_delete)
-    val pinLabel = stringResource(R.string.action_pin)
+    val iconLabel = stringResource(R.string.action_icon)
     val confirmDeleteMsg = stringResource(R.string.confirm_delete_markers)
     val setIconAllLabel = stringResource(R.string.action_set_icon_all)
     val clearIconAllLabel = stringResource(R.string.action_clear_icon_all)
-    val toggleIconsLabel = stringResource(R.string.action_toggle_icons)
+    val pendingIconApplyIds = remember { mutableStateOf<Set<String>?>(null) }
 
-    val markerMultiActions = remember(markers, onMergeMarkers) {
+    val markerMultiActions = remember(markers) {
         listOf(
             MultiActionSpec(
                 id = "delete",
@@ -139,139 +126,21 @@ fun MarkerManagementOverlay(
                 action = { ids -> ids.forEach { onAction(ListAction.PermanentDelete(it)) } }
             ),
             MultiActionSpec(
-                id = "pin",
-                label = pinLabel,
-                icon = Icons.Filled.PushPin,
+                id = "icon",
+                label = iconLabel,
+                icon = Icons.Outlined.LocationOff,
                 subActions = listOf(
                     MultiActionSubSpec(
-                        id = "pin_all",
+                        id = "set_icon",
                         label = setIconAllLabel,
-                        action = { ids -> ids.forEach { onTogglePin(it, true) } }
+                        action = { ids -> pendingIconApplyIds.value = ids }
                     ),
                     MultiActionSubSpec(
-                        id = "unpin_all",
+                        id = "clear_icon",
                         label = clearIconAllLabel,
-                        action = { ids -> ids.forEach { onTogglePin(it, false) } }
-                    ),
-                    MultiActionSubSpec(
-                        id = "toggle_pins",
-                        label = toggleIconsLabel,
-                        action = { ids ->
-                            ids.forEach { id ->
-                                val current = markers.find { it.id == id }?.pinned ?: false
-                                onTogglePin(id, !current)
-                            }
-                        }
+                        action = { ids -> ids.forEach { onSetIcon(it, null) } }
                     )
                 )
-            ),
-            MultiActionSpec(
-                id = "merge",
-                label = "Merge",
-                icon = Icons.AutoMirrored.Filled.MergeType,
-                enabled = { ids ->
-                    ids.count { id -> markers.find { it.id == id }?.origin == MarkerOrigin.IDLE_AUTO } >= 2
-                },
-                confirmContent = { ids, onDismiss, onConfirm ->
-                    val autoMarkers = markers.filter { it.id in ids && it.origin == MarkerOrigin.IDLE_AUTO }
-                    val earliestDate = autoMarkers.minOfOrNull { it.createdAtEpochMs } ?: System.currentTimeMillis()
-                    val dateStr = remember(autoMarkers) {
-                        SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(earliestDate))
-                    }
-                    val defaultName = "Merged $dateStr"
-
-                    val centers = autoMarkers.map { it.centerPoint }
-                    var minDist = Double.MAX_VALUE
-                    var maxDist = 0.0
-                    for (i in centers.indices) {
-                        for (j in i + 1 until centers.size) {
-                            val d = SpatialOperations.haversine(centers[i], centers[j])
-                            if (d < minDist) minDist = d
-                            if (d > maxDist) maxDist = d
-                        }
-                    }
-                    val distSummary = if (autoMarkers.size >= 2 && minDist <= maxDist) {
-                        "Markers range from ${"%.0f".format(minDist)}m to ${"%.0f".format(maxDist)}m apart."
-                    } else {
-                        ""
-                    }
-
-                    var name by remember { mutableStateOf(defaultName) }
-                    var keepOriginals by remember { mutableStateOf(true) }
-
-                    AlertDialog(
-                        onDismissRequest = onDismiss,
-                        title = { Text("Merge ${autoMarkers.size} Auto Markers") },
-                        text = {
-                            Column {
-                                if (distSummary.isNotEmpty()) {
-                                    Text(
-                                        distSummary,
-                                        color = Color(AppConfig.uiSettingsTextMuted),
-                                        fontSize = 13.sp
-                                    )
-                                }
-                                Text(
-                                    "One consolidated marker at the center.",
-                                    color = Color(AppConfig.uiSettingsTextMuted),
-                                    fontSize = 13.sp
-                                )
-                                Spacer(Modifier.height(8.dp))
-                                Text(
-                                    "Name:",
-                                    color = Color(AppConfig.uiSettingsTextMuted),
-                                    fontSize = 13.sp
-                                )
-                                TextField(
-                                    value = name,
-                                    onValueChange = { name = it },
-                                    singleLine = true,
-                                    textStyle = TextStyle(
-                                        color = Color(AppConfig.uiSettingsTextPrimary),
-                                        fontSize = 15.sp
-                                    ),
-                                    colors = TextFieldDefaults.colors(
-                                        focusedContainerColor = Color.Transparent,
-                                        unfocusedContainerColor = Color.Transparent,
-                                        focusedTextColor = Color(AppConfig.uiSettingsTextPrimary),
-                                        unfocusedTextColor = Color(AppConfig.uiSettingsTextPrimary),
-                                        cursorColor = Color(AppConfig.uiSettingsTextPrimary)
-                                    ),
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                                Spacer(Modifier.height(8.dp))
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Checkbox(
-                                        checked = keepOriginals,
-                                        onCheckedChange = { keepOriginals = it }
-                                    )
-                                    Text(
-                                        "Keep original markers",
-                                        color = Color(AppConfig.uiSettingsTextPrimary),
-                                        fontSize = 14.sp
-                                    )
-                                }
-                            }
-                        },
-                        confirmButton = {
-                            TextButton(
-                                onClick = {
-                                    val autoIds = autoMarkers.map { it.id }.toSet()
-                                    onMergeMarkers(autoIds, name.ifBlank { defaultName }, keepOriginals)
-                                    onConfirm()
-                                }
-                            ) {
-                                Text("Merge")
-                            }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = onDismiss) {
-                                Text("Cancel")
-                            }
-                        },
-                        containerColor = Color(0xFF2D2D2D)
-                    )
-                }
             )
         )
     }
@@ -296,7 +165,6 @@ fun MarkerManagementOverlay(
                 onTap = { onAction(ykws.android.maro.data.model.ListAction.NavigateToItem(marker.id)) },
                 onEdit = { onAction(ykws.android.maro.data.model.ListAction.EditItem(marker.id)) },
                 onSetIcon = onSetIcon,
-                onTogglePin = { onTogglePin(marker.id, !marker.pinned) },
                 onUpdateText = { name, desc -> onUpdateMarkerText(marker.id, name, desc) },
                 onLongPress = onLongPress
             )
@@ -323,6 +191,17 @@ fun MarkerManagementOverlay(
         lazyListState = lazyListState,
         restoredScrollState = restoredScrollState
     )
+
+    pendingIconApplyIds.value?.let { ids ->
+        IconPickerDialog(
+            currentIcon = null,
+            onIconSelected = { icon ->
+                ids.forEach { onSetIcon(it, icon) }
+                pendingIconApplyIds.value = null
+            },
+            onDismiss = { pendingIconApplyIds.value = null }
+        )
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -345,7 +224,6 @@ internal fun MarkerCardContent(
     onTap: () -> Unit,
     onEdit: () -> Unit,
     onSetIcon: (String, String?) -> Unit,
-    onTogglePin: () -> Unit,
     onUpdateText: (String?, String?) -> Unit,
     onLongPress: (() -> Unit)? = null,
     showChevron: Boolean = true
@@ -395,17 +273,6 @@ internal fun MarkerCardContent(
                         modifier = Modifier.weight(1f)
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                        IconButton(
-                            onClick = onTogglePin,
-                            modifier = Modifier.size(36.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (marker.pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
-                                contentDescription = if (marker.pinned) stringResource(R.string.cd_unpin) else stringResource(R.string.cd_pin),
-                                tint = ButtonColors.icon,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
                         var showIconPicker by remember { mutableStateOf(false) }
                         IconButton(
                             onClick = { showIconPicker = true },

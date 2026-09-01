@@ -2366,9 +2366,7 @@ fun MapScreen(
                 markersViewModel.startWizard(initialPos = mapCenter)
             },
             onSetIcon = { id, icon -> markersViewModel.setMarkerIcon(id, icon) },
-            onToggleMarkerPin = { id, pinned -> markersViewModel.togglePin(id, pinned) },
             onUpdateMarkerText = { id, name, desc -> markersViewModel.updateMarkerText(id, name, desc) },
-            onMergeMarkers = { ids, name, keep -> markersViewModel.mergeAutoMarkers(ids, name, keep) },
             // ── List-detail navigation ──────────────────────────────────
             trackListIds = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id },
             currentTrackIndex = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id }.indexOf(trackDrawerState.track?.id ?: "").coerceAtLeast(0),

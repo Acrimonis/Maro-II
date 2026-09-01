@@ -111,7 +111,7 @@ object AppConfig {
         private set
 
     /** Dedup radius (m) — skip auto-marker creation if an existing IDLE_AUTO marker is within this distance. */
-    var boatMarkerAutoMarkerDedupRadiusM: Double = 50.0
+    var boatMarkerAutoMarkerDedupRadiusM: Double = 25.0
         private set
     /** Minimum cumulative track point distance (m) between idle periods at same location to consider them separate stops. */
     var boatMarkerMinTravelBetweenStopsM: Double = 25.0

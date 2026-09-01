@@ -1,6 +1,6 @@
 # BoatTrace — Hydration Snapshot
 
-**Baked at:** 2026-09-01 16:16 UTC
+**Baked at:** 2026-09-01 17:52 UTC
 **Active Subfeature:** marker-export-import
 **Branch:** feature/track-n-markers
 
@@ -17,6 +17,9 @@ Auto-marker lifecycle + marker-track relationship rework, in phases:
 - **Drawer Import/Export:** whole control clickable + dismiss-then-action; "Exporting/Importing…" status banner. BUILD SUCCESSFUL.
 - **Pin unification:** PushPin icon + `cd_pin`/`cd_unpin` across track/marker cards + multi-select. BUILD SUCCESSFUL.
 - **Marker pinned→icon simplification:** drop `pinned`, derive from `icon != null`; one-time migration; geometry filter split (Pins/Circles/Corridors); origin sort Manual-first; "Icon" filter labels; emojis 📍/🎯/🛤️. BUILD SUCCESSFUL.
+- **Marker icon multi-select:** "Set icon" opens the emoji picker (applies to selection; "None" clears), "Clear icon" clears; removed "Toggle icon" + dead onTogglePin/togglePin plumbing; removed marker "Merge" (dedup radius already prevents duplicate auto-markers). BUILD SUCCESSFUL.
+- **Auto-marker dedup radius:** default 50 → 25 m (AppConfig.kt fallback + maro.properties).
+- **Title sort fix:** per-field direction defaults (Title A→Z, Created newest-first, origin USER-first), legacy parse branch, emoji-stripping title key. BUILD SUCCESSFUL.
 - **Phase 3** (cross-navigation) planned, deferred. **Phase 4** marker export/import planned (track import modes done).
 
 ## Next Step

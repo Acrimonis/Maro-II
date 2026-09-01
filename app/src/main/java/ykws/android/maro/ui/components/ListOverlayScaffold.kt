@@ -167,7 +167,7 @@ private fun SortControl(
                                     Row(
                                         modifier = Modifier.fillMaxWidth().clickable {
                                             if (isSelected) onStateChange(state.copy(descending = !state.descending))
-                                            else onStateChange(state.copy(field = field, customFieldKey = null))
+                                            else onStateChange(state.copy(field = field, customFieldKey = null, descending = (field == ListSortField.CREATED)))
                                             expanded = false
                                         }.padding(horizontal = 16.dp, vertical = 2.dp),
                                         verticalAlignment = Alignment.CenterVertically
@@ -195,7 +195,7 @@ private fun SortControl(
                                         Row(
                                             modifier = Modifier.fillMaxWidth().clickable {
                                                 if (isSelected) onStateChange(state.copy(descending = !state.descending))
-                                                else onStateChange(state.copy(field = ListSortField.CREATED, customFieldKey = cf.key))
+                                                else onStateChange(state.copy(field = ListSortField.CREATED, customFieldKey = cf.key, descending = cf.descendingDefault))
                                                 expanded = false
                                             }.padding(horizontal = 16.dp, vertical = 2.dp),
                                             verticalAlignment = Alignment.CenterVertically
