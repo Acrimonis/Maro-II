@@ -97,7 +97,7 @@ Intercept `#`-prefix. All name lookups use fuzzy-resolve cascade (exact → subs
 
 | #cmd | Action |
 |------|--------|
-| `#list` | Dashboard of all features from GLOBAL_CONTEXT.md Feature Summaries table — includes Modified column, sorted by Modified desc |
+| `#list` | Dashboard of all features from GLOBAL_CONTEXT.md Feature Summaries table — includes Summary and Modified columns, sorted by Modified desc |
 | `#focus [name]` | Pivot active feature; bare=prompt pick. Sub: `#focus sub [name]` / `#focus out` |
 | `#track [name]` | Create new feature file + GLOBAL_CONTEXT.md routing/summary rows |
 | `#sub [name]` | Decompose subfeature under active feature; bare=list with focus marker |
