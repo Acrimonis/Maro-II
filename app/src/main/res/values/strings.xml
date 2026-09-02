@@ -29,7 +29,8 @@
     <string name="settings_gps_mode_desc">Follow your GPS position and orient the map (otherwise demo mode)</string>
     <string name="settings_recenter_label">Recenter delay</string>
     <string name="settings_recenter_desc">Time before GPS recenters after a manual pan</string>
-    <string name="settings_section_display">Display</string>
+    <string name="settings_section_layers">Layers</string>
+    <string name="settings_section_navigation">Navigation</string>
     <string name="settings_coastline_label">Coastline</string>
     <string name="settings_coastline_desc">Show the coastline on the map</string>
     <string name="settings_zone300_label">300 m zone</string>

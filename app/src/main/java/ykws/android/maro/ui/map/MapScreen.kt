@@ -4364,14 +4364,9 @@ private fun GeneralSettings(
             .fillMaxSize()
             .verticalScroll(scrollState)
     ) {
-        // ── Coastline overlay toggle ──────────────────────────────────
-        SectionHeader(title = stringResource(R.string.settings_section_display))
+        // ── Layers — map overlay toggles ──────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_section_layers), uppercase = false)
         Spacer(modifier = Modifier.height(8.dp))
-
-        SubSectionHeader(
-            title = "Layers",
-            description = null
-        )
         // ── Low-depth warning overlay toggle — grouped card ────────────
         //   (placed before zone 300 and regulated zones so the two spatial
         //    overlays are grouped together)
@@ -4454,7 +4449,7 @@ private fun GeneralSettings(
                     }
                 }
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(4.dp))
         }
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -4575,7 +4570,7 @@ private fun GeneralSettings(
                         RegulatedZoneCategoryToggles(settings, onUpdateSettings)
                     }
                 }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(4.dp))
         }
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -4615,7 +4610,7 @@ private fun GeneralSettings(
                     }
                 }
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(4.dp))
         }
         Spacer(modifier = Modifier.height(12.dp))
 
@@ -5013,7 +5008,7 @@ private fun GeneralSettings(
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(4.dp))
         }
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -5111,7 +5106,7 @@ private fun GeneralSettings(
                     }
                 }
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(4.dp))
         }
 
         Spacer(modifier = Modifier.height(12.dp))
@@ -5128,11 +5123,8 @@ private fun GeneralSettings(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // ── Heading direction line toggle ────────────────────────────
-        SubSectionHeader(
-            title = "Navigation",
-            description = null
-        )
+        // ── Navigation — map orientation aids ─────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_section_navigation), uppercase = false)
         Spacer(modifier = Modifier.height(8.dp))
 
         SettingsToggleRow(
@@ -5301,7 +5293,7 @@ private fun NavigationSettings(
                         }
                     }
                 }
-                Spacer(Modifier.height(16.dp))
+                Spacer(Modifier.height(4.dp))
             }
         }
 
@@ -5731,13 +5723,39 @@ private fun SystemSettings(
                 .background(ComposeColor(AppConfig.uiCardBackground))
                 .padding(vertical = 8.dp)
         ) {
-            // Enable stop detection toggle
-            SettingsToggleRow(
-                label = stringResource(R.string.settings_stop_enable_label),
-                description = stringResource(R.string.settings_stop_enable_desc),
-                checked = settings.stopDetectionEnabled,
-                onCheckedChange = { on -> onUpdateSettings { it.copy(stopDetectionEnabled = on) } }
-            )
+            // Enable stop detection toggle (inline)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_stop_enable_label),
+                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_stop_enable_desc),
+                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        fontSize = 13.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Switch(
+                    checked = settings.stopDetectionEnabled,
+                    onCheckedChange = { on -> onUpdateSettings { it.copy(stopDetectionEnabled = on) } },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                    )
+                )
+            }
 
             // Conditional content: only shown when stop detection is enabled
             if (settings.stopDetectionEnabled) {
@@ -5776,52 +5794,212 @@ private fun SystemSettings(
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-                // Thin divider
-                Spacer(Modifier.height(8.dp))
-
-                // Delay GPS when still toggle
-                SettingsToggleRow(
-                    label = stringResource(R.string.settings_stop_delay_label),
-                    description = stringResource(R.string.settings_stop_delay_desc),
-                    checked = settings.stopDetectionDelayGps,
-                    onCheckedChange = { on -> onUpdateSettings { it.copy(stopDetectionDelayGps = on) } }
-                )
+                // Delay GPS when still toggle (inline)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = stringResource(R.string.settings_stop_delay_label),
+                            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_stop_delay_desc),
+                            color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                            fontSize = 13.sp
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    Switch(
+                        checked = settings.stopDetectionDelayGps,
+                        onCheckedChange = { on -> onUpdateSettings { it.copy(stopDetectionDelayGps = on) } },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                            checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                            uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
+                            uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                        )
+                    )
+                }
             }
         }
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        Spacer(modifier = Modifier.height(24.dp))
-
         // ── Regenerate Layers ─────────────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_regenerate_layers))
-        Spacer(modifier = Modifier.height(4.dp))
-        SettingsToggleRow(
-            label = "Depth grid",
-            description = "Reload the prebaked depth grid from assets",
-            checked = settings.regenGrid,
-            onCheckedChange = { v -> onUpdateSettings { it.copy(regenGrid = v) } }
-        )
-        SettingsToggleRow(
-            label = "Isobath contours",
-            description = "Re-derive contour lines from the grid",
-            checked = settings.regenIsobaths,
-            onCheckedChange = { v -> onUpdateSettings { it.copy(regenIsobaths = v) } }
-        )
-        SettingsToggleRow(
-            label = "Depth colour map",
-            description = "Rebuild the depth-coloured raster overlay",
-            checked = settings.regenColour,
-            onCheckedChange = { v -> onUpdateSettings { it.copy(regenColour = v) } }
-        )
-        SettingsToggleRow(
-            label = "Low-depth warning overlay",
-            description = "Rebuild the shallow-water magenta hazard overlay",
-            checked = settings.regenWarning,
-            onCheckedChange = { v -> onUpdateSettings { it.copy(regenWarning = v) } }
-        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(ComposeColor(AppConfig.uiCardBackground))
+                .padding(vertical = 8.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Depth grid",
+                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = "Reload the prebaked depth grid from assets",
+                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        fontSize = 13.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Switch(
+                    checked = settings.regenGrid,
+                    onCheckedChange = { v -> onUpdateSettings { it.copy(regenGrid = v) } },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                    )
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .height(1.dp)
+                    .background(ComposeColor(AppConfig.uiSettingsDivider))
+            )
+            Spacer(Modifier.height(6.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Isobath contours",
+                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = "Re-derive contour lines from the grid",
+                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        fontSize = 13.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Switch(
+                    checked = settings.regenIsobaths,
+                    onCheckedChange = { v -> onUpdateSettings { it.copy(regenIsobaths = v) } },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                    )
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .height(1.dp)
+                    .background(ComposeColor(AppConfig.uiSettingsDivider))
+            )
+            Spacer(Modifier.height(6.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Depth colour map",
+                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = "Rebuild the depth-coloured raster overlay",
+                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        fontSize = 13.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Switch(
+                    checked = settings.regenColour,
+                    onCheckedChange = { v -> onUpdateSettings { it.copy(regenColour = v) } },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                    )
+                )
+            }
+            Spacer(Modifier.height(6.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .height(1.dp)
+                    .background(ComposeColor(AppConfig.uiSettingsDivider))
+            )
+            Spacer(Modifier.height(6.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Low-depth warning overlay",
+                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = "Rebuild the shallow-water magenta hazard overlay",
+                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        fontSize = 13.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Switch(
+                    checked = settings.regenWarning,
+                    onCheckedChange = { v -> onUpdateSettings { it.copy(regenWarning = v) } },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                    )
+                )
+            }
+        }
         Spacer(modifier = Modifier.height(8.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -5851,13 +6029,13 @@ private fun SystemSettings(
 // ── Settings sub-components ─────────────────────────────────────────────────
 
 @Composable
-private fun SectionHeader(title: String) {
+private fun SectionHeader(title: String, uppercase: Boolean = true) {
     Text(
-        text = title.uppercase(),
+        text = if (uppercase) title.uppercase() else title,
         color = ComposeColor(AppConfig.uiSettingsAccent),
         fontSize = 17.sp,
         fontWeight = FontWeight.Bold,
-        letterSpacing = 1.sp
+        letterSpacing = if (uppercase) 1.sp else 0.sp
     )
 }
 
@@ -6098,7 +6276,7 @@ private fun SettingsExpander(
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(8.dp))
                 .clickable { onToggle() }
-                .padding(vertical = 8.dp),
+                .padding(vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(

@@ -28,7 +28,8 @@
     <string name="settings_gps_mode_desc">Suivre votre position GPS et orienter la carte (sinon mode démo)</string>
     <string name="settings_recenter_label">Délai de recentrage</string>
     <string name="settings_recenter_desc">Temps avant recentrage GPS après un déplacement manuel</string>
-    <string name="settings_section_display">Affichage</string>
+    <string name="settings_section_layers">Calques</string>
+    <string name="settings_section_navigation">Navigation</string>
     <string name="settings_coastline_label">Trait de côte</string>
     <string name="settings_coastline_desc">Afficher la ligne de côte sur la carte</string>
     <string name="settings_zone300_label">Zone 300 m</string>

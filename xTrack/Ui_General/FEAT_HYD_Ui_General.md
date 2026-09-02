@@ -1,17 +1,18 @@
 # Hydration: Ui_General
 
-**Session:** screen-lock — implemented. Touch-input lock (splash guard): a 📵 toggle
-(right of the Earth/Water icon) locks the screen so the map ignores all touch except the
-unlock toggle and the zoom +/− buttons (double-tap only while locked — single splash taps
-ignored). Full-screen consume-all `LockScrim`; top-most duplicate unlock button +
-`ZoomControls` + `LockBanner` (exit-toast style, 2s auto-dismiss); locked state colour =
-`semantic.info` (blue). `status.lock.*` tokens in `colors.properties` + `AppConfig`.
-BUILD SUCCESSFUL.
+**Session:** settings UI normalization — General tab: removed the "DISPLAY" SectionHeader and
+promoted "Layers" / "Navigation" to title-case top-level headers (`SectionHeader` now supports
+`uppercase = false`); tightened collapsed padding (`SettingsExpander` row 8→6dp, after-expander
+spacer 16→4dp). System tab: stop-detection card de-nested (two nested `SettingsToggleRow` → inline
+rows); Regenerate Layers merged from 4 standalone cards into one card with visible dividers.
+New `settings_section_layers` / `settings_section_navigation` strings (EN+FR); removed
+`settings_section_display`. `ui-tokens.properties` + `ui-component-guidelines.md`
+(§2.3/§2.6/§2.9/§3) synced. BUILD SUCCESSFUL.
 
 **Target files:**
-- `MapScreen.kt`, `MapControlButton.kt`, `colors.properties`, `AppConfig.kt`, `strings.xml` (EN+FR)
+- `MapScreen.kt`, `ui-tokens.properties`, `values/strings.xml`, `values-fr/strings.xml`, `docs/ui-component-guidelines.md`
 
 **Plans:**
-- `xTrack/Ui_General/260827_FEAT_PLN_Ui_General_touch-input-lock.md`
+- (none — work captured directly in the session above)
 
-**Last Bake:** 2026-08-27 14:04 UTC
+**Last Bake:** 2026-09-02 15:16 UTC

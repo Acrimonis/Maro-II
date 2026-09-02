@@ -261,7 +261,7 @@ The hypsometric ramp interpolates between shallow (pale cyan) and deep (navy) en
 | Token | Default | Swatch | Usage |
 |---|---|---|---|
 | `ui.settings.accent` | `#FF1565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Switch thumb/track, slider, buttons, selected tab indicator |
-| `ui.settings.value.text` | `#FF90CAF9` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#90CAF9;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Slider value readouts (small bold value text) |
+| `ui.settings.value.text` | `#1890f2FF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1890f2;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Slider value readouts (small bold value text) |
 | `ui.settings.switch.track.inactive` | `#33FFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;opacity:0.2;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Switch track when unchecked (20% white) |
 | `ui.settings.input.border` | `#66FFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;opacity:0.4;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Unfocused text field border (40% white) |
 | `ui.settings.danger` | `#FFE53935` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#E53935;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Delete/danger buttons |

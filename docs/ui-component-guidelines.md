@@ -58,7 +58,7 @@ Column(uiCardBackground, 12dp radius, ${ui.padding.card.vertical} pad) {
                 … content (see §2.4)
             }
         }
-        Spacer(${ui.padding.card.horizontal})   ← after last expander, matches card h-pad
+        Spacer(${ui.spacing.grouped.after-expander})   ← after last expander (4dp)
     }
 }
 ```
@@ -103,7 +103,7 @@ Column(
 
 ### 2.6 Section Dividers
 
-**Visible divider** (`#26FFFFFF`, 6dp gap above/below) between distinct content blocks inside a card (e.g., "Colors" vs sliders in Track settings). **Spacer only** (8dp) between simple toggle rows that are not sections (e.g., Categories).
+**Visible divider** (`#26FFFFFF`, 6dp gap above/below) between distinct content blocks inside a card (e.g., "Colors" vs sliders in Track settings; toggle-only cards such as Regenerate Layers). **Spacer only** (8dp) between simple toggle rows that are not sections (e.g., Categories).
 
 ```
 Spacer(6.dp)
@@ -156,7 +156,7 @@ Render as a **direct section** — header + description + value (`ui.settings.va
 
 ### 2.9 Header Hierarchy
 
-- `SectionHeader` — uppercase, 17sp bold, `ui.settings.accent`; top-level sections only.
+- `SectionHeader` — 17sp bold, `ui.settings.accent`; top-level sections only. `uppercase = true` (default) renders ALL-CAPS with 1sp letter-spacing; `uppercase = false` renders title case ("Layers", "Navigation") with no letter-spacing.
 - `SubSectionHeader` — 16sp SemiBold, `ui.settings.text.muted` + optional 13sp `ui.settings.text.secondary` description; the standard header for any sub-section inside a card/expander.
 
 ---
@@ -171,8 +171,10 @@ Render as a **direct section** — header + description + value (`ui.settings.va
 | Header→first card | `ui.spacing.header.bottom` | 8dp |
 | Inline toggle→toggle | `ui.spacing.grouped.row.gap` | 8dp |
 | Before expander (in grouped card) | `ui.spacing.grouped.before-expander` | 8dp |
+| Expander header row (top/bottom) | `ui.padding.expander.vertical` | 6dp |
 | Expander→content | header+8dp spacer | 8dp |
-| Last expander→card close | `ui.spacing.header.bottom` | 8dp |
+| Last expander→card close | `ui.spacing.grouped.after-expander` | 4dp |
+| Visible divider gap (above/below) | `ui.divider.gap` | 6dp |
 
 Full token list: [`ui-tokens.properties`](../app/src/main/assets/ui-tokens.properties).
 
