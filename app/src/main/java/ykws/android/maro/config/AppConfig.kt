@@ -361,8 +361,8 @@ object AppConfig {
     /** Settings panel accent colour. Default #FF1565C0. Set via `ui.settings.accent` in colors.properties. */
     var uiSettingsAccent: Int = 0xFF1565C0.toInt()
         private set
-    /** Settings panel slider value readout colour. Default #FF1890f2. Set via `ui.settings.value.text` in colors.properties. */
-    var uiSettingsValueText: Int = 0xFF1890f2.toInt()
+    /** Settings panel slider value readout colour. Default #FF48a7f5. Set via `ui.settings.value.text` in colors.properties. */
+    var uiSettingsValueText: Int = 0xFF48a7f5.toInt()
         private set
     /** Settings panel card background. Default #33FFFFFF (20% white). Set via `ui.card.background` in colors.properties. */
     var uiCardBackground: Int = 0x33FFFFFF.toInt()
