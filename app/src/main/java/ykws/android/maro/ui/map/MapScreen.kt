@@ -1217,8 +1217,8 @@ fun MapScreen(
         val filteredSummaries = trackSummaries.filter { it.matchesFilter(appSettings.trackListFilter, midnightMs) }
 
         // Determine desired track ID set (history = non-pinned only)
+        val nbToRender = appSettings.trackingRenderNb.coerceIn(0, 20)
         val desiredIds = if (appSettings.tracksVisible) {
-            val nbToRender = appSettings.trackingRenderNb.coerceIn(0, 20)
             if (nbToRender > 0) {
                 filteredSummaries
                     .filter { it.visibleOnMap && !it.pinned }
@@ -1237,7 +1237,6 @@ fun MapScreen(
         mv.overlays.removeAll(toRemove)
 
         val sortedDesired = if (appSettings.tracksVisible) {
-            val nbToRender = appSettings.trackingRenderNb.coerceIn(0, 20)
             if (nbToRender > 0) {
                 filteredSummaries
                     .filter { it.visibleOnMap && !it.pinned }
@@ -1246,7 +1245,7 @@ fun MapScreen(
             } else emptyList()
         } else emptyList()
 
-        val total = sortedDesired.size
+        val total = nbToRender
 
         val historyOverlays = mutableListOf<List<org.osmdroid.views.overlay.Overlay>>()
         for ((index, summary) in sortedDesired.withIndex()) {

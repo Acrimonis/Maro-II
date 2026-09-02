@@ -259,13 +259,13 @@
     <string name="settings_tracks_direction_speed_range_label">Speed range</string>
     <string name="settings_tracks_direction_speed_range_desc">Below the left speed: minimum gap · above the right speed: maximum gap</string>
     <string name="settings_tracks_direction_speed_range_fmt">%1$.1f – %2$.1f kn</string>
-    <string name="settings_tracks_count_label">Number of tracks</string>
-    <string name="settings_tracks_count_desc">Recent tracks to render (0-20)</string>
-    <string name="settings_transparency_label">Transparency</string>
-    <string name="settings_transparency_desc" formatted="false">Left thumb = newest track, right thumb = oldest. 0% = opaque, 100% = invisible.</string>
+    <string name="settings_tracks_count_label">Not-pinned tracks to render</string>
+    <string name="settings_tracks_count_desc">This count limits non-pinned tracks only (0-20). Pinned tracks always render.</string>
+    <string name="settings_transparency_label">Not-pinned transparency</string>
+    <string name="settings_transparency_desc" formatted="false">Fade across the last N non-pinned tracks: left thumb = newest, right thumb = oldest. 0% = opaque, 100% = invisible.</string>
     <string name="settings_transparency_value_fmt">Newest %1$d%%  –  Oldest %2$d%%</string>
     <string name="settings_pinned_transparency_label">Pinned transparency</string>
-    <string name="settings_pinned_transparency_desc" formatted="false">Pinned tracks are always visible regardless of count. 0% = opaque, 100% = invisible.</string>
+    <string name="settings_pinned_transparency_desc" formatted="false">Fade across pinned tracks only, independent of the not-pinned range. 0% = opaque, 100% = invisible.</string>
     <string name="settings_colors_label">Colors</string>
     <string name="settings_colors_desc">Past tracks: color gradient from newest (From) to oldest (To). Pinned tracks: amber/orange gradient.</string>
     <string name="settings_section_markers">Markers</string>

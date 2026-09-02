@@ -1,27 +1,28 @@
 # BoatTrace — Hydration Snapshot
 
-**Baked at:** 2026-09-02 12:03 UTC
+**Baked at:** 2026-09-02 13:10 UTC
 **Active Subfeature:** marker-export-import
 **Branch:** feature/next
 
 ## Session Summary
 
-Track direction arrows (Phases 1 + 2) + settings UI polish:
+Track direction arrows (Phases 1 + 2) + settings UI + transparency polish:
 
 - `TrackDirectionOverlay` (custom osmdroid Overlay): vector chevrons, bearing fallback, viewport culling, per-track; pixel-spaced (uniform) + exponential speed-based density; speed fallback from time+haversine.
-- Settings: `tracksDirectionVisible` toggle in Settings + drawer; own "Direction Track Settings" collapsible with segmented density selector (Uniform/Speed-based, language-picker pattern) + log-scale RangeSliders (gap 4–640 dp, speed 2–64 kn).
-- Headers normalized to `SubSectionHeader`.
+- Settings: `tracksDirectionVisible` toggle in Settings + drawer; own "Direction Track Settings" collapsible with segmented density selector (Uniform/Speed-based, language-picker pattern) + log-scale RangeSliders (gap 4–640 dp, speed 2–64 kn); headers normalized to `SubSectionHeader`.
+- Transparency: history (non-pinned) gradient now splits by the configured count (`total = nbToRender`), list accent-bar preview aligned; pinned keeps its own independent range. Count/transparency strings reworded to distinguish non-pinned vs pinned behaviour.
 
 BUILD SUCCESSFUL (assembleDebug).
 
 ## Next Step
 
-Device E2E: verify arrows, density contrast, settings + drawer toggles.
+Device E2E: verify arrows, density contrast, transparency behaviour, settings + drawer toggles.
 
 ## Key Files
 
 - `app/src/main/java/ykws/android/maro/ui/map/TrackDirectionOverlay.kt`
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt`
 - `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt`
 - `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt`
 - `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt`
