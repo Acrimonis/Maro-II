@@ -4697,7 +4697,7 @@ private fun GeneralSettings(
                                 )
                                 Text(
                                     text = "%d".format(settings.trackingRenderNb),
-                                    color = ComposeColor(AppConfig.uiSettingsAccent),
+                                    color = ComposeColor(AppConfig.uiSettingsValueText),
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Bold
                                 )
@@ -4739,7 +4739,7 @@ private fun GeneralSettings(
                             )
                             Text(
                                 text = stringResource(R.string.settings_transparency_value_fmt, settings.trackingTransparencyNewest, settings.trackingTransparencyOldest),
-                                color = ComposeColor(AppConfig.uiSettingsAccent),
+                                color = ComposeColor(AppConfig.uiSettingsValueText),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
                                 textAlign = TextAlign.End,
@@ -4790,7 +4790,7 @@ private fun GeneralSettings(
                                     settings.trackingTransparencyPinnedNewest,
                                     settings.trackingTransparencyPinnedOldest
                                 ),
-                                color = ComposeColor(AppConfig.uiSettingsAccent),
+                                color = ComposeColor(AppConfig.uiSettingsValueText),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
                                 textAlign = TextAlign.End,
@@ -4951,7 +4951,7 @@ private fun GeneralSettings(
                         Text(
                             text = stringResource(R.string.settings_tracks_direction_gap_range_fmt,
                                 settings.trackDirectionMinSpacingDp, settings.trackDirectionMaxSpacingDp),
-                            color = ComposeColor(AppConfig.uiSettingsAccent),
+                            color = ComposeColor(AppConfig.uiSettingsValueText),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.End,
@@ -4984,7 +4984,7 @@ private fun GeneralSettings(
                         Text(
                             text = stringResource(R.string.settings_tracks_direction_speed_range_fmt,
                                 settings.trackDirectionSpeedFloorKn, settings.trackDirectionSpeedCeilingKn),
-                            color = ComposeColor(AppConfig.uiSettingsAccent),
+                            color = ComposeColor(AppConfig.uiSettingsValueText),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.End,
@@ -6020,7 +6020,7 @@ private fun SliderRowContent(
         Spacer(modifier = Modifier.width(16.dp))
         Text(
             text = valueLabel,
-            color = ComposeColor(AppConfig.uiSettingsAccent),
+            color = ComposeColor(AppConfig.uiSettingsValueText),
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold
         )
@@ -6057,7 +6057,7 @@ private fun SubSectionHeader(title: String, description: String? = null) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = title,
-            color = ComposeColor(AppConfig.uiDashboardTextMuted),
+            color = ComposeColor(AppConfig.uiSettingsTextMuted),
             fontSize = 16.sp,
             fontWeight = FontWeight.SemiBold
         )

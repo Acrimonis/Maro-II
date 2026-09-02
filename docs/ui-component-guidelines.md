@@ -19,6 +19,9 @@ New setting?
   ├─ Toggle + sub-settings?      → Grouped card (§2.3)
   │   ├─ Sub = sliders?          → SettingsSliderGroup(nested=true)  (§2.4a)
   │   └─ Sub = text/toggles/etc? → Nested card inline              (§2.4b)
+  ├─ Exclusive 2–3 choice?       → Segmented selector            (§2.7)
+  ├─ Double-thumb value range?   → RangeSlider section           (§2.8)
+  ├─ Feature w/ sub-settings?    → Grouped card: feature toggle + sibling expander (§2.3)
   ├─ Toggle group + slider?      → Grouped card (§2.3)
   └─ Drawer/Track card?          → Same card surface, specific rows (§5)
 ```
@@ -61,6 +64,8 @@ Column(uiCardBackground, 12dp radius, ${ui.padding.card.vertical} pad) {
 ```
 
 ### 2.4 Inside-Expander Content
+
+🔴 **Limit encapsulation — prefer a collapsible section.** Depth is capped at `card → expander → flat sections`. When a card accumulates many related controls, split them into a collapsible `SettingsExpander` section rather than nesting another card. Collapsible = secondary detail; primary toggles stay inline. Expander content is a flat sequence of sections — never a sub-card, and never a `SettingsSliderGroup` around a `RangeSlider`.
 
 All expander content uses the **same outlined card surface** — whether a slider group or inline content:
 
@@ -126,6 +131,34 @@ Spacer(6.dp)
 
 Expander label: `"Regulated zones settings"`. Both toggles and sliders live in the same nested card, separated by a visible divider (§2.6).
 
+### 2.7 Segmented Selector
+
+For 2–3 exclusive choices (e.g. Uniform / Speed-based). Same pattern as the language picker:
+
+```
+Row(uiCardBackground, 12dp radius, 6dp pad, 6dp gaps) {
+    option → Box(weight 1f, 8dp radius,
+                 bg = selected ? uiSettingsAccent : uiSettingsDivider,
+                 vertical pad 10dp, centered) {
+        Text(14sp, selected ? Bold/primary : Normal/muted)
+    }
+}
+```
+
+🔴 Do not hand-roll two `Text` rows with `clickable` — use this control.
+
+### 2.8 RangeSlider (double-thumb)
+
+Render as a **direct section** — header + description + value (`ui.settings.value.text`, right-aligned) + `RangeSlider` — never wrapped in `SettingsSliderGroup` (that double-nests the surface).
+
+- **Linear** (e.g. transparency 0–100): plain `valueRange` + `steps`.
+- **Log-scale** for octave-spanning ranges (e.g. gap 4–640, speed 2–64): map position 0..1 → value with `lo × (hi/lo)^pos` (`logSliderFromValue` / `logSliderToValue`); ~24 positions.
+
+### 2.9 Header Hierarchy
+
+- `SectionHeader` — uppercase, 17sp bold, `ui.settings.accent`; top-level sections only.
+- `SubSectionHeader` — 16sp SemiBold, `ui.settings.text.muted` + optional 13sp `ui.settings.text.secondary` description; the standard header for any sub-section inside a card/expander.
+
 ---
 
 ## 3. Spacing Quick Reference
@@ -151,6 +184,10 @@ Full token list: [`ui-tokens.properties`](../app/src/main/assets/ui-tokens.prope
 - ❌ Per-call `labelStyle` on `SettingsExpander`
 - ❌ Visible dividers between top-level cards (use spacer)
 - ❌ `SliderRowContent(label="", …)` (use inline Row+Slider)
+- ❌ `RangeSlider` wrapped in `SettingsSliderGroup` (double-nested surface)
+- ❌ Hand-rolled two-`Text` toggle rows (use the segmented selector, §2.7)
+- ❌ Mixed header styles in one card (use `SubSectionHeader` consistently, §2.9)
+- ❌ Nesting deeper than `card → expander → sections` (§2.4)
 
 ---
 
