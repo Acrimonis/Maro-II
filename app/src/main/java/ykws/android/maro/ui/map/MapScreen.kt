@@ -220,8 +220,8 @@ data class TrackPolylineAppearance(val argb: Int, val strokeWidth: Float)
 private const val DIRECTION_ARROW_SPACING_DP = 48f
 
 /** Log-scale gap slider bounds (dp). */
-private const val DIRECTION_GAP_MIN_DP = 6f
-private const val DIRECTION_GAP_MAX_DP = 512f
+private const val DIRECTION_GAP_MIN_DP = 4f
+private const val DIRECTION_GAP_MAX_DP = 640f
 /** Log-scale speed slider bounds (kn). */
 private const val DIRECTION_SPEED_MIN_KN = 2f
 private const val DIRECTION_SPEED_MAX_KN = 64f
@@ -4662,40 +4662,6 @@ private fun GeneralSettings(
                 )
             }
 
-            // Direction arrows toggle
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_tracks_direction_label),
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_tracks_direction_desc),
-                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = 13.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Switch(
-                    checked = settings.tracksDirectionVisible,
-                    onCheckedChange = { on -> onUpdateSettings { it.copy(tracksDirectionVisible = on) } },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                    )
-                )
-            }
-
             Spacer(Modifier.height(8.dp))
 
             Box(modifier = Modifier.padding(horizontal = 16.dp)) {
@@ -4885,126 +4851,169 @@ private fun GeneralSettings(
                                 onFromColorSelected = { c -> onUpdateSettings { it.copy(trackingColorPinnedFrom = c) } },
                                 onToColorSelected = { c -> onUpdateSettings { it.copy(trackingColorPinnedTo = c) } }
                             )
-
-                            Spacer(Modifier.height(8.dp))
-
-                            SubSectionHeader(
-                                title = stringResource(R.string.settings_tracks_direction_density_label)
-                            )
-
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 6.dp),
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                listOf(
-                                    TrackDirectionDensity.UNIFORM to R.string.settings_tracks_direction_density_uniform,
-                                    TrackDirectionDensity.SPEED to R.string.settings_tracks_direction_density_speed
-                                ).forEach { (mode, labelRes) ->
-                                    val selected = settings.trackDirectionDensity == mode
-                                    Text(
-                                        text = stringResource(labelRes),
-                                        color = ComposeColor(if (selected) AppConfig.uiSettingsTextPrimary else AppConfig.uiSettingsTextMuted),
-                                        fontSize = 14.sp,
-                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-                                        textAlign = TextAlign.Center,
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .clip(RoundedCornerShape(8.dp))
-                                            .background(ComposeColor(if (selected) 0x26FFFFFF else 0x00000000))
-                                            .clickable { onUpdateSettings { it.copy(trackDirectionDensity = mode) } }
-                                            .padding(vertical = 8.dp)
-                                    )
-                                }
-                            }
-
-                            Spacer(Modifier.height(8.dp))
-
-                            SettingsSliderGroup(nested = true) {
-                                Text(
-                                    text = stringResource(R.string.settings_tracks_direction_gap_range_label),
-                                    color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Text(
-                                    text = stringResource(R.string.settings_tracks_direction_gap_range_desc),
-                                    color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                                    fontSize = 12.sp
-                                )
-                                Text(
-                                    text = stringResource(R.string.settings_tracks_direction_gap_range_fmt,
-                                        settings.trackDirectionMinSpacingDp, settings.trackDirectionMaxSpacingDp),
-                                    color = ComposeColor(AppConfig.uiSettingsAccent),
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    textAlign = TextAlign.End,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                                RangeSlider(
-                                    value = logSliderFromValue(settings.trackDirectionMinSpacingDp.toFloat(), DIRECTION_GAP_MIN_DP, DIRECTION_GAP_MAX_DP)
-                                        ..logSliderFromValue(settings.trackDirectionMaxSpacingDp.toFloat(), DIRECTION_GAP_MIN_DP, DIRECTION_GAP_MAX_DP),
-                                    onValueChange = { range: ClosedFloatingPointRange<Float> ->
-                                        onUpdateSettings {
-                                            it.copy(
-                                                trackDirectionMinSpacingDp = logSliderToValue(range.start, DIRECTION_GAP_MIN_DP, DIRECTION_GAP_MAX_DP).roundToInt(),
-                                                trackDirectionMaxSpacingDp = logSliderToValue(range.endInclusive, DIRECTION_GAP_MIN_DP, DIRECTION_GAP_MAX_DP).roundToInt()
-                                            )
-                                        }
-                                    },
-                                    valueRange = 0f..1f,
-                                    steps = 23,
-                                    colors = SliderDefaults.colors(
-                                        thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                                        activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
-                                        inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                                    )
-                                )
-                                SliderRowDivider()
-                                Text(
-                                    text = stringResource(R.string.settings_tracks_direction_speed_range_label),
-                                    color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Text(
-                                    text = stringResource(R.string.settings_tracks_direction_speed_range_desc),
-                                    color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                                    fontSize = 12.sp
-                                )
-                                Text(
-                                    text = stringResource(R.string.settings_tracks_direction_speed_range_fmt,
-                                        settings.trackDirectionSpeedFloorKn, settings.trackDirectionSpeedCeilingKn),
-                                    color = ComposeColor(AppConfig.uiSettingsAccent),
-                                    fontSize = 14.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    textAlign = TextAlign.End,
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                                RangeSlider(
-                                    value = logSliderFromValue(settings.trackDirectionSpeedFloorKn, DIRECTION_SPEED_MIN_KN, DIRECTION_SPEED_MAX_KN)
-                                        ..logSliderFromValue(settings.trackDirectionSpeedCeilingKn, DIRECTION_SPEED_MIN_KN, DIRECTION_SPEED_MAX_KN),
-                                    onValueChange = { range: ClosedFloatingPointRange<Float> ->
-                                        onUpdateSettings {
-                                            it.copy(
-                                                trackDirectionSpeedFloorKn = (logSliderToValue(range.start, DIRECTION_SPEED_MIN_KN, DIRECTION_SPEED_MAX_KN) * 10f).roundToInt() / 10f,
-                                                trackDirectionSpeedCeilingKn = (logSliderToValue(range.endInclusive, DIRECTION_SPEED_MIN_KN, DIRECTION_SPEED_MAX_KN) * 10f).roundToInt() / 10f
-                                            )
-                                        }
-                                    },
-                                    valueRange = 0f..1f,
-                                    steps = 23,
-                                    colors = SliderDefaults.colors(
-                                        thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                                        activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
-                                        inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                                    )
-                                )
-                            }
                         }
                 }
             }
+
+            // Direction arrows toggle
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_tracks_direction_label),
+                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_tracks_direction_desc),
+                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        fontSize = 13.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Switch(
+                    checked = settings.tracksDirectionVisible,
+                    onCheckedChange = { on -> onUpdateSettings { it.copy(tracksDirectionVisible = on) } },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                    )
+                )
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                SettingsExpander(
+                    label = stringResource(R.string.settings_tracks_direction_settings_label),
+                    expanded = settings.trackDirectionSettingsExpanded,
+                    onToggle = { onUpdateSettings { it.copy(trackDirectionSettingsExpanded = !it.trackDirectionSettingsExpanded) } }
+                ) {
+                    Spacer(Modifier.height(4.dp))
+                    Column(
+                        modifier = Modifier.fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(ComposeColor(0x0DFFFFFF))
+                            .border(1.dp, ComposeColor(0x40FFFFFF), RoundedCornerShape(12.dp))
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
+                        SubSectionHeader(
+                            title = stringResource(R.string.settings_tracks_direction_density_label)
+                        )
+
+                        Spacer(Modifier.height(8.dp))
+
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(ComposeColor(AppConfig.uiCardBackground))
+                                .padding(6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            listOf(
+                                TrackDirectionDensity.UNIFORM to R.string.settings_tracks_direction_density_uniform,
+                                TrackDirectionDensity.SPEED to R.string.settings_tracks_direction_density_speed
+                            ).forEach { (mode, labelRes) ->
+                                val selected = settings.trackDirectionDensity == mode
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(if (selected) ComposeColor(AppConfig.uiSettingsAccent) else ComposeColor(AppConfig.uiSettingsDivider))
+                                        .clickable { onUpdateSettings { it.copy(trackDirectionDensity = mode) } }
+                                        .padding(vertical = 10.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = stringResource(labelRes),
+                                        color = if (selected) ComposeColor(AppConfig.uiSettingsTextPrimary) else ComposeColor(AppConfig.uiSettingsTextMuted),
+                                        fontSize = 14.sp,
+                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                }
+                            }
+                        }
+
+                        Spacer(Modifier.height(8.dp))
+
+                        SubSectionHeader(
+                            title = stringResource(R.string.settings_tracks_direction_gap_range_label),
+                            description = stringResource(R.string.settings_tracks_direction_gap_range_desc)
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_tracks_direction_gap_range_fmt,
+                                settings.trackDirectionMinSpacingDp, settings.trackDirectionMaxSpacingDp),
+                            color = ComposeColor(AppConfig.uiSettingsAccent),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.End,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        RangeSlider(
+                            value = logSliderFromValue(settings.trackDirectionMinSpacingDp.toFloat(), DIRECTION_GAP_MIN_DP, DIRECTION_GAP_MAX_DP)
+                                ..logSliderFromValue(settings.trackDirectionMaxSpacingDp.toFloat(), DIRECTION_GAP_MIN_DP, DIRECTION_GAP_MAX_DP),
+                            onValueChange = { range: ClosedFloatingPointRange<Float> ->
+                                onUpdateSettings {
+                                    it.copy(
+                                        trackDirectionMinSpacingDp = logSliderToValue(range.start, DIRECTION_GAP_MIN_DP, DIRECTION_GAP_MAX_DP).roundToInt(),
+                                        trackDirectionMaxSpacingDp = logSliderToValue(range.endInclusive, DIRECTION_GAP_MIN_DP, DIRECTION_GAP_MAX_DP).roundToInt()
+                                    )
+                                }
+                            },
+                            valueRange = 0f..1f,
+                            steps = 23,
+                            colors = SliderDefaults.colors(
+                                thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                                activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
+                                inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                            )
+                        )
+                        SliderRowDivider()
+                        SubSectionHeader(
+                            title = stringResource(R.string.settings_tracks_direction_speed_range_label),
+                            description = stringResource(R.string.settings_tracks_direction_speed_range_desc)
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_tracks_direction_speed_range_fmt,
+                                settings.trackDirectionSpeedFloorKn, settings.trackDirectionSpeedCeilingKn),
+                            color = ComposeColor(AppConfig.uiSettingsAccent),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.End,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        RangeSlider(
+                            value = logSliderFromValue(settings.trackDirectionSpeedFloorKn, DIRECTION_SPEED_MIN_KN, DIRECTION_SPEED_MAX_KN)
+                                ..logSliderFromValue(settings.trackDirectionSpeedCeilingKn, DIRECTION_SPEED_MIN_KN, DIRECTION_SPEED_MAX_KN),
+                            onValueChange = { range: ClosedFloatingPointRange<Float> ->
+                                onUpdateSettings {
+                                    it.copy(
+                                        trackDirectionSpeedFloorKn = (logSliderToValue(range.start, DIRECTION_SPEED_MIN_KN, DIRECTION_SPEED_MAX_KN) * 10f).roundToInt() / 10f,
+                                        trackDirectionSpeedCeilingKn = (logSliderToValue(range.endInclusive, DIRECTION_SPEED_MIN_KN, DIRECTION_SPEED_MAX_KN) * 10f).roundToInt() / 10f
+                                    )
+                                }
+                            },
+                            valueRange = 0f..1f,
+                            steps = 23,
+                            colors = SliderDefaults.colors(
+                                thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                                activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
+                                inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                            )
+                        )
+                    }
+                }
+            }
+
             Spacer(Modifier.height(8.dp))
         }
 

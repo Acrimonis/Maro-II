@@ -2,7 +2,7 @@
 name: BoatTrace
 status: active
 created: 2026-06-15 21:43
-modified: 2026-09-02 10:01
+modified: 2026-09-02 12:03
 active_subfeature: marker-export-import
 ---
 
@@ -423,7 +423,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 
 **idle-reconciliation (2026-08-15):** Unified compound idle predicate `(d/Δt < 0.5 m/s) AND (d < 500 m)`. `TrackRecorder.computeTimelineIdleSec()` re-derives idle from the raw point timeline at finalize — long screen-off/backgrounded stops (e.g. 2h34m dive stop) now count as idle instead of silently becoming navigating; finalize sweep-closes open IDLE BoatMarkers (never MANUAL) with a single `finalizeTimeMs`; resume seam always marked with a forced GAP. `TrackMerger` applies the same predicate as a same-area shortcut before its `d/v_ref` decomposition. `GpxExporter` writes UTC timestamps. 3 files, BUILD SUCCESSFUL.
 
-**track-direction-arrows (2026-09-02):** Direction chevrons on history + pinned tracks. `TrackDirectionOverlay` (custom osmdroid Overlay) draws vector chevrons oriented by `bearingDeg` (fallback: segment vector), track-coloured, sized ∝ stroke width, viewport-culled. Pixel-spaced (uniform) and speed-based (exponential `lo × (hi/lo)^t`) density; speed derived from time + haversine when `speedMps` null. Settings: `tracksDirectionVisible` toggle + density selector + log-scale RangeSliders (gap 6–512 dp, speed 2–64 kn) in Tracks card + drawer. BUILD SUCCESSFUL.
+**track-direction-arrows (2026-09-02):** Direction chevrons on history + pinned tracks. `TrackDirectionOverlay` (custom osmdroid Overlay) draws vector chevrons oriented by `bearingDeg` (fallback: segment vector), track-coloured, sized ∝ stroke width, viewport-culled. Pixel-spaced (uniform) and speed-based (exponential `lo × (hi/lo)^t`) density; speed derived from time + haversine when `speedMps` null. Settings: `tracksDirectionVisible` toggle in Settings + drawer; own "Direction Track Settings" collapsible with segmented density selector + log-scale RangeSliders (gap 4–640 dp, speed 2–64 kn). BUILD SUCCESSFUL.
 - `xTrack/BoatTrace/260618_FEAT_PLN_BoatTrace_adaptive-isstill-settings-redesign.md` — Adaptive isStill settings redesign
 - `xTrack/BoatTrace/260617_FEAT_PLN_BoatTrace_boat-trace-fresh-import-plan.md` — Boat trace fresh import plan
 - `xTrack/BoatTrace/260618_FEAT_PLN_BoatTrace_boat-trace-ui-refinement-plan.md` — Boat trace UI refinement plan

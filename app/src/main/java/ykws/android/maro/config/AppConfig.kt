@@ -614,10 +614,10 @@ object AppConfig {
                 trackDirectionSpeedCeilingKn = it.coerceIn(2f, 64f)
             }
             props.getProperty("track.direction.minSpacingDp")?.toIntOrNull()?.let {
-                trackDirectionMinSpacingDp = it.coerceIn(6, 512)
+                trackDirectionMinSpacingDp = it.coerceIn(4, 640)
             }
             props.getProperty("track.direction.maxSpacingDp")?.toIntOrNull()?.let {
-                trackDirectionMaxSpacingDp = it.coerceIn(6, 512)
+                trackDirectionMaxSpacingDp = it.coerceIn(4, 640)
             }
 
             // ── Marker debug rays ───────────────────────────────────────

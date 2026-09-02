@@ -248,6 +248,7 @@
     <string name="settings_tracks_desc">Afficher les traces enregistrées</string>
     <string name="settings_tracks_direction_label">Afficher la direction des traces</string>
     <string name="settings_tracks_direction_desc">Dessiner des flèches de direction le long des traces</string>
+    <string name="settings_tracks_direction_settings_label">Réglages direction des traces</string>
     <string name="settings_tracks_direction_density_label">Densité des flèches</string>
     <string name="settings_tracks_direction_density_uniform">Uniforme</string>
     <string name="settings_tracks_direction_density_speed">Selon la vitesse</string>

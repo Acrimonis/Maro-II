@@ -249,6 +249,7 @@
     <string name="settings_tracks_desc">Show recorded tracks on the map</string>
     <string name="settings_tracks_direction_label">Show tracks direction on map</string>
     <string name="settings_tracks_direction_desc">Draw direction arrows along recorded tracks</string>
+    <string name="settings_tracks_direction_settings_label">Direction Track Settings</string>
     <string name="settings_tracks_direction_density_label">Arrow density</string>
     <string name="settings_tracks_direction_density_uniform">Uniform</string>
     <string name="settings_tracks_direction_density_speed">Speed-based</string>
