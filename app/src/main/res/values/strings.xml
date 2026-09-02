@@ -25,7 +25,7 @@
     <string name="settings_section_language">Language</string>
     <string name="settings_language_system">System</string>
     <string name="settings_section_position">Position mode</string>
-    <string name="settings_redisplay_label">Re-display on approach</string>
+    <string name="settings_redisplay_label">Auto-show zones</string>
     <string name="settings_redisplay_enable_gps">Enable in GPS mode</string>
     <string name="settings_redisplay_enable_demo">Enable in demo mode</string>
     <string name="settings_redisplay_zone300">300 m zone</string>

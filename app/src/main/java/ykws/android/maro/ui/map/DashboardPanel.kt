@@ -352,7 +352,7 @@ private fun DistanceCard(
 
     // ── Find next zone boundary ahead on heading cone ──────────────────
     val currentZone = zoneSituation?.currentZone
-    val nearestAhead = zoneSituation?.zonesAround?.firstOrNull()
+    val nearestAhead = zoneSituation?.zonesAhead?.firstOrNull()
 
     // Fix 1: Inside 300m band heading towards shore — exit ray-march fails
     // (heading landward, coastDist never exceeds ZONE_DISTANCE_M).
@@ -373,7 +373,7 @@ private fun DistanceCard(
         when (currentZone.beyondType) {
             BeyondType.OPEN_SEA -> Double.MAX_VALUE
             BeyondType.ZONE -> {
-                zoneSituation?.zonesAround
+                zoneSituation?.zonesAhead
                     ?.firstOrNull { it.zoneName == currentZone.beyondName }
                     ?.speedLimitKn ?: currentZone.speedLimitKn
             }
@@ -588,7 +588,7 @@ private fun SpeedLimitCard(
     }
 
     // ── Zones ahead on heading (approaching) ──────────────────────────
-    val ahead = zoneSituation.zonesAround.firstOrNull()
+    val ahead = zoneSituation.zonesAhead.firstOrNull()
     if (ahead != null) {
         val zoneDist = abs(ahead.distanceM)
         val zoneText = distanceText(zoneDist)

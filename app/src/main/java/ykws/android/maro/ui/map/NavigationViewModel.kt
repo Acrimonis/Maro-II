@@ -230,6 +230,8 @@ class NavigationViewModel(
 
     /** Speed zone spatial index — built once when both data sources are ready. */
     private val _speedZoneIndex = MutableStateFlow<SpeedZoneIndex?>(null)
+    /** Non-speed regulated zones (speedLimitKn == null) — for the REGULATED re-display proximity. */
+    private val _nonSpeedZones = MutableStateFlow<List<ykws.android.maro.data.regulation.RegulatedZone>>(emptyList())
 
     /** Unified zone situation: current zone, heading-ahead zone, and nearby zones — replaces 7 individual StateFlows. */
     private val _zoneSituation = MutableStateFlow<ZoneSituation?>(null)
@@ -560,22 +562,27 @@ class NavigationViewModel(
                         }
                     } else null
 
-                    val zones = zonesAroundBoat(
+                    val zones = zonesAhead(
                         center.latitude, center.longitude,
                         headingDegH, distance, sogKnH, szIdx, maxSearchM,
                         excludeZoneName = currentZone?.zoneName
                     )
-                    val zonesAround = zones
-                    ZoneSituation(currentZone = currentZone, zonesAround = zonesAround)
+                    val zonesAhead = zones
+                    ZoneSituation(currentZone = currentZone, zonesAhead = zonesAhead)
                 } else null
 
+                val nonSpeedList = _nonSpeedZones.value
+                val nonSpeedInside = water && nonSpeedList.any { it.isNear(center, 0.0) }
+                val nonSpeedNear = water && nonSpeedList.any { it.isNear(center, cfgH.zoneAutoRevealDistanceM.toDouble()) }
                 ShoreState(
                     distanceMeters = distance,
                     isWater = water,
                     inZone = inZone,
                     distToZone = distToZone,
                     speedZoneQuery = szQuery,
-                    zoneSituation = zoneSituation
+                    zoneSituation = zoneSituation,
+                    nonSpeedInside = nonSpeedInside,
+                    nonSpeedNear = nonSpeedNear
                 )
             }
             .flowOn(Dispatchers.Default)
@@ -608,6 +615,7 @@ class NavigationViewModel(
                     zone300AutoRevealed = false
                     bandEnteredSinceReveal = false
                     lastDistToZone = shore.distToZone
+                    _zone300OverlayVisible.value = false
                 } else {
                     val bandDecision = zoneAutoShowDecision(
                         dist = shore.distToZone,
@@ -635,50 +643,43 @@ class NavigationViewModel(
                     lastDistToZone = shore.distToZone
                 }
 
-                // ── Regulated zone overlay auto-show (speed enforcement) ────
-                // Enabled by the speed/regulated re-display switches; reveals on FIRST approach.
-                val regAutoShowEnabled = globalEnabled && (cfg.speedZoneAutoShow || cfg.regulatedZoneAutoShow)
-                Log.d(TAG, "RegAutoShow: distToBoundary=${shore.speedZoneQuery.distanceToBoundaryM} " +
-                    "insideAny=${shore.speedZoneQuery.insideAnyZone} " +
-                    "prevDist=$lastDistToRegZone " +
-                    "armed=$regAutoShowEnabled water=${shore.isWater} " +
-                    "szIndex=${_speedZoneIndex.value != null} " +
-                    "zone300=${shore.inZone} " +
-                    "sogKn=$sogKn isStopped=${isStopped.value} " +
-                    "autoRevealed=$regulatedZoneAutoRevealed " +
-                    "regZonesVisible=${cfg.regulatedZonesVisible}")
-                if (!regAutoShowEnabled) {
+                // ── Regulated re-display: speed + non-speed, independent, OR'd ──
+                val speedEnabled = globalEnabled && cfg.speedZoneAutoShow
+                val nonSpeedEnabled = globalEnabled && cfg.regulatedZoneAutoShow
+
+                var speedVisible = _regulatedZoneOverlayVisible.value
+                if (!speedEnabled) {
                     regulatedZoneAutoRevealed = false
                     lastDistToRegZone = shore.speedZoneQuery.distanceToBoundaryM
+                    speedVisible = false
                 } else {
-                    val regDecision = zoneAutoShowDecision(
+                    val speedDecision = zoneAutoShowDecision(
                         dist = shore.speedZoneQuery.distanceToBoundaryM,
                         prevDist = lastDistToRegZone,
                         insideZone = shore.speedZoneQuery.insideAnyZone,
                         sogKn = sogKn,
                         isStopped = isStopped.value,
-                        armed = regAutoShowEnabled,  // always armed when setting ON → reveals on first approach
+                        armed = true,
                         autoRevealed = regulatedZoneAutoRevealed,
                         zoneEntered = false,
                         revealDistM = cfg.zoneAutoRevealDistanceM.toDouble(),
                         revealTimeS = cfg.zoneAutoRevealTimeS.toDouble(),
                         config = ZoneAutoShowConfig(
-                            hideOnCompliantInside = false,
-                            hysteresisM = AppConfig.speedZoneHysteresisM
+                            hideOnCompliantInside = true,
+                            regulatorySpeedKn = (shore.speedZoneQuery.mostRestrictiveSpeedKn ?: AppConfig.zoneRegulatorySpeedKn).toDouble()
                         )
                     )
-                    regulatedZoneAutoRevealed = regDecision.autoRevealed
-                    Log.d(TAG, "RegAutoShow: decision action=${regDecision.action} " +
-                        "autoRevealed=${regDecision.autoRevealed} " +
-                        "revealed=${regDecision.action == AutoShowAction.REVEAL} " +
-                        "hide=${regDecision.action == AutoShowAction.HIDE}")
-                    when (regDecision.action) {
-                        AutoShowAction.REVEAL -> _regulatedZoneOverlayVisible.value = true
-                        AutoShowAction.HIDE   -> _regulatedZoneOverlayVisible.value = false
-                        AutoShowAction.NONE   -> {}
+                    regulatedZoneAutoRevealed = speedDecision.autoRevealed
+                    when (speedDecision.action) {
+                        AutoShowAction.REVEAL -> speedVisible = true
+                        AutoShowAction.HIDE -> speedVisible = false
+                        AutoShowAction.NONE -> {}
                     }
                     lastDistToRegZone = shore.speedZoneQuery.distanceToBoundaryM
                 }
+
+                val nonSpeedVisible = nonSpeedEnabled && (shore.nonSpeedInside || shore.nonSpeedNear)
+                _regulatedZoneOverlayVisible.value = speedVisible || nonSpeedVisible
 
                 // ── Demo speed stop-detection (replaces panStopJob coroutine — no 60 Hz launch) ──
                 val nowMs = SystemClock.elapsedRealtime()
@@ -901,6 +902,13 @@ class NavigationViewModel(
         }
             .distinctUntilChanged()
             .onEach { idx -> _speedZoneIndex.value = idx }
+            .launchIn(viewModelScope)
+
+        // ── Non-speed regulated zones for REGULATED re-display proximity ─────
+        regulatedZonesRepository.zoneSet
+            .map { it?.zones?.filter { z -> z.speedLimitKn == null } ?: emptyList() }
+            .distinctUntilChanged()
+            .onEach { list -> _nonSpeedZones.value = list }
             .launchIn(viewModelScope)
 
         // Leaving GPS mode → clear GPS-derived state so demo pans freely (north-up) and a
@@ -1324,21 +1332,17 @@ class NavigationViewModel(
      * Unified zone query: returns all relevant zones within [radiusM] of the boat,
      * sorted by heading-priority (zones directly ahead first).
      *
-     * Combines three sources:
-     * 1. Direct heading ray-march for 300m band entry
-     * 2. Direct heading ray for SHOM zones (firstSpeedZoneAhead)
-     * 3. Radial scan for remaining zones within radius
-     * 4. 300m band virtual zone
+     * Sources: direct heading ray-march for 300m band entry, then the direct
+     * heading ray for SHOM speed zones (firstSpeedZoneAhead).
      */
-    private fun zonesAroundBoat(
+    private fun zonesAhead(
         lat: Double, lon: Double,
         headingDeg: Double,
         currentDistToCoast: Double,
         currentSpeedKnots: Float?,
         speedZoneIndex: SpeedZoneIndex?,
         radiusM: Double = 500.0,
-        excludeZoneName: String? = null,
-        onlyAhead: Boolean = true
+        excludeZoneName: String? = null
     ): List<ZoneBoundaryInfo> {
         val results = mutableListOf<ZoneBoundaryInfo>()
         val pos = LatLng(lat, lon)
@@ -1382,61 +1386,6 @@ class NavigationViewModel(
             ))
         }
 
-        // 3. Radial scan (only when !onlyAhead — heading-ray callers skip this)
-        if (!onlyAhead) {
-        val query = speedZoneIndex?.query(lat, lon)
-        query?.let { q ->
-            val foundNames = results.map { it.zoneName }.toSet()
-            // nearest zone (if not already in results and not excluded)
-            if (q.distanceToBoundaryM != null && abs(q.distanceToBoundaryM) <= radiusM) {
-                q.nearestZone?.let { zone ->
-                    if (zone.name !in foundNames && zone.name != excludeZoneName) {
-                        val ring = zone.outerRing
-                        val nearestPt = ring.minByOrNull { SpatialOperations.haversine(pos, it) }
-                        val edgeDist = nearestPt?.let { SpatialOperations.haversine(pos, it) }
-                            ?: abs(q.distanceToBoundaryM)
-                        if (edgeDist <= radiusM) {
-                            val bearing = nearestPt?.let { SpatialOperations.initialBearing(pos, it) } ?: headingDeg
-                            results.add(ZoneBoundaryInfo(
-                                distanceM = edgeDist, zoneName = zone.name,
-                                speedLimitKn = zone.speedLimitKn.toDouble(),
-                                beyondType = BeyondType.ZONE, beyondName = zone.name,
-                                directionArrow = computeArrow(bearing, headingDeg)
-                            ))
-                        }
-                    }
-                }
-            }
-            // inside zones (not already in results and not excluded)
-            for (zone in q.allInsideZones) {
-                if (zone.name !in foundNames && results.none { it.zoneName == zone.name } && zone.name != excludeZoneName) {
-                    val ring = zone.outerRing
-                    val nearestPt = ring.minByOrNull { SpatialOperations.haversine(pos, it) }
-                    val dist = nearestPt?.let { SpatialOperations.haversine(pos, it) } ?: 0.0
-                    if (dist <= radiusM) {
-                        val bearing = nearestPt?.let { SpatialOperations.initialBearing(pos, it) } ?: headingDeg
-                        results.add(ZoneBoundaryInfo(
-                            distanceM = dist, zoneName = zone.name,
-                            speedLimitKn = zone.speedLimitKn.toDouble(),
-                            beyondType = BeyondType.ZONE, beyondName = zone.name,
-                            directionArrow = computeArrow(bearing, headingDeg)
-                        ))
-                    }
-                }
-            }
-        }
-        } // end if (!onlyAhead)
-
-        // 4. 300m band virtual zone (only when !onlyAhead — heading-ray already has it from step 1)
-        if (!onlyAhead && "BANDE 300M" !in results.map { it.zoneName }) {
-            if (currentDistToCoast <= CoastlineRepository.ZONE_DISTANCE_M + radiusM) {
-                val bandDist = maxOf(0.0, currentDistToCoast - CoastlineRepository.ZONE_DISTANCE_M)
-                results.add(ZoneBoundaryInfo(
-                    distanceM = bandDist, zoneName = "BANDE 300M",
-                    speedLimitKn = 5.0, beyondType = BeyondType.ZONE, beyondName = "BANDE 300M"
-                ))
-            }
-        }
 
         // 5. Sort by heading priority: ahead (↑) first, then side (→/←), then behind (↓)
         return results.sortedBy { info ->
@@ -1628,7 +1577,9 @@ class NavigationViewModel(
         val inZone: Boolean,
         val distToZone: Double?,
         val speedZoneQuery: SpeedZoneQuery = SpeedZoneQuery(),
-        val zoneSituation: ZoneSituation? = null
+        val zoneSituation: ZoneSituation? = null,
+        val nonSpeedInside: Boolean = false,
+        val nonSpeedNear: Boolean = false
     )
 
     companion object {
@@ -1746,7 +1697,7 @@ data class ZoneBoundaryInfo(
  */
 data class ZoneSituation(
     val currentZone: ZoneBoundaryInfo?,
-    val zonesAround: List<ZoneBoundaryInfo>,
+    val zonesAhead: List<ZoneBoundaryInfo>,
 )
 
 /** Outcome of one generalized zone auto-show evaluation. */

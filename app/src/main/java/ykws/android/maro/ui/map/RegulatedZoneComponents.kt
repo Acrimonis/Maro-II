@@ -561,3 +561,7 @@ fun ykws.android.maro.data.regulation.RegulatedZone.isNear(boat: ykws.android.ma
     }
     return false
 }
+
+/** True when the zone has at least one non-speed display category. */
+fun ykws.android.maro.data.regulation.RegulatedZone.hasNonSpeedCategory(): Boolean =
+    displayCategories().any { it != ZoneDisplayCategory.SPEED_LIMIT }

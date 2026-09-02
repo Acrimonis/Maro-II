@@ -193,8 +193,8 @@ fun MenuDrawerOverlay(
                         checked = autoShowMasterOverride,
                         onCheckedChange = onAutoShowMasterChange,
                         colors = SwitchDefaults.colors(
-                            checkedThumbColor = gpsToggleColor,
-                            checkedTrackColor = gpsToggleColor.copy(alpha = 0.4f),
+                            checkedThumbColor = Color(AppConfig.uiSettingsAccent),
+                            checkedTrackColor = Color(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
                             uncheckedThumbColor = Color(AppConfig.uiSettingsTextMuted),
                             uncheckedTrackColor = Color(AppConfig.uiSettingsSwitchTrackInactive)
                         )

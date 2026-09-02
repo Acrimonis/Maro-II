@@ -3,8 +3,8 @@
 ## Active Session Pointers
 - **Active Feature:** Ui_Settings
 - **Active Subfeature:** none
-- **Last Updated:** 2026-09-02 17:42
-- **Last Bake:** 2026-09-02 17:42 (Ui_Settings — approach re-display rework + drawer master switch + per-zone proximity)
+- **Last Updated:** 2026-09-02 20:09
+- **Last Bake:** 2026-09-02 20:09 (Ui_Settings — approach re-display fixes: master override reset, per-type split, dead-code removal, UI)
 - **Branch:** feature/settings
 
 ## Routing Map

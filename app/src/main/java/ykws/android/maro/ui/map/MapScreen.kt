@@ -2871,9 +2871,13 @@ private fun MapContent(
             } else {
                 val boat = mapCenter
                 val radius = appSettings.zoneAutoRevealDistanceM.toDouble()
-                val nearby = base.zones.filter { z ->
-                    z.isNear(boat, radius) &&
-                        (if (z.speedLimitKn != null) appSettings.speedZoneAutoShow else appSettings.regulatedZoneAutoShow)
+                val nearby = remember(boat, radius, base, appSettings.speedZoneAutoShow, appSettings.regulatedZoneAutoShow) {
+                    base.zones.filter { z ->
+                        z.isNear(boat, radius) && (
+                            (z.speedLimitKn != null && appSettings.speedZoneAutoShow) ||
+                            (z.hasNonSpeedCategory() && appSettings.regulatedZoneAutoShow)
+                        )
+                    }
                 }
                 if (nearby.isEmpty()) null else base.copy(zones = nearby)
             }
@@ -4134,34 +4138,50 @@ private fun NavigationSettings(
                     )
                 )
             }
+
+            Spacer(Modifier.height(8.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .height(1.dp)
+                    .background(ComposeColor(AppConfig.uiSettingsDivider))
+            )
+            Spacer(Modifier.height(8.dp))
+
+            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                var revealExpanded by rememberSaveable { mutableStateOf(false) }
+                SettingsExpander(
+                    label = stringResource(R.string.settings_redisplay_when_label),
+                    expanded = revealExpanded,
+                    onToggle = { revealExpanded = !revealExpanded }
+                ) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    SettingsSliderGroup(nested = true) {
+                        SliderRowContent(
+                            label = stringResource(R.string.settings_redisplay_dist_label),
+                            description = stringResource(R.string.settings_redisplay_dist_desc),
+                            valueLabel = stringResource(R.string.settings_value_meters, settings.zoneAutoRevealDistanceM.roundToInt()),
+                            value = settings.zoneAutoRevealDistanceM,
+                            valueRange = 50f..500f,
+                            steps = 17,
+                            onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealDistanceM = (v / 25f).roundToInt() * 25f) } }
+                        )
+                        SliderRowDivider()
+                        SliderRowContent(
+                            label = stringResource(R.string.settings_redisplay_time_label),
+                            description = stringResource(R.string.settings_redisplay_time_desc),
+                            valueLabel = stringResource(R.string.settings_value_seconds, settings.zoneAutoRevealTimeS),
+                            value = settings.zoneAutoRevealTimeS.toFloat(),
+                            valueRange = 5f..120f,
+                            steps = 22,
+                            onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealTimeS = (v / 5f).roundToInt() * 5) } }
+                        )
+                    }
+                }
+            }
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // ── When to reveal (always visible) ────────────────────────────
-        SectionHeader(title = stringResource(R.string.settings_redisplay_when_label), uppercase = false)
-        Spacer(modifier = Modifier.height(8.dp))
-        SettingsSliderGroup(nested = false) {
-            SliderRowContent(
-                label = stringResource(R.string.settings_redisplay_dist_label),
-                description = stringResource(R.string.settings_redisplay_dist_desc),
-                valueLabel = stringResource(R.string.settings_value_meters, settings.zoneAutoRevealDistanceM.roundToInt()),
-                value = settings.zoneAutoRevealDistanceM,
-                valueRange = 50f..500f,
-                steps = 17,
-                onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealDistanceM = (v / 25f).roundToInt() * 25f) } }
-            )
-            SliderRowDivider()
-            SliderRowContent(
-                label = stringResource(R.string.settings_redisplay_time_label),
-                description = stringResource(R.string.settings_redisplay_time_desc),
-                valueLabel = stringResource(R.string.settings_value_seconds, settings.zoneAutoRevealTimeS),
-                value = settings.zoneAutoRevealTimeS.toFloat(),
-                valueRange = 5f..120f,
-                steps = 22,
-                onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealTimeS = (v / 5f).roundToInt() * 5) } }
-            )
-        }
         Spacer(modifier = Modifier.height(24.dp))
 
     // ── Automatic map offset ──────────────────────────────────────────────
