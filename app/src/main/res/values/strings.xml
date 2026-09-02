@@ -210,6 +210,7 @@
     <string name="menu_manage_tracks">Tracks</string>
     <string name="menu_import_export">Export / Import</string>
     <string name="menu_show_zones">Show Zones on Map</string>
+    <string name="menu_show_tracks_direction">Show track direction</string>
     <string name="menu_manage_markers">Markers</string>
     <string name="track_status_recording">● Recording</string>
     <string name="track_status_idle">● Idle</string>
@@ -246,13 +247,25 @@
     <string name="settings_reg_info_visible">Info text visible</string>
     <string name="settings_section_tracks">Tracks</string>
     <string name="settings_tracks_desc">Show recorded tracks on the map</string>
-    <string name="settings_tracks_count_label">Number of tracks</string>
-    <string name="settings_tracks_count_desc">Recent tracks to render (0-20)</string>
-    <string name="settings_transparency_label">Transparency</string>
-    <string name="settings_transparency_desc" formatted="false">Left thumb = newest track, right thumb = oldest. 0% = opaque, 100% = invisible.</string>
+    <string name="settings_tracks_direction_label">Show tracks direction on map</string>
+    <string name="settings_tracks_direction_desc">Draw direction arrows along recorded tracks</string>
+    <string name="settings_tracks_direction_settings_label">Direction Track Settings</string>
+    <string name="settings_tracks_direction_density_label">Arrow density</string>
+    <string name="settings_tracks_direction_density_uniform">Uniform</string>
+    <string name="settings_tracks_direction_density_speed">Speed-based</string>
+    <string name="settings_tracks_direction_gap_range_label">Arrow gap range</string>
+    <string name="settings_tracks_direction_gap_range_desc">Left thumb = minimum, right thumb = maximum</string>
+    <string name="settings_tracks_direction_gap_range_fmt">Min %1$d – Max %2$d dp</string>
+    <string name="settings_tracks_direction_speed_range_label">Speed range</string>
+    <string name="settings_tracks_direction_speed_range_desc">Below the left speed: minimum gap · above the right speed: maximum gap</string>
+    <string name="settings_tracks_direction_speed_range_fmt">%1$.1f – %2$.1f kn</string>
+    <string name="settings_tracks_count_label">Not-pinned tracks to render</string>
+    <string name="settings_tracks_count_desc">This count limits non-pinned tracks only (0-20). Pinned tracks always render.</string>
+    <string name="settings_transparency_label">Not-pinned transparency</string>
+    <string name="settings_transparency_desc" formatted="false">Fade across the last N non-pinned tracks: left thumb = newest, right thumb = oldest. 0% = opaque, 100% = invisible.</string>
     <string name="settings_transparency_value_fmt">Newest %1$d%%  –  Oldest %2$d%%</string>
     <string name="settings_pinned_transparency_label">Pinned transparency</string>
-    <string name="settings_pinned_transparency_desc" formatted="false">Pinned tracks are always visible regardless of count. 0% = opaque, 100% = invisible.</string>
+    <string name="settings_pinned_transparency_desc" formatted="false">Fade across pinned tracks only, independent of the not-pinned range. 0% = opaque, 100% = invisible.</string>
     <string name="settings_colors_label">Colors</string>
     <string name="settings_colors_desc">Past tracks: color gradient from newest (From) to oldest (To). Pinned tracks: amber/orange gradient.</string>
     <string name="settings_section_markers">Markers</string>

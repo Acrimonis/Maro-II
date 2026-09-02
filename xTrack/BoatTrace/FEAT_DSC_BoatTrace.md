@@ -2,7 +2,7 @@
 name: BoatTrace
 status: active
 created: 2026-06-15 21:43
-modified: 2026-08-31 16:20
+modified: 2026-09-02 13:10
 active_subfeature: marker-export-import
 ---
 
@@ -288,6 +288,21 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 #### Docs
 - `xTrack/BoatTrace/260831_FEAT_PLN_BoatTrace_marker-export-import.md` — plan
 
+### track-direction-arrows  [x]
+
+**Purpose:** Direction chevrons along history + pinned tracks — custom osmdroid overlay, zoom-adaptive pixel spacing, exponential speed-based density, settings + drawer toggles.
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/TrackDirectionOverlay.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt`
+- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt`
+- `app/src/main/java/ykws/android/maro/config/AppConfig.kt`
+
+#### Docs
+- `xTrack/BoatTrace/260901_FEAT_PLN_BoatTrace_track-direction-arrows.md` — plan
+
 ## Rules
 - Feature-scoped plans go in `xTrack/[Feature]/FEAT_PLN_[Feature]_[topic].md`, NOT in `plans/`. The `plans/` directory is for cross-cutting or legacy plans only.
 - Track points only recorded while speed > 2.5 kn (drifting threshold from Navigation feature)
@@ -407,6 +422,8 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 **tracks-paint-order (2026-07-17):** Flipped track z-order from oldest-on-top to newest-on-top for both history and pinned tracks. History and pinned overlays accumulated into temp lists, reversed, then `mv.overlays.addAll()` — preserves `computeTrackPolylineAppearance` index semantics. Added highlight-to-top: when a track is selected from the list (`highlightedTrackId != null`), its polylines (Polyline.title exact match) and auto-marker 🕐 pins (Marker.title startsWith with trailing `_` delimiter) are filtered, removed, and re-added at end — above the active recording track. Final z-order: oldest history → newest history → oldest pinned → newest pinned → active → highlighted. 1 file, BUILD SUCCESSFUL.
 
 **idle-reconciliation (2026-08-15):** Unified compound idle predicate `(d/Δt < 0.5 m/s) AND (d < 500 m)`. `TrackRecorder.computeTimelineIdleSec()` re-derives idle from the raw point timeline at finalize — long screen-off/backgrounded stops (e.g. 2h34m dive stop) now count as idle instead of silently becoming navigating; finalize sweep-closes open IDLE BoatMarkers (never MANUAL) with a single `finalizeTimeMs`; resume seam always marked with a forced GAP. `TrackMerger` applies the same predicate as a same-area shortcut before its `d/v_ref` decomposition. `GpxExporter` writes UTC timestamps. 3 files, BUILD SUCCESSFUL.
+
+**track-direction-arrows (2026-09-02):** Direction chevrons on history + pinned tracks. `TrackDirectionOverlay` (custom osmdroid Overlay) draws vector chevrons oriented by `bearingDeg` (fallback: segment vector), track-coloured, sized ∝ stroke width, viewport-culled. Pixel-spaced (uniform) and speed-based (exponential `lo × (hi/lo)^t`) density; speed derived from time + haversine when `speedMps` null. Settings: `tracksDirectionVisible` toggle in Settings + drawer; own "Direction Track Settings" collapsible with segmented density selector + log-scale RangeSliders (gap 4–640 dp, speed 2–64 kn). BUILD SUCCESSFUL.
 - `xTrack/BoatTrace/260618_FEAT_PLN_BoatTrace_adaptive-isstill-settings-redesign.md` — Adaptive isStill settings redesign
 - `xTrack/BoatTrace/260617_FEAT_PLN_BoatTrace_boat-trace-fresh-import-plan.md` — Boat trace fresh import plan
 - `xTrack/BoatTrace/260618_FEAT_PLN_BoatTrace_boat-trace-ui-refinement-plan.md` — Boat trace UI refinement plan

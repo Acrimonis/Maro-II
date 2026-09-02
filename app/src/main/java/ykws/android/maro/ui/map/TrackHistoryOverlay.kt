@@ -201,10 +201,9 @@ fun TrackHistoryOverlay(
             map[summary.id] = Color(red = (a shr 16) and 0xFF, green = (a shr 8) and 0xFF, blue = a and 0xFF, alpha = (a ushr 24) and 0xFF)
         }
         val renderCount = trackingRenderNb.coerceIn(0, 20)
-        val historyTotal = historySummaries.size
         for ((index, summary) in historySummaries.withIndex()) {
             if (index < renderCount) {
-                val effectiveTotal = minOf(renderCount, historyTotal)
+                val effectiveTotal = renderCount
                 val appearance = computeTrackPolylineAppearance(
                     index, effectiveTotal,
                     trackingTransparencyNewest, trackingTransparencyOldest,

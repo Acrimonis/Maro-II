@@ -95,6 +95,18 @@ object AppConfig {
     /** Default proximity range (m) for Pin-type user markers. Set via `marker.proximity.pin_m` in maro.properties. */
     var markerProximityPinM: Double = 200.0
         private set
+    /** Direction-arrow density speed floor (kn) — below this, arrows use min spacing. */
+    var trackDirectionSpeedFloorKn: Float = 3.0f
+        private set
+    /** Direction-arrow density speed ceiling (kn) — above this, arrows use max spacing. */
+    var trackDirectionSpeedCeilingKn: Float = 35.0f
+        private set
+    /** Direction-arrow minimum on-screen spacing (dp). */
+    var trackDirectionMinSpacingDp: Int = 32
+        private set
+    /** Direction-arrow maximum on-screen spacing (dp). */
+    var trackDirectionMaxSpacingDp: Int = 320
+        private set
     /** Default proximity multiplier for Circle/Corridor user markers. Set via `marker.proximity.zone_multiplier` in maro.properties. */
     var markerProximityZoneMultiplier: Double = 3.0
         private set
@@ -592,6 +604,20 @@ object AppConfig {
             }
             props.getProperty("tracking.gapTimeThresholdSec")?.toLongOrNull()?.let {
                 trackingGapTimeThresholdSec = it.coerceAtLeast(0L)
+            }
+
+            // ── Track direction arrows (speed-based density) ────────────────
+            props.getProperty("track.direction.speedFloorKn")?.toFloatOrNull()?.let {
+                trackDirectionSpeedFloorKn = it.coerceIn(2f, 64f)
+            }
+            props.getProperty("track.direction.speedCeilingKn")?.toFloatOrNull()?.let {
+                trackDirectionSpeedCeilingKn = it.coerceIn(2f, 64f)
+            }
+            props.getProperty("track.direction.minSpacingDp")?.toIntOrNull()?.let {
+                trackDirectionMinSpacingDp = it.coerceIn(4, 640)
+            }
+            props.getProperty("track.direction.maxSpacingDp")?.toIntOrNull()?.let {
+                trackDirectionMaxSpacingDp = it.coerceIn(4, 640)
             }
 
             // ── Marker debug rays ───────────────────────────────────────

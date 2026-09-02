@@ -109,6 +109,8 @@ fun OverlayLayer(
     gpsToggleColor: ComposeColor,
     markerZonesVisible: Boolean = true,
     onToggleMarkerZones: () -> Unit = {},
+    tracksDirectionVisible: Boolean = true,
+    onToggleTracksDirection: () -> Unit = {},
     firstTrackId: String? = null,
     firstMarkerId: String? = null,
 
@@ -297,6 +299,8 @@ fun OverlayLayer(
                 markerFilterAxes = ykws.android.maro.data.model.markerFilterAxes(),
                 markerZonesVisible = markerZonesVisible,
                 onToggleMarkerZones = onToggleMarkerZones,
+                tracksDirectionVisible = tracksDirectionVisible,
+                onToggleTracksDirection = onToggleTracksDirection,
                 onImportTracks = { onDismissMenu(); onTrackAction(ykws.android.maro.data.model.ListAction.ImportTracks) },
                 onExportAllTracks = { onDismissMenu(); onTrackAction(ykws.android.maro.data.model.ListAction.BatchExportGpx(trackSummaries.map { it.id }.toSet())) }
             )

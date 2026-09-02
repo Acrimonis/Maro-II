@@ -209,6 +209,7 @@
     <string name="menu_manage_tracks">Traces</string>
     <string name="menu_import_export">Export / Import</string>
     <string name="menu_show_zones">Afficher les zones</string>
+    <string name="menu_show_tracks_direction">Afficher la direction</string>
     <string name="menu_manage_markers">Repères</string>
     <string name="track_status_recording">● Enregistrement</string>
     <string name="track_status_idle">● En attente</string>
@@ -245,13 +246,25 @@
     <string name="settings_reg_info_visible">Texte d\'info visible</string>
     <string name="settings_section_tracks">Traces</string>
     <string name="settings_tracks_desc">Afficher les traces enregistrées</string>
-    <string name="settings_tracks_count_label">Nombre de traces</string>
-    <string name="settings_tracks_count_desc">Traces récentes à afficher (0-20)</string>
-    <string name="settings_transparency_label">Transparence</string>
-    <string name="settings_transparency_desc" formatted="false">Curseur gauche = plus récent, droit = plus ancien. 0% = opaque, 100% = invisible.</string>
+    <string name="settings_tracks_direction_label">Afficher la direction des traces</string>
+    <string name="settings_tracks_direction_desc">Dessiner des flèches de direction le long des traces</string>
+    <string name="settings_tracks_direction_settings_label">Réglages direction des traces</string>
+    <string name="settings_tracks_direction_density_label">Densité des flèches</string>
+    <string name="settings_tracks_direction_density_uniform">Uniforme</string>
+    <string name="settings_tracks_direction_density_speed">Selon la vitesse</string>
+    <string name="settings_tracks_direction_gap_range_label">Plage d\'écart des flèches</string>
+    <string name="settings_tracks_direction_gap_range_desc">Curseur gauche = minimum, curseur droit = maximum</string>
+    <string name="settings_tracks_direction_gap_range_fmt">Min %1$d – Max %2$d dp</string>
+    <string name="settings_tracks_direction_speed_range_label">Plage de vitesse</string>
+    <string name="settings_tracks_direction_speed_range_desc">Sous la vitesse gauche : écart minimum · au-dessus de la droite : écart maximum</string>
+    <string name="settings_tracks_direction_speed_range_fmt">%1$.1f – %2$.1f nds</string>
+    <string name="settings_tracks_count_label">Traces non épinglées à afficher</string>
+    <string name="settings_tracks_count_desc">Ce nombre limite uniquement les traces non épinglées (0-20). Les épinglées s\'affichent toujours.</string>
+    <string name="settings_transparency_label">Transparence des non épinglées</string>
+    <string name="settings_transparency_desc" formatted="false">Dégradé sur les N dernières traces non épinglées : curseur gauche = plus récente, droit = plus ancienne. 0% = opaque, 100% = invisible.</string>
     <string name="settings_transparency_value_fmt">Récent %1$d%%  –  Ancien %2$d%%</string>
-    <string name="settings_pinned_transparency_label">Transparence épinglés</string>
-    <string name="settings_pinned_transparency_desc" formatted="false">Les traces épinglées sont toujours visibles. 0% = opaque, 100% = invisible.</string>
+    <string name="settings_pinned_transparency_label">Transparence des épinglées</string>
+    <string name="settings_pinned_transparency_desc" formatted="false">Dégradé sur les traces épinglées uniquement, indépendant des non épinglées. 0% = opaque, 100% = invisible.</string>
     <string name="settings_colors_label">Couleurs</string>
     <string name="settings_colors_desc">Anciennes traces : dégradé du plus récent (De) au plus ancien (Vers). Épinglées : dégradé ambre/orange.</string>
     <string name="settings_section_markers">Repères</string>
