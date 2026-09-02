@@ -129,6 +129,7 @@ fun OverlayLayer(
     onTabChange: (Int) -> Unit,
     displayScrollState: androidx.compose.foundation.ScrollState,
     navigationScrollState: androidx.compose.foundation.ScrollState,
+    positionScrollState: androidx.compose.foundation.ScrollState,
     systemScrollState: androidx.compose.foundation.ScrollState,
     onRegenerateRasters: (List<RasterCache.Step>) -> Unit,
 
@@ -595,6 +596,7 @@ fun OverlayLayer(
                 onTabChange = onTabChange,
                 displayScrollState = displayScrollState,
                 navigationScrollState = navigationScrollState,
+                positionScrollState = positionScrollState,
                 systemScrollState = systemScrollState,
                 onRegenerateRasters = onRegenerateRasters
             )

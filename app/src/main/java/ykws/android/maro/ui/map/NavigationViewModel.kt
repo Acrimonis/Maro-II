@@ -1096,22 +1096,6 @@ class NavigationViewModel(
     }
 
     /**
-     * Toggles the speed zone overlay visibility. Manages both the manual-hide flag
-     * and the auto-reveal flag so the state machine stays consistent.
-     */
-    fun toggleSpeedZonesVisibility() {
-        val current = settings.value.speedZonesVisible
-        settingsManager.update { it.copy(speedZonesVisible = !current) }
-        if (current) { // was visible → now hiding (user manually hid it)
-            speedZoneManuallyHidden = true
-            speedZoneAutoRevealed = false
-        } else { // was hidden → now showing (user manually toggled back on)
-            speedZoneManuallyHidden = false
-            speedZoneAutoRevealed = false
-        }
-    }
-
-    /**
      * Toggles the low-depth (<threshold) pink grounding-hazard overlay visibility.
      * Plain on/off — unlike the 300 m band there is no auto-reveal state to manage.
      */

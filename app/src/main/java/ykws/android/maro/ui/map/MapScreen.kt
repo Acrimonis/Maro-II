@@ -548,6 +548,7 @@ fun MapScreen(
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val displayScrollState = rememberScrollState()
     val navigationScrollState = rememberScrollState()
+    val positionScrollState = rememberScrollState()
     val systemScrollState = rememberScrollState()
 
     val context = LocalContext.current
@@ -2359,6 +2360,7 @@ fun MapScreen(
             onTabChange = { selectedTab = it },
             displayScrollState = displayScrollState,
             navigationScrollState = navigationScrollState,
+            positionScrollState = positionScrollState,
             systemScrollState = systemScrollState,
             onRegenerateRasters = { steps ->
                 val waterTest: (Double, Double) -> Boolean =
@@ -3244,7 +3246,12 @@ private fun MapContent(
 // ── Settings overlay (full-screen page) ─────────────────────────────────────
 
 // Tab definitions for the settings page.
-private val settingsTabLabels = listOf("General", "Navigation", "System")
+private val settingsTabLabels = listOf(
+    R.string.settings_tab_layers,
+    R.string.settings_tab_navigation,
+    R.string.settings_tab_position,
+    R.string.settings_tab_system
+)
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -3258,9 +3265,10 @@ internal fun SettingsOverlay(
     onRegenerateRasters: (List<RasterCache.Step>) -> Unit = {},
     displayScrollState: ScrollState,
     navigationScrollState: ScrollState,
+    positionScrollState: ScrollState,
     systemScrollState: ScrollState,
 ) {
-    val pagerState = rememberPagerState(pageCount = { 3 })
+    val pagerState = rememberPagerState(pageCount = { 4 })
 
     // Sync tab selection <-> pager position (bidirectional).
     // The pagerSyncSettled flag prevents the initial pager→tab sync from
@@ -3341,7 +3349,7 @@ internal fun SettingsOverlay(
                         )
                     }
             ) {
-                settingsTabLabels.forEachIndexed { index, label ->
+                settingsTabLabels.forEachIndexed { index, labelRes ->
                     val isSelected = selectedTab == index
                     Box(
                         modifier = Modifier
@@ -3351,7 +3359,7 @@ internal fun SettingsOverlay(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = label,
+                            text = stringResource(labelRes),
                             fontWeight = FontWeight.Medium,
                             fontSize = 14.sp,
                             color = if (isSelected) tabColor else ComposeColor(AppConfig.uiSettingsTextSecondary)
@@ -3370,9 +3378,10 @@ internal fun SettingsOverlay(
                     .fillMaxWidth()
             ) { page ->
                 when (page) {
-                    0 -> GeneralSettings(settings, onUpdateSettings, displayScrollState)
+                    0 -> LayersSettings(settings, onUpdateSettings, displayScrollState)
                     1 -> NavigationSettings(settings, onUpdateSettings, navigationScrollState)
-                    2 -> SystemSettings(settings, onUpdateSettings, onGpsModeChange, onRegenerateRasters, onDismiss, systemScrollState)
+                    2 -> PositionSettings(settings, onUpdateSettings, onGpsModeChange, onDismiss, positionScrollState)
+                    3 -> SystemSettings(settings, onUpdateSettings, onRegenerateRasters, onDismiss, systemScrollState)
                 }
             }
 
@@ -3387,10 +3396,10 @@ internal fun SettingsOverlay(
     }
 }
 
-// ── General tab ───────────────────────────────────────────────────────────
+// ── Layers tab ────────────────────────────────────────────────────────────
 
 @Composable
-private fun GeneralSettings(
+private fun LayersSettings(
     settings: AppSettings,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
     scrollState: ScrollState
@@ -3400,12 +3409,20 @@ private fun GeneralSettings(
             .fillMaxSize()
             .verticalScroll(scrollState)
     ) {
-        // ── Layers — map overlay toggles ──────────────────────────────
-        SectionHeader(title = stringResource(R.string.settings_section_layers), uppercase = false)
+        // ── Coastline — the only on/off without a map-fan button ───────
+        SectionHeader(title = stringResource(R.string.settings_coastline_label), uppercase = false)
         Spacer(modifier = Modifier.height(8.dp))
-        // ── Low-depth warning overlay toggle — grouped card ────────────
-        //   (placed before zone 300 and regulated zones so the two spatial
-        //    overlays are grouped together)
+        SettingsToggleRow(
+            label = stringResource(R.string.settings_coastline_label),
+            description = stringResource(R.string.settings_coastline_desc),
+            checked = settings.coastlineVisible,
+            onCheckedChange = { visible -> onUpdateSettings { it.copy(coastlineVisible = visible) } }
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // ── Low-depth warning ───────────────────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_low_depth_warning_label), uppercase = false)
+        Spacer(modifier = Modifier.height(8.dp))
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -3413,49 +3430,14 @@ private fun GeneralSettings(
                 .background(ComposeColor(AppConfig.uiCardBackground))
                 .padding(vertical = 8.dp)
         ) {
-            // Toggle row (inline)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_low_depth_warning_label),
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_low_depth_warning_desc),
-                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = 13.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Switch(
-                    checked = settings.lowDepthWarningVisible,
-                    onCheckedChange = { visible ->
-                        onUpdateSettings { it.copy(lowDepthWarningVisible = visible) }
-                    },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                    )
-                )
-            }
-
             // Warning sliders — always visible, persisted expander
             Spacer(Modifier.height(8.dp))
             Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                var warningExpanded by rememberSaveable { mutableStateOf(false) }
                 SettingsExpander(
-                    label = "Warning settings",
-                    expanded = settings.lowDepthWarningSettingsExpanded,
-                    onToggle = { onUpdateSettings { it.copy(lowDepthWarningSettingsExpanded = !it.lowDepthWarningSettingsExpanded) } }
+                    label = stringResource(R.string.settings_low_depth_settings_label),
+                    expanded = warningExpanded,
+                    onToggle = { warningExpanded = !warningExpanded }
                 ) {
                         Spacer(modifier = Modifier.height(8.dp))
                         SettingsSliderGroup(nested = true) {
@@ -3490,19 +3472,9 @@ private fun GeneralSettings(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // ── Zone 300 m overlay toggle ─────────────────────────────────
-        SettingsToggleRow(
-            label = stringResource(R.string.settings_zone300_label),
-            description = stringResource(R.string.settings_zone300_desc),
-            checked = settings.zone300Visible,
-            onCheckedChange = { visible ->
-                onUpdateSettings { it.copy(zone300Visible = visible) }
-            }
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // ── Regulated zones overlay toggle — grouped card ──────────────
+        // ── Regulated zones ─────────────────────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_regulated_zones_label), uppercase = false)
+        Spacer(modifier = Modifier.height(8.dp))
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -3510,48 +3482,14 @@ private fun GeneralSettings(
                 .background(ComposeColor(AppConfig.uiCardBackground))
                 .padding(vertical = 8.dp)
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_regulated_zones_label),
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_regulated_zones_desc),
-                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = 13.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Switch(
-                    checked = settings.regulatedZonesVisible,
-                    onCheckedChange = { visible ->
-                        onUpdateSettings { it.copy(regulatedZonesVisible = visible) }
-                    },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                    )
-                )
-            }
-
             Spacer(Modifier.height(8.dp))
                 // Regulation info — collapsible toggle for info text panel
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    var regExpanded by rememberSaveable { mutableStateOf(false) }
                     SettingsExpander(
-                        label = "Regulated zones settings",
-                        expanded = settings.regulationInfoExpanded,
-                        onToggle = { onUpdateSettings { it.copy(regulationInfoExpanded = !it.regulationInfoExpanded) } }
+                        label = stringResource(R.string.settings_reg_info_settings_label),
+                        expanded = regExpanded,
+                        onToggle = { regExpanded = !regExpanded }
                     ) {
                         Spacer(Modifier.height(8.dp))
                         Column(
@@ -3597,10 +3535,11 @@ private fun GeneralSettings(
                 }
                 Spacer(Modifier.height(8.dp))
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    var categoryExpanded by rememberSaveable { mutableStateOf(false) }
                     SettingsExpander(
-                        label = "Categories",
-                        expanded = settings.categoryFilterExpanded,
-                        onToggle = { onUpdateSettings { it.copy(categoryFilterExpanded = !it.categoryFilterExpanded) } }
+                        label = stringResource(R.string.settings_categories_label),
+                        expanded = categoryExpanded,
+                        onToggle = { categoryExpanded = !categoryExpanded }
                     ) {
                         Spacer(modifier = Modifier.height(8.dp))
                         RegulatedZoneCategoryToggles(settings, onUpdateSettings)
@@ -3611,28 +3550,18 @@ private fun GeneralSettings(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // ── Depth layer toggle — grouped card ─────────────────────
+        // ── Depth — EMODnet shallow filter ─────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_depth_label), uppercase = false)
+        Spacer(modifier = Modifier.height(8.dp))
         Column(
             modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
                 .background(ComposeColor(AppConfig.uiCardBackground)).padding(vertical = 8.dp)
         ) {
-            Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
-                horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.settings_depth_label), color = ComposeColor(AppConfig.uiSettingsTextPrimary), fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                    Text(stringResource(R.string.settings_depth_desc), color = ComposeColor(AppConfig.uiSettingsTextMuted), fontSize = 13.sp)
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Switch(checked = settings.depthLayerVisible,
-                    onCheckedChange = { on -> onUpdateSettings { it.copy(depthLayerVisible = on) } },
-                    colors = SwitchDefaults.colors(checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent), checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f), uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted), uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive))
-                )
-            }
             Spacer(Modifier.height(8.dp))
             Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                SettingsExpander(label = "EMODnet shallow filter", expanded = settings.depthSettingsExpanded,
-                    onToggle = { onUpdateSettings { it.copy(depthSettingsExpanded = !it.depthSettingsExpanded) } }
+                var emodExpanded by rememberSaveable { mutableStateOf(false) }
+                SettingsExpander(label = stringResource(R.string.settings_emodnet_section_label), expanded = emodExpanded,
+                    onToggle = { emodExpanded = !emodExpanded }
                 ) {
                     Spacer(Modifier.height(8.dp))
                     SettingsSliderGroup(nested = true) {
@@ -3650,7 +3579,9 @@ private fun GeneralSettings(
         }
         Spacer(modifier = Modifier.height(12.dp))
 
-        // ── Tracks layer toggle ────────────────────────────────────
+        // ── Tracks ──────────────────────────────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_section_tracks), uppercase = false)
+        Spacer(modifier = Modifier.height(8.dp))
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -3658,47 +3589,14 @@ private fun GeneralSettings(
                 .background(ComposeColor(AppConfig.uiCardBackground))
                 .padding(vertical = 8.dp)
         ) {
-            // Master toggle row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_section_tracks),
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_tracks_desc),
-                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = 13.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Switch(
-                    checked = settings.tracksVisible,
-                    onCheckedChange = { on -> onUpdateSettings { it.copy(tracksVisible = on) } },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                    )
-                )
-            }
-
             Spacer(Modifier.height(8.dp))
 
             Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                var trackExpanded by rememberSaveable { mutableStateOf(false) }
                 SettingsExpander(
-                    label = "Track settings",
-                    expanded = settings.trackSettingsExpanded,
-                    onToggle = { onUpdateSettings { it.copy(trackSettingsExpanded = !it.trackSettingsExpanded) } }
+                    label = stringResource(R.string.settings_track_settings_label),
+                    expanded = trackExpanded,
+                    onToggle = { trackExpanded = !trackExpanded }
                 ) {
                         Spacer(Modifier.height(4.dp))
                         Column(
@@ -3885,47 +3783,14 @@ private fun GeneralSettings(
                 }
             }
 
-            // Direction arrows toggle
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_tracks_direction_label),
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_tracks_direction_desc),
-                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = 13.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Switch(
-                    checked = settings.tracksDirectionVisible,
-                    onCheckedChange = { on -> onUpdateSettings { it.copy(tracksDirectionVisible = on) } },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                    )
-                )
-            }
-
             Spacer(Modifier.height(8.dp))
 
             Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                var directionExpanded by rememberSaveable { mutableStateOf(false) }
                 SettingsExpander(
                     label = stringResource(R.string.settings_tracks_direction_settings_label),
-                    expanded = settings.trackDirectionSettingsExpanded,
-                    onToggle = { onUpdateSettings { it.copy(trackDirectionSettingsExpanded = !it.trackDirectionSettingsExpanded) } }
+                    expanded = directionExpanded,
+                    onToggle = { directionExpanded = !directionExpanded }
                 ) {
                     Spacer(Modifier.height(4.dp))
                     Column(
@@ -4047,155 +3912,6 @@ private fun GeneralSettings(
             Spacer(Modifier.height(4.dp))
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // ── Markers overlay toggle — grouped card ───────────────────
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(ComposeColor(AppConfig.uiCardBackground))
-                .padding(vertical = 8.dp)
-        ) {
-            // Inline toggle row
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_section_markers),
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_markers_desc),
-                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = 13.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Switch(
-                    checked = settings.markerLayerState != MarkerLayerState.HIDDEN,
-                    onCheckedChange = { visible ->
-                        onUpdateSettings { it.copy(markerLayerState = if (visible) MarkerLayerState.SHOW_ALL else MarkerLayerState.HIDDEN) }
-                    },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                    )
-                )
-            }
-
-            // Appearance settings — always visible, persisted expander
-            Spacer(Modifier.height(8.dp))
-            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                SettingsExpander(
-                    label = "Appearance",
-                    expanded = settings.markerAppearanceExpanded,
-                    onToggle = { onUpdateSettings { it.copy(markerAppearanceExpanded = !it.markerAppearanceExpanded) } }
-                ) {
-                        Spacer(Modifier.height(8.dp))
-                        Column(
-                            modifier = Modifier.fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(ComposeColor(0x0DFFFFFF))
-                                .border(1.dp, ComposeColor(0x40FFFFFF), RoundedCornerShape(12.dp))
-                                .padding(horizontal = 16.dp, vertical = 12.dp)
-                        ) {
-                            Text(
-                                text = stringResource(R.string.settings_zone_shapes_desc),
-                                color = ComposeColor(AppConfig.uiDashboardTextMuted),
-                                fontSize = 13.sp,
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.settings_zone_shapes_label),
-                                    color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                                Switch(
-                                    checked = settings.markerZonesVisible,
-                                    onCheckedChange = { visible ->
-                                        onUpdateSettings { it.copy(markerZonesVisible = visible) }
-                                    },
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
-                                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                                    )
-                                )
-                            }
-                    }
-                }
-            }
-            Spacer(Modifier.height(4.dp))
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // ── Coastline overlay toggle ──────────────────────────────────
-        SettingsToggleRow(
-            label = stringResource(R.string.settings_coastline_label),
-            description = stringResource(R.string.settings_coastline_desc),
-            checked = settings.coastlineVisible,
-            onCheckedChange = { visible ->
-                onUpdateSettings { it.copy(coastlineVisible = visible) }
-            }
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // ── Navigation — map orientation aids ─────────────────────────
-        SectionHeader(title = stringResource(R.string.settings_section_navigation), uppercase = false)
-        Spacer(modifier = Modifier.height(8.dp))
-
-        SettingsToggleRow(
-            label = stringResource(R.string.settings_heading_line_label),
-            description = stringResource(R.string.settings_heading_line_desc),
-            checked = settings.headingLineVisible,
-            onCheckedChange = { visible ->
-                onUpdateSettings { it.copy(headingLineVisible = visible) }
-            }
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // ── Variable cap arrow toggle ─────────────────────────────────
-        SettingsToggleRow(
-            label = stringResource(R.string.settings_cap_arrow_label),
-            description = stringResource(R.string.settings_cap_arrow_desc),
-            checked = settings.capArrowVisible,
-            onCheckedChange = { visible ->
-                onUpdateSettings { it.copy(capArrowVisible = visible) }
-            }
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // ── Demo heading-up toggle ──────────────────────────────────────
-        SettingsToggleRow(
-            label = stringResource(R.string.settings_demo_heading_label),
-            description = stringResource(R.string.settings_demo_heading_desc),
-            checked = settings.demoHeadingUp,
-            onCheckedChange = { headingUp ->
-                onUpdateSettings { it.copy(demoHeadingUp = headingUp) }
-            }
-        )
-
         Spacer(modifier = Modifier.height(24.dp))
     }
 }
@@ -4213,6 +3929,31 @@ private fun NavigationSettings(
             .fillMaxSize()
             .verticalScroll(scrollState)
     ) {
+        // ── Orientation aids ────────────────────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_section_orientation), uppercase = false)
+        Spacer(modifier = Modifier.height(8.dp))
+        SettingsToggleRow(
+            label = stringResource(R.string.settings_heading_line_label),
+            description = stringResource(R.string.settings_heading_line_desc),
+            checked = settings.headingLineVisible,
+            onCheckedChange = { visible -> onUpdateSettings { it.copy(headingLineVisible = visible) } }
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        SettingsToggleRow(
+            label = stringResource(R.string.settings_cap_arrow_label),
+            description = stringResource(R.string.settings_cap_arrow_desc),
+            checked = settings.capArrowVisible,
+            onCheckedChange = { visible -> onUpdateSettings { it.copy(capArrowVisible = visible) } }
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+        SettingsToggleRow(
+            label = stringResource(R.string.settings_demo_heading_label),
+            description = stringResource(R.string.settings_demo_heading_desc),
+            checked = settings.demoHeadingUp,
+            onCheckedChange = { headingUp -> onUpdateSettings { it.copy(demoHeadingUp = headingUp) } }
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+
         // ── 300 m zone alert (auto-show on approach) — grouped card ─────
         SectionHeader(title = stringResource(R.string.settings_alert_label))
         Spacer(modifier = Modifier.height(8.dp))
@@ -4301,7 +4042,7 @@ private fun NavigationSettings(
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                     var alertExpanded by remember { mutableStateOf(false) }
                     SettingsExpander(
-                        label = "Alert settings",
+                        label = stringResource(R.string.settings_alert_settings_label),
                         expanded = alertExpanded,
                         onToggle = { alertExpanded = !alertExpanded }
                     ) {
@@ -4492,7 +4233,7 @@ private fun NavigationSettings(
     Spacer(modifier = Modifier.height(12.dp))
 
     // ── Automatic map offset ──────────────────────────────────────────────
-    SectionHeader(title = "Automatic map offset")
+    SectionHeader(title = stringResource(R.string.settings_map_offset_label))
 
     Column(
         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
@@ -4508,13 +4249,13 @@ private fun NavigationSettings(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "GPS mode",
+                    text = stringResource(R.string.settings_gps_mode_label),
                     color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    text = "Shift map center ahead when navigating with GPS",
+                    text = stringResource(R.string.settings_map_offset_gps_desc),
                     color = ComposeColor(AppConfig.uiSettingsTextMuted),
                     fontSize = 13.sp
                 )
@@ -4544,13 +4285,13 @@ private fun NavigationSettings(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Demo mode",
+                    text = stringResource(R.string.settings_map_offset_demo_label),
                     color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    text = "Shift map center ahead when panning in free mode",
+                    text = stringResource(R.string.settings_map_offset_demo_desc),
                     color = ComposeColor(AppConfig.uiSettingsTextMuted),
                     fontSize = 13.sp
                 )
@@ -4580,8 +4321,8 @@ private fun NavigationSettings(
         // Boat-from-bottom slider
         Column(modifier = Modifier.padding(horizontal = 16.dp)) {
             SliderRowContent(
-                label = "Boat position from bottom",
-                description = "Where the boat sits at speed. 50% = disabled (centered). Lower = more ahead.",
+                label = stringResource(R.string.settings_map_offset_boat_label),
+                description = stringResource(R.string.settings_map_offset_boat_desc),
                 valueLabel = "${settings.mapOffsetBoatFromBottomPct}%",
                 value = settings.mapOffsetBoatFromBottomPct.toFloat(),
                 valueRange = 5f..50f,
@@ -4594,14 +4335,13 @@ private fun NavigationSettings(
 }
 }
 
-// ── System tab ───────────────────────────────────────────────────────────
+// ── Position tab ───────────────────────────────────────────────────────────
 
 @Composable
-private fun SystemSettings(
+private fun PositionSettings(
     settings: AppSettings,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
     onGpsModeChange: (Boolean) -> Unit,
-    onRegenerateRasters: (List<RasterCache.Step>) -> Unit,
     onDismiss: () -> Unit,
     scrollState: ScrollState
 ) {
@@ -4610,22 +4350,10 @@ private fun SystemSettings(
             .fillMaxSize()
             .verticalScroll(scrollState)
     ) {
-        // ── Language ──────────────────────────────────────────────────
-        SectionHeader(title = stringResource(R.string.settings_section_language))
-        Spacer(modifier = Modifier.height(8.dp))
-
-        SettingsLanguageRow(
-            languageCode = settings.languageCode,
-            onSelect = { code -> onUpdateSettings { it.copy(languageCode = code) } }
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
-        // ── Position source (Demo <-> GPS) — moved from Navigation tab ─
+        // ── Position source (Demo <-> GPS) ────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_section_position))
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Grouped card: GPS toggle + optional GPS tuning expander
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -4633,7 +4361,6 @@ private fun SystemSettings(
                 .background(ComposeColor(AppConfig.uiCardBackground))
                 .padding(vertical = 8.dp)
         ) {
-            // GPS mode toggle row (inline, no separate card background)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -4670,14 +4397,12 @@ private fun SystemSettings(
                 )
             }
 
-            // GPS sub-settings — collapsible, only visible when GPS mode is on
             if (settings.gpsMode) {
-                // Thin divider separating the toggle from the expander
                 Spacer(Modifier.height(8.dp))
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    var gpsTuningExpanded by remember { mutableStateOf(false) }
+                    var gpsTuningExpanded by rememberSaveable { mutableStateOf(false) }
                     SettingsExpander(
-                        label = "GPS tuning",
+                        label = stringResource(R.string.settings_gps_tuning_label),
                         expanded = gpsTuningExpanded,
                         onToggle = { gpsTuningExpanded = !gpsTuningExpanded }
                     ) {
@@ -4708,50 +4433,10 @@ private fun SystemSettings(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // ── Keep screen on ────────────────────────────────────────────
-        SectionHeader(title = stringResource(R.string.settings_section_screen))
-        Spacer(modifier = Modifier.height(8.dp))
-
-        SettingsToggleRow(
-            label = stringResource(R.string.settings_keep_screen_on_label),
-            description = stringResource(R.string.settings_keep_screen_on_desc),
-            checked = settings.keepScreenOn,
-            onCheckedChange = { on -> onUpdateSettings { it.copy(keepScreenOn = on) } }
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        SettingsToggleRow(
-            label = "Debug rays (WhereAmI)",
-            description = "Show green/red line-of-sight rays on the map when tapping the boat marker.",
-            checked = settings.markerDebugRays,
-            onCheckedChange = { on ->
-                onUpdateSettings { it.copy(markerDebugRays = on) }
-                AppConfig.markerDebugRaysEnabled = on
-                MarkerMatcher.debugger = if (on) VisualWhereAmIDebugger() else NoOpWhereAmIDebugger
-            }
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // Map rendering FPS ceiling — moved from Navigation tab
-        SettingsSliderRow(
-            label = stringResource(R.string.settings_fps_label),
-            description = stringResource(R.string.settings_fps_desc),
-            valueLabel = stringResource(R.string.settings_value_fps, settings.mapRefreshFps),
-            value = settings.mapRefreshFps.toFloat(),
-            valueRange = 5f..50f,
-            steps = 8,
-            onValueChange = { v -> onUpdateSettings { it.copy(mapRefreshFps = (v / 5f).roundToInt() * 5) } }
-        )
-
-        Spacer(modifier = Modifier.height(24.dp))
-
         // ── Stop detection ──────────────────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_idle_section_label))
         Spacer(modifier = Modifier.height(8.dp))
 
-        // Grouped card: enable toggle + delay toggle + thresholds expander
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -4759,7 +4444,6 @@ private fun SystemSettings(
                 .background(ComposeColor(AppConfig.uiCardBackground))
                 .padding(vertical = 8.dp)
         ) {
-            // Enable stop detection toggle (inline)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -4793,14 +4477,11 @@ private fun SystemSettings(
                 )
             }
 
-            // Conditional content: only shown when stop detection is enabled
             if (settings.stopDetectionEnabled) {
-                // Thin divider
                 Spacer(Modifier.height(8.dp))
 
-                // Detection thresholds expander
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    var adaptiveAdvanced by remember { mutableStateOf(false) }
+                    var adaptiveAdvanced by rememberSaveable { mutableStateOf(false) }
                     SettingsExpander(
                         label = stringResource(R.string.settings_stop_thresholds_label),
                         expanded = adaptiveAdvanced,
@@ -4832,7 +4513,6 @@ private fun SystemSettings(
                 }
                 Spacer(modifier = Modifier.height(8.dp))
 
-                // Delay GPS when still toggle (inline)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -4869,6 +4549,72 @@ private fun SystemSettings(
         }
 
         Spacer(modifier = Modifier.height(24.dp))
+    }
+}
+
+// ── System tab ───────────────────────────────────────────────────────────
+
+@Composable
+private fun SystemSettings(
+    settings: AppSettings,
+    onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
+    onRegenerateRasters: (List<RasterCache.Step>) -> Unit,
+    onDismiss: () -> Unit,
+    scrollState: ScrollState
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(scrollState)
+    ) {
+        // ── Language ──────────────────────────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_section_language))
+        Spacer(modifier = Modifier.height(8.dp))
+
+        SettingsLanguageRow(
+            languageCode = settings.languageCode,
+            onSelect = { code -> onUpdateSettings { it.copy(languageCode = code) } }
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // ── Screen ─────────────────────────────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_section_screen))
+        Spacer(modifier = Modifier.height(8.dp))
+
+        SettingsToggleRow(
+            label = stringResource(R.string.settings_keep_screen_on_label),
+            description = stringResource(R.string.settings_keep_screen_on_desc),
+            checked = settings.keepScreenOn,
+            onCheckedChange = { on -> onUpdateSettings { it.copy(keepScreenOn = on) } }
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        SettingsToggleRow(
+            label = stringResource(R.string.settings_debug_rays_label),
+            description = stringResource(R.string.settings_debug_rays_desc),
+            checked = settings.markerDebugRays,
+            onCheckedChange = { on ->
+                onUpdateSettings { it.copy(markerDebugRays = on) }
+                AppConfig.markerDebugRaysEnabled = on
+                MarkerMatcher.debugger = if (on) VisualWhereAmIDebugger() else NoOpWhereAmIDebugger
+            }
+        )
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        SettingsSliderRow(
+            label = stringResource(R.string.settings_fps_label),
+            description = stringResource(R.string.settings_fps_desc),
+            valueLabel = stringResource(R.string.settings_value_fps, settings.mapRefreshFps),
+            value = settings.mapRefreshFps.toFloat(),
+            valueRange = 5f..50f,
+            steps = 8,
+            onValueChange = { v -> onUpdateSettings { it.copy(mapRefreshFps = (v / 5f).roundToInt() * 5) } }
+        )
+
+        Spacer(modifier = Modifier.height(24.dp))
 
         // ── Regenerate Layers ─────────────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_regenerate_layers))
@@ -4889,13 +4635,13 @@ private fun SystemSettings(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Depth grid",
+                        text = stringResource(R.string.settings_regen_depth_grid_label),
                         color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
                     Text(
-                        text = "Reload the prebaked depth grid from assets",
+                        text = stringResource(R.string.settings_regen_depth_grid_desc),
                         color = ComposeColor(AppConfig.uiSettingsTextMuted),
                         fontSize = 13.sp
                     )
@@ -4930,13 +4676,13 @@ private fun SystemSettings(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Isobath contours",
+                        text = stringResource(R.string.settings_regen_isobaths_label),
                         color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
                     Text(
-                        text = "Re-derive contour lines from the grid",
+                        text = stringResource(R.string.settings_regen_isobaths_desc),
                         color = ComposeColor(AppConfig.uiSettingsTextMuted),
                         fontSize = 13.sp
                     )
@@ -4971,13 +4717,13 @@ private fun SystemSettings(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Depth colour map",
+                        text = stringResource(R.string.settings_regen_colour_label),
                         color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
                     Text(
-                        text = "Rebuild the depth-coloured raster overlay",
+                        text = stringResource(R.string.settings_regen_colour_desc),
                         color = ComposeColor(AppConfig.uiSettingsTextMuted),
                         fontSize = 13.sp
                     )
@@ -5012,13 +4758,13 @@ private fun SystemSettings(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Low-depth warning overlay",
+                        text = stringResource(R.string.settings_regen_warning_label),
                         color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
                     Text(
-                        text = "Rebuild the shallow-water magenta hazard overlay",
+                        text = stringResource(R.string.settings_regen_warning_desc),
                         color = ComposeColor(AppConfig.uiSettingsTextMuted),
                         fontSize = 13.sp
                     )
@@ -5050,6 +4796,7 @@ private fun SystemSettings(
                         if (settings.regenWarning) add(RasterCache.Step.LOW_DEPTH_WARNING)
                     }
                     onRegenerateRasters(selected)
+                    onDismiss()
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = ComposeColor(AppConfig.uiSettingsAccent)),
                 shape = RoundedCornerShape(12.dp)
@@ -5605,53 +5352,6 @@ private fun SettingsFrequencyRow(
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun SettingsTextFieldRow(
-    label: String,
-    value: Double,
-    onValueChange: (Double) -> Unit
-) {
-    var textValue by remember { mutableStateOf(value.toString()) }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(ComposeColor(AppConfig.uiCardBackground))
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Medium,
-            modifier = Modifier.width(100.dp)
-        )
-        androidx.compose.material3.OutlinedTextField(
-            value = textValue,
-            onValueChange = { newText ->
-                textValue = newText
-                newText.toDoubleOrNull()?.let { onValueChange(it) }
-            },
-            singleLine = true,
-            modifier = Modifier
-                .width(160.dp)
-                .height(48.dp),
-            textStyle = androidx.compose.ui.text.TextStyle(
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                fontSize = 14.sp
-            ),
-            colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = ComposeColor(AppConfig.uiSettingsAccent),
-                unfocusedBorderColor = ComposeColor(AppConfig.uiSettingsInputBorder),
-                cursorColor = ComposeColor(AppConfig.uiSettingsTextPrimary)
-            )
-        )
     }
 }
 
