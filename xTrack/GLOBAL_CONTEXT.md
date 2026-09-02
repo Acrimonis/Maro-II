@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** Ui_General
+- **Active Feature:** Ui_Settings
 - **Active Subfeature:** none
-- **Last Updated:** 2026-09-02 15:42
-- **Last Bake:** 2026-09-02 15:42 (Ui_General — MapScreen modularization)
-- **Branch:** feature/uiiii
+- **Last Updated:** 2026-09-02 16:47
+- **Last Bake:** 2026-09-02 16:47 (Ui_Settings — settings reorganization: 4 tabs + regenerate-close + coastline header)
+- **Branch:** feature/settings
 
 ## Routing Map
 | Keyword | Feature File |
@@ -51,7 +51,7 @@
 | BakeNormalization | APK bake/build/deploy pipeline and prebake data processing | 2026-06-01 00:00 | 2026-06-08 17:10 | active |
 | DepthSafety | Danger depth alerts, shallow water grounding prevention, isobath precision | 2026-06-03 00:00 | 2026-06-09 12:01 | active |
 | Ui_General | App-lifecycle UX: back-to-exit guard, keep-screen-on wakelock, edge-to-edge rendering, WindowInsets, list normalization (ListOverlayScaffold, sort, swipe-to-delete, per-type custom sort fields, localized EN+FR), list-detail navigation (scroll preservation, prev/next, exit conditions), drawer delete undo (snackbar + undo + reopen), notification lifecycle (foreground notification follows recording state, 3-choice exit dialog, service-owned recorder), landscape menu drawer (scroll-when-overflow, overscroll suppressed when content fits), top-left icons (GPS→tracking→land/water, GPS click-to-toggle, 🐾, idle dot red), menu drawer rows (Tracks/Markers captions, chevron opens first filtered/sorted item, disabled when none), screen-lock splash guard (📵 toggle, double-tap zoom, status.lock.* tokens) | 2026-06-08 16:43 | 2026-09-02 15:42 | active |
-| Ui_Settings | Settings page UI, persistence, widgets, and UX enhancements | 2026-06-09 15:28 | 2026-06-25 22:06 | active |
+| Ui_Settings | Settings page UI — 4 tabs (Layers / Navigation / Position / System); layer on/off moved to map fan, settings keep per-layer params + localized labels | 2026-06-09 15:28 | 2026-09-02 16:31 | active |
 | **Navigation** | **Navigation aids — heading/speed arrow and direction line on map overlay** | **2026-06-10 08:40** | **2026-07-04 16:57** | **active** |
 | **RegulatedZones** | **Maritime regulatory zones — multi-source normalization (SHOM INSPIRE + IGN Natura 2000), sealed classification, 8-category icon mapping, keyword-driven display logic** | **2026-06-11 18:00** | **2026-06-13 20:23** | **active** |
 | **ArcLayout** | **Layer toggle arc menu — pure-Compose semicircle fan-out with layer toggles, FanLayout framework, fixed child centering using effectiveTheta=180/currentCount** | **2026-06-13 07:34** | **2026-06-18 19:36** | **active** |

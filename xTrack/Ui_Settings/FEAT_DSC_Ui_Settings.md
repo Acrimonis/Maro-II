@@ -2,13 +2,35 @@
 name: Ui_Settings
 status: active
 created: 2026-06-09 15:28
-modified: 2026-06-25 22:06
-active_subfeature: render-tweaks
+modified: 2026-09-02 16:31
+active_subfeature: settings-reorganization
 ---
 
 **Description:** Settings page UI, settings persistence (SharedPreferences), settings-related widgets, and settings UX enhancements.
 
 ## Subfeatures
+
+### settings-reorganization  [x]
+
+#### Todos
+- [x] Restructure SettingsOverlay to 4 tabs (Layers / Navigation / Position / System) with 4 pager pages + per-tab scroll states
+- [x] Build LayersSettings: depth cutoff, low-depth warning params, regulated zones params, tracks params, coastline toggle
+- [x] Build NavigationSettings: orientation aids + auto-reveal (zone300/speed/regulated) + map offset
+- [x] Build PositionSettings: GPS mode + tuning + recenter, stop detection
+- [x] Slim SystemSettings: language, screen, debug rays, regenerate (4 checkboxes + button)
+- [x] Remove 6 layer master toggles (map fan) + zone-shapes/direction-arrows toggles (menu drawer)
+- [x] Move 8 persisted expander flags from SettingsManager to rememberSaveable
+- [x] Localize hardcoded labels (en/fr) + new tab names
+- [x] Dead-code sweep: remove SettingsTextFieldRow + orphaned NavigationViewModel.toggleSpeedZonesVisibility()
+- [x] BUILD SUCCESSFUL
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt`
+- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/NavigationViewModel.kt`
+- `app/src/main/res/values/strings.xml`
+- `app/src/main/res/values-fr/strings.xml`
 
 ### reorder-settings  [x]
 
