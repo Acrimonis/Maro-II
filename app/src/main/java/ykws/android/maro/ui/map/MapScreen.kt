@@ -217,7 +217,14 @@ private val RIGHT_CONTROL_COLUMN_INSET = 82.dp
 data class TrackPolylineAppearance(val argb: Int, val strokeWidth: Float)
 
 /** Uniform on-screen spacing (dp) between direction arrows. */
-private const val DIRECTION_ARROW_SPACING_DP = 24f
+private const val DIRECTION_ARROW_SPACING_DP = 48f
+
+/** Log-scale gap slider bounds (dp). */
+private const val DIRECTION_GAP_MIN_DP = 6f
+private const val DIRECTION_GAP_MAX_DP = 512f
+/** Log-scale speed slider bounds (kn). */
+private const val DIRECTION_SPEED_MIN_KN = 2f
+private const val DIRECTION_SPEED_MAX_KN = 64f
 
 /** One-shot target for click-N-move navigation: dismiss list → animate map → open drawer. */
 private data class NavigateTarget(val geoPoint: GeoPoint, val markerId: String)
@@ -4915,44 +4922,84 @@ private fun GeneralSettings(
                             Spacer(Modifier.height(8.dp))
 
                             SettingsSliderGroup(nested = true) {
-                                SliderRowContent(
-                                    label = stringResource(R.string.settings_tracks_direction_min_spacing_label),
-                                    description = stringResource(R.string.settings_tracks_direction_min_spacing_desc),
-                                    valueLabel = stringResource(R.string.settings_tracks_direction_dp_fmt, settings.trackDirectionMinSpacingDp),
-                                    value = settings.trackDirectionMinSpacingDp.toFloat(),
-                                    valueRange = 12f..120f,
-                                    steps = 107,
-                                    onValueChange = { v -> onUpdateSettings { it.copy(trackDirectionMinSpacingDp = v.roundToInt()) } }
+                                Text(
+                                    text = stringResource(R.string.settings_tracks_direction_gap_range_label),
+                                    color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    text = stringResource(R.string.settings_tracks_direction_gap_range_desc),
+                                    color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                                    fontSize = 12.sp
+                                )
+                                Text(
+                                    text = stringResource(R.string.settings_tracks_direction_gap_range_fmt,
+                                        settings.trackDirectionMinSpacingDp, settings.trackDirectionMaxSpacingDp),
+                                    color = ComposeColor(AppConfig.uiSettingsAccent),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.End,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                RangeSlider(
+                                    value = logSliderFromValue(settings.trackDirectionMinSpacingDp.toFloat(), DIRECTION_GAP_MIN_DP, DIRECTION_GAP_MAX_DP)
+                                        ..logSliderFromValue(settings.trackDirectionMaxSpacingDp.toFloat(), DIRECTION_GAP_MIN_DP, DIRECTION_GAP_MAX_DP),
+                                    onValueChange = { range: ClosedFloatingPointRange<Float> ->
+                                        onUpdateSettings {
+                                            it.copy(
+                                                trackDirectionMinSpacingDp = logSliderToValue(range.start, DIRECTION_GAP_MIN_DP, DIRECTION_GAP_MAX_DP).roundToInt(),
+                                                trackDirectionMaxSpacingDp = logSliderToValue(range.endInclusive, DIRECTION_GAP_MIN_DP, DIRECTION_GAP_MAX_DP).roundToInt()
+                                            )
+                                        }
+                                    },
+                                    valueRange = 0f..1f,
+                                    steps = 23,
+                                    colors = SliderDefaults.colors(
+                                        thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                                        activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
+                                        inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                                    )
                                 )
                                 SliderRowDivider()
-                                SliderRowContent(
-                                    label = stringResource(R.string.settings_tracks_direction_max_spacing_label),
-                                    description = stringResource(R.string.settings_tracks_direction_max_spacing_desc),
-                                    valueLabel = stringResource(R.string.settings_tracks_direction_dp_fmt, settings.trackDirectionMaxSpacingDp),
-                                    value = settings.trackDirectionMaxSpacingDp.toFloat(),
-                                    valueRange = 24f..400f,
-                                    steps = 375,
-                                    onValueChange = { v -> onUpdateSettings { it.copy(trackDirectionMaxSpacingDp = v.roundToInt()) } }
+                                Text(
+                                    text = stringResource(R.string.settings_tracks_direction_speed_range_label),
+                                    color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium
                                 )
-                                SliderRowDivider()
-                                SliderRowContent(
-                                    label = stringResource(R.string.settings_tracks_direction_floor_label),
-                                    description = stringResource(R.string.settings_tracks_direction_floor_desc),
-                                    valueLabel = stringResource(R.string.settings_tracks_direction_kn_fmt, settings.trackDirectionSpeedFloorKn),
-                                    value = settings.trackDirectionSpeedFloorKn,
-                                    valueRange = 1f..10f,
-                                    steps = 17,
-                                    onValueChange = { v -> onUpdateSettings { it.copy(trackDirectionSpeedFloorKn = (v * 2f).roundToInt() / 2f) } }
+                                Text(
+                                    text = stringResource(R.string.settings_tracks_direction_speed_range_desc),
+                                    color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                                    fontSize = 12.sp
                                 )
-                                SliderRowDivider()
-                                SliderRowContent(
-                                    label = stringResource(R.string.settings_tracks_direction_ceiling_label),
-                                    description = stringResource(R.string.settings_tracks_direction_ceiling_desc),
-                                    valueLabel = stringResource(R.string.settings_tracks_direction_kn_fmt, settings.trackDirectionSpeedCeilingKn),
-                                    value = settings.trackDirectionSpeedCeilingKn,
-                                    valueRange = 10f..60f,
-                                    steps = 99,
-                                    onValueChange = { v -> onUpdateSettings { it.copy(trackDirectionSpeedCeilingKn = (v * 2f).roundToInt() / 2f) } }
+                                Text(
+                                    text = stringResource(R.string.settings_tracks_direction_speed_range_fmt,
+                                        settings.trackDirectionSpeedFloorKn, settings.trackDirectionSpeedCeilingKn),
+                                    color = ComposeColor(AppConfig.uiSettingsAccent),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.End,
+                                    modifier = Modifier.fillMaxWidth()
+                                )
+                                RangeSlider(
+                                    value = logSliderFromValue(settings.trackDirectionSpeedFloorKn, DIRECTION_SPEED_MIN_KN, DIRECTION_SPEED_MAX_KN)
+                                        ..logSliderFromValue(settings.trackDirectionSpeedCeilingKn, DIRECTION_SPEED_MIN_KN, DIRECTION_SPEED_MAX_KN),
+                                    onValueChange = { range: ClosedFloatingPointRange<Float> ->
+                                        onUpdateSettings {
+                                            it.copy(
+                                                trackDirectionSpeedFloorKn = (logSliderToValue(range.start, DIRECTION_SPEED_MIN_KN, DIRECTION_SPEED_MAX_KN) * 10f).roundToInt() / 10f,
+                                                trackDirectionSpeedCeilingKn = (logSliderToValue(range.endInclusive, DIRECTION_SPEED_MIN_KN, DIRECTION_SPEED_MAX_KN) * 10f).roundToInt() / 10f
+                                            )
+                                        }
+                                    },
+                                    valueRange = 0f..1f,
+                                    steps = 23,
+                                    colors = SliderDefaults.colors(
+                                        thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                                        activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
+                                        inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                                    )
                                 )
                             }
                         }

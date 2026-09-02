@@ -63,7 +63,7 @@ spacingDp(v) =
   v ≥ ceilingKn            → maxSpacingDp
 ```
 
-- **Settings (maro.properties + Tracks settings):** `trackDirectionDensity` (UNIFORM | SPEED, default UNIFORM), `trackDirectionSpeedFloorKn` = 3.0, `trackDirectionSpeedCeilingKn` = 35.0, `trackDirectionMinSpacingDp` = 24, `trackDirectionMaxSpacingDp` = 120.
+- **Settings (maro.properties + Tracks settings):** `trackDirectionDensity` (UNIFORM | SPEED, default UNIFORM), `trackDirectionSpeedFloorKn` = 3.0, `trackDirectionSpeedCeilingKn` = 35.0, `trackDirectionMinSpacingDp` = 32 (floor 6), `trackDirectionMaxSpacingDp` = 320.
 - **UI:** density selector `Uniform / Speed-based` under the master toggle, plus min/max spacing sliders and speed floor/ceiling fields.
 - **Sampler:** convert dp → ground metres via the current zoom's metres-per-pixel, then re-sample on integer zoom change — reuses Phase 1's pixel-spaced re-sampling; only the spacing function changes (constant → speed-linear-clamped).
 - **Edge cases:** skip `GAP`; speed below the floor is clamped to min spacing (no idle stacking); per-track cap applies.

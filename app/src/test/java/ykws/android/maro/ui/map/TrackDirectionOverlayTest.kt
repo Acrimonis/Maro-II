@@ -77,7 +77,9 @@ class TrackDirectionOverlayTest {
         assertEquals(min, spacingPxForSpeed(3f, floor, ceiling, min, max), 0.001f)
         assertEquals(max, spacingPxForSpeed(35f, floor, ceiling, min, max), 0.001f)
         assertEquals(max, spacingPxForSpeed(50f, floor, ceiling, min, max), 0.001f)
-        assertEquals(72f, spacingPxForSpeed(19f, floor, ceiling, min, max), 0.001f)
+        // Exponential midpoint: t = 0.5 → min × (max/min)^0.5
+        val mid = min * kotlin.math.sqrt(max / min)
+        assertEquals(mid, spacingPxForSpeed(19f, floor, ceiling, min, max), 0.001f)
     }
 
     @Test

@@ -1,35 +1,29 @@
 # BoatTrace — Hydration Snapshot
 
-**Baked at:** 2026-09-01 17:52 UTC
+**Baked at:** 2026-09-02 10:01 UTC
 **Active Subfeature:** marker-export-import
-**Branch:** feature/track-n-markers
+**Branch:** feature/next
 
 ## Session Summary
 
-Auto-marker lifecycle + marker-track relationship rework, in phases:
+Track direction arrows implemented (Phases 1 + 2):
 
-- **Phase 1 (auto-marker cleanup):** recorder-owned `AutoMarkerManager` (createTemp/confirm/delete), `UserMarkerRepository` Mutex + change channel, durable finalize fallback, startup crash-orphan cleanup, merged markers keepable. BUILD SUCCESSFUL.
-- **Phase 2 (marker-track link):** single `UserMarker.trackId` set at creation; one-time backfill migration; removed persisted `BoatMarker.autoMarkerId`; delete-track deletes its IDLE_AUTO markers; markers rendered from unfiltered `_allMarkers`; marker badge + "Belongs to track" row. BUILD SUCCESSFUL.
-- **Track export:** fixed duplicate-entry crash (unique names), Windows-safe filename sanitization, `yyyy_MM_dd_HH_mm-title-counter.gpx` naming, menu Import/Export reorder with labeled controls.
-- **Track import modes:** single GPX → Skip/Update/New dialog; ZIP → silent skip; update prefers edited `<trkpt>` points and recomputes stats. BUILD SUCCESSFUL.
-- **Bug fix (track-pin crash):** `save()` shared-tmp race → `NoSuchFileException`; fixed with unique temp filename + guarded `atomicReplace` fallback + collapsed redundant double-save in `onUpdateTrack` handlers. BUILD SUCCESSFUL.
-- **Import UX normalization:** magic-byte ZIP/GPX sniffing, `ImportResult(imported, ignored)`, normalized Compose result banner, 3-action conflict sheet (Duplicate/Override/Cancel), localized strings. BUILD SUCCESSFUL.
-- **Drawer Import/Export:** whole control clickable + dismiss-then-action; "Exporting/Importing…" status banner. BUILD SUCCESSFUL.
-- **Pin unification:** PushPin icon + `cd_pin`/`cd_unpin` across track/marker cards + multi-select. BUILD SUCCESSFUL.
-- **Marker pinned→icon simplification:** drop `pinned`, derive from `icon != null`; one-time migration; geometry filter split (Pins/Circles/Corridors); origin sort Manual-first; "Icon" filter labels; emojis 📍/🎯/🛤️. BUILD SUCCESSFUL.
-- **Marker icon multi-select:** "Set icon" opens the emoji picker (applies to selection; "None" clears), "Clear icon" clears; removed "Toggle icon" + dead onTogglePin/togglePin plumbing; removed marker "Merge" (dedup radius already prevents duplicate auto-markers). BUILD SUCCESSFUL.
-- **Auto-marker dedup radius:** default 50 → 25 m (AppConfig.kt fallback + maro.properties).
-- **Title sort fix:** per-field direction defaults (Title A→Z, Created newest-first, origin USER-first), legacy parse branch, emoji-stripping title key. BUILD SUCCESSFUL.
-- **Phase 3** (cross-navigation) planned, deferred. **Phase 4** marker export/import planned (track import modes done).
+- Phase 1: custom `TrackDirectionOverlay` (osmdroid Overlay) drawing vector chevrons oriented by `bearingDeg` (segment-vector fallback), track-coloured, size ∝ stroke width, viewport-culled, one overlay per rendered track; "Show tracks direction on map" toggle in Settings + drawer; uniform pixel-spaced density.
+- Phase 2: speed-based density — exponential spacing `lo × (hi/lo)^t` over floor/ceiling speed, speed derived from time + haversine when `speedMps` null; density selector (Uniform / Speed-based) + two log-scale RangeSliders (gap 6–512 dp, speed 2–64 kn).
+- Fixes: overlay `mBounds` set; per-track cap 64→2000; `spacingPxForSpeed` clamped; UNIFORM spacing 24→48 dp.
+
+BUILD SUCCESSFUL (assembleDebug).
 
 ## Next Step
 
-On-device E2E for all implemented work; then Phase 4 marker export/import; then Phase 3 cross-navigation.
+Device E2E: verify arrows span the full track at all zooms, density reflects speed (exponential), drawer + settings toggles work.
 
 ## Key Files
 
-- `app/src/main/java/ykws/android/maro/data/markers/AutoMarkerManager.kt`
-- `app/src/main/java/ykws/android/maro/data/markers/UserMarkerRepository.kt`
-- `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt`
-- `app/src/main/java/ykws/android/maro/data/track/GpxImporter.kt`, `GpxExporter.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`, `MarkerManagementOverlay.kt`, `MarkerDrawer.kt`, `MenuDrawerOverlay.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/TrackDirectionOverlay.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt`
+- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt`
+- `app/src/main/java/ykws/android/maro/config/AppConfig.kt`
+- `app/src/main/assets/maro.properties`

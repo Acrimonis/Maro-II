@@ -102,10 +102,10 @@ object AppConfig {
     var trackDirectionSpeedCeilingKn: Float = 35.0f
         private set
     /** Direction-arrow minimum on-screen spacing (dp). */
-    var trackDirectionMinSpacingDp: Int = 24
+    var trackDirectionMinSpacingDp: Int = 32
         private set
     /** Direction-arrow maximum on-screen spacing (dp). */
-    var trackDirectionMaxSpacingDp: Int = 120
+    var trackDirectionMaxSpacingDp: Int = 320
         private set
     /** Default proximity multiplier for Circle/Corridor user markers. Set via `marker.proximity.zone_multiplier` in maro.properties. */
     var markerProximityZoneMultiplier: Double = 3.0
@@ -608,16 +608,16 @@ object AppConfig {
 
             // ── Track direction arrows (speed-based density) ────────────────
             props.getProperty("track.direction.speedFloorKn")?.toFloatOrNull()?.let {
-                trackDirectionSpeedFloorKn = it.coerceIn(1f, 20f)
+                trackDirectionSpeedFloorKn = it.coerceIn(2f, 64f)
             }
             props.getProperty("track.direction.speedCeilingKn")?.toFloatOrNull()?.let {
-                trackDirectionSpeedCeilingKn = it.coerceIn(10f, 80f)
+                trackDirectionSpeedCeilingKn = it.coerceIn(2f, 64f)
             }
             props.getProperty("track.direction.minSpacingDp")?.toIntOrNull()?.let {
-                trackDirectionMinSpacingDp = it.coerceIn(12, 120)
+                trackDirectionMinSpacingDp = it.coerceIn(6, 512)
             }
             props.getProperty("track.direction.maxSpacingDp")?.toIntOrNull()?.let {
-                trackDirectionMaxSpacingDp = it.coerceIn(24, 400)
+                trackDirectionMaxSpacingDp = it.coerceIn(6, 512)
             }
 
             // ── Marker debug rays ───────────────────────────────────────

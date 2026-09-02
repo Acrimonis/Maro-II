@@ -3,8 +3,8 @@
 ## Active Session Pointers
 - **Active Feature:** BoatTrace
 - **Active Subfeature:** marker-export-import
-- **Last Updated:** 2026-09-01 17:52
-- **Last Bake:** 2026-09-01 17:52 (BoatTrace — marker icon actions + title sort fix)
+- **Last Updated:** 2026-09-02 10:01
+- **Last Bake:** 2026-09-02 10:01 (BoatTrace — track direction arrows)
 - **Branch:** feature/next
 
 ## Routing Map
@@ -56,7 +56,7 @@
 | **RegulatedZones** | **Maritime regulatory zones — multi-source normalization (SHOM INSPIRE + IGN Natura 2000), sealed classification, 8-category icon mapping, keyword-driven display logic** | **2026-06-11 18:00** | **2026-06-13 20:23** | **active** |
 | **ArcLayout** | **Layer toggle arc menu — pure-Compose semicircle fan-out with layer toggles, FanLayout framework, fixed child centering using effectiveTheta=180/currentCount** | **2026-06-13 07:34** | **2026-06-18 19:36** | **active** |
 | **ZoneTile** | **Zone information tiles and map overlay rendering — zone-ahead cone/line, speed zone display, ETA, zone state management** | **2026-06-17 09:45** | **2026-06-17 09:45** | **active** |
-| **BoatTrace** | **Boat movement tracking: record tracks from GPS fixes, persist, display on map with configurable render layers, GPX export, track history UI, render preview indicator, idle-period marker snapshots (BoatMarker), auto-marker 🕐 pins at idle spots with transparency, service GPS re-arm + permission-missing dialog, service GPS sampling pinned to Main dispatcher (Looper fix), confirm before switching position source while recording; finalize durability (atomic save + transactional stop), data-derived end/idle/nav (simplified-points + gap-idle classification), stats recompute migration (schema 4); auto-marker cleanup hardening (recorder-owned AutoMarkerManager lifecycle, merged-marker keepability, ghost-pin fix); marker-track single reference (UserMarker.trackId + backfill + delete cascade); track export naming + import modes (Skip/Update/New)** | **2026-06-15 21:43** | **2026-08-31 16:20** | **active** |
+| **BoatTrace** | **Boat movement tracking: record tracks from GPS fixes, persist, display on map with configurable render layers, GPX export, track history UI, render preview indicator, idle-period marker snapshots (BoatMarker), auto-marker 🕐 pins at idle spots with transparency, service GPS re-arm + permission-missing dialog, service GPS sampling pinned to Main dispatcher (Looper fix), confirm before switching position source while recording; finalize durability (atomic save + transactional stop), data-derived end/idle/nav (simplified-points + gap-idle classification), stats recompute migration (schema 4); auto-marker cleanup hardening (recorder-owned AutoMarkerManager lifecycle, merged-marker keepability, ghost-pin fix); marker-track single reference (UserMarker.trackId + backfill + delete cascade); track export naming + import modes (Skip/Update/New); direction arrows (chevrons, speed-based density)** | **2026-06-15 21:43** | **2026-09-02 10:01** | **active** |
 | **CheckDev** | **Dev-branch health monitoring — remote branch state, ahead/behind analysis, workflow hygiene validation** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
 | **Health** | **Application health monitoring — diagnostics, crash reporting, memory/performance telemetry** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
 | **Markers** | **User-defined map markers (Pin, Circle, Corridor) with sea-distance-gated proximity matching, percentage-based sort scoring, and on-demand "where am I?" query — 14/14 subfeatures done; 7 fixes + sort v2 implemented** | **2026-06-22 11:52** | **2026-07-18 06:11** | **active** |

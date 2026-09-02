@@ -11,6 +11,8 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.asin
+import kotlin.math.ln
+import kotlin.math.pow
 import kotlin.math.sqrt
 
 /** Direction-arrow density mode. */
@@ -41,11 +43,20 @@ internal fun spacingPxForSpeed(
         speedKn <= floorKn -> lo
         speedKn >= ceilingKn -> hi
         else -> {
-            val denom = (ceilingKn - floorKn).takeIf { it != 0f } ?: 1f
-            (lo + (speedKn - floorKn) / denom * (hi - lo)).coerceIn(lo, hi)
+            val t = ((speedKn - floorKn) / (ceilingKn - floorKn)).coerceIn(0f, 1f)
+            val ratio = if (lo > 0f && hi > lo) hi / lo else 1f
+            (lo * ratio.pow(t)).coerceIn(lo, hi)
         }
     }
 }
+
+/** Map a log-scale slider position (0..1) to a value in [min, max]. */
+internal fun logSliderToValue(position: Float, min: Float, max: Float): Float =
+    (min * (max / min).pow(position.coerceIn(0f, 1f))).coerceIn(min, max)
+
+/** Map a value in [min, max] to a log-scale slider position (0..1). */
+internal fun logSliderFromValue(value: Float, min: Float, max: Float): Float =
+    (ln(value.coerceIn(min, max) / min) / ln(max / min)).coerceIn(0f, 1f)
 
 /** Initial great-circle bearing (0-360°) from (lat1, lon1) to (lat2, lon2). */
 internal fun initialBearingDeg(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Float {

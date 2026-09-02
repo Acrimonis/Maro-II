@@ -252,16 +252,12 @@
     <string name="settings_tracks_direction_density_label">Arrow density</string>
     <string name="settings_tracks_direction_density_uniform">Uniform</string>
     <string name="settings_tracks_direction_density_speed">Speed-based</string>
-    <string name="settings_tracks_direction_min_spacing_label">Minimum arrow gap</string>
-    <string name="settings_tracks_direction_min_spacing_desc">Gap between arrows at low speed</string>
-    <string name="settings_tracks_direction_max_spacing_label">Maximum arrow gap</string>
-    <string name="settings_tracks_direction_max_spacing_desc">Gap between arrows at high speed</string>
-    <string name="settings_tracks_direction_floor_label">Speed floor</string>
-    <string name="settings_tracks_direction_floor_desc">Below this speed (kn), arrows use the minimum gap</string>
-    <string name="settings_tracks_direction_ceiling_label">Speed ceiling</string>
-    <string name="settings_tracks_direction_ceiling_desc">Above this speed (kn), arrows use the maximum gap</string>
-    <string name="settings_tracks_direction_dp_fmt">%1$d dp</string>
-    <string name="settings_tracks_direction_kn_fmt">%.1f kn</string>
+    <string name="settings_tracks_direction_gap_range_label">Arrow gap range</string>
+    <string name="settings_tracks_direction_gap_range_desc">Left thumb = minimum, right thumb = maximum</string>
+    <string name="settings_tracks_direction_gap_range_fmt">Min %1$d – Max %2$d dp</string>
+    <string name="settings_tracks_direction_speed_range_label">Speed range</string>
+    <string name="settings_tracks_direction_speed_range_desc">Below the left speed: minimum gap · above the right speed: maximum gap</string>
+    <string name="settings_tracks_direction_speed_range_fmt">%1$.1f – %2$.1f kn</string>
     <string name="settings_tracks_count_label">Number of tracks</string>
     <string name="settings_tracks_count_desc">Recent tracks to render (0-20)</string>
     <string name="settings_transparency_label">Transparency</string>
