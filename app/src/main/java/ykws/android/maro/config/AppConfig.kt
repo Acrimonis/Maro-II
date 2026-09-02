@@ -361,6 +361,9 @@ object AppConfig {
     /** Settings panel accent colour. Default #FF1565C0. Set via `ui.settings.accent` in colors.properties. */
     var uiSettingsAccent: Int = 0xFF1565C0.toInt()
         private set
+    /** Settings panel slider value readout colour. Default #FF90CAF9. Set via `ui.settings.value.text` in colors.properties. */
+    var uiSettingsValueText: Int = 0xFF90CAF9.toInt()
+        private set
     /** Settings panel card background. Default #33FFFFFF (20% white). Set via `ui.card.background` in colors.properties. */
     var uiCardBackground: Int = 0x33FFFFFF.toInt()
         private set
@@ -752,6 +755,7 @@ object AppConfig {
             props.getProperty("ui.settings.text.muted")?.let { parseColorOrNull(it) }?.let { uiSettingsTextMuted = it }
             props.getProperty("ui.settings.text.secondary")?.let { parseColorOrNull(it) }?.let { uiSettingsTextSecondary = it }
             props.getProperty("ui.settings.accent")?.let { parseColorOrNull(it) }?.let { uiSettingsAccent = it }
+            props.getProperty("ui.settings.value.text")?.let { parseColorOrNull(it) }?.let { uiSettingsValueText = it }
             props.getProperty("ui.card.background")?.let { parseColorOrNull(it) }?.let { uiCardBackground = it }
             props.getProperty("ui.settings.divider")?.let { parseColorOrNull(it) }?.let { uiSettingsDivider = it }
             props.getProperty("ui.settings.switch.track.inactive")?.let { parseColorOrNull(it) }?.let { uiSettingsSwitchTrackInactive = it }
