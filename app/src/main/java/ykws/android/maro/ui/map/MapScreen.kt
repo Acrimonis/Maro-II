@@ -216,6 +216,9 @@ private val RIGHT_CONTROL_COLUMN_INSET = 82.dp
 /** Computed polyline rendering appearance: ARGB color + stroke width. */
 data class TrackPolylineAppearance(val argb: Int, val strokeWidth: Float)
 
+/** Uniform on-screen spacing (dp) between direction arrows. */
+private const val DIRECTION_ARROW_SPACING_DP = 24f
+
 /** One-shot target for click-N-move navigation: dismiss list → animate map → open drawer. */
 private data class NavigateTarget(val geoPoint: GeoPoint, val markerId: String)
 
@@ -1175,13 +1178,32 @@ fun MapScreen(
     // Track the set of currently-rendered track IDs to avoid full teardown+rebuild.
     val renderedTrackIds = remember { mutableStateOf(setOf<String>()) }
 
-    LaunchedEffect(mapView, showSettings, appSettings.tracksVisible, appSettings.trackingRenderNb,
+    LaunchedEffect(mapView, showSettings, appSettings.tracksVisible, appSettings.tracksDirectionVisible, appSettings.trackingRenderNb,
         appSettings.trackingColorPastFrom, appSettings.trackingColorPastTo,
         appSettings.trackingTransparencyNewest, appSettings.trackingTransparencyOldest,
         appSettings.trackingColorPinnedFrom, appSettings.trackingColorPinnedTo,
         appSettings.trackingTransparencyPinnedNewest, appSettings.trackingTransparencyPinnedOldest,
-        appSettings.trackListFilter, trackSummaries, highlightedTrackId) {
+        appSettings.trackListFilter, trackSummaries, highlightedTrackId,
+        appSettings.trackDirectionDensity, appSettings.trackDirectionMinSpacingDp, appSettings.trackDirectionMaxSpacingDp,
+        appSettings.trackDirectionSpeedFloorKn, appSettings.trackDirectionSpeedCeilingKn) {
         val mv = mapView ?: return@LaunchedEffect
+
+        // Direction-arrow spacing provider: uniform (px) or speed-linear (dp → px).
+        val densityScale = mv.context.resources.displayMetrics.density
+        val minSpacingPx = appSettings.trackDirectionMinSpacingDp * densityScale
+        val maxSpacingPx = appSettings.trackDirectionMaxSpacingDp * densityScale
+        val directionSpacingProvider: (Float) -> Float = { speedKn ->
+            when (appSettings.trackDirectionDensity) {
+                TrackDirectionDensity.UNIFORM -> DIRECTION_ARROW_SPACING_DP * densityScale
+                TrackDirectionDensity.SPEED -> spacingPxForSpeed(
+                    speedKn,
+                    appSettings.trackDirectionSpeedFloorKn,
+                    appSettings.trackDirectionSpeedCeilingKn,
+                    minSpacingPx,
+                    maxSpacingPx
+                )
+            }
+        }
 
         // Apply filter before display split
         val midnightMs = ykws.android.maro.data.model.todayMidnightMs()
@@ -1200,9 +1222,10 @@ fun MapScreen(
             } else emptySet()
         } else emptySet()
 
-        // Remove all existing track history overlays — rebuild from scratch
+        // Remove all existing track history overlays + direction arrows — rebuild from scratch
         val toRemove = mv.overlays.filter { overlay ->
-            (overlay as? org.osmdroid.views.overlay.Polyline)?.title?.startsWith("track_hist_") == true
+            (overlay as? org.osmdroid.views.overlay.Polyline)?.title?.startsWith("track_hist_") == true ||
+            (overlay as? TrackDirectionOverlay)?.title?.startsWith("track_arrow_") == true
         }
         mv.overlays.removeAll(toRemove)
 
@@ -1288,6 +1311,16 @@ fun MapScreen(
                     }
                     trackOverlays.add(solidPolyline)
                 }
+            }
+
+            if (appSettings.tracksDirectionVisible) {
+                trackOverlays.add(
+                    TrackDirectionOverlay(
+                        points = track.trackPoints,
+                        appearances = appearances,
+                        spacingPx = directionSpacingProvider
+                    ).apply { title = "track_arrow_${summary.id}" }
+                )
             }
 
             historyOverlays.add(trackOverlays)
@@ -1380,6 +1413,16 @@ fun MapScreen(
                 }
             }
 
+            if (appSettings.tracksDirectionVisible) {
+                trackOverlays.add(
+                    TrackDirectionOverlay(
+                        points = track.trackPoints,
+                        appearances = appearances,
+                        spacingPx = directionSpacingProvider
+                    ).apply { title = "track_arrow_${summary.id}" }
+                )
+            }
+
             pinnedOverlays.add(trackOverlays)
         }
         pinnedOverlays.reverse()
@@ -1400,8 +1443,10 @@ fun MapScreen(
         if (highlightedTrackId != null) {
             val highlightedOverlays = mv.overlays.filter { overlay ->
                 val polyTitle = (overlay as? org.osmdroid.views.overlay.Polyline)?.title
+                val arrowTitle = (overlay as? TrackDirectionOverlay)?.title
                 polyTitle == "track_hist_$highlightedTrackId" ||
-                polyTitle == "track_pin_$highlightedTrackId"
+                polyTitle == "track_pin_$highlightedTrackId" ||
+                arrowTitle == "track_arrow_$highlightedTrackId"
             }
             mv.overlays.removeAll(highlightedOverlays)
             mv.overlays.addAll(highlightedOverlays)
@@ -2264,6 +2309,11 @@ fun MapScreen(
             onToggleMarkerZones = {
                 Log.d("MaroMapRefresh", "MenuDrawer toggle: markerZonesVisible ${appSettings.markerZonesVisible} -> ${!appSettings.markerZonesVisible}")
                 viewModel.updateSettings { it.copy(markerZonesVisible = !appSettings.markerZonesVisible) }
+                mapView?.invalidate()
+            },
+            tracksDirectionVisible = appSettings.tracksDirectionVisible,
+            onToggleTracksDirection = {
+                viewModel.updateSettings { it.copy(tracksDirectionVisible = !appSettings.tracksDirectionVisible) }
                 mapView?.invalidate()
             },
             firstTrackId = firstTrackId,
@@ -4605,6 +4655,40 @@ private fun GeneralSettings(
                 )
             }
 
+            // Direction arrows toggle
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_tracks_direction_label),
+                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_tracks_direction_desc),
+                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        fontSize = 13.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Switch(
+                    checked = settings.tracksDirectionVisible,
+                    onCheckedChange = { on -> onUpdateSettings { it.copy(tracksDirectionVisible = on) } },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                    )
+                )
+            }
+
             Spacer(Modifier.height(8.dp))
 
             Box(modifier = Modifier.padding(horizontal = 16.dp)) {
@@ -4794,6 +4878,83 @@ private fun GeneralSettings(
                                 onFromColorSelected = { c -> onUpdateSettings { it.copy(trackingColorPinnedFrom = c) } },
                                 onToColorSelected = { c -> onUpdateSettings { it.copy(trackingColorPinnedTo = c) } }
                             )
+
+                            Spacer(Modifier.height(8.dp))
+
+                            SubSectionHeader(
+                                title = stringResource(R.string.settings_tracks_direction_density_label)
+                            )
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                listOf(
+                                    TrackDirectionDensity.UNIFORM to R.string.settings_tracks_direction_density_uniform,
+                                    TrackDirectionDensity.SPEED to R.string.settings_tracks_direction_density_speed
+                                ).forEach { (mode, labelRes) ->
+                                    val selected = settings.trackDirectionDensity == mode
+                                    Text(
+                                        text = stringResource(labelRes),
+                                        color = ComposeColor(if (selected) AppConfig.uiSettingsTextPrimary else AppConfig.uiSettingsTextMuted),
+                                        fontSize = 14.sp,
+                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                        textAlign = TextAlign.Center,
+                                        modifier = Modifier
+                                            .weight(1f)
+                                            .clip(RoundedCornerShape(8.dp))
+                                            .background(ComposeColor(if (selected) 0x26FFFFFF else 0x00000000))
+                                            .clickable { onUpdateSettings { it.copy(trackDirectionDensity = mode) } }
+                                            .padding(vertical = 8.dp)
+                                    )
+                                }
+                            }
+
+                            Spacer(Modifier.height(8.dp))
+
+                            SettingsSliderGroup(nested = true) {
+                                SliderRowContent(
+                                    label = stringResource(R.string.settings_tracks_direction_min_spacing_label),
+                                    description = stringResource(R.string.settings_tracks_direction_min_spacing_desc),
+                                    valueLabel = stringResource(R.string.settings_tracks_direction_dp_fmt, settings.trackDirectionMinSpacingDp),
+                                    value = settings.trackDirectionMinSpacingDp.toFloat(),
+                                    valueRange = 12f..120f,
+                                    steps = 107,
+                                    onValueChange = { v -> onUpdateSettings { it.copy(trackDirectionMinSpacingDp = v.roundToInt()) } }
+                                )
+                                SliderRowDivider()
+                                SliderRowContent(
+                                    label = stringResource(R.string.settings_tracks_direction_max_spacing_label),
+                                    description = stringResource(R.string.settings_tracks_direction_max_spacing_desc),
+                                    valueLabel = stringResource(R.string.settings_tracks_direction_dp_fmt, settings.trackDirectionMaxSpacingDp),
+                                    value = settings.trackDirectionMaxSpacingDp.toFloat(),
+                                    valueRange = 24f..400f,
+                                    steps = 375,
+                                    onValueChange = { v -> onUpdateSettings { it.copy(trackDirectionMaxSpacingDp = v.roundToInt()) } }
+                                )
+                                SliderRowDivider()
+                                SliderRowContent(
+                                    label = stringResource(R.string.settings_tracks_direction_floor_label),
+                                    description = stringResource(R.string.settings_tracks_direction_floor_desc),
+                                    valueLabel = stringResource(R.string.settings_tracks_direction_kn_fmt, settings.trackDirectionSpeedFloorKn),
+                                    value = settings.trackDirectionSpeedFloorKn,
+                                    valueRange = 1f..10f,
+                                    steps = 17,
+                                    onValueChange = { v -> onUpdateSettings { it.copy(trackDirectionSpeedFloorKn = (v * 2f).roundToInt() / 2f) } }
+                                )
+                                SliderRowDivider()
+                                SliderRowContent(
+                                    label = stringResource(R.string.settings_tracks_direction_ceiling_label),
+                                    description = stringResource(R.string.settings_tracks_direction_ceiling_desc),
+                                    valueLabel = stringResource(R.string.settings_tracks_direction_kn_fmt, settings.trackDirectionSpeedCeilingKn),
+                                    value = settings.trackDirectionSpeedCeilingKn,
+                                    valueRange = 10f..60f,
+                                    steps = 99,
+                                    onValueChange = { v -> onUpdateSettings { it.copy(trackDirectionSpeedCeilingKn = (v * 2f).roundToInt() / 2f) } }
+                                )
+                            }
                         }
                 }
             }

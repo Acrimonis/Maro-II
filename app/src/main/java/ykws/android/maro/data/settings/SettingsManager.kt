@@ -182,6 +182,18 @@ data class AppSettings(
      *  When false, only center dots are drawn. Proximity previews follow this toggle. */
     val markerZonesVisible: Boolean = true,
     val tracksVisible: Boolean = true,
+    /** Draw direction arrows along rendered tracks (history + pinned). */
+    val tracksDirectionVisible: Boolean = false,
+    /** Direction-arrow density mode: uniform on-screen spacing or speed-based. */
+    val trackDirectionDensity: ykws.android.maro.ui.map.TrackDirectionDensity = ykws.android.maro.ui.map.TrackDirectionDensity.UNIFORM,
+    /** Speed (kn) below which direction arrows use minimum spacing. */
+    val trackDirectionSpeedFloorKn: Float = ykws.android.maro.config.AppConfig.trackDirectionSpeedFloorKn,
+    /** Speed (kn) above which direction arrows use maximum spacing. */
+    val trackDirectionSpeedCeilingKn: Float = ykws.android.maro.config.AppConfig.trackDirectionSpeedCeilingKn,
+    /** Minimum on-screen spacing (dp) between direction arrows. */
+    val trackDirectionMinSpacingDp: Int = ykws.android.maro.config.AppConfig.trackDirectionMinSpacingDp,
+    /** Maximum on-screen spacing (dp) between direction arrows. */
+    val trackDirectionMaxSpacingDp: Int = ykws.android.maro.config.AppConfig.trackDirectionMaxSpacingDp,
     /** Number of historical tracks to render on the map (0-20). */
     val trackingRenderNb: Int = BuildConfig.TRACKING_RENDER_NB,
     /** ARGB color for the active recording track. */
@@ -387,6 +399,15 @@ class SettingsManager(
         } catch (_: Exception) { ykws.android.maro.ui.map.MarkerLayerState.SHOW_ALL },
         markerZonesVisible = prefs.getBoolean(KEY_MARKER_ZONES_VISIBLE, true),
         tracksVisible = prefs.getBoolean(KEY_TRACKS_VISIBLE, true),
+        tracksDirectionVisible = prefs.getBoolean(KEY_TRACKS_DIRECTION_VISIBLE, false),
+        trackDirectionDensity = try {
+            ykws.android.maro.ui.map.TrackDirectionDensity.valueOf(
+                prefs.getString(KEY_TRACK_DIRECTION_DENSITY, "UNIFORM") ?: "UNIFORM")
+        } catch (_: Exception) { ykws.android.maro.ui.map.TrackDirectionDensity.UNIFORM },
+        trackDirectionSpeedFloorKn = prefs.getFloat(KEY_TRACK_DIRECTION_SPEED_FLOOR_KN, ykws.android.maro.config.AppConfig.trackDirectionSpeedFloorKn),
+        trackDirectionSpeedCeilingKn = prefs.getFloat(KEY_TRACK_DIRECTION_SPEED_CEILING_KN, ykws.android.maro.config.AppConfig.trackDirectionSpeedCeilingKn),
+        trackDirectionMinSpacingDp = prefs.getInt(KEY_TRACK_DIRECTION_MIN_SPACING_DP, ykws.android.maro.config.AppConfig.trackDirectionMinSpacingDp),
+        trackDirectionMaxSpacingDp = prefs.getInt(KEY_TRACK_DIRECTION_MAX_SPACING_DP, ykws.android.maro.config.AppConfig.trackDirectionMaxSpacingDp),
         trackingRenderNb = prefs.getInt(KEY_TRACKING_RENDER_NB, BuildConfig.TRACKING_RENDER_NB).coerceIn(0, 20),
         trackingColorActive = prefs.getInt(KEY_TRACKING_COLOR_ACTIVE, BuildConfig.TRACKING_COLOR_ACTIVE),
         trackingColorHistory = prefs.getInt(KEY_TRACKING_COLOR_HISTORY, BuildConfig.TRACKING_COLOR_HISTORY),
@@ -497,6 +518,12 @@ class SettingsManager(
             .putString(KEY_MARKER_LAYER_STATE, updated.markerLayerState.name)
             .putBoolean(KEY_MARKER_ZONES_VISIBLE, updated.markerZonesVisible)
             .putBoolean(KEY_TRACKS_VISIBLE, updated.tracksVisible)
+            .putBoolean(KEY_TRACKS_DIRECTION_VISIBLE, updated.tracksDirectionVisible)
+            .putString(KEY_TRACK_DIRECTION_DENSITY, updated.trackDirectionDensity.name)
+            .putFloat(KEY_TRACK_DIRECTION_SPEED_FLOOR_KN, updated.trackDirectionSpeedFloorKn)
+            .putFloat(KEY_TRACK_DIRECTION_SPEED_CEILING_KN, updated.trackDirectionSpeedCeilingKn)
+            .putInt(KEY_TRACK_DIRECTION_MIN_SPACING_DP, updated.trackDirectionMinSpacingDp)
+            .putInt(KEY_TRACK_DIRECTION_MAX_SPACING_DP, updated.trackDirectionMaxSpacingDp)
             .putInt(KEY_TRACKING_RENDER_NB, updated.trackingRenderNb)
             .putInt(KEY_TRACKING_COLOR_ACTIVE, updated.trackingColorActive)
             .putInt(KEY_TRACKING_COLOR_HISTORY, updated.trackingColorHistory)
@@ -594,6 +621,12 @@ class SettingsManager(
         private const val KEY_TRACK_GEOFENCE_RADIUS_M = "track_geofence_radius_m"
         private const val KEY_TRACK_GEOFENCE_ENABLED = "track_geofence_enabled"
         private const val KEY_TRACKS_VISIBLE = "tracks_visible"
+        private const val KEY_TRACKS_DIRECTION_VISIBLE = "tracks_direction_visible"
+        private const val KEY_TRACK_DIRECTION_DENSITY = "track_direction_density"
+        private const val KEY_TRACK_DIRECTION_SPEED_FLOOR_KN = "track_direction_speed_floor_kn"
+        private const val KEY_TRACK_DIRECTION_SPEED_CEILING_KN = "track_direction_speed_ceiling_kn"
+        private const val KEY_TRACK_DIRECTION_MIN_SPACING_DP = "track_direction_min_spacing_dp"
+        private const val KEY_TRACK_DIRECTION_MAX_SPACING_DP = "track_direction_max_spacing_dp"
         private const val KEY_MARKER_LAYER_STATE = "marker_layer_state"
         private const val KEY_MARKER_ZONES_VISIBLE = "marker_zones_visible"
         private const val KEY_TRACKING_RENDER_NB = "tracking_render_nb"

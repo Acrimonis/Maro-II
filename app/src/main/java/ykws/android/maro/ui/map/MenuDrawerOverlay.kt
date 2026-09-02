@@ -79,6 +79,8 @@ fun MenuDrawerOverlay(
     onOpenFirstMarker: (() -> Unit)? = null,
     markerZonesVisible: Boolean = true,
     onToggleMarkerZones: () -> Unit = {},
+    tracksDirectionVisible: Boolean = true,
+    onToggleTracksDirection: () -> Unit = {},
     onImportTracks: () -> Unit = {},
     onExportAllTracks: () -> Unit = {},
     onDismiss: () -> Unit,
@@ -238,6 +240,35 @@ fun MenuDrawerOverlay(
                         modifier = Modifier.size(28.dp)
                     )
                 }
+            }
+
+            // ── Track direction toggle ─────────────────────
+            Spacer(Modifier.height(2.dp))
+            HorizontalDivider(thickness = 0.5.dp, color = Color(AppConfig.uiSettingsDivider))
+            Spacer(Modifier.height(2.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = stringResource(R.string.menu_show_tracks_direction),
+                    color = Color(AppConfig.uiSettingsTextPrimary),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium
+                )
+                Switch(
+                    checked = tracksDirectionVisible,
+                    onCheckedChange = { onToggleTracksDirection() },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = Color(AppConfig.uiSettingsAccent),
+                        checkedTrackColor = Color(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                        uncheckedThumbColor = Color(AppConfig.uiSettingsTextMuted),
+                        uncheckedTrackColor = Color(AppConfig.uiSettingsSwitchTrackInactive)
+                    )
+                )
             }
 
             // ── Import / Export row ────────────────────────
