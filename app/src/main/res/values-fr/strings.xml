@@ -23,7 +23,19 @@
     <string name="settings_back">Retour</string>
     <string name="settings_section_language">Langue</string>
     <string name="settings_language_system">Système</string>
-    <string name="settings_section_position">Source de position</string>
+    <string name="settings_section_position">Mode de position</string>
+    <string name="settings_redisplay_label">Réaffichage des zones</string>
+    <string name="settings_redisplay_enable_gps">Activer en mode GPS</string>
+    <string name="settings_redisplay_enable_demo">Activer en mode démo</string>
+    <string name="settings_redisplay_zone300">Zone 300 m</string>
+    <string name="settings_redisplay_speed">Zones de vitesse</string>
+    <string name="settings_redisplay_regulated">Zones réglementées</string>
+    <string name="settings_redisplay_when_label">Quand réafficher</string>
+    <string name="settings_redisplay_dist_label">Distance de réaffichage</string>
+    <string name="settings_redisplay_dist_desc">À quelle distance la zone réapparaît</string>
+    <string name="settings_redisplay_time_label">Délai de réaffichage</string>
+    <string name="settings_redisplay_time_desc">Combien de secondes avant (à la vitesse actuelle) la zone réapparaît</string>
+    <string name="settings_autoshow_master_label">Réaffichage des zones</string>
     <string name="settings_gps_mode_label">Mode GPS</string>
     <string name="settings_gps_mode_desc">Suivre votre position GPS et orienter la carte (sinon mode démo)</string>
     <string name="settings_recenter_label">Délai de recentrage</string>
@@ -231,7 +243,7 @@
     <string name="battery_opt_not_now">Pas maintenant</string>
 
     <!-- Menu drawer -->
-    <string name="menu_section_position">SOURCE DE POSITION</string>
+    <string name="menu_section_position">MODE DE POSITION</string>
     <string name="menu_section_tracks">TRACES</string>
     <string name="menu_section_markers">REPÈRES</string>
     <string name="menu_manage_tracks">Traces</string>

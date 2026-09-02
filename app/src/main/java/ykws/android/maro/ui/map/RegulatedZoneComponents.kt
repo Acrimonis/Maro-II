@@ -508,3 +508,60 @@ fun filterRegulatedZones(
     if (filtered.isEmpty()) return null
     return zones.copy(zones = filtered)
 }
+
+private fun haversineMeters(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+    val r = 6_371_000.0
+    val dLat = Math.toRadians(lat2 - lat1)
+    val dLon = Math.toRadians(lon2 - lon1)
+    val a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2)
+    return r * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+}
+
+/**
+ * True when [boat] is inside [this] or within ~[radiusM] of its boundary.
+ * Cheap bbox prefilter (lossless exclusion via expanded rectangle), then a
+ * point-in-polygon test and a nearest-vertex distance fallback.
+ */
+fun ykws.android.maro.data.regulation.RegulatedZone.isNear(boat: ykws.android.maro.data.model.LatLng, radiusM: Double): Boolean {
+    if (outerRing.isEmpty()) return false
+    var minLat = Double.MAX_VALUE; var maxLat = -Double.MAX_VALUE
+    var minLon = Double.MAX_VALUE; var maxLon = -Double.MAX_VALUE
+    for (p in outerRing) {
+        if (p.latitude < minLat) minLat = p.latitude
+        if (p.latitude > maxLat) maxLat = p.latitude
+        if (p.longitude < minLon) minLon = p.longitude
+        if (p.longitude > maxLon) maxLon = p.longitude
+    }
+    val dLat = radiusM / 111_320.0
+    val dLon = radiusM / (111_320.0 * Math.cos(Math.toRadians(boat.latitude)))
+    if (boat.latitude < minLat - dLat || boat.latitude > maxLat + dLat ||
+        boat.longitude < minLon - dLon || boat.longitude > maxLon + dLon) return false
+    // Even-odd ray casting over the outer ring
+    var inside = false
+    val n = outerRing.size
+    var j = n - 1
+    for (i in 0 until n) {
+        val pi = outerRing[i]
+        val pj = outerRing[j]
+        if ((pi.latitude > boat.latitude) != (pj.latitude > boat.latitude)) {
+            val x = (pj.longitude - pi.longitude) * (boat.latitude - pi.latitude) /
+                (pj.latitude - pi.latitude) + pi.longitude
+            if (boat.longitude < x) inside = !inside
+        }
+        j = i
+    }
+    if (inside) return true
+    var best = Double.MAX_VALUE
+    for (p in outerRing) {
+        val d = haversineMeters(boat.latitude, boat.longitude, p.latitude, p.longitude)
+        if (d < best) best = d
+        if (best <= radiusM) return true
+    }
+    return false
+}
+
+/** True when the zone has at least one non-speed display category. */
+fun ykws.android.maro.data.regulation.RegulatedZone.hasNonSpeedCategory(): Boolean =
+    displayCategories().any { it != ZoneDisplayCategory.SPEED_LIMIT }
