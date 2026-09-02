@@ -328,13 +328,6 @@ class NavigationViewModel(
     /** Previous [distanceToZone] sample — used to detect "getting closer" vs "moving away". */
     private var lastDistToZone: Double? = null
 
-    // ── Speed zone proximity auto-reveal state machine ────────────────────────
-    /** True when the user manually hid the speed zones → auto-reveal is armed. */
-    private var speedZoneManuallyHidden = false
-    /** True when the system auto-revealed speed zones — gates the re-hide checks. */
-    private var speedZoneAutoRevealed = false
-    /** Previous distance to speed zone — used to detect "getting closer" vs "moving away". */
-    private var lastDistToSpeedZone: Double? = null
 
     // ── Regulated zone overlay auto-reveal state machine ──────────────────────
     /** True when the user manually hid regulated zones → auto-reveal is armed. */
@@ -607,44 +600,44 @@ class NavigationViewModel(
                     _navigationState.value.demoSpeedKnots ?: if (shore.inZone) 0f else null
                 }
 
+                // ── Global approach re-display gate (shared by band + regulated) ──
+                val globalEnabled = (if (cfg.gpsMode) cfg.approachAutoShowGps else cfg.approachAutoShowDemo) && cfg.autoShowMasterOverride
+
                 // ── 300m zone auto-show (uses generalized decision) ─────────
-                val autoShowEnabled = if (cfg.gpsMode) cfg.zone300AutoShowGps else cfg.zone300AutoShowDemo
-                if (!autoShowEnabled) {
+                if (!(globalEnabled && cfg.zone300AutoShow)) {
                     zone300AutoRevealed = false
                     bandEnteredSinceReveal = false
                     lastDistToZone = shore.distToZone
-                    return@onEach
-                }
-                val bandDecision = zoneAutoShowDecision(
-                    dist = shore.distToZone,
-                    prevDist = lastDistToZone,
-                    insideZone = shore.inZone,
-                    sogKn = sogKn,
-                    isStopped = isStopped.value,
-                    armed = zone300ManuallyHidden,
-                    autoRevealed = zone300AutoRevealed,
-                    zoneEntered = bandEnteredSinceReveal,
-                    revealDistM = cfg.zoneAutoRevealDistanceM.toDouble(),
-                    revealTimeS = cfg.zoneAutoRevealTimeS.toDouble(),
-                    config = ZoneAutoShowConfig(
-                        hideOnCompliantInside = true,
-                        regulatorySpeedKn = AppConfig.zoneRegulatorySpeedKn.toDouble()
+                } else {
+                    val bandDecision = zoneAutoShowDecision(
+                        dist = shore.distToZone,
+                        prevDist = lastDistToZone,
+                        insideZone = shore.inZone,
+                        sogKn = sogKn,
+                        isStopped = isStopped.value,
+                        armed = zone300ManuallyHidden,
+                        autoRevealed = zone300AutoRevealed,
+                        zoneEntered = bandEnteredSinceReveal,
+                        revealDistM = cfg.zoneAutoRevealDistanceM.toDouble(),
+                        revealTimeS = cfg.zoneAutoRevealTimeS.toDouble(),
+                        config = ZoneAutoShowConfig(
+                            hideOnCompliantInside = true,
+                            regulatorySpeedKn = AppConfig.zoneRegulatorySpeedKn.toDouble()
+                        )
                     )
-                )
-                zone300AutoRevealed = bandDecision.autoRevealed
-                bandEnteredSinceReveal = bandDecision.zoneEntered
-                when (bandDecision.action) {
-                    AutoShowAction.REVEAL -> _zone300OverlayVisible.value = true
-                    AutoShowAction.HIDE -> _zone300OverlayVisible.value = false
-                    AutoShowAction.NONE -> {}
+                    zone300AutoRevealed = bandDecision.autoRevealed
+                    bandEnteredSinceReveal = bandDecision.zoneEntered
+                    when (bandDecision.action) {
+                        AutoShowAction.REVEAL -> _zone300OverlayVisible.value = true
+                        AutoShowAction.HIDE -> _zone300OverlayVisible.value = false
+                        AutoShowAction.NONE -> {}
+                    }
+                    lastDistToZone = shore.distToZone
                 }
-                lastDistToZone = shore.distToZone
 
                 // ── Regulated zone overlay auto-show (speed enforcement) ────
-                // Uses the per-mode auto-show toggle as the armed flag so it reveals
-                // on FIRST approach (not just after manual hide). When the toggle is
-                // OFF the state machine resets and auto-show is suppressed.
-                val regAutoShowEnabled = if (cfg.gpsMode) cfg.regulatedZoneAutoShowGps else cfg.regulatedZoneAutoShowDemo
+                // Enabled by the speed/regulated re-display switches; reveals on FIRST approach.
+                val regAutoShowEnabled = globalEnabled && (cfg.speedZoneAutoShow || cfg.regulatedZoneAutoShow)
                 Log.d(TAG, "RegAutoShow: distToBoundary=${shore.speedZoneQuery.distanceToBoundaryM} " +
                     "insideAny=${shore.speedZoneQuery.insideAnyZone} " +
                     "prevDist=$lastDistToRegZone " +
@@ -1762,7 +1755,7 @@ internal enum class AutoShowAction { NONE, REVEAL, HIDE }
 /**
  * Action + next flag state from one auto-reveal evaluation (immutable, side-effect-free).
  *
- * Replaces both [Zone300Decision] and [SpeedZoneDecision] with a single result type.
+ * Single result type for the proximity auto-reveal decision.
  * @property zoneEntered Tracks whether the boat has crossed into the zone since last auto-reveal
  *                       (only meaningful for 300m band behavior; always false for speed zones).
  */
@@ -1782,22 +1775,12 @@ internal data class ZoneAutoShowConfig(
     val hysteresisM: Double = 5.0
 )
 
-// Backward-compat typealiases so existing tests and toggle functions still compile.
-@Deprecated("Use AutoShowAction", ReplaceWith("AutoShowAction"))
-internal typealias Zone300Action = AutoShowAction
-@Deprecated("Use AutoShowAction", ReplaceWith("AutoShowAction"))
-internal typealias SpeedZoneAction = AutoShowAction
-@Deprecated("Use AutoShowDecision", ReplaceWith("AutoShowDecision"))
-internal typealias Zone300Decision = AutoShowDecision
-@Deprecated("Use AutoShowDecision", ReplaceWith("AutoShowDecision"))
-internal typealias SpeedZoneDecision = AutoShowDecision
 
 private const val KNOTS_TO_MPS = 0.514444      // 1 knot = 0.514444 m/s
 private const val CLOSING_EPS_MPS = 0.05       // ignore closing speeds below ~0.1 kn for time-to-band
 
 /**
- * Generalized pure function for zone proximity auto-reveal — replaces both [zone300Decision]
- * and [speedZoneDecision] with a single parameterized implementation.
+ * Generalized pure function for zone proximity auto-reveal.
  *
  * Handles two zone types via [config]:
  * - **300m band** ([hideOnCompliantInside] = true): hides when compliant inside the band (boat at or
@@ -1891,52 +1874,3 @@ internal fun zoneAutoShowDecision(
         )
     }
 }
-
-/**
- * Delegates to [zoneAutoShowDecision] with 300m-band config — kept for backward compatibility.
- * @see zoneAutoShowDecision
- */
-@Deprecated("Use zoneAutoShowDecision() with ZoneAutoShowConfig(hideOnCompliantInside=true)",
-    ReplaceWith("zoneAutoShowDecision(dist, prevDist, inZone, sogKn, armed, autoRevealed, bandEntered, revealDistM, revealTimeS, ZoneAutoShowConfig(hideOnCompliantInside = true, regulatorySpeedKn = regKn))"))
-internal fun zone300Decision(
-    dist: Double?,
-    prevDist: Double?,
-    inZone: Boolean,
-    sogKn: Float?,
-    armed: Boolean,
-    autoRevealed: Boolean,
-    bandEntered: Boolean,
-    revealDistM: Double,
-    revealTimeS: Double,
-    regKn: Double
-): AutoShowDecision = zoneAutoShowDecision(
-    dist = dist, prevDist = prevDist, insideZone = inZone, sogKn = sogKn,
-    isStopped = false,  // deprecated wrapper — callers should migrate to zoneAutoShowDecision
-    armed = armed, autoRevealed = autoRevealed, zoneEntered = bandEntered,
-    revealDistM = revealDistM, revealTimeS = revealTimeS,
-    config = ZoneAutoShowConfig(hideOnCompliantInside = true, regulatorySpeedKn = regKn)
-)
-
-/**
- * Delegates to [zoneAutoShowDecision] with speed-zone config — kept for backward compatibility.
- * @see zoneAutoShowDecision
- */
-@Deprecated("Use zoneAutoShowDecision() with ZoneAutoShowConfig(hideOnCompliantInside=false, hysteresisM=...)",
-    ReplaceWith("zoneAutoShowDecision(distToBoundary, prevDist, insideAnyZone, sogKn, armed, autoRevealed, false, revealDistM, revealTimeS, ZoneAutoShowConfig(hideOnCompliantInside = false, hysteresisM = hysteresisM))"))
-internal fun speedZoneDecision(
-    distToBoundary: Double?,
-    prevDist: Double?,
-    insideAnyZone: Boolean,
-    sogKn: Float?,
-    armed: Boolean,
-    autoRevealed: Boolean,
-    revealDistM: Double,
-    revealTimeS: Double,
-    hysteresisM: Double
-): AutoShowDecision = zoneAutoShowDecision(
-    dist = distToBoundary, prevDist = prevDist, insideZone = insideAnyZone, sogKn = sogKn,
-    isStopped = false,  // deprecated wrapper — callers should migrate to zoneAutoShowDecision
-    armed = armed, autoRevealed = autoRevealed, zoneEntered = false,
-    revealDistM = revealDistM, revealTimeS = revealTimeS,
-    config = ZoneAutoShowConfig(hideOnCompliantInside = false, hysteresisM = hysteresisM)
-)

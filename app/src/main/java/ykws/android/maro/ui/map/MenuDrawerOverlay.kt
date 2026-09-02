@@ -71,6 +71,9 @@ fun MenuDrawerOverlay(
     isOpen: Boolean,
     gpsMode: Boolean,
     onGpsModeChange: (Boolean) -> Unit,
+    autoShowMasterVisible: Boolean = false,
+    autoShowMasterOverride: Boolean = true,
+    onAutoShowMasterChange: (Boolean) -> Unit = {},
     gpsToggleColor: Color,
     recorderState: TrackRecorderUiState,
     onViewTrackList: () -> Unit,
@@ -164,6 +167,39 @@ fun MenuDrawerOverlay(
                         uncheckedTrackColor = Color(AppConfig.uiSettingsSwitchTrackInactive)
                     )
                 )
+            }
+
+            if (autoShowMasterVisible) {
+                Spacer(Modifier.height(6.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(1.dp)
+                        .background(Color(AppConfig.uiSettingsDivider))
+                )
+                Spacer(Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stringResource(R.string.settings_autoshow_master_label),
+                        color = Color(AppConfig.uiSettingsTextPrimary),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Switch(
+                        checked = autoShowMasterOverride,
+                        onCheckedChange = onAutoShowMasterChange,
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = gpsToggleColor,
+                            checkedTrackColor = gpsToggleColor.copy(alpha = 0.4f),
+                            uncheckedThumbColor = Color(AppConfig.uiSettingsTextMuted),
+                            uncheckedTrackColor = Color(AppConfig.uiSettingsSwitchTrackInactive)
+                        )
+                    )
+                }
             }
         }
 

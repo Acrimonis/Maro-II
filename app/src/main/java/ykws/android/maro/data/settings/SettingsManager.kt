@@ -58,8 +58,12 @@ data class AppSettings(
     val zone300Visible: Boolean = BuildConfig.LAYER_ZONE300_DEFAULT,
     val zoneAutoRevealDistanceM: Float = 100f,
     val zoneAutoRevealTimeS: Int = 10,
-    val zone300AutoShowGps: Boolean = true,
-    val zone300AutoShowDemo: Boolean = true,
+    val approachAutoShowGps: Boolean = true,
+    val approachAutoShowDemo: Boolean = true,
+    val zone300AutoShow: Boolean = true,
+    val speedZoneAutoShow: Boolean = true,
+    val regulatedZoneAutoShow: Boolean = true,
+    val autoShowMasterOverride: Boolean = true,
     val gpsMode: Boolean = false,
     val recenterDelaySeconds: Int = 5,
     val gpsActiveIntervalSec: Int = 2,
@@ -117,29 +121,6 @@ data class AppSettings(
     val showCategoryFishingProhibited: Boolean = false,
     val showCategoryEnvironmental: Boolean = true,
     val showCategoryInformation: Boolean = false,
-    /**
-     * Whether the speed zone (SHOM speed-limited regulated zones) overlay is visible.
-     * Separate from [regulatedZonesVisible] — speed zones have their own auto-show logic.
-     */
-    val speedZonesVisible: Boolean = false,
-    /**
-     * GPS mode: auto-reveal the hidden speed zone overlay when approaching a speed-limited zone.
-     * When off, the overlay stays under manual control in GPS mode.
-     */
-    val speedZoneAutoShowGps: Boolean = true,
-    /**
-     * Demo mode: same approach auto-reveal, driven by pan speed.
-     */
-    val speedZoneAutoShowDemo: Boolean = true,
-    /**
-     * GPS mode: auto-reveal the regulated zone overlay when approaching a speed-enforced zone.
-     * When off, the overlay stays under manual control in GPS mode.
-     */
-    val regulatedZoneAutoShowGps: Boolean = true,
-    /**
-     * Demo mode: same approach auto-reveal for regulated zone overlay, driven by pan speed.
-     */
-    val regulatedZoneAutoShowDemo: Boolean = true,
     /**
      * GPS idle mode: minimum metres of movement between fixes when the adaptive policy
      * has switched to [AcquisitionMode.IDLE] (device stationary). Default 0 so even tiny
@@ -305,6 +286,16 @@ class SettingsManager(
                     editor.putString(KEY_MARKER_LAYER_STATE, "SHOW_ALL")
                 }
             }
+            if (savedVersion < 6) {
+                // Approach re-display rework: per-overlay mode toggles -> global mode pair + per-type flags
+                editor.remove("zone300_autoshow_gps")
+                    .remove("zone300_autoshow_demo")
+                    .remove("speed_zones_visible")
+                    .remove("speed_zone_autoshow_gps")
+                    .remove("speed_zone_autoshow_demo")
+                    .remove("regulated_zone_autoshow_gps")
+                    .remove("regulated_zone_autoshow_demo")
+            }
             editor.putInt(KEY_PREFS_VERSION, CURRENT_VERSION).apply()
         }
     }
@@ -319,8 +310,12 @@ class SettingsManager(
         zone300Visible   = prefs.getBoolean(KEY_ZONE300_VISIBLE, BuildConfig.LAYER_ZONE300_DEFAULT),
         zoneAutoRevealDistanceM = prefs.getFloat(KEY_ZONE_AUTOREVEAL_DIST_M, defaultAutoRevealDistM),
         zoneAutoRevealTimeS     = prefs.getInt(KEY_ZONE_AUTOREVEAL_TIME_S, defaultAutoRevealTimeS),
-        zone300AutoShowGps  = prefs.getBoolean(KEY_ZONE300_AUTOSHOW_GPS, true),
-        zone300AutoShowDemo = prefs.getBoolean(KEY_ZONE300_AUTOSHOW_DEMO, true),
+        approachAutoShowGps = prefs.getBoolean(KEY_APPROACH_AUTOSHOW_GPS, true),
+        approachAutoShowDemo = prefs.getBoolean(KEY_APPROACH_AUTOSHOW_DEMO, true),
+        zone300AutoShow = prefs.getBoolean(KEY_ZONE300_AUTOSHOW, true),
+        speedZoneAutoShow = prefs.getBoolean(KEY_SPEED_ZONE_AUTOSHOW, true),
+        regulatedZoneAutoShow = prefs.getBoolean(KEY_REGULATED_ZONE_AUTOSHOW, true),
+        autoShowMasterOverride = prefs.getBoolean(KEY_AUTO_SHOW_MASTER_OVERRIDE, true),
         gpsMode          = prefs.getBoolean(KEY_GPS_MODE, false),
         recenterDelaySeconds = prefs.getInt(KEY_RECENTER_DELAY_S, 5),
         gpsActiveIntervalSec = prefs.getInt(KEY_GPS_INTERVAL_S, 1),
@@ -361,11 +356,6 @@ class SettingsManager(
         showCategoryEnvironmental = prefs.getBoolean(KEY_SHOW_CATEGORY_ENVIRONMENTAL, true),
         showCategoryInformation = prefs.getBoolean(KEY_SHOW_CATEGORY_INFORMATION, false),
         demoHeadingUp = prefs.getBoolean(KEY_DEMO_HEADING_UP, false),
-        speedZonesVisible = prefs.getBoolean(KEY_SPEED_ZONES_VISIBLE, false),
-        speedZoneAutoShowGps = prefs.getBoolean(KEY_SPEED_ZONE_AUTOSHOW_GPS, true),
-        speedZoneAutoShowDemo = prefs.getBoolean(KEY_SPEED_ZONE_AUTOSHOW_DEMO, true),
-        regulatedZoneAutoShowGps = prefs.getBoolean(KEY_REGULATED_ZONE_AUTOSHOW_GPS, true),
-        regulatedZoneAutoShowDemo = prefs.getBoolean(KEY_REGULATED_ZONE_AUTOSHOW_DEMO, true),
         gpsIdleMinDistanceM = prefs.getFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, 0f),
         trackEnabled = prefs.getBoolean(KEY_TRACK_ENABLED, BuildConfig.TRACK_ENABLED_DEFAULT),
         trackOriginLat = prefs.getFloat(KEY_TRACK_ORIGIN_LAT, BuildConfig.TRACK_ORIGIN_LAT.toFloat()).toDouble(),
@@ -434,8 +424,12 @@ class SettingsManager(
             .putBoolean(KEY_ZONE300_VISIBLE, updated.zone300Visible)
             .putFloat(KEY_ZONE_AUTOREVEAL_DIST_M, updated.zoneAutoRevealDistanceM)
             .putInt(KEY_ZONE_AUTOREVEAL_TIME_S, updated.zoneAutoRevealTimeS)
-            .putBoolean(KEY_ZONE300_AUTOSHOW_GPS, updated.zone300AutoShowGps)
-            .putBoolean(KEY_ZONE300_AUTOSHOW_DEMO, updated.zone300AutoShowDemo)
+            .putBoolean(KEY_APPROACH_AUTOSHOW_GPS, updated.approachAutoShowGps)
+            .putBoolean(KEY_APPROACH_AUTOSHOW_DEMO, updated.approachAutoShowDemo)
+            .putBoolean(KEY_ZONE300_AUTOSHOW, updated.zone300AutoShow)
+            .putBoolean(KEY_SPEED_ZONE_AUTOSHOW, updated.speedZoneAutoShow)
+            .putBoolean(KEY_REGULATED_ZONE_AUTOSHOW, updated.regulatedZoneAutoShow)
+            .putBoolean(KEY_AUTO_SHOW_MASTER_OVERRIDE, updated.autoShowMasterOverride)
             .putBoolean(KEY_GPS_MODE, updated.gpsMode)
             .putInt(KEY_RECENTER_DELAY_S, updated.recenterDelaySeconds)
             .putInt(KEY_GPS_INTERVAL_S, updated.gpsActiveIntervalSec)
@@ -476,11 +470,6 @@ class SettingsManager(
             .putBoolean(KEY_SHOW_CATEGORY_INFORMATION, updated.showCategoryInformation)
             .putBoolean(KEY_REGULATION_INFO_VISIBLE, updated.regulationInfoVisible)
             .putBoolean(KEY_DEMO_HEADING_UP, updated.demoHeadingUp)
-            .putBoolean(KEY_SPEED_ZONES_VISIBLE, updated.speedZonesVisible)
-            .putBoolean(KEY_SPEED_ZONE_AUTOSHOW_GPS, updated.speedZoneAutoShowGps)
-            .putBoolean(KEY_SPEED_ZONE_AUTOSHOW_DEMO, updated.speedZoneAutoShowDemo)
-            .putBoolean(KEY_REGULATED_ZONE_AUTOSHOW_GPS, updated.regulatedZoneAutoShowGps)
-            .putBoolean(KEY_REGULATED_ZONE_AUTOSHOW_DEMO, updated.regulatedZoneAutoShowDemo)
             .putFloat(KEY_GPS_IDLE_MIN_DISTANCE_M, updated.gpsIdleMinDistanceM)
             .putBoolean(KEY_TRACK_ENABLED, updated.trackEnabled)
             .putFloat(KEY_TRACK_ORIGIN_LAT, updated.trackOriginLat.toFloat())
@@ -532,8 +521,12 @@ class SettingsManager(
         private const val KEY_ZONE300_VISIBLE = "zone300_visible"
         private const val KEY_ZONE_AUTOREVEAL_DIST_M = "zone_autoreveal_dist_m"
         private const val KEY_ZONE_AUTOREVEAL_TIME_S = "zone_autoreveal_time_s"
-        private const val KEY_ZONE300_AUTOSHOW_GPS = "zone300_autoshow_gps"
-        private const val KEY_ZONE300_AUTOSHOW_DEMO = "zone300_autoshow_demo"
+        private const val KEY_APPROACH_AUTOSHOW_GPS = "approach_autoshow_gps"
+        private const val KEY_APPROACH_AUTOSHOW_DEMO = "approach_autoshow_demo"
+        private const val KEY_ZONE300_AUTOSHOW = "zone300_autoshow"
+        private const val KEY_SPEED_ZONE_AUTOSHOW = "speed_zone_autoshow"
+        private const val KEY_REGULATED_ZONE_AUTOSHOW = "regulated_zone_autoshow"
+        private const val KEY_AUTO_SHOW_MASTER_OVERRIDE = "auto_show_master_override"
         private const val KEY_GPS_MODE = "gps_mode"
         private const val KEY_RECENTER_DELAY_S = "recenter_delay_s"
         private const val KEY_GPS_INTERVAL_S = "gps_interval_s"
@@ -574,11 +567,6 @@ class SettingsManager(
         private const val KEY_SHOW_CATEGORY_INFORMATION = "show_category_information"
         private const val KEY_REGULATION_INFO_VISIBLE = "regulation_info_visible"
         private const val KEY_DEMO_HEADING_UP = "demo_heading_up"
-        private const val KEY_SPEED_ZONES_VISIBLE = "speed_zones_visible"
-        private const val KEY_SPEED_ZONE_AUTOSHOW_GPS = "speed_zone_autoshow_gps"
-        private const val KEY_SPEED_ZONE_AUTOSHOW_DEMO = "speed_zone_autoshow_demo"
-        private const val KEY_REGULATED_ZONE_AUTOSHOW_GPS = "regulated_zone_autoshow_gps"
-        private const val KEY_REGULATED_ZONE_AUTOSHOW_DEMO = "regulated_zone_autoshow_demo"
         private const val KEY_GPS_IDLE_MIN_DISTANCE_M = "gps_idle_min_distance_m"
         private const val KEY_TRACK_ENABLED = "track_enabled"
         private const val KEY_TRACK_ORIGIN_LAT = "track_origin_lat"
@@ -620,6 +608,6 @@ class SettingsManager(
         private const val KEY_MAP_OFFSET_BOAT_FROM_BOTTOM_PCT = "map_offset_boat_from_bottom_pct"
         private const val KEY_MAX_RECORDING_ACCURACY_M = "max_recording_accuracy_m"
         private const val KEY_PREFS_VERSION = "prefs_version"
-        private const val CURRENT_VERSION = 5
+        private const val CURRENT_VERSION = 6
     }
 }

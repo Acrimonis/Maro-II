@@ -2311,6 +2311,9 @@ fun MapScreen(
             trackViewModel = trackViewModel,
             gpsMode = appSettings.gpsMode,
             onGpsModeChange = onGpsModeChange,
+            autoShowMasterVisible = if (appSettings.gpsMode) appSettings.approachAutoShowGps else appSettings.approachAutoShowDemo,
+            autoShowMasterOverride = appSettings.autoShowMasterOverride,
+            onAutoShowMasterChange = { v -> viewModel.updateSettings { it.copy(autoShowMasterOverride = v) } },
             gpsToggleColor = gpsToggleColor,
             markerZonesVisible = appSettings.markerZonesVisible,
             onToggleMarkerZones = {
@@ -2862,7 +2865,18 @@ private fun MapContent(
         // Apply regulated zones visibility: user toggle OR auto-show overlay
         val showRegZones = appSettings.regulatedZonesVisible || regulatedZoneOverlayVisible
         val visibleRegulatedZones = if (showRegZones) {
-            filterRegulatedZones(regulatedZones, appSettings.boatSizeM) { appSettings.isCategoryVisible(it) }
+            val base = filterRegulatedZones(regulatedZones, appSettings.boatSizeM) { appSettings.isCategoryVisible(it) }
+            if (appSettings.regulatedZonesVisible || base == null) {
+                base
+            } else {
+                val boat = mapCenter
+                val radius = appSettings.zoneAutoRevealDistanceM.toDouble()
+                val nearby = base.zones.filter { z ->
+                    z.isNear(boat, radius) &&
+                        (if (z.speedLimitKn != null) appSettings.speedZoneAutoShow else appSettings.regulatedZoneAutoShow)
+                }
+                if (nearby.isEmpty()) null else base.copy(zones = nearby)
+            }
         } else null
         // Apply low-depth (<1.5 m) warning visibility toggle
         val visibleLowDepthWarning = if (appSettings.lowDepthWarningVisible) lowDepthWarningBitmap else null
@@ -3954,8 +3968,8 @@ private fun NavigationSettings(
         )
         Spacer(modifier = Modifier.height(24.dp))
 
-        // ── 300 m zone alert (auto-show on approach) — grouped card ─────
-        SectionHeader(title = stringResource(R.string.settings_alert_label))
+        // ── Re-display on approach ─────────────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_redisplay_label), uppercase = false)
         Spacer(modifier = Modifier.height(8.dp))
 
         Column(
@@ -3965,7 +3979,6 @@ private fun NavigationSettings(
                 .background(ComposeColor(AppConfig.uiCardBackground))
                 .padding(vertical = 8.dp)
         ) {
-            // Auto-show GPS mode toggle
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -3975,21 +3988,16 @@ private fun NavigationSettings(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = stringResource(R.string.settings_alert_gps_label),
+                        text = stringResource(R.string.settings_redisplay_enable_gps),
                         color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
-                    Text(
-                        text = stringResource(R.string.settings_alert_gps_desc),
-                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = 13.sp
-                    )
                 }
                 Spacer(modifier = Modifier.width(16.dp))
                 Switch(
-                    checked = settings.zone300AutoShowGps,
-                    onCheckedChange = { on -> onUpdateSettings { it.copy(zone300AutoShowGps = on) } },
+                    checked = settings.approachAutoShowGps,
+                    onCheckedChange = { on -> onUpdateSettings { it.copy(approachAutoShowGps = on) } },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
                         checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
@@ -3999,10 +4007,8 @@ private fun NavigationSettings(
                 )
             }
 
-            // Thin divider between the two toggles
             Spacer(Modifier.height(8.dp))
 
-            // Auto-show Demo mode toggle
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -4012,21 +4018,16 @@ private fun NavigationSettings(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = stringResource(R.string.settings_alert_demo_label),
+                        text = stringResource(R.string.settings_redisplay_enable_demo),
                         color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
-                    Text(
-                        text = stringResource(R.string.settings_alert_demo_desc),
-                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = 13.sp
-                    )
                 }
                 Spacer(modifier = Modifier.width(16.dp))
                 Switch(
-                    checked = settings.zone300AutoShowDemo,
-                    onCheckedChange = { on -> onUpdateSettings { it.copy(zone300AutoShowDemo = on) } },
+                    checked = settings.approachAutoShowDemo,
+                    onCheckedChange = { on -> onUpdateSettings { it.copy(approachAutoShowDemo = on) } },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
                         checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
@@ -4036,92 +4037,16 @@ private fun NavigationSettings(
                 )
             }
 
-            // Alert sliders — collapsible, only visible when either auto-show is on
-            if (settings.zone300AutoShowGps || settings.zone300AutoShowDemo) {
-                Spacer(Modifier.height(8.dp))
-                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    var alertExpanded by remember { mutableStateOf(false) }
-                    SettingsExpander(
-                        label = stringResource(R.string.settings_alert_settings_label),
-                        expanded = alertExpanded,
-                        onToggle = { alertExpanded = !alertExpanded }
-                    ) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        SettingsSliderGroup(nested = true) {
-                            SliderRowContent(
-                                label = stringResource(R.string.settings_alert_dist_label),
-                                description = stringResource(R.string.settings_alert_dist_desc),
-                                valueLabel = stringResource(R.string.settings_value_meters, settings.zoneAutoRevealDistanceM.roundToInt()),
-                                value = settings.zoneAutoRevealDistanceM,
-                                valueRange = 50f..500f,
-                                steps = 17,
-                                onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealDistanceM = (v / 25f).roundToInt() * 25f) } }
-                            )
-                            SliderRowDivider()
-                            SliderRowContent(
-                                label = stringResource(R.string.settings_alert_time_label),
-                                description = stringResource(R.string.settings_alert_time_desc),
-                                valueLabel = stringResource(R.string.settings_value_seconds, settings.zoneAutoRevealTimeS),
-                                value = settings.zoneAutoRevealTimeS.toFloat(),
-                                valueRange = 5f..120f,
-                                steps = 22,
-                                onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealTimeS = (v / 5f).roundToInt() * 5) } }
-                            )
-                        }
-                    }
-                }
-                Spacer(Modifier.height(4.dp))
-            }
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // ── Speed zone alert (auto-show on approach) — grouped card ─────────
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(ComposeColor(AppConfig.uiCardBackground))
-                .padding(vertical = 8.dp)
-        ) {
-            // Auto-show GPS mode toggle
-            Row(
+            Spacer(Modifier.height(8.dp))
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_speed_alert_gps_label),
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_speed_alert_gps_desc),
-                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = 13.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Switch(
-                    checked = settings.speedZoneAutoShowGps,
-                    onCheckedChange = { on -> onUpdateSettings { it.copy(speedZoneAutoShowGps = on) } },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                    )
-                )
-            }
-
-            // Thin divider between the two toggles
+                    .padding(horizontal = 16.dp)
+                    .height(1.dp)
+                    .background(ComposeColor(AppConfig.uiSettingsDivider))
+            )
             Spacer(Modifier.height(8.dp))
 
-            // Auto-show Demo mode toggle
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -4131,21 +4056,16 @@ private fun NavigationSettings(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = stringResource(R.string.settings_speed_alert_demo_label),
+                        text = stringResource(R.string.settings_redisplay_zone300),
                         color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
-                    Text(
-                        text = stringResource(R.string.settings_speed_alert_demo_desc),
-                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = 13.sp
-                    )
                 }
                 Spacer(modifier = Modifier.width(16.dp))
                 Switch(
-                    checked = settings.speedZoneAutoShowDemo,
-                    onCheckedChange = { on -> onUpdateSettings { it.copy(speedZoneAutoShowDemo = on) } },
+                    checked = settings.zone300AutoShow,
+                    onCheckedChange = { on -> onUpdateSettings { it.copy(zone300AutoShow = on) } },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
                         checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
@@ -4155,10 +4075,8 @@ private fun NavigationSettings(
                 )
             }
 
-            // Thin divider between speed zone section and regulated zone section
             Spacer(Modifier.height(8.dp))
 
-            // Regulated zone overlay auto-show GPS toggle
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -4168,21 +4086,16 @@ private fun NavigationSettings(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = stringResource(R.string.settings_reg_alert_gps_label),
+                        text = stringResource(R.string.settings_redisplay_speed),
                         color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
-                    Text(
-                        text = stringResource(R.string.settings_reg_alert_gps_desc),
-                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = 13.sp
-                    )
                 }
                 Spacer(modifier = Modifier.width(16.dp))
                 Switch(
-                    checked = settings.regulatedZoneAutoShowGps,
-                    onCheckedChange = { on -> onUpdateSettings { it.copy(regulatedZoneAutoShowGps = on) } },
+                    checked = settings.speedZoneAutoShow,
+                    onCheckedChange = { on -> onUpdateSettings { it.copy(speedZoneAutoShow = on) } },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
                         checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
@@ -4192,10 +4105,8 @@ private fun NavigationSettings(
                 )
             }
 
-            // Thin divider between the two toggles
             Spacer(Modifier.height(8.dp))
 
-            // Regulated zone overlay auto-show Demo toggle
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -4205,21 +4116,16 @@ private fun NavigationSettings(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = stringResource(R.string.settings_reg_alert_demo_label),
+                        text = stringResource(R.string.settings_redisplay_regulated),
                         color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Medium
                     )
-                    Text(
-                        text = stringResource(R.string.settings_reg_alert_demo_desc),
-                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = 13.sp
-                    )
                 }
                 Spacer(modifier = Modifier.width(16.dp))
                 Switch(
-                    checked = settings.regulatedZoneAutoShowDemo,
-                    onCheckedChange = { on -> onUpdateSettings { it.copy(regulatedZoneAutoShowDemo = on) } },
+                    checked = settings.regulatedZoneAutoShow,
+                    onCheckedChange = { on -> onUpdateSettings { it.copy(regulatedZoneAutoShow = on) } },
                     colors = SwitchDefaults.colors(
                         checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
                         checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
@@ -4230,7 +4136,33 @@ private fun NavigationSettings(
             }
         }
 
-    Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // ── When to reveal (always visible) ────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_redisplay_when_label), uppercase = false)
+        Spacer(modifier = Modifier.height(8.dp))
+        SettingsSliderGroup(nested = false) {
+            SliderRowContent(
+                label = stringResource(R.string.settings_redisplay_dist_label),
+                description = stringResource(R.string.settings_redisplay_dist_desc),
+                valueLabel = stringResource(R.string.settings_value_meters, settings.zoneAutoRevealDistanceM.roundToInt()),
+                value = settings.zoneAutoRevealDistanceM,
+                valueRange = 50f..500f,
+                steps = 17,
+                onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealDistanceM = (v / 25f).roundToInt() * 25f) } }
+            )
+            SliderRowDivider()
+            SliderRowContent(
+                label = stringResource(R.string.settings_redisplay_time_label),
+                description = stringResource(R.string.settings_redisplay_time_desc),
+                valueLabel = stringResource(R.string.settings_value_seconds, settings.zoneAutoRevealTimeS),
+                value = settings.zoneAutoRevealTimeS.toFloat(),
+                valueRange = 5f..120f,
+                steps = 22,
+                onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealTimeS = (v / 5f).roundToInt() * 5) } }
+            )
+        }
+        Spacer(modifier = Modifier.height(24.dp))
 
     // ── Automatic map offset ──────────────────────────────────────────────
     SectionHeader(title = stringResource(R.string.settings_map_offset_label))

@@ -106,6 +106,9 @@ fun OverlayLayer(
     // ── Menu drawer data ─────────────────────────────────────────────────
     gpsMode: Boolean,
     onGpsModeChange: (Boolean) -> Unit,
+    autoShowMasterVisible: Boolean = false,
+    autoShowMasterOverride: Boolean = true,
+    onAutoShowMasterChange: (Boolean) -> Unit = {},
     gpsToggleColor: ComposeColor,
     markerZonesVisible: Boolean = true,
     onToggleMarkerZones: () -> Unit = {},
@@ -273,6 +276,9 @@ fun OverlayLayer(
                 isOpen = true,
                 gpsMode = gpsMode,
                 onGpsModeChange = onGpsModeChange,
+                autoShowMasterVisible = autoShowMasterVisible,
+                autoShowMasterOverride = autoShowMasterOverride,
+                onAutoShowMasterChange = onAutoShowMasterChange,
                 gpsToggleColor = gpsToggleColor,
                 recorderState = trackRecorderState,
                 onViewTrackList = {

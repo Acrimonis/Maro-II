@@ -2,8 +2,8 @@
 name: Ui_Settings
 status: active
 created: 2026-06-09 15:28
-modified: 2026-09-02 16:31
-active_subfeature: settings-reorganization
+modified: 2026-09-02 17:42
+active_subfeature: approach-redisplay
 ---
 
 **Description:** Settings page UI, settings persistence (SharedPreferences), settings-related widgets, and settings UX enhancements.
@@ -31,6 +31,24 @@ active_subfeature: settings-reorganization
 - `app/src/main/java/ykws/android/maro/ui/map/NavigationViewModel.kt`
 - `app/src/main/res/values/strings.xml`
 - `app/src/main/res/values-fr/strings.xml`
+
+### approach-redisplay  [x]
+
+#### Todos
+- [x] Re-display on approach section: 2 global mode switches + 3 type switches + 2 always-visible sliders
+- [x] Global gate (GPS/demo) AND autoShowMasterOverride; band+speed hide when inside+compliant, regulated stays while inside
+- [x] Drawer: Position source -> Position mode; persisted Auto-show zones master switch
+- [x] Per-zone proximity render (bbox + inside + nearest-vertex) in MapContent
+- [x] Dead-code sweep: speed-zone dead vars + deprecated aliases + speedZonesVisible; prefs migration v5->6
+- [x] BUILD SUCCESSFUL
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/NavigationViewModel.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneComponents.kt`
 
 ### reorder-settings  [x]
 
