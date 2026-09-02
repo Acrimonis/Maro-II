@@ -364,6 +364,9 @@ object AppConfig {
     /** Settings panel slider value readout colour. Default #FF48a7f5. Set via `ui.settings.value.text` in colors.properties. */
     var uiSettingsValueText: Int = 0xFF48a7f5.toInt()
         private set
+    /** Scrim background for map overlay info text. Default #80000000 (black 50%). Set via `ui.settings.text.scrim` in colors.properties. */
+    var uiSettingsTextScrim: Int = 0x4D16213E.toInt()
+        private set
     /** Settings panel card background. Default #33FFFFFF (20% white). Set via `ui.card.background` in colors.properties. */
     var uiCardBackground: Int = 0x33FFFFFF.toInt()
         private set
@@ -756,6 +759,7 @@ object AppConfig {
             props.getProperty("ui.settings.text.secondary")?.let { parseColorOrNull(it) }?.let { uiSettingsTextSecondary = it }
             props.getProperty("ui.settings.accent")?.let { parseColorOrNull(it) }?.let { uiSettingsAccent = it }
             props.getProperty("ui.settings.value.text")?.let { parseColorOrNull(it) }?.let { uiSettingsValueText = it }
+            props.getProperty("ui.settings.text.scrim")?.let { parseColorOrNull(it) }?.let { uiSettingsTextScrim = it }
             props.getProperty("ui.card.background")?.let { parseColorOrNull(it) }?.let { uiCardBackground = it }
             props.getProperty("ui.settings.divider")?.let { parseColorOrNull(it) }?.let { uiSettingsDivider = it }
             props.getProperty("ui.settings.switch.track.inactive")?.let { parseColorOrNull(it) }?.let { uiSettingsSwitchTrackInactive = it }

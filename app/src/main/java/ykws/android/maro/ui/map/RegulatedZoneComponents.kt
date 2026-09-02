@@ -263,7 +263,7 @@ fun RegulatedZoneInfoText(
 
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.Bottom
+        verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.Bottom)
     ) {
         // Render in reverse so most restrictive (first in sorted order) is at bottom
         categoryLines.reversed().forEach { (category, speedKn, zone) ->
@@ -293,6 +293,10 @@ fun RegulatedZoneInfoText(
                 fontSize = 9.sp,
                 lineHeight = 14.sp,
                 color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(ComposeColor(AppConfig.uiSettingsTextScrim))
+                    .padding(horizontal = 3.dp, vertical = 1.dp)
             )
         }
     }

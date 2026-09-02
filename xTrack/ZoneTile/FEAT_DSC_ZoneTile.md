@@ -2,7 +2,7 @@
 name: ZoneTile
 status: active
 created: 2026-06-17 09:45
-modified: 2026-06-17 09:45
+modified: 2026-09-02 21:35
 active_subfeature: none
 ---
 
@@ -49,3 +49,8 @@ Zone information tiles and map overlay rendering — zone-ahead cone/line, zone 
 - `xTrack/ZoneTile/260617_FEAT_PLN_ZoneTile_speed-enforcement-zone-auto-show-plan.md` — Speed enforcement zone auto show plan
 - `xTrack/ZoneTile/260617_FEAT_PLN_ZoneTile_zone300-auto-show-stutter-fix.md` — Zone 300 auto show stutter fix
 - `xTrack/ZoneTile/260708_FEAT_PLN_ZoneTile_zones-alerts-nested-zone-distance-tile.md` — Zones alerts nested zone distance tile
+
+## Implemented
+
+- **Zone info text per-line scrim** — Each zone info line now sits on a 50%-transparent black rounded scrim (radius 4dp, padding 3/1dp) so the white text stays readable over any map tile; lines spaced 2dp apart. Scrim color is runtime-configurable via `ui.settings.text.scrim`.
+  *Files:* `app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneComponents.kt`, `app/src/main/java/ykws/android/maro/config/AppConfig.kt`, `app/src/main/assets/colors.properties`
