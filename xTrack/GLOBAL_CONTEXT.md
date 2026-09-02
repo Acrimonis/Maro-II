@@ -3,8 +3,8 @@
 ## Active Session Pointers
 - **Active Feature:** Ui_Settings
 - **Active Subfeature:** none
-- **Last Updated:** 2026-09-02 20:09
-- **Last Bake:** 2026-09-02 20:09 (Ui_Settings — approach re-display fixes: master override reset, per-type split, dead-code removal, UI)
+- **Last Updated:** 2026-09-02 20:56
+- **Last Bake:** 2026-09-02 20:56 (Ui_Settings — directional primitives: PolygonIndexBase, NonSpeedZoneIndex, boundaryInCone/zoneStatus, reveal rewire)
 - **Branch:** feature/settings
 
 ## Routing Map
