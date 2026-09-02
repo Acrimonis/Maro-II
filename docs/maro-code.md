@@ -19,7 +19,7 @@
 | `data/location/` | GPS source, compass, adaptive policy | `GpsLocationSource.kt`, `CompassSource.kt`, `AdaptiveGpsPolicy.kt` |
 | `data/settings/` | SharedPreferences wrapper | `SettingsManager.kt` |
 | `spatial/` | Spatial indexing and queries — the computational core | `CoastlineSpatialIndex.kt`, `MarkerMatcher.kt`, `SpeedZoneIndex.kt`, `SpatialOperations.kt`, `Zone300Builder.kt` |
-| `ui/map/` | Compose map screen, overlays, drawers, depth rendering, markers UI | `MapScreen.kt`, `MapOverlayRenderer.kt`, `DepthViewModel.kt`, `DepthBitmap.kt`, `DepthColorRamp.kt`, `OverlayLayer.kt`, `DrawerSlot.kt`, `MarkerOverlay.kt`, `MarkerDrawer.kt`, `MarkersViewModel.kt`, `MarkerManagementOverlay.kt`, `WizardDrawer.kt`, `MenuDrawerOverlay.kt`, `TrackHistoryOverlay.kt`, `RegulatedZoneComponents.kt`, `FanLayout.kt`, `FanConfig.kt`, `NavigationViewModel.kt` |
+| `ui/map/` | Compose map screen, overlays, drawers, depth rendering, markers UI | `MapScreen.kt`, `MapControls.kt`, `MapOverlays.kt`, `CoastlineMapView.kt`, `TrackSharing.kt`, `MapOverlayRenderer.kt`, `DepthViewModel.kt`, `DepthBitmap.kt`, `DepthColorRamp.kt`, `OverlayLayer.kt`, `DrawerSlot.kt`, `MarkerOverlay.kt`, `MarkerDrawer.kt`, `MarkersViewModel.kt`, `MarkerManagementOverlay.kt`, `WizardDrawer.kt`, `MenuDrawerOverlay.kt`, `TrackHistoryOverlay.kt`, `RegulatedZoneComponents.kt`, `FanLayout.kt`, `FanConfig.kt`, `NavigationViewModel.kt` |
 | `ui/components/` | Shared UI primitives | `DrawerScaffold.kt`, `ListOverlayScaffold.kt`, `ConfirmSheet.kt`, `IconPickerDialog.kt` |
 | `ui/markers/wizard/` | Marker creation wizard (multi-step form) | `WizardTopBar.kt`, `WizardButtonRow.kt`, `steps/TypeSelectStep.kt`, `steps/PositionStep.kt`, `steps/SliderStep.kt`, `steps/TextInputStep.kt` |
 | `ui/icons/` | Material Symbols as standalone ImageVector .kt files | `ActivityZone.kt`, `Add_location_alt.kt`, `FilterAlt.kt`, `Location_on.kt`, `WhereToVote.kt`, etc. |
@@ -52,7 +52,7 @@
 |-------|---------|------|
 | `MainActivity.kt` | `ykws/android/maro/` | Single-activity entry, Compose host |
 | `AppConfig.kt` | `config/` | Central config constants — extents, thresholds, tuning |
-| `MapScreen.kt` | `ui/map/` | Root Compose composable — all state wiring, overlay dispatch |
+| `MapScreen.kt` | `ui/map/` | Root Compose composable + settings page; map controls/overlays/OSMdroid view extracted to sibling files |
 | `CoastlineSpatialIndex.kt` | `spatial/` | Nearest-coastline queries, `isOnWater()`, distance-to-coast |
 | `DepthRepository.kt` | `data/depth/` | Depth data load + query (memory-mapped, async) |
 | `DepthViewModel.kt` | `ui/map/` | Depth state: color ramp selection, danger depth, rendering triggers |

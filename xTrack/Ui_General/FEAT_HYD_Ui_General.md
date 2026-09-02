@@ -1,18 +1,18 @@
 # Hydration: Ui_General
 
-**Session:** settings UI normalization — General tab: removed the "DISPLAY" SectionHeader and
-promoted "Layers" / "Navigation" to title-case top-level headers (`SectionHeader` now supports
-`uppercase = false`); tightened collapsed padding (`SettingsExpander` row 8→6dp, after-expander
-spacer 16→4dp). System tab: stop-detection card de-nested (two nested `SettingsToggleRow` → inline
-rows); Regenerate Layers merged from 4 standalone cards into one card with visible dividers.
-New `settings_section_layers` / `settings_section_navigation` strings (EN+FR); removed
-`settings_section_display`. `ui-tokens.properties` + `ui-component-guidelines.md`
-(§2.3/§2.6/§2.9/§3) synced. BUILD SUCCESSFUL.
+**Session:** MapScreen modularization — split the 6584-line `MapScreen.kt` into 4 focused
+sibling files in `ui/map/`: `TrackSharing.kt` (file-name sanitizing + GPX/ZIP share helpers),
+`CoastlineMapView.kt` (`LoadingOverlay`, `ErrorOverlay`, `CoastlineMapView` OSMdroid view),
+`MapOverlays.kt` (marker-sizing constants + `CenterMarkerOverlay`/`CapArrowOverlay`/`DirectionLine`),
+`MapControls.kt` (`ControlId` + top-left/right controls). All moved symbols bumped
+`private` → `internal`; `RIGHT_CONTROL_COLUMN_INSET` now internal. No behavior change.
+`docs/maro-code.md` updated. Settings module intentionally left in `MapScreen.kt` for a later
+tab/section reorganization + split. BUILD SUCCESSFUL.
 
 **Target files:**
-- `MapScreen.kt`, `ui-tokens.properties`, `values/strings.xml`, `values-fr/strings.xml`, `docs/ui-component-guidelines.md`
+- `MapScreen.kt`, `TrackSharing.kt`, `CoastlineMapView.kt`, `MapOverlays.kt`, `MapControls.kt`, `docs/maro-code.md`
 
 **Plans:**
-- (none — work captured directly in the session above)
+- (pending) settings tabs/sections reorganization + settings module split
 
-**Last Bake:** 2026-09-02 15:16 UTC
+**Last Bake:** 2026-09-02 15:42 UTC
