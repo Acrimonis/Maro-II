@@ -151,6 +151,8 @@ class TrackRecorder(
     private val simplifySpeedDeltaKn: Double = 3.0,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val idleThresholdSec: Long = 60,
+    private val autoMarkerMinDurationSec: Long = ykws.android.maro.config.AppConfig.boatMarkerAutoMarkerMinDurationSec,
+    private val autoMarkerDedupRadiusM: Double = ykws.android.maro.config.AppConfig.boatMarkerAutoMarkerDedupRadiusM,
     private val idleThresholdCallback: IdleThresholdCallback? = null,
     private val whereAmI: ((LatLng) -> WhereAmIResult)? = null,
     private val markerChangeNotifier: Flow<Unit>? = null,
@@ -661,7 +663,7 @@ class TrackRecorder(
             val session = IdleSessionContext(startTimeMs = now, entryLat = lat, entryLon = lon)
             activeSession = session
             session.autoMarkerJob = scope?.launch {
-                val id = autoMarkerManager?.createTemp(lat, lon, now, currentTrack?.id).orEmpty()
+                val id = autoMarkerManager?.createTemp(lat, lon, now, currentTrack?.id, autoMarkerDedupRadiusM).orEmpty()
                 session.autoMarkerId = id.ifEmpty { null }
             }
             _events.tryEmit(IdlePeriodStarted(entryLat = lat, entryLon = lon, startTimeMs = now))
@@ -1190,7 +1192,7 @@ class TrackRecorder(
                     val track = currentTrack ?: return@launch
 
                     // ── BoatMarker merge: check for nearby existing IDLE marker ──
-                    val dedupRadiusM = AppConfig.boatMarkerAutoMarkerDedupRadiusM
+                    val dedupRadiusM = autoMarkerDedupRadiusM
                     val nowMs = System.currentTimeMillis()
                     val existingNearby = track.boatMarkers.findLast { bm ->
                         bm.trigger == BoatMarkerTrigger.IDLE &&
@@ -1287,7 +1289,7 @@ class TrackRecorder(
     ) {
         val mgr = autoMarkerManager ?: return
         val id = session.autoMarkerId ?: return
-        val minDuration = AppConfig.boatMarkerAutoMarkerMinDurationSec
+        val minDuration = autoMarkerMinDurationSec
         if (finalized || durationSec >= minDuration) {
             try {
                 mgr.confirm(id, session.startTimeMs, endTimeMs, durationSec)

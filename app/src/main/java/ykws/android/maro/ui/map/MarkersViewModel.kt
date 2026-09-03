@@ -738,7 +738,8 @@ class MarkersViewModel(
      * Description = timing placeholder (e.g. "@ 14:15 -> ...").
      */
     fun addTempAutoMarker(lat: Double, lon: Double, startTimeMs: Long): String {
-        val dedupRadiusM = AppConfig.boatMarkerAutoMarkerDedupRadiusM
+        val dedupRadiusM = settingsFlow?.value?.boatMarkerAutoMarkerDedupRadiusM
+            ?: AppConfig.boatMarkerAutoMarkerDedupRadiusM
         val newPos = LatLng(lat, lon)
 
         // ── Proximity dedup: scan existing IDLE_AUTO markers within dedupRadiusM ──

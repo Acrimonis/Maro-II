@@ -48,10 +48,10 @@
     <string name="settings_tab_position">Position</string>
     <string name="settings_tab_system">System</string>
     <string name="settings_section_orientation">Orientation aids</string>
-    <string name="settings_low_depth_settings_label">Warning settings</string>
-    <string name="settings_reg_info_settings_label">Regulated zones settings</string>
-    <string name="settings_categories_label">Categories</string>
-    <string name="settings_track_settings_label">Track settings</string>
+    <string name="settings_low_depth_settings_label">Shallow-water warning</string>
+    <string name="settings_reg_info_settings_label">Info text panel</string>
+    <string name="settings_categories_label">Zone categories</string>
+    <string name="settings_track_settings_label">Track rendering</string>
     <string name="settings_gps_tuning_label">GPS tuning</string>
     <string name="settings_alert_settings_label">Alert settings</string>
     <string name="settings_map_offset_label">Automatic map offset</string>
@@ -72,10 +72,19 @@
     <string name="settings_regen_warning_desc">Rebuild the shallow-water magenta hazard overlay</string>
     <string name="settings_coastline_label">Coastline</string>
     <string name="settings_coastline_desc">Show the coastline on the map</string>
-    <string name="settings_zone300_label">300 m zone</string>
-    <string name="settings_zone300_desc">Show the 300 m zone on the map</string>
+    <string name="settings_zone300_label">300 m band</string>
+    <string name="settings_zone300_desc">Tune the colour and transparency of the 300 m coastal band</string>
+    <string name="settings_zone300_color_label">Zone color</string>
+    <string name="settings_zone300_color_desc">Fill and boundary color of the 300 m band</string>
+    <string name="settings_zone300_opacity_label">Opacity</string>
+    <string name="settings_zone300_opacity_desc">Zone content and border opacity</string>
+    <string name="settings_zone300_opacity_value_fmt">Zone %1$d%% · Border %2$d%%</string>
+    <string name="settings_zone300_appearance_label">Zone appearance</string>
+    <string name="settings_auto_markers_label">Auto-marker creation</string>
     <string name="settings_regulated_zones_label">Regulated zones</string>
     <string name="settings_regulated_zones_desc">Show regulated zones (speed limits, anchoring, etc.) on the map</string>
+    <string name="settings_danger_zones_label">Danger Zones</string>
+    <string name="settings_danger_zones_desc">Highlight shallow water that could ground your boat</string>
     <string name="settings_low_depth_warning_label">Low-depth warning</string>
     <string name="settings_low_depth_warning_desc">Highlight dangerously shallow water</string>
     <string name="settings_low_depth_threshold_label">Warning depth</string>
@@ -88,7 +97,7 @@
     <string name="settings_cap_arrow_desc">Show the speed-proportional direction arrow extending from the boat marker</string>
     <string name="settings_demo_heading_label">Demo heading-up</string>
     <string name="settings_demo_heading_desc">Derive heading from pan direction in demo mode instead of north-up</string>
-    <string name="settings_emodnet_section_label">EMODnet shallow filter</string>
+    <string name="settings_emodnet_section_label">Shallow cutoff (EMODnet)</string>
     <string name="settings_emodnet_section_desc">Coarse EMODnet data is unreliable in very shallow water near rocks and the coast</string>
     <string name="settings_emodnet_cutoff_label">Cutoff depth</string>
     <string name="settings_emodnet_cutoff_desc">Hide EMODnet depths shallower than this (shown as no data). 0 = off</string>
@@ -278,7 +287,7 @@
     <string name="filter_no_match">No items match filters</string>
     <string name="filter_clear">Clear filters</string>
     <string name="color_picker_title">Pick color</string>
-    <string name="settings_depth_label">Depth</string>
+    <string name="settings_depth_label">Depth Map</string>
     <string name="settings_depth_desc">Show depth color layer on the map</string>
     <string name="action_regenerate">Regenerate</string>
 
@@ -289,7 +298,7 @@
     <string name="settings_tracks_desc">Show recorded tracks on the map</string>
     <string name="settings_tracks_direction_label">Show tracks direction on map</string>
     <string name="settings_tracks_direction_desc">Draw direction arrows along recorded tracks</string>
-    <string name="settings_tracks_direction_settings_label">Direction Track Settings</string>
+    <string name="settings_tracks_direction_settings_label">Direction arrows</string>
     <string name="settings_tracks_direction_density_label">Arrow density</string>
     <string name="settings_tracks_direction_density_uniform">Uniform</string>
     <string name="settings_tracks_direction_density_speed">Speed-based</string>
@@ -309,7 +318,13 @@
     <string name="settings_colors_label">Colors</string>
     <string name="settings_colors_desc">Past tracks: color gradient from newest (From) to oldest (To). Pinned tracks: amber/orange gradient.</string>
     <string name="settings_section_markers">Markers</string>
-    <string name="settings_markers_desc">User-created pins, circles, corridors and auto-markers</string>
+    <string name="settings_markers_desc">Tune when automatic idle markers are created</string>
+    <string name="settings_marker_idle_threshold_label">Idle threshold</string>
+    <string name="settings_marker_idle_threshold_desc">Idle time before a marker is captured. Applied when the next recording starts.</string>
+    <string name="settings_marker_min_duration_label">Minimum duration</string>
+    <string name="settings_marker_min_duration_desc">Minimum idle time for the marker to be kept. Applied when the next recording starts.</string>
+    <string name="settings_marker_dedup_radius_label">Dedup radius</string>
+    <string name="settings_marker_dedup_radius_desc">Skip a new marker near an existing one. Applied when the next recording starts.</string>
     <string name="settings_zone_shapes_desc">Show zone shapes (corridor edges, circle outlines) and proximity previews</string>
     <string name="settings_zone_shapes_label">Zone shapes</string>
     <string name="settings_speed_alert_gps_label">Speed zone alert (GPS)</string>

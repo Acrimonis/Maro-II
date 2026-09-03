@@ -67,6 +67,8 @@ Column(uiCardBackground, 12dp radius, ${ui.padding.card.vertical} pad) {
 
 🔴 **Limit encapsulation — prefer a collapsible section.** Depth is capped at `card → expander → flat sections`. When a card accumulates many related controls, split them into a collapsible `SettingsExpander` section rather than nesting another card. Collapsible = secondary detail; primary toggles stay inline. Expander content is a flat sequence of sections — never a sub-card, and never a `SettingsSliderGroup` around a `RangeSlider`.
 
+**Expander state:** open state lives in `SettingsViewModel.expanderStates` — a `mutableStateMapOf<String, Boolean>` keyed by a stable per-expander id. Shared across the four tabs and preserved across rotation and settings reopen for the whole app session; cleared when the app exits, so every expander is collapsed on fresh launch. Never use local `remember`/`rememberSaveable` state for an expander.
+
 All expander content uses the **same outlined card surface** — whether a slider group or inline content:
 
 | Token | Value | Role |
@@ -99,7 +101,7 @@ Column(
 
 ### 2.5 Expander Labels
 
-`SettingsExpander` defaults: `uiSettingsTextPrimary`, 14sp, Medium. Never override `labelStyle` per call site.
+`SettingsExpander` defaults: `uiSettingsTextPrimary`, 16sp, Medium — matches the toggle (`SettingsToggleRow`) and slider (`SliderRowContent`) label font. Never override `labelStyle` per call site.
 
 ### 2.6 Section Dividers
 
@@ -152,12 +154,14 @@ Row(uiCardBackground, 12dp radius, 6dp pad, 6dp gaps) {
 Render as a **direct section** — header + description + value (`ui.settings.value.text`, right-aligned) + `RangeSlider` — never wrapped in `SettingsSliderGroup` (that double-nests the surface).
 
 - **Linear** (e.g. transparency 0–100): plain `valueRange` + `steps`.
+- **Two-thumb opacity** (300 m band): left thumb = zone content opacity, right thumb = border opacity; `value = fill..border`; commit on release via `onValueChangeFinished`.
 - **Log-scale** for octave-spanning ranges (e.g. gap 4–640, speed 2–64): map position 0..1 → value with `lo × (hi/lo)^pos` (`logSliderFromValue` / `logSliderToValue`); ~24 positions.
 
 ### 2.9 Header Hierarchy
 
 - `SectionHeader` — 17sp bold, `ui.settings.accent`; top-level sections only. `uppercase = true` (default) renders ALL-CAPS with 1sp letter-spacing; `uppercase = false` renders title case ("Layers", "Navigation") with no letter-spacing.
 - `SubSectionHeader` — 16sp SemiBold, `ui.settings.text.muted` + optional 13sp `ui.settings.text.secondary` description; the standard header for any sub-section inside a card/expander.
+- **Card description** (Layers tab) — 13sp `ui.settings.text.muted`, inside the card, horizontal 16dp pad with no extra vertical padding, followed by a 4dp spacer before the first expander.
 
 ---
 
@@ -190,6 +194,7 @@ Full token list: [`ui-tokens.properties`](../app/src/main/assets/ui-tokens.prope
 - ❌ Hand-rolled two-`Text` toggle rows (use the segmented selector, §2.7)
 - ❌ Mixed header styles in one card (use `SubSectionHeader` consistently, §2.9)
 - ❌ Nesting deeper than `card → expander → sections` (§2.4)
+- ❌ Local `remember`/`rememberSaveable` state for expander open state (use `SettingsViewModel.expanderStates`, §2.4)
 
 ---
 

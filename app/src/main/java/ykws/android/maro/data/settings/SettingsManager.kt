@@ -88,6 +88,18 @@ data class AppSettings(
     val lowDepthWarningMaxM: Float = DepthConstants.LOW_DEPTH_WARNING_MAX_M.toFloat(),
     /** Min opacity (%, 0–100) of the low-depth warning at the threshold; 100 % at the shoreline fades to this. */
     val lowDepthWarningMinOpacityPct: Int = 25,
+    /** 300 m band fill + boundary colour (opaque ARGB). Fill alpha is derived from [zone300FillOpacityPct]. */
+    val zone300Color: Int = 0xFFE53935.toInt(),
+    /** 300 m band fill opacity % (0–100, higher = more opaque). Default 20 ≈ today's 0x30 fill alpha. */
+    val zone300FillOpacityPct: Int = 20,
+    /** 300 m band seaward boundary opacity % (0–100). */
+    val zone300BoundaryOpacityPct: Int = 80,
+    /** Idle threshold (s) before a BoatMarker snapshot + auto-marker is captured. */
+    val boatMarkerIdleThresholdSec: Long = ykws.android.maro.config.AppConfig.boatMarkerIdleThresholdSec,
+    /** Minimum idle duration (s) before an auto-marker becomes permanent. */
+    val boatMarkerAutoMarkerMinDurationSec: Long = ykws.android.maro.config.AppConfig.boatMarkerAutoMarkerMinDurationSec,
+    /** Dedup radius (m) — skip auto-marker creation when an existing IDLE_AUTO marker is within this distance. */
+    val boatMarkerAutoMarkerDedupRadiusM: Double = ykws.android.maro.config.AppConfig.boatMarkerAutoMarkerDedupRadiusM,
     /** EMODnet shallow cutoff (m): EMODnet point readings shallower than this are coarse
      *  (115 m cell over rocks/coast) and unreliable → presented as no-data. 0 disables the gate. */
     val emodnetShallowCutoffM: Float = 2.0f,
@@ -335,6 +347,12 @@ class SettingsManager(
         lowDepthWarningVisible = prefs.getBoolean(KEY_LOW_DEPTH_WARNING_VISIBLE, true),
         lowDepthWarningMaxM = prefs.getFloat(KEY_LOW_DEPTH_WARNING_MAX_M, DepthConstants.LOW_DEPTH_WARNING_MAX_M.toFloat()),
         lowDepthWarningMinOpacityPct = prefs.getInt(KEY_LOW_DEPTH_MIN_OPACITY_PCT, defaultLowDepthMinOpacityPct),
+        zone300Color = prefs.getInt(KEY_ZONE300_COLOR, 0xFFE53935.toInt()),
+        zone300FillOpacityPct = prefs.getInt(KEY_ZONE300_FILL_OPACITY_PCT, 20),
+        zone300BoundaryOpacityPct = prefs.getInt(KEY_ZONE300_BOUNDARY_OPACITY_PCT, 80),
+        boatMarkerIdleThresholdSec = prefs.getLong(KEY_BOAT_MARKER_IDLE_THRESHOLD_S, ykws.android.maro.config.AppConfig.boatMarkerIdleThresholdSec),
+        boatMarkerAutoMarkerMinDurationSec = prefs.getLong(KEY_BOAT_MARKER_AUTO_MIN_DURATION_S, ykws.android.maro.config.AppConfig.boatMarkerAutoMarkerMinDurationSec),
+        boatMarkerAutoMarkerDedupRadiusM = prefs.getFloat(KEY_BOAT_MARKER_AUTO_DEDUP_RADIUS_M, ykws.android.maro.config.AppConfig.boatMarkerAutoMarkerDedupRadiusM.toFloat()).toDouble(),
         emodnetShallowCutoffM = prefs.getFloat(KEY_EMODNET_SHALLOW_CUTOFF_M, 2.0f),
         regenGrid    = prefs.getBoolean(KEY_REGEN_GRID, true),
         regenIsobaths = prefs.getBoolean(KEY_REGEN_ISOBATHS, true),
@@ -449,6 +467,12 @@ class SettingsManager(
             .putBoolean(KEY_LOW_DEPTH_WARNING_VISIBLE, updated.lowDepthWarningVisible)
             .putFloat(KEY_LOW_DEPTH_WARNING_MAX_M, updated.lowDepthWarningMaxM)
             .putInt(KEY_LOW_DEPTH_MIN_OPACITY_PCT, updated.lowDepthWarningMinOpacityPct)
+            .putInt(KEY_ZONE300_COLOR, updated.zone300Color)
+            .putInt(KEY_ZONE300_FILL_OPACITY_PCT, updated.zone300FillOpacityPct)
+            .putInt(KEY_ZONE300_BOUNDARY_OPACITY_PCT, updated.zone300BoundaryOpacityPct)
+            .putLong(KEY_BOAT_MARKER_IDLE_THRESHOLD_S, updated.boatMarkerIdleThresholdSec)
+            .putLong(KEY_BOAT_MARKER_AUTO_MIN_DURATION_S, updated.boatMarkerAutoMarkerMinDurationSec)
+            .putFloat(KEY_BOAT_MARKER_AUTO_DEDUP_RADIUS_M, updated.boatMarkerAutoMarkerDedupRadiusM.toFloat())
             .putFloat(KEY_EMODNET_SHALLOW_CUTOFF_M, updated.emodnetShallowCutoffM)
             .putBoolean(KEY_REGEN_GRID, updated.regenGrid)
             .putBoolean(KEY_REGEN_ISOBATHS, updated.regenIsobaths)
@@ -546,6 +570,12 @@ class SettingsManager(
         private const val KEY_LOW_DEPTH_WARNING_VISIBLE = "low_depth_warning_visible"
         private const val KEY_LOW_DEPTH_WARNING_MAX_M = "low_depth_warning_max_m"
         private const val KEY_LOW_DEPTH_MIN_OPACITY_PCT = "low_depth_min_opacity_pct"
+        private const val KEY_ZONE300_COLOR = "zone300_fill_color"
+        private const val KEY_ZONE300_FILL_OPACITY_PCT = "zone300_fill_opacity_pct"
+        private const val KEY_ZONE300_BOUNDARY_OPACITY_PCT = "zone300_boundary_opacity_pct"
+        private const val KEY_BOAT_MARKER_IDLE_THRESHOLD_S = "boat_marker_idle_threshold_s"
+        private const val KEY_BOAT_MARKER_AUTO_MIN_DURATION_S = "boat_marker_auto_min_duration_s"
+        private const val KEY_BOAT_MARKER_AUTO_DEDUP_RADIUS_M = "boat_marker_auto_dedup_radius_m"
         private const val KEY_EMODNET_SHALLOW_CUTOFF_M = "emodnet_shallow_cutoff_m"
         private const val KEY_REGEN_GRID = "regen_grid"
         private const val KEY_REGEN_ISOBATHS = "regen_isobaths"

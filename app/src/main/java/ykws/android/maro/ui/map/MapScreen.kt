@@ -2893,6 +2893,9 @@ private fun MapContent(
             segments = segments,
             regulatedZones = visibleRegulatedZones,
             zone300 = visibleZone300,
+            zone300Color = appSettings.zone300Color,
+            zone300FillOpacityPct = appSettings.zone300FillOpacityPct,
+            zone300BoundaryOpacityPct = appSettings.zone300BoundaryOpacityPct,
             depthBitmap = visibleDepthBitmap,
             lowDepthWarningBitmap = visibleLowDepthWarning,
             depthBox = depthBox,
@@ -3422,24 +3425,14 @@ private fun LayersSettings(
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
     scrollState: ScrollState
 ) {
+    val settingsVm = androidx.lifecycle.viewmodel.compose.viewModel<SettingsViewModel>()
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(scrollState)
     ) {
-        // ── Coastline — the only on/off without a map-fan button ───────
-        SectionHeader(title = stringResource(R.string.settings_coastline_label), uppercase = false)
-        Spacer(modifier = Modifier.height(8.dp))
-        SettingsToggleRow(
-            label = stringResource(R.string.settings_coastline_label),
-            description = stringResource(R.string.settings_coastline_desc),
-            checked = settings.coastlineVisible,
-            onCheckedChange = { visible -> onUpdateSettings { it.copy(coastlineVisible = visible) } }
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // ── Low-depth warning ───────────────────────────────────────────
-        SectionHeader(title = stringResource(R.string.settings_low_depth_warning_label), uppercase = false)
+        // ── Danger Zones (was: low-depth warning) ──────────────────────
+        SectionHeader(title = stringResource(R.string.settings_danger_zones_label), uppercase = false)
         Spacer(modifier = Modifier.height(8.dp))
         Column(
             modifier = Modifier
@@ -3448,14 +3441,19 @@ private fun LayersSettings(
                 .background(ComposeColor(AppConfig.uiCardBackground))
                 .padding(vertical = 8.dp)
         ) {
+            Text(
+                text = stringResource(R.string.settings_danger_zones_desc),
+                color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                fontSize = 13.sp,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
             // Warning sliders — always visible, persisted expander
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(4.dp))
             Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                var warningExpanded by rememberSaveable { mutableStateOf(false) }
                 SettingsExpander(
                     label = stringResource(R.string.settings_low_depth_settings_label),
-                    expanded = warningExpanded,
-                    onToggle = { warningExpanded = !warningExpanded }
+                    expanded = settingsVm.isExpanded("danger_warning"),
+                    onToggle = { settingsVm.setExpanded("danger_warning", !settingsVm.isExpanded("danger_warning")) }
                 ) {
                         Spacer(modifier = Modifier.height(8.dp))
                         SettingsSliderGroup(nested = true) {
@@ -3490,6 +3488,84 @@ private fun LayersSettings(
 
         Spacer(modifier = Modifier.height(12.dp))
 
+        // ── 300m Band ───────────────────────────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_zone300_label), uppercase = false)
+        Spacer(modifier = Modifier.height(8.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(ComposeColor(AppConfig.uiCardBackground))
+                .padding(vertical = 8.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.settings_zone300_desc),
+                color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                fontSize = 13.sp,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+            Spacer(Modifier.height(4.dp))
+            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                SettingsExpander(
+                    label = stringResource(R.string.settings_zone300_appearance_label),
+                    expanded = settingsVm.isExpanded("zone300_appearance"),
+                    onToggle = { settingsVm.setExpanded("zone300_appearance", !settingsVm.isExpanded("zone300_appearance")) }
+                ) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    SettingsSliderGroup(nested = true) {
+                        ColorSwatchRow(
+                            label = stringResource(R.string.settings_zone300_color_label),
+                            color = settings.zone300Color,
+                            onColorSelected = { c -> onUpdateSettings { it.copy(zone300Color = c) } },
+                            showPickLabel = false
+                        )
+                    }
+                    SliderRowDivider()
+                    SubSectionHeader(
+                        title = stringResource(R.string.settings_zone300_opacity_label),
+                        description = stringResource(R.string.settings_zone300_opacity_desc)
+                    )
+                    var opacityDrag by remember {
+                        mutableStateOf(settings.zone300FillOpacityPct.toFloat()..settings.zone300BoundaryOpacityPct.toFloat())
+                    }
+                    Text(
+                        text = stringResource(
+                            R.string.settings_zone300_opacity_value_fmt,
+                            (opacityDrag.start / 5f).roundToInt() * 5,
+                            (opacityDrag.endInclusive / 5f).roundToInt() * 5
+                        ),
+                        color = ComposeColor(AppConfig.uiSettingsValueText),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    RangeSlider(
+                        value = opacityDrag,
+                        onValueChange = { range -> opacityDrag = range },
+                        valueRange = 0f..100f,
+                        steps = 19,
+                        onValueChangeFinished = {
+                            onUpdateSettings {
+                                it.copy(
+                                    zone300FillOpacityPct = (opacityDrag.start / 5f).roundToInt() * 5,
+                                    zone300BoundaryOpacityPct = (opacityDrag.endInclusive / 5f).roundToInt() * 5
+                                )
+                            }
+                        },
+                        colors = SliderDefaults.colors(
+                            thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                            activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
+                            inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                        )
+                    )
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
         // ── Regulated zones ─────────────────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_regulated_zones_label), uppercase = false)
         Spacer(modifier = Modifier.height(8.dp))
@@ -3500,14 +3576,19 @@ private fun LayersSettings(
                 .background(ComposeColor(AppConfig.uiCardBackground))
                 .padding(vertical = 8.dp)
         ) {
-            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.settings_regulated_zones_desc),
+                color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                fontSize = 13.sp,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+            Spacer(Modifier.height(4.dp))
                 // Regulation info — collapsible toggle for info text panel
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    var regExpanded by rememberSaveable { mutableStateOf(false) }
                     SettingsExpander(
                         label = stringResource(R.string.settings_reg_info_settings_label),
-                        expanded = regExpanded,
-                        onToggle = { regExpanded = !regExpanded }
+                        expanded = settingsVm.isExpanded("reg_info"),
+                        onToggle = { settingsVm.setExpanded("reg_info", !settingsVm.isExpanded("reg_info")) }
                     ) {
                         Spacer(Modifier.height(8.dp))
                         Column(
@@ -3553,11 +3634,10 @@ private fun LayersSettings(
                 }
                 Spacer(Modifier.height(8.dp))
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    var categoryExpanded by rememberSaveable { mutableStateOf(false) }
                     SettingsExpander(
                         label = stringResource(R.string.settings_categories_label),
-                        expanded = categoryExpanded,
-                        onToggle = { categoryExpanded = !categoryExpanded }
+                        expanded = settingsVm.isExpanded("reg_categories"),
+                        onToggle = { settingsVm.setExpanded("reg_categories", !settingsVm.isExpanded("reg_categories")) }
                     ) {
                         Spacer(modifier = Modifier.height(8.dp))
                         RegulatedZoneCategoryToggles(settings, onUpdateSettings)
@@ -3575,11 +3655,16 @@ private fun LayersSettings(
             modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
                 .background(ComposeColor(AppConfig.uiCardBackground)).padding(vertical = 8.dp)
         ) {
-            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.settings_depth_desc),
+                color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                fontSize = 13.sp,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+            Spacer(Modifier.height(4.dp))
             Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                var emodExpanded by rememberSaveable { mutableStateOf(false) }
-                SettingsExpander(label = stringResource(R.string.settings_emodnet_section_label), expanded = emodExpanded,
-                    onToggle = { emodExpanded = !emodExpanded }
+                SettingsExpander(label = stringResource(R.string.settings_emodnet_section_label), expanded = settingsVm.isExpanded("depth_cutoff"),
+                    onToggle = { settingsVm.setExpanded("depth_cutoff", !settingsVm.isExpanded("depth_cutoff")) }
                 ) {
                     Spacer(Modifier.height(8.dp))
                     SettingsSliderGroup(nested = true) {
@@ -3607,14 +3692,19 @@ private fun LayersSettings(
                 .background(ComposeColor(AppConfig.uiCardBackground))
                 .padding(vertical = 8.dp)
         ) {
-            Spacer(Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.settings_tracks_desc),
+                color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                fontSize = 13.sp,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+            Spacer(Modifier.height(4.dp))
 
             Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                var trackExpanded by rememberSaveable { mutableStateOf(false) }
                 SettingsExpander(
                     label = stringResource(R.string.settings_track_settings_label),
-                    expanded = trackExpanded,
-                    onToggle = { trackExpanded = !trackExpanded }
+                    expanded = settingsVm.isExpanded("track_rendering"),
+                    onToggle = { settingsVm.setExpanded("track_rendering", !settingsVm.isExpanded("track_rendering")) }
                 ) {
                         Spacer(Modifier.height(4.dp))
                         Column(
@@ -3804,11 +3894,10 @@ private fun LayersSettings(
             Spacer(Modifier.height(8.dp))
 
             Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                var directionExpanded by rememberSaveable { mutableStateOf(false) }
                 SettingsExpander(
                     label = stringResource(R.string.settings_tracks_direction_settings_label),
-                    expanded = directionExpanded,
-                    onToggle = { directionExpanded = !directionExpanded }
+                    expanded = settingsVm.isExpanded("track_direction"),
+                    onToggle = { settingsVm.setExpanded("track_direction", !settingsVm.isExpanded("track_direction")) }
                 ) {
                     Spacer(Modifier.height(4.dp))
                     Column(
@@ -3930,6 +4019,86 @@ private fun LayersSettings(
             Spacer(Modifier.height(4.dp))
         }
 
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // ── Markers ─────────────────────────────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_section_markers), uppercase = false)
+        Spacer(modifier = Modifier.height(8.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(ComposeColor(AppConfig.uiCardBackground))
+                .padding(vertical = 8.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.settings_markers_desc),
+                color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                fontSize = 13.sp,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+            Spacer(Modifier.height(4.dp))
+            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                SettingsExpander(
+                    label = stringResource(R.string.settings_auto_markers_label),
+                    expanded = settingsVm.isExpanded("markers_auto"),
+                    onToggle = { settingsVm.setExpanded("markers_auto", !settingsVm.isExpanded("markers_auto")) }
+                ) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    SettingsSliderGroup(nested = true) {
+                        SliderRowContent(
+                            label = stringResource(R.string.settings_marker_idle_threshold_label),
+                            description = stringResource(R.string.settings_marker_idle_threshold_desc),
+                            valueLabel = stringResource(R.string.settings_value_seconds, settings.boatMarkerIdleThresholdSec),
+                            value = settings.boatMarkerIdleThresholdSec.toFloat(),
+                            valueRange = 10f..600f,
+                            steps = 59,
+                            onValueChange = { v ->
+                                onUpdateSettings { it.copy(boatMarkerIdleThresholdSec = v.roundToInt().toLong()) }
+                            }
+                        )
+                        SliderRowDivider()
+                        SliderRowContent(
+                            label = stringResource(R.string.settings_marker_min_duration_label),
+                            description = stringResource(R.string.settings_marker_min_duration_desc),
+                            valueLabel = stringResource(R.string.settings_value_seconds, settings.boatMarkerAutoMarkerMinDurationSec),
+                            value = settings.boatMarkerAutoMarkerMinDurationSec.toFloat(),
+                            valueRange = 30f..3600f,
+                            steps = 119,
+                            onValueChange = { v ->
+                                onUpdateSettings { it.copy(boatMarkerAutoMarkerMinDurationSec = v.roundToInt().toLong()) }
+                            }
+                        )
+                        SliderRowDivider()
+                        SliderRowContent(
+                            label = stringResource(R.string.settings_marker_dedup_radius_label),
+                            description = stringResource(R.string.settings_marker_dedup_radius_desc),
+                            valueLabel = stringResource(R.string.settings_value_meters, settings.boatMarkerAutoMarkerDedupRadiusM.roundToInt()),
+                            value = settings.boatMarkerAutoMarkerDedupRadiusM.toFloat(),
+                            valueRange = 1f..100f,
+                            steps = 98,
+                            onValueChange = { v ->
+                                onUpdateSettings { it.copy(boatMarkerAutoMarkerDedupRadiusM = v.roundToInt().toDouble()) }
+                            }
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // ── Coastline — the only on/off without a map-fan button ───────
+        SectionHeader(title = stringResource(R.string.settings_coastline_label), uppercase = false)
+        Spacer(modifier = Modifier.height(8.dp))
+        SettingsToggleRow(
+            label = stringResource(R.string.settings_coastline_label),
+            description = stringResource(R.string.settings_coastline_desc),
+            checked = settings.coastlineVisible,
+            onCheckedChange = { visible -> onUpdateSettings { it.copy(coastlineVisible = visible) } }
+        )
+
         Spacer(modifier = Modifier.height(24.dp))
     }
 }
@@ -3942,6 +4111,7 @@ private fun NavigationSettings(
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
     scrollState: ScrollState
 ) {
+    val settingsVm = androidx.lifecycle.viewmodel.compose.viewModel<SettingsViewModel>()
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -4150,11 +4320,10 @@ private fun NavigationSettings(
             Spacer(Modifier.height(8.dp))
 
             Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                var revealExpanded by rememberSaveable { mutableStateOf(false) }
                 SettingsExpander(
                     label = stringResource(R.string.settings_redisplay_when_label),
-                    expanded = revealExpanded,
-                    onToggle = { revealExpanded = !revealExpanded }
+                    expanded = settingsVm.isExpanded("redisplay_when"),
+                    onToggle = { settingsVm.setExpanded("redisplay_when", !settingsVm.isExpanded("redisplay_when")) }
                 ) {
                     Spacer(modifier = Modifier.height(8.dp))
                     SettingsSliderGroup(nested = true) {
@@ -4297,6 +4466,7 @@ private fun PositionSettings(
     onDismiss: () -> Unit,
     scrollState: ScrollState
 ) {
+    val settingsVm = androidx.lifecycle.viewmodel.compose.viewModel<SettingsViewModel>()
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -4352,11 +4522,10 @@ private fun PositionSettings(
             if (settings.gpsMode) {
                 Spacer(Modifier.height(8.dp))
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    var gpsTuningExpanded by rememberSaveable { mutableStateOf(false) }
                     SettingsExpander(
                         label = stringResource(R.string.settings_gps_tuning_label),
-                        expanded = gpsTuningExpanded,
-                        onToggle = { gpsTuningExpanded = !gpsTuningExpanded }
+                        expanded = settingsVm.isExpanded("gps_tuning"),
+                        onToggle = { settingsVm.setExpanded("gps_tuning", !settingsVm.isExpanded("gps_tuning")) }
                     ) {
                         Spacer(modifier = Modifier.height(8.dp))
                         SettingsFrequencyRow(
@@ -4433,11 +4602,10 @@ private fun PositionSettings(
                 Spacer(Modifier.height(8.dp))
 
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    var adaptiveAdvanced by rememberSaveable { mutableStateOf(false) }
                     SettingsExpander(
                         label = stringResource(R.string.settings_stop_thresholds_label),
-                        expanded = adaptiveAdvanced,
-                        onToggle = { adaptiveAdvanced = !adaptiveAdvanced }
+                        expanded = settingsVm.isExpanded("stop_thresholds"),
+                        onToggle = { settingsVm.setExpanded("stop_thresholds", !settingsVm.isExpanded("stop_thresholds")) }
                     ) {
                         Spacer(modifier = Modifier.height(8.dp))
                         SettingsSliderGroup(nested = true) {
@@ -4765,13 +4933,15 @@ private fun SystemSettings(
 
 @Composable
 private fun SectionHeader(title: String, uppercase: Boolean = true) {
-    Text(
-        text = if (uppercase) title.uppercase() else title,
-        color = ComposeColor(AppConfig.uiSettingsAccent),
-        fontSize = 17.sp,
-        fontWeight = FontWeight.Bold,
-        letterSpacing = if (uppercase) 1.sp else 0.sp
-    )
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = if (uppercase) title.uppercase() else title,
+            color = ComposeColor(AppConfig.uiSettingsAccent),
+            fontSize = 17.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = if (uppercase) 1.sp else 0.sp
+        )
+    }
 }
 
 /**
@@ -4910,7 +5080,8 @@ private fun SliderRowContent(
     value: Float,
     valueRange: ClosedFloatingPointRange<Float>,
     steps: Int,
-    onValueChange: (Float) -> Unit
+    onValueChange: (Float) -> Unit,
+    onValueChangeFinished: () -> Unit = {}
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -4941,6 +5112,7 @@ private fun SliderRowContent(
     Slider(
         value = value,
         onValueChange = onValueChange,
+        onValueChangeFinished = onValueChangeFinished,
         valueRange = valueRange,
         steps = steps,
         colors = SliderDefaults.colors(
@@ -4996,7 +5168,7 @@ private fun SettingsExpander(
     onToggle: () -> Unit,
     labelStyle: TextStyle = TextStyle(
         color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-        fontSize = 14.sp,
+        fontSize = 16.sp,
         fontWeight = FontWeight.Medium
     ),
     content: @Composable () -> Unit
