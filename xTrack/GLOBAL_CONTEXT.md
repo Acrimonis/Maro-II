@@ -3,9 +3,9 @@
 ## Active Session Pointers
 - **Active Feature:** UI_Map
 - **Active Subfeature:** none
-- **Last Updated:** 2026-09-02 21:35
+- **Last Updated:** 2026-09-03 16:32
 - **Last Bake:** 2026-09-02 21:35 (ZoneTile — zone info text per-line scrim: ui.settings.text.scrim token + RegulatedZoneInfoText rounded scrim/padding/spacing)
-- **Branch:** feature/zone-info
+- **Branch:** feature/map-z-order
 
 ## Routing Map
 | Keyword | Feature File |

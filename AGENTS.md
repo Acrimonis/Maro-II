@@ -58,8 +58,9 @@
 
 - **📋 TASK COMPLETION:** If the tool output already answered the request, emit only `"Done."` — do not re-describe what was already displayed. Summarize only when multi-step changes, code modifications, or non-obvious decisions occurred. IF the task involved multi-step changes → emit:
   1. Bullet list of what changed (files touched, logic altered, config).
-  2. ELI16 explanation — one or two plain-language sentences explaining the
-     *purpose* of the change. Strip Android/Kotlin jargon where possible.
+  2. ELIJP explanation (ELIJP = "Explain Like I'm a Junior Programmer") — one or
+     two plain-language sentences explaining the *purpose* of the change.
+     Strip Android/Kotlin jargon where possible.
      IF a Java-backend analogy maps cleanly → use it.
 
 - You may challenge ideas, but defer to my judgement.
