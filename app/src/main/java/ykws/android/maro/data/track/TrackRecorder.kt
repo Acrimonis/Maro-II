@@ -1405,17 +1405,20 @@ class TrackRecorder(
         }
     }
 
-    /** Format a single description bullet line for one BoatMarker. */
+    /** Format a single description line for one BoatMarker: "HH:mm: Zone for Xmin". */
     private fun formatStopLine(bm: BoatMarker, zoneNames: List<String>): String {
         val time = SimpleDateFormat("HH:mm", Locale.US).format(Date(bm.startTimeMs))
-        val zones = if (zoneNames.isEmpty()) "" else " at [${zoneNames.joinToString(", ")}]"
+        val zones = zoneNames.joinToString(", ")
         val durSuffix = if (bm.endTimeMs != null) {
             val dur = (bm.endTimeMs - bm.startTimeMs) / 1000
             " for ${formatDuration(dur)}"
         } else {
             ""
         }
-        return "  - stopped$zones @ $time$durSuffix"
+        return when {
+            zones.isNotEmpty() -> "$time: $zones$durSuffix"
+            else -> "$time$durSuffix"
+        }
     }
 
     /**

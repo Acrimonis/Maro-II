@@ -478,7 +478,7 @@ internal fun TrackCardContent(
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                    .padding(start = 8.dp, top = 2.dp, end = 8.dp, bottom = 6.dp)
             ) {
         // ── Date + time range + action icons ────────────────────────
         val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.US) }
@@ -494,18 +494,18 @@ internal fun TrackCardContent(
         }
 
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
                 text = if (endTime != null) "$dateLabel  $startTime→$endTime"
                        else "$dateLabel  $startTime",
-                color = Color(AppConfig.uiSettingsTextMuted), fontSize = 11.sp
+                color = Color(AppConfig.uiSettingsTextMuted), fontSize = 11.sp, lineHeight = 12.sp
             )
             Text(
                 text = "${summary.pointCount} pts",
-                color = Color(AppConfig.uiSettingsTextMuted), fontSize = 11.sp
+                color = Color(AppConfig.uiSettingsTextMuted), fontSize = 11.sp, lineHeight = 12.sp
             )
             Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 IconButton(
@@ -546,13 +546,6 @@ internal fun TrackCardContent(
             }
         }
 
-        Spacer(Modifier.height(2.dp))
-        HorizontalDivider(
-            modifier = Modifier.padding(horizontal = 8.dp),
-            thickness = 0.5.dp, color = Color(AppConfig.uiSettingsDivider)
-        )
-        Spacer(Modifier.height(2.dp))
-
         // ── Editable name ───────────────────────────────────────────
         if (editingField == EditingField.NAME) {
             LaunchedEffect(Unit) { nameFocus.requestFocus() }
@@ -562,7 +555,7 @@ internal fun TrackCardContent(
                 singleLine = true,
                 textStyle = androidx.compose.ui.text.TextStyle(
                     color = Color(AppConfig.uiSettingsTextPrimary),
-                    fontSize = 15.sp, fontWeight = FontWeight.SemiBold
+                    fontSize = 15.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold
                 ),
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = Color.Transparent,
@@ -587,9 +580,9 @@ internal fun TrackCardContent(
             Text(
                 text = summary.name,
                 color = Color(AppConfig.uiSettingsTextPrimary),
-                fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+                fontSize = 15.sp, fontWeight = FontWeight.SemiBold, lineHeight = 16.sp,
                 modifier = Modifier.fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                    .padding(start = 8.dp, top = 0.dp, end = 8.dp, bottom = 1.dp)
                     .combinedClickable(
                         onClick = { onTap?.invoke() },
                         onDoubleClick = {
@@ -613,7 +606,7 @@ internal fun TrackCardContent(
                 singleLine = false,
                 minLines = 1,
                 textStyle = androidx.compose.ui.text.TextStyle(
-                    color = Color(AppConfig.uiSettingsTextMuted), fontSize = 13.sp
+                    color = Color(AppConfig.uiSettingsTextMuted), fontSize = 13.sp, lineHeight = 14.sp
                 ),
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = Color.Transparent,
@@ -639,9 +632,9 @@ internal fun TrackCardContent(
                 text = summary.comment.ifBlank { "Add a comment..." },
                 color = if (summary.comment.isBlank()) Color(AppConfig.uiSettingsTextMuted).copy(alpha = 0.4f)
                         else Color(AppConfig.uiSettingsTextMuted),
-                fontSize = 13.sp, maxLines = 3,
+                fontSize = 13.sp, maxLines = 3, lineHeight = 14.sp,
                 modifier = Modifier.fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                    .padding(horizontal = 8.dp, vertical = 1.dp)
                     .combinedClickable(
                         onClick = { onTap?.invoke() },
                         onDoubleClick = {
@@ -652,12 +645,12 @@ internal fun TrackCardContent(
             )
         }
 
-        Spacer(Modifier.height(2.dp))
+        Spacer(Modifier.height(1.dp))
         HorizontalDivider(
             modifier = Modifier.padding(horizontal = 8.dp),
             thickness = 0.5.dp, color = Color(AppConfig.uiSettingsDivider)
         )
-        Spacer(Modifier.height(2.dp))
+        Spacer(Modifier.height(1.dp))
 
         // ── Stats grid: 3-column × 2-row ───────────────────────────
         val totalSec = if (summary.endTimeMs != null) {
@@ -913,6 +906,7 @@ private fun StatCell(label: String, value: String) {
             text = "$label:",
             color = Color(AppConfig.uiSettingsTextMuted),
             fontSize = 11.sp,
+            lineHeight = 12.sp,
             textAlign = TextAlign.End,
             maxLines = 1,
             modifier = Modifier.weight(0.33f)
@@ -922,6 +916,7 @@ private fun StatCell(label: String, value: String) {
             text = value,
             color = Color(AppConfig.uiSettingsTextPrimary),
             fontSize = 12.sp,
+            lineHeight = 13.sp,
             fontWeight = FontWeight.Medium,
             maxLines = 1,
             textAlign = TextAlign.Start,

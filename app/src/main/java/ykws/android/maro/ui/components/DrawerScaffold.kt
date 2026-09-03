@@ -145,8 +145,10 @@ fun DrawerScaffold(
     contentPadding: PaddingValues = PaddingValues(horizontal = 12.dp),
     scrollable: Boolean = true,
     suppressOverscrollWhenFits: Boolean = false,
+    bottomAnchoredContent: Boolean = false,
     statusBarsInset: Boolean = false,
     shape: Shape = RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp),
+    footer: @Composable ColumnScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit
 ) {
     val bgModifier = Modifier
@@ -177,28 +179,35 @@ fun DrawerScaffold(
                         derivedStateOf { scrollState.maxValue > 0 }
                     }
                     val suppressOverscroll = suppressOverscrollWhenFits && !canScroll
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .then(
-                                if (suppressOverscroll) {
-                                    Modifier.verticalScroll(state = scrollState, overscrollEffect = null)
-                                } else {
-                                    Modifier.verticalScroll(state = scrollState)
-                                }
-                            )
-                            .padding(contentPadding),
-                        content = content
-                    )
+                    Box(Modifier.fillMaxSize()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .align(if (bottomAnchoredContent) Alignment.BottomCenter else Alignment.TopCenter)
+                                .then(
+                                    if (suppressOverscroll) {
+                                        Modifier.verticalScroll(state = scrollState, overscrollEffect = null)
+                                    } else {
+                                        Modifier.verticalScroll(state = scrollState)
+                                    }
+                                )
+                                .padding(contentPadding),
+                            content = content
+                        )
+                    }
                 } else {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(contentPadding),
-                        content = content
-                    )
+                    Box(Modifier.fillMaxSize()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .align(if (bottomAnchoredContent) Alignment.BottomCenter else Alignment.TopCenter)
+                                .padding(contentPadding),
+                            content = content
+                        )
+                    }
                 }
             }
+            footer()
         }
     }
 }

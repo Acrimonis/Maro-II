@@ -2,7 +2,7 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-09-02 15:42
+modified: 2026-09-03 20:53
 active_subfeature: screen-lock
 ---
 
@@ -15,6 +15,27 @@ app is running. Extended with page-layout concerns: edge-to-edge rendering, stat
 bar immersion, and WindowInsets management.
 
 ## Subfeatures
+
+### compact-list-cards  [x]
+
+Track and marker list cards made vertically more compact. Description/comment
+line-height 14sp (title 16sp, header 12sp, stats 12/13sp), reduced description v-padding,
+asymmetric column padding (top 2dp / bottom 4dp), and the header→title `HorizontalDivider`
+removed. Shared by the list overlays and the dashboard detail drawers. BUILD SUCCESSFUL.
+
+#### Key Files
+- `TrackHistoryOverlay.kt`, `MarkerManagementOverlay.kt`
+
+### drawer-dynamic-height  [x]
+
+Track + marker drawers pin Prev/Next at the bottom via the `DrawerScaffold.footer` slot, with
+card→Prev/Next spacers trimmed and 12dp horizontal button padding (no divider, 8dp above /
+6dp below). Portrait drawers are bottom-anchored and resize dynamically: fixed animated height
+driven by a hidden card-height probe (`MeasureHeight`), min = dashboard height. The landscape
+side panel pins the footer too. BUILD SUCCESSFUL.
+
+#### Key Files
+- `DrawerScaffold.kt`, `MeasureHeight.kt`, `OverlayLayer.kt`, `MarkerDrawer.kt`
 
 ### screen-lock  [x]
 

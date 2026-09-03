@@ -56,6 +56,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ykws.android.maro.R
@@ -67,6 +68,7 @@ import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.WhereAmIMatch
 import ykws.android.maro.spatial.WhereAmIResult
 import ykws.android.maro.ui.components.DrawerScaffold
+import ykws.android.maro.ui.components.MeasureHeight
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public composable
@@ -90,7 +92,8 @@ fun MarkerDrawer(
     onClose: () -> Unit,
     boatPosition: LatLng? = null,
     onRequestDelete: (String, String) -> Unit = { _, _ -> },
-    trackTitleLookup: (String) -> String? = { null }
+    trackTitleLookup: (String) -> String? = { null },
+    onCardHeightMeasured: (Dp) -> Unit = {}
 ) {
     val drawerState by viewModel.drawerState.collectAsState()
     val isOpen = drawerState !is MarkerDrawerState.Hidden
@@ -105,7 +108,7 @@ fun MarkerDrawer(
     }
 
     when (drawerState) {
-        is MarkerDrawerState.Viewing -> ViewingContent(viewModel, onClose, boatPosition, panelShape, onRequestDelete, isLandscape, trackTitleLookup)
+        is MarkerDrawerState.Viewing -> ViewingContent(viewModel, onClose, boatPosition, panelShape, onRequestDelete, isLandscape, trackTitleLookup, onCardHeightMeasured)
         is MarkerDrawerState.MatchResult -> MatchResultContent(viewModel, onClose, boatPosition, panelShape, isLandscape)
         else -> { /* Creating/Editing handled by WizardDrawer */ }
     }
@@ -123,7 +126,8 @@ private fun ViewingContent(
     shape: Shape,
     onRequestDelete: (String, String) -> Unit = { _, _ -> },
     isLandscape: Boolean,
-    trackTitleLookup: (String) -> String? = { null }
+    trackTitleLookup: (String) -> String? = { null },
+    onCardHeightMeasured: (Dp) -> Unit = {}
 ) {
     val markers by viewModel.markers.collectAsState()
     val selectedIds by viewModel.selectedMarkerIds.collectAsState()
@@ -133,32 +137,25 @@ private fun ViewingContent(
     val marker = currentId?.let { id -> markers.find { it.id == id } }
     val hasMultiple = selectedIds.size > 1
 
-    DrawerScaffold(
-        title = marker?.name ?: "Marker",
-        onClose = onClose,
-        headerHorizontalPadding = 12.dp,
-        scrollable = true,
-        statusBarsInset = isLandscape,
-        shape = shape,
-        contentPadding = PaddingValues(horizontal = 12.dp),
-        headerActions = {
-            if (marker != null) {
-                Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                    IconButton(
-                        onClick = { onRequestDelete(marker.id, marker.name) },
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Delete,
-                            contentDescription = stringResource(R.string.cd_delete),
-                            tint = ButtonColors.icon,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
+    val deleteAction: @Composable () -> Unit = {
+        if (marker != null) {
+            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                IconButton(
+                    onClick = { onRequestDelete(marker.id, marker.name) },
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Delete,
+                        contentDescription = stringResource(R.string.cd_delete),
+                        tint = ButtonColors.icon,
+                        modifier = Modifier.size(24.dp)
+                    )
                 }
             }
         }
-    ) {
+    }
+
+    val cardContent: @Composable () -> Unit = {
         if (marker != null) {
             Spacer(Modifier.height(8.dp))
 
@@ -223,63 +220,6 @@ private fun ViewingContent(
                 }
             }
 
-            // ── Previous/Next navigation (wizard-style pills) ─────────────
-            if (hasMultiple) {
-                Spacer(Modifier.height(12.dp))
-                HorizontalDivider(color = ComposeColor(AppConfig.uiSettingsDivider))
-                Spacer(Modifier.height(8.dp))
-                val accentBg = ComposeColor(AppConfig.uiSettingsAccent)
-                val accentFg = ComposeColor(AppConfig.uiSettingsTextPrimary)
-                val disabledAlpha = 0.35f
-                val isListMode = viewModel.drawerSource == DrawerSource.LIST
-                val isAtFirst = isListMode && selectedIndex == 0
-                val isAtLast = isListMode && selectedIndex == selectedIds.lastIndex
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(accentBg.copy(alpha = if (isAtFirst) disabledAlpha else 1f))
-                            .then(
-                                if (!isAtFirst) Modifier.clickable { viewModel.viewPreviousMarker() }
-                                else Modifier
-                            )
-                            .padding(vertical = 10.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Previous",
-                            color = accentFg.copy(alpha = if (isAtFirst) disabledAlpha else 1f),
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(accentBg.copy(alpha = if (isAtLast) disabledAlpha else 1f))
-                            .then(
-                                if (!isAtLast) Modifier.clickable { viewModel.viewNextMarker() }
-                                else Modifier
-                            )
-                            .padding(vertical = 10.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Next",
-                            color = accentFg.copy(alpha = if (isAtLast) disabledAlpha else 1f),
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-            }
         } else {
             Spacer(Modifier.height(12.dp))
             Text(
@@ -290,6 +230,35 @@ private fun ViewingContent(
         }
 
         Spacer(Modifier.height(4.dp))
+    }
+
+    val footerContent: @Composable () -> Unit = {
+        if (hasMultiple) {
+            MarkerPrevNext(viewModel, selectedIndex, selectedIds.size)
+        }
+    }
+
+    DrawerScaffold(
+        title = marker?.name ?: "Marker",
+        onClose = onClose,
+        headerHorizontalPadding = 12.dp,
+        scrollable = true,
+        bottomAnchoredContent = true,
+        statusBarsInset = isLandscape,
+        shape = shape,
+        contentPadding = PaddingValues(horizontal = 12.dp),
+        headerActions = {
+            deleteAction()
+        },
+        footer = { footerContent() }
+    ) {
+        cardContent()
+    }
+
+    MeasureHeight(onMeasured = { onCardHeightMeasured(it) }) {
+        Box(Modifier.padding(horizontal = 12.dp)) {
+            cardContent()
+        }
     }
 }
 
@@ -340,6 +309,68 @@ private fun MatchResultContent(
 
         Spacer(Modifier.height(6.dp))
     }
+}
+
+/** Previous/Next navigation pills — shared by the landscape body and the pinned portrait footer. */
+@Composable
+private fun MarkerPrevNext(
+    viewModel: MarkersViewModel,
+    selectedIndex: Int,
+    selectedCount: Int
+) {
+    Spacer(Modifier.height(8.dp))
+    val accentBg = ComposeColor(AppConfig.uiSettingsAccent)
+    val accentFg = ComposeColor(AppConfig.uiSettingsTextPrimary)
+    val disabledAlpha = 0.35f
+    val isListMode = viewModel.drawerSource == DrawerSource.LIST
+    val isAtFirst = isListMode && selectedIndex == 0
+    val isAtLast = isListMode && selectedIndex == selectedCount - 1
+
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .clip(RoundedCornerShape(8.dp))
+                .background(accentBg.copy(alpha = if (isAtFirst) disabledAlpha else 1f))
+                .then(
+                    if (!isAtFirst) Modifier.clickable { viewModel.viewPreviousMarker() }
+                    else Modifier
+                )
+                .padding(vertical = 10.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Previous",
+                color = accentFg.copy(alpha = if (isAtFirst) disabledAlpha else 1f),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .clip(RoundedCornerShape(8.dp))
+                .background(accentBg.copy(alpha = if (isAtLast) disabledAlpha else 1f))
+                .then(
+                    if (!isAtLast) Modifier.clickable { viewModel.viewNextMarker() }
+                    else Modifier
+                )
+                .padding(vertical = 10.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Next",
+                color = accentFg.copy(alpha = if (isAtLast) disabledAlpha else 1f),
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+    Spacer(Modifier.height(6.dp))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
