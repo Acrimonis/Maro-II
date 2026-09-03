@@ -150,10 +150,16 @@ fun drawZone300(
     mapView: MapView,
     zone: Zone300Data?,
     zoomLevel: Double,
+    zoneColor: Int,
+    fillOpacityPct: Int,
+    boundaryOpacityPct: Int,
     sink: MutableList<Any>
 ) {
     sink.clear()
     if (zone == null || zoomLevel < ZONE_MIN_ZOOM) return
+
+    val fillAlpha = (fillOpacityPct.coerceIn(0, 100) * 255) / 100
+    val boundaryAlpha = (boundaryOpacityPct.coerceIn(0, 100) * 255) / 100
 
     // Fill (water only) — translucent red, no outline on the polygon itself.
     for (poly in zone.fillPolygons) {
@@ -164,7 +170,7 @@ fun drawZone300(
             if (validHoles.isNotEmpty()) {
                 setHoles(validHoles.map { hole -> hole.map { GeoPoint(it.latitude, it.longitude) } })
             }
-            fillPaint.color = AppConfig.mapZone300Fill   // ~19% red
+            fillPaint.color = Color.argb(fillAlpha, Color.red(zoneColor), Color.green(zoneColor), Color.blue(zoneColor))
             outlinePaint.color = Color.TRANSPARENT
             outlinePaint.strokeWidth = 0f
         }
@@ -178,9 +184,8 @@ fun drawZone300(
         val redLine = Polyline().apply {
             setPoints(line.map { GeoPoint(it.latitude, it.longitude) })
             outlinePaint.apply {
-                color = AppConfig.mapZone300Boundary
+                color = Color.argb(boundaryAlpha, Color.red(zoneColor), Color.green(zoneColor), Color.blue(zoneColor))
                 strokeWidth = 6f
-                alpha = 220
                 isAntiAlias = true
             }
         }

@@ -29,8 +29,7 @@ class AutoMarkerManager(context: Context) {
      * temp marker within [AppConfig.boatMarkerAutoMarkerDedupRadiusM], skip
      * (return "") if a confirmed marker already exists there, otherwise create.
      */
-    suspend fun createTemp(lat: Double, lon: Double, startTimeMs: Long, trackId: String?): String {
-        val dedupRadiusM = AppConfig.boatMarkerAutoMarkerDedupRadiusM
+    suspend fun createTemp(lat: Double, lon: Double, startTimeMs: Long, trackId: String?, dedupRadiusM: Double): String {
         val newPos = LatLng(lat, lon)
 
         // ── Proximity dedup: scan existing IDLE_AUTO markers within dedupRadiusM ──

@@ -227,7 +227,9 @@ class TrackRecordingService : Service() {
             simplifyEnabled = s.trackSimplifyEnabled,
             simplifyEpsilonM = s.trackSimplifyEpsilonM,
             simplifySpeedDeltaKn = s.trackSimplifySpeedDeltaKn,
-            idleThresholdSec = AppConfig.boatMarkerIdleThresholdSec,
+            idleThresholdSec = s.boatMarkerIdleThresholdSec,
+            autoMarkerMinDurationSec = s.boatMarkerAutoMarkerMinDurationSec,
+            autoMarkerDedupRadiusM = s.boatMarkerAutoMarkerDedupRadiusM,
             idleThresholdCallback = object : IdleThresholdCallback {
                 override suspend fun onIdleThresholdReached(position: LatLng): IdleCaptureResult =
                     WhereAmIProvider.idleCapture?.invoke(position)

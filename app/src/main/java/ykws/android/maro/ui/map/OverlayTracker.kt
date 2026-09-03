@@ -39,6 +39,9 @@ class OverlayTracker {
 
     var lastZone300: Zone300Data? = null
     var lastZone300Zoom: Double = -1.0
+    var lastZone300Color: Int = 0
+    var lastZone300FillOpacityPct: Int = -1
+    var lastZone300BoundaryOpacityPct: Int = -1
 
     var lastSegments: List<CoastlineSegment> = emptyList()
 }

@@ -47,10 +47,10 @@
     <string name="settings_tab_position">Position</string>
     <string name="settings_tab_system">Système</string>
     <string name="settings_section_orientation">Aides à la navigation</string>
-    <string name="settings_low_depth_settings_label">Réglages d\'alerte</string>
-    <string name="settings_reg_info_settings_label">Réglages des zones réglementées</string>
-    <string name="settings_categories_label">Catégories</string>
-    <string name="settings_track_settings_label">Réglages des traces</string>
+    <string name="settings_low_depth_settings_label">Alerte hauts-fonds</string>
+    <string name="settings_reg_info_settings_label">Panneau de texte d\'info</string>
+    <string name="settings_categories_label">Catégories de zones</string>
+    <string name="settings_track_settings_label">Rendu des traces</string>
     <string name="settings_gps_tuning_label">Réglages GPS</string>
     <string name="settings_alert_settings_label">Réglages d\'alerte</string>
     <string name="settings_map_offset_label">Décalage de carte automatique</string>
@@ -71,10 +71,19 @@
     <string name="settings_regen_warning_desc">Reconstruire l\'alerte magenta des hauts-fonds</string>
     <string name="settings_coastline_label">Trait de côte</string>
     <string name="settings_coastline_desc">Afficher la ligne de côte sur la carte</string>
-    <string name="settings_zone300_label">Zone 300 m</string>
-    <string name="settings_zone300_desc">Afficher la zone des 300 m sur la carte</string>
+    <string name="settings_zone300_label">Bande des 300 m</string>
+    <string name="settings_zone300_desc">Régler la couleur et la transparence de la bande côtière des 300 m</string>
+    <string name="settings_zone300_color_label">Couleur de la zone</string>
+    <string name="settings_zone300_color_desc">Couleur du remplissage et du contour de la bande des 300 m</string>
+    <string name="settings_zone300_opacity_label">Opacité</string>
+    <string name="settings_zone300_opacity_desc">Opacité du contenu et du contour de la zone</string>
+    <string name="settings_zone300_opacity_value_fmt">Zone %1$d%% · Contour %2$d%%</string>
+    <string name="settings_zone300_appearance_label">Apparence de la zone</string>
+    <string name="settings_auto_markers_label">Création des repères auto</string>
     <string name="settings_regulated_zones_label">Zones réglementées</string>
     <string name="settings_regulated_zones_desc">Afficher les zones réglementées (vitesse, mouillage, etc.) sur la carte</string>
+    <string name="settings_danger_zones_label">Zones de danger</string>
+    <string name="settings_danger_zones_desc">Surligner les hauts-fonds qui pourraient échouer le bateau</string>
     <string name="settings_low_depth_warning_label">Alerte faible profondeur</string>
     <string name="settings_low_depth_warning_desc">Surligner les hauts-fonds dangereux</string>
     <string name="settings_low_depth_threshold_label">Profondeur d\'alerte</string>
@@ -87,7 +96,7 @@
     <string name="settings_cap_arrow_desc">Afficher la flèche de direction proportionnelle à la vitesse depuis le bateau</string>
     <string name="settings_demo_heading_label">Cap en mode démo</string>
     <string name="settings_demo_heading_desc">Déduire le cap de la direction du glissement en mode démo (au lieu du nord en haut)</string>
-    <string name="settings_emodnet_section_label">Filtre EMODnet faible profondeur</string>
+    <string name="settings_emodnet_section_label">Seuil hauts-fonds (EMODnet)</string>
     <string name="settings_emodnet_section_desc">Les données EMODnet (grossières) sont peu fiables en eau très peu profonde près des rochers et de la côte</string>
     <string name="settings_emodnet_cutoff_label">Profondeur seuil</string>
     <string name="settings_emodnet_cutoff_desc">Masquer les profondeurs EMODnet inférieures à ce seuil (affichées sans donnée). 0 = désactivé</string>
@@ -277,7 +286,7 @@
     <string name="filter_no_match">Aucun résultat</string>
     <string name="filter_clear">Effacer les filtres</string>
     <string name="color_picker_title">Choisir une couleur</string>
-    <string name="settings_depth_label">Profondeur</string>
+    <string name="settings_depth_label">Carte de profondeur</string>
     <string name="settings_depth_desc">Afficher les fonds marins</string>
     <string name="action_regenerate">Régénérer</string>
 
@@ -288,7 +297,7 @@
     <string name="settings_tracks_desc">Afficher les traces enregistrées</string>
     <string name="settings_tracks_direction_label">Afficher la direction des traces</string>
     <string name="settings_tracks_direction_desc">Dessiner des flèches de direction le long des traces</string>
-    <string name="settings_tracks_direction_settings_label">Réglages direction des traces</string>
+    <string name="settings_tracks_direction_settings_label">Flèches de direction</string>
     <string name="settings_tracks_direction_density_label">Densité des flèches</string>
     <string name="settings_tracks_direction_density_uniform">Uniforme</string>
     <string name="settings_tracks_direction_density_speed">Selon la vitesse</string>
@@ -308,7 +317,13 @@
     <string name="settings_colors_label">Couleurs</string>
     <string name="settings_colors_desc">Anciennes traces : dégradé du plus récent (De) au plus ancien (Vers). Épinglées : dégradé ambre/orange.</string>
     <string name="settings_section_markers">Repères</string>
-    <string name="settings_markers_desc">Repères, cercles, corridors et repères automatiques</string>
+    <string name="settings_markers_desc">Régler la création des repères automatiques d\'arrêt</string>
+    <string name="settings_marker_idle_threshold_label">Seuil d\'arrêt</string>
+    <string name="settings_marker_idle_threshold_desc">Durée d\'arrêt avant la capture d\'un repère. Appliqué au prochain enregistrement.</string>
+    <string name="settings_marker_min_duration_label">Durée minimale</string>
+    <string name="settings_marker_min_duration_desc">Durée d\'arrêt minimale pour conserver le repère. Appliquée au prochain enregistrement.</string>
+    <string name="settings_marker_dedup_radius_label">Rayon de déduplication</string>
+    <string name="settings_marker_dedup_radius_desc">Ignorer un nouveau repère près d\'un repère existant. Appliqué au prochain enregistrement.</string>
     <string name="settings_zone_shapes_desc">Afficher les formes de zone et aperçus de proximité</string>
     <string name="settings_zone_shapes_label">Formes de zone</string>
     <string name="settings_speed_alert_gps_label">Alerte zone de vitesse (GPS)</string>
