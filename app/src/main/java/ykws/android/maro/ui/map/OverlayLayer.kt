@@ -1,5 +1,7 @@
 package ykws.android.maro.ui.map
 
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -27,6 +29,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,6 +47,7 @@ import ykws.android.maro.data.depth.RasterCache
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.ui.components.DrawerScaffold
+import ykws.android.maro.ui.components.MeasureHeight
 import ykws.android.maro.ui.components.SavedScrollState
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -334,12 +340,18 @@ fun OverlayLayer(
                 )
             }
         } else {
+            val selectedMarkerIds by markersViewModel.selectedMarkerIds.collectAsState()
+            var markerCardHeight by remember { mutableStateOf(0.dp) }
+            val markerFooterHeight = if (selectedMarkerIds.size > 1) 54.dp else 0.dp
+            val markerTargetHeight = maxOf(portraitDashboardHeight, 48.dp + markerCardHeight + markerFooterHeight)
+            val markerAnimatedHeight by animateDpAsState(markerTargetHeight, tween(250))
+
             DrawerSlot(
                 visible = drawerState is MarkerDrawerState.Viewing || drawerState is MarkerDrawerState.MatchResult,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .height(portraitDashboardHeight),
+                    .height(markerAnimatedHeight),
                 slideDirection = SlideDirection.FROM_BOTTOM,
                 shadowEdge = ShadowEdge.TOP
             ) {
@@ -349,7 +361,8 @@ fun OverlayLayer(
                     onClose = onMarkerDrawerClose,
                     boatPosition = boatPosition,
                     onRequestDelete = onRequestMarkerDelete,
-                    trackTitleLookup = trackTitleLookup
+                    trackTitleLookup = trackTitleLookup,
+                    onCardHeightMeasured = { markerCardHeight = it }
                 )
             }
         }
@@ -389,6 +402,7 @@ fun OverlayLayer(
                         title = track.name,
                         onClose = onTrackDrawerClose,
                         statusBarsInset = true,
+                        bottomAnchoredContent = true,
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp),
                         headerActions = {
                             Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -396,6 +410,29 @@ fun OverlayLayer(
                                     Icon(Icons.Filled.Delete, "Delete", tint = ButtonColors.icon, modifier = Modifier.size(24.dp))
                                 }
                             }
+                        },
+                        footer = {
+                            if (trackListIds.size > 1) {
+                                Spacer(Modifier.height(8.dp))
+                                val accentBg = ComposeColor(AppConfig.uiSettingsAccent)
+                                val accentFg = ComposeColor(AppConfig.uiSettingsTextPrimary)
+                                val disabledAlpha = 0.35f
+                                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Box(Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
+                                        .background(accentBg.copy(alpha = if (isAtTrackFirst) disabledAlpha else 1f))
+                                        .then(if (!isAtTrackFirst) Modifier.clickable { onTrackPrev() } else Modifier)
+                                        .padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
+                                        Text("Previous", color = accentFg.copy(alpha = if (isAtTrackFirst) disabledAlpha else 1f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                    Box(Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
+                                        .background(accentBg.copy(alpha = if (isAtTrackLast) disabledAlpha else 1f))
+                                        .then(if (!isAtTrackLast) Modifier.clickable { onTrackNext() } else Modifier)
+                                        .padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
+                                        Text("Next", color = accentFg.copy(alpha = if (isAtTrackLast) disabledAlpha else 1f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                                Spacer(Modifier.height(6.dp))
+                            }
                         }
                     ) {
                         TrackCardContent(
@@ -409,63 +446,49 @@ fun OverlayLayer(
                             onShareGpx = { onShareTrack(track.id) },
                             onTap = null
                         )
-                        // ── Prev/Next pills ──────────────────────────
-                        if (trackListIds.size > 1) {
-                            Spacer(Modifier.height(12.dp))
-                            HorizontalDivider(color = ComposeColor(AppConfig.uiSettingsDivider))
-                            Spacer(Modifier.height(8.dp))
-                            val accentBg = ComposeColor(AppConfig.uiSettingsAccent)
-                            val accentFg = ComposeColor(AppConfig.uiSettingsTextPrimary)
-                            val disabledAlpha = 0.35f
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Box(Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
-                                    .background(accentBg.copy(alpha = if (isAtTrackFirst) disabledAlpha else 1f))
-                                    .then(if (!isAtTrackFirst) Modifier.clickable { onTrackPrev() } else Modifier)
-                                    .padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
-                                    Text("Previous", color = accentFg.copy(alpha = if (isAtTrackFirst) disabledAlpha else 1f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                }
-                                Box(Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
-                                    .background(accentBg.copy(alpha = if (isAtTrackLast) disabledAlpha else 1f))
-                                    .then(if (!isAtTrackLast) Modifier.clickable { onTrackNext() } else Modifier)
-                                    .padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
-                                    Text("Next", color = accentFg.copy(alpha = if (isAtTrackLast) disabledAlpha else 1f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
                     }
                 }
             }
         } else {
+            val track = trackInfoDrawerData
+            val summary = track?.let {
+                ykws.android.maro.data.track.TrackSummary(
+                    id = it.id,
+                    name = it.name,
+                    comment = it.comment,
+                    startTimeMs = it.startTimeMs,
+                    endTimeMs = it.endTimeMs,
+                    lastPointTimeMs = it.lastPointTimeMs,
+                    fastestSpeedMps = it.fastestSpeedMps,
+                    distanceNm = it.distanceNm,
+                    visibleOnMap = it.visibleOnMap,
+                    navigatingDurationSec = it.navigatingDurationSec,
+                    pausedDurationSec = it.pausedDurationSec,
+                    averageSpeedMps = it.averageSpeedMps,
+                    pinned = it.pinned,
+                    pointCount = it.trackPoints.size,
+                    idleDurationSec = it.idleDurationSec
+                )
+            }
+            var cardHeight by remember { mutableStateOf(0.dp) }
+            val footerHeight = if (trackListIds.size > 1) 54.dp else 0.dp
+            val targetHeight = maxOf(portraitDashboardHeight, 48.dp + cardHeight + footerHeight)
+            val animatedHeight by animateDpAsState(targetHeight, tween(250))
+
             DrawerSlot(
                 visible = showTrackInfoDrawer,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .height(portraitDashboardHeight),
+                    .height(animatedHeight),
                 slideDirection = SlideDirection.FROM_BOTTOM,
                 shadowEdge = ShadowEdge.TOP
             ) {
-                trackInfoDrawerData?.let { track ->
-                    val summary = ykws.android.maro.data.track.TrackSummary(
-                        id = track.id,
-                        name = track.name,
-                        comment = track.comment,
-                        startTimeMs = track.startTimeMs,
-                        endTimeMs = track.endTimeMs,
-                        lastPointTimeMs = track.lastPointTimeMs,
-                        fastestSpeedMps = track.fastestSpeedMps,
-                        distanceNm = track.distanceNm,
-                        visibleOnMap = track.visibleOnMap,
-                        navigatingDurationSec = track.navigatingDurationSec,
-                        pausedDurationSec = track.pausedDurationSec,
-                        averageSpeedMps = track.averageSpeedMps,
-                        pinned = track.pinned,
-                        pointCount = track.trackPoints.size,
-                        idleDurationSec = track.idleDurationSec
-                    )
+                if (track != null && summary != null) {
                     DrawerScaffold(
                         title = track.name,
                         onClose = onTrackDrawerClose,
+                        bottomAnchoredContent = true,
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
                         headerActions = {
                             Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -473,6 +496,29 @@ fun OverlayLayer(
                                     Icon(Icons.Filled.Delete, "Delete", tint = ButtonColors.icon, modifier = Modifier.size(24.dp))
                                 }
                             }
+                        },
+                        footer = {
+                            if (trackListIds.size > 1) {
+                                Spacer(Modifier.height(8.dp))
+                                val accentBg = ComposeColor(AppConfig.uiSettingsAccent)
+                                val accentFg = ComposeColor(AppConfig.uiSettingsTextPrimary)
+                                val disabledAlpha = 0.35f
+                                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Box(Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
+                                        .background(accentBg.copy(alpha = if (isAtTrackFirst) disabledAlpha else 1f))
+                                        .then(if (!isAtTrackFirst) Modifier.clickable { onTrackPrev() } else Modifier)
+                                        .padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
+                                        Text("Previous", color = accentFg.copy(alpha = if (isAtTrackFirst) disabledAlpha else 1f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                    Box(Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
+                                        .background(accentBg.copy(alpha = if (isAtTrackLast) disabledAlpha else 1f))
+                                        .then(if (!isAtTrackLast) Modifier.clickable { onTrackNext() } else Modifier)
+                                        .padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
+                                        Text("Next", color = accentFg.copy(alpha = if (isAtTrackLast) disabledAlpha else 1f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                                Spacer(Modifier.height(6.dp))
+                            }
                         }
                     ) {
                         TrackCardContent(
@@ -486,29 +532,21 @@ fun OverlayLayer(
                             onShareGpx = { onShareTrack(track.id) },
                             onTap = null
                         )
-                        // ── Prev/Next pills ──────────────────────────
-                        if (trackListIds.size > 1) {
-                            Spacer(Modifier.height(12.dp))
-                            HorizontalDivider(color = ComposeColor(AppConfig.uiSettingsDivider))
-                            Spacer(Modifier.height(8.dp))
-                            val accentBg = ComposeColor(AppConfig.uiSettingsAccent)
-                            val accentFg = ComposeColor(AppConfig.uiSettingsTextPrimary)
-                            val disabledAlpha = 0.35f
-                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Box(Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
-                                    .background(accentBg.copy(alpha = if (isAtTrackFirst) disabledAlpha else 1f))
-                                    .then(if (!isAtTrackFirst) Modifier.clickable { onTrackPrev() } else Modifier)
-                                    .padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
-                                    Text("Previous", color = accentFg.copy(alpha = if (isAtTrackFirst) disabledAlpha else 1f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                }
-                                Box(Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
-                                    .background(accentBg.copy(alpha = if (isAtTrackLast) disabledAlpha else 1f))
-                                    .then(if (!isAtTrackLast) Modifier.clickable { onTrackNext() } else Modifier)
-                                    .padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
-                                    Text("Next", color = accentFg.copy(alpha = if (isAtTrackLast) disabledAlpha else 1f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                }
-                            }
-                        }
+                    }
+                }
+            }
+
+            MeasureHeight(onMeasured = { cardHeight = it }) {
+                if (summary != null) {
+                    Box(Modifier.padding(horizontal = 12.dp)) {
+                        TrackCardContent(
+                            summary = summary,
+                            dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US),
+                            accentColor = ComposeColor(0xFFFFD700.toInt()),
+                            onUpdateTrack = { _, _, _, _ -> },
+                            onShareGpx = {},
+                            onTap = null
+                        )
                     }
                 }
             }

@@ -2,7 +2,7 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-09-03 18:54
+modified: 2026-09-03 20:53
 active_subfeature: screen-lock
 ---
 
@@ -25,6 +25,17 @@ removed. Shared by the list overlays and the dashboard detail drawers. BUILD SUC
 
 #### Key Files
 - `TrackHistoryOverlay.kt`, `MarkerManagementOverlay.kt`
+
+### drawer-dynamic-height  [x]
+
+Track + marker drawers pin Prev/Next at the bottom via the `DrawerScaffold.footer` slot, with
+card→Prev/Next spacers trimmed and 12dp horizontal button padding (no divider, 8dp above /
+6dp below). Portrait drawers are bottom-anchored and resize dynamically: fixed animated height
+driven by a hidden card-height probe (`MeasureHeight`), min = dashboard height. The landscape
+side panel pins the footer too. BUILD SUCCESSFUL.
+
+#### Key Files
+- `DrawerScaffold.kt`, `MeasureHeight.kt`, `OverlayLayer.kt`, `MarkerDrawer.kt`
 
 ### screen-lock  [x]
 
