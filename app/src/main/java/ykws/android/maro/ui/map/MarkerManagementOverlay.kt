@@ -211,7 +211,7 @@ fun MarkerManagementOverlay(
 private val MARKER_CARD_RADIUS = 12.dp
 private val MARKER_ACCENT_BAR_WIDTH = 4.dp
 private val MARKER_CONTENT_PAD_H = 8.dp
-private val MARKER_CONTENT_PAD_V = 4.dp
+private val MARKER_CONTENT_PAD_V = 2.dp
 private val MARKER_HEADER_FONT_SIZE = 11.sp
 private val MARKER_TITLE_FONT_SIZE = 15.sp
 private val MARKER_GEOMETRY_FONT_SIZE = 14.sp
@@ -257,7 +257,7 @@ internal fun MarkerCardContent(
             Column(
                 modifier = Modifier
                     .weight(1f)
-                    .padding(horizontal = MARKER_CONTENT_PAD_H, vertical = MARKER_CONTENT_PAD_V)
+                    .padding(start = MARKER_CONTENT_PAD_H, top = MARKER_CONTENT_PAD_V, end = MARKER_CONTENT_PAD_H, bottom = 4.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -268,6 +268,7 @@ internal fun MarkerCardContent(
                         text = coordinateHeader(marker),
                         color = Color(AppConfig.uiSettingsTextMuted),
                         fontSize = MARKER_HEADER_FONT_SIZE,
+                        lineHeight = 12.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
@@ -321,6 +322,7 @@ internal fun MarkerCardContent(
                         textStyle = TextStyle(
                             color = Color(AppConfig.uiSettingsTextPrimary),
                             fontSize = MARKER_TITLE_FONT_SIZE,
+                            lineHeight = 16.sp,
                             fontWeight = FontWeight.SemiBold
                         ),
                         colors = TextFieldDefaults.colors(
@@ -343,6 +345,7 @@ internal fun MarkerCardContent(
                         text = marker.name,
                         color = Color(AppConfig.uiSettingsTextPrimary),
                         fontSize = MARKER_TITLE_FONT_SIZE,
+                        lineHeight = 16.sp,
                         fontWeight = FontWeight.SemiBold,
                         modifier = Modifier.fillMaxWidth().combinedClickable(
                             onClick = onTap,
@@ -360,13 +363,14 @@ internal fun MarkerCardContent(
                         text = "\uD83D\uDEE4 $trackTitle",
                         color = Color(AppConfig.uiSettingsAccent),
                         fontSize = 12.sp,
+                        lineHeight = 13.sp,
                         fontWeight = FontWeight.Medium,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
 
-                Spacer(Modifier.height(4.dp))
+                Spacer(Modifier.height(2.dp))
                 if (editingField == "description") {
                     TextField(
                         value = descText,
@@ -374,7 +378,7 @@ internal fun MarkerCardContent(
                         singleLine = false,
                         minLines = 1,
                         maxLines = 3,
-                        textStyle = TextStyle(color = Color(AppConfig.uiSettingsTextMuted), fontSize = MARKER_DESC_FONT_SIZE),
+                        textStyle = TextStyle(color = Color(AppConfig.uiSettingsTextMuted), fontSize = MARKER_DESC_FONT_SIZE, lineHeight = 14.sp),
                         colors = TextFieldDefaults.colors(
                             focusedContainerColor = Color.Transparent,
                             unfocusedContainerColor = Color.Transparent,
@@ -396,6 +400,7 @@ internal fun MarkerCardContent(
                         color = if (marker.description.isBlank()) Color(AppConfig.uiSettingsTextMuted).copy(alpha = 0.4f)
                                 else Color(AppConfig.uiSettingsTextMuted),
                         fontSize = MARKER_DESC_FONT_SIZE,
+                        lineHeight = 14.sp,
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.fillMaxWidth().combinedClickable(

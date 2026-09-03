@@ -1,18 +1,13 @@
 # Hydration: Ui_General
 
-**Session:** MapScreen modularization — split the 6584-line `MapScreen.kt` into 4 focused
-sibling files in `ui/map/`: `TrackSharing.kt` (file-name sanitizing + GPX/ZIP share helpers),
-`CoastlineMapView.kt` (`LoadingOverlay`, `ErrorOverlay`, `CoastlineMapView` OSMdroid view),
-`MapOverlays.kt` (marker-sizing constants + `CenterMarkerOverlay`/`CapArrowOverlay`/`DirectionLine`),
-`MapControls.kt` (`ControlId` + top-left/right controls). All moved symbols bumped
-`private` → `internal`; `RIGHT_CONTROL_COLUMN_INSET` now internal. No behavior change.
-`docs/maro-code.md` updated. Settings module intentionally left in `MapScreen.kt` for a later
-tab/section reorganization + split. BUILD SUCCESSFUL.
+**Session:** Compact track/marker list cards — `TrackCardContent` / `MarkerCardContent`
+tightened: description/comment `lineHeight = 14sp` (title 16sp, header 12sp, stats 12/13sp),
+reduced description v-padding, asymmetric column padding (top 2dp / bottom 4dp), and the
+header→title `HorizontalDivider` removed. Applies to both the list overlays and the detail
+drawers over the dashboard (shared card composables). New auto stop-line description format
+`HH:mm: Zone for Xmin` in `TrackRecorder.formatStopLine`. BUILD SUCCESSFUL.
 
 **Target files:**
-- `MapScreen.kt`, `TrackSharing.kt`, `CoastlineMapView.kt`, `MapOverlays.kt`, `MapControls.kt`, `docs/maro-code.md`
+- `TrackHistoryOverlay.kt`, `MarkerManagementOverlay.kt`, `TrackRecorder.kt`
 
-**Plans:**
-- (pending) settings tabs/sections reorganization + settings module split
-
-**Last Bake:** 2026-09-02 15:42 UTC
+**Last Bake:** 2026-09-03 18:54 UTC
