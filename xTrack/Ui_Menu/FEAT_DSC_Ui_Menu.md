@@ -13,22 +13,6 @@ track recording, and marker management sections. Rendered via `OverlayLayer` →
 `DrawerSlot` → `MenuDrawerOverlay`. Uses `DrawerScaffold` for fixed-header +
 scrollable body.
 
-## Sections
-
-### toggle-zones-marker-in-menu
-
-Add a "Show Zones on Map" Switch toggle to the MARKERS card in the menu drawer,
-mirroring the POSITION SOURCE GPS toggle pattern. Controls `AppSettings.markerZonesVisible`
-— same state as the Settings page "Zone shapes" toggle.
-
-#### Plan
-- `xTrack/Ui_Menu/260705_FEAT_PLN_Ui_Menu_toggle-zones-marker-in-menu.md`
-
-#### Key Files
-- `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
-- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` (no change — reads existing state)
 
 ## Implemented
 

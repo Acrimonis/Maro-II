@@ -9,97 +9,6 @@ modified: 2026-09-02 17:42
 
 ## Sections
 
-### settings-reorganization
-
-#### Todos
-- [x] Restructure SettingsOverlay to 4 tabs (Layers / Navigation / Position / System) with 4 pager pages + per-tab scroll states
-- [x] Build LayersSettings: depth cutoff, low-depth warning params, regulated zones params, tracks params, coastline toggle
-- [x] Build NavigationSettings: orientation aids + auto-reveal (zone300/speed/regulated) + map offset
-- [x] Build PositionSettings: GPS mode + tuning + recenter, stop detection
-- [x] Slim SystemSettings: language, screen, debug rays, regenerate (4 checkboxes + button)
-- [x] Remove 6 layer master toggles (map fan) + zone-shapes/direction-arrows toggles (menu drawer)
-- [x] Move 8 persisted expander flags from SettingsManager to rememberSaveable
-- [x] Localize hardcoded labels (en/fr) + new tab names
-- [x] Dead-code sweep: remove SettingsTextFieldRow + orphaned NavigationViewModel.toggleSpeedZonesVisibility()
-- [x] BUILD SUCCESSFUL
-
-#### Key Files
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt`
-- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/NavigationViewModel.kt`
-- `app/src/main/res/values/strings.xml`
-- `app/src/main/res/values-fr/strings.xml`
-
-### approach-redisplay
-
-#### Todos
-- [x] Re-display on approach section: 2 global mode switches + 3 type switches + 2 always-visible sliders
-- [x] Global gate (GPS/demo) AND autoShowMasterOverride; band+speed hide when inside+compliant, regulated stays while inside
-- [x] Drawer: Position source -> Position mode; persisted Auto-show zones master switch
-- [x] Per-zone proximity render (bbox + inside + nearest-vertex) in MapContent
-- [x] Dead-code sweep: speed-zone dead vars + deprecated aliases + speedZonesVisible; prefs migration v5->6
-- [x] BUILD SUCCESSFUL
-
-#### Key Files
-- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/NavigationViewModel.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneComponents.kt`
-
-### reorder-settings
-
-#### Todos
-- [x] Rename tab "Display" → "General" in `settingsTabLabels`
-- [x] Add "Layers" sub-section under DISPLAY in General tab
-- [x] Move Heading line + Cap arrow — keep in General tab, remove from Navigation tab
-- [x] Move EMODnet shallow filter → System tab, promoted to `SectionHeader`
-- [x] Move Position source / GPS mode → System tab, below Language
-- [x] Reorder System tab: Language → Position source (+ GPS-conditional freq/recenter) → Screen (+ FPS) → EMODnet → Regenerate layers
-- [x] Rename System "Power saving" section header to "Screen" — added `settings_section_screen` string resource (en/fr)
-- [x] Move Recenter delay → System, under POSITION SOURCE, GPS-conditional (`if (settings.gpsMode)`)
-- [x] Move GPS acquisition frequency → System, under POSITION SOURCE, GPS-conditional
-- [x] Move Map rendering FPS → System, in SCREEN section below Keep screen on
-- [x] Strip Recenter/GPS freq/FPS from NavigationSettings — keep only Idle saving + Z300 alert
-- [x] Update `HorizontalPager` dispatch
-- [x] Verify nothing breaks — BUILD SUCCESSFUL
-
-#### Rules
-- All existing settings widgets remain unchanged — only tab placement changes
-- Per-tab scroll states (`displayScrollState`, `navigationScrollState`, `systemScrollState`) must be re-checked to ensure they correctly map to the new content
-
-#### Key Files
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
-
-
-### scroll persistence
-
-#### Todos
-- [x] Hoist the settings scroll state (`ScrollState`) outside the `SettingsOverlay` composable so it survives overlay dismiss/reopen within one session
-
-#### Rules
-- Scroll position persistence is session-only (in-memory); on app restart, scroll goes back to top — no SharedPreferences needed
-- Must not interfere with existing `rememberScrollState()` behavior for other scrollable areas
-
-#### Key Files
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
-
-### fix-status-persistance
-
-#### Todos
-- [x] Hoist `selectedTab` to `MapScreen` composable level with `rememberSaveable` so it survives overlay dismissal/recomposition
-- [x] Fix bidirectional pager–tab sync race condition: initial `pagerState.currentPage = 0` was overwriting the restored `selectedTab` before `animateScrollToPage` could run
-- [x] Ensure per-tab scroll position survives overlay toggle (already at `MapScreen` level — verified correct)
-
-#### Rules
-- `selectedTab` must be hoisted to `MapScreen` composable level with `rememberSaveable` so it survives overlay dismissal/recomposition
-- Scroll states (`displayScrollState`, `navigationScrollState`, `systemScrollState`) are already at `MapScreen` level — verify they correctly persist across overlay toggle
-
-#### Key Files
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
-
 ### render-tweaks
 
 #### Todos
@@ -120,67 +29,31 @@ modified: 2026-09-02 17:42
 - [ ] Defer side effects of settings changes until the settings overlay is dismissed — batch-apply on close instead of firing on each toggle/slider change
 
 #### Rules
-- Individual settings widgets (toggles, sliders) should update local UI state immediately for responsiveness, but side effects (regeneration, GPS restart, etc.) must fire only on dismiss
-- Regenerate rasters button is excluded — it already triggers explicitly, not on close
-- Exceptions: `gpsMode` toggle may need immediate effect (GPS start/stop is safety-critical); `languageCode` change may need immediate effect for proper string rendering in the settings page itself
+- Individual settings widgets update local UI state immediately, but side effects (regeneration, GPS restart, etc.) fire only on dismiss
+- Regenerate rasters button excluded — it already triggers explicitly, not on close
+- Exceptions: `gpsMode` toggle may need immediate effect (GPS start/stop is safety-critical); `languageCode` may need immediate effect for string rendering
 
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
 - `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt`
 
-### tab organization
+## Implemented
 
-#### Todos
-- [x] Replace single scrolling settings page with Material 3 TabRow + HorizontalPager (3 tabs: Display, Navigation, System)
-- [x] Extract DisplaySettings composable (coastline, Z300, low-depth warning, heading line, cap arrow, EMODnet cutoff)
-- [x] Extract NavigationSettings composable (GPS mode, recenter delay, GPS frequency, FPS, idle/adaptive, Z300 alert)
-- [x] Extract SystemSettings composable (language, keep screen on, regenerate)
-- [x] Move Z300 auto-alert from System tab to Navigation tab under "300M ZONE ALERT" section header
-- [x] Hoist 3 per-tab ScrollStates to MapScreen level for session scroll persistence
-- [x] Replace TabRow default indicator (purple) with custom blue (0xFF1565C0) drawBehind indicator
-- [x] Right-align Regenerate button in System tab
-
-#### Rules
-- Tab selection persisted via rememberSaveable — survives overlay dismiss/reopen + config change
-- Per-tab scroll states are session-only (resets on app restart)
-- SettingsManager/SharedPreferences persistence is untouched
-
-#### Key Files
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
-
-### track-drawer-settings-btn
-
-#### Todos
-- [x] Add Settings gear button to Track Drawer header row, right-aligned
-- [x] Resize to 64dp IconButton matching map button sizing
-- [x] Reduce drawer padding: right 24dp→8dp, top 8dp→0dp, below-title spacers 8dp→2dp
-- [x] Remove redundant map-level Settings button and its `MapContent` parameter
-- [x] BUILD SUCCESSFUL
-
-#### Key Files
-- `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
-
-## Todos
+- **settings-reorganization** — 4 tabs (Layers/Navigation/Position/System); 6 layer toggles + zone-shapes toggles removed; 8 expander flags → rememberSaveable; localized; dead-code sweep
+- **approach-redisplay** — re-display on approach (2 mode switches + 3 type switches + 2 sliders); per-zone proximity render; prefs migration v5→6
+- **reorder-settings** — Display→General rename; POSITION SOURCE / GPS freq / Recenter / FPS → System; Navigation tab slimmed
+- **scroll persistence** — settings `ScrollState` hoisted outside `SettingsOverlay` (session-only)
+- **fix-status-persistance** — `selectedTab` hoisted to MapScreen with `rememberSaveable`; pager–tab sync race fixed
+- **tab organization** — Material 3 TabRow + HorizontalPager (3 tabs); per-tab scroll states; custom blue indicator
+- **track-drawer-settings-btn** — Settings gear in Track Drawer header (64dp), drawer padding trimmed, redundant map Settings button removed
 
 ## Rules
-- **Collapsible grouped-card pattern**: When a setting toggle has conditional sub-settings that should only appear when the toggle is ON, wrap both the toggle and the sub-settings in a single `Column` with `.clip(RoundedCornerShape(12.dp)).background(0x1AFFFFFF)` card background. Use a thin `0.5.dp` white divider (10% alpha) between the toggle and the expander. The sub-settings go inside a `SettingsExpander` with the `if (condition)` gate on the outer card. The expander label style should match the toggle label style (`White/16.sp/Medium`). Key files: `SystemSettings` in `MapScreen.kt` (POSITION SOURCE section).
+- **Collapsible grouped-card pattern**: conditional sub-settings wrapped with the toggle in a single `Column` (12dp radius, `0x1AFFFFFF` bg), thin 0.5dp white divider (10% alpha), `SettingsExpander` inside `if (condition)`; expander label matches toggle style (`White/16.sp/Medium`).
 
 ## Key Files
 - `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt`
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
 
 ## Docs
-- `xTrack/Ui_Settings/260625_FEAT_PLN_Ui_Settings_render-tweaks.md` — card rendering tweaks discussion (padding, bg darkness, nested surfaces)
+- `xTrack/Ui_Settings/260625_FEAT_PLN_Ui_Settings_render-tweaks.md` — card rendering tweaks discussion
 - `xTrack/Ui_Settings/260609_FEAT_PLN_Ui_Settings_apply-on-close.md` — settings apply-on-close UX design
-- `xTrack/Ui_Settings/260609_FEAT_PLN_Ui_Settings_scroll-persistence.md` — discussion: hoist `ScrollState` to survive overlay dismiss/reopen within a session
-- `xTrack/Ui_Settings/260609_FEAT_PLN_Ui_Settings_scroll-persistence-analysis.md` — scroll persistence analysis
-- `xTrack/Ui_Settings/260610_FEAT_PLN_Ui_Settings_tab-organization.md` — discussion: organize settings into tabs/sections
-- `xTrack/Ui_Settings/260611_FEAT_PLN_Ui_Settings_tab-reorder-discussion.md` — Tab reorder discussion
-- `xTrack/Ui_Settings/260616_FEAT_PLN_Ui_Settings_vertical-padding.md` — Vertical padding discussion
-- `xTrack/Ui_Settings/260615_FEAT_PLN_Ui_Settings_landscape-font-sizing.md` — Landscape font sizing discussion
-- `xTrack/Ui_Settings/260616_FEAT_PLN_Ui_Settings_zoneconfig-to-appconfig.md` — ZoneConfig to AppConfig rename
-- `xTrack/Ui_Settings/260618_FEAT_PLN_Ui_Settings_track-drawer-settings-btn.md` — Settings button in Track Drawer header row
-- `docs/settings-page-guidelines.md` — Settings page UI patterns and layout rules
-- `xTrack/Ui_Settings/260617_FEAT_PLN_Ui_Settings_auto-show-settings-decoupling-design.md` — Auto show settings decoupling design
-- `xTrack/Ui_Settings/260616_FEAT_PLN_Ui_Settings_settings-vertical-padding-discussion.md` — Settings vertical padding discussion

@@ -10,126 +10,15 @@ modified: 2026-07-17 13:30
 **Description:**
 Cross-cutting project documentation — README, FAQs, setup guides, architecture docs, git workflow, code navigation map, and maintenance of docs/ directory. Ensures all plans and reference docs are properly organized and attached to the correct features.
 
-## Sections
+## Implemented
 
-### maro-code-map
-
-#### Todos
-- [x] Design: granularity compromise (package-level + anchor classes), passive drift detection, replace ## Key Files
-- [x] Create `docs/maro-code.md` — package map, feature→package cross-reference, anchor class index, dependency flow
-- [x] Integrate into AGENTS.md Lazy-Load Index
-- [x] Add to GLOBAL_CONTEXT.md cross-reference docs + passive drift detection rule
-- [x] Update Documentation feature file (this file)
-- [x] Update hydration file
-- [x] Replace `## Key Files` in remaining feature files → deferred to follow-up task
-
-#### Rules
-- `docs/maro-code.md` is the single source of truth for feature-to-code mapping.
-- Granularity: package-level skeleton + ~20 anchor classes — stable identifiers, low rot.
-- Passive drift: when maro-code.md reference is stale, flag in hydration `## Drift Log`; `#doctor` surfaces it.
-- Feature files' `## Key Files` → replace with `see docs/maro-code.md §[Feature]`. Keep only transient/WIP file references.
-
-#### Key Files
-- `docs/maro-code.md` — the code map (core deliverable)
-- `xTrack/Documentation/260717_FEAT_PLN_Documentation_maro-code-map.md` — design discussion & decisions
-
-### cleanup
-
-#### Todos
-- [x] List all `plans/*.md` files and classify by target feature
-- [x] List all unattached `docs/*.md` files and classify by target feature
-- [x] Attach or move plans/docs to their corresponding feature `## Docs` sections
-- [x] Resolve ambiguous cases through discussion
-
-#### Rules
-
-#### Key Files
-
-### help
-
-#### Todos
-- [x] Split `docs/cmd_help.md` into per-command detail files: `docs/cmd_help_[cmd].md`
-- [x] Update `AGENTS.md` `#help` reference to use the new split files
-- [x] Update `xTrack/WorkflowImprovement/FEAT_DSC_WorkflowImprovement.md` ## Docs to reference the split files
-
-#### Rules
-
-#### Key Files
-- `docs/cmd_help.md` — summary reference table
-- `docs/cmd_help_*.md` — per-command detail files
-- `AGENTS.md` — §7b.8 Command Reference spec
-
-### git rules
-
-#### Todos
-- [x] Rewrite `docs/GIT_WORKFLOW.md` into compact token-optimized source of truth (~30 lines)
-- [x] Update `AGENTS.md` §7b.8 to reference `docs/GIT_WORKFLOW.md` instead of inline rule
-- [x] Update `docs/cmd_help_git.md` — compact, reference GIT_WORKFLOW.md
-- [x] Update `docs/cmd_help.md` summary — compact git section, ref GIT_WORKFLOW.md
-- [x] Update `xTrack/GLOBAL_CONTEXT.md` Global Rules — ref GIT_WORKFLOW.md
-
-#### Rules
-- `docs/GIT_WORKFLOW.md` is the single source of truth for git rules.
-- Upper-layer files (AGENTS.md, cmd_help_*.md, GLOBAL_CONTEXT.md) only reference it.
-- 🔴 Hard rule: `#merge`/`#push`/`#commit` refuse on `develop`/`main`.
-
-#### Key Files
-- `docs/GIT_WORKFLOW.md` — source of truth
-- `docs/cmd_help_git.md` — compact command reference
-- `AGENTS.md` §7b.8 — hard rule reference
-- `xTrack/GLOBAL_CONTEXT.md` — Global Rules reference
-
-### verif-scattering
-
-#### Todos
-- [x] Scan `AGENTS.md` for scattered/duplicated instructions across sections
-- [x] Scan `xTrack/GLOBAL_CONTEXT.md` Global Rules + Global Instructions for overlap with AGENTS.md
-- [x] Scan `docs/cmd_help*.md` for drift vs AGENTS.md §7b spec
-- [x] Scan `.clinerules`, `CLAUDE.md` — ensure they only point to AGENTS.md
-- [x] Propose consolidations: compact token-optimized rewrites
-
-#### Rules
-- AGENTS.md is the canonical rulebook — vendor files (.clinerules, CLAUDE.md) must only be thin adapters.
-- One source of truth per concern; no duplication across files.
-
-#### Key Files
-- `AGENTS.md` — canonical rules
-- `xTrack/GLOBAL_CONTEXT.md` — routing + global rules
-- `docs/cmd_help*.md` — command reference
-- `.clinerules`, `CLAUDE.md` — vendor adapters
-
-### readme
-
-#### Todos
-- [x] Update tech stack with missing AGP 8.4.1 row
-- [x] Rewrite Quick Build as three-stage bake→build→deploy pipeline (from FEAT_DSC_BakeNormalization.md)
-- [x] Remove stale doc references (MARKER_SIZING.md, DepthMappingBake.md)
-- [x] Modernize project structure tree (add data/, tools/, xTrack/, proto/, gradle/libs.versions.toml)
-- [x] Sync documentation index (add MARO_ARCHITECTURE.md, remove dead entries)
-
-#### Rules
-- README scope tag must remain `<!-- scope: core -->`
-- Pipeline model: bake = data prep, build = package only, deploy = install+launch
-
-#### Key Files
-- `README.md` — updated project readme
-- `xTrack/BakeNormalization/FEAT_DSC_BakeNormalization.md` — bake pipeline reference
-
-### planneding
-
-#### Todos
-- [x] Move each plan to `xTrack/[Feature]/FEAT_PLN_[Feature]_[topic].md`
-- [x] Update `## Docs` references in target feature files
-- [x] Leave app icon/image assets (`.ico`, `.png`, `.pdn`, `.bat`) in `plans/` as non-plan artifacts
-
-#### Rules
-- Feature-scoped plans → `xTrack/[Feature]/FEAT_PLN_[Feature]_[topic].md`
-- Only `.md` plan files are moved; binary/image assets stay in `plans/`
-
-#### Key Files
-- `plans/` — legacy directory to migrate from
-
-## Todos
+- **maro-code-map** — `docs/maro-code.md` feature-to-code map (package-level + anchor classes, drift detection) → `xTrack/Documentation/260717_FEAT_PLN_Documentation_maro-code-map.md`
+- **cleanup** — `plans/*.md` and unattached `docs/*.md` classified + attached to features
+- **help** — `docs/cmd_help.md` split into per-command `docs/cmd_help_[cmd].md` files
+- **git rules** — `docs/GIT_WORKFLOW.md` compact token-optimized source of truth; upper layers only reference it
+- **verif-scattering** — scattered/duplicated instructions audit + consolidation across AGENTS.md / GLOBAL_CONTEXT / cmd_help / adapters
+- **readme** — README modernized: bake→build→deploy pipeline, current structure tree, synced docs index
+- **planeding** — `plans/*.md` migrated to `xTrack/[Feature]/FEAT_PLN_*` convention
 
 ## Rules
 - Feature-scoped discussion/plan files go in `xTrack/[Feature]/FEAT_PLN_[Feature]_[topic].md` (not in `plans/`). The `plans/` directory is legacy; new plans use the `FEAT_PLN_` convention under the target feature's xTrack directory.
