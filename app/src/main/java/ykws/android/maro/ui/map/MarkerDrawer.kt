@@ -246,7 +246,7 @@ private fun ViewingContent(
         bottomAnchoredContent = true,
         statusBarsInset = isLandscape,
         shape = shape,
-        contentPadding = PaddingValues(horizontal = 12.dp),
+        contentPadding = PaddingValues(start = 12.dp, top = 6.dp, end = 12.dp),
         headerActions = {
             deleteAction()
         },
@@ -318,7 +318,7 @@ private fun MarkerPrevNext(
     selectedIndex: Int,
     selectedCount: Int
 ) {
-    Spacer(Modifier.height(8.dp))
+    Spacer(Modifier.height(10.dp))
     val accentBg = ComposeColor(AppConfig.uiSettingsAccent)
     val accentFg = ComposeColor(AppConfig.uiSettingsTextPrimary)
     val disabledAlpha = 0.35f
@@ -328,7 +328,7 @@ private fun MarkerPrevNext(
 
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
@@ -370,7 +370,7 @@ private fun MarkerPrevNext(
             )
         }
     }
-    Spacer(Modifier.height(6.dp))
+    Spacer(Modifier.height(10.dp))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

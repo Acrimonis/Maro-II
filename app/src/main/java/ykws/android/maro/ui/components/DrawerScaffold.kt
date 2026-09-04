@@ -124,7 +124,7 @@ fun DrawerHeader(
  * @param modifier                 Outer Modifier applied to the root Box.
  * @param headerActions            Composable slot in the header Row (right side).
  * @param headerHorizontalPadding  Horizontal padding for the header Row (default 24dp).
- * @param headerVerticalPadding    Vertical padding for the header Row (default 3dp).
+ * @param headerVerticalPadding    Vertical padding for the header Row (default 12dp).
  * @param contentPadding           Padding applied around the scrollable content body.
  * @param scrollable               Whether the body scrolls (true) or is static (false).
  * @param suppressOverscrollWhenFits If true, disables the overscroll effect while the
@@ -141,7 +141,7 @@ fun DrawerScaffold(
     modifier: Modifier = Modifier,
     headerActions: @Composable RowScope.() -> Unit = {},
     headerHorizontalPadding: Dp = 24.dp,
-    headerVerticalPadding: Dp = 6.dp,
+    headerVerticalPadding: Dp = 12.dp,
     contentPadding: PaddingValues = PaddingValues(horizontal = 12.dp),
     scrollable: Boolean = true,
     suppressOverscrollWhenFits: Boolean = false,

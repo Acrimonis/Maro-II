@@ -2,7 +2,7 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-09-03 20:53
+modified: 2026-09-04 20:10
 active_subfeature: screen-lock
 ---
 
@@ -36,6 +36,16 @@ side panel pins the footer too. BUILD SUCCESSFUL.
 
 #### Key Files
 - `DrawerScaffold.kt`, `MeasureHeight.kt`, `OverlayLayer.kt`, `MarkerDrawer.kt`
+
+### drawer-vertical-rhythm  [x]
+
+Uniform drawer vertical rhythm: 12dp card padding (start/top/end) across track + marker
+drawers; header vertical padding 12dp; resize formulas kept in lockstep (header +
+contentPadding.top + card + footer + 4dp safety); footer 10dp spacers + 10dp Prev/Next gap
+(footer height 60dp). Card stays bottom-anchored (no scroll risk). BUILD SUCCESSFUL.
+
+#### Key Files
+- `DrawerScaffold.kt`, `OverlayLayer.kt`, `MarkerDrawer.kt`
 
 ### screen-lock  [x]
 
