@@ -2,8 +2,8 @@
 name: Markers
 status: active
 created: 2026-06-22 11:52
-modified: 2026-07-18 06:11
-active_subfeature: multi-select-merge
+modified: 2026-09-04 21:41
+active_subfeature: icon-pin-decoupling
 ---
 
 # Feature: Markers
@@ -12,7 +12,9 @@ active_subfeature: multi-select-merge
 User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-of-sight matching with proximity-zone pre-filter (land-blocking via coastline spatial index + 10m grazing tolerance). On-demand "where am I?" query via boat marker tap. Step-by-step wizard for creation/editing. Viewing drawer (card layout) + match result display. Management page with swipe-to-delete. OSMdroid native overlays. Tri-state layer toggle (HIDDEN/SHOW_ALL/SHOW_PINNED). POI emoji icons on pinned markers.
 
 ## Subfeatures
-16/16 complete.
+16/16 complete; 1 in progress (icon-pin-decoupling).
+
+### icon-pin-decoupling  [ ]
 
 ### multi-select-merge  [x]
 
@@ -166,6 +168,7 @@ See [`FEAT_HYD_Markers.md`](xTrack/Markers/FEAT_HYD_Markers.md) for current bug 
 - `app/src/main/java/ykws/android/maro/ui/markers/wizard/`
 
 ## Docs
+- `xTrack/Markers/260904_FEAT_PLN_Markers_icon-pin-decoupling.md` — icon/pin decoupling + pin re-implementation plan (approved, pending implementation)
 - `xTrack/Markers/FEAT_DOC_Markers_decisions.md` — architectural decisions with rationale and source references
 - `xTrack/Markers/FEAT_HYD_Markers.md` — hydration snapshot + known issues (single source of truth)
 - `xTrack/Markers/260622_FEAT_PLN_Markers_user-markers-design.md` — original design plan (all phases ✅)

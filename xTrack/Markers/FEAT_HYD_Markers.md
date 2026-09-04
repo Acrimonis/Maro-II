@@ -1,24 +1,21 @@
 # Hydration — Markers
 
-**Last Bake:** 2026-07-18 06:11
-**State:** multi-select-merge: implemented. Marker management list re-enabled with 3 multi-actions (Delete, Pin dropdown, Merge auto-markers). BUILD SUCCESSFUL.
+**Last Bake:** 2026-09-04 21:41
+**State:** icon-pin-decoupling: plan approved, pending implementation. Branch feature/markers-pins-vs-icons created, synced with develop (1 incoming commit merged), pushed.
 
 ## Summary
-- **multi-select-merge** — Re-enabled multi-select on marker list with Delete (destructive + confirm), Pin (dropdown: all/unpin/toggle), Merge (auto-only, distance dialog + name + keep-originals). `mergeAutoMarkers()` computes centroid, consolidates data, conditionally deletes originals. 5 files, BUILD SUCCESSFUL.
-- **auto-marker-dedup** — `addTempAutoMarker()` proximity dedup: scans existing `IDLE_AUTO` markers within `dedupRadiusM` (50m default). Unconfirmed nearby → update position & reuse ID. Confirmed nearby → skip. 4 files, BUILD SUCCESSFUL.
-- **auto-marker-proximity** — `addTempAutoMarker()` sets `proximityOverrideM = AppConfig.boatMarkerAutoMarkerProximityM` (300m default). Defensive fallback in `proximityRange()` for `IDLE_AUTO` + `null` → 300m. New config key `track.boatMarker.autoMarker.proximityM=300`.
-- **wizard-cleanup-race** — `wizardFinish()` was nulling `_wizardStep`/`editingMarkerId`/`_selectedMarkerId` synchronously before the IO coroutine completed → wizard state inconsistency → markers invisible until restart. Moved cleanup into `saveMarker()`/`updateMarker()` coroutines after `_drawerState = Hidden`.
+- **icon-pin-decoupling (in progress)** — split `icon` (pure POI emoji) from `pin` (real persisted flag mirroring tracks). Plan: `260904_FEAT_PLN_Markers_icon-pin-decoupling.md`.
+  - Icon: wizard wording "Set icon"/"Change icon", filter axis `icon` (WITH_ICON/WITHOUT_ICON), consolidate `typeIcon` → `MarkerGeometry.iconFor`, TrackRecorder icon semantics.
+  - Pin: `UserMarker.pinned` field (no backfill), repo/VM `setPinned`, PushPin card + drawer toggles, multi-select Pin spec, Pinned filter axis, pinned full / unpinned dimmed rendering (binary HIDDEN/SHOW_ALL layer).
+- Post-merge note: MapScreen now renders from the filtered `markers` list, so pin/icon filters also gate map visibility.
 
 ## Modified Files
-- `app/src/main/java/ykws/android/maro/ui/map/MarkerManagementOverlay.kt` — 3 MultiActionSpecs replacing emptyList(); onMergeMarkers param; MergeMarkersDialog
-- `app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt` — `mergeAutoMarkers(ids, name, keepOriginals)`
-- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt` — onMergeMarkers param + pass-through
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — wire onMergeMarkers → ViewModel
-- `app/src/main/res/values/strings.xml` — `confirm_delete_markers`
-- `xTrack/Markers/260718_FEAT_PLN_Markers_multi-select-and-merge.md` — plan
-- `xTrack/Markers/FEAT_DSC_Markers.md` — front-matter, subfeature checkmark
+- `xTrack/Markers/260904_FEAT_PLN_Markers_icon-pin-decoupling.md` — plan (new)
+- `xTrack/Markers/FEAT_DSC_Markers.md` — front-matter, subfeature entry, Docs link
+- `xTrack/GLOBAL_CONTEXT.md` — focus pointers + merge resolution + Markers summary row
 
 ## Pending
+- Implement the 10 remaining todos in the plan (data model → repo → VM → UI → filter → rendering → cleanup → build).
 - `#todo markers: fix proximity of date points. Rays hit/test all of them.`
 - `#todo gps: back to GPS point -> replace delay by swipe of card`
 - `#todo: normalize localisation and fill holes`
