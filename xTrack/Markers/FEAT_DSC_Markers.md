@@ -11,56 +11,13 @@ modified: 2026-09-04 21:41
 User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-of-sight matching with proximity-zone pre-filter (land-blocking via coastline spatial index + 10m grazing tolerance). On-demand "where am I?" query via boat marker tap. Step-by-step wizard for creation/editing. Viewing drawer (card layout) + match result display. Management page with swipe-to-delete. OSMdroid native overlays. Tri-state layer toggle (HIDDEN/SHOW_ALL/SHOW_PINNED). POI emoji icons on pinned markers.
 
 ## Sections
-16/16 complete; 1 in progress (icon-pin-decoupling).
 
 ### icon-pin-decoupling
 
-### multi-select-merge
+Decouple the icon (emoji) from the pin; re-implement the pin as its own geometry.
 
-### auto-marker-dedup
-
-### data-model
-### persistence
-### land-blocking
-### match-resolution
-### overlay-rendering
-### creation-ui
-### management-page
-### create-zones-flow
-### whereami-rework
-### debug-wia
-### menu-markers-normalization
-### marker-pin
-### marker-pin-tri-state
-### icon
-### 2-gate-simplification
-
-### setting-markers
-
-#### Todos
-- [x] Replace standalone SettingsToggleRow with grouped card (inline toggle + SettingsExpander "Appearance")
-- [x] Remove SHOW_PINNED from MarkerLayerState enum → binary HIDDEN/SHOW_ALL
-- [x] Simplify drawGeometry in MarkerOverlay (always true in SHOW_ALL)
-- [x] Add SettingsManager migration v5: SHOW_PINNED → SHOW_ALL
-- [x] Build ✅
-
-#### Key Files
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — grouped card at ~line 2807
-- `app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt` — MarkerLayerState enum line 57
-- `app/src/main/java/ykws/android/maro/ui/map/MarkerOverlay.kt` — drawGeometry line 168
-- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — migration + version bump
-
-### marker-card
-
-#### Todos
-- [x] List card: remove [type] [size/prox] line, remove divider, type icon in coordinateHeader
-- [x] Viewing drawer: remove markerFormatText, add title+icon row, direction+divider+name+icon+desc+counter
-- [x] Match cards: normalize to accent bar + direction + name+icon row, delete buildMatchText
-- [x] Icon: use marker.icon only (user-set emoji), no geometry fallback, hidden when null
-
-#### Key Files
-- `app/src/main/java/ykws/android/maro/ui/map/MarkerManagementOverlay.kt` — MarkerCardContent, coordinateHeader
-- `app/src/main/java/ykws/android/maro/ui/map/MarkerDrawer.kt` — ViewingContent, MatchRow
+#### Docs
+- `xTrack/Markers/260904_FEAT_PLN_Markers_icon-pin-decoupling.md` — plan (approved, pending implementation)
 
 ## Todos
 - [ ] fix proximity of date points — rays hit/test all of them
@@ -78,6 +35,7 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-o
 - **Creation & editing** — `WizardDrawer` step wizard + `WizardButtonRow` → `xTrack/Markers/260623_FEAT_PLN_Markers_create-zones-flow.md`
 - **Viewing & management** — `MarkerDrawer` + `MarkerManagementOverlay`
 - **Color system** — `COLOR_CONFIRMED`=blue, `COLOR_UNCONFIRMED`=amber
+- **setting-markers** — grouped Appearance card, binary HIDDEN/SHOW_ALL layer toggle, settings migration v5
 - **Known issues** — see `xTrack/Markers/FEAT_HYD_Markers.md`
 
 ## Key Files
