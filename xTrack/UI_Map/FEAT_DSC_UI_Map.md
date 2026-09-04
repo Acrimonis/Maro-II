@@ -2,7 +2,7 @@
 name: UI_Map
 status: active
 created: 2026-06-07 00:00
-modified: 2026-07-14 08:40
+modified: 2026-09-04 18:08
 active_subfeature: decenter-map
 ---
 
@@ -351,6 +351,31 @@ content — no `AnimatedVisibility`, scrim, or shadow of their own. Wizard steps
 - `app/src/main/java/ykws/android/maro/ui/markers/wizard/` — extracted step composables
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — OverlayLayer call at line 1036
 - `docs/ui-drawer-guidelines.md` — canonical reference
+
+## Implemented
+
+### map z-order  [x]
+
+Deterministic native overlay ordering: `OverlayZOrder.reorder(mv)` partitions
+`MapView.overlays` into tile → base data layers → tracks → markers (top), preserving
+within-band order, and is called after every overlay mutation.
+
+#### Todos
+- [x] Add `OverlayZOrder.kt` — `reorder()` + `isTrackOverlay`/`isMarkerOverlay` classification (title-prefix + type)
+- [x] Wire `reorder()` into MapScreen track effects (history/pinned/active/highlighted, live restore, active trace, trailing) — 5 sites
+- [x] Wire `reorder()` into MarkerOverlay rebuild — 1 site
+- [x] Wire `reorder()` into CoastlineMapView base-layer effects (zone300, regulatedZones, depth, lowDepth, isobaths, coastline) — 6 sites
+- [x] Build: SUCCESS (`assembleDebug`)
+
+#### Rules
+- `MapView.overlays` paints in index order; enforce order physically — OSMdroid has no per-overlay z-index
+- After ANY overlay mutation, call `OverlayZOrder.reorder(mv)` before `mv.invalidate()`
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/OverlayZOrder.kt` — new helper
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MarkerOverlay.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/CoastlineMapView.kt`
 
 ## Todos
 

@@ -4,7 +4,7 @@
 - **Active Feature:** Ui_General
 - **Active Subfeature:** none
 - **Last Updated:** 2026-09-03 20:53
-- **Last Bake:** 2026-09-03 20:53 (Ui_General — track/marker drawers: pinned Prev/Next footer, bottom-anchored card, dynamic animated height via card probe)
+- **Last Bake:** 2026-09-04 18:08 (UI_Map — map overlay z-order fix: OverlayZOrder.reorder → tile/base/tracks/markers)
 - **Branch:** feature/new-tghter-ui
 
 ## Routing Map
@@ -46,7 +46,7 @@
 | Coastline | Coastline extraction, spatial indexing, isOnWater, hazard rings, unified data store; eastern bound extended to Menton (7.55°E), single region ID via BuildConfig | 2026-05-10 00:00 | 2026-06-23 07:08 | active |
 | Ui_Dashboard | Main dashboard UI layout and HUD information display | 2026-05-15 00:00 | 2026-07-11 10:59 | active |
 | GPS | GPS plugin with demo mode, heading/COG compass, geolocation, auto-follow spring-back hold | 2026-05-10 00:00 | 2026-08-15 15:21 | active |
-| UI_Map | Map rendering, depth color layer, orientation overlay, boat marker offset | 2026-05-10 00:00 | 2026-07-14 08:40 | active |
+| UI_Map | Map rendering, depth color layer, orientation overlay, boat marker offset; deterministic overlay z-order (tile→base→tracks→markers) via OverlayZOrder.reorder | 2026-05-10 00:00 | 2026-09-04 18:08 | active |
 | Performance | Battery optimization, adaptive GPS tuning, compass gate, map refresh | 2026-05-20 00:00 | 2026-06-10 06:14 | active |
 | BakeNormalization | APK bake/build/deploy pipeline and prebake data processing | 2026-06-01 00:00 | 2026-06-08 17:10 | active |
 | DepthSafety | Danger depth alerts, shallow water grounding prevention, isobath precision | 2026-06-03 00:00 | 2026-06-09 12:01 | active |

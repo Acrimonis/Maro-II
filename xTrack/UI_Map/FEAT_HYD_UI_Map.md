@@ -1,21 +1,26 @@
 # UI_Map — Hydration Snapshot
 
-**Baked:** 2026-07-14 08:40 UTC+2
+**Baked:** 2026-09-04 18:08 UTC
 
 ## Active State
-- **Subfeature:** decenter-map
-- **Branch:** feature/map-offset-smmothness
+- **Subfeature:** map z-order
+- **Branch:** feature/new-tghter-ui
 
 ## What Changed This Session
-1. **Decenter animation smoothed** — replaced `spring(dampingRatio=0.8, stiffness=200)` with `tween(2000ms, FastOutSlowInEasing)` at `MapScreen.kt:1421`
-2. **Root cause:** Spring overshoot + GPS speed jitter made boat marker visibly bounce and wobble
-3. **Fix:** 2-second tween acts as natural low-pass filter — GPS micro-fluctuations don't accumulate enough displacement to be perceivable
-4. **Build: SUCCESS** — `assembleDebug` green, 0 new warnings
+1. **Deterministic overlay z-order** — new `OverlayZOrder.reorder(mv)` partitions `MapView.overlays` into tile → base data layers → tracks → markers (top), preserving within-band order.
+2. **Root cause:** OSMdroid paints overlays in list order with no per-overlay z-index; every mutation appended to the end, so markers could render below tracks (last writer won).
+3. **Fix:** `reorder()` called after every overlay mutation — 5 track sites in MapScreen, 1 in MarkerOverlay, 6 base-layer sites in CoastlineMapView.
+4. **Build:** SUCCESS (`gradlew assembleDebug`).
 
 ## Design Decisions
-- Tween chosen over critically-damped spring: predictable, physics-free, no oscillation possible
-- Retargets mid-flight via `animateFloatAsState` — no snap on sudden speed changes, always smooth
-- All offset consumers (CoastlineMapView, CenterMarkerOverlay, CapArrow, DirectionLine) unchanged — same Dp value, different interpolation curve
+- Classification by title prefix (`track_*`, `marker_*`) plus `MapEventsOverlay` type — consistent with the existing cleanup-by-title pattern.
+- Tile overlay preserved at index 0; within-band relative order kept (under-strokes below gold, unconfirmed markers below confirmed).
 
 ## Target Files
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — line 1421 modified
+- `app/src/main/java/ykws/android/maro/ui/map/OverlayZOrder.kt` — new helper
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — 5 reorder call sites
+- `app/src/main/java/ykws/android/maro/ui/map/MarkerOverlay.kt` — 1 call site
+- `app/src/main/java/ykws/android/maro/ui/map/CoastlineMapView.kt` — 6 call sites
+
+## Next Step
+- On-device verify: toggle layers, create/edit markers, record a track — markers always above tracks, tracks always above data layers.
