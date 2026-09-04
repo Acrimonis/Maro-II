@@ -191,60 +191,12 @@ Enforce the "no git write until green-lit" rule across all agents — audit rule
 
 ## Implemented
 
-### hard rules — Core Directives promotion (2026-06-20)
-
-- **Core Directives rewritten** — 10 rules promoted to prefix-cache zone: 🎯 DIRECT RESPONSE, ⛔ SCOPE LOCK, 🔴 MODE LOCK, 🔴 NO GIT WRITES, 🔴 NO BRANCH, 🗣️ CONCISE, 🔴 NEVER ASSUME, 🔴 WRITE-ONCE, 🔴 NO BINARY READS, 📋 TASK COMPLETION
-- **§5 Git Operations hardened** — `new_task(Code)` exception removed; `#commit` always prompts; scope expanded to all write ops (add, commit, push, merge, rebase)
-- **§3 duplicate rules removed** — WRITE-ONCE and NO BINARY READS live only in Core Directives now
-- **`#doctor` check (j)** — detects staged changes on develop/main (autofix: unstage)
-- **GLOBAL_CONTEXT.md Global Rules** — condensed git/Code-switch lines to reference pointer to AGENTS.md
-- **`docs/cmd_help_git.md`** — `#commit` updated with always-confirm note
-
-### AGENTS.md token optimization (2026-06-20)
-
-- **AGENTS.md compressed** — 207 → 149 lines (28% reduction)
-- **Header** condensed from 14→5 lines (adapter table, quote block)
-- **Dev Profile** merged from 5→3 lines
-- **§2 Extraction** compressed from 6→3 lines
-- **§7b Command Reference** collapsed from 58→23 lines (compact table, detail delegated to `docs/cmd_help_*.md` via `#help`)
-- **§4/§7a/§8** tightened
-- No rules removed — all commands, protocols, and behavioral directives preserved
-
-### Workflow management cleanup pass (2026-06-28)
-
-- **8 git commands added to AGENTS.md §7b** — `#new`, `#checkout`, `#commit`, `#push`, `#move`, `#move new`, `#cherry`/`#copy`, `#rename` now canonical in the command table
-- **MODE LOCK clarified** — Architect mode permits shell commands + all git branch operations; Code mode is for source file modifications only
-- **#help dispatch** — updated to filename-scan (`docs/cmd_help_*.md`) instead of inline list
-- **WorkflowAmbiguityFix absorbed** — all 5 todos marked done, feature status→done, concerns already addressed in prior WorkflowImprovement passes
-- **Lingering todos closed** — templates.md sync, #doctor check (j), post-merge reconcile deferred
-- **templates.md** — FEAT_HYD path corrected (project root → xTrack/[Feature]/)
-- **docs/cmd_help.md** — `#checkout` entry added, sync verified against AGENTS.md §7b
-- **GLOBAL_CONTEXT.md** — branch→feature/workflow, summaries updated, global rules reference AGENTS.md
-
-### #merge hybrid strategy (2026-06-28)
-
-- **Pre-flight analysis** — fetch + commit count + file overlap + push status + classification (trivial vs non-trivial)
-- **Auto-select** — rebase (few commits, no overlap, docs-only) vs merge (pushed branch, many commits, source overlap)
-- **Hybrid execution** — trivial: direct shell with yes/no confirmation; non-trivial: sticky issues listed, `yes` for direct or `#implement` for Code→Ask→Architect pipeline
-- **Conflict resolution strategy** — per-file-type rules (GLOBAL_CONTEXT.md auto-merge, AGENTS.md manual, source .kt by feature ownership)
-- **Files:** AGENTS.md §7b, docs/cmd_help_git.md (full rewrite), docs/cmd_help.md one-liner
-
-### AGENTS.md trunk-to-leaf token optimization (2026-06-28)
-
-- **§5 merged into Core Directives** — git rules no longer duplicated; 5 lines → 1 pointer line
-- **§§1-4 condensed** — MAD (2→1), Extraction (3→1), Token (3→1), Loop (4→2) — saved 7 lines
-- **§8 compressed** — preamble removed (1 line saved)
-- **Lazy-Load Index added** — 9-domain routing table: spatial, UI, drawers, colors, icons, git, setup, FAQ, #-commands — all docs discoverable from AGENTS.md trunk
-- **GLOBAL_CONTEXT.md** — Global Instructions tightened, references AGENTS.md Lazy-Load Index
-
-### Process simplification — WRITE-ONCE, sections, Focus History (2026-09-04)
-
-- **WRITE-ONCE softened** — 🔴 absolute → 🟡 guideline; targeted apply_diff patches allowed (AGENTS.md §Core Directives, §3).
-- **Subfeatures → sections** — removed `active_subfeature`, `#sub`, `#focus sub/out`; feature files now group work under `### [Section]` headings consolidated at `#bake` (C1–C12). 22 FEAT_DSC files migrated.
-- **GLOBAL_CONTEXT Focus History** — replaced mutable `## Active Session Pointers` with append-only newest-first stack (cap 10); top = current focus.
-- **No-bypass implementation gate** — MODE LOCK hardened: plan approval ≠ implementation go-ahead.
-- **Docs/templates** — cmd_help_*.md synced, `cmd_help_sub.md` retired, templates updated, #doctor flags remnants.
-- Plan: `xTrack/WorkflowImprovement/260904_FEAT_PLN_WorkflowImprovement_process-simplification.md`.
+- **hard rules — Core Directives promotion (2026-06-20)** — 10 rules to prefix-cache zone, §5 git ops hardened, #doctor check (j) → `xTrack/WorkflowImprovement/260620_FEAT_PLN_WorkflowImprovement_core-directives-promotion.md`
+- **AGENTS.md token optimization (2026-06-20)** — 207→149 lines, §7b collapsed to table → `xTrack/WorkflowImprovement/260620_FEAT_PLN_WorkflowImprovement_agents-md-optimization.md`
+- **Workflow management cleanup pass (2026-06-28)** — 8 git commands canonical, MODE LOCK clarified, #help filename-scan, WorkflowAmbiguityFix absorbed
+- **#merge hybrid strategy (2026-06-28)** — pre-flight + trivial/non-trivial classification + auto-select rebase/merge → `xTrack/WorkflowImprovement/260628_FEAT_PLN_WorkflowImprovement_merge-strategy.md`
+- **AGENTS.md trunk-to-leaf (2026-06-28)** — §5 merged into Core Directives, §§1-4 condensed, Lazy-Load Index added → `xTrack/WorkflowImprovement/260628_FEAT_PLN_WorkflowImprovement_trunk-to-leaf.md`
+- **Process simplification (2026-09-04)** — WRITE-ONCE guideline, subfeatures→sections, Focus History stack → `xTrack/WorkflowImprovement/260904_FEAT_PLN_WorkflowImprovement_process-simplification.md`
 
 ## Notes
 <!-- blockers, design decisions, context for next session -->

@@ -65,80 +65,18 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-o
 
 ## Implemented
 
-### multi-select-merge (2026-07-18)
-- Re-enabled multi-select on marker management list with 3 actions: Delete (destructive, confirm dialog), Pin (dropdown: pin_all/unpin_all/toggle), Merge (auto-markers only, custom dialog with distance summary + name field + keep-originals checkbox)
-- `mergeAutoMarkers(ids, name, keepOriginals)` in MarkersViewModel: filters to IDLE_AUTO, computes centroid via lat/lon averaging, creates consolidated Pin marker with 🕐 icon, conditionally deletes source markers
-- Merge enabled when ≥2 IDLE_AUTO markers selected; non-auto markers in selection silently filtered out
-- Wired through OverlayLayer → MapScreen following existing callback patterns
-- Added `confirm_delete_markers` string resource
-- Build: ✅
-
-### marker-card (2026-07-03)
-- List card: removed `markerFormatText()` line + function, removed divider. Type icon in `coordinateHeader` prefix. Card: accent bar → icon+coords+controls → name → description.
-- Viewing drawer: removed `markerFormatText()`. Card: direction → divider → name+icon → description → counter. Icon always visible (user-set emoji only), counter on desc row (hasMultiple).
-- Match cards: normalized `MatchRow` — accent bar + direction (LineOfSightMatch) + name+icon row. Deleted `buildMatchText()`. Icon = `marker.icon` only, hidden when null.
-- 2 files. Build: ✅
-
-### wizard-cleanup-race (2026-07-02)
-- Moved `_wizardStep`/`editingMarkerId`/`_selectedMarkerId` cleanup from `wizardFinish()` into `saveMarker()`/`updateMarker()` coroutines
-- Fixes race: wizard state was nulled synchronously while IO save was still in-flight, causing markers to disappear until app restart
-- Build: ✅
-
-### auto-marker-proximity (2026-07-02)
-- 🕐 auto idle markers now use `AppConfig.boatMarkerAutoMarkerProximityM` (300m default) instead of `null` in `addTempAutoMarker()`
-- Defensive fallback in `proximityRange()`: `IDLE_AUTO` markers with `null` proximity fall back to 300m (handles existing on-disk markers)
-- `null` → `Double.MAX_VALUE` meant every auto marker matched `whereAmI()` regardless of distance
-- New config key `track.boatMarker.autoMarker.proximityM=300` in `maro.properties`
-- Build: ✅
-
-### Data Model & Persistence
-- `UserMarker` with `MarkerGeometry` sealed class (Pin/Circle/Corridor), `bbox` pre-computed on create/edit
-- `UserMarkerRepository` — JSON load/save in internal storage, CRUD operations
-- `proximityOverrideM` always set by creation wizard (Pin→200m, Circle→radius×3, Corridor→width×3); matching engine reads stored value directly, no formula defaults
-- `createdAtEpochMs` timestamp, `icon: String?` (non-null → auto-pinned), 16-color `MarkerColors` palette
-
-### Match Resolution — Two-Gate Model
-1. **Zone check** — boat inside geometry → `ZoneMatch` (no line-of-sight test)
-2. **Proximity pre-filter** — `minBoundaryDist > proximityOverrideM` → skip (avoids testing far-away markers)
-3. **Line-of-sight** — `closestUnblockedPoint()` samples boundary points (from zone center, guaranteeing tangent coverage) → `LineOfSightMatch` if clear sea path exists. No distance cap — proximity gate removed.
-- `WhereAmIMatch` sealed class: `ZoneMatch` / `LineOfSightMatch` (renamed from ProximityMatch)
-- Pin markers: proximityOverrideM distance gate only, no land check
-- Depth-first leaves-first traversal, capped at 8; `sortScore` uses stored proximityOverrideM for display ordering
-- Boat marker tap → `whereAmI()` → drawer opens in MatchResult mode
-
-### Boundary Point Sampling
-- Points generated directly on geometry boundary via `pointAlongBearing` — never via ray-intersection from boat
-- Circle: 16 points on visible arc from center (`90°−asin(r/d)` half-arc); tangents guaranteed at samples 0/15
-- Corridor: 16 points per end-cap (full 360°, 22.5° spacing) + 5 per edge line (25% spacing)
-- `circlePointAtBearing` removed (ray-intersection dropped tangent samples due to planar floating-point)
-
-### Overlay Rendering
-- OSMdroid native overlays: Pin (filled-circle `Marker`), Circle (`Polygon` fill + `Polyline` ring + center `Marker`), Corridor (`Polygon` fill pill + parallel `Polyline`s + centerline at 50% alpha + semi-circle caps + p1/p2 `Marker`s)
-- Area-based marker tap via `MapEventsOverlay` with proximity-zone hit-test; returns list for overlapping markers
-- Match result highlighting: matched markers 1.67× stroke, unmatched dimmed to 30% alpha; selected marker 2.5× stroke
-- POI emoji icons at geometry positions for pinned markers (12 icons + default red 📍)
-- Tri-state layer toggle via `MarkerLayerState` (HIDDEN → SHOW_ALL → SHOW_PINNED → HIDDEN)
-
-### Creation & Editing
-- `WizardDrawer` — step-by-step wizard: TypeSelect → Position → [PositionP2] → [Radius] → Proximity → Title → Description
-- `WizardButtonRow` — text pill buttons (Previous/Next/Finish) with `AnimatedContent` slide transitions
-- Runtime keyboard mode toggle: `adjustNothing` on text steps, restore `adjustPan` on exit
-- Post-save undo via Snackbar (3s, soft-delete pattern)
-- Icon picker embedded in Title wizard step + standalone `IconPickerDialog`
-
-### Viewing & Management
-- `MarkerDrawer` — Viewing mode (card layout with accent bar, direction/distance from boat, icon/edit/delete actions) + MatchResult mode
-- `MarkerManagementOverlay` — full-screen list with swipe-to-delete + inline snackbar undo, multi-marker Previous/Next navigation
-- Empty state: "No markers yet" + "Create First Marker" CTA
-- Live marker count in hamburger menu + management page heading
-
-### Color System
-- `COLOR_CONFIRMED` = `semantic.info` (blue #1565C0), `COLOR_UNCONFIRMED` = `semantic.caution` (amber #EF6C00)
-- Proximity preview: cyan at 50% alpha (stroke) + 10% alpha (fill)
-- Corridor centerline: 50% alpha of marker color
-
-### Known Issues
-See [`FEAT_HYD_Markers.md`](xTrack/Markers/FEAT_HYD_Markers.md) for current bug list.
+- **multi-select-merge (2026-07-18)** — multi-select delete/pin/merge on marker list → `xTrack/Markers/260718_FEAT_PLN_Markers_multi-select-and-merge.md`
+- **marker-card (2026-07-03)** — normalized list/viewing/match cards, removed `markerFormatText()`
+- **wizard-cleanup-race (2026-07-02)** — moved wizard-state cleanup into save/update coroutines
+- **auto-marker-proximity (2026-07-02)** — 🕐 auto markers use `boatMarkerAutoMarkerProximityM` (300m) → `xTrack/Markers/260702_FEAT_PLN_Markers_auto-marker-proximity-fix.md`
+- **Data model & persistence** — `UserMarker` + sealed `MarkerGeometry`, JSON repo, 16-color palette → `xTrack/Markers/260622_FEAT_PLN_Markers_user-markers-design.md`
+- **Match resolution — two-gate model** — zone check + proximity pre-filter + line-of-sight → `xTrack/Markers/FEAT_DOC_Markers_decisions.md`
+- **Boundary point sampling** — `pointAlongBearing` direct boundary sampling
+- **Overlay rendering** — Pin/Circle/Corridor overlays, tri-state `MarkerLayerState`
+- **Creation & editing** — `WizardDrawer` step wizard + `WizardButtonRow` → `xTrack/Markers/260623_FEAT_PLN_Markers_create-zones-flow.md`
+- **Viewing & management** — `MarkerDrawer` + `MarkerManagementOverlay`
+- **Color system** — `COLOR_CONFIRMED`=blue, `COLOR_UNCONFIRMED`=amber
+- **Known issues** — see `xTrack/Markers/FEAT_HYD_Markers.md`
 
 ## Key Files
 - `app/src/main/java/ykws/android/maro/data/model/markers/UserMarker.kt`

@@ -1,17 +1,8 @@
 # Global Context — Routing Table
 
-<<<<<<< HEAD
 ## Focus History
 - [2026-09-04 20:31 UTC] WorkflowImprovement — process simplification: WRITE-ONCE guideline, section model, Focus History → xTrack/WorkflowImprovement/FEAT_HYD_WorkflowImprovement.md
 - [2026-09-04 20:10 UTC] Ui_General — app-lifecycle UX: back-to-exit, keep-screen-on, edge-to-edge, list normalization, drawer footer pinning → xTrack/Ui_General/FEAT_HYD_Ui_General.md
-=======
-## Active Session Pointers
-- **Active Feature:** Ui_General
-- **Active Subfeature:** none
-- **Last Updated:** 2026-09-04 20:10
-- **Last Bake:** 2026-09-04 20:10 (Ui_General — drawer vertical rhythm: 12dp card padding, header vpad 12, footer 10dp rhythm)
-- **Branch:** feature/finaliz-dash-card
->>>>>>> 4e1a82541cb9e9cd8ea990c86ec50dfbd3fcc188
 
 ## Routing Map
 | Keyword | Feature File |

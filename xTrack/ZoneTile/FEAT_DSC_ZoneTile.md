@@ -51,5 +51,4 @@ Zone information tiles and map overlay rendering — zone-ahead cone/line, zone 
 
 ## Implemented
 
-- **Zone info text per-line scrim** — Each zone info line now sits on a 50%-transparent black rounded scrim (radius 4dp, padding 3/1dp) so the white text stays readable over any map tile; lines spaced 2dp apart. Scrim color is runtime-configurable via `ui.settings.text.scrim`.
-  *Files:* `app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneComponents.kt`, `app/src/main/java/ykws/android/maro/config/AppConfig.kt`, `app/src/main/assets/colors.properties`
+- **Zone info per-line scrim** — 50% black rounded scrim behind each zone info line (config `ui.settings.text.scrim`) → `xTrack/ZoneTile/260612_FEAT_PLN_ZoneTile_info-text-discussion.md`

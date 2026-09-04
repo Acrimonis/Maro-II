@@ -88,9 +88,7 @@ Unified distance tile logic: single-branch compare replaces P1-P4 cascade. Shows
 
 ## Implemented
 
-| Date | Summary |
-|------|---------|
-| 2026-07-04 | **dash distance:** Unified distance tile — single-branch speed-limit compare. Amber=more restrictive, green=less restrictive, coastline=default. ETA for SHOM exit. Dead `nextZoneAhead` removed. Always positive `↑`. Fixes: shore-bound 300m gate, zone-ahead priority (OPEN_SEA only), SHOM exit real beyondType, land probes shortened to 5-20m, Lérins "outside channel" 3kn→5kn override. Build green. |
+- **dash distance (2026-07-04)** — unified distance tile: single-branch speed-limit compare, ETA for SHOM exit, shore-bound 300m gate, Lérins override
 
 ## Todos
 - [ ] On-device visual verification of all navigation features

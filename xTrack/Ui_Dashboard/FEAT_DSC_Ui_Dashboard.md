@@ -205,8 +205,10 @@ Make the 3rd/bottom line (subtitle) of dashboard tiles more readable — larger 
 #### Docs
 - `xTrack/Ui_Dashboard/260711_FEAT_PLN_Ui_Dashboard_tile-bottom-line.md` — sizing & contrast discussion
 
-#### Implemented
-- [`DashboardPanel.kt`](app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt): title `fontSize` 13.sp → 15.sp, subtitle `fontSize` 9.sp → 13.sp, default `subtitleColor` textMuted → textMutedBright (#B0BEC5). Added `textMutedBright` to `DashboardColors`. Build green.
+## Implemented
+
+- **tile bottom line** — title 13→15sp, subtitle 9→13sp, textMutedBright → `xTrack/Ui_Dashboard/260711_FEAT_PLN_Ui_Dashboard_tile-bottom-line.md`
+
 ## Todos
 - [x] Fix AutoSizeValue px/dp unit mismatch — `onSizeChanged` returns pixels, not dp. Added `LocalDensity` conversion to restore correct density-independent auto-sizing.
 - [x] Fix AutoSizeValue vertical centering — moved `onSizeChanged` from Text (with fillMaxSize) to outer Box, removed fillMaxSize, so Box's contentAlignment centers the value text properly.

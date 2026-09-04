@@ -370,59 +370,32 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 
 ## Implemented
 
-**Data model:** `Track`/`TrackPoint` protobuf with `@ProtoNumber`, `TrackSummary` lightweight index. Relative `timeOffsetSec` per point (~5 bytes saved). `visibleOnMap: Boolean` per-track. `distanceNm` accumulated in-memory, written at finalize.
-
-**Recorder:** Coroutine state machine **OFF ⇄ ON** with geofence auto-detect (Port Salis, Haversine) + manual Start/Stop. Speed gate > 2.5 kn. `isStill()` via `AdaptiveGpsPolicy` position-only algorithm (anchor + time window). Process-death recovery with orphan checkpoint detection. `TrackRecordingService` foreground notification.
-
-**Persistence:** `TrackRepository` — protobuf CRUD on `Dispatchers.IO`, 30s checkpoint saves, index rebuild on corruption. GPX 1.1 export via `FileProvider` share intent.
-
-**Map rendering:** Active track polyline (`track_recording`, 10f, `tracking.color.active`). History tracks: `tracking.render.nb` (0-20), transparency RangeSlider, color gradient `pastFrom→pastTo` with linear RGB interpolation. Incremental overlay diff (`renderedTrackIds` set). First history track thicker (8f vs 6f). Track polylines tagged `track_` prefix survive CoastlineMapView cleanup.
-
-**Layer toggle:** `TrackLayerIcon` in FanLayout (index 0). Controlled by `tracking.tracksVisible` (default true).
-
-**TrackViewModel:** `StateFlow<TrackRecorderUiState>` bridge. LRU detail cache (`LinkedHashMap`, max 30). Track list sorted by `startTimeMs` desc. Auto-naming `yyyy-MM-dd HH:mm`.
-
-**UI:** `TrackStatusIcon` — 3 states (OFF dimmed, ON+moving green+red dot, ON+idle blue+blue dot), click toggles recording. `MenuDrawerOverlay` — right panel (75% width), hamburger always visible (36dp), unified ON/OFF switch + Track List. `TrackHistoryOverlay` — LazyColumn with inline editing, visibility toggle, swipe-to-delete with snackbar undo, GPX share. `LiveTrackCard` at position 0 during recording with pulsing border.
-
-**Settings:** Unified Tracking section in General → Display → Layers card; 3 expandable subsections (Number of tracks, Transparency RangeSlider, Colors). Canvas HSV color pickers (Active single, Past from→to, Pinned from→to). Transparency semantics: 0%=opaque, 100%=invisible. Newest track gets `trackingTransparencyNewest` (default 20), oldest gets `trackingTransparencyOldest` (default 80). Past/pinned colors + transparency fields persisted to SharedPreferences.
-
-**Stop detection (`AdaptiveGpsPolicy`):** Position-only algorithm. Settings: `stopDetectionEnabled`, `stopDetectionTimeSec` (15-60, default 45), `stopDetectionDistanceM` (10-30, default 15). GPS dormant interval = `stopDetectionTimeSec * gpsDormantPct / 100` (80%, enforced <100). Old settings fully removed.
-
-**Settings fix (2026-06-20):** Added persistence for 6 tracking fields. Renamed `trackingTransparencyFrom/To` → `trackingOpacityNewest/Oldest` with clarified semantics. Fixed From/To swap in interpolation.
-
-**mtrack-setting-opacity (2026-06-20):** Renamed `trackingOpacityNewest/Oldest` → `trackingTransparencyNewest/Oldest` with inverted semantics (0%=opaque, 100%=invisible). Clean break — no migration. BuildConfig defaults: 20→80. Rendering: `alpha = (100 - transparency) / 100f`.
-
-**gps-line-acquisition (2026-06-20):** Removed `PASSIVE_PROVIDER` listener — dual listeners caused zigzag artifacts. Original 50kn spike gate since replaced by spike-rejection-v2.
-
-**gps-background (2026-06-20):** Rewrote `TrackRecordingService` as always-on foreground service — started in `MainActivity.onCreate`, stopped on double-back exit. Intent-driven notification updates (5s throttle) with live recording stats. Two notification modes: "Ready" / "Recording • {speed} kn • {elapsed} • {distance} nm". Demo suffix on both.
-
-**Demo track visibility (2026-06-21):** Fixed `recordingPoints` off-by-one. Added `gpsMode` constructor parameter — bypasses `AdaptiveGpsPolicy` stillness gate in demo mode.
-
-**spike-rejection-v2 (2026-06-22):** Four-gate algorithm replacing 50kn hard cap. Gate 0: GPS recovery (`hasLock` false→true). Gate 1: context-aware speed cap (32kn sea / 120kn land, auto-detected). Gate 2: course-aware direction multiplier (sea only, ±30° → ×1.5/×0.5). Gate 3: acceleration gate (10kn/s sea / 30kn/s land). Demo mode bypasses all. Self-contained in `TrackRecorder.kt`.
-
-**Build:** ✅ `assembleDebug` passes
-
-**pinned-tracks (2026-06-22):** Replaced eye-icon with pin-icon in TrackHistoryOverlay track card. Pin toggle → `TrackViewModel.setPinned()` → `TrackRepository.setPinned()`. Added `pinned: Boolean` to Track protobuf (ProtoNumber 14) and TrackSummary (ProtoNumber 12). Map rendering split: pinned tracks always render, history tracks capped by `trackingRenderNb`. Z-order: active > pinned > history. Pinned transparency defaults 0%→20% (amber→orange). Settings UI: "Number of history tracks" / "History transparency" / "Pinned transparency" RangeSliders. Fan button `mv.invalidate()` fix for toggle-off.
-
-**track-list-render-indicator (2026-06-24):** Extracted `computeTrackPolylineAppearance()` pure utility — shared ARGB+stroke computation between map rendering and card indicator. Refactored both history and pinned polyline loops in MapScreen to use it. Added 4dp left-edge accent bar to each TrackCardContent card previewing the track's exact polyline color+alpha. Threaded 10 render settings (`tracksVisible`, `trackingRenderNb`, transparency/color pairs for past+pinned) through TrackHistoryOverlay. Non-visible tracks (beyond renderNb or `tracksVisible=false`) show muted grey bar.
-
-**idle-time-tracking (2026-06-28):** Added `idleDurationSec` to Track/TrackSummary (proto #15/#14). Transition-based accumulator in TrackRecorder.addPoint() — timestamps idle-entry/exit and accumulates delta. Flushes open idle period on finalizeTrack(). Fixed `navigatingDurationSec = totalElapsedSec - idleDurationSec`. Mapped through TrackRepository rebuildIndex and orphan finalization. Display in 3 locations: track history summary cards, live track card (Nav corrected, Idle now real), menu drawer recording status. Real-time UiState refresh during idle via per-sample update. Build: ✅
-
-**populate-track-info (2026-07-05):** Auto-populated track title and description from silent `whereAmI()` calls at idle-stop positions. Title uses 3-tier priority: 🤿 diving pinned marker > MANUAL BoatMarker > longest IDLE duration. Description is a living bullet log recomputed from full BoatMarker history on every trigger (idle start/end, manual marker, 3-min poll, marker add/edit via `Flow<Unit>`). IDLE BoatMarkers query `whereAmI()` for zone names; MANUAL BoatMarkers use pre-captured `MarkerSnapshot` names. Track finalize title: `[loc1 -> loc2]` from top 2 named stops per priority tier. Fixed `BoatMarker.startTimeMs` bug (was timer-fire time, now actual idle start). Error surface via existing `ErrorOverlay` with 8s auto-dismiss. Added `infoError: String?` to `TrackRecorderUiState`, `clearInfoError()`, `hasDivingPinnedMarker()`, `divingLocationName()`, `topSnapshotNames()`. Build: ✅
-
-**resume-track (2026-07-12):** Resume a finalized track as a live recording. `TrackRecorder.resume()` extended with `fromCheckpoint` flag (default true for backward compat) — computes `resumeGapDurationSec` from inter-session wall-clock gap, clears `endTimeMs` on finalized tracks. `finalizeTrack()` subtracts gap from navigating duration (D10 prevents 50h inflation on 2-day gap), pattern-guards title recompute to preserve user-edited names (D6), forces `visibleOnMap=true` (D7). New `TrackViewModel.resumeTrack(trackId)` — 9-step setup mirroring `resumeOrphanedCheckpoint()`, only diff: `fromCheckpoint=false`. `TrackHistoryOverlay`: ▶ `PlayArrow` icon between pin and share on finalized track cards, visible when `endTimeMs != null && !isRecording`. Post-fix: `stopRecording()` invalidates `trackDetailCache` to prevent stale map polylines; `onResumeTrack` dismisses overlay. Wired via `OverlayLayer.kt`. Build: ✅
-
-**merge-tracks (2026-07-12):** Merge 2+ finalized tracks into a single new track. New `TrackMerger` utility — concatenates points with `timeOffsetMs` rebasing to earliest start, GAP markers between segments, renumbered BoatMarkers, synthesized stats (sum per-track distance/idle/navigating, weighted avg speed, max fastest). `TrackViewModel.mergeTracks(ids, name, keepOriginals)` — load, merge, save, optional delete originals with cache invalidation. `TrackHistoryOverlay`: `MultiActionSpec("merge")` reuses existing `ListOverlayScaffold` multi-select; self-contained `AlertDialog` with auto-generated name (`"A + B"` / `"A ... Z"`) and "Keep original tracks" checkbox (default checked). New `ListAction.MergeTracks` + `TrackEvent.TracksMerged`. Build: ✅
-
-**checkmark-bottom-right (2026-07-14):** Moved multi-select check mark badge from `Alignment.TopEnd` to `Alignment.BottomEnd` in `SwipeableItemCard` (`ListOverlayScaffold.kt`). Reduces visual collision with card titles/subtitles clustered at top. Build: ✅
-
-**notif-lifecycle-hardening (2026-07-14):** Three notification lifecycle fixes. (1) Tap-to-open: `setContentIntent(PendingIntent.getActivity(MainActivity))` with `SINGLE_TOP | CLEAR_TOP`. (2) Post-kill resilience: persist `lastKnownOnWater` to SharedPreferences; lightweight orphan checkpoint scan (`File.listFiles { extension == "checkpoint" }`) shows "Recovery available" label. (3) Recording-aware exit: double-back while recording shows AlertDialog ("Stop & Exit" / "Keep Recording" → `moveTaskToBack`). Non-recording double-back unchanged. 2 files, 0 new permissions. Build: ✅
-
-**tracks-paint-order (2026-07-17):** Flipped track z-order from oldest-on-top to newest-on-top for both history and pinned tracks. History and pinned overlays accumulated into temp lists, reversed, then `mv.overlays.addAll()` — preserves `computeTrackPolylineAppearance` index semantics. Added highlight-to-top: when a track is selected from the list (`highlightedTrackId != null`), its polylines (Polyline.title exact match) and auto-marker 🕐 pins (Marker.title startsWith with trailing `_` delimiter) are filtered, removed, and re-added at end — above the active recording track. Final z-order: oldest history → newest history → oldest pinned → newest pinned → active → highlighted. 1 file, BUILD SUCCESSFUL.
-
-**idle-reconciliation (2026-08-15):** Unified compound idle predicate `(d/Δt < 0.5 m/s) AND (d < 500 m)`. `TrackRecorder.computeTimelineIdleSec()` re-derives idle from the raw point timeline at finalize — long screen-off/backgrounded stops (e.g. 2h34m dive stop) now count as idle instead of silently becoming navigating; finalize sweep-closes open IDLE BoatMarkers (never MANUAL) with a single `finalizeTimeMs`; resume seam always marked with a forced GAP. `TrackMerger` applies the same predicate as a same-area shortcut before its `d/v_ref` decomposition. `GpxExporter` writes UTC timestamps. 3 files, BUILD SUCCESSFUL.
-
-**track-direction-arrows (2026-09-02):** Direction chevrons on history + pinned tracks. `TrackDirectionOverlay` (custom osmdroid Overlay) draws vector chevrons oriented by `bearingDeg` (fallback: segment vector), track-coloured, sized ∝ stroke width, viewport-culled. Pixel-spaced (uniform) and speed-based (exponential `lo × (hi/lo)^t`) density; speed derived from time + haversine when `speedMps` null. Settings: `tracksDirectionVisible` toggle in Settings + drawer; own "Direction Track Settings" collapsible with segmented density selector + log-scale RangeSliders (gap 4–640 dp, speed 2–64 kn). BUILD SUCCESSFUL.
+- **Data model** — `Track`/`TrackPoint` protobuf, `TrackSummary` index, relative `timeOffsetSec`
+- **Recorder** — OFF⇄ON state machine, geofence auto-detect, speed gate, orphan recovery
+- **Persistence** — `TrackRepository` protobuf CRUD, 30s checkpoints, GPX 1.1 export
+- **Map rendering** — active + history polylines, transparency/color gradient, overlay diff
+- **Layer toggle** — `TrackLayerIcon` in FanLayout
+- **TrackViewModel** — `StateFlow` bridge, LRU cache, sorted list
+- **UI** — `TrackStatusIcon`, `MenuDrawerOverlay`, `TrackHistoryOverlay`, `LiveTrackCard`
+- **Settings** — unified tracking section, HSV pickers, transparency semantics
+- **Stop detection** — `AdaptiveGpsPolicy` position-only → `xTrack/BoatTrace/260618_FEAT_PLN_BoatTrace_adaptive-isstill.md`
+- **Settings fix (2026-06-20)** — 6 tracking fields persisted, opacity naming fix
+- **mtrack-setting-opacity (2026-06-20)** — transparency naming + inverted semantics
+- **gps-line-acquisition (2026-06-20)** — removed `PASSIVE_PROVIDER` listener
+- **gps-background (2026-06-20)** — foreground service rewrite → `xTrack/BoatTrace/260620_FEAT_PLN_BoatTrace_gps-background.md`
+- **Demo track visibility (2026-06-21)** — off-by-one fix + `gpsMode` bypass
+- **spike-rejection-v2 (2026-06-22)** — four-gate algorithm → `xTrack/BoatTrace/260622_FEAT_PLN_BoatTrace_spike-rejection-v2.md`
+- **pinned-tracks (2026-06-22)** — pin icon + `pinned` proto field → `xTrack/BoatTrace/260622_FEAT_PLN_BoatTrace_pinned-tracks.md`
+- **track-list-render-indicator (2026-06-24)** — `computeTrackPolylineAppearance()` shared utility
+- **idle-time-tracking (2026-06-28)** — `idleDurationSec` accumulator
+- **populate-track-info (2026-07-05)** — auto title/description from `whereAmI()`
+- **resume-track (2026-07-12)** — resume finalized track as live recording
+- **merge-tracks (2026-07-12)** — `TrackMerger` utility
+- **checkmark-bottom-right (2026-07-14)** — badge position fix
+- **notif-lifecycle-hardening (2026-07-14)** — tap-to-open, post-kill, recording-aware exit
+- **tracks-paint-order (2026-07-17)** — newest-on-top + highlight-to-top → `xTrack/BoatTrace/260717_FEAT_PLN_BoatTrace_tracks-paint-order.md`
+- **idle-reconciliation (2026-08-15)** — unified compound idle predicate
+- **track-direction-arrows (2026-09-02)** — chevron overlay, density settings
 - `xTrack/BoatTrace/260618_FEAT_PLN_BoatTrace_adaptive-isstill-settings-redesign.md` — Adaptive isStill settings redesign
 - `xTrack/BoatTrace/260617_FEAT_PLN_BoatTrace_boat-trace-fresh-import-plan.md` — Boat trace fresh import plan
 - `xTrack/BoatTrace/260618_FEAT_PLN_BoatTrace_boat-trace-ui-refinement-plan.md` — Boat trace UI refinement plan

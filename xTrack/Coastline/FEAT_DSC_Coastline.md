@@ -23,14 +23,7 @@ Zone300Builder).
 
 ## Implemented
 
-### extend-to-menton (2026-06-23)
-- **Eastern bound:** 7.31°E (Fréjus) → 7.55°E (Menton+buffer) in `gradle.properties`
-- **Single source of truth:** `maro.region.id=nice-menton` → `BuildConfig.REGION_ID` consumed by all data repositories
-- **Data storage:** downloads moved to `D:\.src\.data\` (Litto3D tiles, EMODnet cache) for cross-project sharing; `apk-deploy.bat` syncs to `data/app-assets/`
-- **OOM fix:** `DepthSerializer.deserialize()` accepts `InputStream`, avoids double-memory allocation
-- **Batch file integrity:** LF→CRLF fix across 17 `.bat` files; `%` escaping correct in `bake-litto3d.bat`, `apk-bake.bat` if/else dispatch
-- **Test coverage:** ~8 test files updated to "nice-menton" region ID; `AdaptiveGpsPolicyTest` fixed (stale `speed` param)
-- **UI:** "Côte" / "Bande" button labels (was "Régénérer la côte" / "Bande 300 m")
+- **extend-to-menton (2026-06-23)** — eastern bound 7.31°→7.55°E, region id `nice-menton` via `BuildConfig.REGION_ID`, downloads → `D:\.src\.data\`, OOM fix, 17 bat LF→CRLF, ~8 tests updated, "Côte"/"Bande" labels
 
 ## Sections
 

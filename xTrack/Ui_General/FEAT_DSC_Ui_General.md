@@ -2,12 +2,7 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-<<<<<<< HEAD
-modified: 2026-09-03 20:53
-=======
 modified: 2026-09-04 20:10
-active_subfeature: screen-lock
->>>>>>> 4e1a82541cb9e9cd8ea990c86ec50dfbd3fcc188
 ---
 
 # Feature: Ui_General
@@ -41,10 +36,7 @@ side panel pins the footer too. BUILD SUCCESSFUL.
 #### Key Files
 - `DrawerScaffold.kt`, `MeasureHeight.kt`, `OverlayLayer.kt`, `MarkerDrawer.kt`
 
-<<<<<<< HEAD
-### screen-lock
-=======
-### drawer-vertical-rhythm  [x]
+### drawer-vertical-rhythm
 
 Uniform drawer vertical rhythm: 12dp card padding (start/top/end) across track + marker
 drawers; header vertical padding 12dp; resize formulas kept in lockstep (header +
@@ -54,8 +46,7 @@ contentPadding.top + card + footer + 4dp safety); footer 10dp spacers + 10dp Pre
 #### Key Files
 - `DrawerScaffold.kt`, `OverlayLayer.kt`, `MarkerDrawer.kt`
 
-### screen-lock  [x]
->>>>>>> 4e1a82541cb9e9cd8ea990c86ec50dfbd3fcc188
+### screen-lock
 
 Touch-input lock (splash guard): a 📵 toggle in the top-left status row (right of the
 Earth/Water icon) locks the screen so the map ignores all touch except the unlock toggle
@@ -203,20 +194,15 @@ Display concerns (colors, transparency, render count, sort) unchanged.
 
 ## Implemented
 
-#### Rules
-- `ListFilter` axes: tracks=date+pinned, markers=pinned+geometry+origin. Geometry=ZONES bypasses origin.
-- Fan toggle is master ON/OFF. Filters only apply when layer is ON.
-- Display settings (`trackingRenderNb`, colors, transparency) apply AFTER filter, unchanged.
-- Sort has no map impact.
-- Menu drawer row: entire row clickable → opens list. FilterAlt/Refresh intercept with inner `clickable`.
-
-#### Key Files
-- `MapScreen.kt`, `MarkersViewModel.kt`, `MarkerLayerState`, `FanIconComponents.kt`
-- `ListOverlayScaffold.kt`, `MenuDrawerOverlay.kt`, `OverlayLayer.kt`
-- `SettingsManager.kt` (no change), `ListFilter.kt` (no change)
-
-#### Docs
-- `xTrack/Ui_General/260702_FEAT_PLN_Ui_General_filter-everywhere.md`
+- **filter-everywhere** — ListFilter axes (tracks=date+pinned, markers=pinned+geometry+origin), fan master ON/OFF, display settings apply after filter → `xTrack/Ui_General/260702_FEAT_PLN_Ui_General_filter-everywhere.md`
+- **tweak drawer** — `DrawerHeader` + `DrawerScaffold` (fixed header + scrollable/static body)
+- **list sort** — `ListOverlayScaffold` generic scaffold (sort+filter, direction, swipe-to-delete)
+- **list extra sort** — `CustomSortField` + 4-part format
+- **fan tweak** — scrim removed, `expandedFanId`/`onDismissFan`
+- **toast & progress dialog** — Box padding 56→6dp, LoadingOverlay full width
+- **overlay styling** — toast/Loading/Error surfaces unified
+- **click-N-move** — `ListAction.NavigateToItem(id)`
+- **translation** — 84 EN strings added
 
 ---
 
@@ -320,8 +306,6 @@ Wrap drawer menu items (Position Source toggle, Manage Tracks link) in card back
 
 Normalize all drawer headers: extract `DrawerScaffold` + `DrawerHeader` as shared components, fix the `← [title]` header to stay fixed when content scrolls. Applied to MarkerDrawer (ViewingContent + MatchResultContent) and MenuDrawerOverlay.
 
-#### Implemented
-- [`DrawerScaffold.kt`](app/src/main/java/ykws/android/maro/ui/components/DrawerScaffold.kt) — `DrawerHeader` (promoted from private in MarkerDrawer) + `DrawerScaffold` with fixed-header + scrollable/static body, `contentPadding`, `statusBarsInset`, `headerActions` RowScope slot
 - [`MarkerDrawer.kt`](app/src/main/java/ykws/android/maro/ui/map/MarkerDrawer.kt) — removed outer Box wrapper + private `DrawerHeader`; `ViewingContent` and `MatchResultContent` use `DrawerScaffold(scrollable=true, headerHorizontalPadding=12.dp, shape=panelShape)`
 - [`MenuDrawerOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt) — outer Box replaced with `DrawerScaffold(scrollable=false, statusBarsInset=true, contentPadding=24.dp, headerActions={Settings gear})`
 - [`ui-drawer-guidelines.md`](docs/ui-drawer-guidelines.md) — added §12 (DrawerScaffold API + consumer table + migration guide), updated §4 (canonical skeleton now points to DrawerScaffold), updated §6 (header tokens reference DrawerHeader location), added I22 decision log entry
@@ -489,8 +473,6 @@ Scaffold also exposes `onDismiss: () -> Unit` for overlay close. All inter-compo
 | 5 | **OverlayLayer wiring** — reducing to single `onAction` callback changes parameter lists in MapScreen → OverlayLayer → overlay chain. | Mechanical update across 3 files; no compile-time safety net. Verify delete + export + tap/edit after migration. |
 | 6 | **Live items not swipeable** — scaffold must skip `SwipeableItemCard` wrapper for items with `isLive = true`. | Explicit `if (!item.isLive) SwipeableItemCard(...) else liveCardContent(item)`. |
 
-#### Implemented
-- [`ListOverlayScaffold.kt`](app/src/main/java/ykws/android/maro/ui/components/ListOverlayScaffold.kt) — generic scaffold: sort+filter popups, direction toggle, reset, swipe-to-delete, snackbar
 - [`ListAction.kt`](app/src/main/java/ykws/android/maro/data/model/ListAction.kt) — sealed class: 8 variants
 - [`ListSortOrder.kt`](app/src/main/java/ykws/android/maro/data/model/ListSortOrder.kt) — `ListSortField` (TITLE/CREATED), `ListSortState` (field + descending + customFieldKey), `applySort<T>()`
 - Sort popup: Popup+Surface card layout matching settings hierarchy
@@ -507,8 +489,6 @@ Extend `ListSortField` to support per-type sort fields via `CustomSortField` dat
 #### Plan
 - [`260702_FEAT_PLN_Ui_General_list-extra-sort.md`](xTrack/Ui_General/260702_FEAT_PLN_Ui_General_list-extra-sort.md) — full design (CustomSortField approach, ListSortState extension, SortControl dropdown UX, ViewModel comparators, consumer wiring)
 
-#### Implemented
-- [`ListSortOrder.kt`](app/src/main/java/ykws/android/maro/data/model/ListSortOrder.kt) — `CustomSortField` data class, `ListSortState` extended with `customFieldKey: String?`, `parse()` handles 4-part format, `format()` emits 4-part when custom active
 - [`ListOverlayScaffold.kt`](app/src/main/java/ykws/android/maro/ui/components/ListOverlayScaffold.kt) — `SortControl` renders custom fields section in dropdown with separator, `ListOverlayScaffold` accepts `customSortFields` param
 - [`TrackViewModel.kt`](app/src/main/java/ykws/android/maro/data/track/TrackViewModel.kt) — `sortSummaries()` dispatches on `customFieldKey`: `distanceNm`, `totalTimeSec` (computed), `movingTimeSec` (computed)
 - [`MarkersViewModel.kt`](app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt) — `sortMarkers()` dispatches on `customFieldKey`: `origin`
@@ -571,8 +551,6 @@ Track list (TrackHistoryOverlay) color review — ensure track cards, stats, lab
 - [x] Thread `expandedFanId` and `onDismissFan` from `MapContent` call site through to `CoastlineMapView`
 - [x] Build & verify: BUILD SUCCESSFUL
 
-#### Implemented
-- [`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1129) — scrim removed (was lines 1132-1140), `CoastlineMapView` gains `expandedFanId`/`onDismissFan` params, `update` block sets `setOnTouchListener` gated on `ACTION_DOWN`, call site threads both params. 1 file, 4 touch points. Build ✅.
 
 #### Rules
 - `setOnTouchListener` returning `false` is mandatory — never consume, always let MapView handle
@@ -593,8 +571,6 @@ Track list (TrackHistoryOverlay) color review — ensure track cards, stats, lab
 - [x] Change `LoadingOverlay` modifier: `.fillMaxWidth(0.66f)` → `.fillMaxWidth()`
 - [x] Build & verify: BUILD SUCCESSFUL
 
-#### Implemented
-- [`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1227) — 3 changes: loading/error Box padding 56→6dp, exit toast Box padding 56→6dp, LoadingOverlay fillMaxWidth(0.66f)→fillMaxWidth(). 1 file, 3 lines. Build ✅.
 
 #### Rules
 - `start = 6.dp` matches the regulated zone icon row's padding — consistent with the 2-column Row layout
@@ -622,8 +598,6 @@ Track list (TrackHistoryOverlay) color review — ensure track cards, stats, lab
 - [x] ErrorOverlay: bg → `buttonActionBgColor`, add red border, title red, body white, padding match
 - [x] Build & verify: BUILD SUCCESSFUL
 
-#### Implemented
-- [`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1254) — 3 composables unified: toast Surface (bg + border + padding), LoadingOverlay (Surface wrapper + white text), ErrorOverlay (Surface + red border + red title). 1 file. Build ✅.
 
 #### Rules
 - Background `#CC16213E` = `buttonActionBgColor` — navy at 80% opacity, consistent across all three
@@ -637,8 +611,6 @@ Track list (TrackHistoryOverlay) color review — ensure track cards, stats, lab
 
 Click on a marker in the markers list closes the list, moves the map to the marker (point for zones & points, central segment point for corridors), runs whereAmI at boat position, then opens the Viewing drawer with the clicked marker selected (prev/next among whereAmI matches).
 
-#### Implemented
-- [`ListAction.kt`](app/src/main/java/ykws/android/maro/data/model/ListAction.kt:17) — `NavigateToItem(id)` added between `SelectItem` and `EditItem`
 - [`UserMarker.kt`](app/src/main/java/ykws/android/maro/data/model/markers/UserMarker.kt:51) — `centerPoint` computed property: Pin→position, Circle→center, Corridor→midpoint(p1,p2)
 - [`MarkerManagementOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/MarkerManagementOverlay.kt:106) — card tap emits `NavigateToItem` instead of `SelectItem`
 - [`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1344) — `NavigateTarget` + `LaunchedEffect`: dismiss list → `animateTo(600ms)` → `delay(650ms)` → `withContext(Dispatchers.Default) { whereAmISync }` → `openEditDrawer(matchedIds + clickedId, selectedId)`
@@ -676,8 +648,6 @@ Do a pass through the codebase: identify all hardcoded user-facing strings,
 extract them to `strings.xml`, and translate into corresponding locales (en + fr).
 Both locales must be complete — English as baseline, French as translation.
 
-#### Implemented
-- 84 EN string resources added to `values/strings.xml` (menu_, track_, marker_, filter_, action_, cd_, settings_, snackbar_, color_picker_ groups)
 - 84 FR translations added to `values-fr/strings.xml`
 - 14 source files updated: `MenuDrawerOverlay`, `MarkerDrawer`, `IconPickerDialog`, `MarkerManagementOverlay`, `ListOverlayScaffold`, `MapScreen` (incl. Settings Navigation/System tabs), `WizardTopBar`, `DrawerScaffold`, `TypeSelectStep`, `TrackHistoryOverlay`, `DashboardPanel`
 - BUILD SUCCESSFUL (×2)
