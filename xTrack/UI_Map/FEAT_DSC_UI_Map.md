@@ -355,7 +355,7 @@ content — no `AnimatedVisibility`, scrim, or shadow of their own. Wizard steps
 
 - **map z-order** — deterministic overlay order (tile→base→tracks→markers) via `OverlayZOrder.reorder(mv)`
 
-### marker filter + dashboard close  [x]
+### marker filter + dashboard close
 
 Marker filter now drives the map overlay too (map renders from the filtered marker list), the marker panel auto-closes when its marker is filtered out (Viewing only), opening the side menu or a layer fan closes the open marker/track dashboard, and list-context stacking is removed — closing an item returns to the map, with Prev/Next remaining the navigation path.
 

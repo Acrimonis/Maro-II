@@ -10,7 +10,7 @@
 |---|---|
 | documentation, docs, readme, faq, setup, git_workflow, maro_architecture, plans | xTrack/Documentation/FEAT_DSC_Documentation.md |
 | workflow, clinerules, xtrack, commands, memory, #doc, doccommands | xTrack/WorkflowImprovement/FEAT_DSC_WorkflowImprovement.md |
-| zone300, zone, 300 | xTrack/Zone300/FEAT_DSC_Zone300.md |
+| zone300, 300, bande 300m, water-only | xTrack/Coastline/FEAT_DSC_Coastline.md |
 | depth, bathymetry, depthmapping, baro, seafloor, soundings, litto3d, shom, emodnet | xTrack/DepthMapping/FEAT_DSC_DepthMapping.md |
 | coastline, trait de côte, fourmigue, hazard, obstruction, balisage, danger_isole, aton, seamark, lighthouse, reef | xTrack/Coastline/FEAT_DSC_Coastline.md |
 | dashboard, ui, layout, hud, display, screen | xTrack/Ui_Dashboard/FEAT_DSC_Ui_Dashboard.md |
@@ -38,8 +38,7 @@
 |---------|-----------|---------|----------|--------|
 | **ColorManagement** | **Centralised colour palette — all tokens in colors.properties with alias interpolation, documented in color-scheme.md** | **2026-06-16 14:05** | **2026-06-22 14:04** | **active** |
 | **Documentation** | **README, FAQs, setup guides, architecture docs, and plans cleanup** | **2026-06-11 06:42** | **2026-07-17 13:30** | **active** |
-| WorkflowImprovement | xTrack #command system, git shortcuts, mode handoff protocol, hard rules enforcement, AGENTS.md trunk-to-leaf optimization, #merge hybrid strategy, spec consolidation, and process simplification (WRITE-ONCE guideline, section model, Focus History). Absorbed WorkflowAmbiguityFix 2026-06-28. | 2026-06-03 00:00 | 2026-09-04 20:31 | active |
-| Zone300 | 300m zone generation from coastline with water-only constraint | 2026-05-20 00:00 | 2026-06-03 00:00 | active |
+| WorkflowImprovement | xTrack #command system, git shortcuts, mode handoff protocol, hard rules enforcement, AGENTS.md trunk-to-leaf optimization, #merge hybrid strategy, spec consolidation, and process simplification (WRITE-ONCE guideline, section model, Focus History, Implemented pointer-index + per-feature bake sweep, live-section trim). Absorbed WorkflowAmbiguityFix 2026-06-28. | 2026-06-03 00:00 | 2026-09-04 22:10 | active |
 | DepthMapping | Bathymetry / depth mapping from Litto3D, SHOM, EMODnet sources | 2026-05-10 00:00 | 2026-06-10 12:13 | active |
 | Coastline | Coastline extraction, spatial indexing, isOnWater, hazard rings, unified data store; eastern bound extended to Menton (7.55°E), single region ID via BuildConfig | 2026-05-10 00:00 | 2026-06-23 07:08 | active |
 | Ui_Dashboard | Main dashboard UI layout and HUD information display | 2026-05-15 00:00 | 2026-07-11 10:59 | active |

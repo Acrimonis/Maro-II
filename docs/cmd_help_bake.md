@@ -24,8 +24,9 @@ Snapshot + consolidation into per-feature hydration memory.
   C5 Targeting — #todo/#rule [Section]:...; #focus [Feature] [Section].
   C6 No state — no active_subfeature, #sub, or #focus sub/out.
   C7 Optional slots — keep only populated #### Todos/Rules/Key Files/Docs.
-  C8 Fold-done — done sections fold into ## Implemented as a one-liner + plan pointer (bare one-liner if planless); append ## Outcome to the plan.
+  C8 Fold-done — done sections fold into ## Implemented as a one-liner + plan pointer; drop the finished #### Todos (the one-liner summarizes); promote still-valid #### Rules + #### Key Files + #### Docs to feature level (drop stale rules); append ## Outcome to the plan.
   C9 Trim-empty — empty sections fold too.
   C10 Split — >8 items or two themes.
   C11 Merge — duplicate headings.
   C12 Keep-if-signal — survives only with open todo / retained rule / doc-key-file mapping.
+  C13 Live trim — open sections keep a detailed 2–4 sentence summary + open [ ] todos + valid Rules/Key Files/Docs; drop done [x] todos.
