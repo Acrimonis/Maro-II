@@ -52,7 +52,7 @@ These files are loaded into context at the start of every session to maximize th
 ## `xTrack/FEAT_DSC_[Name].md`
 
 A YAML front-matter header (machine-readable: status, dates) followed by
-the prose body. `one_liner` and subfeature completion live in the
+the prose body. The `one_liner` lives in the
 `## Feature Summaries` table in `GLOBAL_CONTEXT.md`.
 
 ```markdown
@@ -70,7 +70,7 @@ modified: [YYYY-MM-DD HH:mm]   # equals created on #track; bumped by #bake when 
 
 ## Sections
 
-### [SectionName]  [ ]
+### [SectionName]
 
 #### Todos
 - [ ] [todo]
@@ -98,10 +98,14 @@ modified: [YYYY-MM-DD HH:mm]   # equals created on #track; bumped by #bake when 
 
 ## Docs
 - `FEAT_DOC_[Feature]_[name].md` — [brief description]
+
+## Implemented
+- [one-liner of what shipped] → [FEAT_PLN_* / FEAT_DOC_* pointer]
+- [planless one-liner, no pointer]
 ```
 
-Section checkbox: `[ ]` open, `[x]` done. `#bake` updates the
-`## Feature Summaries` table in `GLOBAL_CONTEXT.md` from these checkboxes.
+`#bake` updates the `## Feature Summaries` table in `GLOBAL_CONTEXT.md`
+from each feature's sections and `## Implemented`.
 `## Docs` holds attached documentation (managed by `#doc attach`/`detach`);
 `## Key Files` holds source file paths.
 
@@ -155,4 +159,7 @@ Scope tag is `feature`.
 # [Topic]
 
 [Content]
+
+## Outcome
+[Appended once at completion: what actually shipped + deviations from plan.]
 ```

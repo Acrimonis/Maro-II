@@ -88,7 +88,7 @@
 
 # 7a. xTrack — Stack, Bootstrap & Lifecycle
 - **Memory Stack:** Context footprint: `xTrack/` (features) + `GLOBAL_CONTEXT.md` (routing), `xTrack/[Feature]/FEAT_DSC_[Feature].md` (epics), `xTrack/[Feature]/FEAT_HYD_[Feature].md` (session state). Auto-create on first `#track`/`#focus`.
-- **Sections:** Feature files group work under `### [Section]` headings (no subfeature state). Keep a section only while it holds an open todo, a retained rule, or a doc/key-file mapping; `#bake` folds the rest into `## Implemented`. Full criteria in `docs/cmd_help_bake.md`.
+- **Sections:** Feature files group work under `### [Section]` headings (no subfeature state). Keep a section only while it holds an open todo, a retained rule, or a doc/key-file mapping; `#bake` folds the rest into `## Implemented` (one-liner + plan pointer; planless = bare one-liner). Full criteria in `docs/cmd_help_bake.md`.
 - **Focus History:** `GLOBAL_CONTEXT.md` keeps an append-only newest-first stack (cap 10) of `[timestamp] [Feature] — one-liner → FEAT_HYD_[Feature].md`. Top = current focus. `#focus` pushes; `#bake` prunes.
 - **🔴 PLAN FILE PLACEMENT: All `FEAT_PLN_*.md`, `FEAT_DOC_*.md`, and feature-scoped design files MUST be created in `xTrack/[Feature]/` — NEVER in `plans/`.** The `plans/` directory is a legacy landing zone; new plan files go directly to the feature directory with proper `YYMMDD_FEAT_PLN_[Feature]_[topic].md` naming.
 - **Turn 1 Protocol:** Self-contained request → answer directly. Ambiguous/continuing work → read `GLOBAL_CONTEXT.md`, match intent against Routing Map, open matching feature file + hydration. No match → ask scoping question.

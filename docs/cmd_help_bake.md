@@ -24,7 +24,7 @@ Snapshot + consolidation into per-feature hydration memory.
   C5 Targeting — #todo/#rule [Section]:...; #focus [Feature] [Section].
   C6 No state — no active_subfeature, #sub, or #focus sub/out.
   C7 Optional slots — keep only populated #### Todos/Rules/Key Files/Docs.
-  C8 Fold-done — done sections fold into ## Implemented.
+  C8 Fold-done — done sections fold into ## Implemented as a one-liner + plan pointer (bare one-liner if planless); append ## Outcome to the plan.
   C9 Trim-empty — empty sections fold too.
   C10 Split — >8 items or two themes.
   C11 Merge — duplicate headings.

@@ -1,8 +1,17 @@
 # Global Context — Routing Table
 
+<<<<<<< HEAD
 ## Focus History
 - [2026-09-04 20:31 UTC] WorkflowImprovement — process simplification: WRITE-ONCE guideline, section model, Focus History → xTrack/WorkflowImprovement/FEAT_HYD_WorkflowImprovement.md
 - [2026-09-04 20:10 UTC] Ui_General — app-lifecycle UX: back-to-exit, keep-screen-on, edge-to-edge, list normalization, drawer footer pinning → xTrack/Ui_General/FEAT_HYD_Ui_General.md
+=======
+## Active Session Pointers
+- **Active Feature:** Ui_General
+- **Active Subfeature:** none
+- **Last Updated:** 2026-09-04 20:10
+- **Last Bake:** 2026-09-04 20:10 (Ui_General — drawer vertical rhythm: 12dp card padding, header vpad 12, footer 10dp rhythm)
+- **Branch:** feature/finaliz-dash-card
+>>>>>>> 4e1a82541cb9e9cd8ea990c86ec50dfbd3fcc188
 
 ## Routing Map
 | Keyword | Feature File |
@@ -47,7 +56,7 @@
 | Performance | Battery optimization, adaptive GPS tuning, compass gate, map refresh | 2026-05-20 00:00 | 2026-06-10 06:14 | active |
 | BakeNormalization | APK bake/build/deploy pipeline and prebake data processing | 2026-06-01 00:00 | 2026-06-08 17:10 | active |
 | DepthSafety | Danger depth alerts, shallow water grounding prevention, isobath precision | 2026-06-03 00:00 | 2026-06-09 12:01 | active |
-| Ui_General | App-lifecycle UX: back-to-exit guard, keep-screen-on wakelock, edge-to-edge rendering, WindowInsets, list normalization (ListOverlayScaffold, sort, swipe-to-delete, per-type custom sort fields, localized EN+FR), list-detail navigation (scroll preservation, prev/next, exit conditions), drawer delete undo (snackbar + undo + reopen), notification lifecycle (foreground notification follows recording state, 3-choice exit dialog, service-owned recorder), landscape menu drawer (scroll-when-overflow, overscroll suppressed when content fits), top-left icons (GPS→tracking→land/water, GPS click-to-toggle, 🐾, idle dot red), menu drawer rows (Tracks/Markers captions, chevron opens first filtered/sorted item, disabled when none), screen-lock splash guard (📵 toggle, double-tap zoom, status.lock.* tokens); compact track/marker list cards (desc/comment lineHeight 14sp, reduced v-padding, header→title separator removed); drawer footer pinning + dynamic animated height (card-probe) | 2026-06-08 16:43 | 2026-09-03 20:53 | active |
+| Ui_General | App-lifecycle UX: back-to-exit guard, keep-screen-on wakelock, edge-to-edge rendering, WindowInsets, list normalization (ListOverlayScaffold, sort, swipe-to-delete, per-type custom sort fields, localized EN+FR), list-detail navigation (scroll preservation, prev/next, exit conditions), drawer delete undo (snackbar + undo + reopen), notification lifecycle (foreground notification follows recording state, 3-choice exit dialog, service-owned recorder), landscape menu drawer (scroll-when-overflow, overscroll suppressed when content fits), top-left icons (GPS→tracking→land/water, GPS click-to-toggle, 🐾, idle dot red), menu drawer rows (Tracks/Markers captions, chevron opens first filtered/sorted item, disabled when none), screen-lock splash guard (📵 toggle, double-tap zoom, status.lock.* tokens); compact track/marker list cards (desc/comment lineHeight 14sp, reduced v-padding, header→title separator removed); drawer footer pinning + dynamic animated height (card-probe); drawer vertical rhythm (12dp card padding, header vertical padding 12dp, footer 10dp rhythm) | 2026-06-08 16:43 | 2026-09-04 20:10 | active |
 | Ui_Settings | Settings page UI — 4 tabs; Re-display on approach section (global GPS/demo + per-type switches + always-visible knobs); per-zone proximity reveal; drawer Position mode + Auto-show zones master switch | 2026-06-09 15:28 | 2026-09-02 17:42 | active |
 | **Navigation** | **Navigation aids — heading/speed arrow and direction line on map overlay** | **2026-06-10 08:40** | **2026-07-04 16:57** | **active** |
 | **RegulatedZones** | **Maritime regulatory zones — multi-source normalization (SHOM INSPIRE + IGN Natura 2000), sealed classification, 8-category icon mapping, keyword-driven display logic** | **2026-06-11 18:00** | **2026-06-13 20:23** | **active** |
