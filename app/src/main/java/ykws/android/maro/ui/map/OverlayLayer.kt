@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -342,8 +343,8 @@ fun OverlayLayer(
         } else {
             val selectedMarkerIds by markersViewModel.selectedMarkerIds.collectAsState()
             var markerCardHeight by remember { mutableStateOf(0.dp) }
-            val markerFooterHeight = if (selectedMarkerIds.size > 1) 54.dp else 0.dp
-            val markerTargetHeight = maxOf(portraitDashboardHeight, 48.dp + markerCardHeight + markerFooterHeight)
+            val markerFooterHeight = if (selectedMarkerIds.size > 1) 60.dp else 0.dp
+            val markerTargetHeight = maxOf(portraitDashboardHeight, 60.dp + 6.dp + markerCardHeight + markerFooterHeight + 4.dp)
             val markerAnimatedHeight by animateDpAsState(markerTargetHeight, tween(250))
 
             DrawerSlot(
@@ -403,6 +404,7 @@ fun OverlayLayer(
                         onClose = onTrackDrawerClose,
                         statusBarsInset = true,
                         bottomAnchoredContent = true,
+                        contentPadding = PaddingValues(start = 12.dp, top = 6.dp, end = 12.dp),
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp),
                         headerActions = {
                             Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -413,11 +415,11 @@ fun OverlayLayer(
                         },
                         footer = {
                             if (trackListIds.size > 1) {
-                                Spacer(Modifier.height(8.dp))
+                                Spacer(Modifier.height(10.dp))
                                 val accentBg = ComposeColor(AppConfig.uiSettingsAccent)
                                 val accentFg = ComposeColor(AppConfig.uiSettingsTextPrimary)
                                 val disabledAlpha = 0.35f
-                                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                     Box(Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
                                         .background(accentBg.copy(alpha = if (isAtTrackFirst) disabledAlpha else 1f))
                                         .then(if (!isAtTrackFirst) Modifier.clickable { onTrackPrev() } else Modifier)
@@ -431,7 +433,7 @@ fun OverlayLayer(
                                         Text("Next", color = accentFg.copy(alpha = if (isAtTrackLast) disabledAlpha else 1f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
-                                Spacer(Modifier.height(6.dp))
+                                Spacer(Modifier.height(10.dp))
                             }
                         }
                     ) {
@@ -471,8 +473,8 @@ fun OverlayLayer(
                 )
             }
             var cardHeight by remember { mutableStateOf(0.dp) }
-            val footerHeight = if (trackListIds.size > 1) 54.dp else 0.dp
-            val targetHeight = maxOf(portraitDashboardHeight, 48.dp + cardHeight + footerHeight)
+            val footerHeight = if (trackListIds.size > 1) 60.dp else 0.dp
+            val targetHeight = maxOf(portraitDashboardHeight, 60.dp + 6.dp + cardHeight + footerHeight + 4.dp)
             val animatedHeight by animateDpAsState(targetHeight, tween(250))
 
             DrawerSlot(
@@ -489,6 +491,7 @@ fun OverlayLayer(
                         title = track.name,
                         onClose = onTrackDrawerClose,
                         bottomAnchoredContent = true,
+                        contentPadding = PaddingValues(start = 12.dp, top = 6.dp, end = 12.dp),
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
                         headerActions = {
                             Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -499,11 +502,11 @@ fun OverlayLayer(
                         },
                         footer = {
                             if (trackListIds.size > 1) {
-                                Spacer(Modifier.height(8.dp))
+                                Spacer(Modifier.height(10.dp))
                                 val accentBg = ComposeColor(AppConfig.uiSettingsAccent)
                                 val accentFg = ComposeColor(AppConfig.uiSettingsTextPrimary)
                                 val disabledAlpha = 0.35f
-                                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                     Box(Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
                                         .background(accentBg.copy(alpha = if (isAtTrackFirst) disabledAlpha else 1f))
                                         .then(if (!isAtTrackFirst) Modifier.clickable { onTrackPrev() } else Modifier)
@@ -517,7 +520,7 @@ fun OverlayLayer(
                                         Text("Next", color = accentFg.copy(alpha = if (isAtTrackLast) disabledAlpha else 1f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
-                                Spacer(Modifier.height(6.dp))
+                                Spacer(Modifier.height(10.dp))
                             }
                         }
                     ) {
