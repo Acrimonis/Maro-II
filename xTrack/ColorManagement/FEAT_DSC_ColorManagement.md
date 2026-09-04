@@ -16,33 +16,14 @@ Every colour change must be reflected in `docs/color-scheme.md`.
 
 ### Colour Taxonomy & Structure
 
-Track the canonical colour taxonomy and ensure every new colour follows the naming convention.
+Canonical colour taxonomy + naming convention. Hardcoded `ComposeColor.White` audited (46/48 fixed), stale AppConfig defaults synced, orphaned zone.properties fields removed, alpha/opacity centralized.
 
 #### Todos
-- [x] Audit codebase for hardcoded `ComposeColor.White` — 48 refs found, 46 fixed, 2 kept as structural icon glyphs
-- [x] Identify stale AppConfig defaults — 12 synced to match colors.properties
-- [x] Identify orphaned zone.properties color fields — 4 removed, 3 isobar tokens added to colors.properties
-- [x] Centralize alpha/opacity values — boundary rule established, dead gradient fields removed, zone.properties merged into maro.properties and deleted
 - [ ] Maintain the taxonomy in `docs/color-scheme.md` as the single source of truth
 
 #### Key Files
 - `app/src/main/assets/colors.properties`
-- `app/src/main/java/ykws/android/maro/config/AppConfig.kt`
 - `docs/color-scheme.md`
-- `xTrack/ColorManagement/260617_FEAT_PLN_ColorManagement_color-taxonomy-hardcoded-whites-audit.md`
-- `xTrack/ColorManagement/260617_FEAT_PLN_ColorManagement_color-taxonomy-alpha-values.md`
-
-### Alias Interpolation
-
-The `${key}` resolver in `AppConfig.init()` allows properties to reference each other.
-
-#### Todos
-- [x] Implement `${key}` regex resolver in `AppConfig.init()`
-- [x] Wire green entries to `${ui.dashboard.status.success}`
-- [x] Wire overlay low-depth to `${ui.dashboard.status.error}`
-
-#### Key Files
-- `app/src/main/java/ykws/android/maro/config/AppConfig.kt`
 
 ### Color Scheme Documentation
 
@@ -56,6 +37,10 @@ The `${key}` resolver in `AppConfig.init()` allows properties to reference each 
 #### Key Files
 - `docs/color-scheme.md`
 - `app/src/main/assets/colors.properties`
+
+## Implemented
+
+- **Alias Interpolation** — `${key}` resolver in `AppConfig.init()`; green→`status.success`, low-depth→`status.error`
 
 ## Rules
 

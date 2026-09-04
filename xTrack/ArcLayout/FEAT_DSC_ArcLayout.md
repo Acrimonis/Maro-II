@@ -11,43 +11,11 @@ modified: 2026-06-18 19:36
 
 ## Sections
 
-### ArcLayout Core Implementation
-
-#### Todos
-- [x] Add `depthLayerVisible` to `AppSettings` + `SettingsManager` (load/update/keys)
-- [x] Add `toggleDepthLayerVisibility()` to `CoastlineViewModel`
-- [x] Create `ArcLayoutToggle.kt` — `ArcAnchorButton` + `ArcButtonOverlay` + animated arc buttons + Canvas icons
-- [x] Wire into `MapScreen.kt` — replace middle Column anchor, wire through MapContent, add `BackHandler` for arc dismiss
-- [x] Add visibility gates for `depthLayerVisible` and `regulatedZonesVisible` in `MapContent`
-- [x] Fix layout: anchor in Column, scrim+arc at top-level Box with absolute positioning via `onGloballyPositioned`
-- [x] Fix arc spacing: R=96dp (300% of 32dp), sweep=180°, chord=96dp → 32dp gaps
-- [x] Add smooth retraction (collapse) animation — animate arc buttons back to staging point below anchor simultaneously (~200ms) on dismiss
-#### Rules
-- All new settings follow the existing `AppSettings` pattern
-- Use `remember { Animatable() }` for smooth fly-in animation (re-read `.value` every frame)
-- Scrim at top-level Box, arc buttons use absolute root coordinates from anchor's `positionInRoot()`
-- Canvas-drawn icons for all 4 buttons, no material-icons-extended dependency
-- Regulated zones toggle hooks into existing full data model (`regulatedZonesVisible` already existed)
-
-#### Key Files
-- [`app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt`](../../app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt)
-- [`app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt`](../../app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt)
-- [`app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt)
-- [`app/src/main/java/ykws/android/maro/ui/map/ArcLayoutToggle.kt](../../app/src/main/java/ykws/android/maro/ui/map/ArcLayoutToggle.kt)
-
 ### fan-migration
 
+FanLayout framework (θ-parameterized, parent-at-center, equidistance) ported the arc toggle to a multi-fan control — per-child toggle state, active badge, 70ms stagger expand / 200ms collapse.
+
 #### Todos
-- [x] Design FanLayout framework: parameterised θ, parent-at-center, equidistance per relationship type
-- [x] Create FanConfig, FanLayout, MapControlButton, FanIconComponents
-- [x] Port old ArcAnchorButton + ArcButtonOverlay to FanLayout
-- [x] Add badge, animation, toggle support to FanLayout
-- [x] Move 4 Canvas icons from ArcLayoutToggle to FanIconComponents
-- [x] Set maxCount=5, direction=LEFT for layer fan (maxCount=5, currentCount=4)
-- [x] Add per-child toggle state via activeStates parameter
-- [x] Center maxCount template (not currentCount) in 180° semicircle
-- [x] Fix child centering: use effectiveTheta=180/currentCount for angles+R, full-arc distribution with ½θ at each end
-- [x] Refactor control stack: replace hardcoded Column children with dynamic ControlItem list; non-fan controls hide via AnimatedVisibility when any fan is expanded
 - [ ] Add second fan button in control stack
 - [ ] Replace hardcoded Spacer(136.dp) with computed value
 
@@ -62,7 +30,7 @@ modified: 2026-06-18 19:36
 - **Toggle mode:** children receive per-child activeStates; active=alpha 1.0, inactive=alpha 0.25
 - **Active badge:** 18 dp blue circle at TopEnd of parent, bold white text
 - **Animation:** 70ms stagger expand, 200ms simultaneous collapse
-- **No scrim** — close on parent tap or BackHandler ~~(superseded by scrim-dismiss — scrim now at MapContent level, FanLayout itself still doesn't manage a scrim)~~
+- **No scrim** — close on parent tap or BackHandler (scrim now at MapContent level)
 
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/FanConfig.kt`
@@ -78,29 +46,10 @@ modified: 2026-06-18 19:36
 - `plans/fanlayout-equidistance-rule.md` — equidistance geometry rule
 - `plans/fanlayout-child-centering-rule.md` — child button centering design rule
 
-### scrim-dismiss
+## Implemented
 
-#### Todos
-- [x] Add transparent full-screen scrim in `MapContent()` Box between MapView and overlay Row
-- [x] Scrim onClick → close fan via generic `onDismissFan()` callback
-- [x] Fix badge dimming: badge always shows full color regardless of how many children are toggled on
-
-#### Rules
-- Scrim is invisible (no background) — just catches taps, no visual dimming
-- Placed between MapView and overlay Row so fan children, settings, zoom still consume their own taps
-- Generic `onDismissFan()` works for any number of future fans
-
-#### Key Files
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — scrim in `MapContent()` + `onDismissFan` parameter
-- `app/src/main/java/ykws/android/maro/ui/map/FanLayout.kt` — KDoc updated, badge no longer dims
-
-### hide-fix
-
-#### Todos
-
-#### Rules
-
-#### Key Files
+- **ArcLayout Core Implementation** — `depthLayerVisible` setting + toggle, `ArcLayoutToggle` (anchor + arc + Canvas icons), wired into MapScreen
+- **scrim-dismiss** — transparent full-screen scrim dismisses the fan via `onDismissFan`; badge no longer dims
 
 ## Rules
 - Keep the plan at `plans/arclayout-feature-plan.md` as the single source of truth for design decisions

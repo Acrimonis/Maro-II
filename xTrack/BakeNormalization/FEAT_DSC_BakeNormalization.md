@@ -20,20 +20,10 @@ packages what was baked (`apk-build.bat`), and a deploy that pushes + relaunches
 
 ### depth source
 
-Validate / improve how the depth widget surfaces which dataset a reading came from (EMODnet deep vs
-Litto3D shallow) — also the on-device way to confirm the Litto3D east baked in.
-
-#### Findings (current state — validated 2026-06-08)
-- **Yes, the source IS shown.** The dashboard **"Profondeur"** card (`DashboardPanel.DepthCard`) puts it in the **subtitle** as `<source> · <confidence>%` — e.g. `EMODnet · 60%`, `Litto3D · 90%`. Value is `%.1f m`; card tinted by the depth-ramp colour.
-- Source = `DepthSample.source` (the source at the map centre; `DepthGrid.depthAt` returns the highest-weight valid neighbour's source). Confidence = `DepthSample.confidence` (0–100).
-- Labels (`DashboardPanel.depthSourceLabel`): `Litto3D`, `SHOM`, `EMODnet`, `Satellite` (SDB), `GEBCO`, `Interpolé`, `—` (NONE).
-- States: not water → "Not at sea / Hors zone"; no data → value "—".
-- **So:** shallow nearshore should read `Litto3D · …%`; deep water `EMODnet · …%` — flipping to `Litto3D` over the eastern nearshore is the live confirmation the east baked.
+Depth widget surfaces which dataset a reading came from (EMODnet deep vs Litto3D shallow). Confirmed: the dashboard "Profondeur" card subtitle shows `<source> · <confidence>%` (e.g. `Litto3D · 90%`); source = `DepthSample.source` at map centre, confidence = 0–100.
 
 #### Todos
 - [ ] (after the east bake) confirm on-device the eastern nearshore depth card reads `Litto3D`
-
-#### Rules
 
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt` — `DepthCard` + `depthSourceLabel`
