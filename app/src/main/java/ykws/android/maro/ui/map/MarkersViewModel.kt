@@ -243,8 +243,7 @@ class MarkersViewModel(
         viewModelScope.launch {
             flow.collect { settings ->
                 if (isLoaded) {
-                    val filtered = _allMarkers.value.filter { it.matchesFilter(settings.markerListFilter) }
-                    _markers.value = sortMarkers(filtered, settings.markerListSort)
+                    applyFilterSort(settings.markerListFilter, settings.markerListSort)
                 }
                 _markerLayerState.value = settings.markerLayerState
             }
@@ -402,8 +401,19 @@ class MarkersViewModel(
         val settings = settingsFlow?.value
         val effective = sortState ?: settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
         val effectiveFilter = filter ?: settings?.markerListFilter ?: ListFilter()
-        val filtered = _allMarkers.value.filter { it.matchesFilter(effectiveFilter) }
-        _markers.value = sortMarkers(filtered, effective)
+        applyFilterSort(effectiveFilter, effective)
+    }
+
+    /** Filter + sort into [_markers], auto-closing the viewing panel when the selected marker is filtered out. */
+    private fun applyFilterSort(filter: ListFilter, sort: ykws.android.maro.data.model.ListSortState) {
+        val filtered = _allMarkers.value.filter { it.matchesFilter(filter) }
+        _markers.value = sortMarkers(filtered, sort)
+        if (_drawerState.value is MarkerDrawerState.Viewing) {
+            val selected = _selectedMarkerId.value
+            if (selected != null && filtered.none { it.id == selected }) {
+                closeDrawer()
+            }
+        }
     }
 
     /** Closes the drawer. */

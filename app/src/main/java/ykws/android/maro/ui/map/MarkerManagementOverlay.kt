@@ -69,7 +69,6 @@ import ykws.android.maro.data.model.markerFilterAxes
 import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.ui.components.ListOverlayScaffold
-import ykws.android.maro.ui.components.SavedScrollState
 
 /**
  * Full-screen overlay displaying a LazyColumn of user marker cards with
@@ -99,8 +98,7 @@ fun MarkerManagementOverlay(
     onFilterChange: (ListFilter) -> Unit = {},
     onReset: () -> Unit = {},
     modifier: Modifier = Modifier,
-    lazyListState: LazyListState = rememberLazyListState(),
-    restoredScrollState: SavedScrollState? = null
+    lazyListState: LazyListState = rememberLazyListState()
 ) {
     val markerCustomSortFields = remember {
         listOf(
@@ -188,8 +186,7 @@ fun MarkerManagementOverlay(
         onDismiss = onDismiss,
         modifier = modifier,
         multiActions = markerMultiActions,
-        lazyListState = lazyListState,
-        restoredScrollState = restoredScrollState
+        lazyListState = lazyListState
     )
 
     pendingIconApplyIds.value?.let { ids ->

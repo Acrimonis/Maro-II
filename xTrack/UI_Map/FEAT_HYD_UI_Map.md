@@ -1,26 +1,27 @@
 # UI_Map — Hydration Snapshot
 
-**Baked:** 2026-09-04 18:08 UTC
+**Baked:** 2026-09-04 19:30 UTC
 
 ## Active State
-- **Subfeature:** map z-order
-- **Branch:** feature/new-tghter-ui
+- **Subfeature:** marker filter + dashboard close
+- **Branch:** feature/ui-map-filter
 
 ## What Changed This Session
-1. **Deterministic overlay z-order** — new `OverlayZOrder.reorder(mv)` partitions `MapView.overlays` into tile → base data layers → tracks → markers (top), preserving within-band order.
-2. **Root cause:** OSMdroid paints overlays in list order with no per-overlay z-index; every mutation appended to the end, so markers could render below tracks (last writer won).
-3. **Fix:** `reorder()` called after every overlay mutation — 5 track sites in MapScreen, 1 in MarkerOverlay, 6 base-layer sites in CoastlineMapView.
-4. **Build:** SUCCESS (`gradlew assembleDebug`).
+1. **Marker filter drives the map** — `MarkerOverlay` now renders from the filtered `markers` list, so the filter hides pins on the map too (was the unfiltered `allMarkers`).
+2. **Auto-close on filtered-out** — `applyFilterSort()` closes the viewing panel when the active filter excludes the selected marker (Viewing only).
+3. **Menu/fan close dashboards** — `closeSelectedItemDashboards()` closes the open marker/track dashboard when the side menu opens or a layer fan expands (open only, wizard preserved).
+4. **List-context stacking removed** — deleted `OpenedFromList` flags, `ListScrollState` saves, reopen-on-close blocks, `fromList` params, and `restoredScrollState` plumbing. Closing an item returns to the map; Prev/Next remains the navigation path.
 
 ## Design Decisions
-- Classification by title prefix (`track_*`, `marker_*`) plus `MapEventsOverlay` type — consistent with the existing cleanup-by-title pattern.
-- Tile overlay preserved at index 0; within-band relative order kept (under-strokes below gold, unconfirmed markers below confirmed).
+- `_allMarkers` kept as the unfiltered source of truth for `whereAmI` proximity + ghost-pin checks.
+- `preNavigationState` map-viewport restore for tracks kept (map context, not list context).
 
 ## Target Files
-- `app/src/main/java/ykws/android/maro/ui/map/OverlayZOrder.kt` — new helper
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — 5 reorder call sites
-- `app/src/main/java/ykws/android/maro/ui/map/MarkerOverlay.kt` — 1 call site
-- `app/src/main/java/ykws/android/maro/ui/map/CoastlineMapView.kt` — 6 call sites
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MarkerManagementOverlay.kt`
 
 ## Next Step
-- On-device verify: toggle layers, create/edit markers, record a track — markers always above tracks, tracks always above data layers.
+- On-device verify: filter hides map pins; opening menu/fan closes the detail panel; closing an item returns to the map.
