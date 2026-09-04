@@ -1,21 +1,18 @@
 <!-- scope: reference -->
-View:     #now                 current context: active feature + subs list + working path [alias #context #here #feat #feature]
+View:     #now                 current context: active feature + working path (top Focus History entry) [alias #context #here #feat #feature]
           #list                compact feature table with Modified column, sorted by Modified desc (from GLOBAL_CONTEXT.md summaries) [alias #features]
-          #status              feature details (active, subfeature-scoped when focused)
+          #status              feature details (active = top Focus History entry)
           #status [name]       feature details (named)
           #status diff [name]  changes since last #bake (active/named)
 Manage:   #track [name]        create feature (xTrack/[name]/FEAT_DSC_, YAML front-matter + summaries row)
-          #focus [name]        switch to feature
-          #focus sub [name]    drill into subfeature
-          #focus out           exit subfeature → parent
-          #sub [name]          add subfeature (active)
-          #sub                 list subfeatures (active←focused)
+          #focus [name]        switch to feature (push Focus History entry)
+          #focus [name] [sec]  hydrate only that section (transient, no state)
 Track:    #todo                list todos (scope-aware)
           #todo [desc]         add todo (scope-aware)
-          #todo [tgt]:[desc]   add todo (tgt: feature|parent|global)
+          #todo [tgt]:[desc]   add todo (tgt: feature|section|parent|global)
           #rule                list rules (scope-aware)
           #rule [desc]         add rule (scope-aware)
-          #rule [tgt]:[desc]   add rule (tgt: feature|parent|global)
+          #rule [tgt]:[desc]   add rule (tgt: feature|section|parent|global)
 Docs:     #doc                 feature docs (scope-aware)
           #doc list            list docs grouped by source (DOC / PLN / docs/)
           #doc create [name]   create doc (prompts: feature-scoped → xTrack/*/FEAT_DOC_ or cross-cutting → docs/)
@@ -24,7 +21,7 @@ Docs:     #doc                 feature docs (scope-aware)
           #doc detach [name]   unlink doc (bare = prompt)
           #doc sync [name]     generate/update xTrack/[name]/FEAT_DOC_[name]_profile.md from feature + summaries
           #doc audit           check docs for missing scope tags, orphans, invalid scopes
-Session:  #bake                snapshot session (updates summaries table + xTrack/[Feature]/FEAT_HYD_)
+Session:  #bake                snapshot + consolidation (checkmarks, section fold/trim/split/merge, summaries table, FEAT_HYD_, prune Focus History > 10)
           #help                this list
 Pipeline: #implement           full pipeline: Code → build → Ask review → Architect report
 Git:      🔴 See [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md) for full rules + enforcement.
@@ -38,5 +35,5 @@ Git:      🔴 See [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md) for full rules
            #copy [target]       alias for #cherry
            #rename [branch]     git branch -m
            #merge               pre-flight → trivial/non-trivial → auto-select rebase/merge → confirm (yes=direct, #implement=pipeline). 🚫 refuses on develop/main.
-Health:   #doctor              lint xTrack for drift
+Health:   #doctor              lint xTrack for drift (flags active_subfeature/#sub remnants)
           #doctor fix          auto-repair

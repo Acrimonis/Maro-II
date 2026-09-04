@@ -3,7 +3,6 @@ name: Ui_Dashboard
 status: active
 created: 2026-06-06 00:00
 modified: 2026-07-11 10:59
-active_subfeature: tile bottom line
 ---
 
 # Feature: Dashboard
@@ -11,9 +10,9 @@ active_subfeature: tile bottom line
 **Description:**
 Redesign the bottom panel into a proper dashboard for quick reading of indicators: distance from coast, distance to 300m zone with speed warning, and depth under the boat with data source.
 
-## Subfeatures
+## Sections
 
-### Display  [x]
+### Display
 
 #### Todos
 - [x] Extract `DashboardPanel` from `MapScreen.kt` into standalone `DashboardPanel.kt` file
@@ -36,7 +35,7 @@ Redesign the bottom panel into a proper dashboard for quick reading of indicator
 - `app/src/main/java/ykws/android/maro/ui/map/DepthViewModel.kt` — depthAtCenter StateFlow
 - `app/src/main/java/ykws/android/maro/data/model/DepthGrid.kt` — DepthSample model
 
-### ButtonsInDash  [ ]
+### ButtonsInDash
 
 #### Todos
 - [x] Remove action buttons row (Côte + Bande + EarthWaterIcon) from `DashboardPanel.kt`
@@ -54,7 +53,7 @@ Redesign the bottom panel into a proper dashboard for quick reading of indicator
 - `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt` — remove action row, simplify params
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — relocate action buttons to MapContent
 
-### color tile 300m  [x]
+### color tile 300m
 
 #### Todos
 - [x] Investigate: Zone300Card uses grey `zoneNormal` background when on water but outside zone — consider using default blue (`cardBg`) instead
@@ -63,7 +62,7 @@ Redesign the bottom panel into a proper dashboard for quick reading of indicator
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt` — Zone300Card composable, lines 389-400
 
-### tweak  [ ]
+### tweak
 
 #### Todos
 - [ ] Dashboard must not resize when "données validées (RMSE...)" info is displayed — make layout ready for it
@@ -80,7 +79,7 @@ Redesign the bottom panel into a proper dashboard for quick reading of indicator
             - **Phase 3 Cleanup**: Remove obsolete queries/imports/strings
 #### Key Files
 
-### tile titles  [x]
+### tile titles
 
 #### Todos
 - [x] Bump title fontSize 10.sp → **13.sp** (was 12.sp, increased one more size)
@@ -100,7 +99,7 @@ Redesign the bottom panel into a proper dashboard for quick reading of indicator
 #### Docs
 - `xTrack/Ui_Dashboard/260610_FEAT_PLN_Ui_Dashboard_tile-titles.md` — sizing & prominence analysis for tile titles
 
-### tile subdued font  [x]
+### tile subdued font
 
 #### Todos
 - [x] Set `dullAlpha = 0.33f` — all subdued states use consistent 33% alpha
@@ -116,7 +115,7 @@ Redesign the bottom panel into a proper dashboard for quick reading of indicator
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt`
 
-### readability  [ ]
+### readability
 
 #### Todos
 - [x] Finalize format specs (speed cap, depth tag, smart km, padding cuts, font weights) — plan locked
@@ -141,7 +140,7 @@ Redesign the bottom panel into a proper dashboard for quick reading of indicator
 - `app/src/main/res/values/strings.xml`
 - `app/src/main/res/values-fr/strings.xml`
 
-### zone tile display evolution  [x]
+### zone tile display evolution
 
 #### Todos
 - [x] Align thresholds: use shared `autoRevealDistanceM`/`autoRevealTimeS` defaults (100m/10s) for both map auto-show and dashboard tile near-exit checks
@@ -152,7 +151,7 @@ Redesign the bottom panel into a proper dashboard for quick reading of indicator
 #### Docs
 - `plans/zone-tile-exit-preview-threshold.md` — Exit preview threshold design
 
-### distance tile  [x]
+### distance tile
 
 #### Todos
 - [x] Distance tile + zone tile split — distance shows nearest relevant boundary, zone shows regulation only
@@ -175,7 +174,7 @@ Redesign the bottom panel into a proper dashboard for quick reading of indicator
 - `app/src/main/assets/zone.properties` — config documentation updated
 - `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — zonesAroundBoat, infoToZoneExitAlongHeading
 
-### size dash  [ ]
+### size dash
 
 Investigate and fix dashboard sizing in immersive edge-to-edge mode: ensure the dashboard panel height is correct in portrait when content extends behind the navigation bar, and that the map content properly fills the area behind the status bar without overlapping dashboard controls.
 
@@ -194,7 +193,7 @@ Investigate and fix dashboard sizing in immersive edge-to-edge mode: ensure the 
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — BoxWithConstraints layout, dashboard positioning
 - `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt` — Dashboard composable sizing
 
-### tile bottom line  [x]
+### tile bottom line
 
 Make the 3rd/bottom line (subtitle) of dashboard tiles more readable — larger font, better contrast.
 
@@ -206,8 +205,10 @@ Make the 3rd/bottom line (subtitle) of dashboard tiles more readable — larger 
 #### Docs
 - `xTrack/Ui_Dashboard/260711_FEAT_PLN_Ui_Dashboard_tile-bottom-line.md` — sizing & contrast discussion
 
-#### Implemented
-- [`DashboardPanel.kt`](app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt): title `fontSize` 13.sp → 15.sp, subtitle `fontSize` 9.sp → 13.sp, default `subtitleColor` textMuted → textMutedBright (#B0BEC5). Added `textMutedBright` to `DashboardColors`. Build green.
+## Implemented
+
+- **tile bottom line** — title 13→15sp, subtitle 9→13sp, textMutedBright → `xTrack/Ui_Dashboard/260711_FEAT_PLN_Ui_Dashboard_tile-bottom-line.md`
+
 ## Todos
 - [x] Fix AutoSizeValue px/dp unit mismatch — `onSizeChanged` returns pixels, not dp. Added `LocalDensity` conversion to restore correct density-independent auto-sizing.
 - [x] Fix AutoSizeValue vertical centering — moved `onSizeChanged` from Text (with fillMaxSize) to outer Box, removed fillMaxSize, so Box's contentAlignment centers the value text properly.

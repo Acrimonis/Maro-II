@@ -3,7 +3,6 @@ name: Documentation
 status: active
 created: 2026-06-11 06:42
 modified: 2026-07-17 13:30
-active_subfeature: none
 ---
 
 # Feature: Documentation
@@ -11,9 +10,9 @@ active_subfeature: none
 **Description:**
 Cross-cutting project documentation — README, FAQs, setup guides, architecture docs, git workflow, code navigation map, and maintenance of docs/ directory. Ensures all plans and reference docs are properly organized and attached to the correct features.
 
-## Subfeatures
+## Sections
 
-### maro-code-map  [x]
+### maro-code-map
 
 #### Todos
 - [x] Design: granularity compromise (package-level + anchor classes), passive drift detection, replace ## Key Files
@@ -34,7 +33,7 @@ Cross-cutting project documentation — README, FAQs, setup guides, architecture
 - `docs/maro-code.md` — the code map (core deliverable)
 - `xTrack/Documentation/260717_FEAT_PLN_Documentation_maro-code-map.md` — design discussion & decisions
 
-### cleanup  [x]
+### cleanup
 
 #### Todos
 - [x] List all `plans/*.md` files and classify by target feature
@@ -46,7 +45,7 @@ Cross-cutting project documentation — README, FAQs, setup guides, architecture
 
 #### Key Files
 
-### help  [x]
+### help
 
 #### Todos
 - [x] Split `docs/cmd_help.md` into per-command detail files: `docs/cmd_help_[cmd].md`
@@ -60,7 +59,7 @@ Cross-cutting project documentation — README, FAQs, setup guides, architecture
 - `docs/cmd_help_*.md` — per-command detail files
 - `AGENTS.md` — §7b.8 Command Reference spec
 
-### git rules  [x]
+### git rules
 
 #### Todos
 - [x] Rewrite `docs/GIT_WORKFLOW.md` into compact token-optimized source of truth (~30 lines)
@@ -80,7 +79,7 @@ Cross-cutting project documentation — README, FAQs, setup guides, architecture
 - `AGENTS.md` §7b.8 — hard rule reference
 - `xTrack/GLOBAL_CONTEXT.md` — Global Rules reference
 
-### verif-scattering  [x]
+### verif-scattering
 
 #### Todos
 - [x] Scan `AGENTS.md` for scattered/duplicated instructions across sections
@@ -99,7 +98,7 @@ Cross-cutting project documentation — README, FAQs, setup guides, architecture
 - `docs/cmd_help*.md` — command reference
 - `.clinerules`, `CLAUDE.md` — vendor adapters
 
-### readme  [x]
+### readme
 
 #### Todos
 - [x] Update tech stack with missing AGP 8.4.1 row
@@ -116,7 +115,7 @@ Cross-cutting project documentation — README, FAQs, setup guides, architecture
 - `README.md` — updated project readme
 - `xTrack/BakeNormalization/FEAT_DSC_BakeNormalization.md` — bake pipeline reference
 
-### planneding  [x]
+### planneding
 
 #### Todos
 - [x] Move each plan to `xTrack/[Feature]/FEAT_PLN_[Feature]_[topic].md`

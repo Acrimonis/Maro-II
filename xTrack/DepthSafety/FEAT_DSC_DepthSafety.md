@@ -3,7 +3,6 @@ name: DepthSafety
 status: active
 created: 2026-06-08 18:25
 modified: 2026-06-09 12:01
-active_subfeature: none
 ---
 
 # Feature: DepthSafety
@@ -13,9 +12,9 @@ paint on land; isobaths are drawn uniformly so coarse EMODnet contours look as p
 there is no standout "you can ground here" mark; and there is no shallow-water alarm. Delivered as four
 branches off `feature/litto3d-shallow` — B1, B2, B3 from the base, **B4 from B3** — one subfeature each.
 
-## Subfeatures
+## Sections
 
-### water-only  [x]
+### water-only
 B1 · `feature/depth-warning-1` — no depth colour when `!isOnWater`. **Bake-mask is the guard** (per-cell runtime guard infeasible — grid is ~7 M cells).
 #### Todos
 - [x] Bake-time land-mask: `DepthZoneMask.apply` also erases `!isWater` cells (committed 3c6ee3d, in base)
@@ -26,7 +25,7 @@ B1 · `feature/depth-warning-1` — no depth colour when `!isOnWater`. **Bake-ma
 #### Key Files
 - `ui/map/DepthBitmap.kt`, `data/depth/DepthRepository.kt`, `ui/map/MapScreen.kt`, `data/depth/DepthZoneMask.kt`
 
-### isobar-precision  [x]
+### isobar-precision
 B2 · `feature/depth-warning-2` — isobaths reflect data precision (suppress fine-over-coarse + style by confidence).
 #### Todos
 - [x] `Isobath.lines` → `List<IsobathLine(points, source, confidence)>`
@@ -43,7 +42,7 @@ B2 · `feature/depth-warning-2` — isobaths reflect data precision (suppress fi
 #### Key Files
 - `data/model/Isobath.kt`, `data/depth/DepthIsobaths.kt`, `ui/map/MapScreen.kt`, `data/depth/DepthConstants.kt`
 
-### danger-display  [x]
+### danger-display
 B3 · **SUPERSEDED by develop's low-depth warning overlay** (merged into this branch 2026-06-08) — a *more complete* version than our plan:
 - `LowDepthWarningBitmap.build(grid, maxDepthM, isWater)` — bright magenta GroundOverlay (~78% magenta) for water `0 ≤ depth < threshold`, stacked above the depth raster. **Water-only** via a cheap **depth-gated** `isWater` test — only the few shallow cells are checked, sidestepping the 7 M-cell cost that killed B1's runtime guard.
 - **Configurable + persisted threshold** `AppSettings.lowDepthWarningMaxM` (default `DepthConstants.LOW_DEPTH_WARNING_MAX_M = 1.5`; 0.5 m-step Settings slider) + a **visibility toggle** (map warning-triangle button + settings switch).
@@ -57,7 +56,7 @@ So B3 (magenta + configurable + rebuild-on-change + water-only) is **done** — 
 #### Key Files
 - `ui/map/LowDepthWarningBitmap.kt`, `ui/map/MapScreen.kt`, `data/settings/SettingsManager.kt`, `data/depth/DepthConstants.kt` (`LOW_DEPTH_WARNING_MAX_M`)
 
-### danger-alert  [ ]
+### danger-alert
 B4 · `feature/depth-warning-4` — the **ALARM** (pulse + banner; sound later). **Still needed** — develop shipped only the *display* overlay, not an at-the-boat alert. The display threshold (`lowDepthWarningMaxM`) already exists, so B4 adds only the alarm on top.
 #### Todos
 - [ ] `DepthSample.isBelow(minDepthM)`
@@ -69,7 +68,7 @@ B4 · `feature/depth-warning-4` — the **ALARM** (pulse + banner; sound later).
 #### Key Files
 - `data/model/DepthGrid.kt`, `ui/map/DashboardPanel.kt`, `ui/map/MapScreen.kt`, `ZoneConfig.kt`, `data/settings/SettingsManager.kt`
 
-### edonet false alert  [x]
+### edonet false alert
 Coarse EMODnet (115 m) sampling emergent rocks reads above chart datum → after the elevation→depth negation it surfaces as a negative / false-shallow "depth" (the −1.7 m off Cap d'Antibes) that reads as a false grounding hazard. Two-layer fix: bake-time drop of above-datum cells + a runtime, configurable cutoff on the readout. Branch `feature/pink-fix-edonet` (off develop).
 #### Todos
 - [x] Bake-time guard: `mergeDeep` / `fillGaps` / DepthGrid `mergeShallowShoalest` drop `v<0` (above-datum), mirroring the shallow-raster guard
@@ -89,9 +88,9 @@ Coarse EMODnet (115 m) sampling emergent rocks reads above chart datum → after
 ## Todos
 - [ ] **NEXT:** B4 · danger-alert (alarm: `isBelow` + pulsing card/banner + sound stub). On-device verify B2 colours + edonet-gate at Cap d'Antibes. Option-3 gdal_contour parked.
 
-## Subfeatures
+## Sections
 
-### caching  [x]
+### caching
 Runtime layer bitmap caching — avoid rebuilding the ~7 M-cell depth colour map and low-depth warning overlay on every cold launch. RawBuf disk cache (IntArray→FileChannel), measured at 78ms colour / 52ms warning vs 980ms / 5178ms compute.
 #### Todos
 - [x] Measure pertinence of a disk cache — RawBuf wins decisively. See `plans/caching.md`.

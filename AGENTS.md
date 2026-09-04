@@ -25,11 +25,13 @@
   IF the prompt doesn't reference a system, component, or pattern →
   do NOT fabricate assumptions about it. Stick to what's stated.
 
-- **🔴 MODE LOCK: Do not switch to Code to implement feature or fx without explicit go-ahead.**
+- **🔴 MODE LOCK: Do not switch to Code to implement a feature or fix without an explicit go-ahead.**
   Architect mode is for discussion, design, and workflow management (shell commands,
   git branch operations). Code mode is for source file modifications only.
   IF the user hasn't said "implement", "go ahead", "switch to Code", or similar →
-  stay in Architect mode. Unauthorized mode switches are workflow violations.
+  stay in Architect mode. Plan approval ≠ implementation authorization — approving a
+  design is not a green light to edit. If a directive is ambiguous or merely implies
+  approval, STOP and ask permission. Unauthorized mode switches are workflow violations.
 
 - **🔴 ABSOLUTE RULE: No agent may execute `git add`, `git commit`, `git push`,
   `git merge`, or `git rebase` without the user's explicit, unambiguous go-ahead.**
@@ -44,11 +46,9 @@
   Feature work lives on `feature/*` branches; merges to `develop`/`main`
   are done via GitHub pull request only.
 
-- **🔴 WRITE-ONCE: Write each source file exactly once per task.**
-  No edit-after-write cycles. No save-compile-rewrite loops.
-  IF a file needs changing → combine all edits into a single write.
-  Every sequential edit invalidates the prompt cache and costs tokens.
-  Exception: Explain/Discuss Gate (see below).
+- **🟡 WRITE-ONCE (guideline): Prefer one comprehensive write per source file; batch related edits.**
+  Avoid full-file rewrite loops and save-compile-rewrite churn — each rewrite invalidates the prompt cache.
+  Targeted apply_diff patches for build errors, review feedback, or discovered edge cases are normal.
 
 - **🔴 NO BINARY READS: Never open, read, or search `.bin`, `.tif`, `.xyz`,
   `.nc` files.** Treat spatial data files as opaque blobs.
@@ -67,7 +67,7 @@
 
 - **Explain/Discuss Gate:** Prompt ending with "explain"/"discuss" → discussion only,
   no code edits/tool modifications. Exceptions: (a) one `FEAT_PLN_` file may capture
-  the discussion; (b) `#focus`/`#sub`/`#sub out` permitted during discussion.
+  the discussion; (b) `#focus`/`#focus [name] [section]` permitted during discussion.
 
 # Developer Profile & Architectural Translation
 - User: Senior Java backend dev → Android/Kotlin. Map ViewModels/Repos ↔ Spring Beans/Services, StateFlow ↔ reactive streams. Highlight idiomatic Kotlin (coroutines, data classes, functional collections).
@@ -77,7 +77,7 @@
 
 # 2. Greenfield Extraction — (1) pure Kotlin domain, (2) ViewModel+StateFlow/Coroutines, (3) stateless Compose UI.
 
-# 3. Token Optimization — bulk writes, strict context isolation. See Core Directives WRITE-ONCE + CONCISE.
+# 3. Token Optimization — prefer bulk writes and strict context isolation; targeted follow-up patches allowed. See Core Directives WRITE-ONCE + CONCISE.
 
 # 4. Loop Control — max 3–5 autonomous loops per task. Two consecutive build failures → halt. New deps/libs → approval first.
 
@@ -88,26 +88,27 @@
 
 # 7a. xTrack — Stack, Bootstrap & Lifecycle
 - **Memory Stack:** Context footprint: `xTrack/` (features) + `GLOBAL_CONTEXT.md` (routing), `xTrack/[Feature]/FEAT_DSC_[Feature].md` (epics), `xTrack/[Feature]/FEAT_HYD_[Feature].md` (session state). Auto-create on first `#track`/`#focus`.
+- **Sections:** Feature files group work under `### [Section]` headings (no subfeature state). Keep a section only while it holds an open todo, a retained rule, or a doc/key-file mapping; `#bake` folds the rest into `## Implemented` (one-liner + plan pointer; planless = bare one-liner). Full criteria in `docs/cmd_help_bake.md`.
+- **Focus History:** `GLOBAL_CONTEXT.md` keeps an append-only newest-first stack (cap 10) of `[timestamp] [Feature] — one-liner → FEAT_HYD_[Feature].md`. Top = current focus. `#focus` pushes; `#bake` prunes.
 - **🔴 PLAN FILE PLACEMENT: All `FEAT_PLN_*.md`, `FEAT_DOC_*.md`, and feature-scoped design files MUST be created in `xTrack/[Feature]/` — NEVER in `plans/`.** The `plans/` directory is a legacy landing zone; new plan files go directly to the feature directory with proper `YYMMDD_FEAT_PLN_[Feature]_[topic].md` naming.
 - **Turn 1 Protocol:** Self-contained request → answer directly. Ambiguous/continuing work → read `GLOBAL_CONTEXT.md`, match intent against Routing Map, open matching feature file + hydration. No match → ask scoping question.
 
 # 7b. xTrack — Command Reference
 Intercept `#`-prefix. All name lookups use fuzzy-resolve cascade (exact → substring → edit-distance → reject — stop on first unique match).
 
-**Feature File FM:** YAML: `name`, `status`, `created`, `modified` (YYYY-MM-DD HH:mm UTC), `active_subfeature`.
+**Feature File FM:** YAML: `name`, `status`, `created`, `modified` (YYYY-MM-DD HH:mm UTC).
 
 | #cmd | Action |
 |------|--------|
 | `#list` | Dashboard of all features from GLOBAL_CONTEXT.md Feature Summaries table — includes Summary and Modified columns, sorted by Modified desc |
-| `#focus [name]` | Pivot active feature; bare=prompt pick. Sub: `#focus sub [name]` / `#focus out` |
+| `#focus [name]` | Pivot active feature (push Focus History entry); bare=prompt pick. Optional `#focus [name] [section]` hydrates only that section |
 | `#track [name]` | Create new feature file + GLOBAL_CONTEXT.md routing/summary rows |
-| `#sub [name]` | Decompose subfeature under active feature; bare=list with focus marker |
-| `#bake` | Snapshot: update checkmarks, feature summary, front-matter date, hydration file |
+| `#bake` | Snapshot + consolidation: checkmarks, section rules (fold-done, trim-empty, split, merge, rename-normalize), feature summary, front-matter date, hydration, prune Focus History > 10 |
 | `#todo` | Bare=list, `[desc]`=append, `[target]:[desc]`=cross-feature. Same 3-tier for `#rule` |
 | `#rule` | Same 3-tier as `#todo`. Global/parent/feature routing by target |
 | `#doc` | Sub-commands: create, list, read, attach, detach, audit, update. Docs attach to `## Docs` |
-| `#status` | Dashboard of active/named feature. `#status diff` for changes since last bake |
-| `#now` | Lightweight orientation: active feature, subfeature, CWD, Last Bake |
+| `#status` | Dashboard of active/named feature (reads top Focus History entry). `#status diff` for changes since last bake |
+| `#now` | Lightweight orientation: top Focus History entry (feature), CWD, Last Bake |
 | `#help [cmd]` | Scan `docs/cmd_help_*.md` filenames, fuzzy-resolve `[cmd]` against stem, read match. Bare=print reference table |
 | `#doctor` | Lint xTrack (a-j checks); `#doctor fix` auto-repairs safe classes |
 | `#merge` | Pre-flight analysis → trivial/non-trivial classification → auto-select rebase/merge → confirm (yes for direct, `#implement` for full validation pipeline). Push + PR link. **Never touches `develop`/`main`.** |

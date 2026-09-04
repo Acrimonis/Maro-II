@@ -3,7 +3,6 @@ name: RegulatedZones
 status: active
 created: 2026-06-11 18:00
 modified: 2026-06-13 20:23
-active_subfeature: design
 ---
 
 # Feature: RegulatedZones
@@ -15,9 +14,9 @@ Goal: gather, aggregate, and model these spatial regulatory zones into a structu
 
 **Key design constraint:** The user's boat is < 6 m. The data model and client must capture **vessel size restrictions** (min/max length) published in SHOM's WFS properties so zones that don't apply to small boats can be filtered at runtime.
 
-## Subfeatures
+## Sections
 
-### data-lookup  [x]
+### data-lookup
 
 **Focus:** Data source discovery, WFS/REST fetching, aggregation, deduplication, and serialization into a bundled `.bin` asset.
 
@@ -72,7 +71,7 @@ Goal: gather, aggregate, and model these spatial regulatory zones into a structu
 - `tools/bake-regulated-zones.bat` — NEW. Bake script
 - `data/app-assets/regulated-zones/` — NEW. Output directory (gitignored)
 
-### display-layer  [x]
+### display-layer
 
 **Focus:** Rendering regulated zones as a map overlay layer with per-type colour/legend.
 
@@ -105,7 +104,7 @@ asset is found (never baked), the overlay is simply absent — graceful degradat
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — MODIFIED. Added `drawRegulatedZones()`, `RegulatedZonesLayerButton`, `regulatedZonesVisible` wiring
 - `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — MODIFIED. Added `regulatedZonesVisible` field + persistence
 
-### toggle-control-merge  [x]
+### toggle-control-merge
 
 **Focus:** Merge the 300m zone and regulated zones map toggle buttons into a single 4-state cycle button, plus add a regulated zones toggle in General/Display/Layers settings.
 
@@ -134,7 +133,7 @@ Replaces the two separate layer toggle buttons (``LayerButton`` for Zone300, ``R
 - ``app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt`` — MODIFIED. Add ``regulatedZonesVisible`` settings UI entry
 - ``app/src/main/java/ykws/android/maro/ui/settings/SettingsScreen.kt`` — MODIFIED. Add regulated zones toggle in layers section
 
-### preparation-for-icons-layout  [x]
+### preparation-for-icons-layout
 
 **Focus:** Move GPS icon from bottom-left to top-left, next to the Earth/Water icon, to free up bottom-left space for future icon layout changes.
 
@@ -149,7 +148,7 @@ Relocates the [GpsStatusIcon] composable from [Alignment.BottomStart] to a Row a
 #### Key Files
 - ``app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`` — MODIFIED. GPS icon layout repositioned
 
-### trouble-shoot-reg-layers  [ ]
+### trouble-shoot-reg-layers
 
 **Focus:** Debug and fix hexagon-shaped polygon rendering on regulated zone map overlays — two zones (one north of Îles de Lérins, one on top of Cap d'Antibes) render as default hexagons instead of their actual GeoJSON polygon shapes, indicating invalid/degenerate vertices in the geometry pipeline.
 
@@ -170,7 +169,7 @@ Relocates the [GpsStatusIcon] composable from [Alignment.BottomStart] to a Row a
 - `app/src/main/java/ykws/android/maro/data/regulation/RegulatedZoneSerializer.kt` — Protobuf serialization of geometry
 - `app/src/main/java/ykws/android/maro/data/regulation/RegulatedZonesRepository.kt` — Asset loading and deserialization
 
-### reg-zones-filtering  [ ]
+### reg-zones-filtering
 
 **Focus:** Vessel size filtering and speed limit extraction for regulated zones — ensuring zones with `vesselSizeRestriction` (min/max length) and speed limits parsed from description text are correctly applied at runtime based on the user's vessel configuration.
 
@@ -196,7 +195,7 @@ Relocates the [GpsStatusIcon] composable from [Alignment.BottomStart] to a Row a
 - **MODIFIED** — `app/src/test/java/ykws/android/maro/data/regulation/RegulatedZonePrebakeTest.kt` (insert filter step)
 - **MODIFIED** — `maro.properties` + `app/build.gradle.kts` (new config keys)
 
-### add-zone-text  [ ]
+### add-zone-text
 
 **Focus:** Add zone name/description text labels on regulated zone map polygons so the user can identify which zone is which (e.g., "Cannes bay speed limit", "Anchoring prohibited") without guessing from polygon colour alone.
 
@@ -210,7 +209,7 @@ Relocates the [GpsStatusIcon] composable from [Alignment.BottomStart] to a Row a
 #### Key Files
 - **MODIFIED** — `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` (`drawRegulatedZones` text labels)
 
-### multi-source-normalization  [x]
+### multi-source-normalization
 
 **Focus:** Extend data gathering to normalize regulated zone data from multiple sources — SHOM auth `REGNAV_BDD_WFS:resare` layer with CATREA/RESTRN/INFORM/TXTDSC parsing, and a new INPN WFS client for Marine Protected Areas. Enhance speed extraction via INFORM string tokenization and TXTDSC legal reference cross-referencing.
 
@@ -243,7 +242,7 @@ Relocates the [GpsStatusIcon] composable from [Alignment.BottomStart] to a Row a
 - **MODIFIED** — `app/src/test/java/ykws/android/maro/data/regulation/RegulatedZonePrebakeTest.kt` (IGN wiring, expanded bbox)
 - **NEW** — `plans/regulated-zones-multi-source-normalization.md` (this plan)
 
-### design  [ ]
+### design
 
 **Focus:** Unify speed restrictions from regulated zones with the 300m zone mechanism — a single Speed Limit engine replacing the current 300m-only dashboard tile with a unified speed limit card showing the most restrictive speed under the boat.
 
@@ -292,7 +291,7 @@ Relocates the [GpsStatusIcon] composable from [Alignment.BottomStart] to a Row a
 - [`plans/speed-zones-heading-distance-discussion.md`](../plans/speed-zones-heading-distance-discussion.md) — Gap analysis: heading-aware distance not implemented, auto-show not wired
 - [`plans/speed-zones-side-zone-display-design.md`](../plans/speed-zones-side-zone-display-design.md) — Side-zone display: show left/right/behind direction when nothing ahead
 
-### more-dedebug  [ ]
+### more-dedebug
 
 **Focus:** Debug and decouple visualization elements — separate cone and green line drawing, arrow color reflecting speed excess.
 

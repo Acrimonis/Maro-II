@@ -3,7 +3,6 @@ name: Navigation
 status: active
 created: 2026-06-10 08:40
 modified: 2026-07-04 16:57
-active_subfeature: dash distance
 ---
 
 # Feature: Navigation
@@ -11,9 +10,9 @@ active_subfeature: dash distance
 **Description:**
 Navigation aids on the map overlay — heading/speed indicator and direction line projecting from the boat marker.
 
-## Subfeatures
+## Sections
 
-### cap  [x]
+### cap
 
 #### Todos
 - [x] Add `bearingDeg` and `speedKnots` parameters to `CenterMarkerOverlay` composable call site (MapScreen.kt)
@@ -51,7 +50,7 @@ Navigation aids on the map overlay — heading/speed indicator and direction lin
 - `xTrack/Navigation/260610_FEAT_PLN_Navigation_cap-arrow.md` — original cap arrow design spec
 - `xTrack/Navigation/260610_FEAT_PLN_Navigation_atomic-render.md` — atomic data flow + rendering analysis
 
-### dash distance  [x]
+### dash distance
 
 Unified distance tile logic: single-branch compare replaces P1-P4 cascade. Shows nearest zone boundary on heading cone, compares speed limits, renders amber (more restrictive) / green (less restrictive) / coastline (default).
 
@@ -89,9 +88,7 @@ Unified distance tile logic: single-branch compare replaces P1-P4 cascade. Shows
 
 ## Implemented
 
-| Date | Summary |
-|------|---------|
-| 2026-07-04 | **dash distance:** Unified distance tile — single-branch speed-limit compare. Amber=more restrictive, green=less restrictive, coastline=default. ETA for SHOM exit. Dead `nextZoneAhead` removed. Always positive `↑`. Fixes: shore-bound 300m gate, zone-ahead priority (OPEN_SEA only), SHOM exit real beyondType, land probes shortened to 5-20m, Lérins "outside channel" 3kn→5kn override. Build green. |
+- **dash distance (2026-07-04)** — unified distance tile: single-branch speed-limit compare, ETA for SHOM exit, shore-bound 300m gate, Lérins override
 
 ## Todos
 - [ ] On-device visual verification of all navigation features

@@ -43,7 +43,7 @@ and propose `#move new <name>` to create a fresh feature branch.
    - **Another feature's file** → keep `ours` (develop wins)
    - **Unowned** → AI inspects hunk symbols against active feature scope
    - **Ambiguous** (binary, build config, overlapping edits) → flag for manual review
-   - **xTrack tracking files** → dedupe Routing Map, merge subfeatures, update Active Pointer
+   - **xTrack tracking files** → dedupe Routing Map, merge sections, update Focus History
 3. **Report:** *"Resolved N files. M need manual attention: [list]"*
 4. **User completes** remaining manual resolutions, `git rebase --continue`, then `#push`.
 

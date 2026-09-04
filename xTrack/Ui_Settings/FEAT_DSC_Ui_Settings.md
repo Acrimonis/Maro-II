@@ -3,14 +3,13 @@ name: Ui_Settings
 status: active
 created: 2026-06-09 15:28
 modified: 2026-09-02 17:42
-active_subfeature: approach-redisplay
 ---
 
 **Description:** Settings page UI, settings persistence (SharedPreferences), settings-related widgets, and settings UX enhancements.
 
-## Subfeatures
+## Sections
 
-### settings-reorganization  [x]
+### settings-reorganization
 
 #### Todos
 - [x] Restructure SettingsOverlay to 4 tabs (Layers / Navigation / Position / System) with 4 pager pages + per-tab scroll states
@@ -32,7 +31,7 @@ active_subfeature: approach-redisplay
 - `app/src/main/res/values/strings.xml`
 - `app/src/main/res/values-fr/strings.xml`
 
-### approach-redisplay  [x]
+### approach-redisplay
 
 #### Todos
 - [x] Re-display on approach section: 2 global mode switches + 3 type switches + 2 always-visible sliders
@@ -50,7 +49,7 @@ active_subfeature: approach-redisplay
 - `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt`
 - `app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneComponents.kt`
 
-### reorder-settings  [x]
+### reorder-settings
 
 #### Todos
 - [x] Rename tab "Display" → "General" in `settingsTabLabels`
@@ -75,7 +74,7 @@ active_subfeature: approach-redisplay
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
 
 
-### scroll persistence  [x]
+### scroll persistence
 
 #### Todos
 - [x] Hoist the settings scroll state (`ScrollState`) outside the `SettingsOverlay` composable so it survives overlay dismiss/reopen within one session
@@ -87,7 +86,7 @@ active_subfeature: approach-redisplay
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
 
-### fix-status-persistance  [x]
+### fix-status-persistance
 
 #### Todos
 - [x] Hoist `selectedTab` to `MapScreen` composable level with `rememberSaveable` so it survives overlay dismissal/recomposition
@@ -101,7 +100,7 @@ active_subfeature: approach-redisplay
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
 
-### render-tweaks  [ ]
+### render-tweaks
 
 #### Todos
 - [ ] Tweak card rendering in settings overlays per ui-component-guidelines.md
@@ -115,7 +114,7 @@ active_subfeature: approach-redisplay
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
 
-### settings apply on close  [ ]
+### settings apply on close
 
 #### Todos
 - [ ] Defer side effects of settings changes until the settings overlay is dismissed — batch-apply on close instead of firing on each toggle/slider change
@@ -129,7 +128,7 @@ active_subfeature: approach-redisplay
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
 - `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt`
 
-### tab organization  [x]
+### tab organization
 
 #### Todos
 - [x] Replace single scrolling settings page with Material 3 TabRow + HorizontalPager (3 tabs: Display, Navigation, System)
@@ -149,7 +148,7 @@ active_subfeature: approach-redisplay
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
 
-### track-drawer-settings-btn  [x]
+### track-drawer-settings-btn
 
 #### Todos
 - [x] Add Settings gear button to Track Drawer header row, right-aligned

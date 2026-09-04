@@ -3,7 +3,6 @@ name: Health
 status: active
 created: 2026-06-20 11:42
 modified: 2026-06-20 11:42
-active_subfeature: none
 ---
 
 # Feature: Health
@@ -11,7 +10,7 @@ active_subfeature: none
 **Description:**
 Application health monitoring — diagnostics, crash reporting, memory/performance telemetry, and overall app vitality tracking.
 
-## Subfeatures
+## Sections
 
 ### (none yet)
 

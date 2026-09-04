@@ -3,14 +3,13 @@ name: UI_Map
 status: active
 created: 2026-06-07 00:00
 modified: 2026-09-04 19:30
-active_subfeature: decenter-map
 ---
 
 **Description:** Map display layer management — depth layer, color depth layer, orientation-aware rendering, marker highlight.
 
-## Subfeatures
+## Sections
 
-### marker highlight dual-outline  [x]
+### marker highlight dual-outline
 
 Dark under-stroke (`0xCC000000`, +6f) rendered before gold highlight geometry on markers — same pattern as track highlight. Applied to all 5 geometry builders in `MarkerOverlay.kt` (pin dots, circle outlines, corridor centerlines/parallels/caps). `isHighlighted` flag threaded through all overlay builders, defaults to `false`.
 
@@ -55,7 +54,7 @@ Investigation into intermittent rendering issues: fan layer toggle inconsistency
 - `app/src/main/java/ykws/android/maro/ui/map/FanLayout.kt`
 - `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt`
 
-### layer refresh  [x]
+### layer refresh
 
 #### Todos
 - [x] Refactor MapScreen to single Box parent — stable MapContent slot, overlaid DashboardPanel via Modifier.align()
@@ -72,7 +71,7 @@ Investigation into intermittent rendering issues: fan layer toggle inconsistency
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
 
-### depth color  [ ]
+### depth color
 
 #### Todos
 - [ ] Align DepthCard background color with DepthColorRamp palette
@@ -86,7 +85,7 @@ Investigation into intermittent rendering issues: fan layer toggle inconsistency
 - `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt`
 - `app/src/main/java/ykws/android/maro/ui/map/DepthColorRamp.kt`
 
-### zone proximity auto-reveal  [x]
+### zone proximity auto-reveal
 
 #### Todos
 - [x] Track `zone300ManuallyHidden` (armed) + `zone300AutoRevealed` + `bandEnteredSinceReveal` flags (session-only)
@@ -115,7 +114,7 @@ Investigation into intermittent rendering issues: fan layer toggle inconsistency
 - `app/src/main/assets/zone.properties` — tunable defaults
 - `app/src/test/java/ykws/android/maro/ui/map/Zone300DecisionTest.kt` — unit tests
 
-### speed in demo  [x]
+### speed in demo
 
 #### Todos
 - [x] Compute simulated speed in knots from map pan velocity during demo mode
@@ -135,7 +134,7 @@ Investigation into intermittent rendering issues: fan layer toggle inconsistency
 - `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt`
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
 
-### layer-zone  [ ]
+### layer-zone
 
 Depth layer must cover the full **6 NM navigable zone** (the user's licence limit), not the old
 inset rectangle. Zone = all sea within 6 NM (11 112 m) of the coast, measured from the coastline
@@ -163,7 +162,7 @@ itself so bays and capes alike get a uniform 6 NM (no cape under-coverage).
 - `app/src/test/java/ykws/android/maro/data/prebake/DepthPrebakeTest.kt`
 - `tools/bake_emodnet.bat`, `tools/bake_litto3d.bat`
 
-### config 300m auto display  [ ]
+### config 300m auto display
 
 Two per-mode toggles to activate the 300 m zone auto-show independently for GPS and Demo;
 the shared distance/time thresholds are only shown when at least one toggle is on.
@@ -187,7 +186,7 @@ the shared distance/time thresholds are only shown when at least one toggle is o
 - `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — per-mode gate in the shore pipeline
 - `app/src/main/res/values/strings.xml`, `app/src/main/res/values-fr/strings.xml` — toggle labels
 
-### layer-lowdepth  [ ]
+### layer-lowdepth
 
 Highlight all charted water shallower than 1.5 m as a bright, near-opaque grounding-hazard
 overlay, drawn as a second `GroundOverlay` above the depth colour raster. Pure runtime layer —
@@ -218,7 +217,7 @@ overlay, drawn as a second `GroundOverlay` above the depth colour raster. Pure r
 - `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt`
 - `app/src/main/res/values/strings.xml`, `app/src/main/res/values-fr/strings.xml`
 
-### toggle-danger-layer  [ ]
+### toggle-danger-layer
 
 Map control button to toggle the pink low-depth/danger overlay (`lowDepthWarningVisible`), placed
 just above the 300 m zone toggle in the right-edge control stack — the two grouped and centred
@@ -240,7 +239,7 @@ together (as the 300 m toggle was on its own).
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `DangerLayerButton` + control-stack grouping
 - `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — `toggleLowDepthWarningVisibility()`
 
-### rotate  [ ]
+### rotate
 
 Allow manual two-finger rotation of the map in demo mode, and derive the heading/cap arrow bearing from that rotation instead of defaulting to north-up (0°). This transforms demo mode from a purely north-up free-pan mode into a heading-capable reference tool.
 
@@ -274,7 +273,7 @@ Allow manual two-finger rotation of the map in demo mode, and derive the heading
 #### Docs
 - `plans/rotate-map-demo-mode-implications.md` — this analysis
 
-### boat-center  [x]
+### boat-center
 
 #### Todos
 - [x] Decouple boat marker Image and cap arrow Canvas in `CenterMarkerOverlay`
@@ -292,7 +291,7 @@ Allow manual two-finger rotation of the map in demo mode, and derive the heading
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `CenterMarkerOverlay` decoupled Image + Canvas
 
-### decenter-map  [ ]
+### decenter-map
 
 Shift the boat position from screen centre to the lower third of the viewport when the boat is moving, giving proportionally more screen area ahead. Implemented via a dual-offset approach: shift the osmdroid `setCenter` target upward in geo-space (so the forward area moves into view), and shift the `CenterMarkerOverlay` composable downward in screen-space to realign the boat icon with its true geo-position.
 
@@ -319,7 +318,7 @@ Shift the boat position from screen centre to the lower third of the viewport wh
 - `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — speed state exposure for dynamic offset decision
 - `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — optional offset toggle / max-offset setting
 
-### overlay-layer  [x]
+### overlay-layer
 
 Unified drawer framework: `DrawerSlot` reusable animation wrapper + `OverlayLayer` self-contained
 Layer 1 compositor. All 7 transient surfaces (scrim, Wizard, Menu, Marker, TrackHistory,
@@ -354,28 +353,7 @@ content — no `AnimatedVisibility`, scrim, or shadow of their own. Wizard steps
 
 ## Implemented
 
-### map z-order  [x]
-
-Deterministic native overlay ordering: `OverlayZOrder.reorder(mv)` partitions
-`MapView.overlays` into tile → base data layers → tracks → markers (top), preserving
-within-band order, and is called after every overlay mutation.
-
-#### Todos
-- [x] Add `OverlayZOrder.kt` — `reorder()` + `isTrackOverlay`/`isMarkerOverlay` classification (title-prefix + type)
-- [x] Wire `reorder()` into MapScreen track effects (history/pinned/active/highlighted, live restore, active trace, trailing) — 5 sites
-- [x] Wire `reorder()` into MarkerOverlay rebuild — 1 site
-- [x] Wire `reorder()` into CoastlineMapView base-layer effects (zone300, regulatedZones, depth, lowDepth, isobaths, coastline) — 6 sites
-- [x] Build: SUCCESS (`assembleDebug`)
-
-#### Rules
-- `MapView.overlays` paints in index order; enforce order physically — OSMdroid has no per-overlay z-index
-- After ANY overlay mutation, call `OverlayZOrder.reorder(mv)` before `mv.invalidate()`
-
-#### Key Files
-- `app/src/main/java/ykws/android/maro/ui/map/OverlayZOrder.kt` — new helper
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/MarkerOverlay.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/CoastlineMapView.kt`
+- **map z-order** — deterministic overlay order (tile→base→tracks→markers) via `OverlayZOrder.reorder(mv)`
 
 ### marker filter + dashboard close  [x]
 

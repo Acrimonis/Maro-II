@@ -3,7 +3,6 @@ name: ColorManagement
 status: active
 created: 2026-06-16 14:05
 modified: 2026-06-22 14:04
-active_subfeature: none
 ---
 
 # Feature: Color Management
@@ -13,9 +12,9 @@ Centralised management of all colour tokens in the Maro-II app. Colours live in
 `colors.properties` with `${key}` alias interpolation supported by `AppConfig`.
 Every colour change must be reflected in `docs/color-scheme.md`.
 
-## Subfeatures
+## Sections
 
-### Colour Taxonomy & Structure  [x]
+### Colour Taxonomy & Structure
 
 Track the canonical colour taxonomy and ensure every new colour follows the naming convention.
 
@@ -33,7 +32,7 @@ Track the canonical colour taxonomy and ensure every new colour follows the nami
 - `xTrack/ColorManagement/260617_FEAT_PLN_ColorManagement_color-taxonomy-hardcoded-whites-audit.md`
 - `xTrack/ColorManagement/260617_FEAT_PLN_ColorManagement_color-taxonomy-alpha-values.md`
 
-### Alias Interpolation  [x]
+### Alias Interpolation
 
 The `${key}` resolver in `AppConfig.init()` allows properties to reference each other.
 
@@ -45,7 +44,7 @@ The `${key}` resolver in `AppConfig.init()` allows properties to reference each 
 #### Key Files
 - `app/src/main/java/ykws/android/maro/config/AppConfig.kt`
 
-### Color Scheme Documentation  [ ]
+### Color Scheme Documentation
 
 `docs/color-scheme.md` is the canonical visual reference with swatches and alias chains.
 
