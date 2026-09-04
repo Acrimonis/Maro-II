@@ -2,7 +2,7 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-09-04 20:10
+modified: 2026-09-04 21:04
 ---
 
 # Feature: Ui_General
@@ -24,6 +24,36 @@ removed. Shared by the list overlays and the dashboard detail drawers. BUILD SUC
 
 #### Key Files
 - `TrackHistoryOverlay.kt`, `MarkerManagementOverlay.kt`
+
+### landscape-drawer-settings-sizing
+
+Landscape panels now open at their portrait widths instead of stretching across the
+long edge: the menu drawer is 75% of the short edge (its portrait width) and settings
+is the full short edge (its portrait width). Settings gained the shared scrim, so
+tapping outside closes it and the map ignores the tap. Both panels already scrolled
+vertically; no scroll change needed. Landscape widths are then scaled by
+`ui.landscape.panel.widthScale` (maro.properties, default 1.2, clamp 0.5–3.0). BUILD SUCCESSFUL.
+
+#### Key Files
+- `OverlayLayer.kt`, `AppConfig.kt`, `maro.properties`
+
+#### Docs
+- `xTrack/Ui_General/260904_FEAT_PLN_Ui_General_landscape-drawer-settings-sizing.md`
+
+### scrim-strengths-and-dashboard-close
+
+Unified scrim strengthened to 0.50 and now applies only to menu, settings, track history,
+and marker management (tap closes). Marker view and track view are scrim-less and interactive
+(Back/menu/create-marker close them; the layer fan does not). The wizard has a scrim only while
+the keyboard is open (tap dismisses the keyboard and keeps the form); otherwise the map stays
+interactive. Track history and marker management match the settings width in landscape.
+BUILD SUCCESSFUL.
+
+#### Key Files
+- `OverlayLayer.kt`, `MapScreen.kt`
+
+#### Docs
+- `xTrack/Ui_General/260904_FEAT_PLN_Ui_General_scrim-strengths-and-dashboard-close.md`
 
 ### drawer-dynamic-height
 

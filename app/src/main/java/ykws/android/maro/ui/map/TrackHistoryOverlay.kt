@@ -115,7 +115,6 @@ import ykws.android.maro.data.track.TrackRecorderState
 import ykws.android.maro.data.track.TrackRecorderUiState
 import ykws.android.maro.data.track.TrackSummary
 import ykws.android.maro.ui.components.ListOverlayScaffold
-import ykws.android.maro.ui.components.SavedScrollState
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -156,7 +155,6 @@ fun TrackHistoryOverlay(
     isOpen: Boolean = true,
     modifier: Modifier = Modifier,
     lazyListState: LazyListState = rememberLazyListState(),
-    restoredScrollState: SavedScrollState? = null,
     // ── Render preview settings ───────────────────────────────────────
     tracksVisible: Boolean = true,
     trackingRenderNb: Int = 20,
@@ -394,8 +392,7 @@ fun TrackHistoryOverlay(
         onDismiss = onDismiss,
         modifier = modifier,
         multiActions = trackMultiActions,
-        lazyListState = lazyListState,
-        restoredScrollState = restoredScrollState
+        lazyListState = lazyListState
     )
 }
 

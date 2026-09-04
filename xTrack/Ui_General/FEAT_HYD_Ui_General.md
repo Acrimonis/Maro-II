@@ -1,12 +1,18 @@
 # Hydration: Ui_General
 
-**Session:** Drawer vertical rhythm tuning — 12dp card padding (start/top/end) across track +
-marker drawers, header vertical padding settled at 12dp, resize formulas kept in lockstep
-(header + contentPadding.top + card + footer + 4dp safety, footer height 60dp), and footer
-Prev/Next spacing normalized to 10dp (above/below/between buttons). Card stays bottom-anchored
-(no scroll risk). BUILD SUCCESSFUL.
+**Session:** Landscape drawer/settings sizing + scrim matrix + dashboard close semantics.
+
+1. **Landscape sizing** — menu drawer = its portrait width (75% short edge × scale); settings,
+   track history, and marker management = their portrait width (short edge × scale). Scale driven
+   by `ui.landscape.panel.widthScale` (maro.properties, default 1.2).
+2. **Scrim matrix** — unified scrim 0.50 for menu/settings/track-history/marker-management
+   (tap closes); marker view + track view scrim-less and interactive; wizard scrim only while the
+   keyboard is open (tap dismisses keyboard, keeps form); fan transparent; screen lock fully visible.
+3. **Dashboard close** — Back/menu/create-marker close the marker + track view; the layer fan
+   does not.
+4. **Build:** SUCCESS (`assembleDebug`).
 
 **Target files:**
-- `DrawerScaffold.kt`, `OverlayLayer.kt`, `MarkerDrawer.kt`
+- `OverlayLayer.kt`, `MapScreen.kt`, `AppConfig.kt`, `maro.properties`
 
-**Last Bake:** 2026-09-04 20:10 UTC
+**Last Bake:** 2026-09-04 21:04 UTC

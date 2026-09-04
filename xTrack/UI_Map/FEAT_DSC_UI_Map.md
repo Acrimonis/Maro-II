@@ -2,7 +2,7 @@
 name: UI_Map
 status: active
 created: 2026-06-07 00:00
-modified: 2026-09-04 18:08
+modified: 2026-09-04 19:30
 ---
 
 **Description:** Map display layer management — depth layer, color depth layer, orientation-aware rendering, marker highlight.
@@ -354,6 +354,17 @@ content — no `AnimatedVisibility`, scrim, or shadow of their own. Wizard steps
 ## Implemented
 
 - **map z-order** — deterministic overlay order (tile→base→tracks→markers) via `OverlayZOrder.reorder(mv)`
+
+### marker filter + dashboard close  [x]
+
+Marker filter now drives the map overlay too (map renders from the filtered marker list), the marker panel auto-closes when its marker is filtered out (Viewing only), opening the side menu or a layer fan closes the open marker/track dashboard, and list-context stacking is removed — closing an item returns to the map, with Prev/Next remaining the navigation path.
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MarkerManagementOverlay.kt`
 
 ## Todos
 
