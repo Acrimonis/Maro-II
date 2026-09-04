@@ -194,7 +194,6 @@ import ykws.android.maro.data.model.markers.MarkerOrigin
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.data.markers.UserMarkerRepository
 import ykws.android.maro.ui.components.ConfirmSheet
-import ykws.android.maro.ui.components.SavedScrollState
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.DebugSegment
 import ykws.android.maro.spatial.MarkerMatcher
@@ -424,13 +423,9 @@ fun MapScreen(
     var trackNavigateState by remember { mutableStateOf<TrackNavigateState?>(null) }
     var trackDrawerState by remember { mutableStateOf(TrackDrawerState()) }
 
-    // ── List-detail navigation state ─────────────────────────────────────
+    // ── List state ───────────────────────────────────────────────────────
     val trackListState = rememberLazyListState()
     val markerListState = rememberLazyListState()
-    var trackListScrollState by remember { mutableStateOf<SavedScrollState?>(null) }
-    var markerListScrollState by remember { mutableStateOf<SavedScrollState?>(null) }
-    var trackOpenedFromList by remember { mutableStateOf(false) }
-    var markerOpenedFromList by remember { mutableStateOf(false) }
     val activeSnacks = remember { androidx.compose.runtime.mutableStateListOf<ActiveSnack>() }
     val queuedSnacks = remember { androidx.compose.runtime.mutableStateListOf<ActiveSnack>() }
     val pendingDeleteIds = remember { androidx.compose.runtime.mutableStateListOf<String>() }
@@ -444,6 +439,19 @@ fun MapScreen(
     val allTrackSummaries by trackViewModel.allSummaries.collectAsState()
     val recoveryTrack by trackViewModel.recoveryTrack.collectAsState()
     val trackScope = rememberCoroutineScope()
+    // ── Close selected-item dashboards (marker + track) when menu/fan opens ──
+    fun closeSelectedItemDashboards() {
+        navigationZonesVisible = false
+        highlightedMarkerId = null
+        if (markersViewModel.drawerState.value is MarkerDrawerState.Viewing ||
+            markersViewModel.drawerState.value is MarkerDrawerState.MatchResult
+        ) {
+            markersViewModel.closeDrawer()
+        }
+        highlightedTrackId = null
+        trackDrawerState = TrackDrawerState()
+        preNavigationState = null
+    }
     // Single-GPX import whose match dialog is pending a Duplicate / Override / Cancel choice.
     var pendingTrackImport by remember { mutableStateOf<PendingTrackImport?>(null) }
     // Import feedback banner: null = hidden; Result / Failed shows briefly at the map bottom.
@@ -874,7 +882,6 @@ fun MapScreen(
 
     // ── User markers: from MarkersViewModel ─────────────────────────────────────────
     val userMarkers by markersViewModel.markers.collectAsState()
-    val allMarkers by markersViewModel.allMarkers.collectAsState()
     val markerLayerState by markersViewModel.markerLayerState.collectAsState()
     val markerLayerVisible = markerLayerState != MarkerLayerState.HIDDEN
 
@@ -1838,10 +1845,6 @@ fun MapScreen(
             val createForm by markersViewModel.createForm.collectAsState()
             val drawerState by markersViewModel.drawerState.collectAsState()
             val wizardStep by markersViewModel.wizardStep.collectAsState()
-            // Wizard open exits list context — back from wizard goes to map
-            LaunchedEffect(wizardStep) {
-                if (wizardStep != null) markerOpenedFromList = false
-            }
             val unconfirmedMarker: UserMarker? = when (drawerState) {
                 is MarkerDrawerState.Creating, is MarkerDrawerState.Editing -> {
                     val pos = createForm.position
@@ -1973,7 +1976,10 @@ fun MapScreen(
                     }
                 },
                 onRetry = { viewModel.loadCoastline() },
-                onOpenTrackDrawer = { showTrackDrawer = !showTrackDrawer },
+                onOpenTrackDrawer = {
+                    if (!showTrackDrawer) closeSelectedItemDashboards()
+                    showTrackDrawer = !showTrackDrawer
+                },
                 showTrackDrawer = showTrackDrawer,
                 showTrackHistory = showTrackHistory,
                 trackRecorderState = trackRecorderState,
@@ -2043,7 +2049,11 @@ fun MapScreen(
                 onToggleTracks = viewModel::toggleTracksVisibility,
                 isLandscape = isLandscape,
                 expandedFanId = expandedFanId,
-                onToggleFan = { id -> expandedFanId = if (expandedFanId == id) null else id },
+                onToggleFan = { id ->
+                    val willOpen = expandedFanId == null
+                    if (willOpen) closeSelectedItemDashboards()
+                    expandedFanId = if (expandedFanId == id) null else id
+                },
                 onDismissFan = { expandedFanId = null },
                 showExitBanner = showExitBanner,
                 importBanner = importBanner,
@@ -2102,7 +2112,7 @@ fun MapScreen(
                 val matchResult by markersViewModel.matchResult.collectAsState()
                 val selectedMarkerId by markersViewModel.selectedMarkerId.collectAsState()
                 MarkerOverlay(
-                    markers = allMarkers,
+                    markers = userMarkers,
                     mapView = mapView,
                     proximityZoneMultiplier = AppConfig.markerProximityZoneMultiplier,
                     unconfirmedMarker = unconfirmedMarker,
@@ -2177,13 +2187,6 @@ fun MapScreen(
         LaunchedEffect(mapCenterState) {
             if (trackDrawerState.isOpen && trackNavigateState == null) {
                 trackDrawerState = trackDrawerState.copy(mapWasInteracted = true)
-                trackOpenedFromList = false  // map interaction exits list context
-            }
-        }
-        // ── Marker drawer: map interaction exits list context ─────────
-        LaunchedEffect(mapCenterState) {
-            if (drawerState is MarkerDrawerState.Viewing) {
-                markerOpenedFromList = false
             }
         }
 
@@ -2210,16 +2213,9 @@ fun MapScreen(
         val firstTrackId = trackSummaries.firstOrNull { !it.isLive && "t:${it.id}" !in pendingDeleteIds }?.id
         val firstMarkerId = mgmtMarkers.firstOrNull()?.id
 
-        fun openTrackDetail(id: String, fromList: Boolean) {
+        fun openTrackDetail(id: String) {
             if (!appSettings.tracksVisible) {
                 viewModel.updateSettings { it.copy(tracksVisible = true) }
-            }
-            if (fromList) {
-                trackOpenedFromList = true
-                trackListScrollState = SavedScrollState(
-                    trackListState.firstVisibleItemIndex,
-                    trackListState.firstVisibleItemScrollOffset
-                )
             }
             showTrackHistory = false
             trackScope.launch {
@@ -2263,18 +2259,11 @@ fun MapScreen(
             }
         }
 
-        fun openMarkerDetail(id: String, fromList: Boolean) {
+        fun openMarkerDetail(id: String) {
             val marker = mgmtMarkers.find { it.id == id } ?: return
             navigationZonesVisible = true
             markersViewModel.showLayer()
             highlightedMarkerId = id
-            if (fromList) {
-                markerOpenedFromList = true
-                markerListScrollState = SavedScrollState(
-                    markerListState.firstVisibleItemIndex,
-                    markerListState.firstVisibleItemScrollOffset
-                )
-            }
             showMarkerManagement = false
             navigateToTarget = NavigateTarget(
                 geoPoint = GeoPoint(marker.centerPoint.latitude, marker.centerPoint.longitude),
@@ -2302,16 +2291,12 @@ fun MapScreen(
                 navigationZonesVisible = false
                 highlightedMarkerId = null
                 markersViewModel.closeDrawer()
-                if (markerOpenedFromList) {
-                    markerOpenedFromList = false
-                    showMarkerManagement = true
-                }
             },
-            onOpenTrackHistoryFromMenu = { trackOpenedFromList = false; showTrackHistory = true },
-            onOpenMarkerManagementFromMenu = { markerOpenedFromList = false; showMarkerManagement = true },
+            onOpenTrackHistoryFromMenu = { showTrackHistory = true },
+            onOpenMarkerManagementFromMenu = { showMarkerManagement = true },
             onOpenSettingsFromMenu = { showSettings = true },
-            onOpenFirstTrack = { id -> openTrackDetail(id, fromList = false) },
-            onOpenFirstMarker = { id -> openMarkerDetail(id, fromList = false) },
+            onOpenFirstTrack = { id -> openTrackDetail(id) },
+            onOpenFirstMarker = { id -> openMarkerDetail(id) },
             markersViewModel = markersViewModel,
             trackViewModel = trackViewModel,
             gpsMode = appSettings.gpsMode,
@@ -2335,7 +2320,7 @@ fun MapScreen(
             firstMarkerId = firstMarkerId,
             onTrackAction = { action ->
                 when (action) {
-                    is ykws.android.maro.data.model.ListAction.NavigateToItem -> openTrackDetail(action.id, fromList = true)
+                    is ykws.android.maro.data.model.ListAction.NavigateToItem -> openTrackDetail(action.id)
                     is ykws.android.maro.data.model.ListAction.ExportGpx -> shareTrackGpx(context, trackViewModel, action.id, trackScope, onProgress = { trackOpStatus = it })
                     is ykws.android.maro.data.model.ListAction.BatchExportGpx -> shareTracksZip(context, trackViewModel, action.ids, trackScope, onProgress = { trackOpStatus = it })
                     is ykws.android.maro.data.model.ListAction.ImportTracks -> importLauncher?.launch(arrayOf("application/gpx+xml", "application/zip", "*/*"))
@@ -2380,10 +2365,9 @@ fun MapScreen(
             trackTitleLookup = { id -> allTrackSummaries.firstOrNull { it.id == id }?.name },
             onMarkerAction = { action ->
                 when (action) {
-                    is ykws.android.maro.data.model.ListAction.NavigateToItem -> openMarkerDetail(action.id, fromList = true)
+                    is ykws.android.maro.data.model.ListAction.NavigateToItem -> openMarkerDetail(action.id)
                     is ykws.android.maro.data.model.ListAction.EditItem -> {
                         showMarkerManagement = false
-                        markerOpenedFromList = false
                         markersViewModel.startWizard(action.id)
                     }
                     is ykws.android.maro.data.model.ListAction.PermanentDelete -> markersViewModel.deleteMarker(action.id)
@@ -2404,12 +2388,8 @@ fun MapScreen(
                 highlightedTrackId = null
                 trackDrawerState = TrackDrawerState()
                 preNavigationState = null
-                if (trackOpenedFromList) {
-                    trackOpenedFromList = false
-                    showTrackHistory = true
-                }
             },
-            onNavigateToTrack = { id -> openTrackDetail(id, fromList = true) },
+            onNavigateToTrack = { id -> openTrackDetail(id) },
             markerSortState = appSettings.markerListSort,
             onMarkerSortStateChange = { newState ->
                 viewModel.updateSettings { it.copy(markerListSort = newState) }
@@ -2502,8 +2482,6 @@ fun MapScreen(
             },
             trackListState = trackListState,
             markerListState = markerListState,
-            trackRestoredScrollState = trackListScrollState,
-            markerRestoredScrollState = markerListScrollState,
         )
 
         // ── Post-save undo → stack entry ────────────────────────────────

@@ -1,11 +1,11 @@
 # Global Context — Routing Table
 
 ## Active Session Pointers
-- **Active Feature:** Ui_General
+- **Active Feature:** UI_Map
 - **Active Subfeature:** none
-- **Last Updated:** 2026-09-04 20:10
-- **Last Bake:** 2026-09-04 20:10 (Ui_General — drawer vertical rhythm: 12dp card padding, header vpad 12, footer 10dp rhythm)
-- **Branch:** feature/finaliz-dash-card
+- **Last Updated:** 2026-09-04 19:30
+- **Last Bake:** 2026-09-04 19:30 (UI_Map — marker filter drives map overlay + menu/fan closes dashboard + list-context removed)
+- **Branch:** feature/ui-map-filter
 
 ## Routing Map
 | Keyword | Feature File |
@@ -46,7 +46,7 @@
 | Coastline | Coastline extraction, spatial indexing, isOnWater, hazard rings, unified data store; eastern bound extended to Menton (7.55°E), single region ID via BuildConfig | 2026-05-10 00:00 | 2026-06-23 07:08 | active |
 | Ui_Dashboard | Main dashboard UI layout and HUD information display | 2026-05-15 00:00 | 2026-07-11 10:59 | active |
 | GPS | GPS plugin with demo mode, heading/COG compass, geolocation, auto-follow spring-back hold | 2026-05-10 00:00 | 2026-08-15 15:21 | active |
-| UI_Map | Map rendering, depth color layer, orientation overlay, boat marker offset; deterministic overlay z-order (tile→base→tracks→markers) via OverlayZOrder.reorder | 2026-05-10 00:00 | 2026-09-04 18:08 | active |
+| UI_Map | Map rendering, depth color layer, orientation overlay, boat marker offset; deterministic overlay z-order (tile→base→tracks→markers) via OverlayZOrder.reorder; marker filter drives map overlay (map renders from filtered list, panel auto-closes when filtered out); menu/fan open closes marker+track dashboard; list-context stacking removed (close returns to map, Prev/Next navigates) | 2026-05-10 00:00 | 2026-09-04 19:30 | active |
 | Performance | Battery optimization, adaptive GPS tuning, compass gate, map refresh | 2026-05-20 00:00 | 2026-06-10 06:14 | active |
 | BakeNormalization | APK bake/build/deploy pipeline and prebake data processing | 2026-06-01 00:00 | 2026-06-08 17:10 | active |
 | DepthSafety | Danger depth alerts, shallow water grounding prevention, isobath precision | 2026-06-03 00:00 | 2026-06-09 12:01 | active |

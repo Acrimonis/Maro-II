@@ -49,7 +49,6 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.ui.components.DrawerScaffold
 import ykws.android.maro.ui.components.MeasureHeight
-import ykws.android.maro.ui.components.SavedScrollState
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 
@@ -162,8 +161,6 @@ fun OverlayLayer(
     // ── List overlay scroll state ────────────────────────────────────────
     trackListState: LazyListState = rememberLazyListState(),
     markerListState: LazyListState = rememberLazyListState(),
-    trackRestoredScrollState: SavedScrollState? = null,
-    markerRestoredScrollState: SavedScrollState? = null,
 
     // ── Marker management data ───────────────────────────────────────────
     markers: List<UserMarker>,
@@ -597,8 +594,7 @@ fun OverlayLayer(
                 trackingTransparencyPinnedOldest = appSettings.trackingTransparencyPinnedOldest,
                 trackingColorPinnedFrom = appSettings.trackingColorPinnedFrom,
                 trackingColorPinnedTo = appSettings.trackingColorPinnedTo,
-                lazyListState = trackListState,
-                restoredScrollState = trackRestoredScrollState
+                lazyListState = trackListState
             )
         }
 
@@ -622,8 +618,7 @@ fun OverlayLayer(
                 filterState = markerFilterState,
                 onFilterChange = onMarkerFilterChange,
                 onReset = onMarkerReset,
-                lazyListState = markerListState,
-                restoredScrollState = markerRestoredScrollState
+                lazyListState = markerListState
             )
         }
 
