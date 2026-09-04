@@ -3,7 +3,6 @@ name: Performance
 status: active
 created: 2026-06-07 00:00
 modified: 2026-06-10 06:14
-active_subfeature: none
 ---
 
 # Feature: Performance
@@ -21,9 +20,9 @@ and compass-gating are unconditional correct behaviour. Framework `LocationManag
 + SharedPreferences only; no new dependencies; stays foreground-only. Full design in
 `docs/PerformanceBatteryDesign.md`.
 
-## Subfeatures
+## Sections
 
-### tunable-acquisition  [x]
+### tunable-acquisition
 
 #### Todos
 - [x] Add `gpsActiveIntervalSec` (Int=2) + `gpsActiveMinDistanceM` (Float=5f) to `AppSettings` + load/update/KEY_*
@@ -40,7 +39,7 @@ and compass-gating are unconditional correct behaviour. Framework `LocationManag
 
 #### Docs
 
-### adaptive-frequency  [x]
+### adaptive-frequency
 
 #### Todos
 - [x] New `AdaptiveGpsPolicy.kt` (pure Kotlin): anchor-displacement window → ACTIVE/IDLE, instant wake on speed/jump/drift
@@ -59,7 +58,7 @@ and compass-gating are unconditional correct behaviour. Framework `LocationManag
 
 #### Docs
 
-### map-refresh-cap  [x]
+### map-refresh-cap
 
 #### Todos
 - [x] Setting `mapRefreshFps` (Int=25, range 5–50) + "Rendu carte" slider with inline battery hint
@@ -76,7 +75,7 @@ and compass-gating are unconditional correct behaviour. Framework `LocationManag
 
 #### Docs
 
-### compass-gating  [x]
+### compass-gating
 
 #### Todos
 - [x] `CompassSource.azimuthUpdates(samplingPeriodUs = SensorManager.SENSOR_DELAY_NORMAL)` default (16 Hz → ~5 Hz)
@@ -91,7 +90,7 @@ and compass-gating are unconditional correct behaviour. Framework `LocationManag
 
 #### Docs
 
-### gps-refreshing  [x]
+### gps-refreshing
 
 #### Todos
 - [x] Replace `setCenter` snap with bounded `animateTo(600ms)` for smooth GPS-follow glide
@@ -110,7 +109,7 @@ and compass-gating are unconditional correct behaviour. Framework `LocationManag
 - `xTrack/GPS/260610_FEAT_PLN_GPS_refreshing-discussion.md` — GPS refresh rate: app vs chipset, real perf advantage
 - `xTrack/Performance/260610_FEAT_PLN_Performance_animateTo-interaction-analysis.md` — `animateTo` interaction with `mapRefreshFps`
 
-### settings-ui  [ ]
+### settings-ui
 
 #### Todos
 - [x] New "Acquisition GPS" section: preset row (new `SettingsPresetRow`) + Advanced expander (interval/distance + adaptive thresholds)

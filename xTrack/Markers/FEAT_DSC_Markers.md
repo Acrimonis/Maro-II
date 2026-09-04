@@ -3,7 +3,6 @@ name: Markers
 status: active
 created: 2026-06-22 11:52
 modified: 2026-07-18 06:11
-active_subfeature: multi-select-merge
 ---
 
 # Feature: Markers
@@ -11,30 +10,30 @@ active_subfeature: multi-select-merge
 **Description:**
 User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-of-sight matching with proximity-zone pre-filter (land-blocking via coastline spatial index + 10m grazing tolerance). On-demand "where am I?" query via boat marker tap. Step-by-step wizard for creation/editing. Viewing drawer (card layout) + match result display. Management page with swipe-to-delete. OSMdroid native overlays. Tri-state layer toggle (HIDDEN/SHOW_ALL/SHOW_PINNED). POI emoji icons on pinned markers.
 
-## Subfeatures
+## Sections
 16/16 complete.
 
-### multi-select-merge  [x]
+### multi-select-merge
 
-### auto-marker-dedup  [x]
+### auto-marker-dedup
 
-### data-model  [x]
-### persistence  [x]
-### land-blocking  [x]
-### match-resolution  [x]
-### overlay-rendering  [x]
-### creation-ui  [x]
-### management-page  [x]
-### create-zones-flow  [x]
-### whereami-rework  [x]
-### debug-wia  [x]
-### menu-markers-normalization  [x]
-### marker-pin  [x]
-### marker-pin-tri-state  [x]
-### icon  [x]
-### 2-gate-simplification  [x]
+### data-model
+### persistence
+### land-blocking
+### match-resolution
+### overlay-rendering
+### creation-ui
+### management-page
+### create-zones-flow
+### whereami-rework
+### debug-wia
+### menu-markers-normalization
+### marker-pin
+### marker-pin-tri-state
+### icon
+### 2-gate-simplification
 
-### setting-markers  [x]
+### setting-markers
 
 #### Todos
 - [x] Replace standalone SettingsToggleRow with grouped card (inline toggle + SettingsExpander "Appearance")
@@ -49,7 +48,7 @@ User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-o
 - `app/src/main/java/ykws/android/maro/ui/map/MarkerOverlay.kt` — drawGeometry line 168
 - `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — migration + version bump
 
-### marker-card  [x]
+### marker-card
 
 #### Todos
 - [x] List card: remove [type] [size/prox] line, remove divider, type icon in coordinateHeader

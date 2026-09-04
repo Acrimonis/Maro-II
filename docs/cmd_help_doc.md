@@ -3,8 +3,8 @@
 
 Manage documentation attached to a feature scope.
 
-  [no param]          Display docs attached to the active scope. If a subfeature
-                      is focused, shows that subfeature's #### Docs; otherwise the
+  [no param]          Display docs attached to the active scope. If a section is
+                      targeted, shows that section's #### Docs; otherwise the
                       parent feature's ## Docs. Prints each doc as relative path
                       and description.
 
@@ -12,7 +12,7 @@ Manage documentation attached to a feature scope.
                       xTrack/*/FEAT_PLN_*.md. Read first ~5 lines for <!-- scope: ... -->
                       tag and first # heading.
                       Also scan every xTrack/*/FEAT_DSC_*.md for ## Docs (parent) and
-                      #### Docs (subfeature) sections to determine which feature/subfeature
+                      #### Docs (section) sections to determine which feature/section
                       each doc is attached to.
                       Print a table grouped by source:
                       DOC (xTrack/*/FEAT_DOC_), PLN (xTrack/*/FEAT_PLN_),
@@ -32,11 +32,11 @@ Manage documentation attached to a feature scope.
 
   attach [name]       Fuzzy-resolve name against docs/**/*.md, xTrack/*/FEAT_DOC_*.md,
                       xTrack/*/FEAT_PLN_*.md and link it to the active feature's ## Docs
-                      (or #### Docs if subfeature focused). Skip if already present.
+                      (or #### Docs if a section is targeted). Skip if already present.
                       Bare (no name): run #doc list then prompt which to attach.
 
   detach [name]       Fuzzy-resolve name and remove from the active feature's
-                      ## Docs (or #### Docs).
+                      ## Docs (or a section's #### Docs).
                       Bare (no name): show current docs and prompt which to detach.
 
   update              Refresh the active feature's documentation to reflect current
@@ -48,9 +48,9 @@ Manage documentation attached to a feature scope.
                          architectural/functional decision with source file references
                       4. Rewrite ## Implemented as concise current-state bullet groups —
                          no historical "simplified from" language, just what IS
-                      5. Remove completed [x] todo lists from subfeatures (redundant
+                      5. Remove completed [x] todo lists from sections (redundant
                          with Implemented + decisions doc)
-                      6. Move unchecked items from completed subfeatures to parent ## Todos
+                      6. Move unchecked items from completed sections to parent ## Todos
                       7. Strip all deprecated terminology (old state names, stale naming)
                       8. Remove empty #### Rules, #### Key Files, #### Docs sections
                       9. Update hydration file, bump modified date, #bake

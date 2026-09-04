@@ -1,11 +1,8 @@
 # Global Context — Routing Table
 
-## Active Session Pointers
-- **Active Feature:** Ui_General
-- **Active Subfeature:** none
-- **Last Updated:** 2026-09-03 20:53
-- **Last Bake:** 2026-09-04 18:08 (UI_Map — map overlay z-order fix: OverlayZOrder.reorder → tile/base/tracks/markers)
-- **Branch:** feature/new-tghter-ui
+## Focus History
+- [2026-09-04 20:31 UTC] WorkflowImprovement — process simplification: WRITE-ONCE guideline, section model, Focus History → xTrack/WorkflowImprovement/FEAT_HYD_WorkflowImprovement.md
+- [2026-09-04 20:10 UTC] Ui_General — app-lifecycle UX: back-to-exit, keep-screen-on, edge-to-edge, list normalization, drawer footer pinning → xTrack/Ui_General/FEAT_HYD_Ui_General.md
 
 ## Routing Map
 | Keyword | Feature File |
@@ -40,7 +37,7 @@
 |---------|-----------|---------|----------|--------|
 | **ColorManagement** | **Centralised colour palette — all tokens in colors.properties with alias interpolation, documented in color-scheme.md** | **2026-06-16 14:05** | **2026-06-22 14:04** | **active** |
 | **Documentation** | **README, FAQs, setup guides, architecture docs, and plans cleanup** | **2026-06-11 06:42** | **2026-07-17 13:30** | **active** |
-| WorkflowImprovement | xTrack #command system, git shortcuts, mode handoff protocol, hard rules enforcement, AGENTS.md trunk-to-leaf optimization, #merge hybrid strategy, and spec consolidation. Absorbed WorkflowAmbiguityFix 2026-06-28. | 2026-06-03 00:00 | 2026-06-28 16:10 | active |
+| WorkflowImprovement | xTrack #command system, git shortcuts, mode handoff protocol, hard rules enforcement, AGENTS.md trunk-to-leaf optimization, #merge hybrid strategy, spec consolidation, and process simplification (WRITE-ONCE guideline, section model, Focus History). Absorbed WorkflowAmbiguityFix 2026-06-28. | 2026-06-03 00:00 | 2026-09-04 20:31 | active |
 | Zone300 | 300m zone generation from coastline with water-only constraint | 2026-05-20 00:00 | 2026-06-03 00:00 | active |
 | DepthMapping | Bathymetry / depth mapping from Litto3D, SHOM, EMODnet sources | 2026-05-10 00:00 | 2026-06-10 12:13 | active |
 | Coastline | Coastline extraction, spatial indexing, isOnWater, hazard rings, unified data store; eastern bound extended to Menton (7.55°E), single region ID via BuildConfig | 2026-05-10 00:00 | 2026-06-23 07:08 | active |
@@ -59,7 +56,7 @@
 | **BoatTrace** | **Boat movement tracking: record tracks from GPS fixes, persist, display on map with configurable render layers, GPX export, track history UI, render preview indicator, idle-period marker snapshots (BoatMarker), auto-marker 🕐 pins at idle spots with transparency, service GPS re-arm + permission-missing dialog, service GPS sampling pinned to Main dispatcher (Looper fix), confirm before switching position source while recording; finalize durability (atomic save + transactional stop), data-derived end/idle/nav (simplified-points + gap-idle classification), stats recompute migration (schema 4); auto-marker cleanup hardening (recorder-owned AutoMarkerManager lifecycle, merged-marker keepability, ghost-pin fix); marker-track single reference (UserMarker.trackId + backfill + delete cascade); track export naming + import modes (Skip/Update/New); direction arrows (chevrons, speed-based density)** | **2026-06-15 21:43** | **2026-09-02 13:10** | **active** |
 | **CheckDev** | **Dev-branch health monitoring — remote branch state, ahead/behind analysis, workflow hygiene validation** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
 | **Health** | **Application health monitoring — diagnostics, crash reporting, memory/performance telemetry** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
-| **Markers** | **User-defined map markers (Pin, Circle, Corridor) with sea-distance-gated proximity matching, percentage-based sort scoring, and on-demand "where am I?" query — 14/14 subfeatures done; 7 fixes + sort v2 implemented** | **2026-06-22 11:52** | **2026-07-18 06:11** | **active** |
+| **Markers** | **User-defined map markers (Pin, Circle, Corridor) with sea-distance-gated proximity matching, percentage-based sort scoring, and on-demand "where am I?" query — 14/14 work areas complete; 7 fixes + sort v2 implemented** | **2026-06-22 11:52** | **2026-07-18 06:11** | **active** |
 | **Ui_Menu** | **Hamburger menu drawer — position source, track recording, marker management sections; right-side sliding panel via OverlayLayer/DrawerSlot; track/marker action normalization (shared list/detail card, double-click inline edit, chevron tappable gutter, delete = swipe/header-trash)** | **2026-07-05 06:57** | **2026-08-27 12:12** | **active** |
 
 ## Global Rules

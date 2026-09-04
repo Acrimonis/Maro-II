@@ -3,7 +3,6 @@ name: GPS
 status: active
 created: 2026-06-07 00:00
 modified: 2026-08-15 15:21
-active_subfeature: none
 ---
 
 # Feature: GpsPlugin
@@ -16,9 +15,9 @@ heading-up from GPS course over ground, falling back to the device compass when 
 Location uses the Android framework LocationManager + SensorManager (no Google Play Services);
 ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 
-## Subfeatures
+## Sections
 
-### settings  [ ]
+### settings
 
 #### Todos
 - [x] Add "Source de position" Démo/GPS toggle at the top of the settings overlay
@@ -42,7 +41,7 @@ ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 
 #### Docs
 
-### dashboard  [ ]
+### dashboard
 
 #### Todos
 - [x] 2×2 grid layout (Distance, Zone 300 m, Profondeur, Vitesse)
@@ -62,7 +61,7 @@ ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 - `app/src/main/java/ykws/android/maro/data/location/GpsLocationSource.kt` — GpsFix.speedMps
 #### Docs
 
-### gps-loss  [x]
+### gps-loss
 
 #### Todos
 - [x] Investigate and fix GPS tracking loss under good reception conditions
@@ -79,7 +78,7 @@ ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 #### Docs
 - `plans/gps-loss-investigation.md` — investigation report
 
-### track-simplification  [ ]
+### track-simplification
 
 #### Todos
 - [ ] Create `TrackSimplifier.kt` — Douglas-Peucker (ε=3m) + speed-aware reinsertion (δ=3kn)
@@ -99,7 +98,7 @@ ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 #### Docs
 - `xTrack/GPS/260622_FEAT_PLN_GPS_track-simplification.md` — design & implementation plan
 
-### troubleshoot-gps-turns  [ ]
+### troubleshoot-gps-turns
 
 #### Todos
 - [ ] Investigate spike rejection lock-in on sharp turns: Gate 2 uses `lastValidCourseDeg`/`lastValidPointLat/Lon` that only update on accepted points — rejected turns lock out all subsequent fixes in new direction
@@ -118,7 +117,7 @@ ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 #### Docs
 - `xTrack/GPS/260622_FEAT_PLN_GPS_troubleshoot-gps-turns.md` — investigation & fix plan
 
-### validation-idle  [ ]
+### validation-idle
 
 #### Todos
 - [ ] Define what "validation idle" means — GPS stale-fix timeout, no-fix grace period, or demo-mode idle detection
@@ -133,7 +132,7 @@ ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 
 #### Docs
 
-### fix-track-extrapolation  [x]
+### fix-track-extrapolation
 
 #### Todos
 - [x] Investigate: dead-reckoning extrapolated positions leaking into track recording via MapScreen.kt combine flow
@@ -153,7 +152,7 @@ ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 #### Docs
 - `xTrack/GPS/260623_FEAT_PLN_GPS_fix-track-extrapolation.md` — analysis & fix plan
 
-### background-recording  [x]
+### background-recording
 
 #### Todos
 - [x] Gate `setGpsActive(false)` on `ON_PAUSE` behind recording state check
@@ -169,7 +168,7 @@ ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 - `app/src/main/java/ykws/android/maro/data/track/TrackRecordingService.kt` — foreground service, START_STICKY
 - `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt` — isStopped gate at addPoint (line 326)
 
-### yarefact  [x]
+### yarefact
 
 #### Todos
 - [x] Phase A — Core Consolidation (C1 + C2): wire `isStopped` into TrackRecorder, remove duplicate policy, gate stale watchdog on IDLE
@@ -195,12 +194,12 @@ ACCESS_FINE_LOCATION is requested when the toggle is enabled.
 
 **background-recording (2026-06-28):** One-line conditional in MapScreen `ON_PAUSE` handler — don't kill GPS (`setGpsActive(false)`) when track recording is active. GPS survives backgrounding while `TrackRecorderState.ON`; foreground service (`TrackRecordingService`, START_STICKY) keeps process alive. `isStopped` gate + dormant GPS cadence still apply. 1 file, 1 line. Build: ✅.
 
-### gps-background  [x]
+### gps-background
 
 Harden background GPS to match Waze/GMaps best practices + recording-aware exit guard + crash-resilient track recording.
 
 
-### fix-spike  [x]
+### fix-spike
 
 #### Todos
 - [ ] Investigate root cause of duplicate/spike points in recorded tracks (Bad-spikes.gpx: identical lat/lon/speed/course, different timestamps, ≤1ms apart)
@@ -217,7 +216,7 @@ Harden background GPS to match Waze/GMaps best practices + recording-aware exit 
 #### Docs
 - `xTrack/GPS/260714_FEAT_PLN_GPS_fix-spike.md` — root cause analysis & fix plans for all 3 anomaly categories
 
-### checks  [x]
+### checks
 
 #### Todos
 - [x] Confirm all spike gates are documented end-to-end (capture → buffer → finalize → save)
@@ -236,7 +235,7 @@ Harden background GPS to match Waze/GMaps best practices + recording-aware exit 
 #### Docs
 - `xTrack/GPS/260714_FEAT_PLN_GPS_checks.md` — spike gate audit & map smoothness fix design
 
-### back-to-hold  [x]
+### back-to-hold
 
 #### Todos
 - [x] Evaluate hold-on cases for the GPS auto-follow spring-back (track detail view, marker create/edit, lists, settings, menu)

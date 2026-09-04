@@ -3,7 +3,6 @@ name: BoatTrace
 status: active
 created: 2026-06-15 21:43
 modified: 2026-09-02 13:10
-active_subfeature: marker-export-import
 ---
 
 # Feature: BoatTrace
@@ -11,15 +10,15 @@ active_subfeature: marker-export-import
 **Description:**
 Trace the boat's movement (position, speed) during active navigation. One trace = one 'track' (Port Salis → Port Salis). Point capture suspends when stationary via `isStill()` gate, but the recording state stays ON. Tracks persisted as protobuf binary and recallable — their polylines display on the map overlay.
 
-## Subfeatures
+## Sections
 
-### design  [x]
+### design
 #### Docs
 - `plans/boat-trace-design-discussion.md` — final design and implementation plan
 
-### data-model  [x]
+### data-model
 
-### recorder  [x]
+### recorder
 
 #### Rules
 - Track points recorded only when speed > 2.5 kn (matching Navigation cap arrow threshold)
@@ -31,9 +30,9 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 - State machine is single-threaded (single coroutine collector) — no race between manual & auto triggers
 - Track stats (`distanceNm`, `maxSpeedKn`, `avgSpeedKn`) accumulated continuously in memory during recording, written to protobuf at finalize
 
-### ui-integration  [x]
+### ui-integration
 
-### verification  [ ]
+### verification
 
 #### Todos
 - [ ] Build + deploy to device
@@ -54,7 +53,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 - `plans/boat-trace-design-discussion.md` — full design & implementation plan (data model, state machine, UI components, design tokens)
 - `xTrack/BoatTrace/260618_FEAT_PLN_BoatTrace_TrackList_Design.md` — track list UI design (swipe-to-delete, inline snackbar, animation spec)
 
-### track-list  [ ]
+### track-list
 
 #### Todos
 - [ ] Review and refine track card layout per design spec
@@ -74,7 +73,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 #### Docs
 - `xTrack/BoatTrace/260618_FEAT_PLN_BoatTrace_TrackList_Design.md` — track list UI design and 26 requirements
 
-### track-list-render-indicator  [x]
+### track-list-render-indicator
 
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
@@ -83,7 +82,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 #### Docs
 - `xTrack/BoatTrace/260624_FEAT_PLN_BoatTrace_track-list-render-indicator.md` — design plan
 
-### tracking-status-n-triggers  [x]
+### tracking-status-n-triggers
 
 #### Rules
 - `isMoving = !policy.isStill()` where `policy.isStill()` reads `AdaptiveGpsPolicy.lastMode == IDLE`
@@ -99,7 +98,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 - `app/src/main/java/ykws/android/maro/data/track/TrackRecorder.kt`
 - `app/src/main/java/ykws/android/maro/data/track/TrackViewModel.kt`
 
-### adaptive-isstill  [x]
+### adaptive-isstill
 
 #### Rules
 - Defaults: stopDetectionTimeSec=45 (range 10-90), stopDetectionDistanceM=15 (range 10-30)
@@ -119,7 +118,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 #### Docs
 - `xTrack/BoatTrace/260618_FEAT_PLN_BoatTrace_adaptive-isstill.md` — full plan
 
-### hamburger-btn  [x]
+### hamburger-btn
 
 #### Rules
 - Hamburger always visible in the top-left icon row (first position)
@@ -136,17 +135,17 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 #### Docs
 - `plans/boat-trace-design-discussion.md` — §5b (Hamburger + Drawer spec, lines 284-361)
 
-### tweaks  [x]
+### tweaks
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/TrackStatusIcon.kt`
 - `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt`
 
-### render-tracks  [x]
+### render-tracks
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/FanIconComponents.kt`
 - `app/src/main/java/ykws/android/maro/data/track/TrackViewModel.kt`
 
-### mtrack-setting-opacity  [x]
+### mtrack-setting-opacity
 
 #### Rules
 - **Semantics**: 0% = opaque, 100% = transparent
@@ -161,7 +160,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
 - `app/build.gradle.kts`
 
-### gps-background  [x]
+### gps-background
 
 #### Rules
 - Service always runs while app is open — not just during recording
@@ -180,7 +179,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 #### Docs
 - `xTrack/BoatTrace/260620_FEAT_PLN_BoatTrace_gps-background.md`
 
-### gps-line-acquisition  [x]
+### gps-line-acquisition
 
 #### Rules
 - Spike rejection uses fix.timestampEpochMs (GPS epoch), not System wall clock
@@ -195,9 +194,9 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 #### Docs
 - `xTrack/BoatTrace/260620_FEAT_PLN_BoatTrace_gps-line-acquisition.md`
 
-### track now demo  [x]
+### track now demo
 
-### pinned-tracks  [x]
+### pinned-tracks
 
 **Purpose:** Replace the per-track visibility eye-icon with a pin-icon in the track list. Pinned tracks always render on map with their own color gradient + transparency. History (unpinned) tracks still render via `trackingRenderNb` count slider.
 
@@ -232,7 +231,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 #### Docs
 - `xTrack/BoatTrace/260622_FEAT_PLN_BoatTrace_pinned-tracks.md` — full design & implementation plan
 
-### gps-recording-regression  [x]
+### gps-recording-regression
 
 **Purpose:** Service-owned recorder GPS producer crashed at registration — `RuntimeException: Can't create handler … Looper.prepare()` — because `startGpsSampling()` collected `GpsLocationSource.locationUpdates()` on `Dispatchers.Default`. Fixed with `.flowOn(Dispatchers.Main.immediate)`.
 
@@ -240,7 +239,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 - `app/src/main/java/ykws/android/maro/data/track/TrackRecordingService.kt`
 - `app/src/main/java/ykws/android/maro/data/location/GpsLocationSource.kt`
 
-### gps-switch-confirm  [x]
+### gps-switch-confirm
 
 **Purpose:** While a track is recording, toggling the position source (GPS↔demo) now asks for confirmation via `ConfirmSheet` (bottom sheet, dashboard space) before switching. Guard lives at the single `onGpsModeChange` choke point, covering the drawer switch, settings switch, and top-left GPS icon.
 
@@ -248,7 +247,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
 - `app/src/main/res/values/strings.xml`, `values-fr/strings.xml`
 
-### auto-marker-cleanup  [x]
+### auto-marker-cleanup
 
 **Purpose:** Harden 🕐 IDLE_AUTO marker lifecycle — move createTemp/confirm/delete into a recorder-owned `AutoMarkerManager` so cleanup is deterministic regardless of Activity state; fix merged-marker keepability, ghost pins, finalize fallback; keep startup cleanup as crash recovery only.
 
@@ -267,14 +266,14 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 #### Docs
 - `xTrack/BoatTrace/260831_FEAT_PLN_BoatTrace_auto-marker-cleanup.md` — cleanup hardening plan (Ask-reviewed)
 
-### marker-track-link  [x]
+### marker-track-link
 
 **Purpose:** Single canonical back-reference `UserMarker.trackId` (set at creation) replacing `BoatMarker.autoMarkerId`; one-time backfill migration; delete-track deletes its IDLE_AUTO markers; marker list badge + "Belongs to track" row.
 
 #### Docs
 - `xTrack/BoatTrace/260831_FEAT_PLN_BoatTrace_marker-track-link.md` — plan (Ask-reviewed)
 
-### marker-track-nav  [ ]  (DEFERRED)
+### marker-track-nav (DEFERRED)
 
 **Purpose:** Cross-navigation between track detail and marker detail via `>` links, with a minimal `OverlayBackStack`.
 
@@ -288,7 +287,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 #### Docs
 - `xTrack/BoatTrace/260831_FEAT_PLN_BoatTrace_marker-export-import.md` — plan
 
-### track-direction-arrows  [x]
+### track-direction-arrows
 
 **Purpose:** Direction chevrons along history + pinned tracks — custom osmdroid overlay, zoom-adaptive pixel spacing, exponential speed-based density, settings + drawer toggles.
 
@@ -321,7 +320,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 - Index rebuilt by scanning `.bin` files on startup if missing or corrupted
 - Swipe-to-delete on TrackHistoryOverlay with snackbar undo
 
-### idle-time-tracking  [x]
+### idle-time-tracking
 
 #### Key Files
 - `app/src/main/java/ykws/android/maro/data/track/Track.kt`
@@ -333,12 +332,12 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 #### Docs
 - `xTrack/BoatTrace/260628_FEAT_PLN_BoatTrace_idle-time-always-zero.md` — root cause + fix plan + implementation record
 
-### merge-tracks  [x]
+### merge-tracks
 
 #### Docs
 - `xTrack/BoatTrace/260714_FEAT_PLN_BoatTrace_merge-tracks.md` — discussion plan: merge tracks vs resume track
 
-### notif-lifecycle  [x]
+### notif-lifecycle
 
 #### Key Files
 - `app/src/main/java/ykws/android/maro/data/track/TrackRecordingService.kt`
@@ -347,9 +346,9 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 #### Docs
 - `xTrack/BoatTrace/260714_FEAT_PLN_BoatTrace_notif-lifecycle-hardening.md` — design & implementation plan
 
-### populate-track-info  [x]
+### populate-track-info
 
-### tracks-paint-order  [x]
+### tracks-paint-order
 
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`

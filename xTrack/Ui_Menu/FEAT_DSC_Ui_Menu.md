@@ -3,7 +3,6 @@ name: Ui_Menu
 status: active
 created: 2026-07-05 06:57
 modified: 2026-08-27 12:12
-active_subfeature: toggle-zones-marker-in-menu
 ---
 
 # Feature: Ui_Menu
@@ -14,9 +13,9 @@ track recording, and marker management sections. Rendered via `OverlayLayer` →
 `DrawerSlot` → `MenuDrawerOverlay`. Uses `DrawerScaffold` for fixed-header +
 scrollable body.
 
-## Subfeatures
+## Sections
 
-### toggle-zones-marker-in-menu  [x]
+### toggle-zones-marker-in-menu
 
 Add a "Show Zones on Map" Switch toggle to the MARKERS card in the menu drawer,
 mirroring the POSITION SOURCE GPS toggle pattern. Controls `AppSettings.markerZonesVisible`

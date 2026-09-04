@@ -3,7 +3,6 @@ name: Ui_General
 status: active
 created: 2026-06-08 16:43
 modified: 2026-09-03 20:53
-active_subfeature: screen-lock
 ---
 
 # Feature: Ui_General
@@ -14,9 +13,9 @@ against accidental exits, and let the user keep the device screen awake while th
 app is running. Extended with page-layout concerns: edge-to-edge rendering, status
 bar immersion, and WindowInsets management.
 
-## Subfeatures
+## Sections
 
-### compact-list-cards  [x]
+### compact-list-cards
 
 Track and marker list cards made vertically more compact. Description/comment
 line-height 14sp (title 16sp, header 12sp, stats 12/13sp), reduced description v-padding,
@@ -26,7 +25,7 @@ removed. Shared by the list overlays and the dashboard detail drawers. BUILD SUC
 #### Key Files
 - `TrackHistoryOverlay.kt`, `MarkerManagementOverlay.kt`
 
-### drawer-dynamic-height  [x]
+### drawer-dynamic-height
 
 Track + marker drawers pin Prev/Next at the bottom via the `DrawerScaffold.footer` slot, with
 card→Prev/Next spacers trimmed and 12dp horizontal button padding (no divider, 8dp above /
@@ -37,7 +36,7 @@ side panel pins the footer too. BUILD SUCCESSFUL.
 #### Key Files
 - `DrawerScaffold.kt`, `MeasureHeight.kt`, `OverlayLayer.kt`, `MarkerDrawer.kt`
 
-### screen-lock  [x]
+### screen-lock
 
 Touch-input lock (splash guard): a 📵 toggle in the top-left status row (right of the
 Earth/Water icon) locks the screen so the map ignores all touch except the unlock toggle
@@ -55,7 +54,7 @@ Full-screen consume-all `LockScrim`; top-most duplicate unlock button + `ZoomCon
 
 ---
 
-### menu-drawer-rows  [x]
+### menu-drawer-rows
 
 Menu drawer rows renamed "Manage Tracks"→"Tracks" / "Manage Markers"→"Markers"
 (EN+FR, no ellipsis). Row tap opens the list; the trailing chevron is now its own
@@ -71,7 +70,7 @@ filtered/sorted list (track: first non-live + non-pending-delete; marker: first 
 
 ---
 
-### delete-advance-next  [x]
+### delete-advance-next
 
 Drawer delete now advances to the adjacent item (next → previous → close) instead of
 just closing, with a vertical snackbar stack (cap 3 visible, FIFO overflow) for undo.
@@ -95,7 +94,7 @@ status bar; Undo refocuses the restored track/marker.
 
 ---
 
-### top-left-icons  [x]
+### top-left-icons
 
 Top-left status icons reordered to GPS → Tracking → Land/Water. GPS icon always
 visible (gray DEMO state when GPS off) and now clickable — toggles GPS ↔ demo via the
@@ -110,7 +109,7 @@ stays last, GPS-only. Idle-state pulsing dot recolored red (semantic.danger). BU
 
 ---
 
-### landscape-menu-drawer  [x]
+### landscape-menu-drawer
 
 Landscape menu drawer overflow fix: the body now scrolls only when its content is
 taller than the viewport (`DrawerScaffold(scrollable = true)`), with the overscroll
@@ -126,7 +125,7 @@ header stays pinned. Portrait unchanged — zero scroll range, no glow. BUILD SU
 
 ---
 
-### notification-lifecycle  [x]
+### notification-lifecycle
 
 Foreground notification follows recording state: task-removed + not recording → service stops (notification gone); recording → notification stays and the track keeps recording in background (recorder + GPS moved into `TrackRecordingService`, `TrackViewModel` is a pure observer). Double-back exit dialog offers Save track / Continue recording / Discard track. Fixed startup NPE (service deps were field initializers using the un-attached context → `by lazy`).
 
@@ -138,7 +137,7 @@ Foreground notification follows recording state: task-removed + not recording �
 
 ---
 
-### filter  [x]
+### filter
 
 List filters with sort UX normalization. Extensible `ListFilter` (Map-based), filter dropdowns with sectioned card layout, dedicated direction toggle, reset button. `pinnedGrouped` removed from sort, migrated to filter axes. Unfiltered backing list pattern in ViewModels. Popup menus match settings hierarchy.
 
@@ -160,7 +159,7 @@ List filters with sort UX normalization. Extensible `ListFilter` (Map-based), fi
 
 ---
 
-### filter everywhere  [x]
+### filter everywhere
 
 **Principle:** Layers are a viewport onto the list. Map mirrors whatever the list shows after filtering.
 
@@ -202,7 +201,7 @@ Display concerns (colors, transparency, render count, sort) unchanged.
 
 ---
 
-### BackToExitConfirm  [x]
+### BackToExitConfirm
 
 Intercept the in-app back action and require confirmation before exiting. On the
 first back press, show a transient 2-second "Press back again to exit" toast; exit
@@ -220,7 +219,7 @@ overlay back is unchanged (it just closes settings).
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — exit-confirm `BackHandler`, `Context.findActivity()` helper, and the toast (rendered in `MapContent`'s bottom-overlay slot: bottom-centre, padded `end = 76dp` to clear the right-edge control stack; colour `0xFF16213E` = dashboard tile `cardBg`).
 - `app/src/main/res/values/strings.xml`, `values-fr/strings.xml` — `exit_press_back_again`.
 
-### KeepScreenOn  [x]
+### KeepScreenOn
 
 Add a user setting "Keep the phone on when app is running" that prevents the
 screen from sleeping while the app is in the foreground.
@@ -236,7 +235,7 @@ screen from sleeping while the app is in the foreground.
 - `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — `keepScreenOn` field/key/load/persist (SharedPreferences, mirrors `languageCode`).
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `SettingsToggleRow` + `DisposableEffect` driving `LocalView.keepScreenOn`.
 
-### page layout  [x]
+### page layout
 
 Edge-to-edge rendering with `enableEdgeToEdge()`, immersive status bar (dark background, light icons), and proper WindowInsets consumption in MapScreen to fix portrait dashboard bottom clipping.
 
@@ -257,7 +256,7 @@ Edge-to-edge rendering with `enableEdgeToEdge()`, immersive status bar (dark bac
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — WindowInsets padding
 - `gradle/libs.versions.toml` — check activity-ktx version
 
-### immersive ui rework  [x]
+### immersive ui rework
 
 Extend `enableEdgeToEdge()` to the nav bar: remove blanket `windowInsetsPadding(WindowInsets.systemBars)` from the root Box and apply targeted insets only to the overlay controls. The map fills the full screen behind both system bars.
 
@@ -279,7 +278,7 @@ Extend `enableEdgeToEdge()` to the nav bar: remove blanket `windowInsetsPadding(
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — root Box modifier, top-left icons Row, right-edge Column, DashboardPanel modifiers, bottom overlays
 - `app/src/main/java/ykws/android/maro/MainActivity.kt` — no change needed (already calls `enableEdgeToEdge()`)
 
-### map-print-layout  [ ]
+### map-print-layout
 
 #### Todos
 
@@ -287,7 +286,7 @@ Extend `enableEdgeToEdge()` to the nav bar: remove blanket `windowInsetsPadding(
 
 #### Key Files
 
-### menu  [ ]
+### menu
 
 Wrap drawer menu items (Position Source toggle, Manage Tracks link) in card backgrounds using `uiCardBackground` for visual grouping, matching the settings/track card pattern.
 
@@ -298,7 +297,7 @@ Wrap drawer menu items (Position Source toggle, Manage Tracks link) in card back
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt`
 
-### tweak drawer  [x]
+### tweak drawer
 
 Normalize all drawer headers: extract `DrawerScaffold` + `DrawerHeader` as shared components, fix the `← [title]` header to stay fixed when content scrolls. Applied to MarkerDrawer (ViewingContent + MatchResultContent) and MenuDrawerOverlay.
 
@@ -324,7 +323,7 @@ Normalize all drawer headers: extract `DrawerScaffold` + `DrawerHeader` as share
 - `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt`
 - `docs/ui-drawer-guidelines.md`
 
-### list sort  [x]
+### list sort
 
 Normalize list rendering across tracks and markers by extracting a shared `ListOverlayScaffold<T : ListableItem>` composable. Both [`TrackHistoryOverlay`](app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt) and [`MarkerManagementOverlay`](app/src/main/java/ykws/android/maro/ui/map/MarkerManagementOverlay.kt) become thin consumers providing only card content slots + accent color extraction.
 
@@ -482,7 +481,7 @@ Scaffold also exposes `onDismiss: () -> Unit` for overlay close. All inter-compo
 - Deferred batch delete — scaffold owns `pendingDeletes`
 - BUILD SUCCESSFUL
 
-### list extra sort  [x]
+### list extra sort
 
 Extend `ListSortField` to support per-type sort fields via `CustomSortField` data class + `customFieldKey: String?` in `ListSortState`. Track fields: Distance (`distanceNm`), Total Time (computed), Moving Time (computed). Marker fields: Origin (`origin`). Serialization backward-compatible (`"UPDATED:true:false:distanceNm"`). All labels localized (EN + FR via `stringResource()` — ResId approach).
 
@@ -504,7 +503,7 @@ Extend `ListSortField` to support per-type sort fields via `CustomSortField` dat
 - `isLive` pre-sort stays in scaffold, NOT in ViewModel comparators
 - Serialization: 3-part string = backward compat; 4-part = custom field
 
-### track list colors  [ ]
+### track list colors
 
 Track list (TrackHistoryOverlay) color review — ensure track cards, stats, labels, and icons use correct tokens from `ui.card.background` and `colors.properties`, consistent with the drawer and settings card patterns.
 
@@ -515,7 +514,7 @@ Track list (TrackHistoryOverlay) color review — ensure track cards, stats, lab
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt`
 
-### reg speed zone  [x]
+### reg speed zone
 
 **Focus:** Auto-show the regulated zone overlay (`regulatedZonesVisible`) when approaching a speed-enforced regulated zone — extending the same distance/time-threshold pattern used by the 300m band auto-show.
 
@@ -540,7 +539,7 @@ Track list (TrackHistoryOverlay) color review — ensure track cards, stats, lab
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — settings toggles, `onToggleRegulatedZones` wiring
 - `xTrack/ZoneTile/260617_FEAT_PLN_ZoneTile_speed-enforcement-zone-auto-show-plan.md` — design plan
 
-### fan tweak  [x]
+### fan tweak
 
 **Focus:** Remove the transparent scrim that intercepts taps when the fan is expanded. Instead, let the MapView itself detect the tap, dismiss the fan, and process the touch normally — so a single tap both closes the fan AND pans/zooms the map.
 
@@ -564,7 +563,7 @@ Track list (TrackHistoryOverlay) color review — ensure track cards, stats, lab
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `MapContent()` (remove scrim, thread params), `CoastlineMapView()` (add params, set touch listener)
 
-### toast and progress dialog  [x]
+### toast and progress dialog
 
 **Focus:** The exit toast and loading/progress overlay should fill all available horizontal space in the bottom zone. Legacy padding values from before the 2-column Row refactor unnecessarily constrain their width.
 
@@ -586,7 +585,7 @@ Track list (TrackHistoryOverlay) color review — ensure track cards, stats, lab
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — both bottom Box padding + LoadingOverlay modifier
 
-### overlay styling  [x]
+### overlay styling
 
 **Focus:** Unify the three bottom overlays (exit toast, loading/progress, error) with a shared navy card design at 80% opacity, differentiated by border and text color.
 
@@ -615,7 +614,7 @@ Track list (TrackHistoryOverlay) color review — ensure track cards, stats, lab
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — toast Surface, LoadingOverlay, ErrorOverlay
 
-### click-N-move  [x]
+### click-N-move
 
 Click on a marker in the markers list closes the list, moves the map to the marker (point for zones & points, central segment point for corridors), runs whereAmI at boat position, then opens the Viewing drawer with the clicked marker selected (prev/next among whereAmI matches).
 
@@ -642,7 +641,7 @@ Click on a marker in the markers list closes the list, moves the map to the mark
 #### Plan
 - `xTrack/Ui_General/260705_FEAT_PLN_Ui_General_click-n-move.md`
 
-### multi-select  [ ]
+### multi-select
 
 Long-press to enter multiselect mode on list items. Scaffold owns selection state (selected IDs set, mode flag), renders a contextual bottom action bar. Consumer-injected multi-actions per list type (batch delete, batch export, batch pin/unpin). Single-tap behavior changes in multiselect mode: tap toggles selection instead of navigate.
 
@@ -652,7 +651,7 @@ Long-press to enter multiselect mode on list items. Scaffold owns selection stat
 
 #### Key Files
 
-### translation  [x]
+### translation
 
 Do a pass through the codebase: identify all hardcoded user-facing strings,
 extract them to `strings.xml`, and translate into corresponding locales (en + fr).

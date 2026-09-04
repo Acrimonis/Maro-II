@@ -3,16 +3,15 @@ name: ArcLayout
 status: active
 created: 2026-06-13 07:34
 modified: 2026-06-18 19:36
-active_subfeature: none
 ---
 
 **Description:** Replace the two isolated layer toggle buttons on the map's right-edge control stack with a single anchor button that fans out into a pure-Compose arc menu to the left, exposing 4 layer toggles (low depth warning, 300m zone, depth layer, regulated zones) as a cohesive multi-toggle control.
 
 **Reference:** [`plans/arclayout-feature-plan.md`](../../plans/arclayout-feature-plan.md)
 
-## Subfeatures
+## Sections
 
-### ArcLayout Core Implementation  [x]
+### ArcLayout Core Implementation
 
 #### Todos
 - [x] Add `depthLayerVisible` to `AppSettings` + `SettingsManager` (load/update/keys)
@@ -36,7 +35,7 @@ active_subfeature: none
 - [`app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt)
 - [`app/src/main/java/ykws/android/maro/ui/map/ArcLayoutToggle.kt](../../app/src/main/java/ykws/android/maro/ui/map/ArcLayoutToggle.kt)
 
-### fan-migration  [ ]
+### fan-migration
 
 #### Todos
 - [x] Design FanLayout framework: parameterised θ, parent-at-center, equidistance per relationship type
@@ -79,7 +78,7 @@ active_subfeature: none
 - `plans/fanlayout-equidistance-rule.md` — equidistance geometry rule
 - `plans/fanlayout-child-centering-rule.md` — child button centering design rule
 
-### scrim-dismiss  [x]
+### scrim-dismiss
 
 #### Todos
 - [x] Add transparent full-screen scrim in `MapContent()` Box between MapView and overlay Row
@@ -95,7 +94,7 @@ active_subfeature: none
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — scrim in `MapContent()` + `onDismissFan` parameter
 - `app/src/main/java/ykws/android/maro/ui/map/FanLayout.kt` — KDoc updated, badge no longer dims
 
-### hide-fix  [ ]
+### hide-fix
 
 #### Todos
 

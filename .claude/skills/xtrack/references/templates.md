@@ -14,11 +14,8 @@ on first `#bake` of a feature.
 ```markdown
 # Global Context — Routing Table
 
-## Active Session Pointers
-- **Active Feature:** [Name | none]
-- **Active Subfeature:** [name | none]
-- **Last Updated:** [YYYY-MM-DD]
-- **Last Bake:** [YYYY-MM-DD HH:mm | never] ([Feature] — [brief note])
+## Focus History
+- [YYYY-MM-DD HH:mm UTC] [Feature] — [one-liner] → xTrack/[Feature]/FEAT_HYD_[Feature].md
 
 ## Routing Map
 
@@ -64,7 +61,6 @@ name: [Name]
 status: active        # active | paused | done
 created: [YYYY-MM-DD HH:mm]
 modified: [YYYY-MM-DD HH:mm]   # equals created on #track; bumped by #bake when modified
-active_subfeature: none
 ---
 
 # Feature: [Name]
@@ -72,9 +68,9 @@ active_subfeature: none
 **Description:**
 [Fuller description of the feature epic.]
 
-## Subfeatures
+## Sections
 
-### [SubName]  [ ]
+### [SectionName]  [ ]
 
 #### Todos
 - [ ] [todo]
@@ -104,7 +100,7 @@ active_subfeature: none
 - `FEAT_DOC_[Feature]_[name].md` — [brief description]
 ```
 
-Subfeature checkbox: `[ ]` open, `[x]` done. `#bake` updates the
+Section checkbox: `[ ]` open, `[x]` done. `#bake` updates the
 `## Feature Summaries` table in `GLOBAL_CONTEXT.md` from these checkboxes.
 `## Docs` holds attached documentation (managed by `#doc attach`/`detach`);
 `## Key Files` holds source file paths.
@@ -119,8 +115,6 @@ the next session can resume cold. Keep it tight and transactional — not a chan
 
 ```markdown
 # Context Hydration — [Feature] — [YYYY-MM-DD]
-
-**Active Subfeature:** [name | none]
 
 ## State
 [2-4 sentences: what compiles, what's in progress, current statuses.]

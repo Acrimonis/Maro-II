@@ -2,8 +2,7 @@
 name: WorkflowImprovement
 status: active
 created: 2026-06-03 00:00
-modified: 2026-06-28 16:10
-active_subfeature: none
+modified: 2026-09-04 20:31
 ---
 
 # Feature: WorkflowImprovement
@@ -11,26 +10,8 @@ active_subfeature: none
 **Description:**
 Improving the xTrack workflow and command system (canonicalized in AGENTS.md) — trigger syntax, templates, lifecycle protocols, and bootstrap logic.
 
-## Subfeatures
-### Trigger phrase syntax redesign (colon-delimited commands)  [x]
-### Feature file template (Status/Created/Description/Subfeatures/Key Files/Notes)  [x]
-### Turn 1 protocol with intent gate + scope question  [x]
-### Memory Bake event-driven triggers (closing phrases, task wind-down, #bake)  [x]
-### Hash-prefix command dispatcher (#) with fuzzy fallback  [x]
-### xTrack bootstrap logic (auto-create on first `track:`)  [x]
-### Active focus pivot ambiguity with cross-feature intercept + #todo + #instruction  [x]
-### #-only command system (colon-delimited triggers removed)  [x]
-### #instruction command for context attachments  [x]
-### Bare #todo/#instruction list mode  [x]
-### Smart subfeature nesting for #todo  [x]
-### Bare `#doc` — show active feature's Key Files (scoped, not global)  [x]
-### #doc create [name] — create doc in docs/, prompt for scope tag  [x]
-### #doc list — scan docs/*.md, display filename + scope tag + heading  [x]
-### #doc read [name] — hydrate doc into AI context  [x]
-### #doc attach [name] — add doc; bare = prompt pick-list  [x]
-### #doc detach [name] — remove doc; bare = prompt pick-list  [x]
-
-### #doc list attachment column  [x]
+## Sections
+### #doc list attachment column
 `#doc list` now scans each FEATURE_SCOPE_*.md's `## Docs` (and subfeature `#### Docs`) sections to show which feature/subfeature each doc is attached to, as an extra column in the table.
 
 #### Todos
@@ -41,7 +22,7 @@ Improving the xTrack workflow and command system (canonicalized in AGENTS.md) �
 - `AGENTS.md` — §7b.11
 - `docs/cmd_help.md` — `## #doc` section
 
-### xTrack system review — #doc sync, #doc audit, #diff, spec consolidation  [x]
+### xTrack system review — #doc sync, #doc audit, #diff, spec consolidation
 Complete review of the xTrack system: identified spec fragmentation, orphan docs, missing ## Docs sections, cache optimization gaps, and template drift. Implemented all fixes across 3 phases.
 
 #### Todos
@@ -62,7 +43,7 @@ Complete review of the xTrack system: identified spec fragmentation, orphan docs
 #### Docs
 - *(no plans attached)*
 
-### AGENTSmdNormalization  [x]
+### AGENTSmdNormalization
 Vendor-neutral consolidation onto the AGENTS.md standard + xTrack hardening (this branch). All 6 fixes implemented + committed.
 
 #### Todos
@@ -81,7 +62,7 @@ Vendor-neutral consolidation onto the AGENTS.md standard + xTrack hardening (thi
 - `.claude/skills/xtrack/{SKILL.md, references/commands.md, references/templates.md}`
 - `docs/cmd_help.md`
 
-### normalize commands  [x]
+### normalize commands
 Rationalize the xTrack command set per Option C: merge `#features` into `#context list`, rename `#feature` to `#context`, merge `#diff` into `#status diff`, move `#sub focus`/`#sub out` to `#focus sub`/`#focus out`, keep `#doc` singular, no flag syntax.
 
 #### Todos
@@ -98,7 +79,7 @@ Rationalize the xTrack command set per Option C: merge `#features` into `#contex
 - `docs/cmd_help.md` — reference table + sections
 - `.claude/skills/xtrack/references/templates.md` — if applicable
 
-### planning  [x]
+### planning
 Define the Zero-Piecemeal Writes discussion exception: allow one plan file per discussion, auto-attach to feature ## Docs, permit context-changing commands during discussion.
 
 #### Todos
@@ -113,7 +94,7 @@ Define the Zero-Piecemeal Writes discussion exception: allow one plan file per d
 #### Key Files
 - `AGENTS.md` — Core Directives + §3
 
-### gitting-it  [x]
+### gitting-it
 
 #### Todos
 - [x] Define `#new [branch]` — fetch origin/develop, checkout new branch from it
@@ -143,7 +124,7 @@ Define the Zero-Piecemeal Writes discussion exception: allow one plan file per d
 #### Docs
 - `xTrack/Documentation/260610_FEAT_PLN_Documentation_git-move-command.md` — design spec for #move stash + #cherry interactive copy
 
-### hard rules  [x]
+### hard rules
 Enforce the "no git write until green-lit" rule across all agents — audit rule placement, detect bypass vectors, harden the wording, and add automated enforcement.
 
 #### Todos
@@ -255,6 +236,15 @@ Enforce the "no git write until green-lit" rule across all agents — audit rule
 - **§8 compressed** — preamble removed (1 line saved)
 - **Lazy-Load Index added** — 9-domain routing table: spatial, UI, drawers, colors, icons, git, setup, FAQ, #-commands — all docs discoverable from AGENTS.md trunk
 - **GLOBAL_CONTEXT.md** — Global Instructions tightened, references AGENTS.md Lazy-Load Index
+
+### Process simplification — WRITE-ONCE, sections, Focus History (2026-09-04)
+
+- **WRITE-ONCE softened** — 🔴 absolute → 🟡 guideline; targeted apply_diff patches allowed (AGENTS.md §Core Directives, §3).
+- **Subfeatures → sections** — removed `active_subfeature`, `#sub`, `#focus sub/out`; feature files now group work under `### [Section]` headings consolidated at `#bake` (C1–C12). 22 FEAT_DSC files migrated.
+- **GLOBAL_CONTEXT Focus History** — replaced mutable `## Active Session Pointers` with append-only newest-first stack (cap 10); top = current focus.
+- **No-bypass implementation gate** — MODE LOCK hardened: plan approval ≠ implementation go-ahead.
+- **Docs/templates** — cmd_help_*.md synced, `cmd_help_sub.md` retired, templates updated, #doctor flags remnants.
+- Plan: `xTrack/WorkflowImprovement/260904_FEAT_PLN_WorkflowImprovement_process-simplification.md`.
 
 ## Notes
 <!-- blockers, design decisions, context for next session -->

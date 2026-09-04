@@ -3,7 +3,6 @@ name: BakeNormalization
 status: active
 created: 2026-06-08 00:00
 modified: 2026-06-08 17:10
-active_subfeature: none
 ---
 
 # Feature: BakeNormalization
@@ -17,9 +16,9 @@ made depth-bake depend on `coastline.bin`. Goal: split the pipeline into indepen
 `bake-[type].bat` scripts + a single interactive selector (`apk-bake.bat`), a build that only
 packages what was baked (`apk-build.bat`), and a deploy that pushes + relaunches (`apk-deploy.bat`).
 
-## Subfeatures
+## Sections
 
-### depth source  [ ]
+### depth source
 
 Validate / improve how the depth widget surfaces which dataset a reading came from (EMODnet deep vs
 Litto3D shallow) — also the on-device way to confirm the Litto3D east baked in.

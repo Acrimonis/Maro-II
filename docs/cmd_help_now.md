@@ -1,11 +1,9 @@
 <!-- scope: reference -->
 ## #now
 
-Display lightweight orientation or a compact feature dashboard.
+Display lightweight orientation.
 
-  [no param]         Show: active feature name + status + one-liner (from the Feature Summaries
-                     table in GLOBAL_CONTEXT.md), active subfeature (or "none"), current working
-                     directory, Last Bake timestamp.
-                     Then list all subfeatures of the active feature, marking the focused
-                     subfeature with ← focused.
+  [no param]         Show: top Focus History entry (active feature) + one-liner (from the
+                     Feature Summaries table in GLOBAL_CONTEXT.md), current working directory,
+                     and Last Bake timestamp (from the active feature's FEAT_HYD).
                      Does NOT fetch git branch or worktree info.

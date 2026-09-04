@@ -3,7 +3,6 @@ name: Coastline
 status: active
 created: 2026-06-05 00:00
 modified: 2026-06-23 07:08
-active_subfeature: none
 ---
 
 # Feature: Coastline
@@ -33,7 +32,7 @@ Zone300Builder).
 - **Test coverage:** ~8 test files updated to "nice-menton" region ID; `AdaptiveGpsPolicyTest` fixed (stale `speed` param)
 - **UI:** "Côte" / "Bande" button labels (was "Régénérer la côte" / "Bande 300 m")
 
-## Subfeatures
+## Sections
 
 **Decision:** Data source = **Shom Aton WFS** (Aids-to-Navigation / danger_isolé).
 No existing WFS client in repo (depth path uses WCS raster, not WFS) — build a

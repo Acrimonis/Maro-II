@@ -13,9 +13,9 @@ Refresh the active feature's documentation to match current implementation reali
 
 4. **Rewrite ## Implemented** — Concise current-state bullet groups only. No historical "simplified from" language, no before/after evolution. Just what IS now.
 
-5. **Strip completed todos** — Remove all `#### Todos` from `[x]` subfeatures. They're redundant with the Implemented section + decisions doc.
+5. **Strip completed todos** — Remove all `#### Todos` from `[x]` sections. They're redundant with the Implemented section + decisions doc.
 
-6. **Migrate unchecked items** — Move any remaining `[ ]` items from completed subfeatures to the parent-level `## Todos`.
+6. **Migrate unchecked items** — Move any remaining `[ ]` items from completed sections to the parent-level `## Todos`.
 
 7. **Remove deprecated terminology** — Sweep out old state names (IDLE/RECORDING/PAUSED/FINALIZING → OFF/ON), stale class names, naming mismatches with the codebase.
 
