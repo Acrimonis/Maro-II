@@ -1028,6 +1028,7 @@ fun MapScreen(
                             mv.overlays.add(finalSolid)
                         }
                     }
+                    OverlayZOrder.reorder(mv)
                     mv.invalidate()
                 }
                 else -> { /* Started, Stopped, PointCaptured — handled elsewhere */ }
@@ -1460,6 +1461,7 @@ fun MapScreen(
         }
 
         renderedTrackIds.value = desiredIds
+        OverlayZOrder.reorder(mv)
         mv.invalidate()
     }
 
@@ -1481,6 +1483,7 @@ fun MapScreen(
                             isVisible = true
                         }
                         mv.overlays.add(polyline)
+                        OverlayZOrder.reorder(mv)
                         mv.invalidate()
                     }
                 } else {
@@ -1525,6 +1528,7 @@ fun MapScreen(
                     addPoint(org.osmdroid.util.GeoPoint(point.lat, point.lon))
                 }
                 mv.overlays.add(resumedLine)
+                OverlayZOrder.reorder(mv)
                 mv.invalidate()
             } else {
                 val polyline = mv.overlays.filter {
@@ -1568,6 +1572,7 @@ fun MapScreen(
                     setPoints(listOf(lastPt, org.osmdroid.util.GeoPoint(displayPos.latitude, displayPos.longitude)))
                 }
                 mv.overlays.add(trailing)
+                OverlayZOrder.reorder(mv)
                 mv.invalidate()
             }
     }

@@ -286,6 +286,7 @@ internal fun CoastlineMapView(
         tracker.lastZone300Color = zone300Color
         tracker.lastZone300FillOpacityPct = zone300FillOpacityPct
         tracker.lastZone300BoundaryOpacityPct = zone300BoundaryOpacityPct
+        OverlayZOrder.reorder(mv)
         mv.invalidate()
     }
 
@@ -298,6 +299,7 @@ internal fun CoastlineMapView(
         drawRegulatedZones(mv, regulatedZones, zoomLevel, tracker.regulatedZones)
         tracker.lastRegulatedZones = regulatedZones
         tracker.lastRegZoneZoom = zoomLevel
+        OverlayZOrder.reorder(mv)
         mv.invalidate()
     }
 
@@ -314,6 +316,7 @@ internal fun CoastlineMapView(
         tracker.lastDepthBitmap = depthBitmap
         tracker.lastDepthBox = depthBox
         tracker.lastDepthZoom = zoomLevel
+        OverlayZOrder.reorder(mv)
         mv.invalidate()
     }
 
@@ -328,6 +331,7 @@ internal fun CoastlineMapView(
         drawLowDepthWarning(mv, lowDepthWarningBitmap, depthBox, zoomLevel, tracker.lowDepth)
         tracker.lastLowDepthBitmap = lowDepthWarningBitmap
         tracker.lastLowDepthZoom = zoomLevel
+        OverlayZOrder.reorder(mv)
         mv.invalidate()
     }
 
@@ -340,6 +344,7 @@ internal fun CoastlineMapView(
         drawIsobaths(mv, isobaths, zoomLevel, tracker.isobaths)
         tracker.lastIsobaths = isobaths
         tracker.lastIsobathZoom = zoomLevel
+        OverlayZOrder.reorder(mv)
         mv.invalidate()
     }
 
@@ -351,6 +356,7 @@ internal fun CoastlineMapView(
         tracker.coastline.clear()
         drawCoastline(mv, segments, tracker.coastline)
         tracker.lastSegments = segments
+        OverlayZOrder.reorder(mv)
         mv.invalidate()
     }
 

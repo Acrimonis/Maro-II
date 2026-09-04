@@ -384,6 +384,7 @@ fun MarkerOverlay(
         })
         mv.overlays.add(tapOverlay)
 
+        OverlayZOrder.reorder(mv)
         mv.invalidate()
 
         onDispose {
