@@ -38,6 +38,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -183,13 +185,15 @@ fun OverlayLayer(
     val imeBottom = WindowInsets.ime.getBottom(LocalDensity.current)
     val imeHeightDp = with(LocalDensity.current) { imeBottom.toDp() }
     val keyboardOffsetDp = 0.dp - imeHeightDp
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     // ── Unified scrim ────────────────────────────────────────────────────
-    val showScrim = showTrackDrawer
+    val showScrim = showSettings
+        || showTrackDrawer
         || showTrackHistory
         || showMarkerManagement
-        || (showWizard && wizardStep !is WizardStep.Position && wizardStep !is WizardStep.PositionP2)
-        || (drawerState is MarkerDrawerState.Viewing || drawerState is MarkerDrawerState.MatchResult)
+        || (showWizard && imeHeightDp > 0.dp)
 
     Box(modifier = Modifier.fillMaxSize()) {
         // ── 1. Scrim ─────────────────────────────────────────────────────
@@ -200,17 +204,20 @@ fun OverlayLayer(
         ) {
             val scrimDismiss: () -> Unit = {
                 when {
+                    showSettings -> onDismissSettings()
                     showTrackDrawer -> onDismissMenu()
                     showTrackHistory -> onDismissTrackHistory()
                     showMarkerManagement -> onDismissMarkerManagement()
-                    showWizard -> onWizardCancel()
-                    drawerState is MarkerDrawerState.Viewing || drawerState is MarkerDrawerState.MatchResult -> onMarkerDrawerClose()
+                    showWizard -> {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                    }
                 }
             }
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(ComposeColor.Black.copy(alpha = 0.32f))
+                    .background(ComposeColor.Black.copy(alpha = 0.50f))
                     .clickable { scrimDismiss() }
             )
         }
@@ -271,7 +278,10 @@ fun OverlayLayer(
             visible = showTrackDrawer,
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .fillMaxWidth(0.75f)
+                .then(
+                    if (isLandscape) Modifier.width(landscapeDashboardWidth * 0.75f * AppConfig.uiLandscapePanelWidthScale)
+                    else Modifier.fillMaxWidth(0.75f)
+                )
                 .fillMaxHeight(),
             slideDirection = SlideDirection.FROM_RIGHT,
             shadowEdge = ShadowEdge.LEFT
@@ -555,7 +565,13 @@ fun OverlayLayer(
         // ── 5. TrackHistory ──────────────────────────────────────────────
         DrawerSlot(
             visible = showTrackHistory,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .then(
+                    if (isLandscape) Modifier.width(landscapeDashboardWidth * AppConfig.uiLandscapePanelWidthScale)
+                    else Modifier.fillMaxWidth()
+                )
+                .fillMaxHeight(),
             slideDirection = SlideDirection.FROM_RIGHT,
             shadowEdge = ShadowEdge.LEFT
         ) {
@@ -601,7 +617,13 @@ fun OverlayLayer(
         // ── 6. Marker Management ─────────────────────────────────────────
         DrawerSlot(
             visible = showMarkerManagement,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .then(
+                    if (isLandscape) Modifier.width(landscapeDashboardWidth * AppConfig.uiLandscapePanelWidthScale)
+                    else Modifier.fillMaxWidth()
+                )
+                .fillMaxHeight(),
             slideDirection = SlideDirection.FROM_RIGHT,
             shadowEdge = ShadowEdge.LEFT
         ) {
@@ -625,7 +647,13 @@ fun OverlayLayer(
         // ── 7. Settings ──────────────────────────────────────────────────
         DrawerSlot(
             visible = showSettings,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .then(
+                    if (isLandscape) Modifier.width(landscapeDashboardWidth * AppConfig.uiLandscapePanelWidthScale)
+                    else Modifier.fillMaxWidth()
+                )
+                .fillMaxHeight(),
             slideDirection = SlideDirection.FROM_RIGHT,
             shadowEdge = ShadowEdge.LEFT
         ) {

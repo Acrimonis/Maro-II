@@ -255,6 +255,10 @@ object AppConfig {
      *  Default false. Set via `map.offset.demo` in maro.properties. */
     var mapOffsetDemo: Boolean = false
         private set
+    /** Landscape panel width scale applied to the portrait width (menu + settings).
+     *  Default 1.2. Set via `ui.landscape.panel.widthScale` in maro.properties. Range: 0.5–3.0. */
+    var uiLandscapePanelWidthScale: Float = 1.2f
+        private set
 
     /** Depth NoData cell colour. Default #60FFF59D (pale yellow, ~38% alpha). Set via `map.depth.nodata.color` in colors.properties. */
     var mapDepthNodataColor: Int = 0x60FFF59D.toInt()
@@ -715,6 +719,9 @@ object AppConfig {
             }
             props.getProperty("map.offset.demo")?.toBooleanStrictOrNull()?.let {
                 mapOffsetDemo = it
+            }
+            props.getProperty("ui.landscape.panel.widthScale")?.toFloatOrNull()?.let {
+                uiLandscapePanelWidthScale = it.coerceIn(0.5f, 3.0f)
             }
 
             props.getProperty("map.depth.nodata.color")?.let { parseColorOrNull(it) }?.let { mapDepthNodataColor = it }

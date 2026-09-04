@@ -1963,7 +1963,10 @@ fun MapScreen(
                 onMapViewReady = { mapView = it },
                 markerLayerState = markerLayerState,
                 onToggleMarkerLayer = { markersViewModel.toggleMarkerLayer() },
-                onAddZone = { center -> markersViewModel.startWizard(initialPos = center) },
+                onAddZone = { center ->
+                    closeSelectedItemDashboards()
+                    markersViewModel.startWizard(initialPos = center)
+                },
                 onMarkerTap = { id -> markersViewModel.openEditDrawer(id) },
                 onWhereAmI = {
                     val boatPos = gpsPosition ?: mapCenter
@@ -2049,11 +2052,7 @@ fun MapScreen(
                 onToggleTracks = viewModel::toggleTracksVisibility,
                 isLandscape = isLandscape,
                 expandedFanId = expandedFanId,
-                onToggleFan = { id ->
-                    val willOpen = expandedFanId == null
-                    if (willOpen) closeSelectedItemDashboards()
-                    expandedFanId = if (expandedFanId == id) null else id
-                },
+                onToggleFan = { id -> expandedFanId = if (expandedFanId == id) null else id },
                 onDismissFan = { expandedFanId = null },
                 showExitBanner = showExitBanner,
                 importBanner = importBanner,
@@ -2409,6 +2408,7 @@ fun MapScreen(
             },
             onCreateFirst = {
                 showMarkerManagement = false
+                closeSelectedItemDashboards()
                 markersViewModel.startWizard(initialPos = mapCenter)
             },
             onSetIcon = { id, icon -> markersViewModel.setMarkerIcon(id, icon) },
