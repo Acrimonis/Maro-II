@@ -80,7 +80,7 @@
     <string name="settings_zone300_opacity_desc">Zone content and border opacity</string>
     <string name="settings_zone300_opacity_value_fmt">Fill %1$d%% · Border %2$d%%</string>
     <string name="settings_zone300_appearance_label">Zone appearance</string>
-    <string name="settings_auto_markers_label">Auto-marker creation</string>
+    <string name="settings_auto_markers_label">Marker Auto Creation management</string>
     <string name="settings_regulated_zones_label">Regulated zones</string>
     <string name="settings_regulated_zones_desc">Show regulated zones (speed limits, anchoring, etc.) on the map</string>
     <string name="settings_danger_zones_label">Danger Zones</string>
@@ -318,7 +318,7 @@
     <string name="settings_colors_label">Colors</string>
     <string name="settings_colors_desc">Past tracks: color gradient from newest (From) to oldest (To). Pinned tracks: amber/orange gradient.</string>
     <string name="settings_section_markers">Markers</string>
-    <string name="settings_markers_desc">Tune when automatic idle markers are created</string>
+    <string name="settings_markers_desc">Configure how markers are rendered and when automatic idle markers are created</string>
     <string name="settings_marker_idle_threshold_label">Idle threshold</string>
     <string name="settings_marker_idle_threshold_desc">Idle time before a marker is captured. Applied when the next recording starts.</string>
     <string name="settings_marker_min_duration_label">Minimum duration</string>

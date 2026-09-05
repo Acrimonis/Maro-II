@@ -79,7 +79,7 @@
     <string name="settings_zone300_opacity_desc">Opacité du contenu et du contour de la zone</string>
     <string name="settings_zone300_opacity_value_fmt">Remplissage %1$d%% · Contour %2$d%%</string>
     <string name="settings_zone300_appearance_label">Apparence de la zone</string>
-    <string name="settings_auto_markers_label">Création des repères auto</string>
+    <string name="settings_auto_markers_label">Gestion de la création automatique des repères</string>
     <string name="settings_regulated_zones_label">Zones réglementées</string>
     <string name="settings_regulated_zones_desc">Afficher les zones réglementées (vitesse, mouillage, etc.) sur la carte</string>
     <string name="settings_danger_zones_label">Zones de danger</string>
@@ -317,7 +317,7 @@
     <string name="settings_colors_label">Couleurs</string>
     <string name="settings_colors_desc">Anciennes traces : dégradé du plus récent (De) au plus ancien (Vers). Épinglées : dégradé ambre/orange.</string>
     <string name="settings_section_markers">Repères</string>
-    <string name="settings_markers_desc">Régler la création des repères automatiques d\'arrêt</string>
+    <string name="settings_markers_desc">Configurer le rendu des repères et la création des repères automatiques d\'arrêt</string>
     <string name="settings_marker_idle_threshold_label">Seuil d\'arrêt</string>
     <string name="settings_marker_idle_threshold_desc">Durée d\'arrêt avant la capture d\'un repère. Appliqué au prochain enregistrement.</string>
     <string name="settings_marker_min_duration_label">Durée minimale</string>
