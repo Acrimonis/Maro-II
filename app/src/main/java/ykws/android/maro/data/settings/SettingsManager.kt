@@ -155,11 +155,28 @@ data class AppSettings(
     /** Maximum GPS self-reported accuracy (m) for a fix to be recorded. Fixes with worse accuracy are rejected. */
     val maxRecordingAccuracyM: Float = 30f,
     /** Whether the tracks overlay layer is visible on the map. */
-    /** Tri-state marker layer visibility: HIDDEN, SHOW_ALL, SHOW_PINNED. */
+    /** Binary marker layer visibility: HIDDEN or SHOW_ALL. */
     val markerLayerState: ykws.android.maro.ui.map.MarkerLayerState = ykws.android.maro.ui.map.MarkerLayerState.SHOW_ALL,
     /** Whether marker zone shapes (circle outlines, corridor parallels) render.
      *  When false, only center dots are drawn. Proximity previews follow this toggle. */
     val markerZonesVisible: Boolean = true,
+    /** Halo size % (0-100) — scales the halo ring radius relative to its anchor
+     *  (dot or icon). Default 50 = medium. */
+    val markerHaloSize: Int = 50,
+    /** Pinned halo colour (opaque ARGB) drawn as a static ring behind each confirmed
+     *  pinned marker's centre dot/icon. */
+    val markerHaloPinnedColor: Int = 0xFFFFFFFF.toInt(),
+    /** Unpinned halo colour (opaque ARGB) — distinct from pinned so the two states
+     *  are visually separable. */
+    val markerHaloUnpinnedColor: Int = 0xFF81D4FA.toInt(),
+    /** Pinned halo inside-fill ("zone") opacity % (0-100). Default 25 = subtle disc. */
+    val markerHaloPinnedFillOpacityPct: Int = 25,
+    /** Pinned halo border/stroke opacity % (0-100). Default 80 = strong ring. */
+    val markerHaloPinnedBorderOpacityPct: Int = 80,
+    /** Unpinned halo inside-fill ("zone") opacity % (0-100). Default 10 = faint disc. */
+    val markerHaloUnpinnedFillOpacityPct: Int = 10,
+    /** Unpinned halo border/stroke opacity % (0-100). Default 40 = faint ring. */
+    val markerHaloUnpinnedBorderOpacityPct: Int = 40,
     val tracksVisible: Boolean = true,
     /** Draw direction arrows along rendered tracks (history + pinned). */
     val tracksDirectionVisible: Boolean = false,
@@ -194,27 +211,27 @@ data class AppSettings(
      */
     val trackingColorPastTo: Int = BuildConfig.TRACKING_COLOR_PAST_TO,
     /**
-     * Transparency % (0-100) for the NEWEST past (history) track.
-     * 0 = fully opaque, 100 = fully invisible.
-     * Lower value = newest track more visible.
+     * Opacity % (0-100) for the NEWEST past (history) track.
+     * 0 = fully invisible, 100 = fully opaque.
+     * Higher value = newest track more visible.
      */
-    val trackingTransparencyNewest: Int = BuildConfig.TRACKING_TRANSPARENCY_FROM,
+    val trackingOpacityNewest: Int = BuildConfig.TRACKING_OPACITY_FROM,
     /**
-     * Transparency % (0-100) for the OLDEST past (history) track.
-     * 0 = fully opaque, 100 = fully invisible.
-     * Higher value = oldest track more faded.
+     * Opacity % (0-100) for the OLDEST past (history) track.
+     * 0 = fully invisible, 100 = fully opaque.
+     * Lower value = oldest track more faded.
      */
-    val trackingTransparencyOldest: Int = BuildConfig.TRACKING_TRANSPARENCY_TO,
+    val trackingOpacityOldest: Int = BuildConfig.TRACKING_OPACITY_TO,
     /**
-     * Transparency % (0-100) for the NEWEST pinned track.
-     * 0 = fully opaque, 100 = fully invisible.
+     * Opacity % (0-100) for the NEWEST pinned track.
+     * 0 = fully invisible, 100 = fully opaque.
      */
-    val trackingTransparencyPinnedNewest: Int = BuildConfig.TRACKING_TRANSPARENCY_PINNED_FROM,
+    val trackingOpacityPinnedNewest: Int = BuildConfig.TRACKING_OPACITY_PINNED_FROM,
     /**
-     * Transparency % (0-100) for the OLDEST pinned track.
-     * 0 = fully opaque, 100 = fully invisible.
+     * Opacity % (0-100) for the OLDEST pinned track.
+     * 0 = fully invisible, 100 = fully opaque.
      */
-    val trackingTransparencyPinnedOldest: Int = BuildConfig.TRACKING_TRANSPARENCY_PINNED_TO,
+    val trackingOpacityPinnedOldest: Int = BuildConfig.TRACKING_OPACITY_PINNED_TO,
     /**
      * ARGB start color for pinned track gradient.
      */
@@ -308,6 +325,43 @@ class SettingsManager(
                     .remove("regulated_zone_autoshow_gps")
                     .remove("regulated_zone_autoshow_demo")
             }
+            if (savedVersion < 7) {
+                // Marker icon/pin decoupling: the marker "pinned" filter axis was renamed
+                // to "icon" (PINNED->WITH_ICON, UNPINNED->WITHOUT_ICON). Rewrite persisted
+                // markerListFilter so the old axis maps onto the new icon axis.
+                val raw = prefs.getString(KEY_MARKER_LIST_FILTER, null)
+                if (!raw.isNullOrBlank()) {
+                    val rewritten = raw.split(";").mapNotNull { entry ->
+                        val eq = entry.indexOf('=')
+                        if (eq <= 0) return@mapNotNull entry
+                        val key = entry.substring(0, eq)
+                        val value = entry.substring(eq + 1)
+                        when {
+                            key == "pinned" && value == "PINNED" -> "icon=WITH_ICON"
+                            key == "pinned" && value == "UNPINNED" -> "icon=WITHOUT_ICON"
+                            else -> entry
+                        }
+                    }.joinToString(";")
+                    editor.putString(KEY_MARKER_LIST_FILTER, rewritten)
+                }
+            }
+            if (savedVersion < 8) {
+                // Opacity normalization: track transparency settings were inverted
+                // (0 = opaque, 100 = invisible). Rewrite them as opacity (0 = invisible,
+                // 100 = opaque) under new tracking_opacity_* keys, then drop the old
+                // tracking_transparency_* keys.
+                fun migrateTransparency(oldKey: String, newKey: String) {
+                    if (prefs.contains(oldKey)) {
+                        val old = prefs.getInt(oldKey, 0)
+                        editor.putInt(newKey, (100 - old).coerceIn(0, 100))
+                        editor.remove(oldKey)
+                    }
+                }
+                migrateTransparency(KEY_TRACKING_TRANSPARENCY_NEWEST, KEY_TRACKING_OPACITY_NEWEST)
+                migrateTransparency(KEY_TRACKING_TRANSPARENCY_OLDEST, KEY_TRACKING_OPACITY_OLDEST)
+                migrateTransparency(KEY_TRACKING_TRANSPARENCY_PINNED_NEWEST, KEY_TRACKING_OPACITY_PINNED_NEWEST)
+                migrateTransparency(KEY_TRACKING_TRANSPARENCY_PINNED_OLDEST, KEY_TRACKING_OPACITY_PINNED_OLDEST)
+            }
             editor.putInt(KEY_PREFS_VERSION, CURRENT_VERSION).apply()
         }
     }
@@ -385,6 +439,13 @@ class SettingsManager(
                 prefs.getString(KEY_MARKER_LAYER_STATE, "SHOW_ALL") ?: "SHOW_ALL")
         } catch (_: Exception) { ykws.android.maro.ui.map.MarkerLayerState.SHOW_ALL },
         markerZonesVisible = prefs.getBoolean(KEY_MARKER_ZONES_VISIBLE, true),
+        markerHaloSize = prefs.getInt(KEY_MARKER_HALO_SIZE, 50),
+        markerHaloPinnedColor = prefs.getInt(KEY_MARKER_HALO_PINNED_COLOR, 0xFFFFFFFF.toInt()),
+        markerHaloUnpinnedColor = prefs.getInt(KEY_MARKER_HALO_UNPINNED_COLOR, 0xFF81D4FA.toInt()),
+        markerHaloPinnedFillOpacityPct = prefs.getInt(KEY_MARKER_HALO_PINNED_FILL_OPACITY_PCT, 25),
+        markerHaloPinnedBorderOpacityPct = prefs.getInt(KEY_MARKER_HALO_PINNED_BORDER_OPACITY_PCT, 80),
+        markerHaloUnpinnedFillOpacityPct = prefs.getInt(KEY_MARKER_HALO_UNPINNED_FILL_OPACITY_PCT, 10),
+        markerHaloUnpinnedBorderOpacityPct = prefs.getInt(KEY_MARKER_HALO_UNPINNED_BORDER_OPACITY_PCT, 40),
         tracksVisible = prefs.getBoolean(KEY_TRACKS_VISIBLE, true),
         tracksDirectionVisible = prefs.getBoolean(KEY_TRACKS_DIRECTION_VISIBLE, false),
         trackDirectionDensity = try {
@@ -402,10 +463,10 @@ class SettingsManager(
         trackingColorPinned = prefs.getInt(KEY_TRACKING_COLOR_PINNED, BuildConfig.TRACKING_COLOR_PINNED),
         trackingColorPastFrom = prefs.getInt(KEY_TRACKING_COLOR_PAST_FROM, BuildConfig.TRACKING_COLOR_PAST_FROM),
         trackingColorPastTo = prefs.getInt(KEY_TRACKING_COLOR_PAST_TO, BuildConfig.TRACKING_COLOR_PAST_TO),
-        trackingTransparencyNewest = prefs.getInt(KEY_TRACKING_TRANSPARENCY_NEWEST, BuildConfig.TRACKING_TRANSPARENCY_FROM),
-        trackingTransparencyOldest = prefs.getInt(KEY_TRACKING_TRANSPARENCY_OLDEST, BuildConfig.TRACKING_TRANSPARENCY_TO),
-        trackingTransparencyPinnedNewest = prefs.getInt(KEY_TRACKING_TRANSPARENCY_PINNED_NEWEST, BuildConfig.TRACKING_TRANSPARENCY_PINNED_FROM),
-        trackingTransparencyPinnedOldest = prefs.getInt(KEY_TRACKING_TRANSPARENCY_PINNED_OLDEST, BuildConfig.TRACKING_TRANSPARENCY_PINNED_TO),
+        trackingOpacityNewest = prefs.getInt(KEY_TRACKING_OPACITY_NEWEST, BuildConfig.TRACKING_OPACITY_FROM),
+        trackingOpacityOldest = prefs.getInt(KEY_TRACKING_OPACITY_OLDEST, BuildConfig.TRACKING_OPACITY_TO),
+        trackingOpacityPinnedNewest = prefs.getInt(KEY_TRACKING_OPACITY_PINNED_NEWEST, BuildConfig.TRACKING_OPACITY_PINNED_FROM),
+        trackingOpacityPinnedOldest = prefs.getInt(KEY_TRACKING_OPACITY_PINNED_OLDEST, BuildConfig.TRACKING_OPACITY_PINNED_TO),
         trackingColorPinnedFrom = prefs.getInt(KEY_TRACKING_COLOR_PINNED_FROM, BuildConfig.TRACKING_COLOR_PINNED_FROM),
         trackingColorPinnedTo = prefs.getInt(KEY_TRACKING_COLOR_PINNED_TO, BuildConfig.TRACKING_COLOR_PINNED_TO),
         trackSimplifyEnabled = prefs.getBoolean(KEY_TRACK_SIMPLIFY_ENABLED, true),
@@ -502,6 +563,13 @@ class SettingsManager(
             .putBoolean(KEY_TRACK_GEOFENCE_ENABLED, updated.trackGeofenceEnabled)
             .putString(KEY_MARKER_LAYER_STATE, updated.markerLayerState.name)
             .putBoolean(KEY_MARKER_ZONES_VISIBLE, updated.markerZonesVisible)
+            .putInt(KEY_MARKER_HALO_SIZE, updated.markerHaloSize)
+            .putInt(KEY_MARKER_HALO_PINNED_COLOR, updated.markerHaloPinnedColor)
+            .putInt(KEY_MARKER_HALO_UNPINNED_COLOR, updated.markerHaloUnpinnedColor)
+            .putInt(KEY_MARKER_HALO_PINNED_FILL_OPACITY_PCT, updated.markerHaloPinnedFillOpacityPct)
+            .putInt(KEY_MARKER_HALO_PINNED_BORDER_OPACITY_PCT, updated.markerHaloPinnedBorderOpacityPct)
+            .putInt(KEY_MARKER_HALO_UNPINNED_FILL_OPACITY_PCT, updated.markerHaloUnpinnedFillOpacityPct)
+            .putInt(KEY_MARKER_HALO_UNPINNED_BORDER_OPACITY_PCT, updated.markerHaloUnpinnedBorderOpacityPct)
             .putBoolean(KEY_TRACKS_VISIBLE, updated.tracksVisible)
             .putBoolean(KEY_TRACKS_DIRECTION_VISIBLE, updated.tracksDirectionVisible)
             .putString(KEY_TRACK_DIRECTION_DENSITY, updated.trackDirectionDensity.name)
@@ -516,10 +584,10 @@ class SettingsManager(
             .putInt(KEY_TRACKING_COLOR_PINNED, updated.trackingColorPinned)
             .putInt(KEY_TRACKING_COLOR_PAST_FROM, updated.trackingColorPastFrom)
             .putInt(KEY_TRACKING_COLOR_PAST_TO, updated.trackingColorPastTo)
-            .putInt(KEY_TRACKING_TRANSPARENCY_NEWEST, updated.trackingTransparencyNewest)
-            .putInt(KEY_TRACKING_TRANSPARENCY_OLDEST, updated.trackingTransparencyOldest)
-            .putInt(KEY_TRACKING_TRANSPARENCY_PINNED_NEWEST, updated.trackingTransparencyPinnedNewest)
-            .putInt(KEY_TRACKING_TRANSPARENCY_PINNED_OLDEST, updated.trackingTransparencyPinnedOldest)
+            .putInt(KEY_TRACKING_OPACITY_NEWEST, updated.trackingOpacityNewest)
+            .putInt(KEY_TRACKING_OPACITY_OLDEST, updated.trackingOpacityOldest)
+            .putInt(KEY_TRACKING_OPACITY_PINNED_NEWEST, updated.trackingOpacityPinnedNewest)
+            .putInt(KEY_TRACKING_OPACITY_PINNED_OLDEST, updated.trackingOpacityPinnedOldest)
             .putInt(KEY_TRACKING_COLOR_PINNED_FROM, updated.trackingColorPinnedFrom)
             .putInt(KEY_TRACKING_COLOR_PINNED_TO, updated.trackingColorPinnedTo)
             .putBoolean(KEY_TRACK_SIMPLIFY_ENABLED, updated.trackSimplifyEnabled)
@@ -612,6 +680,13 @@ class SettingsManager(
         private const val KEY_TRACK_DIRECTION_MAX_SPACING_DP = "track_direction_max_spacing_dp"
         private const val KEY_MARKER_LAYER_STATE = "marker_layer_state"
         private const val KEY_MARKER_ZONES_VISIBLE = "marker_zones_visible"
+        private const val KEY_MARKER_HALO_SIZE = "marker_halo_size"
+        private const val KEY_MARKER_HALO_PINNED_COLOR = "marker_halo_pinned_color"
+        private const val KEY_MARKER_HALO_UNPINNED_COLOR = "marker_halo_unpinned_color"
+        private const val KEY_MARKER_HALO_PINNED_FILL_OPACITY_PCT = "marker_halo_pinned_fill_opacity_pct"
+        private const val KEY_MARKER_HALO_PINNED_BORDER_OPACITY_PCT = "marker_halo_pinned_border_opacity_pct"
+        private const val KEY_MARKER_HALO_UNPINNED_FILL_OPACITY_PCT = "marker_halo_unpinned_fill_opacity_pct"
+        private const val KEY_MARKER_HALO_UNPINNED_BORDER_OPACITY_PCT = "marker_halo_unpinned_border_opacity_pct"
         private const val KEY_TRACKING_RENDER_NB = "tracking_render_nb"
         private const val KEY_TRACKING_COLOR_ACTIVE = "tracking_color_active"
         private const val KEY_TRACKING_COLOR_HISTORY = "tracking_color_history"
@@ -623,6 +698,10 @@ class SettingsManager(
         private const val KEY_TRACKING_TRANSPARENCY_OLDEST = "tracking_transparency_oldest"
         private const val KEY_TRACKING_TRANSPARENCY_PINNED_NEWEST = "tracking_transparency_pinned_newest"
         private const val KEY_TRACKING_TRANSPARENCY_PINNED_OLDEST = "tracking_transparency_pinned_oldest"
+        private const val KEY_TRACKING_OPACITY_NEWEST = "tracking_opacity_newest"
+        private const val KEY_TRACKING_OPACITY_OLDEST = "tracking_opacity_oldest"
+        private const val KEY_TRACKING_OPACITY_PINNED_NEWEST = "tracking_opacity_pinned_newest"
+        private const val KEY_TRACKING_OPACITY_PINNED_OLDEST = "tracking_opacity_pinned_oldest"
         private const val KEY_TRACKING_COLOR_PINNED_FROM = "tracking_color_pinned_from"
         private const val KEY_TRACKING_COLOR_PINNED_TO = "tracking_color_pinned_to"
         private const val KEY_TRACK_SIMPLIFY_ENABLED = "track_simplify_enabled"
@@ -638,6 +717,6 @@ class SettingsManager(
         private const val KEY_MAP_OFFSET_BOAT_FROM_BOTTOM_PCT = "map_offset_boat_from_bottom_pct"
         private const val KEY_MAX_RECORDING_ACCURACY_M = "max_recording_accuracy_m"
         private const val KEY_PREFS_VERSION = "prefs_version"
-        private const val CURRENT_VERSION = 6
+        private const val CURRENT_VERSION = 8
     }
 }

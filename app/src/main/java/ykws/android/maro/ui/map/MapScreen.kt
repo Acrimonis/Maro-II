@@ -325,8 +325,8 @@ private fun SnackRow(
  *
  * @param index 0-based position (newest = 0) among same-type tracks being rendered.
  * @param total total tracks of this type being rendered.
- * @param transparencyNewest 0..100 (0 = opaque, 100 = invisible).
- * @param transparencyOldest 0..100.
+ * @param opacityNewest 0..100 (0 = invisible, 100 = opaque).
+ * @param opacityOldest 0..100.
  * @param colorFrom start color (0xRRGGBB, no alpha) for newest track.
  * @param colorTo end color (0xRRGGBB, no alpha) for oldest track.
  * @param strokeWidth polyline stroke width in px (default 6f).
@@ -334,14 +334,14 @@ private fun SnackRow(
 internal fun computeTrackPolylineAppearance(
     index: Int,
     total: Int,
-    transparencyNewest: Int,
-    transparencyOldest: Int,
+    opacityNewest: Int,
+    opacityOldest: Int,
     colorFrom: Int,
     colorTo: Int,
     strokeWidth: Float = 6f
 ): TrackPolylineAppearance {
-    val alphaNewest = (100 - transparencyNewest) / 100f
-    val alphaOldest = (100 - transparencyOldest) / 100f
+    val alphaNewest = opacityNewest / 100f
+    val alphaOldest = opacityOldest / 100f
     val t = if (total <= 1) 0f else index.toFloat() / (total - 1).toFloat()
     val alphaFraction = alphaNewest - t * (alphaNewest - alphaOldest)
     val alphaInt = (alphaFraction * 255).toInt().coerceIn(0, 255)
@@ -417,8 +417,6 @@ fun MapScreen(
 
     // ── Click-N-Move state ─────────────────────────────────────────────
     var highlightedTrackId by remember { mutableStateOf<String?>(null) }
-    var highlightedMarkerId by remember { mutableStateOf<String?>(null) }
-    var navigationZonesVisible by remember { mutableStateOf(false) }
     var preNavigationState by remember { mutableStateOf<PreNavigationState?>(null) }
     var trackNavigateState by remember { mutableStateOf<TrackNavigateState?>(null) }
     var trackDrawerState by remember { mutableStateOf(TrackDrawerState()) }
@@ -441,8 +439,6 @@ fun MapScreen(
     val trackScope = rememberCoroutineScope()
     // ── Close selected-item dashboards (marker + track) when menu/fan opens ──
     fun closeSelectedItemDashboards() {
-        navigationZonesVisible = false
-        highlightedMarkerId = null
         if (markersViewModel.drawerState.value is MarkerDrawerState.Viewing ||
             markersViewModel.drawerState.value is MarkerDrawerState.MatchResult
         ) {
@@ -500,7 +496,6 @@ fun MapScreen(
             is ActiveSnack.MarkerDelete -> {
                 pendingDeleteIds.remove("m:${snack.id}")
                 markersViewModel.openEditDrawer(snack.selection, selectedId = snack.id, source = snack.source)
-                highlightedMarkerId = snack.id
             }
             is ActiveSnack.CreateUndo -> markersViewModel.undoCreateMarker()
         }
@@ -1190,15 +1185,15 @@ fun MapScreen(
         }
     }
 
-    // ── Track overlay: incremental diff for history tracks with fading transparency ──
+    // ── Track overlay: incremental diff for history tracks with fading opacity ──
     // Track the set of currently-rendered track IDs to avoid full teardown+rebuild.
     val renderedTrackIds = remember { mutableStateOf(setOf<String>()) }
 
     LaunchedEffect(mapView, showSettings, appSettings.tracksVisible, appSettings.tracksDirectionVisible, appSettings.trackingRenderNb,
         appSettings.trackingColorPastFrom, appSettings.trackingColorPastTo,
-        appSettings.trackingTransparencyNewest, appSettings.trackingTransparencyOldest,
+        appSettings.trackingOpacityNewest, appSettings.trackingOpacityOldest,
         appSettings.trackingColorPinnedFrom, appSettings.trackingColorPinnedTo,
-        appSettings.trackingTransparencyPinnedNewest, appSettings.trackingTransparencyPinnedOldest,
+        appSettings.trackingOpacityPinnedNewest, appSettings.trackingOpacityPinnedOldest,
         appSettings.trackListFilter, trackSummaries, highlightedTrackId,
         appSettings.trackDirectionDensity, appSettings.trackDirectionMinSpacingDp, appSettings.trackDirectionMaxSpacingDp,
         appSettings.trackDirectionSpeedFloorKn, appSettings.trackDirectionSpeedCeilingKn) {
@@ -1271,8 +1266,8 @@ fun MapScreen(
                 listOf(computeTrackPolylineAppearance(
                     index = index,
                     total = total,
-                    transparencyNewest = appSettings.trackingTransparencyNewest,
-                    transparencyOldest = appSettings.trackingTransparencyOldest,
+                    opacityNewest = appSettings.trackingOpacityNewest,
+                    opacityOldest = appSettings.trackingOpacityOldest,
                     colorFrom = appSettings.trackingColorPastFrom,
                     colorTo = appSettings.trackingColorPastTo,
                     strokeWidth = if (index == 0) 8f else 6f
@@ -1345,7 +1340,7 @@ fun MapScreen(
             mv.overlays.addAll(trackOverlays)
         }
 
-        // ── Pinned tracks: always render all, separate colors/transparency ──
+        // ── Pinned tracks: always render all, separate colors/opacity ──
         val toRemovePinned = mv.overlays.filter { overlay ->
             (overlay as? org.osmdroid.views.overlay.Polyline)?.title?.startsWith("track_pin_") == true
         }
@@ -1371,8 +1366,8 @@ fun MapScreen(
                 listOf(computeTrackPolylineAppearance(
                     index = index,
                     total = pinnedTotal,
-                    transparencyNewest = appSettings.trackingTransparencyPinnedNewest,
-                    transparencyOldest = appSettings.trackingTransparencyPinnedOldest,
+                    opacityNewest = appSettings.trackingOpacityPinnedNewest,
+                    opacityOldest = appSettings.trackingOpacityPinnedOldest,
                     colorFrom = appSettings.trackingColorPinnedFrom,
                     colorTo = appSettings.trackingColorPinnedTo,
                     strokeWidth = 6f
@@ -2117,10 +2112,18 @@ fun MapScreen(
                     unconfirmedMarker = unconfirmedMarker,
                     onMarkerTap = { ids -> markersViewModel.openEditDrawer(ids) },
                     matchResult = if (drawerState is MarkerDrawerState.MatchResult) matchResult else null,
-                    markerZonesVisible = appSettings.markerZonesVisible || navigationZonesVisible,
+                    // The selected marker forces its own zones visible inside MarkerOverlay
+                    // (folded navigationZonesVisible); this flag stays the global toggle.
+                    markerZonesVisible = appSettings.markerZonesVisible,
                     selectedMarkerId = selectedMarkerId,
                     markerLayerState = markerLayerState,
-                    highlightedMarkerId = highlightedMarkerId
+                    markerHaloSize = appSettings.markerHaloSize,
+                    markerHaloPinnedColor = appSettings.markerHaloPinnedColor,
+                    markerHaloUnpinnedColor = appSettings.markerHaloUnpinnedColor,
+                    markerHaloPinnedFillOpacityPct = appSettings.markerHaloPinnedFillOpacityPct,
+                    markerHaloPinnedBorderOpacityPct = appSettings.markerHaloPinnedBorderOpacityPct,
+                    markerHaloUnpinnedFillOpacityPct = appSettings.markerHaloUnpinnedFillOpacityPct,
+                    markerHaloUnpinnedBorderOpacityPct = appSettings.markerHaloUnpinnedBorderOpacityPct
                 )
             }
 
@@ -2129,8 +2132,20 @@ fun MapScreen(
             val target = navigateToTarget ?: return@LaunchedEffect
             val mv = mapView ?: return@LaunchedEffect
 
-            // 1. Animate map to marker centre
-            mv.controller.animateTo(target.geoPoint, null, GPS_ANIMATION_DURATION_MS)
+            // 1. Focus the marker: corridor/circle zoom-to-fit the whole zone (bbox);
+            //    pin is a single point — centre only.
+            val focusMarker = userMarkers.find { it.id == target.markerId }
+            val isZone = focusMarker?.geometry is ykws.android.maro.data.model.markers.MarkerGeometry.Circle ||
+                focusMarker?.geometry is ykws.android.maro.data.model.markers.MarkerGeometry.Corridor
+            if (isZone && focusMarker != null) {
+                val b = focusMarker.bbox
+                mv.zoomToBoundingBox(
+                    org.osmdroid.util.BoundingBox(b.latNorth, b.lonEast, b.latSouth, b.lonWest),
+                    true, 64
+                )
+            } else {
+                mv.controller.animateTo(target.geoPoint, null, GPS_ANIMATION_DURATION_MS)
+            }
 
             // 2. Wait for animation to settle
             delay(GPS_ANIMATION_DURATION_MS + 50L)
@@ -2260,9 +2275,7 @@ fun MapScreen(
 
         fun openMarkerDetail(id: String) {
             val marker = mgmtMarkers.find { it.id == id } ?: return
-            navigationZonesVisible = true
             markersViewModel.showLayer()
-            highlightedMarkerId = id
             showMarkerManagement = false
             navigateToTarget = NavigateTarget(
                 geoPoint = GeoPoint(marker.centerPoint.latitude, marker.centerPoint.longitude),
@@ -2287,8 +2300,6 @@ fun MapScreen(
             onDismissMarkerManagement = { showMarkerManagement = false },
             onWizardCancel = { markersViewModel.wizardCancel() },
             onMarkerDrawerClose = {
-                navigationZonesVisible = false
-                highlightedMarkerId = null
                 markersViewModel.closeDrawer()
             },
             onOpenTrackHistoryFromMenu = { showTrackHistory = true },
@@ -2412,6 +2423,7 @@ fun MapScreen(
                 markersViewModel.startWizard(initialPos = mapCenter)
             },
             onSetIcon = { id, icon -> markersViewModel.setMarkerIcon(id, icon) },
+            onSetPin = { id, pinned -> markersViewModel.setMarkerPinned(id, pinned) },
             onUpdateMarkerText = { id, name, desc -> markersViewModel.updateMarkerText(id, name, desc) },
             // ── List-detail navigation ──────────────────────────────────
             trackListIds = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id },
@@ -2473,10 +2485,7 @@ fun MapScreen(
                     val targetId = selection[targetIdx]
                     val filtered = selection.filter { "m:$it" !in pendingDeleteIds }
                     markersViewModel.openEditDrawer(filtered, selectedId = targetId, source = source)
-                    highlightedMarkerId = targetId
                 } else {
-                    navigationZonesVisible = false
-                    highlightedMarkerId = null
                     markersViewModel.closeDrawer()
                 }
             },
@@ -3414,257 +3423,6 @@ private fun LayersSettings(
             .fillMaxSize()
             .verticalScroll(scrollState)
     ) {
-        // ── Danger Zones (was: low-depth warning) ──────────────────────
-        SectionHeader(title = stringResource(R.string.settings_danger_zones_label), uppercase = false)
-        Spacer(modifier = Modifier.height(8.dp))
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(ComposeColor(AppConfig.uiCardBackground))
-                .padding(vertical = 8.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.settings_danger_zones_desc),
-                color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                fontSize = 13.sp,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-            // Warning sliders — always visible, persisted expander
-            Spacer(Modifier.height(4.dp))
-            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                SettingsExpander(
-                    label = stringResource(R.string.settings_low_depth_settings_label),
-                    expanded = settingsVm.isExpanded("danger_warning"),
-                    onToggle = { settingsVm.setExpanded("danger_warning", !settingsVm.isExpanded("danger_warning")) }
-                ) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        SettingsSliderGroup(nested = true) {
-                            SliderRowContent(
-                                label = stringResource(R.string.settings_low_depth_threshold_label),
-                                description = stringResource(R.string.settings_low_depth_threshold_desc),
-                                valueLabel = stringResource(R.string.settings_value_depth, settings.lowDepthWarningMaxM),
-                                value = settings.lowDepthWarningMaxM,
-                                valueRange = 0.5f..5f,
-                                steps = 8,
-                                onValueChange = { v ->
-                                    onUpdateSettings { it.copy(lowDepthWarningMaxM = (v * 2f).roundToInt() / 2f) }
-                                }
-                            )
-                            SliderRowDivider()
-                            SliderRowContent(
-                                label = stringResource(R.string.settings_low_depth_opacity_label),
-                                description = stringResource(R.string.settings_low_depth_opacity_desc),
-                                valueLabel = stringResource(R.string.settings_value_percent, settings.lowDepthWarningMinOpacityPct),
-                                value = settings.lowDepthWarningMinOpacityPct.toFloat(),
-                                valueRange = 0f..100f,
-                                steps = 19,
-                                onValueChange = { v ->
-                                    onUpdateSettings { it.copy(lowDepthWarningMinOpacityPct = (v / 5f).roundToInt() * 5) }
-                                }
-                            )
-                    }
-                }
-            }
-            Spacer(Modifier.height(4.dp))
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // ── 300m Band ───────────────────────────────────────────────────
-        SectionHeader(title = stringResource(R.string.settings_zone300_label), uppercase = false)
-        Spacer(modifier = Modifier.height(8.dp))
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(ComposeColor(AppConfig.uiCardBackground))
-                .padding(vertical = 8.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.settings_zone300_desc),
-                color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                fontSize = 13.sp,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-            Spacer(Modifier.height(4.dp))
-            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                SettingsExpander(
-                    label = stringResource(R.string.settings_zone300_appearance_label),
-                    expanded = settingsVm.isExpanded("zone300_appearance"),
-                    onToggle = { settingsVm.setExpanded("zone300_appearance", !settingsVm.isExpanded("zone300_appearance")) }
-                ) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    SettingsSliderGroup(nested = true) {
-                        ColorSwatchRow(
-                            label = stringResource(R.string.settings_zone300_color_label),
-                            color = settings.zone300Color,
-                            onColorSelected = { c -> onUpdateSettings { it.copy(zone300Color = c) } },
-                            showPickLabel = false
-                        )
-                    }
-                    SliderRowDivider()
-                    SubSectionHeader(
-                        title = stringResource(R.string.settings_zone300_opacity_label),
-                        description = stringResource(R.string.settings_zone300_opacity_desc)
-                    )
-                    var opacityDrag by remember {
-                        mutableStateOf(settings.zone300FillOpacityPct.toFloat()..settings.zone300BoundaryOpacityPct.toFloat())
-                    }
-                    Text(
-                        text = stringResource(
-                            R.string.settings_zone300_opacity_value_fmt,
-                            (opacityDrag.start / 5f).roundToInt() * 5,
-                            (opacityDrag.endInclusive / 5f).roundToInt() * 5
-                        ),
-                        color = ComposeColor(AppConfig.uiSettingsValueText),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.End,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    RangeSlider(
-                        value = opacityDrag,
-                        onValueChange = { range -> opacityDrag = range },
-                        valueRange = 0f..100f,
-                        steps = 19,
-                        onValueChangeFinished = {
-                            onUpdateSettings {
-                                it.copy(
-                                    zone300FillOpacityPct = (opacityDrag.start / 5f).roundToInt() * 5,
-                                    zone300BoundaryOpacityPct = (opacityDrag.endInclusive / 5f).roundToInt() * 5
-                                )
-                            }
-                        },
-                        colors = SliderDefaults.colors(
-                            thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                            activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
-                            inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                        )
-                    )
-                }
-            }
-            Spacer(Modifier.height(4.dp))
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // ── Regulated zones ─────────────────────────────────────────────
-        SectionHeader(title = stringResource(R.string.settings_regulated_zones_label), uppercase = false)
-        Spacer(modifier = Modifier.height(8.dp))
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(ComposeColor(AppConfig.uiCardBackground))
-                .padding(vertical = 8.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.settings_regulated_zones_desc),
-                color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                fontSize = 13.sp,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-            Spacer(Modifier.height(4.dp))
-                // Regulation info — collapsible toggle for info text panel
-                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    SettingsExpander(
-                        label = stringResource(R.string.settings_reg_info_settings_label),
-                        expanded = settingsVm.isExpanded("reg_info"),
-                        onToggle = { settingsVm.setExpanded("reg_info", !settingsVm.isExpanded("reg_info")) }
-                    ) {
-                        Spacer(Modifier.height(8.dp))
-                        Column(
-                            modifier = Modifier.fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(ComposeColor(0x0DFFFFFF))
-                                .border(1.dp, ComposeColor(0x40FFFFFF), RoundedCornerShape(12.dp))
-                                .padding(horizontal = 16.dp, vertical = 12.dp)
-                        ) {
-                            Text(
-                                text = stringResource(R.string.settings_reg_info_desc),
-                                color = ComposeColor(AppConfig.uiDashboardTextMuted),
-                                fontSize = 13.sp,
-                                modifier = Modifier.padding(bottom = 8.dp)
-                            )
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.settings_reg_info_visible),
-                                    color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                                    fontSize = 14.sp
-                                )
-                                Switch(
-                                    checked = settings.regulationInfoVisible,
-                                    onCheckedChange = { visible ->
-                                        onUpdateSettings { it.copy(regulationInfoVisible = visible) }
-                                    },
-                                    colors = SwitchDefaults.colors(
-                                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f)
-                                    )
-                                )
-                            }
-                            Spacer(Modifier.height(4.dp))
-                            Box(Modifier.fillMaxWidth().height(1.dp).background(ComposeColor(AppConfig.uiSettingsDivider)))
-                            Spacer(Modifier.height(4.dp))
-                            BoatSizeSlider(settings, onUpdateSettings, nested = true)
-                        }
-                    }
-                }
-                Spacer(Modifier.height(8.dp))
-                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    SettingsExpander(
-                        label = stringResource(R.string.settings_categories_label),
-                        expanded = settingsVm.isExpanded("reg_categories"),
-                        onToggle = { settingsVm.setExpanded("reg_categories", !settingsVm.isExpanded("reg_categories")) }
-                    ) {
-                        Spacer(modifier = Modifier.height(8.dp))
-                        RegulatedZoneCategoryToggles(settings, onUpdateSettings)
-                    }
-                }
-            Spacer(Modifier.height(4.dp))
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // ── Depth — EMODnet shallow filter ─────────────────────────────
-        SectionHeader(title = stringResource(R.string.settings_depth_label), uppercase = false)
-        Spacer(modifier = Modifier.height(8.dp))
-        Column(
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
-                .background(ComposeColor(AppConfig.uiCardBackground)).padding(vertical = 8.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.settings_depth_desc),
-                color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                fontSize = 13.sp,
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
-            Spacer(Modifier.height(4.dp))
-            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                SettingsExpander(label = stringResource(R.string.settings_emodnet_section_label), expanded = settingsVm.isExpanded("depth_cutoff"),
-                    onToggle = { settingsVm.setExpanded("depth_cutoff", !settingsVm.isExpanded("depth_cutoff")) }
-                ) {
-                    Spacer(Modifier.height(8.dp))
-                    SettingsSliderGroup(nested = true) {
-                        SliderRowContent(
-                            label = stringResource(R.string.settings_emodnet_cutoff_label),
-                            description = stringResource(R.string.settings_emodnet_cutoff_desc),
-                            valueLabel = stringResource(R.string.settings_value_depth, settings.emodnetShallowCutoffM),
-                            value = settings.emodnetShallowCutoffM, valueRange = 0f..5f, steps = 9,
-                            onValueChange = { v -> onUpdateSettings { it.copy(emodnetShallowCutoffM = (v * 2f).roundToInt() / 2f) } }
-                        )
-                    }
-                }
-            }
-            Spacer(Modifier.height(4.dp))
-        }
-        Spacer(modifier = Modifier.height(12.dp))
-
         // ── Tracks ──────────────────────────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_section_tracks), uppercase = false)
         Spacer(modifier = Modifier.height(8.dp))
@@ -3745,7 +3503,7 @@ private fun LayersSettings(
                             )
                             Spacer(Modifier.height(6.dp))
 
-                            // Transparency
+                            // Opacity
                             Text(
                                 text = stringResource(R.string.settings_transparency_label),
                                 color = ComposeColor(AppConfig.uiSettingsTextPrimary),
@@ -3758,7 +3516,7 @@ private fun LayersSettings(
                                 fontSize = 12.sp
                             )
                             Text(
-                                text = stringResource(R.string.settings_transparency_value_fmt, settings.trackingTransparencyNewest, settings.trackingTransparencyOldest),
+                                text = stringResource(R.string.settings_transparency_value_fmt, settings.trackingOpacityNewest, settings.trackingOpacityOldest),
                                 color = ComposeColor(AppConfig.uiSettingsValueText),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
@@ -3766,12 +3524,12 @@ private fun LayersSettings(
                                 modifier = Modifier.fillMaxWidth()
                             )
                             RangeSlider(
-                                value = settings.trackingTransparencyNewest.toFloat()..settings.trackingTransparencyOldest.toFloat(),
+                                value = settings.trackingOpacityNewest.toFloat()..settings.trackingOpacityOldest.toFloat(),
                                 onValueChange = { range: ClosedFloatingPointRange<Float> ->
                                     onUpdateSettings {
                                         it.copy(
-                                            trackingTransparencyNewest = range.start.roundToInt(),
-                                            trackingTransparencyOldest = range.endInclusive.roundToInt()
+                                            trackingOpacityNewest = range.start.roundToInt(),
+                                            trackingOpacityOldest = range.endInclusive.roundToInt()
                                         )
                                     }
                                 },
@@ -3793,7 +3551,7 @@ private fun LayersSettings(
                             )
                             Spacer(Modifier.height(6.dp))
 
-                            // Pinned tracks transparency
+                            // Pinned tracks opacity
                             Text(
                                 text = stringResource(R.string.settings_pinned_transparency_label),
                                 color = ComposeColor(AppConfig.uiSettingsTextPrimary),
@@ -3807,8 +3565,8 @@ private fun LayersSettings(
                             )
                             Text(
                                 text = stringResource(R.string.settings_transparency_value_fmt,
-                                    settings.trackingTransparencyPinnedNewest,
-                                    settings.trackingTransparencyPinnedOldest
+                                    settings.trackingOpacityPinnedNewest,
+                                    settings.trackingOpacityPinnedOldest
                                 ),
                                 color = ComposeColor(AppConfig.uiSettingsValueText),
                                 fontSize = 14.sp,
@@ -3817,13 +3575,13 @@ private fun LayersSettings(
                                 modifier = Modifier.fillMaxWidth()
                             )
                             RangeSlider(
-                                value = settings.trackingTransparencyPinnedNewest.toFloat()
-                                    ..settings.trackingTransparencyPinnedOldest.toFloat(),
+                                value = settings.trackingOpacityPinnedNewest.toFloat()
+                                    ..settings.trackingOpacityPinnedOldest.toFloat(),
                                 onValueChange = { range: ClosedFloatingPointRange<Float> ->
                                     onUpdateSettings {
                                         it.copy(
-                                            trackingTransparencyPinnedNewest = range.start.roundToInt(),
-                                            trackingTransparencyPinnedOldest = range.endInclusive.roundToInt()
+                                            trackingOpacityPinnedNewest = range.start.roundToInt(),
+                                            trackingOpacityPinnedOldest = range.endInclusive.roundToInt()
                                         )
                                     }
                                 },
@@ -4023,6 +3781,126 @@ private fun LayersSettings(
             Spacer(Modifier.height(4.dp))
             Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                 SettingsExpander(
+                    label = stringResource(R.string.settings_marker_rendering_label),
+                    expanded = settingsVm.isExpanded("markers_rendering"),
+                    onToggle = { settingsVm.setExpanded("markers_rendering", !settingsVm.isExpanded("markers_rendering")) }
+                ) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    SettingsSliderGroup(nested = true) {
+                        // Halo size
+                        SliderRowContent(
+                            label = stringResource(R.string.settings_marker_halo_size_label),
+                            description = stringResource(R.string.settings_marker_halo_size_desc),
+                            valueLabel = "%d%%".format(settings.markerHaloSize),
+                            value = settings.markerHaloSize.toFloat(),
+                            valueRange = 0f..100f,
+                            steps = 19,
+                            onValueChange = { v ->
+                                onUpdateSettings { it.copy(markerHaloSize = v.roundToInt().coerceIn(0, 100)) }
+                            }
+                        )
+                        SliderRowDivider()
+
+                        // Opacity section
+                        SubSectionHeader(title = stringResource(R.string.settings_marker_halo_transparency_label))
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Pinned opacity (double slider: fill .. border)
+                        Text(
+                            text = stringResource(R.string.settings_marker_halo_pinned_label),
+                            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_marker_halo_value_fmt,
+                                settings.markerHaloPinnedFillOpacityPct,
+                                settings.markerHaloPinnedBorderOpacityPct),
+                            color = ComposeColor(AppConfig.uiSettingsValueText),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.End,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        RangeSlider(
+                            value = settings.markerHaloPinnedFillOpacityPct.toFloat()
+                                ..settings.markerHaloPinnedBorderOpacityPct.toFloat(),
+                            onValueChange = { range: ClosedFloatingPointRange<Float> ->
+                                onUpdateSettings {
+                                    it.copy(
+                                        markerHaloPinnedFillOpacityPct = range.start.roundToInt(),
+                                        markerHaloPinnedBorderOpacityPct = range.endInclusive.roundToInt()
+                                    )
+                                }
+                            },
+                            valueRange = 0f..100f,
+                            steps = 19,
+                            colors = SliderDefaults.colors(
+                                thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                                activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
+                                inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                            )
+                        )
+
+                        // Unpinned opacity (double slider: fill .. border)
+                        Text(
+                            text = stringResource(R.string.settings_marker_halo_unpinned_label),
+                            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_marker_halo_value_fmt,
+                                settings.markerHaloUnpinnedFillOpacityPct,
+                                settings.markerHaloUnpinnedBorderOpacityPct),
+                            color = ComposeColor(AppConfig.uiSettingsValueText),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.End,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        RangeSlider(
+                            value = settings.markerHaloUnpinnedFillOpacityPct.toFloat()
+                                ..settings.markerHaloUnpinnedBorderOpacityPct.toFloat(),
+                            onValueChange = { range: ClosedFloatingPointRange<Float> ->
+                                onUpdateSettings {
+                                    it.copy(
+                                        markerHaloUnpinnedFillOpacityPct = range.start.roundToInt(),
+                                        markerHaloUnpinnedBorderOpacityPct = range.endInclusive.roundToInt()
+                                    )
+                                }
+                            },
+                            valueRange = 0f..100f,
+                            steps = 19,
+                            colors = SliderDefaults.colors(
+                                thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                                activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
+                                inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                            )
+                        )
+                        SliderRowDivider()
+
+                        // Colors section
+                        SubSectionHeader(title = stringResource(R.string.settings_marker_halo_colors_label))
+                        Spacer(modifier = Modifier.height(4.dp))
+                        ColorSwatchRow(
+                            label = stringResource(R.string.settings_marker_halo_pinned_color_label),
+                            color = settings.markerHaloPinnedColor,
+                            onColorSelected = { c -> onUpdateSettings { it.copy(markerHaloPinnedColor = c) } },
+                            showPickLabel = false
+                        )
+                        ColorSwatchRow(
+                            label = stringResource(R.string.settings_marker_halo_unpinned_color_label),
+                            color = settings.markerHaloUnpinnedColor,
+                            onColorSelected = { c -> onUpdateSettings { it.copy(markerHaloUnpinnedColor = c) } },
+                            showPickLabel = false
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                SettingsExpander(
                     label = stringResource(R.string.settings_auto_markers_label),
                     expanded = settingsVm.isExpanded("markers_auto"),
                     onToggle = { settingsVm.setExpanded("markers_auto", !settingsVm.isExpanded("markers_auto")) }
@@ -4072,6 +3950,166 @@ private fun LayersSettings(
 
         Spacer(modifier = Modifier.height(12.dp))
 
+        // ── Regulated zones ─────────────────────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_regulated_zones_label), uppercase = false)
+        Spacer(modifier = Modifier.height(8.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(ComposeColor(AppConfig.uiCardBackground))
+                .padding(vertical = 8.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.settings_regulated_zones_desc),
+                color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                fontSize = 13.sp,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+            Spacer(Modifier.height(4.dp))
+                // Regulation info — collapsible toggle for info text panel
+                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    SettingsExpander(
+                        label = stringResource(R.string.settings_reg_info_settings_label),
+                        expanded = settingsVm.isExpanded("reg_info"),
+                        onToggle = { settingsVm.setExpanded("reg_info", !settingsVm.isExpanded("reg_info")) }
+                    ) {
+                        Spacer(Modifier.height(8.dp))
+                        Column(
+                            modifier = Modifier.fillMaxWidth()
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(ComposeColor(0x0DFFFFFF))
+                                .border(1.dp, ComposeColor(0x40FFFFFF), RoundedCornerShape(12.dp))
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        ) {
+                            Text(
+                                text = stringResource(R.string.settings_reg_info_desc),
+                                color = ComposeColor(AppConfig.uiDashboardTextMuted),
+                                fontSize = 13.sp,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.settings_reg_info_visible),
+                                    color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                                    fontSize = 14.sp
+                                )
+                                Switch(
+                                    checked = settings.regulationInfoVisible,
+                                    onCheckedChange = { visible ->
+                                        onUpdateSettings { it.copy(regulationInfoVisible = visible) }
+                                    },
+                                    colors = SwitchDefaults.colors(
+                                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f)
+                                    )
+                                )
+                            }
+                            Spacer(Modifier.height(4.dp))
+                            Box(Modifier.fillMaxWidth().height(1.dp).background(ComposeColor(AppConfig.uiSettingsDivider)))
+                            Spacer(Modifier.height(4.dp))
+                            BoatSizeSlider(settings, onUpdateSettings, nested = true)
+                        }
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                    SettingsExpander(
+                        label = stringResource(R.string.settings_categories_label),
+                        expanded = settingsVm.isExpanded("reg_categories"),
+                        onToggle = { settingsVm.setExpanded("reg_categories", !settingsVm.isExpanded("reg_categories")) }
+                    ) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        RegulatedZoneCategoryToggles(settings, onUpdateSettings)
+                    }
+                }
+            Spacer(Modifier.height(4.dp))
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // ── 300m Band ───────────────────────────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_zone300_label), uppercase = false)
+        Spacer(modifier = Modifier.height(8.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(ComposeColor(AppConfig.uiCardBackground))
+                .padding(vertical = 8.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.settings_zone300_desc),
+                color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                fontSize = 13.sp,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+            Spacer(Modifier.height(4.dp))
+            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                SettingsExpander(
+                    label = stringResource(R.string.settings_zone300_appearance_label),
+                    expanded = settingsVm.isExpanded("zone300_appearance"),
+                    onToggle = { settingsVm.setExpanded("zone300_appearance", !settingsVm.isExpanded("zone300_appearance")) }
+                ) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    SettingsSliderGroup(nested = true) {
+                        ColorSwatchRow(
+                            label = stringResource(R.string.settings_zone300_color_label),
+                            color = settings.zone300Color,
+                            onColorSelected = { c -> onUpdateSettings { it.copy(zone300Color = c) } },
+                            showPickLabel = false
+                        )
+                    }
+                    SliderRowDivider()
+                    SubSectionHeader(
+                        title = stringResource(R.string.settings_zone300_opacity_label),
+                        description = stringResource(R.string.settings_zone300_opacity_desc)
+                    )
+                    var opacityDrag by remember {
+                        mutableStateOf(settings.zone300FillOpacityPct.toFloat()..settings.zone300BoundaryOpacityPct.toFloat())
+                    }
+                    Text(
+                        text = stringResource(
+                            R.string.settings_zone300_opacity_value_fmt,
+                            (opacityDrag.start / 5f).roundToInt() * 5,
+                            (opacityDrag.endInclusive / 5f).roundToInt() * 5
+                        ),
+                        color = ComposeColor(AppConfig.uiSettingsValueText),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    RangeSlider(
+                        value = opacityDrag,
+                        onValueChange = { range -> opacityDrag = range },
+                        valueRange = 0f..100f,
+                        steps = 19,
+                        onValueChangeFinished = {
+                            onUpdateSettings {
+                                it.copy(
+                                    zone300FillOpacityPct = (opacityDrag.start / 5f).roundToInt() * 5,
+                                    zone300BoundaryOpacityPct = (opacityDrag.endInclusive / 5f).roundToInt() * 5
+                                )
+                            }
+                        },
+                        colors = SliderDefaults.colors(
+                            thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                            activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
+                            inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                        )
+                    )
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
         // ── Coastline — the only on/off without a map-fan button ───────
         SectionHeader(title = stringResource(R.string.settings_coastline_label), uppercase = false)
         Spacer(modifier = Modifier.height(8.dp))
@@ -4083,6 +4121,97 @@ private fun LayersSettings(
         )
 
         Spacer(modifier = Modifier.height(24.dp))
+
+        // ── Danger Zones (was: low-depth warning) ──────────────────────
+        SectionHeader(title = stringResource(R.string.settings_danger_zones_label), uppercase = false)
+        Spacer(modifier = Modifier.height(8.dp))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(ComposeColor(AppConfig.uiCardBackground))
+                .padding(vertical = 8.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.settings_danger_zones_desc),
+                color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                fontSize = 13.sp,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+            // Warning sliders — always visible, persisted expander
+            Spacer(Modifier.height(4.dp))
+            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                SettingsExpander(
+                    label = stringResource(R.string.settings_low_depth_settings_label),
+                    expanded = settingsVm.isExpanded("danger_warning"),
+                    onToggle = { settingsVm.setExpanded("danger_warning", !settingsVm.isExpanded("danger_warning")) }
+                ) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        SettingsSliderGroup(nested = true) {
+                            SliderRowContent(
+                                label = stringResource(R.string.settings_low_depth_threshold_label),
+                                description = stringResource(R.string.settings_low_depth_threshold_desc),
+                                valueLabel = stringResource(R.string.settings_value_depth, settings.lowDepthWarningMaxM),
+                                value = settings.lowDepthWarningMaxM,
+                                valueRange = 0.5f..5f,
+                                steps = 8,
+                                onValueChange = { v ->
+                                    onUpdateSettings { it.copy(lowDepthWarningMaxM = (v * 2f).roundToInt() / 2f) }
+                                }
+                            )
+                            SliderRowDivider()
+                            SliderRowContent(
+                                label = stringResource(R.string.settings_low_depth_opacity_label),
+                                description = stringResource(R.string.settings_low_depth_opacity_desc),
+                                valueLabel = stringResource(R.string.settings_value_percent, settings.lowDepthWarningMinOpacityPct),
+                                value = settings.lowDepthWarningMinOpacityPct.toFloat(),
+                                valueRange = 0f..100f,
+                                steps = 19,
+                                onValueChange = { v ->
+                                    onUpdateSettings { it.copy(lowDepthWarningMinOpacityPct = (v / 5f).roundToInt() * 5) }
+                                }
+                            )
+                    }
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // ── Depth — EMODnet shallow filter ─────────────────────────────
+        SectionHeader(title = stringResource(R.string.settings_depth_label), uppercase = false)
+        Spacer(modifier = Modifier.height(8.dp))
+        Column(
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
+                .background(ComposeColor(AppConfig.uiCardBackground)).padding(vertical = 8.dp)
+        ) {
+            Text(
+                text = stringResource(R.string.settings_depth_desc),
+                color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                fontSize = 13.sp,
+                modifier = Modifier.padding(horizontal = 16.dp)
+            )
+            Spacer(Modifier.height(4.dp))
+            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                SettingsExpander(label = stringResource(R.string.settings_emodnet_section_label), expanded = settingsVm.isExpanded("depth_cutoff"),
+                    onToggle = { settingsVm.setExpanded("depth_cutoff", !settingsVm.isExpanded("depth_cutoff")) }
+                ) {
+                    Spacer(Modifier.height(8.dp))
+                    SettingsSliderGroup(nested = true) {
+                        SliderRowContent(
+                            label = stringResource(R.string.settings_emodnet_cutoff_label),
+                            description = stringResource(R.string.settings_emodnet_cutoff_desc),
+                            valueLabel = stringResource(R.string.settings_value_depth, settings.emodnetShallowCutoffM),
+                            value = settings.emodnetShallowCutoffM, valueRange = 0f..5f, steps = 9,
+                            onValueChange = { v -> onUpdateSettings { it.copy(emodnetShallowCutoffM = (v * 2f).roundToInt() / 2f) } }
+                        )
+                    }
+                }
+            }
+            Spacer(Modifier.height(4.dp))
+        }
+        Spacer(modifier = Modifier.height(12.dp))
     }
 }
 

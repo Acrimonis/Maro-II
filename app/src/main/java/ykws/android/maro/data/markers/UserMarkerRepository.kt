@@ -11,12 +11,6 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonElement
-import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.jsonPrimitive
 import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.UserMarker
 import java.io.File
@@ -53,61 +47,8 @@ class UserMarkerRepository(
 
     private val markersFile: File get() = File(markersDir, MARKERS_FILE_NAME)
 
-    /**
-     * One-time migration: normalize the legacy `pinned` boolean into `icon`.
-     * Gated by a sidecar version file in [markersDir]; idempotent by key
-     * presence (only rows containing `pinned` are rewritten, and `pinned` is
-     * deleted). Runs on every [loadAll] call — the version gate makes it a no-op
-     * after the first run.
-     */
-    private suspend fun migratePinnedToIcon() {
-        val versionFile = File(markersDir, MARKERS_VERSION_FILE_NAME)
-        if (versionFile.exists()) return
-        if (!markersFile.exists()) {
-            versionFile.writeText("1")
-            return
-        }
-        try {
-            val text = markersFile.readText()
-            if (text.isBlank()) {
-                versionFile.writeText("1")
-                return
-            }
-            val root = json.parseToJsonElement(text)
-            if (root !is JsonArray) {
-                versionFile.writeText("1")
-                return
-            }
-            var changed = false
-            val migrated = JsonArray(root.map { element ->
-                if (element is JsonObject && element.containsKey("pinned")) {
-                    changed = true
-                    val pinned = element["pinned"]?.jsonPrimitive?.content?.toBooleanStrictOrNull() ?: false
-                    val existingIcon = element["icon"]?.takeIf { it is JsonPrimitive && it.isString }
-                    val newIcon: JsonElement =
-                        if (pinned) existingIcon ?: JsonPrimitive(DEFAULT_PIN_ICON) else JsonNull
-                    JsonObject(element.toMutableMap().apply {
-                        put("icon", newIcon)
-                        remove("pinned")
-                    })
-                } else {
-                    element
-                }
-            })
-            if (changed) {
-                val tmp = File(markersDir, MARKERS_TMP_NAME)
-                tmp.writeText(json.encodeToString(JsonArray.serializer(), migrated))
-                tmp.renameTo(markersFile)
-            }
-            versionFile.writeText("1")
-        } catch (e: Exception) {
-            Log.e(TAG, "Failed to migrate marker pinned flag to icon", e)
-        }
-    }
-
     /** Load all markers from disk. Returns empty list if the file does not exist. */
     suspend fun loadAll(): List<UserMarker> = withContext(Dispatchers.IO) {
-        migratePinnedToIcon()
         if (!markersFile.exists()) return@withContext emptyList()
         try {
             val text = markersFile.readText()
@@ -162,6 +103,16 @@ class UserMarkerRepository(
         saveAll(all)
     }
 
+    /** Set the pinned flag on a marker (mirrors [TrackRepository.setPinned]). */
+    suspend fun setPinned(id: String, pinned: Boolean) = writeMutex.withLock {
+        val all = loadAll().toMutableList()
+        val idx = all.indexOfFirst { it.id == id }
+        if (idx >= 0) {
+            all[idx] = all[idx].copy(pinned = pinned)
+            saveAll(all)
+        }
+    }
+
     /**
      * Compute the default proximity range (metres) for a marker, using the
      * configured defaults and any per-marker override.
@@ -189,8 +140,6 @@ class UserMarkerRepository(
         private const val MARKERS_FILE_NAME = "user_markers.json"
         private const val MARKERS_TMP_NAME = "user_markers.json.tmp"
         private const val MARKERS_BACKUP_NAME = "user_markers.json.bak"
-        private const val MARKERS_VERSION_FILE_NAME = "user_markers.v2"
-        private const val DEFAULT_PIN_ICON = "\uD83D\uDCCD" // 📍
         private const val TAG = "UserMarkerRepo"
 
         private val _markerChanges = MutableSharedFlow<Unit>(extraBufferCapacity = 1)

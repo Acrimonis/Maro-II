@@ -1,6 +1,6 @@
 # Markers — Icon/Pin Decoupling & Pin Re-implementation
 
-> **Feature:** Markers | **Branch:** feature/markers-pins-vs-icons
+> **Feature:** Markers | **Branch:** feature/markers-pin
 > **Created:** 2026-09-04 | **Status:** Plan — Approved (awaiting implementation)
 
 ## Goal
@@ -30,7 +30,7 @@ Split the currently-coupled marker `icon` concept into two independent features:
 
 | Layer | Marker implementation (mirrors tracks) |
 |---|---|
-| Data | `UserMarker.pinned: Boolean = false`; `isPinned get() = pinned`. Safe: repo uses `ignoreUnknownKeys` + default → no data migration. |
+| Data | `UserMarker.pinned: Boolean = false`; `isPinned get() = pinned`. New field defaults false → old files decode via `ignoreUnknownKeys` + default. **Requires removing the now-obsolete `migratePinnedToIcon()`** (see §4). |
 | Repo | `UserMarkerRepository.setPinned(id, pinned)` — mirrors `TrackRepository.setPinned`. |
 | VM | `MarkersViewModel.setMarkerPinned(id, pinned)` — reload + re-filter/sort, mirrors `TrackViewModel.setPinned`. |
 | Card | PushPin filled/outlined toggle in `MarkerCardContent` (`cd_pin`/`cd_unpin`), wired via `onSetPin`. |
@@ -48,7 +48,8 @@ Split the currently-coupled marker `icon` concept into two independent features:
 
 ## 4. Migration Surface
 
-- Marker data: **none** (new field defaults false; `ignoreUnknownKeys` + JSON default handles old files).
+- **Marker data — remove obsolete `migratePinnedToIcon()`.** [`UserMarkerRepository.migratePinnedToIcon()`](app/src/main/java/ykws/android/maro/data/markers/UserMarkerRepository.kt:63) already ran a one-way, version-gated migration that deleted the legacy `pinned` field and folded `pinned=true` into `icon` (writing 📍 when none existed). Re-introducing `pinned` as a real field reverses that direction, so this migration must be **removed** (and its `user_markers.v2` sidecar gate handled) so it no longer fights the new semantics. On-disk markers today carry only `icon`, no `pinned`.
+- **No backfill = user-visible change.** All existing markers start `pinned=false`; previously "pinned" markers (those with an icon) silently become unpinned. This is the locked decision, but it is a deliberate user-visible data change — not a no-op.
 - Settings: **one version bump** — rewrite persisted `markerListFilter` (`pinned=PINNED` → `icon=WITH_ICON`, `pinned=UNPINNED` → `icon=WITHOUT_ICON`).
 
 ## 5. Behavioral Change to Flag

@@ -187,6 +187,7 @@ private fun ViewingContent(
                     viewModel.startWizard(marker.id)
                 },
                 onSetIcon = { id, icon -> viewModel.setMarkerIcon(id, icon) },
+                onSetPin = { id, pinned -> viewModel.setMarkerPinned(id, pinned) },
                 onUpdateText = { name, desc -> viewModel.updateMarkerText(marker.id, name, desc) },
                 onLongPress = null,
                 showChevron = false

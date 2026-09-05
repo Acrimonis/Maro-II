@@ -112,7 +112,7 @@ internal fun TypeSelectStep(viewModel: MarkersViewModel) {
 
         Spacer(Modifier.height(16.dp))
 
-        // Pin toggle + icon picker
+        // Icon picker row (icon is purely decorative — no pin semantics)
         var showIconPicker by remember { mutableStateOf(false) }
         Row(
             modifier = Modifier
@@ -128,14 +128,14 @@ internal fun TypeSelectStep(viewModel: MarkersViewModel) {
             } else {
                 Icon(
                     imageVector = Icons.Outlined.LocationOff,
-                    contentDescription = stringResource(R.string.cd_pin_marker),
+                    contentDescription = stringResource(R.string.cd_change_icon),
                     tint = ButtonColors.icon,
                     modifier = Modifier.size(24.dp)
                 )
             }
             Spacer(Modifier.width(8.dp))
             Text(
-                text = if (form.icon != null) "Pinned" else "Pin this marker",
+                text = if (form.icon != null) "Change icon" else "Set icon",
                 color = mutedText,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium

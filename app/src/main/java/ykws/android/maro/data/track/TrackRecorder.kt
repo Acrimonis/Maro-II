@@ -1366,30 +1366,30 @@ class TrackRecorder(
             ?.let { markerOf(it).name }
     }
 
-    /** Check if a WhereAmIResult contains a pinned marker with the 🤿 diving icon. */
+    /** Check if a WhereAmIResult contains a marker with the 🤿 diving icon (pure icon semantics). */
     private fun hasDivingPinnedMarker(result: WhereAmIResult): Boolean {
         return result.allMatches.any { match ->
             val m = markerOf(match)
-            m.pinned && m.icon == "\uD83E\uDD3F"  // 🤿
+            m.icon == "\uD83E\uDD3F"  // 🤿
         }
     }
 
-    /** Extract the name of the first pinned 🤿 marker in the result, or null. */
+    /** Extract the name of the first 🤿 marker in the result, or null. */
     private fun divingLocationName(result: WhereAmIResult): String? {
         return result.allMatches
             .firstOrNull { match ->
                 val m = markerOf(match)
-                m.pinned && m.icon == "\uD83E\uDD3F"
+                m.icon == "\uD83E\uDD3F"
             }
             ?.let { markerOf(it).name }
     }
 
-    /** Extract the icon from the first non-IDLE_AUTO match whose marker is pinned with an icon, or null. */
+    /** Extract the icon from the first non-IDLE_AUTO match whose marker carries an icon, or null. */
     private fun topLocationIcon(result: WhereAmIResult): String? {
         return result.allMatches
             .firstOrNull { match ->
                 val m = markerOf(match)
-                m.origin != MarkerOrigin.IDLE_AUTO && m.pinned && m.icon != null
+                m.origin != MarkerOrigin.IDLE_AUTO && m.icon != null
             }
             ?.let { markerOf(it).icon }
     }
