@@ -73,6 +73,7 @@ Git command shortcuts: #new / #checkout / #commit / #push / #move / #cherry·#co
 - **#merge hybrid strategy (2026-06-28)** — pre-flight + trivial/non-trivial classification + auto-select rebase/merge → `xTrack/WorkflowImprovement/260628_FEAT_PLN_WorkflowImprovement_merge-strategy.md`
 - **AGENTS.md trunk-to-leaf (2026-06-28)** — §5 merged into Core Directives, §§1-4 condensed, Lazy-Load Index added → `xTrack/WorkflowImprovement/260628_FEAT_PLN_WorkflowImprovement_trunk-to-leaf.md`
 - **Process simplification (2026-09-04)** — WRITE-ONCE guideline, subfeatures→sections, Focus History stack → `xTrack/WorkflowImprovement/260904_FEAT_PLN_WorkflowImprovement_process-simplification.md`
+- **Rule enforcement fix (2026-09-05)** — Roo Code `.roo/rules/agents-source-of-truth.md` forces read+enforce of AGENTS.md at every session (project-committed, not plugin-config); deprecated `.clinerules` removed. AGENTS.md stays single authored source.
 - **#doc list attachment column** — `#doc list` gained an "Attached to" column
 - **xTrack system review** — spec fragmentation, orphan docs, cache gaps fixed (#doc sync/audit/diff)
 - **AGENTSmdNormalization** — AGENTS.md canonical rulebook + adapters + #doctor lint
