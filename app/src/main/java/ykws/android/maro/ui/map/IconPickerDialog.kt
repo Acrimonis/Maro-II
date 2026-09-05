@@ -48,7 +48,7 @@ val ICON_SET = listOf(
 )
 
 /**
- * Icon picker dialog — 3×4 grid + "None" option.
+ * Icon picker dialog — 4×4 grid of POI icons + "None" option.
  * Same pattern as [MarkerColorPickerDialog].
  */
 @Composable

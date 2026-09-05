@@ -43,13 +43,12 @@ data class UserMarker(
     /** ID of the owning [ykws.android.maro.data.track.Track], or null for standalone markers. */
     val trackId: String? = null,
     val keepable: Boolean = true,      // user-created markers are keepable by default
+    /** Whether the marker is pinned (independent of [icon]). Defaults false for legacy files. */
+    val pinned: Boolean = false,
     override val updatedAtEpochMs: Long = createdAtEpochMs  // defaults to creation time for legacy
 ) : ListableItem {
     override val title: String get() = name
-    override val isPinned: Boolean get() = icon != null
-
-    /** Derived pin flag — a marker is pinned when it carries an icon. */
-    val pinned: Boolean get() = icon != null
+    override val isPinned: Boolean get() = pinned
 
     /** Visual centre of the marker geometry for map navigation. */
     val centerPoint: LatLng get() = when (val g = geometry) {
@@ -173,7 +172,7 @@ sealed class MarkerGeometry {
     companion object {
         /** Default emoji icon for each geometry type. */
         fun iconFor(geometry: MarkerGeometry): String = when (geometry) {
-            is Pin -> "\uD83D\uDCCD"     // 📍
+            is Pin -> "\uD83D\uDCCD"      // 📍
             is Circle -> "\uD83C\uDFAF"   // 🎯
             is Corridor -> "\uD83D\uDEE4" // 🛤️
         }

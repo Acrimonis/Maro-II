@@ -78,7 +78,7 @@
     <string name="settings_zone300_color_desc">Fill and boundary color of the 300 m band</string>
     <string name="settings_zone300_opacity_label">Opacity</string>
     <string name="settings_zone300_opacity_desc">Zone content and border opacity</string>
-    <string name="settings_zone300_opacity_value_fmt">Zone %1$d%% · Border %2$d%%</string>
+    <string name="settings_zone300_opacity_value_fmt">Fill %1$d%% · Border %2$d%%</string>
     <string name="settings_zone300_appearance_label">Zone appearance</string>
     <string name="settings_auto_markers_label">Auto-marker creation</string>
     <string name="settings_regulated_zones_label">Regulated zones</string>
@@ -310,11 +310,11 @@
     <string name="settings_tracks_direction_speed_range_fmt">%1$.1f – %2$.1f kn</string>
     <string name="settings_tracks_count_label">Not-pinned tracks to render</string>
     <string name="settings_tracks_count_desc">This count limits non-pinned tracks only (0-20). Pinned tracks always render.</string>
-    <string name="settings_transparency_label">Not-pinned transparency</string>
-    <string name="settings_transparency_desc" formatted="false">Fade across the last N non-pinned tracks: left thumb = newest, right thumb = oldest. 0% = opaque, 100% = invisible.</string>
+    <string name="settings_transparency_label">Not-pinned opacity</string>
+    <string name="settings_transparency_desc" formatted="false">Fade across the last N non-pinned tracks: left thumb = newest, right thumb = oldest. 0% = invisible, 100% = opaque.</string>
     <string name="settings_transparency_value_fmt">Newest %1$d%%  –  Oldest %2$d%%</string>
-    <string name="settings_pinned_transparency_label">Pinned transparency</string>
-    <string name="settings_pinned_transparency_desc" formatted="false">Fade across pinned tracks only, independent of the not-pinned range. 0% = opaque, 100% = invisible.</string>
+    <string name="settings_pinned_transparency_label">Pinned opacity</string>
+    <string name="settings_pinned_transparency_desc" formatted="false">Fade across pinned tracks only, independent of the not-pinned range. 0% = invisible, 100% = opaque.</string>
     <string name="settings_colors_label">Colors</string>
     <string name="settings_colors_desc">Past tracks: color gradient from newest (From) to oldest (To). Pinned tracks: amber/orange gradient.</string>
     <string name="settings_section_markers">Markers</string>
@@ -325,6 +325,16 @@
     <string name="settings_marker_min_duration_desc">Minimum idle time for the marker to be kept. Applied when the next recording starts.</string>
     <string name="settings_marker_dedup_radius_label">Dedup radius</string>
     <string name="settings_marker_dedup_radius_desc">Skip a new marker near an existing one. Applied when the next recording starts.</string>
+    <string name="settings_marker_rendering_label">Marker rendering</string>
+    <string name="settings_marker_halo_size_label">Halo size</string>
+    <string name="settings_marker_halo_size_desc">Size of the halo ring around each marker</string>
+    <string name="settings_marker_halo_transparency_label">Opacity</string>
+    <string name="settings_marker_halo_value_fmt">Fill %1$d%% · Border %2$d%%</string>
+    <string name="settings_marker_halo_colors_label">Colors</string>
+    <string name="settings_marker_halo_unpinned_label">Not pinned</string>
+    <string name="settings_marker_halo_unpinned_color_label">Not pinned color</string>
+    <string name="settings_marker_halo_pinned_label">Pinned</string>
+    <string name="settings_marker_halo_pinned_color_label">Pinned color</string>
     <string name="settings_zone_shapes_desc">Show zone shapes (corridor edges, circle outlines) and proximity previews</string>
     <string name="settings_zone_shapes_label">Zone shapes</string>
     <string name="settings_speed_alert_gps_label">Speed zone alert (GPS)</string>
@@ -357,7 +367,7 @@
     <string name="cd_filter">Filter</string>
     <string name="cd_reset">Reset</string>
     <string name="cd_menu">Menu</string>
-    <string name="cd_pin_marker">Pin this marker</string>
+    <string name="cd_change_icon">Change icon</string>
     <string name="cd_pin">Pin</string>
     <string name="cd_unpin">Unpin</string>
     <string name="cd_lock_screen">Lock screen</string>

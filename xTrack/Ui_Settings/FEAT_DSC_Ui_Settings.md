@@ -2,7 +2,7 @@
 name: Ui_Settings
 status: active
 created: 2026-06-09 15:28
-modified: 2026-09-02 17:42
+modified: 2026-09-05 10:42
 ---
 
 **Description:** Settings page UI, settings persistence (SharedPreferences), settings-related widgets, and settings UX enhancements.
@@ -39,6 +39,7 @@ modified: 2026-09-02 17:42
 
 ## Implemented
 
+- **opacity-normalization (2026-09-05)** — standardized all opacity/transparency settings on OPACITY (higher = more visible); tracks converted transparency→opacity with v8 migration; marker halo + zone300 relabeled to "Opacity"/"Fill·Border"; guidelines updated → `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_opacity-normalization.md`
 - **settings-reorganization** — 4 tabs (Layers/Navigation/Position/System); 6 layer toggles + zone-shapes toggles removed; 8 expander flags → rememberSaveable; localized; dead-code sweep
 - **approach-redisplay** — re-display on approach (2 mode switches + 3 type switches + 2 sliders); per-zone proximity render; prefs migration v5→6
 - **reorder-settings** — Display→General rename; POSITION SOURCE / GPS freq / Recenter / FPS → System; Navigation tab slimmed
@@ -55,5 +56,6 @@ modified: 2026-09-02 17:42
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
 
 ## Docs
+- `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_opacity-normalization.md` — opacity/transparency nomenclature normalization (implemented)
 - `xTrack/Ui_Settings/260625_FEAT_PLN_Ui_Settings_render-tweaks.md` — card rendering tweaks discussion
 - `xTrack/Ui_Settings/260609_FEAT_PLN_Ui_Settings_apply-on-close.md` — settings apply-on-close UX design

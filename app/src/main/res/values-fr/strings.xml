@@ -77,7 +77,7 @@
     <string name="settings_zone300_color_desc">Couleur du remplissage et du contour de la bande des 300 m</string>
     <string name="settings_zone300_opacity_label">Opacité</string>
     <string name="settings_zone300_opacity_desc">Opacité du contenu et du contour de la zone</string>
-    <string name="settings_zone300_opacity_value_fmt">Zone %1$d%% · Contour %2$d%%</string>
+    <string name="settings_zone300_opacity_value_fmt">Remplissage %1$d%% · Contour %2$d%%</string>
     <string name="settings_zone300_appearance_label">Apparence de la zone</string>
     <string name="settings_auto_markers_label">Création des repères auto</string>
     <string name="settings_regulated_zones_label">Zones réglementées</string>
@@ -309,11 +309,11 @@
     <string name="settings_tracks_direction_speed_range_fmt">%1$.1f – %2$.1f nds</string>
     <string name="settings_tracks_count_label">Traces non épinglées à afficher</string>
     <string name="settings_tracks_count_desc">Ce nombre limite uniquement les traces non épinglées (0-20). Les épinglées s\'affichent toujours.</string>
-    <string name="settings_transparency_label">Transparence des non épinglées</string>
-    <string name="settings_transparency_desc" formatted="false">Dégradé sur les N dernières traces non épinglées : curseur gauche = plus récente, droit = plus ancienne. 0% = opaque, 100% = invisible.</string>
+    <string name="settings_transparency_label">Opacité des non épinglées</string>
+    <string name="settings_transparency_desc" formatted="false">Dégradé sur les N dernières traces non épinglées : curseur gauche = plus récente, droit = plus ancienne. 0% = invisible, 100% = opaque.</string>
     <string name="settings_transparency_value_fmt">Récent %1$d%%  –  Ancien %2$d%%</string>
-    <string name="settings_pinned_transparency_label">Transparence des épinglées</string>
-    <string name="settings_pinned_transparency_desc" formatted="false">Dégradé sur les traces épinglées uniquement, indépendant des non épinglées. 0% = opaque, 100% = invisible.</string>
+    <string name="settings_pinned_transparency_label">Opacité des épinglées</string>
+    <string name="settings_pinned_transparency_desc" formatted="false">Dégradé sur les traces épinglées uniquement, indépendant des non épinglées. 0% = invisible, 100% = opaque.</string>
     <string name="settings_colors_label">Couleurs</string>
     <string name="settings_colors_desc">Anciennes traces : dégradé du plus récent (De) au plus ancien (Vers). Épinglées : dégradé ambre/orange.</string>
     <string name="settings_section_markers">Repères</string>
@@ -324,6 +324,16 @@
     <string name="settings_marker_min_duration_desc">Durée d\'arrêt minimale pour conserver le repère. Appliquée au prochain enregistrement.</string>
     <string name="settings_marker_dedup_radius_label">Rayon de déduplication</string>
     <string name="settings_marker_dedup_radius_desc">Ignorer un nouveau repère près d\'un repère existant. Appliqué au prochain enregistrement.</string>
+    <string name="settings_marker_rendering_label">Rendu des repères</string>
+    <string name="settings_marker_halo_size_label">Taille du halo</string>
+    <string name="settings_marker_halo_size_desc">Taille de l\'anneau autour de chaque repère</string>
+    <string name="settings_marker_halo_transparency_label">Opacité</string>
+    <string name="settings_marker_halo_value_fmt">Remplissage %1$d%% · Bord %2$d%%</string>
+    <string name="settings_marker_halo_colors_label">Couleurs</string>
+    <string name="settings_marker_halo_unpinned_label">Non épinglé</string>
+    <string name="settings_marker_halo_unpinned_color_label">Couleur non épinglé</string>
+    <string name="settings_marker_halo_pinned_label">Épinglé</string>
+    <string name="settings_marker_halo_pinned_color_label">Couleur épinglé</string>
     <string name="settings_zone_shapes_desc">Afficher les formes de zone et aperçus de proximité</string>
     <string name="settings_zone_shapes_label">Formes de zone</string>
     <string name="settings_speed_alert_gps_label">Alerte zone de vitesse (GPS)</string>
@@ -356,7 +366,7 @@
     <string name="cd_filter">Filtrer</string>
     <string name="cd_reset">Réinitialiser</string>
     <string name="cd_menu">Menu</string>
-    <string name="cd_pin_marker">Épingler ce repère</string>
+    <string name="cd_change_icon">Changer l\'icône</string>
     <string name="cd_pin">Épingler</string>
     <string name="cd_unpin">Désépingler</string>
     <string name="cd_lock_screen">Verrouiller l\'écran</string>

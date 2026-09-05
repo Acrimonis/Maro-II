@@ -82,6 +82,9 @@ fun TrackSummary.matchesFilter(f: ListFilter, todayMidnightMs: Long): Boolean =
 fun UserMarker.matchesFilter(f: ListFilter): Boolean =
     f.axes.all { (key, value) ->
         when (key) {
+            "icon" -> value == "ALL" ||
+                (value == "WITH_ICON" && this.icon != null) ||
+                (value == "WITHOUT_ICON" && this.icon == null)
             "pinned" -> value == "ALL" ||
                 (value == "PINNED" && this.pinned) ||
                 (value == "UNPINNED" && !this.pinned)
@@ -154,12 +157,21 @@ fun trackFilterAxes(): List<FilterAxisSpec> = listOf(
 /** Marker filter axes. Origin is disabled when geometry is CIRCLES or CORRIDORS. */
 fun markerFilterAxes(): List<FilterAxisSpec> = listOf(
     FilterAxisSpec(
-        key = "pinned",
+        key = "icon",
         label = "Icon",
         options = listOf(
             FilterOptionSpec("ALL", "All", isDefault = true),
-            FilterOptionSpec("PINNED", "With icon"),
-            FilterOptionSpec("UNPINNED", "Without icon")
+            FilterOptionSpec("WITH_ICON", "With icon"),
+            FilterOptionSpec("WITHOUT_ICON", "Without icon")
+        )
+    ),
+    FilterAxisSpec(
+        key = "pinned",
+        label = "Pinned",
+        options = listOf(
+            FilterOptionSpec("ALL", "All", isDefault = true),
+            FilterOptionSpec("PINNED", "Pinned"),
+            FilterOptionSpec("UNPINNED", "Unpinned")
         )
     ),
     FilterAxisSpec(

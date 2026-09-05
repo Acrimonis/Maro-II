@@ -55,7 +55,7 @@ sealed class MarkerDrawerState {
     data object MatchResult : MarkerDrawerState()
 }
 
-/** Tri-state for the fan layer marker toggle. */
+/** Binary marker layer visibility for the fan layer marker toggle. */
 enum class MarkerLayerState { HIDDEN, SHOW_ALL }
 
 /** Source of drawer opening — controls prev/next navigation behavior. */
@@ -137,7 +137,7 @@ class MarkersViewModel(
     /** Unfiltered source of truth — reloaded from repository. */
     private val _allMarkers = MutableStateFlow<List<UserMarker>>(emptyList())
 
-    /** Unfiltered marker list — map pins render from this so list filtering never hides them. */
+    /** Unfiltered marker list — source of truth for whereAmI matching and reloads. */
     val allMarkers: StateFlow<List<UserMarker>> = _allMarkers.asStateFlow()
 
     /** Loaded user markers (reactive, filtered + sorted). */
@@ -149,7 +149,7 @@ class MarkersViewModel(
         .map { list -> list.mapTo(HashSet()) { it.id } }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptySet())
 
-    /** Tri-state layer visibility (FanLayout toggle). */
+    /** Binary layer visibility (FanLayout toggle). */
     private val _markerLayerState = MutableStateFlow(MarkerLayerState.HIDDEN)
     val markerLayerState: StateFlow<MarkerLayerState> = _markerLayerState.asStateFlow()
 
@@ -445,12 +445,19 @@ class MarkersViewModel(
         )
     }
 
-    /** Icon matching the geometry type: 📍 🎯 🛤️ */
-    private fun typeIcon(type: MarkerType): String = when (type) {
-        MarkerType.PIN -> "\uD83D\uDCCD"     // 📍
-        MarkerType.CIRCLE -> "\uD83C\uDFAF"   // 🎯
-        MarkerType.CORRIDOR -> "\uD83D\uDEE4" // 🛤️
-    }
+    /**
+     * Icon matching the geometry type: 📍 🎯 🛤️.
+     * Delegates to the single source of truth [MarkerGeometry.iconFor] via a
+     * representative geometry for the wizard [MarkerType] (used pre-geometry in
+     * default-name generation).
+     */
+    private fun typeIcon(type: MarkerType): String = MarkerGeometry.iconFor(
+        when (type) {
+            MarkerType.PIN -> MarkerGeometry.Pin(LatLng(0.0, 0.0))
+            MarkerType.CIRCLE -> MarkerGeometry.Circle(LatLng(0.0, 0.0), 1.0)
+            MarkerType.CORRIDOR -> MarkerGeometry.Corridor(LatLng(0.0, 0.0), LatLng(0.0, 0.0), 1.0)
+        }
+    )
 
     /** Human-readable name for a color index (0-15). */
     private fun colorName(index: Int): String = when (index) {
@@ -864,12 +871,25 @@ class MarkersViewModel(
 
     // ── Icon management ───────────────────────────────────────────────────
 
-    /** Set the icon on a marker (null = remove icon, unpin). */
+    /** Set the icon on a marker (null = remove icon). Icon is purely decorative — no pin semantics. */
     fun setMarkerIcon(markerId: String, icon: String?) {
         val marker = _allMarkers.value.find { it.id == markerId } ?: return
         val updated = marker.copy(icon = icon)
         viewModelScope.launch {
             withContext(Dispatchers.IO) { repo.update(updated) }
+            val all = withContext(Dispatchers.IO) { repo.loadAll() }
+            val settings = settingsFlow?.value
+            _allMarkers.value = all
+            val filter = settings?.markerListFilter ?: ListFilter()
+            val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
+            _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
+        }
+    }
+
+    /** Set the pinned flag on a marker (mirrors [TrackViewModel.setPinned]). */
+    fun setMarkerPinned(markerId: String, pinned: Boolean) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) { repo.setPinned(markerId, pinned) }
             val all = withContext(Dispatchers.IO) { repo.loadAll() }
             val settings = settingsFlow?.value
             _allMarkers.value = all

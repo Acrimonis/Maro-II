@@ -28,7 +28,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.LocationOff
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -91,6 +93,7 @@ fun MarkerManagementOverlay(
     onCreateFirst: () -> Unit,
     onDismiss: () -> Unit,
     onSetIcon: (String, String?) -> Unit = { _, _ -> },
+    onSetPin: (String, Boolean) -> Unit = { _, _ -> },
     onUpdateMarkerText: (String, String?, String?) -> Unit = { _, _, _ -> },
     sortState: ykws.android.maro.data.model.ListSortState,
     onSortStateChange: (ykws.android.maro.data.model.ListSortState) -> Unit,
@@ -111,6 +114,10 @@ fun MarkerManagementOverlay(
     val confirmDeleteMsg = stringResource(R.string.confirm_delete_markers)
     val setIconAllLabel = stringResource(R.string.action_set_icon_all)
     val clearIconAllLabel = stringResource(R.string.action_clear_icon_all)
+    val pinLabel = stringResource(R.string.action_pin)
+    val pinAllLabel = stringResource(R.string.action_pin_all)
+    val unpinAllLabel = stringResource(R.string.action_unpin_all)
+    val togglePinsLabel = stringResource(R.string.action_toggle_pins)
     val pendingIconApplyIds = remember { mutableStateOf<Set<String>?>(null) }
 
     val markerMultiActions = remember(markers) {
@@ -122,6 +129,33 @@ fun MarkerManagementOverlay(
                 isDestructive = true,
                 confirmMessage = confirmDeleteMsg,
                 action = { ids -> ids.forEach { onAction(ListAction.PermanentDelete(it)) } }
+            ),
+            MultiActionSpec(
+                id = "pin",
+                label = pinLabel,
+                icon = Icons.Filled.PushPin,
+                subActions = listOf(
+                    MultiActionSubSpec(
+                        id = "pin_all",
+                        label = pinAllLabel,
+                        action = { ids -> ids.forEach { onSetPin(it, true) } }
+                    ),
+                    MultiActionSubSpec(
+                        id = "unpin_all",
+                        label = unpinAllLabel,
+                        action = { ids -> ids.forEach { onSetPin(it, false) } }
+                    ),
+                    MultiActionSubSpec(
+                        id = "toggle_pins",
+                        label = togglePinsLabel,
+                        action = { ids ->
+                            ids.forEach { id ->
+                                val current = markers.find { it.id == id }?.pinned ?: false
+                                onSetPin(id, !current)
+                            }
+                        }
+                    )
+                )
             ),
             MultiActionSpec(
                 id = "icon",
@@ -163,6 +197,7 @@ fun MarkerManagementOverlay(
                 onTap = { onAction(ykws.android.maro.data.model.ListAction.NavigateToItem(marker.id)) },
                 onEdit = { onAction(ykws.android.maro.data.model.ListAction.EditItem(marker.id)) },
                 onSetIcon = onSetIcon,
+                onSetPin = onSetPin,
                 onUpdateText = { name, desc -> onUpdateMarkerText(marker.id, name, desc) },
                 onLongPress = onLongPress
             )
@@ -221,6 +256,7 @@ internal fun MarkerCardContent(
     onTap: () -> Unit,
     onEdit: () -> Unit,
     onSetIcon: (String, String?) -> Unit,
+    onSetPin: (String, Boolean) -> Unit = { _, _ -> },
     onUpdateText: (String?, String?) -> Unit,
     onLongPress: (() -> Unit)? = null,
     showChevron: Boolean = true
@@ -271,6 +307,17 @@ internal fun MarkerCardContent(
                         modifier = Modifier.weight(1f)
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                        IconButton(
+                            onClick = { onSetPin(marker.id, !marker.pinned) },
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Icon(
+                                imageVector = if (marker.pinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
+                                contentDescription = if (marker.pinned) stringResource(R.string.cd_unpin) else stringResource(R.string.cd_pin),
+                                tint = ButtonColors.icon,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                         var showIconPicker by remember { mutableStateOf(false) }
                         IconButton(
                             onClick = { showIconPicker = true },
