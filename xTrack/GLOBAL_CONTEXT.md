@@ -1,6 +1,7 @@
 # Global Context — Routing Table
 
 ## Focus History
+- [2026-09-05 09:19 UTC] WorkflowImprovement — workflow update plan on feature/workflow-update-plan → xTrack/WorkflowImprovement/FEAT_HYD_WorkflowImprovement.md
 - [2026-09-04 21:41 UTC] Markers — icon/pin decoupling plan approved, pending implementation → xTrack/Markers/FEAT_HYD_Markers.md
 - [2026-09-04 20:31 UTC] WorkflowImprovement — process simplification: WRITE-ONCE guideline, section model, Focus History → xTrack/WorkflowImprovement/FEAT_HYD_WorkflowImprovement.md
 - [2026-09-04 20:10 UTC] Ui_General — app-lifecycle UX: back-to-exit, keep-screen-on, edge-to-edge, list normalization, drawer footer pinning → xTrack/Ui_General/FEAT_HYD_Ui_General.md

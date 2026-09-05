@@ -1,9 +1,0 @@
-# Project rules → AGENTS.md
-
-All project rules — core directives, developer profile, Android/Kotlin and spatial
-constraints, token/cache discipline, git policy, and the **xTrack `#`-command
-system** — now live in **`AGENTS.md`** at the repo root, the single canonical
-source (the open AGENTS.md standard).
-
-**Read and follow `./AGENTS.md`.** Do not add rules here — edit `AGENTS.md` instead.
-This file is kept only so Cline (which loads `.clinerules`) still picks up the rules.
