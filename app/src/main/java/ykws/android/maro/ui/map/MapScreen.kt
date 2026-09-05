@@ -3307,11 +3307,13 @@ internal fun SettingsOverlay(
             modifier = Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.statusBars)
-                .padding(horizontal = 24.dp, vertical = 3.dp)
+                .padding(vertical = 3.dp)
         ) {
             // ── Header row: title + close (back) button ───────────────────
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -3350,6 +3352,7 @@ internal fun SettingsOverlay(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
                     .background(ComposeColor(AppConfig.uiSettingsBackground))
                     .drawBehind {
                         // Draw the selected tab indicator line at the bottom
@@ -3386,15 +3389,22 @@ internal fun SettingsOverlay(
             // ── Tab content ───────────────────────────────────────────────
             HorizontalPager(
                 state = pagerState,
+                userScrollEnabled = false,
                 modifier = Modifier
                     .weight(1f)
                     .fillMaxWidth()
             ) { page ->
-                when (page) {
-                    0 -> LayersSettings(settings, onUpdateSettings, displayScrollState)
-                    1 -> NavigationSettings(settings, onUpdateSettings, navigationScrollState)
-                    2 -> PositionSettings(settings, onUpdateSettings, onGpsModeChange, onDismiss, positionScrollState)
-                    3 -> SystemSettings(settings, onUpdateSettings, onRegenerateRasters, onDismiss, systemScrollState)
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 24.dp)
+                ) {
+                    when (page) {
+                        0 -> LayersSettings(settings, onUpdateSettings, displayScrollState)
+                        1 -> NavigationSettings(settings, onUpdateSettings, navigationScrollState)
+                        2 -> PositionSettings(settings, onUpdateSettings, onGpsModeChange, onDismiss, positionScrollState)
+                        3 -> SystemSettings(settings, onUpdateSettings, onRegenerateRasters, onDismiss, systemScrollState)
+                    }
                 }
             }
 
@@ -3403,7 +3413,9 @@ internal fun SettingsOverlay(
                 text = stringResource(R.string.app_version_footer),
                 color = ComposeColor(AppConfig.uiSettingsFooterText),
                 fontSize = 12.sp,
-                modifier = Modifier.align(Alignment.CenterHorizontally)
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .padding(horizontal = 24.dp)
             )
         }
     }
