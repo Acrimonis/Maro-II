@@ -231,12 +231,17 @@ Row(
 
     // Content column
     Column(Modifier.weight(1f).padding(horizontal = 8.dp, vertical = 4.dp)) {
-        // ── Header row: metadata (11sp muted) + action icons right-aligned ──
+        // ── Header row: metadata (11sp muted) + action icons + open-details chevron right-aligned ──
         Row(Modifier.fillMaxWidth(), SpaceBetween, CenterVertically) {
             Text(metadata, 11sp, uiSettingsTextMuted, weight 1f, ellipsis)
             Row(spacedBy(2.dp)) {
                 IconButton(36dp) { Icon(actionIcon, 24dp, tint = ButtonColors.icon) }
                 // ... more action icons
+            }
+            // Open-details chevron — canonical 28dp muted, plain Icon (not IconButton).
+            // Gated by showChevron (false in detail-drawer / MeasureHeight contexts).
+            if (showChevron) {
+                Icon(KeyboardArrowRight, cd_view, uiSettingsTextMuted, 28dp)
             }
         }
         Spacer(2.dp)
@@ -269,6 +274,7 @@ Row(
 | Detail font | 14sp, Normal, `uiSettingsTextPrimary` | Both |
 | Comment font | 13sp, Normal, `uiSettingsTextMuted` | Both |
 | Action icon | `IconButton(36dp)` + `Icon(24dp, tint=ButtonColors.icon)` | Both |
+| Open-details chevron | `Icon(KeyboardArrowRight, 28dp, tint=uiSettingsTextMuted)` — plain `Icon`, not `IconButton`; gated by `showChevron` | Both |
 | Divider | 0.5dp, `uiSettingsDivider`, 2dp gap each side | Both |
 
 ### Per-Type Variations
@@ -289,6 +295,11 @@ Row(
 |----------|---------|---------|
 | Setting | Label + inline control (Switch) | GPS mode toggle |
 | Navigation | Label + trailing chevron `KeyboardArrowRight` 28dp `uiSettingsTextMuted` | "Manage Tracks" |
+
+> **Canonical chevron:** The Navigation trailing chevron and the §9 card-header open-details chevron share the same
+> token — `KeyboardArrowRight`, **28dp**, `uiSettingsTextMuted`. Use this single canonical size/color everywhere a
+> "reveal more / open details" affordance appears (card header, track row, navigation rows). Do not introduce
+> alternate sizes or accent-tinted chevrons.
 | Content | Text / sliders / stats inside card | Marker details, live stats |
 
 ---

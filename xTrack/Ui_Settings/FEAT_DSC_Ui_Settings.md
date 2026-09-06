@@ -61,6 +61,7 @@ modified: 2026-09-06 11:25
 
 ## Implemented
 
+- **drawer-content-measurement (2026-09-06)** — marker detail drawer (portrait) now WRAPS its content at natural height (no scroll): added opt-in `wrapContent` mode to `DrawerScaffold` (visible panel collapses to content; body scrolls only past screen height); marker Viewing slot split from Where-Am-I and converted to wrap-content; deleted the fragile `MeasureHeight` probe + fixed-height formula + `onCardHeightMeasured` plumbing; belongs-to-track color → white; track drawer probe/formula normalized + `suppressOverscrollWhenFits=true` (track kept its probe) → `xTrack/Ui_Settings/260906_FEAT_PLN_Ui_Settings_drawer-content-measurement.md`
 - **marker-belongs-to-track (2026-09-06)** — marker card bottom row shows owning track name + chevron that opens the owning track's detail drawer, in both the marker list card and the marker detail drawer (shared `MarkerCardContent`; drawer's own "Belongs to track" row deleted to avoid double render) → `xTrack/Ui_Settings/260906_FEAT_PLN_Ui_Settings_marker-belongs-to-track.md`
 - **card-expander-nestedcard-refactor (2026-09-06)** — introduced structural composables `Card` (20% white, 12dp radius), `Expander` (collapsible disclosure row), `NestedCard` (5% white + border container on expand), `SectionDivider`; migrated all ~12 expander sites + Main cards to the new model; deprecated/removed `SettingsSliderGroup`/`SettingsSliderRow`; Screen section's 3 standalone controls grouped into one Card with 3 sections → `xTrack/Ui_Settings/260906_FEAT_PLN_Ui_Settings_card-expander-nestedcard-refactor.md`
 - **guidelines-consolidation (2026-09-06)** — consolidated ui-component/drawer/lists guideline docs: card-surface primitive + popup-styling canonical in component-guidelines, drawer §11 Decision Log deleted, "Migration Guide" + pre-DrawerScaffold skeleton removed, lists visual-token tables deduped → `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_guidelines-consolidation.md`
@@ -84,6 +85,7 @@ modified: 2026-09-06 11:25
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
 
 ## Docs
+- `xTrack/Ui_Settings/260906_FEAT_PLN_Ui_Settings_drawer-content-measurement.md` — marker/track drawer content-fit normalization (implemented)
 - `xTrack/Ui_Settings/260906_FEAT_PLN_Ui_Settings_card-expander-nestedcard-refactor.md` — Card/Expander/NestedCard structural refactor (implemented)
 - `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_guidelines-consolidation.md` — component/drawer/lists guideline consolidation (implemented)
 - `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_header-normalization.md` — header normalization (pending)

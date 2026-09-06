@@ -359,6 +359,14 @@ internal fun MarkerCardContent(
                             )
                         }
                     }
+                    if (showChevron) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = stringResource(R.string.cd_view_marker),
+                            tint = Color(AppConfig.uiSettingsTextMuted),
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
                 }
 
                 if (editingField == "name") {
@@ -455,12 +463,12 @@ internal fun MarkerCardContent(
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(8.dp))
                             .clickable(onClick = onOpenTrack)
-                            .padding(horizontal = 4.dp, vertical = 2.dp),
+                            .padding(vertical = 2.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
                             text = trackTitle,
-                            color = Color(AppConfig.uiSettingsAccent),
+                            color = Color(AppConfig.uiSettingsTextPrimary),
                             fontSize = 13.sp,
                             lineHeight = 14.sp,
                             fontWeight = FontWeight.Medium,
@@ -471,28 +479,11 @@ internal fun MarkerCardContent(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                             contentDescription = stringResource(R.string.cd_view_track),
-                            tint = Color(AppConfig.uiSettingsAccent),
-                            modifier = Modifier.size(20.dp)
+                            tint = Color(AppConfig.uiSettingsTextMuted),
+                            modifier = Modifier.size(28.dp)
                         )
                     }
                 }
-            }
-        }
-        if (showChevron) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(4.dp)
-                    .size(48.dp)
-                    .clickable(onClick = onTap),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = stringResource(R.string.cd_view_marker),
-                    tint = Color(AppConfig.uiSettingsTextMuted),
-                    modifier = Modifier.size(28.dp)
-                )
             }
         }
     }

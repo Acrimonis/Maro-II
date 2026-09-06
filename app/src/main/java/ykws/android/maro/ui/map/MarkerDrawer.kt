@@ -56,7 +56,6 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ykws.android.maro.R
@@ -68,7 +67,6 @@ import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.WhereAmIMatch
 import ykws.android.maro.spatial.WhereAmIResult
 import ykws.android.maro.ui.components.DrawerScaffold
-import ykws.android.maro.ui.components.MeasureHeight
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public composable
@@ -93,8 +91,7 @@ fun MarkerDrawer(
     boatPosition: LatLng? = null,
     onRequestDelete: (String, String) -> Unit = { _, _ -> },
     trackTitleLookup: (String) -> String? = { null },
-    onOpenMarkerTrack: (String) -> Unit = {},
-    onCardHeightMeasured: (Dp) -> Unit = {}
+    onOpenMarkerTrack: (String) -> Unit = {}
 ) {
     val drawerState by viewModel.drawerState.collectAsState()
     val isOpen = drawerState !is MarkerDrawerState.Hidden
@@ -109,7 +106,7 @@ fun MarkerDrawer(
     }
 
     when (drawerState) {
-        is MarkerDrawerState.Viewing -> ViewingContent(viewModel, onClose, boatPosition, panelShape, onRequestDelete, isLandscape, trackTitleLookup, onOpenMarkerTrack, onCardHeightMeasured)
+        is MarkerDrawerState.Viewing -> ViewingContent(viewModel, onClose, boatPosition, panelShape, onRequestDelete, isLandscape, trackTitleLookup, onOpenMarkerTrack)
         is MarkerDrawerState.MatchResult -> MatchResultContent(viewModel, onClose, boatPosition, panelShape, isLandscape)
         else -> { /* Creating/Editing handled by WizardDrawer */ }
     }
@@ -128,8 +125,7 @@ private fun ViewingContent(
     onRequestDelete: (String, String) -> Unit = { _, _ -> },
     isLandscape: Boolean,
     trackTitleLookup: (String) -> String? = { null },
-    onOpenMarkerTrack: (String) -> Unit = {},
-    onCardHeightMeasured: (Dp) -> Unit = {}
+    onOpenMarkerTrack: (String) -> Unit = {}
 ) {
     val markers by viewModel.markers.collectAsState()
     val selectedIds by viewModel.selectedMarkerIds.collectAsState()
@@ -157,58 +153,6 @@ private fun ViewingContent(
         }
     }
 
-    val cardContent: @Composable () -> Unit = {
-        if (marker != null) {
-            Spacer(Modifier.height(8.dp))
-
-            // Direction + distance (if boatPosition available)
-            if (boatPosition != null) {
-                val markerPos = when (val g = marker.geometry) {
-                    is MarkerGeometry.Pin -> g.position
-                    is MarkerGeometry.Circle -> g.center
-                    is MarkerGeometry.Corridor -> g.p1
-                }
-                val bearing = SpatialOperations.initialBearing(boatPosition, markerPos)
-                val distM = SpatialOperations.haversine(markerPos, boatPosition)
-                val dir = cardinalDirection(bearing)
-                val distStr = if (distM < 1000.0) "${distM.toLong()} m"
-                    else "%.1f km".format(distM / 1000.0)
-                Text(
-                    text = "$dir of boat - $distStr",
-                    color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                    fontSize = 13.sp
-                )
-                Spacer(Modifier.height(6.dp))
-            }
-
-            MarkerCardContent(
-                marker = marker,
-                trackTitle = marker.trackId?.let(trackTitleLookup),
-                onOpenTrack = marker.trackId?.let { tid -> { onOpenMarkerTrack(tid) } },
-                onTap = {},
-                onEdit = {
-                    viewModel.closeDrawer()
-                    viewModel.startWizard(marker.id)
-                },
-                onSetIcon = { id, icon -> viewModel.setMarkerIcon(id, icon) },
-                onSetPin = { id, pinned -> viewModel.setMarkerPinned(id, pinned) },
-                onUpdateText = { name, desc -> viewModel.updateMarkerText(marker.id, name, desc) },
-                onLongPress = null,
-                showChevron = false
-            )
-
-        } else {
-            Spacer(Modifier.height(12.dp))
-            Text(
-                "Marker not found",
-                color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                fontSize = 13.sp
-            )
-        }
-
-        Spacer(Modifier.height(4.dp))
-    }
-
     val footerContent: @Composable () -> Unit = {
         if (hasMultiple) {
             MarkerPrevNext(viewModel, selectedIndex, selectedIds.size)
@@ -220,7 +164,8 @@ private fun ViewingContent(
         onClose = onClose,
         headerHorizontalPadding = 12.dp,
         scrollable = true,
-        bottomAnchoredContent = true,
+        suppressOverscrollWhenFits = true,
+        wrapContent = true,
         statusBarsInset = isLandscape,
         shape = shape,
         contentPadding = PaddingValues(start = 12.dp, top = 6.dp, end = 12.dp),
@@ -229,14 +174,78 @@ private fun ViewingContent(
         },
         footer = { footerContent() }
     ) {
-        cardContent()
+        MarkerDetailContent(
+            marker = marker,
+            boatPosition = boatPosition,
+            trackTitleLookup = trackTitleLookup,
+            onOpenMarkerTrack = onOpenMarkerTrack,
+            viewModel = viewModel
+        )
+    }
+}
+
+/**
+ * The marker detail drawer's content stack: the optional distance-to-boat line plus the
+ * [MarkerCardContent] (with its belongs-to-track row). Shared by the [DrawerScaffold] body
+ * and the [MeasureHeight] probe so both render the exact same content at the same width.
+ */
+@Composable
+private fun MarkerDetailContent(
+    marker: UserMarker?,
+    boatPosition: LatLng?,
+    trackTitleLookup: (String) -> String?,
+    onOpenMarkerTrack: (String) -> Unit,
+    viewModel: MarkersViewModel
+) {
+    if (marker != null) {
+        Spacer(Modifier.height(8.dp))
+
+        // Direction + distance (if boatPosition available)
+        if (boatPosition != null) {
+            val markerPos = when (val g = marker.geometry) {
+                is MarkerGeometry.Pin -> g.position
+                is MarkerGeometry.Circle -> g.center
+                is MarkerGeometry.Corridor -> g.p1
+            }
+            val bearing = SpatialOperations.initialBearing(boatPosition, markerPos)
+            val distM = SpatialOperations.haversine(markerPos, boatPosition)
+            val dir = cardinalDirection(bearing)
+            val distStr = if (distM < 1000.0) "${distM.toLong()} m"
+                else "%.1f km".format(distM / 1000.0)
+            Text(
+                text = "$dir of boat - $distStr",
+                color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                fontSize = 13.sp
+            )
+            Spacer(Modifier.height(6.dp))
+        }
+
+        MarkerCardContent(
+            marker = marker,
+            trackTitle = marker.trackId?.let(trackTitleLookup),
+            onOpenTrack = marker.trackId?.let { tid -> { onOpenMarkerTrack(tid) } },
+            onTap = {},
+            onEdit = {
+                viewModel.closeDrawer()
+                viewModel.startWizard(marker.id)
+            },
+            onSetIcon = { id, icon -> viewModel.setMarkerIcon(id, icon) },
+            onSetPin = { id, pinned -> viewModel.setMarkerPinned(id, pinned) },
+            onUpdateText = { name, desc -> viewModel.updateMarkerText(marker.id, name, desc) },
+            onLongPress = null,
+            showChevron = false
+        )
+
+    } else {
+        Spacer(Modifier.height(12.dp))
+        Text(
+            "Marker not found",
+            color = ComposeColor(AppConfig.uiSettingsTextMuted),
+            fontSize = 13.sp
+        )
     }
 
-    MeasureHeight(onMeasured = { onCardHeightMeasured(it) }) {
-        Box(Modifier.padding(horizontal = 12.dp)) {
-            cardContent()
-        }
-    }
+    Spacer(Modifier.height(4.dp))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

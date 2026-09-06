@@ -415,7 +415,8 @@ internal fun TrackCardContent(
     onTap: (() -> Unit)? = null,
     onLongPress: (() -> Unit)? = null,
     onResumeTrack: ((String) -> Unit)? = null,
-    isRecording: Boolean = false
+    isRecording: Boolean = false,
+    showChevron: Boolean = true
 ) {
     // Original values for revert-on-back
     val originalName = remember(summary.id) { summary.name }
@@ -540,6 +541,14 @@ internal fun TrackCardContent(
                         modifier = Modifier.size(24.dp)
                     )
                 }
+            }
+            if (showChevron) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = stringResource(R.string.cd_view_track),
+                    tint = Color(AppConfig.uiSettingsTextMuted),
+                    modifier = Modifier.size(28.dp)
+                )
             }
         }
 
@@ -666,15 +675,6 @@ internal fun TrackCardContent(
         }
     }
     }
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = stringResource(R.string.cd_view_track),
-            tint = Color(AppConfig.uiSettingsTextMuted),
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 4.dp, bottom = 4.dp)
-                .size(28.dp)
-        )
     }
 }
 
