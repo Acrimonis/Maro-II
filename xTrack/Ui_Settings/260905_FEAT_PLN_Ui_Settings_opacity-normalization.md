@@ -1,7 +1,13 @@
 # Settings — Opacity/Transparency Nomenclature Normalization
 
 > **Feature:** Ui_Settings (cross-cutting: tracks, zone300, low-depth, markers) | **Branch:** feature/markers-pin
-> **Created:** 2026-09-05 | **Status:** Plan — Approved (awaiting implementation)
+> **Created:** 2026-09-05 | **Status:** SUPERSEDED
+
+> **⚠️ SUPERSEDED (2026-09-06):** This plan proposed **Option A — standardize on OPACITY**
+> (0 = invisible, 100 = opaque). It was **rejected in favour of Option B — full internal
+> transparency** (0 = opaque, 100 = invisible), implemented by the global transparency
+> normalization plan. The v8 opacity migration described here was reverted; all settings now
+> use the transparency paradigm. See the current implementation for the authoritative state.
 
 ## Goal
 

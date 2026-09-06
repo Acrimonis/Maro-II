@@ -172,8 +172,8 @@ internal fun CoastlineMapView(
     regulatedZones: RegulatedZoneSet?,
     zone300: Zone300Data?,
     zone300Color: Int,
-    zone300FillOpacityPct: Int,
-    zone300BoundaryOpacityPct: Int,
+    zone300FillTransparencyPct: Int,
+    zone300BoundaryTransparencyPct: Int,
     depthBitmap: Bitmap?,
     lowDepthWarningBitmap: Bitmap?,
     depthBox: BoundingBox?,
@@ -218,7 +218,7 @@ internal fun CoastlineMapView(
                 drawLowDepthWarning(this, lowDepthWarningBitmap, depthBox, zoomLevel, tracker.lowDepth)
                 drawIsobaths(this, isobaths, zoomLevel, tracker.isobaths)
                 drawRegulatedZones(this, regulatedZones, zoomLevel, tracker.regulatedZones)
-                drawZone300(this, zone300, zoomLevel, zone300Color, zone300FillOpacityPct, zone300BoundaryOpacityPct, tracker.zone300)
+                drawZone300(this, zone300, zoomLevel, zone300Color, zone300FillTransparencyPct, zone300BoundaryTransparencyPct, tracker.zone300)
                 drawCoastline(this, segments, tracker.coastline)
 
                 // Seed per-layer last-known state so LaunchedEffects don't fire on first composition.
@@ -234,8 +234,8 @@ internal fun CoastlineMapView(
                 tracker.lastZone300 = zone300
                 tracker.lastZone300Zoom = zoomLevel
                 tracker.lastZone300Color = zone300Color
-                tracker.lastZone300FillOpacityPct = zone300FillOpacityPct
-                tracker.lastZone300BoundaryOpacityPct = zone300BoundaryOpacityPct
+                tracker.lastZone300FillTransparencyPct = zone300FillTransparencyPct
+                tracker.lastZone300BoundaryTransparencyPct = zone300BoundaryTransparencyPct
                 tracker.lastSegments = segments
 
                 // Force-sync the ViewModel zoom level to match the actual MapView
@@ -270,22 +270,22 @@ internal fun CoastlineMapView(
     // comparing against the tracker's per-layer last-known state.
 
     // Zone300 layer
-    LaunchedEffect(zone300, zoomLevel, zone300Color, zone300FillOpacityPct, zone300BoundaryOpacityPct) {
+    LaunchedEffect(zone300, zoomLevel, zone300Color, zone300FillTransparencyPct, zone300BoundaryTransparencyPct) {
         val mv = localMapView.value ?: return@LaunchedEffect
         if (zone300 === tracker.lastZone300 &&
             zoomLevel == tracker.lastZone300Zoom &&
             zone300Color == tracker.lastZone300Color &&
-            zone300FillOpacityPct == tracker.lastZone300FillOpacityPct &&
-            zone300BoundaryOpacityPct == tracker.lastZone300BoundaryOpacityPct
+            zone300FillTransparencyPct == tracker.lastZone300FillTransparencyPct &&
+            zone300BoundaryTransparencyPct == tracker.lastZone300BoundaryTransparencyPct
         ) return@LaunchedEffect
         mv.overlays.removeAll(tracker.zone300)
         tracker.zone300.clear()
-        drawZone300(mv, zone300, zoomLevel, zone300Color, zone300FillOpacityPct, zone300BoundaryOpacityPct, tracker.zone300)
+        drawZone300(mv, zone300, zoomLevel, zone300Color, zone300FillTransparencyPct, zone300BoundaryTransparencyPct, tracker.zone300)
         tracker.lastZone300 = zone300
         tracker.lastZone300Zoom = zoomLevel
         tracker.lastZone300Color = zone300Color
-        tracker.lastZone300FillOpacityPct = zone300FillOpacityPct
-        tracker.lastZone300BoundaryOpacityPct = zone300BoundaryOpacityPct
+        tracker.lastZone300FillTransparencyPct = zone300FillTransparencyPct
+        tracker.lastZone300BoundaryTransparencyPct = zone300BoundaryTransparencyPct
         OverlayZOrder.reorder(mv)
         mv.invalidate()
     }

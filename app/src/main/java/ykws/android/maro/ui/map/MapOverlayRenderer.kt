@@ -151,15 +151,15 @@ fun drawZone300(
     zone: Zone300Data?,
     zoomLevel: Double,
     zoneColor: Int,
-    fillOpacityPct: Int,
-    boundaryOpacityPct: Int,
+    fillTransparencyPct: Int,
+    boundaryTransparencyPct: Int,
     sink: MutableList<Any>
 ) {
     sink.clear()
     if (zone == null || zoomLevel < ZONE_MIN_ZOOM) return
 
-    val fillAlpha = (fillOpacityPct.coerceIn(0, 100) * 255) / 100
-    val boundaryAlpha = (boundaryOpacityPct.coerceIn(0, 100) * 255) / 100
+    val fillAlpha = ((100 - fillTransparencyPct.coerceIn(0, 100)) * 255) / 100
+    val boundaryAlpha = ((100 - boundaryTransparencyPct.coerceIn(0, 100)) * 255) / 100
 
     // Fill (water only) — translucent red, no outline on the polygon itself.
     for (poly in zone.fillPolygons) {

@@ -41,8 +41,8 @@ object MarkerHalo {
     }
 
     /**
-     * Build a halo [Bitmap]: a filled disc of [spec.color] at [spec.fillOpacityPct]
-     * with a border ring at [spec.borderOpacityPct].
+     * Build a halo [Bitmap]: a filled disc of [spec.color] at [spec.fillTransparencyPct]
+     * with a border ring at [spec.borderTransparencyPct].
      *
      * The halo ring radius is absolute ([radiusPxFor]) and independent of the anchor
      * it surrounds; [anchorRadiusPx] is retained only for sizing/centering the bitmap
@@ -65,20 +65,20 @@ object MarkerHalo {
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(bitmap)
 
-        // Inner fill disc
-        if (spec.fillOpacityPct > 0) {
+        // Inner fill disc (transparency 100 = fully invisible → skip)
+        if (spec.fillTransparencyPct < 100) {
             val fillPaint = Paint().apply {
-                color = withAlpha(spec.color, spec.fillOpacityPct, dimFraction)
+                color = withAlpha(spec.color, spec.fillTransparencyPct, dimFraction)
                 isAntiAlias = true
                 style = Paint.Style.FILL
             }
             canvas.drawCircle(center, center, haloRadius, fillPaint)
         }
 
-        // Outer border ring
-        if (spec.borderOpacityPct > 0) {
+        // Outer border ring (transparency 100 = fully invisible → skip)
+        if (spec.borderTransparencyPct < 100) {
             val borderPaint = Paint().apply {
-                color = withAlpha(spec.color, spec.borderOpacityPct, dimFraction)
+                color = withAlpha(spec.color, spec.borderTransparencyPct, dimFraction)
                 isAntiAlias = true
                 style = Paint.Style.STROKE
                 strokeWidth = BORDER_STROKE_PX
@@ -90,17 +90,17 @@ object MarkerHalo {
     }
 
     /**
-     * Return [color] with its alpha scaled by [opacityPct] (0-100) and an optional
-     * [dimFraction] (0..1). Used for the corridor under-line halo so it matches the
-     * ring halos' colour/opacity treatment.
+     * Return [color] with its alpha scaled by [transparencyPct] (0-100, 0 = opaque,
+     * 100 = invisible) and an optional [dimFraction] (0..1). Used for the corridor
+     * under-line halo so it matches the ring halos' colour/transparency treatment.
      */
-    fun colorWithOpacity(color: Int, opacityPct: Int, dimFraction: Float = 1f): Int =
-        withAlpha(color, opacityPct, dimFraction)
+    fun colorWithTransparency(color: Int, transparencyPct: Int, dimFraction: Float = 1f): Int =
+        withAlpha(color, transparencyPct, dimFraction)
 
-    /** Apply an opacity % (0-100) and an optional [dimFraction] to [color]'s alpha. */
-    private fun withAlpha(color: Int, opacityPct: Int, dimFraction: Float): Int {
+    /** Apply a transparency % (0-100) and an optional [dimFraction] to [color]'s alpha. */
+    private fun withAlpha(color: Int, transparencyPct: Int, dimFraction: Float): Int {
         val baseAlpha = (color ushr 24) and 0xFF
-        val scaled = (baseAlpha * (opacityPct / 100f) * dimFraction).toInt().coerceIn(0, 255)
+        val scaled = (baseAlpha * ((100 - transparencyPct) / 100f) * dimFraction).toInt().coerceIn(0, 255)
         return (scaled shl 24) or (color and 0x00FFFFFF)
     }
 }

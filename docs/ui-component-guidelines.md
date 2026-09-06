@@ -194,11 +194,11 @@ Row(uiCardBackground, 12dp radius, 6dp pad, 6dp gaps) {
 
 Render as a **direct section** — header + description + value (`ui.settings.value.text`, right-aligned) + `RangeSlider`. A `RangeSlider` may sit directly on a `Card`, or inside the `NestedCard` of an `Expander` alongside one-knob sliders. What is forbidden is a card inside the `NestedCard` (see §2.4 inception rule).
 
-- **Linear** (e.g. opacity 0–100): plain `valueRange` + `steps`.
-- **Two-thumb opacity** (300 m band): left thumb = zone content opacity, right thumb = border opacity; `value = fill..border`; commit on release via `onValueChangeFinished`.
+- **Linear** (e.g. transparency 0–100): plain `valueRange` + `steps`.
+- **Two-thumb transparency** (300 m band): left thumb = border (strong, low transparency), right thumb = fill (faint, high transparency); `value = border..fill`; commit on release via `onValueChangeFinished`.
 - **Log-scale** for octave-spanning ranges (e.g. gap 4–640, speed 2–64): map position 0..1 → value with `lo × (hi/lo)^pos` (`logSliderFromValue` / `logSliderToValue`); ~24 positions.
 
-**Opacity convention (app-wide):** all opacity/transparency settings use **OPACITY** semantics — **higher = more visible/opaque** (0% = invisible, 100% = opaque). Never expose "transparency" (inverted) wording. Label the control **"Opacity"** and format two-thumb values as **"Fill X% · Border Y%"** (fill = inner/zone content, border = outer stroke). Applies to tracks, marker halo, 300 m band, and low-depth warning.
+**Transparency convention (app-wide):** all opacity/transparency settings use **TRANSPARENCY** semantics — **0 = opaque (fully visible), 100 = invisible**. Never expose "opacity" (inverted) wording. Label the control **"Transparency"** and format two-thumb values as **"Border X% · Fill Y%"** (border = outer stroke/strong, fill = inner/zone content/faint). Applies to tracks, marker halo, 300 m band, and low-depth warning.
 
 ### 2.9 Header Hierarchy
 

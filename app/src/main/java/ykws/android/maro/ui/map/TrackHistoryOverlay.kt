@@ -158,12 +158,12 @@ fun TrackHistoryOverlay(
     // ── Render preview settings ───────────────────────────────────────
     tracksVisible: Boolean = true,
     trackingRenderNb: Int = 20,
-    trackingOpacityNewest: Int = 80,
-    trackingOpacityOldest: Int = 20,
+    trackingTransparencyNewest: Int = 20,
+    trackingTransparencyOldest: Int = 80,
     trackingColorPastFrom: Int = 0xFF1565C0.toInt(),
     trackingColorPastTo: Int = 0xFF42A5F5.toInt(),
-    trackingOpacityPinnedNewest: Int = 100,
-    trackingOpacityPinnedOldest: Int = 80,
+    trackingTransparencyPinnedNewest: Int = 0,
+    trackingTransparencyPinnedOldest: Int = 20,
     trackingColorPinnedFrom: Int = 0xFFFF6F00.toInt(),
     trackingColorPinnedTo: Int = 0xFFFF8F00.toInt()
 ) {
@@ -179,9 +179,9 @@ fun TrackHistoryOverlay(
 
     // Pre-compute accent bar colors — batch lambda for scaffold
     val accentColorMap = remember(trackSummaries, tracksVisible, trackingRenderNb,
-        trackingOpacityNewest, trackingOpacityOldest,
+        trackingTransparencyNewest, trackingTransparencyOldest,
         trackingColorPastFrom, trackingColorPastTo,
-        trackingOpacityPinnedNewest, trackingOpacityPinnedOldest,
+        trackingTransparencyPinnedNewest, trackingTransparencyPinnedOldest,
         trackingColorPinnedFrom, trackingColorPinnedTo
     ) {
         val pinnedSummaries = trackSummaries.filter { it.pinned }.sortedByDescending { it.startTimeMs }
@@ -192,7 +192,7 @@ fun TrackHistoryOverlay(
         for ((index, summary) in pinnedSummaries.withIndex()) {
             val appearance = computeTrackPolylineAppearance(
                 index, pinnedTotal,
-                trackingOpacityPinnedNewest, trackingOpacityPinnedOldest,
+                trackingTransparencyPinnedNewest, trackingTransparencyPinnedOldest,
                 trackingColorPinnedFrom, trackingColorPinnedTo, 6f
             )
             val a = appearance.argb
@@ -204,7 +204,7 @@ fun TrackHistoryOverlay(
                 val effectiveTotal = renderCount
                 val appearance = computeTrackPolylineAppearance(
                     index, effectiveTotal,
-                    trackingOpacityNewest, trackingOpacityOldest,
+                    trackingTransparencyNewest, trackingTransparencyOldest,
                     trackingColorPastFrom, trackingColorPastTo,
                     if (index == 0) 8f else 6f
                 )

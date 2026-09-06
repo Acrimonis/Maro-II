@@ -2,7 +2,7 @@
 name: Ui_Settings
 status: active
 created: 2026-06-09 15:28
-modified: 2026-09-06 11:25
+modified: 2026-09-06 21:13
 ---
 
 **Description:** Settings page UI, settings persistence (SharedPreferences), settings-related widgets, and settings UX enhancements.
@@ -68,7 +68,7 @@ modified: 2026-09-06 11:25
 - **SectionDivider normalization** — renamed `SliderRowDivider` → `SectionDivider`; `uiSettingsDivider` spacing normalized to 6/6/16dp
 - **GPS frequency/recenter** — shared `NestedCard` for GPS frequency + recenter controls; always-visible expander
 - **tab-navigation-swipe-spacing** — disabled swipe between tabs (userScrollEnabled=false), relocated 24dp horizontal padding per-page so the slide shows a gap while settled layout stays identical → `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_tab-navigation-swipe-spacing.md`
-- **opacity-normalization (2026-09-05)** — standardized all opacity/transparency settings on OPACITY (higher = more visible); tracks converted transparency→opacity with v8 migration; marker halo + zone300 relabeled to "Opacity"/"Fill·Border"; guidelines updated → `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_opacity-normalization.md`
+- **transparency-normalization + low-depth redesign (2026-09-06)** — normalized all opacity/transparency settings to the **TRANSPARENCY** paradigm (0 = opaque, 100 = invisible); tracks/marker-halo/zone300 controls relabeled "Transparency" with two-thumb value format "Border X% · Fill Y%" (border = strong/low transparency left thumb, fill = faint/high transparency right thumb); low-depth warning redesigned from a single min-opacity to a **two-depth crash/start model** (solid to crash depth, linear fade to start-warning depth); ui-*guidelines + color-scheme docs aligned → supersedes `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_opacity-normalization.md` (which proposed the rejected OPACITY option)
 - **settings-reorganization** — 4 tabs (Layers/Navigation/Position/System); 6 layer toggles + zone-shapes toggles removed; expander open state moved to `SettingsViewModel.expanderStates` map; localized; dead-code sweep
 - **approach-redisplay** — re-display on approach (2 mode switches + 3 type switches + 2 sliders); per-zone proximity render; prefs migration v5→6
 - **reorder-settings** — Display→General rename; POSITION SOURCE / GPS freq / Recenter / FPS → System; Navigation tab slimmed
@@ -91,6 +91,6 @@ modified: 2026-09-06 11:25
 - `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_header-normalization.md` — header normalization (pending)
 - `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_properties-normalization.md` — properties normalization (pending)
 - `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_tab-navigation-swipe-spacing.md` — disable swipe between tabs + per-page slide spacing (implemented)
-- `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_opacity-normalization.md` — opacity/transparency nomenclature normalization (implemented)
+- `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_opacity-normalization.md` — opacity/transparency nomenclature normalization (superseded by transparency paradigm)
 - `xTrack/Ui_Settings/260625_FEAT_PLN_Ui_Settings_render-tweaks.md` — card rendering tweaks discussion
 - `xTrack/Ui_Settings/260609_FEAT_PLN_Ui_Settings_apply-on-close.md` — settings apply-on-close UX design

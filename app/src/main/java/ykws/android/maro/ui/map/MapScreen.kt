@@ -325,8 +325,8 @@ private fun SnackRow(
  *
  * @param index 0-based position (newest = 0) among same-type tracks being rendered.
  * @param total total tracks of this type being rendered.
- * @param opacityNewest 0..100 (0 = invisible, 100 = opaque).
- * @param opacityOldest 0..100.
+ * @param transparencyNewest 0..100 (0 = opaque, 100 = invisible).
+ * @param transparencyOldest 0..100.
  * @param colorFrom start color (0xRRGGBB, no alpha) for newest track.
  * @param colorTo end color (0xRRGGBB, no alpha) for oldest track.
  * @param strokeWidth polyline stroke width in px (default 6f).
@@ -334,14 +334,16 @@ private fun SnackRow(
 internal fun computeTrackPolylineAppearance(
     index: Int,
     total: Int,
-    opacityNewest: Int,
-    opacityOldest: Int,
+    transparencyNewest: Int,
+    transparencyOldest: Int,
     colorFrom: Int,
     colorTo: Int,
     strokeWidth: Float = 6f
 ): TrackPolylineAppearance {
-    val alphaNewest = opacityNewest / 100f
-    val alphaOldest = opacityOldest / 100f
+    val newest = minOf(transparencyNewest, transparencyOldest)
+    val oldest = maxOf(transparencyNewest, transparencyOldest)
+    val alphaNewest = (100 - newest) / 100f   // newest (index 0) -> lower transparency = higher alpha
+    val alphaOldest = (100 - oldest) / 100f   // oldest -> higher transparency = lower alpha
     val t = if (total <= 1) 0f else index.toFloat() / (total - 1).toFloat()
     val alphaFraction = alphaNewest - t * (alphaNewest - alphaOldest)
     val alphaInt = (alphaFraction * 255).toInt().coerceIn(0, 255)
@@ -849,8 +851,8 @@ fun MapScreen(
     // Second raster: cells shallower than the user's warning threshold, on water only, painted bright.
     // Re-rasterises when the grid, the threshold, or coastline readiness changes.
     val lowDepthWarningBitmap by produceState<Bitmap?>(
-        initialValue = null, depthGrid, appSettings.lowDepthWarningMaxM,
-        appSettings.lowDepthWarningMinOpacityPct, coastlineReady,
+        initialValue = null, depthGrid, appSettings.lowDepthCrashDepthM,
+        appSettings.lowDepthStartWarningM, coastlineReady,
         appSettings.emodnetShallowCutoffM
     ) {
         // If cache exists, skip the expensive live build
@@ -858,11 +860,11 @@ fun MapScreen(
             depthViewModel.readCached(context, RasterCache.Step.LOW_DEPTH_WARNING, appSettings)
         }
         if (cached != null) { value = cached; return@produceState }
-        val maxM = appSettings.lowDepthWarningMaxM
+        val crashM = appSettings.lowDepthCrashDepthM
+        val startM = appSettings.lowDepthStartWarningM
         value = depthGrid?.let { g ->
             withContext(Dispatchers.Default) {
-                LowDepthWarningBitmap.build(g, maxM, waterTest,
-                    appSettings.lowDepthWarningMinOpacityPct / 100f,
+                LowDepthWarningBitmap.build(g, crashM, startM, waterTest,
                     appSettings.emodnetShallowCutoffM)
             }
         }
@@ -1054,15 +1056,15 @@ fun MapScreen(
 
     // ── Silent lazy-init: on cache miss, generate rasters in background (no LoadingOverlay).
     //    Warning layer is deferred until coastline is ready (needs accurate isWater). ──
-    LaunchedEffect(depthGrid, appSettings.lowDepthWarningMaxM,
-                   appSettings.lowDepthWarningMinOpacityPct, coastlineReady,
+    LaunchedEffect(depthGrid, appSettings.lowDepthCrashDepthM,
+                   appSettings.lowDepthStartWarningM, coastlineReady,
                    appSettings.emodnetShallowCutoffM) {
         val grid = depthGrid ?: return@LaunchedEffect
         val key = RasterCache.Key(
             gridTimestampMs = grid.metadata.fetchTimestampMs,
             emodnetCutoffM = appSettings.emodnetShallowCutoffM,
-            lowDepthMaxM = appSettings.lowDepthWarningMaxM,
-            lowDepthMinOpacityPct = appSettings.lowDepthWarningMinOpacityPct,
+            lowDepthCrashDepthM = appSettings.lowDepthCrashDepthM,
+            lowDepthStartWarningM = appSettings.lowDepthStartWarningM,
             nodataColor = AppConfig.mapDepthNodataColor,
             colorsHash = AppConfig.rasterColorsHash
         )
@@ -1080,7 +1082,7 @@ fun MapScreen(
 
     // Read cached rasters; hide a layer when it's being regenerated.
     val depthBitmapCached by produceState<Bitmap?>(initialValue = null, depthGrid,
-        appSettings.lowDepthWarningMaxM, appSettings.lowDepthWarningMinOpacityPct,
+        appSettings.lowDepthCrashDepthM, appSettings.lowDepthStartWarningM,
         rasterCacheVersion, generatingStep) {
         if (generatingStep == RasterCache.Step.DEPTH_COLOUR) { value = null; return@produceState }
         value = depthGrid?.let {
@@ -1088,7 +1090,7 @@ fun MapScreen(
         }
     }
     val lowDepthWarningCached by produceState<Bitmap?>(initialValue = null, depthGrid,
-        appSettings.lowDepthWarningMaxM, appSettings.lowDepthWarningMinOpacityPct,
+        appSettings.lowDepthCrashDepthM, appSettings.lowDepthStartWarningM,
         rasterCacheVersion, generatingStep) {
         if (generatingStep == RasterCache.Step.LOW_DEPTH_WARNING) { value = null; return@produceState }
         value = depthGrid?.let {
@@ -1191,9 +1193,9 @@ fun MapScreen(
 
     LaunchedEffect(mapView, showSettings, appSettings.tracksVisible, appSettings.tracksDirectionVisible, appSettings.trackingRenderNb,
         appSettings.trackingColorPastFrom, appSettings.trackingColorPastTo,
-        appSettings.trackingOpacityNewest, appSettings.trackingOpacityOldest,
+        appSettings.trackingTransparencyNewest, appSettings.trackingTransparencyOldest,
         appSettings.trackingColorPinnedFrom, appSettings.trackingColorPinnedTo,
-        appSettings.trackingOpacityPinnedNewest, appSettings.trackingOpacityPinnedOldest,
+        appSettings.trackingTransparencyPinnedNewest, appSettings.trackingTransparencyPinnedOldest,
         appSettings.trackListFilter, trackSummaries, highlightedTrackId,
         appSettings.trackDirectionDensity, appSettings.trackDirectionMinSpacingDp, appSettings.trackDirectionMaxSpacingDp,
         appSettings.trackDirectionSpeedFloorKn, appSettings.trackDirectionSpeedCeilingKn) {
@@ -1266,8 +1268,8 @@ fun MapScreen(
                 listOf(computeTrackPolylineAppearance(
                     index = index,
                     total = total,
-                    opacityNewest = appSettings.trackingOpacityNewest,
-                    opacityOldest = appSettings.trackingOpacityOldest,
+                    transparencyNewest = appSettings.trackingTransparencyNewest,
+                    transparencyOldest = appSettings.trackingTransparencyOldest,
                     colorFrom = appSettings.trackingColorPastFrom,
                     colorTo = appSettings.trackingColorPastTo,
                     strokeWidth = if (index == 0) 8f else 6f
@@ -1366,8 +1368,8 @@ fun MapScreen(
                 listOf(computeTrackPolylineAppearance(
                     index = index,
                     total = pinnedTotal,
-                    opacityNewest = appSettings.trackingOpacityPinnedNewest,
-                    opacityOldest = appSettings.trackingOpacityPinnedOldest,
+                    transparencyNewest = appSettings.trackingTransparencyPinnedNewest,
+                    transparencyOldest = appSettings.trackingTransparencyPinnedOldest,
                     colorFrom = appSettings.trackingColorPinnedFrom,
                     colorTo = appSettings.trackingColorPinnedTo,
                     strokeWidth = 6f
@@ -2120,10 +2122,10 @@ fun MapScreen(
                     markerHaloSize = appSettings.markerHaloSize,
                     markerHaloPinnedColor = appSettings.markerHaloPinnedColor,
                     markerHaloUnpinnedColor = appSettings.markerHaloUnpinnedColor,
-                    markerHaloPinnedFillOpacityPct = appSettings.markerHaloPinnedFillOpacityPct,
-                    markerHaloPinnedBorderOpacityPct = appSettings.markerHaloPinnedBorderOpacityPct,
-                    markerHaloUnpinnedFillOpacityPct = appSettings.markerHaloUnpinnedFillOpacityPct,
-                    markerHaloUnpinnedBorderOpacityPct = appSettings.markerHaloUnpinnedBorderOpacityPct
+                    markerHaloPinnedFillTransparencyPct = appSettings.markerHaloPinnedFillTransparencyPct,
+                    markerHaloPinnedBorderTransparencyPct = appSettings.markerHaloPinnedBorderTransparencyPct,
+                    markerHaloUnpinnedFillTransparencyPct = appSettings.markerHaloUnpinnedFillTransparencyPct,
+                    markerHaloUnpinnedBorderTransparencyPct = appSettings.markerHaloUnpinnedBorderTransparencyPct
                 )
             }
 
@@ -2891,8 +2893,8 @@ private fun MapContent(
             regulatedZones = visibleRegulatedZones,
             zone300 = visibleZone300,
             zone300Color = appSettings.zone300Color,
-            zone300FillOpacityPct = appSettings.zone300FillOpacityPct,
-            zone300BoundaryOpacityPct = appSettings.zone300BoundaryOpacityPct,
+            zone300FillTransparencyPct = appSettings.zone300FillTransparencyPct,
+            zone300BoundaryTransparencyPct = appSettings.zone300BoundaryTransparencyPct,
             depthBitmap = visibleDepthBitmap,
             lowDepthWarningBitmap = visibleLowDepthWarning,
             depthBox = depthBox,
@@ -3521,7 +3523,7 @@ private fun LayersSettings(
                                 fontSize = 12.sp
                             )
                             Text(
-                                text = stringResource(R.string.settings_transparency_value_fmt, settings.trackingOpacityNewest, settings.trackingOpacityOldest),
+                                text = stringResource(R.string.settings_transparency_value_fmt, settings.trackingTransparencyNewest, settings.trackingTransparencyOldest),
                                 color = ComposeColor(AppConfig.uiSettingsValueText),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
@@ -3529,12 +3531,12 @@ private fun LayersSettings(
                                 modifier = Modifier.fillMaxWidth()
                             )
                             RangeSlider(
-                                value = settings.trackingOpacityNewest.toFloat()..settings.trackingOpacityOldest.toFloat(),
+                                value = settings.trackingTransparencyNewest.toFloat()..settings.trackingTransparencyOldest.toFloat(),
                                 onValueChange = { range: ClosedFloatingPointRange<Float> ->
                                     onUpdateSettings {
                                         it.copy(
-                                            trackingOpacityNewest = range.start.roundToInt(),
-                                            trackingOpacityOldest = range.endInclusive.roundToInt()
+                                            trackingTransparencyNewest = range.start.roundToInt(),
+                                            trackingTransparencyOldest = range.endInclusive.roundToInt()
                                         )
                                     }
                                 },
@@ -3570,8 +3572,8 @@ private fun LayersSettings(
                             )
                             Text(
                                 text = stringResource(R.string.settings_transparency_value_fmt,
-                                    settings.trackingOpacityPinnedNewest,
-                                    settings.trackingOpacityPinnedOldest
+                                    settings.trackingTransparencyPinnedNewest,
+                                    settings.trackingTransparencyPinnedOldest
                                 ),
                                 color = ComposeColor(AppConfig.uiSettingsValueText),
                                 fontSize = 14.sp,
@@ -3580,13 +3582,13 @@ private fun LayersSettings(
                                 modifier = Modifier.fillMaxWidth()
                             )
                             RangeSlider(
-                                value = settings.trackingOpacityPinnedNewest.toFloat()
-                                    ..settings.trackingOpacityPinnedOldest.toFloat(),
+                                value = settings.trackingTransparencyPinnedNewest.toFloat()
+                                    ..settings.trackingTransparencyPinnedOldest.toFloat(),
                                 onValueChange = { range: ClosedFloatingPointRange<Float> ->
                                     onUpdateSettings {
                                         it.copy(
-                                            trackingOpacityPinnedNewest = range.start.roundToInt(),
-                                            trackingOpacityPinnedOldest = range.endInclusive.roundToInt()
+                                            trackingTransparencyPinnedNewest = range.start.roundToInt(),
+                                            trackingTransparencyPinnedOldest = range.endInclusive.roundToInt()
                                         )
                                     }
                                 },
@@ -3807,22 +3809,24 @@ private fun LayersSettings(
                         )
                         Text(
                             text = stringResource(R.string.settings_marker_halo_value_fmt,
-                                settings.markerHaloPinnedFillOpacityPct,
-                                settings.markerHaloPinnedBorderOpacityPct),
+                                settings.markerHaloPinnedBorderTransparencyPct,
+                                settings.markerHaloPinnedFillTransparencyPct),
                             color = ComposeColor(AppConfig.uiSettingsValueText),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.End,
                             modifier = Modifier.fillMaxWidth()
                         )
+                        // Transparency: 0 = opaque, 100 = invisible. The strong border has low
+                        // transparency (left thumb); the faint fill has high transparency (right thumb).
                         RangeSlider(
-                            value = settings.markerHaloPinnedFillOpacityPct.toFloat()
-                                ..settings.markerHaloPinnedBorderOpacityPct.toFloat(),
+                            value = settings.markerHaloPinnedBorderTransparencyPct.toFloat()
+                                ..settings.markerHaloPinnedFillTransparencyPct.toFloat(),
                             onValueChange = { range: ClosedFloatingPointRange<Float> ->
                                 onUpdateSettings {
                                     it.copy(
-                                        markerHaloPinnedFillOpacityPct = range.start.roundToInt(),
-                                        markerHaloPinnedBorderOpacityPct = range.endInclusive.roundToInt()
+                                        markerHaloPinnedBorderTransparencyPct = range.start.roundToInt(),
+                                        markerHaloPinnedFillTransparencyPct = range.endInclusive.roundToInt()
                                     )
                                 }
                             },
@@ -3844,22 +3848,24 @@ private fun LayersSettings(
                         )
                         Text(
                             text = stringResource(R.string.settings_marker_halo_value_fmt,
-                                settings.markerHaloUnpinnedFillOpacityPct,
-                                settings.markerHaloUnpinnedBorderOpacityPct),
+                                settings.markerHaloUnpinnedBorderTransparencyPct,
+                                settings.markerHaloUnpinnedFillTransparencyPct),
                             color = ComposeColor(AppConfig.uiSettingsValueText),
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.End,
                             modifier = Modifier.fillMaxWidth()
                         )
+                        // Transparency: 0 = opaque, 100 = invisible. The strong border has low
+                        // transparency (left thumb); the faint fill has high transparency (right thumb).
                         RangeSlider(
-                            value = settings.markerHaloUnpinnedFillOpacityPct.toFloat()
-                                ..settings.markerHaloUnpinnedBorderOpacityPct.toFloat(),
+                            value = settings.markerHaloUnpinnedBorderTransparencyPct.toFloat()
+                                ..settings.markerHaloUnpinnedFillTransparencyPct.toFloat(),
                             onValueChange = { range: ClosedFloatingPointRange<Float> ->
                                 onUpdateSettings {
                                     it.copy(
-                                        markerHaloUnpinnedFillOpacityPct = range.start.roundToInt(),
-                                        markerHaloUnpinnedBorderOpacityPct = range.endInclusive.roundToInt()
+                                        markerHaloUnpinnedBorderTransparencyPct = range.start.roundToInt(),
+                                        markerHaloUnpinnedFillTransparencyPct = range.endInclusive.roundToInt()
                                     )
                                 }
                             },
@@ -4045,14 +4051,17 @@ private fun LayersSettings(
                         title = stringResource(R.string.settings_zone300_opacity_label),
                         description = stringResource(R.string.settings_zone300_opacity_desc)
                     )
-                    var opacityDrag by remember {
-                        mutableStateOf(settings.zone300FillOpacityPct.toFloat()..settings.zone300BoundaryOpacityPct.toFloat())
+                    // Transparency: 0 = opaque, 100 = invisible. The boundary is strong
+                    // (low transparency) so it sits on the left thumb; the faint fill has
+                    // high transparency so it sits on the right thumb.
+                    var transparencyDrag by remember {
+                        mutableStateOf(settings.zone300BoundaryTransparencyPct.toFloat()..settings.zone300FillTransparencyPct.toFloat())
                     }
                     Text(
                         text = stringResource(
                             R.string.settings_zone300_opacity_value_fmt,
-                            (opacityDrag.start / 5f).roundToInt() * 5,
-                            (opacityDrag.endInclusive / 5f).roundToInt() * 5
+                            (transparencyDrag.start / 5f).roundToInt() * 5,
+                            (transparencyDrag.endInclusive / 5f).roundToInt() * 5
                         ),
                         color = ComposeColor(AppConfig.uiSettingsValueText),
                         fontSize = 14.sp,
@@ -4061,15 +4070,15 @@ private fun LayersSettings(
                         modifier = Modifier.fillMaxWidth()
                     )
                     RangeSlider(
-                        value = opacityDrag,
-                        onValueChange = { range -> opacityDrag = range },
+                        value = transparencyDrag,
+                        onValueChange = { range -> transparencyDrag = range },
                         valueRange = 0f..100f,
                         steps = 19,
                         onValueChangeFinished = {
                             onUpdateSettings {
                                 it.copy(
-                                    zone300FillOpacityPct = (opacityDrag.start / 5f).roundToInt() * 5,
-                                    zone300BoundaryOpacityPct = (opacityDrag.endInclusive / 5f).roundToInt() * 5
+                                    zone300BoundaryTransparencyPct = (transparencyDrag.start / 5f).roundToInt() * 5,
+                                    zone300FillTransparencyPct = (transparencyDrag.endInclusive / 5f).roundToInt() * 5
                                 )
                             }
                         },
@@ -4119,29 +4128,83 @@ private fun LayersSettings(
                 ) {
                         Spacer(modifier = Modifier.height(8.dp))
                         NestedCard {
-                            SliderRowContent(
-                                label = stringResource(R.string.settings_low_depth_threshold_label),
-                                description = stringResource(R.string.settings_low_depth_threshold_desc),
-                                valueLabel = stringResource(R.string.settings_value_depth, settings.lowDepthWarningMaxM),
-                                value = settings.lowDepthWarningMaxM,
-                                valueRange = 0.5f..5f,
-                                steps = 8,
-                                onValueChange = { v ->
-                                    onUpdateSettings { it.copy(lowDepthWarningMaxM = (v * 2f).roundToInt() / 2f) }
-                                }
+                            // Two-depth double slider: left thumb = crash depth (fully opaque
+                            // from surface down to here), right thumb = start-warning depth
+                            // (warning begins here, transparent beyond). Linear ramp between.
+                            Text(
+                                text = stringResource(R.string.settings_low_depth_range_label),
+                                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium
                             )
-                            SectionDivider()
-                            SliderRowContent(
-                                label = stringResource(R.string.settings_low_depth_opacity_label),
-                                description = stringResource(R.string.settings_low_depth_opacity_desc),
-                                valueLabel = stringResource(R.string.settings_value_percent, settings.lowDepthWarningMinOpacityPct),
-                                value = settings.lowDepthWarningMinOpacityPct.toFloat(),
-                                valueRange = 0f..100f,
-                                steps = 19,
-                                onValueChange = { v ->
-                                    onUpdateSettings { it.copy(lowDepthWarningMinOpacityPct = (v / 5f).roundToInt() * 5) }
-                                }
+                            Text(
+                                text = stringResource(R.string.settings_low_depth_range_desc),
+                                color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                                fontSize = 12.sp
                             )
+                            // Local drag state so the ~7M-cell warning bitmap is not regenerated on
+                            // every drag tick — commit to settings only on drag end. Values stay
+                            // snapped to 0.5 m and crash is kept strictly below start (min 0.5 m gap).
+                            var lowDepthDrag by remember {
+                                mutableStateOf(settings.lowDepthCrashDepthM..settings.lowDepthStartWarningM)
+                            }
+                            Text(
+                                text = stringResource(R.string.settings_low_depth_range_value_fmt,
+                                    lowDepthDrag.start, lowDepthDrag.endInclusive),
+                                color = ComposeColor(AppConfig.uiSettingsValueText),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.End,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            RangeSlider(
+                                value = lowDepthDrag,
+                                onValueChange = { range: ClosedFloatingPointRange<Float> ->
+                                    var crash = (range.start * 2f).roundToInt() / 2f
+                                    var start = (range.endInclusive * 2f).roundToInt() / 2f
+                                    // Enforce crashDepthM < startWarningM with a minimum 0.5 m gap.
+                                    if (start <= crash) {
+                                        if (range.start == range.endInclusive) {
+                                            // Both thumbs at the same spot: keep crash, push start up.
+                                            start = crash + 0.5f
+                                        } else {
+                                            // Inverted/equal range — keep the gap by nudging the moved thumb.
+                                            crash = (start - 0.5f).coerceAtLeast(0f)
+                                        }
+                                    }
+                                    lowDepthDrag = crash..start
+                                },
+                                valueRange = 0f..5f,
+                                steps = 9,
+                                onValueChangeFinished = {
+                                    onUpdateSettings {
+                                        it.copy(
+                                            lowDepthCrashDepthM = lowDepthDrag.start,
+                                            lowDepthStartWarningM = lowDepthDrag.endInclusive
+                                        )
+                                    }
+                                },
+                                colors = SliderDefaults.colors(
+                                    thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                                    activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
+                                    inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                                )
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = stringResource(R.string.settings_value_depth, 0f),
+                                    color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                                    fontSize = 12.sp
+                                )
+                                Text(
+                                    text = stringResource(R.string.settings_value_depth, 5f),
+                                    color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                                    fontSize = 12.sp
+                                )
+                            }
                     }
                 }
             }

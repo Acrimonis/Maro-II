@@ -175,7 +175,6 @@ Affects right-edge control-stack buttons (settings gear, zoom +/−, layer toggl
 |---|---|---|---|
 | `map.depth.nodata.color` | `#60FFF59D` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFF59D;opacity:0.38;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | NoData cells (pale yellow, ~38% alpha) |
 | `overlay.lowDepth.color` | `${ui.dashboard.status.error}` → `#CCB71C1C` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#B71C1C;opacity:0.8;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Low-depth warning (alpha depth-graded at runtime) |
-| `overlay.lowDepth.minOpacity` | `25` | — | Minimum opacity % at threshold depth |
 
 ---
 

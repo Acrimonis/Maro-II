@@ -39,10 +39,6 @@ object AppConfig {
     var speedZoneHysteresisM: Double = 5.0
         private set
 
-    /** Minimum opacity (%, 0–100) of the low-depth warning at the threshold depth; 100 % at the shoreline fades to this. */
-    var lowDepthWarningMinOpacityPct = 25
-        private set
-
     /** ARGB colour for action-button background (right-edge control stack).
      *  Default `#CC16213E` (semi-transparent dark blue). Set via `ui.button.background` in colors.properties. */
     var buttonActionBgColor: Int = 0xCC16213E.toInt()
@@ -115,8 +111,8 @@ object AppConfig {
     var boatMarkerIdleThresholdSec: Long = 60
     /** Minimum idle duration (seconds) before 🕐 auto-marker pin becomes permanent. */
     var boatMarkerAutoMarkerMinDurationSec: Long = 120
-    /** Auto-marker icon opacity on map (0-100, 100=fully opaque). */
-    var boatMarkerIdleOpacityPct: Int = 50
+    /** Auto-marker icon transparency on map (0-100, 0=opaque, 100=invisible). */
+    var boatMarkerIdleTransparencyPct: Int = 50
 
     /** Proximity range (m) for 🕐 auto-marker pins. Set via `track.boatMarker.autoMarker.proximityM` in maro.properties. */
     var boatMarkerAutoMarkerProximityM: Double = 300.0
@@ -267,10 +263,6 @@ object AppConfig {
     /** Low-depth warning overlay colour. Default #CCB71C1C (dark red, 80% opacity, alias to ui.dashboard.status.error). Set via `overlay.lowDepth.color` in colors.properties. */
     var overlayLowDepthColor: Int = 0xCCB71C1C.toInt()
         private set
-    /** Low-depth warning minimum opacity %. Default 25. Set via `overlay.lowDepth.minOpacity` in colors.properties. */
-    var overlayLowDepthMinOpacity: Int = 25
-        private set
-
     /** GPS icon DEMO state background colour. Default from semantic.inactive = #33FFFFFF (white 20%). Set via `status.gps.demo` in colors.properties. */
     var statusGpsDemo: Int = 0x33FFFFFF.toInt()
         private set
@@ -595,8 +587,8 @@ object AppConfig {
             props.getProperty("track.boatMarker.autoMarker.minDurationSec")?.toLongOrNull()?.let {
                 boatMarkerAutoMarkerMinDurationSec = it.coerceIn(30, 3600)
             }
-            props.getProperty("track.boatMarker.autoMarker.opacity")?.toIntOrNull()?.let {
-                boatMarkerIdleOpacityPct = it.coerceIn(0, 100)
+            props.getProperty("track.boatMarker.autoMarker.transparency")?.toIntOrNull()?.let {
+                boatMarkerIdleTransparencyPct = it.coerceIn(0, 100)
             }
             props.getProperty("track.boatMarker.autoMarker.proximityM")?.toDoubleOrNull()?.let {
                 boatMarkerAutoMarkerProximityM = it.coerceAtLeast(0.0)
@@ -727,7 +719,6 @@ object AppConfig {
             props.getProperty("map.depth.nodata.color")?.let { parseColorOrNull(it) }?.let { mapDepthNodataColor = it }
 
             props.getProperty("overlay.lowDepth.color")?.let { parseColorOrNull(it) }?.let { overlayLowDepthColor = it }
-            props.getProperty("overlay.lowDepth.minOpacity")?.toIntOrNull()?.let { overlayLowDepthMinOpacity = it.coerceIn(0, 100) }
 
             props.getProperty("status.gps.demo")?.let { parseColorOrNull(it) }?.let { statusGpsDemo = it }
             props.getProperty("status.gps.acquiring")?.let { parseColorOrNull(it) }?.let { statusGpsAcquiring = it }

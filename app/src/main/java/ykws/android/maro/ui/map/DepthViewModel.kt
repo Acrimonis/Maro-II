@@ -145,8 +145,8 @@ class DepthViewModel(
             val key = RasterCache.Key(
                 gridTimestampMs = grid.metadata.fetchTimestampMs,
                 emodnetCutoffM = cutoffM,
-                lowDepthMaxM = settings.lowDepthWarningMaxM,
-                lowDepthMinOpacityPct = settings.lowDepthWarningMinOpacityPct,
+                lowDepthCrashDepthM = settings.lowDepthCrashDepthM,
+                lowDepthStartWarningM = settings.lowDepthStartWarningM,
                 nodataColor = nodataColor,
                 colorsHash = AppConfig.rasterColorsHash
             )
@@ -181,9 +181,9 @@ class DepthViewModel(
                         RasterCache.Step.LOW_DEPTH_WARNING -> {
                             RasterCache.evict(context, step)
                             report(RasterStep.WARNING_RASTER, "Shallow warning overlay", 0)
-                            val maxM = settings.lowDepthWarningMaxM
-                            val minOpacity = settings.lowDepthWarningMinOpacityPct / 100f
-                            val bmp = LowDepthWarningBitmap.build(grid, maxM, isWater, minOpacity, cutoffM) { stepProgress ->
+                            val crashM = settings.lowDepthCrashDepthM
+                            val startM = settings.lowDepthStartWarningM
+                            val bmp = LowDepthWarningBitmap.build(grid, crashM, startM, isWater, cutoffM) { stepProgress ->
                                 report(RasterStep.WARNING_RASTER, "Shallow warning overlay", stepProgress)
                             }
                             val pixels = IntArray(grid.cols * grid.rows)
@@ -207,8 +207,8 @@ class DepthViewModel(
         val key = RasterCache.Key(
             gridTimestampMs = grid.metadata.fetchTimestampMs,
             emodnetCutoffM = settings.emodnetShallowCutoffM,
-            lowDepthMaxM = settings.lowDepthWarningMaxM,
-            lowDepthMinOpacityPct = settings.lowDepthWarningMinOpacityPct,
+            lowDepthCrashDepthM = settings.lowDepthCrashDepthM,
+            lowDepthStartWarningM = settings.lowDepthStartWarningM,
             nodataColor = AppConfig.mapDepthNodataColor,
             colorsHash = AppConfig.rasterColorsHash
         )

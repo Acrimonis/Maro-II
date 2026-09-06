@@ -8,7 +8,9 @@ object DepthConstants {
     const val GRID_RES_M = 25.0
     const val SHALLOW_TIER_MAX_M = 10.0       // Litto3D authoritative ceiling (constraint #4)
     const val COLLISION_MAX_DEPTH_M = 5.0
-    const val LOW_DEPTH_WARNING_MAX_M = 1.5   // grounding-hazard overlay: highlight all water shallower than this
+    const val LOW_DEPTH_WARNING_MAX_M = 1.5   // legacy single-threshold (kept for reference)
+    const val LOW_DEPTH_CRASH_DEPTH_M = 0.5   // grounding-hazard overlay: fully opaque from surface down to this depth
+    const val LOW_DEPTH_START_WARNING_M = 1.5 // grounding-hazard overlay: warning begins here, transparent beyond
 
     /** Height of the IGN69 datum above LAT here (micro-tidal Côte d'Azur); Litto3D depth→LAT shift. */
     const val IGN69_ABOVE_LAT_M = 0.40

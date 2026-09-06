@@ -42,8 +42,8 @@ object RasterCache {
     data class Key(
         val gridTimestampMs: Long,
         val emodnetCutoffM: Float,
-        val lowDepthMaxM: Float,
-        val lowDepthMinOpacityPct: Int,
+        val lowDepthCrashDepthM: Float,
+        val lowDepthStartWarningM: Float,
         val nodataColor: Int,
         val colorsHash: Int
     )
