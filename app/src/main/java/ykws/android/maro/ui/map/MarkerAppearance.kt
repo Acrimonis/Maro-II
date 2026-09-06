@@ -57,10 +57,10 @@ data class MarkerAppearance(
          * @param selectedMarkerId The currently selected/viewed marker id (single driver for gold).
          * @param pinnedColor     Pinned halo colour (ARGB).
          * @param unpinnedColor   Unpinned halo colour (ARGB).
-         * @param pinnedFillPct   Pinned halo fill opacity %.
-         * @param pinnedBorderPct Pinned halo border opacity %.
-         * @param unpinnedFillPct Unpinned halo fill opacity %.
-         * @param unpinnedBorderPct Unpinned halo border opacity %.
+         * @param pinnedFillPct   Pinned halo fill transparency % (0 = opaque, 100 = invisible).
+         * @param pinnedBorderPct Pinned halo border transparency %.
+         * @param unpinnedFillPct Unpinned halo fill transparency %.
+         * @param unpinnedBorderPct Unpinned halo border transparency %.
          */
         fun of(
             marker: UserMarker,
@@ -104,7 +104,8 @@ data class MarkerAppearance(
                 } else {
                     Triple(unpinnedColor, unpinnedFillPct, unpinnedBorderPct)
                 }
-                if (fill <= 0 && border <= 0) null
+                // Both fully transparent (100) → no visible halo.
+                if (fill >= 100 && border >= 100) null
                 else MarkerHaloSpec(color, fill, border)
             }
 
@@ -129,11 +130,11 @@ data class MarkerAppearance(
  * Describes a halo ring to draw behind a confirmed marker's centre dot/icon.
  *
  * @property color        Shared halo colour (opaque ARGB).
- * @property fillOpacityPct Inside-fill opacity % (0-100).
- * @property borderOpacityPct Border/stroke opacity % (0-100).
+ * @property fillTransparencyPct Inside-fill transparency % (0 = opaque, 100 = invisible).
+ * @property borderTransparencyPct Border/stroke transparency % (0 = opaque, 100 = invisible).
  */
 data class MarkerHaloSpec(
     val color: Int,
-    val fillOpacityPct: Int,
-    val borderOpacityPct: Int
+    val fillTransparencyPct: Int,
+    val borderTransparencyPct: Int
 )

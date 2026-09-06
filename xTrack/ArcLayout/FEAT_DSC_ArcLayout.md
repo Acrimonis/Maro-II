@@ -2,7 +2,7 @@
 name: ArcLayout
 status: active
 created: 2026-06-13 07:34
-modified: 2026-06-18 19:36
+modified: 2026-09-06 21:19
 ---
 
 **Description:** Replace the two isolated layer toggle buttons on the map's right-edge control stack with a single anchor button that fans out into a pure-Compose arc menu to the left, exposing 4 layer toggles (low depth warning, 300m zone, depth layer, regulated zones) as a cohesive multi-toggle control.
@@ -50,6 +50,7 @@ FanLayout framework (θ-parameterized, parent-at-center, equidistance) ported th
 
 - **ArcLayout Core Implementation** — `depthLayerVisible` setting + toggle, `ArcLayoutToggle` (anchor + arc + Canvas icons), wired into MapScreen
 - **scrim-dismiss** — transparent full-screen scrim dismisses the fan via `onDismissFan`; badge no longer dims
+- **control-stack-button-swap** — moved Add Zone (add-marker) button above the layer FanLayout in the main-screen control stack (MapScreen.kt), so the fan sits below the add-marker control
 
 ## Rules
 - Keep the plan at `plans/arclayout-feature-plan.md` as the single source of truth for design decisions

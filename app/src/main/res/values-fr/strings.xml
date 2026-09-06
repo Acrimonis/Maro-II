@@ -75,9 +75,9 @@
     <string name="settings_zone300_desc">Régler la couleur et la transparence de la bande côtière des 300 m</string>
     <string name="settings_zone300_color_label">Couleur de la zone</string>
     <string name="settings_zone300_color_desc">Couleur du remplissage et du contour de la bande des 300 m</string>
-    <string name="settings_zone300_opacity_label">Opacité</string>
-    <string name="settings_zone300_opacity_desc">Opacité du contenu et du contour de la zone</string>
-    <string name="settings_zone300_opacity_value_fmt">Remplissage %1$d%% · Contour %2$d%%</string>
+    <string name="settings_zone300_opacity_label">Transparence</string>
+    <string name="settings_zone300_opacity_desc">Transparence du contenu et du contour de la zone (0% = opaque, 100% = invisible)</string>
+    <string name="settings_zone300_opacity_value_fmt">Contour %1$d%% · Remplissage %2$d%%</string>
     <string name="settings_zone300_appearance_label">Apparence de la zone</string>
     <string name="settings_auto_markers_label">Gestion de la création automatique des repères</string>
     <string name="settings_regulated_zones_label">Zones réglementées</string>
@@ -86,10 +86,9 @@
     <string name="settings_danger_zones_desc">Surligner les hauts-fonds qui pourraient échouer le bateau</string>
     <string name="settings_low_depth_warning_label">Alerte faible profondeur</string>
     <string name="settings_low_depth_warning_desc">Surligner les hauts-fonds dangereux</string>
-    <string name="settings_low_depth_threshold_label">Profondeur d\'alerte</string>
-    <string name="settings_low_depth_threshold_desc">Surligner l\'eau moins profonde que ce seuil</string>
-    <string name="settings_low_depth_opacity_label">Opacité de l\'alerte</string>
-    <string name="settings_low_depth_opacity_desc">Intensité au seuil de profondeur (100 % au rivage)</string>
+    <string name="settings_low_depth_range_label">Profondeurs d\'alerte</string>
+    <string name="settings_low_depth_range_desc">Pleine opacité de la surface jusqu\'à la profondeur de collision, puis fondu jusqu\'à la profondeur de début d\'alerte.</string>
+    <string name="settings_low_depth_range_value_fmt">Échouement %1$.1f m · Début %2$.1f m</string>
     <string name="settings_heading_line_label">Ligne de cap</string>
     <string name="settings_heading_line_desc">Afficher la ligne de cap en pointillés depuis le bateau jusqu\'au bord de la carte</string>
     <string name="settings_cap_arrow_label">Flèche variable</string>
@@ -297,7 +296,7 @@
     <string name="settings_tracks_desc">Afficher les traces enregistrées</string>
     <string name="settings_tracks_direction_label">Afficher la direction des traces</string>
     <string name="settings_tracks_direction_desc">Dessiner des flèches de direction le long des traces</string>
-    <string name="settings_tracks_direction_settings_label">Flèches de direction</string>
+    <string name="settings_tracks_direction_settings_label">Direction et Vitesse de direction</string>
     <string name="settings_tracks_direction_density_label">Densité des flèches</string>
     <string name="settings_tracks_direction_density_uniform">Uniforme</string>
     <string name="settings_tracks_direction_density_speed">Selon la vitesse</string>
@@ -309,11 +308,11 @@
     <string name="settings_tracks_direction_speed_range_fmt">%1$.1f – %2$.1f nds</string>
     <string name="settings_tracks_count_label">Traces non épinglées à afficher</string>
     <string name="settings_tracks_count_desc">Ce nombre limite uniquement les traces non épinglées (0-20). Les épinglées s\'affichent toujours.</string>
-    <string name="settings_transparency_label">Opacité des non épinglées</string>
-    <string name="settings_transparency_desc" formatted="false">Dégradé sur les N dernières traces non épinglées : curseur gauche = plus récente, droit = plus ancienne. 0% = invisible, 100% = opaque.</string>
+    <string name="settings_transparency_label">Transparence des non épinglées</string>
+    <string name="settings_transparency_desc" formatted="false">Dégradé sur les N dernières traces non épinglées : curseur gauche = plus récente, droit = plus ancienne. 0% = opaque, 100% = invisible.</string>
     <string name="settings_transparency_value_fmt">Récent %1$d%%  –  Ancien %2$d%%</string>
-    <string name="settings_pinned_transparency_label">Opacité des épinglées</string>
-    <string name="settings_pinned_transparency_desc" formatted="false">Dégradé sur les traces épinglées uniquement, indépendant des non épinglées. 0% = invisible, 100% = opaque.</string>
+    <string name="settings_pinned_transparency_label">Transparence des épinglées</string>
+    <string name="settings_pinned_transparency_desc" formatted="false">Dégradé sur les traces épinglées uniquement, indépendant des non épinglées. 0% = opaque, 100% = invisible.</string>
     <string name="settings_colors_label">Couleurs</string>
     <string name="settings_colors_desc">Anciennes traces : dégradé du plus récent (De) au plus ancien (Vers). Épinglées : dégradé ambre/orange.</string>
     <string name="settings_section_markers">Repères</string>
@@ -327,8 +326,8 @@
     <string name="settings_marker_rendering_label">Rendu des repères</string>
     <string name="settings_marker_halo_size_label">Taille du halo</string>
     <string name="settings_marker_halo_size_desc">Taille de l\'anneau autour de chaque repère</string>
-    <string name="settings_marker_halo_transparency_label">Opacité</string>
-    <string name="settings_marker_halo_value_fmt">Remplissage %1$d%% · Bord %2$d%%</string>
+    <string name="settings_marker_halo_transparency_label">Transparence</string>
+    <string name="settings_marker_halo_value_fmt">Bord %1$d%% · Remplissage %2$d%%</string>
     <string name="settings_marker_halo_colors_label">Couleurs</string>
     <string name="settings_marker_halo_unpinned_label">Non épinglé</string>
     <string name="settings_marker_halo_unpinned_color_label">Couleur non épinglé</string>

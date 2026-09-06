@@ -108,7 +108,7 @@ private const val CORRIDOR_UNDERLINE_HALO_ADD = 6f
  * @param markerLayerState       Marker layer visibility state.
  * @param markerHaloSize         Halo size % (0-100) scaling the ring radius.
  * @param markerHaloPinnedColor / Unpinned color — per-state halo colours.
- * @param markerHaloPinnedFillOpacityPct / Border / Unpinned fill / Border — halo opacity pairs.
+ * @param markerHaloPinnedFillTransparencyPct / Border / Unpinned fill / Border — halo transparency pairs.
  */
 @Composable
 fun MarkerOverlay(
@@ -125,10 +125,10 @@ fun MarkerOverlay(
     markerHaloSize: Int = 50,
     markerHaloPinnedColor: Int = 0xFFFFFFFF.toInt(),
     markerHaloUnpinnedColor: Int = 0xFF81D4FA.toInt(),
-    markerHaloPinnedFillOpacityPct: Int = 25,
-    markerHaloPinnedBorderOpacityPct: Int = 80,
-    markerHaloUnpinnedFillOpacityPct: Int = 10,
-    markerHaloUnpinnedBorderOpacityPct: Int = 40
+    markerHaloPinnedFillTransparencyPct: Int = 75,
+    markerHaloPinnedBorderTransparencyPct: Int = 20,
+    markerHaloUnpinnedFillTransparencyPct: Int = 90,
+    markerHaloUnpinnedBorderTransparencyPct: Int = 60
 ) {
     val mv = mapView ?: return
 
@@ -153,8 +153,8 @@ fun MarkerOverlay(
     DisposableEffect(
         markers, unconfirmedMarker, mv, matchResult, selectedMarkerId, markerZonesVisible,
         markerHaloSize, markerHaloPinnedColor, markerHaloUnpinnedColor,
-        markerHaloPinnedFillOpacityPct, markerHaloPinnedBorderOpacityPct,
-        markerHaloUnpinnedFillOpacityPct, markerHaloUnpinnedBorderOpacityPct
+        markerHaloPinnedFillTransparencyPct, markerHaloPinnedBorderTransparencyPct,
+        markerHaloUnpinnedFillTransparencyPct, markerHaloUnpinnedBorderTransparencyPct
     ) {
         Log.d("MaroMapRefresh", "MarkerOverlay DisposableEffect restart: markers=${markers.size} mv=${mv.hashCode()} zonesVisible=$markerZonesVisible")
         // ── Remove old marker overlays, then add new ones ─────────────────────
@@ -184,10 +184,10 @@ fun MarkerOverlay(
                 selectedMarkerId = selectedMarkerId,
                 pinnedColor = markerHaloPinnedColor,
                 unpinnedColor = markerHaloUnpinnedColor,
-                pinnedFillPct = markerHaloPinnedFillOpacityPct,
-                pinnedBorderPct = markerHaloPinnedBorderOpacityPct,
-                unpinnedFillPct = markerHaloUnpinnedFillOpacityPct,
-                unpinnedBorderPct = markerHaloUnpinnedBorderOpacityPct
+                pinnedFillPct = markerHaloPinnedFillTransparencyPct,
+                pinnedBorderPct = markerHaloPinnedBorderTransparencyPct,
+                unpinnedFillPct = markerHaloUnpinnedFillTransparencyPct,
+                unpinnedBorderPct = markerHaloUnpinnedBorderTransparencyPct
             )
             val baseColor = appearance.baseColor
             val strokeMultiplier = appearance.strokeMultiplier
@@ -366,10 +366,10 @@ fun MarkerOverlay(
                 selectedMarkerId = selectedMarkerId,
                 pinnedColor = markerHaloPinnedColor,
                 unpinnedColor = markerHaloUnpinnedColor,
-                pinnedFillPct = markerHaloPinnedFillOpacityPct,
-                pinnedBorderPct = markerHaloPinnedBorderOpacityPct,
-                unpinnedFillPct = markerHaloUnpinnedFillOpacityPct,
-                unpinnedBorderPct = markerHaloUnpinnedBorderOpacityPct
+                pinnedFillPct = markerHaloPinnedFillTransparencyPct,
+                pinnedBorderPct = markerHaloPinnedBorderTransparencyPct,
+                unpinnedFillPct = markerHaloUnpinnedFillTransparencyPct,
+                unpinnedBorderPct = markerHaloUnpinnedBorderTransparencyPct
             )
             val haloSpec = appearance.halo
             val haloDimFraction = if (appearance.isDimmed) DIMMED_ALPHA_FRACTION else 1f
@@ -406,7 +406,7 @@ fun MarkerOverlay(
                     }
                     // Auto-marker icons at reduced opacity
                     if (marker.origin == ykws.android.maro.data.model.markers.MarkerOrigin.IDLE_AUTO) {
-                        paint.alpha = 255 * ykws.android.maro.config.AppConfig.boatMarkerIdleOpacityPct / 100
+                        paint.alpha = 255 * (100 - ykws.android.maro.config.AppConfig.boatMarkerIdleTransparencyPct) / 100
                     }
                     // Center the glyph vertically on the 64px bitmap center (y=32).
                     // drawText's y is the text BASELINE, not the glyph center, so measure the
@@ -609,7 +609,7 @@ private fun addCorridorConnectingLine(
             appearance.baseColor, mainW, false))
     } else if (haloSpec != null) {
         // Pinned under-line halo (thicker colored line beneath) + colored line on top
-        val underColor = MarkerHalo.colorWithOpacity(haloSpec.color, haloSpec.borderOpacityPct, haloDimFraction)
+        val underColor = MarkerHalo.colorWithTransparency(haloSpec.color, haloSpec.borderTransparencyPct, haloDimFraction)
         mv.overlays.add(buildPolyline(pts, "${OVERLAY_PREFIX}corr_line_${markerId}_halo",
             underColor, mainW + CORRIDOR_UNDERLINE_HALO_ADD, false))
         mv.overlays.add(buildPolyline(pts, "${OVERLAY_PREFIX}corr_line_$markerId",

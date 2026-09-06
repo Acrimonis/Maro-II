@@ -167,6 +167,7 @@ fun OverlayLayer(
     // ── Marker management data ───────────────────────────────────────────
     markers: List<UserMarker>,
     trackTitleLookup: (String) -> String? = { null },
+    onOpenMarkerTrack: (String) -> Unit = {},
     onMarkerAction: (ykws.android.maro.data.model.ListAction) -> Unit,
     onCreateFirst: () -> Unit,
     onSetIcon: (String, String?) -> Unit,
@@ -345,22 +346,19 @@ fun OverlayLayer(
                     onClose = onMarkerDrawerClose,
                     boatPosition = boatPosition,
                     onRequestDelete = onRequestMarkerDelete,
-                    trackTitleLookup = trackTitleLookup
+                    trackTitleLookup = trackTitleLookup,
+                    onOpenMarkerTrack = { id -> onMarkerDrawerClose(); onOpenMarkerTrack(id) }
                 )
             }
         } else {
-            val selectedMarkerIds by markersViewModel.selectedMarkerIds.collectAsState()
-            var markerCardHeight by remember { mutableStateOf(0.dp) }
-            val markerFooterHeight = if (selectedMarkerIds.size > 1) 60.dp else 0.dp
-            val markerTargetHeight = maxOf(portraitDashboardHeight, 60.dp + 6.dp + markerCardHeight + markerFooterHeight + 4.dp)
-            val markerAnimatedHeight by animateDpAsState(markerTargetHeight, tween(250))
-
+            // Viewing (marker detail) — wrap-content slot: no fixed .height, no animateDpAsState,
+            // no probe. The DrawerSlot (AnimatedVisibility) sizes to the content's natural height;
+            // the FROM_BOTTOM slide adapts automatically.
             DrawerSlot(
-                visible = drawerState is MarkerDrawerState.Viewing || drawerState is MarkerDrawerState.MatchResult,
+                visible = drawerState is MarkerDrawerState.Viewing,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .height(markerAnimatedHeight),
+                    .fillMaxWidth(),
                 slideDirection = SlideDirection.FROM_BOTTOM,
                 shadowEdge = ShadowEdge.TOP
             ) {
@@ -371,7 +369,28 @@ fun OverlayLayer(
                     boatPosition = boatPosition,
                     onRequestDelete = onRequestMarkerDelete,
                     trackTitleLookup = trackTitleLookup,
-                    onCardHeightMeasured = { markerCardHeight = it }
+                    onOpenMarkerTrack = { id -> onMarkerDrawerClose(); onOpenMarkerTrack(id) }
+                )
+            }
+
+            // MatchResult (Where-Am-I) — unchanged full-height fixed slot (its own scroll host).
+            DrawerSlot(
+                visible = drawerState is MarkerDrawerState.MatchResult,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(portraitDashboardHeight),
+                slideDirection = SlideDirection.FROM_BOTTOM,
+                shadowEdge = ShadowEdge.TOP
+            ) {
+                MarkerDrawer(
+                    viewModel = markersViewModel,
+                    isLandscape = false,
+                    onClose = onMarkerDrawerClose,
+                    boatPosition = boatPosition,
+                    onRequestDelete = onRequestMarkerDelete,
+                    trackTitleLookup = trackTitleLookup,
+                    onOpenMarkerTrack = { id -> onMarkerDrawerClose(); onOpenMarkerTrack(id) }
                 )
             }
         }
@@ -454,7 +473,8 @@ fun OverlayLayer(
                                 if (name != null || comment != null) trackViewModel.updateTrack(id, name, comment)
                             },
                             onShareGpx = { onShareTrack(track.id) },
-                            onTap = null
+                            onTap = null,
+                            showChevron = false
                         )
                     }
                 }
@@ -482,7 +502,7 @@ fun OverlayLayer(
             }
             var cardHeight by remember { mutableStateOf(0.dp) }
             val footerHeight = if (trackListIds.size > 1) 60.dp else 0.dp
-            val targetHeight = maxOf(portraitDashboardHeight, 60.dp + 6.dp + cardHeight + footerHeight + 4.dp)
+            val targetHeight = maxOf(portraitDashboardHeight, 60.dp + cardHeight + footerHeight + 8.dp)
             val animatedHeight by animateDpAsState(targetHeight, tween(250))
 
             DrawerSlot(
@@ -499,6 +519,7 @@ fun OverlayLayer(
                         title = track.name,
                         onClose = onTrackDrawerClose,
                         bottomAnchoredContent = true,
+                        suppressOverscrollWhenFits = true,
                         contentPadding = PaddingValues(start = 12.dp, top = 6.dp, end = 12.dp),
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
                         headerActions = {
@@ -541,7 +562,8 @@ fun OverlayLayer(
                                 if (name != null || comment != null) trackViewModel.updateTrack(id, name, comment)
                             },
                             onShareGpx = { onShareTrack(track.id) },
-                            onTap = null
+                            onTap = null,
+                            showChevron = false
                         )
                     }
                 }
@@ -549,14 +571,15 @@ fun OverlayLayer(
 
             MeasureHeight(onMeasured = { cardHeight = it }) {
                 if (summary != null) {
-                    Box(Modifier.padding(horizontal = 12.dp)) {
+                    Box(Modifier.padding(start = 12.dp, top = 6.dp, end = 12.dp)) {
                         TrackCardContent(
                             summary = summary,
                             dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US),
                             accentColor = ComposeColor(0xFFFFD700.toInt()),
                             onUpdateTrack = { _, _, _, _ -> },
                             onShareGpx = {},
-                            onTap = null
+                            onTap = null,
+                            showChevron = false
                         )
                     }
                 }
@@ -603,12 +626,12 @@ fun OverlayLayer(
                 onReset = onTrackReset,
                 tracksVisible = appSettings.tracksVisible,
                 trackingRenderNb = appSettings.trackingRenderNb,
-                trackingOpacityNewest = appSettings.trackingOpacityNewest,
-                trackingOpacityOldest = appSettings.trackingOpacityOldest,
+                trackingTransparencyNewest = appSettings.trackingTransparencyNewest,
+                trackingTransparencyOldest = appSettings.trackingTransparencyOldest,
                 trackingColorPastFrom = appSettings.trackingColorPastFrom,
                 trackingColorPastTo = appSettings.trackingColorPastTo,
-                trackingOpacityPinnedNewest = appSettings.trackingOpacityPinnedNewest,
-                trackingOpacityPinnedOldest = appSettings.trackingOpacityPinnedOldest,
+                trackingTransparencyPinnedNewest = appSettings.trackingTransparencyPinnedNewest,
+                trackingTransparencyPinnedOldest = appSettings.trackingTransparencyPinnedOldest,
                 trackingColorPinnedFrom = appSettings.trackingColorPinnedFrom,
                 trackingColorPinnedTo = appSettings.trackingColorPinnedTo,
                 lazyListState = trackListState
@@ -631,6 +654,7 @@ fun OverlayLayer(
             MarkerManagementOverlay(
                 markers = markers,
                 trackTitleLookup = trackTitleLookup,
+                onOpenMarkerTrack = { id -> onDismissMarkerManagement(); onOpenMarkerTrack(id) },
                 onAction = onMarkerAction,
                 onCreateFirst = onCreateFirst,
                 onDismiss = onDismissMarkerManagement,

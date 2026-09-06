@@ -3,7 +3,7 @@
 
 > **Purpose:** Canonical reference for rendering any drawer/panel surface in Maro II.
 > **Created:** 2026-06-24 — normalisation pass (I1–I6).
-> **Updated:** 2026-07-18 — Menu drawer clickability pass: 56dp rows, 2dp divider spacers, 48dp icon buttons (I24).
+> **Updated:** 2026-09-06 — consolidation (canonical homes, pointers, Decision Log removed) + header vertical padding normalized to 6dp.
 
 ---
 
@@ -129,30 +129,6 @@ Every drawer composable must follow this contract to work with `DrawerSlot`:
 4. **`BackHandler` inside the composable** — guarded by `isOpen` or `showXxx`
 5. **Pure content** — a `Box`/`Column` with `fillMaxSize()`, `clip(shape)`, `.background(uiSettingsBackground)`, then content. **New drawers should use [`DrawerScaffold`](#12-drawerscaffold--fixed-header-scrollable-body) (§12) as the foundation** — it provides a fixed header, optional scrolling, and status-bar insets out of the box.
 
-### Canonical Drawer Skeleton (pre-DrawerScaffold)
-
-```kotlin
-@Composable
-fun XxxDrawer(
-    isOpen: Boolean,
-    onDismiss: () -> Unit,
-    // ... data params
-) {
-    if (isOpen) { BackHandler { onDismiss() } }
-
-    val shape = RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp)
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .clip(shape)
-            .background(Color(AppConfig.uiSettingsBackground))
-    ) {
-        // content
-    }
-}
-```
-
 ### Preferred: DrawerScaffold Skeleton
 
 ```kotlin
@@ -211,104 +187,29 @@ All drawer headers share these tokens, canonically implemented in [`DrawerHeader
 | Header horizontal padding | 24dp (menu, track history); 12dp (wizard, marker viewer) |
 | Header vertical padding | 6dp (canonical default); 12dp (wizard); 12dp (marker viewer — 6dp per side) |
 
-```kotlin
-// Canonical header pattern — use DrawerHeader() composable from DrawerScaffold.kt
-Row(
-    modifier = Modifier.fillMaxWidth()
-        .padding(horizontal = 24.dp, vertical = 8.dp),
-    verticalAlignment = Alignment.CenterVertically
-) {
-    IconButton(
-        onClick = onClose,
-        modifier = Modifier.size(32.dp)
-            .clip(CircleShape)
-            .background(ComposeColor(AppConfig.uiSettingsSwitchTrackInactive))
-    ) {
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-            contentDescription = "Close",
-            tint = ComposeColor(AppConfig.uiSettingsTextPrimary),
-            modifier = Modifier.size(18.dp)
-        )
-    }
-    Spacer(Modifier.width(16.dp))
-    Text(
-        text = title,
-        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-        fontSize = 17.sp,
-        fontWeight = FontWeight.Bold
-    )
-}
-```
+> Use the [`DrawerHeader`](#12-drawerscaffold--fixed-header-scrollable-body) composable — do not hand-roll this `Row`.
 
 ---
 
 ## 7. Section Headers in Drawers
 
-Drawer content sections use the same `SectionHeader` token as settings:
-
-| Token | Value |
-|-------|-------|
-| Color | `uiSettingsAccent` |
-| Font | 17sp, Bold, UPPERCASE, 1sp letter-spacing |
-| Spacer before first card | `8.dp` |
-
-```kotlin
-Text(
-    text = "MARKER DETAILS",
-    color = ComposeColor(AppConfig.uiSettingsAccent),
-    fontSize = 17.sp,
-    fontWeight = FontWeight.Bold,
-    letterSpacing = 1.sp
-)
-Spacer(Modifier.height(8.dp))
-```
+Drawer content sections use the same `SectionHeader` / `SubSectionHeader` typography as
+settings — see [`ui-component-guidelines.md` §2.9](ui-component-guidelines.md#29-header-hierarchy).
 
 ---
 
 ## 8. Card Pattern
 
-Two padding densities depending on card content type:
+The card surface primitive (`uiCardBackground`, 12dp radius, Wide 16×10 / Tight 8×4 densities)
+is canonical in [`ui-component-guidelines.md` §2.0](ui-component-guidelines.md#20-card-surface-primitive-authority).
+This section keeps only the **drawer-specific** rules layered on top of that surface:
 
-| Density | Padding | Use for |
-|---------|---------|---------|
-| **Wide** | 16×10dp | Menu slide panel — simple toggle/nav rows with single controls |
-| **Tight** | 8×4dp | Data-dense cards — track history stats grid, wizard sliders, marker details |
-
-Shared tokens across both densities:
-
-| Token | Value |
-|-------|-------|
-| Background | `uiCardBackground` |
-| Corner radius | 12dp |
-| Between cards | `Spacer(8.dp)` |
-
-```kotlin
-// Wide (menu slide panel)
-Column(
-    modifier = Modifier.fillMaxWidth()
-        .clip(RoundedCornerShape(12.dp))
-        .background(Color(AppConfig.uiCardBackground))
-        .padding(horizontal = 16.dp, vertical = 10.dp)
-) { /* simple rows */ }
-
-// Tight (data-dense cards)
-Column(
-    modifier = Modifier.fillMaxWidth()
-        .clip(RoundedCornerShape(12.dp))
-        .background(Color(AppConfig.uiCardBackground))
-        .padding(horizontal = 8.dp, vertical = 4.dp)
-) { /* dense content */ }
-```
-
-**Row minimum height:** Rows with text + control use `Modifier.heightIn(min = 48.dp)`.
-**🔴 Menu override:** Menu drawer clickable rows use `56.dp` — larger tap zone for frequently-used primary actions (Manage Track, Manage Markers, Import/Export).
-
-**Divider internal spacing:** Horizontal dividers inside cards use `Spacer(2.dp)` above and below (tightened from `6.dp` — card padding already provides separation).
-
-**Icon-only action rows:** Icon buttons in content rows (e.g., Import/Export) use `Modifier.size(48.dp)` for comfortable tap targets (Android minimum: 48dp).
-
-**Panel background:** `uiSettingsBackground` — use plain `Box`/`Column` with `.background()`, not `ModalDrawerSheet`.
+- **Between cards:** `Spacer(8.dp)` (drawer-internal card gap).
+- **Row minimum height:** Rows with text + control use `Modifier.heightIn(min = 48.dp)`.
+- **🔴 Menu override:** Menu drawer clickable rows use `56.dp` — larger tap zone for frequently-used primary actions (Manage Track, Manage Markers, Import/Export).
+- **Divider internal spacing:** Horizontal dividers inside cards use `Spacer(2.dp)` above and below (tightened from `6.dp` — card padding already provides separation).
+- **Icon-only action rows:** Icon buttons in content rows (e.g., Import/Export) use `Modifier.size(48.dp)` for comfortable tap targets (Android minimum: 48dp).
+- **Panel background:** `uiSettingsBackground` — use plain `Box`/`Column` with `.background()`, not `ModalDrawerSheet`.
 
 ---
 
@@ -330,12 +231,17 @@ Row(
 
     // Content column
     Column(Modifier.weight(1f).padding(horizontal = 8.dp, vertical = 4.dp)) {
-        // ── Header row: metadata (11sp muted) + action icons right-aligned ──
+        // ── Header row: metadata (11sp muted) + action icons + open-details chevron right-aligned ──
         Row(Modifier.fillMaxWidth(), SpaceBetween, CenterVertically) {
             Text(metadata, 11sp, uiSettingsTextMuted, weight 1f, ellipsis)
             Row(spacedBy(2.dp)) {
                 IconButton(36dp) { Icon(actionIcon, 24dp, tint = ButtonColors.icon) }
                 // ... more action icons
+            }
+            // Open-details chevron — canonical 28dp muted, plain Icon (not IconButton).
+            // Gated by showChevron (false in detail-drawer / MeasureHeight contexts).
+            if (showChevron) {
+                Icon(KeyboardArrowRight, cd_view, uiSettingsTextMuted, 28dp)
             }
         }
         Spacer(2.dp)
@@ -368,6 +274,7 @@ Row(
 | Detail font | 14sp, Normal, `uiSettingsTextPrimary` | Both |
 | Comment font | 13sp, Normal, `uiSettingsTextMuted` | Both |
 | Action icon | `IconButton(36dp)` + `Icon(24dp, tint=ButtonColors.icon)` | Both |
+| Open-details chevron | `Icon(KeyboardArrowRight, 28dp, tint=uiSettingsTextMuted)` — plain `Icon`, not `IconButton`; gated by `showChevron` | Both |
 | Divider | 0.5dp, `uiSettingsDivider`, 2dp gap each side | Both |
 
 ### Per-Type Variations
@@ -388,32 +295,12 @@ Row(
 |----------|---------|---------|
 | Setting | Label + inline control (Switch) | GPS mode toggle |
 | Navigation | Label + trailing chevron `KeyboardArrowRight` 28dp `uiSettingsTextMuted` | "Manage Tracks" |
+
+> **Canonical chevron:** The Navigation trailing chevron and the §9 card-header open-details chevron share the same
+> token — `KeyboardArrowRight`, **28dp**, `uiSettingsTextMuted`. Use this single canonical size/color everywhere a
+> "reveal more / open details" affordance appears (card header, track row, navigation rows). Do not introduce
+> alternate sizes or accent-tinted chevrons.
 | Content | Text / sliders / stats inside card | Marker details, live stats |
-
----
-
-## 11. Decision Log
-
-| # | Date | Decision | Rationale |
-|---|------|----------|-----------|
-| I1 | 2026-06-24 | `Button` → `IconButton` for back arrow | `IconButton` is purpose-built for icon-only controls: circular ripple, no elevation. |
-| I2 | 2026-06-24 | Back button size → 32dp | Settings page and all other app back buttons use 32dp. |
-| I3 | 2026-06-24 | Title font → 17sp Bold | Wizard title is longer; 24sp would overflow on narrow portrait screens. |
-| I6 | 2026-06-24 | Two card padding densities | Menu uses wide 16×10dp; data-dense cards use tight 8×4dp. |
-| I7 | 2026-06-25 | `DrawerSlot` abstraction — one composable for all drawer animations | Replaces 9 copy-pasted `AnimatedVisibility` blocks (~270 lines → ~72 lines). `SlideDirection` + `ShadowEdge` enums make each drawer declarative. |
-| I8 | 2026-06-25 | `OverlayLayer` — unified Layer 1 compositor | All transient surfaces + scrim live in one self-contained composable. Layer 0 (dashboard/map/controls) is permanent. Any new overlay fits into this framework. |
-| I9 | 2026-06-25 | Gradient shadow via `drawBehind` replacing `Modifier.shadow()` | `Modifier.shadow(16.dp)` uses RenderNode elevation — invisible on dark backgrounds. An 8dp black@18%→transparent gradient on the drawer edge is always visible. |
-| I10 | 2026-06-25 | Wizard steps extracted to `ui/markers/wizard/` package | `WizardTopBar`, `WizardButtonRow`, and 4 step composables in `ui/markers/wizard/steps/`. `WizardDrawer.kt` is a thin shell. |
-| I11 | 2026-06-25 | `WizardDrawer` receives `step` as non-null parameter | Fixes blank-screen bug where `step ?: return` short-circuited rendering. `OverlayLayer` guards with `showWizard && activeStep != null`. |
-| I12 | 2026-06-25 | `OverlayLayer` consolidates ALL transient surfaces | 7 surfaces in one composable. `MapScreen` Layer 1 is a single `OverlayLayer(...)` call. |
-| I13 | 2026-06-25 | Marker viewer uses Tight card (8×4dp) for info content | Geometry desc, direction+distance, and description inside `uiCardBackground` card, 12dp radius. |
-| I21 | 2026-06-25 | Unified list item card pattern (Track + Marker) | `Row(height(IntrinsicSize.Min), clip(12dp), uiCardBackground)` + `Box(4dp, fillMaxHeight, accentColor)` + `Column(weight 1f, pad 8×4dp)`. Canonical pattern in §9. Consolidates I14/I15/I19/I20. Per-type variations: accent color source, header metadata, detail text, action icons. |
-| I16 | 2026-06-25 | Previous/Next buttons match wizard pill style | `Box(RoundedCornerShape(8dp), uiSettingsAccent bg, Bold 14sp)` — same as `WizardButtonRow`. |
-| I17 | 2026-06-25 | Selected marker highlight via 2.5× stroke multiplier | Thicker stroke + `mapCenterRequest` on Previous/Next navigation. |
-| I23 | 2026-07-05 | Navigation chevrons normalized to 28dp | Menu drawer (20dp) and marker card (18dp) chevrons inconsistently sized. Unified at 28dp — clear affordance, matches standard icon size. Applies to `MenuDrawerOverlay` navigation rows + `MarkerManagementOverlay` card chevrons. |
-| I18 | 2026-06-25 | Proximity zone uses marker's own color (50% stroke / 10% fill) | Replaces hardcoded cyan. Fill = `dimColor(markerColor, ZONE_FILL_ALPHA_FRACTION/2)`. |
-| I22 | 2026-07-03 | `DrawerScaffold` + `DrawerHeader` extracted from MarkerDrawer | Fixed-header + scrollable-body pattern promoted to reusable scaffold. See §12. |
-| I24 | 2026-07-18 | Menu drawer clickability: 56dp rows, 2dp divider spacers, 48dp icon buttons | Larger tap zones by increasing row height from 48→56dp while tightening divider gaps from 6→2dp. Import/Export icons enlarged from 40→48dp. Net vertical height unchanged. MARKERS card reordered: "Manage Markers" primary action above divider, "Show Zones on Map" toggle below. See §8. |
 
 ---
 
@@ -431,11 +318,14 @@ fun DrawerScaffold(
     modifier: Modifier = Modifier,
     headerActions: @Composable RowScope.() -> Unit = {},
     headerHorizontalPadding: Dp = 24.dp,
-    headerVerticalPadding: Dp = 3.dp,
+    headerVerticalPadding: Dp = 6.dp,
     contentPadding: PaddingValues = PaddingValues(horizontal = 12.dp),
     scrollable: Boolean = true,
+    suppressOverscrollWhenFits: Boolean = false,
+    bottomAnchoredContent: Boolean = false,
     statusBarsInset: Boolean = false,
     shape: Shape = RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp),
+    footer: @Composable ColumnScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit
 )
 ```
@@ -447,11 +337,14 @@ Parameter | Default | Purpose |
 `modifier` | `Modifier` | Outer modifier on the root `Box` |
 `headerActions` | `{}` | Composable slot in the header `Row` (right-aligned) |
 `headerHorizontalPadding` | `24.dp` | Horizontal padding for the header `Row` |
-`headerVerticalPadding` | `3.dp` | Vertical padding for the header `Row` |
+`headerVerticalPadding` | `6.dp` | Vertical padding for the header `Row` |
 `contentPadding` | `PaddingValues(horizontal = 12.dp)` | Padding around the scrollable content body |
 `scrollable` | `true` | `true` = `verticalScroll` around content; `false` = static body |
+`suppressOverscrollWhenFits` | `false` | `true` = disables overscroll while body content fits the viewport |
+`bottomAnchoredContent` | `false` | `true` = bottom-aligns the scrollable body content |
 `statusBarsInset` | `false` | `true` = applies `.windowInsetsPadding(statusBars)` after background |
 `shape` | `RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp)` | Clip shape for the root `Box` |
+`footer` | `{}` | Composable slot rendered below the scrollable body |
 
 ### Structure
 
@@ -470,40 +363,13 @@ Consumer | File | scrollable | headerActions | hPad | statusBarsInset |
 |----------|------|:---:|---|---|:---:|
 MarkerDrawer ViewingContent | `MarkerDrawer.kt` | true | edit + delete + icon buttons | 12.dp | false |
 MarkerDrawer MatchResult | `MarkerDrawer.kt` | true | none | 12.dp | false |
-MenuDrawerOverlay | `MenuDrawerOverlay.kt` | false | Settings gear button | 24.dp | true |
+MenuDrawerOverlay | `MenuDrawerOverlay.kt` | true | Settings gear button | 24.dp | true |
 
 ### Not Migrated
 
-Component | Reason |
-|-----------|--------|
-`ListOverlayScaffold` | Already has correctly-fixed header + section label/sort/filter controls between header and `LazyColumn` |
-`WizardDrawer` | Uses `WizardTopBar` (step dots, different layout) + `WizardButtonRow` at bottom |
-Settings | Has 24sp title, tab bar, `HorizontalPager` — different structure |
-
-### Migration Guide
-
-**Before (ad-hoc pattern):**
-```kotlin
-Box(fillMaxSize, clip(shape), bg) {
-    Column(verticalScroll, padding(24.dp)) {
-        Row { /* back + title */ }   // scrolls away!
-        // ... content ...
-    }
-}
-```
-
-**After (DrawerScaffold):**
-```kotlin
-DrawerScaffold(
-    title = "My Drawer",
-    onClose = onDismiss,
-    headerHorizontalPadding = 24.dp,
-    contentPadding = PaddingValues(horizontal = 24.dp),
-    scrollable = true
-) {
-    // content body — header stays fixed
-}
-```
+`ListOverlayScaffold`, `WizardDrawer`, and Settings are not migrated — each already has its own
+fixed-header structure (fixed header + section label/sort/filter controls, `WizardTopBar` +
+`WizardButtonRow`, and 24sp title + tab bar + `HorizontalPager` respectively).
 
 ### DrawerHeader (standalone)
 
@@ -517,7 +383,7 @@ fun DrawerHeader(
     modifier: Modifier = Modifier,
     actions: @Composable RowScope.() -> Unit = {},
     horizontalPadding: Dp = 24.dp,
-    verticalPadding: Dp = 3.dp,
+    verticalPadding: Dp = 6.dp,
 )
 ```
 

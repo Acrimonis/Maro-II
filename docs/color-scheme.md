@@ -175,7 +175,6 @@ Affects right-edge control-stack buttons (settings gear, zoom +/−, layer toggl
 |---|---|---|---|
 | `map.depth.nodata.color` | `#60FFF59D` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFF59D;opacity:0.38;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | NoData cells (pale yellow, ~38% alpha) |
 | `overlay.lowDepth.color` | `${ui.dashboard.status.error}` → `#CCB71C1C` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#B71C1C;opacity:0.8;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Low-depth warning (alpha depth-graded at runtime) |
-| `overlay.lowDepth.minOpacity` | `25` | — | Minimum opacity % at threshold depth |
 
 ---
 
@@ -244,8 +243,17 @@ The hypsometric ramp interpolates between shallow (pale cyan) and deep (navy) en
 | Token | Default | Swatch | Usage |
 |---|---|---|---|
 | `ui.settings.background` | `#1A1A2E` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1A1A2E;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Fullscreen settings overlay background |
-| `ui.settings.card.background` | `#1AFFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;opacity:0.10;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Section card surfaces (~10% white) |
 | `ui.settings.divider` | `#14FFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;opacity:0.08;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Dividers between sections (~8% white) |
+
+### Card Surfaces
+
+The settings card surfaces reuse the shared Main card / Inner card tokens (also used by drawers and lists).
+
+| Token | Default | Swatch | Usage |
+|---|---|---|---|
+| `ui.card.background` | `#33FFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;opacity:0.2;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Main card surface → `AppConfig.uiCardBackground` (20% white). Source: [`colors.properties`](../app/src/main/assets/colors.properties) |
+| `ui.nested.card.bg` | `#0DFFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;opacity:0.05;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Inner card background (5% white). Source: [`ui-tokens.properties`](../app/src/main/assets/ui-tokens.properties) |
+| `ui.nested.card.border` | `#40FFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;opacity:0.25;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Inner card border (25% white). Source: [`ui-tokens.properties`](../app/src/main/assets/ui-tokens.properties) |
 
 ### Text
 

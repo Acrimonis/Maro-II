@@ -2,6 +2,7 @@ package ykws.android.maro.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -29,11 +31,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color as ComposeColor
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -124,7 +130,7 @@ fun DrawerHeader(
  * @param modifier                 Outer Modifier applied to the root Box.
  * @param headerActions            Composable slot in the header Row (right side).
  * @param headerHorizontalPadding  Horizontal padding for the header Row (default 24dp).
- * @param headerVerticalPadding    Vertical padding for the header Row (default 12dp).
+ * @param headerVerticalPadding    Vertical padding for the header Row (default 6dp).
  * @param contentPadding           Padding applied around the scrollable content body.
  * @param scrollable               Whether the body scrolls (true) or is static (false).
  * @param suppressOverscrollWhenFits If true, disables the overscroll effect while the
@@ -141,11 +147,12 @@ fun DrawerScaffold(
     modifier: Modifier = Modifier,
     headerActions: @Composable RowScope.() -> Unit = {},
     headerHorizontalPadding: Dp = 24.dp,
-    headerVerticalPadding: Dp = 12.dp,
+    headerVerticalPadding: Dp = 6.dp,
     contentPadding: PaddingValues = PaddingValues(horizontal = 12.dp),
     scrollable: Boolean = true,
     suppressOverscrollWhenFits: Boolean = false,
     bottomAnchoredContent: Boolean = false,
+    wrapContent: Boolean = false,
     statusBarsInset: Boolean = false,
     shape: Shape = RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp),
     footer: @Composable ColumnScope.() -> Unit = {},
@@ -157,33 +164,60 @@ fun DrawerScaffold(
 
     Box(
         modifier = modifier
-            .then(bgModifier)
+            // Wrap mode: the root Box stays fillMaxSize() ONLY as the invisible bounded
+            // measurement parent (it provides the real screen height for the body's scroll
+            // ceiling). The background/shape clip is NOT drawn here — it lives on the
+            // wrap-content Column below so the visible panel collapses to content height.
+            // Non-wrap mode keeps the full-screen background on the root (unchanged).
+            .then(if (wrapContent) Modifier.fillMaxSize() else bgModifier)
             .then(if (statusBarsInset) Modifier.windowInsetsPadding(WindowInsets.statusBars) else Modifier)
     ) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            DrawerHeader(
-                title = title,
-                onClose = onClose,
-                actions = headerActions,
-                horizontalPadding = headerHorizontalPadding,
-                verticalPadding = headerVerticalPadding
-            )
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-            ) {
-                if (scrollable) {
-                    val scrollState = rememberScrollState()
-                    val canScroll by remember(scrollState) {
-                        derivedStateOf { scrollState.maxValue > 0 }
+        if (wrapContent) {
+            // Wrap-content mode: the panel sizes to its content's natural height — no fixed
+            // height formula, no MeasureHeight probe. The root Box stays fillMaxSize() as the
+            // bounded parent / screen (see above); the inner Column wraps at natural height and
+            // carries the background + shape clip so the visible panel collapses to content.
+            // Header + footer stay fixed at natural height. The body wraps at natural height but
+            // is scrollable ONLY if it exceeds the available screen height (heightIn(max) +
+            // verticalScroll), so very tall content scrolls instead of clipping.
+            // bottomAnchoredContent is meaningless here (no weight(1f) host) and is ignored.
+            BoxWithConstraints(Modifier.fillMaxSize()) {
+                val density = LocalDensity.current
+                var headerHeight by remember { mutableStateOf(0.dp) }
+                var footerHeight by remember { mutableStateOf(0.dp) }
+                val availableBodyHeight =
+                    (maxHeight - headerHeight - footerHeight).coerceAtLeast(0.dp)
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .wrapContentHeight()
+                        .align(Alignment.BottomCenter)
+                        .background(ComposeColor(AppConfig.uiSettingsBackground), shape)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onSizeChanged { headerHeight = with(density) { it.height.toDp() } }
+                    ) {
+                        DrawerHeader(
+                            title = title,
+                            onClose = onClose,
+                            actions = headerActions,
+                            horizontalPadding = headerHorizontalPadding,
+                            verticalPadding = headerVerticalPadding
+                        )
                     }
-                    val suppressOverscroll = suppressOverscrollWhenFits && !canScroll
-                    Box(Modifier.fillMaxSize()) {
+                    if (scrollable) {
+                        val scrollState = rememberScrollState()
+                        val canScroll by remember(scrollState) {
+                            derivedStateOf { scrollState.maxValue > 0 }
+                        }
+                        val suppressOverscroll = suppressOverscrollWhenFits && !canScroll
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .align(if (bottomAnchoredContent) Alignment.BottomCenter else Alignment.TopCenter)
+                                .heightIn(max = availableBodyHeight)
                                 .then(
                                     if (suppressOverscroll) {
                                         Modifier.verticalScroll(state = scrollState, overscrollEffect = null)
@@ -194,20 +228,74 @@ fun DrawerScaffold(
                                 .padding(contentPadding),
                             content = content
                         )
-                    }
-                } else {
-                    Box(Modifier.fillMaxSize()) {
+                    } else {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .align(if (bottomAnchoredContent) Alignment.BottomCenter else Alignment.TopCenter)
+                                .heightIn(max = availableBodyHeight)
                                 .padding(contentPadding),
                             content = content
                         )
                     }
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .onSizeChanged { footerHeight = with(density) { it.height.toDp() } }
+                    ) {
+                        footer()
+                    }
                 }
             }
-            footer()
+        } else {
+            Column(modifier = Modifier.fillMaxSize()) {
+                DrawerHeader(
+                    title = title,
+                    onClose = onClose,
+                    actions = headerActions,
+                    horizontalPadding = headerHorizontalPadding,
+                    verticalPadding = headerVerticalPadding
+                )
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                ) {
+                    if (scrollable) {
+                        val scrollState = rememberScrollState()
+                        val canScroll by remember(scrollState) {
+                            derivedStateOf { scrollState.maxValue > 0 }
+                        }
+                        val suppressOverscroll = suppressOverscrollWhenFits && !canScroll
+                        Box(Modifier.fillMaxSize()) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .align(if (bottomAnchoredContent) Alignment.BottomCenter else Alignment.TopCenter)
+                                    .then(
+                                        if (suppressOverscroll) {
+                                            Modifier.verticalScroll(state = scrollState, overscrollEffect = null)
+                                        } else {
+                                            Modifier.verticalScroll(state = scrollState)
+                                        }
+                                    )
+                                    .padding(contentPadding),
+                                content = content
+                            )
+                        }
+                    } else {
+                        Box(Modifier.fillMaxSize()) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .align(if (bottomAnchoredContent) Alignment.BottomCenter else Alignment.TopCenter)
+                                    .padding(contentPadding),
+                                content = content
+                            )
+                        }
+                    }
+                }
+                footer()
+            }
         }
     }
 }

@@ -15,10 +15,9 @@
 ```
 New setting?
   ├─ Standalone toggle?          → SettingsToggleRow           (§2.1)
-  ├─ Standalone slider?          → SettingsSliderRow            (§2.2)
-  ├─ Toggle + sub-settings?      → Grouped card (§2.3)
-  │   ├─ Sub = sliders?          → SettingsSliderGroup(nested=true)  (§2.4a)
-  │   └─ Sub = text/toggles/etc? → Nested card inline              (§2.4b)
+  ├─ Standalone slider?          → SliderRowContent on a Card   (§2.2)
+  ├─ Toggle + sub-settings?      → Card + Expander + NestedCard (§2.3)
+  │   └─ Sub controls (any type) → NestedCard                  (§2.4)
   ├─ Exclusive 2–3 choice?       → Segmented selector            (§2.7)
   ├─ Double-thumb value range?   → RangeSlider section           (§2.8)
   ├─ Feature w/ sub-settings?    → Grouped card: feature toggle + sibling expander (§2.3)
@@ -30,86 +29,128 @@ New setting?
 
 ## 2. Components
 
+### 2.0 Card Surface Primitive (authority)
+
+The **card surface** is the shared primitive behind every card in the app — settings cards,
+drawer cards, list-item cards, and popup section cards. This section is the single source of
+truth for the surface; other docs point here instead of restating it.
+
+| Aspect | Value |
+|--------|-------|
+| Background | `uiCardBackground` |
+| Corner radius | 12dp |
+| **Wide** density padding | 16×10dp — simple toggle/nav rows with single controls (e.g. menu slide panel) |
+| **Tight** density padding | 8×4dp — data-dense cards (track history stats grid, wizard sliders, marker details) |
+
+```kotlin
+// Settings Main card — the `Card` composable (20% white, 12dp radius, 8dp vertical pad)
+Card { /* description, expanders, and/or standalone controls */ }
+
+// Wide (simple rows) — non-settings surfaces
+Column(
+    modifier = Modifier.fillMaxWidth()
+        .clip(RoundedCornerShape(12.dp))
+        .background(Color(AppConfig.uiCardBackground))
+        .padding(horizontal = 16.dp, vertical = 10.dp)
+) { /* simple rows */ }
+
+// Tight (data-dense)
+Column(
+    modifier = Modifier.fillMaxWidth()
+        .clip(RoundedCornerShape(12.dp))
+        .background(Color(AppConfig.uiCardBackground))
+        .padding(horizontal = 8.dp, vertical = 4.dp)
+) { /* dense content */ }
+```
+
+> Drawer-specific row-height / divider-gap rules live in [`ui-drawer-guidelines.md` §8](ui-drawer-guidelines.md#8-card-pattern);
+> the list-item card shell (accent bar variant) lives in [`ui-drawer-guidelines.md` §9](ui-drawer-guidelines.md#9-list-item-card-pattern-track--marker).
+
 ### 2.1 Standalone Toggle — `SettingsToggleRow`
 
 Self-contained card (`uiCardBackground`, 12dp radius, 16×8dp pad). Gap between: `${ui.spacing.card.gap}`.
 
 🔴 Never nest inside a grouped card — it IS a card.
 
-### 2.2 Standalone Slider — `SettingsSliderRow`
+### 2.2 Standalone Slider — `SliderRowContent` on a `Card`
 
-Wraps `SliderRowContent` inside `SettingsSliderGroup`. Standalone (top-level) = `uiCardBackground`, 16×8dp pad. Nested = `0x0DFFFFFF`, 16×2dp pad. Gap: `${ui.spacing.card.gap}`.
+A standalone slider renders as bare `SliderRowContent` directly on a `Card` (no wrapper box of its own). Gap: `${ui.spacing.card.gap}`.
 
-### 2.3 Grouped Card
-
-Outer `Column(uiCardBackground, 12dp radius)` with **inline toggle rows** (not `SettingsToggleRow`):
-
-```
-Column(uiCardBackground, 12dp radius, ${ui.padding.card.vertical} pad) {
-    Row(16×${ui.padding.grouped.toggle.vertical} pad) { Text + Switch }   ← inline toggle
-    Spacer(${ui.spacing.grouped.row.gap})
-    Row(16×${ui.padding.grouped.toggle.vertical} pad) { Text + Switch }   ← more toggles
-    
-    if (checked) {
-        Spacer(${ui.spacing.grouped.before-expander})
-        Box(pad h=16) {
-            SettingsExpander(label) {
-                Spacer(8dp)
-                … content (see §2.4)
-            }
-        }
-        Spacer(${ui.spacing.grouped.after-expander})   ← after last expander (4dp)
+```kotlin
+Card {
+    Column(Modifier.padding(horizontal = 16.dp)) {
+        SliderRowContent(…)
     }
 }
 ```
 
-### 2.4 Inside-Expander Content
+### 2.3 Grouped Card — `Card` + `Expander` + `NestedCard`
 
-🔴 **Limit encapsulation — prefer a collapsible section.** Depth is capped at `card → expander → flat sections`. When a card accumulates many related controls, split them into a collapsible `SettingsExpander` section rather than nesting another card. Collapsible = secondary detail; primary toggles stay inline. Expander content is a flat sequence of sections — never a sub-card, and never a `SettingsSliderGroup` around a `RangeSlider`.
+A section surface is a `Card` (20% white, 12dp radius) holding **inline toggle rows** (not `SettingsToggleRow`) and/or `Expander`s:
+
+```
+Card {
+    Row(16×${ui.padding.grouped.toggle.vertical} pad) { Text + Switch }   ← inline toggle
+    Spacer(${ui.spacing.grouped.row.gap})
+    Row(16×${ui.padding.grouped.toggle.vertical} pad) { Text + Switch }   ← more toggles
+
+    Spacer(${ui.spacing.grouped.before-expander})
+    Box(pad h=16) {
+        Expander(label) {
+            Spacer(8dp)
+            NestedCard { … content (see §2.4) }
+        }
+    }
+    Spacer(${ui.spacing.grouped.after-expander})   ← after last expander (4dp)
+}
+```
+
+🔴 **No settings visibility is conditional on another setting's state.** Settings are always shown; a toggle controls *behavior*, never *visibility*. E.g. the GPS-tuning expander is always visible regardless of GPS mode — the GPS mode toggle only controls whether GPS tuning takes effect, not whether the expander renders. Do not wrap a setting or expander in `if (someOtherSetting)`.
+
+### 2.4 Inside-Expander Content — `NestedCard`
+
+🔴 **Limit encapsulation — prefer a collapsible section.** When a card accumulates many related controls, split them into a collapsible `Expander` section rather than nesting another card. Collapsible = secondary detail; primary toggles stay inline.
+
+**Inception rule (applies to ALL controls):** a settings section is at most **Card → Expander → NestedCard → controls**.
+- **Card** — top-level section surface (`uiCardBackground`, 20% white, 12dp radius).
+- **Expander** — the collapsible disclosure row; it has **no box of its own** and sits directly on the Card.
+- **NestedCard** — the single nested container revealed when the Expander is open (`ui.nested.card.bg` `#0DFFFFFF` + `ui.nested.card.border` `#40FFFFFF`). It holds the controls.
+- Any control — toggles, one-knob sliders, two-knob `RangeSlider`s, text, swatches — may sit inside the NestedCard.
+- **Forbidden:** a card inside the NestedCard (a third level), or using a full `uiCardBackground` card as the NestedCard.
 
 **Expander state:** open state lives in `SettingsViewModel.expanderStates` — a `mutableStateMapOf<String, Boolean>` keyed by a stable per-expander id. Shared across the four tabs and preserved across rotation and settings reopen for the whole app session; cleared when the app exits, so every expander is collapsed on fresh launch. Never use local `remember`/`rememberSaveable` state for an expander.
 
-All expander content uses the **same outlined card surface** — whether a slider group or inline content:
+All expander content uses the **same `NestedCard` surface** — a single uniform container for every control type:
 
 | Token | Value | Role |
 |---|---|---|
 | `ui.nested.card.bg` | `#0DFFFFFF` (5% white) | Subtle depth below parent |
 | `ui.nested.card.border` | `#40FFFFFF` (25% white) | Nesting indicator |
 
-> Why not `uiCardBackground`? Stacking 15%+15% white = ~28% effective — too light for `#1565C0` accent contrast.
-
-**2.4a — Sliders:** `SettingsSliderGroup(nested = true)` — provides the nested surface automatically. Pad: 16×2dp.
+> Why not `uiCardBackground`? Stacking 20%+20% white = ~36% effective — too light for `#1565C0` accent contrast.
 
 ```kotlin
-SettingsSliderGroup(nested = true) {
-    SliderRowContent(…)
-    SliderRowDivider()
-    SliderRowContent(…)
+Expander(label, expanded, onToggle) {
+    Spacer(8dp)
+    NestedCard {
+        SliderRowContent(…)   // or toggles / RangeSliders / text / swatches
+        SectionDivider()
+        SliderRowContent(…)
+    }
 }
-```
-
-**2.4b — Text / toggles / swatches:** Build inline with the same tokens:
-
-```kotlin
-Column(
-    Modifier.fillMaxWidth().clip(12dp)
-        .background(${ui.nested.card.bg})
-        .border(1.dp, ${ui.nested.card.border}, 12dp)
-        .padding(16dp, ${ui.padding.content.comfortable})
-) { /* content */ }
 ```
 
 ### 2.5 Expander Labels
 
-`SettingsExpander` defaults: `uiSettingsTextPrimary`, 16sp, Medium — matches the toggle (`SettingsToggleRow`) and slider (`SliderRowContent`) label font. Never override `labelStyle` per call site.
+`Expander` defaults: `uiSettingsTextPrimary`, 16sp, Medium — matches the toggle (`SettingsToggleRow`) and slider (`SliderRowContent`) label font. Never override `labelStyle` per call site.
 
 ### 2.6 Section Dividers
 
-**Visible divider** (`#26FFFFFF`, 6dp gap above/below) between distinct content blocks inside a card (e.g., "Colors" vs sliders in Track settings; toggle-only cards such as Regenerate Layers). **Spacer only** (8dp) between simple toggle rows that are not sections (e.g., Categories).
+**Visible divider** (`uiSettingsDivider`, 6dp gap above/below, 16dp horizontal inset) between distinct content blocks inside a card (e.g., "Colors" vs sliders in Track settings; toggle-only cards such as Regenerate Layers). **Spacer only** (8dp) between simple toggle rows that are not sections (e.g., Categories).
 
 ```
 Spacer(6.dp)
-Box(Modifier.fillMaxWidth().height(1.dp).background(0x26FFFFFF))
+Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(1.dp).background(uiSettingsDivider))
 Spacer(6.dp)
 ```
 
@@ -131,7 +172,7 @@ Spacer(6.dp)
 └────────────────────────────────────────────────────┘
 ```
 
-Expander label: `"Regulated zones settings"`. Both toggles and sliders live in the same nested card, separated by a visible divider (§2.6).
+Expander label: `"Regulated zones settings"`. Both toggles and sliders live in the same `NestedCard`, separated by a visible divider (§2.6).
 
 ### 2.7 Segmented Selector
 
@@ -151,19 +192,50 @@ Row(uiCardBackground, 12dp radius, 6dp pad, 6dp gaps) {
 
 ### 2.8 RangeSlider (double-thumb)
 
-Render as a **direct section** — header + description + value (`ui.settings.value.text`, right-aligned) + `RangeSlider` — never wrapped in `SettingsSliderGroup` (that double-nests the surface).
+Render as a **direct section** — header + description + value (`ui.settings.value.text`, right-aligned) + `RangeSlider`. A `RangeSlider` may sit directly on a `Card`, or inside the `NestedCard` of an `Expander` alongside one-knob sliders. What is forbidden is a card inside the `NestedCard` (see §2.4 inception rule).
 
-- **Linear** (e.g. opacity 0–100): plain `valueRange` + `steps`.
-- **Two-thumb opacity** (300 m band): left thumb = zone content opacity, right thumb = border opacity; `value = fill..border`; commit on release via `onValueChangeFinished`.
+- **Linear** (e.g. transparency 0–100): plain `valueRange` + `steps`.
+- **Two-thumb transparency** (300 m band): left thumb = border (strong, low transparency), right thumb = fill (faint, high transparency); `value = border..fill`; commit on release via `onValueChangeFinished`.
 - **Log-scale** for octave-spanning ranges (e.g. gap 4–640, speed 2–64): map position 0..1 → value with `lo × (hi/lo)^pos` (`logSliderFromValue` / `logSliderToValue`); ~24 positions.
 
-**Opacity convention (app-wide):** all opacity/transparency settings use **OPACITY** semantics — **higher = more visible/opaque** (0% = invisible, 100% = opaque). Never expose "transparency" (inverted) wording. Label the control **"Opacity"** and format two-thumb values as **"Fill X% · Border Y%"** (fill = inner/zone content, border = outer stroke). Applies to tracks, marker halo, 300 m band, and low-depth warning.
+**Transparency convention (app-wide):** all opacity/transparency settings use **TRANSPARENCY** semantics — **0 = opaque (fully visible), 100 = invisible**. Never expose "opacity" (inverted) wording. Label the control **"Transparency"** and format two-thumb values as **"Border X% · Fill Y%"** (border = outer stroke/strong, fill = inner/zone content/faint). Applies to tracks, marker halo, 300 m band, and low-depth warning.
 
 ### 2.9 Header Hierarchy
 
 - `SectionHeader` — 17sp bold, `ui.settings.accent`; top-level sections only. `uppercase = true` (default) renders ALL-CAPS with 1sp letter-spacing; `uppercase = false` renders title case ("Layers", "Navigation") with no letter-spacing.
 - `SubSectionHeader` — 16sp SemiBold, `ui.settings.text.muted` + optional 13sp `ui.settings.text.secondary` description; the standard header for any sub-section inside a card/expander.
 - **Card description** (Layers tab) — 13sp `ui.settings.text.muted`, inside the card, horizontal 16dp pad with no extra vertical padding, followed by a 4dp spacer before the first expander.
+
+### 2.10 Popup Styling (canonical)
+
+Filter/sort and other popup menus follow the settings-page hierarchy. This is the canonical
+popup-styling spec (moved from `ui-lists-guidelines`).
+
+```
+┌─ Popup → Surface (uiSettingsBackground, 12dp, 1dp 0x40FFFFFF border) ─┐
+│  Section Title (SubSectionHeader style)                                 │
+│  ┌─ Card → Surface (uiCardBackground, 12dp) ─────────────────────────┐ │
+│  │  Row (16dp h-pad, 2dp v-pad): checkmark box (24dp) + text         │ │
+│  └───────────────────────────────────────────────────────────────────┘ │
+│  Next Section Title                                                     │
+│  ┌─ Card ... ────────────────────────────────────────────────────────┐ │
+│  └───────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+| Token | Value | Role |
+|-------|-------|------|
+| Popup bg | `uiSettingsBackground` | Outer Surface |
+| Popup border | `0x40FFFFFF`, 1dp | Settings expander border style |
+| Card bg | `uiCardBackground` | Per-section card |
+| Section title | `uiDashboardTextMuted`, 16sp, SemiBold | SubSectionHeader style |
+| Row text | `uiSettingsTextPrimary`, 15sp, Medium (selected: SemiBold) | |
+| Checkmark | `uiSettingsAccent`, 16sp, SemiBold | ✓ for selected |
+| Row v-padding | 2dp | Tight — matches settings toggle rows |
+| Card v-padding | 8dp | |
+| Card gap | 4dp | `Arrangement.spacedBy(4.dp)` |
+
+All popup icons use `ButtonColors.icon` tint + `ButtonColors.iconSizeDp` (28dp) + `.alpha(activeAlpha/inactiveAlpha)` per [`FanIconComponents.kt`](../app/src/main/java/ykws/android/maro/ui/map/FanIconComponents.kt).
 
 ---
 
@@ -181,6 +253,7 @@ Render as a **direct section** — header + description + value (`ui.settings.va
 | Expander→content | header+8dp spacer | 8dp |
 | Last expander→card close | `ui.spacing.grouped.after-expander` | 4dp |
 | Visible divider gap (above/below) | `ui.divider.gap` | 6dp |
+| Drawer-internal card gap | — | 8dp |
 
 Full token list: [`ui-tokens.properties`](../app/src/main/assets/ui-tokens.properties).
 
@@ -188,14 +261,13 @@ Full token list: [`ui-tokens.properties`](../app/src/main/assets/ui-tokens.prope
 
 ## 4. Anti-Patterns
 
-- ❌ Inner content card using `uiCardBackground` (stacked 15% white)
-- ❌ Per-call `labelStyle` on `SettingsExpander`
+- ❌ A card inside the `NestedCard` (a third level), or a full `uiCardBackground` card used as the `NestedCard` (stacked 20% white) — §2.4 inception rule
+- ❌ Per-call `labelStyle` on `Expander`
 - ❌ Visible dividers between top-level cards (use spacer)
 - ❌ `SliderRowContent(label="", …)` (use inline Row+Slider)
-- ❌ `RangeSlider` wrapped in `SettingsSliderGroup` (double-nested surface)
 - ❌ Hand-rolled two-`Text` toggle rows (use the segmented selector, §2.7)
 - ❌ Mixed header styles in one card (use `SubSectionHeader` consistently, §2.9)
-- ❌ Nesting deeper than `card → expander → sections` (§2.4)
+- ❌ Nesting deeper than `Card → Expander → NestedCard` (§2.4)
 - ❌ Local `remember`/`rememberSaveable` state for expander open state (use `SettingsViewModel.expanderStates`, §2.4)
 
 ---
@@ -208,7 +280,7 @@ Same `uiCardBackground` + 12dp radius. Rows: 16×10dp pad, `heightIn(min = 48dp)
 
 ### 5.2 List Item Cards (`TrackHistoryOverlay` + `MarkerManagementOverlay`)
 
-Unified pattern documented in [`ui-drawer-guidelines.md` §9](ui-drawer-guidelines.md#9-list-item-card-pattern-track--marker). Shell: `Row(height(IntrinsicSize.Min), clip(12dp), uiCardBackground)` + `Box(4dp, fillMaxHeight, accentColor)` + `Column(weight 1f, pad 8×4dp)`. Shared tokens for header (11sp muted), title (15sp SemiBold white), detail (14sp white), comment (13sp muted), action icons (`IconButton(36dp)` + `Icon(24dp, tint=ButtonColors.icon)`). Per-type variations in accent color source and metadata format.
+Canonical list-item card spec (accent-bar shell, shared tokens, per-type variations) lives in [`ui-drawer-guidelines.md` §9](ui-drawer-guidelines.md#9-list-item-card-pattern-track--marker).
 
 ### 5.3 Dashboard Tiles (`DashboardCard`)
 

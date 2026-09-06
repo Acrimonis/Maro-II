@@ -149,33 +149,8 @@ data class FilterOptionSpec(val value: String, val label: String, val isDefault:
 
 ## Popup Menu Styling
 
-Filter and sort popups follow settings page hierarchy per [`ui-component-guidelines.md`](ui-component-guidelines.md):
-
-```
-┌─ Popup → Surface (uiSettingsBackground, 12dp, 1dp 0x40FFFFFF border) ─┐
-│  Section Title (SubSectionHeader style)                                 │
-│  ┌─ Card → Surface (uiCardBackground, 12dp) ─────────────────────────┐ │
-│  │  Row (16dp h-pad, 2dp v-pad): checkmark box (24dp) + text         │ │
-│  └───────────────────────────────────────────────────────────────────┘ │
-│  Next Section Title                                                     │
-│  ┌─ Card ... ────────────────────────────────────────────────────────┐ │
-│  └───────────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────────┘
-```
-
-| Token | Value | Role |
-|-------|-------|------|
-| Popup bg | `uiSettingsBackground` | Outer Surface |
-| Popup border | `0x40FFFFFF`, 1dp | Settings expander border style |
-| Card bg | `uiCardBackground` | Per-section card |
-| Section title | `uiDashboardTextMuted`, 16sp, SemiBold | SubSectionHeader style |
-| Row text | `uiSettingsTextPrimary`, 15sp, Medium (selected: SemiBold) | |
-| Checkmark | `uiSettingsAccent`, 16sp, SemiBold | ✓ for selected |
-| Row v-padding | 2dp | Tight — matches settings toggle rows |
-| Card v-padding | 8dp | |
-| Card gap | 4dp | `Arrangement.spacedBy(4.dp)` |
-
-All popup icons use `ButtonColors.icon` tint + `ButtonColors.iconSizeDp` (28dp) + `.alpha(activeAlpha/inactiveAlpha)` per [`FanIconComponents.kt`](app/src/main/java/ykws/android/maro/ui/map/FanIconComponents.kt).
+Filter and sort popups follow the canonical popup-styling spec in
+[`ui-component-guidelines.md` §2.10](ui-component-guidelines.md#210-popup-styling-canonical).
 
 ## Header Row Icons
 
@@ -253,18 +228,14 @@ Implementors: [`TrackSummary`](app/src/main/java/ykws/android/maro/data/track/Tr
 
 ## Visual Tokens
 
+Only **list-specific** tokens are listed here. Shared surface tokens (card bg/radius/densities,
+header typography, divider, chevron, popup styling) are canonical in
+[`ui-component-guidelines.md`](ui-component-guidelines.md) and
+[`ui-drawer-guidelines.md`](ui-drawer-guidelines.md) — see the cross-doc pointers there.
+
 | Element | Token | Value |
 |---------|-------|-------|
-| Overlay background | `uiSettingsBackground` | Dark navy |
-| Card background | `uiCardBackground` | 20% white |
 | Accent stripe | `accentColor` | Per-item (computed by batch lambda) |
-| Header text | `uiSettingsTextPrimary` | `#FFFFFF` |
-| Section label | `uiSettingsAccent`, 17sp, Bold | Blue accent |
-| Back button bg | `uiSettingsSwitchTrackInactive` | |
-| Divider | `uiSettingsDivider` | Low-alpha white |
-| Popup bg | `uiSettingsBackground` | Matches overlay |
-| Popup border | `0x40FFFFFF`, 1dp | Settings expander style |
-| Popup section title | `uiDashboardTextMuted`, 16sp, SemiBold | SubSectionHeader |
 | Snackbar bg | `uiCardBackground` @ 7.65% alpha | |
 | Undo text | `uiSettingsAccent` | Blue accent |
 
@@ -474,7 +445,7 @@ In multiselect mode, horizontal drags are ignored.
 
 ### Consumer Integration
 
-**MarkerManagementOverlay:** multiselect deactivated (`multiActions = emptyList()`). Framework stays in place for later re-enablement.
+**MarkerManagementOverlay:** multiselect **active** — injects delete/pin/icon multi-actions via `markerMultiActions`.
 
 **TrackHistoryOverlay** injects three actions:
 
