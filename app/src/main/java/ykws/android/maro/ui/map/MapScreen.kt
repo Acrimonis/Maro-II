@@ -3137,6 +3137,15 @@ private fun MapContent(
                         targetValue = if (anyFanOpen && !isExpanded) 0f else 1f,
                         animationSpec = tween(300)
                     )
+                    // Add Zone button (same size/style as FanLayout buttons, opens wizard at TypeSelect)
+                    MapControlButton(
+                        onClick = { onAddZone(mapCenter) },
+                        modifier = Modifier.alpha(if (anyFanOpen) 0f else 1f)
+                    ) {
+                        AddLocationAltIcon()
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+
                     Box(modifier = Modifier.alpha(cmAlpha)) {
                         FanLayout(
                             config = FanConfig(
@@ -3184,15 +3193,6 @@ private fun MapContent(
                                 }
                             }
                         )
-                    }
-
-                    // Add Zone button (same size/style as FanLayout buttons, opens wizard at TypeSelect)
-                    Spacer(modifier = Modifier.height(6.dp))
-                    MapControlButton(
-                        onClick = { onAddZone(mapCenter) },
-                        modifier = Modifier.alpha(if (anyFanOpen) 0f else 1f)
-                    ) {
-                        AddLocationAltIcon()
                     }
                 }
 
