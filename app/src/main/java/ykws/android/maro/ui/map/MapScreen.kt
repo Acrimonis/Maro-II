@@ -3438,13 +3438,7 @@ private fun LayersSettings(
         // ── Tracks ──────────────────────────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_section_tracks), uppercase = false)
         Spacer(modifier = Modifier.height(8.dp))
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(ComposeColor(AppConfig.uiCardBackground))
-                .padding(vertical = 8.dp)
-        ) {
+        Card {
             Text(
                 text = stringResource(R.string.settings_tracks_desc),
                 color = ComposeColor(AppConfig.uiSettingsTextMuted),
@@ -3454,19 +3448,13 @@ private fun LayersSettings(
             Spacer(Modifier.height(4.dp))
 
             Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                SettingsExpander(
+                Expander(
                     label = stringResource(R.string.settings_track_settings_label),
                     expanded = settingsVm.isExpanded("track_rendering"),
                     onToggle = { settingsVm.setExpanded("track_rendering", !settingsVm.isExpanded("track_rendering")) }
                 ) {
                         Spacer(Modifier.height(4.dp))
-                        Column(
-                            modifier = Modifier.fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(ComposeColor(0x0DFFFFFF))
-                                .border(1.dp, ComposeColor(0x40FFFFFF), RoundedCornerShape(12.dp))
-                                .padding(horizontal = 16.dp, vertical = 12.dp)
-                        ) {
+                        NestedCard {
                             // Number of tracks
                             Text(
                                 text = stringResource(R.string.settings_tracks_count_label),
@@ -3647,19 +3635,13 @@ private fun LayersSettings(
             Spacer(Modifier.height(8.dp))
 
             Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                SettingsExpander(
+                Expander(
                     label = stringResource(R.string.settings_tracks_direction_settings_label),
                     expanded = settingsVm.isExpanded("track_direction"),
                     onToggle = { settingsVm.setExpanded("track_direction", !settingsVm.isExpanded("track_direction")) }
                 ) {
                     Spacer(Modifier.height(4.dp))
-                    Column(
-                        modifier = Modifier.fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(ComposeColor(0x0DFFFFFF))
-                            .border(1.dp, ComposeColor(0x40FFFFFF), RoundedCornerShape(12.dp))
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                    ) {
+                    NestedCard {
                         SubSectionHeader(
                             title = stringResource(R.string.settings_tracks_direction_density_label)
                         )
@@ -3732,7 +3714,7 @@ private fun LayersSettings(
                                 inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
                             )
                         )
-                        SliderRowDivider()
+                        SectionDivider()
                         SubSectionHeader(
                             title = stringResource(R.string.settings_tracks_direction_speed_range_label),
                             description = stringResource(R.string.settings_tracks_direction_speed_range_desc)
@@ -3777,13 +3759,7 @@ private fun LayersSettings(
         // ── Markers ─────────────────────────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_section_markers), uppercase = false)
         Spacer(modifier = Modifier.height(8.dp))
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(ComposeColor(AppConfig.uiCardBackground))
-                .padding(vertical = 8.dp)
-        ) {
+        Card {
             Text(
                 text = stringResource(R.string.settings_markers_desc),
                 color = ComposeColor(AppConfig.uiSettingsTextMuted),
@@ -3792,13 +3768,13 @@ private fun LayersSettings(
             )
             Spacer(Modifier.height(4.dp))
             Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                SettingsExpander(
+                Expander(
                     label = stringResource(R.string.settings_marker_rendering_label),
                     expanded = settingsVm.isExpanded("markers_rendering"),
                     onToggle = { settingsVm.setExpanded("markers_rendering", !settingsVm.isExpanded("markers_rendering")) }
                 ) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    SettingsSliderGroup(nested = true) {
+                    NestedCard {
                         // Halo size
                         SliderRowContent(
                             label = stringResource(R.string.settings_marker_halo_size_label),
@@ -3811,7 +3787,7 @@ private fun LayersSettings(
                                 onUpdateSettings { it.copy(markerHaloSize = v.roundToInt().coerceIn(0, 100)) }
                             }
                         )
-                        SliderRowDivider()
+                        SectionDivider()
 
                         // Opacity section
                         SubSectionHeader(title = stringResource(R.string.settings_marker_halo_transparency_label))
@@ -3890,7 +3866,7 @@ private fun LayersSettings(
                                 inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
                             )
                         )
-                        SliderRowDivider()
+                        SectionDivider()
 
                         // Colors section
                         SubSectionHeader(title = stringResource(R.string.settings_marker_halo_colors_label))
@@ -3912,13 +3888,13 @@ private fun LayersSettings(
             }
             Spacer(Modifier.height(4.dp))
             Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                SettingsExpander(
+                Expander(
                     label = stringResource(R.string.settings_auto_markers_label),
                     expanded = settingsVm.isExpanded("markers_auto"),
                     onToggle = { settingsVm.setExpanded("markers_auto", !settingsVm.isExpanded("markers_auto")) }
                 ) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    SettingsSliderGroup(nested = true) {
+                    NestedCard {
                         SliderRowContent(
                             label = stringResource(R.string.settings_marker_idle_threshold_label),
                             description = stringResource(R.string.settings_marker_idle_threshold_desc),
@@ -3930,7 +3906,7 @@ private fun LayersSettings(
                                 onUpdateSettings { it.copy(boatMarkerIdleThresholdSec = v.roundToInt().toLong()) }
                             }
                         )
-                        SliderRowDivider()
+                        SectionDivider()
                         SliderRowContent(
                             label = stringResource(R.string.settings_marker_min_duration_label),
                             description = stringResource(R.string.settings_marker_min_duration_desc),
@@ -3942,7 +3918,7 @@ private fun LayersSettings(
                                 onUpdateSettings { it.copy(boatMarkerAutoMarkerMinDurationSec = v.roundToInt().toLong()) }
                             }
                         )
-                        SliderRowDivider()
+                        SectionDivider()
                         SliderRowContent(
                             label = stringResource(R.string.settings_marker_dedup_radius_label),
                             description = stringResource(R.string.settings_marker_dedup_radius_desc),
@@ -3965,13 +3941,7 @@ private fun LayersSettings(
         // ── Regulated zones ─────────────────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_regulated_zones_label), uppercase = false)
         Spacer(modifier = Modifier.height(8.dp))
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(ComposeColor(AppConfig.uiCardBackground))
-                .padding(vertical = 8.dp)
-        ) {
+        Card {
             Text(
                 text = stringResource(R.string.settings_regulated_zones_desc),
                 color = ComposeColor(AppConfig.uiSettingsTextMuted),
@@ -3981,19 +3951,13 @@ private fun LayersSettings(
             Spacer(Modifier.height(4.dp))
                 // Regulation info — collapsible toggle for info text panel
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    SettingsExpander(
+                    Expander(
                         label = stringResource(R.string.settings_reg_info_settings_label),
                         expanded = settingsVm.isExpanded("reg_info"),
                         onToggle = { settingsVm.setExpanded("reg_info", !settingsVm.isExpanded("reg_info")) }
                     ) {
                         Spacer(Modifier.height(8.dp))
-                        Column(
-                            modifier = Modifier.fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(ComposeColor(0x0DFFFFFF))
-                                .border(1.dp, ComposeColor(0x40FFFFFF), RoundedCornerShape(12.dp))
-                                .padding(horizontal = 16.dp, vertical = 12.dp)
-                        ) {
+                        NestedCard {
                             Text(
                                 text = stringResource(R.string.settings_reg_info_desc),
                                 color = ComposeColor(AppConfig.uiDashboardTextMuted),
@@ -4030,13 +3994,15 @@ private fun LayersSettings(
                 }
                 Spacer(Modifier.height(8.dp))
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    SettingsExpander(
+                    Expander(
                         label = stringResource(R.string.settings_categories_label),
                         expanded = settingsVm.isExpanded("reg_categories"),
                         onToggle = { settingsVm.setExpanded("reg_categories", !settingsVm.isExpanded("reg_categories")) }
                     ) {
                         Spacer(modifier = Modifier.height(8.dp))
-                        RegulatedZoneCategoryToggles(settings, onUpdateSettings)
+                        NestedCard {
+                            RegulatedZoneCategoryToggles(settings, onUpdateSettings)
+                        }
                     }
                 }
             Spacer(Modifier.height(4.dp))
@@ -4047,13 +4013,7 @@ private fun LayersSettings(
         // ── 300m Band ───────────────────────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_zone300_label), uppercase = false)
         Spacer(modifier = Modifier.height(8.dp))
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(ComposeColor(AppConfig.uiCardBackground))
-                .padding(vertical = 8.dp)
-        ) {
+        Card {
             Text(
                 text = stringResource(R.string.settings_zone300_desc),
                 color = ComposeColor(AppConfig.uiSettingsTextMuted),
@@ -4062,21 +4022,20 @@ private fun LayersSettings(
             )
             Spacer(Modifier.height(4.dp))
             Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                SettingsExpander(
+                Expander(
                     label = stringResource(R.string.settings_zone300_appearance_label),
                     expanded = settingsVm.isExpanded("zone300_appearance"),
                     onToggle = { settingsVm.setExpanded("zone300_appearance", !settingsVm.isExpanded("zone300_appearance")) }
                 ) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    SettingsSliderGroup(nested = true) {
+                    NestedCard {
                         ColorSwatchRow(
                             label = stringResource(R.string.settings_zone300_color_label),
                             color = settings.zone300Color,
                             onColorSelected = { c -> onUpdateSettings { it.copy(zone300Color = c) } },
                             showPickLabel = false
                         )
-                    }
-                    SliderRowDivider()
+                        SectionDivider()
                     SubSectionHeader(
                         title = stringResource(R.string.settings_zone300_opacity_label),
                         description = stringResource(R.string.settings_zone300_opacity_desc)
@@ -4115,6 +4074,7 @@ private fun LayersSettings(
                             inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
                         )
                     )
+                    }
                 }
             }
             Spacer(Modifier.height(4.dp))
@@ -4137,13 +4097,7 @@ private fun LayersSettings(
         // ── Danger Zones (was: low-depth warning) ──────────────────────
         SectionHeader(title = stringResource(R.string.settings_danger_zones_label), uppercase = false)
         Spacer(modifier = Modifier.height(8.dp))
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(ComposeColor(AppConfig.uiCardBackground))
-                .padding(vertical = 8.dp)
-        ) {
+        Card {
             Text(
                 text = stringResource(R.string.settings_danger_zones_desc),
                 color = ComposeColor(AppConfig.uiSettingsTextMuted),
@@ -4153,13 +4107,13 @@ private fun LayersSettings(
             // Warning sliders — always visible, persisted expander
             Spacer(Modifier.height(4.dp))
             Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                SettingsExpander(
+                Expander(
                     label = stringResource(R.string.settings_low_depth_settings_label),
                     expanded = settingsVm.isExpanded("danger_warning"),
                     onToggle = { settingsVm.setExpanded("danger_warning", !settingsVm.isExpanded("danger_warning")) }
                 ) {
                         Spacer(modifier = Modifier.height(8.dp))
-                        SettingsSliderGroup(nested = true) {
+                        NestedCard {
                             SliderRowContent(
                                 label = stringResource(R.string.settings_low_depth_threshold_label),
                                 description = stringResource(R.string.settings_low_depth_threshold_desc),
@@ -4171,7 +4125,7 @@ private fun LayersSettings(
                                     onUpdateSettings { it.copy(lowDepthWarningMaxM = (v * 2f).roundToInt() / 2f) }
                                 }
                             )
-                            SliderRowDivider()
+                            SectionDivider()
                             SliderRowContent(
                                 label = stringResource(R.string.settings_low_depth_opacity_label),
                                 description = stringResource(R.string.settings_low_depth_opacity_desc),
@@ -4194,10 +4148,7 @@ private fun LayersSettings(
         // ── Depth — EMODnet shallow filter ─────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_depth_label), uppercase = false)
         Spacer(modifier = Modifier.height(8.dp))
-        Column(
-            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
-                .background(ComposeColor(AppConfig.uiCardBackground)).padding(vertical = 8.dp)
-        ) {
+        Card {
             Text(
                 text = stringResource(R.string.settings_depth_desc),
                 color = ComposeColor(AppConfig.uiSettingsTextMuted),
@@ -4206,11 +4157,11 @@ private fun LayersSettings(
             )
             Spacer(Modifier.height(4.dp))
             Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                SettingsExpander(label = stringResource(R.string.settings_emodnet_section_label), expanded = settingsVm.isExpanded("depth_cutoff"),
+                Expander(label = stringResource(R.string.settings_emodnet_section_label), expanded = settingsVm.isExpanded("depth_cutoff"),
                     onToggle = { settingsVm.setExpanded("depth_cutoff", !settingsVm.isExpanded("depth_cutoff")) }
                 ) {
                     Spacer(Modifier.height(8.dp))
-                    SettingsSliderGroup(nested = true) {
+                    NestedCard {
                         SliderRowContent(
                             label = stringResource(R.string.settings_emodnet_cutoff_label),
                             description = stringResource(R.string.settings_emodnet_cutoff_desc),
@@ -4270,13 +4221,7 @@ private fun NavigationSettings(
         SectionHeader(title = stringResource(R.string.settings_redisplay_label), uppercase = false)
         Spacer(modifier = Modifier.height(8.dp))
 
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(ComposeColor(AppConfig.uiCardBackground))
-                .padding(vertical = 8.dp)
-        ) {
+        Card {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -4444,13 +4389,13 @@ private fun NavigationSettings(
             Spacer(Modifier.height(8.dp))
 
             Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                SettingsExpander(
+                Expander(
                     label = stringResource(R.string.settings_redisplay_when_label),
                     expanded = settingsVm.isExpanded("redisplay_when"),
                     onToggle = { settingsVm.setExpanded("redisplay_when", !settingsVm.isExpanded("redisplay_when")) }
                 ) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    SettingsSliderGroup(nested = true) {
+                    NestedCard {
                         SliderRowContent(
                             label = stringResource(R.string.settings_redisplay_dist_label),
                             description = stringResource(R.string.settings_redisplay_dist_desc),
@@ -4460,7 +4405,7 @@ private fun NavigationSettings(
                             steps = 17,
                             onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealDistanceM = (v / 25f).roundToInt() * 25f) } }
                         )
-                        SliderRowDivider()
+                        SectionDivider()
                         SliderRowContent(
                             label = stringResource(R.string.settings_redisplay_time_label),
                             description = stringResource(R.string.settings_redisplay_time_desc),
@@ -4480,10 +4425,7 @@ private fun NavigationSettings(
     // ── Automatic map offset ──────────────────────────────────────────────
     SectionHeader(title = stringResource(R.string.settings_map_offset_label))
 
-    Column(
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp))
-            .background(ComposeColor(AppConfig.uiCardBackground)).padding(vertical = 8.dp)
-    ) {
+    Card {
         // GPS mode toggle
         Row(
             modifier = Modifier
@@ -4554,14 +4496,7 @@ private fun NavigationSettings(
             )
         }
 
-        Spacer(Modifier.height(6.dp))
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(1.dp)
-                .background(ComposeColor(0x26FFFFFF))
-        )
-        Spacer(Modifier.height(6.dp))
+        SectionDivider()
 
         // Boat-from-bottom slider
         Column(modifier = Modifier.padding(horizontal = 16.dp)) {
@@ -4600,13 +4535,7 @@ private fun PositionSettings(
         SectionHeader(title = stringResource(R.string.settings_section_position))
         Spacer(modifier = Modifier.height(8.dp))
 
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(ComposeColor(AppConfig.uiCardBackground))
-                .padding(vertical = 8.dp)
-        ) {
+        Card {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -4643,15 +4572,15 @@ private fun PositionSettings(
                 )
             }
 
-            if (settings.gpsMode) {
-                Spacer(Modifier.height(8.dp))
-                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    SettingsExpander(
-                        label = stringResource(R.string.settings_gps_tuning_label),
-                        expanded = settingsVm.isExpanded("gps_tuning"),
-                        onToggle = { settingsVm.setExpanded("gps_tuning", !settingsVm.isExpanded("gps_tuning")) }
-                    ) {
-                        Spacer(modifier = Modifier.height(8.dp))
+            Spacer(Modifier.height(8.dp))
+            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                Expander(
+                    label = stringResource(R.string.settings_gps_tuning_label),
+                    expanded = settingsVm.isExpanded("gps_tuning"),
+                    onToggle = { settingsVm.setExpanded("gps_tuning", !settingsVm.isExpanded("gps_tuning")) }
+                ) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    NestedCard {
                         SettingsFrequencyRow(
                             intervalSec = settings.gpsActiveIntervalSec,
                             onSelect = { ivl, dist ->
@@ -4659,17 +4588,16 @@ private fun PositionSettings(
                             }
                         )
 
-                        Spacer(modifier = Modifier.height(12.dp))
+                        SectionDivider()
 
-                        SettingsSliderRow(
+                        SliderRowContent(
                             label = stringResource(R.string.settings_recenter_label),
                             description = stringResource(R.string.settings_recenter_desc),
                             valueLabel = stringResource(R.string.settings_value_seconds, settings.recenterDelaySeconds),
                             value = settings.recenterDelaySeconds.toFloat(),
                             valueRange = 1f..10f,
                             steps = 8,
-                            onValueChange = { v -> onUpdateSettings { it.copy(recenterDelaySeconds = v.roundToInt()) } },
-                            nested = true
+                            onValueChange = { v -> onUpdateSettings { it.copy(recenterDelaySeconds = v.roundToInt()) } }
                         )
                     }
                 }
@@ -4682,13 +4610,7 @@ private fun PositionSettings(
         SectionHeader(title = stringResource(R.string.settings_idle_section_label))
         Spacer(modifier = Modifier.height(8.dp))
 
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(ComposeColor(AppConfig.uiCardBackground))
-                .padding(vertical = 8.dp)
-        ) {
+        Card {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -4726,13 +4648,13 @@ private fun PositionSettings(
                 Spacer(Modifier.height(8.dp))
 
                 Box(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    SettingsExpander(
+                    Expander(
                         label = stringResource(R.string.settings_stop_thresholds_label),
                         expanded = settingsVm.isExpanded("stop_thresholds"),
                         onToggle = { settingsVm.setExpanded("stop_thresholds", !settingsVm.isExpanded("stop_thresholds")) }
                     ) {
                         Spacer(modifier = Modifier.height(8.dp))
-                        SettingsSliderGroup(nested = true) {
+                        NestedCard {
                             SliderRowContent(
                                 label = stringResource(R.string.settings_window_label),
                                 description = stringResource(R.string.settings_window_desc),
@@ -4742,7 +4664,7 @@ private fun PositionSettings(
                                 steps = 15,
                                 onValueChange = { v -> onUpdateSettings { it.copy(stopDetectionTimeSec = (v / 5f).roundToInt() * 5) } }
                             )
-                            SliderRowDivider()
+                            SectionDivider()
                             SliderRowContent(
                                 label = stringResource(R.string.settings_adaptive_dist_label),
                                 description = stringResource(R.string.settings_adaptive_dist_desc),
@@ -4826,50 +4748,103 @@ private fun SystemSettings(
         SectionHeader(title = stringResource(R.string.settings_section_screen))
         Spacer(modifier = Modifier.height(8.dp))
 
-        SettingsToggleRow(
-            label = stringResource(R.string.settings_keep_screen_on_label),
-            description = stringResource(R.string.settings_keep_screen_on_desc),
-            checked = settings.keepScreenOn,
-            onCheckedChange = { on -> onUpdateSettings { it.copy(keepScreenOn = on) } }
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        SettingsToggleRow(
-            label = stringResource(R.string.settings_debug_rays_label),
-            description = stringResource(R.string.settings_debug_rays_desc),
-            checked = settings.markerDebugRays,
-            onCheckedChange = { on ->
-                onUpdateSettings { it.copy(markerDebugRays = on) }
-                AppConfig.markerDebugRaysEnabled = on
-                MarkerMatcher.debugger = if (on) VisualWhereAmIDebugger() else NoOpWhereAmIDebugger
+        Card {
+            // Keep screen on
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_keep_screen_on_label),
+                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_keep_screen_on_desc),
+                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        fontSize = 13.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Switch(
+                    checked = settings.keepScreenOn,
+                    onCheckedChange = { on -> onUpdateSettings { it.copy(keepScreenOn = on) } },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                    )
+                )
             }
-        )
 
-        Spacer(modifier = Modifier.height(12.dp))
+            SectionDivider()
 
-        SettingsSliderRow(
-            label = stringResource(R.string.settings_fps_label),
-            description = stringResource(R.string.settings_fps_desc),
-            valueLabel = stringResource(R.string.settings_value_fps, settings.mapRefreshFps),
-            value = settings.mapRefreshFps.toFloat(),
-            valueRange = 5f..50f,
-            steps = 8,
-            onValueChange = { v -> onUpdateSettings { it.copy(mapRefreshFps = (v / 5f).roundToInt() * 5) } }
-        )
+            // Debug rays
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.settings_debug_rays_label),
+                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = stringResource(R.string.settings_debug_rays_desc),
+                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        fontSize = 13.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(16.dp))
+                Switch(
+                    checked = settings.markerDebugRays,
+                    onCheckedChange = { on ->
+                        onUpdateSettings { it.copy(markerDebugRays = on) }
+                        AppConfig.markerDebugRaysEnabled = on
+                        MarkerMatcher.debugger = if (on) VisualWhereAmIDebugger() else NoOpWhereAmIDebugger
+                    },
+                    colors = SwitchDefaults.colors(
+                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
+                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                    )
+                )
+            }
+
+            SectionDivider()
+
+            // FPS
+            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+                SliderRowContent(
+                    label = stringResource(R.string.settings_fps_label),
+                    description = stringResource(R.string.settings_fps_desc),
+                    valueLabel = stringResource(R.string.settings_value_fps, settings.mapRefreshFps),
+                    value = settings.mapRefreshFps.toFloat(),
+                    valueRange = 5f..50f,
+                    steps = 8,
+                    onValueChange = { v -> onUpdateSettings { it.copy(mapRefreshFps = (v / 5f).roundToInt() * 5) } }
+                )
+            }
+        }
 
         Spacer(modifier = Modifier.height(24.dp))
 
         // ── Regenerate Layers ─────────────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_regenerate_layers))
         Spacer(modifier = Modifier.height(8.dp))
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(ComposeColor(AppConfig.uiCardBackground))
-                .padding(vertical = 8.dp)
-        ) {
+        Card {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -5157,45 +5132,7 @@ private fun SettingsToggleRow(
     }
 }
 
-@Composable
-private fun SettingsSliderRow(
-    label: String,
-    description: String,
-    valueLabel: String,
-    value: Float,
-    valueRange: ClosedFloatingPointRange<Float>,
-    steps: Int,
-    onValueChange: (Float) -> Unit,
-    nested: Boolean = false
-) {
-    SettingsSliderGroup(nested = nested) {
-        SliderRowContent(label, description, valueLabel, value, valueRange, steps, onValueChange)
-    }
-}
-
-/** Rounded settings "box" hosting one or more [SliderRowContent]s — groups related sliders together. */
-@Composable
-private fun SettingsSliderGroup(
-    nested: Boolean = false,
-    content: @Composable () -> Unit
-) {
-    val bgColor = if (nested) 0x0DFFFFFF else AppConfig.uiCardBackground
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(ComposeColor(bgColor))
-            .then(
-                if (nested) Modifier.border(1.dp, ComposeColor(0x40FFFFFF), RoundedCornerShape(12.dp))
-                else Modifier
-            )
-            .padding(horizontal = 16.dp, vertical = if (nested) 2.dp else 8.dp)
-    ) {
-        content()
-    }
-}
-
-/** A label + value + slider WITHOUT its own box — placed inside a [SettingsSliderGroup]. */
+/** A label + value + slider WITHOUT its own box — placed directly on a [Card] or inside a [NestedCard]. */
 @Composable
 private fun SliderRowContent(
     label: String,
@@ -5247,17 +5184,18 @@ private fun SliderRowContent(
     )
 }
 
-/** Thin divider between sliders that share a [SettingsSliderGroup]. */
+/** Section divider between settings sections. */
 @Composable
-private fun SliderRowDivider() {
-    Spacer(modifier = Modifier.height(10.dp))
+private fun SectionDivider() {
+    Spacer(Modifier.height(6.dp))
     Box(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(horizontal = 16.dp)
             .height(1.dp)
-            .background(ComposeColor(0x26FFFFFF))
+            .background(ComposeColor(AppConfig.uiSettingsDivider))
     )
-    Spacer(modifier = Modifier.height(2.dp))
+    Spacer(Modifier.height(6.dp))
 }
 
 /** Dimmer sub-heading with an optional one-line description, for grouping settings in a section. */
@@ -5281,12 +5219,41 @@ private fun SubSectionHeader(title: String, description: String? = null) {
     }
 }
 
+/** Main card surface — 20% white `uiCardBackground`, 12dp radius. Holds a section's description, expanders, and/or standalone controls. */
+@Composable
+private fun Card(content: @Composable () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(ComposeColor(AppConfig.uiCardBackground))
+            .padding(vertical = 8.dp)
+    ) {
+        content()
+    }
+}
+
+/** Nested 5% white container (`0x0DFFFFFF` + `0x40FFFFFF` border) shown when an [Expander] is open. Holds any controls, optionally split into sections by [SectionDivider]. */
+@Composable
+private fun NestedCard(content: @Composable () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(ComposeColor(0x0DFFFFFF))
+            .border(1.dp, ComposeColor(0x40FFFFFF), RoundedCornerShape(12.dp))
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        content()
+    }
+}
+
 /**
  * Tappable "Avancé" disclosure row that reveals [content] with a chevron + slide animation.
  * Progressive disclosure — keeps advanced/fiddly controls out of the way until asked for.
  */
 @Composable
-private fun SettingsExpander(
+private fun Expander(
     label: String,
     expanded: Boolean,
     onToggle: () -> Unit,
@@ -5540,13 +5507,7 @@ private fun SettingsFrequencyRow(
     )
     val currentIdx = stops.indexOfFirst { it.second == intervalSec }.let { if (it < 0) 1 else it }
 
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(ComposeColor(AppConfig.uiCardBackground))
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-    ) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = stringResource(R.string.settings_freq_label),
             color = ComposeColor(AppConfig.uiSettingsTextPrimary),
