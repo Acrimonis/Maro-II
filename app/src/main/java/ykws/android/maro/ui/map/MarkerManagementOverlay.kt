@@ -89,6 +89,7 @@ import ykws.android.maro.ui.components.ListOverlayScaffold
 fun MarkerManagementOverlay(
     markers: List<UserMarker>,
     trackTitleLookup: (String) -> String? = { null },
+    onOpenMarkerTrack: (String) -> Unit = {},
     onAction: (ykws.android.maro.data.model.ListAction) -> Unit,
     onCreateFirst: () -> Unit,
     onDismiss: () -> Unit,
@@ -194,6 +195,7 @@ fun MarkerManagementOverlay(
             MarkerCardContent(
                 marker = marker,
                 trackTitle = marker.trackId?.let(trackTitleLookup),
+                onOpenTrack = marker.trackId?.let { tid -> { onOpenMarkerTrack(tid) } },
                 onTap = { onAction(ykws.android.maro.data.model.ListAction.NavigateToItem(marker.id)) },
                 onEdit = { onAction(ykws.android.maro.data.model.ListAction.EditItem(marker.id)) },
                 onSetIcon = onSetIcon,
@@ -253,6 +255,7 @@ private val MARKER_DESC_FONT_SIZE = 13.sp
 internal fun MarkerCardContent(
     marker: UserMarker,
     trackTitle: String? = null,
+    onOpenTrack: (() -> Unit)? = null,
     onTap: () -> Unit,
     onEdit: () -> Unit,
     onSetIcon: (String, String?) -> Unit,
@@ -401,19 +404,6 @@ internal fun MarkerCardContent(
                     )
                 }
 
-                if (trackTitle != null) {
-                    Spacer(Modifier.height(2.dp))
-                    Text(
-                        text = "\uD83D\uDEE4 $trackTitle",
-                        color = Color(AppConfig.uiSettingsAccent),
-                        fontSize = 12.sp,
-                        lineHeight = 13.sp,
-                        fontWeight = FontWeight.Medium,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
                 Spacer(Modifier.height(2.dp))
                 if (editingField == "description") {
                     TextField(
@@ -455,6 +445,36 @@ internal fun MarkerCardContent(
                             }
                         )
                     )
+                }
+
+                // ── Belongs-to-track bottom row (track name + chevron → opens track drawer) ──
+                if (onOpenTrack != null && trackTitle != null) {
+                    Spacer(Modifier.height(2.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable(onClick = onOpenTrack)
+                            .padding(horizontal = 4.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = trackTitle,
+                            color = Color(AppConfig.uiSettingsAccent),
+                            fontSize = 13.sp,
+                            lineHeight = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = stringResource(R.string.cd_view_track),
+                            tint = Color(AppConfig.uiSettingsAccent),
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
                 }
             }
         }

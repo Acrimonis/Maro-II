@@ -2,7 +2,7 @@
 name: Ui_Settings
 status: active
 created: 2026-06-09 15:28
-modified: 2026-09-06 09:59
+modified: 2026-09-06 11:25
 ---
 
 **Description:** Settings page UI, settings persistence (SharedPreferences), settings-related widgets, and settings UX enhancements.
@@ -27,6 +27,24 @@ modified: 2026-09-06 09:59
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
 
+### header-normalization
+
+#### Todos
+- [ ] Migrate the Settings header to the shared `DrawerHeader` composable (32dp back, 17sp title) — plan: `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_header-normalization.md`
+
+#### Key Files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` (SettingsOverlay header)
+- `app/src/main/java/ykws/android/maro/ui/components/DrawerScaffold.kt` (DrawerHeader)
+
+### properties-normalization
+
+#### Todos
+- [ ] Rename `ui-tokens.properties` → `ui.properties`, wire into AppConfig loading, re-home misplaced keys (colors/ui/maro separation) — plan: `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_properties-normalization.md`
+
+#### Key Files
+- `app/src/main/assets/ui-tokens.properties` / `colors.properties` / `maro.properties`
+- `app/src/main/java/ykws/android/maro/config/AppConfig.kt`
+
 ### settings apply on close
 
 #### Todos
@@ -43,6 +61,7 @@ modified: 2026-09-06 09:59
 
 ## Implemented
 
+- **marker-belongs-to-track (2026-09-06)** — marker card bottom row shows owning track name + chevron that opens the owning track's detail drawer, in both the marker list card and the marker detail drawer (shared `MarkerCardContent`; drawer's own "Belongs to track" row deleted to avoid double render) → `xTrack/Ui_Settings/260906_FEAT_PLN_Ui_Settings_marker-belongs-to-track.md`
 - **card-expander-nestedcard-refactor (2026-09-06)** — introduced structural composables `Card` (20% white, 12dp radius), `Expander` (collapsible disclosure row), `NestedCard` (5% white + border container on expand), `SectionDivider`; migrated all ~12 expander sites + Main cards to the new model; deprecated/removed `SettingsSliderGroup`/`SettingsSliderRow`; Screen section's 3 standalone controls grouped into one Card with 3 sections → `xTrack/Ui_Settings/260906_FEAT_PLN_Ui_Settings_card-expander-nestedcard-refactor.md`
 - **guidelines-consolidation (2026-09-06)** — consolidated ui-component/drawer/lists guideline docs: card-surface primitive + popup-styling canonical in component-guidelines, drawer §11 Decision Log deleted, "Migration Guide" + pre-DrawerScaffold skeleton removed, lists visual-token tables deduped → `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_guidelines-consolidation.md`
 - **SectionDivider normalization** — renamed `SliderRowDivider` → `SectionDivider`; `uiSettingsDivider` spacing normalized to 6/6/16dp

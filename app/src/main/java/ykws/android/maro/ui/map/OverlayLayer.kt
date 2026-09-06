@@ -167,6 +167,7 @@ fun OverlayLayer(
     // ── Marker management data ───────────────────────────────────────────
     markers: List<UserMarker>,
     trackTitleLookup: (String) -> String? = { null },
+    onOpenMarkerTrack: (String) -> Unit = {},
     onMarkerAction: (ykws.android.maro.data.model.ListAction) -> Unit,
     onCreateFirst: () -> Unit,
     onSetIcon: (String, String?) -> Unit,
@@ -345,7 +346,8 @@ fun OverlayLayer(
                     onClose = onMarkerDrawerClose,
                     boatPosition = boatPosition,
                     onRequestDelete = onRequestMarkerDelete,
-                    trackTitleLookup = trackTitleLookup
+                    trackTitleLookup = trackTitleLookup,
+                    onOpenMarkerTrack = { id -> onMarkerDrawerClose(); onOpenMarkerTrack(id) }
                 )
             }
         } else {
@@ -371,6 +373,7 @@ fun OverlayLayer(
                     boatPosition = boatPosition,
                     onRequestDelete = onRequestMarkerDelete,
                     trackTitleLookup = trackTitleLookup,
+                    onOpenMarkerTrack = { id -> onMarkerDrawerClose(); onOpenMarkerTrack(id) },
                     onCardHeightMeasured = { markerCardHeight = it }
                 )
             }
@@ -631,6 +634,7 @@ fun OverlayLayer(
             MarkerManagementOverlay(
                 markers = markers,
                 trackTitleLookup = trackTitleLookup,
+                onOpenMarkerTrack = { id -> onDismissMarkerManagement(); onOpenMarkerTrack(id) },
                 onAction = onMarkerAction,
                 onCreateFirst = onCreateFirst,
                 onDismiss = onDismissMarkerManagement,

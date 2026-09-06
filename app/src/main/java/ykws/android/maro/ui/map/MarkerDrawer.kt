@@ -93,6 +93,7 @@ fun MarkerDrawer(
     boatPosition: LatLng? = null,
     onRequestDelete: (String, String) -> Unit = { _, _ -> },
     trackTitleLookup: (String) -> String? = { null },
+    onOpenMarkerTrack: (String) -> Unit = {},
     onCardHeightMeasured: (Dp) -> Unit = {}
 ) {
     val drawerState by viewModel.drawerState.collectAsState()
@@ -108,7 +109,7 @@ fun MarkerDrawer(
     }
 
     when (drawerState) {
-        is MarkerDrawerState.Viewing -> ViewingContent(viewModel, onClose, boatPosition, panelShape, onRequestDelete, isLandscape, trackTitleLookup, onCardHeightMeasured)
+        is MarkerDrawerState.Viewing -> ViewingContent(viewModel, onClose, boatPosition, panelShape, onRequestDelete, isLandscape, trackTitleLookup, onOpenMarkerTrack, onCardHeightMeasured)
         is MarkerDrawerState.MatchResult -> MatchResultContent(viewModel, onClose, boatPosition, panelShape, isLandscape)
         else -> { /* Creating/Editing handled by WizardDrawer */ }
     }
@@ -127,6 +128,7 @@ private fun ViewingContent(
     onRequestDelete: (String, String) -> Unit = { _, _ -> },
     isLandscape: Boolean,
     trackTitleLookup: (String) -> String? = { null },
+    onOpenMarkerTrack: (String) -> Unit = {},
     onCardHeightMeasured: (Dp) -> Unit = {}
 ) {
     val markers by viewModel.markers.collectAsState()
@@ -181,6 +183,8 @@ private fun ViewingContent(
 
             MarkerCardContent(
                 marker = marker,
+                trackTitle = marker.trackId?.let(trackTitleLookup),
+                onOpenTrack = marker.trackId?.let { tid -> { onOpenMarkerTrack(tid) } },
                 onTap = {},
                 onEdit = {
                     viewModel.closeDrawer()
@@ -192,34 +196,6 @@ private fun ViewingContent(
                 onLongPress = null,
                 showChevron = false
             )
-
-            // ── Belongs-to-track row (display-only — no tap navigation) ────
-            val owningTrackTitle = marker.trackId?.let(trackTitleLookup)
-            if (owningTrackTitle != null) {
-                Spacer(Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(ComposeColor(AppConfig.uiCardBackground))
-                        .padding(horizontal = 10.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "\uD83D\uDEE4",
-                        color = ComposeColor(AppConfig.uiSettingsAccent),
-                        fontSize = 16.sp
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = "Belongs to track: $owningTrackTitle",
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 13.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-            }
 
         } else {
             Spacer(Modifier.height(12.dp))

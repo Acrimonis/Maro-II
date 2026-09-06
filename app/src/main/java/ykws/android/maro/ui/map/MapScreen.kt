@@ -2373,6 +2373,11 @@ fun MapScreen(
             boatPosition = gpsPosition ?: mapCenter,
             markers = mgmtMarkers,
             trackTitleLookup = { id -> allTrackSummaries.firstOrNull { it.id == id }?.name },
+            onOpenMarkerTrack = { trackId ->
+                // Switch from a marker surface to the owning track's detail drawer.
+                navigateToTarget = null
+                openTrackDetail(trackId)
+            },
             onMarkerAction = { action ->
                 when (action) {
                     is ykws.android.maro.data.model.ListAction.NavigateToItem -> openMarkerDetail(action.id)
