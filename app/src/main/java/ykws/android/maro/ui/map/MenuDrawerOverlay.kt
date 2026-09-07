@@ -97,7 +97,9 @@ fun MenuDrawerOverlay(
     markerFilterState: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
     onMarkerFilterChange: (ykws.android.maro.data.model.ListFilter) -> Unit = {},
     onMarkerReset: () -> Unit = {},
-    markerFilterAxes: List<ykws.android.maro.data.model.FilterAxisSpec> = emptyList()
+    markerFilterAxes: List<ykws.android.maro.data.model.FilterAxisSpec> = emptyList(),
+    trackCount: Int = 0,
+    markerCount: Int = 0
 ) {
     if (isOpen) { BackHandler { onDismiss() } }
 
@@ -262,17 +264,25 @@ fun MenuDrawerOverlay(
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium
                 )
-                IconButton(
-                    onClick = { onOpenFirstTrack?.invoke() },
-                    enabled = onOpenFirstTrack != null,
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = stringResource(R.string.cd_open_first_track),
-                        tint = Color(AppConfig.uiSettingsTextMuted).copy(alpha = if (onOpenFirstTrack != null) 1f else 0.35f),
-                        modifier = Modifier.size(28.dp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "$trackCount",
+                        color = Color(AppConfig.uiSettingsTextMuted),
+                        fontSize = 14.sp
                     )
+                    Spacer(Modifier.width(8.dp))
+                    IconButton(
+                        onClick = { onOpenFirstTrack?.invoke() },
+                        enabled = onOpenFirstTrack != null,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = stringResource(R.string.cd_open_first_track),
+                            tint = Color(AppConfig.uiSettingsTextMuted).copy(alpha = if (onOpenFirstTrack != null) 1f else 0.35f),
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
                 }
             }
 
@@ -444,17 +454,25 @@ fun MenuDrawerOverlay(
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium
                 )
-                IconButton(
-                    onClick = { onOpenFirstMarker?.invoke() },
-                    enabled = onOpenFirstMarker != null,
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                        contentDescription = stringResource(R.string.cd_open_first_marker),
-                        tint = Color(AppConfig.uiSettingsTextMuted).copy(alpha = if (onOpenFirstMarker != null) 1f else 0.35f),
-                        modifier = Modifier.size(28.dp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = "$markerCount",
+                        color = Color(AppConfig.uiSettingsTextMuted),
+                        fontSize = 14.sp
                     )
+                    Spacer(Modifier.width(8.dp))
+                    IconButton(
+                        onClick = { onOpenFirstMarker?.invoke() },
+                        enabled = onOpenFirstMarker != null,
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                            contentDescription = stringResource(R.string.cd_open_first_marker),
+                            tint = Color(AppConfig.uiSettingsTextMuted).copy(alpha = if (onOpenFirstMarker != null) 1f else 0.35f),
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
                 }
             }
 
