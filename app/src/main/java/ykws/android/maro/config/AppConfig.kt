@@ -8,11 +8,11 @@ import java.util.Properties
 /**
  * Runtime loader for all `.properties` files bundled in assets.
  *
- * Loads [zone.properties](app/src/main/assets/zone.properties),
- * [maro.properties](app/src/main/assets/maro.properties), and
+ * Loads [maro.properties](app/src/main/assets/maro.properties),
+ * [ui.properties](app/src/main/assets/ui.properties), and
  * [colors.properties](app/src/main/assets/colors.properties) — each file
  * overrides the previous on key collision, so `colors.properties` always
- * wins.
+ * wins for colour keys.
  *
  * If a file is missing or any value cannot be parsed, the corresponding
  * hardcoded default is used so the app never crashes on a bad config.
@@ -483,6 +483,49 @@ object AppConfig {
     var mapDepthRampAlpha: Int = 160
         private set
 
+    // ── UI tokens from ui.properties (spacing/padding/radius/font/divider/nested-card) ──
+    // Values are raw numbers (dp or sp); composables apply the `.dp`/`.sp` extension.
+    // Defaults mirror ui.properties so the UI renders identically if the file is absent.
+
+    // Spacing (dp)
+    var uiSpacingCardGap: Float = 12f; private set
+    var uiSpacingSectionGap: Float = 24f; private set
+    var uiSpacingHeaderBottom: Float = 8f; private set
+    var uiSpacingGroupedRowGap: Float = 8f; private set
+    var uiSpacingGroupedAfterExpander: Float = 4f; private set
+    var uiSpacingLabelControl: Float = 16f; private set
+    var uiSpacingExpanderToSlider: Float = 8f; private set
+    var uiSpacingExpanderToContent: Float = 4f; private set
+
+    // Padding (dp)
+    var uiPaddingCardVertical: Float = 8f; private set
+    var uiPaddingCardHorizontal: Float = 16f; private set
+    var uiPaddingToggleVertical: Float = 2f; private set
+    var uiPaddingContentComfortable: Float = 12f; private set
+    var uiPaddingExpanderVertical: Float = 6f; private set
+
+    // Corner radius (dp)
+    var uiRadiusCard: Float = 12f; private set
+    var uiRadiusExpander: Float = 8f; private set
+
+    // Font sizes (sp)
+    var uiFontSectionSize: Float = 17f; private set
+    var uiFontSubsectionSize: Float = 16f; private set
+    var uiFontToggleSize: Float = 16f; private set
+    var uiFontDescSize: Float = 13f; private set
+    var uiFontCommentSize: Float = 12f; private set
+    var uiFontValueSize: Float = 16f; private set
+    var uiFontRangeSize: Float = 14f; private set
+
+    // Nested-card colours (ARGB)
+    var uiNestedCardBg: Int = 0x0DFFFFFF.toInt(); private set
+    var uiNestedCardBorder: Int = 0x40FFFFFF.toInt(); private set
+
+    // Divider (dp height/gap + colour)
+    var uiDividerHeight: Float = 1f; private set
+    var uiDividerColor: Int = 0x26FFFFFF.toInt(); private set
+    var uiDividerGap: Float = 6f; private set
+
     /**
      * Hash of all colour properties that affect cached rasters (depth colour map +
      * low-depth warning overlay). Any colour change → different hash → cache miss on
@@ -523,8 +566,9 @@ object AppConfig {
      * reads the values. Missing or unparseable entries silently keep the default.
      *
      * Load order (each overrides the previous):
-     * 1. maro.properties  — speed zone thresholds, vessel defaults
-     * 2. colors.properties — ALL colour values
+     * 1. maro.properties  — spatial/behavioural tunables
+     * 2. ui.properties    — UI spacing/dimension/font tokens
+     * 3. colors.properties — ALL colour values (colors win)
      */
     fun init(context: Context) {
         try {
@@ -537,6 +581,17 @@ object AppConfig {
                 }
             } catch (_: Exception) {
                 // maro.properties is optional; defaults apply if absent.
+            }
+
+            // Load ui.properties (optional — UI spacing/dimension/font tokens).
+            // Loaded AFTER maro.properties but BEFORE colors.properties so that any
+            // colour keys still resolve from colors.properties (colors win).
+            try {
+                context.assets.open("ui.properties").use { stream ->
+                    props.load(stream)
+                }
+            } catch (_: Exception) {
+                // ui.properties is optional; defaults apply if absent.
             }
 
             // Load colors.properties (optional — defaults apply if absent).
@@ -812,6 +867,53 @@ object AppConfig {
             props.getProperty("map.depth.ramp.warning.g")?.toIntOrNull()?.let { mapDepthRampWarningG = it.coerceIn(0, 255) }
             props.getProperty("map.depth.ramp.warning.b")?.toIntOrNull()?.let { mapDepthRampWarningB = it.coerceIn(0, 255) }
             props.getProperty("map.depth.ramp.alpha")?.toIntOrNull()?.let { mapDepthRampAlpha = it.coerceIn(0, 255) }
+
+            // ── UI tokens from ui.properties ─────────────────────────────────────
+            // dp/sp values are stored as raw numbers (suffix stripped); composables
+            // apply the `.dp`/`.sp` extension at the call site.
+            fun dp(key: String, fallback: Float): Float =
+                props.getProperty(key)?.removeSuffix("dp")?.trim()?.toFloatOrNull() ?: fallback
+            fun sp(key: String, fallback: Float): Float =
+                props.getProperty(key)?.removeSuffix("sp")?.trim()?.toFloatOrNull() ?: fallback
+
+            // Spacing
+            uiSpacingCardGap = dp("ui.spacing.card.gap", uiSpacingCardGap)
+            uiSpacingSectionGap = dp("ui.spacing.section.gap", uiSpacingSectionGap)
+            uiSpacingHeaderBottom = dp("ui.spacing.header.bottom", uiSpacingHeaderBottom)
+            uiSpacingGroupedRowGap = dp("ui.spacing.grouped.row.gap", uiSpacingGroupedRowGap)
+            uiSpacingGroupedAfterExpander = dp("ui.spacing.grouped.after-expander", uiSpacingGroupedAfterExpander)
+            uiSpacingLabelControl = dp("ui.spacing.label.control", uiSpacingLabelControl)
+            uiSpacingExpanderToSlider = dp("ui.spacing.expander.to-slider", uiSpacingExpanderToSlider)
+            uiSpacingExpanderToContent = dp("ui.spacing.expander.to-content", uiSpacingExpanderToContent)
+
+            // Padding
+            uiPaddingCardVertical = dp("ui.padding.card.vertical", uiPaddingCardVertical)
+            uiPaddingCardHorizontal = dp("ui.padding.card.horizontal", uiPaddingCardHorizontal)
+            uiPaddingToggleVertical = dp("ui.padding.toggle.vertical", uiPaddingToggleVertical)
+            uiPaddingContentComfortable = dp("ui.padding.content.comfortable", uiPaddingContentComfortable)
+            uiPaddingExpanderVertical = dp("ui.padding.expander.vertical", uiPaddingExpanderVertical)
+
+            // Corner radius
+            uiRadiusCard = dp("ui.radius.card", uiRadiusCard)
+            uiRadiusExpander = dp("ui.radius.expander", uiRadiusExpander)
+
+            // Font sizes
+            uiFontSectionSize = sp("ui.font.section.size", uiFontSectionSize)
+            uiFontSubsectionSize = sp("ui.font.subsection.size", uiFontSubsectionSize)
+            uiFontToggleSize = sp("ui.font.toggle.size", uiFontToggleSize)
+            uiFontDescSize = sp("ui.font.desc.size", uiFontDescSize)
+            uiFontCommentSize = sp("ui.font.comment.size", uiFontCommentSize)
+            uiFontValueSize = sp("ui.font.value.size", uiFontValueSize)
+            uiFontRangeSize = sp("ui.font.range.size", uiFontRangeSize)
+
+            // Nested-card colours
+            props.getProperty("ui.nested.card.bg")?.let { parseColorOrNull(it) }?.let { uiNestedCardBg = it }
+            props.getProperty("ui.nested.card.border")?.let { parseColorOrNull(it) }?.let { uiNestedCardBorder = it }
+
+            // Divider
+            uiDividerHeight = dp("ui.divider.height", uiDividerHeight)
+            props.getProperty("ui.divider.color")?.let { parseColorOrNull(it) }?.let { uiDividerColor = it }
+            uiDividerGap = dp("ui.divider.gap", uiDividerGap)
 
         } catch (_: Exception) {
             // Keep defaults — properties file missing or corrupt.

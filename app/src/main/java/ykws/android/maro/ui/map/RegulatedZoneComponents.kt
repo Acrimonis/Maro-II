@@ -382,19 +382,10 @@ fun RegulatedZoneCategoryToggles(
 @Composable
 fun BoatSizeSlider(
     settings: AppSettings,
-    onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
-    nested: Boolean = false
+    onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit
 ) {
     Column(
-        modifier = if (nested) {
-            Modifier.fillMaxWidth().padding(horizontal = 0.dp, vertical = 2.dp)
-        } else {
-            Modifier.fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(ComposeColor(0x0DFFFFFF))
-                .border(1.dp, ComposeColor(0x40FFFFFF), RoundedCornerShape(12.dp))
-                .padding(horizontal = 16.dp, vertical = 2.dp)
-        }
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 0.dp, vertical = 2.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -404,7 +395,7 @@ fun BoatSizeSlider(
             Text(
                 text = "\uD83D\uDEA4 Boat length",
                 color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                fontSize = 14.sp,
+                fontSize = AppConfig.uiFontToggleSize.sp,
                 fontWeight = FontWeight.Medium
             )
             Text(

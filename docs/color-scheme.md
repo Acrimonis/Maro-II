@@ -86,6 +86,9 @@ semantic.compliant → ui.dashboard.status.success → status.gps.healthy → #C
 
 ### Alpha Constants
 
+> **Re-homed:** `ui.dashboard.dullAlpha` is a UI-state alpha, not a colour — it now lives in
+> [`ui.properties`](../app/src/main/assets/ui.properties) (not `colors.properties`).
+
 | Token | Value | Usage |
 |---|---|---|
 | `ui.dashboard.dullAlpha` | `0.33` | Subdued dashboard states: no-data, on-land, far-from-zone |
@@ -252,8 +255,8 @@ The settings card surfaces reuse the shared Main card / Inner card tokens (also 
 | Token | Default | Swatch | Usage |
 |---|---|---|---|
 | `ui.card.background` | `#33FFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;opacity:0.2;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Main card surface → `AppConfig.uiCardBackground` (20% white). Source: [`colors.properties`](../app/src/main/assets/colors.properties) |
-| `ui.nested.card.bg` | `#0DFFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;opacity:0.05;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Inner card background (5% white). Source: [`ui-tokens.properties`](../app/src/main/assets/ui-tokens.properties) |
-| `ui.nested.card.border` | `#40FFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;opacity:0.25;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Inner card border (25% white). Source: [`ui-tokens.properties`](../app/src/main/assets/ui-tokens.properties) |
+| `ui.nested.card.bg` | `#0DFFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;opacity:0.05;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Inner card background (5% white). Source: [`ui.properties`](../app/src/main/assets/ui.properties) |
+| `ui.nested.card.border` | `#40FFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;opacity:0.25;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Inner card border (25% white). Source: [`ui.properties`](../app/src/main/assets/ui.properties) |
 
 ### Text
 
@@ -328,15 +331,15 @@ The settings card surfaces reuse the shared Main card / Inner card tokens (also 
 ## 10. Isobath Colours & Stroke Widths
 
 **Property prefix:** `map.isobar.*`
-**Source:** [`colors.properties`](../app/src/main/assets/colors.properties) → `AppConfig.isobarColors` / `isobarWidthBonuses`
+**Source:** colours from [`colors.properties`](../app/src/main/assets/colors.properties) → `AppConfig.isobarColors`; stroke-width bonuses from [`maro.properties`](../app/src/main/assets/maro.properties) → `AppConfig.isobarWidthBonuses`.
 
 | Token | Default | Swatch | Usage |
 |---|---|---|---|
 | `map.isobar.litto3d.color` | `${ui.dashboard.status.success}` → `#CC4CAF50` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#4CAF50;opacity:0.8;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Litto3D isobath lines |
 | `map.isobar.emodnet.color` | `#FF00008B` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#00008B;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | EMODnet isobath lines |
 | `map.isobar.default.color` | `#FF37474F` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#37474F;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Fallback for unlisted sources |
-| `map.isobar.litto3d.width` | `+1` | — | Litto3D line width bonus (px) |
-| `map.isobar.emodnet.width` | `-1` | — | EMODnet line width bonus (px) |
+| `map.isobar.litto3d.width` | `+1` | — | Litto3D line width bonus (px). **Re-homed** → [`maro.properties`](../app/src/main/assets/maro.properties) |
+| `map.isobar.emodnet.width` | `-1` | — | EMODnet line width bonus (px). **Re-homed** → [`maro.properties`](../app/src/main/assets/maro.properties) |
 
 ---
 
