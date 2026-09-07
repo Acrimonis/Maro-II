@@ -4,7 +4,7 @@
 > **Canonical patterns** for cards, expanders, toggles, sliders, and drawers across the app.
 > Code wins over doc — when they disagree, update this file.
 
-> **Tokens:** [`ui-tokens.properties`](../app/src/main/assets/ui-tokens.properties) (dimensions) +
+> **Tokens:** [`ui.properties`](../app/src/main/assets/ui.properties) (dimensions) +
 > [`colors.properties`](../app/src/main/assets/colors.properties) (colors).
 > All `${ui.*}` references below resolve to those files.
 
@@ -90,11 +90,11 @@ A section surface is a `Card` (20% white, 12dp radius) holding **inline toggle r
 
 ```
 Card {
-    Row(16×${ui.padding.grouped.toggle.vertical} pad) { Text + Switch }   ← inline toggle
+    Row(16×${ui.padding.toggle.vertical} pad) { Text + Switch }   ← inline toggle
     Spacer(${ui.spacing.grouped.row.gap})
-    Row(16×${ui.padding.grouped.toggle.vertical} pad) { Text + Switch }   ← more toggles
+    Row(16×${ui.padding.toggle.vertical} pad) { Text + Switch }   ← more toggles
 
-    Spacer(${ui.spacing.grouped.before-expander})
+    Spacer(${ui.spacing.grouped.after-expander})
     Box(pad h=16) {
         Expander(label) {
             Spacer(8dp)
@@ -248,14 +248,15 @@ All popup icons use `ButtonColors.icon` tint + `ButtonColors.iconSizeDp` (28dp) 
 | Section→section | `ui.spacing.section.gap` | 24dp |
 | Header→first card | `ui.spacing.header.bottom` | 8dp |
 | Inline toggle→toggle | `ui.spacing.grouped.row.gap` | 8dp |
-| Before expander (in grouped card) | `ui.spacing.grouped.before-expander` | 8dp |
+| Before expander (in grouped card) | `ui.spacing.grouped.after-expander` | 4dp |
 | Expander header row (top/bottom) | `ui.padding.expander.vertical` | 6dp |
 | Expander→content | header+8dp spacer | 8dp |
 | Last expander→card close | `ui.spacing.grouped.after-expander` | 4dp |
+| Label→control (row) | `ui.spacing.label.control` | 16dp |
 | Visible divider gap (above/below) | `ui.divider.gap` | 6dp |
 | Drawer-internal card gap | — | 8dp |
 
-Full token list: [`ui-tokens.properties`](../app/src/main/assets/ui-tokens.properties).
+Full token list: [`ui.properties`](../app/src/main/assets/ui.properties).
 
 ---
 

@@ -85,3 +85,29 @@ Ordered so the build stays green at each checkpoint:
 - **Resolved:** `ui.landscape.panel.widthScale` → `ui.properties` (UI layout value).
 - Scope: this plan targets the settings UI first; other surfaces (drawers, lists, dashboard) can adopt
   `ui.properties` tokens in follow-up passes.
+
+## Outcome (2026-09-07)
+
+Implemented on `feature/settings-misc`. Full `apk-build.bat` green. No commit/push (working-tree changes only).
+
+- **Step 1** — `git mv app/src/main/assets/ui-tokens.properties → ui.properties`. Build green (file was unloaded).
+- **Step 2** — [`AppConfig.init()`](app/src/main/java/ykws/android/maro/config/AppConfig.kt:529) loads `ui.properties` after `maro.properties`, before `colors.properties` (colors still win). Added typed UI-token accessors (spacing/padding/radius/font/touch/divider/nested-card colours) parsed via local `dp()`/`sp()` helpers stripping the suffix.
+- **Step 3** — Re-homed 6 keys: colors→ui `ui.dashboard.dullAlpha`; colors→maro `map.coastline.mainland.width`, `map.coastline.island.width`, `map.isobar.litto3d.width`, `map.isobar.emodnet.width`; maro→ui `ui.landscape.panel.widthScale`. **Deviation:** `overlay.lowDepth.minOpacity` does not exist anywhere (only `overlay.lowDepth.color`) — nothing re-homed for it.
+- **Step 4** — Replaced hardcoded `.dp`/`.sp` in settings composables ([`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt)): shared widgets `SectionHeader`/`SettingsToggleRow`/`SliderRowContent`/`SectionDivider`/`SubSectionHeader`/`Card`/`NestedCard`/`Expander` + page composables `SettingsOverlay`/`LayersSettings`/`NavigationSettings`/`PositionSettings`/`SystemSettings`. Remaining hardcoded values are only those with no corresponding token (overlay chrome, tab bar, segmented control, color-picker, bottom sheets). **Deviation:** `ui.font.toggle.size` aligned 14sp→16sp (code-wins) to match the actual shared-widget label size.
+- **Step 5** — Docs: `ui-component-guidelines.md` §3/§2.5 → `ui.properties`; `color-scheme.md` §7/§9 re-homed keys + 16sp toggle label; `AppConfig.kt` doc comment. `maro-code.md`/`SETUP.md` don't reference the files.
+
+**Ask review (2026-09-07):** load order, re-homing, accessor surface, docs correct; build green. Non-blocking follow-ups logged: (1) inline 14sp slider-row labels inside `NestedCard`s (MapScreen.kt:3469,3517,3565,3610,3807,3846,3986,4137) not migrated — inconsistent with 16sp shared-widget labels; (2) `BoatSizeSlider` ([`RegulatedZoneComponents.kt`](app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneComponents.kt:383)) hardcodes tokenized nested-card colours + 14sp/16dp/12dp — outside plan's MapScreen.kt scope; (3) 8 dead tokens defined+loaded but never consumed (`uiSpacingGroupedBeforeExpander`, `uiPaddingGroupedToggleVertical`, `uiPaddingSliderVertical`, `uiPaddingContentCompact`, `uiPaddingDrawerVertical`, `uiFontGroupedToggleSize`, `uiFontDrawerSize`, `uiTouchDrawerRowMin`); (4) 16dp label/control spacer has no token.
+
+## Cleanup follow-up (2026-09-07) — all review items addressed
+
+Full leftover-extraction + cleanup audit (Ask) → all items resolved on `feature/settings-misc`. Build green throughout; no commit/push.
+
+- **A1** — 7 inline control-group labels migrated `14.sp` → `AppConfig.uiFontToggleSize.sp` (MapScreen.kt:3469,3517,3565,3610,3807,3846,4137) per ui-component-guidelines §2.5 (control labels = 16sp Medium). The "Info text visible" label (:3986) is a toggle-row label (no Medium weight) — intentionally left at 14.sp. **A1-adjacent (final review):** the "🚤 Boat length" label in `BoatSizeSlider` ([`RegulatedZoneComponents.kt`](app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneComponents.kt:398)) was also migrated `14.sp` → `AppConfig.uiFontToggleSize.sp` (it sits inside a NestedCard via MapScreen.kt:4002) — the value readout (`"${boatSizeM} m"`, Bold) stays at 14.sp.
+- **A2/B4** — `BoatSizeSlider` dead non-nested branch deleted; `nested` param removed; caller simplified (RegulatedZoneComponents.kt + MapScreen.kt:4002). Removed the hardcoded nested-card colours.
+- **A3** — added `ui.spacing.label.control=16dp` token + `uiSpacingLabelControl` accessor; wired `SettingsToggleRow` + `SliderRowContent` spacers; documented in ui-component-guidelines §3.
+- **A4** — `uiFontToggleSize` fallback default fixed `14f` → `16f` (AppConfig.kt) to match ui.properties.
+- **B1** — pruned 8 dead tokens from AppConfig.kt + ui.properties (never consumed).
+- **B2** — fixed stale doc refs to pruned tokens in ui-component-guidelines §2.3 pseudo-code + §3 table.
+- **B6** — corrected stale `zone.properties` doc comment in AppConfig.kt header + init() load-order list.
+
+**Final verification:** apk-build green; 0 references to pruned tokens in app/src + docs; 0 orphaned `ui-tokens.properties` refs; ui.properties ↔ AppConfig.kt token consistency confirmed (no orphans either direction); no control-group label left at 14.sp in a NestedCard.

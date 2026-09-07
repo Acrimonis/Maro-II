@@ -3444,15 +3444,15 @@ private fun LayersSettings(
     ) {
         // ── Tracks ──────────────────────────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_section_tracks), uppercase = false)
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         Card {
             Text(
                 text = stringResource(R.string.settings_tracks_desc),
                 color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                fontSize = 13.sp,
-                modifier = Modifier.padding(horizontal = 16.dp)
+                fontSize = AppConfig.uiFontDescSize.sp,
+                modifier = Modifier.padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)
             )
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
 
             Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                 Expander(
@@ -3460,13 +3460,13 @@ private fun LayersSettings(
                     expanded = settingsVm.isExpanded("track_rendering"),
                     onToggle = { settingsVm.setExpanded("track_rendering", !settingsVm.isExpanded("track_rendering")) }
                 ) {
-                        Spacer(Modifier.height(4.dp))
+                        Spacer(Modifier.height(AppConfig.uiSpacingExpanderToContent.dp))
                         NestedCard {
                             // Number of tracks
                             Text(
                                 text = stringResource(R.string.settings_tracks_count_label),
                                 color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                                fontSize = 14.sp,
+                                fontSize = AppConfig.uiFontToggleSize.sp,
                                 fontWeight = FontWeight.Medium
                             )
                             Row(
@@ -3477,13 +3477,13 @@ private fun LayersSettings(
                                 Text(
                                     text = stringResource(R.string.settings_tracks_count_desc),
                                     color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                                    fontSize = 13.sp,
+                                    fontSize = AppConfig.uiFontDescSize.sp,
                                     modifier = Modifier.weight(1f)
                                 )
                                 Text(
                                     text = "%d".format(settings.trackingRenderNb),
                                     color = ComposeColor(AppConfig.uiSettingsValueText),
-                                    fontSize = 16.sp,
+                                    fontSize = AppConfig.uiFontValueSize.sp,
                                     fontWeight = FontWeight.Bold
                                 )
                             }
@@ -3501,31 +3501,31 @@ private fun LayersSettings(
                                 )
                             )
 
-                            Spacer(Modifier.height(6.dp))
+                            Spacer(Modifier.height(AppConfig.uiDividerGap.dp))
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(1.dp)
+                                    .height(AppConfig.uiDividerHeight.dp)
                                     .background(ComposeColor(AppConfig.uiSettingsDivider))
                             )
-                            Spacer(Modifier.height(6.dp))
+                            Spacer(Modifier.height(AppConfig.uiDividerGap.dp))
 
                             // Opacity
                             Text(
                                 text = stringResource(R.string.settings_transparency_label),
                                 color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                                fontSize = 14.sp,
+                                fontSize = AppConfig.uiFontToggleSize.sp,
                                 fontWeight = FontWeight.Medium
                             )
                             Text(
                                 text = stringResource(R.string.settings_transparency_desc),
                                 color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                                fontSize = 12.sp
+                                fontSize = AppConfig.uiFontCommentSize.sp
                             )
                             Text(
                                 text = stringResource(R.string.settings_transparency_value_fmt, settings.trackingTransparencyNewest, settings.trackingTransparencyOldest),
                                 color = ComposeColor(AppConfig.uiSettingsValueText),
-                                fontSize = 14.sp,
+                                fontSize = AppConfig.uiFontRangeSize.sp,
                                 fontWeight = FontWeight.Bold,
                                 textAlign = TextAlign.End,
                                 modifier = Modifier.fillMaxWidth()
@@ -3549,26 +3549,26 @@ private fun LayersSettings(
                                 )
                             )
 
-                            Spacer(Modifier.height(6.dp))
+                            Spacer(Modifier.height(AppConfig.uiDividerGap.dp))
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(1.dp)
+                                    .height(AppConfig.uiDividerHeight.dp)
                                     .background(ComposeColor(AppConfig.uiSettingsDivider))
                             )
-                            Spacer(Modifier.height(6.dp))
+                            Spacer(Modifier.height(AppConfig.uiDividerGap.dp))
 
                             // Pinned tracks opacity
                             Text(
                                 text = stringResource(R.string.settings_pinned_transparency_label),
                                 color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                                fontSize = 14.sp,
+                                fontSize = AppConfig.uiFontToggleSize.sp,
                                 fontWeight = FontWeight.Medium
                             )
                             Text(
                                 text = stringResource(R.string.settings_pinned_transparency_desc),
                                 color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                                fontSize = 12.sp
+                                fontSize = AppConfig.uiFontCommentSize.sp
                             )
                             Text(
                                 text = stringResource(R.string.settings_transparency_value_fmt,
@@ -3576,7 +3576,7 @@ private fun LayersSettings(
                                     settings.trackingTransparencyPinnedOldest
                                 ),
                                 color = ComposeColor(AppConfig.uiSettingsValueText),
-                                fontSize = 14.sp,
+                                fontSize = AppConfig.uiFontRangeSize.sp,
                                 fontWeight = FontWeight.Bold,
                                 textAlign = TextAlign.End,
                                 modifier = Modifier.fillMaxWidth()
@@ -3607,7 +3607,7 @@ private fun LayersSettings(
                             Text(
                                 text = stringResource(R.string.settings_colors_label),
                                 color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                                fontSize = 14.sp,
+                                fontSize = AppConfig.uiFontToggleSize.sp,
                                 fontWeight = FontWeight.Medium
                             )
                             Text(
@@ -3765,16 +3765,16 @@ private fun LayersSettings(
 
         // ── Markers ─────────────────────────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_section_markers), uppercase = false)
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         Card {
             Text(
                 text = stringResource(R.string.settings_markers_desc),
                 color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                fontSize = 13.sp,
-                modifier = Modifier.padding(horizontal = 16.dp)
+                fontSize = AppConfig.uiFontDescSize.sp,
+                modifier = Modifier.padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)
             )
-            Spacer(Modifier.height(4.dp))
-            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+            Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
+            Box(modifier = Modifier.padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)) {
                 Expander(
                     label = stringResource(R.string.settings_marker_rendering_label),
                     expanded = settingsVm.isExpanded("markers_rendering"),
@@ -3798,13 +3798,13 @@ private fun LayersSettings(
 
                         // Opacity section
                         SubSectionHeader(title = stringResource(R.string.settings_marker_halo_transparency_label))
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
 
                         // Pinned opacity (double slider: fill .. border)
                         Text(
                             text = stringResource(R.string.settings_marker_halo_pinned_label),
                             color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                            fontSize = 14.sp,
+                            fontSize = AppConfig.uiFontToggleSize.sp,
                             fontWeight = FontWeight.Medium
                         )
                         Text(
@@ -3812,7 +3812,7 @@ private fun LayersSettings(
                                 settings.markerHaloPinnedBorderTransparencyPct,
                                 settings.markerHaloPinnedFillTransparencyPct),
                             color = ComposeColor(AppConfig.uiSettingsValueText),
-                            fontSize = 14.sp,
+                            fontSize = AppConfig.uiFontRangeSize.sp,
                             fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.End,
                             modifier = Modifier.fillMaxWidth()
@@ -3843,7 +3843,7 @@ private fun LayersSettings(
                         Text(
                             text = stringResource(R.string.settings_marker_halo_unpinned_label),
                             color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                            fontSize = 14.sp,
+                            fontSize = AppConfig.uiFontToggleSize.sp,
                             fontWeight = FontWeight.Medium
                         )
                         Text(
@@ -3851,7 +3851,7 @@ private fun LayersSettings(
                                 settings.markerHaloUnpinnedBorderTransparencyPct,
                                 settings.markerHaloUnpinnedFillTransparencyPct),
                             color = ComposeColor(AppConfig.uiSettingsValueText),
-                            fontSize = 14.sp,
+                            fontSize = AppConfig.uiFontRangeSize.sp,
                             fontWeight = FontWeight.Bold,
                             textAlign = TextAlign.End,
                             modifier = Modifier.fillMaxWidth()
@@ -3881,7 +3881,7 @@ private fun LayersSettings(
 
                         // Colors section
                         SubSectionHeader(title = stringResource(R.string.settings_marker_halo_colors_label))
-                        Spacer(modifier = Modifier.height(4.dp))
+                        Spacer(modifier = Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
                         ColorSwatchRow(
                             label = stringResource(R.string.settings_marker_halo_pinned_color_label),
                             color = settings.markerHaloPinnedColor,
@@ -3897,8 +3897,8 @@ private fun LayersSettings(
                     }
                 }
             }
-            Spacer(Modifier.height(4.dp))
-            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+            Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
+            Box(modifier = Modifier.padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)) {
                 Expander(
                     label = stringResource(R.string.settings_auto_markers_label),
                     expanded = settingsVm.isExpanded("markers_auto"),
@@ -3944,24 +3944,24 @@ private fun LayersSettings(
                     }
                 }
             }
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingCardGap.dp))
 
         // ── Regulated zones ─────────────────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_regulated_zones_label), uppercase = false)
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         Card {
             Text(
                 text = stringResource(R.string.settings_regulated_zones_desc),
                 color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                fontSize = 13.sp,
-                modifier = Modifier.padding(horizontal = 16.dp)
+                fontSize = AppConfig.uiFontDescSize.sp,
+                modifier = Modifier.padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)
             )
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
                 // Regulation info — collapsible toggle for info text panel
-                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                Box(modifier = Modifier.padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)) {
                     Expander(
                         label = stringResource(R.string.settings_reg_info_settings_label),
                         expanded = settingsVm.isExpanded("reg_info"),
@@ -3972,8 +3972,8 @@ private fun LayersSettings(
                             Text(
                                 text = stringResource(R.string.settings_reg_info_desc),
                                 color = ComposeColor(AppConfig.uiDashboardTextMuted),
-                                fontSize = 13.sp,
-                                modifier = Modifier.padding(bottom = 8.dp)
+                                fontSize = AppConfig.uiFontDescSize.sp,
+                                modifier = Modifier.padding(bottom = AppConfig.uiSpacingHeaderBottom.dp)
                             )
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -3996,15 +3996,15 @@ private fun LayersSettings(
                                     )
                                 )
                             }
-                            Spacer(Modifier.height(4.dp))
-                            Box(Modifier.fillMaxWidth().height(1.dp).background(ComposeColor(AppConfig.uiSettingsDivider)))
-                            Spacer(Modifier.height(4.dp))
-                            BoatSizeSlider(settings, onUpdateSettings, nested = true)
+                            Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
+                            Box(Modifier.fillMaxWidth().height(AppConfig.uiDividerHeight.dp).background(ComposeColor(AppConfig.uiSettingsDivider)))
+                            Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
+                            BoatSizeSlider(settings, onUpdateSettings)
                         }
                     }
                 }
-                Spacer(Modifier.height(8.dp))
-                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                Spacer(Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
+                Box(modifier = Modifier.padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)) {
                     Expander(
                         label = stringResource(R.string.settings_categories_label),
                         expanded = settingsVm.isExpanded("reg_categories"),
@@ -4016,23 +4016,23 @@ private fun LayersSettings(
                         }
                     }
                 }
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingCardGap.dp))
 
         // ── 300m Band ───────────────────────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_zone300_label), uppercase = false)
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         Card {
             Text(
                 text = stringResource(R.string.settings_zone300_desc),
                 color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                fontSize = 13.sp,
-                modifier = Modifier.padding(horizontal = 16.dp)
+                fontSize = AppConfig.uiFontDescSize.sp,
+                modifier = Modifier.padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)
             )
-            Spacer(Modifier.height(4.dp))
-            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+            Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
+            Box(modifier = Modifier.padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)) {
                 Expander(
                     label = stringResource(R.string.settings_zone300_appearance_label),
                     expanded = settingsVm.isExpanded("zone300_appearance"),
@@ -4064,7 +4064,7 @@ private fun LayersSettings(
                             (transparencyDrag.endInclusive / 5f).roundToInt() * 5
                         ),
                         color = ComposeColor(AppConfig.uiSettingsValueText),
-                        fontSize = 14.sp,
+                        fontSize = AppConfig.uiFontRangeSize.sp,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.End,
                         modifier = Modifier.fillMaxWidth()
@@ -4091,14 +4091,14 @@ private fun LayersSettings(
                     }
                 }
             }
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingCardGap.dp))
 
         // ── Coastline — the only on/off without a map-fan button ───────
         SectionHeader(title = stringResource(R.string.settings_coastline_label), uppercase = false)
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         SettingsToggleRow(
             label = stringResource(R.string.settings_coastline_label),
             description = stringResource(R.string.settings_coastline_desc),
@@ -4106,21 +4106,21 @@ private fun LayersSettings(
             onCheckedChange = { visible -> onUpdateSettings { it.copy(coastlineVisible = visible) } }
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
 
         // ── Danger Zones (was: low-depth warning) ──────────────────────
         SectionHeader(title = stringResource(R.string.settings_danger_zones_label), uppercase = false)
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         Card {
             Text(
                 text = stringResource(R.string.settings_danger_zones_desc),
                 color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                fontSize = 13.sp,
-                modifier = Modifier.padding(horizontal = 16.dp)
+                fontSize = AppConfig.uiFontDescSize.sp,
+                modifier = Modifier.padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)
             )
             // Warning sliders — always visible, persisted expander
-            Spacer(Modifier.height(4.dp))
-            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+            Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
+            Box(modifier = Modifier.padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)) {
                 Expander(
                     label = stringResource(R.string.settings_low_depth_settings_label),
                     expanded = settingsVm.isExpanded("danger_warning"),
@@ -4134,13 +4134,13 @@ private fun LayersSettings(
                             Text(
                                 text = stringResource(R.string.settings_low_depth_range_label),
                                 color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                                fontSize = 14.sp,
+                                fontSize = AppConfig.uiFontToggleSize.sp,
                                 fontWeight = FontWeight.Medium
                             )
                             Text(
                                 text = stringResource(R.string.settings_low_depth_range_desc),
                                 color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                                fontSize = 12.sp
+                                fontSize = AppConfig.uiFontCommentSize.sp
                             )
                             // Local drag state so the ~7M-cell warning bitmap is not regenerated on
                             // every drag tick — commit to settings only on drag end. Values stay
@@ -4152,7 +4152,7 @@ private fun LayersSettings(
                                 text = stringResource(R.string.settings_low_depth_range_value_fmt,
                                     lowDepthDrag.start, lowDepthDrag.endInclusive),
                                 color = ComposeColor(AppConfig.uiSettingsValueText),
-                                fontSize = 14.sp,
+                                fontSize = AppConfig.uiFontRangeSize.sp,
                                 fontWeight = FontWeight.Bold,
                                 textAlign = TextAlign.End,
                                 modifier = Modifier.fillMaxWidth()
@@ -4197,34 +4197,34 @@ private fun LayersSettings(
                                 Text(
                                     text = stringResource(R.string.settings_value_depth, 0f),
                                     color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                                    fontSize = 12.sp
+                                    fontSize = AppConfig.uiFontCommentSize.sp
                                 )
                                 Text(
                                     text = stringResource(R.string.settings_value_depth, 5f),
                                     color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                                    fontSize = 12.sp
+                                    fontSize = AppConfig.uiFontCommentSize.sp
                                 )
                             }
                     }
                 }
             }
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingCardGap.dp))
 
         // ── Depth — EMODnet shallow filter ─────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_depth_label), uppercase = false)
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         Card {
             Text(
                 text = stringResource(R.string.settings_depth_desc),
                 color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                fontSize = 13.sp,
-                modifier = Modifier.padding(horizontal = 16.dp)
+                fontSize = AppConfig.uiFontDescSize.sp,
+                modifier = Modifier.padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)
             )
-            Spacer(Modifier.height(4.dp))
-            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+            Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
+            Box(modifier = Modifier.padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)) {
                 Expander(label = stringResource(R.string.settings_emodnet_section_label), expanded = settingsVm.isExpanded("depth_cutoff"),
                     onToggle = { settingsVm.setExpanded("depth_cutoff", !settingsVm.isExpanded("depth_cutoff")) }
                 ) {
@@ -4240,9 +4240,9 @@ private fun LayersSettings(
                     }
                 }
             }
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
         }
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingCardGap.dp))
     }
 }
 
@@ -4262,38 +4262,38 @@ private fun NavigationSettings(
     ) {
         // ── Orientation aids ────────────────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_section_orientation), uppercase = false)
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         SettingsToggleRow(
             label = stringResource(R.string.settings_heading_line_label),
             description = stringResource(R.string.settings_heading_line_desc),
             checked = settings.headingLineVisible,
             onCheckedChange = { visible -> onUpdateSettings { it.copy(headingLineVisible = visible) } }
         )
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingCardGap.dp))
         SettingsToggleRow(
             label = stringResource(R.string.settings_cap_arrow_label),
             description = stringResource(R.string.settings_cap_arrow_desc),
             checked = settings.capArrowVisible,
             onCheckedChange = { visible -> onUpdateSettings { it.copy(capArrowVisible = visible) } }
         )
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingCardGap.dp))
         SettingsToggleRow(
             label = stringResource(R.string.settings_demo_heading_label),
             description = stringResource(R.string.settings_demo_heading_desc),
             checked = settings.demoHeadingUp,
             onCheckedChange = { headingUp -> onUpdateSettings { it.copy(demoHeadingUp = headingUp) } }
         )
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
 
         // ── Re-display on approach ─────────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_redisplay_label), uppercase = false)
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
         Card {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingToggleVertical.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -4301,7 +4301,7 @@ private fun NavigationSettings(
                     Text(
                         text = stringResource(R.string.settings_redisplay_enable_gps),
                         color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 16.sp,
+                        fontSize = AppConfig.uiFontToggleSize.sp,
                         fontWeight = FontWeight.Medium
                     )
                 }
@@ -4318,12 +4318,12 @@ private fun NavigationSettings(
                 )
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingToggleVertical.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -4331,7 +4331,7 @@ private fun NavigationSettings(
                     Text(
                         text = stringResource(R.string.settings_redisplay_enable_demo),
                         color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 16.sp,
+                        fontSize = AppConfig.uiFontToggleSize.sp,
                         fontWeight = FontWeight.Medium
                     )
                 }
@@ -4348,20 +4348,20 @@ private fun NavigationSettings(
                 )
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .height(1.dp)
+                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)
+                    .height(AppConfig.uiDividerHeight.dp)
                     .background(ComposeColor(AppConfig.uiSettingsDivider))
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingToggleVertical.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -4369,7 +4369,7 @@ private fun NavigationSettings(
                     Text(
                         text = stringResource(R.string.settings_redisplay_zone300),
                         color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 16.sp,
+                        fontSize = AppConfig.uiFontToggleSize.sp,
                         fontWeight = FontWeight.Medium
                     )
                 }
@@ -4386,12 +4386,12 @@ private fun NavigationSettings(
                 )
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingToggleVertical.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -4399,7 +4399,7 @@ private fun NavigationSettings(
                     Text(
                         text = stringResource(R.string.settings_redisplay_speed),
                         color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 16.sp,
+                        fontSize = AppConfig.uiFontToggleSize.sp,
                         fontWeight = FontWeight.Medium
                     )
                 }
@@ -4416,12 +4416,12 @@ private fun NavigationSettings(
                 )
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingToggleVertical.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -4429,7 +4429,7 @@ private fun NavigationSettings(
                     Text(
                         text = stringResource(R.string.settings_redisplay_regulated),
                         color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 16.sp,
+                        fontSize = AppConfig.uiFontToggleSize.sp,
                         fontWeight = FontWeight.Medium
                     )
                 }
@@ -4446,17 +4446,17 @@ private fun NavigationSettings(
                 )
             }
 
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .height(1.dp)
+                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)
+                    .height(AppConfig.uiDividerHeight.dp)
                     .background(ComposeColor(AppConfig.uiSettingsDivider))
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
 
-            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+            Box(modifier = Modifier.padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)) {
                 Expander(
                     label = stringResource(R.string.settings_redisplay_when_label),
                     expanded = settingsVm.isExpanded("redisplay_when"),
@@ -4488,7 +4488,7 @@ private fun NavigationSettings(
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
 
     // ── Automatic map offset ──────────────────────────────────────────────
     SectionHeader(title = stringResource(R.string.settings_map_offset_label))
@@ -4498,7 +4498,7 @@ private fun NavigationSettings(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 2.dp),
+                .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingToggleVertical.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -4506,13 +4506,13 @@ private fun NavigationSettings(
                 Text(
                     text = stringResource(R.string.settings_gps_mode_label),
                     color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                    fontSize = 16.sp,
+                    fontSize = AppConfig.uiFontToggleSize.sp,
                     fontWeight = FontWeight.Medium
                 )
                 Text(
                     text = stringResource(R.string.settings_map_offset_gps_desc),
                     color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                    fontSize = 13.sp
+                    fontSize = AppConfig.uiFontDescSize.sp
                 )
             }
             Spacer(modifier = Modifier.width(16.dp))
@@ -4534,7 +4534,7 @@ private fun NavigationSettings(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 2.dp),
+                .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingToggleVertical.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -4542,13 +4542,13 @@ private fun NavigationSettings(
                 Text(
                     text = stringResource(R.string.settings_map_offset_demo_label),
                     color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                    fontSize = 16.sp,
+                    fontSize = AppConfig.uiFontToggleSize.sp,
                     fontWeight = FontWeight.Medium
                 )
                 Text(
                     text = stringResource(R.string.settings_map_offset_demo_desc),
                     color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                    fontSize = 13.sp
+                    fontSize = AppConfig.uiFontDescSize.sp
                 )
             }
             Spacer(modifier = Modifier.width(16.dp))
@@ -4567,7 +4567,7 @@ private fun NavigationSettings(
         SectionDivider()
 
         // Boat-from-bottom slider
-        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+        Column(modifier = Modifier.padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)) {
             SliderRowContent(
                 label = stringResource(R.string.settings_map_offset_boat_label),
                 description = stringResource(R.string.settings_map_offset_boat_desc),
@@ -4601,13 +4601,13 @@ private fun PositionSettings(
     ) {
         // ── Position source (Demo <-> GPS) ────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_section_position))
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
         Card {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingToggleVertical.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -4615,13 +4615,13 @@ private fun PositionSettings(
                     Text(
                         text = stringResource(R.string.settings_gps_mode_label),
                         color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 16.sp,
+                        fontSize = AppConfig.uiFontToggleSize.sp,
                         fontWeight = FontWeight.Medium
                     )
                     Text(
                         text = stringResource(R.string.settings_gps_mode_desc),
                         color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = 13.sp
+                        fontSize = AppConfig.uiFontDescSize.sp
                     )
                 }
                 Spacer(modifier = Modifier.width(16.dp))
@@ -4640,8 +4640,8 @@ private fun PositionSettings(
                 )
             }
 
-            Spacer(Modifier.height(8.dp))
-            Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+            Spacer(Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
+            Box(modifier = Modifier.padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)) {
                 Expander(
                     label = stringResource(R.string.settings_gps_tuning_label),
                     expanded = settingsVm.isExpanded("gps_tuning"),
@@ -4672,17 +4672,17 @@ private fun PositionSettings(
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
 
         // ── Stop detection ──────────────────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_idle_section_label))
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
         Card {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingToggleVertical.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -4690,13 +4690,13 @@ private fun PositionSettings(
                     Text(
                         text = stringResource(R.string.settings_stop_enable_label),
                         color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 16.sp,
+                        fontSize = AppConfig.uiFontToggleSize.sp,
                         fontWeight = FontWeight.Medium
                     )
                     Text(
                         text = stringResource(R.string.settings_stop_enable_desc),
                         color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = 13.sp
+                        fontSize = AppConfig.uiFontDescSize.sp
                     )
                 }
                 Spacer(modifier = Modifier.width(16.dp))
@@ -4713,9 +4713,9 @@ private fun PositionSettings(
             }
 
             if (settings.stopDetectionEnabled) {
-                Spacer(Modifier.height(8.dp))
+                Spacer(Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
 
-                Box(modifier = Modifier.padding(horizontal = 16.dp)) {
+                Box(modifier = Modifier.padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)) {
                     Expander(
                         label = stringResource(R.string.settings_stop_thresholds_label),
                         expanded = settingsVm.isExpanded("stop_thresholds"),
@@ -4745,12 +4745,12 @@ private fun PositionSettings(
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
 
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 2.dp),
+                        .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingToggleVertical.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -4758,13 +4758,13 @@ private fun PositionSettings(
                         Text(
                             text = stringResource(R.string.settings_stop_delay_label),
                             color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                            fontSize = 16.sp,
+                            fontSize = AppConfig.uiFontToggleSize.sp,
                             fontWeight = FontWeight.Medium
                         )
                         Text(
                             text = stringResource(R.string.settings_stop_delay_desc),
                             color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                            fontSize = 13.sp
+                            fontSize = AppConfig.uiFontDescSize.sp
                         )
                     }
                     Spacer(modifier = Modifier.width(16.dp))
@@ -4782,7 +4782,7 @@ private fun PositionSettings(
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
     }
 }
 
@@ -4803,25 +4803,25 @@ private fun SystemSettings(
     ) {
         // ── Language ──────────────────────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_section_language))
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
         SettingsLanguageRow(
             languageCode = settings.languageCode,
             onSelect = { code -> onUpdateSettings { it.copy(languageCode = code) } }
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
 
         // ── Screen ─────────────────────────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_section_screen))
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
         Card {
             // Keep screen on
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingToggleVertical.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -4829,13 +4829,13 @@ private fun SystemSettings(
                     Text(
                         text = stringResource(R.string.settings_keep_screen_on_label),
                         color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 16.sp,
+                        fontSize = AppConfig.uiFontToggleSize.sp,
                         fontWeight = FontWeight.Medium
                     )
                     Text(
                         text = stringResource(R.string.settings_keep_screen_on_desc),
                         color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = 13.sp
+                        fontSize = AppConfig.uiFontDescSize.sp
                     )
                 }
                 Spacer(modifier = Modifier.width(16.dp))
@@ -4857,7 +4857,7 @@ private fun SystemSettings(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingToggleVertical.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -4865,13 +4865,13 @@ private fun SystemSettings(
                     Text(
                         text = stringResource(R.string.settings_debug_rays_label),
                         color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 16.sp,
+                        fontSize = AppConfig.uiFontToggleSize.sp,
                         fontWeight = FontWeight.Medium
                     )
                     Text(
                         text = stringResource(R.string.settings_debug_rays_desc),
                         color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = 13.sp
+                        fontSize = AppConfig.uiFontDescSize.sp
                     )
                 }
                 Spacer(modifier = Modifier.width(16.dp))
@@ -4894,7 +4894,7 @@ private fun SystemSettings(
             SectionDivider()
 
             // FPS
-            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+            Column(modifier = Modifier.padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)) {
                 SliderRowContent(
                     label = stringResource(R.string.settings_fps_label),
                     description = stringResource(R.string.settings_fps_desc),
@@ -4907,16 +4907,16 @@ private fun SystemSettings(
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
 
         // ── Regenerate Layers ─────────────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_regenerate_layers))
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         Card {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingToggleVertical.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -4924,13 +4924,13 @@ private fun SystemSettings(
                     Text(
                         text = stringResource(R.string.settings_regen_depth_grid_label),
                         color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 16.sp,
+                        fontSize = AppConfig.uiFontToggleSize.sp,
                         fontWeight = FontWeight.Medium
                     )
                     Text(
                         text = stringResource(R.string.settings_regen_depth_grid_desc),
                         color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = 13.sp
+                        fontSize = AppConfig.uiFontDescSize.sp
                     )
                 }
                 Spacer(modifier = Modifier.width(16.dp))
@@ -4945,19 +4945,19 @@ private fun SystemSettings(
                     )
                 )
             }
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(AppConfig.uiDividerGap.dp))
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .height(1.dp)
+                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)
+                    .height(AppConfig.uiDividerHeight.dp)
                     .background(ComposeColor(AppConfig.uiSettingsDivider))
             )
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(AppConfig.uiDividerGap.dp))
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingToggleVertical.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -4965,13 +4965,13 @@ private fun SystemSettings(
                     Text(
                         text = stringResource(R.string.settings_regen_isobaths_label),
                         color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 16.sp,
+                        fontSize = AppConfig.uiFontToggleSize.sp,
                         fontWeight = FontWeight.Medium
                     )
                     Text(
                         text = stringResource(R.string.settings_regen_isobaths_desc),
                         color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = 13.sp
+                        fontSize = AppConfig.uiFontDescSize.sp
                     )
                 }
                 Spacer(modifier = Modifier.width(16.dp))
@@ -4986,19 +4986,19 @@ private fun SystemSettings(
                     )
                 )
             }
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(AppConfig.uiDividerGap.dp))
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .height(1.dp)
+                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)
+                    .height(AppConfig.uiDividerHeight.dp)
                     .background(ComposeColor(AppConfig.uiSettingsDivider))
             )
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(AppConfig.uiDividerGap.dp))
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingToggleVertical.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -5006,13 +5006,13 @@ private fun SystemSettings(
                     Text(
                         text = stringResource(R.string.settings_regen_colour_label),
                         color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 16.sp,
+                        fontSize = AppConfig.uiFontToggleSize.sp,
                         fontWeight = FontWeight.Medium
                     )
                     Text(
                         text = stringResource(R.string.settings_regen_colour_desc),
                         color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = 13.sp
+                        fontSize = AppConfig.uiFontDescSize.sp
                     )
                 }
                 Spacer(modifier = Modifier.width(16.dp))
@@ -5027,19 +5027,19 @@ private fun SystemSettings(
                     )
                 )
             }
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(AppConfig.uiDividerGap.dp))
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .height(1.dp)
+                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)
+                    .height(AppConfig.uiDividerHeight.dp)
                     .background(ComposeColor(AppConfig.uiSettingsDivider))
             )
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(AppConfig.uiDividerGap.dp))
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingToggleVertical.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -5047,13 +5047,13 @@ private fun SystemSettings(
                     Text(
                         text = stringResource(R.string.settings_regen_warning_label),
                         color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 16.sp,
+                        fontSize = AppConfig.uiFontToggleSize.sp,
                         fontWeight = FontWeight.Medium
                     )
                     Text(
                         text = stringResource(R.string.settings_regen_warning_desc),
                         color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = 13.sp
+                        fontSize = AppConfig.uiFontDescSize.sp
                     )
                 }
                 Spacer(modifier = Modifier.width(16.dp))
@@ -5069,7 +5069,7 @@ private fun SystemSettings(
                 )
             }
         }
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End
@@ -5086,13 +5086,13 @@ private fun SystemSettings(
                     onDismiss()
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = ComposeColor(AppConfig.uiSettingsAccent)),
-                shape = RoundedCornerShape(12.dp)
+                shape = RoundedCornerShape(AppConfig.uiRadiusCard.dp)
             ) {
                 Text(stringResource(R.string.action_regenerate), color = ComposeColor(AppConfig.uiSettingsTextPrimary))
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
     }
 }
 
@@ -5104,7 +5104,7 @@ private fun SectionHeader(title: String, uppercase: Boolean = true) {
         Text(
             text = if (uppercase) title.uppercase() else title,
             color = ComposeColor(AppConfig.uiSettingsAccent),
-            fontSize = 17.sp,
+            fontSize = AppConfig.uiFontSectionSize.sp,
             fontWeight = FontWeight.Bold,
             letterSpacing = if (uppercase) 1.sp else 0.sp
         )
@@ -5167,9 +5167,9 @@ private fun SettingsToggleRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(AppConfig.uiRadiusCard.dp))
             .background(ComposeColor(AppConfig.uiCardBackground))
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingCardVertical.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -5177,16 +5177,16 @@ private fun SettingsToggleRow(
             Text(
                 text = label,
                 color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                fontSize = 16.sp,
+                fontSize = AppConfig.uiFontToggleSize.sp,
                 fontWeight = FontWeight.Medium
             )
             Text(
                 text = description,
                 color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                fontSize = 13.sp
+                fontSize = AppConfig.uiFontDescSize.sp
             )
         }
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(AppConfig.uiSpacingLabelControl.dp))
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
@@ -5221,20 +5221,20 @@ private fun SliderRowContent(
             Text(
                 text = label,
                 color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                fontSize = 16.sp,
+                fontSize = AppConfig.uiFontToggleSize.sp,
                 fontWeight = FontWeight.Medium
             )
             Text(
                 text = description,
                 color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                fontSize = 13.sp
+                fontSize = AppConfig.uiFontDescSize.sp
             )
         }
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(AppConfig.uiSpacingLabelControl.dp))
         Text(
             text = valueLabel,
             color = ComposeColor(AppConfig.uiSettingsValueText),
-            fontSize = 16.sp,
+            fontSize = AppConfig.uiFontValueSize.sp,
             fontWeight = FontWeight.Bold
         )
     }
@@ -5255,15 +5255,15 @@ private fun SliderRowContent(
 /** Section divider between settings sections. */
 @Composable
 private fun SectionDivider() {
-    Spacer(Modifier.height(6.dp))
+    Spacer(Modifier.height(AppConfig.uiDividerGap.dp))
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .height(1.dp)
+            .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)
+            .height(AppConfig.uiDividerHeight.dp)
             .background(ComposeColor(AppConfig.uiSettingsDivider))
     )
-    Spacer(Modifier.height(6.dp))
+    Spacer(Modifier.height(AppConfig.uiDividerGap.dp))
 }
 
 /** Dimmer sub-heading with an optional one-line description, for grouping settings in a section. */
@@ -5273,7 +5273,7 @@ private fun SubSectionHeader(title: String, description: String? = null) {
         Text(
             text = title,
             color = ComposeColor(AppConfig.uiSettingsTextMuted),
-            fontSize = 16.sp,
+            fontSize = AppConfig.uiFontSubsectionSize.sp,
             fontWeight = FontWeight.SemiBold
         )
         if (description != null) {
@@ -5281,7 +5281,7 @@ private fun SubSectionHeader(title: String, description: String? = null) {
             Text(
                 text = description,
                 color = ComposeColor(AppConfig.uiSettingsTextSecondary),
-                fontSize = 13.sp
+                fontSize = AppConfig.uiFontDescSize.sp
             )
         }
     }
@@ -5293,9 +5293,9 @@ private fun Card(content: @Composable () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(AppConfig.uiRadiusCard.dp))
             .background(ComposeColor(AppConfig.uiCardBackground))
-            .padding(vertical = 8.dp)
+            .padding(vertical = AppConfig.uiPaddingCardVertical.dp)
     ) {
         content()
     }
@@ -5307,10 +5307,10 @@ private fun NestedCard(content: @Composable () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(ComposeColor(0x0DFFFFFF))
-            .border(1.dp, ComposeColor(0x40FFFFFF), RoundedCornerShape(12.dp))
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .clip(RoundedCornerShape(AppConfig.uiRadiusCard.dp))
+            .background(ComposeColor(AppConfig.uiNestedCardBg))
+            .border(1.dp, ComposeColor(AppConfig.uiNestedCardBorder), RoundedCornerShape(AppConfig.uiRadiusCard.dp))
+            .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingContentComfortable.dp)
     ) {
         content()
     }
@@ -5327,7 +5327,7 @@ private fun Expander(
     onToggle: () -> Unit,
     labelStyle: TextStyle = TextStyle(
         color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-        fontSize = 16.sp,
+        fontSize = AppConfig.uiFontToggleSize.sp,
         fontWeight = FontWeight.Medium
     ),
     content: @Composable () -> Unit
@@ -5340,9 +5340,9 @@ private fun Expander(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(AppConfig.uiRadiusExpander.dp))
                 .clickable { onToggle() }
-                .padding(vertical = 6.dp),
+                .padding(vertical = AppConfig.uiPaddingExpanderVertical.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(

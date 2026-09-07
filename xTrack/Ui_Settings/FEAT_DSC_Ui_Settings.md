@@ -2,7 +2,7 @@
 name: Ui_Settings
 status: active
 created: 2026-06-09 15:28
-modified: 2026-09-06 21:13
+modified: 2026-09-07 09:45
 ---
 
 **Description:** Settings page UI, settings persistence (SharedPreferences), settings-related widgets, and settings UX enhancements.
@@ -36,15 +36,6 @@ modified: 2026-09-06 21:13
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` (SettingsOverlay header)
 - `app/src/main/java/ykws/android/maro/ui/components/DrawerScaffold.kt` (DrawerHeader)
 
-### properties-normalization
-
-#### Todos
-- [ ] Rename `ui-tokens.properties` → `ui.properties`, wire into AppConfig loading, re-home misplaced keys (colors/ui/maro separation) — plan: `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_properties-normalization.md`
-
-#### Key Files
-- `app/src/main/assets/ui-tokens.properties` / `colors.properties` / `maro.properties`
-- `app/src/main/java/ykws/android/maro/config/AppConfig.kt`
-
 ### settings apply on close
 
 #### Todos
@@ -61,6 +52,7 @@ modified: 2026-09-06 21:13
 
 ## Implemented
 
+- **properties-normalization (2026-09-07)** — renamed `ui-tokens.properties` → `ui.properties`, wired into `AppConfig.init()` runtime loading (after maro, before colors so colors win) with typed UI-token accessors (spacing/padding/radius/font/touch/divider/nested-card colours); re-homed 6 misplaced keys across colors/ui/maro (colors→ui `ui.dashboard.dullAlpha`; colors→maro coastline+isobar stroke widths; maro→ui `ui.landscape.panel.widthScale`); replaced hardcoded `.dp`/`.sp` in settings composables (shared widgets + 4 page composables) with the loaded tokens; docs aligned (ui-component-guidelines §3/§2.5, color-scheme §7/§9). Deviations: `overlay.lowDepth.minOpacity` absent (nothing re-homed); `ui.font.toggle.size` aligned 14sp→16sp (code-wins). Ask review: build green, non-blocking follow-ups (inline 14sp slider labels, `BoatSizeSlider`, 8 dead tokens) → `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_properties-normalization.md`
 - **drawer-content-measurement (2026-09-06)** — marker detail drawer (portrait) now WRAPS its content at natural height (no scroll): added opt-in `wrapContent` mode to `DrawerScaffold` (visible panel collapses to content; body scrolls only past screen height); marker Viewing slot split from Where-Am-I and converted to wrap-content; deleted the fragile `MeasureHeight` probe + fixed-height formula + `onCardHeightMeasured` plumbing; belongs-to-track color → white; track drawer probe/formula normalized + `suppressOverscrollWhenFits=true` (track kept its probe) → `xTrack/Ui_Settings/260906_FEAT_PLN_Ui_Settings_drawer-content-measurement.md`
 - **marker-belongs-to-track (2026-09-06)** — marker card bottom row shows owning track name + chevron that opens the owning track's detail drawer, in both the marker list card and the marker detail drawer (shared `MarkerCardContent`; drawer's own "Belongs to track" row deleted to avoid double render) → `xTrack/Ui_Settings/260906_FEAT_PLN_Ui_Settings_marker-belongs-to-track.md`
 - **card-expander-nestedcard-refactor (2026-09-06)** — introduced structural composables `Card` (20% white, 12dp radius), `Expander` (collapsible disclosure row), `NestedCard` (5% white + border container on expand), `SectionDivider`; migrated all ~12 expander sites + Main cards to the new model; deprecated/removed `SettingsSliderGroup`/`SettingsSliderRow`; Screen section's 3 standalone controls grouped into one Card with 3 sections → `xTrack/Ui_Settings/260906_FEAT_PLN_Ui_Settings_card-expander-nestedcard-refactor.md`
@@ -89,7 +81,7 @@ modified: 2026-09-06 21:13
 - `xTrack/Ui_Settings/260906_FEAT_PLN_Ui_Settings_card-expander-nestedcard-refactor.md` — Card/Expander/NestedCard structural refactor (implemented)
 - `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_guidelines-consolidation.md` — component/drawer/lists guideline consolidation (implemented)
 - `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_header-normalization.md` — header normalization (pending)
-- `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_properties-normalization.md` — properties normalization (pending)
+- `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_properties-normalization.md` — properties normalization (implemented)
 - `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_tab-navigation-swipe-spacing.md` — disable swipe between tabs + per-page slide spacing (implemented)
 - `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_opacity-normalization.md` — opacity/transparency nomenclature normalization (superseded by transparency paradigm)
 - `xTrack/Ui_Settings/260625_FEAT_PLN_Ui_Settings_render-tweaks.md` — card rendering tweaks discussion
