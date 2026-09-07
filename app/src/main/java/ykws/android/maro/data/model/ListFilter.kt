@@ -1,6 +1,5 @@
 package ykws.android.maro.data.model
 
-import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.MarkerOrigin
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.data.track.TrackSummary
@@ -47,19 +46,13 @@ fun todayMidnightMs(): Long {
     return cal.timeInMillis
 }
 
-/** Milliseconds at start of the current year, UTC. */
-private fun yearStartMs(todayMidnightMs: Long): Long {
-    val cal = Calendar.getInstance()
-    cal.timeInMillis = todayMidnightMs
-    cal.set(Calendar.MONTH, 0)
-    cal.set(Calendar.DAY_OF_MONTH, 1)
-    return cal.timeInMillis
-}
-
 fun dateInRange(startTimeMs: Long, range: String, todayMidnightMs: Long): Boolean = when (range) {
     "LAST_7_DAYS" -> startTimeMs >= todayMidnightMs - 7 * 86_400_000L
+    "LAST_14_DAYS" -> startTimeMs >= todayMidnightMs - 14 * 86_400_000L
     "LAST_30_DAYS" -> startTimeMs >= todayMidnightMs - 30 * 86_400_000L
-    "THIS_YEAR" -> startTimeMs >= yearStartMs(todayMidnightMs)
+    "LAST_2_MONTHS" -> startTimeMs >= todayMidnightMs - 60 * 86_400_000L
+    "LAST_3_MONTHS" -> startTimeMs >= todayMidnightMs - 90 * 86_400_000L
+    "LAST_6_MONTHS" -> startTimeMs >= todayMidnightMs - 180 * 86_400_000L
     else -> true // ALL
 }
 
@@ -88,20 +81,10 @@ fun UserMarker.matchesFilter(f: ListFilter): Boolean =
             "pinned" -> value == "ALL" ||
                 (value == "PINNED" && this.pinned) ||
                 (value == "UNPINNED" && !this.pinned)
-            "geometry" -> value == "ALL" || geometryMatches(this.geometry, value)
-            "origin" -> f.axes["geometry"] in setOf("ZONES", "CIRCLES", "CORRIDORS") ||
-                value == "ALL" || originMatches(this.origin, value)
+            "origin" -> value == "ALL" || originMatches(this.origin, value)
             else -> true
         }
     }
-
-fun geometryMatches(geometry: MarkerGeometry, value: String): Boolean = when (value) {
-    "PINS" -> geometry is MarkerGeometry.Pin
-    "CIRCLES" -> geometry is MarkerGeometry.Circle
-    "CORRIDORS" -> geometry is MarkerGeometry.Corridor
-    "ZONES" -> geometry !is MarkerGeometry.Pin
-    else -> true
-}
 
 fun originMatches(origin: MarkerOrigin, value: String): Boolean = when (value) {
     "MANUAL" -> origin == MarkerOrigin.USER
@@ -137,10 +120,13 @@ fun trackFilterAxes(): List<FilterAxisSpec> = listOf(
         key = "dateRange",
         label = "Date Range",
         options = listOf(
-            FilterOptionSpec("ALL", "All", isDefault = true),
-            FilterOptionSpec("THIS_YEAR", "This Year"),
-            FilterOptionSpec("LAST_30_DAYS", "Last 30 Days"),
-            FilterOptionSpec("LAST_7_DAYS", "Last 7 Days")
+            FilterOptionSpec("LAST_7_DAYS", "Last week"),
+            FilterOptionSpec("LAST_14_DAYS", "Last 2 weeks"),
+            FilterOptionSpec("LAST_30_DAYS", "Last month"),
+            FilterOptionSpec("LAST_2_MONTHS", "Last 2 month"),
+            FilterOptionSpec("LAST_3_MONTHS", "Last 3 month"),
+            FilterOptionSpec("LAST_6_MONTHS", "Last 6 month"),
+            FilterOptionSpec("ALL", "All", isDefault = true)
         )
     ),
     FilterAxisSpec(
@@ -154,7 +140,7 @@ fun trackFilterAxes(): List<FilterAxisSpec> = listOf(
     )
 )
 
-/** Marker filter axes. Origin is disabled when geometry is CIRCLES or CORRIDORS. */
+/** Marker filter axes. */
 fun markerFilterAxes(): List<FilterAxisSpec> = listOf(
     FilterAxisSpec(
         key = "icon",
@@ -175,24 +161,12 @@ fun markerFilterAxes(): List<FilterAxisSpec> = listOf(
         )
     ),
     FilterAxisSpec(
-        key = "geometry",
-        label = "Geometry",
-        options = listOf(
-            FilterOptionSpec("ALL", "All", isDefault = true),
-            FilterOptionSpec("PINS", "Pins"),
-            FilterOptionSpec("CIRCLES", "Circles"),
-            FilterOptionSpec("CORRIDORS", "Corridors")
-        )
-    ),
-    FilterAxisSpec(
         key = "origin",
         label = "Origin",
         options = listOf(
             FilterOptionSpec("ALL", "All", isDefault = true),
             FilterOptionSpec("MANUAL", "Manual"),
             FilterOptionSpec("AUTO", "Auto")
-        ),
-        dependsOn = "geometry",
-        dependsOnValues = listOf("CIRCLES", "CORRIDORS")
+        )
     )
 )

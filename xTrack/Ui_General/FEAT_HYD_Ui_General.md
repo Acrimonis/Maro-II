@@ -1,20 +1,28 @@
 # Hydration: Ui_General
 
-**Session:** List Count Display — filtered item counts surfaced in Track list title + menu drawer rows.
+**Session:** Track Date Range filter extend+reorder — Ask review PASS, baked for commit.
 
-1. **Track list title** — `TrackHistoryOverlay.kt` title → `"Track History \u00B7 N"`, `N` = filtered count
-   excluding the live/recording track (`trackSummaries.count { !it.isLive }`).
-2. **Menu drawer counts** — `MenuDrawerOverlay.kt` new `trackCount`/`markerCount` params (default 0);
-   "Tracks" + "Markers" rows render a muted 14.sp count left of the 40.dp chevron, wrapped in a
-   `Row(verticalAlignment = CenterVertically)`; label stays left via outer `SpaceBetween`.
-3. **Wiring** — `OverlayLayer.kt` MenuDrawerOverlay call site passes
-   `trackCount = trackSummaries.count { !it.isLive }`, `markerCount = markers.size`.
-4. **Build:** SUCCESS (`apk-build.bat`, assembleDebug). Ask review PASS — no deviations, no out-of-scope edits.
-5. **Next:** manual on-device verification pending; then `#commit`.
+1. **Track Date Range filter — extend+reorder** — `ListFilter.kt`: `dateInRange()`
+   windows now 7/14/30/60/90/180 days (`LAST_7_DAYS`…`LAST_6_MONTHS`) with
+   `else -> true` (ALL); the `THIS_YEAR` branch and `yearStartMs()` helper were deleted
+   (`Calendar` import kept — still used by `todayMidnightMs`); `trackFilterAxes()`
+   dateRange options ordered shortest→longest with `All` last and `isDefault=true`.
+   Track History list and the menu drawer consume the same `trackFilterAxes()` spec;
+   `FilterControl` selects default by `isDefault` flag, so All-last is safe. Build
+   SUCCESS; Ask review PASS — matches plan, no deviations.
+2. **Marker filter — Geometry axis removed** — `ListFilter.kt` `markerFilterAxes()`
+   returns icon/pinned/origin only, origin ungated; dead code removed (prior batch).
+3. **List count display** — Track History title "· N" + menu Tracks/Markers counts
+   left of chevron, live excluded; committed as bfd4794 (prior batch).
+
+**Next:** commit + push the Ui_General batch on `feature/list-counts`.
 
 **Target files:**
-- `TrackHistoryOverlay.kt`, `MenuDrawerOverlay.kt`, `OverlayLayer.kt`
+- `data/model/ListFilter.kt` (date-range windows/options; marker filter axes)
 
-**Plan:** `xTrack/Ui_General/260907_FEAT_PLN_Ui_General_list-count-display.md` (status: Implemented)
+**Plans:**
+- `xTrack/Ui_General/260907_FEAT_PLN_Ui_General_track-filter-date-range.md` (status: Implemented)
+- `xTrack/Ui_General/260907_FEAT_PLN_Ui_General_marker-filter-remove-geometry.md` (status: Implemented)
+- `xTrack/Ui_General/260907_FEAT_PLN_Ui_General_list-count-display.md` (status: Implemented)
 
-**Last Bake:** 2026-09-07 15:17 UTC
+**Last Bake:** 2026-09-07 15:37 UTC
