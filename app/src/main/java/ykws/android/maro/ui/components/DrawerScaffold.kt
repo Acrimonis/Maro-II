@@ -1,6 +1,7 @@
 package ykws.android.maro.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -26,7 +27,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
@@ -70,7 +70,7 @@ fun DrawerHeader(
     modifier: Modifier = Modifier,
     actions: @Composable RowScope.() -> Unit = {},
     horizontalPadding: Dp = 24.dp,
-    verticalPadding: Dp = 6.dp,
+    verticalPadding: Dp = AppConfig.uiPaddingHeaderVertical.dp,
 ) {
     Row(
         modifier = modifier
@@ -79,12 +79,16 @@ fun DrawerHeader(
             .padding(horizontal = horizontalPadding, vertical = verticalPadding),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        IconButton(
-            onClick = onClose,
+        // Plain clickable 32dp circle (not IconButton) so the Material3 minimum
+        // interactive-size backing does not overflow the 48dp header row and clip
+        // the button's top edge.
+        Box(
             modifier = Modifier
                 .size(32.dp)
                 .clip(CircleShape)
                 .background(ComposeColor(AppConfig.uiSettingsSwitchTrackInactive))
+                .clickable(onClick = onClose),
+            contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
@@ -147,7 +151,7 @@ fun DrawerScaffold(
     modifier: Modifier = Modifier,
     headerActions: @Composable RowScope.() -> Unit = {},
     headerHorizontalPadding: Dp = 24.dp,
-    headerVerticalPadding: Dp = 6.dp,
+    headerVerticalPadding: Dp = AppConfig.uiPaddingHeaderVertical.dp,
     contentPadding: PaddingValues = PaddingValues(horizontal = 12.dp),
     scrollable: Boolean = true,
     suppressOverscrollWhenFits: Boolean = false,

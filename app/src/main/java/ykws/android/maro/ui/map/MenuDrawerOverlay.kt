@@ -126,8 +126,6 @@ fun MenuDrawerOverlay(
             }
         }
     ) {
-        Spacer(Modifier.height(20.dp))
-
         // ── POSITION SOURCE section ──────────────────────
         Text(
             text = stringResource(R.string.menu_section_position),

@@ -99,6 +99,14 @@ Replaces the invisible `Modifier.shadow()` (black-on-dark has near-zero contrast
 | 6 | MarkerManagement | `MarkerManagementOverlay.kt` | `showMarkerManagement` | `FROM_RIGHT` | `LEFT` | `fillMaxSize` |
 | 7 | Settings | `SettingsOverlay` (in `MapScreen.kt`) | `showSettings` | `FROM_RIGHT` | `LEFT` | `fillMaxSize` |
 
+### Portrait Drawer Height Floor
+
+🔴 **A bottom-anchored drawer is never smaller than the original dashboard.** Its height is
+`maxOf(portraitDashboardHeight, <content height>)` — the dashboard height is a floor, so the drawer either
+matches the dashboard or grows taller to fit its content. It must never render shorter than the dashboard
+(otherwise its top edge would sit lower than the dashboard's top). The portrait Track detail drawer
+([`OverlayLayer.kt`](../app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt)) follows this rule.
+
 ### Scrim Formula
 
 ```kotlin
@@ -185,9 +193,18 @@ All drawer headers share these tokens, canonically implemented in [`DrawerHeader
 | Title font | 17sp, Bold, `uiSettingsTextPrimary` |
 | Back→title spacer | `16dp` |
 | Header horizontal padding | 24dp (menu, track history); 12dp (wizard, marker viewer) |
-| Header vertical padding | 6dp (canonical default); 12dp (wizard); 12dp (marker viewer — 6dp per side) |
+| Header vertical padding | `ui.padding.header.vertical` (6dp canonical default); 12dp (wizard); 12dp (marker viewer — 6dp per side) |
 
 > Use the [`DrawerHeader`](#12-drawerscaffold--fixed-header-scrollable-body) composable — do not hand-roll this `Row`.
+>
+> **Post-header gap (uniform):** the header→first-content gap is the header's own bottom `verticalPadding`
+> (`ui.padding.header.vertical`, 6dp). Drawers add **no extra** spacer/padding after the header — Menu, Marker,
+> Track (landscape + portrait), and Settings all share this single 6dp gap. The `DrawerHeader`/`DrawerScaffold`
+> defaults read the token from `AppConfig.uiPaddingHeaderVertical`.
+>
+> **Settings:** the Settings overlay header uses the shared `DrawerHeader` (17sp title, 32dp back button) with no
+> `actions` slot. Its tab bar + `HorizontalPager` body sits below the header and is not part of `DrawerHeader`.
+> The tab bar follows the header directly (no extra spacer) — the header's 6dp bottom padding provides the gap.
 
 ---
 
@@ -364,12 +381,18 @@ Consumer | File | scrollable | headerActions | hPad | statusBarsInset |
 MarkerDrawer ViewingContent | `MarkerDrawer.kt` | true | edit + delete + icon buttons | 12.dp | false |
 MarkerDrawer MatchResult | `MarkerDrawer.kt` | true | none | 12.dp | false |
 MenuDrawerOverlay | `MenuDrawerOverlay.kt` | true | Settings gear button | 24.dp | true |
+SettingsOverlay | `MapScreen.kt` | n/a (own tab bar + pager body) | none | 24.dp | true |
+
+> **Note:** the Settings row consumes only the standalone `DrawerHeader`, not the full `DrawerScaffold` shell
+> (the other rows are genuine `DrawerScaffold` consumers). Its `statusBarsInset` is applied manually via
+> `.windowInsetsPadding(WindowInsets.statusBars)` on the overlay, not via `DrawerScaffold`'s parameter.
 
 ### Not Migrated
 
-`ListOverlayScaffold`, `WizardDrawer`, and Settings are not migrated — each already has its own
-fixed-header structure (fixed header + section label/sort/filter controls, `WizardTopBar` +
-`WizardButtonRow`, and 24sp title + tab bar + `HorizontalPager` respectively).
+`ListOverlayScaffold` and `WizardDrawer` are not migrated — each already has its own fixed-header structure
+(fixed header + section label/sort/filter controls, and `WizardTopBar` + `WizardButtonRow` respectively).
+Settings uses the shared `DrawerHeader` for its header row but keeps its own tab bar + `HorizontalPager` body
+(not the full `DrawerScaffold` shell).
 
 ### DrawerHeader (standalone)
 

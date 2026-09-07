@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -431,8 +432,8 @@ fun OverlayLayer(
                         onClose = onTrackDrawerClose,
                         statusBarsInset = true,
                         bottomAnchoredContent = true,
-                        contentPadding = PaddingValues(start = 12.dp, top = 6.dp, end = 12.dp),
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp),
+                        contentPadding = PaddingValues(start = 12.dp, end = 12.dp),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(bottomStart = 16.dp),
                         headerActions = {
                             Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                                 IconButton(onClick = { onDeleteTrack(track.id) }, modifier = Modifier.size(36.dp)) {
@@ -501,8 +502,11 @@ fun OverlayLayer(
                 )
             }
             var cardHeight by remember { mutableStateOf(0.dp) }
-            val footerHeight = if (trackListIds.size > 1) 60.dp else 0.dp
-            val targetHeight = maxOf(portraitDashboardHeight, 60.dp + cardHeight + footerHeight + 8.dp)
+            var footerMeasuredHeight by remember { mutableStateOf(0.dp) }
+            // Header is 48dp (DrawerHeader heightIn min) incl. its 6dp bottom padding (post-header gap).
+            // Render-measure-resize: size the drawer to header + card + measured footer so the card sits
+            // right below the header with a ~6dp gap and no leftover scroll.
+            val targetHeight = maxOf(portraitDashboardHeight, 48.dp + cardHeight + footerMeasuredHeight)
             val animatedHeight by animateDpAsState(targetHeight, tween(250))
 
             DrawerSlot(
@@ -520,8 +524,8 @@ fun OverlayLayer(
                         onClose = onTrackDrawerClose,
                         bottomAnchoredContent = true,
                         suppressOverscrollWhenFits = true,
-                        contentPadding = PaddingValues(start = 12.dp, top = 6.dp, end = 12.dp),
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+                        contentPadding = PaddingValues(start = 12.dp, end = 12.dp),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(0.dp),
                         headerActions = {
                             Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                                 IconButton(onClick = { onDeleteTrack(track.id) }, modifier = Modifier.size(36.dp)) {
@@ -571,7 +575,7 @@ fun OverlayLayer(
 
             MeasureHeight(onMeasured = { cardHeight = it }) {
                 if (summary != null) {
-                    Box(Modifier.padding(start = 12.dp, top = 6.dp, end = 12.dp)) {
+                    Box(Modifier.padding(start = 12.dp, end = 12.dp)) {
                         TrackCardContent(
                             summary = summary,
                             dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US),
@@ -581,6 +585,25 @@ fun OverlayLayer(
                             onTap = null,
                             showChevron = false
                         )
+                    }
+                }
+            }
+
+            // Render-measure-resize for the Prev/Next footer (mirrors the real footer structure).
+            // NOTE: MeasureHeight measures only measurables[0], so the footer must be a single Column child.
+            MeasureHeight(onMeasured = { footerMeasuredHeight = it }) {
+                if (trackListIds.size > 1) {
+                    Column {
+                        Spacer(Modifier.height(10.dp))
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Box(Modifier.weight(1f).padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
+                                Text("Previous", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Box(Modifier.weight(1f).padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
+                                Text("Next", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        Spacer(Modifier.height(10.dp))
                     }
                 }
             }

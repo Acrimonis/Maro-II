@@ -503,6 +503,7 @@ object AppConfig {
     var uiPaddingToggleVertical: Float = 2f; private set
     var uiPaddingContentComfortable: Float = 12f; private set
     var uiPaddingExpanderVertical: Float = 6f; private set
+    var uiPaddingHeaderVertical: Float = 6f; private set
 
     // Corner radius (dp)
     var uiRadiusCard: Float = 12f; private set
@@ -892,6 +893,7 @@ object AppConfig {
             uiPaddingToggleVertical = dp("ui.padding.toggle.vertical", uiPaddingToggleVertical)
             uiPaddingContentComfortable = dp("ui.padding.content.comfortable", uiPaddingContentComfortable)
             uiPaddingExpanderVertical = dp("ui.padding.expander.vertical", uiPaddingExpanderVertical)
+            uiPaddingHeaderVertical = dp("ui.padding.header.vertical", uiPaddingHeaderVertical)
 
             // Corner radius
             uiRadiusCard = dp("ui.radius.card", uiRadiusCard)

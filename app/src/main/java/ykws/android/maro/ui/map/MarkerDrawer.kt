@@ -96,8 +96,9 @@ fun MarkerDrawer(
     val drawerState by viewModel.drawerState.collectAsState()
     val isOpen = drawerState !is MarkerDrawerState.Hidden
 
-    val panelShape = if (isLandscape) RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp)
-        else RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+    // Top corners are square (no rounded top edge) per user preference.
+    val panelShape = if (isLandscape) RoundedCornerShape(bottomStart = 16.dp)
+        else RoundedCornerShape(0.dp)
 
     // Back handler when drawer is open — registered before content so the card's
     // edit-revert BackHandler (composed later) wins while editing.
@@ -168,7 +169,7 @@ private fun ViewingContent(
         wrapContent = true,
         statusBarsInset = isLandscape,
         shape = shape,
-        contentPadding = PaddingValues(start = 12.dp, top = 6.dp, end = 12.dp),
+        contentPadding = PaddingValues(start = 12.dp, end = 12.dp),
         headerActions = {
             deleteAction()
         },
@@ -198,8 +199,6 @@ private fun MarkerDetailContent(
     viewModel: MarkersViewModel
 ) {
     if (marker != null) {
-        Spacer(Modifier.height(8.dp))
-
         // Direction + distance (if boatPosition available)
         if (boatPosition != null) {
             val markerPos = when (val g = marker.geometry) {
