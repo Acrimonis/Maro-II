@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -501,10 +502,11 @@ fun OverlayLayer(
                 )
             }
             var cardHeight by remember { mutableStateOf(0.dp) }
-            val footerHeight = if (trackListIds.size > 1) 60.dp else 0.dp
+            var footerMeasuredHeight by remember { mutableStateOf(0.dp) }
             // Header is 48dp (DrawerHeader heightIn min) incl. its 6dp bottom padding (post-header gap).
-            // Size the drawer to header + card + footer so the card sits right below the header with a ~6dp gap.
-            val targetHeight = maxOf(portraitDashboardHeight, 48.dp + cardHeight + footerHeight)
+            // Render-measure-resize: size the drawer to header + card + measured footer so the card sits
+            // right below the header with a ~6dp gap and no leftover scroll.
+            val targetHeight = maxOf(portraitDashboardHeight, 48.dp + cardHeight + footerMeasuredHeight)
             val animatedHeight by animateDpAsState(targetHeight, tween(250))
 
             DrawerSlot(
@@ -583,6 +585,25 @@ fun OverlayLayer(
                             onTap = null,
                             showChevron = false
                         )
+                    }
+                }
+            }
+
+            // Render-measure-resize for the Prev/Next footer (mirrors the real footer structure).
+            // NOTE: MeasureHeight measures only measurables[0], so the footer must be a single Column child.
+            MeasureHeight(onMeasured = { footerMeasuredHeight = it }) {
+                if (trackListIds.size > 1) {
+                    Column {
+                        Spacer(Modifier.height(10.dp))
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Box(Modifier.weight(1f).padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
+                                Text("Previous", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            }
+                            Box(Modifier.weight(1f).padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
+                                Text("Next", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        Spacer(Modifier.height(10.dp))
                     }
                 }
             }
