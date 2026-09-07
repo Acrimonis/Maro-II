@@ -359,7 +359,7 @@ fun TrackHistoryOverlay(
 
     ListOverlayScaffold(
         items = trackSummaries,
-        title = "Track History",
+        title = "Track History \u00B7 ${trackSummaries.count { !it.isLive }}",
         sectionLabel = "RECORDED TRACKS",
         sortState = sortState,
         onSortStateChange = onSortStateChange,

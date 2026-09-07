@@ -298,6 +298,8 @@ fun OverlayLayer(
                 onAutoShowMasterChange = onAutoShowMasterChange,
                 gpsToggleColor = gpsToggleColor,
                 recorderState = trackRecorderState,
+                trackCount = trackSummaries.count { !it.isLive },
+                markerCount = markers.size,
                 onViewTrackList = {
                     onDismissMenu()
                     onOpenTrackHistoryFromMenu()
