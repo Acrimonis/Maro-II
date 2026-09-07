@@ -99,6 +99,14 @@ Replaces the invisible `Modifier.shadow()` (black-on-dark has near-zero contrast
 | 6 | MarkerManagement | `MarkerManagementOverlay.kt` | `showMarkerManagement` | `FROM_RIGHT` | `LEFT` | `fillMaxSize` |
 | 7 | Settings | `SettingsOverlay` (in `MapScreen.kt`) | `showSettings` | `FROM_RIGHT` | `LEFT` | `fillMaxSize` |
 
+### Portrait Drawer Height Floor
+
+🔴 **A bottom-anchored drawer is never smaller than the original dashboard.** Its height is
+`maxOf(portraitDashboardHeight, <content height>)` — the dashboard height is a floor, so the drawer either
+matches the dashboard or grows taller to fit its content. It must never render shorter than the dashboard
+(otherwise its top edge would sit lower than the dashboard's top). The portrait Track detail drawer
+([`OverlayLayer.kt`](../app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt)) follows this rule.
+
 ### Scrim Formula
 
 ```kotlin
