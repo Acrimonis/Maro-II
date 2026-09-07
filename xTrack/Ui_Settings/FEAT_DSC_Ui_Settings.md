@@ -2,7 +2,7 @@
 name: Ui_Settings
 status: active
 created: 2026-06-09 15:28
-modified: 2026-09-07 09:45
+modified: 2026-09-07 14:48
 ---
 
 **Description:** Settings page UI, settings persistence (SharedPreferences), settings-related widgets, and settings UX enhancements.
@@ -11,47 +11,9 @@ modified: 2026-09-07 09:45
 > selectors, anti-patterns) live in [`docs/ui-component-guidelines.md`](../../docs/ui-component-guidelines.md) —
 > this feature file defers to it and does not duplicate those rules. Colour tokens: [`docs/color-scheme.md`](../../docs/color-scheme.md) §7.
 
-## Sections
-
-### render-tweaks
-
-#### Todos
-- [ ] Tweak card rendering in settings overlays per ui-component-guidelines.md
-
-#### Rules
-- Follow canonical patterns in `docs/ui-component-guidelines.md` — grouped cards (§2.3), nested surfaces (§2.4), divider spacing (§2.6)
-- Card background: `uiCardBackground`, 12dp radius
-- Nested card surface: `ui.nested.card.bg` / `ui.nested.card.border`
-- No anti-patterns (§4)
-
-#### Key Files
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
-
-### header-normalization
-
-#### Todos
-- [ ] Migrate the Settings header to the shared `DrawerHeader` composable (32dp back, 17sp title) — plan: `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_header-normalization.md`
-
-#### Key Files
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` (SettingsOverlay header)
-- `app/src/main/java/ykws/android/maro/ui/components/DrawerScaffold.kt` (DrawerHeader)
-
-### settings apply on close
-
-#### Todos
-- [ ] Defer side effects of settings changes until the settings overlay is dismissed — batch-apply on close instead of firing on each toggle/slider change
-
-#### Rules
-- Individual settings widgets update local UI state immediately, but side effects (regeneration, GPS restart, etc.) fire only on dismiss
-- Regenerate rasters button excluded — it already triggers explicitly, not on close
-- Exceptions: `gpsMode` toggle may need immediate effect (GPS start/stop is safety-critical); `languageCode` may need immediate effect for string rendering
-
-#### Key Files
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
-- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt`
-
 ## Implemented
 
+- **finalise-feature (2026-09-07)** — closed all remaining open sections. `render-tweaks` closed as already-implemented (its June 25 proposals — `ui.padding.card.vertical=8dp` + card background standardization to `uiCardBackground` — were delivered by the card-expander-nestedcard-refactor + properties-normalization); `header-normalization` closed as implemented & merged (PR #217, shared `DrawerHeader`); `settings apply on close` closed as out-of-scope/not-needed (settings keep firing immediately). Guideline docs (ui-component-guidelines + ui-drawer-guidelines) verified in sync with code — no drift found.
 - **properties-normalization (2026-09-07)** — renamed `ui-tokens.properties` → `ui.properties`, wired into `AppConfig.init()` runtime loading (after maro, before colors so colors win) with typed UI-token accessors (spacing/padding/radius/font/touch/divider/nested-card colours); re-homed 6 misplaced keys across colors/ui/maro (colors→ui `ui.dashboard.dullAlpha`; colors→maro coastline+isobar stroke widths; maro→ui `ui.landscape.panel.widthScale`); replaced hardcoded `.dp`/`.sp` in settings composables (shared widgets + 4 page composables) with the loaded tokens; docs aligned (ui-component-guidelines §3/§2.5, color-scheme §7/§9). Deviations: `overlay.lowDepth.minOpacity` absent (nothing re-homed); `ui.font.toggle.size` aligned 14sp→16sp (code-wins). Ask review: build green, non-blocking follow-ups (inline 14sp slider labels, `BoatSizeSlider`, 8 dead tokens) → `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_properties-normalization.md`
 - **drawer-content-measurement (2026-09-06)** — marker detail drawer (portrait) now WRAPS its content at natural height (no scroll): added opt-in `wrapContent` mode to `DrawerScaffold` (visible panel collapses to content; body scrolls only past screen height); marker Viewing slot split from Where-Am-I and converted to wrap-content; deleted the fragile `MeasureHeight` probe + fixed-height formula + `onCardHeightMeasured` plumbing; belongs-to-track color → white; track drawer probe/formula normalized + `suppressOverscrollWhenFits=true` (track kept its probe) → `xTrack/Ui_Settings/260906_FEAT_PLN_Ui_Settings_drawer-content-measurement.md`
 - **marker-belongs-to-track (2026-09-06)** — marker card bottom row shows owning track name + chevron that opens the owning track's detail drawer, in both the marker list card and the marker detail drawer (shared `MarkerCardContent`; drawer's own "Belongs to track" row deleted to avoid double render) → `xTrack/Ui_Settings/260906_FEAT_PLN_Ui_Settings_marker-belongs-to-track.md`
@@ -80,7 +42,7 @@ modified: 2026-09-07 09:45
 - `xTrack/Ui_Settings/260906_FEAT_PLN_Ui_Settings_drawer-content-measurement.md` — marker/track drawer content-fit normalization (implemented)
 - `xTrack/Ui_Settings/260906_FEAT_PLN_Ui_Settings_card-expander-nestedcard-refactor.md` — Card/Expander/NestedCard structural refactor (implemented)
 - `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_guidelines-consolidation.md` — component/drawer/lists guideline consolidation (implemented)
-- `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_header-normalization.md` — header normalization (pending)
+- `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_header-normalization.md` — header normalization (implemented, PR #217)
 - `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_properties-normalization.md` — properties normalization (implemented)
 - `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_tab-navigation-swipe-spacing.md` — disable swipe between tabs + per-page slide spacing (implemented)
 - `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_opacity-normalization.md` — opacity/transparency nomenclature normalization (superseded by transparency paradigm)
