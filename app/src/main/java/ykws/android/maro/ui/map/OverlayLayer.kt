@@ -431,8 +431,8 @@ fun OverlayLayer(
                         onClose = onTrackDrawerClose,
                         statusBarsInset = true,
                         bottomAnchoredContent = true,
-                        contentPadding = PaddingValues(start = 12.dp, top = 6.dp, end = 12.dp),
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp),
+                        contentPadding = PaddingValues(start = 12.dp, end = 12.dp),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(bottomStart = 16.dp),
                         headerActions = {
                             Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                                 IconButton(onClick = { onDeleteTrack(track.id) }, modifier = Modifier.size(36.dp)) {
@@ -502,7 +502,9 @@ fun OverlayLayer(
             }
             var cardHeight by remember { mutableStateOf(0.dp) }
             val footerHeight = if (trackListIds.size > 1) 60.dp else 0.dp
-            val targetHeight = maxOf(portraitDashboardHeight, 60.dp + cardHeight + footerHeight + 8.dp)
+            // Header is 48dp (DrawerHeader heightIn min) incl. its 6dp bottom padding (post-header gap).
+            // Size the drawer to header + card + footer so the card sits right below the header with a ~6dp gap.
+            val targetHeight = maxOf(portraitDashboardHeight, 48.dp + cardHeight + footerHeight)
             val animatedHeight by animateDpAsState(targetHeight, tween(250))
 
             DrawerSlot(
@@ -520,8 +522,8 @@ fun OverlayLayer(
                         onClose = onTrackDrawerClose,
                         bottomAnchoredContent = true,
                         suppressOverscrollWhenFits = true,
-                        contentPadding = PaddingValues(start = 12.dp, top = 6.dp, end = 12.dp),
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+                        contentPadding = PaddingValues(start = 12.dp, end = 12.dp),
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(0.dp),
                         headerActions = {
                             Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                                 IconButton(onClick = { onDeleteTrack(track.id) }, modifier = Modifier.size(36.dp)) {
@@ -571,7 +573,7 @@ fun OverlayLayer(
 
             MeasureHeight(onMeasured = { cardHeight = it }) {
                 if (summary != null) {
-                    Box(Modifier.padding(start = 12.dp, top = 6.dp, end = 12.dp)) {
+                    Box(Modifier.padding(start = 12.dp, end = 12.dp)) {
                         TrackCardContent(
                             summary = summary,
                             dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US),

@@ -66,10 +66,8 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
@@ -194,6 +192,7 @@ import ykws.android.maro.data.model.markers.MarkerOrigin
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.data.markers.UserMarkerRepository
 import ykws.android.maro.ui.components.ConfirmSheet
+import ykws.android.maro.ui.components.DrawerHeader
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.spatial.DebugSegment
 import ykws.android.maro.spatial.MarkerMatcher
@@ -3317,41 +3316,10 @@ internal fun SettingsOverlay(
                 .padding(vertical = 3.dp)
         ) {
             // ── Header row: title + close (back) button ───────────────────
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Button(
-                        onClick = onDismiss,
-                        modifier = Modifier.size(48.dp),
-                        shape = CircleShape,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                        ),
-                        contentPadding = PaddingValues(0.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.settings_back),
-                            tint = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Text(
-                        text = stringResource(R.string.settings_title),
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
+            DrawerHeader(
+                title = stringResource(R.string.settings_title),
+                onClose = onDismiss,
+            )
 
             // ── Tab bar (manual Row + indicator instead of TabRow) ─────────
             val tabColor = ComposeColor(AppConfig.uiSettingsAccent)
