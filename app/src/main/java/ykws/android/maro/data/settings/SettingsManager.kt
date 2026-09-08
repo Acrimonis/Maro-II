@@ -163,6 +163,9 @@ data class AppSettings(
     /** Halo size % (0-100) — scales the halo ring radius relative to its anchor
      *  (dot or icon). Default 50 = medium. */
     val markerHaloSize: Int = 50,
+    /** Marker point/icon rendering zoom % (50-150). 100 = current size. Scales the
+     *  rendered dot radius and icon glyph; the halo ring follows via the same factor. */
+    val markerPointIconZoom: Int = 100,
     /** Pinned halo colour (opaque ARGB) drawn as a static ring behind each confirmed
      *  pinned marker's centre dot/icon. */
     val markerHaloPinnedColor: Int = 0xFFFFFFFF.toInt(),
@@ -422,6 +425,7 @@ class SettingsManager(
         } catch (_: Exception) { ykws.android.maro.ui.map.MarkerLayerState.SHOW_ALL },
         markerZonesVisible = prefs.getBoolean(KEY_MARKER_ZONES_VISIBLE, true),
         markerHaloSize = prefs.getInt(KEY_MARKER_HALO_SIZE, 50),
+        markerPointIconZoom = prefs.getInt(KEY_MARKER_POINT_ICON_ZOOM, 100),
         markerHaloPinnedColor = prefs.getInt(KEY_MARKER_HALO_PINNED_COLOR, 0xFFFFFFFF.toInt()),
         markerHaloUnpinnedColor = prefs.getInt(KEY_MARKER_HALO_UNPINNED_COLOR, 0xFF81D4FA.toInt()),
         markerHaloPinnedFillTransparencyPct = prefs.getInt(KEY_MARKER_HALO_PINNED_FILL_TRANSPARENCY_PCT, 75),
@@ -546,6 +550,7 @@ class SettingsManager(
             .putString(KEY_MARKER_LAYER_STATE, updated.markerLayerState.name)
             .putBoolean(KEY_MARKER_ZONES_VISIBLE, updated.markerZonesVisible)
             .putInt(KEY_MARKER_HALO_SIZE, updated.markerHaloSize)
+            .putInt(KEY_MARKER_POINT_ICON_ZOOM, updated.markerPointIconZoom)
             .putInt(KEY_MARKER_HALO_PINNED_COLOR, updated.markerHaloPinnedColor)
             .putInt(KEY_MARKER_HALO_UNPINNED_COLOR, updated.markerHaloUnpinnedColor)
             .putInt(KEY_MARKER_HALO_PINNED_FILL_TRANSPARENCY_PCT, updated.markerHaloPinnedFillTransparencyPct)
@@ -663,6 +668,7 @@ class SettingsManager(
         private const val KEY_MARKER_LAYER_STATE = "marker_layer_state"
         private const val KEY_MARKER_ZONES_VISIBLE = "marker_zones_visible"
         private const val KEY_MARKER_HALO_SIZE = "marker_halo_size"
+        private const val KEY_MARKER_POINT_ICON_ZOOM = "marker_point_icon_zoom"
         private const val KEY_MARKER_HALO_PINNED_COLOR = "marker_halo_pinned_color"
         private const val KEY_MARKER_HALO_UNPINNED_COLOR = "marker_halo_unpinned_color"
         private const val KEY_MARKER_HALO_PINNED_FILL_TRANSPARENCY_PCT = "marker_halo_pinned_fill_transparency_pct"

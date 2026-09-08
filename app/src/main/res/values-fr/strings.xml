@@ -71,14 +71,14 @@
     <string name="settings_regen_warning_desc">Reconstruire l\'alerte magenta des hauts-fonds</string>
     <string name="settings_coastline_label">Trait de côte</string>
     <string name="settings_coastline_desc">Afficher la ligne de côte sur la carte</string>
-    <string name="settings_zone300_label">Bande des 300 m</string>
+    <string name="settings_zone300_label">Zone des 300 m</string>
     <string name="settings_zone300_desc">Régler la couleur et la transparence de la bande côtière des 300 m</string>
     <string name="settings_zone300_color_label">Couleur de la zone</string>
     <string name="settings_zone300_color_desc">Couleur du remplissage et du contour de la bande des 300 m</string>
     <string name="settings_zone300_opacity_label">Transparence</string>
     <string name="settings_zone300_opacity_desc">Transparence du contenu et du contour de la zone (0% = opaque, 100% = invisible)</string>
     <string name="settings_zone300_opacity_value_fmt">Contour %1$d%% · Remplissage %2$d%%</string>
-    <string name="settings_zone300_appearance_label">Apparence de la zone</string>
+    <string name="settings_zone300_appearance_label">Apparence de la zone des 300 m</string>
     <string name="settings_auto_markers_label">Gestion de la création automatique des repères</string>
     <string name="settings_regulated_zones_label">Zones réglementées</string>
     <string name="settings_regulated_zones_desc">Afficher les zones réglementées (vitesse, mouillage, etc.) sur la carte</string>
@@ -257,7 +257,7 @@
     <string name="menu_manage_tracks">Traces</string>
     <string name="menu_import_export">Export / Import</string>
     <string name="menu_show_zones">Afficher les zones</string>
-    <string name="menu_show_tracks_direction">Afficher la direction</string>
+    <string name="menu_show_tracks_direction">Afficher dir &amp; vitesse</string>
     <string name="menu_manage_markers">Repères</string>
     <string name="track_status_recording">● Enregistrement</string>
     <string name="track_status_idle">● En attente</string>
@@ -324,6 +324,8 @@
     <string name="settings_marker_dedup_radius_label">Rayon de déduplication</string>
     <string name="settings_marker_dedup_radius_desc">Ignorer un nouveau repère près d\'un repère existant. Appliqué au prochain enregistrement.</string>
     <string name="settings_marker_rendering_label">Rendu des repères</string>
+    <string name="settings_marker_zoom_label">Zoom de rendu point/icône</string>
+    <string name="settings_marker_zoom_desc">Taille de rendu des points et icônes des repères. 100% = taille actuelle</string>
     <string name="settings_marker_halo_size_label">Taille du halo</string>
     <string name="settings_marker_halo_size_desc">Taille de l\'anneau autour de chaque repère</string>
     <string name="settings_marker_halo_transparency_label">Transparence</string>
@@ -391,6 +393,7 @@
     <string name="action_clear_icon_all">Effacer l\'icône</string>
     <string name="action_icon">Icône</string>
     <string name="confirm_delete_tracks">Supprimer les traces sélectionnées?</string>
+    <string name="confirm_delete_markers">Supprimer les repères sélectionnés?</string>
     <string name="confirm_batch_delete_title">Supprimer</string>
 
     <!-- Misc -->

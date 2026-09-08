@@ -20,24 +20,28 @@ object MarkerHalo {
     /** Radius of the emoji-icon anchor in px (larger than the dot). */
     const val ICON_ANCHOR_RADIUS_PX = 30f
 
-    /** Absolute halo ring radius in px at size % = 0 (1× dot size). */
+    /** Halo ring radius in px at size % = 0 and zoom 100 % (1× dot size). */
     private const val MIN_RADIUS_PX = 18f
 
-    /** Absolute halo ring radius in px at size % = 100 (2× icon size). */
+    /** Halo ring radius in px at size % = 100 and zoom 100 % (2× icon size). */
     private const val MAX_RADIUS_PX = 60f
 
     /** Border ring stroke width in px. */
     private const val BORDER_STROKE_PX = 4f
 
     /**
-     * Map a halo size % (0-100) to an absolute halo ring radius in px.
+     * Map a halo size % (0-100) to a halo ring radius in px.
      *
-     * The radius is absolute — 18px at size 0 → 60px at size 100 — and is applied
-     * uniformly to both dot and icon anchors (NOT proportional to the anchor).
+     * The radius at marker zoom 100 % is absolute — 18px at size 0 → 60px at
+     * size 100 — applied uniformly to both dot and icon anchors (NOT proportional
+     * to the anchor). The marker "point/icon rendering zoom" scales the whole
+     * marker (dot/icon), so by rule of three the ring scales by the same factor
+     * ([zoomPct]/100) — at zoom 100 % the rendering is identical to today.
      */
-    fun radiusPxFor(sizePct: Int): Float {
+    fun radiusPxFor(sizePct: Int, zoomPct: Int = 100): Float {
         val t = sizePct.coerceIn(0, 100) / 100f
-        return MIN_RADIUS_PX + (MAX_RADIUS_PX - MIN_RADIUS_PX) * t
+        val radiusAtZoom100 = MIN_RADIUS_PX + (MAX_RADIUS_PX - MIN_RADIUS_PX) * t
+        return radiusAtZoom100 * zoomPct.coerceIn(50, 150) / 100f
     }
 
     /**
@@ -49,6 +53,8 @@ object MarkerHalo {
      * so the halo is drawn behind the anchor.
      *
      * @param sizePct     Halo size % (0-100) controlling the ring radius.
+     * @param zoomPct     Marker point/icon rendering zoom % (50-150). Scales the ring
+     *                    with the marker (rule of three); 100 = today's size.
      * @param dimFraction Optional fade factor (0..1) applied when the marker is a
      *                    search non-match so the halo fades together with the marker.
      */
@@ -56,9 +62,10 @@ object MarkerHalo {
         spec: MarkerHaloSpec,
         anchorRadiusPx: Float,
         sizePct: Int,
+        zoomPct: Int = 100,
         dimFraction: Float = 1f
     ): Bitmap {
-        val haloRadius = radiusPxFor(sizePct)
+        val haloRadius = radiusPxFor(sizePct, zoomPct)
         val size = (haloRadius * 2 + BORDER_STROKE_PX * 2 + 4).toInt()
         val center = size / 2f
 

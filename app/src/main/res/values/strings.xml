@@ -72,14 +72,14 @@
     <string name="settings_regen_warning_desc">Rebuild the shallow-water magenta hazard overlay</string>
     <string name="settings_coastline_label">Coastline</string>
     <string name="settings_coastline_desc">Show the coastline on the map</string>
-    <string name="settings_zone300_label">300 m band</string>
+    <string name="settings_zone300_label">300m Zone</string>
     <string name="settings_zone300_desc">Tune the colour and transparency of the 300 m coastal band</string>
     <string name="settings_zone300_color_label">Zone color</string>
     <string name="settings_zone300_color_desc">Fill and boundary color of the 300 m band</string>
     <string name="settings_zone300_opacity_label">Transparency</string>
     <string name="settings_zone300_opacity_desc">Zone content and border transparency (0% = opaque, 100% = invisible)</string>
     <string name="settings_zone300_opacity_value_fmt">Border %1$d%% · Fill %2$d%%</string>
-    <string name="settings_zone300_appearance_label">Zone appearance</string>
+    <string name="settings_zone300_appearance_label">300m Zone Appearance</string>
     <string name="settings_auto_markers_label">Marker Auto Creation management</string>
     <string name="settings_regulated_zones_label">Regulated zones</string>
     <string name="settings_regulated_zones_desc">Show regulated zones (speed limits, anchoring, etc.) on the map</string>
@@ -257,8 +257,8 @@
     <string name="menu_section_markers">MARKERS</string>
     <string name="menu_manage_tracks">Tracks</string>
     <string name="menu_import_export">Export / Import</string>
-    <string name="menu_show_zones">Show Zones on Map</string>
-    <string name="menu_show_tracks_direction">Show track direction</string>
+    <string name="menu_show_zones">Show Zones</string>
+    <string name="menu_show_tracks_direction">Show Dir &amp; Speed</string>
     <string name="menu_manage_markers">Markers</string>
     <string name="track_status_recording">● Recording</string>
     <string name="track_status_idle">● Idle</string>
@@ -325,6 +325,8 @@
     <string name="settings_marker_dedup_radius_label">Dedup radius</string>
     <string name="settings_marker_dedup_radius_desc">Skip a new marker near an existing one. Applied when the next recording starts.</string>
     <string name="settings_marker_rendering_label">Marker rendering</string>
+    <string name="settings_marker_zoom_label">Point/icon rendering zoom</string>
+    <string name="settings_marker_zoom_desc">Render size of marker points and icons. 100% = current size</string>
     <string name="settings_marker_halo_size_label">Halo size</string>
     <string name="settings_marker_halo_size_desc">Size of the halo ring around each marker</string>
     <string name="settings_marker_halo_transparency_label">Transparency</string>
