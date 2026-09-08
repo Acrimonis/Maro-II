@@ -1,10 +1,22 @@
 # Hydration: Navigation
 
-**State:** Active — cap subfeature complete. Cap arrow and direction line fix applied.
+**State:** Active — auto-show validation baked (2026-09-08), feature/auto-show-zones committed + pushed.
 
-**Session summary:** Fixed the cap arrow and direction line rendering bug — both were drawing at `bearingDeg` screen angle while the heading-up map rotation already aligned heading with screen-up. Removed `bearingDeg` from rendering math: arrow now always draws straight up from boat tip (speed-dependent length), direction line draws straight up from center to top edge. `bearingDeg` retained only for `cameraUpdates` → `mapOrientation = -bearingDeg` (map rotation). Build green.
+**Session summary:** Validated demo-mode auto-show of regulated zones + 300 m band (reported: demo
+does not reveal though Settings on). Instrumented build (`AutoShow` tag) + on-device logcat proved
+**no code defect**: `autoShowMasterOverride` (drawer "Auto-show zones" master switch) was OFF →
+`globalEnabled=false` → auto-show suppressed in both modes. GPS "working" was the layers being
+visible, not auto-show. Demo speed/cone/data were healthy. Legacy auto-show knowledge consolidated
+into `FEAT_DOC_Navigation_auto-show.md`; ZoneTile legacy plan stubbed; Ui_Settings stays settings
+owner. Stale code comments corrected (demoBearingDeg never set; demo heading always 0° north;
+two-finger rotate writes bearingDeg for map orientation only). LOGCAT WORKFLOW rule added to
+AGENTS.md + GLOBAL_CONTEXT.
 
-**Target files:**
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — CenterMarkerOverlay arrow + DirectionLine composable, ~6 lines changed
+**Target files (branch):**
+- `xTrack/Navigation/*` — auto-show docs (new FEAT_DOC, plan, DSC section, hydration)
+- `app/src/main/java/ykws/android/maro/ui/map/NavigationViewModel.kt` — comment/KDoc corrections only
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — comment corrections only
 
-**Next step:** On-device visual verification of cap arrow and direction line.
+**Outcome:** no functional change required; user enables the drawer master switch to use auto-show.
+
+**Previous session:** Cap arrow + direction line fix complete (bearingDeg removed from render math).

@@ -76,8 +76,9 @@ data class CameraTarget(val position: LatLng, val bearingDeg: Float)
  * @property bearingDeg       GPS/compass heading (degrees, 0-360). Used for map orientation in GPS mode.
  * @property speedKnots       GPS speed over ground (knots).
  * @property demoSpeedKnots   Demo-mode pan speed (knots), null when map is stationary.
- * @property demoBearingDeg   Demo-mode pan direction (degrees, 0-360), null when map is stationary.
- *                            Separate from [bearingDeg] so demo panning doesn't rotate the map.
+ * @property demoBearingDeg   Never set (reserved). Demo nav heading stays 0° (north): panning
+ *                            derives speed only; two-finger rotation (demoHeadingUp) writes
+ *                            [bearingDeg] for map orientation, not this field.
  */
 data class NavigationState(
     val bearingDeg: Float = 0f,
