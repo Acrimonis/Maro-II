@@ -157,6 +157,7 @@ fun DrawerScaffold(
     suppressOverscrollWhenFits: Boolean = false,
     bottomAnchoredContent: Boolean = false,
     wrapContent: Boolean = false,
+    wrapContentMinHeight: Dp = 0.dp,
     statusBarsInset: Boolean = false,
     shape: Shape = RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp),
     footer: @Composable ColumnScope.() -> Unit = {},
@@ -195,7 +196,7 @@ fun DrawerScaffold(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .wrapContentHeight()
+                        .heightIn(min = wrapContentMinHeight)
                         .align(Alignment.BottomCenter)
                         .background(ComposeColor(AppConfig.uiSettingsBackground), shape)
                 ) {

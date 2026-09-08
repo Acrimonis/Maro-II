@@ -104,8 +104,23 @@ Replaces the invisible `Modifier.shadow()` (black-on-dark has near-zero contrast
 🔴 **A bottom-anchored drawer is never smaller than the original dashboard.** Its height is
 `maxOf(portraitDashboardHeight, <content height>)` — the dashboard height is a floor, so the drawer either
 matches the dashboard or grows taller to fit its content. It must never render shorter than the dashboard
-(otherwise its top edge would sit lower than the dashboard's top). The portrait Track detail drawer
-([`OverlayLayer.kt`](../app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt)) follows this rule.
+(otherwise its top edge would sit lower than the dashboard's top).
+
+- The portrait Track detail drawer ([`OverlayLayer.kt`](../app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt))
+  follows this rule via `maxOf(portraitDashboardHeight, …)`.
+- The portrait marker detail drawer ([`MarkerDrawer.kt`](../app/src/main/java/ykws/android/maro/ui/map/MarkerDrawer.kt))
+  follows it via the wrap-content floor: `ViewingContent` passes
+  `wrapContentMinHeight = portraitDashboardHeight` to [`DrawerScaffold`](../app/src/main/java/ykws/android/maro/ui/components/DrawerScaffold.kt),
+  which floors the wrap Column with `heightIn(min = …)` (do NOT add `wrapContentHeight()` — it
+  overrides the incoming minimum, letting content win over the floor; verified on-device 2026-09-08).
+- Marker `Viewing` wrap-content is **portrait-only** (`wrapContent = !isLandscape`).
+
+### Landscape Full-Column Coverage
+
+🔴 **A left-anchored item drawer (marker / track / wizard) must cover the whole original landscape
+dashboard column** — `align(CenterStart)` + `landscapeDashboardWidth` + `fillMaxHeight()`, filled
+top-to-bottom. Wrap-content is portrait-only; in landscape the drawer uses the non-wrap full-height
+branch so the top of the column is never left uncovered by a shorter content panel.
 
 ### Scrim Formula
 
