@@ -56,6 +56,9 @@
 
 - **🔴 Context: Assume . (the project root folder) represents Maro_II_b. Do not attempt to read Maro_II_b as a file.
 
+- **🪲 DEVICE LOGCAT WORKFLOW: If a debug session needs on-device logcat evidence, do NOT capture it unprompted.
+  ASK the user to deploy the build and perform the operation, then WAIT — fetch the logcat only once the user tells you to (the user drives the device; the agent pulls the evidence on command).
+
 - **📋 TASK COMPLETION:** If the tool output already answered the request, emit only `"Done."` — do not re-describe what was already displayed. Summarize only when multi-step changes, code modifications, or non-obvious decisions occurred. IF the task involved multi-step changes → emit:
   1. Bullet list of what changed (files touched, logic altered, config).
   2. ELIJP explanation (ELIJP = "Explain Like I'm a Junior Programmer") — one or

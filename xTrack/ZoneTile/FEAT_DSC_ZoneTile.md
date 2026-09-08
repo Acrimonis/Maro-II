@@ -45,8 +45,8 @@ Zone information tiles and map overlay rendering — zone-ahead cone/line, zone 
 - `xTrack/ZoneTile/260614_FEAT_PLN_ZoneTile_speed-zones-side-zone-display.md` — Speed zones side zone display design
 - `xTrack/ZoneTile/260614_FEAT_PLN_ZoneTile_state-normalization.md` — Zone tile state normalization
 - `xTrack/ZoneTile/260614_FEAT_PLN_ZoneTile_zones-around-boat-unified.md` — Zones around boat unified
-- `xTrack/ZoneTile/260617_FEAT_PLN_ZoneTile_speed-enforcement-zone-auto-show-plan.md` — Speed enforcement zone auto show plan
-- `xTrack/ZoneTile/260617_FEAT_PLN_ZoneTile_zone300-auto-show-stutter-fix.md` — Zone 300 auto show stutter fix
+- `xTrack/ZoneTile/260617_FEAT_PLN_ZoneTile_speed-enforcement-zone-auto-show-plan.md` — Speed enforcement zone auto show plan (CONSOLIDATED → `xTrack/Navigation/FEAT_DOC_Navigation_auto-show.md`; stub retained)
+- `xTrack/ZoneTile/260617_FEAT_PLN_ZoneTile_zone300-auto-show-stutter-fix.md` — Zone 300 auto show stutter fix (overlay-render scope; auto-show context → `xTrack/Navigation/FEAT_DOC_Navigation_auto-show.md`)
 - `xTrack/ZoneTile/260708_FEAT_PLN_ZoneTile_zones-alerts-nested-zone-distance-tile.md` — Zones alerts nested zone distance tile
 
 ## Implemented

@@ -597,8 +597,9 @@ fun MapScreen(
     var pendingGpsModeToggle by remember { mutableStateOf<Boolean?>(null) }
     // Effective heading for the zone-ahead cone:
     // GPS mode → GPS bearing (COG/compass, boat faces direction of travel)
-    // Demo mode → 0° = north (boat marker always points up/top of map).
-    //             When panning actively, demoBearingDeg tracks pan direction.
+    // Demo mode → 0° = north. demoBearingDeg is never set; panning derives speed only.
+    //             demoHeadingUp + two-finger rotation only rotate the map (bearingDeg);
+    //             they do not feed the nav heading used by the auto-show cone.
     val effectiveHeadingDeg = if (appSettings.gpsMode) navigationState.bearingDeg.toDouble()
         else navigationState.demoBearingDeg?.toDouble() ?: 0.0
 
@@ -803,9 +804,10 @@ fun MapScreen(
         }
     }
 
-    // ── Demo heading-up: apply pan-derived bearing to map orientation ─────────
-    // When demoHeadingUp is enabled (and we're in demo mode), the bearing is
-    // computed from the pan direction in NavigationViewModel.computeDemoSpeed().
+    // ── Demo heading-up: apply two-finger rotation bearing to map orientation ─
+    // When demoHeadingUp is enabled (and we're in demo mode), the bearing comes
+    // from the two-finger rotation gesture via NavigationViewModel.setDemoBearing()
+    // (NOT from panning — computeDemoSpeed() derives speed only).
     // Watch navigationState.bearingDeg and apply it to the MapView directly.
     // This effect runs separately from the GPS auto-follow effect above.
     LaunchedEffect(appSettings.demoHeadingUp, appSettings.gpsMode, mapView) {
