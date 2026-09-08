@@ -56,6 +56,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ykws.android.maro.R
@@ -91,7 +92,8 @@ fun MarkerDrawer(
     boatPosition: LatLng? = null,
     onRequestDelete: (String, String) -> Unit = { _, _ -> },
     trackTitleLookup: (String) -> String? = { null },
-    onOpenMarkerTrack: (String) -> Unit = {}
+    onOpenMarkerTrack: (String) -> Unit = {},
+    minPanelHeight: Dp = 0.dp
 ) {
     val drawerState by viewModel.drawerState.collectAsState()
     val isOpen = drawerState !is MarkerDrawerState.Hidden
@@ -107,7 +109,7 @@ fun MarkerDrawer(
     }
 
     when (drawerState) {
-        is MarkerDrawerState.Viewing -> ViewingContent(viewModel, onClose, boatPosition, panelShape, onRequestDelete, isLandscape, trackTitleLookup, onOpenMarkerTrack)
+        is MarkerDrawerState.Viewing -> ViewingContent(viewModel, onClose, boatPosition, panelShape, onRequestDelete, isLandscape, trackTitleLookup, onOpenMarkerTrack, minPanelHeight)
         is MarkerDrawerState.MatchResult -> MatchResultContent(viewModel, onClose, boatPosition, panelShape, isLandscape)
         else -> { /* Creating/Editing handled by WizardDrawer */ }
     }
@@ -126,7 +128,8 @@ private fun ViewingContent(
     onRequestDelete: (String, String) -> Unit = { _, _ -> },
     isLandscape: Boolean,
     trackTitleLookup: (String) -> String? = { null },
-    onOpenMarkerTrack: (String) -> Unit = {}
+    onOpenMarkerTrack: (String) -> Unit = {},
+    minPanelHeight: Dp = 0.dp
 ) {
     val markers by viewModel.markers.collectAsState()
     val selectedIds by viewModel.selectedMarkerIds.collectAsState()
@@ -166,7 +169,14 @@ private fun ViewingContent(
         headerHorizontalPadding = 12.dp,
         scrollable = true,
         suppressOverscrollWhenFits = true,
-        wrapContent = true,
+        // Wrap-content only in portrait (bottom panel floors at minPanelHeight so it never
+        // shrinks below the dashboard). Landscape uses the non-wrap full-height branch so the
+        // drawer covers the entire left dashboard column (top-to-bottom).
+        wrapContent = !isLandscape,
+        wrapContentMinHeight = if (isLandscape) 0.dp else minPanelHeight,
+        // Landscape (non-wrap): bottom-align the card above the prev/next footer, mirroring the
+        // track drawer. Ignored in portrait wrap mode (whole panel is already bottom-aligned).
+        bottomAnchoredContent = true,
         statusBarsInset = isLandscape,
         shape = shape,
         contentPadding = PaddingValues(start = 12.dp, end = 12.dp),

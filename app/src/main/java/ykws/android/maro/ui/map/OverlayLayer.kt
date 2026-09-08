@@ -372,7 +372,10 @@ fun OverlayLayer(
                     boatPosition = boatPosition,
                     onRequestDelete = onRequestMarkerDelete,
                     trackTitleLookup = trackTitleLookup,
-                    onOpenMarkerTrack = { id -> onMarkerDrawerClose(); onOpenMarkerTrack(id) }
+                    onOpenMarkerTrack = { id -> onMarkerDrawerClose(); onOpenMarkerTrack(id) },
+                    // Portrait marker detail drawer must never be smaller than the original
+                    // dashboard — its wrap-content panel floors at portraitDashboardHeight.
+                    minPanelHeight = portraitDashboardHeight
                 )
             }
 
