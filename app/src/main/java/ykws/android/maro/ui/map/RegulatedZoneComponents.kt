@@ -311,18 +311,17 @@ fun RegulatedZoneCategoryToggles(
     settings: AppSettings,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit
 ) {
+    // No self-drawn container here: this composable renders directly inside the
+    // NestedCard opened by its parent Expander (ui-component-guidelines §2.4 —
+    // max Card → Expander → NestedCard → controls; no card within a card).
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(ComposeColor(0x0DFFFFFF))
-            .border(1.dp, ComposeColor(0x40FFFFFF), RoundedCornerShape(12.dp))
+        modifier = Modifier.fillMaxWidth()
     ) {
         categoryToggleItems.forEachIndexed { index, item ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp),
+                    .padding(vertical = 2.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {

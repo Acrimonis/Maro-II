@@ -107,6 +107,9 @@ private const val CORRIDOR_UNDERLINE_HALO_ADD = 6f
  * @param selectedMarkerId       The currently selected/viewed marker id (single driver for gold + force-zones).
  * @param markerLayerState       Marker layer visibility state.
  * @param markerHaloSize         Halo size % (0-100) scaling the ring radius.
+ * @param markerPointIconZoom    Marker point/icon rendering zoom % (50-150); 100 = current
+ *                               size. Scales the rendered dot radius, the icon glyph and the
+ *                               halo ring by the same factor (rule of three).
  * @param markerHaloPinnedColor / Unpinned color — per-state halo colours.
  * @param markerHaloPinnedFillTransparencyPct / Border / Unpinned fill / Border — halo transparency pairs.
  */
@@ -123,6 +126,7 @@ fun MarkerOverlay(
     selectedMarkerId: String? = null,
     markerLayerState: MarkerLayerState = MarkerLayerState.SHOW_ALL,
     markerHaloSize: Int = 50,
+    markerPointIconZoom: Int = 100,
     markerHaloPinnedColor: Int = 0xFFFFFFFF.toInt(),
     markerHaloUnpinnedColor: Int = 0xFF81D4FA.toInt(),
     markerHaloPinnedFillTransparencyPct: Int = 75,
@@ -152,11 +156,14 @@ fun MarkerOverlay(
 
     DisposableEffect(
         markers, unconfirmedMarker, mv, matchResult, selectedMarkerId, markerZonesVisible,
-        markerHaloSize, markerHaloPinnedColor, markerHaloUnpinnedColor,
+        markerHaloSize, markerPointIconZoom, markerHaloPinnedColor, markerHaloUnpinnedColor,
         markerHaloPinnedFillTransparencyPct, markerHaloPinnedBorderTransparencyPct,
         markerHaloUnpinnedFillTransparencyPct, markerHaloUnpinnedBorderTransparencyPct
     ) {
         Log.d("MaroMapRefresh", "MarkerOverlay DisposableEffect restart: markers=${markers.size} mv=${mv.hashCode()} zonesVisible=$markerZonesVisible")
+        // Marker point/icon rendering zoom % (50-150, 100 = current). Uniform scale applied
+        // to the dot radius, the icon glyph and the halo ring (rule of three).
+        val zoomFactor = markerPointIconZoom.coerceIn(50, 150) / 100f
         // ── Remove old marker overlays, then add new ones ─────────────────────
         removeAllMarkerOverlays()
 
@@ -170,7 +177,7 @@ fun MarkerOverlay(
             markers.sortedBy { it.pinned }
         }
 
-        val dotBitmap = createDotBitmap(COLOR_CONFIRMED)
+        val dotBitmap = createDotBitmap(COLOR_CONFIRMED, radiusMultiplier = zoomFactor)
 
         for (marker in allMarkers) {
             val confirmed = marker.confirmed
@@ -221,7 +228,8 @@ fun MarkerOverlay(
                             confirmed = confirmed, onMarkerTap = onMarkerTap,
                             isSelected = isSelected, haloSpec = haloSpec,
                             haloSizePct = markerHaloSize,
-                            haloDimFraction = haloDimFraction)
+                            haloDimFraction = haloDimFraction,
+                            markerPointIconZoom = markerPointIconZoom)
                     }
 
                     // Proximity range preview (fill + stroke)
@@ -256,14 +264,16 @@ fun MarkerOverlay(
                             confirmed = confirmed, onMarkerTap = onMarkerTap, skipDots = skipDots,
                             isSelected = isSelected, haloSpec = haloSpec,
                             haloSizePct = markerHaloSize,
-                            haloDimFraction = haloDimFraction)
+                            haloDimFraction = haloDimFraction,
+                            markerPointIconZoom = markerPointIconZoom)
                     } else if (drawGeometry && !skipDots) {
                         // Center dot only
                         addPinOverlay(mv, MarkerGeometry.Pin(geom.center), marker.id, baseColor, dotBitmap,
                             confirmed = confirmed, onMarkerTap = onMarkerTap,
                             isSelected = isSelected, haloSpec = haloSpec,
                             haloSizePct = markerHaloSize,
-                            haloDimFraction = haloDimFraction)
+                            haloDimFraction = haloDimFraction,
+                            markerPointIconZoom = markerPointIconZoom)
                     }
 
                     // Proximity range preview (fill + stroke) — drawn from zone boundary outward
@@ -308,12 +318,14 @@ fun MarkerOverlay(
                             confirmed = confirmed, onMarkerTap = onMarkerTap,
                             isSelected = isSelected, haloSpec = haloSpec,
                             haloSizePct = markerHaloSize,
-                            haloDimFraction = haloDimFraction)
+                            haloDimFraction = haloDimFraction,
+                            markerPointIconZoom = markerPointIconZoom)
                         addPinOverlay(mv, MarkerGeometry.Pin(geom.p2), "${marker.id}_p2", baseColor, dotBitmap,
                             confirmed = confirmed, onMarkerTap = onMarkerTap,
                             isSelected = isSelected, haloSpec = haloSpec,
                             haloSizePct = markerHaloSize,
-                            haloDimFraction = haloDimFraction)
+                            haloDimFraction = haloDimFraction,
+                            markerPointIconZoom = markerPointIconZoom)
                     }
 
                     // Proximity range preview (fill + stroke) — drawn from zone boundary outward
@@ -390,17 +402,20 @@ fun MarkerOverlay(
                 // Halo ring behind the icon (sized to the larger icon anchor).
                 if (haloSpec != null) {
                     addHaloOverlay(mv, geo, haloSpec, MarkerHalo.ICON_ANCHOR_RADIUS_PX,
-                        markerHaloSize, haloDimFraction, marker.id, "icon")
+                        markerHaloSize, haloDimFraction, marker.id, "icon", markerPointIconZoom)
                 }
                 val iconMarker = Marker(mv).apply {
                     position = geo
                     setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
                     title = "${OVERLAY_PREFIX}icon_${marker.id}_${pos.latitude}_${pos.longitude}"
-                    val bitmap = android.graphics.Bitmap.createBitmap(64, 64, android.graphics.Bitmap.Config.ARGB_8888)
+                    // Icon bitmap and glyph scale with the marker zoom (100 % = 64px / 48f glyph).
+                    val iconSizePx = (64 * zoomFactor).roundToInt().coerceAtLeast(8)
+                    val iconCenter = iconSizePx / 2f
+                    val bitmap = android.graphics.Bitmap.createBitmap(iconSizePx, iconSizePx, android.graphics.Bitmap.Config.ARGB_8888)
                     val canvas = android.graphics.Canvas(bitmap)
                     val paint = android.graphics.Paint().apply {
                         color = MarkerColors.of(marker.colorIndex)
-                        textSize = 48f
+                        textSize = 48f * zoomFactor
                         textAlign = android.graphics.Paint.Align.CENTER
                         isAntiAlias = true
                     }
@@ -408,13 +423,13 @@ fun MarkerOverlay(
                     if (marker.origin == ykws.android.maro.data.model.markers.MarkerOrigin.IDLE_AUTO) {
                         paint.alpha = 255 * (100 - ykws.android.maro.config.AppConfig.boatMarkerIdleTransparencyPct) / 100
                     }
-                    // Center the glyph vertically on the 64px bitmap center (y=32).
-                    // drawText's y is the text BASELINE, not the glyph center, so measure the
-                    // glyph bounds and shift the baseline so the glyph's visual center == 32.
+                    // Center the glyph vertically on the bitmap center. drawText's y is the text
+                    // BASELINE, not the glyph center, so measure the glyph bounds and shift the
+                    // baseline so the glyph's visual center == iconCenter.
                     val bounds = android.graphics.Rect()
                     paint.getTextBounds(iconText, 0, iconText.length, bounds)
-                    val baseline = 32f - (bounds.top + bounds.bottom) / 2f
-                    canvas.drawText(iconText, 32f, baseline, paint)
+                    val baseline = iconCenter - (bounds.top + bounds.bottom) / 2f
+                    canvas.drawText(iconText, iconCenter, baseline, paint)
                     icon = android.graphics.drawable.BitmapDrawable(mv.context.resources, bitmap)
                     setOnMarkerClickListener { _, _ -> true }
                 }
@@ -471,9 +486,10 @@ private fun addHaloOverlay(
     sizePct: Int,
     dimFraction: Float,
     markerId: String,
-    suffix: String
+    suffix: String,
+    zoomPct: Int = 100
 ) {
-    val bitmap = MarkerHalo.createBitmap(haloSpec, anchorRadiusPx, sizePct, dimFraction)
+    val bitmap = MarkerHalo.createBitmap(haloSpec, anchorRadiusPx, sizePct, zoomPct, dimFraction)
     mv.overlays.add(Marker(mv).apply {
         position = geo
         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
@@ -496,18 +512,21 @@ private fun addPinOverlay(
     isSelected: Boolean = false,
     haloSpec: MarkerHaloSpec? = null,
     haloSizePct: Int = 50,
-    haloDimFraction: Float = 1f
+    haloDimFraction: Float = 1f,
+    markerPointIconZoom: Int = 100
 ) {
     val geo = GeoPoint(geom.position.latitude, geom.position.longitude)
+    // Marker point/icon rendering zoom as a factor (50-150 %, 100 = current).
+    val markerZoom = markerPointIconZoom.coerceIn(50, 150) / 100f
 
     // Halo ring behind the dot (sized to the dot anchor)
     if (haloSpec != null) {
-        addHaloOverlay(mv, geo, haloSpec, MarkerHalo.DOT_ANCHOR_RADIUS_PX, haloSizePct, haloDimFraction, markerId, "dot")
+        addHaloOverlay(mv, geo, haloSpec, MarkerHalo.DOT_ANCHOR_RADIUS_PX, haloSizePct, haloDimFraction, markerId, "dot", markerPointIconZoom)
     }
 
     // Dark under-stroke dot for selected markers (rendered before gold dot)
     if (isSelected) {
-        val underDot = createDotBitmap(COLOR_HIGHLIGHT_UNDER, radiusMultiplier = 1.5f)
+        val underDot = createDotBitmap(COLOR_HIGHLIGHT_UNDER, radiusMultiplier = 1.5f * markerZoom)
         mv.overlays.add(Marker(mv).apply {
             position = geo
             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
@@ -520,7 +539,7 @@ private fun addPinOverlay(
     val marker = Marker(mv).apply {
         position = geo
         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-        icon = BitmapDrawable(mv.context.resources, if (color == COLOR_CONFIRMED) dotBitmap else createDotBitmap(color))
+        icon = BitmapDrawable(mv.context.resources, if (color == COLOR_CONFIRMED) dotBitmap else createDotBitmap(color, radiusMultiplier = markerZoom))
         title = "${OVERLAY_PREFIX}pin_$markerId"
         if (confirmed) {
             setOnMarkerClickListener { _, _ ->
@@ -546,7 +565,8 @@ private fun addCircleOverlay(
     isSelected: Boolean = false,
     haloSpec: MarkerHaloSpec? = null,
     haloSizePct: Int = 50,
-    haloDimFraction: Float = 1f
+    haloDimFraction: Float = 1f,
+    markerPointIconZoom: Int = 100
 ) {
     // Fill: subtle transparent background
     val fillColor = dimColor(color, ZONE_FILL_ALPHA_FRACTION)
@@ -578,7 +598,8 @@ private fun addCircleOverlay(
             confirmed = confirmed, onMarkerTap = onMarkerTap,
             isSelected = isSelected, haloSpec = haloSpec,
             haloSizePct = haloSizePct,
-            haloDimFraction = haloDimFraction)
+            haloDimFraction = haloDimFraction,
+            markerPointIconZoom = markerPointIconZoom)
     }
 }
 

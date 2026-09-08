@@ -118,6 +118,14 @@ Card {
 - Any control — toggles, one-knob sliders, two-knob `RangeSlider`s, text, swatches — may sit inside the NestedCard.
 - **Forbidden:** a card inside the NestedCard (a third level), or using a full `uiCardBackground` card as the NestedCard.
 
+**Single colour section (`SingleColorSubSection`):** a NestedCard group holding **exactly one** colour control keeps a
+`SubSectionHeader`-style title on its own line, and the **description line carries the 24dp colour swatch on its
+trailing edge** (tappable → colour picker). If a single-colour section has no description, the swatch sits on the
+title line's trailing edge instead. Never a standalone swatch row, and never an empty-label `ColorSwatchRow` (an
+empty-label row wastes a full-width line for a tiny square). `SubSectionHeader` + labeled `ColorSwatchRow` rows are
+reserved for **multi-colour** groups under one heading (e.g. Marker halo `Colors` → Pinned / Not pinned). E.g. the
+300 m band "Zone color" is a `SingleColorSubSection`.
+
 **Expander state:** open state lives in `SettingsViewModel.expanderStates` — a `mutableStateMapOf<String, Boolean>` keyed by a stable per-expander id. Shared across the four tabs and preserved across rotation and settings reopen for the whole app session; cleared when the app exits, so every expander is collapsed on fresh launch. Never use local `remember`/`rememberSaveable` state for an expander.
 
 All expander content uses the **same `NestedCard` surface** — a single uniform container for every control type:

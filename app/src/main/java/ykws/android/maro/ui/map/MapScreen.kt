@@ -2119,6 +2119,7 @@ fun MapScreen(
                     selectedMarkerId = selectedMarkerId,
                     markerLayerState = markerLayerState,
                     markerHaloSize = appSettings.markerHaloSize,
+                    markerPointIconZoom = appSettings.markerPointIconZoom,
                     markerHaloPinnedColor = appSettings.markerHaloPinnedColor,
                     markerHaloUnpinnedColor = appSettings.markerHaloUnpinnedColor,
                     markerHaloPinnedFillTransparencyPct = appSettings.markerHaloPinnedFillTransparencyPct,
@@ -3750,6 +3751,20 @@ private fun LayersSettings(
                 ) {
                     Spacer(modifier = Modifier.height(8.dp))
                     NestedCard {
+                        // Point/icon rendering zoom (50-150 %, 100 = current size)
+                        SliderRowContent(
+                            label = stringResource(R.string.settings_marker_zoom_label),
+                            description = stringResource(R.string.settings_marker_zoom_desc),
+                            valueLabel = "%d%%".format(settings.markerPointIconZoom),
+                            value = settings.markerPointIconZoom.toFloat(),
+                            valueRange = 50f..150f,
+                            steps = 19,
+                            onValueChange = { v ->
+                                onUpdateSettings { it.copy(markerPointIconZoom = v.roundToInt().coerceIn(50, 150)) }
+                            }
+                        )
+                        SectionDivider()
+
                         // Halo size
                         SliderRowContent(
                             label = stringResource(R.string.settings_marker_halo_size_label),
@@ -4008,54 +4023,56 @@ private fun LayersSettings(
                 ) {
                     Spacer(modifier = Modifier.height(8.dp))
                     NestedCard {
-                        ColorSwatchRow(
-                            label = stringResource(R.string.settings_zone300_color_label),
-                            color = settings.zone300Color,
-                            onColorSelected = { c -> onUpdateSettings { it.copy(zone300Color = c) } },
-                            showPickLabel = false
+                        SubSectionHeader(
+                            title = stringResource(R.string.settings_zone300_opacity_label),
+                            description = stringResource(R.string.settings_zone300_opacity_desc)
+                        )
+                        // Transparency: 0 = opaque, 100 = invisible. The boundary is strong
+                        // (low transparency) so it sits on the left thumb; the faint fill has
+                        // high transparency so it sits on the right thumb.
+                        var transparencyDrag by remember {
+                            mutableStateOf(settings.zone300BoundaryTransparencyPct.toFloat()..settings.zone300FillTransparencyPct.toFloat())
+                        }
+                        Text(
+                            text = stringResource(
+                                R.string.settings_zone300_opacity_value_fmt,
+                                (transparencyDrag.start / 5f).roundToInt() * 5,
+                                (transparencyDrag.endInclusive / 5f).roundToInt() * 5
+                            ),
+                            color = ComposeColor(AppConfig.uiSettingsValueText),
+                            fontSize = AppConfig.uiFontRangeSize.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.End,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        RangeSlider(
+                            value = transparencyDrag,
+                            onValueChange = { range -> transparencyDrag = range },
+                            valueRange = 0f..100f,
+                            steps = 19,
+                            onValueChangeFinished = {
+                                onUpdateSettings {
+                                    it.copy(
+                                        zone300BoundaryTransparencyPct = (transparencyDrag.start / 5f).roundToInt() * 5,
+                                        zone300FillTransparencyPct = (transparencyDrag.endInclusive / 5f).roundToInt() * 5
+                                    )
+                                }
+                            },
+                            colors = SliderDefaults.colors(
+                                thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                                activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
+                                inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                            )
                         )
                         SectionDivider()
-                    SubSectionHeader(
-                        title = stringResource(R.string.settings_zone300_opacity_label),
-                        description = stringResource(R.string.settings_zone300_opacity_desc)
-                    )
-                    // Transparency: 0 = opaque, 100 = invisible. The boundary is strong
-                    // (low transparency) so it sits on the left thumb; the faint fill has
-                    // high transparency so it sits on the right thumb.
-                    var transparencyDrag by remember {
-                        mutableStateOf(settings.zone300BoundaryTransparencyPct.toFloat()..settings.zone300FillTransparencyPct.toFloat())
-                    }
-                    Text(
-                        text = stringResource(
-                            R.string.settings_zone300_opacity_value_fmt,
-                            (transparencyDrag.start / 5f).roundToInt() * 5,
-                            (transparencyDrag.endInclusive / 5f).roundToInt() * 5
-                        ),
-                        color = ComposeColor(AppConfig.uiSettingsValueText),
-                        fontSize = AppConfig.uiFontRangeSize.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.End,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    RangeSlider(
-                        value = transparencyDrag,
-                        onValueChange = { range -> transparencyDrag = range },
-                        valueRange = 0f..100f,
-                        steps = 19,
-                        onValueChangeFinished = {
-                            onUpdateSettings {
-                                it.copy(
-                                    zone300BoundaryTransparencyPct = (transparencyDrag.start / 5f).roundToInt() * 5,
-                                    zone300FillTransparencyPct = (transparencyDrag.endInclusive / 5f).roundToInt() * 5
-                                )
-                            }
-                        },
-                        colors = SliderDefaults.colors(
-                            thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                            activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
-                            inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                        // Single colour control → SingleColorSubSection: the SubSectionHeader title
+                        // row carries the 24dp swatch; description sits below (ui-component-guidelines §2.4).
+                        SingleColorSubSection(
+                            title = stringResource(R.string.settings_zone300_color_label),
+                            description = stringResource(R.string.settings_zone300_color_desc),
+                            color = settings.zone300Color,
+                            onColorSelected = { c -> onUpdateSettings { it.copy(zone300Color = c) } }
                         )
-                    )
                     }
                 }
             }
@@ -5253,6 +5270,85 @@ private fun SubSectionHeader(title: String, description: String? = null) {
             )
         }
     }
+}
+
+/**
+ * A sub-section that groups a SINGLE colour control: the title (SubSectionHeader typography) sits on its
+ * own line and the description line carries the 24dp tappable colour swatch on its trailing edge. When no
+ * description is given the swatch falls back to the trailing edge of the title line — never a standalone
+ * colour row. Used when a NestedCard group holds exactly one colour (e.g. 300 m band "Zone color").
+ * Multi-colour groups keep [SubSectionHeader] + labeled [ColorSwatchRow] rows instead.
+ */
+@Composable
+private fun SingleColorSubSection(
+    title: String,
+    description: String? = null,
+    color: Int,
+    onColorSelected: (Int) -> Unit
+) {
+    var showPicker by remember { mutableStateOf(false) }
+    val openPicker = { showPicker = true }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        if (description == null) {
+            // No description → the swatch shares the title line (still no standalone row).
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = title,
+                    color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                    fontSize = AppConfig.uiFontSubsectionSize.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f)
+                )
+                ColorSwatchButton(color = color, onClick = openPicker)
+            }
+        } else {
+            Text(
+                text = title,
+                color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                fontSize = AppConfig.uiFontSubsectionSize.sp,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            // Description line carries the colour swatch on its trailing edge.
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = description,
+                    color = ComposeColor(AppConfig.uiSettingsTextSecondary),
+                    fontSize = AppConfig.uiFontDescSize.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                ColorSwatchButton(color = color, onClick = openPicker)
+            }
+        }
+    }
+    if (showPicker) {
+        ColorPickerDialog(
+            currentColor = color,
+            onColorSelected = { c -> onColorSelected(c); showPicker = false },
+            onDismiss = { showPicker = false }
+        )
+    }
+}
+
+/** 24dp rounded colour swatch button that opens the colour picker via [onClick]. */
+@Composable
+private fun ColorSwatchButton(color: Int, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(24.dp)
+            .clip(RoundedCornerShape(4.dp))
+            .background(ComposeColor(color))
+            .clickable(onClick = onClick)
+            .border(1.dp, ComposeColor(AppConfig.uiSettingsDivider), RoundedCornerShape(6.dp))
+    )
 }
 
 /** Main card surface — 20% white `uiCardBackground`, 12dp radius. Holds a section's description, expanders, and/or standalone controls. */
