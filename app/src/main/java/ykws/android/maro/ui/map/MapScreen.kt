@@ -245,20 +245,20 @@ private data class TrackDrawerState(
 )
 
 /** Held while the user decides how to import a single GPX that matches an existing track. */
-private data class PendingTrackImport(
+internal data class PendingTrackImport(
     val bytes: ByteArray,
     val extension: String,
     val matchName: String
 )
 
 /** Transient import feedback: result counts or a hard failure. */
-private sealed interface ImportBannerState {
+internal sealed interface ImportBannerState {
     data class Result(val imported: Int, val ignored: Int) : ImportBannerState
     data object Failed : ImportBannerState
 }
 
 /** Snackbar entry for the vertical stack — track/marker deletes + marker-created undo. */
-private sealed class ActiveSnack(val id: String, val name: String) {
+internal sealed class ActiveSnack(val id: String, val name: String) {
     val uid: Int = nextUid()
 
     private companion object {
@@ -277,7 +277,7 @@ private sealed class ActiveSnack(val id: String, val name: String) {
 }
 
 @Composable
-private fun SnackRow(
+internal fun SnackRow(
     message: String,
     snackKey: Int,
     onUndo: () -> Unit,
@@ -1797,34 +1797,15 @@ fun MapScreen(
             enqueueSnack(ActiveSnack.CreateUndo(id, savedMarker?.name ?: "Unknown"))
         }
 
-        // ── Vertical snackbar stack at the bottom of the map area ────────
-        Box(modifier = Modifier.fillMaxSize()) {
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(
-                        bottom = if (isLandscape) 0.dp else portraitDashboardHeight,
-                        start = if (isLandscape) landscapeDashboardWidth else 0.dp
-                    )
-                    .padding(start = 12.dp, end = RIGHT_CONTROL_COLUMN_INSET),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                activeSnacks.forEach { snack ->
-                    androidx.compose.runtime.key(snack.uid) {
-                        SnackRow(
-                            message = when (snack) {
-                                is ActiveSnack.TrackDelete -> "Track '${snack.name}' deleted"
-                                is ActiveSnack.MarkerDelete -> "Marker '${snack.name}' deleted"
-                                is ActiveSnack.CreateUndo -> "Marker \"${snack.name}\" created"
-                            },
-                            snackKey = snack.uid,
-                            onUndo = { onSnackUndo(snack) },
-                            onTimeout = { onSnackTimeout(snack) }
-                        )
-                    }
-                }
-            }
-        }
+        // ── Vertical snackbar stack at the bottom of the map area (render in MapSnackbarHost) ──
+        MapSnackbarHost(
+            activeSnacks = activeSnacks,
+            isLandscape = isLandscape,
+            portraitDashboardHeight = portraitDashboardHeight,
+            landscapeDashboardWidth = landscapeDashboardWidth,
+            onUndo = { onSnackUndo(it) },
+            onTimeout = { onSnackTimeout(it) }
+        )
 
         // ── Windowed sheets + dialogs (exit/stop, recovery, permission, source-switch, battery) ──
         MapDialogHost(
@@ -1885,34 +1866,16 @@ fun MapScreen(
             closeBatteryOptDialog = { showBatteryOptDialog = false }
         )
 
-        // ── Single-GPX import conflict sheet (Duplicate / Override / Cancel) ──
-        pendingTrackImport?.let { pending ->
-            fun runImport(mode: ImportMode) {
-                pendingTrackImport = null
-                trackOpStatus = context.getString(R.string.importing_tracks)
-                trackScope.launch(Dispatchers.IO) {
-                    try {
-                        val result = trackViewModel.importTracks(pending.bytes, pending.extension, mode)
-                        withContext(Dispatchers.Main) {
-                            trackOpStatus = null
-                            showImportBanner(ImportBannerState.Result(result.imported, result.ignored))
-                        }
-                    } catch (_: Exception) {
-                        withContext(Dispatchers.Main) {
-                            trackOpStatus = null
-                            showImportBanner(ImportBannerState.Failed)
-                        }
-                    }
-                }
-            }
-            ImportConflictSheet(
-                matchName = pending.matchName,
-                onDuplicate = { runImport(ImportMode.IMPORT_NEW) },
-                onOverride = { runImport(ImportMode.UPDATE_EXISTING) },
-                onCancel = { pendingTrackImport = null },
-                onDismiss = { pendingTrackImport = null }
-            )
-        }
+        // ── Single-GPX import conflict sheet (Duplicate / Override / Cancel) — host in MapImportConflictHost ──
+        MapImportConflictHost(
+            pendingTrackImport = pendingTrackImport,
+            context = context,
+            trackViewModel = trackViewModel,
+            trackScope = trackScope,
+            clearPending = { pendingTrackImport = null },
+            setTrackOpStatus = { trackOpStatus = it },
+            showImportBanner = { b -> showImportBanner(b) }
+        )
 
 
         // ── Screen lock: full-screen input scrim + top-most unlock button ──
@@ -2573,7 +2536,7 @@ internal fun RecordingExitSheet(
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun ImportConflictSheet(
+internal fun ImportConflictSheet(
     matchName: String,
     onDuplicate: () -> Unit,
     onOverride: () -> Unit,
