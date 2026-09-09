@@ -1,6 +1,7 @@
 # Global Context — Routing Table
 
 ## Focus History
+- [2026-09-08 17:18 UTC] Ui_Menu — hamburger menu drawer; focus on feature/menu-render-upt → xTrack/Ui_Menu/FEAT_HYD_Ui_Menu.md
 - [2026-09-08 16:49 UTC] Navigation — auto-show-zones baked + committed + pushed: demo-mode auto-show validated via instrumented logcat → no code defect (drawer "Auto-show zones" master override was off); auto-show knowledge consolidated in FEAT_DOC_Navigation_auto-show.md; stale demo-heading comments fixed → xTrack/Navigation/FEAT_HYD_Navigation.md
 - [2026-09-07 15:36 UTC] Ui_General — track-filter-date-range implemented (Track Date Range filter extended+reordered to 7 options Last week→Last 6 month with All last + default, THIS_YEAR dropped); Ask review PASS; build SUCCESS → xTrack/Ui_General/FEAT_HYD_Ui_General.md
 - [2026-09-07 15:28 UTC] Ui_General — marker-filter-remove-geometry implemented via #implement (Geometry axis dropped from markers filter; icon/pinned/origin remain, origin ungated; dead code+import removed); Ask review PASS; build SUCCESS → xTrack/Ui_General/FEAT_HYD_Ui_General.md
@@ -76,7 +77,7 @@
 | **CheckDev** | **Dev-branch health monitoring — remote branch state, ahead/behind analysis, workflow hygiene validation** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
 | **Health** | **Application health monitoring — diagnostics, crash reporting, memory/performance telemetry** | **2026-06-20 11:42** | **2026-06-20 11:42** | **active** |
 | **Markers** | **User-defined map markers (Pin, Circle, Corridor) with sea-distance-gated proximity matching, percentage-based sort scoring, and on-demand "where am I?" query — icon/pin decoupling implemented (icon pure POI, pin real persisted flag mirroring tracks); pin-halo-rendering implemented (static halo ring pinned white/unpinned light-blue, corridor always-on line + under-line halo, selected-marker gold via selectedMarkerId, focus zoom-to-fit, MarkerAppearance/MarkerHalo split)** | **2026-06-22 11:52** | **2026-09-05 10:42** | **active** |
-| **Ui_Menu** | **Hamburger menu drawer — position source, track recording, marker management sections; right-side sliding panel via OverlayLayer/DrawerSlot; track/marker action normalization (shared list/detail card, double-click inline edit, chevron tappable gutter, delete = swipe/header-trash)** | **2026-07-05 06:57** | **2026-09-04 22:36** | **active** |
+| **Ui_Menu** | **Hamburger menu drawer — position source, track recording, marker management sections; right-side sliding panel via OverlayLayer/DrawerSlot; track/marker action normalization (shared list/detail card, double-click inline edit, chevron tappable gutter, delete = swipe/header-trash); menu-render-upt (Settings-theme normalization) planned** | **2026-07-05 06:57** | **2026-09-09 06:52** | **active** |
 
 ## Global Rules
 - Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).
