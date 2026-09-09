@@ -1,32 +1,31 @@
 # Hydration: Ui_General
 
-**Session:** Filters-link — List/Map filter referential decoupling. Design locked + Ask review
-passed; partial foundation on `feature/filters-link` (checkpoint commit b4693df).
+**Session:** Filters-link — List/Map filter referential decoupling. IMPLEMENTED and committed on
+`feature/filters-link` (Ask reviewed, builds SUCCESS).
 
-1. **Filters-link decoupling (open, partial)** — decouple the List filter referential from the Map
-   filter referential behind a per-type link toggle (joined = shared/linked default, broken =
-   independent). Full design and implementation steps in the plan file.
-   - Done: `SettingsManager` Option B — prefs versioning removed; new `trackMapFilter`,
-     `markerMapFilter`, `trackFilterLinked`, `markerFilterLinked` keys with defaults Map = All and
-     link = ON; idempotent defunct-key cleanup; load/persist.
-   - Done: `MarkersViewModel` — `DrawerSource.MAP` (clamps at edges), reactive `mapMarkers` stream
-     over `allMarkers`, drawer lookups read `allMarkers`.
-   - Done: icons `Link`/`LinkOff` (+ icon renames AddLocationAlt/LocationOn, FanIconComponents).
-   - Not implemented (next pass): OverlayLayer menu→Map / list→List filter split + link toggles;
-     MapScreen map-filter render over unfiltered `allTrackSummaries` + reveal-on-select + menu map
-     counters + map-tap `DrawerSource.MAP`; MenuDrawer Link/LinkOff toggle UI; track delete-advance
-     per world. Then build + Ask review.
+## State
+- **Filters-link decoupling — Implemented.** Two filter referentials per type (List and Map), linked by
+  default, with a Link/LinkOff toggle in the menu. The menu filter drives the Map referential; the list
+  headers drive the List referential; linked edits write both, unlinked writes only its own, re-link from
+  the menu converges list to map. Map rendering applies the Map filter over the unfiltered track set;
+  marker map overlay uses the map-filtered world; reveal-on-select force-draws a from-list item while its
+  panel is open; map-tapped markers open from the map world (`DrawerSource.MAP`, clamp nav); menu counters
+  reflect map items to be rendered; whereAmI overrides the map filter.
+- Settings use Option B: prefs versioning removed; `trackMapFilter`/`markerMapFilter`/
+  `trackFilterLinked`/`markerFilterLinked` keys default (Map = All, link = ON); defunct legacy keys
+  cleaned idempotently.
+- MapScreen code health step 1 done under Ui_Settings: Settings overlay subtree extracted to
+  `MapScreenSettingsOverlay.kt` (MapScreen 5841 → 3417 lines).
 
-**Next:** finish remaining wiring on `feature/filters-link`, build via `apk-build.bat`, run Ask review.
+## Commits (feature/filters-link)
+b4693df foundation · 123b8b2 bake · b71a230 settings extraction · c79ddff bake · de2f013 wiring ·
+48bb560 marker map-tap MAP world.
 
-**Target files:**
-- `data/settings/SettingsManager.kt`
-- `ui/map/MapScreen.kt`, `ui/map/OverlayLayer.kt`, `ui/map/MenuDrawerOverlay.kt`,
-  `ui/map/MarkersViewModel.kt`
-- `ui/icons/Link.kt`, `ui/icons/LinkOff.kt`
+## Plans
+- `xTrack/Ui_General/260909_FEAT_PLN_Ui_General_filters-link-decoupling.md` (status: Implemented)
 
-**Plans:**
-- `xTrack/Ui_General/260909_FEAT_PLN_Ui_General_filters-link-decoupling.md` (status: In progress —
-  design locked, partial implementation)
+## Next
+Optional residuals none; queued: MapScreen orchestration-monolith refactor (code health step 2, after this
+feature lands via PR).
 
-**Last Bake:** 2026-09-09 09:53 UTC
+**Last Bake:** 2026-09-09 12:18 UTC
