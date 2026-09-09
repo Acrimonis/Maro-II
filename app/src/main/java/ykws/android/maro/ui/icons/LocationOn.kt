@@ -10,14 +10,14 @@ import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
 
 @Suppress("CheckReturnValue")
-public val Location_on: ImageVector
+public val LocationOn: ImageVector
   get() {
-    if (_Location_on != null) {
-      return _Location_on!!
+    if (_LocationOn != null) {
+      return _LocationOn!!
     }
-    _Location_on =
+    _LocationOn =
       ImageVector.Builder(
-          name = "location_on",
+          name = "LocationOn",
           defaultWidth = 40.dp,
           defaultHeight = 40.dp,
           viewportWidth = 40f,
@@ -70,7 +70,7 @@ public val Location_on: ImageVector
           }
         }
         .build()
-    return _Location_on!!
+    return _LocationOn!!
   }
 
-private var _Location_on: ImageVector? = null
+private var _LocationOn: ImageVector? = null

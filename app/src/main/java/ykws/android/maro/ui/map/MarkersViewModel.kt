@@ -60,8 +60,10 @@ enum class MarkerLayerState { HIDDEN, SHOW_ALL }
 
 /** Source of drawer opening — controls prev/next navigation behavior. */
 enum class DrawerSource {
-    /** Opened from the marker list → prev/next follows filtered list, clamps at edges. */
+    /** Opened from the marker list → prev/next follows the list world, clamps at edges. */
     LIST,
+    /** Opened by tapping a marker on the map → prev/next follows the map world, clamps at edges. */
+    MAP,
     /** Opened from whereAmI query → prev/next wraps, existing behavior. */
     WHERE_AM_I
 }
@@ -140,9 +142,13 @@ class MarkersViewModel(
     /** Unfiltered marker list — source of truth for whereAmI matching and reloads. */
     val allMarkers: StateFlow<List<UserMarker>> = _allMarkers.asStateFlow()
 
-    /** Loaded user markers (reactive, filtered + sorted). */
+    /** Loaded user markers (reactive, filtered + sorted by the LIST filter). */
     private val _markers = MutableStateFlow<List<UserMarker>>(emptyList())
     val markers: StateFlow<List<UserMarker>> = _markers.asStateFlow()
+
+    /** User markers filtered by the MAP filter only (no sort) — drives the map overlay. */
+    private val _mapMarkers = MutableStateFlow<List<UserMarker>>(emptyList())
+    val mapMarkers: StateFlow<List<UserMarker>> = _mapMarkers.asStateFlow()
 
     /** Unfiltered all-marker ID set — ghost-pin render-time existence checks. */
     val allMarkerIds: StateFlow<Set<String>> = _allMarkers
@@ -248,6 +254,12 @@ class MarkersViewModel(
                 _markerLayerState.value = settings.markerLayerState
             }
         }
+        // Map-referential stream: reactive to both the MAP filter and any allMarkers reload.
+        viewModelScope.launch {
+            kotlinx.coroutines.flow.combine(flow, _allMarkers) { settings, all ->
+                if (all.isEmpty()) emptyList() else all.filter { it.matchesFilter(settings.markerMapFilter) }
+            }.collect { _mapMarkers.value = it }
+        }
     }
 
     init {
@@ -317,7 +329,7 @@ class MarkersViewModel(
         }
         _selectedMarkerIndex.value = index
         val lookupId = markerIds[index]
-        val marker = _markers.value.find { it.id == lookupId } ?: return
+        val marker = _allMarkers.value.find { it.id == lookupId } ?: return
         _selectedMarkerId.value = lookupId
         val pos = when (val g = marker.geometry) {
             is MarkerGeometry.Pin -> g.position
@@ -349,12 +361,14 @@ class MarkersViewModel(
         _drawerState.value = MarkerDrawerState.Viewing
     }
 
-    /** Navigate to the previous marker. Clamps when LIST source, wraps when WHERE_AM_I. */
+    private fun isClampedSource() = drawerSource == DrawerSource.LIST || drawerSource == DrawerSource.MAP
+
+    /** Navigate to the previous marker. Clamps when LIST/MAP source, wraps when WHERE_AM_I. */
     fun viewPreviousMarker() {
         val ids = _selectedMarkerIds.value
         if (ids.size <= 1) return
         val current = _selectedMarkerIndex.value
-        val newIndex = if (drawerSource == DrawerSource.LIST) {
+        val newIndex = if (isClampedSource()) {
             (current - 1).coerceAtLeast(0)
         } else {
             if (current > 0) current - 1 else ids.lastIndex  // wrap (WHERE_AM_I)
@@ -362,17 +376,17 @@ class MarkersViewModel(
         if (newIndex == current) return  // clamped at edge
         _selectedMarkerIndex.value = newIndex
         _selectedMarkerId.value = ids[newIndex]
-        if (drawerSource == DrawerSource.LIST) {
+        if (isClampedSource()) {
             emitMapCenterForMarker(ids[newIndex])
         }
     }
 
-    /** Navigate to the next marker. Clamps when LIST source, wraps when WHERE_AM_I. */
+    /** Navigate to the next marker. Clamps when LIST/MAP source, wraps when WHERE_AM_I. */
     fun viewNextMarker() {
         val ids = _selectedMarkerIds.value
         if (ids.size <= 1) return
         val current = _selectedMarkerIndex.value
-        val newIndex = if (drawerSource == DrawerSource.LIST) {
+        val newIndex = if (isClampedSource()) {
             (current + 1).coerceAtMost(ids.lastIndex)
         } else {
             if (current < ids.lastIndex) current + 1 else 0  // wrap (WHERE_AM_I)
@@ -380,14 +394,14 @@ class MarkersViewModel(
         if (newIndex == current) return  // clamped at edge
         _selectedMarkerIndex.value = newIndex
         _selectedMarkerId.value = ids[newIndex]
-        if (drawerSource == DrawerSource.LIST) {
+        if (isClampedSource()) {
             emitMapCenterForMarker(ids[newIndex])
         }
     }
 
-    /** Emit a map-center request for the given marker ID (LIST-mode prev/next). */
+    /** Emit a map-center request for the given marker ID (LIST/MAP-mode prev/next). */
     private fun emitMapCenterForMarker(markerId: String) {
-        val marker = _markers.value.find { it.id == markerId } ?: return
+        val marker = _allMarkers.value.find { it.id == markerId } ?: return
         val pos = when (val g = marker.geometry) {
             is MarkerGeometry.Pin -> g.position
             is MarkerGeometry.Circle -> g.center

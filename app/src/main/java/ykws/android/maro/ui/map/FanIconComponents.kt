@@ -2,9 +2,9 @@
 package ykws.android.maro.ui.map
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.ui.icons.Activity_zone
-import ykws.android.maro.ui.icons.Add_location_alt
+import ykws.android.maro.ui.icons.AddLocationAlt
 import ykws.android.maro.ui.icons.Conversion_path
-import ykws.android.maro.ui.icons.Location_on
+import ykws.android.maro.ui.icons.LocationOn
 import ykws.android.maro.ui.icons.Output_circle
 import ykws.android.maro.ui.icons.Stacks
 
@@ -135,22 +135,22 @@ fun TrackLayerIcon(alpha: Float) {
     )
 }
 
-/** Add marker button: add_location_alt (map pin with + sign). */
+/** Add marker button: AddLocationAlt (map pin with + sign). */
 @Composable
 fun AddLocationAltIcon() {
     Icon(
-        imageVector = Add_location_alt,
+        imageVector = AddLocationAlt,
         contentDescription = null,
         tint = ButtonColors.icon,
         modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
     )
 }
 
-/** User markers layer toggle: location_on (outlined map pin). */
+/** User markers layer toggle: LocationOn (outlined map pin). */
 @Composable
 fun LocationOnIcon(alpha: Float) {
     Icon(
-        imageVector = Location_on,
+        imageVector = LocationOn,
         contentDescription = null,
         tint = ButtonColors.icon,
         modifier = Modifier.size(ButtonColors.iconSizeDp.dp).alpha(alpha)
