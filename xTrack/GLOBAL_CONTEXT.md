@@ -1,6 +1,7 @@
 # Global Context — Routing Table
 
 ## Focus History
+- [2026-09-09 10:06 UTC] Ui_Settings — MapScreen settings extraction: moved the Settings overlay subtree out of MapScreen.kt (5841→3417) into same-package MapScreenSettingsOverlay.kt; zero behavior change; build SUCCESS; committed b71a230 on feature/filters-link → xTrack/Ui_Settings/FEAT_HYD_Ui_Settings.md
 - [2026-09-09 09:53 UTC] Ui_General — filters-link List/Map filter decoupling: design locked + Ask review passed; partial foundation committed on feature/filters-link b4693df (settings Option B no-versioning + marker map stream + Link/LinkOff icons); remaining UI split pending → xTrack/Ui_General/FEAT_HYD_Ui_General.md
 - [2026-09-08 17:18 UTC] Ui_Menu — hamburger menu drawer; focus on feature/menu-render-upt → xTrack/Ui_Menu/FEAT_HYD_Ui_Menu.md
 - [2026-09-08 16:49 UTC] Navigation — auto-show-zones baked + committed + pushed: demo-mode auto-show validated via instrumented logcat → no code defect (drawer "Auto-show zones" master override was off); auto-show knowledge consolidated in FEAT_DOC_Navigation_auto-show.md; stale demo-heading comments fixed → xTrack/Navigation/FEAT_HYD_Navigation.md
