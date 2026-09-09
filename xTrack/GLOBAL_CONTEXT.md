@@ -1,6 +1,7 @@
 # Global Context — Routing Table
 
 ## Focus History
+- [2026-09-09 16:17 UTC] Ui_Settings — MapScreen orchestration-monolith refactor step 2 on feature/mapscreen-refactor: C1–C9 extracted (MapGpsFollow/MapTrackOverlay/MapMarker/MapService/MapDepthRaster/MapDialogHost seam files); MapDialogHost wired (was dead), inline dialog dupes removed; MapScreen.kt 3506→2641; apk-build SUCCESS; C10–C12 pending → xTrack/Ui_Settings/FEAT_HYD_Ui_Settings.md
 - [2026-09-09 12:18 UTC] Ui_General — filters-link decoupling IMPLEMENTED on feature/filters-link: List/Map filter referentials + Link/LinkOff toggle; commits b4693df..48bb560; Ask reviewed; build SUCCESS → xTrack/Ui_General/FEAT_HYD_Ui_General.md
 - [2026-09-09 10:06 UTC] Ui_Settings — MapScreen settings extraction: moved the Settings overlay subtree out of MapScreen.kt (5841→3417) into same-package MapScreenSettingsOverlay.kt; zero behavior change; build SUCCESS; committed b71a230 on feature/filters-link → xTrack/Ui_Settings/FEAT_HYD_Ui_Settings.md
 - [2026-09-09 09:53 UTC] Ui_General — filters-link List/Map filter decoupling: design locked + Ask review passed; partial foundation committed on feature/filters-link b4693df (settings Option B no-versioning + marker map stream + Link/LinkOff icons); remaining UI split pending → xTrack/Ui_General/FEAT_HYD_Ui_General.md

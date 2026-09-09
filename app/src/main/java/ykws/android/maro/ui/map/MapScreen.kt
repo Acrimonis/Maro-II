@@ -215,7 +215,7 @@ internal val RIGHT_CONTROL_COLUMN_INSET = 82.dp
 data class TrackPolylineAppearance(val argb: Int, val strokeWidth: Float)
 
 /** Uniform on-screen spacing (dp) between direction arrows. */
-private const val DIRECTION_ARROW_SPACING_DP = 48f
+internal const val DIRECTION_ARROW_SPACING_DP = 48f
 
 /** Log-scale gap slider bounds (dp). */
 internal const val DIRECTION_GAP_MIN_DP = 4f
@@ -547,7 +547,6 @@ fun MapScreen(
         }
     }
 
-    val markerChangeFlow = remember { MutableSharedFlow<Unit>(extraBufferCapacity = 1) }
     val anyFanExpanded = expandedFanId != null
     var selectedTab by rememberSaveable { mutableIntStateOf(0) }
     val displayScrollState = rememberScrollState()
@@ -725,158 +724,30 @@ fun MapScreen(
         }
     }
 
-    // ── Force marker to match MapView zoom once the view is ready ────────
-    // Even though _zoomLevel is seeded from persisted settings, there can be
-    // a frame where collectAsState() captures the initial default before the
-    // seeded value propagates.  This LaunchedEffect re-applies the real zoom
-    // from the MapView after it's created, guaranteeing the marker is correct.
-    LaunchedEffect(mapView) {
-        val mv = mapView ?: return@LaunchedEffect
-        viewModel.updateZoomLevel(mv.zoomLevelDouble)
-        // Two-finger rotation tracking state.
-        var rotating = false
-        var lastAngleDeg = 0f
-        mv.setOnTouchListener { _, ev ->
-            when (ev.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    viewModel.notifyUserInteraction()
-                }
-                MotionEvent.ACTION_POINTER_DOWN -> {
-                    // Second finger touched — start tracking rotation.
-                    if (ev.pointerCount == 2 && viewModel.settings.value.demoHeadingUp) {
-                        val dx = ev.getX(1) - ev.getX(0)
-                        val dy = ev.getY(1) - ev.getY(0)
-                        lastAngleDeg = Math.toDegrees(kotlin.math.atan2(dy.toDouble(), dx.toDouble())).toFloat()
-                        rotating = true
-                    }
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    if (rotating && ev.pointerCount >= 2) {
-                        val dx = ev.getX(1) - ev.getX(0)
-                        val dy = ev.getY(1) - ev.getY(0)
-                        val angleDeg = Math.toDegrees(kotlin.math.atan2(dy.toDouble(), dx.toDouble())).toFloat()
-                        val delta = angleDeg - lastAngleDeg
-                        // Normalise delta to [-180, 180] to avoid wraparound jumps.
-                        val normalisedDelta = ((delta + 180f) % 360f + 360f) % 360f - 180f
-                        if (kotlin.math.abs(normalisedDelta) >= 1f) {
-                            val current = viewModel.navigationState.value.bearingDeg
-                            viewModel.setDemoBearing((current + normalisedDelta + 360f) % 360f)
-                            lastAngleDeg = angleDeg
-                        }
-                    } else {
-                        // Single-finger pan — notify GPS to pause auto-follow.
-                        viewModel.notifyUserInteraction()
-                    }
-                }
-                MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_UP -> {
-                    rotating = false
-                }
-            }
-            false // don't consume — the map still pans/zooms normally
-        }
-    }
-
-    // ── GPS auto-follow: continuous DR + heading-up ────────────────────────
-    // One throttled stream (≤ appSettings.mapRefreshFps) drives BOTH position and
-    // orientation. Position comes from _displayPosition — a continuous 20 Hz dead-
-    // reckoning stream that extrapolates between GPS fixes (gated <3 kn, capped 30m).
-    // setCenter is instant (smoothness from DR, not animation). Re-engage uses
-    // animateTo for smooth scroll-back after panning. Manual pinch/pan/fling keep
-    // osmdroid's own full-rate path — the cap governs only this GPS-follow flow.
-    LaunchedEffect(appSettings.gpsMode, appSettings.demoHeadingUp, autoFollowSuppressed, mapView) {
-        val mv = mapView ?: return@LaunchedEffect
-        if (!appSettings.gpsMode && !appSettings.demoHeadingUp) { mv.mapOrientation = 0f; mv.invalidate(); return@LaunchedEffect }
-        if (autoFollowSuppressed) return@LaunchedEffect
-        var reengage = true
-        viewModel.cameraUpdates.collect { target ->
-            val point = GeoPoint(target.position.latitude, target.position.longitude)
-            if (reengage) {
-                // Scroll smoothly back to the GPS position when follow resumes (no snap).
-                mv.controller.animateTo(point)
-                reengage = false
-            } else {
-                mv.controller.setCenter(point)
-            }
-            mv.mapOrientation = -target.bearingDeg
-            mv.invalidate()
-            // Keep depth-at-center following the GPS fix at the same capped cadence.
-            depthViewModel.updateMapCenter(target.position.latitude, target.position.longitude)
-        }
-    }
-
-    // ── Demo heading-up: apply two-finger rotation bearing to map orientation ─
-    // When demoHeadingUp is enabled (and we're in demo mode), the bearing comes
-    // from the two-finger rotation gesture via NavigationViewModel.setDemoBearing()
-    // (NOT from panning — computeDemoSpeed() derives speed only).
-    // Watch navigationState.bearingDeg and apply it to the MapView directly.
-    // This effect runs separately from the GPS auto-follow effect above.
-    LaunchedEffect(appSettings.demoHeadingUp, appSettings.gpsMode, mapView) {
-        val mv = mapView ?: return@LaunchedEffect
-        if (appSettings.gpsMode || !appSettings.demoHeadingUp) return@LaunchedEffect
-        viewModel.navigationState.collect { nav ->
-            mv.mapOrientation = -nav.bearingDeg
-            mv.invalidate()
-        }
-    }
-
-    // ── Depth layer ─────────────────────────────────────────────────────────────
-    val depthState by depthViewModel.state.collectAsState()
-    val depthRender by depthViewModel.renderModel.collectAsState()
-    val depthAtCenter by depthViewModel.depthAtCenter.collectAsState()
-    // Gate coarse EMODnet shallow readings (unreliable near rocks/coast) → no-data in the readout.
-    val depthReadout = depthAtCenter?.gatedForEmodnetShallow(appSettings.emodnetShallowCutoffM)
-    val depthGrid = (depthState as? DepthState.Ready)?.grid
-    val isobaths = depthRender?.isobaths ?: emptyList()
+    // ── GPS-follow orchestration effects (extracted to MapGpsFollowEffects) ──
+    MapGpsFollowEffects(
+        mapView = mapView,
+        viewModel = viewModel,
+        depthViewModel = depthViewModel,
+        appSettings = appSettings,
+        autoFollowSuppressed = autoFollowSuppressed
+    )
 
     // Coastline classifier is needed for both the low-depth warning and the depth colour map
     // (to keep NoData colour off land).
     val coastlineReady = state is CoastlineState.Ready
-    val waterTest: (Double, Double) -> Boolean =
-        if (coastlineReady) viewModel::isOnWater else { _, _ -> false }
 
-    // Rasterise the colour map once per grid, off the main thread (~7 M cells).
-    val depthBitmap by produceState<Bitmap?>(initialValue = null, depthGrid,
-        appSettings.emodnetShallowCutoffM) {
-        // If cache exists, skip the expensive live build
-        val cached = depthGrid?.let {
-            depthViewModel.readCached(context, RasterCache.Step.DEPTH_COLOUR, appSettings)
-        }
-        if (cached != null) { value = cached; return@produceState }
-        value = depthGrid?.let { g ->
-            withContext(Dispatchers.Default) {
-                DepthBitmap.build(g, appSettings.emodnetShallowCutoffM, AppConfig.mapDepthNodataColor)
-            }
-        }
-    }
+    // ── Depth layer + silent raster lazy-init (extracted to MapDepthRasterEffects) ──
+    val depthRaster = MapDepthRasterEffects(
+        context = context,
+        viewModel = viewModel,
+        depthViewModel = depthViewModel,
+        appSettings = appSettings,
+        coastlineReady = coastlineReady
+    )
 
-    // Second raster: cells shallower than the user's warning threshold, on water only, painted bright.
-    // Re-rasterises when the grid, the threshold, or coastline readiness changes.
-    val lowDepthWarningBitmap by produceState<Bitmap?>(
-        initialValue = null, depthGrid, appSettings.lowDepthCrashDepthM,
-        appSettings.lowDepthStartWarningM, coastlineReady,
-        appSettings.emodnetShallowCutoffM
-    ) {
-        // If cache exists, skip the expensive live build
-        val cached = depthGrid?.let {
-            depthViewModel.readCached(context, RasterCache.Step.LOW_DEPTH_WARNING, appSettings)
-        }
-        if (cached != null) { value = cached; return@produceState }
-        val crashM = appSettings.lowDepthCrashDepthM
-        val startM = appSettings.lowDepthStartWarningM
-        value = depthGrid?.let { g ->
-            withContext(Dispatchers.Default) {
-                LowDepthWarningBitmap.build(g, crashM, startM, waterTest,
-                    appSettings.emodnetShallowCutoffM)
-            }
-        }
-    }
-
-    // ── Regulated zones overlay: load prebaked asset on first composition ──────────
-    val regulatedZones by produceState<RegulatedZoneSet?>(initialValue = null) {
-        val repo = RegulatedZonesRepository()
-        repo.load(context)
-        value = repo.zoneSet.value
-    }
+    // ── Regulated zones overlay: load prebaked asset (extracted) ──
+    val regulatedZones = MapRegulatedZonesLoader(context)
 
     // ── User markers: from MarkersViewModel ─────────────────────────────────────────
     val userMarkers by markersViewModel.markers.collectAsState()
@@ -890,63 +761,13 @@ fun MapScreen(
         markersViewModel.coastlineIndex = viewModel.spatialIndex
     }
 
-    // ── Wire shared settings into child ViewModels (framework fix) ──
-    LaunchedEffect(Unit) {
-        markersViewModel.observeSettings(viewModel.settings, viewModel::updateSettings)
-    }
-    LaunchedEffect(Unit) {
-        trackViewModel.observeSettings(viewModel.settings)
-    }
-
-    // ── Startup: clean up crash-orphaned auto-markers (IDLE_AUTO && !keepable) ──
-    LaunchedEffect(Unit) {
-        val crashOrphans = userMarkers.filter { it.origin == MarkerOrigin.IDLE_AUTO && !it.keepable }
-        for (m in crashOrphans) {
-            markersViewModel.deleteMarker(m.id)
-        }
-        if (crashOrphans.isNotEmpty()) {
-            Log.d("MaroII_Map", "Startup cleanup: removed ${crashOrphans.size} crash-orphan auto-markers")
-        }
-    }
-
-    // ── Marker change watcher: emit to markerChangeFlow when user markers are saved/edited/deleted ──
-    val markerCount = userMarkers.size
-    var skipFirstComposition by remember { mutableStateOf(true) }
-    LaunchedEffect(markerCount) {
-        if (skipFirstComposition) {
-            skipFirstComposition = false
-            return@LaunchedEffect
-        }
-        markerChangeFlow.tryEmit(Unit)
-    }
-
-    // ── BoatMarker idle callback — wired to marker matching engine ──
-    val idleCallback = remember {
-        object : IdleThresholdCallback {
-            override suspend fun onIdleThresholdReached(position: LatLng): IdleCaptureResult {
-                return try {
-                    val result = markersViewModel.whereAmISync(position)
-                    val snapshots = result.allMatches.map { it.toMarkerSnapshot() }
-                    IdleCaptureResult(
-                        entries = snapshots,
-                        shouldOpenDrawer = snapshots.isNotEmpty()
-                    )
-                } catch (e: Exception) {
-                    Log.w("MaroII_Map", "IdleThresholdCallback failed", e)
-                    IdleCaptureResult(emptyList(), false)
-                }
-            }
-        }
-    }
-
-    // ── Register process-scoped bridge for the service-owned recorder ──
-    // The service builds TrackRecorder with lazy delegating callbacks, so it
-    // reads these registrations at invocation time (survives Activity recreation).
-    LaunchedEffect(Unit) {
-        WhereAmIProvider.whereAmI = markersViewModel::whereAmISync
-        WhereAmIProvider.idleCapture = { pos -> idleCallback.onIdleThresholdReached(pos) }
-        markerChangeFlow.collect { WhereAmIProvider.markerChanges.tryEmit(Unit) }
-    }
+    // ── Marker wiring effects (extracted to MapMarkerEffects) ──
+    MapMarkerEffects(
+        viewModel = viewModel,
+        markersViewModel = markersViewModel,
+        trackViewModel = trackViewModel,
+        userMarkers = userMarkers
+    )
 
     // ── Track info error auto-dismiss after 8 seconds ──
     LaunchedEffect(trackRecorderState.infoError) {
@@ -1043,622 +864,46 @@ fun MapScreen(
         }
     }
 
-    // Wire debug ray tracer + sync persisted setting → AppConfig
-    LaunchedEffect(Unit) {
-        AppConfig.markerDebugRaysEnabled = appSettings.markerDebugRays
-        if (AppConfig.markerDebugRaysEnabled) {
-            MarkerMatcher.debugger = VisualWhereAmIDebugger()
-            Log.d("WIA", "DEBUGGER: VisualWhereAmIDebugger activated")
-        }
-    }
+    // ── Marker debug effects (extracted to MapMarkerEffects) ──
+    MapMarkerDebugEffects(
+        mapView = mapView,
+        appSettings = appSettings,
+        debugSegments = debugSegments
+    )
 
-    // ── Raster cache reads (no lazy auto-trigger; only settings button triggers generation) ──
-    val rasterProgress by depthViewModel.rasterProgress.collectAsState()
-    val generatingStep by depthViewModel.generatingStep.collectAsState()
-    val rasterCacheVersion by depthViewModel.rasterCacheVersion.collectAsState()
 
-    // ── Silent lazy-init: on cache miss, generate rasters in background (no LoadingOverlay).
-    //    Warning layer is deferred until coastline is ready (needs accurate isWater). ──
-    LaunchedEffect(depthGrid, appSettings.lowDepthCrashDepthM,
-                   appSettings.lowDepthStartWarningM, coastlineReady,
-                   appSettings.emodnetShallowCutoffM) {
-        val grid = depthGrid ?: return@LaunchedEffect
-        val key = RasterCache.Key(
-            gridTimestampMs = grid.metadata.fetchTimestampMs,
-            emodnetCutoffM = appSettings.emodnetShallowCutoffM,
-            lowDepthCrashDepthM = appSettings.lowDepthCrashDepthM,
-            lowDepthStartWarningM = appSettings.lowDepthStartWarningM,
-            nodataColor = AppConfig.mapDepthNodataColor,
-            colorsHash = AppConfig.rasterColorsHash
-        )
-        val missing = mutableListOf<RasterCache.Step>()
-        if (!RasterCache.has(context, RasterCache.Step.DEPTH_COLOUR, key))
-            missing.add(RasterCache.Step.DEPTH_COLOUR)
-        if (coastlineReady && !RasterCache.has(context, RasterCache.Step.LOW_DEPTH_WARNING, key))
-            missing.add(RasterCache.Step.LOW_DEPTH_WARNING)
-        if (missing.isNotEmpty()) {
-            val waterTest: (Double, Double) -> Boolean =
-                if (coastlineReady) viewModel::isOnWater else { _, _ -> false }
-            depthViewModel.generateRasterLayers(context, missing, appSettings, waterTest, silent = true)
-        }
-    }
+    // ── Service intents effects (extracted to MapServiceEffects) ──
+    // Demo feed host is UNCONDITIONAL: LaunchedEffect(Unit), not keyed on gpsMode.
+    MapServiceEffects(
+        context = context,
+        viewModel = viewModel,
+        navigationState = navigationState,
+        appSettings = appSettings,
+        boatIsWater = boatIsWater,
+        trackRecorderState = trackRecorderState
+    )
 
-    // Read cached rasters; hide a layer when it's being regenerated.
-    val depthBitmapCached by produceState<Bitmap?>(initialValue = null, depthGrid,
-        appSettings.lowDepthCrashDepthM, appSettings.lowDepthStartWarningM,
-        rasterCacheVersion, generatingStep) {
-        if (generatingStep == RasterCache.Step.DEPTH_COLOUR) { value = null; return@produceState }
-        value = depthGrid?.let {
-            depthViewModel.readCached(context, RasterCache.Step.DEPTH_COLOUR, appSettings)
-        }
-    }
-    val lowDepthWarningCached by produceState<Bitmap?>(initialValue = null, depthGrid,
-        appSettings.lowDepthCrashDepthM, appSettings.lowDepthStartWarningM,
-        rasterCacheVersion, generatingStep) {
-        if (generatingStep == RasterCache.Step.LOW_DEPTH_WARNING) { value = null; return@produceState }
-        value = depthGrid?.let {
-            depthViewModel.readCached(context, RasterCache.Step.LOW_DEPTH_WARNING, appSettings)
-        }
-    }
+    // ── History/pinned track overlay diff (extracted to MapTrackOverlayEffects) ──
+    MapTrackOverlayHistoryDiff(
+        mapView = mapView,
+        showSettings = showSettings,
+        highlightedTrackId = highlightedTrackId,
+        allTrackSummaries = allTrackSummaries,
+        appSettings = appSettings,
+        trackViewModel = trackViewModel
+    )
 
-    // Prefer cached rasters; fall back to live-built ones. Hide a layer entirely
-    // while it's being regenerated (generatingStep signals the active step).
-    val effectiveDepthBitmap = if (generatingStep == RasterCache.Step.DEPTH_COLOUR) null
-        else (depthBitmapCached ?: depthBitmap)
-    val effectiveLowDepthWarning = if (generatingStep == RasterCache.Step.LOW_DEPTH_WARNING) null
-        else (lowDepthWarningCached ?: lowDepthWarningBitmap)
+    // ── Live-recording overlay effects (extracted to MapTrackOverlayEffects) ──
+    MapTrackOverlayLiveEffects(
+        mapView = mapView,
+        viewModel = viewModel,
+        trackViewModel = trackViewModel,
+        trackRecorderState = trackRecorderState,
+        appSettings = appSettings
+    )
 
-    // ── Demo-mode sample feed → service-owned recorder ───────────────────
-    // GPS mode: TrackRecordingService owns its own LocationManager sampling,
-    // so recording survives Activity destruction / task removal.
-    // Demo mode has no real GPS — the UI assembles TrackSamples from the
-    // virtual position (map center) and pushes them into the service via
-    // TrackRecordingService.pushSample. The UI also mirrors its stationary
-    // flag into the service (GPS mode self-computes it from its own stream).
-    // NOTE: LaunchedEffect(Unit) — NOT keyed on gpsMode. Toggling the position
-    // source must NOT tear down / restart this feed.
-    LaunchedEffect(Unit) {
-        // Mirror the UI's stationary flag into the service (demo mode only).
-        launch {
-            viewModel.isStopped.collect { stopped ->
-                if (!appSettings.gpsMode) {
-                    TrackRecordingService.updateStopped(stopped)
-                }
-            }
-        }
 
-        val ticker = snapshotFlow { appSettings.gpsMode }
-            .flatMapLatest { isGps ->
-                if (!isGps) {
-                    kotlinx.coroutines.flow.flow {
-                        while (true) {
-                            emit(System.currentTimeMillis())
-                            kotlinx.coroutines.delay(1_000L)
-                        }
-                    }
-                } else {
-                    kotlinx.coroutines.flow.flowOf(0L)
-                }
-            }
-        val sampleFlow = kotlinx.coroutines.flow.combine(
-            viewModel.gpsPosition,
-            viewModel.mapCenter,
-            viewModel.navigationState,
-            viewModel.isEstimating,
-            ticker
-        ) { gpsPos, center, nav, estimating, _ ->
-            // Dead reckoning extrapolates display position only —
-            // never feed extrapolated positions into track recording.
-            if (estimating) return@combine null
-            val isGps = appSettings.gpsMode
-            val pos = gpsPos ?: center
-            val speedKn = if (isGps) nav.speedKnots else nav.demoSpeedKnots
-            val speedMs = speedKn?.let { it * 0.514444f }
-            val bearing = if (isGps) nav.bearingDeg else nav.demoBearingDeg
-            ykws.android.maro.data.track.TrackSample(
-                position = pos,
-                speedMps = speedMs,
-                bearingDeg = bearing,
-                hasLock = isGps,
-                timestampEpochMs = System.currentTimeMillis(),
-                accuracyM = if (isGps) viewModel.gpsAccuracy.value else null
-            )
-        }.filterNotNull()
 
-        launch {
-            sampleFlow.collect { sample ->
-                // Only demo-mode samples are UI-assembled; GPS samples arrive
-                // from the service's own LocationManager listener.
-                if (!appSettings.gpsMode) {
-                    TrackRecordingService.pushSample(sample)
-                }
-            }
-        }
-
-        // Periodic demo position feed: when GPS is off, re-feed the map center
-        // every second so the adaptive policy timer advances toward IDLE even
-        // when the user has stopped dragging (feedDemoPosition from onCenterChanged
-        // only fires on actual scroll events).
-        while (true) {
-            if (!appSettings.gpsMode) {
-                val center = viewModel.mapCenter.value
-                if (center != null) {
-                    viewModel.feedDemoPosition(center.latitude, center.longitude)
-                }
-            }
-            kotlinx.coroutines.delay(1_000L)
-        }
-    }
-
-    // ── Track overlay: incremental diff for history tracks with fading opacity ──
-    // Track the set of currently-rendered track IDs to avoid full teardown+rebuild.
-    val renderedTrackIds = remember { mutableStateOf(setOf<String>()) }
-
-    LaunchedEffect(mapView, showSettings, appSettings.tracksVisible, appSettings.tracksDirectionVisible, appSettings.trackingRenderNb,
-        appSettings.trackingColorPastFrom, appSettings.trackingColorPastTo,
-        appSettings.trackingTransparencyNewest, appSettings.trackingTransparencyOldest,
-        appSettings.trackingColorPinnedFrom, appSettings.trackingColorPinnedTo,
-        appSettings.trackingTransparencyPinnedNewest, appSettings.trackingTransparencyPinnedOldest,
-        appSettings.trackMapFilter, appSettings.trackFilterLinked, allTrackSummaries, highlightedTrackId,
-        appSettings.trackDirectionDensity, appSettings.trackDirectionMinSpacingDp, appSettings.trackDirectionMaxSpacingDp,
-        appSettings.trackDirectionSpeedFloorKn, appSettings.trackDirectionSpeedCeilingKn) {
-        val mv = mapView ?: return@LaunchedEffect
-
-        // Direction-arrow spacing provider: uniform (px) or speed-linear (dp → px).
-        val densityScale = mv.context.resources.displayMetrics.density
-        val minSpacingPx = appSettings.trackDirectionMinSpacingDp * densityScale
-        val maxSpacingPx = appSettings.trackDirectionMaxSpacingDp * densityScale
-        val directionSpacingProvider: (Float) -> Float = { speedKn ->
-            when (appSettings.trackDirectionDensity) {
-                TrackDirectionDensity.UNIFORM -> DIRECTION_ARROW_SPACING_DP * densityScale
-                TrackDirectionDensity.SPEED -> spacingPxForSpeed(
-                    speedKn,
-                    appSettings.trackDirectionSpeedFloorKn,
-                    appSettings.trackDirectionSpeedCeilingKn,
-                    minSpacingPx,
-                    maxSpacingPx
-                )
-            }
-        }
-
-        // Apply the MAP filter before display split. Source = UNFILTERED summaries so the map stays
-        // independent of the list filter when unlinked. Reveal: force-include the highlighted track
-        // even when it does not match the map filter (viewed from a list).
-        val midnightMs = ykws.android.maro.data.model.todayMidnightMs()
-        val mapFiltered = allTrackSummaries.filter { it.matchesFilter(appSettings.trackMapFilter, midnightMs) }
-        val filteredSummaries = if (highlightedTrackId != null && mapFiltered.none { it.id == highlightedTrackId }) {
-            mapFiltered + allTrackSummaries.filter { it.id == highlightedTrackId }
-        } else mapFiltered
-
-        // Determine desired track ID set (history = non-pinned only)
-        val nbToRender = appSettings.trackingRenderNb.coerceIn(0, 20)
-        // History candidates: the highlighted (viewed) non-pinned track is always kept, regardless of
-        // its visibleOnMap flag or the render cap, so a from-list view is force-drawn on the map.
-        // Pinned highlighted tracks render through the dedicated pinned block (never capped).
-        val rankedHistory = filteredSummaries
-            .filter { (it.visibleOnMap || it.id == highlightedTrackId) && !it.pinned }
-            .sortedByDescending { it.startTimeMs }
-        val cappedHistory = rankedHistory.take(nbToRender)
-        val historyList = if (highlightedTrackId != null && cappedHistory.none { it.id == highlightedTrackId }) {
-            cappedHistory + rankedHistory.filter { it.id == highlightedTrackId }
-        } else cappedHistory
-        val desiredIds = if (appSettings.tracksVisible) historyList.map { it.id }.toSet() else emptySet()
-
-        // Remove all existing track history overlays + direction arrows — rebuild from scratch
-        val toRemove = mv.overlays.filter { overlay ->
-            (overlay as? org.osmdroid.views.overlay.Polyline)?.title?.startsWith("track_hist_") == true ||
-            (overlay as? TrackDirectionOverlay)?.title?.startsWith("track_arrow_") == true
-        }
-        mv.overlays.removeAll(toRemove)
-
-        val sortedDesired = if (appSettings.tracksVisible) historyList else emptyList()
-
-        val total = nbToRender
-
-        val historyOverlays = mutableListOf<List<org.osmdroid.views.overlay.Overlay>>()
-        for ((index, summary) in sortedDesired.withIndex()) {
-            val trackOverlays = mutableListOf<org.osmdroid.views.overlay.Overlay>()
-            val track = trackViewModel.loadTrackDetailCached(summary.id) ?: continue
-            if (track.trackPoints.isEmpty()) continue
-
-            val appearances = if (summary.id == highlightedTrackId) {
-                listOf(
-                    TrackPolylineAppearance(0xCC000000.toInt(), 16f),
-                    TrackPolylineAppearance(0xFFFFD700.toInt() or (0xFF shl 24), 8f)
-                )
-            } else {
-                listOf(computeTrackPolylineAppearance(
-                    index = index,
-                    total = total,
-                    transparencyNewest = appSettings.trackingTransparencyNewest,
-                    transparencyOldest = appSettings.trackingTransparencyOldest,
-                    colorFrom = appSettings.trackingColorPastFrom,
-                    colorTo = appSettings.trackingColorPastTo,
-                    strokeWidth = if (index == 0) 8f else 6f
-                ))
-            }
-
-            for (appearance in appearances) {
-                // Split at GAP markers: solid segments between gaps, dashed for gap segments
-                val points = track.trackPoints
-                var segmentStart = 0
-                for (i in points.indices) {
-                    if (points[i].type == ykws.android.maro.data.track.PointType.GAP) {
-                        if (i > segmentStart) {
-                            val solidPoints = points.subList(segmentStart, i).map { pt ->
-                                org.osmdroid.util.GeoPoint(pt.lat, pt.lon)
-                            }
-                            if (solidPoints.size >= 2) {
-                                val solidPolyline = org.osmdroid.views.overlay.Polyline().apply {
-                                    title = "track_hist_${summary.id}"
-                                    outlinePaint.color = appearance.argb
-                                    outlinePaint.strokeWidth = appearance.strokeWidth
-                                    setPoints(solidPoints)
-                                }
-                                trackOverlays.add(solidPolyline)
-                            }
-                        }
-                        val gapFrom = org.osmdroid.util.GeoPoint(points[i].lat, points[i].lon)
-                        val gapTo = if (i + 1 < points.size)
-                            org.osmdroid.util.GeoPoint(points[i + 1].lat, points[i + 1].lon)
-                        else gapFrom
-                        val gapLine = org.osmdroid.views.overlay.Polyline().apply {
-                            title = "track_hist_${summary.id}"
-                            outlinePaint.color = appearance.argb
-                            outlinePaint.strokeWidth = appearance.strokeWidth
-                            outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(20f, 10f), 0f)
-                            setPoints(listOf(gapFrom, gapTo))
-                        }
-                        trackOverlays.add(gapLine)
-                        segmentStart = i + 1
-                    }
-                }
-                if (segmentStart < points.size && points.size - segmentStart >= 2) {
-                    val solidPoints = points.subList(segmentStart, points.size).map { pt ->
-                        org.osmdroid.util.GeoPoint(pt.lat, pt.lon)
-                    }
-                    val solidPolyline = org.osmdroid.views.overlay.Polyline().apply {
-                        title = "track_hist_${summary.id}"
-                        outlinePaint.color = appearance.argb
-                        outlinePaint.strokeWidth = appearance.strokeWidth
-                        setPoints(solidPoints)
-                    }
-                    trackOverlays.add(solidPolyline)
-                }
-            }
-
-            if (appSettings.tracksDirectionVisible) {
-                trackOverlays.add(
-                    TrackDirectionOverlay(
-                        points = track.trackPoints,
-                        appearances = appearances,
-                        spacingPx = directionSpacingProvider
-                    ).apply { title = "track_arrow_${summary.id}" }
-                )
-            }
-
-            historyOverlays.add(trackOverlays)
-        }
-        historyOverlays.reverse()
-        for (trackOverlays in historyOverlays) {
-            mv.overlays.addAll(trackOverlays)
-        }
-
-        // ── Pinned tracks: always render all, separate colors/opacity ──
-        val toRemovePinned = mv.overlays.filter { overlay ->
-            (overlay as? org.osmdroid.views.overlay.Polyline)?.title?.startsWith("track_pin_") == true
-        }
-        mv.overlays.removeAll(toRemovePinned)
-
-        val pinnedSummaries = if (appSettings.tracksVisible) {
-            filteredSummaries.filter { it.pinned }.sortedByDescending { it.startTimeMs }
-        } else emptyList()
-
-        val pinnedTotal = pinnedSummaries.size
-        val pinnedOverlays = mutableListOf<List<org.osmdroid.views.overlay.Overlay>>()
-        for ((index, summary) in pinnedSummaries.withIndex()) {
-            val trackOverlays = mutableListOf<org.osmdroid.views.overlay.Overlay>()
-            val track = trackViewModel.loadTrackDetailCached(summary.id) ?: continue
-            if (track.trackPoints.isEmpty()) continue
-
-            val appearances = if (summary.id == highlightedTrackId) {
-                listOf(
-                    TrackPolylineAppearance(0xCC000000.toInt(), 16f),
-                    TrackPolylineAppearance(0xFFFFD700.toInt() or (0xFF shl 24), 8f)
-                )
-            } else {
-                listOf(computeTrackPolylineAppearance(
-                    index = index,
-                    total = pinnedTotal,
-                    transparencyNewest = appSettings.trackingTransparencyPinnedNewest,
-                    transparencyOldest = appSettings.trackingTransparencyPinnedOldest,
-                    colorFrom = appSettings.trackingColorPinnedFrom,
-                    colorTo = appSettings.trackingColorPinnedTo,
-                    strokeWidth = 6f
-                ))
-            }
-
-            for (appearance in appearances) {
-                // Split at GAP markers: solid segments between gaps, dashed for gap segments
-                val points = track.trackPoints
-                var segmentStart = 0
-                for (i in points.indices) {
-                    if (points[i].type == ykws.android.maro.data.track.PointType.GAP) {
-                        if (i > segmentStart) {
-                            val solidPoints = points.subList(segmentStart, i).map { pt ->
-                                org.osmdroid.util.GeoPoint(pt.lat, pt.lon)
-                            }
-                            if (solidPoints.size >= 2) {
-                                val solidPolyline = org.osmdroid.views.overlay.Polyline().apply {
-                                    title = "track_pin_${summary.id}"
-                                    outlinePaint.color = appearance.argb
-                                    outlinePaint.strokeWidth = appearance.strokeWidth
-                                    setPoints(solidPoints)
-                                }
-                                trackOverlays.add(solidPolyline)
-                            }
-                        }
-                        val gapFrom = org.osmdroid.util.GeoPoint(points[i].lat, points[i].lon)
-                        val gapTo = if (i + 1 < points.size)
-                            org.osmdroid.util.GeoPoint(points[i + 1].lat, points[i + 1].lon)
-                        else gapFrom
-                        val gapLine = org.osmdroid.views.overlay.Polyline().apply {
-                            title = "track_pin_${summary.id}"
-                            outlinePaint.color = appearance.argb
-                            outlinePaint.strokeWidth = appearance.strokeWidth
-                            outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(20f, 10f), 0f)
-                            setPoints(listOf(gapFrom, gapTo))
-                        }
-                        trackOverlays.add(gapLine)
-                        segmentStart = i + 1
-                    }
-                }
-                if (segmentStart < points.size && points.size - segmentStart >= 2) {
-                    val solidPoints = points.subList(segmentStart, points.size).map { pt ->
-                        org.osmdroid.util.GeoPoint(pt.lat, pt.lon)
-                    }
-                    val solidPolyline = org.osmdroid.views.overlay.Polyline().apply {
-                        title = "track_pin_${summary.id}"
-                        outlinePaint.color = appearance.argb
-                        outlinePaint.strokeWidth = appearance.strokeWidth
-                        setPoints(solidPoints)
-                    }
-                    trackOverlays.add(solidPolyline)
-                }
-            }
-
-            if (appSettings.tracksDirectionVisible) {
-                trackOverlays.add(
-                    TrackDirectionOverlay(
-                        points = track.trackPoints,
-                        appearances = appearances,
-                        spacingPx = directionSpacingProvider
-                    ).apply { title = "track_arrow_${summary.id}" }
-                )
-            }
-
-            pinnedOverlays.add(trackOverlays)
-        }
-        pinnedOverlays.reverse()
-        for (trackOverlays in pinnedOverlays) {
-            mv.overlays.addAll(trackOverlays)
-        }
-
-        // Ensure active track stays on top of pinned (z-order: history → pinned → active)
-        val activePolyline = mv.overlays.firstOrNull {
-            (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording"
-        }
-        if (activePolyline != null) {
-            mv.overlays.remove(activePolyline)
-            mv.overlays.add(activePolyline)
-        }
-
-        // Move highlighted track above active (z-order: ... → active → highlighted)
-        if (highlightedTrackId != null) {
-            val highlightedOverlays = mv.overlays.filter { overlay ->
-                val polyTitle = (overlay as? org.osmdroid.views.overlay.Polyline)?.title
-                val arrowTitle = (overlay as? TrackDirectionOverlay)?.title
-                polyTitle == "track_hist_$highlightedTrackId" ||
-                polyTitle == "track_pin_$highlightedTrackId" ||
-                arrowTitle == "track_arrow_$highlightedTrackId"
-            }
-            mv.overlays.removeAll(highlightedOverlays)
-            mv.overlays.addAll(highlightedOverlays)
-        }
-
-        renderedTrackIds.value = desiredIds
-        OverlayZOrder.reorder(mv)
-        mv.invalidate()
-    }
-
-    // ── Active recording trace: incremental polyline via newPoint stream ────
-    // Polyline lifecycle (create/remove) driven by recorder state snapshot.
-    LaunchedEffect(mapView, appSettings.trackingColorActive) {
-        val mv = mapView ?: return@LaunchedEffect
-        androidx.compose.runtime.snapshotFlow { trackRecorderState.state }
-            .collect { recState ->
-                if (recState == ykws.android.maro.data.track.TrackRecorderState.ON) {
-                    val existing = mv.overlays.firstOrNull {
-                        (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording"
-                    }
-                    if (existing == null) {
-                        val polyline = org.osmdroid.views.overlay.Polyline().apply {
-                            title = "track_recording"
-                            outlinePaint.color = appSettings.trackingColorActive
-                            outlinePaint.strokeWidth = 10f
-                            isVisible = true
-                        }
-                        mv.overlays.add(polyline)
-                        OverlayZOrder.reorder(mv)
-                        mv.invalidate()
-                    }
-                } else {
-                    val removed = mv.overlays.removeAll {
-                        (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording"
-                    }
-                    if (removed) mv.invalidate()
-                }
-            }
-    }
-
-    // ── Incremental point appending: observe newPoint stream for live polyline ─┐
-    // Keyed on recorder state so a stop→restart cycle re-obtains the new SharedFlow.
-    // GAP markers split the live polyline: solid for normal segments, dashed for gaps.
-    LaunchedEffect(mapView, trackRecorderState.state) {
-        val mv = mapView ?: return@LaunchedEffect
-        val stream = trackViewModel.newPointStream ?: return@LaunchedEffect
-        stream.collect { point ->
-            if (point.type == ykws.android.maro.data.track.PointType.GAP) {
-                // Find the last active solid polyline and finalize it
-                val lastSolid = mv.overlays.filter {
-                    (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording" &&
-                    (it as org.osmdroid.views.overlay.Polyline).outlinePaint.pathEffect == null
-                }.lastOrNull() as? org.osmdroid.views.overlay.Polyline
-                val lastPt = lastSolid?.actualPoints?.lastOrNull()
-                if (lastPt != null) {
-                    val gapLine = org.osmdroid.views.overlay.Polyline().apply {
-                        title = "track_recording"
-                        outlinePaint.color = appSettings.trackingColorActive
-                        outlinePaint.strokeWidth = 10f
-                        outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(20f, 10f), 0f)
-                        isVisible = true
-                        setPoints(listOf(lastPt, org.osmdroid.util.GeoPoint(point.lat, point.lon)))
-                    }
-                    mv.overlays.add(gapLine)
-                }
-                val resumedLine = org.osmdroid.views.overlay.Polyline().apply {
-                    title = "track_recording"
-                    outlinePaint.color = appSettings.trackingColorActive
-                    outlinePaint.strokeWidth = 10f
-                    isVisible = true
-                    addPoint(org.osmdroid.util.GeoPoint(point.lat, point.lon))
-                }
-                mv.overlays.add(resumedLine)
-                OverlayZOrder.reorder(mv)
-                mv.invalidate()
-            } else {
-                val polyline = mv.overlays.filter {
-                    (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording" &&
-                    (it as org.osmdroid.views.overlay.Polyline).outlinePaint.pathEffect == null
-                }.lastOrNull() as? org.osmdroid.views.overlay.Polyline ?: return@collect
-                polyline.addPoint(org.osmdroid.util.GeoPoint(point.lat, point.lon))
-                mv.invalidate()
-            }
-        }
-    }
-
-    // ── Trailing polyline: interpolated segment from last accepted point ──
-    // to the dead-reckoned display position, updated at 20 Hz. Display only —
-    // never recorded. Semi-transparent solid (not dashed) to distinguish from
-    // GAP markers. Cleaned up on recorder OFF.
-    LaunchedEffect(mapView, trackRecorderState.state) {
-        val mv = mapView ?: return@LaunchedEffect
-        if (trackRecorderState.state != ykws.android.maro.data.track.TrackRecorderState.ON) {
-            mv.overlays.removeAll { (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_trailing" }
-            mv.invalidate()
-            return@LaunchedEffect
-        }
-        snapshotFlow { viewModel.displayPosition.value }
-            .collect { displayPos ->
-                // Remove previous trailing polyline
-                mv.overlays.removeAll { (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_trailing" }
-                if (displayPos == null) return@collect
-                // Find the last accepted point from the recording polyline
-                val recordingLine = mv.overlays.filter {
-                    (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording" &&
-                    (it as org.osmdroid.views.overlay.Polyline).outlinePaint.pathEffect == null
-                }.lastOrNull() as? org.osmdroid.views.overlay.Polyline
-                val lastPt = recordingLine?.actualPoints?.lastOrNull() ?: return@collect
-                // Draw trailing segment: last accepted point → display position
-                val trailing = org.osmdroid.views.overlay.Polyline().apply {
-                    title = "track_trailing"
-                    outlinePaint.color = (appSettings.trackingColorActive and 0x00FFFFFF) or (0x66000000.toInt())  // ~40% alpha
-                    outlinePaint.strokeWidth = 10f
-                    isVisible = true
-                    setPoints(listOf(lastPt, org.osmdroid.util.GeoPoint(displayPos.latitude, displayPos.longitude)))
-                }
-                mv.overlays.add(trailing)
-                OverlayZOrder.reorder(mv)
-                mv.invalidate()
-            }
-    }
-
-    // ── WhereAmI debug segments: visual overlay on the map ─────────────────
-    // Green = clear line-of-sight, Red = blocked by land.
-    LaunchedEffect(mapView, debugSegments) {
-        val mv = mapView ?: run { Log.d("WIA", "DEBUGGER: mapView null, skipping render"); return@LaunchedEffect }
-        Log.d("WIA", "DEBUGGER: rendering ${debugSegments.size} segments")
-        // Remove previous debug polylines
-        mv.overlays.removeAll {
-            (it as? org.osmdroid.views.overlay.Polyline)?.title?.startsWith("wia_debug_") == true
-        }
-        // Render current segments
-        if (debugSegments.isNotEmpty()) {
-            debugSegments.forEachIndexed { index, segment ->
-                val color = if (segment.blocked) Color.RED else Color.GREEN
-                val polyline = org.osmdroid.views.overlay.Polyline().apply {
-                    title = "wia_debug_$index"
-                    setPoints(listOf(
-                        org.osmdroid.util.GeoPoint(segment.boat.latitude, segment.boat.longitude),
-                        org.osmdroid.util.GeoPoint(segment.target.latitude, segment.target.longitude)
-                    ))
-                    outlinePaint.color = color
-                    outlinePaint.strokeWidth = 3f
-                }
-                mv.overlays.add(polyline)
-            }
-        }
-        mv.invalidate()
-    }
-
-    // ── Foreground notification updates ────────────────────────────────────
-    // Sends recording stats to TrackRecordingService every ~5s while recording.
-    // When recording stops, sends one final update to revert to "Ready".
-    LaunchedEffect(trackRecorderState, appSettings.gpsMode, boatIsWater) {
-        val state = trackRecorderState
-        val isDemo = !appSettings.gpsMode
-        val isMoving = !viewModel.isStopped.value
-        val speedKn = navigationState.speedKnots ?: navigationState.demoSpeedKnots
-        val intent = Intent(context, TrackRecordingService::class.java).apply {
-            action = TrackRecordingService.ACTION_UPDATE
-            putExtra(TrackRecordingService.EXTRA_IS_DEMO, isDemo)
-            // Always-sent extras
-            putExtra(TrackRecordingService.EXTRA_IS_MOVING, isMoving)
-            putExtra(TrackRecordingService.EXTRA_SPEED_KN, speedKn)
-            putExtra(TrackRecordingService.EXTRA_ON_WATER, boatIsWater)
-        }
-        if (state.state == ykws.android.maro.data.track.TrackRecorderState.ON) {
-            // Send updates periodically while recording
-            while (true) {
-                intent.putExtra(TrackRecordingService.EXTRA_RECORDING, true)
-                // Recording-only extras
-                intent.putExtra(TrackRecordingService.EXTRA_DISTANCE_NM, state.distanceNm)
-                intent.putExtra(TrackRecordingService.EXTRA_ELAPSED_SEC, state.elapsedSeconds)
-                intent.putExtra(TrackRecordingService.EXTRA_IDLE_SEC, state.idleDurationSec)
-                intent.putExtra(TrackRecordingService.EXTRA_AVG_SPEED_KN, state.avgSpeedKn)
-                intent.putExtra(TrackRecordingService.EXTRA_MAX_SPEED_KN, state.maxSpeedKn)
-                intent.putExtra(TrackRecordingService.EXTRA_POINT_COUNT, state.pointCount)
-                context.startService(intent)
-                kotlinx.coroutines.delay(5_000L)
-            }
-        } else {
-            // Not recording — one update to show "Ready"
-            intent.putExtra(TrackRecordingService.EXTRA_RECORDING, false)
-            context.startService(intent)
-        }
-    }
-
-    // ── Water state push to TrackRecordingService ─────────────────────────
-    // Sends a one-shot intent every time boatIsWater toggles, so the service
-    // can fire the WATER_STATE_CHANGED broadcast to Tasker immediately.
-    LaunchedEffect(boatIsWater) {
-        val intent = Intent(context, TrackRecordingService::class.java).apply {
-            action = TrackRecordingService.ACTION_UPDATE
-            putExtra(TrackRecordingService.EXTRA_ON_WATER, boatIsWater)
-            putExtra(TrackRecordingService.EXTRA_IS_DEMO, !appSettings.gpsMode)
-        }
-        context.startService(intent)
-    }
 
     // The map centre drives BOTH layers: coastline (distance/zone) and depth-at-centre.
     val onCenterChanged: (Double, Double) -> Unit = remember(viewModel, depthViewModel, appSettings) {
@@ -1755,54 +1000,7 @@ fun MapScreen(
             }
         }
 
-        // ── Recording-aware exit sheet (shown on double-back while recording) ──
-        if (showExitDialog) {
-            RecordingExitSheet(
-                onSave = {
-                    showExitDialog = false
-                    trackViewModel.stopRecording()
-                    kotlinx.coroutines.MainScope().launch {
-                        kotlinx.coroutines.delay(300)
-                        context.stopService(Intent(context, ykws.android.maro.data.track.TrackRecordingService::class.java))
-                        context.findActivity()?.finishAffinity()
-                    }
-                },
-                onContinue = {
-                    showExitDialog = false
-                    context.findActivity()?.moveTaskToBack(true)
-                },
-                onDiscard = {
-                    showExitDialog = false
-                    trackViewModel.discardRecording()
-                    kotlinx.coroutines.MainScope().launch {
-                        kotlinx.coroutines.delay(300)
-                        context.stopService(Intent(context, ykws.android.maro.data.track.TrackRecordingService::class.java))
-                        context.findActivity()?.finishAffinity()
-                    }
-                },
-                onDismiss = { showExitDialog = false }
-            )
-        }
-
-        // ── Stop-recording confirmation (🐾 icon toggle / menu drawer stop) ──
-        // Same 3-way sheet as exit-while-recording; "Continue" just dismisses.
-        if (showStopRecordingSheet) {
-            RecordingExitSheet(
-                onSave = {
-                    showStopRecordingSheet = false
-                    trackViewModel.stopRecording()
-                },
-                onContinue = {
-                    showStopRecordingSheet = false
-                },
-                onDiscard = {
-                    showStopRecordingSheet = false
-                    trackViewModel.discardRecording()
-                },
-                onDismiss = { showStopRecordingSheet = false }
-            )
-        }
-
+        // ── Exit / stop-recording sheets + windowed dialogs rendered by MapDialogHost ──
         // ── Main content (map + dashboard) ────────────────────────────────
         // Note: MapContent is kept at a STABLE composition slot (always a direct child of Box)
         // so the underlying MapView (AndroidView) is never recreated on orientation switch.
@@ -1942,10 +1140,10 @@ fun MapScreen(
                 regulatedZones = regulatedZones,
                 zone300 = zone300,
                 inZone300 = inZone300,
-                depthBitmap = effectiveDepthBitmap,
-                lowDepthWarningBitmap = effectiveLowDepthWarning,
-                depthBox = depthGrid?.boundingBox,
-                isobaths = isobaths,
+                depthBitmap = depthRaster.effectiveDepthBitmap,
+                lowDepthWarningBitmap = depthRaster.effectiveLowDepthWarning,
+                depthBox = depthRaster.depthBox,
+                isobaths = depthRaster.isobaths,
                 appSettings = appSettings,
                 zone300OverlayVisible = zone300Overlay,
                 regulatedZoneOverlayVisible = regulatedZoneOverlay,
@@ -2060,7 +1258,7 @@ fun MapScreen(
                 showExitBanner = showExitBanner,
                 importBanner = importBanner,
                 trackOpStatus = trackOpStatus,
-                rasterProgress = rasterProgress,
+                rasterProgress = depthRaster.rasterProgress,
                 autoFollowSuppressed = autoFollowSuppressed,
                 onRecenter = { viewModel.recenterNow() },
                 onClearTrackInfoError = { trackViewModel.clearInfoError() },
@@ -2081,7 +1279,7 @@ fun MapScreen(
                     state = state,
                     isWater = isWater,
                     distanceToShore = distanceToShore,
-                    depthSample = depthReadout,
+                    depthSample = depthRaster.depthReadout,
                     speedKnots = navigationState.speedKnots ?: navigationState.demoSpeedKnots,
                     zoneSituation = zoneSituation,
                     autoRevealDistanceM = appSettings.zoneAutoRevealDistanceM,
@@ -2097,7 +1295,7 @@ fun MapScreen(
                     state = state,
                     isWater = isWater,
                     distanceToShore = distanceToShore,
-                    depthSample = depthReadout,
+                    depthSample = depthRaster.depthReadout,
                     speedKnots = navigationState.speedKnots ?: navigationState.demoSpeedKnots,
                     zoneSituation = zoneSituation,
                     autoRevealDistanceM = appSettings.zoneAutoRevealDistanceM,
@@ -2628,26 +1826,64 @@ fun MapScreen(
             }
         }
 
-        // ── Process-death recovery dialog ─────────────────────────────
-        recoveryTrack?.let { track ->
-            androidx.compose.material3.AlertDialog(
-                onDismissRequest = { trackViewModel.saveOrphanedCheckpoint(track) },
-                title = { androidx.compose.material3.Text(stringResource(R.string.recovery_title)) },
-                text = { androidx.compose.material3.Text(
-                    stringResource(R.string.recovery_found, track.name)
-                ) },
-                confirmButton = {
-                    androidx.compose.material3.TextButton(
-                        onClick = { trackViewModel.resumeOrphanedCheckpoint(track) }
-                    ) { androidx.compose.material3.Text(stringResource(R.string.recovery_continue)) }
-                },
-                dismissButton = {
-                    androidx.compose.material3.TextButton(
-                        onClick = { trackViewModel.saveOrphanedCheckpoint(track) }
-                    ) { androidx.compose.material3.Text(stringResource(R.string.recovery_save)) }
+        // ── Windowed sheets + dialogs (exit/stop, recovery, permission, source-switch, battery) ──
+        MapDialogHost(
+            context = context,
+            trackViewModel = trackViewModel,
+            // ── Exit / stop-recording sheets ──
+            showExitDialog = showExitDialog,
+            onExitSheetSave = {
+                showExitDialog = false
+                trackViewModel.stopRecording()
+                kotlinx.coroutines.MainScope().launch {
+                    kotlinx.coroutines.delay(300)
+                    context.stopService(Intent(context, ykws.android.maro.data.track.TrackRecordingService::class.java))
+                    context.findActivity()?.finishAffinity()
                 }
-            )
-        }
+            },
+            onExitSheetContinue = {
+                showExitDialog = false
+                context.findActivity()?.moveTaskToBack(true)
+            },
+            onExitSheetDiscard = {
+                showExitDialog = false
+                trackViewModel.discardRecording()
+                kotlinx.coroutines.MainScope().launch {
+                    kotlinx.coroutines.delay(300)
+                    context.stopService(Intent(context, ykws.android.maro.data.track.TrackRecordingService::class.java))
+                    context.findActivity()?.finishAffinity()
+                }
+            },
+            onExitSheetDismiss = { showExitDialog = false },
+            showStopRecordingSheet = showStopRecordingSheet,
+            onStopSheetSave = {
+                showStopRecordingSheet = false
+                trackViewModel.stopRecording()
+            },
+            onStopSheetContinue = { showStopRecordingSheet = false },
+            onStopSheetDiscard = {
+                showStopRecordingSheet = false
+                trackViewModel.discardRecording()
+            },
+            onStopSheetDismiss = { showStopRecordingSheet = false },
+            // ── Process-death recovery ──
+            recoveryTrack = recoveryTrack,
+            // ── Background location permission (A2) ──
+            showBgLocationDialog = showBgLocationDialog,
+            closeBgLocationDialog = { showBgLocationDialog = false },
+            // ── GPS permission-missing (once per episode) ──
+            gpsPermissionMissing = gpsPermissionMissing,
+            gpsPermissionDialogDismissed = gpsPermissionDialogDismissed,
+            gpsMode = appSettings.gpsMode,
+            dismissGpsPermissionDialog = { gpsPermissionDialogDismissed = true },
+            // ── GPS source-switch confirmation ──
+            pendingGpsModeToggle = pendingGpsModeToggle,
+            clearPendingGpsModeToggle = { pendingGpsModeToggle = null },
+            applyGpsMode = applyGpsMode,
+            // ── Battery optimization (A4) ──
+            showBatteryOptDialog = showBatteryOptDialog,
+            closeBatteryOptDialog = { showBatteryOptDialog = false }
+        )
 
         // ── Single-GPX import conflict sheet (Duplicate / Override / Cancel) ──
         pendingTrackImport?.let { pending ->
@@ -2678,107 +1914,6 @@ fun MapScreen(
             )
         }
 
-        // ── Background location permission dialog (A2) ──────────────────
-        if (showBgLocationDialog) {
-            androidx.compose.material3.AlertDialog(
-                onDismissRequest = { showBgLocationDialog = false },
-                title = { androidx.compose.material3.Text(stringResource(R.string.bg_location_title)) },
-                text = { androidx.compose.material3.Text(stringResource(R.string.bg_location_message)) },
-                confirmButton = {
-                    androidx.compose.material3.TextButton(
-                        onClick = {
-                            showBgLocationDialog = false
-                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                data = Uri.parse("package:${context.packageName}")
-                            }
-                            context.startActivity(intent)
-                        }
-                    ) { androidx.compose.material3.Text(stringResource(R.string.bg_location_open_settings)) }
-                },
-                dismissButton = {
-                    androidx.compose.material3.TextButton(
-                        onClick = { showBgLocationDialog = false }
-                    ) { androidx.compose.material3.Text(stringResource(R.string.bg_location_not_now)) }
-                }
-            )
-        }
-
-        // ── GPS permission-missing dialog (shown once per missing-permission episode) ──
-        if (gpsPermissionMissing && !gpsPermissionDialogDismissed && appSettings.gpsMode) {
-            androidx.compose.material3.AlertDialog(
-                onDismissRequest = { gpsPermissionDialogDismissed = true },
-                title = { androidx.compose.material3.Text(stringResource(R.string.gps_permission_title)) },
-                text = { androidx.compose.material3.Text(stringResource(R.string.gps_permission_message)) },
-                confirmButton = {
-                    androidx.compose.material3.TextButton(
-                        onClick = {
-                            gpsPermissionDialogDismissed = true
-                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                                data = Uri.parse("package:${context.packageName}")
-                            }
-                            context.startActivity(intent)
-                        }
-                    ) { androidx.compose.material3.Text(stringResource(R.string.bg_location_open_settings)) }
-                },
-                dismissButton = {
-                    androidx.compose.material3.TextButton(
-                        onClick = { gpsPermissionDialogDismissed = true }
-                    ) { androidx.compose.material3.Text(stringResource(R.string.bg_location_not_now)) }
-                }
-            )
-        }
-
-        // ── GPS source-switch confirmation while recording (bottom sheet, dashboard space) ──
-        pendingGpsModeToggle?.let { enable ->
-            ConfirmSheet(
-                title = stringResource(R.string.gps_switch_confirm_title),
-                message = stringResource(R.string.gps_switch_confirm_message),
-                confirmLabel = stringResource(R.string.gps_switch_confirm_action),
-                isDestructive = false,
-                onConfirm = {
-                    pendingGpsModeToggle = null
-                    applyGpsMode(enable)
-                },
-                onDismiss = { pendingGpsModeToggle = null }
-            )
-        }
-
-        // ── Battery optimization dialog (A4, triggered on recording start) ──
-        if (showBatteryOptDialog) {
-            androidx.compose.material3.AlertDialog(
-                onDismissRequest = {
-                    showBatteryOptDialog = false
-                    context.getSharedPreferences("maro_battery_prefs", Context.MODE_PRIVATE)
-                        .edit().putBoolean("battery_opt_prompted", true).apply()
-                },
-                title = { androidx.compose.material3.Text(stringResource(R.string.battery_opt_title)) },
-                text = { androidx.compose.material3.Text(stringResource(R.string.battery_opt_message)) },
-                confirmButton = {
-                    androidx.compose.material3.TextButton(
-                        onClick = {
-                            showBatteryOptDialog = false
-                            context.getSharedPreferences("maro_battery_prefs", Context.MODE_PRIVATE)
-                                .edit().putBoolean("battery_opt_prompted", true).apply()
-                            val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
-                                data = Uri.parse("package:${context.packageName}")
-                            }
-                            context.startActivity(intent)
-                            trackViewModel.startRecording()
-                        }
-                    ) { androidx.compose.material3.Text(stringResource(R.string.battery_opt_open_settings)) }
-                },
-                dismissButton = {
-                    androidx.compose.material3.TextButton(
-                        onClick = {
-                            showBatteryOptDialog = false
-                            context.getSharedPreferences("maro_battery_prefs", Context.MODE_PRIVATE)
-                                .edit().putBoolean("battery_opt_prompted", true).apply()
-                            trackViewModel.startRecording()
-                        }
-                    ) { androidx.compose.material3.Text(stringResource(R.string.battery_opt_not_now)) }
-                }
-            )
-        }
 
         // ── Screen lock: full-screen input scrim + top-most unlock button ──
         //     The scrim consumes every pointer event so nothing below it (map,
@@ -3366,7 +2501,7 @@ internal val settingsTabLabels = listOf(
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-private fun RecordingExitSheet(
+internal fun RecordingExitSheet(
     onSave: () -> Unit,
     onContinue: () -> Unit,
     onDiscard: () -> Unit,
