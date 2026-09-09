@@ -14,6 +14,9 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.ArrowDropUp
+import androidx.compose.ui.draw.scale
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -137,7 +140,9 @@ private fun SortControl(
                 imageVector = FilterList,
                 contentDescription = stringResource(R.string.cd_sort),
                 tint = ButtonColors.icon,
+                // Vertical mirror: mirrored when ascending, upright when descending (big base at top).
                 modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
+                    .scale(1f, if (state.descending) 1f else -1f)
                     .alpha(sortAlpha)
             )
         }
@@ -173,10 +178,19 @@ private fun SortControl(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Box(Modifier.width(24.dp), contentAlignment = Alignment.Center) {
-                                            if (isSelected) Text("\u2713", color = Color(AppConfig.uiSettingsAccent), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                            if (isSelected) Text("\u2713", color = Color(AppConfig.uiSettingsTextPrimary), fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                         }
                                         Spacer(Modifier.width(8.dp))
                                         Text(stringResource(field.labelResId), color = Color(AppConfig.uiSettingsTextPrimary), fontSize = 15.sp, fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium)
+                                        if (isSelected) {
+                                            Spacer(Modifier.weight(1f))
+                                            Icon(
+                                                imageVector = if (state.descending) Icons.Filled.ArrowDropDown else Icons.Filled.ArrowDropUp,
+                                                contentDescription = null,
+                                                tint = Color(AppConfig.uiSettingsTextPrimary),
+                                                modifier = Modifier.size(28.dp)
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -201,10 +215,19 @@ private fun SortControl(
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Box(Modifier.width(24.dp), contentAlignment = Alignment.Center) {
-                                                if (isSelected) Text("\u2713", color = Color(AppConfig.uiSettingsAccent), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                                if (isSelected) Text("\u2713", color = Color(AppConfig.uiSettingsTextPrimary), fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                             }
                                             Spacer(Modifier.width(8.dp))
                                             Text(stringResource(cf.labelResId), color = Color(AppConfig.uiSettingsTextPrimary), fontSize = 15.sp, fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium)
+                                            if (isSelected) {
+                                                Spacer(Modifier.weight(1f))
+                                                Icon(
+                                                    imageVector = if (state.descending) Icons.Filled.ArrowDropDown else Icons.Filled.ArrowDropUp,
+                                                    contentDescription = null,
+                                                    tint = Color(AppConfig.uiSettingsTextPrimary),
+                                                    modifier = Modifier.size(28.dp)
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -319,7 +342,7 @@ private const val SNACK_ANIM_MS = 250
 @Composable
 private fun <T : ListableItem> SwipeableItemCard(
     item: T,
-    accentColor: Color,
+    accentColor: Color = Color.Unspecified,
     cardContent: @Composable (T) -> Unit,
     onSoftDelete: (T) -> Unit,
     onUndoDelete: (T) -> Unit,
@@ -451,6 +474,8 @@ fun <T : ListableItem> ListOverlayScaffold(
     filterState: ListFilter = ListFilter(),
     onFilterChange: (ListFilter) -> Unit = {},
     onReset: () -> Unit = {},
+    filterLinked: Boolean = true,
+    onToggleLink: () -> Unit = {},
     accentColors: (List<T>) -> Map<String, Color>,
     cardContent: @Composable (T, onLongPress: (() -> Unit)?) -> Unit,
     liveCardContent: @Composable (T) -> Unit = {},
@@ -623,27 +648,28 @@ fun <T : ListableItem> ListOverlayScaffold(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         // Header actions (e.g. import button)
                         headerActions()
+                        // Link toggle (list referential vs map referential), left of the filter icon
+                        if (filterAxes.isNotEmpty()) {
+                            IconButton(
+                                onClick = onToggleLink,
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Icon(
+                                    imageVector = if (filterLinked) ykws.android.maro.ui.icons.Link else ykws.android.maro.ui.icons.LinkOff,
+                                    contentDescription = null,
+                                    tint = ButtonColors.icon,
+                                    modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
+                                )
+                            }
+                        }
                         // Filter
                         if (filterAxes.isNotEmpty()) {
                             FilterControl(filterState = filterState, filterAxes = filterAxes, onFilterChange = onFilterChange)
                         }
                         // Sort
                         SortControl(state = sortState, customFields = customSortFields, customSectionLabel = customSortLabel, onStateChange = onSortStateChange)
-                        // Direction toggle
+                        // Reset (direction is toggled in the sort menu on the selected field)
                         val isSortDefault = sortState.field == ListSortField.CREATED && sortState.customFieldKey == null && sortState.descending
-                        val sortAlpha = if (isSortDefault) ButtonColors.inactiveAlpha else ButtonColors.activeAlpha
-                        IconButton(
-                            onClick = { onSortStateChange(sortState.copy(descending = !sortState.descending)) },
-                            modifier = Modifier.size(40.dp)
-                        ) {
-                            Icon(
-                                imageVector = if (sortState.descending) Icons.Filled.ArrowDropDown else Icons.Filled.ArrowDropUp,
-                                contentDescription = if (sortState.descending) stringResource(R.string.cd_descending) else stringResource(R.string.cd_ascending),
-                                tint = ButtonColors.icon,
-                                modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
-                                    .alpha(sortAlpha)
-                            )
-                        }
                         // Reset
                         val hasActive = hasActiveFilter || !isSortDefault
                         IconButton(

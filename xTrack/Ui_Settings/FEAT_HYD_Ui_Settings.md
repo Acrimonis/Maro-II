@@ -1,12 +1,20 @@
-# Ui_Settings — Hydration (2026-09-07 14:48)
+# Ui_Settings — Hydration (2026-09-09)
 
 ## State
-Settings page UI, persistence (SharedPreferences), settings widgets, and UX. **Finalisation pass (2026-09-07, `feature/finalise-feature`):** all remaining open sections closed. `render-tweaks` closed as already-implemented — its June 25 proposals (`ui.padding.card.vertical=8dp`, card background standardization to `uiCardBackground`) were delivered by the card-expander-nestedcard-refactor + properties-normalization; the current `Card` composable (`MapScreen.kt`) already uses `ui.padding.card.vertical` + `uiCardBackground` + 12dp radius. `header-normalization` closed as implemented & merged (PR #217) — the Settings overlay header uses the shared `DrawerHeader` (32dp back, 17sp title, no actions), and the drawer guideline §6/§12 were updated. `settings apply on close` closed as out-of-scope/not-needed — settings keep firing immediately (no deferred batch-apply). Guideline docs (`ui-component-guidelines.md` + `ui-drawer-guidelines.md`) audited against code — in sync, no drift found. No code changes in this pass (doc/cleanup only).
+Settings page UI, persistence (SharedPreferences), settings widgets, and UX. **MapScreen settings
+extraction (2026-09-09, `feature/filters-link`, commit b71a230):** the entire Settings overlay subtree was
+moved out of the 5,841-line `MapScreen.kt` into a new same-package file
+`MapScreenSettingsOverlay.kt` (~2,633 lines). `SettingsOverlay` stayed `internal` (OverlayLayer call
+unchanged); page composables kept `private`; settings-only constants/labels made `internal`;
+`RecordingExitSheet`/`ImportConflictSheet` remain in `MapScreen.kt`. Pure mechanical move — zero behavior
+change; build SUCCESS. Plan: `260909_FEAT_PLN_Ui_Settings_mapScreen-settings-extract.md` (implemented).
+Code-health sequencing: (1) this extraction done, (2) filters-link wiring next, (3) MapScreen orchestration
+monolith refactor later.
 
 ## Target Files
-- `xTrack/Ui_Settings/FEAT_DSC_Ui_Settings.md` — sections closed, Implemented updated
-- `docs/ui-component-guidelines.md` — verified in sync (no change)
-- `docs/ui-drawer-guidelines.md` — verified in sync (no change)
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — Settings subtree removed (5,841 → 3,417 lines)
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt` — new, moved settings subtree
+- `xTrack/Ui_Settings/260909_FEAT_PLN_Ui_Settings_mapScreen-settings-extract.md` — implemented
 
 ## Next Step
-None — all Ui_Settings sections closed. Feature is fully implemented and documented.
+Finish the filters-link wiring on `feature/filters-link`, then refactor the MapScreen orchestration monolith.

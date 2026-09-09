@@ -1,6 +1,9 @@
 # Global Context — Routing Table
 
 ## Focus History
+- [2026-09-09 12:18 UTC] Ui_General — filters-link decoupling IMPLEMENTED on feature/filters-link: List/Map filter referentials + Link/LinkOff toggle; commits b4693df..48bb560; Ask reviewed; build SUCCESS → xTrack/Ui_General/FEAT_HYD_Ui_General.md
+- [2026-09-09 10:06 UTC] Ui_Settings — MapScreen settings extraction: moved the Settings overlay subtree out of MapScreen.kt (5841→3417) into same-package MapScreenSettingsOverlay.kt; zero behavior change; build SUCCESS; committed b71a230 on feature/filters-link → xTrack/Ui_Settings/FEAT_HYD_Ui_Settings.md
+- [2026-09-09 09:53 UTC] Ui_General — filters-link List/Map filter decoupling: design locked + Ask review passed; partial foundation committed on feature/filters-link b4693df (settings Option B no-versioning + marker map stream + Link/LinkOff icons); remaining UI split pending → xTrack/Ui_General/FEAT_HYD_Ui_General.md
 - [2026-09-08 17:18 UTC] Ui_Menu — hamburger menu drawer; focus on feature/menu-render-upt → xTrack/Ui_Menu/FEAT_HYD_Ui_Menu.md
 - [2026-09-08 16:49 UTC] Navigation — auto-show-zones baked + committed + pushed: demo-mode auto-show validated via instrumented logcat → no code defect (drawer "Auto-show zones" master override was off); auto-show knowledge consolidated in FEAT_DOC_Navigation_auto-show.md; stale demo-heading comments fixed → xTrack/Navigation/FEAT_HYD_Navigation.md
 - [2026-09-07 15:36 UTC] Ui_General — track-filter-date-range implemented (Track Date Range filter extended+reordered to 7 options Last week→Last 6 month with All last + default, THIS_YEAR dropped); Ask review PASS; build SUCCESS → xTrack/Ui_General/FEAT_HYD_Ui_General.md
@@ -40,6 +43,7 @@
 | bake, baking, bake-script, bake-bat, apk-bake, apk-build, apk-deploy, deploy, prebake-pipeline, bake-env | xTrack/BakeNormalization/FEAT_DSC_BakeNormalization.md |
 | depthsafety, depth-safety, danger-depth, shallow, grounding, isobar precision, isobath precision, depth alert, depth overlay, water-only | xTrack/DepthSafety/FEAT_DSC_DepthSafety.md |
 | app-bak-flow, app-back-flow, back, back button, back handler, exit, double-back, press back, keep screen on, keep awake, screen-on, wakelock | xTrack/Ui_General/FEAT_DSC_Ui_General.md |
+| filters-link, filter link, linked filters, decouple list map filter, map filter referential | xTrack/Ui_General/FEAT_DSC_Ui_General.md |
 | settings, preferences, config, scroll, options | xTrack/Ui_Settings/FEAT_DSC_Ui_Settings.md |
 | regulation, regulated zones, regulatedzone, regulation zone, speed zone, speed limit, anchoring, SHOM regulation, shom reg, maritime regulation, regulatory zone, réglementation maritime, zone réglementée, arrêté maritime, DIRM, cap d'antibes, lérins | xTrack/RegulatedZones/FEAT_DSC_RegulatedZones.md |
 | arclayout, arc, arc-menu, layer-toggle, multi-btn, layer, toggle, fan-out | xTrack/ArcLayout/FEAT_DSC_ArcLayout.md |

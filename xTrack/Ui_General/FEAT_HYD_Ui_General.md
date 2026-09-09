@@ -1,28 +1,31 @@
 # Hydration: Ui_General
 
-**Session:** Track Date Range filter extend+reorder — Ask review PASS, baked for commit.
+**Session:** Filters-link — List/Map filter referential decoupling. IMPLEMENTED and committed on
+`feature/filters-link` (Ask reviewed, builds SUCCESS).
 
-1. **Track Date Range filter — extend+reorder** — `ListFilter.kt`: `dateInRange()`
-   windows now 7/14/30/60/90/180 days (`LAST_7_DAYS`…`LAST_6_MONTHS`) with
-   `else -> true` (ALL); the `THIS_YEAR` branch and `yearStartMs()` helper were deleted
-   (`Calendar` import kept — still used by `todayMidnightMs`); `trackFilterAxes()`
-   dateRange options ordered shortest→longest with `All` last and `isDefault=true`.
-   Track History list and the menu drawer consume the same `trackFilterAxes()` spec;
-   `FilterControl` selects default by `isDefault` flag, so All-last is safe. Build
-   SUCCESS; Ask review PASS — matches plan, no deviations.
-2. **Marker filter — Geometry axis removed** — `ListFilter.kt` `markerFilterAxes()`
-   returns icon/pinned/origin only, origin ungated; dead code removed (prior batch).
-3. **List count display** — Track History title "· N" + menu Tracks/Markers counts
-   left of chevron, live excluded; committed as bfd4794 (prior batch).
+## State
+- **Filters-link decoupling — Implemented.** Two filter referentials per type (List and Map), linked by
+  default, with a Link/LinkOff toggle in the menu. The menu filter drives the Map referential; the list
+  headers drive the List referential; linked edits write both, unlinked writes only its own, re-link from
+  the menu converges list to map. Map rendering applies the Map filter over the unfiltered track set;
+  marker map overlay uses the map-filtered world; reveal-on-select force-draws a from-list item while its
+  panel is open; map-tapped markers open from the map world (`DrawerSource.MAP`, clamp nav); menu counters
+  reflect map items to be rendered; whereAmI overrides the map filter.
+- Settings use Option B: prefs versioning removed; `trackMapFilter`/`markerMapFilter`/
+  `trackFilterLinked`/`markerFilterLinked` keys default (Map = All, link = ON); defunct legacy keys
+  cleaned idempotently.
+- MapScreen code health step 1 done under Ui_Settings: Settings overlay subtree extracted to
+  `MapScreenSettingsOverlay.kt` (MapScreen 5841 → 3417 lines).
 
-**Next:** commit + push the Ui_General batch on `feature/list-counts`.
+## Commits (feature/filters-link)
+b4693df foundation · 123b8b2 bake · b71a230 settings extraction · c79ddff bake · de2f013 wiring ·
+48bb560 marker map-tap MAP world.
 
-**Target files:**
-- `data/model/ListFilter.kt` (date-range windows/options; marker filter axes)
+## Plans
+- `xTrack/Ui_General/260909_FEAT_PLN_Ui_General_filters-link-decoupling.md` (status: Implemented)
 
-**Plans:**
-- `xTrack/Ui_General/260907_FEAT_PLN_Ui_General_track-filter-date-range.md` (status: Implemented)
-- `xTrack/Ui_General/260907_FEAT_PLN_Ui_General_marker-filter-remove-geometry.md` (status: Implemented)
-- `xTrack/Ui_General/260907_FEAT_PLN_Ui_General_list-count-display.md` (status: Implemented)
+## Next
+Optional residuals none; queued: MapScreen orchestration-monolith refactor (code health step 2, after this
+feature lands via PR).
 
-**Last Bake:** 2026-09-07 15:37 UTC
+**Last Bake:** 2026-09-09 12:18 UTC

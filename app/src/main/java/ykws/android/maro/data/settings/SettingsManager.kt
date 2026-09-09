@@ -259,6 +259,14 @@ data class AppSettings(
     val trackListFilter: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
     /** Filter state for the marker management list. */
     val markerListFilter: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
+    /** Filter state applied to the MAP overlay for tracks (decoupled from the list via [trackFilterLinked]). */
+    val trackMapFilter: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
+    /** Filter state applied to the MAP overlay for markers (decoupled from the list via [markerFilterLinked]). */
+    val markerMapFilter: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
+    /** When true the track list and map filters stay identical (editing one writes both). */
+    val trackFilterLinked: Boolean = true,
+    /** When true the marker list and map filters stay identical (editing one writes both). */
+    val markerFilterLinked: Boolean = true,
     /** Enable automatic map offset in GPS navigation mode. Default true. */
     val mapOffsetGps: Boolean = true,
     /** Enable automatic map offset in demo/manual mode. Default false. */
@@ -290,65 +298,20 @@ class SettingsManager(
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     init {
-        // Migration: reset stale values when prefs version changes.
-        val savedVersion = prefs.getInt(KEY_PREFS_VERSION, 1)
-        if (savedVersion < CURRENT_VERSION) {
-            val editor = prefs.edit()
-            if (savedVersion < 2) {
-                editor.remove(KEY_ZONE_AUTOREVEAL_DIST_M)
-                    .remove(KEY_ZONE_AUTOREVEAL_TIME_S)
-            }
-            if (savedVersion < 3) {
-                // Migrate Boolean userMarkersVisible → MarkerLayerState
-                val oldVisible = prefs.getBoolean("user_markers_visible", true)
-                val newState = if (oldVisible) "SHOW_ALL" else "HIDDEN"
-                editor.putString(KEY_MARKER_LAYER_STATE, newState)
-                    .remove("user_markers_visible")
-            }
-            if (savedVersion < 4) {
-                // Clear legacy sort keys (format changed: pinnedGrouped removed)
-                editor.remove(KEY_TRACK_LIST_SORT)
-                    .remove(KEY_MARKER_LIST_SORT)
-            }
-            if (savedVersion < 5) {
-                // Force SHOW_PINNED → SHOW_ALL (enum value removed in marker settings rework)
-                val oldState = prefs.getString(KEY_MARKER_LAYER_STATE, "SHOW_ALL")
-                if (oldState == "SHOW_PINNED") {
-                    editor.putString(KEY_MARKER_LAYER_STATE, "SHOW_ALL")
-                }
-            }
-            if (savedVersion < 6) {
-                // Approach re-display rework: per-overlay mode toggles -> global mode pair + per-type flags
-                editor.remove("zone300_autoshow_gps")
-                    .remove("zone300_autoshow_demo")
-                    .remove("speed_zones_visible")
-                    .remove("speed_zone_autoshow_gps")
-                    .remove("speed_zone_autoshow_demo")
-                    .remove("regulated_zone_autoshow_gps")
-                    .remove("regulated_zone_autoshow_demo")
-            }
-            if (savedVersion < 7) {
-                // Marker icon/pin decoupling: the marker "pinned" filter axis was renamed
-                // to "icon" (PINNED->WITH_ICON, UNPINNED->WITHOUT_ICON). Rewrite persisted
-                // markerListFilter so the old axis maps onto the new icon axis.
-                val raw = prefs.getString(KEY_MARKER_LIST_FILTER, null)
-                if (!raw.isNullOrBlank()) {
-                    val rewritten = raw.split(";").mapNotNull { entry ->
-                        val eq = entry.indexOf('=')
-                        if (eq <= 0) return@mapNotNull entry
-                        val key = entry.substring(0, eq)
-                        val value = entry.substring(eq + 1)
-                        when {
-                            key == "pinned" && value == "PINNED" -> "icon=WITH_ICON"
-                            key == "pinned" && value == "UNPINNED" -> "icon=WITHOUT_ICON"
-                            else -> entry
-                        }
-                    }.joinToString(";")
-                    editor.putString(KEY_MARKER_LIST_FILTER, rewritten)
-                }
-            }
-            editor.putInt(KEY_PREFS_VERSION, CURRENT_VERSION).apply()
-        }
+        // No settings versioning. Missing or outdated values fall back to defaults at read time, so
+        // basic functionality is always preserved. Idempotent cleanup of keys the code no longer reads
+        // (legacy keys replaced by later settings; harmless to remove on every start).
+        prefs.edit()
+            .remove("user_markers_visible")          // replaced by marker_layer_state (v3)
+            .remove("zone300_autoshow_gps")          // approach re-display rework (v6)
+            .remove("zone300_autoshow_demo")
+            .remove("speed_zones_visible")
+            .remove("speed_zone_autoshow_gps")
+            .remove("speed_zone_autoshow_demo")
+            .remove("regulated_zone_autoshow_gps")
+            .remove("regulated_zone_autoshow_demo")
+            .remove("prefs_version")                 // versioning mechanism removed
+            .apply()
     }
 
     private val _settings = MutableStateFlow(load())
@@ -463,6 +426,10 @@ class SettingsManager(
         markerListSort = ykws.android.maro.data.model.ListSortState.parse(prefs.getString(KEY_MARKER_LIST_SORT, null)),
         trackListFilter = ykws.android.maro.data.model.ListFilter.parse(prefs.getString(KEY_TRACK_LIST_FILTER, null)),
         markerListFilter = ykws.android.maro.data.model.ListFilter.parse(prefs.getString(KEY_MARKER_LIST_FILTER, null)),
+        trackMapFilter = ykws.android.maro.data.model.ListFilter.parse(prefs.getString(KEY_TRACK_MAP_FILTER, null)),
+        markerMapFilter = ykws.android.maro.data.model.ListFilter.parse(prefs.getString(KEY_MARKER_MAP_FILTER, null)),
+        trackFilterLinked = prefs.getBoolean(KEY_TRACK_FILTER_LINKED, true),
+        markerFilterLinked = prefs.getBoolean(KEY_MARKER_FILTER_LINKED, true),
         mapOffsetGps = prefs.getBoolean(KEY_MAP_OFFSET_GPS, true),
         mapOffsetDemo = prefs.getBoolean(KEY_MAP_OFFSET_DEMO, false),
         mapOffsetBoatFromBottomPct = prefs.getInt(KEY_MAP_OFFSET_BOAT_FROM_BOTTOM_PCT, 33).coerceIn(5, 50),
@@ -585,6 +552,10 @@ class SettingsManager(
             .putString(KEY_MARKER_LIST_SORT, ykws.android.maro.data.model.ListSortState.format(updated.markerListSort))
             .putString(KEY_TRACK_LIST_FILTER, ykws.android.maro.data.model.ListFilter.format(updated.trackListFilter))
             .putString(KEY_MARKER_LIST_FILTER, ykws.android.maro.data.model.ListFilter.format(updated.markerListFilter))
+            .putString(KEY_TRACK_MAP_FILTER, ykws.android.maro.data.model.ListFilter.format(updated.trackMapFilter))
+            .putString(KEY_MARKER_MAP_FILTER, ykws.android.maro.data.model.ListFilter.format(updated.markerMapFilter))
+            .putBoolean(KEY_TRACK_FILTER_LINKED, updated.trackFilterLinked)
+            .putBoolean(KEY_MARKER_FILTER_LINKED, updated.markerFilterLinked)
             .putBoolean(KEY_MAP_OFFSET_GPS, updated.mapOffsetGps)
             .putBoolean(KEY_MAP_OFFSET_DEMO, updated.mapOffsetDemo)
             .putInt(KEY_MAP_OFFSET_BOAT_FROM_BOTTOM_PCT, updated.mapOffsetBoatFromBottomPct)
@@ -696,11 +667,13 @@ class SettingsManager(
         private const val KEY_MARKER_LIST_SORT = "marker_list_sort"
         private const val KEY_TRACK_LIST_FILTER = "track_list_filter"
         private const val KEY_MARKER_LIST_FILTER = "marker_list_filter"
+        private const val KEY_TRACK_MAP_FILTER = "track_map_filter"
+        private const val KEY_MARKER_MAP_FILTER = "marker_map_filter"
+        private const val KEY_TRACK_FILTER_LINKED = "track_filter_linked"
+        private const val KEY_MARKER_FILTER_LINKED = "marker_filter_linked"
         private const val KEY_MAP_OFFSET_GPS = "map_offset_gps"
         private const val KEY_MAP_OFFSET_DEMO = "map_offset_demo"
         private const val KEY_MAP_OFFSET_BOAT_FROM_BOTTOM_PCT = "map_offset_boat_from_bottom_pct"
         private const val KEY_MAX_RECORDING_ACCURACY_M = "max_recording_accuracy_m"
-        private const val KEY_PREFS_VERSION = "prefs_version"
-        private const val CURRENT_VERSION = 8
     }
 }

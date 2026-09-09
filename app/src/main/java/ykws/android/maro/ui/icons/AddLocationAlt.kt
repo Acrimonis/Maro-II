@@ -10,14 +10,14 @@ import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
 
 @Suppress("CheckReturnValue")
-public val Add_location_alt: ImageVector
+public val AddLocationAlt: ImageVector
   get() {
-    if (_Add_location_alt != null) {
-      return _Add_location_alt!!
+    if (_AddLocationAlt != null) {
+      return _AddLocationAlt!!
     }
-    _Add_location_alt =
+    _AddLocationAlt =
       ImageVector.Builder(
-          name = "add_location_alt",
+          name = "AddLocationAlt",
           defaultWidth = 40.dp,
           defaultHeight = 40.dp,
           viewportWidth = 40f,
@@ -88,7 +88,7 @@ public val Add_location_alt: ImageVector
           }
         }
         .build()
-    return _Add_location_alt!!
+    return _AddLocationAlt!!
   }
 
-private var _Add_location_alt: ImageVector? = null
+private var _AddLocationAlt: ImageVector? = null

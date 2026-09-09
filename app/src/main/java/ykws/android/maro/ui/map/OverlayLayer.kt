@@ -133,6 +133,13 @@ fun OverlayLayer(
     trackFilterState: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
     onTrackFilterChange: (ykws.android.maro.data.model.ListFilter) -> Unit = {},
     onTrackReset: () -> Unit = {},
+    // Map referential (menu filter) + link flag. The link toggle lives in the menu only.
+    trackMapFilterState: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
+    onTrackMapFilterChange: (ykws.android.maro.data.model.ListFilter) -> Unit = {},
+    onTrackMapReset: () -> Unit = {},
+    trackFilterLinked: Boolean = true,
+    onToggleTrackLink: () -> Unit = {},
+    trackMapCount: Int = 0,
 
     // ── Settings data ────────────────────────────────────────────────────
     appSettings: AppSettings,
@@ -178,7 +185,14 @@ fun OverlayLayer(
     onMarkerSortStateChange: (ykws.android.maro.data.model.ListSortState) -> Unit,
     markerFilterState: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
     onMarkerFilterChange: (ykws.android.maro.data.model.ListFilter) -> Unit = {},
-    onMarkerReset: () -> Unit = {}
+    onMarkerReset: () -> Unit = {},
+    // Map referential (menu filter) + link flag for markers.
+    markerMapFilterState: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
+    onMarkerMapFilterChange: (ykws.android.maro.data.model.ListFilter) -> Unit = {},
+    onMarkerMapReset: () -> Unit = {},
+    markerFilterLinked: Boolean = true,
+    onToggleMarkerLink: () -> Unit = {},
+    markerMapCount: Int = 0
 ) {
     // ── Collect track ViewModel state ────────────────────────────────────
     val trackRecorderState by trackViewModel.uiState.collectAsState()
@@ -298,8 +312,8 @@ fun OverlayLayer(
                 onAutoShowMasterChange = onAutoShowMasterChange,
                 gpsToggleColor = gpsToggleColor,
                 recorderState = trackRecorderState,
-                trackCount = trackSummaries.count { !it.isLive },
-                markerCount = markers.size,
+                trackCount = trackMapCount,
+                markerCount = markerMapCount,
                 onViewTrackList = {
                     onDismissMenu()
                     onOpenTrackHistoryFromMenu()
@@ -315,13 +329,17 @@ fun OverlayLayer(
                     onDismissMenu()
                     onOpenSettingsFromMenu()
                 },
-                trackFilterState = trackFilterState,
-                onTrackFilterChange = onTrackFilterChange,
-                onTrackReset = onTrackReset,
+                trackFilterState = trackMapFilterState,
+                onTrackFilterChange = onTrackMapFilterChange,
+                onTrackReset = onTrackMapReset,
+                trackFilterLinked = trackFilterLinked,
+                onToggleTrackLink = onToggleTrackLink,
                 trackFilterAxes = ykws.android.maro.data.model.trackFilterAxes(),
-                markerFilterState = markerFilterState,
-                onMarkerFilterChange = onMarkerFilterChange,
-                onMarkerReset = onMarkerReset,
+                markerFilterState = markerMapFilterState,
+                onMarkerFilterChange = onMarkerMapFilterChange,
+                onMarkerReset = onMarkerMapReset,
+                markerFilterLinked = markerFilterLinked,
+                onToggleMarkerLink = onToggleMarkerLink,
                 markerFilterAxes = ykws.android.maro.data.model.markerFilterAxes(),
                 markerZonesVisible = markerZonesVisible,
                 onToggleMarkerZones = onToggleMarkerZones,
@@ -652,6 +670,8 @@ fun OverlayLayer(
                 filterState = trackFilterState,
                 onFilterChange = onTrackFilterChange,
                 onReset = onTrackReset,
+                filterLinked = trackFilterLinked,
+                onToggleLink = onToggleTrackLink,
                 tracksVisible = appSettings.tracksVisible,
                 trackingRenderNb = appSettings.trackingRenderNb,
                 trackingTransparencyNewest = appSettings.trackingTransparencyNewest,
@@ -694,6 +714,8 @@ fun OverlayLayer(
                 filterState = markerFilterState,
                 onFilterChange = onMarkerFilterChange,
                 onReset = onMarkerReset,
+                filterLinked = markerFilterLinked,
+                onToggleLink = onToggleMarkerLink,
                 lazyListState = markerListState
             )
         }
