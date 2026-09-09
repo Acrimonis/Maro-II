@@ -422,7 +422,9 @@ class MarkersViewModel(
     private fun applyFilterSort(filter: ListFilter, sort: ykws.android.maro.data.model.ListSortState) {
         val filtered = _allMarkers.value.filter { it.matchesFilter(filter) }
         _markers.value = sortMarkers(filtered, sort)
-        if (_drawerState.value is MarkerDrawerState.Viewing) {
+        // Auto-close reacts only to the LIST-opened panel (list filter change). MAP-opened views are
+        // never closed by a list-filter change; map filters cannot change while a dash is open.
+        if (_drawerState.value is MarkerDrawerState.Viewing && drawerSource == DrawerSource.LIST) {
             val selected = _selectedMarkerId.value
             if (selected != null && filtered.none { it.id == selected }) {
                 closeDrawer()

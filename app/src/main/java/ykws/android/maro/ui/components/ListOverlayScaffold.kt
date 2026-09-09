@@ -342,6 +342,7 @@ private const val SNACK_ANIM_MS = 250
 @Composable
 private fun <T : ListableItem> SwipeableItemCard(
     item: T,
+    accentColor: Color = Color.Unspecified,
     cardContent: @Composable (T) -> Unit,
     onSoftDelete: (T) -> Unit,
     onUndoDelete: (T) -> Unit,

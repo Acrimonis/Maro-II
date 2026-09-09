@@ -40,10 +40,12 @@ lists — only the bound referential differs.
 - **Linked (default):** editing/resetting a filter in either place acts on BOTH referentials; counters
   equal while no rendering constraint applies.
 - **Unlinked:** editing/resetting acts only on its own referential; counters follow their own referential.
-- Unlinking never erases values; values diverge only when one side is edited. Re-linking converges to a
-  single value (the value of the control where the user toggles).
-- The dashboard never opens while the menu is open (opening the menu closes any dash), so the menu is the
-  only place that carries the link toggle and it is always reachable without a dash on screen.
+- Unlinking never erases values; values diverge only when one side is edited.
+- Re-linking is a PURE FLIP: it only turns the link back ON and never copies either filter to the other.
+  If the two referentials had diverged, they keep their values until the next edit while linked, and that
+  next edit is written to both (equalizing them). Confirmed rule (Ask review, 2026-09-09).
+- The link toggle is reachable in the menu and in each list header (list headers added in Phase 3 of the
+  list-icons plan).
 
 ### Rendering and counters
 - **Map rendering is conditional on the Map filter** for tracks AND markers. Pinned tracks are NOT

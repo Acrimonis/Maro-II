@@ -1232,16 +1232,17 @@ fun MapScreen(
 
         // Determine desired track ID set (history = non-pinned only)
         val nbToRender = appSettings.trackingRenderNb.coerceIn(0, 20)
-        val desiredIds = if (appSettings.tracksVisible) {
-            if (nbToRender > 0) {
-                filteredSummaries
-                    .filter { it.visibleOnMap && !it.pinned }
-                    .sortedByDescending { it.startTimeMs }
-                    .take(nbToRender)
-                    .map { it.id }
-                    .toSet()
-            } else emptySet()
-        } else emptySet()
+        // History candidates: the highlighted (viewed) non-pinned track is always kept, regardless of
+        // its visibleOnMap flag or the render cap, so a from-list view is force-drawn on the map.
+        // Pinned highlighted tracks render through the dedicated pinned block (never capped).
+        val rankedHistory = filteredSummaries
+            .filter { (it.visibleOnMap || it.id == highlightedTrackId) && !it.pinned }
+            .sortedByDescending { it.startTimeMs }
+        val cappedHistory = rankedHistory.take(nbToRender)
+        val historyList = if (highlightedTrackId != null && cappedHistory.none { it.id == highlightedTrackId }) {
+            cappedHistory + rankedHistory.filter { it.id == highlightedTrackId }
+        } else cappedHistory
+        val desiredIds = if (appSettings.tracksVisible) historyList.map { it.id }.toSet() else emptySet()
 
         // Remove all existing track history overlays + direction arrows — rebuild from scratch
         val toRemove = mv.overlays.filter { overlay ->
@@ -1250,14 +1251,7 @@ fun MapScreen(
         }
         mv.overlays.removeAll(toRemove)
 
-        val sortedDesired = if (appSettings.tracksVisible) {
-            if (nbToRender > 0) {
-                filteredSummaries
-                    .filter { it.visibleOnMap && !it.pinned }
-                    .sortedByDescending { it.startTimeMs }
-                    .take(nbToRender)
-            } else emptyList()
-        } else emptyList()
+        val sortedDesired = if (appSettings.tracksVisible) historyList else emptyList()
 
         val total = nbToRender
 
