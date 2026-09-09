@@ -225,6 +225,17 @@ fun MenuDrawerOverlay(
             )
             Spacer(Modifier.weight(1f))
             if (trackFilterAxes.isNotEmpty()) {
+                IconButton(
+                    onClick = onToggleTrackLink,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = if (trackFilterLinked) Link else LinkOff,
+                        contentDescription = null,
+                        tint = ButtonColors.icon,
+                        modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
+                    )
+                }
                 FilterControl(
                     filterState = trackFilterState,
                     filterAxes = trackFilterAxes,
@@ -241,17 +252,6 @@ fun MenuDrawerOverlay(
                         tint = ButtonColors.icon,
                         modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
                             .alpha(if (hasActiveTrackFilter) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha)
-                    )
-                }
-                IconButton(
-                    onClick = onToggleTrackLink,
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = if (trackFilterLinked) Link else LinkOff,
-                        contentDescription = null,
-                        tint = ButtonColors.icon,
-                        modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
                     )
                 }
             }
@@ -427,6 +427,17 @@ fun MenuDrawerOverlay(
             )
             Spacer(Modifier.weight(1f))
             if (markerFilterAxes.isNotEmpty()) {
+                IconButton(
+                    onClick = onToggleMarkerLink,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = if (markerFilterLinked) Link else LinkOff,
+                        contentDescription = null,
+                        tint = ButtonColors.icon,
+                        modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
+                    )
+                }
                 FilterControl(
                     filterState = markerFilterState,
                     filterAxes = markerFilterAxes,
@@ -443,17 +454,6 @@ fun MenuDrawerOverlay(
                         tint = ButtonColors.icon,
                         modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
                             .alpha(if (hasActiveMarkerFilter) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha)
-                    )
-                }
-                IconButton(
-                    onClick = onToggleMarkerLink,
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = if (markerFilterLinked) Link else LinkOff,
-                        contentDescription = null,
-                        tint = ButtonColors.icon,
-                        modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
                     )
                 }
             }
