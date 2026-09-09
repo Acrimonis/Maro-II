@@ -1972,7 +1972,11 @@ fun MapScreen(
                     closeSelectedItemDashboards()
                     markersViewModel.startWizard(initialPos = center)
                 },
-                onMarkerTap = { id -> markersViewModel.openEditDrawer(id) },
+                onMarkerTap = { id ->
+                    val worldIds = mapMarkersState.map { it.id }
+                    val navIds = if (worldIds.contains(id)) worldIds else listOf(id) + worldIds
+                    markersViewModel.openEditDrawer(navIds, selectedId = id, source = DrawerSource.MAP)
+                },
                 onWhereAmI = {
                     val boatPos = gpsPosition ?: mapCenter
                     markersViewModel.whereAmI(boatPos)
@@ -2128,7 +2132,13 @@ fun MapScreen(
                     mapView = mapView,
                     proximityZoneMultiplier = AppConfig.markerProximityZoneMultiplier,
                     unconfirmedMarker = unconfirmedMarker,
-                    onMarkerTap = { ids -> markersViewModel.openEditDrawer(ids) },
+                    onMarkerTap = { ids ->
+                        ids.firstOrNull()?.let { sel ->
+                            val worldIds = mapMarkersState.map { it.id }
+                            val navIds = if (worldIds.contains(sel)) worldIds else listOf(sel) + worldIds
+                            markersViewModel.openEditDrawer(navIds, selectedId = sel, source = DrawerSource.MAP)
+                        }
+                    },
                     matchResult = if (drawerState is MarkerDrawerState.MatchResult) matchResult else null,
                     // The selected marker forces its own zones visible inside MarkerOverlay
                     // (folded navigationZonesVisible); this flag stays the global toggle.
