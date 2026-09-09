@@ -152,6 +152,8 @@ fun TrackHistoryOverlay(
     filterState: ListFilter = ListFilter(),
     onFilterChange: (ListFilter) -> Unit = {},
     onReset: () -> Unit = {},
+    filterLinked: Boolean = true,
+    onToggleLink: () -> Unit = {},
     isOpen: Boolean = true,
     modifier: Modifier = Modifier,
     lazyListState: LazyListState = rememberLazyListState(),
@@ -369,6 +371,8 @@ fun TrackHistoryOverlay(
         filterState = filterState,
         onFilterChange = onFilterChange,
         onReset = onReset,
+        filterLinked = filterLinked,
+        onToggleLink = onToggleLink,
         accentColors = { accentColorMap },
         cardContent = { summary, onLongPress ->
             TrackCardContent(

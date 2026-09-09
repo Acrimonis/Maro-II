@@ -670,6 +670,8 @@ fun OverlayLayer(
                 filterState = trackFilterState,
                 onFilterChange = onTrackFilterChange,
                 onReset = onTrackReset,
+                filterLinked = trackFilterLinked,
+                onToggleLink = onToggleTrackLink,
                 tracksVisible = appSettings.tracksVisible,
                 trackingRenderNb = appSettings.trackingRenderNb,
                 trackingTransparencyNewest = appSettings.trackingTransparencyNewest,
@@ -712,6 +714,8 @@ fun OverlayLayer(
                 filterState = markerFilterState,
                 onFilterChange = onMarkerFilterChange,
                 onReset = onMarkerReset,
+                filterLinked = markerFilterLinked,
+                onToggleLink = onToggleMarkerLink,
                 lazyListState = markerListState
             )
         }

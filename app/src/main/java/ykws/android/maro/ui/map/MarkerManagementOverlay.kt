@@ -101,6 +101,8 @@ fun MarkerManagementOverlay(
     filterState: ListFilter = ListFilter(),
     onFilterChange: (ListFilter) -> Unit = {},
     onReset: () -> Unit = {},
+    filterLinked: Boolean = true,
+    onToggleLink: () -> Unit = {},
     modifier: Modifier = Modifier,
     lazyListState: LazyListState = rememberLazyListState()
 ) {
@@ -190,6 +192,8 @@ fun MarkerManagementOverlay(
         filterState = filterState,
         onFilterChange = onFilterChange,
         onReset = onReset,
+        filterLinked = filterLinked,
+        onToggleLink = onToggleLink,
         accentColors = { list -> list.associate { it.id to Color(ykws.android.maro.ui.map.MarkerColors.of(it.colorIndex)) } },
         cardContent = { marker, onLongPress ->
             MarkerCardContent(

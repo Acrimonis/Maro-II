@@ -2422,12 +2422,8 @@ fun MapScreen(
             },
             trackFilterLinked = appSettings.trackFilterLinked,
             onToggleTrackLink = {
-                val turningOn = !appSettings.trackFilterLinked
-                viewModel.updateSettings { s ->
-                    if (s.trackFilterLinked) s.copy(trackFilterLinked = false)
-                    else s.copy(trackFilterLinked = true, trackListFilter = s.trackMapFilter)
-                }
-                if (turningOn) trackViewModel.refreshSummaries(filter = appSettings.trackMapFilter, reloadFromDisk = false)
+                // Pure flip: no filter carry-over. Next linked edit writes both.
+                viewModel.updateSettings { s -> s.copy(trackFilterLinked = !s.trackFilterLinked) }
             },
             trackMapCount = trackMapVisibleCount,
             appSettings = appSettings,
@@ -2521,10 +2517,8 @@ fun MapScreen(
             },
             markerFilterLinked = appSettings.markerFilterLinked,
             onToggleMarkerLink = {
-                viewModel.updateSettings { s ->
-                    if (s.markerFilterLinked) s.copy(markerFilterLinked = false)
-                    else s.copy(markerFilterLinked = true, markerListFilter = s.markerMapFilter)
-                }
+                // Pure flip: no filter carry-over. Next linked edit writes both.
+                viewModel.updateSettings { s -> s.copy(markerFilterLinked = !s.markerFilterLinked) }
             },
             markerMapCount = mapMarkersState.size,
             onCreateFirst = {
