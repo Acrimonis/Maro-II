@@ -31,6 +31,8 @@ import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material3.IconButton
 import ykws.android.maro.ui.components.FilterControl
 import ykws.android.maro.ui.icons.FilterAlt
+import ykws.android.maro.ui.icons.Link
+import ykws.android.maro.ui.icons.LinkOff
 import ykws.android.maro.ui.icons.Refresh
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -94,10 +96,14 @@ fun MenuDrawerOverlay(
     onTrackFilterChange: (ykws.android.maro.data.model.ListFilter) -> Unit = {},
     onTrackReset: () -> Unit = {},
     trackFilterAxes: List<ykws.android.maro.data.model.FilterAxisSpec> = emptyList(),
+    trackFilterLinked: Boolean = true,
+    onToggleTrackLink: () -> Unit = {},
     markerFilterState: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
     onMarkerFilterChange: (ykws.android.maro.data.model.ListFilter) -> Unit = {},
     onMarkerReset: () -> Unit = {},
     markerFilterAxes: List<ykws.android.maro.data.model.FilterAxisSpec> = emptyList(),
+    markerFilterLinked: Boolean = true,
+    onToggleMarkerLink: () -> Unit = {},
     trackCount: Int = 0,
     markerCount: Int = 0
 ) {
@@ -235,6 +241,17 @@ fun MenuDrawerOverlay(
                         tint = ButtonColors.icon,
                         modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
                             .alpha(if (hasActiveTrackFilter) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha)
+                    )
+                }
+                IconButton(
+                    onClick = onToggleTrackLink,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = if (trackFilterLinked) Link else LinkOff,
+                        contentDescription = null,
+                        tint = ButtonColors.icon,
+                        modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
                     )
                 }
             }
@@ -426,6 +443,17 @@ fun MenuDrawerOverlay(
                         tint = ButtonColors.icon,
                         modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
                             .alpha(if (hasActiveMarkerFilter) ButtonColors.activeAlpha else ButtonColors.inactiveAlpha)
+                    )
+                }
+                IconButton(
+                    onClick = onToggleMarkerLink,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = if (markerFilterLinked) Link else LinkOff,
+                        contentDescription = null,
+                        tint = ButtonColors.icon,
+                        modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
                     )
                 }
             }

@@ -882,6 +882,8 @@ fun MapScreen(
     val userMarkers by markersViewModel.markers.collectAsState()
     val markerLayerState by markersViewModel.markerLayerState.collectAsState()
     val markerLayerVisible = markerLayerState != MarkerLayerState.HIDDEN
+    // Map-referential markers: the map overlay renders the MAP filter world (list uses markers).
+    val mapMarkersState by markersViewModel.mapMarkers.collectAsState()
 
     // Wire coastline spatial index into MarkersViewModel for land-blocking when ready
     if (coastlineReady) {
@@ -1197,7 +1199,7 @@ fun MapScreen(
         appSettings.trackingTransparencyNewest, appSettings.trackingTransparencyOldest,
         appSettings.trackingColorPinnedFrom, appSettings.trackingColorPinnedTo,
         appSettings.trackingTransparencyPinnedNewest, appSettings.trackingTransparencyPinnedOldest,
-        appSettings.trackListFilter, trackSummaries, highlightedTrackId,
+        appSettings.trackMapFilter, appSettings.trackFilterLinked, allTrackSummaries, highlightedTrackId,
         appSettings.trackDirectionDensity, appSettings.trackDirectionMinSpacingDp, appSettings.trackDirectionMaxSpacingDp,
         appSettings.trackDirectionSpeedFloorKn, appSettings.trackDirectionSpeedCeilingKn) {
         val mv = mapView ?: return@LaunchedEffect
@@ -1219,9 +1221,14 @@ fun MapScreen(
             }
         }
 
-        // Apply filter before display split
+        // Apply the MAP filter before display split. Source = UNFILTERED summaries so the map stays
+        // independent of the list filter when unlinked. Reveal: force-include the highlighted track
+        // even when it does not match the map filter (viewed from a list).
         val midnightMs = ykws.android.maro.data.model.todayMidnightMs()
-        val filteredSummaries = trackSummaries.filter { it.matchesFilter(appSettings.trackListFilter, midnightMs) }
+        val mapFiltered = allTrackSummaries.filter { it.matchesFilter(appSettings.trackMapFilter, midnightMs) }
+        val filteredSummaries = if (highlightedTrackId != null && mapFiltered.none { it.id == highlightedTrackId }) {
+            mapFiltered + allTrackSummaries.filter { it.id == highlightedTrackId }
+        } else mapFiltered
 
         // Determine desired track ID set (history = non-pinned only)
         val nbToRender = appSettings.trackingRenderNb.coerceIn(0, 20)
@@ -2108,8 +2115,16 @@ fun MapScreen(
             if (markerLayerVisible) {
                 val matchResult by markersViewModel.matchResult.collectAsState()
                 val selectedMarkerId by markersViewModel.selectedMarkerId.collectAsState()
+                // Reveal-on-select: a marker opened from a list but excluded by the map filter is
+                // force-drawn while its detail panel is open.
+                val revealMarker = if (drawerState is MarkerDrawerState.Viewing || drawerState is MarkerDrawerState.MatchResult) {
+                    selectedMarkerId?.let { id -> markersViewModel.allMarkers.value.firstOrNull { it.id == id } }
+                } else null
+                val overlayMarkers = if (revealMarker != null && mapMarkersState.none { it.id == revealMarker.id }) {
+                    mapMarkersState + revealMarker
+                } else mapMarkersState
                 MarkerOverlay(
-                    markers = userMarkers,
+                    markers = overlayMarkers,
                     mapView = mapView,
                     proximityZoneMultiplier = AppConfig.markerProximityZoneMultiplier,
                     unconfirmedMarker = unconfirmedMarker,
@@ -2287,6 +2302,13 @@ fun MapScreen(
             )
         }
 
+        // Menu (map-referential) track counter: stored non-live tracks that would be rendered under the
+        // map filter — pinned always counted when matching, individually hidden (visibleOnMap=false)
+        // excluded. Render-cap divergence is acceptable.
+        val trackMapVisibleCount = allTrackSummaries.count {
+            !it.isLive && it.matchesFilter(appSettings.trackMapFilter, ykws.android.maro.data.model.todayMidnightMs()) && (it.pinned || it.visibleOnMap)
+        }
+
         OverlayLayer(
             showSettings = showSettings,
             showTrackDrawer = showTrackDrawer,
@@ -2352,15 +2374,52 @@ fun MapScreen(
             },
             trackFilterState = appSettings.trackListFilter,
             onTrackFilterChange = { newFilter ->
-                viewModel.updateSettings { it.copy(trackListFilter = newFilter) }
+                viewModel.updateSettings { s ->
+                    if (s.trackFilterLinked) s.copy(trackListFilter = newFilter, trackMapFilter = newFilter)
+                    else s.copy(trackListFilter = newFilter)
+                }
                 trackViewModel.refreshSummaries(filter = newFilter, reloadFromDisk = false)
             },
             onTrackReset = {
                 val resetFilter = ykws.android.maro.data.model.ListFilter()
-                viewModel.updateSettings { it.copy(trackListSort = ykws.android.maro.data.model.ListSortState(), trackListFilter = resetFilter) }
+                viewModel.updateSettings { s ->
+                    if (s.trackFilterLinked) s.copy(trackListSort = ykws.android.maro.data.model.ListSortState(), trackListFilter = resetFilter, trackMapFilter = resetFilter)
+                    else s.copy(trackListSort = ykws.android.maro.data.model.ListSortState(), trackListFilter = resetFilter)
+                }
                 trackViewModel.refreshSummaries(filter = resetFilter, reloadFromDisk = false)
                 mapView?.invalidate()
             },
+            // ── Track map referential (menu filter) + link ────────────────
+            trackMapFilterState = appSettings.trackMapFilter,
+            onTrackMapFilterChange = { newFilter ->
+                val linked = appSettings.trackFilterLinked
+                viewModel.updateSettings { s ->
+                    if (s.trackFilterLinked) s.copy(trackListFilter = newFilter, trackMapFilter = newFilter)
+                    else s.copy(trackMapFilter = newFilter)
+                }
+                if (linked) trackViewModel.refreshSummaries(filter = newFilter, reloadFromDisk = false)
+                mapView?.invalidate()
+            },
+            onTrackMapReset = {
+                val resetFilter = ykws.android.maro.data.model.ListFilter()
+                val linked = appSettings.trackFilterLinked
+                viewModel.updateSettings { s ->
+                    if (s.trackFilterLinked) s.copy(trackListFilter = resetFilter, trackMapFilter = resetFilter)
+                    else s.copy(trackMapFilter = resetFilter)
+                }
+                if (linked) trackViewModel.refreshSummaries(filter = resetFilter, reloadFromDisk = false)
+                mapView?.invalidate()
+            },
+            trackFilterLinked = appSettings.trackFilterLinked,
+            onToggleTrackLink = {
+                val turningOn = !appSettings.trackFilterLinked
+                viewModel.updateSettings { s ->
+                    if (s.trackFilterLinked) s.copy(trackFilterLinked = false)
+                    else s.copy(trackFilterLinked = true, trackListFilter = s.trackMapFilter)
+                }
+                if (turningOn) trackViewModel.refreshSummaries(filter = appSettings.trackMapFilter, reloadFromDisk = false)
+            },
+            trackMapCount = trackMapVisibleCount,
             appSettings = appSettings,
             onUpdateSettings = viewModel::updateSettings,
             selectedTab = selectedTab,
@@ -2417,15 +2476,47 @@ fun MapScreen(
             markerFilterState = appSettings.markerListFilter,
             onMarkerFilterChange = { newFilter ->
                 android.util.Log.d("MaroMapRefresh", "onMarkerFilterChange: $newFilter")
-                viewModel.updateSettings { it.copy(markerListFilter = newFilter) }
+                viewModel.updateSettings { s ->
+                    if (s.markerFilterLinked) s.copy(markerListFilter = newFilter, markerMapFilter = newFilter)
+                    else s.copy(markerListFilter = newFilter)
+                }
                 markersViewModel.refreshSort(filter = newFilter)
             },
             onMarkerReset = {
                 android.util.Log.d("MaroMapRefresh", "onMarkerReset")
                 val resetFilter = ykws.android.maro.data.model.ListFilter()
-                viewModel.updateSettings { it.copy(markerListSort = ykws.android.maro.data.model.ListSortState(), markerListFilter = resetFilter) }
+                viewModel.updateSettings { s ->
+                    if (s.markerFilterLinked) s.copy(markerListSort = ykws.android.maro.data.model.ListSortState(), markerListFilter = resetFilter, markerMapFilter = resetFilter)
+                    else s.copy(markerListSort = ykws.android.maro.data.model.ListSortState(), markerListFilter = resetFilter)
+                }
                 markersViewModel.refreshSort(filter = resetFilter)
             },
+            // ── Marker map referential (menu filter) + link ───────────────
+            markerMapFilterState = appSettings.markerMapFilter,
+            onMarkerMapFilterChange = { newFilter ->
+                val linked = appSettings.markerFilterLinked
+                viewModel.updateSettings { s ->
+                    if (s.markerFilterLinked) s.copy(markerListFilter = newFilter, markerMapFilter = newFilter)
+                    else s.copy(markerMapFilter = newFilter)
+                }
+                if (linked) markersViewModel.refreshSort(filter = newFilter)
+            },
+            onMarkerMapReset = {
+                val resetFilter = ykws.android.maro.data.model.ListFilter()
+                viewModel.updateSettings { s ->
+                    if (s.markerFilterLinked) s.copy(markerListFilter = resetFilter, markerMapFilter = resetFilter)
+                    else s.copy(markerMapFilter = resetFilter)
+                }
+                if (appSettings.markerFilterLinked) markersViewModel.refreshSort(filter = resetFilter)
+            },
+            markerFilterLinked = appSettings.markerFilterLinked,
+            onToggleMarkerLink = {
+                viewModel.updateSettings { s ->
+                    if (s.markerFilterLinked) s.copy(markerFilterLinked = false)
+                    else s.copy(markerFilterLinked = true, markerListFilter = s.markerMapFilter)
+                }
+            },
+            markerMapCount = mapMarkersState.size,
             onCreateFirst = {
                 showMarkerManagement = false
                 closeSelectedItemDashboards()
