@@ -23,7 +23,7 @@ import ykws.android.maro.ui.components.ConfirmSheet
  * are supplied by MapScreen.
  */
 @Composable
-fun MapDialogHost(
+internal fun MapDialogHost(
     context: Context,
     trackViewModel: ykws.android.maro.data.track.TrackViewModel,
     // ── Exit / stop-recording sheets ──

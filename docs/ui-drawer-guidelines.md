@@ -97,7 +97,7 @@ Replaces the invisible `Modifier.shadow()` (black-on-dark has near-zero contrast
 | 4 | Marker (portrait) | `MarkerDrawer.kt` | `drawerState is Viewing/MatchResult` | `FROM_BOTTOM` | `TOP` | `BottomCenter`, full width, `portraitDashboardHeight` |
 | 5 | TrackHistory | `TrackHistoryOverlay.kt` | `showTrackHistory` | `FROM_RIGHT` | `LEFT` | `fillMaxSize` |
 | 6 | MarkerManagement | `MarkerManagementOverlay.kt` | `showMarkerManagement` | `FROM_RIGHT` | `LEFT` | `fillMaxSize` |
-| 7 | Settings | `SettingsOverlay` (in `MapScreen.kt`) | `showSettings` | `FROM_RIGHT` | `LEFT` | `fillMaxSize` |
+| 7 | Settings | `SettingsOverlay` (in `MapScreenSettingsOverlay.kt`) | `showSettings` | `FROM_RIGHT` | `LEFT` | `fillMaxSize` |
 
 ### Portrait Drawer Height Floor
 
@@ -396,7 +396,7 @@ Consumer | File | scrollable | headerActions | hPad | statusBarsInset |
 MarkerDrawer ViewingContent | `MarkerDrawer.kt` | true | edit + delete + icon buttons | 12.dp | false |
 MarkerDrawer MatchResult | `MarkerDrawer.kt` | true | none | 12.dp | false |
 MenuDrawerOverlay | `MenuDrawerOverlay.kt` | true | Settings gear button | 24.dp | true |
-SettingsOverlay | `MapScreen.kt` | n/a (own tab bar + pager body) | none | 24.dp | true |
+SettingsOverlay | `MapScreenSettingsOverlay.kt` | n/a (own tab bar + pager body) | none | 24.dp | true |
 
 > **Note:** the Settings row consumes only the standalone `DrawerHeader`, not the full `DrawerScaffold` shell
 > (the other rows are genuine `DrawerScaffold` consumers). Its `statusBarsInset` is applied manually via

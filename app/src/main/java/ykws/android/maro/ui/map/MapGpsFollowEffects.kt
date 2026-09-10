@@ -13,7 +13,7 @@ import ykws.android.maro.data.settings.AppSettings
  * and demo two-finger heading-up.
  */
 @Composable
-fun MapGpsFollowEffects(
+internal fun MapGpsFollowEffects(
     mapView: MapView?,
     viewModel: NavigationViewModel,
     depthViewModel: DepthViewModel,

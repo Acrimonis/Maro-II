@@ -166,7 +166,7 @@ internal fun MapDepthRasterEffects(
  * Regulated zones overlay: load prebaked asset on first composition (extracted from MapScreen).
  */
 @Composable
-fun MapRegulatedZonesLoader(context: Context): RegulatedZoneSet? {
+internal fun MapRegulatedZonesLoader(context: Context): RegulatedZoneSet? {
     val regulatedZones by produceState<RegulatedZoneSet?>(initialValue = null) {
         val repo = RegulatedZonesRepository()
         repo.load(context)

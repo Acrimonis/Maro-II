@@ -52,7 +52,7 @@
 |-------|---------|------|
 | `MainActivity.kt` | `ykws/android/maro/` | Single-activity entry, Compose host |
 | `AppConfig.kt` | `config/` | Central config constants — extents, thresholds, tuning |
-| `MapScreen.kt` | `ui/map/` | Root Compose composable + settings page; map controls/overlays/OSMdroid view extracted to sibling files |
+| `MapScreen.kt` | `ui/map/` | Root Compose orchestration shell (drawer visibility, back handler, `MapContent` slot, `OverlayLayer` call); settings subtree, map overlays, and effect clusters extracted to sibling files (see MapScreen Decomposition below) |
 | `CoastlineSpatialIndex.kt` | `spatial/` | Nearest-coastline queries, `isOnWater()`, distance-to-coast |
 | `DepthRepository.kt` | `data/depth/` | Depth data load + query (memory-mapped, async) |
 | `DepthViewModel.kt` | `ui/map/` | Depth state: color ramp selection, danger depth, rendering triggers |
@@ -70,6 +70,26 @@
 | `MapOverlayRenderer.kt` | `ui/map/` | Renders overlays onto map (depth, zones, tracks, markers) |
 | `SettingsManager.kt` | `data/settings/` | SharedPreferences read/write — all persisted config |
 | `GpsLocationSource.kt` | `data/location/` | GPS location provider (real + demo mode) |
+
+## MapScreen Decomposition (2026-09 refactor)
+
+`ui/map/MapScreen.kt` is an orchestration shell (~2.5k lines) whose concerns were extracted to
+same-package files (step 1 settings extraction + step 2 orchestration-monolith refactor, zero behavior
+change):
+
+| File | Owns |
+|------|------|
+| `MapScreen.kt` | Orchestration shell: drawer-visibility flags, click-n-move, back-handler ladder, `MapContent` stable slot, `OverlayLayer` invocation, snackbar/dialog/import state hoisting |
+| `MapScreenSettingsOverlay.kt` | Settings overlay subtree (4 tabs) |
+| `MapGpsFollowEffects.kt` | GPS auto-follow DR, heading-up, zoom re-apply effect clusters |
+| `MapTrackOverlayEffects.kt` | History/pinned track overlay diff + live-recording polyline effects |
+| `MapMarkerEffects.kt` | Marker wiring (settings bridge, idle callback, cleanup) + debug-segment effects |
+| `MapServiceEffects.kt` | Notification/water-state service intents + unconditional demo sample feed |
+| `MapDepthRasterEffects.kt` | Depth/raster lazy-init (output contract) + regulated-zones loader |
+| `MapDialogHost.kt` | Windowed dialogs/sheets: exit/stop-recording, recovery, permission, source-switch, battery |
+| `MapSnackbarHost.kt` | Snackbar stack render (render-only; queue stays hoisted in MapScreen) |
+| `MapImportConflictHost.kt` | GPX import Duplicate/Override/Cancel conflict path |
+| `OverlayLayer.kt` | Transient drawer/scrim layer stack (Layer 1 — see `docs/ui-drawer-guidelines.md`) |
 
 ## Dependency Flow
 

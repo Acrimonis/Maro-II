@@ -14,7 +14,7 @@ import ykws.android.maro.data.settings.AppSettings
  * Highlighted-track id is a read-only key (cross-cutting in MapScreen); never relocated.
  */
 @Composable
-fun MapTrackOverlayHistoryDiff(
+internal fun MapTrackOverlayHistoryDiff(
     mapView: MapView?,
     showSettings: Boolean,
     highlightedTrackId: String?,
@@ -309,7 +309,7 @@ fun MapTrackOverlayHistoryDiff(
  * create/remove, incremental point appending, and trailing dead-reckon segment.
  */
 @Composable
-fun MapTrackOverlayLiveEffects(
+internal fun MapTrackOverlayLiveEffects(
     mapView: MapView?,
     viewModel: NavigationViewModel,
     trackViewModel: ykws.android.maro.data.track.TrackViewModel,

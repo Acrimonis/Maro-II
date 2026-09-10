@@ -16,7 +16,6 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.SystemClock
 import android.provider.Settings
-import android.view.MotionEvent
 import android.graphics.Bitmap
 import android.graphics.Color
 import androidx.activity.compose.BackHandler
@@ -94,13 +93,11 @@ import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Size
@@ -113,7 +110,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.Alignment
@@ -164,19 +161,13 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.withContext
 import ykws.android.maro.data.depth.DepthConstants
-import ykws.android.maro.data.depth.RasterCache
 import ykws.android.maro.data.model.BoundingBox
 import ykws.android.maro.data.model.CoastlinePoint
 import ykws.android.maro.data.model.CoastlineSegment
 import ykws.android.maro.data.model.CoastlineState
-import ykws.android.maro.data.model.DepthSample
 import ykws.android.maro.data.model.DepthState
 import ykws.android.maro.data.model.GenerationProgress
 import ykws.android.maro.data.model.Isobath
@@ -191,19 +182,11 @@ import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.MarkerOrigin
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.data.markers.UserMarkerRepository
-import ykws.android.maro.ui.components.ConfirmSheet
 import ykws.android.maro.ui.components.DrawerHeader
 import ykws.android.maro.spatial.SpatialOperations
-import ykws.android.maro.spatial.DebugSegment
-import ykws.android.maro.spatial.MarkerMatcher
-import ykws.android.maro.spatial.NoOpWhereAmIDebugger
-import ykws.android.maro.spatial.VisualWhereAmIDebugger
 import ykws.android.maro.ui.map.MarkersViewModel
 import ykws.android.maro.ui.map.MarkerDrawer
 import ykws.android.maro.ui.map.toMarkerSnapshot
-import ykws.android.maro.data.track.IdleThresholdCallback
-import ykws.android.maro.data.track.IdleCaptureResult
-import ykws.android.maro.data.track.WhereAmIProvider
 
 /** Animation duration per GPS-follow scroll (ms). Must be < min GPS fix interval (1s). */
 private const val GPS_ANIMATION_DURATION_MS = 600L
@@ -1356,16 +1339,17 @@ fun MapScreen(
             // 1. Focus the marker: corridor/circle zoom-to-fit the whole zone (bbox);
             //    pin is a single point — centre only.
             val focusMarker = userMarkers.find { it.id == target.markerId }
-            val isZone = focusMarker?.geometry is ykws.android.maro.data.model.markers.MarkerGeometry.Circle ||
-                focusMarker?.geometry is ykws.android.maro.data.model.markers.MarkerGeometry.Corridor
-            if (isZone && focusMarker != null) {
+            if (focusMarker == null ||
+                (focusMarker.geometry !is ykws.android.maro.data.model.markers.MarkerGeometry.Circle &&
+                    focusMarker.geometry !is ykws.android.maro.data.model.markers.MarkerGeometry.Corridor)
+            ) {
+                mv.controller.animateTo(target.geoPoint, null, GPS_ANIMATION_DURATION_MS)
+            } else {
                 val b = focusMarker.bbox
                 mv.zoomToBoundingBox(
                     org.osmdroid.util.BoundingBox(b.latNorth, b.lonEast, b.latSouth, b.lonWest),
                     true, 64
                 )
-            } else {
-                mv.controller.animateTo(target.geoPoint, null, GPS_ANIMATION_DURATION_MS)
             }
 
             // 2. Wait for animation to settle
@@ -1758,7 +1742,6 @@ fun MapScreen(
                     preNavigationState = null
                 }
             },
-            onTrackMetadataChanged = {},
             onRequestMarkerDelete = { id, name ->
                 val selection = markersViewModel.selectedMarkerIds.value
                 val source = markersViewModel.drawerSource

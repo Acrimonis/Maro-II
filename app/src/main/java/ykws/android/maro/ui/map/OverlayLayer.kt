@@ -165,7 +165,6 @@ fun OverlayLayer(
     onTrackPrev: () -> Unit = {},
     onTrackNext: () -> Unit = {},
     onShareTrack: (String) -> Unit = {},
-    onTrackMetadataChanged: () -> Unit = {},
     onRequestMarkerDelete: (String, String) -> Unit = { _, _ -> },
     onDeleteTrack: (String) -> Unit = {},
     // ── List overlay scroll state ────────────────────────────────────────

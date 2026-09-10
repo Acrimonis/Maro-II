@@ -28,7 +28,7 @@ import ykws.android.maro.spatial.VisualWhereAmIDebugger
  * and the WhereAmIProvider process-scoped bridge.
  */
 @Composable
-fun MapMarkerEffects(
+internal fun MapMarkerEffects(
     viewModel: NavigationViewModel,
     markersViewModel: MarkersViewModel,
     trackViewModel: ykws.android.maro.data.track.TrackViewModel,
@@ -100,7 +100,7 @@ fun MapMarkerEffects(
  * AppConfig and the WhereAmI debug-segment visual overlay render.
  */
 @Composable
-fun MapMarkerDebugEffects(
+internal fun MapMarkerDebugEffects(
     mapView: MapView?,
     appSettings: AppSettings,
     debugSegments: List<DebugSegment>

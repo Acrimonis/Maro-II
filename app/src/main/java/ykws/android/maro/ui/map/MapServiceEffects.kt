@@ -21,7 +21,7 @@ import ykws.android.maro.data.track.TrackRecordingService
  */
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @Composable
-fun MapServiceEffects(
+internal fun MapServiceEffects(
     context: Context,
     viewModel: NavigationViewModel,
     navigationState: NavigationState,
@@ -103,9 +103,7 @@ fun MapServiceEffects(
         while (true) {
             if (!appSettings.gpsMode) {
                 val center = viewModel.mapCenter.value
-                if (center != null) {
-                    viewModel.feedDemoPosition(center.latitude, center.longitude)
-                }
+                viewModel.feedDemoPosition(center.latitude, center.longitude)
             }
             kotlinx.coroutines.delay(1_000L)
         }
