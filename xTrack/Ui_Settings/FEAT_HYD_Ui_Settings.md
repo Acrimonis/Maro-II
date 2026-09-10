@@ -46,8 +46,11 @@ refactor, drawer content measurement, marker "Belongs to track".
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt` — extracted settings subtree
 
 ## Next Step
-On-device smoke test (user-driven, per the logcat workflow): deploy `feature/refact-C12` and confirm every
-drawer opens/dismisses, the menu and list filters behave, both Link toggles work, track-info prev/next
-navigates, and the settings tabs render and scroll. If clean, run `#bake` and open the PR into `develop` —
-the branch still tracks `origin/develop`, so push with `#push`'s explicit refspec (or a one-time
-`git push -u origin feature/refact-C12`) rather than a bare `git push`.
+**On-device functional test PASSED (2026-09-10):** drawers, menu/list filters, both Link toggles,
+track-info prev/next and the settings tabs all behave as before — no regression from the C12 collapse.
+C12 is therefore complete and the branch is ready to land: `feature/refact-C12` holds 3 commits
+(`ec57458`, `a000c18`, `96259b5`) and is ahead of `origin/develop`.
+
+Remaining: push the branch and open the PR into `develop`. The branch still **tracks `origin/develop`**,
+so push with `#push`'s explicit refspec (or a one-time `git push -u origin feature/refact-C12`) rather than
+a bare `git push`. Nothing further is queued for this feature.

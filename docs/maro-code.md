@@ -66,7 +66,7 @@
 | `MarkerMatcher.kt` | `spatial/` | Proximity matching: which markers are near a given position |
 | `SpeedZoneIndex.kt` | `spatial/` | Spatial index for speed zone lookup around boat |
 | `Zone300Builder.kt` | `spatial/` | Generates 300m zone band from coastline |
-| `OverlayLayer.kt` | `ui/map/` | Map overlay composition framework — layer stack management |
+| `OverlayLayer.kt` | `ui/map/` | Map overlay composition framework — layer stack management; its read-only data arrives via six `@Immutable` bundles declared in `OverlayLayerParams.kt` |
 | `MapOverlayRenderer.kt` | `ui/map/` | Renders overlays onto map (depth, zones, tracks, markers) |
 | `SettingsManager.kt` | `data/settings/` | SharedPreferences read/write — all persisted config |
 | `GpsLocationSource.kt` | `data/location/` | GPS location provider (real + demo mode) |
@@ -110,7 +110,7 @@ ui/map/  ──depends on──▶  spatial/  +  data/*/
 
 | Task | Start Here |
 |------|------------|
-| Add a new map overlay | `ui/map/OverlayLayer.kt` → see existing overlay patterns |
+| Add a new map overlay | `ui/map/OverlayLayer.kt` → see existing overlay patterns; read-only state belongs in a bundle in `ui/map/OverlayLayerParams.kt`, never as a new signature param |
 | Add a new regulated zone source | `data/regulation/RegulationAggregator.kt` + new client class |
 | Change how depth is rendered | `ui/map/DepthViewModel.kt` + `ui/map/DepthColorRamp.kt` |
 | Add a track recording feature | `data/track/TrackRecorder.kt` → `TrackViewModel.kt` → `ui/map/TrackHistoryOverlay.kt` |
