@@ -19,7 +19,7 @@
 | `data/location/` | GPS source, compass, adaptive policy | `GpsLocationSource.kt`, `CompassSource.kt`, `AdaptiveGpsPolicy.kt` |
 | `data/settings/` | SharedPreferences wrapper | `SettingsManager.kt` |
 | `spatial/` | Spatial indexing and queries — the computational core | `CoastlineSpatialIndex.kt`, `MarkerMatcher.kt`, `SpeedZoneIndex.kt`, `SpatialOperations.kt`, `Zone300Builder.kt` |
-| `ui/map/` | Compose map screen, overlays, drawers, depth rendering, markers UI | `MapScreen.kt`, `MapControls.kt`, `MapOverlays.kt`, `CoastlineMapView.kt`, `TrackSharing.kt`, `MapOverlayRenderer.kt`, `DepthViewModel.kt`, `DepthBitmap.kt`, `DepthColorRamp.kt`, `OverlayLayer.kt`, `DrawerSlot.kt`, `MarkerOverlay.kt`, `MarkerDrawer.kt`, `MarkersViewModel.kt`, `MarkerManagementOverlay.kt`, `WizardDrawer.kt`, `MenuDrawerOverlay.kt`, `TrackHistoryOverlay.kt`, `RegulatedZoneComponents.kt`, `FanLayout.kt`, `FanConfig.kt`, `NavigationViewModel.kt` |
+| `ui/map/` | Compose map screen, overlays, drawers, depth rendering, markers UI | `MapScreen.kt`, `MapControls.kt`, `MapOverlays.kt`, `CoastlineMapView.kt`, `TrackSharing.kt`, `MapOverlayRenderer.kt`, `DepthViewModel.kt`, `DepthBitmap.kt`, `DepthColorRamp.kt`, `OverlayLayer.kt`, `OverlayLayerParams.kt`, `DrawerSlot.kt`, `MarkerOverlay.kt`, `MarkerDrawer.kt`, `MarkersViewModel.kt`, `MarkerManagementOverlay.kt`, `WizardDrawer.kt`, `MenuDrawerOverlay.kt`, `TrackHistoryOverlay.kt`, `RegulatedZoneComponents.kt`, `FanLayout.kt`, `FanConfig.kt`, `NavigationViewModel.kt` |
 | `ui/components/` | Shared UI primitives | `DrawerScaffold.kt`, `ListOverlayScaffold.kt`, `ConfirmSheet.kt`, `IconPickerDialog.kt` |
 | `ui/markers/wizard/` | Marker creation wizard (multi-step form) | `WizardTopBar.kt`, `WizardButtonRow.kt`, `steps/TypeSelectStep.kt`, `steps/PositionStep.kt`, `steps/SliderStep.kt`, `steps/TextInputStep.kt` |
 | `ui/icons/` | Material Symbols as standalone ImageVector .kt files | `ActivityZone.kt`, `AddLocationAlt.kt`, `FilterAlt.kt`, `LocationOn.kt`, `WhereToVote.kt`, etc. |
@@ -66,7 +66,7 @@
 | `MarkerMatcher.kt` | `spatial/` | Proximity matching: which markers are near a given position |
 | `SpeedZoneIndex.kt` | `spatial/` | Spatial index for speed zone lookup around boat |
 | `Zone300Builder.kt` | `spatial/` | Generates 300m zone band from coastline |
-| `OverlayLayer.kt` | `ui/map/` | Map overlay composition framework — layer stack management |
+| `OverlayLayer.kt` | `ui/map/` | Map overlay composition framework — layer stack management; its read-only data arrives via six `@Immutable` bundles declared in `OverlayLayerParams.kt` |
 | `MapOverlayRenderer.kt` | `ui/map/` | Renders overlays onto map (depth, zones, tracks, markers) |
 | `SettingsManager.kt` | `data/settings/` | SharedPreferences read/write — all persisted config |
 | `GpsLocationSource.kt` | `data/location/` | GPS location provider (real + demo mode) |
@@ -89,7 +89,7 @@ change):
 | `MapDialogHost.kt` | Windowed dialogs/sheets: exit/stop-recording, recovery, permission, source-switch, battery |
 | `MapSnackbarHost.kt` | Snackbar stack render (render-only; queue stays hoisted in MapScreen) |
 | `MapImportConflictHost.kt` | GPX import Duplicate/Override/Cancel conflict path |
-| `OverlayLayer.kt` | Transient drawer/scrim layer stack (Layer 1 — see `docs/ui-drawer-guidelines.md`) |
+| `OverlayLayer.kt` | Transient drawer/scrim layer stack (Layer 1 — see `docs/ui-drawer-guidelines.md`); read-only params grouped into six `@Immutable` bundles in `OverlayLayerParams.kt` — 60 params total (6 bundles + explicit values/ViewModels + inline callbacks) |
 
 ## Dependency Flow
 
@@ -110,7 +110,7 @@ ui/map/  ──depends on──▶  spatial/  +  data/*/
 
 | Task | Start Here |
 |------|------------|
-| Add a new map overlay | `ui/map/OverlayLayer.kt` → see existing overlay patterns |
+| Add a new map overlay | `ui/map/OverlayLayer.kt` → see existing overlay patterns; read-only state belongs in a bundle in `ui/map/OverlayLayerParams.kt`, never as a new signature param |
 | Add a new regulated zone source | `data/regulation/RegulationAggregator.kt` + new client class |
 | Change how depth is rendered | `ui/map/DepthViewModel.kt` + `ui/map/DepthColorRamp.kt` |
 | Add a track recording feature | `data/track/TrackRecorder.kt` → `TrackViewModel.kt` → `ui/map/TrackHistoryOverlay.kt` |

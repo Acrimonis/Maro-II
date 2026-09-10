@@ -104,7 +104,7 @@ rebuilds when missing/corrupt — so existing tracks need a one-time backfill:
 - `idleDurationSec` in the checkpoint does not include the recovery window; the new data-based `navigatingDurationSec` correctly excludes it.
 
 **C — `lastPointTimeMs`**
-- The two synthetic `TrackSummary` builders in [`OverlayLayer.kt:358`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:358) and [`OverlayLayer.kt:438`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:438) must also populate the new field, or the track-info drawer shows 0/stale.
+- The two synthetic `TrackSummary` builders in [`OverlayLayer.kt:439`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:439) and [`OverlayLayer.kt:512`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:512) must also populate the new field, or the track-info drawer shows 0/stale.
 - [`TrackMerger.merge()`](app/src/main/java/ykws/android/maro/data/track/TrackMerger.kt:135) must set `lastPointTimeMs` on the merged `Track`.
 - Sort key fallback: live tracks have `lastPointTimeMs = 0`; [`totalTimeSec`](app/src/main/java/ykws/android/maro/data/track/TrackViewModel.kt:240) must fall back to `endTimeMs ?: now`.
 - Live rows: keep `endTimeMs == null` semantics so live tracks render "ongoing", not a bogus last-point end.

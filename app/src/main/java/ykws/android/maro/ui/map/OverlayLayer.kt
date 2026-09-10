@@ -52,8 +52,6 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.ui.components.DrawerScaffold
 import ykws.android.maro.ui.components.MeasureHeight
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.rememberLazyListState
 
 /** Returns the step sequence for the given marker type (mirror of VM method for UI use). */
 private fun stepSequenceFor(type: MarkerType): List<WizardStep> = when (type) {
@@ -82,13 +80,7 @@ private fun stepSequenceFor(type: MarkerType): List<WizardStep> = when (type) {
 @Composable
 fun OverlayLayer(
     // ── State flags ──────────────────────────────────────────────────────
-    showSettings: Boolean,
-    showTrackDrawer: Boolean,
-    showTrackHistory: Boolean,
-    showMarkerManagement: Boolean,
-    showWizard: Boolean,
-    wizardStep: WizardStep?,
-    drawerState: MarkerDrawerState,
+    chrome: OverlayChrome,
 
     // ── Layout ───────────────────────────────────────────────────────────
     isLandscape: Boolean,
@@ -113,66 +105,45 @@ fun OverlayLayer(
     trackViewModel: ykws.android.maro.data.track.TrackViewModel,
 
     // ── Menu drawer data ─────────────────────────────────────────────────
-    gpsMode: Boolean,
+    menu: MenuOverlayData,
     onGpsModeChange: (Boolean) -> Unit,
-    autoShowMasterVisible: Boolean = false,
-    autoShowMasterOverride: Boolean = true,
     onAutoShowMasterChange: (Boolean) -> Unit = {},
-    gpsToggleColor: ComposeColor,
-    markerZonesVisible: Boolean = true,
     onToggleMarkerZones: () -> Unit = {},
-    tracksDirectionVisible: Boolean = true,
     onToggleTracksDirection: () -> Unit = {},
-    firstTrackId: String? = null,
-    firstMarkerId: String? = null,
 
     // ── Track history data ───────────────────────────────────────────────
     onTrackAction: (ykws.android.maro.data.model.ListAction) -> Unit,
-    trackSortState: ykws.android.maro.data.model.ListSortState,
+    trackList: TrackListOverlayData,
     onTrackSortStateChange: (ykws.android.maro.data.model.ListSortState) -> Unit,
-    trackFilterState: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
     onTrackFilterChange: (ykws.android.maro.data.model.ListFilter) -> Unit = {},
     onTrackReset: () -> Unit = {},
     // Map referential (menu filter) + link flag. The link toggle lives in the menu only.
-    trackMapFilterState: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
     onTrackMapFilterChange: (ykws.android.maro.data.model.ListFilter) -> Unit = {},
     onTrackMapReset: () -> Unit = {},
     trackFilterLinked: Boolean = true,
     onToggleTrackLink: () -> Unit = {},
-    trackMapCount: Int = 0,
 
     // ── Settings data ────────────────────────────────────────────────────
     appSettings: AppSettings,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
-    selectedTab: Int,
+    settings: SettingsOverlayData,
     onTabChange: (Int) -> Unit,
-    displayScrollState: androidx.compose.foundation.ScrollState,
-    navigationScrollState: androidx.compose.foundation.ScrollState,
-    positionScrollState: androidx.compose.foundation.ScrollState,
-    systemScrollState: androidx.compose.foundation.ScrollState,
     onRegenerateRasters: (List<RasterCache.Step>) -> Unit,
 
     // ── Marker drawer data ───────────────────────────────────────────────
     boatPosition: LatLng?,
 
     // ── Track info drawer data ───────────────────────────────────────────
-    showTrackInfoDrawer: Boolean = false,
-    trackInfoDrawerData: ykws.android.maro.data.track.Track? = null,
+    trackInfo: TrackInfoOverlayData,
     onTrackDrawerClose: () -> Unit = {},
     onNavigateToTrack: (String) -> Unit = {},
-    trackListIds: List<String> = emptyList(),
-    currentTrackIndex: Int = -1,
     onTrackPrev: () -> Unit = {},
     onTrackNext: () -> Unit = {},
     onShareTrack: (String) -> Unit = {},
     onRequestMarkerDelete: (String, String) -> Unit = { _, _ -> },
     onDeleteTrack: (String) -> Unit = {},
-    // ── List overlay scroll state ────────────────────────────────────────
-    trackListState: LazyListState = rememberLazyListState(),
-    markerListState: LazyListState = rememberLazyListState(),
-
     // ── Marker management data ───────────────────────────────────────────
-    markers: List<UserMarker>,
+    markerList: MarkerListOverlayData,
     trackTitleLookup: (String) -> String? = { null },
     onOpenMarkerTrack: (String) -> Unit = {},
     onMarkerAction: (ykws.android.maro.data.model.ListAction) -> Unit,
@@ -180,19 +151,52 @@ fun OverlayLayer(
     onSetIcon: (String, String?) -> Unit,
     onSetPin: (String, Boolean) -> Unit = { _, _ -> },
     onUpdateMarkerText: (String, String?, String?) -> Unit = { _, _, _ -> },
-    markerSortState: ykws.android.maro.data.model.ListSortState,
     onMarkerSortStateChange: (ykws.android.maro.data.model.ListSortState) -> Unit,
-    markerFilterState: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
     onMarkerFilterChange: (ykws.android.maro.data.model.ListFilter) -> Unit = {},
     onMarkerReset: () -> Unit = {},
     // Map referential (menu filter) + link flag for markers.
-    markerMapFilterState: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
     onMarkerMapFilterChange: (ykws.android.maro.data.model.ListFilter) -> Unit = {},
     onMarkerMapReset: () -> Unit = {},
     markerFilterLinked: Boolean = true,
-    onToggleMarkerLink: () -> Unit = {},
-    markerMapCount: Int = 0
+    onToggleMarkerLink: () -> Unit = {}
 ) {
+    // ── Destructured bundle locals (chrome, menu, settings, track info, track list, marker list) ──
+    val showSettings = chrome.showSettings
+    val showTrackDrawer = chrome.showTrackDrawer
+    val showTrackHistory = chrome.showTrackHistory
+    val showMarkerManagement = chrome.showMarkerManagement
+    val showWizard = chrome.showWizard
+    val wizardStep = chrome.wizardStep
+    val drawerState = chrome.drawerState
+    val gpsMode = menu.gpsMode
+    val autoShowMasterVisible = menu.autoShowMasterVisible
+    val autoShowMasterOverride = menu.autoShowMasterOverride
+    val gpsToggleColor = menu.gpsToggleColor
+    val markerZonesVisible = menu.markerZonesVisible
+    val tracksDirectionVisible = menu.tracksDirectionVisible
+    val firstTrackId = menu.firstTrackId
+    val firstMarkerId = menu.firstMarkerId
+    val trackMapFilterState = menu.trackMapFilterState
+    val trackMapCount = menu.trackMapCount
+    val markerMapFilterState = menu.markerMapFilterState
+    val markerMapCount = menu.markerMapCount
+    val selectedTab = settings.selectedTab
+    val displayScrollState = settings.displayScrollState
+    val navigationScrollState = settings.navigationScrollState
+    val positionScrollState = settings.positionScrollState
+    val systemScrollState = settings.systemScrollState
+    val showTrackInfoDrawer = trackInfo.showTrackInfoDrawer
+    val trackInfoDrawerData = trackInfo.trackInfoDrawerData
+    val trackListIds = trackInfo.trackListIds
+    val currentTrackIndex = trackInfo.currentTrackIndex
+    val trackSortState = trackList.trackSortState
+    val trackFilterState = trackList.trackFilterState
+    val trackListState = trackList.trackListState
+    val markers = markerList.markers
+    val markerSortState = markerList.markerSortState
+    val markerFilterState = markerList.markerFilterState
+    val markerListState = markerList.markerListState
+
     // ── Collect track ViewModel state ────────────────────────────────────
     val trackRecorderState by trackViewModel.uiState.collectAsState()
     val trackSummaries by trackViewModel.summaries.collectAsState()

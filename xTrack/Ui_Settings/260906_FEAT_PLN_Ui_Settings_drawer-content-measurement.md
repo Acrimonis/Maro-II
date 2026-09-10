@@ -11,8 +11,8 @@
 
 The marker detail drawer (portrait) and track detail drawer (portrait) both grow to fit their content using a
 `MeasureHeight` probe + a fixed height formula `maxOf(portraitDashboardHeight, 60dp + 6dp + contentHeight +
-footerHeight + 4dp)` ([`OverlayLayer.kt:357`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:357) marker,
-[`OverlayLayer.kt:489`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:489) track).
+footerHeight + 4dp)` ([`OverlayLayer.kt:381`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:381) marker —
+now wrap-content, no formula; [`OverlayLayer.kt:535`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:535) track).
 
 **Problem:** the marker detail drawer (portrait) scrolls when its content (boat-relative line + marker card +
 belongs-to-track row) exceeds the `portraitDashboardHeight` floor.
@@ -79,7 +79,7 @@ content composable** as the single measurement source. Ask review refined the ro
 **Real root cause (Ask review):** the `MeasureHeight` probe ([`MeasureHeight.kt:28`](app/src/main/java/ykws/android/maro/ui/components/MeasureHeight.kt:28))
 measures at the full drawer width (no width inset), while the display body is inset by `contentPadding` (12dp each
 side). Text wraps differently at the two widths → the probe under-measures the real display height. The 6dp top
-padding is already compensated in the formula ([`OverlayLayer.kt:363`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:363)),
+padding is already compensated in the formula ([`OverlayLayer.kt:535`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:535)),
 so it is NOT the cause.
 
 **Steps:**
@@ -89,7 +89,7 @@ so it is NOT the cause.
    horizontal inset / max width) so text wraps identically and the measured height matches the display. This is the
    actual fix for the residual resize failure.
 3. **Reconcile padding accounting**: if the probe adopts `contentPadding` top 6dp, REMOVE the now-redundant
-   `markerContentTopPadding` term from the formula ([`OverlayLayer.kt:363`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:363))
+   `markerContentTopPadding` term from the formula ([`OverlayLayer.kt:535`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:535))
    to avoid double-counting (~6dp too tall).
 4. **Keep header/footer/buffer in the formula** (header 60dp, footer, trailing buffer are structurally required;
    derive from tokens where possible).
@@ -113,21 +113,21 @@ probe but make it exact**, and to **normalize the track drawer to the already-co
 **Current state audit (verified against code):**
 - **Marker drawer — ALREADY CORRECT.** Probe [`MarkerDrawer.kt:193`](app/src/main/java/ykws/android/maro/ui/map/MarkerDrawer.kt:193)
   applies `padding(start=12, top=6, end=12)` matching the display body `contentPadding`; formula
-  [`OverlayLayer.kt:362`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:362) = `60dp header + cardHeight +
+  [`OverlayLayer.kt:535`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:535) = `60dp header + cardHeight +
   footer + 8dp buffer` (no separate 6dp — already removed). Belongs-to-track color
   [`MarkerManagementOverlay.kt:471`](app/src/main/java/ykws/android/maro/ui/map/MarkerManagementOverlay.kt:471) is already
   `uiSettingsTextPrimary` (white).
-- **Track drawer — INCONSISTENT (the residual bug).** Probe [`OverlayLayer.kt:565`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:565)
+- **Track drawer — INCONSISTENT (the residual bug).** Probe [`OverlayLayer.kt:604`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:604)
   applies only `padding(horizontal = 12.dp)` — **missing the top-6 inset** the display body has
-  (`contentPadding = PaddingValues(start=12, top=6, end=12)`). Formula [`OverlayLayer.kt:499`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:499)
+  (`contentPadding = PaddingValues(start=12, top=6, end=12)`). Formula [`OverlayLayer.kt:535`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:535)
   = `60dp + 6dp + cardHeight + footer + 4dp` — adds a hard-coded `6.dp` top term. The probe under-measures (no top
   inset) while the formula over-reserves (adds 6dp) → the two cancel imperfectly and the drawer can still scroll.
 
 **Steps (Code mode):**
-1. **Track probe parity** — [`OverlayLayer.kt:567`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:567): change
+1. **Track probe parity** — [`OverlayLayer.kt:604`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:604): change
    `Box(Modifier.padding(horizontal = 12.dp))` → `Box(Modifier.padding(start = 12.dp, top = 6.dp, end = 12.dp))` so the
    probe measures at the SAME inner width AND includes the top inset as the display body.
-2. **Track formula normalization** — [`OverlayLayer.kt:499`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:499):
+2. **Track formula normalization** — [`OverlayLayer.kt:535`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:535):
    remove the now-redundant hard-coded `6.dp` (the probe now includes the top inset), and align the trailing buffer to
    the marker's `8.dp` for consistency:
    `maxOf(portraitDashboardHeight, 60.dp + cardHeight + footerHeight + 8.dp)`.

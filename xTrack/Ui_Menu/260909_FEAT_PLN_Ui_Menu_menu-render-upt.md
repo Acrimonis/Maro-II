@@ -13,7 +13,7 @@ no tabs, no expanders. Discussion-approved 2026-09-09. Ask-reviewed 2026-09-09
 | # | Decision |
 |---|----------|
 | D-A | **Keep** the 64dp Settings-gear header action. |
-| D-B | **Keep** the panel container: right-anchored full-height drawer, width = portrait 75% / landscape `0.75 × landscapeDashboardWidth × uiLandscapePanelWidthScale` (1.2) ([`OverlayLayer.kt`](../../app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:285)); empty bottom tail accepted. |
+| D-B | **Keep** the panel container: right-anchored full-height drawer, width = portrait 75% / landscape `0.75 × landscapeDashboardWidth × uiLandscapePanelWidthScale` (1.2) ([`OverlayLayer.kt`](../../app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:297)); empty bottom tail accepted. |
 | D-C | **Keep** the 3-section structure: POSITION / TRACKS / MARKERS, one Card per section. |
 | D-D | **No tabs** — the menu maps to a single Settings tab body, not the tab bar/pager. |
 | D-E | **No Expander / NestedCard** — plain grouped Cards only. |

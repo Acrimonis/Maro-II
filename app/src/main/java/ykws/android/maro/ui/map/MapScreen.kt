@@ -1496,13 +1496,15 @@ fun MapScreen(
         }
 
         OverlayLayer(
-            showSettings = showSettings,
-            showTrackDrawer = showTrackDrawer,
-            showTrackHistory = showTrackHistory,
-            showMarkerManagement = showMarkerManagement,
-            showWizard = showWizard,
-            wizardStep = wizardStep,
-            drawerState = drawerState,
+            chrome = OverlayChrome(
+                showSettings = showSettings,
+                showTrackDrawer = showTrackDrawer,
+                showTrackHistory = showTrackHistory,
+                showMarkerManagement = showMarkerManagement,
+                showWizard = showWizard,
+                wizardStep = wizardStep,
+                drawerState = drawerState,
+            ),
             isLandscape = isLandscape,
             portraitDashboardHeight = portraitDashboardHeight,
             landscapeDashboardWidth = landscapeDashboardWidth,
@@ -1521,25 +1523,31 @@ fun MapScreen(
             onOpenFirstMarker = { id -> openMarkerDetail(id) },
             markersViewModel = markersViewModel,
             trackViewModel = trackViewModel,
-            gpsMode = appSettings.gpsMode,
+            menu = MenuOverlayData(
+                gpsMode = appSettings.gpsMode,
+                autoShowMasterVisible = if (appSettings.gpsMode) appSettings.approachAutoShowGps else appSettings.approachAutoShowDemo,
+                autoShowMasterOverride = appSettings.autoShowMasterOverride,
+                gpsToggleColor = gpsToggleColor,
+                markerZonesVisible = appSettings.markerZonesVisible,
+                tracksDirectionVisible = appSettings.tracksDirectionVisible,
+                firstTrackId = firstTrackId,
+                firstMarkerId = firstMarkerId,
+                trackMapFilterState = appSettings.trackMapFilter,
+                trackMapCount = trackMapVisibleCount,
+                markerMapFilterState = appSettings.markerMapFilter,
+                markerMapCount = mapMarkersState.size,
+            ),
             onGpsModeChange = onGpsModeChange,
-            autoShowMasterVisible = if (appSettings.gpsMode) appSettings.approachAutoShowGps else appSettings.approachAutoShowDemo,
-            autoShowMasterOverride = appSettings.autoShowMasterOverride,
             onAutoShowMasterChange = { v -> viewModel.updateSettings { it.copy(autoShowMasterOverride = v) } },
-            gpsToggleColor = gpsToggleColor,
-            markerZonesVisible = appSettings.markerZonesVisible,
             onToggleMarkerZones = {
                 Log.d("MaroMapRefresh", "MenuDrawer toggle: markerZonesVisible ${appSettings.markerZonesVisible} -> ${!appSettings.markerZonesVisible}")
                 viewModel.updateSettings { it.copy(markerZonesVisible = !appSettings.markerZonesVisible) }
                 mapView?.invalidate()
             },
-            tracksDirectionVisible = appSettings.tracksDirectionVisible,
             onToggleTracksDirection = {
                 viewModel.updateSettings { it.copy(tracksDirectionVisible = !appSettings.tracksDirectionVisible) }
                 mapView?.invalidate()
             },
-            firstTrackId = firstTrackId,
-            firstMarkerId = firstMarkerId,
             onTrackAction = { action ->
                 when (action) {
                     is ykws.android.maro.data.model.ListAction.NavigateToItem -> openTrackDetail(action.id)
@@ -1552,13 +1560,16 @@ fun MapScreen(
                     else -> {}
                 }
             },
-            trackSortState = appSettings.trackListSort,
+            trackList = TrackListOverlayData(
+                trackSortState = appSettings.trackListSort,
+                trackFilterState = appSettings.trackListFilter,
+                trackListState = trackListState,
+            ),
             onTrackSortStateChange = { newState ->
                 viewModel.updateSettings { it.copy(trackListSort = newState) }
                 trackViewModel.refreshSummaries(newState, reloadFromDisk = false)
                 mapView?.invalidate()
             },
-            trackFilterState = appSettings.trackListFilter,
             onTrackFilterChange = { newFilter ->
                 viewModel.updateSettings { s ->
                     if (s.trackFilterLinked) s.copy(trackListFilter = newFilter, trackMapFilter = newFilter)
@@ -1576,7 +1587,6 @@ fun MapScreen(
                 mapView?.invalidate()
             },
             // ── Track map referential (menu filter) + link ────────────────
-            trackMapFilterState = appSettings.trackMapFilter,
             onTrackMapFilterChange = { newFilter ->
                 val linked = appSettings.trackFilterLinked
                 viewModel.updateSettings { s ->
@@ -1601,22 +1611,28 @@ fun MapScreen(
                 // Pure flip: no filter carry-over. Next linked edit writes both.
                 viewModel.updateSettings { s -> s.copy(trackFilterLinked = !s.trackFilterLinked) }
             },
-            trackMapCount = trackMapVisibleCount,
             appSettings = appSettings,
             onUpdateSettings = viewModel::updateSettings,
-            selectedTab = selectedTab,
+            settings = SettingsOverlayData(
+                selectedTab = selectedTab,
+                displayScrollState = displayScrollState,
+                navigationScrollState = navigationScrollState,
+                positionScrollState = positionScrollState,
+                systemScrollState = systemScrollState,
+            ),
             onTabChange = { selectedTab = it },
-            displayScrollState = displayScrollState,
-            navigationScrollState = navigationScrollState,
-            positionScrollState = positionScrollState,
-            systemScrollState = systemScrollState,
             onRegenerateRasters = { steps ->
                 val waterTest: (Double, Double) -> Boolean =
                     if (state is CoastlineState.Ready) viewModel::isOnWater else { _, _ -> false }
                 depthViewModel.generateRasterLayers(context, steps, appSettings, waterTest)
             },
             boatPosition = gpsPosition ?: mapCenter,
-            markers = mgmtMarkers,
+            markerList = MarkerListOverlayData(
+                markers = mgmtMarkers,
+                markerSortState = appSettings.markerListSort,
+                markerFilterState = appSettings.markerListFilter,
+                markerListState = markerListState,
+            ),
             trackTitleLookup = { id -> allTrackSummaries.firstOrNull { it.id == id }?.name },
             onOpenMarkerTrack = { trackId ->
                 // Switch from a marker surface to the owning track's detail drawer.
@@ -1636,8 +1652,12 @@ fun MapScreen(
                 }
             },
             // ── Track info drawer ─────────────────────────────────────────
-            showTrackInfoDrawer = trackDrawerState.isOpen,
-            trackInfoDrawerData = trackDrawerState.track,
+            trackInfo = TrackInfoOverlayData(
+                showTrackInfoDrawer = trackDrawerState.isOpen,
+                trackInfoDrawerData = trackDrawerState.track,
+                trackListIds = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id },
+                currentTrackIndex = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id }.indexOf(trackDrawerState.track?.id ?: "").coerceAtLeast(0),
+            ),
             onTrackDrawerClose = {
                 if (!trackDrawerState.mapWasInteracted) {
                     preNavigationState?.let { pre ->
@@ -1650,12 +1670,10 @@ fun MapScreen(
                 preNavigationState = null
             },
             onNavigateToTrack = { id -> openTrackDetail(id) },
-            markerSortState = appSettings.markerListSort,
             onMarkerSortStateChange = { newState ->
                 viewModel.updateSettings { it.copy(markerListSort = newState) }
                 markersViewModel.refreshSort(newState)
             },
-            markerFilterState = appSettings.markerListFilter,
             onMarkerFilterChange = { newFilter ->
                 android.util.Log.d("MaroMapRefresh", "onMarkerFilterChange: $newFilter")
                 viewModel.updateSettings { s ->
@@ -1674,7 +1692,6 @@ fun MapScreen(
                 markersViewModel.refreshSort(filter = resetFilter)
             },
             // ── Marker map referential (menu filter) + link ───────────────
-            markerMapFilterState = appSettings.markerMapFilter,
             onMarkerMapFilterChange = { newFilter ->
                 val linked = appSettings.markerFilterLinked
                 viewModel.updateSettings { s ->
@@ -1696,7 +1713,6 @@ fun MapScreen(
                 // Pure flip: no filter carry-over. Next linked edit writes both.
                 viewModel.updateSettings { s -> s.copy(markerFilterLinked = !s.markerFilterLinked) }
             },
-            markerMapCount = mapMarkersState.size,
             onCreateFirst = {
                 showMarkerManagement = false
                 closeSelectedItemDashboards()
@@ -1706,8 +1722,6 @@ fun MapScreen(
             onSetPin = { id, pinned -> markersViewModel.setMarkerPinned(id, pinned) },
             onUpdateMarkerText = { id, name, desc -> markersViewModel.updateMarkerText(id, name, desc) },
             // ── List-detail navigation ──────────────────────────────────
-            trackListIds = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id },
-            currentTrackIndex = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id }.indexOf(trackDrawerState.track?.id ?: "").coerceAtLeast(0),
             onTrackPrev = {
                 val ids = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id }
                 val idx = ids.indexOf(trackDrawerState.track?.id ?: "")
@@ -1768,8 +1782,6 @@ fun MapScreen(
                     markersViewModel.closeDrawer()
                 }
             },
-            trackListState = trackListState,
-            markerListState = markerListState,
         )
 
         // ── Post-save undo → stack entry ────────────────────────────────
