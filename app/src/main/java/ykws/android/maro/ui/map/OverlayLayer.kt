@@ -129,24 +129,17 @@ fun OverlayLayer(
     // ── Settings data ────────────────────────────────────────────────────
     appSettings: AppSettings,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit,
-    selectedTab: Int,
+    settings: SettingsOverlayData,
     onTabChange: (Int) -> Unit,
-    displayScrollState: androidx.compose.foundation.ScrollState,
-    navigationScrollState: androidx.compose.foundation.ScrollState,
-    positionScrollState: androidx.compose.foundation.ScrollState,
-    systemScrollState: androidx.compose.foundation.ScrollState,
     onRegenerateRasters: (List<RasterCache.Step>) -> Unit,
 
     // ── Marker drawer data ───────────────────────────────────────────────
     boatPosition: LatLng?,
 
     // ── Track info drawer data ───────────────────────────────────────────
-    showTrackInfoDrawer: Boolean = false,
-    trackInfoDrawerData: ykws.android.maro.data.track.Track? = null,
+    trackInfo: TrackInfoOverlayData,
     onTrackDrawerClose: () -> Unit = {},
     onNavigateToTrack: (String) -> Unit = {},
-    trackListIds: List<String> = emptyList(),
-    currentTrackIndex: Int = -1,
     onTrackPrev: () -> Unit = {},
     onTrackNext: () -> Unit = {},
     onShareTrack: (String) -> Unit = {},
@@ -176,7 +169,7 @@ fun OverlayLayer(
     markerFilterLinked: Boolean = true,
     onToggleMarkerLink: () -> Unit = {}
 ) {
-    // ── Destructured chrome bundle ───────────────────────────────────────
+    // ── Destructured bundle locals (chrome, menu, settings, track info) ──
     val showSettings = chrome.showSettings
     val showTrackDrawer = chrome.showTrackDrawer
     val showTrackHistory = chrome.showTrackHistory
@@ -196,6 +189,15 @@ fun OverlayLayer(
     val trackMapCount = menu.trackMapCount
     val markerMapFilterState = menu.markerMapFilterState
     val markerMapCount = menu.markerMapCount
+    val selectedTab = settings.selectedTab
+    val displayScrollState = settings.displayScrollState
+    val navigationScrollState = settings.navigationScrollState
+    val positionScrollState = settings.positionScrollState
+    val systemScrollState = settings.systemScrollState
+    val showTrackInfoDrawer = trackInfo.showTrackInfoDrawer
+    val trackInfoDrawerData = trackInfo.trackInfoDrawerData
+    val trackListIds = trackInfo.trackListIds
+    val currentTrackIndex = trackInfo.currentTrackIndex
 
     // ── Collect track ViewModel state ────────────────────────────────────
     val trackRecorderState by trackViewModel.uiState.collectAsState()

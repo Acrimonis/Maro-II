@@ -1610,12 +1610,14 @@ fun MapScreen(
             },
             appSettings = appSettings,
             onUpdateSettings = viewModel::updateSettings,
-            selectedTab = selectedTab,
+            settings = SettingsOverlayData(
+                selectedTab = selectedTab,
+                displayScrollState = displayScrollState,
+                navigationScrollState = navigationScrollState,
+                positionScrollState = positionScrollState,
+                systemScrollState = systemScrollState,
+            ),
             onTabChange = { selectedTab = it },
-            displayScrollState = displayScrollState,
-            navigationScrollState = navigationScrollState,
-            positionScrollState = positionScrollState,
-            systemScrollState = systemScrollState,
             onRegenerateRasters = { steps ->
                 val waterTest: (Double, Double) -> Boolean =
                     if (state is CoastlineState.Ready) viewModel::isOnWater else { _, _ -> false }
@@ -1642,8 +1644,12 @@ fun MapScreen(
                 }
             },
             // ── Track info drawer ─────────────────────────────────────────
-            showTrackInfoDrawer = trackDrawerState.isOpen,
-            trackInfoDrawerData = trackDrawerState.track,
+            trackInfo = TrackInfoOverlayData(
+                showTrackInfoDrawer = trackDrawerState.isOpen,
+                trackInfoDrawerData = trackDrawerState.track,
+                trackListIds = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id },
+                currentTrackIndex = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id }.indexOf(trackDrawerState.track?.id ?: "").coerceAtLeast(0),
+            ),
             onTrackDrawerClose = {
                 if (!trackDrawerState.mapWasInteracted) {
                     preNavigationState?.let { pre ->
@@ -1710,8 +1716,6 @@ fun MapScreen(
             onSetPin = { id, pinned -> markersViewModel.setMarkerPinned(id, pinned) },
             onUpdateMarkerText = { id, name, desc -> markersViewModel.updateMarkerText(id, name, desc) },
             // ── List-detail navigation ──────────────────────────────────
-            trackListIds = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id },
-            currentTrackIndex = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id }.indexOf(trackDrawerState.track?.id ?: "").coerceAtLeast(0),
             onTrackPrev = {
                 val ids = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id }
                 val idx = ids.indexOf(trackDrawerState.track?.id ?: "")
