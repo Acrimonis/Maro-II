@@ -1,0 +1,430 @@
+package ykws.android.maro.ui.map
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.snapshotFlow
+import org.osmdroid.views.MapView
+import ykws.android.maro.data.model.matchesFilter
+import ykws.android.maro.data.settings.AppSettings
+
+/**
+ * History/pinned track overlay incremental-diff (extracted from MapScreen).
+ * Highlighted-track id is a read-only key (cross-cutting in MapScreen); never relocated.
+ */
+@Composable
+internal fun MapTrackOverlayHistoryDiff(
+    mapView: MapView?,
+    showSettings: Boolean,
+    highlightedTrackId: String?,
+    allTrackSummaries: List<ykws.android.maro.data.track.TrackSummary>,
+    appSettings: AppSettings,
+    trackViewModel: ykws.android.maro.data.track.TrackViewModel
+) {
+    // ── Track overlay: incremental diff for history tracks with fading opacity ──
+    // Track the set of currently-rendered track IDs to avoid full teardown+rebuild.
+    val renderedTrackIds = remember { mutableStateOf(setOf<String>()) }
+
+    LaunchedEffect(mapView, showSettings, appSettings.tracksVisible, appSettings.tracksDirectionVisible, appSettings.trackingRenderNb,
+        appSettings.trackingColorPastFrom, appSettings.trackingColorPastTo,
+        appSettings.trackingTransparencyNewest, appSettings.trackingTransparencyOldest,
+        appSettings.trackingColorPinnedFrom, appSettings.trackingColorPinnedTo,
+        appSettings.trackingTransparencyPinnedNewest, appSettings.trackingTransparencyPinnedOldest,
+        appSettings.trackMapFilter, appSettings.trackFilterLinked, allTrackSummaries, highlightedTrackId,
+        appSettings.trackDirectionDensity, appSettings.trackDirectionMinSpacingDp, appSettings.trackDirectionMaxSpacingDp,
+        appSettings.trackDirectionSpeedFloorKn, appSettings.trackDirectionSpeedCeilingKn) {
+        val mv = mapView ?: return@LaunchedEffect
+
+        // Direction-arrow spacing provider: uniform (px) or speed-linear (dp → px).
+        val densityScale = mv.context.resources.displayMetrics.density
+        val minSpacingPx = appSettings.trackDirectionMinSpacingDp * densityScale
+        val maxSpacingPx = appSettings.trackDirectionMaxSpacingDp * densityScale
+        val directionSpacingProvider: (Float) -> Float = { speedKn ->
+            when (appSettings.trackDirectionDensity) {
+                TrackDirectionDensity.UNIFORM -> DIRECTION_ARROW_SPACING_DP * densityScale
+                TrackDirectionDensity.SPEED -> spacingPxForSpeed(
+                    speedKn,
+                    appSettings.trackDirectionSpeedFloorKn,
+                    appSettings.trackDirectionSpeedCeilingKn,
+                    minSpacingPx,
+                    maxSpacingPx
+                )
+            }
+        }
+
+        // Apply the MAP filter before display split. Source = UNFILTERED summaries so the map stays
+        // independent of the list filter when unlinked. Reveal: force-include the highlighted track
+        // even when it does not match the map filter (viewed from a list).
+        val midnightMs = ykws.android.maro.data.model.todayMidnightMs()
+        val mapFiltered = allTrackSummaries.filter { it.matchesFilter(appSettings.trackMapFilter, midnightMs) }
+        val filteredSummaries = if (highlightedTrackId != null && mapFiltered.none { it.id == highlightedTrackId }) {
+            mapFiltered + allTrackSummaries.filter { it.id == highlightedTrackId }
+        } else mapFiltered
+
+        // Determine desired track ID set (history = non-pinned only)
+        val nbToRender = appSettings.trackingRenderNb.coerceIn(0, 20)
+        // History candidates: the highlighted (viewed) non-pinned track is always kept, regardless of
+        // its visibleOnMap flag or the render cap, so a from-list view is force-drawn on the map.
+        // Pinned highlighted tracks render through the dedicated pinned block (never capped).
+        val rankedHistory = filteredSummaries
+            .filter { (it.visibleOnMap || it.id == highlightedTrackId) && !it.pinned }
+            .sortedByDescending { it.startTimeMs }
+        val cappedHistory = rankedHistory.take(nbToRender)
+        val historyList = if (highlightedTrackId != null && cappedHistory.none { it.id == highlightedTrackId }) {
+            cappedHistory + rankedHistory.filter { it.id == highlightedTrackId }
+        } else cappedHistory
+        val desiredIds = if (appSettings.tracksVisible) historyList.map { it.id }.toSet() else emptySet()
+
+        // Remove all existing track history overlays + direction arrows — rebuild from scratch
+        val toRemove = mv.overlays.filter { overlay ->
+            (overlay as? org.osmdroid.views.overlay.Polyline)?.title?.startsWith("track_hist_") == true ||
+            (overlay as? TrackDirectionOverlay)?.title?.startsWith("track_arrow_") == true
+        }
+        mv.overlays.removeAll(toRemove)
+
+        val sortedDesired = if (appSettings.tracksVisible) historyList else emptyList()
+
+        val total = nbToRender
+
+        val historyOverlays = mutableListOf<List<org.osmdroid.views.overlay.Overlay>>()
+        for ((index, summary) in sortedDesired.withIndex()) {
+            val trackOverlays = mutableListOf<org.osmdroid.views.overlay.Overlay>()
+            val track = trackViewModel.loadTrackDetailCached(summary.id) ?: continue
+            if (track.trackPoints.isEmpty()) continue
+
+            val appearances = if (summary.id == highlightedTrackId) {
+                listOf(
+                    TrackPolylineAppearance(0xCC000000.toInt(), 16f),
+                    TrackPolylineAppearance(0xFFFFD700.toInt() or (0xFF shl 24), 8f)
+                )
+            } else {
+                listOf(computeTrackPolylineAppearance(
+                    index = index,
+                    total = total,
+                    transparencyNewest = appSettings.trackingTransparencyNewest,
+                    transparencyOldest = appSettings.trackingTransparencyOldest,
+                    colorFrom = appSettings.trackingColorPastFrom,
+                    colorTo = appSettings.trackingColorPastTo,
+                    strokeWidth = if (index == 0) 8f else 6f
+                ))
+            }
+
+            for (appearance in appearances) {
+                // Split at GAP markers: solid segments between gaps, dashed for gap segments
+                val points = track.trackPoints
+                var segmentStart = 0
+                for (i in points.indices) {
+                    if (points[i].type == ykws.android.maro.data.track.PointType.GAP) {
+                        if (i > segmentStart) {
+                            val solidPoints = points.subList(segmentStart, i).map { pt ->
+                                org.osmdroid.util.GeoPoint(pt.lat, pt.lon)
+                            }
+                            if (solidPoints.size >= 2) {
+                                val solidPolyline = org.osmdroid.views.overlay.Polyline().apply {
+                                    title = "track_hist_${summary.id}"
+                                    outlinePaint.color = appearance.argb
+                                    outlinePaint.strokeWidth = appearance.strokeWidth
+                                    setPoints(solidPoints)
+                                }
+                                trackOverlays.add(solidPolyline)
+                            }
+                        }
+                        val gapFrom = org.osmdroid.util.GeoPoint(points[i].lat, points[i].lon)
+                        val gapTo = if (i + 1 < points.size)
+                            org.osmdroid.util.GeoPoint(points[i + 1].lat, points[i + 1].lon)
+                        else gapFrom
+                        val gapLine = org.osmdroid.views.overlay.Polyline().apply {
+                            title = "track_hist_${summary.id}"
+                            outlinePaint.color = appearance.argb
+                            outlinePaint.strokeWidth = appearance.strokeWidth
+                            outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(20f, 10f), 0f)
+                            setPoints(listOf(gapFrom, gapTo))
+                        }
+                        trackOverlays.add(gapLine)
+                        segmentStart = i + 1
+                    }
+                }
+                if (segmentStart < points.size && points.size - segmentStart >= 2) {
+                    val solidPoints = points.subList(segmentStart, points.size).map { pt ->
+                        org.osmdroid.util.GeoPoint(pt.lat, pt.lon)
+                    }
+                    val solidPolyline = org.osmdroid.views.overlay.Polyline().apply {
+                        title = "track_hist_${summary.id}"
+                        outlinePaint.color = appearance.argb
+                        outlinePaint.strokeWidth = appearance.strokeWidth
+                        setPoints(solidPoints)
+                    }
+                    trackOverlays.add(solidPolyline)
+                }
+            }
+
+            if (appSettings.tracksDirectionVisible) {
+                trackOverlays.add(
+                    TrackDirectionOverlay(
+                        points = track.trackPoints,
+                        appearances = appearances,
+                        spacingPx = directionSpacingProvider
+                    ).apply { title = "track_arrow_${summary.id}" }
+                )
+            }
+
+            historyOverlays.add(trackOverlays)
+        }
+        historyOverlays.reverse()
+        for (trackOverlays in historyOverlays) {
+            mv.overlays.addAll(trackOverlays)
+        }
+
+        // ── Pinned tracks: always render all, separate colors/opacity ──
+        val toRemovePinned = mv.overlays.filter { overlay ->
+            (overlay as? org.osmdroid.views.overlay.Polyline)?.title?.startsWith("track_pin_") == true
+        }
+        mv.overlays.removeAll(toRemovePinned)
+
+        val pinnedSummaries = if (appSettings.tracksVisible) {
+            filteredSummaries.filter { it.pinned }.sortedByDescending { it.startTimeMs }
+        } else emptyList()
+
+        val pinnedTotal = pinnedSummaries.size
+        val pinnedOverlays = mutableListOf<List<org.osmdroid.views.overlay.Overlay>>()
+        for ((index, summary) in pinnedSummaries.withIndex()) {
+            val trackOverlays = mutableListOf<org.osmdroid.views.overlay.Overlay>()
+            val track = trackViewModel.loadTrackDetailCached(summary.id) ?: continue
+            if (track.trackPoints.isEmpty()) continue
+
+            val appearances = if (summary.id == highlightedTrackId) {
+                listOf(
+                    TrackPolylineAppearance(0xCC000000.toInt(), 16f),
+                    TrackPolylineAppearance(0xFFFFD700.toInt() or (0xFF shl 24), 8f)
+                )
+            } else {
+                listOf(computeTrackPolylineAppearance(
+                    index = index,
+                    total = pinnedTotal,
+                    transparencyNewest = appSettings.trackingTransparencyPinnedNewest,
+                    transparencyOldest = appSettings.trackingTransparencyPinnedOldest,
+                    colorFrom = appSettings.trackingColorPinnedFrom,
+                    colorTo = appSettings.trackingColorPinnedTo,
+                    strokeWidth = 6f
+                ))
+            }
+
+            for (appearance in appearances) {
+                // Split at GAP markers: solid segments between gaps, dashed for gap segments
+                val points = track.trackPoints
+                var segmentStart = 0
+                for (i in points.indices) {
+                    if (points[i].type == ykws.android.maro.data.track.PointType.GAP) {
+                        if (i > segmentStart) {
+                            val solidPoints = points.subList(segmentStart, i).map { pt ->
+                                org.osmdroid.util.GeoPoint(pt.lat, pt.lon)
+                            }
+                            if (solidPoints.size >= 2) {
+                                val solidPolyline = org.osmdroid.views.overlay.Polyline().apply {
+                                    title = "track_pin_${summary.id}"
+                                    outlinePaint.color = appearance.argb
+                                    outlinePaint.strokeWidth = appearance.strokeWidth
+                                    setPoints(solidPoints)
+                                }
+                                trackOverlays.add(solidPolyline)
+                            }
+                        }
+                        val gapFrom = org.osmdroid.util.GeoPoint(points[i].lat, points[i].lon)
+                        val gapTo = if (i + 1 < points.size)
+                            org.osmdroid.util.GeoPoint(points[i + 1].lat, points[i + 1].lon)
+                        else gapFrom
+                        val gapLine = org.osmdroid.views.overlay.Polyline().apply {
+                            title = "track_pin_${summary.id}"
+                            outlinePaint.color = appearance.argb
+                            outlinePaint.strokeWidth = appearance.strokeWidth
+                            outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(20f, 10f), 0f)
+                            setPoints(listOf(gapFrom, gapTo))
+                        }
+                        trackOverlays.add(gapLine)
+                        segmentStart = i + 1
+                    }
+                }
+                if (segmentStart < points.size && points.size - segmentStart >= 2) {
+                    val solidPoints = points.subList(segmentStart, points.size).map { pt ->
+                        org.osmdroid.util.GeoPoint(pt.lat, pt.lon)
+                    }
+                    val solidPolyline = org.osmdroid.views.overlay.Polyline().apply {
+                        title = "track_pin_${summary.id}"
+                        outlinePaint.color = appearance.argb
+                        outlinePaint.strokeWidth = appearance.strokeWidth
+                        setPoints(solidPoints)
+                    }
+                    trackOverlays.add(solidPolyline)
+                }
+            }
+
+            if (appSettings.tracksDirectionVisible) {
+                trackOverlays.add(
+                    TrackDirectionOverlay(
+                        points = track.trackPoints,
+                        appearances = appearances,
+                        spacingPx = directionSpacingProvider
+                    ).apply { title = "track_arrow_${summary.id}" }
+                )
+            }
+
+            pinnedOverlays.add(trackOverlays)
+        }
+        pinnedOverlays.reverse()
+        for (trackOverlays in pinnedOverlays) {
+            mv.overlays.addAll(trackOverlays)
+        }
+
+        // Ensure active track stays on top of pinned (z-order: history → pinned → active)
+        val activePolyline = mv.overlays.firstOrNull {
+            (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording"
+        }
+        if (activePolyline != null) {
+            mv.overlays.remove(activePolyline)
+            mv.overlays.add(activePolyline)
+        }
+
+        // Move highlighted track above active (z-order: ... → active → highlighted)
+        if (highlightedTrackId != null) {
+            val highlightedOverlays = mv.overlays.filter { overlay ->
+                val polyTitle = (overlay as? org.osmdroid.views.overlay.Polyline)?.title
+                val arrowTitle = (overlay as? TrackDirectionOverlay)?.title
+                polyTitle == "track_hist_$highlightedTrackId" ||
+                polyTitle == "track_pin_$highlightedTrackId" ||
+                arrowTitle == "track_arrow_$highlightedTrackId"
+            }
+            mv.overlays.removeAll(highlightedOverlays)
+            mv.overlays.addAll(highlightedOverlays)
+        }
+
+        renderedTrackIds.value = desiredIds
+        OverlayZOrder.reorder(mv)
+        mv.invalidate()
+    }
+}
+
+/**
+ * Live-recording overlay effects (extracted from MapScreen): active trace polyline
+ * create/remove, incremental point appending, and trailing dead-reckon segment.
+ */
+@Composable
+internal fun MapTrackOverlayLiveEffects(
+    mapView: MapView?,
+    viewModel: NavigationViewModel,
+    trackViewModel: ykws.android.maro.data.track.TrackViewModel,
+    trackRecorderState: ykws.android.maro.data.track.TrackRecorderUiState,
+    appSettings: AppSettings
+) {
+    // ── Active recording trace: incremental polyline via newPoint stream ────
+    // Polyline lifecycle (create/remove) driven by recorder state snapshot.
+    LaunchedEffect(mapView, appSettings.trackingColorActive) {
+        val mv = mapView ?: return@LaunchedEffect
+        androidx.compose.runtime.snapshotFlow { trackRecorderState.state }
+            .collect { recState ->
+                if (recState == ykws.android.maro.data.track.TrackRecorderState.ON) {
+                    val existing = mv.overlays.firstOrNull {
+                        (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording"
+                    }
+                    if (existing == null) {
+                        val polyline = org.osmdroid.views.overlay.Polyline().apply {
+                            title = "track_recording"
+                            outlinePaint.color = appSettings.trackingColorActive
+                            outlinePaint.strokeWidth = 10f
+                            isVisible = true
+                        }
+                        mv.overlays.add(polyline)
+                        OverlayZOrder.reorder(mv)
+                        mv.invalidate()
+                    }
+                } else {
+                    val removed = mv.overlays.removeAll {
+                        (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording"
+                    }
+                    if (removed) mv.invalidate()
+                }
+            }
+    }
+
+    // ── Incremental point appending: observe newPoint stream for live polyline ─┐
+    // Keyed on recorder state so a stop→restart cycle re-obtains the new SharedFlow.
+    // GAP markers split the live polyline: solid for normal segments, dashed for gaps.
+    LaunchedEffect(mapView, trackRecorderState.state) {
+        val mv = mapView ?: return@LaunchedEffect
+        val stream = trackViewModel.newPointStream ?: return@LaunchedEffect
+        stream.collect { point ->
+            if (point.type == ykws.android.maro.data.track.PointType.GAP) {
+                // Find the last active solid polyline and finalize it
+                val lastSolid = mv.overlays.filter {
+                    (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording" &&
+                    (it as org.osmdroid.views.overlay.Polyline).outlinePaint.pathEffect == null
+                }.lastOrNull() as? org.osmdroid.views.overlay.Polyline
+                val lastPt = lastSolid?.actualPoints?.lastOrNull()
+                if (lastPt != null) {
+                    val gapLine = org.osmdroid.views.overlay.Polyline().apply {
+                        title = "track_recording"
+                        outlinePaint.color = appSettings.trackingColorActive
+                        outlinePaint.strokeWidth = 10f
+                        outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(20f, 10f), 0f)
+                        isVisible = true
+                        setPoints(listOf(lastPt, org.osmdroid.util.GeoPoint(point.lat, point.lon)))
+                    }
+                    mv.overlays.add(gapLine)
+                }
+                val resumedLine = org.osmdroid.views.overlay.Polyline().apply {
+                    title = "track_recording"
+                    outlinePaint.color = appSettings.trackingColorActive
+                    outlinePaint.strokeWidth = 10f
+                    isVisible = true
+                    addPoint(org.osmdroid.util.GeoPoint(point.lat, point.lon))
+                }
+                mv.overlays.add(resumedLine)
+                OverlayZOrder.reorder(mv)
+                mv.invalidate()
+            } else {
+                val polyline = mv.overlays.filter {
+                    (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording" &&
+                    (it as org.osmdroid.views.overlay.Polyline).outlinePaint.pathEffect == null
+                }.lastOrNull() as? org.osmdroid.views.overlay.Polyline ?: return@collect
+                polyline.addPoint(org.osmdroid.util.GeoPoint(point.lat, point.lon))
+                mv.invalidate()
+            }
+        }
+    }
+
+    // ── Trailing polyline: interpolated segment from last accepted point ──
+    // to the dead-reckoned display position, updated at 20 Hz. Display only —
+    // never recorded. Semi-transparent solid (not dashed) to distinguish from
+    // GAP markers. Cleaned up on recorder OFF.
+    LaunchedEffect(mapView, trackRecorderState.state) {
+        val mv = mapView ?: return@LaunchedEffect
+        if (trackRecorderState.state != ykws.android.maro.data.track.TrackRecorderState.ON) {
+            mv.overlays.removeAll { (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_trailing" }
+            mv.invalidate()
+            return@LaunchedEffect
+        }
+        snapshotFlow { viewModel.displayPosition.value }
+            .collect { displayPos ->
+                // Remove previous trailing polyline
+                mv.overlays.removeAll { (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_trailing" }
+                if (displayPos == null) return@collect
+                // Find the last accepted point from the recording polyline
+                val recordingLine = mv.overlays.filter {
+                    (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording" &&
+                    (it as org.osmdroid.views.overlay.Polyline).outlinePaint.pathEffect == null
+                }.lastOrNull() as? org.osmdroid.views.overlay.Polyline
+                val lastPt = recordingLine?.actualPoints?.lastOrNull() ?: return@collect
+                // Draw trailing segment: last accepted point → display position
+                val trailing = org.osmdroid.views.overlay.Polyline().apply {
+                    title = "track_trailing"
+                    outlinePaint.color = (appSettings.trackingColorActive and 0x00FFFFFF) or (0x66000000.toInt())  // ~40% alpha
+                    outlinePaint.strokeWidth = 10f
+                    isVisible = true
+                    setPoints(listOf(lastPt, org.osmdroid.util.GeoPoint(displayPos.latitude, displayPos.longitude)))
+                }
+                mv.overlays.add(trailing)
+                OverlayZOrder.reorder(mv)
+                mv.invalidate()
+            }
+    }
+}
