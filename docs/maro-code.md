@@ -19,7 +19,7 @@
 | `data/location/` | GPS source, compass, adaptive policy | `GpsLocationSource.kt`, `CompassSource.kt`, `AdaptiveGpsPolicy.kt` |
 | `data/settings/` | SharedPreferences wrapper | `SettingsManager.kt` |
 | `spatial/` | Spatial indexing and queries — the computational core | `CoastlineSpatialIndex.kt`, `MarkerMatcher.kt`, `SpeedZoneIndex.kt`, `SpatialOperations.kt`, `Zone300Builder.kt` |
-| `ui/map/` | Compose map screen, overlays, drawers, depth rendering, markers UI | `MapScreen.kt`, `MapControls.kt`, `MapOverlays.kt`, `CoastlineMapView.kt`, `TrackSharing.kt`, `MapOverlayRenderer.kt`, `DepthViewModel.kt`, `DepthBitmap.kt`, `DepthColorRamp.kt`, `OverlayLayer.kt`, `DrawerSlot.kt`, `MarkerOverlay.kt`, `MarkerDrawer.kt`, `MarkersViewModel.kt`, `MarkerManagementOverlay.kt`, `WizardDrawer.kt`, `MenuDrawerOverlay.kt`, `TrackHistoryOverlay.kt`, `RegulatedZoneComponents.kt`, `FanLayout.kt`, `FanConfig.kt`, `NavigationViewModel.kt` |
+| `ui/map/` | Compose map screen, overlays, drawers, depth rendering, markers UI | `MapScreen.kt`, `MapControls.kt`, `MapOverlays.kt`, `CoastlineMapView.kt`, `TrackSharing.kt`, `MapOverlayRenderer.kt`, `DepthViewModel.kt`, `DepthBitmap.kt`, `DepthColorRamp.kt`, `OverlayLayer.kt`, `OverlayLayerParams.kt`, `DrawerSlot.kt`, `MarkerOverlay.kt`, `MarkerDrawer.kt`, `MarkersViewModel.kt`, `MarkerManagementOverlay.kt`, `WizardDrawer.kt`, `MenuDrawerOverlay.kt`, `TrackHistoryOverlay.kt`, `RegulatedZoneComponents.kt`, `FanLayout.kt`, `FanConfig.kt`, `NavigationViewModel.kt` |
 | `ui/components/` | Shared UI primitives | `DrawerScaffold.kt`, `ListOverlayScaffold.kt`, `ConfirmSheet.kt`, `IconPickerDialog.kt` |
 | `ui/markers/wizard/` | Marker creation wizard (multi-step form) | `WizardTopBar.kt`, `WizardButtonRow.kt`, `steps/TypeSelectStep.kt`, `steps/PositionStep.kt`, `steps/SliderStep.kt`, `steps/TextInputStep.kt` |
 | `ui/icons/` | Material Symbols as standalone ImageVector .kt files | `ActivityZone.kt`, `AddLocationAlt.kt`, `FilterAlt.kt`, `LocationOn.kt`, `WhereToVote.kt`, etc. |
@@ -89,7 +89,7 @@ change):
 | `MapDialogHost.kt` | Windowed dialogs/sheets: exit/stop-recording, recovery, permission, source-switch, battery |
 | `MapSnackbarHost.kt` | Snackbar stack render (render-only; queue stays hoisted in MapScreen) |
 | `MapImportConflictHost.kt` | GPX import Duplicate/Override/Cancel conflict path |
-| `OverlayLayer.kt` | Transient drawer/scrim layer stack (Layer 1 — see `docs/ui-drawer-guidelines.md`) |
+| `OverlayLayer.kt` | Transient drawer/scrim layer stack (Layer 1 — see `docs/ui-drawer-guidelines.md`); read-only params grouped into six `@Immutable` bundles in `OverlayLayerParams.kt` — 60 params total (6 bundles + explicit values/ViewModels + inline callbacks) |
 
 ## Dependency Flow
 

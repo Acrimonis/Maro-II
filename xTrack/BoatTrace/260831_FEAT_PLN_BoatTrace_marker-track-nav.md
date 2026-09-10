@@ -5,7 +5,7 @@
 
 ## Goal
 
-1. **Track detail** ([`TrackInfoDrawer`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:345)) lists the markers belonging to that track, each with a `>` that opens the marker definition.
+1. **Track detail** ([`TrackInfoDrawer`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:438)) lists the markers belonging to that track, each with a `>` that opens the marker definition.
 2. **Marker detail** (`MarkerDrawer` Viewing) shows its track with a `>` that opens the track definition.
 
 ## Current navigation (findings)

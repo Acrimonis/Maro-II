@@ -60,7 +60,7 @@ track-row chevron use this single canonical size/color.
 4. **MOVE** the existing unconditional bottom chevron ([`TrackHistoryOverlay.kt:669`](app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt:669))
    into the header row (far right, after the action icons) at the canonical size/color — do NOT add a second one.
 5. Add a `showChevron: Boolean = true` param to `TrackCardContent` (mirroring the marker card) and thread `false`
-   through the three `onTap = null` call sites in [`OverlayLayer.kt`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:451,538,556)
+   through the three `onTap = null` call sites in [`OverlayLayer.kt`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:503,595,611)
    (detail drawers + MeasureHeight pass); the list call site ([`TrackHistoryOverlay.kt:374`](app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt:374))
    keeps it true.
 

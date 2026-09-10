@@ -188,7 +188,9 @@ fun XxxDrawer(isOpen: Boolean, onDismiss: () -> Unit) {
        NewDrawer(isOpen = true, onDismiss = onDismissNewDrawer, ...)
    }
    ```
-4. Wire the visibility flag and dismiss callback through `OverlayLayer`'s parameter list
+4. Wire the visibility flag + dismiss callback: read-only drawer state goes into the matching bundle in
+   `OverlayLayerParams.kt` (add a field there — do **not** extend `OverlayLayer`'s signature); the dismiss callback
+   stays an individual function parameter (bundling callbacks would defeat Compose lambda memoization)
 5. Update the scrim formula if the new drawer needs a scrim behind it
 6. Add a row to the [Surfaces table](#3-surfaces--quick-reference)
 

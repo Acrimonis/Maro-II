@@ -46,7 +46,7 @@ Normalize all opacity/transparency settings to a single, best-practice conventio
 - **Settings model** ([`SettingsManager.kt`](app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt:218)): rename fields `trackingTransparency*` → `trackingOpacity*`; invert defaults (`opacity = 100 - transparency`).
 - **Migration:** prefs version bump (7 → 8) rewriting persisted `tracking_transparency_*` → `tracking_opacity_*` with inverted values (`new = 100 - old`).
 - **Rendering math** ([`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:343)): `computeTrackPolylineAppearance` currently does `alpha = (100 - transparency)/100`. With opacity stored, change to `alpha = opacity/100`.
-- **Callers:** update all `trackingTransparency*` references in [`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt), [`OverlayLayer.kt`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:606), [`TrackHistoryOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt:161) to the new opacity fields.
+- **Callers:** update all `trackingTransparency*` references in [`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt), [`OverlayLayer.kt`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:680), [`TrackHistoryOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt:161) to the new opacity fields.
 - **UI strings:** `settings_transparency_label/desc/value_fmt` and `settings_pinned_transparency_*` → opacity wording ("0% = invisible, 100% = opaque").
 - **BuildConfig:** `TRACKING_TRANSPARENCY_*` constants → opacity values (or keep and invert at read).
 

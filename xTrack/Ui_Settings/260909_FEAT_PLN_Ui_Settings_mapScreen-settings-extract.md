@@ -70,7 +70,7 @@ Rules:
 
 ## Ask-review notes (locked for implementation)
 
-1. `SettingsOverlay` is `internal` ([`MapScreen.kt:3280`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:3280)) and called only from `OverlayLayer:714` (same package) — keep it `internal`; no import change.
+1. `SettingsOverlay` is `internal` ([`MapScreen.kt:3280`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:3280)) and called only from `OverlayLayer.kt:739` (same package) — keep it `internal`; no import change.
 2. The four page composables (`LayersSettings`/`NavigationSettings`/`PositionSettings`/`SystemSettings`) are
    `private` and called only from `SettingsOverlay` — keep them `private` in the new file.
 3. Any shared helper still referenced by code that stays in `MapScreen.kt` (e.g. `RecordingExitSheet`,

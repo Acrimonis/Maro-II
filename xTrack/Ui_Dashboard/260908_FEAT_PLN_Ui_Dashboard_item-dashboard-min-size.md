@@ -56,7 +56,7 @@ which calls `DrawerScaffold` with **`wrapContent = true` hardcoded — NOT gated
    with **no floor**. A short marker → panel smaller than `portraitDashboardHeight` → original
    dashboard still visible behind/above.
 2. **Landscape regression:** the landscape slot is full-height
-   ([`OverlayLayer.kt:337`](../../app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt)
+   ([`OverlayLayer.kt:361`](../../app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt)
    `align(CenterStart).width(landscapeDashboardWidth).fillMaxHeight()`), but the hardcoded
    wrap-content mode collapses the visible panel to content height and bottom-aligns it inside
    that full-height invisible Box — so the **top of the left column does not get covered** by the
@@ -68,12 +68,12 @@ which calls `DrawerScaffold` with **`wrapContent = true` hardcoded — NOT gated
 ### Surfaces that replace the dashboard slot (`OverlayLayer.kt`) — comparison
 | Surface | Orientation | Size | Covers whole dashboard? |
 |---|---|---|---|
-| MarkerDrawer `Viewing` | portrait | wrap-content, no floor ([`OverlayLayer.kt:360`](../../app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt)) | ❌ too small when short |
+| MarkerDrawer `Viewing` | portrait | wrap-content, no floor ([`OverlayLayer.kt:381`](../../app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt)) | ❌ too small when short |
 | MarkerDrawer `Viewing` | landscape | wrap-content inside full-height slot ([`MarkerDrawer.kt:169`](../../app/src/main/java/ykws/android/maro/ui/map/MarkerDrawer.kt)) | ❌ top gap when short |
-| MarkerDrawer `MatchResult` (Where-Am-I) | portrait | `.height(portraitDashboardHeight)` ([`OverlayLayer.kt:379`](../../app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt)) | ✅ fixed |
+| MarkerDrawer `MatchResult` (Where-Am-I) | portrait | `.height(portraitDashboardHeight)` ([`OverlayLayer.kt:404`](../../app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt)) | ✅ fixed |
 | MarkerDrawer `MatchResult` | landscape | full-height non-wrap (shared landscape slot) | ✅ |
-| TrackInfoDrawer | portrait | `maxOf(portraitDashboardHeight, 48.dp + card + footer)` ([`OverlayLayer.kt:511`](../../app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt)) | ✅ floor |
-| TrackInfoDrawer | landscape | full-height non-wrap ([`OverlayLayer.kt:404`](../../app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt)) | ✅ |
+| TrackInfoDrawer | portrait | `maxOf(portraitDashboardHeight, 48.dp + card + footer)` ([`OverlayLayer.kt:535`](../../app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt)) | ✅ floor |
+| TrackInfoDrawer | landscape | full-height non-wrap ([`OverlayLayer.kt:428`](../../app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt)) | ✅ |
 | WizardDrawer | portrait / landscape | fixed `portraitDashboardHeight` / full-height | ✅ |
 
 Only **Marker `Viewing`** is the outlier, in **both** orientations, caused by the single hardcoded

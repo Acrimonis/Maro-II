@@ -16,17 +16,17 @@ overflows.
 
 ## Final plan
 
-1. [`OverlayLayer.kt`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:441) — portrait track drawer:
+1. [`OverlayLayer.kt`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:538) — portrait track drawer:
    - restore `.height(portraitDashboardHeight)` on the `DrawerSlot`,
    - unwrap `VariableHeightBox { trackInfoDrawerData?.let { … } }` back to plain
      `trackInfoDrawerData?.let { … }` (keep the inner `DrawerScaffold.footer`).
 
-2. [`OverlayLayer.kt`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:338) — portrait marker drawer:
+2. [`OverlayLayer.kt`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:404) — portrait marker drawer:
    - restore `.height(portraitDashboardHeight)`,
    - remove the `VariableHeightBox` wrapper and the now-dead marker-key collection
      (`markerList` / `selectedMarkerIds` / `selectedMarkerIndex` / `currentMarker` / `markerKey`).
 
-3. [`OverlayLayer.kt`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:388) — landscape track drawer:
+3. [`OverlayLayer.kt`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:456) — landscape track drawer:
    - add `footer = { Prev/Next }` to the `DrawerScaffold` and delete the Prev/Next block from
      the body (keep the trimmed 4dp spacers inside the footer).
 

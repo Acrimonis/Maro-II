@@ -99,6 +99,6 @@ File: `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt`
 
 - `TrackHistoryOverlay.kt` (:362) — title → `"Track History \u00B7 ${trackSummaries.count { !it.isLive }}"` (filtered count minus live).
 - `MenuDrawerOverlay.kt` — new `trackCount`/`markerCount` params (default 0); "Tracks" (~:251) and "Markers" (~:433) rows wrap the 40.dp chevron in a `Row(verticalAlignment = CenterVertically)` with muted 14.sp count + 8.dp spacer left of the chevron; label stays left via outer `SpaceBetween`.
-- `OverlayLayer.kt` (:301 call site) — `trackCount = trackSummaries.count { !it.isLive }`, `markerCount = markers.size`.
+- `OverlayLayer.kt` (:309 call site) — `trackCount = trackSummaries.count { !it.isLive }`, `markerCount = markers.size`.
 - Build: SUCCESS (`apk-build.bat`, assembleDebug). Ask review PASS — no deviations, no out-of-scope edits.
 - Manual verification pending on-device (filtered counts shown; live track excluded from track counts).

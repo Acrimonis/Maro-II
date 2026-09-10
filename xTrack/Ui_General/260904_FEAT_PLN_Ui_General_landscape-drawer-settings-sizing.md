@@ -16,16 +16,16 @@ status: planned
 ## Current behaviour
 
 - Landscape dimensions: `portraitDashboardHeight = maxWidth * 3/5`, `landscapeDashboardWidth = maxHeight` (the short edge) — [`MapScreen.kt:1812`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1812).
-- Menu drawer: `fillMaxWidth(0.75f)` → 75% of the long edge in landscape — [`OverlayLayer.kt:273`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:273).
-- Settings: `fillMaxSize()` → full screen (long edge) in both orientations — [`OverlayLayer.kt:625`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:625).
+- Menu drawer: `fillMaxWidth(0.75f)` → 75% of the long edge in landscape — [`OverlayLayer.kt:301`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:301).
+- Settings: `fillMaxSize()` → full screen (long edge) in both orientations — [`OverlayLayer.kt:731`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:731).
 - Menu drawer content is not vertically scrollable.
 - Settings tabs already use `verticalScroll(scrollState)` — [`MapScreen.kt:3415`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:3415).
 
 ## Changes
 
-- [`OverlayLayer.kt:271`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:271) — menu drawer: landscape width = its portrait width (75% of screen width → `landscapeDashboardWidth * 0.75f`); portrait unchanged (`fillMaxWidth(0.75f)`).
-- [`OverlayLayer.kt:625`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:625) — settings: landscape width = its portrait width (100% of screen width → `landscapeDashboardWidth`); portrait unchanged (`fillMaxSize`).
-- [`OverlayLayer.kt:187`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:187) + `:200` — add `showSettings` to `showScrim` and `showSettings -> onDismissSettings()` to `scrimDismiss` (outside tap closes Settings; map ignores it).
+- [`OverlayLayer.kt:301`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:301) — menu drawer: landscape width = its portrait width (75% of screen width → `landscapeDashboardWidth * 0.75f`); portrait unchanged (`fillMaxWidth(0.75f)`).
+- [`OverlayLayer.kt:731`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:731) — settings: landscape width = its portrait width (100% of screen width → `landscapeDashboardWidth`); portrait unchanged (`fillMaxSize`).
+- [`OverlayLayer.kt:212`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:212) + `:227` — add `showSettings` to `showScrim` and `showSettings -> onDismissSettings()` to `scrimDismiss` (outside tap closes Settings; map ignores it).
 
 ## Out of scope
 
@@ -39,7 +39,7 @@ status: planned
 
 ## Scrim / outside-tap behaviour (confirmed)
 
-- A scrim (32% black, full-screen) already covers the menu, track history, marker management, marker viewing, and wizard non-Position steps; tapping it closes the panel — [`OverlayLayer.kt:187`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:187), `:209`.
+- A scrim (32% black, full-screen) already covers the menu, track history, marker management, marker viewing, and wizard non-Position steps; tapping it closes the panel — [`OverlayLayer.kt:212`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:212), `:226`.
 - Settings has NO scrim (`showSettings` is not in `showScrim`), so outside taps hit the live map and do not close settings.
 - Confirmed: add `showSettings` to `showScrim` and `showSettings -> onDismissSettings()` to `scrimDismiss`, so outside taps are ignored by the map and close settings. Keep the wizard Position steps scrim-less (map must stay draggable).
 

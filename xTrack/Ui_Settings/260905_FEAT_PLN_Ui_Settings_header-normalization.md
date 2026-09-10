@@ -106,7 +106,7 @@ After normalizing the Settings header, the header→first-content gap was found 
 expressed as **one common ui.properties token** so it is not scattered as hardcoded 20dp/6dp/0 across files.
 
 > **Ask-review note (2026-09-07):** two additional edit sites were found beyond the initial draft — the portrait
-> Track drawer (`OverlayLayer.kt:523`) and the Marker content's internal `Spacer(8.dp)` (`MarkerDrawer.kt:201`).
+> Track drawer (`OverlayLayer.kt:553`) and the Marker content's internal `Spacer(8.dp)` (`MarkerDrawer.kt:201`).
 > The Marker internal spacer is part of the shared `MarkerDetailContent` (also used by the `MeasureHeight` probe),
 > so removing it must be validated against the probe. See Step C.
 
@@ -132,9 +132,9 @@ expressed as **one common ui.properties token** so it is not scattered as hardco
   **Marker internal spacer:** `MarkerDetailContent` ([`MarkerDrawer.kt:201`](app/src/main/java/ykws/android/maro/ui/map/MarkerDrawer.kt:201))
   opens with `Spacer(Modifier.height(8.dp))`. This is shared with the `MeasureHeight` probe. **Decision (2026-09-07):
   REMOVE it** for full 6dp uniformity. Verify the `MeasureHeight` probe still measures correctly after removal.
-- **Track detail — landscape** ([`OverlayLayer.kt`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:434)): drop
+- **Track detail — landscape** ([`OverlayLayer.kt`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:461)): drop
   `top = 6.dp` from `contentPadding`.
-- **Track detail — portrait** ([`OverlayLayer.kt`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:523)): drop
+- **Track detail — portrait** ([`OverlayLayer.kt`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:553)): drop
   `top = 6.dp` from `contentPadding` (Ask-review finding — third site).
 - **Settings** ([`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:3319)): no change (already 6dp).
 
@@ -148,7 +148,7 @@ expressed as **one common ui.properties token** so it is not scattered as hardco
 - `app/src/main/java/ykws/android/maro/ui/components/DrawerScaffold.kt` — defaults read token.
 - `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt` — remove 20dp spacer.
 - `app/src/main/java/ykws/android/maro/ui/map/MarkerDrawer.kt` — drop contentPadding top (+ internal 8dp spacer, pending decision).
-- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt` — drop contentPadding top at BOTH landscape (434) and portrait (523) sites.
+- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt` — drop contentPadding top at BOTH landscape (461) and portrait (553) sites.
 - `docs/ui-drawer-guidelines.md` — §6 note: post-header gap = header's 6dp `ui.padding.header.vertical`, no extra.
 
 ## Open Question (Marker internal spacer) — RESOLVED 2026-09-07

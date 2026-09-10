@@ -10,7 +10,9 @@ modified: 2026-09-09 06:52
 **Description:**
 Hamburger menu drawer — right-side sliding panel (75% width) with position source,
 track recording, and marker management sections. Rendered via `OverlayLayer` →
-`DrawerSlot` → `MenuDrawerOverlay`. Uses `DrawerScaffold` for fixed-header +
+`DrawerSlot` → `MenuDrawerOverlay`; the drawer's read-only menu data travels in the
+`MenuOverlayData` bundle (`OverlayLayerParams.kt`) rather than as individual `OverlayLayer`
+params (callbacks stay individual). Uses `DrawerScaffold` for fixed-header +
 scrollable body.
 
 
@@ -21,6 +23,7 @@ scrollable body.
 ## Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt` — menu drawer content (POSITION SOURCE, TRACKS, MARKERS sections)
 - `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt` — Layer 1 compositor; renders MenuDrawer via DrawerSlot
+- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayerParams.kt` — `@Immutable` read-only bundles (incl. `MenuOverlayData`)
 - `app/src/main/java/ykws/android/maro/ui/components/DrawerScaffold.kt` — fixed-header + scrollable body scaffold
 - `docs/ui-drawer-guidelines.md` — canonical drawer reference
 

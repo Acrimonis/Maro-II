@@ -26,8 +26,8 @@ Delete: swipe (list) / header trash (detail). Detail header: `Close · Title · 
 
 ## Detailed changes
 
-1. **Track detail header** ([`OverlayLayer.kt:380`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:380),
-   [`:460`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:460)) — remove the Share `IconButton`, keep Delete.
+1. **Track detail header** ([`OverlayLayer.kt:465`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:465),
+   [`:557`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:557)) — remove the Share `IconButton`, keep Delete.
 
 2. **MarkersViewModel — inline text update** ([`MarkersViewModel.kt:631`](app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt:631)):
    add `updateMarkerText(id, name = null, description = null)` that patches the marker and persists via
@@ -60,7 +60,7 @@ Delete: swipe (list) / header trash (detail). Detail header: `Close · Title · 
   the track card's behaviour; BackHandler reverts the in-progress edit.
 
 ## Key files
-- [`OverlayLayer.kt`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:375)
+- [`OverlayLayer.kt`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:465)
 - [`TrackHistoryOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt:416)
 - [`MarkersViewModel.kt`](app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt:631)
 - [`MarkerManagementOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/MarkerManagementOverlay.kt:340)

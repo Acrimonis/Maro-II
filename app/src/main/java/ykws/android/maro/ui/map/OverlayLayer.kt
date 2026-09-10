@@ -52,8 +52,6 @@ import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.ui.components.DrawerScaffold
 import ykws.android.maro.ui.components.MeasureHeight
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.rememberLazyListState
 
 /** Returns the step sequence for the given marker type (mirror of VM method for UI use). */
 private fun stepSequenceFor(type: MarkerType): List<WizardStep> = when (type) {
@@ -115,9 +113,8 @@ fun OverlayLayer(
 
     // ── Track history data ───────────────────────────────────────────────
     onTrackAction: (ykws.android.maro.data.model.ListAction) -> Unit,
-    trackSortState: ykws.android.maro.data.model.ListSortState,
+    trackList: TrackListOverlayData,
     onTrackSortStateChange: (ykws.android.maro.data.model.ListSortState) -> Unit,
-    trackFilterState: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
     onTrackFilterChange: (ykws.android.maro.data.model.ListFilter) -> Unit = {},
     onTrackReset: () -> Unit = {},
     // Map referential (menu filter) + link flag. The link toggle lives in the menu only.
@@ -145,12 +142,8 @@ fun OverlayLayer(
     onShareTrack: (String) -> Unit = {},
     onRequestMarkerDelete: (String, String) -> Unit = { _, _ -> },
     onDeleteTrack: (String) -> Unit = {},
-    // ── List overlay scroll state ────────────────────────────────────────
-    trackListState: LazyListState = rememberLazyListState(),
-    markerListState: LazyListState = rememberLazyListState(),
-
     // ── Marker management data ───────────────────────────────────────────
-    markers: List<UserMarker>,
+    markerList: MarkerListOverlayData,
     trackTitleLookup: (String) -> String? = { null },
     onOpenMarkerTrack: (String) -> Unit = {},
     onMarkerAction: (ykws.android.maro.data.model.ListAction) -> Unit,
@@ -158,9 +151,7 @@ fun OverlayLayer(
     onSetIcon: (String, String?) -> Unit,
     onSetPin: (String, Boolean) -> Unit = { _, _ -> },
     onUpdateMarkerText: (String, String?, String?) -> Unit = { _, _, _ -> },
-    markerSortState: ykws.android.maro.data.model.ListSortState,
     onMarkerSortStateChange: (ykws.android.maro.data.model.ListSortState) -> Unit,
-    markerFilterState: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
     onMarkerFilterChange: (ykws.android.maro.data.model.ListFilter) -> Unit = {},
     onMarkerReset: () -> Unit = {},
     // Map referential (menu filter) + link flag for markers.
@@ -169,7 +160,7 @@ fun OverlayLayer(
     markerFilterLinked: Boolean = true,
     onToggleMarkerLink: () -> Unit = {}
 ) {
-    // ── Destructured bundle locals (chrome, menu, settings, track info) ──
+    // ── Destructured bundle locals (chrome, menu, settings, track info, track list, marker list) ──
     val showSettings = chrome.showSettings
     val showTrackDrawer = chrome.showTrackDrawer
     val showTrackHistory = chrome.showTrackHistory
@@ -198,6 +189,13 @@ fun OverlayLayer(
     val trackInfoDrawerData = trackInfo.trackInfoDrawerData
     val trackListIds = trackInfo.trackListIds
     val currentTrackIndex = trackInfo.currentTrackIndex
+    val trackSortState = trackList.trackSortState
+    val trackFilterState = trackList.trackFilterState
+    val trackListState = trackList.trackListState
+    val markers = markerList.markers
+    val markerSortState = markerList.markerSortState
+    val markerFilterState = markerList.markerFilterState
+    val markerListState = markerList.markerListState
 
     // ── Collect track ViewModel state ────────────────────────────────────
     val trackRecorderState by trackViewModel.uiState.collectAsState()

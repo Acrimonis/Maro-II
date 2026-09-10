@@ -4,7 +4,7 @@
 
 ## C12 — OverlayLayer parameter-object collapse (Ask-reviewed; supersedes the first draft)
 
-### Inventory — verified against the working tree, [`OverlayLayer.kt:83`](../../app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:83)
+### Inventory — verified against the working tree, [`OverlayLayer.kt:81`](../../app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:81)
 
 - **89 named params** (lines 85–194) — not ≈60. Composition: **42 read-only values**, **45 function-typed params** (44 Unit callbacks + `trackTitleLookup`), **2 ViewModels**.
 - **Exactly one call site:** [`MapScreen.kt:1498`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1498)–`1773`. Repo-wide `OverlayLayer(` search = 2 hits (definition + this call) → no tests or previews to migrate.
@@ -40,17 +40,17 @@
 
 Avoid the `*State` suffix: [`MarkerDrawerState`](../../app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt:41) (sealed) and [`TrackDrawerState`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:224) already own that namespace, and [`SettingsOverlay`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt:211) is an existing composable. Draft names `OverlayLayerUiState` / `MenuDrawerState` / `SettingsOverlayState` are rejected.
 
-### Tiered ordering
+### Tiered ordering — ✅ ALL TIERS LANDED 2026-09-10 (`feature/refact-C12`)
 
-- **Tier 0 (pre-flight, no code):** refresh the stale citations below; **create** the bundle host file — ⚠ `MapScreenState.kt` does **not** exist in the tree (verified 2026-09-10; the C12 row's reference to it is a phantom), so the bundles need a **new** same-package file (`OverlayLayerParams.kt` recommended) or a block inside `OverlayLayer.kt`; decide visibility; lock the default-retention policy (keep the defaults on the 8 explicit values + the 44 callbacks); and pick the recomposition-measurement mechanism (R10).
-- **Tier 1a-i:** `OverlayChrome` (7 params — the true pilot; `drawerState` + `wizardStep` are the trickiest field types). **Tier 1a-ii:** `MenuOverlayData` (12 params). Split so a field mis-map is isolable below pair granularity (R1 is High).
-- **Tier 1b:** `SettingsOverlayData` + `TrackInfoOverlayData`.
-- **Tier 1c:** `TrackListOverlayData` + `MarkerListOverlayData`.
+- **Tier 0 (pre-flight, no code): ✅ DONE** — stale citations refreshed; the bundle host file **created** — ⚠ `MapScreenState.kt` did **not** exist in the tree (verified 2026-09-10; the C12 row's reference to it was a phantom), so the bundles got a **new** same-package file (`OverlayLayerParams.kt`); visibility = public (`OverlayLayer` is public), so the bundles are public too; defaults retained on the 8 explicit values + the 44 callbacks; R10 measurement waived in writing (see tier results below).
+- **Tier 1a-i: ✅ LANDED** — `OverlayChrome` (7 params — the pilot; `drawerState` + `wizardStep` are the trickiest field types). **Tier 1a-ii: ✅ LANDED** — `MenuOverlayData` (12 params).
+- **Tier 1b: ✅ LANDED** — `SettingsOverlayData` + `TrackInfoOverlayData`.
+- **Tier 1c: ✅ LANDED** — `TrackListOverlayData` + `MarkerListOverlayData`.
 
 ### Exact edits
 1. `OverlayLayer.kt`: declare the 6 bundles top-level in the same package with **fields named identically to the current params**; replace the read-only params with the 6 bundles; keep the 8 explicit values + 2 ViewModels + the 44 inline callbacks. Add a destructure block at the top of the body (`val showSettings = chrome.showSettings` …) so the body and its child calls stay byte-for-byte unchanged. Two additions: (a) the bundles need a **new import** — `androidx.compose.runtime.Immutable`, currently absent from the entire `ui/map` package; (b) the destructure block **grows per tier** (7 → 19 → 24 → 28 → 35 lines as each bundle lands) — writing all 42 lines up front would reference fields that do not exist yet and break the build.
-2. `OverlayLayer.kt`: **delete the `rememberLazyListState()` defaults** on `trackListState`/`markerListState` (`:171-172`) — a `@Composable` call cannot be a data-class field default; the call site already passes both ([`MapScreen.kt:1771-1772`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1771)).
-3. `OverlayLayer.kt`: remove the orphaned [`rememberLazyListState` import](../../app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:56) (repo target is a zero-warning build).
+2. `OverlayLayer.kt`: **delete the `rememberLazyListState()` defaults** on `trackListState`/`markerListState` (**done** — both now arrive via `TrackListOverlayData` / `MarkerListOverlayData` and are destructured at `:194` / `:198`; the old defaults at `:171-172` are gone) — a `@Composable` call cannot be a data-class field default; the call site already passes both ([`MapScreen.kt:1771-1772`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1771)).
+3. `OverlayLayer.kt`: remove the orphaned `rememberLazyListState` import (**done** — `LazyListState` is now imported only by [`OverlayLayerParams.kt`](../../app/src/main/java/ykws/android/maro/ui/map/OverlayLayerParams.kt:4); repo target is a zero-warning build).
 4. `MapScreen.kt` call ([`1498`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1498)–`1773`): rewrite the arg list to construct the 6 bundles inline. **Callbacks keep their current inline form — do not wrap them in an object and do not `remember` anything.**
 5. Child composable calls inside the body keep receiving the same values via the destructured locals (menu `:305-349`, marker drawer `:363-418`, track info `:422-632`, track history `:647-685`, marker mgmt `:701-719`, settings `:735-747`).
 6. Docs to sync in the same commit: [`docs/ui-drawer-guidelines.md:191`](../../docs/ui-drawer-guidelines.md:191) (the "wire … through OverlayLayer's parameter list" procedure), [`docs/maro-code.md:92`](../../docs/maro-code.md:92), [`FEAT_DSC_UI_Map.md:150`](../UI_Map/FEAT_DSC_UI_Map.md:150), [`FEAT_HYD_UI_Map.md:22`](../UI_Map/FEAT_HYD_UI_Map.md:22), [`FEAT_DSC_Ui_Menu.md:11`](../Ui_Menu/FEAT_DSC_Ui_Menu.md:11), `FEAT_HYD_Ui_Settings.md`, and this plan's status line.
@@ -58,7 +58,7 @@ Avoid the `*State` suffix: [`MarkerDrawerState`](../../app/src/main/java/ykws/an
 
 ### Compose-safety rulings
 - **Destructure-at-top is truly body-preserving.** No param is referenced from a signature default, and no body local collides with the 42 names (`trackRecorderState` `:197`, `trackSummaries` `:198`, `activeStep` `:242`, `isAtTrackFirst` `:422`, `isAtTrackLast` `:423`, `track` `:506`, `summary` `:507`, `cardHeight` `:526`, `footerMeasuredHeight` `:527`, `targetHeight` `:531`, `animatedHeight` `:532`).
-- **`selectedTab` stays a plain value:** `rememberSaveable` [`MapScreen.kt:534`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:534) → `:1607` → `OverlayLayer.kt:147` → `:740`. An inline-constructed bundle does not move the `rememberSaveable`; only a `remember`ed holder would (still forbidden).
+- **`selectedTab` stays a plain value:** `rememberSaveable` [`MapScreen.kt:534`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:534) → `:1607` → `OverlayLayer.kt:183` (destructured from `SettingsOverlayData`, field declared at [`OverlayLayerParams.kt:65`](../../app/src/main/java/ykws/android/maro/ui/map/OverlayLayerParams.kt:65)) → `:744`. An inline-constructed bundle does not move the `rememberSaveable`; only a `remember`ed holder would (still forbidden).
 - **Vanished defaults are safe:** all 89 params are supplied at the single call site, so dropping them is behaviour-neutral — there are **45** defaults (not ~60). ~20 sit on read-only params that disappear into the bundles; ~25 sit on callbacks that stay. Recommendation: **keep** the defaults on the 8 explicit values + the 44 callbacks (smaller diff, zero risk). The only exception to "just delete the default" is the `trackListState`/`markerListState` pair (composable default, unrepresentable in a data class).
 - **`@Immutable` is a promise, not a check.** 7 bundled fields are mutable holders (`drawerState`, 4× `ScrollState`, 2× `LazyListState`). Correctness still holds: those holders are `remember`ed in `MapScreen`, so identity (and therefore `data class` equality) is stable across recompositions, and every consumer reads `.value`/`.currentValue` directly — its own scope is invalidated regardless of parameter skipping. Add a KDoc contract line on each bundle ("all fields `val`; mutable holders are read via their own state, never via equality") so a later edit cannot quietly break it. If the team prefers not to rely on that, drop `@Immutable` and let the measurement decide.
 - **`OverlayCallbacks` is dropped.** Moving 44 lambdas out of composable-call argument position (where the Compose compiler memoizes them) into a plain constructor call plausibly defeats that memoization — Kotlin `2.1.20` + compose-bom `2026.05.00` implies strong skipping is on, so several of these params currently compare equal and let `OverlayLayer` skip. It also saves no call-site lines (44 `x = …` lines either way) and is the only part with a stale-capture trap. If a smaller signature is ever wanted, split callbacks per consumer — behind a recomposition counter proving no regression.
@@ -102,9 +102,11 @@ Avoid the `*State` suffix: [`MarkerDrawerState`](../../app/src/main/java/ykws/an
 # MapScreen orchestration-monolith refactor (code health) — step 2
 
 **Status:** Ask-reviewed (2026-09-09); C1–C11 **verified landed in code** (all 8 seam composables wired in
-`MapScreen.kt`, 3506 → 2587). **C12 re-reviewed + code-verified 2026-09-10 on `feature/refact-C12`** — read-only
-bundles only, `OverlayCallbacks` dropped, Tier 1a split into 1a-i/1a-ii, coverage gaps C1–C8 folded in; see the
-C12 APPENDIX above for the locked change list.
+`MapScreen.kt`, 3506 → 2587). **C12 IMPLEMENTED 2026-09-10 on `feature/refact-C12`** — all six `@Immutable` bundles
+(`OverlayChrome`, `MenuOverlayData`, `SettingsOverlayData`, `TrackInfoOverlayData`, `TrackListOverlayData`,
+`MarkerListOverlayData`) landed in `OverlayLayerParams.kt`, collapsing `OverlayLayer` **89 → 60 params**
+(Tiers 1a-i, 1a-ii, 1b, 1c); the 35-line destructure block keeps the body and every child call unchanged; builds
+SUCCESS with zero new warnings. `OverlayCallbacks` dropped; coverage gaps C1–C8 folded in; see the C12 APPENDIX above.
 
 ## Context
 

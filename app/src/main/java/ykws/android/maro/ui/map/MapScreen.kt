@@ -1560,13 +1560,16 @@ fun MapScreen(
                     else -> {}
                 }
             },
-            trackSortState = appSettings.trackListSort,
+            trackList = TrackListOverlayData(
+                trackSortState = appSettings.trackListSort,
+                trackFilterState = appSettings.trackListFilter,
+                trackListState = trackListState,
+            ),
             onTrackSortStateChange = { newState ->
                 viewModel.updateSettings { it.copy(trackListSort = newState) }
                 trackViewModel.refreshSummaries(newState, reloadFromDisk = false)
                 mapView?.invalidate()
             },
-            trackFilterState = appSettings.trackListFilter,
             onTrackFilterChange = { newFilter ->
                 viewModel.updateSettings { s ->
                     if (s.trackFilterLinked) s.copy(trackListFilter = newFilter, trackMapFilter = newFilter)
@@ -1624,7 +1627,12 @@ fun MapScreen(
                 depthViewModel.generateRasterLayers(context, steps, appSettings, waterTest)
             },
             boatPosition = gpsPosition ?: mapCenter,
-            markers = mgmtMarkers,
+            markerList = MarkerListOverlayData(
+                markers = mgmtMarkers,
+                markerSortState = appSettings.markerListSort,
+                markerFilterState = appSettings.markerListFilter,
+                markerListState = markerListState,
+            ),
             trackTitleLookup = { id -> allTrackSummaries.firstOrNull { it.id == id }?.name },
             onOpenMarkerTrack = { trackId ->
                 // Switch from a marker surface to the owning track's detail drawer.
@@ -1662,12 +1670,10 @@ fun MapScreen(
                 preNavigationState = null
             },
             onNavigateToTrack = { id -> openTrackDetail(id) },
-            markerSortState = appSettings.markerListSort,
             onMarkerSortStateChange = { newState ->
                 viewModel.updateSettings { it.copy(markerListSort = newState) }
                 markersViewModel.refreshSort(newState)
             },
-            markerFilterState = appSettings.markerListFilter,
             onMarkerFilterChange = { newFilter ->
                 android.util.Log.d("MaroMapRefresh", "onMarkerFilterChange: $newFilter")
                 viewModel.updateSettings { s ->
@@ -1776,8 +1782,6 @@ fun MapScreen(
                     markersViewModel.closeDrawer()
                 }
             },
-            trackListState = trackListState,
-            markerListState = markerListState,
         )
 
         // ── Post-save undo → stack entry ────────────────────────────────

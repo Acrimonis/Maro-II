@@ -147,7 +147,9 @@ Shift boat position from screen centre to lower third when moving (dual offset: 
 
 ### overlay-layer
 
-Unified drawer framework (`DrawerSlot` + `OverlayLayer`) hosting all 7 transient surfaces.
+Unified drawer framework (`DrawerSlot` + `OverlayLayer`) hosting all 7 transient surfaces. `OverlayLayer`'s
+read-only params are grouped into six `@Immutable` bundles in `OverlayLayerParams.kt` (60 params total: 6 bundles +
+explicit values/ViewModels + inline callbacks).
 
 #### Todos
 - [ ] On-device verify all 7 surfaces open/close with animations and shadows
@@ -156,7 +158,7 @@ Unified drawer framework (`DrawerSlot` + `OverlayLayer`) hosting all 7 transient
 - Layer 0 permanent, Layer 1 transient; drawers are pure content (no AnimatedVisibility/scrim/shadow); new drawers follow docs/ui-drawer-guidelines.md §5
 
 #### Key Files
-- `app/src/main/java/ykws/android/maro/ui/map/DrawerSlot.kt`, `OverlayLayer.kt`, `WizardDrawer.kt`, `markers/wizard/`, `MapScreen.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/DrawerSlot.kt`, `OverlayLayer.kt`, `OverlayLayerParams.kt`, `WizardDrawer.kt`, `markers/wizard/`, `MapScreen.kt`
 
 ## Implemented
 

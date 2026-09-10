@@ -15,9 +15,11 @@ interactable: the bottom sections are cut off and unreachable.
 The menu drawer is rendered as a full-height right-edge panel with a **non-scrollable**
 body:
 
-- Slot sizing in [`OverlayLayer.kt`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:256):
+- Slot sizing in [`OverlayLayer.kt`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:297):
   `align(TopEnd).fillMaxWidth(0.75f).fillMaxHeight()` — no orientation branch, unlike
   Wizard / MarkerDrawer which branch on `isLandscape`.
+  *(Superseded 2026-09-04: the menu slot now branches on `isLandscape` for panel width —
+  [`OverlayLayer.kt:301`](app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:301).)*
 - Content in [`MenuDrawerOverlay.kt`](app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt:100)
   uses `DrawerScaffold(scrollable = false)`.
 
