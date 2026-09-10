@@ -82,13 +82,7 @@ private fun stepSequenceFor(type: MarkerType): List<WizardStep> = when (type) {
 @Composable
 fun OverlayLayer(
     // ── State flags ──────────────────────────────────────────────────────
-    showSettings: Boolean,
-    showTrackDrawer: Boolean,
-    showTrackHistory: Boolean,
-    showMarkerManagement: Boolean,
-    showWizard: Boolean,
-    wizardStep: WizardStep?,
-    drawerState: MarkerDrawerState,
+    chrome: OverlayChrome,
 
     // ── Layout ───────────────────────────────────────────────────────────
     isLandscape: Boolean,
@@ -113,18 +107,11 @@ fun OverlayLayer(
     trackViewModel: ykws.android.maro.data.track.TrackViewModel,
 
     // ── Menu drawer data ─────────────────────────────────────────────────
-    gpsMode: Boolean,
+    menu: MenuOverlayData,
     onGpsModeChange: (Boolean) -> Unit,
-    autoShowMasterVisible: Boolean = false,
-    autoShowMasterOverride: Boolean = true,
     onAutoShowMasterChange: (Boolean) -> Unit = {},
-    gpsToggleColor: ComposeColor,
-    markerZonesVisible: Boolean = true,
     onToggleMarkerZones: () -> Unit = {},
-    tracksDirectionVisible: Boolean = true,
     onToggleTracksDirection: () -> Unit = {},
-    firstTrackId: String? = null,
-    firstMarkerId: String? = null,
 
     // ── Track history data ───────────────────────────────────────────────
     onTrackAction: (ykws.android.maro.data.model.ListAction) -> Unit,
@@ -134,12 +121,10 @@ fun OverlayLayer(
     onTrackFilterChange: (ykws.android.maro.data.model.ListFilter) -> Unit = {},
     onTrackReset: () -> Unit = {},
     // Map referential (menu filter) + link flag. The link toggle lives in the menu only.
-    trackMapFilterState: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
     onTrackMapFilterChange: (ykws.android.maro.data.model.ListFilter) -> Unit = {},
     onTrackMapReset: () -> Unit = {},
     trackFilterLinked: Boolean = true,
     onToggleTrackLink: () -> Unit = {},
-    trackMapCount: Int = 0,
 
     // ── Settings data ────────────────────────────────────────────────────
     appSettings: AppSettings,
@@ -186,13 +171,32 @@ fun OverlayLayer(
     onMarkerFilterChange: (ykws.android.maro.data.model.ListFilter) -> Unit = {},
     onMarkerReset: () -> Unit = {},
     // Map referential (menu filter) + link flag for markers.
-    markerMapFilterState: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
     onMarkerMapFilterChange: (ykws.android.maro.data.model.ListFilter) -> Unit = {},
     onMarkerMapReset: () -> Unit = {},
     markerFilterLinked: Boolean = true,
-    onToggleMarkerLink: () -> Unit = {},
-    markerMapCount: Int = 0
+    onToggleMarkerLink: () -> Unit = {}
 ) {
+    // ── Destructured chrome bundle ───────────────────────────────────────
+    val showSettings = chrome.showSettings
+    val showTrackDrawer = chrome.showTrackDrawer
+    val showTrackHistory = chrome.showTrackHistory
+    val showMarkerManagement = chrome.showMarkerManagement
+    val showWizard = chrome.showWizard
+    val wizardStep = chrome.wizardStep
+    val drawerState = chrome.drawerState
+    val gpsMode = menu.gpsMode
+    val autoShowMasterVisible = menu.autoShowMasterVisible
+    val autoShowMasterOverride = menu.autoShowMasterOverride
+    val gpsToggleColor = menu.gpsToggleColor
+    val markerZonesVisible = menu.markerZonesVisible
+    val tracksDirectionVisible = menu.tracksDirectionVisible
+    val firstTrackId = menu.firstTrackId
+    val firstMarkerId = menu.firstMarkerId
+    val trackMapFilterState = menu.trackMapFilterState
+    val trackMapCount = menu.trackMapCount
+    val markerMapFilterState = menu.markerMapFilterState
+    val markerMapCount = menu.markerMapCount
+
     // ── Collect track ViewModel state ────────────────────────────────────
     val trackRecorderState by trackViewModel.uiState.collectAsState()
     val trackSummaries by trackViewModel.summaries.collectAsState()

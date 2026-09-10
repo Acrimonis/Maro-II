@@ -1496,13 +1496,15 @@ fun MapScreen(
         }
 
         OverlayLayer(
-            showSettings = showSettings,
-            showTrackDrawer = showTrackDrawer,
-            showTrackHistory = showTrackHistory,
-            showMarkerManagement = showMarkerManagement,
-            showWizard = showWizard,
-            wizardStep = wizardStep,
-            drawerState = drawerState,
+            chrome = OverlayChrome(
+                showSettings = showSettings,
+                showTrackDrawer = showTrackDrawer,
+                showTrackHistory = showTrackHistory,
+                showMarkerManagement = showMarkerManagement,
+                showWizard = showWizard,
+                wizardStep = wizardStep,
+                drawerState = drawerState,
+            ),
             isLandscape = isLandscape,
             portraitDashboardHeight = portraitDashboardHeight,
             landscapeDashboardWidth = landscapeDashboardWidth,
@@ -1521,25 +1523,31 @@ fun MapScreen(
             onOpenFirstMarker = { id -> openMarkerDetail(id) },
             markersViewModel = markersViewModel,
             trackViewModel = trackViewModel,
-            gpsMode = appSettings.gpsMode,
+            menu = MenuOverlayData(
+                gpsMode = appSettings.gpsMode,
+                autoShowMasterVisible = if (appSettings.gpsMode) appSettings.approachAutoShowGps else appSettings.approachAutoShowDemo,
+                autoShowMasterOverride = appSettings.autoShowMasterOverride,
+                gpsToggleColor = gpsToggleColor,
+                markerZonesVisible = appSettings.markerZonesVisible,
+                tracksDirectionVisible = appSettings.tracksDirectionVisible,
+                firstTrackId = firstTrackId,
+                firstMarkerId = firstMarkerId,
+                trackMapFilterState = appSettings.trackMapFilter,
+                trackMapCount = trackMapVisibleCount,
+                markerMapFilterState = appSettings.markerMapFilter,
+                markerMapCount = mapMarkersState.size,
+            ),
             onGpsModeChange = onGpsModeChange,
-            autoShowMasterVisible = if (appSettings.gpsMode) appSettings.approachAutoShowGps else appSettings.approachAutoShowDemo,
-            autoShowMasterOverride = appSettings.autoShowMasterOverride,
             onAutoShowMasterChange = { v -> viewModel.updateSettings { it.copy(autoShowMasterOverride = v) } },
-            gpsToggleColor = gpsToggleColor,
-            markerZonesVisible = appSettings.markerZonesVisible,
             onToggleMarkerZones = {
                 Log.d("MaroMapRefresh", "MenuDrawer toggle: markerZonesVisible ${appSettings.markerZonesVisible} -> ${!appSettings.markerZonesVisible}")
                 viewModel.updateSettings { it.copy(markerZonesVisible = !appSettings.markerZonesVisible) }
                 mapView?.invalidate()
             },
-            tracksDirectionVisible = appSettings.tracksDirectionVisible,
             onToggleTracksDirection = {
                 viewModel.updateSettings { it.copy(tracksDirectionVisible = !appSettings.tracksDirectionVisible) }
                 mapView?.invalidate()
             },
-            firstTrackId = firstTrackId,
-            firstMarkerId = firstMarkerId,
             onTrackAction = { action ->
                 when (action) {
                     is ykws.android.maro.data.model.ListAction.NavigateToItem -> openTrackDetail(action.id)
@@ -1576,7 +1584,6 @@ fun MapScreen(
                 mapView?.invalidate()
             },
             // ── Track map referential (menu filter) + link ────────────────
-            trackMapFilterState = appSettings.trackMapFilter,
             onTrackMapFilterChange = { newFilter ->
                 val linked = appSettings.trackFilterLinked
                 viewModel.updateSettings { s ->
@@ -1601,7 +1608,6 @@ fun MapScreen(
                 // Pure flip: no filter carry-over. Next linked edit writes both.
                 viewModel.updateSettings { s -> s.copy(trackFilterLinked = !s.trackFilterLinked) }
             },
-            trackMapCount = trackMapVisibleCount,
             appSettings = appSettings,
             onUpdateSettings = viewModel::updateSettings,
             selectedTab = selectedTab,
@@ -1674,7 +1680,6 @@ fun MapScreen(
                 markersViewModel.refreshSort(filter = resetFilter)
             },
             // ── Marker map referential (menu filter) + link ───────────────
-            markerMapFilterState = appSettings.markerMapFilter,
             onMarkerMapFilterChange = { newFilter ->
                 val linked = appSettings.markerFilterLinked
                 viewModel.updateSettings { s ->
@@ -1696,7 +1701,6 @@ fun MapScreen(
                 // Pure flip: no filter carry-over. Next linked edit writes both.
                 viewModel.updateSettings { s -> s.copy(markerFilterLinked = !s.markerFilterLinked) }
             },
-            markerMapCount = mapMarkersState.size,
             onCreateFirst = {
                 showMarkerManagement = false
                 closeSelectedItemDashboards()

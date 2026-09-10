@@ -10,6 +10,7 @@
 - **Exactly one call site:** [`MapScreen.kt:1498`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1498)–`1773`. Repo-wide `OverlayLayer(` search = 2 hits (definition + this call) → no tests or previews to migrate.
 - **All 89 params are passed explicitly** at that call site → every signature default is currently dead code.
 - Consumer surface → body lines: scrim `:208-232`, wizard `:243`, menu `:305-349`, marker drawer `:363-418`, track info `:422-632`, track history `:647-685`, marker mgmt `:701-719`, settings `:735-747`.
+- **Re-verified 2026-09-10 on `feature/refact-C12`** (post-PR-#225, tip `9d95a16`): C1–C11 seam files all present and wired in `MapScreen.kt` — `MapGpsFollowEffects` `:711`, `MapDepthRasterEffects` `:724`, `MapMarkerEffects` `:748`, `MapMarkerDebugEffects` `:851`, `MapServiceEffects` `:860`, `MapTrackOverlayHistoryDiff` `:870`, `MapTrackOverlayLiveEffects` `:880`, `MapSnackbarHost` `:1784`, `MapDialogHost` `:1794`, `MapImportConflictHost` `:1853`; `RecordingExitSheet`/`ImportConflictSheet` correctly remain at `:2450`/`:2522`; file is 2,587 lines. All inventory counts (89 / 42 / 45 / 2) and the single call site `1498–1773` reconfirmed.
 
 ### Read-only vs callback — classification corrections
 
@@ -41,13 +42,13 @@ Avoid the `*State` suffix: [`MarkerDrawerState`](../../app/src/main/java/ykws/an
 
 ### Tiered ordering
 
-- **Tier 0 (pre-flight, no code):** refresh the stale citations below; decide the host file for the 6 bundles (`MapScreenState.kt` per the C12 row, or a dedicated `OverlayLayerParams.kt`) and their visibility.
-- **Tier 1a:** `OverlayChrome` + `MenuOverlayData` (21 params collapsed — highest value, lowest risk).
+- **Tier 0 (pre-flight, no code):** refresh the stale citations below; **create** the bundle host file — ⚠ `MapScreenState.kt` does **not** exist in the tree (verified 2026-09-10; the C12 row's reference to it is a phantom), so the bundles need a **new** same-package file (`OverlayLayerParams.kt` recommended) or a block inside `OverlayLayer.kt`; decide visibility; lock the default-retention policy (keep the defaults on the 8 explicit values + the 44 callbacks); and pick the recomposition-measurement mechanism (R10).
+- **Tier 1a-i:** `OverlayChrome` (7 params — the true pilot; `drawerState` + `wizardStep` are the trickiest field types). **Tier 1a-ii:** `MenuOverlayData` (12 params). Split so a field mis-map is isolable below pair granularity (R1 is High).
 - **Tier 1b:** `SettingsOverlayData` + `TrackInfoOverlayData`.
 - **Tier 1c:** `TrackListOverlayData` + `MarkerListOverlayData`.
 
 ### Exact edits
-1. `OverlayLayer.kt`: declare the 6 bundles top-level in the same package with **fields named identically to the current params**; replace the read-only params with the 6 bundles; keep the 8 explicit values + 2 ViewModels + the 44 inline callbacks. Add a 42-line destructure block at the top of the body (`val showSettings = chrome.showSettings` …) so the body and its child calls stay byte-for-byte unchanged.
+1. `OverlayLayer.kt`: declare the 6 bundles top-level in the same package with **fields named identically to the current params**; replace the read-only params with the 6 bundles; keep the 8 explicit values + 2 ViewModels + the 44 inline callbacks. Add a destructure block at the top of the body (`val showSettings = chrome.showSettings` …) so the body and its child calls stay byte-for-byte unchanged. Two additions: (a) the bundles need a **new import** — `androidx.compose.runtime.Immutable`, currently absent from the entire `ui/map` package; (b) the destructure block **grows per tier** (7 → 19 → 24 → 28 → 35 lines as each bundle lands) — writing all 42 lines up front would reference fields that do not exist yet and break the build.
 2. `OverlayLayer.kt`: **delete the `rememberLazyListState()` defaults** on `trackListState`/`markerListState` (`:171-172`) — a `@Composable` call cannot be a data-class field default; the call site already passes both ([`MapScreen.kt:1771-1772`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1771)).
 3. `OverlayLayer.kt`: remove the orphaned [`rememberLazyListState` import](../../app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:56) (repo target is a zero-warning build).
 4. `MapScreen.kt` call ([`1498`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1498)–`1773`): rewrite the arg list to construct the 6 bundles inline. **Callbacks keep their current inline form — do not wrap them in an object and do not `remember` anything.**
@@ -58,7 +59,8 @@ Avoid the `*State` suffix: [`MarkerDrawerState`](../../app/src/main/java/ykws/an
 ### Compose-safety rulings
 - **Destructure-at-top is truly body-preserving.** No param is referenced from a signature default, and no body local collides with the 42 names (`trackRecorderState` `:197`, `trackSummaries` `:198`, `activeStep` `:242`, `isAtTrackFirst` `:422`, `isAtTrackLast` `:423`, `track` `:506`, `summary` `:507`, `cardHeight` `:526`, `footerMeasuredHeight` `:527`, `targetHeight` `:531`, `animatedHeight` `:532`).
 - **`selectedTab` stays a plain value:** `rememberSaveable` [`MapScreen.kt:534`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:534) → `:1607` → `OverlayLayer.kt:147` → `:740`. An inline-constructed bundle does not move the `rememberSaveable`; only a `remember`ed holder would (still forbidden).
-- **Vanished defaults are safe:** all 89 params are supplied at the single call site, so dropping the ~60 defaults is behaviour-neutral. The only exception to "just delete the default" is the `trackListState`/`markerListState` pair (composable default, unrepresentable in a data class).
+- **Vanished defaults are safe:** all 89 params are supplied at the single call site, so dropping them is behaviour-neutral — there are **45** defaults (not ~60). ~20 sit on read-only params that disappear into the bundles; ~25 sit on callbacks that stay. Recommendation: **keep** the defaults on the 8 explicit values + the 44 callbacks (smaller diff, zero risk). The only exception to "just delete the default" is the `trackListState`/`markerListState` pair (composable default, unrepresentable in a data class).
+- **`@Immutable` is a promise, not a check.** 7 bundled fields are mutable holders (`drawerState`, 4× `ScrollState`, 2× `LazyListState`). Correctness still holds: those holders are `remember`ed in `MapScreen`, so identity (and therefore `data class` equality) is stable across recompositions, and every consumer reads `.value`/`.currentValue` directly — its own scope is invalidated regardless of parameter skipping. Add a KDoc contract line on each bundle ("all fields `val`; mutable holders are read via their own state, never via equality") so a later edit cannot quietly break it. If the team prefers not to rely on that, drop `@Immutable` and let the measurement decide.
 - **`OverlayCallbacks` is dropped.** Moving 44 lambdas out of composable-call argument position (where the Compose compiler memoizes them) into a plain constructor call plausibly defeats that memoization — Kotlin `2.1.20` + compose-bom `2026.05.00` implies strong skipping is on, so several of these params currently compare equal and let `OverlayLayer` skip. It also saves no call-site lines (44 `x = …` lines either way) and is the only part with a stale-capture trap. If a smaller signature is ever wanted, split callbacks per consumer — behind a recomposition counter proving no regression.
 - **Correction to the C12 row's rationale:** `appSettings` is a `by collectAsState()` local delegate ([`MapScreen.kt:387`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:387)), so reads inside `onGpsModeChange` ([`MapScreen.kt:699-708`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:699), not `717-726`) go through the `State` object at call time — a `remember`ed lambda would *not* freeze that read. `onGpsModeChange` is also a hoisted `val` lambda, already re-created each recomposition. Re-verify before treating "remember freezes the GPS toggle" as a hard rule. `screenLocked` is not an `OverlayLayer` parameter at all.
 
@@ -71,27 +73,35 @@ Avoid the `*State` suffix: [`MarkerDrawerState`](../../app/src/main/java/ykws/an
 
 | # | Risk | Sev | Mitigation |
 |---|---|---|---|
-| R1 | Destructure field mis-map (42 fields) → wrong drawer state | High | Copy signature names verbatim into the destructure block; mechanical 42↔42 name diff; one tier per commit; build + smoke after each |
-| R2 | Recomposition/skipping regression — bundle fields include unstable types (`List`, `ScrollState`, `LazyListState`, `AppSettings`, `WizardStep?`, `MarkerDrawerState`) that can defeat Compose strong-skipping on `OverlayLayer` | High | Annotate the 6 bundles **`@Immutable`** (fields are read-only); keep callbacks inline (OverlayCallbacks already dropped). Verify with a **recomposition counter / Compose compiler metrics before-vs-after per tier** — do not assume parity |
+| R1 | Destructure field mis-map (42 fields) → wrong drawer state | High | Copy signature names verbatim into the destructure block; mechanical name diff **per tier**; one bundle per commit — Tier 1a split into 1a-i / 1a-ii so a mis-map is isolable below pair granularity; build + smoke after each |
+| R2 | Recomposition/skipping regression — bundle fields include unstable types (`List`, `ScrollState`, `LazyListState`, `AppSettings`, `WizardStep?`, `MarkerDrawerState`) that can defeat Compose strong-skipping on `OverlayLayer` | High | Annotate the 6 bundles **`@Immutable`** (see the contract caveat in Compose-safety rulings); keep callbacks inline (OverlayCallbacks already dropped). Verify with a **recomposition counter / Compose compiler metrics before-vs-after per tier** — do not assume parity; the measurement mechanism has no existing tooling, so it must be chosen at Tier 0 (R10) |
 | R3 | Line-anchor drift — signature shrink + destructure shifts every line below, invalidating ~30 xTrack/doc anchors into `OverlayLayer.kt` | Med | Land the citation-drift pass as an **immediate follow-up commit** (do not mix it into a tier commit — it would mask the code diff). Count is known; re-grep after Tier 1c |
 | R4 | Merge conflicts — `OverlayLayer.kt` + `MapScreen.kt` are large shared files | Med | Rebase `feature/mapscreen-refactor` on `origin/develop` **before** starting C12; land per-tier commits promptly |
 | R5 | `rememberSaveable` `selectedTab` regressed | Low | Stays a plain passed value; never folded into a `remember` holder (restated in Compose-safety rulings) |
 | R6 | Removed signature defaults change behaviour | Low | Single call site supplies all 89 params (repo search: 2 hits = definition + this call) → defaults are dead code |
 | R7 | Drawer z-order / scrim regression | Low | Grouping is value-only — no call reordering, no DrawerSlot changes; smoke all 8 surfaces |
 | R8 | Build-loop budget / thrash | Low | Halt after 2 consecutive build failures (AGENTS §4); one bundle group per build |
+| R9 | Bundle host file does not exist — `MapScreenState.kt` is absent from the tree, and `@Immutable` is used nowhere in `ui/map` | Med | Tier 0 **creates** `OverlayLayerParams.kt` (same package) and adds the `androidx.compose.runtime.Immutable` import; never write into a non-existent path |
+| R10 | The recomposition/skipping gate is unexecutable as written — no measurement tooling exists in the repo | Med | Choose one at Tier 0: temporary `androidx.enableComposeCompilerMetrics=true` in `gradle.properties`, or a DEBUG-only `SideEffect` counter inside `OverlayLayer` removed after the tier |
+| R11 | `#new` left the branch tracking `origin/develop` (git: "set up to track remote branch 'develop'"), so a bare `git push` under `push.default=upstream` would target the one forbidden branch | Med | `#push` is safe (explicit refspec); before any bare push run `git push -u origin feature/refact-C12` once, or `git branch --unset-upstream` |
 
 ### Rollout / rollback strategy
 - **Pre-flight (Tier 0):** `#merge`/rebase onto latest `origin/develop`; pick the bundle host file + visibility; refresh the stale citations inventory.
-- **Per-tier gate:** Tier 1a (`OverlayChrome`+`MenuOverlayData`) is the highest-value/lowest-risk pilot — land it **alone**, build, and capture the recomposition metric before attempting 1b/1c.
+- **Per-tier gate:** Tier 1a-i (`OverlayChrome`, 7 params) is the highest-value/lowest-risk pilot — land it **alone**, build, and capture the recomposition metric before attempting 1a-ii/1b/1c.
 - **Rollback:** each tier is an independent commit → revert a single tier without touching the others. Do **not** squash the tiers, so a regression isolates to one bundle group.
-- **Abort criterion:** if R2 shows a skipping regression that `@Immutable` cannot fix, stop after Tier 1a and keep the remaining params as-is (partial C12 is still a net win).
+- **Abort criterion:** if R2 shows a skipping regression that `@Immutable` cannot fix, stop after the failing tier and keep the remaining params as-is (partial C12 is still a net win).
+- **Tier 1a-i result (2026-09-10, `feature/refact-C12`):** landed — `OverlayChrome` (7) in the new `OverlayLayerParams.kt`; `OverlayLayer` 89 → 83 params; single call site patched in place (2587 → 2589 lines); `apk-build.bat` SUCCESS with zero new warnings; Ask review 8/8 pass. One forced deviation: the bundle is **public**, not `internal` (`OverlayLayer` is public, so an `internal` type cannot be exposed).
+- **Tier 1a-ii result (2026-09-10):** landed — `MenuOverlayData` (12) added; `OverlayLayer` 83 → 72 params; the 12 read-only params removed from three separate signature regions (menu 8, track-history 2, marker-management 2) with the 4 interleaved callbacks left in place; destructure 7 → 19 lines; `apk-build.bat` SUCCESS, zero new warnings; Ask review 8/8 pass, with the call-site expressions verified as not simplified (`trackMapCount = trackMapVisibleCount`, `markerMapCount = mapMarkersState.size`).
+- **R10 waiver — EXTENDED to Tier 1a-ii (2026-09-10):** Ask reasoned the bundle is skipping-neutral-or-better than its pre-image — `MenuOverlayData` is `@Immutable`, all field types are value-stable (`ListFilter` is a data class), and it converts 2 previously-unstable `ListFilter` params into one stable bundle. No measurement was taken (no tooling in-repo; the cheap route is a one-off `gradlew -Pandroidx.enableComposeCompilerMetrics=true :app:assembleDebug` and diffing `app/build/compose-metrics/`, which needs two builds plus a base-ref comparison). **The waiver does NOT extend to Tier 1b:** `SettingsOverlayData` carries four identically-typed `ScrollState` fields — the highest silent cross-wire risk in C12 — so 1b needs a construction↔destructure name diff beyond the (already self-checking) destructure, and a measurement if any skipping anomaly appears.
+- **Known nit (2026-09-10):** the comment near `OverlayLayer.kt:179` still says the block heads the chrome bundle although it now also heads the menu bundle — fold the reword into the next tier commit.
 
 <!-- C12 APPENDIX END -->
 
 # MapScreen orchestration-monolith refactor (code health) — step 2
 
-**Status:** Ask-reviewed (2026-09-09); C1–C11 landed on `feature/mapscreen-refactor` (`MapScreen.kt`
-3506 → ~2587). **C12 re-reviewed 2026-09-10** — read-only bundles only, `OverlayCallbacks` dropped; see the
+**Status:** Ask-reviewed (2026-09-09); C1–C11 **verified landed in code** (all 8 seam composables wired in
+`MapScreen.kt`, 3506 → 2587). **C12 re-reviewed + code-verified 2026-09-10 on `feature/refact-C12`** — read-only
+bundles only, `OverlayCallbacks` dropped, Tier 1a split into 1a-i/1a-ii, coverage gaps C1–C8 folded in; see the
 C12 APPENDIX above for the locked change list.
 
 ## Context
@@ -231,5 +241,6 @@ body-preserving (no default references, no local-name collisions), `selectedTab`
 
 ## Branch note
 
-Apply on `feature/mapscreen-refactor` (created 2026-09-09 from `origin/develop`, includes PR #224
-filters-link). One low-risk refactor commit per seam (C1→C12).
+C1–C11 merged into `develop` via PR #225 (squash, `9d95a16`, 2026-09-10). **C12 applies on
+`feature/refact-C12`** (created 2026-09-10 from `origin/develop`). One low-risk refactor commit per seam
+(C1→C12); the C12 tiers land as 1a-i, 1a-ii, 1b, 1c.
