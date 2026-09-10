@@ -1,14 +1,105 @@
 <!-- scope: feature -->
 
+<!-- C12 APPENDIX START (Ask + Code reviewed 2026-09-10) -->
+
+## C12 — OverlayLayer parameter-object collapse (Ask-reviewed; supersedes the first draft)
+
+### Inventory — verified against the working tree, [`OverlayLayer.kt:83`](../../app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:83)
+
+- **89 named params** (lines 85–194) — not ≈60. Composition: **42 read-only values**, **45 function-typed params** (44 Unit callbacks + `trackTitleLookup`), **2 ViewModels**.
+- **Exactly one call site:** [`MapScreen.kt:1498`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1498)–`1773`. Repo-wide `OverlayLayer(` search = 2 hits (definition + this call) → no tests or previews to migrate.
+- **All 89 params are passed explicitly** at that call site → every signature default is currently dead code.
+- Consumer surface → body lines: scrim `:208-232`, wizard `:243`, menu `:305-349`, marker drawer `:363-418`, track info `:422-632`, track history `:647-685`, marker mgmt `:701-719`, settings `:735-747`.
+
+### Read-only vs callback — classification corrections
+
+- **C was mis-scoped** — these are *menu-referential*, not track-history: `trackMapFilterState` `:137` (consumed `:331`), `trackFilterLinked` `:140` (consumed `:334` **and** `:672`), `trackMapCount` `:142` (consumed `:314`).
+- **E was mis-scoped** — same pattern: `markerMapFilterState` `:189` (consumed `:337`), `markerFilterLinked` `:192` (consumed `:340` **and** `:716`), `markerMapCount` `:194` (consumed `:315`).
+- **F over-reached** — `appSettings` `:145` is also read by `TrackHistoryOverlay` `:674-683`, not only by `SettingsOverlay` `:736`.
+- **Group G fold was wrong** — `boatPosition` `:156` feeds `MarkerDrawer` `:367`/`:389`/`:413` (not `MarkerManagementOverlay`); `trackTitleLookup` `:176` is shared by `MarkerDrawer` `:369`/`:391`/`:415` **and** `MarkerManagementOverlay` `:703`, and is a function type, so by the draft's own rule it is a callback.
+- **Layout is not state** — `isLandscape`/`portraitDashboardHeight`/`landscapeDashboardWidth` `:94-96` are read by 7 of 8 surfaces (`:250-288`, `:298`, `:353`, `:395`, `:424`, `:531`, `:636`, `:693`, `:727`).
+- **Effectively-constant callbacks today** (capture only `MutableState`-backed locals [`MapScreen.kt:389-393`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:389)): `onDismissSettings`, `onDismissMenu`, `onDismissTrackHistory`, `onDismissMarkerManagement`, `onOpenTrackHistoryFromMenu`, `onOpenMarkerManagementFromMenu`, `onOpenSettingsFromMenu` (`MapScreen.kt:1509-1519`), `onTabChange` (`MapScreen.kt:1608`).
+
+### Final grouping — by consuming surface, read-only only
+
+| Bundle | Fields (count) | Consumer |
+|---|---|---|
+| `OverlayChrome` | showSettings, showTrackDrawer, showTrackHistory, showMarkerManagement, showWizard, wizardStep, drawerState (7) | scrim + wizard + all `DrawerSlot` visibility |
+| `MenuOverlayData` | gpsMode, autoShowMasterVisible, autoShowMasterOverride, gpsToggleColor, markerZonesVisible, tracksDirectionVisible, firstTrackId, firstMarkerId, trackMapFilterState, trackMapCount, markerMapFilterState, markerMapCount (12) | `MenuDrawerOverlay` `:305-349` |
+| `TrackListOverlayData` | trackSortState, trackFilterState, trackListState (3) | `TrackHistoryOverlay` `:647-685` |
+| `MarkerListOverlayData` | markers, markerSortState, markerFilterState, markerListState (4) | `MarkerManagementOverlay` `:701-719` |
+| `TrackInfoOverlayData` | showTrackInfoDrawer, trackInfoDrawerData, trackListIds, currentTrackIndex (4) | track-info slot `:422-632` |
+| `SettingsOverlayData` | selectedTab, displayScrollState, navigationScrollState, positionScrollState, systemScrollState (5) | `SettingsOverlay` `:735-747` |
+
+**Stay explicit (8):** `isLandscape`, `portraitDashboardHeight`, `landscapeDashboardWidth` (cross-cutting geometry), `trackFilterLinked`, `markerFilterLinked` (menu **and** list), `appSettings`, `boatPosition`, `trackTitleLookup` (shared). Plus the 2 ViewModels and **the 44 callbacks inline**.
+
+**Dropped from the draft:** `OverlayCallbacks`, the group-G folds, and folding layout dims into a state bundle.
+
+### Naming
+
+Avoid the `*State` suffix: [`MarkerDrawerState`](../../app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt:41) (sealed) and [`TrackDrawerState`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:224) already own that namespace, and [`SettingsOverlay`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt:211) is an existing composable. Draft names `OverlayLayerUiState` / `MenuDrawerState` / `SettingsOverlayState` are rejected.
+
+### Tiered ordering
+
+- **Tier 0 (pre-flight, no code):** refresh the stale citations below; decide the host file for the 6 bundles (`MapScreenState.kt` per the C12 row, or a dedicated `OverlayLayerParams.kt`) and their visibility.
+- **Tier 1a:** `OverlayChrome` + `MenuOverlayData` (21 params collapsed — highest value, lowest risk).
+- **Tier 1b:** `SettingsOverlayData` + `TrackInfoOverlayData`.
+- **Tier 1c:** `TrackListOverlayData` + `MarkerListOverlayData`.
+
+### Exact edits
+1. `OverlayLayer.kt`: declare the 6 bundles top-level in the same package with **fields named identically to the current params**; replace the read-only params with the 6 bundles; keep the 8 explicit values + 2 ViewModels + the 44 inline callbacks. Add a 42-line destructure block at the top of the body (`val showSettings = chrome.showSettings` …) so the body and its child calls stay byte-for-byte unchanged.
+2. `OverlayLayer.kt`: **delete the `rememberLazyListState()` defaults** on `trackListState`/`markerListState` (`:171-172`) — a `@Composable` call cannot be a data-class field default; the call site already passes both ([`MapScreen.kt:1771-1772`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1771)).
+3. `OverlayLayer.kt`: remove the orphaned [`rememberLazyListState` import](../../app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:56) (repo target is a zero-warning build).
+4. `MapScreen.kt` call ([`1498`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1498)–`1773`): rewrite the arg list to construct the 6 bundles inline. **Callbacks keep their current inline form — do not wrap them in an object and do not `remember` anything.**
+5. Child composable calls inside the body keep receiving the same values via the destructured locals (menu `:305-349`, marker drawer `:363-418`, track info `:422-632`, track history `:647-685`, marker mgmt `:701-719`, settings `:735-747`).
+6. Docs to sync in the same commit: [`docs/ui-drawer-guidelines.md:191`](../../docs/ui-drawer-guidelines.md:191) (the "wire … through OverlayLayer's parameter list" procedure), [`docs/maro-code.md:92`](../../docs/maro-code.md:92), [`FEAT_DSC_UI_Map.md:150`](../UI_Map/FEAT_DSC_UI_Map.md:150), [`FEAT_HYD_UI_Map.md:22`](../UI_Map/FEAT_HYD_UI_Map.md:22), [`FEAT_DSC_Ui_Menu.md:11`](../Ui_Menu/FEAT_DSC_Ui_Menu.md:11), `FEAT_HYD_Ui_Settings.md`, and this plan's status line.
+7. Citation-drift pass: the destructure block plus the shrunken signature shift every line below in `OverlayLayer.kt`, invalidating the ~30 xTrack/doc anchors into that file (e.g. [`Ui_Menu/260909_FEAT_PLN_Ui_Menu_menu-render-upt.md:16`](../Ui_Menu/260909_FEAT_PLN_Ui_Menu_menu-render-upt.md:16) → now-stale `OverlayLayer.kt:285`; [`Ui_Dashboard/260908…item-dashboard-min-size.md:59`](../Ui_Dashboard/260908_FEAT_PLN_Ui_Dashboard_item-dashboard-min-size.md:59) → `:337/:360/:379/:404/:511`; [`Ui_General/260904…landscape-drawer-settings-sizing.md:26`](../Ui_General/260904_FEAT_PLN_Ui_General_landscape-drawer-settings-sizing.md:26) → `:273/:625`; [`Ui_Settings/260909…mapScreen-settings-extract.md:73`](260909_FEAT_PLN_Ui_Settings_mapScreen-settings-extract.md:73) → `:714`).
+
+### Compose-safety rulings
+- **Destructure-at-top is truly body-preserving.** No param is referenced from a signature default, and no body local collides with the 42 names (`trackRecorderState` `:197`, `trackSummaries` `:198`, `activeStep` `:242`, `isAtTrackFirst` `:422`, `isAtTrackLast` `:423`, `track` `:506`, `summary` `:507`, `cardHeight` `:526`, `footerMeasuredHeight` `:527`, `targetHeight` `:531`, `animatedHeight` `:532`).
+- **`selectedTab` stays a plain value:** `rememberSaveable` [`MapScreen.kt:534`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:534) → `:1607` → `OverlayLayer.kt:147` → `:740`. An inline-constructed bundle does not move the `rememberSaveable`; only a `remember`ed holder would (still forbidden).
+- **Vanished defaults are safe:** all 89 params are supplied at the single call site, so dropping the ~60 defaults is behaviour-neutral. The only exception to "just delete the default" is the `trackListState`/`markerListState` pair (composable default, unrepresentable in a data class).
+- **`OverlayCallbacks` is dropped.** Moving 44 lambdas out of composable-call argument position (where the Compose compiler memoizes them) into a plain constructor call plausibly defeats that memoization — Kotlin `2.1.20` + compose-bom `2026.05.00` implies strong skipping is on, so several of these params currently compare equal and let `OverlayLayer` skip. It also saves no call-site lines (44 `x = …` lines either way) and is the only part with a stale-capture trap. If a smaller signature is ever wanted, split callbacks per consumer — behind a recomposition counter proving no regression.
+- **Correction to the C12 row's rationale:** `appSettings` is a `by collectAsState()` local delegate ([`MapScreen.kt:387`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:387)), so reads inside `onGpsModeChange` ([`MapScreen.kt:699-708`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:699), not `717-726`) go through the `State` object at call time — a `remember`ed lambda would *not* freeze that read. `onGpsModeChange` is also a hoisted `val` lambda, already re-created each recomposition. Re-verify before treating "remember freezes the GPS toggle" as a hard rule. `screenLocked` is not an `OverlayLayer` parameter at all.
+
+### Verification
+- Mechanical first: diff the 42-line destructure block against the old signature name-by-name (42 vs 42) so a field mis-map is caught by inspection, not by smoke test.
+- `apk-build.bat` SUCCESS with **zero new warnings**.
+- On-device smoke (LOGCAT workflow, user-driven): every drawer opens/dismisses; menu + list filters and both Link toggles; track-info prev/next; settings tabs.
+
+### Migration risk register (final review 2026-09-10)
+
+| # | Risk | Sev | Mitigation |
+|---|---|---|---|
+| R1 | Destructure field mis-map (42 fields) → wrong drawer state | High | Copy signature names verbatim into the destructure block; mechanical 42↔42 name diff; one tier per commit; build + smoke after each |
+| R2 | Recomposition/skipping regression — bundle fields include unstable types (`List`, `ScrollState`, `LazyListState`, `AppSettings`, `WizardStep?`, `MarkerDrawerState`) that can defeat Compose strong-skipping on `OverlayLayer` | High | Annotate the 6 bundles **`@Immutable`** (fields are read-only); keep callbacks inline (OverlayCallbacks already dropped). Verify with a **recomposition counter / Compose compiler metrics before-vs-after per tier** — do not assume parity |
+| R3 | Line-anchor drift — signature shrink + destructure shifts every line below, invalidating ~30 xTrack/doc anchors into `OverlayLayer.kt` | Med | Land the citation-drift pass as an **immediate follow-up commit** (do not mix it into a tier commit — it would mask the code diff). Count is known; re-grep after Tier 1c |
+| R4 | Merge conflicts — `OverlayLayer.kt` + `MapScreen.kt` are large shared files | Med | Rebase `feature/mapscreen-refactor` on `origin/develop` **before** starting C12; land per-tier commits promptly |
+| R5 | `rememberSaveable` `selectedTab` regressed | Low | Stays a plain passed value; never folded into a `remember` holder (restated in Compose-safety rulings) |
+| R6 | Removed signature defaults change behaviour | Low | Single call site supplies all 89 params (repo search: 2 hits = definition + this call) → defaults are dead code |
+| R7 | Drawer z-order / scrim regression | Low | Grouping is value-only — no call reordering, no DrawerSlot changes; smoke all 8 surfaces |
+| R8 | Build-loop budget / thrash | Low | Halt after 2 consecutive build failures (AGENTS §4); one bundle group per build |
+
+### Rollout / rollback strategy
+- **Pre-flight (Tier 0):** `#merge`/rebase onto latest `origin/develop`; pick the bundle host file + visibility; refresh the stale citations inventory.
+- **Per-tier gate:** Tier 1a (`OverlayChrome`+`MenuOverlayData`) is the highest-value/lowest-risk pilot — land it **alone**, build, and capture the recomposition metric before attempting 1b/1c.
+- **Rollback:** each tier is an independent commit → revert a single tier without touching the others. Do **not** squash the tiers, so a regression isolates to one bundle group.
+- **Abort criterion:** if R2 shows a skipping regression that `@Immutable` cannot fix, stop after Tier 1a and keep the remaining params as-is (partial C12 is still a net win).
+
+<!-- C12 APPENDIX END -->
+
 # MapScreen orchestration-monolith refactor (code health) — step 2
 
-**Status:** Ask-reviewed (2026-09-09). Locked for implementation on `feature/mapscreen-refactor`.
+**Status:** Ask-reviewed (2026-09-09); C1–C11 landed on `feature/mapscreen-refactor` (`MapScreen.kt`
+3506 → ~2587). **C12 re-reviewed 2026-09-10** — read-only bundles only, `OverlayCallbacks` dropped; see the
+C12 APPENDIX above for the locked change list.
 
 ## Context
 
 After the settings-subtree extraction (step 1, PR #224),
-[`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1) is ~3,506 lines. `fun MapScreen`
-spans ~387→2847 (body ≈ 2,460 lines of orchestration) plus `MapContent` (~2863→3355) and bottom sheets.
+[`MapScreen.kt`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1) was ~3,506 lines. After C1–C11 it is
+~2,587 lines; the spans quoted below (`fun MapScreen` ~387→2847, `MapContent` ~2863→3355) are pre-refactor
+references — `fun MapScreen` body ≈ 2,460 lines of orchestration plus `MapContent` and bottom sheets.
 The remaining monolith bundles, in one body:
 
 - **State:** ≈ **44** `collectAsState` across 4 view models (`NavigationViewModel`, `DepthViewModel`,
@@ -17,7 +108,8 @@ The remaining monolith bundles, in one body:
   service intents, dialogs, settings wiring.
 - **Local helpers:** `closeSelectedItemDashboards`, snack-queue fns, `openTrackDetail`, `openMarkerDetail`, …
 - **UI host:** `MapContent` stable slot (comment 1806–08, call 1934), `OverlayLayer` mega-parameter call
-  (`2316`→`2592`, dozens of state + lambdas), dialogs/sheets/scrims, snackbar stack.
+  (`1498`→`1773` in the current tree, **89 params**, dozens of state + lambdas), dialogs/sheets/scrims,
+  snackbar stack. ⚠ The `2316`→`2592` span quoted in the first draft predates C1–C11.
 
 **Key render-location fact (drives seam scoping):** import-banner + trackOp-status banners render *inside*
 `MapContent` (params at `2061`, rendered at `3324`/`3348`) — not in `MapScreen`. Any seam that claims to own
@@ -50,6 +142,10 @@ body ≈ 2,460 → ~800–1,000 lines.
 
 ## Decomposition (Ask-corrected; each extraction mechanical & build-verifiable)
 
+> ⚠ C1–C11 are landed (`MapScreen.kt` 3506 → ~2560), so the line spans in the table below are **pre-refactor
+> references only** — use them as seam identifiers, not as navigation targets. C12 lives entirely in the
+> C12 APPENDIX above.
+
 | Commit | New file (same package) | Moves (MapScreen.kt line spans) | Inputs it needs (all forwarded, reused as keys verbatim) | Notes |
 |---|---|---|---|---|
 | C1 | `MapGpsFollowEffects.kt` | contiguous trio `728–820`: mapView-zoom re-apply, GPS auto-follow DR + heading-up, demo two-finger heading-up | `mapView`, `appSettings`, `viewModel`, `autoFollowSuppressed`, **`depthViewModel`** (auto-follow collect calls `depthViewModel.updateMapCenter` at `803`), `trackViewModel` | **Pilot.** ONLY the contiguous trio. The pause `DisposableEffect` at `1684` is NOT contiguous (~860 lines later) — do not fold into this seam. |
@@ -63,7 +159,7 @@ body ≈ 2,460 → ~800–1,000 lines.
 | C9 | `MapDialogHost.kt` (windows only) | windowed `AlertDialog`/`ModalBottomSheet`: exit/stop-recording `1759/1789`, recovery `2632`, bg-location `2682`, GPS-permission `2707`, source-switch `2732`, battery-opt `2747` | hoisted booleans + callbacks | **Lock scrim `2791–2845` does NOT move here** — it is composited last in the outer Box so it paints ABOVE `OverlayLayer`, needs `isLandscape` + dashboard paddings + `lockTopInset`. Keep as final child of the Box (or a dedicated `MapLockOverlay` that is guaranteed last). Windows tolerate repositioning (1759/1789 sit before MapContent today). |
 | C10 | `MapSnackbarHost.kt` (render-only) | stack render `2602–2629`; `SnackRow` already top-level `280–319` | `activeSnacks`, `onUndo`, `onTimeout` | NOT a full ownership move: queue fns (`465–520`) write cross-cutting MapScreen state (undo reopens track → `highlightedTrackId`/`trackDrawerState`/`trackNavigateState` `484–493`; timeouts drive VM deletes; `pendingDeleteIds` written by OverlayLayer callbacks `2547/2568`, read at `2250/2527–38`). Extract render only; fold ownership into C12. |
 | C11 | `MapImportConflictHost.kt` | conflict path only: `pendingTrackImport` state + `ImportConflictSheet` invocation + `runImport` `2652–2679` + OpenDocument `importLauncher` IO callback `661–704` | callbacks up; creates its own `rememberCoroutineScope` | Re-scoped from "import host": import/banner **state stays hoisted** (renders in `MapContent` — out of scope). Banner state `455–460` + `trackOpStatus` `462` remain in `MapScreen`. |
-| C12 | `MapScreenState.kt` holder + `OverlayLayer` param collapse | collapse `2316–2592` mega-param block into grouped state holders | — | **Last.** Tiered: read-only param groups → grouped data classes (mechanical/safe); mutation-callback consolidation → **guard against stale capture** (⚠ `onGpsModeChange` `717–726` closes over `appSettings.gpsMode` + `trackRecorderState.state` BY VALUE — a `remember{}` holder freezes the read and breaks the GPS toggle; same risk for ~15 toggle lambdas). `screenLocked` (`413`) + `selectedTab` (`552`) must keep flowing from MapScreen `rememberSaveable` through to OverlayLayer `2067`/`2425` — never folded into a `remember` holder. |
+| C12 | `MapScreenState.kt` holder + `OverlayLayer` param collapse | collapse the read-only params ([`OverlayLayer.kt:85-194`](../../app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt:85), 89 params) into 6 bundles at the single call [`MapScreen.kt:1498–1773`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1498) | — | **Last. Ask-reviewed — detail in the C12 APPENDIX above.** Read-only only: `OverlayChrome`(7) + `MenuOverlayData`(12) + `TrackListOverlayData`(3) + `MarkerListOverlayData`(4) + `TrackInfoOverlayData`(4) + `SettingsOverlayData`(5). 44 callbacks stay **inline** — `OverlayCallbacks` dropped (it would defeat Compose lambda memoization and save no call-site lines). C10's "fold ownership into C12" is **not** covered by this delta (no snack ownership move). `screenLocked` (`396`) is not an `OverlayLayer` param at all; `selectedTab` (`534`) keeps flowing from `MapScreen` `rememberSaveable` → `:1607` → `OverlayLayer.kt:147` → `:740` — never into a `remember` holder. ⚠ `appSettings` is a `by collectAsState()` local delegate (`:387`), so `onGpsModeChange` (`:699-708`, not `717-726`) reads it through the `State` object at call time — re-verify the "a `remember`ed holder freezes the read" claim before relying on it. |
 | — | **Stays in MapScreen shell** | the 4 drawer-visibility booleans + fan, screen-lock toggle, click-n-move state (`navigateToTarget`/`trackNavigateState`), `MapContent` stable slot + map offset, `OverlayLayer` invocation, back-handler ladder, **track-event observer `961–1044`** | — | Track-event observer stays: widest-input effect in the file (`markersViewModel.drawerState` 965/971, `gpsPosition`/`mapCenter` 966, `mapView` 979, `trackViewModel`, `appSettings`, `OverlayZOrder`) and its `Resumed` branch **duplicates the live-polyline rebuild** seam C4 owns (980–1039). Do NOT split it across files (non-mechanical). Track-info error auto-dismiss `952` → with C4/C7 owner of `trackRecorderState`. |
 
 ## Implementation steps
@@ -81,12 +177,15 @@ body ≈ 2,460 → ~800–1,000 lines.
   `MapServiceEffects.kt`, `MapDepthRasterEffects.kt`, `MapDialogHost.kt`, `MapSnackbarHost.kt`,
   `MapImportConflictHost.kt`, `MapScreenState.kt` (+ optional `MapLockOverlay.kt`)
 - `MapContent.kt`-side param rewire in C8 only (same file `MapScreen.kt` — `MapContent` params at `2061`,
-  calls at `1945–48`/`2084`); `OverlayLayer.kt` only if its signature changes (C12)
+  calls at `1945–48`/`2084`).
+- **C12:** `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt` (signature + 42-line destructure block +
+  `rememberLazyListState` import removal) and `MapScreen.kt` (call-site rewrite `1498–1773`). The 6 bundles live
+  in the C12 host file — `MapScreenState.kt` or a dedicated `OverlayLayerParams.kt` (decide at Tier 0).
 
 ## Verification
 
 - `fun MapScreen` body shrinks by ≥ ~1,500 lines with zero logic change.
-- `apk-build.bat` SUCCESS after every commit.
+- `apk-build.bat` SUCCESS (zero new warnings) after every commit.
 - Runtime smoke on device: map renders; GPS follow + heading-up intact; tracks/markers draw/update; drawers,
   dialogs, snackbar, screen-lock z-order, demo-feed continuity, import conflict behave identically
   (on-device steps need the user to deploy — LOGCAT workflow).
@@ -100,11 +199,13 @@ body ≈ 2,460 → ~800–1,000 lines.
   Enforce byte-for-byte.
 - **mapView-touch effect `733`** has no `onDispose` and must stay unconditional + keyed on the MapView
   instance.
-- **Stale-capture in collapsed callbacks** (`onGpsModeChange` trap) — C12 only; read-only grouping safe.
+- **C12 callback grouping — dropped.** No `OverlayCallbacks`: wrapping the 44 lambdas in an inline-constructed
+  object pulls them out of composable-call argument position, defeating Compose lambda memoization, for zero
+  call-site line saving. Read-only bundle grouping is the whole C12 delta.
 - **C8 output contract** — must rewire `MapContent`/`DashboardPanel` param sources in the same commit or the
   live/cached depth fallback priority changes.
-- **`rememberSaveable`** (`screenLocked` 413, `selectedTab` 552) never moves — they are the only two in the
-  body and both stay hoisted.
+- **`rememberSaveable`** (`screenLocked` 396, `selectedTab` 534) never moves — they are the only two in the
+  body and both stay hoisted. `screenLocked` is not an `OverlayLayer` param.
 
 ## Out of scope
 
@@ -121,6 +222,12 @@ completed (`depthViewModel`, `viewModel.displayPosition`, `trackViewModel`); sea
 render `1586`) added; seam-4-as-listed **dropped** → split into `MapServiceEffects` (C7) + depth/raster seam
 with output contract (C8); seam 5 split (windows host vs lock scrim kept last); seam 6 render-only (C10);
 seam 7 re-scoped (C11); recommended commit order C1–C12 with C1 pilot = contiguous 728–820 trio only.
+
+**C12 re-review (2026-09-10):** inventory recounted (89 params = 42 read-only + 45 function-typed + 2 ViewModels,
+not ≈60); groups C/E re-cut by consuming surface (menu vs list, not by theme); `appSettings`, `trackFilterLinked`,
+`markerFilterLinked`, `trackTitleLookup` kept explicit (cross-consumer); `OverlayCallbacks` dropped; layout dims
+stay explicit. Verified: exactly one call site, all params supplied there (defaults dead), destructure-at-top is
+body-preserving (no default references, no local-name collisions), `selectedTab` untouched. Detail: C12 APPENDIX.
 
 ## Branch note
 
