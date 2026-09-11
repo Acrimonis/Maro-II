@@ -2,7 +2,7 @@
 name: WorkflowImprovement
 status: active
 created: 2026-06-03 00:00
-modified: 2026-09-04 22:36
+modified: 2026-09-11 19:52
 ---
 
 # Feature: WorkflowImprovement
@@ -30,7 +30,7 @@ Git command shortcuts: #new / #checkout / #commit / #push / #move / #cherry·#co
 - `AGENTS.md` — canonical rules incl. § 7a/7b xTrack; `.clinerules`/`CLAUDE.md` are adapters
 - `docs/cmd_help.md` — command reference summary + per-command sections
 - `docs/cmd_help_git.md` — git workflow shortcuts
-- `xTrack/GLOBAL_CONTEXT.md` — Always-Loaded Context + Global Instructions
+- `xTrack/GLOBAL_CONTEXT.md` — state only: routing map, feature summaries, focus history, global todos, doc index (rules live in `AGENTS.md`)
 - `.claude/skills/xtrack/references/templates.md` — file templates
 
 ## Docs
@@ -38,8 +38,7 @@ Git command shortcuts: #new / #checkout / #commit / #push / #move / #cherry·#co
 - `docs/cmd_help_now.md` — #now / #list detail
 - `docs/cmd_help_status.md` — #status / #status diff detail
 - `docs/cmd_help_track.md` — #track detail
-- `docs/cmd_help_focus.md` — #focus / #focus sub / #focus out detail
-- `docs/cmd_help_sub.md` — #sub detail
+- `docs/cmd_help_focus.md` — #focus / #focus [section] detail
 - `docs/cmd_help_todo.md` — #todo detail
 - `docs/cmd_help_rule.md` — #rule detail
 - `docs/cmd_help_doc.md` — #doc detail
@@ -47,7 +46,6 @@ Git command shortcuts: #new / #checkout / #commit / #push / #move / #cherry·#co
 - `docs/cmd_help_help.md` — #help detail
 - `docs/cmd_help_doctor.md` — #doctor detail
 - `docs/cmd_help_git.md` — git workflow shortcuts detail
-- `docs/cmd_help_doc_sync.md` — #doc sync detail
 - `docs/cmd_help_doc_audit.md` — #doc audit detail
 - `docs/GIT_WORKFLOW.md` — Git workflow conventions
 - `xTrack/WorkflowImprovement/260608_FEAT_PLN_WorkflowImprovement_planning.md` — Zero-Piecemeal Writes discussion exception design
@@ -67,6 +65,7 @@ Git command shortcuts: #new / #checkout / #commit / #push / #move / #cherry·#co
 
 ## Implemented
 
+- **GLOBAL_CONTEXT.md rules migration (2026-09-11)** — GLOBAL_CONTEXT.md reduced to state-only (`## Global Rules`, `## Global Instructions`, `## Always-Loaded Context` removed after bullet-by-bullet triage, not bulk deletion); rules consolidated into AGENTS.md — new §9 Environment & Tooling, QUESTIONS directive, MODE LOCK anti-`#implement` clause, §7a state-only invariant, `#rule global` retargeted to Core Directives; downstream sync (`cmd_help_rule`, `cmd_help_doctor` lint, `templates.md`, `cmd_help_implement` dead pointer) → `xTrack/WorkflowImprovement/260911_FEAT_PLN_WorkflowImprovement_global-context-rules-migration.md`
 - **hard rules — Core Directives promotion (2026-06-20)** — 10 rules to prefix-cache zone, §5 git ops hardened, #doctor check (j) → `xTrack/WorkflowImprovement/260620_FEAT_PLN_WorkflowImprovement_core-directives-promotion.md`
 - **AGENTS.md token optimization (2026-06-20)** — 207→149 lines, §7b collapsed to table → `xTrack/WorkflowImprovement/260620_FEAT_PLN_WorkflowImprovement_agents-md-optimization.md`
 - **Workflow management cleanup pass (2026-06-28)** — 8 git commands canonical, MODE LOCK clarified, #help filename-scan, WorkflowAmbiguityFix absorbed

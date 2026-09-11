@@ -1,5 +1,7 @@
 # Global Context — Routing Table
 
+> State only — routing map, feature summaries, focus history, global todos, doc index. Rules and instructions live in `AGENTS.md`.
+
 ## Focus History
 - [2026-09-11 20:00 UTC] Ui_Settings — **confirm-dialog normalization COMPLETE** on feature/tracks-recording: one `ConfirmDialog` (portrait-width, flush bottom, rounded top only, open-bottom accent border, 450 ms panel slide) owns its own `ui.scrim.alpha` layer; merge + batch delete hoisted to the ladder via `ConfirmRequest`/`ConfirmRequestHost` (drawer stays open); ladder dialog plumbing deleted; **P4** — all scrims are hard on/off toggles and the ladder scrim yields while any dialog is visible (`OverlayChrome.dialogScrimActive`), no stacking; #implement pipeline (Code→Ask PASS→Architect), build SUCCESS, docs aligned → xTrack/Ui_Settings/FEAT_HYD_Ui_Settings.md
 - [2026-09-11 15:39 UTC] BoatTrace — focus pivoted on new branch feature/tracks-recording created from origin/develop (mis-named feature/trakksss-recording branch deleted — held no commits); hydration next step = device E2E of direction arrows, density contrast, transparency, settings + drawer toggles → xTrack/BoatTrace/FEAT_HYD_BoatTrace.md
@@ -46,7 +48,7 @@
 |---------|-----------|---------|----------|--------|
 | **ColorManagement** | **Centralised colour palette — all tokens in colors.properties with alias interpolation, documented in color-scheme.md; shared UI colour tokens de-settings-ified (uiSettings* → ui*, e.g. uiBackground/uiTextPrimary/uiAccent/uiDividerColor)** | **2026-06-16 14:05** | **2026-09-11 15:23** | **active** |
 | **Documentation** | **README, FAQs, setup guides, architecture docs, and plans cleanup** | **2026-06-11 06:42** | **2026-09-04 22:36** | **active** |
-| WorkflowImprovement | xTrack #command system, git shortcuts, mode handoff protocol, hard rules enforcement, AGENTS.md trunk-to-leaf optimization, #merge hybrid strategy, spec consolidation, and process simplification (WRITE-ONCE guideline, section model, Focus History, Implemented pointer-index + per-feature bake sweep, live-section trim). Absorbed WorkflowAmbiguityFix 2026-06-28. | 2026-06-03 00:00 | 2026-09-04 22:36 | active |
+| WorkflowImprovement | xTrack #command system, git shortcuts, mode handoff protocol, hard rules enforcement, AGENTS.md trunk-to-leaf optimization, #merge hybrid strategy, spec consolidation, and process simplification (WRITE-ONCE guideline, section model, Focus History, Implemented pointer-index + per-feature bake sweep, live-section trim). GLOBAL_CONTEXT.md is now state-only — all rules consolidated into AGENTS.md (new §9 Environment & Tooling, `#rule global` → Core Directives, `#doctor` regression lint). Absorbed WorkflowAmbiguityFix 2026-06-28. | 2026-06-03 00:00 | 2026-09-11 19:52 | active |
 | DepthMapping | Bathymetry / depth mapping from Litto3D, SHOM, EMODnet sources | 2026-05-10 00:00 | 2026-09-04 22:36 | active |
 | Coastline | Coastline extraction, spatial indexing, isOnWater, hazard rings, unified data store; eastern bound extended to Menton (7.55°E), single region ID via BuildConfig | 2026-05-10 00:00 | 2026-06-23 07:08 | active |
 | Ui_Dashboard | Main dashboard UI layout and HUD information display | 2026-05-15 00:00 | 2026-09-04 22:36 | active |
@@ -67,18 +69,6 @@
 | **Markers** | **User-defined map markers (Pin, Circle, Corridor) with sea-distance-gated proximity matching, percentage-based sort scoring, and on-demand "where am I?" query — icon/pin decoupling implemented (icon pure POI, pin real persisted flag mirroring tracks); pin-halo-rendering implemented (static halo ring pinned white/unpinned light-blue, corridor always-on line + under-line halo, selected-marker gold via selectedMarkerId, focus zoom-to-fit, MarkerAppearance/MarkerHalo split)** | **2026-06-22 11:52** | **2026-09-05 10:42** | **active** |
 | **Ui_Menu** | **Hamburger menu drawer — position source, track recording, marker management sections; right-side sliding panel via OverlayLayer/DrawerSlot; track/marker action normalization (shared list/detail card, double-click inline edit, chevron tappable gutter, delete = swipe/header-trash); menu render migrated to the Settings model (shared SectionHeader/SectionDivider/CardArea/ToggleRow in ui/components, 14dp section rhythm, sentence-case titles reusing settings_section_*)** | **2026-07-05 06:57** | **2026-09-11 15:23** | **active** |
 
-## Global Rules
-- Avoid PowerShell commands; use Windows CMD commands (e.g., `del` not `Remove-Item`, `dir` not `ls`).
-- `adb.exe` is in the computer PATH — use `adb` directly without full path qualifier.
-- **🔴 LOGCAT WORKFLOW:** Debug that needs on-device logcat → ask the user to deploy + perform the operation; fetch logcat only after the user tells you to. Do not deploy/capture on a device unprompted.
-- Auto-refine rule wording for clarity and conciseness on `#rule` add.
-- Use apk-build.bat to build APK (runs gradlew assembleDebug).
-- **Git operations allowed on `#`-command invocation** — `#commit`, `#push`, `#merge`, `#checkout` are self-contained confirmations; the command invocation is the go-ahead. Never touch `develop`/`main` branches.
-- **🔴 MODE LOCK: Do not switch to Code mode or invoke `#implement` pipeline without explicit user go-ahead (`#implement` tag or "go ahead" / "implement now").** Never suggest "ready for #implement" — it implies permission. Architect mode stays in Architect until user explicitly directs otherwise. See AGENTS.md Core Directives for full mode permissions.
-- **🔴 QUESTIONS: Answer before acting.** A question is not an implicit implementation order. Answer it first, then wait for direction.
-- **Auto-switch for commands:** When a task requires executing shell commands (git, gradlew, adb) and the current mode lacks terminal access, automatically `switch_mode("code")` to run the command, then switch back to the original mode.
-- **🔴 PLAN FILE PLACEMENT: All `FEAT_PLN_*.md`, `FEAT_DOC_*.md`, and feature-scoped design files MUST be created in `xTrack/[Feature]/` — NEVER in `plans/`.** See AGENTS.md §7a. `plans/` is a legacy directory; new files go directly to the feature's xTrack subdirectory with proper naming.
-
 ## Global Todos
 - [ ] Validate the intermittent Overpass-outage theory — confirm the coastline OSM fetch failures are transient (succeeded 13:52, failing ~16:52 on 2026-06-08), not a persistent network / cert / IPv6 block. Quick checks: retry `bake-coastline` later; `curl -sk https://overpass-api.de/api/status`; race other mirrors.
 - [x] **Classify all `plans/*.md` by target feature (routing map)** — completed during Documentation feature
@@ -91,16 +81,4 @@ Docs available via `#doc read [name]` from any feature. Fuzzy-resolve searches t
 |-----|---------------|-----------|
 | `color-scheme.md` | ColorManagement | Color tokens, palette, alias chains |
 | `material-icons-standalone-guide.md` | Ui_General | How to add Material Symbols icons as standalone ImageVector .kt files |
-
-## Always-Loaded Context
-These files are loaded into context at the start of every session to maximize the AI prefix-cache hit rate:
-- `AGENTS.md` — canonical rulebook (all project rules + xTrack §7a/7b command spec)
-- `xTrack/GLOBAL_CONTEXT.md` — this file (routing table, feature summaries, global todos, global rules)
-- `.claude/skills/xtrack/SKILL.md` — skill dispatch map
-
-## Global Instructions
-- The xTrack `#`-command system is the canonical workflow. Use it for all feature tracking, todo/rule management, doc management, and session snapshots.
-- On Turn 1: read GLOBAL_CONTEXT.md, match intent against Routing Map, open matching feature file + hydration. No match → ask scoping question.
-- Route docs/key files/todos to correct feature scope. Keep feature files lean — `## Docs` for references, `## Key Files` for source paths.
-- Reference docs are lazy-loaded per [`AGENTS.md` Lazy-Load Index](AGENTS.md).
 
