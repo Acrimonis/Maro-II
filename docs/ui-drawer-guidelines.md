@@ -150,7 +150,7 @@ Every drawer composable must follow this contract to work with `DrawerSlot`:
 2. **No scrim** — the unified scrim is rendered once in `OverlayLayer`
 3. **No shadow** — the gradient shadow is drawn by `DrawerSlot.drawBehind`
 4. **`BackHandler` inside the composable** — guarded by `isOpen` or `showXxx`
-5. **Pure content** — a `Box`/`Column` with `fillMaxSize()`, `clip(shape)`, `.background(uiSettingsBackground)`, then content. **New drawers should use [`DrawerScaffold`](#12-drawerscaffold--fixed-header-scrollable-body) (§12) as the foundation** — it provides a fixed header, optional scrolling, and status-bar insets out of the box.
+5. **Pure content** — a `Box`/`Column` with `fillMaxSize()`, `clip(shape)`, `.background(uiBackground)`, then content. **New drawers should use [`DrawerScaffold`](#12-drawerscaffold--fixed-header-scrollable-body) (§12) as the foundation** — it provides a fixed header, optional scrolling, and status-bar insets out of the box.
 
 ### Preferred: DrawerScaffold Skeleton
 
@@ -204,10 +204,10 @@ All drawer headers share these tokens, canonically implemented in [`DrawerHeader
 |-------|-------|
 | Back button widget | `IconButton` (never `Button`) |
 | Back button size | 32dp, `CircleShape` |
-| Back button background | `uiSettingsSwitchTrackInactive` |
+| Back button background | `uiSwitchTrackInactive` |
 | Back icon size | 18dp |
-| Back icon tint | `uiSettingsTextPrimary` |
-| Title font | 17sp, Bold, `uiSettingsTextPrimary` |
+| Back icon tint | `uiTextPrimary` |
+| Title font | 17sp, Bold, `uiTextPrimary` |
 | Back→title spacer | `16dp` |
 | Header horizontal padding | 24dp (menu, track history); 12dp (wizard, marker viewer) |
 | Header vertical padding | `ui.padding.header.vertical` (6dp canonical default); 12dp (wizard); 12dp (marker viewer — 6dp per side) |
@@ -238,12 +238,11 @@ The card surface primitive (`uiCardBackground`, 12dp radius, Wide 16×10 / Tight
 is canonical in [`ui-component-guidelines.md` §2.0](ui-component-guidelines.md#20-card-surface-primitive-authority).
 This section keeps only the **drawer-specific** rules layered on top of that surface:
 
-- **Between cards:** `Spacer(8.dp)` (drawer-internal card gap).
-- **Row minimum height:** Rows with text + control use `Modifier.heightIn(min = 48.dp)`.
-- **🔴 Menu override:** Menu drawer clickable rows use `56.dp` — larger tap zone for frequently-used primary actions (Manage Track, Manage Markers, Import/Export).
-- **Divider internal spacing:** Horizontal dividers inside cards use `Spacer(2.dp)` above and below (tightened from `6.dp` — card padding already provides separation).
-- **Icon-only action rows:** Icon buttons in content rows (e.g., Import/Export) use `Modifier.size(48.dp)` for comfortable tap targets (Android minimum: 48dp).
-- **Panel background:** `uiSettingsBackground` — use plain `Box`/`Column` with `.background()`, not `ModalDrawerSheet`.
+- **Between sections:** `uiSpacingSectionGap` (14dp) — the shared Settings rhythm; the old drawer-internal 8dp inter-card gap is retired (no other drawer stacks legacy §8 cards).
+- **Row minimum height:** Rows with text + control use `Modifier.heightIn(min = 48.dp)`; switch rows inherit Material3 `Switch`'s minimum interactive size.
+- **Divider internal spacing:** §9 list-item cards only — their horizontal dividers use `Spacer(2.dp)` above and below (tightened from `6.dp` — card padding already provides separation). Grouped drawer cards (e.g. the Menu drawer) use the shared `SectionDivider` (§2.6 of the component guidelines).
+- **Action rows:** Label+icon tap targets (e.g., the Menu drawer's Import/Export pair) use `Modifier.heightIn(min = 48.dp)` on the clickable row; the icon itself is `size(24.dp)`. Bare icon-only buttons use `Modifier.size(48.dp)`.
+- **Panel background:** `uiBackground` — use plain `Box`/`Column` with `.background()`, not `ModalDrawerSheet`.
 
 ---
 
@@ -267,7 +266,7 @@ Row(
     Column(Modifier.weight(1f).padding(horizontal = 8.dp, vertical = 4.dp)) {
         // ── Header row: metadata (11sp muted) + action icons + open-details chevron right-aligned ──
         Row(Modifier.fillMaxWidth(), SpaceBetween, CenterVertically) {
-            Text(metadata, 11sp, uiSettingsTextMuted, weight 1f, ellipsis)
+            Text(metadata, 11sp, uiTextMuted, weight 1f, ellipsis)
             Row(spacedBy(2.dp)) {
                 IconButton(36dp) { Icon(actionIcon, 24dp, tint = ButtonColors.icon) }
                 // ... more action icons
@@ -275,22 +274,22 @@ Row(
             // Open-details chevron — canonical 28dp muted, plain Icon (not IconButton).
             // Gated by showChevron (false in detail-drawer / MeasureHeight contexts).
             if (showChevron) {
-                Icon(KeyboardArrowRight, cd_view, uiSettingsTextMuted, 28dp)
+                Icon(KeyboardArrowRight, cd_view, uiTextMuted, 28dp)
             }
         }
         Spacer(2.dp)
-        HorizontalDivider(0.5dp, uiSettingsDivider)
+        HorizontalDivider(0.5dp, uiDividerColor)
         Spacer(2.dp)
 
         // ── Title: 15sp SemiBold white ──
-        Text(title, 15sp, SemiBold, uiSettingsTextPrimary, maxLines=1, ellipsis)
+        Text(title, 15sp, SemiBold, uiTextPrimary, maxLines=1, ellipsis)
 
         // ── Detail row: 14sp Normal white ──
-        Text(detailText, 14sp, uiSettingsTextPrimary)
+        Text(detailText, 14sp, uiTextPrimary)
 
         // ── Comment/description: 13sp muted (if present) ──
         if (comment.isNotBlank()) {
-            Text(comment, 13sp, uiSettingsTextMuted, maxLines=3)
+            Text(comment, 13sp, uiTextMuted, maxLines=3)
         }
     }
 }
@@ -303,13 +302,13 @@ Row(
 | Card radius | 12dp | Both |
 | Accent bar width | 4dp, `fillMaxHeight()` | Both |
 | Content padding | 8dp h × 4dp v | Both |
-| Header font | 11sp, `uiSettingsTextMuted` | Both |
-| Title font | 15sp, SemiBold, `uiSettingsTextPrimary` | Both |
-| Detail font | 14sp, Normal, `uiSettingsTextPrimary` | Both |
-| Comment font | 13sp, Normal, `uiSettingsTextMuted` | Both |
+| Header font | 11sp, `uiTextMuted` | Both |
+| Title font | 15sp, SemiBold, `uiTextPrimary` | Both |
+| Detail font | 14sp, Normal, `uiTextPrimary` | Both |
+| Comment font | 13sp, Normal, `uiTextMuted` | Both |
 | Action icon | `IconButton(36dp)` + `Icon(24dp, tint=ButtonColors.icon)` | Both |
-| Open-details chevron | `Icon(KeyboardArrowRight, 28dp, tint=uiSettingsTextMuted)` — plain `Icon`, not `IconButton`; gated by `showChevron` | Both |
-| Divider | 0.5dp, `uiSettingsDivider`, 2dp gap each side | Both |
+| Open-details chevron | `Icon(KeyboardArrowRight, 28dp, tint=uiTextMuted)` — plain `Icon`, not `IconButton`; gated by `showChevron` | Both |
+| Divider | 0.5dp, `uiDividerColor`, 2dp gap each side | Both |
 
 ### Per-Type Variations
 
@@ -328,10 +327,10 @@ Row(
 | Row type | Pattern | Example |
 |----------|---------|---------|
 | Setting | Label + inline control (Switch) | GPS mode toggle |
-| Navigation | Label + trailing chevron `KeyboardArrowRight` 28dp `uiSettingsTextMuted` | "Manage Tracks" |
+| Navigation | Label + trailing chevron `KeyboardArrowRight` 28dp `uiTextMuted` | "Manage Tracks" |
 
 > **Canonical chevron:** The Navigation trailing chevron and the §9 card-header open-details chevron share the same
-> token — `KeyboardArrowRight`, **28dp**, `uiSettingsTextMuted`. Use this single canonical size/color everywhere a
+> token — `KeyboardArrowRight`, **28dp**, `uiTextMuted`. Use this single canonical size/color everywhere a
 > "reveal more / open details" affordance appears (card header, track row, navigation rows). Do not introduce
 > alternate sizes or accent-tinted chevrons.
 | Content | Text / sliders / stats inside card | Marker details, live stats |
@@ -383,7 +382,7 @@ Parameter | Default | Purpose |
 ### Structure
 
 ```
-Box(fillMaxSize, clip(shape), background(uiSettingsBackground), modifier, +statusBarsInset)
+Box(fillMaxSize, clip(shape), background(uiBackground), modifier, +statusBarsInset)
   └─ Column(fillMaxSize)
        ├─ DrawerHeader(title, onClose, headerActions, hPad, vPad)  ← FIXED
        └─ Box(Modifier.weight(1f).fillMaxWidth())                   ← scroll host

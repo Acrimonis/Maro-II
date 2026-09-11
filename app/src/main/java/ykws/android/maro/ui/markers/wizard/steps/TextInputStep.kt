@@ -94,7 +94,7 @@ internal fun TextInputStep(
         ) {
             Text(
                 label,
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                color = ComposeColor(AppConfig.uiTextPrimary),
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Medium
             )
@@ -114,7 +114,7 @@ internal fun TextInputStep(
                 colors = drawerTextFieldColors(),
                 textStyle = androidx.compose.ui.text.TextStyle(
                     fontSize = 14.sp,
-                    color = ComposeColor(AppConfig.uiSettingsTextPrimary)
+                    color = ComposeColor(AppConfig.uiTextPrimary)
                 ),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Text,
@@ -127,7 +127,7 @@ internal fun TextInputStep(
                 placeholder = {
                     Text(
                         if (singleLine) "e.g. My marker" else "Optional notes\u2026",
-                        color = ComposeColor(AppConfig.uiSettingsTextMuted).copy(alpha = 0.5f),
+                        color = ComposeColor(AppConfig.uiTextMuted).copy(alpha = 0.5f),
                         fontSize = 14.sp
                     )
                 }
@@ -143,6 +143,6 @@ internal fun TextInputStep(
 @Composable
 private fun drawerTextFieldColors() = OutlinedTextFieldDefaults.colors(
     focusedBorderColor = ComposeColor(AppConfig.buttonActionBgColor).copy(alpha = 0.5f),
-    unfocusedBorderColor = ComposeColor(AppConfig.uiSettingsTextMuted).copy(alpha = 0.3f),
-    cursorColor = ComposeColor(AppConfig.uiSettingsTextPrimary)
+    unfocusedBorderColor = ComposeColor(AppConfig.uiTextMuted).copy(alpha = 0.3f),
+    cursorColor = ComposeColor(AppConfig.uiTextPrimary)
 )

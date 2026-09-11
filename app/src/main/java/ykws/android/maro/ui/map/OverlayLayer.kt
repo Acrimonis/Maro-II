@@ -470,8 +470,8 @@ fun OverlayLayer(
                         footer = {
                             if (trackListIds.size > 1) {
                                 Spacer(Modifier.height(10.dp))
-                                val accentBg = ComposeColor(AppConfig.uiSettingsAccent)
-                                val accentFg = ComposeColor(AppConfig.uiSettingsTextPrimary)
+                                val accentBg = ComposeColor(AppConfig.uiAccent)
+                                val accentFg = ComposeColor(AppConfig.uiTextPrimary)
                                 val disabledAlpha = 0.35f
                                 Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                     Box(Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
@@ -562,8 +562,8 @@ fun OverlayLayer(
                         footer = {
                             if (trackListIds.size > 1) {
                                 Spacer(Modifier.height(10.dp))
-                                val accentBg = ComposeColor(AppConfig.uiSettingsAccent)
-                                val accentFg = ComposeColor(AppConfig.uiSettingsTextPrimary)
+                                val accentBg = ComposeColor(AppConfig.uiAccent)
+                                val accentFg = ComposeColor(AppConfig.uiTextPrimary)
                                 val disabledAlpha = 0.35f
                                 Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                                     Box(Modifier.weight(1f).clip(RoundedCornerShape(8.dp))

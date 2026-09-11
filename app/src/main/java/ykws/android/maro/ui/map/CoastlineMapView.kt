@@ -144,7 +144,7 @@ internal fun ErrorOverlay(
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = message,
-                color = ComposeColor(AppConfig.uiSettingsToastText),
+                color = ComposeColor(AppConfig.uiToastText),
                 fontSize = 12.sp
             )
             Spacer(modifier = Modifier.height(8.dp))

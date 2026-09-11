@@ -34,8 +34,8 @@ internal fun WizardButtonRow(
     onNext: () -> Unit,
     onFinish: () -> Unit
 ) {
-    val accentBg = ComposeColor(AppConfig.uiSettingsAccent)
-    val accentFg = ComposeColor(AppConfig.uiSettingsTextPrimary)
+    val accentBg = ComposeColor(AppConfig.uiAccent)
+    val accentFg = ComposeColor(AppConfig.uiTextPrimary)
 
     Row(
         modifier = Modifier

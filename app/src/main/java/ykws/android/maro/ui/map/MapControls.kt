@@ -295,7 +295,7 @@ internal fun LockBanner(
                     text = stringResource(
                         if (locked) R.string.toast_screen_locked else R.string.toast_screen_unlocked
                     ),
-                    color = ComposeColor(AppConfig.uiSettingsToastText),
+                    color = ComposeColor(AppConfig.uiToastText),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,
                     textAlign = TextAlign.Start,
@@ -333,7 +333,7 @@ internal fun MapStatusBanner(
             Box(modifier = Modifier.background(ComposeColor(AppConfig.uiCardBackground))) {
                 Text(
                     text = message,
-                    color = ComposeColor(AppConfig.uiSettingsToastText),
+                    color = ComposeColor(AppConfig.uiToastText),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium,
                     textAlign = TextAlign.Start,

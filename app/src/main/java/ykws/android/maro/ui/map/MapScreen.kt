@@ -2265,7 +2265,7 @@ private fun MapContent(
                                         stringResource(R.string.exit_press_back_again_recording)
                                     else
                                         stringResource(R.string.exit_press_back_again),
-                                    color = ComposeColor(AppConfig.uiSettingsToastText),
+                                    color = ComposeColor(AppConfig.uiToastText),
                                     fontSize = 16.sp,
                                     fontWeight = FontWeight.Medium,
                                     textAlign = TextAlign.Start,
@@ -2468,7 +2468,7 @@ internal fun RecordingExitSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-        containerColor = ComposeColor(AppConfig.uiSettingsBackground)
+        containerColor = ComposeColor(AppConfig.uiBackground)
     ) {
         Column(
             modifier = Modifier
@@ -2478,14 +2478,14 @@ internal fun RecordingExitSheet(
         ) {
             Text(
                 "Recording in progress",
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                color = ComposeColor(AppConfig.uiTextPrimary),
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold
             )
             Spacer(Modifier.height(12.dp))
             Text(
                 "A track is being recorded. What would you like to do?",
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                color = ComposeColor(AppConfig.uiTextPrimary),
                 fontSize = 14.sp
             )
             Spacer(Modifier.height(16.dp))
@@ -2493,7 +2493,7 @@ internal fun RecordingExitSheet(
                 onClick = onSave,
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = ComposeColor(AppConfig.uiSettingsAccent)
+                    containerColor = ComposeColor(AppConfig.uiAccent)
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
@@ -2505,7 +2505,7 @@ internal fun RecordingExitSheet(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Continue recording", color = ComposeColor(AppConfig.uiSettingsAccent))
+                Text("Continue recording", color = ComposeColor(AppConfig.uiAccent))
             }
             
             Spacer(Modifier.height(8.dp))
@@ -2541,7 +2541,7 @@ internal fun ImportConflictSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-        containerColor = ComposeColor(AppConfig.uiSettingsBackground)
+        containerColor = ComposeColor(AppConfig.uiBackground)
     ) {
         Column(
             modifier = Modifier
@@ -2551,14 +2551,14 @@ internal fun ImportConflictSheet(
         ) {
             Text(
                 stringResource(R.string.import_match_title),
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                color = ComposeColor(AppConfig.uiTextPrimary),
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold
             )
             Spacer(Modifier.height(12.dp))
             Text(
                 stringResource(R.string.import_match_message, matchName),
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                color = ComposeColor(AppConfig.uiTextPrimary),
                 fontSize = 14.sp
             )
             Spacer(Modifier.height(16.dp))
@@ -2566,7 +2566,7 @@ internal fun ImportConflictSheet(
                 onClick = onDuplicate,
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = ComposeColor(AppConfig.uiSettingsAccent)
+                    containerColor = ComposeColor(AppConfig.uiAccent)
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
@@ -2589,7 +2589,7 @@ internal fun ImportConflictSheet(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text(stringResource(R.string.action_cancel), color = ComposeColor(AppConfig.uiSettingsAccent))
+                Text(stringResource(R.string.action_cancel), color = ComposeColor(AppConfig.uiAccent))
             }
             Spacer(Modifier.height(16.dp))
         }

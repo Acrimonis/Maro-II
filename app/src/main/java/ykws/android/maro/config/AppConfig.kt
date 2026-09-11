@@ -203,14 +203,14 @@ object AppConfig {
     var uiDashboardDullAlpha: Float = 0.33f
         private set
 
-    /** Settings overlay background. Default #1A1A2E. Set via `ui.settings.background` in colors.properties. */
-    var uiSettingsBackground: Int = 0xFF1A1A2E.toInt()
+    /** Settings overlay background. Default #1A1A2E. Set via `ui.background` in colors.properties. */
+    var uiBackground: Int = 0xFF1A1A2E.toInt()
         private set
-    /** Settings exit-toast surface. Default #16213E. Set via `ui.settings.toast.background` in colors.properties. */
-    var uiSettingsToastBackground: Int = 0xFF16213E.toInt()
+    /** Settings exit-toast surface. Default #16213E. Set via `ui.toast.background` in colors.properties. */
+    var uiToastBackground: Int = 0xFF16213E.toInt()
         private set
-    /** Settings exit-toast text. Default #FFFFFF. Set via `ui.settings.toast.text` in colors.properties. */
-    var uiSettingsToastText: Int = 0xFFFFFFFF.toInt()
+    /** Settings exit-toast text. Default #FFFFFF. Set via `ui.toast.text` in colors.properties. */
+    var uiToastText: Int = 0xFFFFFFFF.toInt()
         private set
 
     /** Coastline mainland colour. Default #1545C0. Set via `map.coastline.mainland.color` in colors.properties. */
@@ -344,42 +344,42 @@ object AppConfig {
     var uiDashboardReadoutDeep: Int = 0xFF1565C0.toInt()
         private set
 
-    // ── Settings panel colours ────────────────────────────────────────────────
-    /** Settings panel primary text. Default #FFFFFFFF. Set via `ui.settings.text.primary` in colors.properties. */
-    var uiSettingsTextPrimary: Int = 0xFFFFFFFF.toInt()
+    // ── Shared UI colours ─────────────────────────────────────────────────────
+    /** Settings panel primary text. Default #FFFFFFFF. Set via `ui.text.primary` in colors.properties. */
+    var uiTextPrimary: Int = 0xFFFFFFFF.toInt()
         private set
-    /** Settings panel muted text. Default #FFB0BEC5. Set via `ui.settings.text.muted` in colors.properties. */
-    var uiSettingsTextMuted: Int = 0xFFB0BEC5.toInt()
+    /** Settings panel muted text. Default #FFB0BEC5. Set via `ui.text.muted` in colors.properties. */
+    var uiTextMuted: Int = 0xFFB0BEC5.toInt()
         private set
-    /** Settings panel secondary text. Default #FF78909C. Set via `ui.settings.text.secondary` in colors.properties. */
-    var uiSettingsTextSecondary: Int = 0xFF78909C.toInt()
+    /** Settings panel secondary text. Default #FF78909C. Set via `ui.text.secondary` in colors.properties. */
+    var uiTextSecondary: Int = 0xFF78909C.toInt()
         private set
-    /** Settings panel accent colour. Default #FF1565C0. Set via `ui.settings.accent` in colors.properties. */
-    var uiSettingsAccent: Int = 0xFF1565C0.toInt()
+    /** Settings panel accent colour. Default #FF1565C0. Set via `ui.accent` in colors.properties. */
+    var uiAccent: Int = 0xFF1565C0.toInt()
         private set
-    /** Settings panel slider value readout colour. Default #FF48a7f5. Set via `ui.settings.value.text` in colors.properties. */
-    var uiSettingsValueText: Int = 0xFF48a7f5.toInt()
+    /** Settings panel slider value readout colour. Default #FF48a7f5. Set via `ui.value.text` in colors.properties. */
+    var uiValueText: Int = 0xFF48a7f5.toInt()
         private set
-    /** Scrim background for map overlay info text. Default #80000000 (black 50%). Set via `ui.settings.text.scrim` in colors.properties. */
-    var uiSettingsTextScrim: Int = 0x4D16213E.toInt()
+    /** Scrim background for map overlay info text. Default #80000000 (black 50%). Set via `ui.text.scrim` in colors.properties. */
+    var uiTextScrim: Int = 0x4D16213E.toInt()
         private set
     /** Settings panel card background. Default #33FFFFFF (20% white). Set via `ui.card.background` in colors.properties. */
     var uiCardBackground: Int = 0x33FFFFFF.toInt()
         private set
-    /** Settings panel divider colour. Default #14FFFFFF. Set via `ui.settings.divider` in colors.properties. */
-    var uiSettingsDivider: Int = 0x14FFFFFF.toInt()
+    /** Settings panel divider colour. Default #14FFFFFF. Set via `ui.divider.color` in colors.properties. */
+    var uiDividerColor: Int = 0x14FFFFFF.toInt()
         private set
-    /** Settings panel switch track inactive colour. Default #33FFFFFF. Set via `ui.settings.switch.track.inactive` in colors.properties. */
-    var uiSettingsSwitchTrackInactive: Int = 0x33FFFFFF.toInt()
+    /** Settings panel switch track inactive colour. Default #33FFFFFF. Set via `ui.switch.track.inactive` in colors.properties. */
+    var uiSwitchTrackInactive: Int = 0x33FFFFFF.toInt()
         private set
-    /** Settings panel input border colour. Default #66FFFFFF. Set via `ui.settings.input.border` in colors.properties. */
-    var uiSettingsInputBorder: Int = 0x66FFFFFF.toInt()
+    /** Settings panel input border colour. Default #66FFFFFF. Set via `ui.input.border` in colors.properties. */
+    var uiInputBorder: Int = 0x66FFFFFF.toInt()
         private set
-    /** Settings panel footer text colour. Default #FF546E7A. Set via `ui.settings.footer.text` in colors.properties. */
-    var uiSettingsFooterText: Int = 0xFF546E7A.toInt()
+    /** Settings panel footer text colour. Default #FF546E7A. Set via `ui.footer.text` in colors.properties. */
+    var uiFooterText: Int = 0xFF546E7A.toInt()
         private set
-    /** Settings panel danger/delete colour. Default from semantic.danger = #CCB71C1C (red 80%). Set via `ui.settings.danger` in colors.properties. */
-    var uiSettingsDanger: Int = 0xCCB71C1C.toInt()
+    /** Settings panel danger/delete colour. Default from semantic.danger = #CCB71C1C (red 80%). Set via `ui.danger` in colors.properties. */
+    var uiDanger: Int = 0xCCB71C1C.toInt()
         private set
 
     // ── Regulated zone type colours ───────────────────────────────────────────
@@ -742,9 +742,9 @@ object AppConfig {
             props.getProperty("ui.dashboard.distance.exit")?.let { parseColorOrNull(it) }?.let { uiDashboardDistanceExit = it }
             props.getProperty("ui.dashboard.dullAlpha")?.toFloatOrNull()?.let { uiDashboardDullAlpha = it.coerceIn(0f, 1f) }
 
-            props.getProperty("ui.settings.background")?.let { parseColorOrNull(it) }?.let { uiSettingsBackground = it }
-            props.getProperty("ui.settings.toast.background")?.let { parseColorOrNull(it) }?.let { uiSettingsToastBackground = it }
-            props.getProperty("ui.settings.toast.text")?.let { parseColorOrNull(it) }?.let { uiSettingsToastText = it }
+            props.getProperty("ui.background")?.let { parseColorOrNull(it) }?.let { uiBackground = it }
+            props.getProperty("ui.toast.background")?.let { parseColorOrNull(it) }?.let { uiToastBackground = it }
+            props.getProperty("ui.toast.text")?.let { parseColorOrNull(it) }?.let { uiToastText = it }
 
             props.getProperty("map.coastline.mainland.color")?.let { parseColorOrNull(it) }?.let { mapCoastlineMainlandColor = it }
             props.getProperty("map.coastline.mainland.width")?.toIntOrNull()?.let { mapCoastlineMainlandWidth = it.coerceIn(1, 50) }
@@ -806,19 +806,19 @@ object AppConfig {
             props.getProperty("ui.dashboard.readout.shallow")?.let { parseColorOrNull(it) }?.let { uiDashboardReadoutShallow = it }
             props.getProperty("ui.dashboard.readout.deep")?.let { parseColorOrNull(it) }?.let { uiDashboardReadoutDeep = it }
 
-            // ── Settings panel ────────────────────────────────────────────────
-            props.getProperty("ui.settings.text.primary")?.let { parseColorOrNull(it) }?.let { uiSettingsTextPrimary = it }
-            props.getProperty("ui.settings.text.muted")?.let { parseColorOrNull(it) }?.let { uiSettingsTextMuted = it }
-            props.getProperty("ui.settings.text.secondary")?.let { parseColorOrNull(it) }?.let { uiSettingsTextSecondary = it }
-            props.getProperty("ui.settings.accent")?.let { parseColorOrNull(it) }?.let { uiSettingsAccent = it }
-            props.getProperty("ui.settings.value.text")?.let { parseColorOrNull(it) }?.let { uiSettingsValueText = it }
-            props.getProperty("ui.settings.text.scrim")?.let { parseColorOrNull(it) }?.let { uiSettingsTextScrim = it }
+            // ── Shared UI colours ─────────────────────────────────────────────
+            props.getProperty("ui.text.primary")?.let { parseColorOrNull(it) }?.let { uiTextPrimary = it }
+            props.getProperty("ui.text.muted")?.let { parseColorOrNull(it) }?.let { uiTextMuted = it }
+            props.getProperty("ui.text.secondary")?.let { parseColorOrNull(it) }?.let { uiTextSecondary = it }
+            props.getProperty("ui.accent")?.let { parseColorOrNull(it) }?.let { uiAccent = it }
+            props.getProperty("ui.value.text")?.let { parseColorOrNull(it) }?.let { uiValueText = it }
+            props.getProperty("ui.text.scrim")?.let { parseColorOrNull(it) }?.let { uiTextScrim = it }
             props.getProperty("ui.card.background")?.let { parseColorOrNull(it) }?.let { uiCardBackground = it }
-            props.getProperty("ui.settings.divider")?.let { parseColorOrNull(it) }?.let { uiSettingsDivider = it }
-            props.getProperty("ui.settings.switch.track.inactive")?.let { parseColorOrNull(it) }?.let { uiSettingsSwitchTrackInactive = it }
-            props.getProperty("ui.settings.input.border")?.let { parseColorOrNull(it) }?.let { uiSettingsInputBorder = it }
-            props.getProperty("ui.settings.footer.text")?.let { parseColorOrNull(it) }?.let { uiSettingsFooterText = it }
-            props.getProperty("ui.settings.danger")?.let { parseColorOrNull(it) }?.let { uiSettingsDanger = it }
+            props.getProperty("ui.divider.color")?.let { parseColorOrNull(it) }?.let { uiDividerColor = it }
+            props.getProperty("ui.switch.track.inactive")?.let { parseColorOrNull(it) }?.let { uiSwitchTrackInactive = it }
+            props.getProperty("ui.input.border")?.let { parseColorOrNull(it) }?.let { uiInputBorder = it }
+            props.getProperty("ui.footer.text")?.let { parseColorOrNull(it) }?.let { uiFooterText = it }
+            props.getProperty("ui.danger")?.let { parseColorOrNull(it) }?.let { uiDanger = it }
 
             // ── Regulated zone type colours ──────────────────────────────────
             props.getProperty("regulatedZone.type.speedLimit")?.let { parseColorOrNull(it) }?.let { regulatedZoneTypeSpeedLimit = it }

@@ -1,28 +1,25 @@
 # Hydration: ColorManagement
 
-**Last Bake:** 2026-06-17 14:39 UTC
-**State:** Session complete — all planned changes implemented and building green.
+**Last Bake:** 2026-09-11 15:12 UTC
+**State:** Session complete — `ui-token-de-settings` implemented and building green (branch `feature/menu-twks`).
 
 ## Session Summary
 
-Full color centralization pass:
-1. Replaced 46 hardcoded `ComposeColor.White` refs (42 MapScreen.kt + 1 FanLayout.kt + 2 kept structural in FanIconComponents.kt)
-2. Synced 12 stale AppConfig defaults to match colors.properties
-3. Removed 4 orphaned zone.properties color fields + their loading code
-4. Added 3 isobar color tokens + 2 isobar width tokens to colors.properties
-5. Consolidated dual-sourced `lowDepthWarningMinOpacityPct`
-6. Moved zone.properties spatial values to maro.properties, deleted zone.properties
-7. Removed 3 dead alpha keys from maro.properties
-8. Removed 3 dead gradient fields from AppConfig
+De-settings-ified the 14 shared UI colour tokens (rename only — zero visual diff):
+1. `colors.properties` — 14 keys renamed (`ui.settings.*` → `ui.*`, with `ui.settings.divider` → `ui.divider.color`); both section comments neutralised; alias-interpolated values untouched
+2. `AppConfig.kt` — 14 accessors + KDocs + parse keys/assignments renamed; group comments neutralised
+3. ~26 Kotlin files swept for `AppConfig.uiSettings*` → `AppConfig.ui*` call sites
+4. Doc/KDoc sweep — ui-component / ui-drawer / ui-lists guidelines, `docs/color-scheme.md` (prefix line → `ui.*`, stale `ui.danger` value corrected to `#CCB71C1C`), `FEAT_DOC_Ui_Menu_decisions.md`, `plans/wizard-drawerslot-separation-plan.md`
+5. Verified `uiSettings` / `ui.settings` = 0 hits in `app/src` (excl. `app/build/`); `apk-build.bat` BUILD SUCCESSFUL
 
 ## Target Files
-- `app/src/main/java/ykws/android/maro/config/AppConfig.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/FanLayout.kt`
 - `app/src/main/assets/colors.properties`
-- `app/src/main/assets/maro.properties`
-- `xTrack/ColorManagement/260617_FEAT_PLN_ColorManagement_color-taxonomy-hardcoded-whites-audit.md`
-- `xTrack/ColorManagement/260617_FEAT_PLN_ColorManagement_color-taxonomy-alpha-values.md`
+- `app/src/main/java/ykws/android/maro/config/AppConfig.kt`
+- `docs/color-scheme.md`, `docs/ui-component-guidelines.md`, `docs/ui-drawer-guidelines.md`, `docs/ui-lists-guidelines.md`
+- `xTrack/ColorManagement/260911_FEAT_PLN_ColorManagement_ui-token-de-settings.md`
+
+## Prior Session (2026-06-17)
+Colour centralization pass: 46 hardcoded `ComposeColor.White` refs replaced, 12 stale `AppConfig` defaults synced, orphaned `zone.properties` colour fields removed, zone.properties merged into maro.properties and deleted.
 
 ## Next Step
-None — session complete. Ready for commit.
+On-device spot check (settings, menu, drawers, wizards, dialogs render identically), then commit.

@@ -238,15 +238,15 @@ The hypsometric ramp interpolates between shallow (pale cyan) and deep (navy) en
 
 ## 7. Settings Overlay
 
-**Property prefix:** `ui.settings.*`
-**Source:** [`colors.properties`](../app/src/main/assets/colors.properties) → `AppConfig.uiSettings*`
+**Property prefix:** `ui.*`
+**Source:** [`colors.properties`](../app/src/main/assets/colors.properties) → `AppConfig.ui*`
 
 ### Background & Layout
 
 | Token | Default | Swatch | Usage |
 |---|---|---|---|
-| `ui.settings.background` | `#1A1A2E` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1A1A2E;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Fullscreen settings overlay background |
-| `ui.settings.divider` | `#14FFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;opacity:0.08;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Dividers between sections (~8% white) |
+| `ui.background` | `#1A1A2E` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1A1A2E;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Fullscreen settings overlay background |
+| `ui.divider.color` | `#14FFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;opacity:0.08;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Dividers between sections (~8% white) |
 
 ### Card Surfaces
 
@@ -262,27 +262,27 @@ The settings card surfaces reuse the shared Main card / Inner card tokens (also 
 
 | Token | Default | Swatch | Usage |
 |---|---|---|---|
-| `ui.settings.text.primary` | `#FFFFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Section titles, sub-section headings, primary labels |
-| `ui.settings.text.muted` | `#FFB0BEC5` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#B0BEC5;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Descriptive text, card descriptions (never headings) |
-| `ui.settings.text.secondary` | `#FF78909C` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#78909C;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Tab inactive text, sub-section descriptions, secondary info |
-| `ui.settings.footer.text` | `#FF546E7A` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#546E7A;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Version footer text |
+| `ui.text.primary` | `#FFFFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Section titles, sub-section headings, primary labels |
+| `ui.text.muted` | `#FFB0BEC5` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#B0BEC5;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Descriptive text, card descriptions (never headings) |
+| `ui.text.secondary` | `#FF78909C` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#78909C;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Tab inactive text, sub-section descriptions, secondary info |
+| `ui.footer.text` | `#FF546E7A` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#546E7A;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Version footer text |
 
 ### Interactive Elements
 
 | Token | Default | Swatch | Usage |
 |---|---|---|---|
-| `ui.settings.accent` | `#FF1565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Switch thumb/track, slider, buttons, selected tab indicator |
-| `ui.settings.value.text` | `#48a7f5FF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#48a7f5;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Slider value readouts (small bold value text) |
-| `ui.settings.switch.track.inactive` | `#33FFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;opacity:0.2;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Switch track when unchecked (20% white) |
-| `ui.settings.input.border` | `#66FFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;opacity:0.4;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Unfocused text field border (40% white) |
-| `ui.settings.danger` | `#FFE53935` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#E53935;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Delete/danger buttons |
+| `ui.accent` | `#FF1565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Switch thumb/track, slider, buttons, selected tab indicator |
+| `ui.value.text` | `#FF48a7f5` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#48a7f5;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Slider value readouts (small bold value text) |
+| `ui.switch.track.inactive` | `#33FFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;opacity:0.2;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Switch track when unchecked (20% white) |
+| `ui.input.border` | `#66FFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;opacity:0.4;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Unfocused text field border (40% white) |
+| `ui.danger` | `#CCB71C1C` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#B71C1C;opacity:0.8;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Delete/danger buttons |
 
 ### Toast
 
 | Token | Default | Swatch | Usage |
 |---|---|---|---|
-| `ui.settings.toast.background` | `#16213E` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#16213E;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Exit-toast surface |
-| `ui.settings.toast.text` | `#FFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Exit-toast text |
+| `ui.toast.background` | `#16213E` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#16213E;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Exit-toast surface |
+| `ui.toast.text` | `#FFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Exit-toast text |
 
 ---
 

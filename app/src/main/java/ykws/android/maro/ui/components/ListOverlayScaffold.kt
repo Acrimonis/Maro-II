@@ -154,7 +154,7 @@ private fun SortControl(
             ) {
                 Surface(
                     shape = RoundedCornerShape(12.dp),
-                    color = Color(AppConfig.uiSettingsBackground),
+                    color = Color(AppConfig.uiBackground),
                     shadowElevation = 8.dp,
                     modifier = Modifier.width(240.dp).border(1.dp, Color(0x40FFFFFF), RoundedCornerShape(12.dp))
                 ) {
@@ -178,16 +178,16 @@ private fun SortControl(
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
                                         Box(Modifier.width(24.dp), contentAlignment = Alignment.Center) {
-                                            if (isSelected) Text("\u2713", color = Color(AppConfig.uiSettingsTextPrimary), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                            if (isSelected) Text("\u2713", color = Color(AppConfig.uiTextPrimary), fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                         }
                                         Spacer(Modifier.width(8.dp))
-                                        Text(stringResource(field.labelResId), color = Color(AppConfig.uiSettingsTextPrimary), fontSize = 15.sp, fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium)
+                                        Text(stringResource(field.labelResId), color = Color(AppConfig.uiTextPrimary), fontSize = 15.sp, fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium)
                                         if (isSelected) {
                                             Spacer(Modifier.weight(1f))
                                             Icon(
                                                 imageVector = if (state.descending) Icons.Filled.ArrowDropDown else Icons.Filled.ArrowDropUp,
                                                 contentDescription = null,
-                                                tint = Color(AppConfig.uiSettingsTextPrimary),
+                                                tint = Color(AppConfig.uiTextPrimary),
                                                 modifier = Modifier.size(28.dp)
                                             )
                                         }
@@ -215,16 +215,16 @@ private fun SortControl(
                                             verticalAlignment = Alignment.CenterVertically
                                         ) {
                                             Box(Modifier.width(24.dp), contentAlignment = Alignment.Center) {
-                                                if (isSelected) Text("\u2713", color = Color(AppConfig.uiSettingsTextPrimary), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                                                if (isSelected) Text("\u2713", color = Color(AppConfig.uiTextPrimary), fontSize = 16.sp, fontWeight = FontWeight.Bold)
                                             }
                                             Spacer(Modifier.width(8.dp))
-                                            Text(stringResource(cf.labelResId), color = Color(AppConfig.uiSettingsTextPrimary), fontSize = 15.sp, fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium)
+                                            Text(stringResource(cf.labelResId), color = Color(AppConfig.uiTextPrimary), fontSize = 15.sp, fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium)
                                             if (isSelected) {
                                                 Spacer(Modifier.weight(1f))
                                                 Icon(
                                                     imageVector = if (state.descending) Icons.Filled.ArrowDropDown else Icons.Filled.ArrowDropUp,
                                                     contentDescription = null,
-                                                    tint = Color(AppConfig.uiSettingsTextPrimary),
+                                                    tint = Color(AppConfig.uiTextPrimary),
                                                     modifier = Modifier.size(28.dp)
                                                 )
                                             }
@@ -274,7 +274,7 @@ internal fun FilterControl(
             ) {
                 Surface(
                     shape = RoundedCornerShape(12.dp),
-                    color = Color(AppConfig.uiSettingsBackground),
+                    color = Color(AppConfig.uiBackground),
                     shadowElevation = 8.dp,
                     modifier = Modifier.width(240.dp).border(1.dp, Color(0x40FFFFFF), RoundedCornerShape(12.dp))
                 ) {
@@ -304,14 +304,14 @@ internal fun FilterControl(
                                         ) {
                                             Box(Modifier.width(24.dp), contentAlignment = Alignment.Center) {
                                                 if (isSelected) Text("\u2713",
-                                                    color = if (isDisabled) Color(AppConfig.uiSettingsTextMuted).copy(alpha = 0.4f) else Color(AppConfig.uiSettingsAccent),
+                                                    color = if (isDisabled) Color(AppConfig.uiTextMuted).copy(alpha = 0.4f) else Color(AppConfig.uiAccent),
                                                     fontSize = 16.sp,
                                                     fontWeight = FontWeight.Bold
                                                 )
                                             }
                                             Spacer(Modifier.width(8.dp))
                                             Text(option.label,
-                                                color = if (isDisabled) Color(AppConfig.uiSettingsTextMuted).copy(alpha = 0.4f) else Color(AppConfig.uiSettingsTextPrimary),
+                                                color = if (isDisabled) Color(AppConfig.uiTextMuted).copy(alpha = 0.4f) else Color(AppConfig.uiTextPrimary),
                                                 fontSize = 15.sp,
                                                 fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
                                             )
@@ -397,7 +397,7 @@ private fun <T : ListableItem> SwipeableItemCard(
                             .padding(4.dp)
                             .size(24.dp)
                             .clip(CircleShape)
-                            .background(Color(AppConfig.uiSettingsAccent)),
+                            .background(Color(AppConfig.uiAccent)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -450,9 +450,9 @@ private fun SnackbarSlot(name: String, onUndo: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
-        Text(stringResource(R.string.snackbar_deleted, name), color = Color(AppConfig.uiSettingsTextPrimary), fontSize = 14.sp, maxLines = 3, modifier = Modifier.weight(1f))
+        Text(stringResource(R.string.snackbar_deleted, name), color = Color(AppConfig.uiTextPrimary), fontSize = 14.sp, maxLines = 3, modifier = Modifier.weight(1f))
         Spacer(Modifier.width(8.dp))
-        TextButton(onClick = onUndo) { Text(stringResource(R.string.action_undo), color = Color(AppConfig.uiSettingsAccent), fontWeight = FontWeight.Bold, fontSize = 14.sp) }
+        TextButton(onClick = onUndo) { Text(stringResource(R.string.action_undo), color = Color(AppConfig.uiAccent), fontWeight = FontWeight.Bold, fontSize = 14.sp) }
     }
 }
 
@@ -582,7 +582,7 @@ fun <T : ListableItem> ListOverlayScaffold(
 
     Box(
         modifier = modifier.fillMaxSize().clip(shape)
-            .background(Color(AppConfig.uiSettingsBackground))
+            .background(Color(AppConfig.uiBackground))
             .windowInsetsPadding(WindowInsets.statusBars)
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -595,14 +595,14 @@ fun <T : ListableItem> ListOverlayScaffold(
                 ) {
                     IconButton(
                         onClick = { exitMultiselect() },
-                        modifier = Modifier.size(32.dp).clip(CircleShape).background(Color(AppConfig.uiSettingsSwitchTrackInactive))
+                        modifier = Modifier.size(32.dp).clip(CircleShape).background(Color(AppConfig.uiSwitchTrackInactive))
                     ) {
-                        Icon(Icons.Filled.Close, "Close multiselect", tint = Color(AppConfig.uiSettingsTextPrimary), modifier = Modifier.size(18.dp))
+                        Icon(Icons.Filled.Close, "Close multiselect", tint = Color(AppConfig.uiTextPrimary), modifier = Modifier.size(18.dp))
                     }
                     Spacer(Modifier.width(16.dp))
                     Text(
                         stringResource(R.string.multiselect_count, selectedCount),
-                        color = Color(AppConfig.uiSettingsTextPrimary),
+                        color = Color(AppConfig.uiTextPrimary),
                         fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
                         modifier = Modifier.weight(1f)
@@ -611,7 +611,7 @@ fun <T : ListableItem> ListOverlayScaffold(
                         TextButton(onClick = { if (allSelected) deselectAll() else selectAll() }) {
                             Text(
                                 if (allSelected) stringResource(R.string.multiselect_deselect_all) else stringResource(R.string.multiselect_select_all),
-                                color = Color(AppConfig.uiSettingsAccent),
+                                color = Color(AppConfig.uiAccent),
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
@@ -626,12 +626,12 @@ fun <T : ListableItem> ListOverlayScaffold(
                 ) {
                     IconButton(
                         onClick = { pendingDeletes.forEach { id -> onAction(ListAction.PermanentDelete(id)) }; pendingDeletes.clear(); onDismiss() },
-                        modifier = Modifier.size(32.dp).clip(CircleShape).background(Color(AppConfig.uiSettingsSwitchTrackInactive))
+                        modifier = Modifier.size(32.dp).clip(CircleShape).background(Color(AppConfig.uiSwitchTrackInactive))
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color(AppConfig.uiSettingsTextPrimary), modifier = Modifier.size(18.dp))
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color(AppConfig.uiTextPrimary), modifier = Modifier.size(18.dp))
                     }
                     Spacer(Modifier.width(16.dp))
-                    Text(title, color = Color(AppConfig.uiSettingsTextPrimary), fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                    Text(title, color = Color(AppConfig.uiTextPrimary), fontSize = 17.sp, fontWeight = FontWeight.Bold)
                 }
             }
 
@@ -644,7 +644,7 @@ fun <T : ListableItem> ListOverlayScaffold(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(sectionLabel, color = Color(AppConfig.uiSettingsAccent), fontSize = 17.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                    Text(sectionLabel, color = Color(AppConfig.uiAccent), fontSize = 17.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         // Header actions (e.g. import button)
                         headerActions()
@@ -701,7 +701,7 @@ fun <T : ListableItem> ListOverlayScaffold(
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(Color(AppConfig.uiSettingsBackground))
+                            .background(Color(AppConfig.uiBackground))
                             .horizontalScroll(rememberScrollState())
                             .padding(horizontal = 8.dp, vertical = 6.dp),
                         horizontalArrangement = Arrangement.SpaceEvenly,
@@ -795,7 +795,7 @@ fun <T : ListableItem> ListOverlayScaffold(
                             }
                         }
                     }
-                    HorizontalDivider(thickness = 0.5.dp, color = Color(AppConfig.uiSettingsDivider))
+                    HorizontalDivider(thickness = 0.5.dp, color = Color(AppConfig.uiDividerColor))
                 }
             }
 
@@ -804,10 +804,10 @@ fun <T : ListableItem> ListOverlayScaffold(
                     // Filter active + empty → show "No items match filters" + clear button
                     Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(stringResource(R.string.filter_no_match), color = Color(AppConfig.uiSettingsTextMuted), fontSize = 18.sp, fontWeight = FontWeight.Medium)
+                            Text(stringResource(R.string.filter_no_match), color = Color(AppConfig.uiTextMuted), fontSize = 18.sp, fontWeight = FontWeight.Medium)
                             Spacer(Modifier.height(16.dp))
                             TextButton(onClick = onReset) {
-                                Text(stringResource(R.string.filter_clear), color = Color(AppConfig.uiSettingsAccent), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                                Text(stringResource(R.string.filter_clear), color = Color(AppConfig.uiAccent), fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                             }
                         }
                     }
@@ -831,7 +831,7 @@ fun <T : ListableItem> ListOverlayScaffold(
                                     modifier = Modifier
                                         .clip(cardShape)
                                         .then(
-                                            if (isSelected) Modifier.border(1.dp, Color(AppConfig.uiSettingsAccent), cardShape)
+                                            if (isSelected) Modifier.border(1.dp, Color(AppConfig.uiAccent), cardShape)
                                             else Modifier
                                         )
                                 ) {

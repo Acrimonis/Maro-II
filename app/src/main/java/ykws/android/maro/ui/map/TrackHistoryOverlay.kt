@@ -189,7 +189,7 @@ fun TrackHistoryOverlay(
         val pinnedSummaries = trackSummaries.filter { it.pinned }.sortedByDescending { it.startTimeMs }
         val historySummaries = trackSummaries.filter { !it.pinned }.sortedByDescending { it.startTimeMs }
         val map = mutableMapOf<String, Color>()
-        val greyColor = Color(AppConfig.uiSettingsTextMuted).copy(alpha = 0.15f)
+        val greyColor = Color(AppConfig.uiTextMuted).copy(alpha = 0.15f)
         val pinnedTotal = pinnedSummaries.size
         for ((index, summary) in pinnedSummaries.withIndex()) {
             val appearance = computeTrackPolylineAppearance(
@@ -302,7 +302,7 @@ fun TrackHistoryOverlay(
                             Column {
                                 Text(
                                     "Enter a name for the merged track:",
-                                    color = Color(AppConfig.uiSettingsTextMuted),
+                                    color = Color(AppConfig.uiTextMuted),
                                     fontSize = 13.sp
                                 )
                                 Spacer(Modifier.height(8.dp))
@@ -311,15 +311,15 @@ fun TrackHistoryOverlay(
                                     onValueChange = { name = it },
                                     singleLine = true,
                                     textStyle = androidx.compose.ui.text.TextStyle(
-                                        color = Color(AppConfig.uiSettingsTextPrimary),
+                                        color = Color(AppConfig.uiTextPrimary),
                                         fontSize = 15.sp
                                     ),
                                     colors = TextFieldDefaults.colors(
                                         focusedContainerColor = Color.Transparent,
                                         unfocusedContainerColor = Color.Transparent,
-                                        focusedTextColor = Color(AppConfig.uiSettingsTextPrimary),
-                                        unfocusedTextColor = Color(AppConfig.uiSettingsTextPrimary),
-                                        cursorColor = Color(AppConfig.uiSettingsTextPrimary)
+                                        focusedTextColor = Color(AppConfig.uiTextPrimary),
+                                        unfocusedTextColor = Color(AppConfig.uiTextPrimary),
+                                        cursorColor = Color(AppConfig.uiTextPrimary)
                                     ),
                                     modifier = Modifier.fillMaxWidth()
                                 )
@@ -331,7 +331,7 @@ fun TrackHistoryOverlay(
                                     )
                                     Text(
                                         "Keep original tracks",
-                                        color = Color(AppConfig.uiSettingsTextPrimary),
+                                        color = Color(AppConfig.uiTextPrimary),
                                         fontSize = 14.sp
                                     )
                                 }
@@ -378,7 +378,7 @@ fun TrackHistoryOverlay(
             TrackCardContent(
                 summary = summary,
                 dateFormat = dateFormat,
-                accentColor = accentColorMap[summary.id] ?: Color(AppConfig.uiSettingsTextMuted).copy(alpha = 0.15f),
+                accentColor = accentColorMap[summary.id] ?: Color(AppConfig.uiTextMuted).copy(alpha = 0.15f),
                 onUpdateTrack = onUpdateTrack,
                 onShareGpx = { onAction(ListAction.ExportGpx(summary.id)) },
                 onTap = { onNavigateToTrack(summary.id) },
@@ -503,11 +503,11 @@ internal fun TrackCardContent(
             Text(
                 text = if (endTime != null) "$dateLabel  $startTime→$endTime"
                        else "$dateLabel  $startTime",
-                color = Color(AppConfig.uiSettingsTextMuted), fontSize = 11.sp, lineHeight = 12.sp
+                color = Color(AppConfig.uiTextMuted), fontSize = 11.sp, lineHeight = 12.sp
             )
             Text(
                 text = "${summary.pointCount} pts",
-                color = Color(AppConfig.uiSettingsTextMuted), fontSize = 11.sp, lineHeight = 12.sp
+                color = Color(AppConfig.uiTextMuted), fontSize = 11.sp, lineHeight = 12.sp
             )
             Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 IconButton(
@@ -550,7 +550,7 @@ internal fun TrackCardContent(
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = stringResource(R.string.cd_view_track),
-                    tint = Color(AppConfig.uiSettingsTextMuted),
+                    tint = Color(AppConfig.uiTextMuted),
                     modifier = Modifier.size(28.dp)
                 )
             }
@@ -564,15 +564,15 @@ internal fun TrackCardContent(
                 onValueChange = { nameField = it },
                 singleLine = true,
                 textStyle = androidx.compose.ui.text.TextStyle(
-                    color = Color(AppConfig.uiSettingsTextPrimary),
+                    color = Color(AppConfig.uiTextPrimary),
                     fontSize = 15.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold
                 ),
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = Color.Transparent,
                     unfocusedContainerColor = Color.Transparent,
-                    focusedTextColor = Color(AppConfig.uiSettingsTextPrimary),
-                    unfocusedTextColor = Color(AppConfig.uiSettingsTextPrimary),
-                    cursorColor = Color(AppConfig.uiSettingsTextPrimary),
+                    focusedTextColor = Color(AppConfig.uiTextPrimary),
+                    unfocusedTextColor = Color(AppConfig.uiTextPrimary),
+                    cursorColor = Color(AppConfig.uiTextPrimary),
                     focusedIndicatorColor = Color.Transparent,
                     unfocusedIndicatorColor = Color.Transparent
                 ),
@@ -589,7 +589,7 @@ internal fun TrackCardContent(
         } else {
             Text(
                 text = summary.name,
-                color = Color(AppConfig.uiSettingsTextPrimary),
+                color = Color(AppConfig.uiTextPrimary),
                 fontSize = 15.sp, fontWeight = FontWeight.SemiBold, lineHeight = 16.sp,
                 modifier = Modifier.fillMaxWidth()
                     .padding(start = 8.dp, top = 0.dp, end = 8.dp, bottom = 1.dp)
@@ -616,14 +616,14 @@ internal fun TrackCardContent(
                 singleLine = false,
                 minLines = 1,
                 textStyle = androidx.compose.ui.text.TextStyle(
-                    color = Color(AppConfig.uiSettingsTextMuted), fontSize = 13.sp, lineHeight = 14.sp
+                    color = Color(AppConfig.uiTextMuted), fontSize = 13.sp, lineHeight = 14.sp
                 ),
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = Color.Transparent,
                     unfocusedContainerColor = Color.Transparent,
-                    focusedTextColor = Color(AppConfig.uiSettingsTextMuted),
-                    unfocusedTextColor = Color(AppConfig.uiSettingsTextMuted),
-                    cursorColor = Color(AppConfig.uiSettingsTextPrimary),
+                    focusedTextColor = Color(AppConfig.uiTextMuted),
+                    unfocusedTextColor = Color(AppConfig.uiTextMuted),
+                    cursorColor = Color(AppConfig.uiTextPrimary),
                     focusedIndicatorColor = Color.Transparent,
                     unfocusedIndicatorColor = Color.Transparent
                 ),
@@ -640,8 +640,8 @@ internal fun TrackCardContent(
         } else {
             Text(
                 text = summary.comment.ifBlank { "Add a comment..." },
-                color = if (summary.comment.isBlank()) Color(AppConfig.uiSettingsTextMuted).copy(alpha = 0.4f)
-                        else Color(AppConfig.uiSettingsTextMuted),
+                color = if (summary.comment.isBlank()) Color(AppConfig.uiTextMuted).copy(alpha = 0.4f)
+                        else Color(AppConfig.uiTextMuted),
                 fontSize = 13.sp, maxLines = 3, lineHeight = 14.sp,
                 modifier = Modifier.fillMaxWidth()
                     .padding(horizontal = 8.dp, vertical = 1.dp)
@@ -658,7 +658,7 @@ internal fun TrackCardContent(
         Spacer(Modifier.height(1.dp))
         HorizontalDivider(
             modifier = Modifier.padding(horizontal = 8.dp),
-            thickness = 0.5.dp, color = Color(AppConfig.uiSettingsDivider)
+            thickness = 0.5.dp, color = Color(AppConfig.uiDividerColor)
         )
         Spacer(Modifier.height(1.dp))
 
@@ -764,12 +764,12 @@ private fun LiveTrackCard(
         ) {
             Text(
                 text = "$startDate -> ...",
-                color = Color(AppConfig.uiSettingsTextMuted), fontSize = 11.sp
+                color = Color(AppConfig.uiTextMuted), fontSize = 11.sp
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = stateLabel,
-                    color = Color(AppConfig.uiSettingsTextMuted), fontSize = 11.sp
+                    color = Color(AppConfig.uiTextMuted), fontSize = 11.sp
                 )
                 Spacer(Modifier.width(6.dp))
                 Box(
@@ -784,7 +784,7 @@ private fun LiveTrackCard(
         Spacer(Modifier.height(2.dp))
         HorizontalDivider(
             modifier = Modifier.padding(horizontal = 8.dp),
-            thickness = 0.5.dp, color = Color(AppConfig.uiSettingsDivider)
+            thickness = 0.5.dp, color = Color(AppConfig.uiDividerColor)
         )
         Spacer(Modifier.height(2.dp))
 
@@ -796,15 +796,15 @@ private fun LiveTrackCard(
                 onValueChange = { nameField = it },
                 singleLine = true,
                 textStyle = androidx.compose.ui.text.TextStyle(
-                    color = Color(AppConfig.uiSettingsTextPrimary),
+                    color = Color(AppConfig.uiTextPrimary),
                     fontSize = 15.sp, fontWeight = FontWeight.SemiBold
                 ),
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = Color.Transparent,
                     unfocusedContainerColor = Color.Transparent,
-                    focusedTextColor = Color(AppConfig.uiSettingsTextPrimary),
-                    unfocusedTextColor = Color(AppConfig.uiSettingsTextPrimary),
-                    cursorColor = Color(AppConfig.uiSettingsTextPrimary),
+                    focusedTextColor = Color(AppConfig.uiTextPrimary),
+                    unfocusedTextColor = Color(AppConfig.uiTextPrimary),
+                    cursorColor = Color(AppConfig.uiTextPrimary),
                     focusedIndicatorColor = Color.Transparent,
                     unfocusedIndicatorColor = Color.Transparent
                 ),
@@ -821,7 +821,7 @@ private fun LiveTrackCard(
         } else {
             Text(
                 text = liveState.currentTrackName ?: "Recording...",
-                color = Color(AppConfig.uiSettingsTextPrimary),
+                color = Color(AppConfig.uiTextPrimary),
                 fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.fillMaxWidth()
                     .padding(horizontal = 8.dp, vertical = 2.dp)
@@ -838,14 +838,14 @@ private fun LiveTrackCard(
                 singleLine = false,
                 minLines = 1,
                 textStyle = androidx.compose.ui.text.TextStyle(
-                    color = Color(AppConfig.uiSettingsTextMuted), fontSize = 13.sp
+                    color = Color(AppConfig.uiTextMuted), fontSize = 13.sp
                 ),
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = Color.Transparent,
                     unfocusedContainerColor = Color.Transparent,
-                    focusedTextColor = Color(AppConfig.uiSettingsTextMuted),
-                    unfocusedTextColor = Color(AppConfig.uiSettingsTextMuted),
-                    cursorColor = Color(AppConfig.uiSettingsTextPrimary),
+                    focusedTextColor = Color(AppConfig.uiTextMuted),
+                    unfocusedTextColor = Color(AppConfig.uiTextMuted),
+                    cursorColor = Color(AppConfig.uiTextPrimary),
                     focusedIndicatorColor = Color.Transparent,
                     unfocusedIndicatorColor = Color.Transparent
                 ),
@@ -863,8 +863,8 @@ private fun LiveTrackCard(
             val commentText = commentField.text
             Text(
                 text = commentText.ifBlank { "Add a comment..." },
-                color = if (commentText.isBlank()) Color(AppConfig.uiSettingsTextMuted).copy(alpha = 0.4f)
-                        else Color(AppConfig.uiSettingsTextMuted),
+                color = if (commentText.isBlank()) Color(AppConfig.uiTextMuted).copy(alpha = 0.4f)
+                        else Color(AppConfig.uiTextMuted),
                 fontSize = 13.sp, maxLines = 3,
                 modifier = Modifier.fillMaxWidth()
                     .padding(horizontal = 8.dp, vertical = 2.dp)
@@ -875,7 +875,7 @@ private fun LiveTrackCard(
         Spacer(Modifier.height(2.dp))
         HorizontalDivider(
             modifier = Modifier.padding(horizontal = 8.dp),
-            thickness = 0.5.dp, color = Color(AppConfig.uiSettingsDivider)
+            thickness = 0.5.dp, color = Color(AppConfig.uiDividerColor)
         )
         Spacer(Modifier.height(2.dp))
 
@@ -905,7 +905,7 @@ private fun StatCell(label: String, value: String) {
     ) {
         Text(
             text = "$label:",
-            color = Color(AppConfig.uiSettingsTextMuted),
+            color = Color(AppConfig.uiTextMuted),
             fontSize = 11.sp,
             lineHeight = 12.sp,
             textAlign = TextAlign.End,
@@ -915,7 +915,7 @@ private fun StatCell(label: String, value: String) {
         Spacer(Modifier.width(3.dp))
         Text(
             text = value,
-            color = Color(AppConfig.uiSettingsTextPrimary),
+            color = Color(AppConfig.uiTextPrimary),
             fontSize = 12.sp,
             lineHeight = 13.sp,
             fontWeight = FontWeight.Medium,

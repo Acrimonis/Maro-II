@@ -251,11 +251,7 @@
     <string name="battery_opt_not_now">Pas maintenant</string>
 
     <!-- Menu drawer -->
-    <string name="menu_section_position">MODE DE POSITION</string>
-    <string name="menu_section_tracks">TRACES</string>
-    <string name="menu_section_markers">REPÈRES</string>
     <string name="menu_manage_tracks">Traces</string>
-    <string name="menu_import_export">Export / Import</string>
     <string name="menu_show_zones">Afficher les zones</string>
     <string name="menu_show_tracks_direction">Afficher dir &amp; vitesse</string>
     <string name="menu_manage_markers">Repères</string>

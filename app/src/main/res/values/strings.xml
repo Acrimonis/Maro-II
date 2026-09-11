@@ -252,13 +252,9 @@
     <string name="battery_opt_not_now">Not Now</string>
 
     <!-- Menu drawer -->
-    <string name="menu_section_position">POSITION MODE</string>
-    <string name="menu_section_tracks">TRACKS</string>
-    <string name="menu_section_markers">MARKERS</string>
     <string name="menu_manage_tracks">Tracks</string>
-    <string name="menu_import_export">Export / Import</string>
-    <string name="menu_show_zones">Show Zones</string>
-    <string name="menu_show_tracks_direction">Show Dir &amp; Speed</string>
+    <string name="menu_show_zones">Show zones</string>
+    <string name="menu_show_tracks_direction">Show dir &amp; speed</string>
     <string name="menu_manage_markers">Markers</string>
     <string name="track_status_recording">● Recording</string>
     <string name="track_status_idle">● Idle</string>

@@ -55,7 +55,7 @@ class MainActivity : ComponentActivity() {
         // Dark window background: the light theme's default background shows through
         // transparent system bars, creating a grey gap. Set it to match the app's
         // dark dashboard background (#16213E) so system bar areas blend seamlessly.
-        window.setBackgroundDrawable(ColorDrawable(AppConfig.uiSettingsToastBackground))
+        window.setBackgroundDrawable(ColorDrawable(AppConfig.uiToastBackground))
 
         // Set status bar icons to light (white) on the dark background.
         WindowCompat.getInsetsController(window, window.decorView).apply {
@@ -85,7 +85,7 @@ class MainActivity : ComponentActivity() {
                 LocalConfiguration provides localizedContext.resources.configuration
             ) {
                 MaterialTheme(colorScheme = darkColorScheme(
-                    primary = Color(0xFF1565C0) // Blue — matches AppConfig.uiSettingsAccent
+                    primary = Color(0xFF1565C0) // Blue — matches AppConfig.uiAccent
                 )) {
                     Surface(
                         modifier = Modifier.fillMaxSize(),

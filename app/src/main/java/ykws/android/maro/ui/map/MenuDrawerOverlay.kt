@@ -4,41 +4,25 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Upload
-import androidx.compose.material3.IconButton
-import ykws.android.maro.ui.components.FilterControl
-import ykws.android.maro.ui.icons.FilterAlt
-import ykws.android.maro.ui.icons.Link
-import ykws.android.maro.ui.icons.LinkOff
-import ykws.android.maro.ui.icons.Refresh
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -55,12 +39,21 @@ import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.track.TrackRecorderState
 import ykws.android.maro.data.track.TrackRecorderUiState
+import ykws.android.maro.ui.components.CardArea
+import ykws.android.maro.ui.components.FilterControl
+import ykws.android.maro.ui.components.SectionDivider
+import ykws.android.maro.ui.components.SectionHeader
+import ykws.android.maro.ui.components.ToggleRow
+import ykws.android.maro.ui.icons.Link
+import ykws.android.maro.ui.icons.LinkOff
+import ykws.android.maro.ui.icons.Refresh
 
 /**
  * Menu slide panel — pure content composable.
  *
  * Animation and shadow are provided by [OverlayLayer].
- * Styled to match the Settings overlay (same design tokens).
+ * Styled to match the Settings overlay: shared [SectionHeader] / [CardArea] / [SectionDivider] /
+ * [ToggleRow] stencils with the Settings spacing tokens.
  *
  * @param isOpen           Whether the panel is visible (for BackHandler guard).
  * @param recorderState    Current recorder state from [TrackViewModel].
@@ -123,107 +116,45 @@ fun MenuDrawerOverlay(
                 modifier = Modifier
                     .size(64.dp)
                     .clip(CircleShape)
-                    .background(Color(AppConfig.uiSettingsSwitchTrackInactive))
+                    .background(Color(AppConfig.uiSwitchTrackInactive))
             ) {
                 Icon(
                     imageVector = Icons.Default.Settings,
                     contentDescription = stringResource(R.string.cd_settings),
-                    tint = Color(AppConfig.uiSettingsTextPrimary),
+                    tint = Color(AppConfig.uiTextPrimary),
                     modifier = Modifier.size(ButtonColors.iconSizeDp.dp)
                 )
             }
         }
     ) {
         // ── POSITION SOURCE section ──────────────────────
-        Text(
-            text = stringResource(R.string.menu_section_position),
-            color = Color(AppConfig.uiSettingsAccent),
-            fontSize = 17.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 1.sp
-        )
+        SectionHeader(title = stringResource(R.string.settings_section_position))
 
-        Spacer(Modifier.height(2.dp))
+        Spacer(Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color(AppConfig.uiCardBackground))
-                .padding(horizontal = 16.dp, vertical = 10.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(R.string.settings_gps_mode_label),
-                    color = Color(AppConfig.uiSettingsTextPrimary),
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Switch(
-                    checked = gpsMode,
-                    onCheckedChange = onGpsModeChange,
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = gpsToggleColor,
-                        checkedTrackColor = gpsToggleColor.copy(alpha = 0.4f),
-                        uncheckedThumbColor = Color(AppConfig.uiSettingsTextMuted),
-                        uncheckedTrackColor = Color(AppConfig.uiSettingsSwitchTrackInactive)
-                    )
-                )
-            }
+        CardArea {
+            // GPS mode — keeps its dynamic status colour.
+            ToggleRow(
+                label = stringResource(R.string.settings_gps_mode_label),
+                checked = gpsMode,
+                onCheckedChange = onGpsModeChange,
+                checkedColor = gpsToggleColor
+            )
 
             if (autoShowMasterVisible) {
-                Spacer(Modifier.height(6.dp))
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(1.dp)
-                        .background(Color(AppConfig.uiSettingsDivider))
+                SectionDivider()
+                ToggleRow(
+                    label = stringResource(R.string.settings_autoshow_master_label),
+                    checked = autoShowMasterOverride,
+                    onCheckedChange = onAutoShowMasterChange
                 )
-                Spacer(Modifier.height(6.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = stringResource(R.string.settings_autoshow_master_label),
-                        color = Color(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Switch(
-                        checked = autoShowMasterOverride,
-                        onCheckedChange = onAutoShowMasterChange,
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = Color(AppConfig.uiSettingsAccent),
-                            checkedTrackColor = Color(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                            uncheckedThumbColor = Color(AppConfig.uiSettingsTextMuted),
-                            uncheckedTrackColor = Color(AppConfig.uiSettingsSwitchTrackInactive)
-                        )
-                    )
-                }
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(AppConfig.uiSpacingSectionGap.dp))
 
-        // ── Section header with filter icons ──────────────
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = stringResource(R.string.menu_section_tracks),
-                color = Color(AppConfig.uiSettingsAccent),
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
-            )
-            Spacer(Modifier.weight(1f))
+        // ── TRACKS section + filter controls ─────────────
+        SectionHeader(title = stringResource(R.string.settings_section_tracks)) {
             if (trackFilterAxes.isNotEmpty()) {
                 IconButton(
                     onClick = onToggleTrackLink,
@@ -257,35 +188,30 @@ fun MenuDrawerOverlay(
             }
         }
 
-        Spacer(Modifier.height(2.dp))
+        Spacer(Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color(AppConfig.uiCardBackground))
-                .padding(horizontal = 16.dp, vertical = 10.dp)
-        ) {
+        CardArea {
             // ── Track List row ─────────────────────────────
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 56.dp)
-                    .clickable(onClick = onViewTrackList),
+                    .heightIn(min = 48.dp)
+                    .clickable(onClick = onViewTrackList)
+                    .padding(vertical = AppConfig.uiPaddingToggleVertical.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
                     text = stringResource(R.string.menu_manage_tracks),
-                    color = Color(AppConfig.uiSettingsTextPrimary),
-                    fontSize = 16.sp,
+                    color = Color(AppConfig.uiTextPrimary),
+                    fontSize = AppConfig.uiFontToggleSize.sp,
                     fontWeight = FontWeight.Medium
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = "$trackCount",
-                        color = Color(AppConfig.uiSettingsTextMuted),
-                        fontSize = 14.sp
+                        color = Color(AppConfig.uiTextMuted),
+                        fontSize = 14.sp // 14sp, not uiFontValueSize (16sp) — count stays compact
                     )
                     Spacer(Modifier.width(8.dp))
                     IconButton(
@@ -296,7 +222,7 @@ fun MenuDrawerOverlay(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                             contentDescription = stringResource(R.string.cd_open_first_track),
-                            tint = Color(AppConfig.uiSettingsTextMuted).copy(alpha = if (onOpenFirstTrack != null) 1f else 0.35f),
+                            tint = Color(AppConfig.uiTextMuted).copy(alpha = if (onOpenFirstTrack != null) 1f else 0.35f),
                             modifier = Modifier.size(28.dp)
                         )
                     }
@@ -304,43 +230,17 @@ fun MenuDrawerOverlay(
             }
 
             // ── Track direction toggle ─────────────────────
-            Spacer(Modifier.height(2.dp))
-            HorizontalDivider(thickness = 0.5.dp, color = Color(AppConfig.uiSettingsDivider))
-            Spacer(Modifier.height(2.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 48.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = stringResource(R.string.menu_show_tracks_direction),
-                    color = Color(AppConfig.uiSettingsTextPrimary),
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Switch(
-                    checked = tracksDirectionVisible,
-                    onCheckedChange = { onToggleTracksDirection() },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color(AppConfig.uiSettingsAccent),
-                        checkedTrackColor = Color(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                        uncheckedThumbColor = Color(AppConfig.uiSettingsTextMuted),
-                        uncheckedTrackColor = Color(AppConfig.uiSettingsSwitchTrackInactive)
-                    )
-                )
-            }
+            SectionDivider()
+            ToggleRow(
+                label = stringResource(R.string.menu_show_tracks_direction),
+                checked = tracksDirectionVisible,
+                onCheckedChange = { onToggleTracksDirection() }
+            )
 
-            // ── Import / Export row ────────────────────────
-            Spacer(Modifier.height(2.dp))
-            HorizontalDivider(thickness = 0.5.dp, color = Color(AppConfig.uiSettingsDivider))
-            Spacer(Modifier.height(2.dp))
-
+            // ── Import / Export pair ───────────────────────
+            SectionDivider()
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 56.dp),
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
@@ -356,8 +256,8 @@ fun MenuDrawerOverlay(
                 ) {
                     Text(
                         text = stringResource(R.string.action_export),
-                        color = Color(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 16.sp,
+                        color = Color(AppConfig.uiTextPrimary),
+                        fontSize = AppConfig.uiFontToggleSize.sp,
                         fontWeight = FontWeight.Medium
                     )
                     Icon(
@@ -379,8 +279,8 @@ fun MenuDrawerOverlay(
                 ) {
                     Text(
                         text = stringResource(R.string.action_import),
-                        color = Color(AppConfig.uiSettingsTextPrimary),
-                        fontSize = 16.sp,
+                        color = Color(AppConfig.uiTextPrimary),
+                        fontSize = AppConfig.uiFontToggleSize.sp,
                         fontWeight = FontWeight.Medium
                     )
                     Icon(
@@ -394,9 +294,7 @@ fun MenuDrawerOverlay(
 
             // ── Live stats (only when recording) ──────────
             if (recorderState.state == TrackRecorderState.ON) {
-                Spacer(Modifier.height(2.dp))
-                HorizontalDivider(thickness = 0.5.dp, color = Color(AppConfig.uiSettingsDivider))
-                Spacer(Modifier.height(2.dp))
+                SectionDivider()
                 Column(
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
@@ -411,21 +309,10 @@ fun MenuDrawerOverlay(
             }
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(AppConfig.uiSpacingSectionGap.dp))
 
-        // ── MARKERS section with filter icons ────────────
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = stringResource(R.string.menu_section_markers),
-                color = Color(AppConfig.uiSettingsAccent),
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.sp
-            )
-            Spacer(Modifier.weight(1f))
+        // ── MARKERS section + filter controls ────────────
+        SectionHeader(title = stringResource(R.string.settings_section_markers)) {
             if (markerFilterAxes.isNotEmpty()) {
                 IconButton(
                     onClick = onToggleMarkerLink,
@@ -459,34 +346,30 @@ fun MenuDrawerOverlay(
             }
         }
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color(AppConfig.uiCardBackground))
-                .padding(horizontal = 16.dp, vertical = 10.dp)
-        ) {
+        CardArea {
+            // ── Marker List row ────────────────────────────
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 56.dp)
-                    .clickable(onClick = onManageMarkers),
+                    .heightIn(min = 48.dp)
+                    .clickable(onClick = onManageMarkers)
+                    .padding(vertical = AppConfig.uiPaddingToggleVertical.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
                     text = stringResource(R.string.menu_manage_markers),
-                    color = Color(AppConfig.uiSettingsTextPrimary),
-                    fontSize = 16.sp,
+                    color = Color(AppConfig.uiTextPrimary),
+                    fontSize = AppConfig.uiFontToggleSize.sp,
                     fontWeight = FontWeight.Medium
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         text = "$markerCount",
-                        color = Color(AppConfig.uiSettingsTextMuted),
-                        fontSize = 14.sp
+                        color = Color(AppConfig.uiTextMuted),
+                        fontSize = 14.sp // 14sp, not uiFontValueSize (16sp) — count stays compact
                     )
                     Spacer(Modifier.width(8.dp))
                     IconButton(
@@ -497,41 +380,20 @@ fun MenuDrawerOverlay(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                             contentDescription = stringResource(R.string.cd_open_first_marker),
-                            tint = Color(AppConfig.uiSettingsTextMuted).copy(alpha = if (onOpenFirstMarker != null) 1f else 0.35f),
+                            tint = Color(AppConfig.uiTextMuted).copy(alpha = if (onOpenFirstMarker != null) 1f else 0.35f),
                             modifier = Modifier.size(28.dp)
                         )
                     }
                 }
             }
 
-            Spacer(Modifier.height(2.dp))
-            HorizontalDivider(thickness = 0.5.dp, color = Color(AppConfig.uiSettingsDivider))
-            Spacer(Modifier.height(2.dp))
+            SectionDivider()
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 56.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = stringResource(R.string.menu_show_zones),
-                    color = Color(AppConfig.uiSettingsTextPrimary),
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Switch(
-                    checked = markerZonesVisible,
-                    onCheckedChange = { onToggleMarkerZones() },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = Color(AppConfig.uiSettingsAccent),
-                        checkedTrackColor = Color(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                        uncheckedThumbColor = Color(AppConfig.uiSettingsTextMuted),
-                        uncheckedTrackColor = Color(AppConfig.uiSettingsSwitchTrackInactive)
-                    )
-                )
-            }
+            ToggleRow(
+                label = stringResource(R.string.menu_show_zones),
+                checked = markerZonesVisible,
+                onCheckedChange = { onToggleMarkerZones() }
+            )
         }
     }
 }
@@ -545,13 +407,13 @@ private fun StatRow(label: String, value: String) {
     ) {
         Text(
             text = label,
-            color = Color(AppConfig.uiSettingsTextMuted),
-            fontSize = 13.sp
+            color = Color(AppConfig.uiTextMuted),
+            fontSize = AppConfig.uiFontDescSize.sp
         )
         Text(
             text = value,
-            color = Color(AppConfig.uiSettingsTextPrimary),
-            fontSize = 14.sp,
+            color = Color(AppConfig.uiTextPrimary),
+            fontSize = 14.sp, // 14sp — not uiFontValueSize (16sp): the live-stats column stays compact
             fontWeight = FontWeight.Medium
         )
     }

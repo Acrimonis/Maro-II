@@ -53,10 +53,10 @@ import ykws.android.maro.ui.map.MarkersViewModel
 @Composable
 internal fun TypeSelectStep(viewModel: MarkersViewModel) {
     val form by viewModel.createForm.collectAsState()
-    val accent = ComposeColor(AppConfig.uiSettingsAccent)
-    val divider = ComposeColor(AppConfig.uiSettingsDivider)
-    val primaryText = ComposeColor(AppConfig.uiSettingsTextPrimary)
-    val mutedText = ComposeColor(AppConfig.uiSettingsTextMuted)
+    val accent = ComposeColor(AppConfig.uiAccent)
+    val divider = ComposeColor(AppConfig.uiDividerColor)
+    val primaryText = ComposeColor(AppConfig.uiTextPrimary)
+    val mutedText = ComposeColor(AppConfig.uiTextMuted)
     val cardBg = ComposeColor(AppConfig.uiCardBackground)
 
     Column(

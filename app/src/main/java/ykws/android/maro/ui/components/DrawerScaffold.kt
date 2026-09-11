@@ -58,9 +58,9 @@ import androidx.compose.ui.graphics.Shape
  * Canonical drawer header used by [DrawerScaffold] and available standalone.
  *
  * Tokens per [docs/ui-drawer-guidelines.md §6]:
- * - Back button: 32dp IconButton, CircleShape, uiSettingsSwitchTrackInactive bg
- * - Back icon: ArrowBack 18dp, uiSettingsTextPrimary tint
- * - Title: 17sp Bold, uiSettingsTextPrimary, maxLines=1, ellipsis overflow
+ * - Back button: 32dp IconButton, CircleShape, uiSwitchTrackInactive bg
+ * - Back icon: ArrowBack 18dp, uiTextPrimary tint
+ * - Title: 17sp Bold, uiTextPrimary, maxLines=1, ellipsis overflow
  * - Back→title spacer: 16dp
  */
 @Composable
@@ -86,21 +86,21 @@ fun DrawerHeader(
             modifier = Modifier
                 .size(32.dp)
                 .clip(CircleShape)
-                .background(ComposeColor(AppConfig.uiSettingsSwitchTrackInactive))
+                .background(ComposeColor(AppConfig.uiSwitchTrackInactive))
                 .clickable(onClick = onClose),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = stringResource(R.string.cd_close),
-                tint = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                tint = ComposeColor(AppConfig.uiTextPrimary),
                 modifier = Modifier.size(18.dp)
             )
         }
         Spacer(Modifier.width(16.dp))
         Text(
             text = title,
-            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+            color = ComposeColor(AppConfig.uiTextPrimary),
             fontSize = 17.sp,
             fontWeight = FontWeight.Bold,
             maxLines = 1,
@@ -121,7 +121,7 @@ fun DrawerHeader(
  *
  * Structure:
  * ```
- * Box(fillMaxSize, clip(shape), background(uiSettingsBackground), modifier)
+ * Box(fillMaxSize, clip(shape), background(uiBackground), modifier)
  *   └─ Column(fillMaxSize)
  *        ├─ DrawerHeader(title, onClose, headerActions, hPad, vPad)  ← FIXED
  *        └─ Box(Modifier.weight(1f).fillMaxWidth())                   ← scroll host
@@ -165,7 +165,7 @@ fun DrawerScaffold(
 ) {
     val bgModifier = Modifier
         .fillMaxSize()
-        .background(ComposeColor(AppConfig.uiSettingsBackground), shape)
+        .background(ComposeColor(AppConfig.uiBackground), shape)
 
     Box(
         modifier = modifier
@@ -198,7 +198,7 @@ fun DrawerScaffold(
                         .fillMaxWidth()
                         .heightIn(min = wrapContentMinHeight)
                         .align(Alignment.BottomCenter)
-                        .background(ComposeColor(AppConfig.uiSettingsBackground), shape)
+                        .background(ComposeColor(AppConfig.uiBackground), shape)
                 ) {
                     Column(
                         modifier = Modifier
