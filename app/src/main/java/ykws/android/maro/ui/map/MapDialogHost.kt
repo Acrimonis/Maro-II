@@ -10,7 +10,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import ykws.android.maro.R
-import ykws.android.maro.ui.components.ConfirmSheet
+import ykws.android.maro.ui.components.ConfirmAction
+import ykws.android.maro.ui.components.ConfirmActionRole
+import ykws.android.maro.ui.components.ConfirmDialog
 
 /**
  * Windowed dialogs/sheets host (extracted from MapScreen). Owns ONLY popup windows
@@ -56,44 +58,54 @@ internal fun MapDialogHost(
     closeBatteryOptDialog: () -> Unit
 ) {
     // ── Recording-aware exit sheet (shown on double-back while recording) ──
-    if (showExitDialog) {
-        RecordingExitSheet(
-            onSave = onExitSheetSave,
-            onContinue = onExitSheetContinue,
-            onDiscard = onExitSheetDiscard,
-            onDismiss = onExitSheetDismiss
-        )
-    }
+    val exitSaveLabel = stringResource(R.string.recording_exit_save)
+    val exitContinueLabel = stringResource(R.string.recording_exit_continue)
+    val exitDiscardLabel = stringResource(R.string.recording_exit_discard)
+    val recordingExitActions: (() -> Unit, () -> Unit, () -> Unit) -> List<ConfirmAction> =
+        { save, cont, discard ->
+            listOf(
+                ConfirmAction(exitSaveLabel, ConfirmActionRole.PRIMARY, save),
+                ConfirmAction(exitContinueLabel, ConfirmActionRole.SECONDARY, cont),
+                ConfirmAction(exitDiscardLabel, ConfirmActionRole.DANGER, discard)
+            )
+        }
+
+    // ── Recording-aware exit dialog (shown on double-back while recording) ──
+    ConfirmDialog(
+        title = stringResource(R.string.recording_exit_title),
+        visible = showExitDialog,
+        onDismiss = onExitSheetDismiss,
+        message = stringResource(R.string.recording_exit_message),
+        actions = recordingExitActions(onExitSheetSave, onExitSheetContinue, onExitSheetDiscard)
+    )
 
     // ── Stop-recording confirmation (🐾 icon toggle / menu drawer stop) ──
-    // Same 3-way sheet as exit-while-recording; "Continue" just dismisses.
-    if (showStopRecordingSheet) {
-        RecordingExitSheet(
-            onSave = onStopSheetSave,
-            onContinue = onStopSheetContinue,
-            onDiscard = onStopSheetDiscard,
-            onDismiss = onStopSheetDismiss
-        )
-    }
+    // Same 3-way dialog as exit-while-recording; "Continue" just dismisses.
+    ConfirmDialog(
+        title = stringResource(R.string.recording_exit_title),
+        visible = showStopRecordingSheet,
+        onDismiss = onStopSheetDismiss,
+        message = stringResource(R.string.recording_exit_message),
+        actions = recordingExitActions(onStopSheetSave, onStopSheetContinue, onStopSheetDiscard)
+    )
 
     // ── Process-death recovery dialog ─────────────────────────────
+    // Dismissing (scrim tap / back) saves the checkpoint — that side effect is preserved
+    // verbatim, and no Cancel is offered because dismissal is not an abort.
     recoveryTrack?.let { track ->
-        AlertDialog(
-            onDismissRequest = { trackViewModel.saveOrphanedCheckpoint(track) },
-            title = { Text(stringResource(R.string.recovery_title)) },
-            text = { Text(
-                stringResource(R.string.recovery_found, track.name)
-            ) },
-            confirmButton = {
-                TextButton(
-                    onClick = { trackViewModel.resumeOrphanedCheckpoint(track) }
-                ) { Text(stringResource(R.string.recovery_continue)) }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { trackViewModel.saveOrphanedCheckpoint(track) }
-                ) { Text(stringResource(R.string.recovery_save)) }
-            }
+        ConfirmDialog(
+            title = stringResource(R.string.recovery_title),
+            visible = true,
+            onDismiss = { trackViewModel.saveOrphanedCheckpoint(track) },
+            message = stringResource(R.string.recovery_found, track.name),
+            actions = listOf(
+                ConfirmAction(stringResource(R.string.recovery_continue), ConfirmActionRole.PRIMARY) {
+                    trackViewModel.resumeOrphanedCheckpoint(track)
+                },
+                ConfirmAction(stringResource(R.string.recovery_save), ConfirmActionRole.SECONDARY) {
+                    trackViewModel.saveOrphanedCheckpoint(track)
+                }
+            )
         )
     }
 
@@ -147,18 +159,20 @@ internal fun MapDialogHost(
         )
     }
 
-    // ── GPS source-switch confirmation while recording (bottom sheet, dashboard space) ──
+    // ── GPS source-switch confirmation while recording ──
+    // Dismissal clears the pending toggle (a clean abort), so no Cancel action is added.
     pendingGpsModeToggle?.let { enable ->
-        ConfirmSheet(
+        ConfirmDialog(
             title = stringResource(R.string.gps_switch_confirm_title),
+            visible = true,
+            onDismiss = { clearPendingGpsModeToggle() },
             message = stringResource(R.string.gps_switch_confirm_message),
-            confirmLabel = stringResource(R.string.gps_switch_confirm_action),
-            isDestructive = false,
-            onConfirm = {
-                clearPendingGpsModeToggle()
-                applyGpsMode(enable)
-            },
-            onDismiss = { clearPendingGpsModeToggle() }
+            actions = listOf(
+                ConfirmAction(stringResource(R.string.gps_switch_confirm_action), ConfirmActionRole.PRIMARY) {
+                    clearPendingGpsModeToggle()
+                    applyGpsMode(enable)
+                }
+            )
         )
     }
 

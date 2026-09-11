@@ -1,6 +1,7 @@
 package ykws.android.maro.data.model
 
 import androidx.compose.ui.graphics.vector.ImageVector
+import ykws.android.maro.ui.components.ConfirmRequest
 
 /**
  * Sub-action displayed as a [DropdownMenu] item when a [MultiActionSpec] has
@@ -29,8 +30,12 @@ data class MultiActionSubSpec(
  *                       button dimming. Consumer captures items in closure to
  *                       inspect per-item state (e.g. pin status).
  * @param isDestructive  When true, button tint switches to uiDashboardZoneDanger.
- * @param confirmMessage When non-null, a [ConfirmDialog] is shown before firing
+ * @param confirmMessage When non-null, a confirmation dialog is shown before firing
  *                       [action]. Only fires on confirm.
+ * @param confirmRequest When non-null, a [ConfirmRequest] factory invoked with the selected IDs
+ *                       and the ladder dialog's dismiss/confirm hooks. The dialog it describes is
+ *                       rendered on the overlay ladder (full-screen scrim over the drawers and
+ *                       map) instead of inside the list drawer.
  * @param subActions     When non-empty, a [DropdownMenu] is shown instead of
  *                       firing [action] directly. Each item fires its own lambda.
  */
@@ -42,6 +47,6 @@ data class MultiActionSpec(
     val enabled: (Set<String>) -> Boolean = { it.isNotEmpty() },
     val isDestructive: Boolean = false,
     val confirmMessage: String? = null,
-    val confirmContent: (@androidx.compose.runtime.Composable (Set<String>, () -> Unit, () -> Unit) -> Unit)? = null,
+    val confirmRequest: ((Set<String>, () -> Unit, () -> Unit) -> ConfirmRequest)? = null,
     val subActions: List<MultiActionSubSpec> = emptyList()
 )

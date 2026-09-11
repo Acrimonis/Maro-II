@@ -580,6 +580,15 @@ fun <T : ListableItem> ListOverlayScaffold(
     val shape = RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp)
     val hasActiveFilter = filterState.axes.isNotEmpty()
 
+    // ── Confirmation dialogs (hoisted to the overlay ladder) ──────────────
+    // A full-surface overlay cannot live inside this clipped list drawer, so multi-action
+    // confirmations are raised through `LocalConfirmDialogHost` and painted by the screen above the
+    // drawers; the drawer stays open behind them.
+    val confirmDialogHost = LocalConfirmDialogHost.current
+    val batchDeleteTitle = stringResource(R.string.confirm_batch_delete_title)
+    val deleteActionLabel = stringResource(R.string.action_delete)
+    val cancelActionLabel = stringResource(R.string.action_cancel)
+
     Box(
         modifier = modifier.fillMaxSize().clip(shape)
             .background(Color(AppConfig.uiBackground))
@@ -713,19 +722,57 @@ fun <T : ListableItem> ListOverlayScaffold(
                                 spec.isDestructive -> Color(AppConfig.uiDashboardZoneDanger)
                                 else -> ButtonColors.icon
                             }
-                            var showConfirmDialog by remember { mutableStateOf(false) }
                             var showDropdown by remember { mutableStateOf(false) }
 
                             Box {
                                 TextButton(
                                     onClick = {
                                         if (isActionEnabled) {
+                                            val ids = selectedIds.toSet()
+                                            val host = confirmDialogHost
                                             when {
                                                 spec.subActions.isNotEmpty() -> showDropdown = true
-                                                spec.confirmContent != null -> showConfirmDialog = true
-                                                spec.confirmMessage != null -> showConfirmDialog = true
+                                                spec.confirmRequest != null -> {
+                                                    val factory = spec.confirmRequest
+                                                    if (host != null) {
+                                                        host.show(
+                                                            factory.invoke(
+                                                                ids,
+                                                                { host.dismiss() },
+                                                                { host.dismiss(); exitMultiselect() }
+                                                            )
+                                                        )
+                                                    }
+                                                }
+                                                spec.confirmMessage != null -> {
+                                                    val message = spec.confirmMessage
+                                                    if (host != null) {
+                                                        host.show(
+                                                            ConfirmRequest(
+                                                                title = batchDeleteTitle,
+                                                                message = message,
+                                                                actions = listOf(
+                                                                    ConfirmAction(
+                                                                        deleteActionLabel,
+                                                                        ConfirmActionRole.DANGER
+                                                                    ) {
+                                                                        spec.action(ids)
+                                                                        host.dismiss()
+                                                                        exitMultiselect()
+                                                                    },
+                                                                    ConfirmAction(
+                                                                        cancelActionLabel,
+                                                                        ConfirmActionRole.SECONDARY
+                                                                    ) {
+                                                                        host.dismiss()
+                                                                    }
+                                                                )
+                                                            )
+                                                        )
+                                                    }
+                                                }
                                                 else -> {
-                                                    spec.action(selectedIds.toSet())
+                                                    spec.action(ids)
                                                     exitMultiselect()
                                                 }
                                             }
@@ -766,33 +813,8 @@ fun <T : ListableItem> ListOverlayScaffold(
                                         }
                                     }
                                 }
-
-                            // Custom confirmation dialog (mutually exclusive with confirmMessage)
-                            if (spec.confirmContent != null && showConfirmDialog) {
-                                spec.confirmContent!!(
-                                    selectedIds.toSet(),
-                                    { showConfirmDialog = false },
-                                    {
-                                        showConfirmDialog = false
-                                        exitMultiselect()
-                                    }
-                                )
                             }
 
-                            // Simple confirmation (ConfirmSheet unified pattern)
-                            if (spec.confirmMessage != null && showConfirmDialog) {
-                                ConfirmSheet(
-                                    title = stringResource(R.string.confirm_batch_delete_title),
-                                    message = spec.confirmMessage,
-                                    onConfirm = {
-                                            spec.action(selectedIds.toSet())
-                                            showConfirmDialog = false
-                                            exitMultiselect()
-                                        },
-                                        onDismiss = { showConfirmDialog = false }
-                                    )
-                                }
-                            }
                         }
                     }
                     HorizontalDivider(thickness = 0.5.dp, color = Color(AppConfig.uiDividerColor))

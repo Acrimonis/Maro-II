@@ -57,9 +57,12 @@ internal fun MapTrackOverlayHistoryDiff(
         // independent of the list filter when unlinked. Reveal: force-include the highlighted track
         // even when it does not match the map filter (viewed from a list).
         val midnightMs = ykws.android.maro.data.model.todayMidnightMs()
-        val mapFiltered = allTrackSummaries.filter { it.matchesFilter(appSettings.trackMapFilter, midnightMs) }
+        // The live recording line is drawn by the dedicated live effects and is never filterable, so it
+        // is excluded here: a resumed recording must not also render as a stale stored-track overlay.
+        val storedSummaries = allTrackSummaries.filter { !it.isLive }
+        val mapFiltered = storedSummaries.filter { it.matchesFilter(appSettings.trackMapFilter, midnightMs) }
         val filteredSummaries = if (highlightedTrackId != null && mapFiltered.none { it.id == highlightedTrackId }) {
-            mapFiltered + allTrackSummaries.filter { it.id == highlightedTrackId }
+            mapFiltered + storedSummaries.filter { it.id == highlightedTrackId }
         } else mapFiltered
 
         // Determine desired track ID set (history = non-pinned only)
@@ -317,33 +320,33 @@ internal fun MapTrackOverlayLiveEffects(
     appSettings: AppSettings
 ) {
     // ── Active recording trace: incremental polyline via newPoint stream ────
-    // Polyline lifecycle (create/remove) driven by recorder state snapshot.
-    LaunchedEffect(mapView, appSettings.trackingColorActive) {
+    // Polyline lifecycle (create/remove) is keyed on the recorder state itself. Reading the state
+    // from inside a snapshotFlow would observe the frozen parameter value (this seam receives a plain
+    // TrackRecorderUiState), so the OFF → ON transition would never be seen and the live line would
+    // never be created.
+    LaunchedEffect(mapView, trackRecorderState.state, appSettings.trackingColorActive) {
         val mv = mapView ?: return@LaunchedEffect
-        androidx.compose.runtime.snapshotFlow { trackRecorderState.state }
-            .collect { recState ->
-                if (recState == ykws.android.maro.data.track.TrackRecorderState.ON) {
-                    val existing = mv.overlays.firstOrNull {
-                        (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording"
-                    }
-                    if (existing == null) {
-                        val polyline = org.osmdroid.views.overlay.Polyline().apply {
-                            title = "track_recording"
-                            outlinePaint.color = appSettings.trackingColorActive
-                            outlinePaint.strokeWidth = 10f
-                            isVisible = true
-                        }
-                        mv.overlays.add(polyline)
-                        OverlayZOrder.reorder(mv)
-                        mv.invalidate()
-                    }
-                } else {
-                    val removed = mv.overlays.removeAll {
-                        (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording"
-                    }
-                    if (removed) mv.invalidate()
-                }
+        if (trackRecorderState.state == ykws.android.maro.data.track.TrackRecorderState.ON) {
+            val existing = mv.overlays.firstOrNull {
+                (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording"
             }
+            if (existing == null) {
+                val polyline = org.osmdroid.views.overlay.Polyline().apply {
+                    title = "track_recording"
+                    outlinePaint.color = appSettings.trackingColorActive
+                    outlinePaint.strokeWidth = 10f
+                    isVisible = true
+                }
+                mv.overlays.add(polyline)
+                OverlayZOrder.reorder(mv)
+                mv.invalidate()
+            }
+        } else {
+            val removed = mv.overlays.removeAll {
+                (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording"
+            }
+            if (removed) mv.invalidate()
+        }
     }
 
     // ── Incremental point appending: observe newPoint stream for live polyline ─┐
@@ -382,10 +385,21 @@ internal fun MapTrackOverlayLiveEffects(
                 OverlayZOrder.reorder(mv)
                 mv.invalidate()
             } else {
-                val polyline = mv.overlays.filter {
+                val existing = mv.overlays.filter {
                     (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording" &&
                     (it as org.osmdroid.views.overlay.Polyline).outlinePaint.pathEffect == null
-                }.lastOrNull() as? org.osmdroid.views.overlay.Polyline ?: return@collect
+                }.lastOrNull() as? org.osmdroid.views.overlay.Polyline
+                // Self-healing: create the solid line on demand instead of dropping the point when the
+                // creation effect has not run yet (state/overlay ordering is not guaranteed).
+                val polyline = existing ?: org.osmdroid.views.overlay.Polyline().apply {
+                    title = "track_recording"
+                    outlinePaint.color = appSettings.trackingColorActive
+                    outlinePaint.strokeWidth = 10f
+                    isVisible = true
+                }.also {
+                    mv.overlays.add(it)
+                    OverlayZOrder.reorder(mv)
+                }
                 polyline.addPoint(org.osmdroid.util.GeoPoint(point.lat, point.lon))
                 mv.invalidate()
             }
@@ -408,12 +422,23 @@ internal fun MapTrackOverlayLiveEffects(
                 // Remove previous trailing polyline
                 mv.overlays.removeAll { (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_trailing" }
                 if (displayPos == null) return@collect
-                // Find the last accepted point from the recording polyline
+                // Find the last accepted point from the recording polyline. Self-healing: create the
+                // solid line on demand so a not-yet-created (or just-removed) line cannot suppress the
+                // trailing segment.
                 val recordingLine = mv.overlays.filter {
                     (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording" &&
                     (it as org.osmdroid.views.overlay.Polyline).outlinePaint.pathEffect == null
                 }.lastOrNull() as? org.osmdroid.views.overlay.Polyline
-                val lastPt = recordingLine?.actualPoints?.lastOrNull() ?: return@collect
+                    ?: org.osmdroid.views.overlay.Polyline().apply {
+                        title = "track_recording"
+                        outlinePaint.color = appSettings.trackingColorActive
+                        outlinePaint.strokeWidth = 10f
+                        isVisible = true
+                    }.also {
+                        mv.overlays.add(it)
+                        OverlayZOrder.reorder(mv)
+                    }
+                val lastPt = recordingLine.actualPoints?.lastOrNull() ?: return@collect
                 // Draw trailing segment: last accepted point → display position
                 val trailing = org.osmdroid.views.overlay.Polyline().apply {
                     title = "track_trailing"

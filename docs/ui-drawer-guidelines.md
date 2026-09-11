@@ -3,7 +3,8 @@
 
 > **Purpose:** Canonical reference for rendering any drawer/panel surface in Maro II.
 > **Created:** 2026-06-24 — normalisation pass (I1–I6).
-> **Updated:** 2026-09-06 — consolidation (canonical homes, pointers, Decision Log removed) + header vertical padding normalized to 6dp.
+> **Updated:** 2026-09-11 — `ConfirmDialog` owns its own `ui.scrim.alpha` layer and is painted by the ladder `ConfirmRequestHost` **above every drawer and the map** (flush-bottom panel, rounded top corners, open-bottom accent border, 450 ms panel slide); the ladder scrim serves drawers/settings/wizard only and **yields while any dialog is visible**, so the two dim layers never stack — both scrims are hard on/off toggles (no fade); the shared dialog-dismiss registry and the dialog-first scrim branch are deleted; §3 surfaces table + scrim section updated, `ModalBottomSheet`/`AlertDialog` confirmations retired.
+> **Previous:** 2026-09-06 — consolidation (canonical homes, pointers, Decision Log removed) + header vertical padding normalized to 6dp.
 
 ---
 
@@ -26,10 +27,13 @@ Layer 1 (transient, self-contained):
 ├── MarkerDrawer
 ├── TrackHistory
 ├── MarkerManagement
-└── Settings
+├── Settings
+└── ConfirmDialog (own panel + own scrim layer; composited above every drawer and the map)
 ```
 
-Layer 1 is a single composable call: [`OverlayLayer`](../app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt). It owns the unified scrim and all 7 transient surfaces. Each surface is wrapped in a [`DrawerSlot`](../app/src/main/java/ykws/android/maro/ui/map/DrawerSlot.kt) that provides entrance/exit animation and edge shadow.
+Layer 1 is a single composable call: [`OverlayLayer`](../app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt). It owns the ladder scrim and the drawer/settings/wizard surfaces; the `ConfirmDialog` is painted separately by the ladder host described below. Each surface is wrapped in a [`DrawerSlot`](../app/src/main/java/ykws/android/maro/ui/map/DrawerSlot.kt) that provides entrance/exit animation and edge shadow.
+
+**Dialog layer:** [`ConfirmDialog`](../app/src/main/java/ykws/android/maro/ui/components/ConfirmDialog.kt) is a modal confirmation panel that draws its **own** `ui.scrim.alpha` layer (`DrawerSlot`, `FADE_ONLY`) directly beneath its own panel (`DrawerSlot`, `FROM_BOTTOM`); both animate together over 450 ms and a tap on the scrim dismisses. A drawer-hosted surface raises it as a `ConfirmRequest` and the ladder-hosted `ConfirmRequestHost` ([`MapScreen.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1978)) paints it — a sibling composed after `OverlayLayer` — so the dialog composites **above every drawer and above the map**. There is no shared dialog-dismiss registry: the dialog owns its own scrim and its own dismiss lambda (see §3).
 
 **Key rule:** Layer 0 components must never be conditional. Dashboard, controls, and status icons are always present. Only Layer 1 surfaces appear/disappear.
 
@@ -89,7 +93,7 @@ Replaces the invisible `Modifier.shadow()` (black-on-dark has near-zero contrast
 
 | # | Surface | File | Visibility | Slide | Shadow | Alignment |
 |---|---------|------|-----------|-------|--------|-----------|
-| 1 | Scrim | — (inline in OverlayLayer) | any drawer open (except Wizard position steps) | `FADE_ONLY` | none | `fillMaxSize` |
+| 1 | Scrim | — (inline in OverlayLayer) | any drawer/settings/wizard open **and no dialog visible** | hard toggle (no animation) | none | `fillMaxSize` |
 | 2 | Wizard (landscape) | `WizardDrawer.kt` | `showWizard && step != null` | `FROM_LEFT` | `RIGHT` | `CenterStart`, `landscapeDashboardWidth` |
 | 2 | Wizard (portrait) | `WizardDrawer.kt` | `showWizard && step != null` | `FROM_BOTTOM` | `TOP` | `BottomCenter`, full width, `portraitDashboardHeight`, keyboard offset |
 | 3 | Menu | `MenuDrawerOverlay.kt` | `showTrackDrawer` | `FROM_RIGHT` | `LEFT` | `TopEnd`, 75% width |
@@ -98,6 +102,15 @@ Replaces the invisible `Modifier.shadow()` (black-on-dark has near-zero contrast
 | 5 | TrackHistory | `TrackHistoryOverlay.kt` | `showTrackHistory` | `FROM_RIGHT` | `LEFT` | `fillMaxSize` |
 | 6 | MarkerManagement | `MarkerManagementOverlay.kt` | `showMarkerManagement` | `FROM_RIGHT` | `LEFT` | `fillMaxSize` |
 | 7 | Settings | `SettingsOverlay` (in `MapScreenSettingsOverlay.kt`) | `showSettings` | `FROM_RIGHT` | `LEFT` | `fillMaxSize` |
+| 8 | ConfirmDialog scrim | `ConfirmDialog.kt` | dialog visible — **owned by the dialog**, painted by the ladder `ConfirmRequestHost` beneath its own panel | `FADE_ONLY` | none | `fillMaxSize` |
+| 8 | ConfirmDialog panel | `ConfirmDialog.kt` | dialog visible — **hosted by `ConfirmRequestHost` above every drawer and the map** | `FROM_BOTTOM` | none | `BottomCenter`, width = `min(maxWidth, maxHeight)` (portrait width, both orientations), flush with the bottom edge (rounded top corners only, accent border open at the bottom), nav-bar inset applied inside the panel, 450 ms slide+fade |
+
+### Scrim Token
+
+The scrim colour is a token — `ui.scrim.alpha` (default `0.50`) in
+[`ui.properties`](../app/src/main/assets/ui.properties), exposed as
+`AppConfig.uiScrimAlpha`. Never inline `Black.copy(alpha = …)`; both the drawer scrim (§ Scrim
+Formula) and the dialog scrim read the same token.
 
 ### Portrait Drawer Height Floor
 
@@ -125,20 +138,32 @@ branch so the top of the column is never left uncovered by a shorter content pan
 ### Scrim Formula
 
 ```kotlin
-val showScrim = showTrackDrawer
+val showScrim = (showSettings
+    || showTrackDrawer
     || showTrackHistory
     || showMarkerManagement
-    || (showWizard && wizardStep !is WizardStep.Position && wizardStep !is WizardStep.PositionP2)
-    || (drawerState is MarkerDrawerState.Viewing || drawerState is MarkerDrawerState.MatchResult)
+    || (showWizard && imeHeightDp > 0.dp))
+    && !dialogScrimActive
 ```
 
-Wizard `Position` / `PositionP2` steps suppress the scrim so the map stays interactive during point placement.
+The wizard suppresses the scrim while the keyboard is closed so the map stays interactive during point
+placement.
+
+The ladder scrim serves **drawers/settings/wizard only** and is a **hard on/off toggle** (no fade). It
+**yields while any `ConfirmDialog` is visible** (`dialogScrimActive`), so the two dim layers never
+stack — the dialog's own scrim then owns the screen. Both read the single `ui.scrim.alpha` token: the
+ladder scrim sits *below* the drawers, while the dialog scrim is composited *above* everything.
 
 ### Scrim Behavior Rule
 
-🔴 **All drawers must close when the scrim is tapped.** The scrim click handler calls the drawer's dismiss callback.
+🔴 **All drawers must close when the scrim is tapped.** The scrim click handler calls the drawer's dismiss callback. The scrim renders with no fade — it is either present or absent.
 
-**Exception:** Wizard `Position` / `PositionP2` steps — these suppress the scrim entirely so the map remains draggable during point placement.
+`scrimDismiss` is a plain ladder over the drawer surfaces: settings → menu → track history → marker
+management → wizard blur. It has **no dialog branch** — a `ConfirmDialog` owns its own scrim and its
+own dismiss lambda, so a tap above a dialog is handled by the dialog, never by the ladder scrim
+underneath it.
+
+**Exception:** the wizard suppresses the scrim entirely while the keyboard is closed, so the map remains draggable during point placement.
 
 ---
 
