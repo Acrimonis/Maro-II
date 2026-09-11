@@ -17,12 +17,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -303,11 +300,11 @@ fun RegulatedZoneInfoText(
 }
 
 /**
- * Category icon visibility toggles for the regulated zone warning strip.
- * Each icon type can be individually hidden.
+ * Category icon visibility toggles for the regulated zone warning strip — a GROUP of
+ * [ToggleRow]s, one per category. Each icon type can be individually hidden.
  */
 @Composable
-fun RegulatedZoneCategoryToggles(
+internal fun CategoryToggleGroup(
     settings: AppSettings,
     onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit
 ) {
@@ -317,15 +314,14 @@ fun RegulatedZoneCategoryToggles(
     Column(
         modifier = Modifier.fillMaxWidth()
     ) {
-        categoryToggleItems.forEachIndexed { index, item ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 2.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+        categoryToggleItems.forEach { item ->
+            ToggleRow(
+                label = item.label,
+                checked = item.isVisible(settings),
+                onCheckedChange = { visible ->
+                    onUpdateSettings { item.setter(it, visible) }
+                },
+                leadingIcon = {
                     Box(
                         modifier = Modifier.size(28.dp),
                         contentAlignment = Alignment.Center
@@ -356,20 +352,8 @@ fun RegulatedZoneCategoryToggles(
                             }
                         }
                     }
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = item.label, color = ComposeColor(AppConfig.uiSettingsTextPrimary), fontSize = 14.sp)
                 }
-                Switch(
-                    checked = item.isVisible(settings),
-                    onCheckedChange = { visible ->
-                        onUpdateSettings { item.setter(it, visible) }
-                    },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f)
-                    )
-                )
-            }
+            )
         }
     }
 }
