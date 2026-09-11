@@ -15,6 +15,14 @@ Verification: `apk-build.bat` SUCCESS (1m 05s), no new warnings. Ask review PASS
 
 - **Spacing pass (same day)** — all four tabs now share one section boundary (`ui.spacing.section.gap`, 24 → 14dp) and one title→card gap (`ui.spacing.header.bottom`, 8 → 6dp); Layers' five 12dp / raw `12.dp` gaps were the outliers. §2.11 documents the tab strip. Validated on device.
 
+## In progress — row family normalization (R1 + R2 done)
+
+Branch `feature/settings-menu-clean`. Plan: [`260911_FEAT_PLN_Ui_Settings_row-naming-normalization.md`](260911_FEAT_PLN_Ui_Settings_row-naming-normalization.md).
+
+- **R1 (done)** — `ToggleRowContent`→`ToggleRow`, `SliderRowContent`→`SliderRow`, `SettingsLanguageRow`→`SegmentedRow`, `ColorSwatchRow`→`ColorRow`, `ColorSwatchPairRow`→`ColorPairRow`, definitions and all call sites; no old symbol remains. `SettingsFrequencyRow` deliberately untouched (R4 deletes it).
+- **R2 (done)** — new `RangeSliderRow` (label/description optional, mandatory right-aligned value line, two-thumb slider, no surface of its own) now backs all **8** inline `RangeSlider` sites; the value line is tokenised (`uiFontRangeSize`, was a hardcoded `14.sp` twice) and descriptions normalised to `uiFontDescSize` (13sp, was 12sp three times). Deviation: the four sites that already sit under a `SubSectionHeader` pass no label, rather than having their heading replaced.
+- Builds after each step: SUCCESS, no new warnings. **R3–R8 pending.**
+
 ## Open — phase-1 follow-ups
 
 Logged in [`FEAT_DSC_Ui_Settings.md`](FEAT_DSC_Ui_Settings.md) under `### Tab finalization follow-ups`: **A** description optional on the toggle row (Auto-show zones rows are label-only), **B** row-padding convention (`ToggleRowContent` self-pads, `SliderRowContent` does not), **C** align §2.2 with §2.1/§2.3. **D** is resolved — custom tab cells inherit no M3 text style, so the `titleSmall` 0.1sp tracking no longer applies.

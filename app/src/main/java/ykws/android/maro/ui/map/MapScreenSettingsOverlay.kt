@@ -407,42 +407,24 @@ private fun LayersSettings(
                             Spacer(Modifier.height(AppConfig.uiDividerGap.dp))
 
                             // Opacity
-                            Text(
-                                text = stringResource(R.string.settings_transparency_label),
-                                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                                fontSize = AppConfig.uiFontToggleSize.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                text = stringResource(R.string.settings_transparency_desc),
-                                color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                                fontSize = AppConfig.uiFontCommentSize.sp
-                            )
-                            Text(
-                                text = stringResource(R.string.settings_transparency_value_fmt, settings.trackingTransparencyNewest, settings.trackingTransparencyOldest),
-                                color = ComposeColor(AppConfig.uiSettingsValueText),
-                                fontSize = AppConfig.uiFontRangeSize.sp,
-                                fontWeight = FontWeight.Bold,
-                                textAlign = TextAlign.End,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            RangeSlider(
+                            RangeSliderRow(
+                                label = stringResource(R.string.settings_transparency_label),
+                                description = stringResource(R.string.settings_transparency_desc),
+                                valueLabel = stringResource(
+                                    R.string.settings_transparency_value_fmt,
+                                    settings.trackingTransparencyNewest, settings.trackingTransparencyOldest
+                                ),
                                 value = settings.trackingTransparencyNewest.toFloat()..settings.trackingTransparencyOldest.toFloat(),
-                                onValueChange = { range: ClosedFloatingPointRange<Float> ->
+                                valueRange = 0f..100f,
+                                steps = 19,
+                                onValueChange = { range ->
                                     onUpdateSettings {
                                         it.copy(
                                             trackingTransparencyNewest = range.start.roundToInt(),
                                             trackingTransparencyOldest = range.endInclusive.roundToInt()
                                         )
                                     }
-                                },
-                                valueRange = 0f..100f,
-                                steps = 19,
-                                colors = SliderDefaults.colors(
-                                    thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                                    activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
-                                    inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                                )
+                                }
                             )
 
                             Spacer(Modifier.height(AppConfig.uiDividerGap.dp))
@@ -455,46 +437,26 @@ private fun LayersSettings(
                             Spacer(Modifier.height(AppConfig.uiDividerGap.dp))
 
                             // Pinned tracks opacity
-                            Text(
-                                text = stringResource(R.string.settings_pinned_transparency_label),
-                                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                                fontSize = AppConfig.uiFontToggleSize.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                text = stringResource(R.string.settings_pinned_transparency_desc),
-                                color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                                fontSize = AppConfig.uiFontCommentSize.sp
-                            )
-                            Text(
-                                text = stringResource(R.string.settings_transparency_value_fmt,
+                            RangeSliderRow(
+                                label = stringResource(R.string.settings_pinned_transparency_label),
+                                description = stringResource(R.string.settings_pinned_transparency_desc),
+                                valueLabel = stringResource(
+                                    R.string.settings_transparency_value_fmt,
                                     settings.trackingTransparencyPinnedNewest,
                                     settings.trackingTransparencyPinnedOldest
                                 ),
-                                color = ComposeColor(AppConfig.uiSettingsValueText),
-                                fontSize = AppConfig.uiFontRangeSize.sp,
-                                fontWeight = FontWeight.Bold,
-                                textAlign = TextAlign.End,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            RangeSlider(
                                 value = settings.trackingTransparencyPinnedNewest.toFloat()
                                     ..settings.trackingTransparencyPinnedOldest.toFloat(),
-                                onValueChange = { range: ClosedFloatingPointRange<Float> ->
+                                valueRange = 0f..100f,
+                                steps = 19,
+                                onValueChange = { range ->
                                     onUpdateSettings {
                                         it.copy(
                                             trackingTransparencyPinnedNewest = range.start.roundToInt(),
                                             trackingTransparencyPinnedOldest = range.endInclusive.roundToInt()
                                         )
                                     }
-                                },
-                                valueRange = 0f..100f,
-                                steps = 19,
-                                colors = SliderDefaults.colors(
-                                    thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                                    activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
-                                    inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                                )
+                                }
                             )
 
                             Spacer(Modifier.height(8.dp))
@@ -511,20 +473,20 @@ private fun LayersSettings(
                                 color = ComposeColor(AppConfig.uiSettingsTextMuted),
                                 fontSize = 12.sp
                             )
-                            ColorSwatchRow(
+                            ColorRow(
                                 label = "Active track",
                                 color = settings.trackingColorActive,
                                 onColorSelected = { c -> onUpdateSettings { it.copy(trackingColorActive = c) } },
                                 showPickLabel = false
                             )
-                            ColorSwatchPairRow(
+                            ColorPairRow(
                                 label = "Past tracks",
                                 fromColor = settings.trackingColorPastFrom,
                                 toColor = settings.trackingColorPastTo,
                                 onFromColorSelected = { c -> onUpdateSettings { it.copy(trackingColorPastFrom = c) } },
                                 onToColorSelected = { c -> onUpdateSettings { it.copy(trackingColorPastTo = c) } }
                             )
-                            ColorSwatchPairRow(
+                            ColorPairRow(
                                 label = "Pinned tracks",
                                 fromColor = settings.trackingColorPinnedFrom,
                                 toColor = settings.trackingColorPinnedTo,
@@ -589,66 +551,42 @@ private fun LayersSettings(
                             title = stringResource(R.string.settings_tracks_direction_gap_range_label),
                             description = stringResource(R.string.settings_tracks_direction_gap_range_desc)
                         )
-                        Text(
-                            text = stringResource(R.string.settings_tracks_direction_gap_range_fmt,
+                        RangeSliderRow(
+                            valueLabel = stringResource(R.string.settings_tracks_direction_gap_range_fmt,
                                 settings.trackDirectionMinSpacingDp, settings.trackDirectionMaxSpacingDp),
-                            color = ComposeColor(AppConfig.uiSettingsValueText),
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.End,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        RangeSlider(
                             value = logSliderFromValue(settings.trackDirectionMinSpacingDp.toFloat(), DIRECTION_GAP_MIN_DP, DIRECTION_GAP_MAX_DP)
                                 ..logSliderFromValue(settings.trackDirectionMaxSpacingDp.toFloat(), DIRECTION_GAP_MIN_DP, DIRECTION_GAP_MAX_DP),
-                            onValueChange = { range: ClosedFloatingPointRange<Float> ->
+                            valueRange = 0f..1f,
+                            steps = 23,
+                            onValueChange = { range ->
                                 onUpdateSettings {
                                     it.copy(
                                         trackDirectionMinSpacingDp = logSliderToValue(range.start, DIRECTION_GAP_MIN_DP, DIRECTION_GAP_MAX_DP).roundToInt(),
                                         trackDirectionMaxSpacingDp = logSliderToValue(range.endInclusive, DIRECTION_GAP_MIN_DP, DIRECTION_GAP_MAX_DP).roundToInt()
                                     )
                                 }
-                            },
-                            valueRange = 0f..1f,
-                            steps = 23,
-                            colors = SliderDefaults.colors(
-                                thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                                activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
-                                inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                            )
+                            }
                         )
                         SectionDivider()
                         SubSectionHeader(
                             title = stringResource(R.string.settings_tracks_direction_speed_range_label),
                             description = stringResource(R.string.settings_tracks_direction_speed_range_desc)
                         )
-                        Text(
-                            text = stringResource(R.string.settings_tracks_direction_speed_range_fmt,
+                        RangeSliderRow(
+                            valueLabel = stringResource(R.string.settings_tracks_direction_speed_range_fmt,
                                 settings.trackDirectionSpeedFloorKn, settings.trackDirectionSpeedCeilingKn),
-                            color = ComposeColor(AppConfig.uiSettingsValueText),
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.End,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        RangeSlider(
                             value = logSliderFromValue(settings.trackDirectionSpeedFloorKn, DIRECTION_SPEED_MIN_KN, DIRECTION_SPEED_MAX_KN)
                                 ..logSliderFromValue(settings.trackDirectionSpeedCeilingKn, DIRECTION_SPEED_MIN_KN, DIRECTION_SPEED_MAX_KN),
-                            onValueChange = { range: ClosedFloatingPointRange<Float> ->
+                            valueRange = 0f..1f,
+                            steps = 23,
+                            onValueChange = { range ->
                                 onUpdateSettings {
                                     it.copy(
                                         trackDirectionSpeedFloorKn = (logSliderToValue(range.start, DIRECTION_SPEED_MIN_KN, DIRECTION_SPEED_MAX_KN) * 10f).roundToInt() / 10f,
                                         trackDirectionSpeedCeilingKn = (logSliderToValue(range.endInclusive, DIRECTION_SPEED_MIN_KN, DIRECTION_SPEED_MAX_KN) * 10f).roundToInt() / 10f
                                     )
                                 }
-                            },
-                            valueRange = 0f..1f,
-                            steps = 23,
-                            colors = SliderDefaults.colors(
-                                thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                                activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
-                                inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                            )
+                            }
                         )
                     }
                 }
@@ -679,7 +617,7 @@ private fun LayersSettings(
                     Spacer(modifier = Modifier.height(8.dp))
                     NestedCard {
                         // Point/icon rendering zoom (50-150 %, 100 = current size)
-                        SliderRowContent(
+                        SliderRow(
                             label = stringResource(R.string.settings_marker_zoom_label),
                             description = stringResource(R.string.settings_marker_zoom_desc),
                             valueLabel = "%d%%".format(settings.markerPointIconZoom),
@@ -693,7 +631,7 @@ private fun LayersSettings(
                         SectionDivider()
 
                         // Halo size
-                        SliderRowContent(
+                        SliderRow(
                             label = stringResource(R.string.settings_marker_halo_size_label),
                             description = stringResource(R.string.settings_marker_halo_size_desc),
                             valueLabel = "%d%%".format(settings.markerHaloSize),
@@ -710,95 +648,59 @@ private fun LayersSettings(
                         SubSectionHeader(title = stringResource(R.string.settings_marker_halo_transparency_label))
                         Spacer(modifier = Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
 
-                        // Pinned opacity (double slider: fill .. border)
-                        Text(
-                            text = stringResource(R.string.settings_marker_halo_pinned_label),
-                            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                            fontSize = AppConfig.uiFontToggleSize.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            text = stringResource(R.string.settings_marker_halo_value_fmt,
-                                settings.markerHaloPinnedBorderTransparencyPct,
-                                settings.markerHaloPinnedFillTransparencyPct),
-                            color = ComposeColor(AppConfig.uiSettingsValueText),
-                            fontSize = AppConfig.uiFontRangeSize.sp,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.End,
-                            modifier = Modifier.fillMaxWidth()
-                        )
                         // Transparency: 0 = opaque, 100 = invisible. The strong border has low
                         // transparency (left thumb); the faint fill has high transparency (right thumb).
-                        RangeSlider(
+                        RangeSliderRow(
+                            label = stringResource(R.string.settings_marker_halo_pinned_label),
+                            valueLabel = stringResource(R.string.settings_marker_halo_value_fmt,
+                                settings.markerHaloPinnedBorderTransparencyPct,
+                                settings.markerHaloPinnedFillTransparencyPct),
                             value = settings.markerHaloPinnedBorderTransparencyPct.toFloat()
                                 ..settings.markerHaloPinnedFillTransparencyPct.toFloat(),
-                            onValueChange = { range: ClosedFloatingPointRange<Float> ->
+                            valueRange = 0f..100f,
+                            steps = 19,
+                            onValueChange = { range ->
                                 onUpdateSettings {
                                     it.copy(
                                         markerHaloPinnedBorderTransparencyPct = range.start.roundToInt(),
                                         markerHaloPinnedFillTransparencyPct = range.endInclusive.roundToInt()
                                     )
                                 }
-                            },
-                            valueRange = 0f..100f,
-                            steps = 19,
-                            colors = SliderDefaults.colors(
-                                thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                                activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
-                                inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                            )
+                            }
                         )
 
-                        // Unpinned opacity (double slider: fill .. border)
-                        Text(
-                            text = stringResource(R.string.settings_marker_halo_unpinned_label),
-                            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                            fontSize = AppConfig.uiFontToggleSize.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            text = stringResource(R.string.settings_marker_halo_value_fmt,
-                                settings.markerHaloUnpinnedBorderTransparencyPct,
-                                settings.markerHaloUnpinnedFillTransparencyPct),
-                            color = ComposeColor(AppConfig.uiSettingsValueText),
-                            fontSize = AppConfig.uiFontRangeSize.sp,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.End,
-                            modifier = Modifier.fillMaxWidth()
-                        )
                         // Transparency: 0 = opaque, 100 = invisible. The strong border has low
                         // transparency (left thumb); the faint fill has high transparency (right thumb).
-                        RangeSlider(
+                        RangeSliderRow(
+                            label = stringResource(R.string.settings_marker_halo_unpinned_label),
+                            valueLabel = stringResource(R.string.settings_marker_halo_value_fmt,
+                                settings.markerHaloUnpinnedBorderTransparencyPct,
+                                settings.markerHaloUnpinnedFillTransparencyPct),
                             value = settings.markerHaloUnpinnedBorderTransparencyPct.toFloat()
                                 ..settings.markerHaloUnpinnedFillTransparencyPct.toFloat(),
-                            onValueChange = { range: ClosedFloatingPointRange<Float> ->
+                            valueRange = 0f..100f,
+                            steps = 19,
+                            onValueChange = { range ->
                                 onUpdateSettings {
                                     it.copy(
                                         markerHaloUnpinnedBorderTransparencyPct = range.start.roundToInt(),
                                         markerHaloUnpinnedFillTransparencyPct = range.endInclusive.roundToInt()
                                     )
                                 }
-                            },
-                            valueRange = 0f..100f,
-                            steps = 19,
-                            colors = SliderDefaults.colors(
-                                thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                                activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
-                                inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                            )
+                            }
                         )
                         SectionDivider()
 
                         // Colors section
                         SubSectionHeader(title = stringResource(R.string.settings_marker_halo_colors_label))
                         Spacer(modifier = Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
-                        ColorSwatchRow(
+                        ColorRow(
                             label = stringResource(R.string.settings_marker_halo_pinned_color_label),
                             color = settings.markerHaloPinnedColor,
                             onColorSelected = { c -> onUpdateSettings { it.copy(markerHaloPinnedColor = c) } },
                             showPickLabel = false
                         )
-                        ColorSwatchRow(
+                        ColorRow(
                             label = stringResource(R.string.settings_marker_halo_unpinned_color_label),
                             color = settings.markerHaloUnpinnedColor,
                             onColorSelected = { c -> onUpdateSettings { it.copy(markerHaloUnpinnedColor = c) } },
@@ -816,7 +718,7 @@ private fun LayersSettings(
                 ) {
                     Spacer(modifier = Modifier.height(8.dp))
                     NestedCard {
-                        SliderRowContent(
+                        SliderRow(
                             label = stringResource(R.string.settings_marker_idle_threshold_label),
                             description = stringResource(R.string.settings_marker_idle_threshold_desc),
                             valueLabel = stringResource(R.string.settings_value_seconds, settings.boatMarkerIdleThresholdSec),
@@ -828,7 +730,7 @@ private fun LayersSettings(
                             }
                         )
                         SectionDivider()
-                        SliderRowContent(
+                        SliderRow(
                             label = stringResource(R.string.settings_marker_min_duration_label),
                             description = stringResource(R.string.settings_marker_min_duration_desc),
                             valueLabel = stringResource(R.string.settings_value_seconds, settings.boatMarkerAutoMarkerMinDurationSec),
@@ -840,7 +742,7 @@ private fun LayersSettings(
                             }
                         )
                         SectionDivider()
-                        SliderRowContent(
+                        SliderRow(
                             label = stringResource(R.string.settings_marker_dedup_radius_label),
                             description = stringResource(R.string.settings_marker_dedup_radius_desc),
                             valueLabel = stringResource(R.string.settings_value_meters, settings.boatMarkerAutoMarkerDedupRadiusM.roundToInt()),
@@ -960,23 +862,16 @@ private fun LayersSettings(
                         var transparencyDrag by remember {
                             mutableStateOf(settings.zone300BoundaryTransparencyPct.toFloat()..settings.zone300FillTransparencyPct.toFloat())
                         }
-                        Text(
-                            text = stringResource(
+                        RangeSliderRow(
+                            valueLabel = stringResource(
                                 R.string.settings_zone300_opacity_value_fmt,
                                 (transparencyDrag.start / 5f).roundToInt() * 5,
                                 (transparencyDrag.endInclusive / 5f).roundToInt() * 5
                             ),
-                            color = ComposeColor(AppConfig.uiSettingsValueText),
-                            fontSize = AppConfig.uiFontRangeSize.sp,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.End,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        RangeSlider(
                             value = transparencyDrag,
-                            onValueChange = { range -> transparencyDrag = range },
                             valueRange = 0f..100f,
                             steps = 19,
+                            onValueChange = { range -> transparencyDrag = range },
                             onValueChangeFinished = {
                                 onUpdateSettings {
                                     it.copy(
@@ -984,12 +879,7 @@ private fun LayersSettings(
                                         zone300FillTransparencyPct = (transparencyDrag.endInclusive / 5f).roundToInt() * 5
                                     )
                                 }
-                            },
-                            colors = SliderDefaults.colors(
-                                thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                                activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
-                                inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                            )
+                            }
                         )
                         SectionDivider()
                         // Single colour control → SingleColorSubSection: the SubSectionHeader title
@@ -1012,7 +902,7 @@ private fun LayersSettings(
         SectionHeader(title = stringResource(R.string.settings_coastline_label))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         Card {
-            ToggleRowContent(
+            ToggleRow(
                 label = stringResource(R.string.settings_coastline_label),
                 description = stringResource(R.string.settings_coastline_desc),
                 checked = settings.coastlineVisible,
@@ -1045,35 +935,21 @@ private fun LayersSettings(
                             // Two-depth double slider: left thumb = crash depth (fully opaque
                             // from surface down to here), right thumb = start-warning depth
                             // (warning begins here, transparent beyond). Linear ramp between.
-                            Text(
-                                text = stringResource(R.string.settings_low_depth_range_label),
-                                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                                fontSize = AppConfig.uiFontToggleSize.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                text = stringResource(R.string.settings_low_depth_range_desc),
-                                color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                                fontSize = AppConfig.uiFontCommentSize.sp
-                            )
                             // Local drag state so the ~7M-cell warning bitmap is not regenerated on
                             // every drag tick — commit to settings only on drag end. Values stay
                             // snapped to 0.5 m and crash is kept strictly below start (min 0.5 m gap).
                             var lowDepthDrag by remember {
                                 mutableStateOf(settings.lowDepthCrashDepthM..settings.lowDepthStartWarningM)
                             }
-                            Text(
-                                text = stringResource(R.string.settings_low_depth_range_value_fmt,
+                            RangeSliderRow(
+                                label = stringResource(R.string.settings_low_depth_range_label),
+                                description = stringResource(R.string.settings_low_depth_range_desc),
+                                valueLabel = stringResource(R.string.settings_low_depth_range_value_fmt,
                                     lowDepthDrag.start, lowDepthDrag.endInclusive),
-                                color = ComposeColor(AppConfig.uiSettingsValueText),
-                                fontSize = AppConfig.uiFontRangeSize.sp,
-                                fontWeight = FontWeight.Bold,
-                                textAlign = TextAlign.End,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-                            RangeSlider(
                                 value = lowDepthDrag,
-                                onValueChange = { range: ClosedFloatingPointRange<Float> ->
+                                valueRange = 0f..5f,
+                                steps = 9,
+                                onValueChange = { range ->
                                     var crash = (range.start * 2f).roundToInt() / 2f
                                     var start = (range.endInclusive * 2f).roundToInt() / 2f
                                     // Enforce crashDepthM < startWarningM with a minimum 0.5 m gap.
@@ -1088,8 +964,6 @@ private fun LayersSettings(
                                     }
                                     lowDepthDrag = crash..start
                                 },
-                                valueRange = 0f..5f,
-                                steps = 9,
                                 onValueChangeFinished = {
                                     onUpdateSettings {
                                         it.copy(
@@ -1097,12 +971,7 @@ private fun LayersSettings(
                                             lowDepthStartWarningM = lowDepthDrag.endInclusive
                                         )
                                     }
-                                },
-                                colors = SliderDefaults.colors(
-                                    thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                                    activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
-                                    inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                                )
+                                }
                             )
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -1144,7 +1013,7 @@ private fun LayersSettings(
                 ) {
                     Spacer(Modifier.height(8.dp))
                     NestedCard {
-                        SliderRowContent(
+                        SliderRow(
                             label = stringResource(R.string.settings_emodnet_cutoff_label),
                             description = stringResource(R.string.settings_emodnet_cutoff_desc),
                             valueLabel = stringResource(R.string.settings_value_depth, settings.emodnetShallowCutoffM),
@@ -1178,21 +1047,21 @@ private fun NavigationSettings(
         SectionHeader(title = stringResource(R.string.settings_section_orientation))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         Card {
-            ToggleRowContent(
+            ToggleRow(
                 label = stringResource(R.string.settings_heading_line_label),
                 description = stringResource(R.string.settings_heading_line_desc),
                 checked = settings.headingLineVisible,
                 onCheckedChange = { visible -> onUpdateSettings { it.copy(headingLineVisible = visible) } }
             )
             SectionDivider()
-            ToggleRowContent(
+            ToggleRow(
                 label = stringResource(R.string.settings_cap_arrow_label),
                 description = stringResource(R.string.settings_cap_arrow_desc),
                 checked = settings.capArrowVisible,
                 onCheckedChange = { visible -> onUpdateSettings { it.copy(capArrowVisible = visible) } }
             )
             SectionDivider()
-            ToggleRowContent(
+            ToggleRow(
                 label = stringResource(R.string.settings_demo_heading_label),
                 description = stringResource(R.string.settings_demo_heading_desc),
                 checked = settings.demoHeadingUp,
@@ -1206,101 +1075,23 @@ private fun NavigationSettings(
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
         Card {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingToggleVertical.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_redisplay_enable_gps),
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = AppConfig.uiFontToggleSize.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Switch(
-                    checked = settings.approachAutoShowGps,
-                    onCheckedChange = { on -> onUpdateSettings { it.copy(approachAutoShowGps = on) } },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                    )
-                )
-            }
-
-            Spacer(Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingToggleVertical.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_redisplay_enable_demo),
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = AppConfig.uiFontToggleSize.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Switch(
-                    checked = settings.approachAutoShowDemo,
-                    onCheckedChange = { on -> onUpdateSettings { it.copy(approachAutoShowDemo = on) } },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                    )
-                )
-            }
-
-            Spacer(Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)
-                    .height(AppConfig.uiDividerHeight.dp)
-                    .background(ComposeColor(AppConfig.uiSettingsDivider))
+            ToggleRow(
+                label = stringResource(R.string.settings_redisplay_enable_gps),
+                checked = settings.approachAutoShowGps,
+                onCheckedChange = { on -> onUpdateSettings { it.copy(approachAutoShowGps = on) } }
             )
             Spacer(Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingToggleVertical.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_redisplay_zone300),
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = AppConfig.uiFontToggleSize.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Switch(
-                    checked = settings.zone300AutoShow,
-                    onCheckedChange = { on -> onUpdateSettings { it.copy(zone300AutoShow = on) } },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                    )
-                )
-            }
+            ToggleRow(
+                label = stringResource(R.string.settings_redisplay_enable_demo),
+                checked = settings.approachAutoShowDemo,
+                onCheckedChange = { on -> onUpdateSettings { it.copy(approachAutoShowDemo = on) } }
+            )
+            SectionDivider()
+            ToggleRow(
+                label = stringResource(R.string.settings_redisplay_zone300),
+                checked = settings.zone300AutoShow,
+                onCheckedChange = { on -> onUpdateSettings { it.copy(zone300AutoShow = on) } }
+            )
 
             Spacer(Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
 
@@ -1380,7 +1171,7 @@ private fun NavigationSettings(
                 ) {
                     Spacer(modifier = Modifier.height(8.dp))
                     NestedCard {
-                        SliderRowContent(
+                        SliderRow(
                             label = stringResource(R.string.settings_redisplay_dist_label),
                             description = stringResource(R.string.settings_redisplay_dist_desc),
                             valueLabel = stringResource(R.string.settings_value_meters, settings.zoneAutoRevealDistanceM.roundToInt()),
@@ -1390,7 +1181,7 @@ private fun NavigationSettings(
                             onValueChange = { v -> onUpdateSettings { it.copy(zoneAutoRevealDistanceM = (v / 25f).roundToInt() * 25f) } }
                         )
                         SectionDivider()
-                        SliderRowContent(
+                        SliderRow(
                             label = stringResource(R.string.settings_redisplay_time_label),
                             description = stringResource(R.string.settings_redisplay_time_desc),
                             valueLabel = stringResource(R.string.settings_value_seconds, settings.zoneAutoRevealTimeS),
@@ -1484,7 +1275,7 @@ private fun NavigationSettings(
 
         // Boat-from-bottom slider
         Column(modifier = Modifier.padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)) {
-            SliderRowContent(
+            SliderRow(
                 label = stringResource(R.string.settings_map_offset_boat_label),
                 description = stringResource(R.string.settings_map_offset_boat_desc),
                 valueLabel = "${settings.mapOffsetBoatFromBottomPct}%",
@@ -1574,7 +1365,7 @@ private fun PositionSettings(
 
                         SectionDivider()
 
-                        SliderRowContent(
+                        SliderRow(
                             label = stringResource(R.string.settings_recenter_label),
                             description = stringResource(R.string.settings_recenter_desc),
                             valueLabel = stringResource(R.string.settings_value_seconds, settings.recenterDelaySeconds),
@@ -1639,7 +1430,7 @@ private fun PositionSettings(
                     ) {
                         Spacer(modifier = Modifier.height(8.dp))
                         NestedCard {
-                            SliderRowContent(
+                            SliderRow(
                                 label = stringResource(R.string.settings_window_label),
                                 description = stringResource(R.string.settings_window_desc),
                                 valueLabel = stringResource(R.string.settings_value_seconds, settings.stopDetectionTimeSec),
@@ -1649,7 +1440,7 @@ private fun PositionSettings(
                                 onValueChange = { v -> onUpdateSettings { it.copy(stopDetectionTimeSec = (v / 5f).roundToInt() * 5) } }
                             )
                             SectionDivider()
-                            SliderRowContent(
+                            SliderRow(
                                 label = stringResource(R.string.settings_adaptive_dist_label),
                                 description = stringResource(R.string.settings_adaptive_dist_desc),
                                 valueLabel = stringResource(R.string.settings_value_meters, settings.stopDetectionDistanceM),
@@ -1721,7 +1512,7 @@ private fun SystemSettings(
         SectionHeader(title = stringResource(R.string.settings_section_language))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
-        SettingsLanguageRow(
+        SegmentedRow(
             languageCode = settings.languageCode,
             onSelect = { code -> onUpdateSettings { it.copy(languageCode = code) } }
         )
@@ -1811,7 +1602,7 @@ private fun SystemSettings(
 
             // FPS
             Column(modifier = Modifier.padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)) {
-                SliderRowContent(
+                SliderRow(
                     label = stringResource(R.string.settings_fps_label),
                     description = stringResource(R.string.settings_fps_desc),
                     valueLabel = stringResource(R.string.settings_value_fps, settings.mapRefreshFps),
@@ -2033,7 +1824,7 @@ private fun SectionHeader(title: String) {
  * (English default, French on a fr device); the other two force the app language.
  */
 @Composable
-private fun SettingsLanguageRow(
+private fun SegmentedRow(
     languageCode: String,
     onSelect: (String) -> Unit
 ) {
@@ -2073,11 +1864,11 @@ private fun SettingsLanguageRow(
     }
 }
 
-/** Label + description + switch row WITHOUT its own box — placed directly on a [Card]. */
+/** Label + optional description + switch row WITHOUT its own box — placed directly on a [Card]. */
 @Composable
-private fun ToggleRowContent(
+private fun ToggleRow(
     label: String,
-    description: String,
+    description: String? = null,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit
 ) {
@@ -2095,11 +1886,13 @@ private fun ToggleRowContent(
                 fontSize = AppConfig.uiFontToggleSize.sp,
                 fontWeight = FontWeight.Medium
             )
-            Text(
-                text = description,
-                color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                fontSize = AppConfig.uiFontDescSize.sp
-            )
+            if (description != null) {
+                Text(
+                    text = description,
+                    color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                    fontSize = AppConfig.uiFontDescSize.sp
+                )
+            }
         }
         Spacer(modifier = Modifier.width(AppConfig.uiSpacingLabelControl.dp))
         Switch(
@@ -2117,7 +1910,7 @@ private fun ToggleRowContent(
 
 /** A label + value + slider WITHOUT its own box — placed directly on a [Card] or inside a [NestedCard]. */
 @Composable
-private fun SliderRowContent(
+private fun SliderRow(
     label: String,
     description: String,
     valueLabel: String,
@@ -2167,6 +1960,61 @@ private fun SliderRowContent(
     )
 }
 
+/**
+ * Label (+ optional description) + right-aligned value + two-thumb slider, WITHOUT its own box —
+ * placed directly on a [Card] or inside a [NestedCard] ([`ui-component-guidelines` §2.8](../../../../../../docs/ui-component-guidelines.md)).
+ * Pass `label = null` where a [SubSectionHeader] already supplies the heading.
+ */
+@Composable
+private fun RangeSliderRow(
+    valueLabel: String,
+    value: ClosedFloatingPointRange<Float>,
+    valueRange: ClosedFloatingPointRange<Float>,
+    steps: Int,
+    onValueChange: (ClosedFloatingPointRange<Float>) -> Unit,
+    onValueChangeFinished: () -> Unit = {},
+    label: String? = null,
+    description: String? = null
+) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        if (label != null) {
+            Text(
+                text = label,
+                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                fontSize = AppConfig.uiFontToggleSize.sp,
+                fontWeight = FontWeight.Medium
+            )
+        }
+        if (description != null) {
+            Text(
+                text = description,
+                color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                fontSize = AppConfig.uiFontDescSize.sp
+            )
+        }
+        Text(
+            text = valueLabel,
+            color = ComposeColor(AppConfig.uiSettingsValueText),
+            fontSize = AppConfig.uiFontRangeSize.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.End,
+            modifier = Modifier.fillMaxWidth()
+        )
+        RangeSlider(
+            value = value,
+            onValueChange = onValueChange,
+            valueRange = valueRange,
+            steps = steps,
+            onValueChangeFinished = onValueChangeFinished,
+            colors = SliderDefaults.colors(
+                thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
+                activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
+                inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+            )
+        )
+    }
+}
+
 /** Section divider between settings sections. */
 @Composable
 private fun SectionDivider() {
@@ -2207,7 +2055,7 @@ private fun SubSectionHeader(title: String, description: String? = null) {
  * own line and the description line carries the 24dp tappable colour swatch on its trailing edge. When no
  * description is given the swatch falls back to the trailing edge of the title line — never a standalone
  * colour row. Used when a NestedCard group holds exactly one colour (e.g. 300 m band "Zone color").
- * Multi-colour groups keep [SubSectionHeader] + labeled [ColorSwatchRow] rows instead.
+ * Multi-colour groups keep [SubSectionHeader] + labeled [ColorRow] rows instead.
  */
 @Composable
 private fun SingleColorSubSection(
@@ -2365,7 +2213,7 @@ private fun Expander(
  * TODO: Replace with Canvas-based HSV color picker for richer selection.
  */
 @Composable
-private fun ColorSwatchRow(
+private fun ColorRow(
     label: String,
     color: Int,
     onColorSelected: (Int) -> Unit,
@@ -2488,7 +2336,7 @@ private fun ColorPickerDialog(
  * (from → to) with a color picker dialog for each.
  */
 @Composable
-private fun ColorSwatchPairRow(
+private fun ColorPairRow(
     label: String,
     fromColor: Int,
     toColor: Int,

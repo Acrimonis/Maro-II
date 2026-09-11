@@ -1,6 +1,7 @@
 # Global Context — Routing Table
 
 ## Focus History
+- [2026-09-11 10:55 UTC] Ui_Settings — row family normalization started on feature/settings-menu-clean: R1 renames (ToggleRow/SliderRow/SegmentedRow/ColorRow/ColorPairRow) + R2 RangeSliderRow (new, replacing all 8 inline sites) implemented, each built clean; R3–R8 pending per the plan → xTrack/Ui_Settings/FEAT_HYD_Ui_Settings.md
 - [2026-09-11 08:47 UTC] Ui_Settings — **phase 1 COMPLETE** on feature/settings-menu-clean: sentence-case 18sp section titles (SectionHeader `uppercase` removed), SettingsToggleRow → box-less ToggleRowContent, tab strip = M3 SecondaryScrollableTabRow + custom content-sized cells (18sp SemiBold, full-cell indicator, ui.font.tab.size token), and a unified spacing rhythm (section gap 24→14dp, title→card 8→6dp; Layers' 12dp card gaps were the outliers); guideline §1/§2.1/§2.3/§2.4/§2.5/§2.6/§2.9/§3/§4 rewritten + new §2.11 tab-strip spec; builds SUCCESS, validated on device; commit 0b01d1e + this pass → xTrack/Ui_Settings/FEAT_HYD_Ui_Settings.md
 - [2026-09-11 06:13 UTC] Ui_Menu — session branch feature/settings-menu-clean created from origin/develop → xTrack/Ui_Menu/FEAT_HYD_Ui_Menu.md
 - [2026-09-10 12:21 UTC] Ui_Settings — C12 OverlayLayer param collapse COMPLETE on feature/refact-C12: all six bundles (OverlayChrome 7, MenuOverlayData 12, SettingsOverlayData 5, TrackInfoOverlayData 4, TrackListOverlayData 3, MarkerListOverlayData 4) in new OverlayLayerParams.kt; OverlayLayer 89→60 params; 35-line destructure keeps the body unchanged; dead defaults + orphan imports removed; builds SUCCESS zero warnings every tier; Ask 8/8 + 8/8; ~30 stale doc anchors repaired; on-device functional test PASSED; 3 commits (ec57458, a000c18, 96259b5) awaiting push + PR → xTrack/Ui_Settings/FEAT_HYD_Ui_Settings.md
@@ -10,7 +11,6 @@
 - [2026-09-09 10:06 UTC] Ui_Settings — MapScreen settings extraction: moved the Settings overlay subtree out of MapScreen.kt (5841→3417) into same-package MapScreenSettingsOverlay.kt; zero behavior change; build SUCCESS; committed b71a230 on feature/filters-link → xTrack/Ui_Settings/FEAT_HYD_Ui_Settings.md
 - [2026-09-09 09:53 UTC] Ui_General — filters-link List/Map filter decoupling: design locked + Ask review passed; partial foundation committed on feature/filters-link b4693df (settings Option B no-versioning + marker map stream + Link/LinkOff icons); remaining UI split pending → xTrack/Ui_General/FEAT_HYD_Ui_General.md
 - [2026-09-08 17:18 UTC] Ui_Menu — hamburger menu drawer; focus on feature/menu-render-upt → xTrack/Ui_Menu/FEAT_HYD_Ui_Menu.md
-- [2026-09-08 16:49 UTC] Navigation — auto-show-zones baked + committed + pushed: demo-mode auto-show validated via instrumented logcat → no code defect (drawer "Auto-show zones" master override was off); auto-show knowledge consolidated in FEAT_DOC_Navigation_auto-show.md; stale demo-heading comments fixed → xTrack/Navigation/FEAT_HYD_Navigation.md
 
 ## Routing Map
 | Keyword | Feature File |

@@ -71,7 +71,7 @@ A toggle is a **row**, never a card. The rendering is identical whether the card
 | Element | Value |
 |---------|-------|
 | Label | 16sp Medium, `uiSettingsTextPrimary` (`ui.font.toggle.size`) |
-| Description | 13sp, `uiSettingsTextMuted` (`ui.font.desc.size`) |
+| Description | 13sp, `uiSettingsTextMuted` (`ui.font.desc.size`) — **optional**; omit the parameter for label-only rows |
 | Label→control gap | `${ui.spacing.label.control}` (16dp) |
 | Control | `Switch` with accent colours (`uiSettingsAccent`) |
 | Row padding | 16dp horizontal (`uiPaddingCardHorizontal`) × 2dp vertical (`${ui.padding.toggle.vertical}`) |
@@ -93,17 +93,13 @@ Row(
 
 The row carries **no** background, radius or surface of its own — the enclosing `Card` owns that (§2.3). A one-toggle card is therefore plain `Card { ToggleRowContent(…) }`; nothing special-cases it.
 
-### 2.2 Standalone Slider — `SliderRowContent` on a `Card`
+### 2.2 Slider Row — `SliderRowContent`
 
-A standalone slider renders as bare `SliderRowContent` directly on a `Card` (no wrapper box of its own). Gap: `${ui.spacing.card.gap}`.
+Same model as the toggle (§2.1): a slider is a **row**, not a card — label (16sp Medium), optional description, right-aligned value (`ui.settings.value.text`) and the slider — with **no surface of its own**; the enclosing `Card`/`NestedCard` owns the box (§2.3).
 
-```kotlin
-Card {
-    Column(Modifier.padding(horizontal = 16.dp)) {
-        SliderRowContent(…)
-    }
-}
-```
+Examples in Settings: Marker halo size and Point/icon zoom (Layers → Markers), Idle threshold / Min duration / Dedup radius (Markers), EMODnet cutoff (Layers → Depth), re-display distance and time (Navigation → Auto-show zones), boat offset (Navigation → Automatic map offset), recenter distance (Position), window and adaptive distance (System → Power saving), FPS (System).
+
+Padding is currently the **caller's** job for this row — a bare `Card` wraps it in `Column(Modifier.padding(horizontal = 16.dp))`, while inside a `NestedCard` the surface already pads. This is the one contract that differs from §2.1's toggle row; unifying the two is an open decision (§4).
 
 ### 2.3 Card = rows + sections — `Card`, `SectionDivider`, `Expander`
 
@@ -235,7 +231,7 @@ Row(uiCardBackground, 12dp radius, 6dp pad, 6dp gaps) {
 
 ### 2.8 RangeSlider (double-thumb)
 
-Render as a **direct section** — header + description + value (`ui.settings.value.text`, right-aligned) + `RangeSlider`. A `RangeSlider` may sit directly on a `Card`, or inside the `NestedCard` of an `Expander` alongside one-knob sliders. What is forbidden is a card inside the `NestedCard` (see §2.4 inception rule).
+Render as a **direct section** — header + description + value (`ui.settings.value.text`, right-aligned) + `RangeSlider`. A `RangeSlider` may sit directly on a `Card`, or inside the `NestedCard` of an `Expander` alongside one-knob sliders. What is forbidden is a card inside the `NestedCard` (see §2.4 depth cap).
 
 - **Linear** (e.g. transparency 0–100): plain `valueRange` + `steps`.
 - **Two-thumb transparency** (300 m band): left thumb = border (strong, low transparency), right thumb = fill (faint, high transparency); `value = border..fill`; commit on release via `onValueChangeFinished`.
@@ -323,6 +319,7 @@ Full token list: [`ui.properties`](../app/src/main/assets/ui.properties).
 
 - ❌ A card inside the `NestedCard` (a third level), or a full `uiCardBackground` card used as the `NestedCard` (stacked 20% white) — §2.4 depth cap
 - ❌ A control row that paints its own card surface (background/radius) — the `Card` owns the box (§2.1, §2.3)
+- ❌ Hand-rolled label + `Switch` rows — use `ToggleRowContent` (§2.1); its description is optional
 - ❌ Per-call `labelStyle` on `Expander`
 - ❌ Visible dividers between top-level cards (use spacer)
 - ❌ `SliderRowContent(label="", …)` (use inline Row+Slider)
