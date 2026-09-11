@@ -132,8 +132,11 @@ lists — only the bound referential differs.
 
 ## Ask-review notes (locked for implementation)
 
-1. **Menu counter vs per-item visibility:** exclude tracks hidden individually (`visibleOnMap=false`) from
-   the menu count even when they match the Map filter; the master layer toggle does NOT zero the count.
+1. **Menu counter vs per-item visibility — SUPERSEDED (2026-09-11).** The `visibleOnMap` flag was removed
+   by the map-render visibility refactor (see
+   [`260911_FEAT_PLN_TracksImport_map-render-visibility-refactor.md`](../TracksImport/260911_FEAT_PLN_TracksImport_map-render-visibility-refactor.md)),
+   so there is no per-item exclusion left to make: the track menu counter is now simply
+   `!isLive && matchesFilter(trackMapFilter)`. The master layer toggle still does NOT zero the count.
    Marker menu counter likewise ignores the marker layer master toggle.
 2. **Split filter handlers per referential:** the single `onTrackFilterChange` / `onMarkerFilterChange`
    handlers must become separate list vs map handlers. Unlinked map edits must NOT call

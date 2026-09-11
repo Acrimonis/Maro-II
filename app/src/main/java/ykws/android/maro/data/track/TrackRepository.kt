@@ -283,7 +283,6 @@ class TrackRepository(
                         endTimeMs = track.endTimeMs,
                         fastestSpeedMps = track.fastestSpeedMps,
                         distanceNm = track.distanceNm,
-                        visibleOnMap = track.visibleOnMap,
                         navigatingDurationSec = track.navigatingDurationSec,
                         pausedDurationSec = track.pausedDurationSec,
                         idleDurationSec = track.idleDurationSec,

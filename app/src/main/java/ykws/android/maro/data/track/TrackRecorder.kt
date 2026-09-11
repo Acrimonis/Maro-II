@@ -1078,8 +1078,7 @@ class TrackRecorder(
             averageSpeedMps = avgMps,
             distanceNm = cumulativeDistanceNm,
             navigatingDurationSec = (totalElapsedSec - reconciledIdleSec - resumeGapDurationSec).coerceAtLeast(0),
-            updatedAtEpochMs = finalizeTimeMs,
-            visibleOnMap = true
+            updatedAtEpochMs = finalizeTimeMs
         ).let { it.copy(lastPointTimeMs = it.lastRealPointTimeMsOrNull() ?: 0L) }
 
         // Only auto-rename if the current name matches the auto-generated pattern (D6)
@@ -1118,6 +1117,7 @@ class TrackRecorder(
             repository.save(finalizedTrack)
             repository.deleteCheckpoint(finalizedTrack.id)
         }
+        _events.tryEmit(Finalized(finalizedTrack.id))
         _events.tryEmit(Stopped)
 
         transitionTo(TrackRecorderState.OFF)

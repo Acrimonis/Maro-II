@@ -332,9 +332,6 @@ class TrackRecordingService : Service() {
         val id = intent.getStringExtra(EXTRA_TRACK_ID) ?: return
         serviceScope.launch {
             val track = repository.load(id) ?: return@launch
-            if (!track.visibleOnMap) {
-                repository.save(track.copy(visibleOnMap = true))
-            }
             recorder?.resume(track, _sampleInput, fromCheckpoint = false)
         }
     }
