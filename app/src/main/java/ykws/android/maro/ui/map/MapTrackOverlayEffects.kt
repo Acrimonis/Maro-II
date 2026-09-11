@@ -6,6 +6,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import org.osmdroid.views.MapView
+import ykws.android.maro.data.model.MapRenderFocus
+import ykws.android.maro.data.model.TrackSelectionPolicy
 import ykws.android.maro.data.model.matchesFilter
 import ykws.android.maro.data.settings.AppSettings
 
@@ -19,6 +21,7 @@ internal fun MapTrackOverlayHistoryDiff(
     showSettings: Boolean,
     highlightedTrackId: String?,
     allTrackSummaries: List<ykws.android.maro.data.track.TrackSummary>,
+    focus: MapRenderFocus,
     appSettings: AppSettings,
     trackViewModel: ykws.android.maro.data.track.TrackViewModel
 ) {
@@ -53,28 +56,23 @@ internal fun MapTrackOverlayHistoryDiff(
             }
         }
 
-        // Apply the MAP filter before display split. Source = UNFILTERED summaries so the map stays
-        // independent of the list filter when unlinked. Reveal: force-include the highlighted track
-        // even when it does not match the map filter (viewed from a list).
+        // Selection is a pure projection: the shared policy owns eligibility + ranking + cap,
+        // including the focus override (highlighted / session-boosted ids). Source = UNFILTERED
+        // summaries so the map stays independent of the list filter when unlinked. The shell only
+        // executes the selection; layer toggles are still applied here, never by the policy.
         val midnightMs = ykws.android.maro.data.model.todayMidnightMs()
-        val mapFiltered = allTrackSummaries.filter { it.matchesFilter(appSettings.trackMapFilter, midnightMs) }
-        val filteredSummaries = if (highlightedTrackId != null && mapFiltered.none { it.id == highlightedTrackId }) {
-            mapFiltered + allTrackSummaries.filter { it.id == highlightedTrackId }
-        } else mapFiltered
-
-        // Determine desired track ID set (history = non-pinned only)
         val nbToRender = appSettings.trackingRenderNb.coerceIn(0, 20)
-        // History candidates: the highlighted (viewed) non-pinned track is always kept, regardless of
-        // its visibleOnMap flag or the render cap, so a from-list view is force-drawn on the map.
-        // Pinned highlighted tracks render through the dedicated pinned block (never capped).
-        val rankedHistory = filteredSummaries
-            .filter { (it.visibleOnMap || it.id == highlightedTrackId) && !it.pinned }
-            .sortedByDescending { it.startTimeMs }
-        val cappedHistory = rankedHistory.take(nbToRender)
-        val historyList = if (highlightedTrackId != null && cappedHistory.none { it.id == highlightedTrackId }) {
-            cappedHistory + rankedHistory.filter { it.id == highlightedTrackId }
-        } else cappedHistory
-        val desiredIds = if (appSettings.tracksVisible) historyList.map { it.id }.toSet() else emptySet()
+        focus.highlight(highlightedTrackId)
+        val historyList = if (appSettings.tracksVisible) {
+            TrackSelectionPolicy().select(
+                items = allTrackSummaries,
+                filter = appSettings.trackMapFilter,
+                cap = nbToRender,
+                focus = focus,
+                todayMidnightMs = midnightMs
+            )
+        } else emptyList()
+        val desiredIds = historyList.map { it.id }.toSet()
 
         // Remove all existing track history overlays + direction arrows — rebuild from scratch
         val toRemove = mv.overlays.filter { overlay ->
@@ -83,7 +81,7 @@ internal fun MapTrackOverlayHistoryDiff(
         }
         mv.overlays.removeAll(toRemove)
 
-        val sortedDesired = if (appSettings.tracksVisible) historyList else emptyList()
+        val sortedDesired = historyList
 
         val total = nbToRender
 
@@ -111,52 +109,10 @@ internal fun MapTrackOverlayHistoryDiff(
             }
 
             for (appearance in appearances) {
-                // Split at GAP markers: solid segments between gaps, dashed for gap segments
-                val points = track.trackPoints
-                var segmentStart = 0
-                for (i in points.indices) {
-                    if (points[i].type == ykws.android.maro.data.track.PointType.GAP) {
-                        if (i > segmentStart) {
-                            val solidPoints = points.subList(segmentStart, i).map { pt ->
-                                org.osmdroid.util.GeoPoint(pt.lat, pt.lon)
-                            }
-                            if (solidPoints.size >= 2) {
-                                val solidPolyline = org.osmdroid.views.overlay.Polyline().apply {
-                                    title = "track_hist_${summary.id}"
-                                    outlinePaint.color = appearance.argb
-                                    outlinePaint.strokeWidth = appearance.strokeWidth
-                                    setPoints(solidPoints)
-                                }
-                                trackOverlays.add(solidPolyline)
-                            }
-                        }
-                        val gapFrom = org.osmdroid.util.GeoPoint(points[i].lat, points[i].lon)
-                        val gapTo = if (i + 1 < points.size)
-                            org.osmdroid.util.GeoPoint(points[i + 1].lat, points[i + 1].lon)
-                        else gapFrom
-                        val gapLine = org.osmdroid.views.overlay.Polyline().apply {
-                            title = "track_hist_${summary.id}"
-                            outlinePaint.color = appearance.argb
-                            outlinePaint.strokeWidth = appearance.strokeWidth
-                            outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(20f, 10f), 0f)
-                            setPoints(listOf(gapFrom, gapTo))
-                        }
-                        trackOverlays.add(gapLine)
-                        segmentStart = i + 1
-                    }
-                }
-                if (segmentStart < points.size && points.size - segmentStart >= 2) {
-                    val solidPoints = points.subList(segmentStart, points.size).map { pt ->
-                        org.osmdroid.util.GeoPoint(pt.lat, pt.lon)
-                    }
-                    val solidPolyline = org.osmdroid.views.overlay.Polyline().apply {
-                        title = "track_hist_${summary.id}"
-                        outlinePaint.color = appearance.argb
-                        outlinePaint.strokeWidth = appearance.strokeWidth
-                        setPoints(solidPoints)
-                    }
-                    trackOverlays.add(solidPolyline)
-                }
+                // Solid segments between gaps, dashed for gap segments (split in buildSegmentOverlays).
+                trackOverlays.addAll(
+                    buildSegmentOverlays(track.trackPoints, appearance, "track_hist_${summary.id}")
+                )
             }
 
             if (appSettings.tracksDirectionVisible) {
@@ -183,7 +139,9 @@ internal fun MapTrackOverlayHistoryDiff(
         mv.overlays.removeAll(toRemovePinned)
 
         val pinnedSummaries = if (appSettings.tracksVisible) {
-            filteredSummaries.filter { it.pinned }.sortedByDescending { it.startTimeMs }
+            allTrackSummaries
+                .filter { it.pinned && (it.id == highlightedTrackId || it.matchesFilter(appSettings.trackMapFilter, midnightMs)) }
+                .sortedByDescending { it.startTimeMs }
         } else emptyList()
 
         val pinnedTotal = pinnedSummaries.size
@@ -211,52 +169,10 @@ internal fun MapTrackOverlayHistoryDiff(
             }
 
             for (appearance in appearances) {
-                // Split at GAP markers: solid segments between gaps, dashed for gap segments
-                val points = track.trackPoints
-                var segmentStart = 0
-                for (i in points.indices) {
-                    if (points[i].type == ykws.android.maro.data.track.PointType.GAP) {
-                        if (i > segmentStart) {
-                            val solidPoints = points.subList(segmentStart, i).map { pt ->
-                                org.osmdroid.util.GeoPoint(pt.lat, pt.lon)
-                            }
-                            if (solidPoints.size >= 2) {
-                                val solidPolyline = org.osmdroid.views.overlay.Polyline().apply {
-                                    title = "track_pin_${summary.id}"
-                                    outlinePaint.color = appearance.argb
-                                    outlinePaint.strokeWidth = appearance.strokeWidth
-                                    setPoints(solidPoints)
-                                }
-                                trackOverlays.add(solidPolyline)
-                            }
-                        }
-                        val gapFrom = org.osmdroid.util.GeoPoint(points[i].lat, points[i].lon)
-                        val gapTo = if (i + 1 < points.size)
-                            org.osmdroid.util.GeoPoint(points[i + 1].lat, points[i + 1].lon)
-                        else gapFrom
-                        val gapLine = org.osmdroid.views.overlay.Polyline().apply {
-                            title = "track_pin_${summary.id}"
-                            outlinePaint.color = appearance.argb
-                            outlinePaint.strokeWidth = appearance.strokeWidth
-                            outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(20f, 10f), 0f)
-                            setPoints(listOf(gapFrom, gapTo))
-                        }
-                        trackOverlays.add(gapLine)
-                        segmentStart = i + 1
-                    }
-                }
-                if (segmentStart < points.size && points.size - segmentStart >= 2) {
-                    val solidPoints = points.subList(segmentStart, points.size).map { pt ->
-                        org.osmdroid.util.GeoPoint(pt.lat, pt.lon)
-                    }
-                    val solidPolyline = org.osmdroid.views.overlay.Polyline().apply {
-                        title = "track_pin_${summary.id}"
-                        outlinePaint.color = appearance.argb
-                        outlinePaint.strokeWidth = appearance.strokeWidth
-                        setPoints(solidPoints)
-                    }
-                    trackOverlays.add(solidPolyline)
-                }
+                // Solid segments between gaps, dashed for gap segments (split in buildSegmentOverlays).
+                trackOverlays.addAll(
+                    buildSegmentOverlays(track.trackPoints, appearance, "track_pin_${summary.id}")
+                )
             }
 
             if (appSettings.tracksDirectionVisible) {

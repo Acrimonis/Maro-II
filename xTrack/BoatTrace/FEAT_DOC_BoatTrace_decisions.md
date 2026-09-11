@@ -3,7 +3,7 @@
 
 > **Purpose:** Capture every functional and architectural decision made during the BoatTrace feature.  
 > **Scope:** Boat movement tracking — record, persist, render, export, manage tracks.  
-> **Last updated:** 2026-06-20
+> **Last updated:** 2026-09-11
 
 ---
 
@@ -24,10 +24,16 @@
 - **Rationale:** The track list displays ~7 fields from dozens of tracks — no need to deserialize full point arrays. `TrackSummaryList` wrapper enables single-file index serialization.
 - **Filed:** [`Track.kt`](app/src/main/java/ykws/android/maro/data/track/Track.kt:46)
 
-### 1.4 visibleOnMap: Per-Track Visibility
-- **Decision:** `visibleOnMap: Boolean` (default `true`) on the `Track` data class.
-- **Rationale:** Users can hide individual tracks from the map without deleting them. Persisted in protobuf so survives restarts.
-- **Filed:** [`Track.kt`](app/src/main/java/ykws/android/maro/data/track/Track.kt:38)
+### 1.4 Per-Track Visibility — SUPERSEDED (filter-layer scope)
+- **Decision:** There is **no per-track visibility flag**. Visibility is a *projection* — a pure function of
+  track data + filters + view state — and must not be persisted on the entity. Hiding a track is a
+  **filter-layer** concern, not a property of the track.
+- **Rationale:** The old `visibleOnMap: Boolean` (default `true`) was superseded by `pinned` (#260622)
+  but never removed; a legacy/imported `false` could silently suppress map rendering with no
+  user-recoverable path. `pinned` remains the **only** per-item map-presence control, and a future
+  "hide this specific track" affordance is a new **filter axis** (e.g. exclude-ids), never a flag on
+  the entity. The two protobuf tags (`Track.11`, `TrackSummary.8`) are reserved **closed-forever**.
+- **Superseded by:** [`260911_FEAT_PLN_TracksImport_map-render-visibility-refactor.md`](../TracksImport/260911_FEAT_PLN_TracksImport_map-render-visibility-refactor.md)
 
 ### 1.5 distanceNm Accumulated at Finalize
 - **Decision:** `distanceNm: Float` computed continuously in `TrackRecorder` during recording, written to protobuf at finalize time.

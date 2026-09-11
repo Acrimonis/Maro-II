@@ -18,6 +18,7 @@ import kotlinx.serialization.json.Json
 import ykws.android.maro.data.markers.UserMarkerRepository
 import ykws.android.maro.data.model.ListFilter
 import ykws.android.maro.data.model.ListSortState
+import ykws.android.maro.data.model.MapRenderFocus
 import ykws.android.maro.data.model.matchesFilter
 import ykws.android.maro.data.model.todayMidnightMs
 import ykws.android.maro.data.settings.AppSettings
@@ -40,6 +41,13 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
     // ── Settings injection (set via observeSettings from MapScreen) ──
 
     private var settingsFlow: StateFlow<AppSettings>? = null
+
+    /**
+     * Ephemeral map-render focus: the highlighted track id plus the session-bounded boost of
+     * recently touched ids (import / record / merge / update). In memory only — never persisted,
+     * never overrides the master layer toggles.
+     */
+    val renderFocus = MapRenderFocus()
 
     private val _uiState = MutableStateFlow(TrackRecorderUiState())
     val uiState: StateFlow<TrackRecorderUiState> = _uiState.asStateFlow()
@@ -90,7 +98,11 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         }
         // Forward service recorder events to the persistent flow MapScreen observes.
         viewModelScope.launch {
-            TrackRecordingService.events.collect { _events.emit(it) }
+            TrackRecordingService.events.collect { event ->
+                // A finalized recording is a "freshly touched" track — boost it into the map set.
+                if (event is TrackEvent.Finalized) renderFocus.markTouched(event.trackId)
+                _events.emit(event)
+            }
         }
         viewModelScope.launch {
             runTrackSchemaMigration()
@@ -178,7 +190,7 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
 
     /**
      * Resume a finalized track as a live recording.
-     * Routes to the service which loads the track, forces visibleOnMap, and resumes.
+     * Routes to the service which loads the track and resumes it.
      */
     fun resumeTrack(trackId: String) {
         // Guard: cannot resume while already recording
@@ -217,6 +229,14 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
             val filtered = summaries.filter { it.matchesFilter(effectiveFilter, midnightMs) }
             _summaries.value = sortSummaries(filtered, effectiveSort)
         }
+    }
+
+    /**
+     * Clear the session boost — called when the track-filter RESET is hit (the map reset, or the
+     * list reset when [AppSettings.trackFilterLinked]). The highlighted id is unaffected.
+     */
+    fun clearRenderBoost() {
+        renderFocus.clearBoost()
     }
 
     /** Apply [ListSortOrder] to a list of [TrackSummary]. */
@@ -282,6 +302,7 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
     /** Update track metadata. */
     fun updateTrack(id: String, name: String? = null, comment: String? = null) {
         invalidateTrackCache(id)
+        renderFocus.markTouched(id)
         viewModelScope.launch {
             repository.updateMetadata(id, name, comment)
             refreshSummaries()
@@ -314,6 +335,7 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
             val merged = merger.merge(tracks, mergedName)
 
             repository.save(merged)
+            renderFocus.markTouched(merged.id)
 
             // Reassign source markers → merged.id BEFORE deleting originals, so the
             // delete cascade never sweeps the very markers being reassigned.
@@ -402,6 +424,8 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         val batch = GpxImporter.import(input, extension, existingNames, existingIds, existingIdByName, mode)
         for (track in batch.tracks) {
             repository.saveOrReplace(track)
+            // Imported tracks join the session boost so they render without selecting or pinning.
+            renderFocus.markTouched(track.id)
         }
         refreshSummaries()
         return batch.result

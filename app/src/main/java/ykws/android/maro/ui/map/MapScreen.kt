@@ -872,6 +872,7 @@ fun MapScreen(
         showSettings = showSettings,
         highlightedTrackId = highlightedTrackId,
         allTrackSummaries = allTrackSummaries,
+        focus = trackViewModel.renderFocus,
         appSettings = appSettings,
         trackViewModel = trackViewModel
     )
@@ -1488,11 +1489,10 @@ fun MapScreen(
             )
         }
 
-        // Menu (map-referential) track counter: stored non-live tracks that would be rendered under the
-        // map filter — pinned always counted when matching, individually hidden (visibleOnMap=false)
-        // excluded. Render-cap divergence is acceptable.
+        // Menu (map-referential) track counter: stored non-live tracks matching the map filter —
+        // pinned included (they always render). Render-cap divergence is acceptable.
         val trackMapVisibleCount = allTrackSummaries.count {
-            !it.isLive && it.matchesFilter(appSettings.trackMapFilter, ykws.android.maro.data.model.todayMidnightMs()) && (it.pinned || it.visibleOnMap)
+            !it.isLive && it.matchesFilter(appSettings.trackMapFilter, ykws.android.maro.data.model.todayMidnightMs())
         }
 
         OverlayLayer(
@@ -1584,6 +1584,8 @@ fun MapScreen(
                     else s.copy(trackListSort = ykws.android.maro.data.model.ListSortState(), trackListFilter = resetFilter)
                 }
                 trackViewModel.refreshSummaries(filter = resetFilter, reloadFromDisk = false)
+                // List reset clears the session boost only when the map filter is linked (it moved too).
+                if (appSettings.trackFilterLinked) trackViewModel.clearRenderBoost()
                 mapView?.invalidate()
             },
             // ── Track map referential (menu filter) + link ────────────────
@@ -1604,6 +1606,8 @@ fun MapScreen(
                     else s.copy(trackMapFilter = resetFilter)
                 }
                 if (linked) trackViewModel.refreshSummaries(filter = resetFilter, reloadFromDisk = false)
+                // The map reset always invalidates the session boost.
+                trackViewModel.clearRenderBoost()
                 mapView?.invalidate()
             },
             trackFilterLinked = appSettings.trackFilterLinked,
