@@ -193,8 +193,12 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
      * Resume a finalized track as a live recording.
      * Routes to the service which loads the track and resumes it.
      *
-     * @param backupNameSuffix when non-null, a hidden copy of the stored track is written first so the
+     * @param backupNameSuffix when non-null, a copy of the stored track is written first so the
      *        pre-resume state is preserved (the resume itself continues on the original track).
+     *        The copy is unpinned and un-boosted but deliberately NOT force-hidden: map visibility is
+     *        derived from the selection policy, so it renders like any other stored track. Accepted
+     *        2026-09-11 during the Mergitur integration — see
+     *        `xTrack/BoatTrace/260911_FEAT_PLN_BoatTrace_resume-confirm-backup.md`.
      */
     fun resumeTrack(trackId: String, backupNameSuffix: String? = null) {
         // Guard: cannot resume while already recording

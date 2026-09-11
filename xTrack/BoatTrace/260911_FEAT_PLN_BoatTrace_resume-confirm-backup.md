@@ -20,8 +20,9 @@ Both get the same confirmation flow.
   checkbox ("Back up this track before resuming"), then two actions: **Cancel** and **Resume**.
 - **D3** Cancel (and scrim/dismiss) = no resume; the sheet closes and the source surface stays as it was.
 - **D4** Backup = duplicate the **pre-resume** track: new UUID id, name `<original name> (backup)`,
-  `visibleOnMap = false`, `pinned = false`. Markers keep pointing at the original (`UserMarker.trackId`
-  untouched), so the copy carries no marker links.
+  `pinned = false`. Markers keep pointing at the original (`UserMarker.trackId` untouched), so the copy
+  carries no marker links. *(Amended 2026-09-11 — the `visibleOnMap = false` clause was dropped during the
+  Mergitur integration; see the Amendment section below.)*
 - **D5** Recording continues on the **original** track.
 - **D6** The crash-recovery **Continue** path is unchanged (it already has its own dialog).
 - **D7** Naming mirrors existing dialogs: the sheet is declared next to `RecordingExitSheet` /
@@ -95,9 +96,10 @@ Both get the same confirmation flow.
 
 ## Implemented
 
-- **✓ Backup API** — `TrackViewModel.duplicateTrack(id, nameSuffix)` writes a hidden, unpinned copy (fresh
+- **✓ Backup API** — `TrackViewModel.duplicateTrack(id, nameSuffix)` writes an unpinned copy (fresh
   UUID, suffixed name) and `resumeTrack(id, backupNameSuffix)` snapshots first, then sends the resume intent
   ([`TrackViewModel.kt:183`](app/src/main/java/ykws/android/maro/data/track/TrackViewModel.kt:183)).
+  *(Visibility: the copy is no longer force-hidden — see the Amendment section.)*
 - **✓ Confirmation sheet** — `PendingTrackResume` + `ResumeConfirmSheet` (ConfirmSheet geometry, accent
   checkbox checked by default, Cancel/Resume) hosted beside `MapImportConflictHost`
   ([`MapScreen.kt:2558`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:2558), [`:1888`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1888)). Confirm resumes, then closes the source
@@ -111,6 +113,22 @@ Both get the same confirmation flow.
   a nested-comment slip in my own insertion; fixed and re-verified.)
 - **Pending — device confirmation:** sheet on all three surfaces, checkbox default, backup written only when
   ticked (new card, hidden on map, unpinned, no marker links), recording continues on the original.
+
+## Amendment (2026-09-11) — backup copy visibility (post-Mergitur)
+
+The `visibleOnMap = false` clause in D4 / step 1 is **no longer applicable**. `feature/tracks-import`
+deleted the persisted `visibleOnMap` field (its `ProtoNumber` is reserved) and replaced stored visibility
+with a derived selection policy, so the Mergitur integration dropped the now-dead argument from
+`duplicateTrack`.
+
+**Decision (user, 2026-09-11): accept the new behaviour as correct.** The backup copy renders like any
+ordinary stored track — unpinned and un-boosted, but no longer hidden — so it can appear on the map,
+compete for the display cap, and draw the same geometry as the replayed live line after a resume. The
+KDoc on `resumeTrack` was corrected to match; no code logic was changed.
+
+Consequences for the device smoke test: after a ticked resume, confirm the backup card exists, is
+unpinned, and that the duplicated geometry on the map is acceptable. Surrounding integration record:
+`xTrack/Mergitur/260911_FEAT_PLN_Mergitur_three-branch-integration.md`.
 
 ## Follow-ups (flagged, not done)
 

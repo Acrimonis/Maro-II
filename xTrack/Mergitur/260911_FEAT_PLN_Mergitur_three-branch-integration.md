@@ -108,4 +108,22 @@ Instead: **defer all `GLOBAL_CONTEXT.md` reconciliation to a single post-GL pass
 - If the PR is later squash-merged, per-hop revertability is lost — record the per-hop SHAs in the PR body.
 
 ## Open questions
-- Keep or relocate TI's two root-level GPX files?
+- Keep or relocate TI's two root-level GPX files? — **resolved: ignore, merged as-is** (user decision).
+
+## Outcome
+Landed 2026-09-11 20:29 UTC. Hops: seed `32352f9`, TR `735cd29`, TI `e4d56f6`, GL `431d165` on base `025e1bc`; safety tag `pre-mergitur`; nothing pushed. Every hop used `--no-ff --no-edit -c merge.conflictStyle=diff3 -X diff-algorithm=histogram`. `apk-build.bat` SUCCESS after each hop; scoped TI tests green (`MapSelectionPolicyTest` 10/0, `MapTrackSegmentsTest` 4/0, `TrackLegacyBlobDecodeTest` 3/0, `GpxBBoxCleanToolTest` skipped by design); the three pre-existing failures unchanged.
+
+Deviations:
+- TR×TI produced **2** conflicts, not 4 — `MapScreen.kt` and `OverlayLayer.kt` auto-merged (covered by the survival token audit).
+- TR×GL `GLOBAL_CONTEXT.md` auto-merged cleanly; reconciled in the single P4 pass as designed.
+- **Silent collision found by the compiler, not by git:** TR's `duplicateTrack` set `visibleOnMap = false`, a field TI deleted (ProtoNumber reserved). The dead argument was dropped → open finding B1.
+- P4 doc edits remain uncommitted; Focus History holds 11 entries pending the bake-side prune.
+- TI's root-level GPX files merged as-is per the user's decision.
+
+Review findings (Ask leg) — both closed 2026-09-11:
+- **B1 — RESOLVED by decision: accept the behaviour.** The backup copy stays unhidden and renders like an ordinary stored track (unpinned, un-boosted). The `resumeTrack` KDoc was corrected and D4 of `xTrack/BoatTrace/260911_FEAT_PLN_BoatTrace_resume-confirm-backup.md` now carries an Amendment recording the change. No code logic changed.
+- **B2 — EVIDENCE PRODUCED, gate PASSES.** At `HEAD` `431d165` vs TI `59720aa`: `MapTrackSegments.kt` diffs **empty** (untouched by TR — exactly TI's file); `OverlayLayerParams.kt` +5 (TR's addition survives); `TrackViewModel.kt` 35, `OverlayLayer.kt` 34, `MapTrackOverlayEffects.kt` 85, `MapScreen.kt` 271 changed lines — consistent with TR's own magnitudes, so no hunk was dropped in the move.
+
+Verified clean by the review: TR's superseded `mapFiltered`/`filteredSummaries` paths are genuinely redundant with no dangling references; TR's live-paint and direction-arrow fixes survive; GL's consolidation deliberately dropped the old auto-switch rule as a MODE LOCK conflict (recorded in its migration plan) and lost nothing else; `GLOBAL_CONTEXT.md` is truly state-only with consistent Mergitur/TracksImport registrations. The `visibleOnMap` removal is back-compat-guarded by reserved ProtoNumbers.
+
+Post-task suggestions (logged, not fixed — scope lock): three eligibility implementations with a highlight-only vs highlight+boost divergence; GAP-split logic duplicated three times; write-only `renderedTrackIds` plus stale incremental-diff comments; near-identical history/pinned render blocks; non-observable `MapRenderFocus` mutated inside a `LaunchedEffect`; the generic `merge` routing keyword added at `#track` time.
