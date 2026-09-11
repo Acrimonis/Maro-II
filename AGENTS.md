@@ -37,16 +37,11 @@
 - **🔴 QUESTIONS: Answer before acting.** A question is not an implicit implementation
   order — answer it, then wait for direction. Applies in every mode.
 
-- **🔴 GIT IS NOT MODE-RESTRICTED: every mode may execute `git add`, `commit`, `push`, `merge` and
-  `rebase`.** Mode never grants or withholds git capability — authorisation does, per the two rules below.
-- **🔴 COMMIT IS UNGATED: `git add` + `git commit` are permitted in every mode, on the agent's own
-  initiative,** to capture work on the current branch. Stage only the change set being committed — never
-  unrelated files, never preemptively, never rewrite history.
-- **🔴 AUTHORISATION GATE: `git push`, `git merge`, `git rebase` require the user's explicit, unambiguous
-  go-ahead** — capability is universal, execution is authorised per operation. Committing inside
-  `new_task(Code)` subtasks is NOT exempt from these gates. `#commit`,
-  `#push`, `#merge` and all git-related `#`-commands remain self-contained confirmations — invoking the
-  command is the go-ahead, with no additional confirmation prompt.
+- **🔴 ABSOLUTE RULE: No agent may execute `git add`, `git commit`, `git push`,
+  `git merge`, or `git rebase` without the user's explicit, unambiguous go-ahead.**
+  Committing inside `new_task(Code)` subtasks is NOT exempt. `git add` may be used to stage when preparing a `#commit`; do not stage preemptively.
+  **Read-only git queries (`git status`, `git log`, `git branch`, `git diff`, `git fetch`) are always permitted in any mode.**
+  **Exception:** `#commit`, `#push`, `#merge`, and all git-related `#`-commands are self-contained confirmations — the user's explicit invocation of the command constitutes the go-ahead. No additional confirmation prompt is required.
 - **Read-only git queries (`git status`, `git log`, `git branch`, `git diff`, `git fetch`) are always permitted in any mode.**
 
 - **🔴 ABSOLUTE RULE: NEVER write to `develop` or `main` — no pushes,
