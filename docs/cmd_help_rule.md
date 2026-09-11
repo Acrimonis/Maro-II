@@ -10,7 +10,7 @@ Manage context rules at three scope levels.
                       wording for clarity and conciseness.
 
   [target]: [text]    Route rule to a specific target:
-                      • global → GLOBAL_CONTEXT.md ## Global Rules
+                      • global → AGENTS.md Core Directives (the rulebook — never GLOBAL_CONTEXT.md)
                       • parent → one level up
                       • feature-name → fuzzy-resolve, write to that feature's scope
                       • section-name → write to that ### section's #### Rules
