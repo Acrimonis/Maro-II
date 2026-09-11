@@ -15,7 +15,7 @@ Verification: `apk-build.bat` SUCCESS (1m 05s), no new warnings. Ask review PASS
 
 - **Spacing pass (same day)** — all four tabs now share one section boundary (`ui.spacing.section.gap`, 24 → 14dp) and one title→card gap (`ui.spacing.header.bottom`, 8 → 6dp); Layers' five 12dp / raw `12.dp` gaps were the outliers. §2.11 documents the tab strip. Validated on device.
 
-## In progress — row family normalization (R1–R7 done, R8 pending)
+## Row family normalization (R1–R8 done)
 
 Branch `feature/settings-menu-clean`. Plan: [`260911_FEAT_PLN_Ui_Settings_row-naming-normalization.md`](260911_FEAT_PLN_Ui_Settings_row-naming-normalization.md).
 
@@ -30,12 +30,13 @@ Branch `feature/settings-menu-clean`. Plan: [`260911_FEAT_PLN_Ui_Settings_row-na
   **Dividers:** Tracks ×2 + regulated-zones info → `SectionDivider()`; the Re-display one stays inline (its neighbours use `uiSpacingGroupedRowGap` 8dp, not `uiDividerGap` 6dp) with an explanatory comment — flagged, not silent. The regulated-zones info divider's gaps did move 4dp → 6dp.
   **Category group ([`RegulatedZoneComponents.kt`](RegulatedZoneComponents.kt)):** `RegulatedZoneCategoryToggles` → `CategoryToggleGroup`, `fun` → `internal`, each row rebuilt on `ToggleRow` with the `leadingIcon` slot carrying the 28dp box / emoji / red "10" / strike overlay; labels 14sp → 16sp, switches adopt `ToggleRow` colours; still renders inside the parent `NestedCard` with no self-drawn container. The bespoke `regulationInfoVisible` row also moved to `ToggleRow`. Unused `Switch`/`SwitchDefaults`/`width` imports removed.
   **Deviation:** `ToggleRow` visibility `private` → `internal`, required because the group lives in the sibling file while `ToggleRow` stays in the overlay.
-- Builds after each step: SUCCESS, no new warnings. **R8 pending** (guidelines §1/§2.0/§2.1/§2.7/§2.8/§2.9/§4, tracking, `#doctor` + stale-symbol sweep).
-- **Backlog (agreed, not implemented)** — sub-section titles inside collapsible zones are `ui.settings.text.muted` (`#B0BEC5`) at 16sp SemiBold while expander labels and row labels are `ui.settings.text.primary` (`#FFFFFF`) at 16sp, so grey headings read as accidental and de-emphasis is inverted; `muted` also serves 13sp explanatory text. Option A chosen: promote `SubSectionHeader` + `SingleColorSubSection` titles to `primary` (2 composables; the 7 call sites inherit), update §2.9 and the `ui.settings.text.muted` comment. Plan file `260911_FEAT_PLN_Ui_Settings_section-title-color.md` captures the discussion.
+- **R8 (done — docs + tracking, no source changes)** — [`docs/ui-component-guidelines.md`](../../docs/ui-component-guidelines.md) rewritten: §1 gains the naming rule (`<Control>Row` / `<Thing>Group`, no `Settings` prefix) and the container-owned-inset rule; §2.0 states `Card`/`NestedCard` own `ui.padding.card.horizontal`; §2.1 documents `ToggleRow` (description optional, `leadingIcon`, vertical-only padding); §2.2 renames to `SliderRow` and drops the caller-padding paragraph (**closes follow-up C**); §2.3/§2.4/§2.6 drop the stale `…RowContent` names and the `Box(pad h=16)` wrapper; §2.7 documents `SegmentedRow` (connected, outlined unselected, accent fill, `selectableGroup()` + `RadioButton`, captions, surface-free); §2.8 documents `RangeSliderRow` (mandatory value line); §2.9 documents `CardDescription` vs `SubSectionHeader`; §4 anti-patterns updated. Tracking: `FEAT_DSC` gains the R1–R8 `## Implemented` entry + both plan pointers and folds `### Tab finalization follow-ups` (A/B closed by R6/R7, C by R8, D already resolved); `GLOBAL_CONTEXT` focus + summary refreshed. Symbol sweep across `docs/` + `xTrack/`: no live doc carries a stale name (historical plans/hydrations retained as records).
+- Builds after each step: SUCCESS, no new warnings.
+- **Backlog — moved to its own plan.** Sub-section titles inside collapsible zones are `ui.settings.text.muted` (16sp SemiBold) beside white 16sp row labels, so grey headings read as accidental; Option A (promote to `primary`) is agreed but **not implemented**. Captured in `260911_FEAT_PLN_Ui_Settings_section-title-color.md`.
 
-## Open — phase-1 follow-ups
+## Phase-1 follow-ups — all closed
 
-Logged in [`FEAT_DSC_Ui_Settings.md`](FEAT_DSC_Ui_Settings.md) under `### Tab finalization follow-ups`: **A** description optional on the toggle row (Auto-show zones rows are label-only) and **B** row-padding convention are closed by R6 and R7 respectively; **C** align §2.2 with §2.1/§2.3 remains open. **D** is resolved — custom tab cells inherit no M3 text style, so the `titleSmall` 0.1sp tracking no longer applies.
+**A** (description optional on the toggle row) and **B** (row-padding convention) closed by R6/R7; **C** (§2.2 alignment) closed by R8; **D** already resolved. The `### Tab finalization follow-ups` section in [`FEAT_DSC_Ui_Settings.md`](FEAT_DSC_Ui_Settings.md) is folded.
 
 ## Prior — C12 OverlayLayer param collapse (complete, awaiting push + PR)
 
@@ -48,4 +49,5 @@ Logged in [`FEAT_DSC_Ui_Settings.md`](FEAT_DSC_Ui_Settings.md) under `### Tab fi
 - `app/src/main/assets/ui.properties` — token values
 - `docs/ui-component-guidelines.md` — canonical UI rules
 - `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_tab-finalization.md` — phase-1 plan of record
-- `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_row-naming-normalization.md` — row-family normalization plan of record (R1–R5 done)
+- `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_row-naming-normalization.md` — row-family normalization plan of record (R1–R8 done)
+- `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_section-title-color.md` — sub-section title colour backlog (Option A, not implemented)

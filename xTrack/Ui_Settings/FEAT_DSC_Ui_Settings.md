@@ -2,7 +2,7 @@
 name: Ui_Settings
 status: active
 created: 2026-06-09 15:28
-modified: 2026-09-11 12:41
+modified: 2026-09-11 12:45
 ---
 
 **Description:** Settings page UI, settings persistence (SharedPreferences), settings-related widgets, and settings UX enhancements.
@@ -12,6 +12,8 @@ modified: 2026-09-11 12:41
 > this feature file defers to it and does not duplicate those rules. Colour tokens: [`docs/color-scheme.md`](../../docs/color-scheme.md) §7.
 
 ## Implemented
+
+- **row-family normalization R1–R8 — control rows unified + docs (2026-09-11, `feature/settings-menu-clean`)** — one row family across the Settings overlay: renames (`ToggleRowContent`→`ToggleRow`, `SliderRowContent`→`SliderRow`, `SettingsLanguageRow`→`SegmentedRow`, `ColorSwatchRow`→`ColorRow`, `ColorSwatchPairRow`→`ColorPairRow`), `SettingsFrequencyRow` deleted (GPS frequency became a 3-option `SegmentedRow` with per-stop captions — the one deliberate behaviour change), and `RangeSliderRow` + `CardDescription` extracted; ~13 hand-rolled inline toggle rows and the hand-rolled dividers converted to `ToggleRow`/`SectionDivider()`; `RegulatedZoneCategoryToggles`→`CategoryToggleGroup` (`internal`, in `RegulatedZoneComponents.kt`, rebuilt on `ToggleRow.leadingIcon`); padding normalized to **container-owned horizontal inset** (`Card` gains `ui.padding.card.horizontal`, every row pads vertically only; grep invariant = `AppConfig.uiPaddingCardHorizontal` occurs exactly twice in the overlay). R8: `docs/ui-component-guidelines.md` §1 (naming rule + container-owned inset), §2.0, §2.1 (`leadingIcon`), §2.2, §2.3, §2.4, §2.6, §2.7 (`SegmentedRow`), §2.8 (`RangeSliderRow`), §2.9 (`CardDescription` vs `SubSectionHeader`) and §4 rewritten. Builds SUCCESS after every step, no new warnings; R7 device-validated; follow-ups **A** (description optional) and **B** (row padding) closed by R6/R7, **C** (§2.2 alignment) closed by R8, so `### Tab finalization follow-ups` is folded (D was already resolved). Backlog logged separately: sub-section title colour → `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_section-title-color.md` → `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_row-naming-normalization.md`
 
 - **tab-finalization phase 1 — spacing rhythm (2026-09-11, `feature/settings-menu-clean`)** — Layers' card→next-title gaps unified to `${ui.spacing.section.gap}` (three were `ui.spacing.card.gap` and one a raw `12.dp`), so all four tabs now share one section boundary. The token then moved **24 → 14dp** and `ui.spacing.header.bottom` (title→card) **8 → 6dp**, giving a single 14dp visual rhythm (6dp spacer + the `Card`'s 8dp top padding). `docs/ui-component-guidelines.md` §3 rows, §2.9 card-description gap and the new §2.11 tab-strip spec updated. `apk-build.bat` SUCCESS; validated on device → `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_tab-finalization.md`
 - **tab-finalization phase 1 (2026-09-11, `feature/settings-menu-clean`)** — one section-title style app-wide (sentence case; `ui.font.section.size` 17→18sp with the `AppConfig.uiFontSectionSize` fallback 17f→18f; [`SectionHeader`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt:2008) lost its `uppercase` param and the 9 call sites dropped the arg). `SettingsToggleRow` retired for a box-less `ToggleRowContent` ([L2067](../../app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt:2067)): Coastline is now `Card { ToggleRowContent(…) }`, Orientation aids is one `Card` with 3 rows and 2 `SectionDivider`s. Settings tab strip migrated from the hand-rolled Row + `drawBehind` indicator to M3 `SecondaryScrollableTabRow` ([L261](../../app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt:261)) with **custom content-sized cells** (`Box` + `selectable(role = Role.Tab)`, 8dp horizontal / 14dp vertical, M3's full-cell secondary indicator, `edgePadding = 24.dp`) — `PrimaryTabRow` and the legacy `ScrollableTabRow` were both rejected during on-device validation (fixed ~24dp stub indicator; M3 `Tab` padding wrapped "Navigation" and its 90dp minimum left side gaps; the legacy row is deprecated); label token `ui.font.tab.size=18sp`, SemiBold (Bold when selected) (`AppConfig.uiFontTabSize` 18f). `docs/ui-component-guidelines.md` §1/§2.1/§2.3/§2.4/§2.5/§2.6/§2.9/§4 rewritten to the single "row + Card + functionally-defined sections" model. `apk-build.bat` SUCCESS, no new warnings; Ask review PASS; tab strip validated on device → `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_tab-finalization.md`
@@ -35,13 +37,6 @@ modified: 2026-09-11 12:41
 - **tab organization** — Material 3 TabRow + HorizontalPager (3 tabs); per-tab scroll states; custom blue indicator
 - **track-drawer-settings-btn** — Settings gear in Track Drawer header (64dp), drawer padding trimmed, redundant map Settings button removed
 
-### Tab finalization follow-ups
-
-- [ ] **A — optional description on the toggle row.** §2.1 mandates a description, but the Auto-show zones rows ([L1199+](../../app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt:1199)) are label-only. Decide: mark the description optional in §2.1 + `ToggleRowContent(description: String? = null)`, then unify those rows.
-- [ ] **B — row padding convention.** `ToggleRowContent` carries its own row padding; `SliderRowContent` ([L2109](../../app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt:2109)) relies on the caller. Pick one convention and pin it in the guidelines.
-- [ ] **C — align §2.2** with §2.1/§2.3 — it still reads "Standalone Slider" and shows the caller-padding wrapper.
-- [x] **D — resolved.** Custom tab cells inherit no M3 text style, so the `titleSmall` 0.1sp tracking no longer applies.
-
 ## Rules
 - **Defer to [`docs/ui-component-guidelines.md`](../../docs/ui-component-guidelines.md)** — the canonical source for all settings UI patterns (grouped cards §2.3, nested surfaces §2.4, dividers §2.6, headers §2.9, anti-patterns §4). No UI rules are duplicated here.
 
@@ -50,6 +45,8 @@ modified: 2026-09-11 12:41
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
 
 ## Docs
+- `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_row-naming-normalization.md` — row family normalization R1–R8: renames, `RangeSliderRow`/`SegmentedRow`/`CardDescription`, inline-row conversion, container-owned inset (implemented)
+- `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_section-title-color.md` — sub-section title colour: promote grey headings to `primary` (Option A) — backlog, not implemented
 - `xTrack/Ui_Settings/260906_FEAT_PLN_Ui_Settings_drawer-content-measurement.md` — marker/track drawer content-fit normalization (implemented)
 - `xTrack/Ui_Settings/260906_FEAT_PLN_Ui_Settings_card-expander-nestedcard-refactor.md` — Card/Expander/NestedCard structural refactor (implemented)
 - `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_guidelines-consolidation.md` — component/drawer/lists guideline consolidation (implemented)
