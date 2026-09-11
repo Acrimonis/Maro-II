@@ -504,6 +504,9 @@ object AppConfig {
     var uiPaddingExpanderVertical: Float = 6f; private set
     var uiPaddingHeaderVertical: Float = 6f; private set
 
+    // Shared scrim dim alpha 0.0-1.0 (drawers + dialogs)
+    var uiScrimAlpha: Float = 0.50f; private set
+
     // Corner radius (dp)
     var uiRadiusCard: Float = 12f; private set
     var uiRadiusExpander: Float = 8f; private set
@@ -892,6 +895,9 @@ object AppConfig {
             uiPaddingContentComfortable = dp("ui.padding.content.comfortable", uiPaddingContentComfortable)
             uiPaddingExpanderVertical = dp("ui.padding.expander.vertical", uiPaddingExpanderVertical)
             uiPaddingHeaderVertical = dp("ui.padding.header.vertical", uiPaddingHeaderVertical)
+
+            // Dialog
+            uiScrimAlpha = props.getProperty("ui.scrim.alpha")?.trim()?.toFloatOrNull() ?: uiScrimAlpha
 
             // Corner radius
             uiRadiusCard = dp("ui.radius.card", uiRadiusCard)

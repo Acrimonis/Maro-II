@@ -46,6 +46,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -58,8 +59,8 @@ import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.outlined.PushPin
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -77,6 +78,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.focus.FocusRequester
@@ -90,6 +93,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
@@ -99,6 +103,10 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.res.stringResource
+import ykws.android.maro.ui.components.ConfirmAction
+import ykws.android.maro.ui.components.ConfirmActionRole
+import ykws.android.maro.ui.components.ConfirmDialog
+import ykws.android.maro.ui.components.ConfirmRequest
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import ykws.android.maro.R
@@ -228,8 +236,14 @@ fun TrackHistoryOverlay(
     val pinAllLabel = stringResource(R.string.action_pin_all)
     val unpinAllLabel = stringResource(R.string.action_unpin_all)
     val togglePinsLabel = stringResource(R.string.action_toggle_pins)
+    val mergeLabel = stringResource(R.string.action_merge)
+    val cancelLabel = stringResource(R.string.action_cancel)
+    val mergeNameHint = stringResource(R.string.track_merge_name_hint)
+    val mergeDefaultName = stringResource(R.string.track_merge_default_name)
+    val mergeKeepOriginals = stringResource(R.string.track_merge_keep_originals)
+    val context = LocalContext.current
 
-    val trackMultiActions = remember(trackSummaries, onMergeTracks) {
+    val trackMultiActions = remember(trackSummaries, onMergeTracks, context) {
         listOf(
             MultiActionSpec(
                 id = "delete",
@@ -283,76 +297,36 @@ fun TrackHistoryOverlay(
                 label = "Merge",
                 icon = Icons.AutoMirrored.Filled.MergeType,
                 enabled = { ids -> ids.size >= 2 },
-                confirmContent = { ids, onDismiss, onConfirm ->
+                confirmRequest = { ids, onDismiss, onConfirm ->
                     val nameById = trackSummaries
                         .filter { it.id in ids }
                         .sortedBy { it.startTimeMs }
                         .map { it.name }
-                    val defaultName = remember(ids) {
-                        if (nameById.size == 2) "${nameById[0]} + ${nameById[1]}"
+                    val defaultName = if (nameById.size == 2) "${nameById[0]} + ${nameById[1]}"
                         else "${nameById.first()} ... ${nameById.last()}"
-                    }
-                    var name by remember { mutableStateOf(defaultName) }
-                    var keepOriginals by remember { mutableStateOf(true) }
-
-                    AlertDialog(
-                        onDismissRequest = onDismiss,
-                        title = { Text("Merge ${ids.size} Tracks") },
-                        text = {
-                            Column {
-                                Text(
-                                    "Enter a name for the merged track:",
-                                    color = Color(AppConfig.uiTextMuted),
-                                    fontSize = 13.sp
+                    val state = MergeDialogState(defaultName)
+                    ConfirmRequest(
+                        title = context.getString(R.string.track_merge_title, ids.size),
+                        message = mergeNameHint,
+                        options = {
+                            MergeDialogOptions(
+                                state = state,
+                                keepOriginalsLabel = mergeKeepOriginals
+                            )
+                        },
+                        actions = listOf(
+                            ConfirmAction(mergeLabel, ConfirmActionRole.PRIMARY) {
+                                onMergeTracks?.invoke(
+                                    ids,
+                                    state.name.ifBlank { mergeDefaultName },
+                                    state.keepOriginals
                                 )
-                                Spacer(Modifier.height(8.dp))
-                                TextField(
-                                    value = name,
-                                    onValueChange = { name = it },
-                                    singleLine = true,
-                                    textStyle = androidx.compose.ui.text.TextStyle(
-                                        color = Color(AppConfig.uiTextPrimary),
-                                        fontSize = 15.sp
-                                    ),
-                                    colors = TextFieldDefaults.colors(
-                                        focusedContainerColor = Color.Transparent,
-                                        unfocusedContainerColor = Color.Transparent,
-                                        focusedTextColor = Color(AppConfig.uiTextPrimary),
-                                        unfocusedTextColor = Color(AppConfig.uiTextPrimary),
-                                        cursorColor = Color(AppConfig.uiTextPrimary)
-                                    ),
-                                    modifier = Modifier.fillMaxWidth()
-                                )
-                                Spacer(Modifier.height(8.dp))
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Checkbox(
-                                        checked = keepOriginals,
-                                        onCheckedChange = { keepOriginals = it }
-                                    )
-                                    Text(
-                                        "Keep original tracks",
-                                        color = Color(AppConfig.uiTextPrimary),
-                                        fontSize = 14.sp
-                                    )
-                                }
+                                onConfirm()
+                            },
+                            ConfirmAction(cancelLabel, ConfirmActionRole.SECONDARY) {
+                                onDismiss()
                             }
-                        },
-                        confirmButton = {
-                            TextButton(
-                                onClick = {
-                                    onMergeTracks?.invoke(ids, name.ifBlank { "Merged Track" }, keepOriginals)
-                                    onConfirm()
-                                }
-                            ) {
-                                Text("Merge")
-                            }
-                        },
-                        dismissButton = {
-                            TextButton(onClick = onDismiss) {
-                                Text("Cancel")
-                            }
-                        },
-                        containerColor = Color(0xFF2D2D2D)
+                        )
                     )
                 }
             )
@@ -398,6 +372,67 @@ fun TrackHistoryOverlay(
         multiActions = trackMultiActions,
         lazyListState = lazyListState
     )
+}
+
+/**
+ * Snapshot-backed state of the merge dialog. It is created where the dialog is requested and
+ * carried by the [ConfirmRequest], so the dialog's fields survive while it is composed on the
+ * overlay ladder.
+ */
+private class MergeDialogState(defaultName: String) {
+    var name by mutableStateOf(defaultName)
+    var keepOriginals by mutableStateOf(true)
+}
+
+/** Options slot of the merge dialog: the name field and the keep-originals checkbox. */
+@Composable
+private fun MergeDialogOptions(
+    state: MergeDialogState,
+    keepOriginalsLabel: String
+) {
+    TextField(
+        value = state.name,
+        onValueChange = { state.name = it },
+        singleLine = true,
+        textStyle = androidx.compose.ui.text.TextStyle(
+            color = Color(AppConfig.uiTextPrimary),
+            fontSize = 15.sp
+        ),
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = Color.Transparent,
+            unfocusedContainerColor = Color.Transparent,
+            focusedTextColor = Color(AppConfig.uiTextPrimary),
+            unfocusedTextColor = Color(AppConfig.uiTextPrimary),
+            cursorColor = Color(AppConfig.uiTextPrimary)
+        ),
+        modifier = Modifier.fillMaxWidth()
+    )
+    Spacer(Modifier.height(8.dp))
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .toggleable(
+                value = state.keepOriginals,
+                role = Role.Checkbox,
+                onValueChange = { state.keepOriginals = it }
+            )
+            .semantics(mergeDescendants = true) {},
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Checkbox(
+            checked = state.keepOriginals,
+            onCheckedChange = null,
+            colors = CheckboxDefaults.colors(
+                checkedColor = Color(AppConfig.uiAccent)
+            )
+        )
+        Text(
+            keepOriginalsLabel,
+            color = Color(AppConfig.uiTextPrimary),
+            fontSize = 14.sp,
+            modifier = Modifier.weight(1f)
+        )
+    }
 }
 
 /**

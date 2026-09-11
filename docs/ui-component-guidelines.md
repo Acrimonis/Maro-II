@@ -474,6 +474,59 @@ dashboard padding (portrait: bottom = `portraitDashboardHeight`; landscape: star
 `landscapeDashboardWidth`) so they align over the originals in both orientations. The locked
 zoom controls accept a double-tap only (single splash taps are ignored).
 
+### 5.6 Confirmation Dialog — `ConfirmDialog`
+
+Canonical modal confirmation surface. Replaces every `ModalBottomSheet` confirmation (`ConfirmSheet`,
+recording exit, resume, import conflict, GPS source-switch) and the merge / orphan-recovery
+`AlertDialog`s. No framework sheet, no platform dialog window.
+
+**Contract**
+
+- **One component, own scrim, above the ladder.** Rendered on the overlay ladder **above every
+  drawer and the map** — drawer-hosted confirmations (merge, batch delete) via the ladder
+  `ConfirmRequestHost`, the rest by their `MapDialogHost`/`MapImportConflictHost` hosts, all composed
+  above `OverlayLayer`; it draws **its own** full-screen `ui.scrim.alpha` layer directly beneath its
+  panel, and a tap on that scrim dismisses (see `docs/ui-drawer-guidelines.md` §1/§3). The overlay
+  ladder's scrim is drawer/settings/wizard only and is **suppressed while any `ConfirmDialog` is
+  visible**, so the two dims never stack; both are hard on/off toggles sharing the `ui.scrim.alpha`
+  token. OS-consent prompts (background location, GPS permission, battery optimisation) stay
+  `AlertDialog` — only the app's own confirmations migrate.
+- **Structure (top → bottom):** title (18sp bold, exposed as a heading) → message (14sp
+  `uiTextPrimary`) → optional `options` slot → 0.5dp `uiDividerColor` divider → stacked full-width
+  actions, 8dp apart; 24dp horizontal padding, 16dp bottom padding.
+- **Geometry:** width = `min(maxWidth, maxHeight)` (the device's portrait width) in **both**
+  orientations, horizontally centred, with no cap token; bottom-anchored flush with the bottom
+  edge, rounded top corners only (`RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)`), the
+  navigation-bar inset applied *inside* the panel; height wraps its content and scrolls when taller
+  than the space left above the IME and the navigation bar; the IME offset is retained.
+- **Accent border:** the `ui.accent` 1dp outline is stroked on the **top and both sides only — no
+  line on the bottom edge**, so the flush panel keeps reading as a pull-up drawer (a `Surface`
+  `border` would trace all four sides and close the shape at the bottom).
+- **Motion:** the **panel** slides over **450 ms** (`ConfirmDialogAnimMs`) in both directions; the
+  scrim is a **hard on/off toggle** (no fade) and does not share the panel's window. While the dialog
+  is visible the ladder scrim yields to it, so dims never stack; every other `DrawerSlot` caller keeps
+  its own timings.
+- **Actions:** `ConfirmAction(label, role, onClick)` rendered in order, stacked full width.
+  `PRIMARY` = `uiAccent` filled, white bold label; `DANGER` = `semanticDanger` filled, white bold
+  label; `SECONDARY` = `OutlinedButton` with a `uiAccent` label.
+- **Cancel is optional** and is just another action, passed **last** — where present it is the
+  bottom-most button and calls `onDismiss`. Offer one only where dismissal unambiguously means
+  "abort, nothing happens" (resume, import conflict, merge, batch delete). No Cancel where dismissing
+  has a side effect (orphan recovery saves the checkpoint) or where the stacked actions already cover
+  the space (recording exit, stop recording).
+- **Dismissal:** scrim tap, back and the caller's `onDismiss` all run the same lambda — that lambda
+  may carry a side effect and must be preserved verbatim.
+- **Hosts** own every string, the checkbox/field state and the side effects; they keep the component
+  mounted with `visible = false` while it animates out.
+
+**Tokens**
+
+| Token | Default | Use |
+|---|---|---|
+| `ui.scrim.alpha` | 0.50 | Dim shared by the drawer ladder and the dialog |
+
+> There is no `ui.dialog.bottom.lift` token — the panel is flush with the bottom edge.
+
 ---
 
 ## 6. Global Layout Rules

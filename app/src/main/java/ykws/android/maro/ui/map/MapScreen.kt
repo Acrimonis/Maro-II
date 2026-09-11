@@ -38,6 +38,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
@@ -83,9 +84,11 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -108,6 +111,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -182,7 +186,13 @@ import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.MarkerOrigin
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.data.markers.UserMarkerRepository
+import ykws.android.maro.ui.components.ConfirmAction
+import ykws.android.maro.ui.components.ConfirmActionRole
+import ykws.android.maro.ui.components.ConfirmDialog
+import ykws.android.maro.ui.components.ConfirmDialogHostState
+import ykws.android.maro.ui.components.ConfirmRequestHost
 import ykws.android.maro.ui.components.DrawerHeader
+import ykws.android.maro.ui.components.LocalConfirmDialogHost
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.ui.map.MarkersViewModel
 import ykws.android.maro.ui.map.MarkerDrawer
@@ -940,6 +950,23 @@ fun MapScreen(
     var showExitDialog by remember { mutableStateOf(false) }
     // Stop-recording confirmation (🐾 icon + menu drawer stop) — same 3-way sheet as exit.
     var showStopRecordingSheet by remember { mutableStateOf(false) }
+    // Resume confirmation: non-null while the dialog awaits the Resume/Cancel choice.
+    var pendingResume by remember { mutableStateOf<PendingTrackResume?>(null) }
+
+    // ── Ladder confirm-dialog host ───────────────────────────────────────
+    // Sink for ConfirmRequests raised by drawer-hosted surfaces (batch delete, merge). Their own
+    // scrim would be clipped to the drawer, so they hand the dialog to this host, which paints it
+    // on the overlay ladder — full-screen scrim over the drawers and the map.
+    val confirmDialogHost = remember { ConfirmDialogHostState() }
+
+    // ── Confirm-dialog-open flag (hoisted for the exit guard) ────────────
+    // Each ConfirmDialog owns its own dismissal (scrim tap / back / Cancel), so the double-back
+    // exit guard must stand down while one is offered. Covers the exit, stop-recording, recovery,
+    // import-conflict, GPS source-switch and resume dialogs; the hoisted list-drawer
+    // confirmations (batch delete, merge) stay behind their open drawer, which the guard excludes.
+    val anyConfirmDialogOpen = showExitDialog || showStopRecordingSheet ||
+        pendingGpsModeToggle != null || recoveryTrack != null ||
+        pendingTrackImport != null || pendingResume != null
 
     Box(
         modifier = modifier
@@ -967,7 +994,7 @@ fun MapScreen(
         }
 
         // ── Otherwise require a second back press within 2 s to exit ───────
-        BackHandler(enabled = !showSettings && !showTrackHistory && !showMarkerManagement && !anyFanExpanded && !trackDrawerState.isOpen) {
+        BackHandler(enabled = !showSettings && !showTrackHistory && !showMarkerManagement && !anyFanExpanded && !trackDrawerState.isOpen && !anyConfirmDialogOpen) {
             val now = SystemClock.elapsedRealtime()
             val isRecording = trackRecorderState.state == ykws.android.maro.data.track.TrackRecorderState.ON
             if (now - lastBackAt <= 2_000L) {
@@ -1501,9 +1528,6 @@ fun MapScreen(
             !it.isLive && it.matchesFilter(appSettings.trackMapFilter, ykws.android.maro.data.model.todayMidnightMs()) && (it.pinned || it.visibleOnMap)
         }
 
-        // Resume confirmation: non-null while the sheet awaits the Resume/Cancel choice.
-        var pendingResume by remember { mutableStateOf<PendingTrackResume?>(null) }
-
         // Close the track detail drawer (restores the pre-navigation camera when the map was untouched).
         val closeTrackDrawer: () -> Unit = {
             if (!trackDrawerState.mapWasInteracted) {
@@ -1517,6 +1541,7 @@ fun MapScreen(
             preNavigationState = null
         }
 
+        CompositionLocalProvider(LocalConfirmDialogHost provides confirmDialogHost) {
         OverlayLayer(
             chrome = OverlayChrome(
                 showSettings = showSettings,
@@ -1526,6 +1551,9 @@ fun MapScreen(
                 showWizard = showWizard,
                 wizardStep = wizardStep,
                 drawerState = drawerState,
+                // Suppress the ladder scrim while any ConfirmDialog is up (its own scrim wins), so
+                // the two dim layers never stack. Includes the hoisted merge / batch-delete host.
+                dialogScrimActive = anyConfirmDialogOpen || confirmDialogHost.request != null,
             ),
             isLandscape = isLandscape,
             portraitDashboardHeight = portraitDashboardHeight,
@@ -1796,6 +1824,7 @@ fun MapScreen(
                 }
             },
         )
+        }
 
         // ── Post-save undo → stack entry ────────────────────────────────
         val lastSavedId by markersViewModel.lastSavedMarkerId.collectAsState()
@@ -1885,24 +1914,71 @@ fun MapScreen(
             showImportBanner = { b -> showImportBanner(b) }
         )
 
-        // ── Resume confirmation sheet (optional backup) — hosted outside the drawers so closing the
-        //    source surface cannot drop it ──
+        // ── Resume confirmation dialog (optional backup) — hosted outside the drawers so closing the
+        //    source surface cannot drop it. `resumeTarget` drives dismissal; the retained copy keeps
+        //    the dialog mounted while it animates out. ──
         val resumeBackupSuffix = stringResource(R.string.track_backup_suffix)
-        pendingResume?.let { pending ->
-            ResumeConfirmSheet(
+        val resumeTarget = pendingResume
+        var resumeRetained by remember { mutableStateOf<PendingTrackResume?>(null) }
+        LaunchedEffect(resumeTarget) {
+            if (resumeTarget != null) resumeRetained = resumeTarget
+        }
+        if (resumeRetained != null) {
+            var backup by remember(resumeTarget?.trackId) { mutableStateOf(true) }
+            ConfirmDialog(
                 title = stringResource(R.string.resume_confirm_title),
+                visible = resumeTarget != null,
+                onDismiss = { pendingResume = null },
                 message = stringResource(R.string.resume_confirm_message),
-                backupLabel = stringResource(R.string.resume_confirm_backup),
-                confirmLabel = stringResource(R.string.action_resume),
-                onConfirm = { backup ->
-                    trackViewModel.resumeTrack(pending.trackId, if (backup) resumeBackupSuffix else null)
-                    if (pending.fromList) showTrackHistory = false else closeTrackDrawer()
-                    pendingResume = null
+                options = {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .toggleable(
+                                value = backup,
+                                role = Role.Checkbox,
+                                onValueChange = { backup = it }
+                            )
+                            .semantics(mergeDescendants = true) {},
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Checkbox(
+                            checked = backup,
+                            onCheckedChange = null,
+                            colors = CheckboxDefaults.colors(
+                                checkedColor = ComposeColor(AppConfig.uiAccent)
+                            )
+                        )
+                        Text(
+                            stringResource(R.string.resume_confirm_backup),
+                            color = ComposeColor(AppConfig.uiTextPrimary),
+                            fontSize = 14.sp,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 },
-                onDismiss = { pendingResume = null }
+                actions = listOf(
+                    ConfirmAction(stringResource(R.string.action_resume), ConfirmActionRole.PRIMARY) {
+                        resumeRetained?.let { pending ->
+                            trackViewModel.resumeTrack(
+                                pending.trackId,
+                                if (backup) resumeBackupSuffix else null
+                            )
+                            if (pending.fromList) showTrackHistory = false else closeTrackDrawer()
+                        }
+                        pendingResume = null
+                    },
+                    ConfirmAction(stringResource(R.string.action_cancel), ConfirmActionRole.SECONDARY) {
+                        pendingResume = null
+                    }
+                )
             )
         }
 
+        // ── Hoisted list-drawer confirmations (merge / batch delete) ──────────
+        // Painted on the ladder so their scrim covers the drawers and the map, while the source
+        // drawer stays open behind them.
+        ConfirmRequestHost(state = confirmDialogHost)
 
         // ── Screen lock: full-screen input scrim + top-most unlock button ──
         //     The scrim consumes every pointer event so nothing below it (map,
@@ -2488,205 +2564,6 @@ internal val settingsTabLabels = listOf(
     R.string.settings_tab_system
 )
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
-@Composable
-internal fun RecordingExitSheet(
-    onSave: () -> Unit,
-    onContinue: () -> Unit,
-    onDiscard: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-        containerColor = ComposeColor(AppConfig.uiBackground)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                "Recording in progress",
-                color = ComposeColor(AppConfig.uiTextPrimary),
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(Modifier.height(12.dp))
-            Text(
-                "A track is being recorded. What would you like to do?",
-                color = ComposeColor(AppConfig.uiTextPrimary),
-                fontSize = 14.sp
-            )
-            Spacer(Modifier.height(16.dp))
-            Button(
-                onClick = onSave,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = ComposeColor(AppConfig.uiAccent)
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("Save track", color = ComposeColor.White, fontWeight = FontWeight.Bold)
-            }
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton(
-                onClick = onContinue,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("Continue recording", color = ComposeColor(AppConfig.uiAccent))
-            }
-            
-            Spacer(Modifier.height(8.dp))
-            Button(
-                onClick = onDiscard,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = ComposeColor(AppConfig.semanticDanger)
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text("Discard track", color = ComposeColor.White, fontWeight = FontWeight.Bold)
-            }
-            Spacer(Modifier.height(16.dp))
-        }
-    }
-}
 
-/**
- * Resume confirmation sheet — [ConfirmSheet] geometry plus an optional backup checkbox
- * (checked by default). The caller owns the resume + backup side-effects.
- */
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
-@Composable
-private fun ResumeConfirmSheet(
-    title: String,
-    message: String,
-    backupLabel: String,
-    confirmLabel: String,
-    onConfirm: (backup: Boolean) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var backup by remember { mutableStateOf(true) }
-    androidx.compose.material3.ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-        containerColor = ComposeColor(AppConfig.uiBackground)
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(title, color = ComposeColor(AppConfig.uiTextPrimary), fontSize = 18.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(12.dp))
-            Text(message, color = ComposeColor(AppConfig.uiTextPrimary), fontSize = 14.sp)
-            Spacer(Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                androidx.compose.material3.Checkbox(
-                    checked = backup,
-                    onCheckedChange = { backup = it },
-                    colors = androidx.compose.material3.CheckboxDefaults.colors(checkedColor = ComposeColor(AppConfig.uiAccent))
-                )
-                Text(backupLabel, color = ComposeColor(AppConfig.uiTextPrimary), fontSize = 14.sp)
-            }
-            Spacer(Modifier.height(4.dp))
-            androidx.compose.material3.HorizontalDivider(thickness = 0.5.dp, color = ComposeColor(AppConfig.uiDividerColor))
-            Spacer(Modifier.height(12.dp))
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                androidx.compose.material3.TextButton(onClick = onDismiss, modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.action_cancel), color = ComposeColor(AppConfig.uiAccent))
-                }
-                Button(
-                    onClick = { onConfirm(backup) },
-                    modifier = Modifier.weight(1f),
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = ComposeColor(AppConfig.uiAccent)),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(confirmLabel, color = ComposeColor.White, fontWeight = FontWeight.Bold)
-                }
-            }
-            Spacer(Modifier.height(16.dp))
-        }
-    }
-}
 
-/**
- * Single-GPX import conflict sheet — three actions modeled on RecordingExitSheet:
- * Duplicate (import as new copy, accent), Override (replace existing, destructive
- * red), Cancel (dismiss silently).
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-internal fun ImportConflictSheet(
-    matchName: String,
-    onDuplicate: () -> Unit,
-    onOverride: () -> Unit,
-    onCancel: () -> Unit,
-    onDismiss: () -> Unit
-) {
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-        containerColor = ComposeColor(AppConfig.uiBackground)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Text(
-                stringResource(R.string.import_match_title),
-                color = ComposeColor(AppConfig.uiTextPrimary),
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(Modifier.height(12.dp))
-            Text(
-                stringResource(R.string.import_match_message, matchName),
-                color = ComposeColor(AppConfig.uiTextPrimary),
-                fontSize = 14.sp
-            )
-            Spacer(Modifier.height(16.dp))
-            Button(
-                onClick = onDuplicate,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = ComposeColor(AppConfig.uiAccent)
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(stringResource(R.string.import_duplicate), color = ComposeColor.White, fontWeight = FontWeight.Bold)
-            }
-            Spacer(Modifier.height(8.dp))
-            Button(
-                onClick = onOverride,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = ComposeColor(AppConfig.semanticDanger)
-                ),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(stringResource(R.string.import_override), color = ComposeColor.White, fontWeight = FontWeight.Bold)
-            }
-            Spacer(Modifier.height(8.dp))
-            OutlinedButton(
-                onClick = onCancel,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Text(stringResource(R.string.action_cancel), color = ComposeColor(AppConfig.uiAccent))
-            }
-            Spacer(Modifier.height(16.dp))
-        }
-    }
-}
 

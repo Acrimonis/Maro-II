@@ -1,31 +1,36 @@
-# Ui_Settings — Hydration (2026-09-11)
+# Ui_Settings — Hydration (2026-09-11 20:00 UTC)
 
-## State — session complete and merged
+## State — confirm-dialog normalization COMPLETE (uncommitted at bake time)
 
-The session branch `feature/settings-menu-clean` is **merged into `develop` via PR #227** (`1c2f681`). Its final commits were `6ff95b3` (item A colours + stale-code/properties cleanup) and `b3483d0` (docs/tracking). Work then moved to a new branch **`feature/menu-twks`**, created from `origin/develop` — which already contains the merge, so the new branch has the row model.
+Branch **`feature/tracks-recording`** (from `origin/develop`), working tree dirty. The confirmation-dialog plan is fully delivered: one `ConfirmDialog` on the overlay ladder replaces every `ModalBottomSheet` confirmation and the merge / orphan-recovery `AlertDialog`s.
 
-Delivered this session:
+- **Component** — [`ConfirmDialog.kt`](../../app/src/main/java/ykws/android/maro/ui/components/ConfirmDialog.kt): portrait-width panel (`min(maxWidth, maxHeight)`) both orientations, flush bottom, rounded top corners, open-bottom accent border, nav inset inside, IME retained, wrap + scroll, 450 ms panel slide, caller actions (primary/secondary/danger), optional bottom-most Cancel.
+- **Scrim ownership** — the dialog owns its own `ui.scrim.alpha` layer; ladder plumbing deleted (`LocalDialogDismiss`, `activeDialogDismiss`, dialog-first `scrimDismiss`).
+- **Hoist** — merge + batch delete raised via `ConfirmRequest` / `ConfirmRequestHost` ([`MapScreen.kt`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt)); source drawer stays open.
+- **P4 (this session)** — all scrims are hard on/off toggles; the ladder scrim yields while any dialog is visible (`OverlayChrome.dialogScrimActive` in [`OverlayLayerParams.kt`](../../app/src/main/java/ykws/android/maro/ui/map/OverlayLayerParams.kt)), so dims never stack.
+- Build `gradlew.bat assembleDebug` SUCCESSFUL.
 
-- **Row family normalization R1–R8** — one row model across the overlay: renames (`ToggleRow`, `SliderRow`, `SegmentedRow`, `ColorRow`, `ColorPairRow`), new `RangeSliderRow` + `CardDescription`, 13 hand-rolled inline toggle rows and the hand-rolled dividers converted, `CategoryToggleGroup` (internal) rebuilt on `ToggleRow.leadingIcon`, and **container-owned horizontal inset** (`Card`/`NestedCard` own it; rows pad vertically only — grep invariant: `AppConfig.uiPaddingCardHorizontal` exactly 2 in the overlay). `SettingsFrequencyRow` deleted — GPS frequency became a 3-option picker with per-stop captions, the one deliberate behaviour change. Builds SUCCESS after every step; R3/R4 and R7 device-validated.
-- **Item A — sub-section title colour** — `SubSectionHeader` and `SingleColorSubSection` titles promoted from `ui.settings.text.muted` to `ui.settings.text.primary` (16sp SemiBold) at 3 sites (7 call sites inherit); descriptions stay `secondary`, `CardDescription` stays `muted`. Hierarchy is now weight + spacing. Device-validated.
-- **Stale-code/properties cleanup** — 127 unused imports, dead `Expander(labelStyle)` parameter, a dangling KDoc, 4 orphan property keys with 2 unused accessors.
-- **Docs** — guidelines rewritten for the row model (§1 naming rule + container-owned inset, §2.0–§2.2, §2.6–§2.9, §4), then corrected again for the cleanup (§2.5 and §4 dropped the now-impossible `labelStyle` override; §2.10's popup title no longer claims "SubSectionHeader style"). `color-scheme.md` §7 text roles synced.
+## Next step
 
-## Open
+Commit + push `feature/tracks-recording`, then device-verify the on/off scrim toggle (dialog over an open drawer, both orientations) and open the PR into `develop`.
 
-- Nothing open for Ui_Settings — follow-ups A–D are all closed and `### Tab finalization follow-ups` is folded.
-- Carried backlog (documented, not implemented): popup section titles still use the dashboard `uiDashboardTextMuted` token (§2.10, a known token-scope wart); tokens referenced only from docs were kept rather than deleted; 2 unused `maro.properties` keys.
+## Warts / follow-ups
+
+- `SlideDirection.FADE_ONLY` in `DrawerSlot.kt` is now unreachable (dead code) — cleanup candidate.
+- The instant toggle changes every drawer's dim feel (snaps around the slide), not just dialogs — accepted.
 - Prior, still outstanding: `feature/refact-C12` holds 3 commits (`ec57458`, `a000c18`, `96259b5`) needing push + PR.
 
 ## Key Files
 
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt` — overlay, 4 tabs, and the row primitives (`ToggleRow`, `SliderRow`, `RangeSliderRow`, `SegmentedRow`, `CardDescription`, `Card`, `NestedCard`, `SectionDivider`, `Expander`)
-- `app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneComponents.kt` — `CategoryToggleGroup`
-- `app/src/main/java/ykws/android/maro/config/AppConfig.kt` + `app/src/main/assets/ui.properties` / `colors.properties` — tokens
-- `docs/ui-component-guidelines.md` — canonical UI rules; `docs/color-scheme.md` §7 — colour roles
+- `app/src/main/java/ykws/android/maro/ui/components/ConfirmDialog.kt` — the single confirmation dialog
+- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt` — ladder scrim (hard toggle, yields to dialogs)
+- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayerParams.kt` — `OverlayChrome.dialogScrimActive`
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — dialog state, guard flag, flag feed
+- `docs/ui-drawer-guidelines.md`, `docs/ui-component-guidelines.md` — scrim/dialog specs
 
 ## Plans of record
 
+- `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_confirm-dialog-normalization.md` — dialog normalization + scrim ownership (P1 closed, P2 + P4 implemented)
 - `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_row-naming-normalization.md` — R1–R8 (implemented)
 - `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_section-title-color.md` — item A (implemented)
 - `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_tab-finalization.md` — phase 1 (implemented)

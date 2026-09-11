@@ -215,6 +215,20 @@
     <string name="import_duplicate">Dupliquer</string>
     <string name="import_override">Remplacer</string>
 
+    <!-- Recording exit / stop-recording dialog -->
+    <string name="recording_exit_title">Enregistrement en cours</string>
+    <string name="recording_exit_message">Un parcours est en cours d\'enregistrement. Que voulez-vous faire ?</string>
+    <string name="recording_exit_save">Enregistrer le parcours</string>
+    <string name="recording_exit_continue">Continuer l\'enregistrement</string>
+    <string name="recording_exit_discard">Supprimer le parcours</string>
+
+    <!-- Track merge dialog -->
+    <string name="action_merge">Fusionner</string>
+    <string name="track_merge_title">Fusionner %1$d parcours</string>
+    <string name="track_merge_name_hint">Saisissez un nom pour le parcours fusionné :</string>
+    <string name="track_merge_keep_originals">Conserver les parcours d\'origine</string>
+    <string name="track_merge_default_name">Parcours fusionné</string>
+
     <!-- Track import result feedback -->
     <string name="import_failed">Échec de l\'importation</string>
     <string name="import_result_format">%1$s, %2$s</string>

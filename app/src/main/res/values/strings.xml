@@ -216,6 +216,20 @@
     <string name="import_duplicate">Duplicate</string>
     <string name="import_override">Override</string>
 
+    <!-- Recording exit / stop-recording dialog -->
+    <string name="recording_exit_title">Recording in progress</string>
+    <string name="recording_exit_message">A track is being recorded. What would you like to do?</string>
+    <string name="recording_exit_save">Save track</string>
+    <string name="recording_exit_continue">Continue recording</string>
+    <string name="recording_exit_discard">Discard track</string>
+
+    <!-- Track merge dialog -->
+    <string name="action_merge">Merge</string>
+    <string name="track_merge_title">Merge %1$d tracks</string>
+    <string name="track_merge_name_hint">Enter a name for the merged track:</string>
+    <string name="track_merge_keep_originals">Keep original tracks</string>
+    <string name="track_merge_default_name">Merged Track</string>
+
     <!-- Track import result feedback -->
     <string name="import_failed">Import failed</string>
     <string name="import_result_format">%1$s, %2$s</string>

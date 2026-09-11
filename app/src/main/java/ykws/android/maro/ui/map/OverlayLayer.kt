@@ -81,7 +81,6 @@ private fun stepSequenceFor(type: MarkerType): List<WizardStep> = when (type) {
 fun OverlayLayer(
     // ── State flags ──────────────────────────────────────────────────────
     chrome: OverlayChrome,
-
     // ── Layout ───────────────────────────────────────────────────────────
     isLandscape: Boolean,
     portraitDashboardHeight: Dp,
@@ -170,6 +169,7 @@ fun OverlayLayer(
     val showWizard = chrome.showWizard
     val wizardStep = chrome.wizardStep
     val drawerState = chrome.drawerState
+    val dialogScrimActive = chrome.dialogScrimActive
     val gpsMode = menu.gpsMode
     val autoShowMasterVisible = menu.autoShowMasterVisible
     val autoShowMasterOverride = menu.autoShowMasterOverride
@@ -210,20 +210,21 @@ fun OverlayLayer(
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
 
-    // ── Unified scrim ────────────────────────────────────────────────────
-    val showScrim = showSettings
+    // ── Ladder scrim ─────────────────────────────────────────────────────
+    // A plain on/off dim (no fade) that touch-blocks the whole screen (map included) while a drawer,
+    // settings or the wizard is open. It yields to a visible `ConfirmDialog`, which paints its own
+    // scrim above the drawers, so the two dim layers never stack.
+
+    val showScrim = (showSettings
         || showTrackDrawer
         || showTrackHistory
         || showMarkerManagement
-        || (showWizard && imeHeightDp > 0.dp)
+        || (showWizard && imeHeightDp > 0.dp))
+        && !dialogScrimActive
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // ── 1. Scrim ─────────────────────────────────────────────────────
-        DrawerSlot(
-            visible = showScrim,
-            modifier = Modifier.fillMaxSize(),
-            slideDirection = SlideDirection.FADE_ONLY
-        ) {
+        // ── 1. Scrim (hard toggle — no animation) ────────────────────────
+        if (showScrim) {
             val scrimDismiss: () -> Unit = {
                 when {
                     showSettings -> onDismissSettings()
@@ -239,7 +240,7 @@ fun OverlayLayer(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(ComposeColor.Black.copy(alpha = 0.50f))
+                    .background(ComposeColor.Black.copy(alpha = AppConfig.uiScrimAlpha))
                     .clickable { scrimDismiss() }
             )
         }

@@ -26,6 +26,11 @@ data class OverlayChrome(
     val showWizard: Boolean,
     val wizardStep: WizardStep?,
     val drawerState: MarkerDrawerState,
+    /**
+     * True while any modal `ConfirmDialog` is visible. The ladder scrim yields to the dialog's own
+     * scrim so the two dim layers never stack; both are hard on/off toggles (no fade).
+     */
+    val dialogScrimActive: Boolean = false,
 )
 
 /**
