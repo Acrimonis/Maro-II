@@ -5,6 +5,7 @@ import android.content.Intent
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import java.util.UUID
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,6 +19,7 @@ import kotlinx.serialization.json.Json
 import ykws.android.maro.data.markers.UserMarkerRepository
 import ykws.android.maro.data.model.ListFilter
 import ykws.android.maro.data.model.ListSortState
+import ykws.android.maro.data.model.MapRenderFocus
 import ykws.android.maro.data.model.matchesFilter
 import ykws.android.maro.data.model.todayMidnightMs
 import ykws.android.maro.data.settings.AppSettings
@@ -40,6 +42,13 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
     // ── Settings injection (set via observeSettings from MapScreen) ──
 
     private var settingsFlow: StateFlow<AppSettings>? = null
+
+    /**
+     * Ephemeral map-render focus: the highlighted track id plus the session-bounded boost of
+     * recently touched ids (import / record / merge / update). In memory only — never persisted,
+     * never overrides the master layer toggles.
+     */
+    val renderFocus = MapRenderFocus()
 
     private val _uiState = MutableStateFlow(TrackRecorderUiState())
     val uiState: StateFlow<TrackRecorderUiState> = _uiState.asStateFlow()
@@ -90,7 +99,11 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         }
         // Forward service recorder events to the persistent flow MapScreen observes.
         viewModelScope.launch {
-            TrackRecordingService.events.collect { _events.emit(it) }
+            TrackRecordingService.events.collect { event ->
+                // A finalized recording is a "freshly touched" track — boost it into the map set.
+                if (event is TrackEvent.Finalized) renderFocus.markTouched(event.trackId)
+                _events.emit(event)
+            }
         }
         viewModelScope.launch {
             runTrackSchemaMigration()
@@ -178,21 +191,59 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
 
     /**
      * Resume a finalized track as a live recording.
-     * Routes to the service which loads the track, forces visibleOnMap, and resumes.
+     * Routes to the service which loads the track and resumes it.
+     *
+     * @param backupNameSuffix when non-null, a copy of the stored track is written first so the
+     *        pre-resume state is preserved (the resume itself continues on the original track).
+     *        The copy is unpinned and un-boosted but deliberately NOT force-hidden: map visibility is
+     *        derived from the selection policy, so it renders like any other stored track. Accepted
+     *        2026-09-11 during the Mergitur integration — see
+     *        `xTrack/BoatTrace/260911_FEAT_PLN_BoatTrace_resume-confirm-backup.md`.
      */
-    fun resumeTrack(trackId: String) {
+    fun resumeTrack(trackId: String, backupNameSuffix: String? = null) {
         // Guard: cannot resume while already recording
         if (_uiState.value.state == TrackRecorderState.ON) {
             Log.w("MaroII_TrackVM", "resumeTrack: already recording")
             return
         }
-        startService(TrackRecordingService.ACTION_RESUME_TRACK) {
-            putExtra(TrackRecordingService.EXTRA_TRACK_ID, trackId)
-        }
         viewModelScope.launch {
+            // Backup first: the resume clears endTimeMs, so the snapshot must be written before the
+            // intent is sent.
+            if (backupNameSuffix != null) {
+                duplicateTrack(trackId, backupNameSuffix)
+                refreshSummaries()
+            }
+            startService(TrackRecordingService.ACTION_RESUME_TRACK) {
+                putExtra(TrackRecordingService.EXTRA_TRACK_ID, trackId)
+            }
             delay(500)
             refreshSummaries()
         }
+    }
+
+    /**
+     * Write an unpinned copy of a stored track under a suffixed name and return the new id.
+     * Marker links (`UserMarker.trackId`) stay on the original — the copy carries no markers.
+     *
+     * NB: map visibility is derived (TrackSelectionPolicy), not a persisted flag, so the copy is
+     * unpinned and un-boosted rather than force-hidden.
+     *
+     * The copy's [Track.startTimeMs] is nudged 1 ms older than the original's so the twins never tie
+     * on the policy's `startTimeMs desc` ranking: at an exact render cap the copy is deterministically
+     * the one dropped, instead of the outcome falling back to summary list order.
+     */
+    suspend fun duplicateTrack(trackId: String, nameSuffix: String): String? {
+        val track = repository.load(trackId) ?: return null
+        val copy = track.copy(
+            id = UUID.randomUUID().toString(),
+            name = "${track.name} $nameSuffix",
+            // Deterministic twin ordering — see KDoc. The copy always loses an exact-cap tie.
+            startTimeMs = track.startTimeMs - 1,
+            pinned = false,
+            updatedAtEpochMs = System.currentTimeMillis()
+        )
+        repository.save(copy)
+        return copy.id
     }
 
     /** Reload track summaries, mark active track as [ListableItem.isLive]. */
@@ -217,6 +268,14 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
             val filtered = summaries.filter { it.matchesFilter(effectiveFilter, midnightMs) }
             _summaries.value = sortSummaries(filtered, effectiveSort)
         }
+    }
+
+    /**
+     * Clear the session boost — called when the track-filter RESET is hit (the map reset, or the
+     * list reset when [AppSettings.trackFilterLinked]). The highlighted id is unaffected.
+     */
+    fun clearRenderBoost() {
+        renderFocus.clearBoost()
     }
 
     /** Apply [ListSortOrder] to a list of [TrackSummary]. */
@@ -282,6 +341,7 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
     /** Update track metadata. */
     fun updateTrack(id: String, name: String? = null, comment: String? = null) {
         invalidateTrackCache(id)
+        renderFocus.markTouched(id)
         viewModelScope.launch {
             repository.updateMetadata(id, name, comment)
             refreshSummaries()
@@ -314,6 +374,7 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
             val merged = merger.merge(tracks, mergedName)
 
             repository.save(merged)
+            renderFocus.markTouched(merged.id)
 
             // Reassign source markers → merged.id BEFORE deleting originals, so the
             // delete cascade never sweeps the very markers being reassigned.
@@ -402,6 +463,8 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         val batch = GpxImporter.import(input, extension, existingNames, existingIds, existingIdByName, mode)
         for (track in batch.tracks) {
             repository.saveOrReplace(track)
+            // Imported tracks join the session boost so they render without selecting or pinning.
+            renderFocus.markTouched(track.id)
         }
         refreshSummaries()
         return batch.result

@@ -14,6 +14,8 @@ on first `#bake` of a feature.
 ```markdown
 # Global Context — Routing Table
 
+> State only — routing map, feature summaries, focus history, global todos, doc index. Rules and instructions live in `AGENTS.md`.
+
 ## Focus History
 - [YYYY-MM-DD HH:mm UTC] [Feature] — [one-liner] → xTrack/[Feature]/FEAT_HYD_[Feature].md
 
@@ -29,22 +31,9 @@ on first `#bake` of a feature.
 |---------|-----------|---------|----------|--------|
 | [Name] | [One sentence purpose] | [YYYY-MM-DD HH:mm] | [YYYY-MM-DD HH:mm] | active |
 
-## Global Rules
-
-- [global rule]
-
 ## Global Todos
 
 - [ ] [cross-cutting todo]
-
-## Always-Loaded Context
-These files are loaded into context at the start of every session to maximize the AI prefix-cache hit rate:
-- `AGENTS.md` — canonical rulebook (all project rules + xTrack §7a/7b command spec)
-- `xTrack/GLOBAL_CONTEXT.md` — this file (routing table, feature summaries, global todos, global rules)
-- `.claude/skills/xtrack/SKILL.md` — skill dispatch map
-
-## Global Instructions
-- [optional cross-cutting instruction]
 ```
 
 ---

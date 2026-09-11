@@ -216,6 +216,20 @@
     <string name="import_duplicate">Duplicate</string>
     <string name="import_override">Override</string>
 
+    <!-- Recording exit / stop-recording dialog -->
+    <string name="recording_exit_title">Recording in progress</string>
+    <string name="recording_exit_message">A track is being recorded. What would you like to do?</string>
+    <string name="recording_exit_save">Save track</string>
+    <string name="recording_exit_continue">Continue recording</string>
+    <string name="recording_exit_discard">Discard track</string>
+
+    <!-- Track merge dialog -->
+    <string name="action_merge">Merge</string>
+    <string name="track_merge_title">Merge %1$d tracks</string>
+    <string name="track_merge_name_hint">Enter a name for the merged track:</string>
+    <string name="track_merge_keep_originals">Keep original tracks</string>
+    <string name="track_merge_default_name">Merged Track</string>
+
     <!-- Track import result feedback -->
     <string name="import_failed">Import failed</string>
     <string name="import_result_format">%1$s, %2$s</string>
@@ -273,6 +287,13 @@
     <string name="marker_unnamed">this marker</string>
     <string name="action_delete">Delete</string>
     <string name="action_cancel">Cancel</string>
+    <string name="action_resume">Resume</string>
+    <!-- Resume confirmation sheet -->
+    <string name="resume_confirm_title">Resume recording</string>
+    <string name="resume_confirm_message">New points will be appended to this track, which stays open until you stop recording.</string>
+    <string name="resume_confirm_backup">Back up this track before resuming</string>
+    <string name="track_backup_suffix">(backup)</string>
+    <string name="cd_resume_recording">Resume recording</string>
     <string name="marker_color_title">Marker Color</string>
     <string name="marker_icon_title">Marker Icon</string>
     <string name="marker_icon_none">None (✕)</string>

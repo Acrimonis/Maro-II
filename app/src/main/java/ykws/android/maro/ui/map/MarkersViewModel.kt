@@ -19,6 +19,8 @@ import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.markers.UserMarkerRepository
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.ListFilter
+import ykws.android.maro.data.model.MapRenderFocus
+import ykws.android.maro.data.model.MarkerSelectionPolicy
 import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.data.model.matchesFilter
@@ -124,6 +126,12 @@ class MarkersViewModel(
 
     private val repo: UserMarkerRepository =
         UserMarkerRepository(java.io.File(application.filesDir, "markers"))
+
+    /** Shared map-selection policy — marker map set is filter-only (no cap, no focus override). */
+    private val markerSelectionPolicy = MarkerSelectionPolicy()
+
+    /** Marker map path carries no session focus; kept for signature parity with the policy. */
+    private val markerMapFocus = MapRenderFocus()
 
     // ── Settings injection (set via observeSettings from NavigationViewModel) ──
 
@@ -257,7 +265,13 @@ class MarkersViewModel(
         // Map-referential stream: reactive to both the MAP filter and any allMarkers reload.
         viewModelScope.launch {
             kotlinx.coroutines.flow.combine(flow, _allMarkers) { settings, all ->
-                if (all.isEmpty()) emptyList() else all.filter { it.matchesFilter(settings.markerMapFilter) }
+                markerSelectionPolicy.select(
+                    items = all,
+                    filter = settings.markerMapFilter,
+                    cap = Int.MAX_VALUE,
+                    focus = markerMapFocus,
+                    todayMidnightMs = 0L
+                )
             }.collect { _mapMarkers.value = it }
         }
     }

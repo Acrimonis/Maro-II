@@ -1,7 +1,7 @@
 # AGENTS.md
 
 > **Canonical rulebook for Maro-II — single source of truth.**
-> Adapters: `CLAUDE.md` = `@AGENTS.md` import | `.clinerules` = pointer | `.claude/skills/xtrack/` = #-commands
+> Adapters — thin pointers, no content: `CLAUDE.md`, `.clinerules`, `.claude/skills/xtrack/`. AGENTS.md wins on any conflict.
 > Section numbers (3, 6, 7a, 7b, …) stable — referenced from other docs.
 
 # Core Directives & Communication Style
@@ -32,12 +32,17 @@
   stay in Architect mode. Plan approval ≠ implementation authorization — approving a
   design is not a green light to edit. If a directive is ambiguous or merely implies
   approval, STOP and ask permission. Unauthorized mode switches are workflow violations.
+  Never suggest "ready for `#implement`" — the suggestion itself implies permission.
+
+- **🔴 QUESTIONS: Answer before acting.** A question is not an implicit implementation
+  order — answer it, then wait for direction. Applies in every mode.
 
 - **🔴 ABSOLUTE RULE: No agent may execute `git add`, `git commit`, `git push`,
   `git merge`, or `git rebase` without the user's explicit, unambiguous go-ahead.**
   Committing inside `new_task(Code)` subtasks is NOT exempt. `git add` may be used to stage when preparing a `#commit`; do not stage preemptively.
   **Read-only git queries (`git status`, `git log`, `git branch`, `git diff`, `git fetch`) are always permitted in any mode.**
   **Exception:** `#commit`, `#push`, `#merge`, and all git-related `#`-commands are self-contained confirmations — the user's explicit invocation of the command constitutes the go-ahead. No additional confirmation prompt is required.
+- **Read-only git queries (`git status`, `git log`, `git branch`, `git diff`, `git fetch`) are always permitted in any mode.**
 
 - **🔴 ABSOLUTE RULE: NEVER write to `develop` or `main` — no pushes,
   no force-pushes, no reverts, no direct commits, no local merges into them.
@@ -54,7 +59,7 @@
   `.nc` files.** Treat spatial data files as opaque blobs.
   Read metadata and parsing code only.
 
-- **🔴 Context: Assume . (the project root folder) represents Maro_II_b. Do not attempt to read Maro_II_b as a file.
+- **🔴 REPO ROOT: Treat `.` (the project root folder) as the repository.** Never attempt to open the root itself as a file; read individual files by their path relative to it.
 
 - **🪲 DEVICE LOGCAT WORKFLOW: If a debug session needs on-device logcat evidence, do NOT capture it unprompted.
   ASK the user to deploy the build and perform the operation, then WAIT — fetch the logcat only once the user tells you to (the user drives the device; the agent pulls the evidence on command).
@@ -94,6 +99,9 @@
 - **Sections:** Feature files group work under `### [Section]` headings (no subfeature state). Keep a section only while it holds an open todo, a retained rule, or a doc/key-file mapping; `#bake` folds the rest into `## Implemented` (one-liner + plan pointer; planless = bare one-liner). Full criteria in `docs/cmd_help_bake.md`.
 - **Focus History:** `GLOBAL_CONTEXT.md` keeps an append-only newest-first stack (cap 10) of `[timestamp] [Feature] — one-liner → FEAT_HYD_[Feature].md`. Top = current focus. `#focus` pushes; `#bake` prunes.
 - **🔴 PLAN FILE PLACEMENT: All `FEAT_PLN_*.md`, `FEAT_DOC_*.md`, and feature-scoped design files MUST be created in `xTrack/[Feature]/` — NEVER in `plans/`.** The `plans/` directory is a legacy landing zone; new plan files go directly to the feature directory with proper `YYMMDD_FEAT_PLN_[Feature]_[topic].md` naming.
+- **🔴 GLOBAL_CONTEXT.md IS STATE-ONLY:** it carries the routing map, feature summaries, focus history, global todos and the doc index — never rules, instructions or process specs. All rules live in this file; the `#rule` `global` target appends to Core Directives above.
+- **Feature scoping:** Route docs, key files and todos to the owning feature. Keep feature files lean — `## Docs` for references, `## Key Files` for source paths.
+- **Always-loaded (prefix-cache zone):** `AGENTS.md`, `xTrack/GLOBAL_CONTEXT.md`, `.claude/skills/xtrack/SKILL.md`. Keep these three small and free of duplication.
 - **Turn 1 Protocol:** Self-contained request → answer directly. Ambiguous/continuing work → read `GLOBAL_CONTEXT.md`, match intent against Routing Map, open matching feature file + hydration. No match → ask scoping question.
 
 # 7b. xTrack — Command Reference
@@ -108,7 +116,7 @@ Intercept `#`-prefix. All name lookups use fuzzy-resolve cascade (exact → subs
 | `#track [name]` | Create new feature file + GLOBAL_CONTEXT.md routing/summary rows |
 | `#bake` | Snapshot + consolidation: checkmarks, section rules (fold-done, trim-empty, split, merge, rename-normalize), feature summary, front-matter date, hydration, prune Focus History > 10 |
 | `#todo` | Bare=list, `[desc]`=append, `[target]:[desc]`=cross-feature. Same 3-tier for `#rule` |
-| `#rule` | Same 3-tier as `#todo`. Global/parent/feature routing by target |
+| `#rule` | Same 3-tier as `#todo`. `global` → appends to this file's Core Directives; parent/feature/section → the feature file |
 | `#doc` | Sub-commands: create, list, read, attach, detach, audit, update. Docs attach to `## Docs` |
 | `#status` | Dashboard of active/named feature (reads top Focus History entry). `#status diff` for changes since last bake |
 | `#now` | Lightweight orientation: top Focus History entry (feature), CWD, Last Bake |
@@ -141,7 +149,7 @@ Full detail per command in `docs/cmd_help_*.md` — loaded by `#help`. See `docs
 | Direct user session | **Debug** | `switch_mode("architect", root cause + evidence)` |
 | Direct user session | **Architect** | No handoff — home base. Summarize, wait for direction. Git read/write permitted without mode switch when appropriate. |
 | `new_task(Code)` from Orchestrator | **Code** | Auto-returns (parent Orchestrator resumes) |
-| `#implement` pipeline | **Code → Ask → Architect** | Per §7b.16, each hop with summary payload |
+| `#implement` pipeline | **Code → Ask → Architect** | Per `docs/cmd_help_implement.md`, each hop with summary payload |
 | User asks implementation without `#implement` | **Architect** | `new_task(mode=code, ...)` with plan path + todos |
 
 ## 8c. Summary Payload Format
@@ -149,6 +157,11 @@ When calling `switch_mode`, include 1-3 bullet summary in the reason field:
 - **Code:** what was implemented, build status, files changed, deviations
 - **Ask:** scope covered, code health observations (spaghetti, factorization, maintenance)
 - **Debug:** root cause, evidence, fix/non-fix recommendation
+
+# 9. Environment & Tooling
+- **Shell:** Windows `cmd.exe`. Use CMD built-ins (`dir`, `del`, `type`, `findstr`) — not PowerShell, and not Unix utilities (`sed`, `grep`, `cat`, `rm`, `cp`, `mv`).
+- **ADB:** `adb.exe` is on PATH — call `adb` directly, no path qualifier. Device workflow in `docs/SETUP.md`.
+- **APK pipeline:** `apk-bake.bat` bakes data → `apk-build.bat` packages only (`gradlew assembleDebug`) → `apk-deploy.bat` installs + relaunches. Command detail in `README.md`; the bake-vs-build contract lives in the BakeNormalization feature file.
 
 ## Lazy-Load Index
 

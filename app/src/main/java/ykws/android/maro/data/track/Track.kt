@@ -35,7 +35,7 @@ data class Track(
     @ProtoNumber(8) val averageSpeedMps: Float = 0f,
     @ProtoNumber(9) val trackColorArgb: Int = 0xFFFF6F00.toInt(),
     @ProtoNumber(10) val trackPoints: List<TrackPoint> = emptyList(),
-    @ProtoNumber(11) val visibleOnMap: Boolean = true,
+    // @ProtoNumber(11) reserved — was visibleOnMap; never reuse (legacy blobs may still carry it).
     @ProtoNumber(12) val distanceNm: Float = 0f,
     @ProtoNumber(13) val navigatingDurationSec: Long = 0,
     @ProtoNumber(14) val pinned: Boolean = false,
@@ -65,7 +65,7 @@ data class TrackSummary(
     @ProtoNumber(5) val endTimeMs: Long? = null,
     @ProtoNumber(6) val fastestSpeedMps: Float = 0f,
     @ProtoNumber(7) val distanceNm: Float = 0f,
-    @ProtoNumber(8) val visibleOnMap: Boolean = true,
+    // @ProtoNumber(8) reserved — was visibleOnMap; never reuse (legacy index blobs may still carry it).
     @ProtoNumber(9) val navigatingDurationSec: Long = 0,
     @ProtoNumber(10) val pausedDurationSec: Long = 0,
     @ProtoNumber(11) val averageSpeedMps: Float = 0f,

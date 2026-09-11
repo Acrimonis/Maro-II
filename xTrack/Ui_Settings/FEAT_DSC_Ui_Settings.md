@@ -2,7 +2,7 @@
 name: Ui_Settings
 status: active
 created: 2026-06-09 15:28
-modified: 2026-09-11 13:27
+modified: 2026-09-11 20:00
 ---
 
 **Description:** Settings page UI, settings persistence (SharedPreferences), settings-related widgets, and settings UX enhancements.
@@ -12,6 +12,8 @@ modified: 2026-09-11 13:27
 > this feature file defers to it and does not duplicate those rules. Colour tokens: [`docs/color-scheme.md`](../../docs/color-scheme.md) §7.
 
 ## Implemented
+
+- **confirm-dialog normalization — complete (2026-09-11, `feature/tracks-recording`)** — one `ConfirmDialog` (`ui/components`) replaces every `ModalBottomSheet` confirmation and the merge / orphan-recovery `AlertDialog`s: portrait-width panel (`min(maxWidth, maxHeight)`) in both orientations, flush to the bottom edge, rounded top corners only, open-bottom accent border, nav-bar inset inside the panel, IME retained, height wraps + scrolls, 450 ms panel slide; caller-supplied stacked full-width actions (primary accent / secondary outlined / danger red) with an optional bottom-most Cancel (none on recording-exit, stop-recording, orphan recovery). The dialog owns its **own** full-screen `ui.scrim.alpha` scrim; drawer-hosted merge / batch delete are hoisted to the ladder via `ConfirmRequest` / `ConfirmRequestHost` (source drawer stays open, merge exits multiselect on confirm). Ladder dialog plumbing deleted (`LocalDialogDismiss`, `activeDialogDismiss`, dialog-first `scrimDismiss`). Follow-up **P4**: all scrims are hard on/off toggles and the ladder scrim **yields** while any `ConfirmDialog` is visible (`OverlayChrome.dialogScrimActive`), so dims never stack. Build SUCCESS → `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_confirm-dialog-normalization.md`
 
 - **section-title colour — sub-section headings promoted to `primary` (2026-09-11, `feature/settings-menu-clean`)** — sub-section titles rendered by `SubSectionHeader` and `SingleColorSubSection` (3 render sites across 2 composables; all 7 call sites inherit) now use `ui.settings.text.primary` (`#FFFFFF`, 16sp SemiBold) instead of `ui.settings.text.muted`. Descriptions stay `ui.settings.text.secondary` (`#78909C`, 13sp) and `CardDescription` stays `ui.settings.text.muted` (`#B0BEC5`, 13sp), so hierarchy now comes from **weight + spacing**, not a dimmed heading. Device-validated: headings white, descriptions dimmed, groups readable. Build SUCCESS, no new warnings; no size/weight/spacing or token-value change. Docs synced: guideline §2.9, `SubSectionHeader` KDoc, the `ui.settings.text.muted` comment in `colors.properties`, and `color-scheme.md` §7 text roles → `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_section-title-color.md`
 
@@ -45,8 +47,11 @@ modified: 2026-09-11 13:27
 ## Key Files
 - `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt`
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
+- `app/src/main/java/ykws/android/maro/ui/components/ConfirmDialog.kt` — the single confirmation dialog: panel geometry, own scrim under the panel
+- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt` — the overlay ladder: the drawer scrim and every drawer surface
 
 ## Docs
+- `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_confirm-dialog-normalization.md` — confirmation dialog normalization + dialog-owned scrim: one `ConfirmDialog` on the overlay ladder, the ladder's dialog plumbing deleted, the in-drawer merge and batch-delete dialogs hoisted to ladder level (implemented; P1 closed; P4 scrims are hard on/off toggles with the ladder scrim yielding to a visible dialog)
 - `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_row-naming-normalization.md` — row family normalization R1–R8: renames, `RangeSliderRow`/`SegmentedRow`/`CardDescription`, inline-row conversion, container-owned inset (implemented)
 - `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_section-title-color.md` — sub-section title colour: grey headings promoted to `primary` (Option A, implemented)
 - `xTrack/Ui_Settings/260906_FEAT_PLN_Ui_Settings_drawer-content-measurement.md` — marker/track drawer content-fit normalization (implemented)

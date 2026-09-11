@@ -395,7 +395,10 @@ object GpxImporter {
 }
 
 /** Aggregate import counts: tracks persisted vs. duplicates skipped. */
-data class ImportResult(val imported: Int, val ignored: Int)
+data class ImportResult(
+    val imported: Int,
+    val ignored: Int
+)
 
 /** Full batch result: imported [Track] objects plus aggregate counts. */
 data class ImportBatch(val tracks: List<Track>, val imported: Int, val ignored: Int) {

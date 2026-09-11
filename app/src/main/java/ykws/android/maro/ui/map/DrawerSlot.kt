@@ -1,6 +1,9 @@
 package ykws.android.maro.ui.map
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.FiniteAnimationSpec
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -19,6 +22,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -41,6 +45,9 @@ enum class ShadowEdge { LEFT, RIGHT, TOP }
  * @param modifier      Alignment + sizing for the slot (align, width, height, offset).
  * @param slideDirection Which direction the content slides in from.
  * @param shadowEdge    Optional edge on which to draw a shadow gradient.
+ * @param durationMs    Optional duration in ms applied to both the slide and the fade of the
+ *                      enter and exit transitions. `null` (default) keeps each direction's
+ *                      original spec — existing drawers are unaffected.
  * @param content       The drawer composable to show inside the slot.
  */
 @Composable
@@ -49,13 +56,14 @@ fun DrawerSlot(
     modifier: Modifier = Modifier,
     slideDirection: SlideDirection,
     shadowEdge: ShadowEdge? = null,
+    durationMs: Int? = null,
     content: @Composable () -> Unit
 ) {
     AnimatedVisibility(
         visible = visible,
         modifier = modifier,
-        enter = buildEnterAnim(slideDirection),
-        exit = buildExitAnim(slideDirection)
+        enter = buildEnterAnim(slideDirection, durationMs),
+        exit = buildExitAnim(slideDirection, durationMs)
     ) {
         if (shadowEdge != null) {
             Box(
@@ -73,30 +81,41 @@ fun DrawerSlot(
 // Animation builders
 // ─────────────────────────────────────────────────────────────────────────────
 
-private fun buildEnterAnim(dir: SlideDirection) = when (dir) {
-    SlideDirection.FROM_RIGHT -> slideInHorizontally(
-        animationSpec = spring(dampingRatio = 1.0f, stiffness = 350f)
-    ) { it } + fadeIn(tween(80))
-    SlideDirection.FROM_LEFT -> slideInHorizontally(
-        animationSpec = spring(dampingRatio = 1.0f, stiffness = 350f)
-    ) { -it } + fadeIn(tween(80))
-    SlideDirection.FROM_BOTTOM -> slideInVertically(
-        animationSpec = spring(dampingRatio = 1.0f, stiffness = 350f)
-    ) { it } + fadeIn(tween(80))
-    SlideDirection.FADE_ONLY -> fadeIn(tween(200))
+private fun buildEnterAnim(dir: SlideDirection, durationMs: Int? = null): EnterTransition {
+    val slide: FiniteAnimationSpec<IntOffset> = if (durationMs != null) {
+        tween(durationMs)
+    } else {
+        spring(dampingRatio = 1.0f, stiffness = 350f)
+    }
+    val fadeMs = durationMs ?: 80
+    return when (dir) {
+        SlideDirection.FROM_RIGHT -> slideInHorizontally(
+            animationSpec = slide
+        ) { it } + fadeIn(tween(fadeMs))
+        SlideDirection.FROM_LEFT -> slideInHorizontally(
+            animationSpec = slide
+        ) { -it } + fadeIn(tween(fadeMs))
+        SlideDirection.FROM_BOTTOM -> slideInVertically(
+            animationSpec = slide
+        ) { it } + fadeIn(tween(fadeMs))
+        SlideDirection.FADE_ONLY -> fadeIn(tween(durationMs ?: 200))
+    }
 }
 
-private fun buildExitAnim(dir: SlideDirection) = when (dir) {
-    SlideDirection.FROM_RIGHT -> slideOutHorizontally(
-        animationSpec = tween(150)
-    ) { it } + fadeOut(tween(150))
-    SlideDirection.FROM_LEFT -> slideOutHorizontally(
-        animationSpec = tween(150)
-    ) { -it } + fadeOut(tween(150))
-    SlideDirection.FROM_BOTTOM -> slideOutVertically(
-        animationSpec = tween(150)
-    ) { it } + fadeOut(tween(150))
-    SlideDirection.FADE_ONLY -> fadeOut(tween(150))
+private fun buildExitAnim(dir: SlideDirection, durationMs: Int? = null): ExitTransition {
+    val ms = durationMs ?: 150
+    return when (dir) {
+        SlideDirection.FROM_RIGHT -> slideOutHorizontally(
+            animationSpec = tween(ms)
+        ) { it } + fadeOut(tween(ms))
+        SlideDirection.FROM_LEFT -> slideOutHorizontally(
+            animationSpec = tween(ms)
+        ) { -it } + fadeOut(tween(ms))
+        SlideDirection.FROM_BOTTOM -> slideOutVertically(
+            animationSpec = tween(ms)
+        ) { it } + fadeOut(tween(ms))
+        SlideDirection.FADE_ONLY -> fadeOut(tween(ms))
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

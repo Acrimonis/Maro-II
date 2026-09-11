@@ -214,4 +214,6 @@ tasks.withType<Test>().configureEach {
     systemProperty("maro.validate", System.getProperty("maro.validate", "false"))
     // Repo root, so the baker can resolve <repo>/data/app-assets regardless of the test CWD.
     systemProperty("maro.repoDir", rootProject.projectDir.absolutePath)
+    // On-demand GPX repair tool (GpxBBoxCleanToolTest) — inert unless -Dmaro.cleanGpx=true.
+    systemProperty("maro.cleanGpx", System.getProperty("maro.cleanGpx", "false"))
 }
