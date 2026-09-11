@@ -2,7 +2,7 @@
 name: Ui_Settings
 status: active
 created: 2026-06-09 15:28
-modified: 2026-09-11 12:45
+modified: 2026-09-11 13:00
 ---
 
 **Description:** Settings page UI, settings persistence (SharedPreferences), settings-related widgets, and settings UX enhancements.
@@ -12,6 +12,8 @@ modified: 2026-09-11 12:45
 > this feature file defers to it and does not duplicate those rules. Colour tokens: [`docs/color-scheme.md`](../../docs/color-scheme.md) §7.
 
 ## Implemented
+
+- **section-title colour — sub-section headings promoted to `primary` (2026-09-11, `feature/settings-menu-clean`)** — sub-section titles rendered by `SubSectionHeader` and `SingleColorSubSection` (3 render sites across 2 composables; all 7 call sites inherit) now use `ui.settings.text.primary` (`#FFFFFF`, 16sp SemiBold) instead of `ui.settings.text.muted`. Descriptions stay `ui.settings.text.secondary` (`#78909C`, 13sp) and `CardDescription` stays `ui.settings.text.muted` (`#B0BEC5`, 13sp), so hierarchy now comes from **weight + spacing**, not a dimmed heading. Device-validated: headings white, descriptions dimmed, groups readable. Build SUCCESS, no new warnings; no size/weight/spacing or token-value change. Docs synced: guideline §2.9, `SubSectionHeader` KDoc, the `ui.settings.text.muted` comment in `colors.properties`, and `color-scheme.md` §7 text roles → `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_section-title-color.md`
 
 - **row-family normalization R1–R8 — control rows unified + docs (2026-09-11, `feature/settings-menu-clean`)** — one row family across the Settings overlay: renames (`ToggleRowContent`→`ToggleRow`, `SliderRowContent`→`SliderRow`, `SettingsLanguageRow`→`SegmentedRow`, `ColorSwatchRow`→`ColorRow`, `ColorSwatchPairRow`→`ColorPairRow`), `SettingsFrequencyRow` deleted (GPS frequency became a 3-option `SegmentedRow` with per-stop captions — the one deliberate behaviour change), and `RangeSliderRow` + `CardDescription` extracted; ~13 hand-rolled inline toggle rows and the hand-rolled dividers converted to `ToggleRow`/`SectionDivider()`; `RegulatedZoneCategoryToggles`→`CategoryToggleGroup` (`internal`, in `RegulatedZoneComponents.kt`, rebuilt on `ToggleRow.leadingIcon`); padding normalized to **container-owned horizontal inset** (`Card` gains `ui.padding.card.horizontal`, every row pads vertically only; grep invariant = `AppConfig.uiPaddingCardHorizontal` occurs exactly twice in the overlay). R8: `docs/ui-component-guidelines.md` §1 (naming rule + container-owned inset), §2.0, §2.1 (`leadingIcon`), §2.2, §2.3, §2.4, §2.6, §2.7 (`SegmentedRow`), §2.8 (`RangeSliderRow`), §2.9 (`CardDescription` vs `SubSectionHeader`) and §4 rewritten. Builds SUCCESS after every step, no new warnings; R7 device-validated; follow-ups **A** (description optional) and **B** (row padding) closed by R6/R7, **C** (§2.2 alignment) closed by R8, so `### Tab finalization follow-ups` is folded (D was already resolved). Backlog logged separately: sub-section title colour → `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_section-title-color.md` → `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_row-naming-normalization.md`
 
@@ -46,7 +48,7 @@ modified: 2026-09-11 12:45
 
 ## Docs
 - `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_row-naming-normalization.md` — row family normalization R1–R8: renames, `RangeSliderRow`/`SegmentedRow`/`CardDescription`, inline-row conversion, container-owned inset (implemented)
-- `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_section-title-color.md` — sub-section title colour: promote grey headings to `primary` (Option A) — backlog, not implemented
+- `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_section-title-color.md` — sub-section title colour: grey headings promoted to `primary` (Option A, implemented)
 - `xTrack/Ui_Settings/260906_FEAT_PLN_Ui_Settings_drawer-content-measurement.md` — marker/track drawer content-fit normalization (implemented)
 - `xTrack/Ui_Settings/260906_FEAT_PLN_Ui_Settings_card-expander-nestedcard-refactor.md` — Card/Expander/NestedCard structural refactor (implemented)
 - `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_guidelines-consolidation.md` — component/drawer/lists guideline consolidation (implemented)

@@ -262,9 +262,9 @@ The settings card surfaces reuse the shared Main card / Inner card tokens (also 
 
 | Token | Default | Swatch | Usage |
 |---|---|---|---|
-| `ui.settings.text.primary` | `#FFFFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Section titles, primary labels |
-| `ui.settings.text.muted` | `#FFB0BEC5` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#B0BEC5;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Descriptive text, switch labels |
-| `ui.settings.text.secondary` | `#FF78909C` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#78909C;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Tab inactive text, secondary info |
+| `ui.settings.text.primary` | `#FFFFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Section titles, sub-section headings, primary labels |
+| `ui.settings.text.muted` | `#FFB0BEC5` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#B0BEC5;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Descriptive text, card descriptions (never headings) |
+| `ui.settings.text.secondary` | `#FF78909C` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#78909C;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Tab inactive text, sub-section descriptions, secondary info |
 | `ui.settings.footer.text` | `#FF546E7A` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#546E7A;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Version footer text |
 
 ### Interactive Elements

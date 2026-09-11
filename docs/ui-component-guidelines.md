@@ -191,7 +191,7 @@ Expander(label, expanded, onToggle) {
 
 ### 2.5 Expander Labels
 
-`Expander` defaults: `uiSettingsTextPrimary`, 16sp, Medium — matches the toggle row (§2.1) and slider row (§2.2) label font. Never override `labelStyle` per call site.
+`Expander` labels are fixed: `uiSettingsTextPrimary`, 16sp, Medium — matching the toggle row (§2.1) and slider row (§2.2) label font. There is **no** per-call style parameter; the style lives inside the composable.
 
 ### 2.6 Section Dividers
 
@@ -264,7 +264,7 @@ The two-thumb row: optional label/description, a **mandatory** value line, and t
 ### 2.9 Header Hierarchy
 
 - `SectionHeader` — top-level sections only. **One style app-wide:** sentence case ("Layers", "Navigation"), 18sp bold, `ui.settings.accent`, no letter-spacing (`ui.font.section.size`). There is no casing variant.
-- `SubSectionHeader` — 16sp SemiBold, `ui.settings.text.muted` + optional 13sp `ui.settings.text.secondary` description; the standard header for a **titled** sub-section inside a card/expander.
+- `SubSectionHeader` — 16sp SemiBold, `ui.settings.text.primary` + optional 13sp `ui.settings.text.secondary` description; the standard header for a **titled** sub-section inside a card/expander. Headings are white like every other heading — hierarchy comes from **weight + spacing**, not a dimmed colour.
 - **`CardDescription`** — 13sp `ui.settings.text.muted`, one lead-in sentence placed **inside the card, before its first control**; it owns its trailing 4dp spacer (`${ui.spacing.grouped.after-expander}`) and has **no horizontal inset of its own** now that the `Card` supplies it (§2.0).
 
 **`CardDescription` vs `SubSectionHeader(title, description = …)`:** `CardDescription` = an explanation under a `SectionHeader`, dropped into the top of a card before its controls. `SubSectionHeader` = a **titled** sub-section **inside** a card/expander, whose 13sp `ui.settings.text.secondary` description labels that group. Both are kept.
@@ -276,7 +276,7 @@ popup-styling spec (moved from `ui-lists-guidelines`).
 
 ```
 ┌─ Popup → Surface (uiSettingsBackground, 12dp, 1dp 0x40FFFFFF border) ─┐
-│  Section Title (SubSectionHeader style)                                 │
+│  Section Title (popup title style)                                      │
 │  ┌─ Card → Surface (uiCardBackground, 12dp) ─────────────────────────┐ │
 │  │  Row (16dp h-pad, 2dp v-pad): checkmark box (24dp) + text         │ │
 │  └───────────────────────────────────────────────────────────────────┘ │
@@ -291,7 +291,7 @@ popup-styling spec (moved from `ui-lists-guidelines`).
 | Popup bg | `uiSettingsBackground` | Outer Surface |
 | Popup border | `0x40FFFFFF`, 1dp | Settings expander border style |
 | Card bg | `uiCardBackground` | Per-section card |
-| Section title | `uiDashboardTextMuted`, 16sp, SemiBold | SubSectionHeader style |
+| Section title | `uiDashboardTextMuted`, 16sp, SemiBold | Popup-only: deliberately dimmer than the settings `SubSectionHeader`, which is `uiSettingsTextPrimary` (§2.9). Sharing the dashboard muted token here is a known token-scope wart — a future pass may migrate popups to `uiSettingsTextPrimary`. |
 | Row text | `uiSettingsTextPrimary`, 15sp, Medium (selected: SemiBold) | |
 | Checkmark | `uiSettingsAccent`, 16sp, SemiBold | ✓ for selected |
 | Row v-padding | 2dp | Tight — matches settings toggle rows |
@@ -346,7 +346,6 @@ Full token list: [`ui.properties`](../app/src/main/assets/ui.properties).
 - ❌ Hand-rolled label + `Switch` rows — use `ToggleRow` (§2.1); its description is optional
 - ❌ Hand-rolled divider markup (`Spacer` + `Box(background)`) — use `SectionDivider()` (§2.6)
 - ❌ Hand-rolled `RangeSlider` blocks — use `RangeSliderRow` (§2.8); its value line is mandatory
-- ❌ Per-call `labelStyle` on `Expander`
 - ❌ Visible dividers between top-level cards (use spacer)
 - ❌ Hand-rolled two-`Text` toggle rows (use `SegmentedRow`, §2.7)
 - ❌ Mixed header styles in one card (use `SubSectionHeader` consistently, §2.9)

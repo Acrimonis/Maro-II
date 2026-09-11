@@ -1,5 +1,11 @@
 # Ui_Settings — Hydration (2026-09-11)
 
+## Section-title colour — item A (IMPLEMENTED)
+
+Branch `feature/settings-menu-clean`. Plan: [`260911_FEAT_PLN_Ui_Settings_section-title-color.md`](260911_FEAT_PLN_Ui_Settings_section-title-color.md).
+
+Sub-section titles promoted from `ui.settings.text.muted` to `ui.settings.text.primary` (`#FFFFFF`, 16sp SemiBold) at 3 render sites (`SubSectionHeader` title; `SingleColorSubSection` both the swatch-on-title-line branch and the description-carrying branch — 7 call sites inherit). Descriptions stay `ui.settings.text.secondary` (`#78909C`, 13sp); `CardDescription` stays `ui.settings.text.muted` (`#B0BEC5`, 13sp). Hierarchy now comes from **weight + spacing**. Device-validated: headings white, descriptions dimmed, groups readable. Docs synced: guideline §2.9, `SubSectionHeader` KDoc, `colors.properties` comment, `color-scheme.md` §7 roles. Uncommitted on the branch (item A + docs sync + this dead-code/properties cleanup pass).
+
 ## Session — tab-finalization phase 1 (IMPLEMENTED)
 
 Branch `feature/settings-menu-clean`. Plan: [`260911_FEAT_PLN_Ui_Settings_tab-finalization.md`](260911_FEAT_PLN_Ui_Settings_tab-finalization.md).
@@ -32,7 +38,7 @@ Branch `feature/settings-menu-clean`. Plan: [`260911_FEAT_PLN_Ui_Settings_row-na
   **Deviation:** `ToggleRow` visibility `private` → `internal`, required because the group lives in the sibling file while `ToggleRow` stays in the overlay.
 - **R8 (done — docs + tracking, no source changes)** — [`docs/ui-component-guidelines.md`](../../docs/ui-component-guidelines.md) rewritten: §1 gains the naming rule (`<Control>Row` / `<Thing>Group`, no `Settings` prefix) and the container-owned-inset rule; §2.0 states `Card`/`NestedCard` own `ui.padding.card.horizontal`; §2.1 documents `ToggleRow` (description optional, `leadingIcon`, vertical-only padding); §2.2 renames to `SliderRow` and drops the caller-padding paragraph (**closes follow-up C**); §2.3/§2.4/§2.6 drop the stale `…RowContent` names and the `Box(pad h=16)` wrapper; §2.7 documents `SegmentedRow` (connected, outlined unselected, accent fill, `selectableGroup()` + `RadioButton`, captions, surface-free); §2.8 documents `RangeSliderRow` (mandatory value line); §2.9 documents `CardDescription` vs `SubSectionHeader`; §4 anti-patterns updated. Tracking: `FEAT_DSC` gains the R1–R8 `## Implemented` entry + both plan pointers and folds `### Tab finalization follow-ups` (A/B closed by R6/R7, C by R8, D already resolved); `GLOBAL_CONTEXT` focus + summary refreshed. Symbol sweep across `docs/` + `xTrack/`: no live doc carries a stale name (historical plans/hydrations retained as records).
 - Builds after each step: SUCCESS, no new warnings.
-- **Backlog — moved to its own plan.** Sub-section titles inside collapsible zones are `ui.settings.text.muted` (16sp SemiBold) beside white 16sp row labels, so grey headings read as accidental; Option A (promote to `primary`) is agreed but **not implemented**. Captured in `260911_FEAT_PLN_Ui_Settings_section-title-color.md`.
+- **Backlog — moved to its own plan, now IMPLEMENTED.** Sub-section titles inside collapsible zones were `ui.settings.text.muted` (16sp SemiBold) beside white 16sp row labels, so grey headings read as accidental; Option A (promote to `primary`) is **implemented** — see §Section-title colour above. Plan: `260911_FEAT_PLN_Ui_Settings_section-title-color.md`.
 
 ## Phase-1 follow-ups — all closed
 
@@ -50,4 +56,4 @@ Branch `feature/settings-menu-clean`. Plan: [`260911_FEAT_PLN_Ui_Settings_row-na
 - `docs/ui-component-guidelines.md` — canonical UI rules
 - `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_tab-finalization.md` — phase-1 plan of record
 - `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_row-naming-normalization.md` — row-family normalization plan of record (R1–R8 done)
-- `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_section-title-color.md` — sub-section title colour backlog (Option A, not implemented)
+- `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_section-title-color.md` — sub-section title colour (Option A, implemented)

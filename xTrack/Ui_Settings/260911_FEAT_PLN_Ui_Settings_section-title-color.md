@@ -1,6 +1,6 @@
 # Ui_Settings — Sub-section title colour (grey headings inside cards)
 
-**Status:** planned, decision-complete (not implemented) · **Date:** 2026-09-11 · **Branch:** `feature/settings-menu-clean`
+**Status:** implemented · **Date:** 2026-09-11 · **Branch:** `feature/settings-menu-clean`
 **Scope:** the sub-section titles rendered by [`SubSectionHeader`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt:1643) and [`SingleColorSubSection`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt:1669) (the 7 call sites inherit), §2.9 of [`docs/ui-component-guidelines.md`](../../docs/ui-component-guidelines.md), and one comment in [`colors.properties`](../../app/src/main/assets/colors.properties:148).
 **Relation:** follow-on to the row-family normalization ([`260911_FEAT_PLN_Ui_Settings_row-naming-normalization.md`](260911_FEAT_PLN_Ui_Settings_row-naming-normalization.md)). **Not part of R8** — captured here so R8 can close without dragging a behaviour change into a docs commit.
 **Line references** are as of 2026-09-11 and drift — re-locate by symbol.
@@ -54,3 +54,9 @@
 
 - Device pass on the Tracks → direction, Markers → halo, and 300 m band cards: headings legible, clearly above their rows, not blending.
 - Fallback trigger is that same device pass.
+
+## Outcome
+
+Implemented 2026-09-11 on `feature/settings-menu-clean`: sub-section titles now render `ui.settings.text.primary` (16sp SemiBold) — **3 sites across 2 composables** ([`SubSectionHeader`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt:1643) title; [`SingleColorSubSection`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt:1669) both the swatch-on-title-line branch and the description-carrying branch), inherited by all 7 call sites. Descriptions stay `ui.settings.text.secondary` (13sp). Guideline §2.9 updated to match; the `ui.settings.text.muted` comment in [`colors.properties`](../../app/src/main/assets/colors.properties:150) re-stated as "Descriptive text and card descriptions". No size/weight/spacing or token-value change; build green, no new warnings.
+
+**Option B fallback stays open:** if a device pass shows the headings blending into the rows, drop the sub-section titles to a 14sp caption (keeping `primary`) rather than reinstating grey.
