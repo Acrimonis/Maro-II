@@ -1037,63 +1037,19 @@ private fun NavigationSettings(
 
             Spacer(Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingToggleVertical.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_redisplay_speed),
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = AppConfig.uiFontToggleSize.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Switch(
-                    checked = settings.speedZoneAutoShow,
-                    onCheckedChange = { on -> onUpdateSettings { it.copy(speedZoneAutoShow = on) } },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                    )
-                )
-            }
+            ToggleRow(
+                label = stringResource(R.string.settings_redisplay_speed),
+                checked = settings.speedZoneAutoShow,
+                onCheckedChange = { on -> onUpdateSettings { it.copy(speedZoneAutoShow = on) } }
+            )
 
             Spacer(Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingToggleVertical.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_redisplay_regulated),
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = AppConfig.uiFontToggleSize.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Switch(
-                    checked = settings.regulatedZoneAutoShow,
-                    onCheckedChange = { on -> onUpdateSettings { it.copy(regulatedZoneAutoShow = on) } },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                    )
-                )
-            }
+            ToggleRow(
+                label = stringResource(R.string.settings_redisplay_regulated),
+                checked = settings.regulatedZoneAutoShow,
+                onCheckedChange = { on -> onUpdateSettings { it.copy(regulatedZoneAutoShow = on) } }
+            )
 
             Spacer(Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
             Box(
@@ -1144,74 +1100,22 @@ private fun NavigationSettings(
 
     Card {
         // GPS mode toggle
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingToggleVertical.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.settings_gps_mode_label),
-                    color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                    fontSize = AppConfig.uiFontToggleSize.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    text = stringResource(R.string.settings_map_offset_gps_desc),
-                    color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                    fontSize = AppConfig.uiFontDescSize.sp
-                )
-            }
-            Spacer(modifier = Modifier.width(16.dp))
-            Switch(
-                checked = settings.mapOffsetGps,
-                onCheckedChange = { on -> onUpdateSettings { it.copy(mapOffsetGps = on) } },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                    checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                    uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
-                    uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                )
-            )
-        }
+        ToggleRow(
+            label = stringResource(R.string.settings_gps_mode_label),
+            description = stringResource(R.string.settings_map_offset_gps_desc),
+            checked = settings.mapOffsetGps,
+            onCheckedChange = { on -> onUpdateSettings { it.copy(mapOffsetGps = on) } }
+        )
 
         Spacer(Modifier.height(4.dp))
 
         // Demo mode toggle
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingToggleVertical.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = stringResource(R.string.settings_map_offset_demo_label),
-                    color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                    fontSize = AppConfig.uiFontToggleSize.sp,
-                    fontWeight = FontWeight.Medium
-                )
-                Text(
-                    text = stringResource(R.string.settings_map_offset_demo_desc),
-                    color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                    fontSize = AppConfig.uiFontDescSize.sp
-                )
-            }
-            Spacer(modifier = Modifier.width(16.dp))
-            Switch(
-                checked = settings.mapOffsetDemo,
-                onCheckedChange = { on -> onUpdateSettings { it.copy(mapOffsetDemo = on) } },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                    checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                    uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
-                    uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                )
-            )
-        }
+        ToggleRow(
+            label = stringResource(R.string.settings_map_offset_demo_label),
+            description = stringResource(R.string.settings_map_offset_demo_desc),
+            checked = settings.mapOffsetDemo,
+            onCheckedChange = { on -> onUpdateSettings { it.copy(mapOffsetDemo = on) } }
+        )
 
         SectionDivider()
 
@@ -1253,41 +1157,15 @@ private fun PositionSettings(
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
         Card {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingToggleVertical.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_gps_mode_label),
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = AppConfig.uiFontToggleSize.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_gps_mode_desc),
-                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = AppConfig.uiFontDescSize.sp
-                    )
+            ToggleRow(
+                label = stringResource(R.string.settings_gps_mode_label),
+                description = stringResource(R.string.settings_gps_mode_desc),
+                checked = settings.gpsMode,
+                onCheckedChange = { checked ->
+                    onGpsModeChange(checked)
+                    onDismiss()
                 }
-                Spacer(modifier = Modifier.width(16.dp))
-                Switch(
-                    checked = settings.gpsMode,
-                    onCheckedChange = { checked ->
-                        onGpsModeChange(checked)
-                        onDismiss()
-                    },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                    )
-                )
-            }
+            )
 
             Spacer(Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
             Box(modifier = Modifier.padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)) {
@@ -1355,38 +1233,12 @@ private fun PositionSettings(
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
         Card {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingToggleVertical.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_stop_enable_label),
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = AppConfig.uiFontToggleSize.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_stop_enable_desc),
-                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = AppConfig.uiFontDescSize.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Switch(
-                    checked = settings.stopDetectionEnabled,
-                    onCheckedChange = { on -> onUpdateSettings { it.copy(stopDetectionEnabled = on) } },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                    )
-                )
-            }
+            ToggleRow(
+                label = stringResource(R.string.settings_stop_enable_label),
+                description = stringResource(R.string.settings_stop_enable_desc),
+                checked = settings.stopDetectionEnabled,
+                onCheckedChange = { on -> onUpdateSettings { it.copy(stopDetectionEnabled = on) } }
+            )
 
             if (settings.stopDetectionEnabled) {
                 Spacer(Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
@@ -1423,38 +1275,12 @@ private fun PositionSettings(
                 }
                 Spacer(modifier = Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingToggleVertical.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = stringResource(R.string.settings_stop_delay_label),
-                            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                            fontSize = AppConfig.uiFontToggleSize.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                        Text(
-                            text = stringResource(R.string.settings_stop_delay_desc),
-                            color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                            fontSize = AppConfig.uiFontDescSize.sp
-                        )
-                    }
-                    Spacer(modifier = Modifier.width(16.dp))
-                    Switch(
-                        checked = settings.stopDetectionDelayGps,
-                        onCheckedChange = { on -> onUpdateSettings { it.copy(stopDetectionDelayGps = on) } },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                            checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                            uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
-                            uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                        )
-                    )
-                }
+                ToggleRow(
+                    label = stringResource(R.string.settings_stop_delay_label),
+                    description = stringResource(R.string.settings_stop_delay_desc),
+                    checked = settings.stopDetectionDelayGps,
+                    onCheckedChange = { on -> onUpdateSettings { it.copy(stopDetectionDelayGps = on) } }
+                )
             }
         }
 
@@ -1502,78 +1328,26 @@ private fun SystemSettings(
 
         Card {
             // Keep screen on
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingToggleVertical.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_keep_screen_on_label),
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = AppConfig.uiFontToggleSize.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_keep_screen_on_desc),
-                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = AppConfig.uiFontDescSize.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Switch(
-                    checked = settings.keepScreenOn,
-                    onCheckedChange = { on -> onUpdateSettings { it.copy(keepScreenOn = on) } },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                    )
-                )
-            }
+            ToggleRow(
+                label = stringResource(R.string.settings_keep_screen_on_label),
+                description = stringResource(R.string.settings_keep_screen_on_desc),
+                checked = settings.keepScreenOn,
+                onCheckedChange = { on -> onUpdateSettings { it.copy(keepScreenOn = on) } }
+            )
 
             SectionDivider()
 
             // Debug rays
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingToggleVertical.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_debug_rays_label),
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = AppConfig.uiFontToggleSize.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_debug_rays_desc),
-                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = AppConfig.uiFontDescSize.sp
-                    )
+            ToggleRow(
+                label = stringResource(R.string.settings_debug_rays_label),
+                description = stringResource(R.string.settings_debug_rays_desc),
+                checked = settings.markerDebugRays,
+                onCheckedChange = { on ->
+                    onUpdateSettings { it.copy(markerDebugRays = on) }
+                    AppConfig.markerDebugRaysEnabled = on
+                    MarkerMatcher.debugger = if (on) VisualWhereAmIDebugger() else NoOpWhereAmIDebugger
                 }
-                Spacer(modifier = Modifier.width(16.dp))
-                Switch(
-                    checked = settings.markerDebugRays,
-                    onCheckedChange = { on ->
-                        onUpdateSettings { it.copy(markerDebugRays = on) }
-                        AppConfig.markerDebugRaysEnabled = on
-                        MarkerMatcher.debugger = if (on) VisualWhereAmIDebugger() else NoOpWhereAmIDebugger
-                    },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                    )
-                )
-            }
+            )
 
             SectionDivider()
 
@@ -1597,161 +1371,33 @@ private fun SystemSettings(
         SectionHeader(title = stringResource(R.string.settings_regenerate_layers))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         Card {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingToggleVertical.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_regen_depth_grid_label),
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = AppConfig.uiFontToggleSize.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_regen_depth_grid_desc),
-                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = AppConfig.uiFontDescSize.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Switch(
-                    checked = settings.regenGrid,
-                    onCheckedChange = { v -> onUpdateSettings { it.copy(regenGrid = v) } },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                    )
-                )
-            }
-            Spacer(Modifier.height(AppConfig.uiDividerGap.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)
-                    .height(AppConfig.uiDividerHeight.dp)
-                    .background(ComposeColor(AppConfig.uiSettingsDivider))
+            ToggleRow(
+                label = stringResource(R.string.settings_regen_depth_grid_label),
+                description = stringResource(R.string.settings_regen_depth_grid_desc),
+                checked = settings.regenGrid,
+                onCheckedChange = { v -> onUpdateSettings { it.copy(regenGrid = v) } }
             )
-            Spacer(Modifier.height(AppConfig.uiDividerGap.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingToggleVertical.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_regen_isobaths_label),
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = AppConfig.uiFontToggleSize.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_regen_isobaths_desc),
-                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = AppConfig.uiFontDescSize.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Switch(
-                    checked = settings.regenIsobaths,
-                    onCheckedChange = { v -> onUpdateSettings { it.copy(regenIsobaths = v) } },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                    )
-                )
-            }
-            Spacer(Modifier.height(AppConfig.uiDividerGap.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)
-                    .height(AppConfig.uiDividerHeight.dp)
-                    .background(ComposeColor(AppConfig.uiSettingsDivider))
+            SectionDivider()
+            ToggleRow(
+                label = stringResource(R.string.settings_regen_isobaths_label),
+                description = stringResource(R.string.settings_regen_isobaths_desc),
+                checked = settings.regenIsobaths,
+                onCheckedChange = { v -> onUpdateSettings { it.copy(regenIsobaths = v) } }
             )
-            Spacer(Modifier.height(AppConfig.uiDividerGap.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingToggleVertical.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_regen_colour_label),
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = AppConfig.uiFontToggleSize.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_regen_colour_desc),
-                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = AppConfig.uiFontDescSize.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Switch(
-                    checked = settings.regenColour,
-                    onCheckedChange = { v -> onUpdateSettings { it.copy(regenColour = v) } },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                    )
-                )
-            }
-            Spacer(Modifier.height(AppConfig.uiDividerGap.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)
-                    .height(AppConfig.uiDividerHeight.dp)
-                    .background(ComposeColor(AppConfig.uiSettingsDivider))
+            SectionDivider()
+            ToggleRow(
+                label = stringResource(R.string.settings_regen_colour_label),
+                description = stringResource(R.string.settings_regen_colour_desc),
+                checked = settings.regenColour,
+                onCheckedChange = { v -> onUpdateSettings { it.copy(regenColour = v) } }
             )
-            Spacer(Modifier.height(AppConfig.uiDividerGap.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingToggleVertical.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = stringResource(R.string.settings_regen_warning_label),
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                        fontSize = AppConfig.uiFontToggleSize.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_regen_warning_desc),
-                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        fontSize = AppConfig.uiFontDescSize.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                Switch(
-                    checked = settings.regenWarning,
-                    onCheckedChange = { v -> onUpdateSettings { it.copy(regenWarning = v) } },
-                    colors = SwitchDefaults.colors(
-                        checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                        checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                        uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
-                        uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-                    )
-                )
-            }
+            SectionDivider()
+            ToggleRow(
+                label = stringResource(R.string.settings_regen_warning_label),
+                description = stringResource(R.string.settings_regen_warning_desc),
+                checked = settings.regenWarning,
+                onCheckedChange = { v -> onUpdateSettings { it.copy(regenWarning = v) } }
+            )
         }
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         Row(
@@ -1877,13 +1523,17 @@ private fun CardDescription(text: String) {
     Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
 }
 
-/** Label + optional description + switch row WITHOUT its own box — placed directly on a [Card]. */
+/**
+ * Label + optional description + switch row WITHOUT its own box — placed directly on a [Card].
+ * [leadingIcon] renders before the label column with the standard 8dp gap.
+ */
 @Composable
 private fun ToggleRow(
     label: String,
     description: String? = null,
     checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
+    onCheckedChange: (Boolean) -> Unit,
+    leadingIcon: @Composable (() -> Unit)? = null
 ) {
     Row(
         modifier = Modifier
@@ -1892,6 +1542,10 @@ private fun ToggleRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
+        if (leadingIcon != null) {
+            leadingIcon()
+            Spacer(modifier = Modifier.width(8.dp))
+        }
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = label,

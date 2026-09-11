@@ -15,7 +15,7 @@ Verification: `apk-build.bat` SUCCESS (1m 05s), no new warnings. Ask review PASS
 
 - **Spacing pass (same day)** — all four tabs now share one section boundary (`ui.spacing.section.gap`, 24 → 14dp) and one title→card gap (`ui.spacing.header.bottom`, 8 → 6dp); Layers' five 12dp / raw `12.dp` gaps were the outliers. §2.11 documents the tab strip. Validated on device.
 
-## In progress — row family normalization (R1–R5 done, R6–R8 pending)
+## In progress — row family normalization (R1–R6 done, R7–R8 pending)
 
 Branch `feature/settings-menu-clean`. Plan: [`260911_FEAT_PLN_Ui_Settings_row-naming-normalization.md`](260911_FEAT_PLN_Ui_Settings_row-naming-normalization.md).
 
@@ -24,7 +24,9 @@ Branch `feature/settings-menu-clean`. Plan: [`260911_FEAT_PLN_Ui_Settings_row-na
 - **R3 (done — uncommitted)** — `SegmentedRow` generalised to `<T>` (`options`/`selected`/`onSelect` + optional `captions`) and made **surface-free**: connected segments with outer-only rounding, unselected segments outlined, `selectableGroup()` + `Role.RadioButton`. Adopted at Arrow density; the Language picker was wrapped in a `Card`, so no control on the page paints its own surface any more.
 - **R4 (done — uncommitted)** — GPS frequency is a 3-option `SegmentedRow` (Élevée 1 s/1 m · Équilibrée 2 s/5 m · Éco 4 s/10 m) with per-stop captions; `SettingsFrequencyRow` deleted — no symbol remains. Intentional behaviour change: a free 1–4 s range became three presets.
 - **R5 (done — uncommitted)** — `CardDescription` extracted (owns its trailing spacer, **keeps today's 16dp inset until R7**) and all six inline descriptions migrated: Tracks, Markers, Regulated zones, 300 m band, Danger zones, Depth.
-- Builds after each step: SUCCESS; the working tree is UP-TO-DATE against the last compile. **R6–R8 pending** (inline rows + dividers + `leadingIcon`; padding normalization + `CategoryToggleGroup`; docs + tracking).
+- **R6 (done — uncommitted at bake time)** — `ToggleRow` gained `leadingIcon: @Composable (() -> Unit)? = null` (additive, 8dp gap). **13** hand-rolled inline label+`Switch` rows converted to `ToggleRow`: speed-zone/regulated-zone auto-show, map offset GPS/demo, GPS mode (keeps `onGpsModeChange` + `onDismiss`), stop detection enable + GPS delay, keep screen on, debug rays, and the four Regenerate-layers rows. Seven more sites (coastline, heading line, cap arrow, demo heading up, both re-display enables, 300 m band auto-show) were **already** `ToggleRow` — nothing to do. **1 row deliberately skipped**: `regulationInfoVisible` is genuinely bespoke (raw `14.sp` label, no `uiPaddingToggleVertical`, no `.weight(1f)` column, partial switch colours) and waits for R7 like the category group.
+  **Divider finding:** the pattern quoted in the plan (`height(1dp)` + literal `16dp`) does not exist. The real one is `Spacer(uiDividerGap 6dp)` + `Box(fillMaxWidth → padding(horizontal = uiPaddingCardHorizontal) → height(uiDividerHeight) → background(uiSettingsDivider))` + `Spacer(6dp)` — byte-identical to `SectionDivider()`. Only **3** matched 1:1 (the Regenerate-layers dividers) and were converted; **4** were left for R7 (three sit in a `NestedCard` that already supplies the 16dp — a swap would double the inset — and the Re-display one is bracketed by `uiSpacingGroupedRowGap` 8dp, not 6dp).
+- Builds after each step: SUCCESS, no new warnings. **R7–R8 pending** (container-owned padding + `CategoryToggleGroup`; docs + tracking).
 
 ## Open — phase-1 follow-ups
 
