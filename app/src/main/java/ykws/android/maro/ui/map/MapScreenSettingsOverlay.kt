@@ -41,6 +41,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -342,13 +343,7 @@ private fun LayersSettings(
         SectionHeader(title = stringResource(R.string.settings_section_tracks))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         Card {
-            Text(
-                text = stringResource(R.string.settings_tracks_desc),
-                color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                fontSize = AppConfig.uiFontDescSize.sp,
-                modifier = Modifier.padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)
-            )
-            Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
+            CardDescription(stringResource(R.string.settings_tracks_desc))
 
             Box(modifier = Modifier.padding(horizontal = 16.dp)) {
                 Expander(
@@ -513,37 +508,14 @@ private fun LayersSettings(
 
                         Spacer(Modifier.height(8.dp))
 
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(ComposeColor(AppConfig.uiCardBackground))
-                                .padding(6.dp),
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            listOf(
-                                TrackDirectionDensity.UNIFORM to R.string.settings_tracks_direction_density_uniform,
-                                TrackDirectionDensity.SPEED to R.string.settings_tracks_direction_density_speed
-                            ).forEach { (mode, labelRes) ->
-                                val selected = settings.trackDirectionDensity == mode
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(if (selected) ComposeColor(AppConfig.uiSettingsAccent) else ComposeColor(AppConfig.uiSettingsDivider))
-                                        .clickable { onUpdateSettings { it.copy(trackDirectionDensity = mode) } }
-                                        .padding(vertical = 10.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = stringResource(labelRes),
-                                        color = if (selected) ComposeColor(AppConfig.uiSettingsTextPrimary) else ComposeColor(AppConfig.uiSettingsTextMuted),
-                                        fontSize = 14.sp,
-                                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
-                                    )
-                                }
-                            }
-                        }
+                        SegmentedRow(
+                            options = listOf(
+                                TrackDirectionDensity.UNIFORM to stringResource(R.string.settings_tracks_direction_density_uniform),
+                                TrackDirectionDensity.SPEED to stringResource(R.string.settings_tracks_direction_density_speed)
+                            ),
+                            selected = settings.trackDirectionDensity,
+                            onSelect = { mode -> onUpdateSettings { it.copy(trackDirectionDensity = mode) } }
+                        )
 
                         Spacer(Modifier.height(8.dp))
 
@@ -601,13 +573,7 @@ private fun LayersSettings(
         SectionHeader(title = stringResource(R.string.settings_section_markers))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         Card {
-            Text(
-                text = stringResource(R.string.settings_markers_desc),
-                color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                fontSize = AppConfig.uiFontDescSize.sp,
-                modifier = Modifier.padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)
-            )
-            Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
+            CardDescription(stringResource(R.string.settings_markers_desc))
             Box(modifier = Modifier.padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)) {
                 Expander(
                     label = stringResource(R.string.settings_marker_rendering_label),
@@ -765,13 +731,7 @@ private fun LayersSettings(
         SectionHeader(title = stringResource(R.string.settings_regulated_zones_label))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         Card {
-            Text(
-                text = stringResource(R.string.settings_regulated_zones_desc),
-                color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                fontSize = AppConfig.uiFontDescSize.sp,
-                modifier = Modifier.padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)
-            )
-            Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
+            CardDescription(stringResource(R.string.settings_regulated_zones_desc))
                 // Regulation info — collapsible toggle for info text panel
                 Box(modifier = Modifier.padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)) {
                     Expander(
@@ -837,13 +797,7 @@ private fun LayersSettings(
         SectionHeader(title = stringResource(R.string.settings_zone300_label))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         Card {
-            Text(
-                text = stringResource(R.string.settings_zone300_desc),
-                color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                fontSize = AppConfig.uiFontDescSize.sp,
-                modifier = Modifier.padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)
-            )
-            Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
+            CardDescription(stringResource(R.string.settings_zone300_desc))
             Box(modifier = Modifier.padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)) {
                 Expander(
                     label = stringResource(R.string.settings_zone300_appearance_label),
@@ -916,14 +870,8 @@ private fun LayersSettings(
         SectionHeader(title = stringResource(R.string.settings_danger_zones_label))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         Card {
-            Text(
-                text = stringResource(R.string.settings_danger_zones_desc),
-                color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                fontSize = AppConfig.uiFontDescSize.sp,
-                modifier = Modifier.padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)
-            )
+            CardDescription(stringResource(R.string.settings_danger_zones_desc))
             // Warning sliders — always visible, persisted expander
-            Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
             Box(modifier = Modifier.padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)) {
                 Expander(
                     label = stringResource(R.string.settings_low_depth_settings_label),
@@ -1000,13 +948,7 @@ private fun LayersSettings(
         SectionHeader(title = stringResource(R.string.settings_depth_label))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         Card {
-            Text(
-                text = stringResource(R.string.settings_depth_desc),
-                color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                fontSize = AppConfig.uiFontDescSize.sp,
-                modifier = Modifier.padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)
-            )
-            Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
+            CardDescription(stringResource(R.string.settings_depth_desc))
             Box(modifier = Modifier.padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)) {
                 Expander(label = stringResource(R.string.settings_emodnet_section_label), expanded = settingsVm.isExpanded("depth_cutoff"),
                     onToggle = { settingsVm.setExpanded("depth_cutoff", !settingsVm.isExpanded("depth_cutoff")) }
@@ -1356,11 +1298,38 @@ private fun PositionSettings(
                 ) {
                     Spacer(modifier = Modifier.height(8.dp))
                     NestedCard {
-                        SettingsFrequencyRow(
-                            intervalSec = settings.gpsActiveIntervalSec,
-                            onSelect = { ivl, dist ->
-                                onUpdateSettings { it.copy(gpsActiveIntervalSec = ivl, gpsActiveMinDistanceM = dist) }
-                            }
+                        Text(
+                            text = stringResource(R.string.settings_freq_label),
+                            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                            fontSize = AppConfig.uiFontToggleSize.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = stringResource(R.string.settings_freq_desc),
+                            color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                            fontSize = AppConfig.uiFontDescSize.sp
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        SegmentedRow(
+                            options = listOf(
+                                (1 to 1f) to stringResource(R.string.settings_freq_high),
+                                (2 to 5f) to stringResource(R.string.settings_freq_balanced),
+                                (4 to 10f) to stringResource(R.string.settings_freq_eco)
+                            ),
+                            selected = settings.gpsActiveIntervalSec to settings.gpsActiveMinDistanceM,
+                            onSelect = { (intervalSec, minDistanceM) ->
+                                onUpdateSettings {
+                                    it.copy(
+                                        gpsActiveIntervalSec = intervalSec,
+                                        gpsActiveMinDistanceM = minDistanceM
+                                    )
+                                }
+                            },
+                            captions = listOf(
+                                stringResource(R.string.settings_freq_stop_fmt, 1, 1),
+                                stringResource(R.string.settings_freq_stop_fmt, 2, 5),
+                                stringResource(R.string.settings_freq_stop_fmt, 4, 10)
+                            )
                         )
 
                         SectionDivider()
@@ -1512,10 +1481,18 @@ private fun SystemSettings(
         SectionHeader(title = stringResource(R.string.settings_section_language))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
-        SegmentedRow(
-            languageCode = settings.languageCode,
-            onSelect = { code -> onUpdateSettings { it.copy(languageCode = code) } }
-        )
+        Card {
+            SegmentedRow(
+                options = listOf(
+                    // (code, label) — endonyms (English/Français) read the same in every locale.
+                    "system" to stringResource(R.string.settings_language_system),
+                    "en" to stringResource(R.string.settings_language_english),
+                    "fr" to "Français"
+                ),
+                selected = settings.languageCode,
+                onSelect = { code -> onUpdateSettings { it.copy(languageCode = code) } }
+            )
+        }
 
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
 
@@ -1819,49 +1796,85 @@ private fun SectionHeader(title: String) {
 }
 
 /**
- * Language picker as a 3-segment selector: System / English / Français.
- * The active segment is highlighted in blue. "System" follows the device locale
- * (English default, French on a fr device); the other two force the app language.
+ * Single-choice segmented control — Material 3 shape: one **connected** control, outer ends rounded,
+ * a single hairline outline, accent fill on the selected segment only. **Surface-free**, so the
+ * enclosing [Card]/[NestedCard] owns the surface. [captions] renders one line under each segment.
+ *
+ * Accessibility: `selectableGroup()` plus a [Role.RadioButton] per segment, so it is announced as
+ * "n of m, selected" instead of as unrelated buttons.
  */
 @Composable
-private fun SegmentedRow(
-    languageCode: String,
-    onSelect: (String) -> Unit
+private fun <T> SegmentedRow(
+    options: List<Pair<T, String>>,
+    selected: T,
+    onSelect: (T) -> Unit,
+    captions: List<String>? = null
 ) {
-    // (code, label) — endonyms (English/Français) are shown the same in every locale.
-    val options = listOf(
-        "system" to stringResource(R.string.settings_language_system),
-        "en" to stringResource(R.string.settings_language_english),
-        "fr" to "Français"
-    )
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(ComposeColor(AppConfig.uiCardBackground))
-            .padding(6.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        options.forEach { (code, label) ->
-            val selected = code == languageCode
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(if (selected) ComposeColor(AppConfig.uiSettingsAccent) else ComposeColor(AppConfig.uiSettingsDivider))
-                    .clickable { onSelect(code) }
-                    .padding(vertical = 10.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = label,
-                    color = if (selected) ComposeColor(AppConfig.uiSettingsTextPrimary) else ComposeColor(AppConfig.uiSettingsTextMuted),
-                    fontSize = 14.sp,
-                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(AppConfig.uiRadiusCard.dp))
+                .border(
+                    width = 1.dp,
+                    color = ComposeColor(AppConfig.uiSettingsDivider),
+                    shape = RoundedCornerShape(AppConfig.uiRadiusCard.dp)
                 )
+                .selectableGroup()
+        ) {
+            options.forEachIndexed { index, (value, label) ->
+                val isSelected = value == selected
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .background(if (isSelected) ComposeColor(AppConfig.uiSettingsAccent) else ComposeColor.Transparent)
+                        .selectable(
+                            selected = isSelected,
+                            role = Role.RadioButton,
+                            onClick = { onSelect(value) }
+                        )
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = label,
+                        color = if (isSelected) ComposeColor(AppConfig.uiSettingsTextPrimary) else ComposeColor(AppConfig.uiSettingsTextMuted),
+                        fontSize = 14.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                    )
+                }
+            }
+        }
+        if (captions != null) {
+            Row(modifier = Modifier.fillMaxWidth()) {
+                options.forEachIndexed { index, _ ->
+                    Text(
+                        text = captions.getOrElse(index) { "" },
+                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        fontSize = AppConfig.uiFontCommentSize.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
         }
     }
+}
+
+/**
+ * Card lead-in description: one muted 13sp sentence under a [SectionHeader], placed before the
+ * card's first control. For a *titled* sub-section inside a card, use a sub-section header with a
+ * description instead.
+ */
+@Composable
+private fun CardDescription(text: String) {
+    Text(
+        text = text,
+        color = ComposeColor(AppConfig.uiSettingsTextMuted),
+        fontSize = AppConfig.uiFontDescSize.sp,
+        modifier = Modifier.padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp)
+    )
+    Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
 }
 
 /** Label + optional description + switch row WITHOUT its own box — placed directly on a [Card]. */
@@ -2399,77 +2412,3 @@ private fun ColorPairRow(
     }
 }
 
-/**
- * GPS frequency as a 3-stop labelled slider. Each stop writes the matching (interval, min-distance)
- * pair — Haute 1 s/1 m · Équilibrée 2 s/5 m · Économie 4 s/10 m. Équilibrée's label is bold to mark
- * it as the default; the active stop is highlighted in blue.
- */
-@Composable
-private fun SettingsFrequencyRow(
-    intervalSec: Int,
-    onSelect: (intervalSec: Int, minDistanceM: Float) -> Unit
-) {
-    // (label, intervalSec, minDistanceM) at slider index 0, 1, 2
-    val stops = listOf(
-        Triple(stringResource(R.string.settings_freq_high), 1, 1f),
-        Triple(stringResource(R.string.settings_freq_balanced), 2, 5f),
-        Triple(stringResource(R.string.settings_freq_eco), 4, 10f)
-    )
-    val currentIdx = stops.indexOfFirst { it.second == intervalSec }.let { if (it < 0) 1 else it }
-
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = stringResource(R.string.settings_freq_label),
-            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Medium
-        )
-        Text(
-            text = stringResource(R.string.settings_freq_desc),
-            color = ComposeColor(AppConfig.uiSettingsTextMuted),
-            fontSize = 13.sp
-        )
-        Spacer(modifier = Modifier.height(4.dp))
-        Slider(
-            value = currentIdx.toFloat(),
-            onValueChange = { v ->
-                val idx = v.roundToInt().coerceIn(0, stops.lastIndex)
-                onSelect(stops[idx].second, stops[idx].third)
-            },
-            valueRange = 0f..2f,
-            steps = 1,
-            colors = SliderDefaults.colors(
-                thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
-                inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-            )
-        )
-        Row(modifier = Modifier.fillMaxWidth()) {
-            stops.forEachIndexed { idx, stop ->
-                val selected = idx == currentIdx
-                val accent = if (selected) ComposeColor(AppConfig.uiSettingsAccent) else ComposeColor(AppConfig.uiSettingsTextMuted)
-                Column(
-                    modifier = Modifier.weight(1f),
-                    horizontalAlignment = when (idx) {
-                        0 -> Alignment.Start
-                        stops.lastIndex -> Alignment.End
-                        else -> Alignment.CenterHorizontally
-                    }
-                ) {
-                    Text(
-                        text = stop.first,
-                        color = accent,
-                        fontSize = 13.sp,
-                        // Default (Équilibrée) stays bold to flag the recommended setting.
-                        fontWeight = if (idx == 1) FontWeight.Bold else FontWeight.Normal
-                    )
-                    Text(
-                        text = stringResource(R.string.settings_freq_stop_fmt, stop.second, stop.third.roundToInt()),
-                        color = accent,
-                        fontSize = 12.sp
-                    )
-                }
-            }
-        }
-    }
-}
