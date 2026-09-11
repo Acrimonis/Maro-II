@@ -2,7 +2,7 @@
 name: BoatTrace
 status: active
 created: 2026-06-15 21:43
-modified: 2026-09-02 13:10
+modified: 2026-09-11 15:55
 ---
 
 # Feature: BoatTrace
@@ -24,6 +24,7 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 - [ ] E2E: Manual Start/Stop from tack drawer -> verify state matches auto-detection
 - [ ] E2E: Export GPX -> copy to computer -> open in QGIS/Google Earth -> verify track/speed/course
 - [ ] E2E: Verify settings persistence of tack fields across app restart
+- [ ] E2E live-track-paint-regression: fresh recording paints the active line point-by-point (demo + GPS); resume still paints; GAP seam stays dashed; no duplicate history copy when a Map filter is applied
 
 #### Docs
 - `plans/boat-trace-design-discussion.md` — full design & implementation plan
@@ -90,6 +91,7 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 - `xTrack/BoatTrace/260618_FEAT_PLN_BoatTrace_adaptive-isstill.md` — adaptive stillness detection
 - `xTrack/BoatTrace/260622_FEAT_PLN_BoatTrace_pinned-tracks.md` — pinned tracks
 - `xTrack/BoatTrace/260717_FEAT_PLN_BoatTrace_tracks-paint-order.md` — tracks paint order
+- `xTrack/BoatTrace/260911_FEAT_PLN_BoatTrace_live-track-paint-regression.md` — live-track paint regression: diagnosis + fix (evidence, fix options, follow-ups)
 
 ## Implemented
 
@@ -122,3 +124,4 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 - **marker-track-link** — `UserMarker.trackId` single back-reference + backfill + delete cascade → `xTrack/BoatTrace/260831_FEAT_PLN_BoatTrace_marker-track-link.md`
 - **gps-recording-regression** — service GPS sampling pinned to Main dispatcher (Looper fix)
 - **gps-switch-confirm** — confirm before switching position source while recording
+- **live-track-paint-regression (2026-09-11)** — live polyline was never created after the C3/C4 seam extraction (creation effect read a frozen parameter through `snapshotFlow`); creation re-keyed on recorder state, append/trailing made self-healing, `isLive` excluded from the map-resolve path → `xTrack/BoatTrace/260911_FEAT_PLN_BoatTrace_live-track-paint-regression.md`

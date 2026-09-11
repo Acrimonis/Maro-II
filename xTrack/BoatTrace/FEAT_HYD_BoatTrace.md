@@ -1,30 +1,26 @@
 # BoatTrace — Hydration Snapshot
 
-**Baked at:** 2026-09-02 13:10 UTC
-**Active Subfeature:** marker-export-import
-**Branch:** feature/next
+**Baked at:** 2026-09-11 15:55 UTC
+**Active Subfeature:** live-track-paint-regression
+**Branch:** feature/tracks-recording (created from origin/develop 2026-09-11)
 
 ## Session Summary
 
-Track direction arrows (Phases 1 + 2) + settings UI + transparency polish:
+Diagnosed and fixed the live recorded track no longer painting in real time.
 
-- `TrackDirectionOverlay` (custom osmdroid Overlay): vector chevrons, bearing fallback, viewport culling, per-track; pixel-spaced (uniform) + exponential speed-based density; speed fallback from time+haversine.
-- Settings: `tracksDirectionVisible` toggle in Settings + drawer; own "Direction Track Settings" collapsible with segmented density selector (Uniform/Speed-based, language-picker pattern) + log-scale RangeSliders (gap 4–640 dp, speed 2–64 kn); headers normalized to `SubSectionHeader`.
-- Transparency: history (non-pinned) gradient now splits by the configured count (`total = nbToRender`), list accent-bar preview aligned; pinned keeps its own independent range. Count/transparency strings reworded to distinguish non-pinned vs pinned behaviour.
-
-BUILD SUCCESSFUL (assembleDebug).
+- **Root cause (confirmed):** the C3/C4 seam extraction turned a `by collectAsState()` delegate read into a plain-parameter read. `MapTrackOverlayLiveEffects` received a frozen `TrackRecorderUiState`, so `snapshotFlow { trackRecorderState.state }` inside an effect keyed on `(mapView, trackingColorActive)` emitted the launch-time value once and never saw `OFF → ON`. The `track_recording` polyline was never created and both consumers silently bailed (append dropped points, trailing segment returned early).
+- **Proof:** `git log` shows `MapTrackOverlayEffects.kt` has a single commit (`9d95a16`, PR #225); its parent `MapScreen.kt` contains no `snapshotFlow` at all and reads the state directly. The wrapper was introduced by the extraction.
+- **Fix:** creation effect re-keyed on `trackRecorderState.state`; append/trailing self-heal (create the line on demand); `!it.isLive` added to the map-resolve filter and highlighted pull-back (latent — reachable only on resume, where the main `.bin` is re-saved with `endTimeMs = null`).
+- Build `assembleDebug` SUCCESSFUL; Ask review SOUND. Uncommitted at bake time.
 
 ## Next Step
 
-Device E2E: verify arrows, density contrast, transparency behaviour, settings + drawer toggles.
+Device E2E: fresh recording paints the active line point-by-point (demo + GPS), resume still paints, GAP seam dashed, filter cases clean.
 
 ## Key Files
 
-- `app/src/main/java/ykws/android/maro/ui/map/TrackDirectionOverlay.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MapTrackOverlayEffects.kt`
+- `xTrack/BoatTrace/260911_FEAT_PLN_BoatTrace_live-track-paint-regression.md`
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt`
-- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt`
-- `app/src/main/java/ykws/android/maro/config/AppConfig.kt`
-- `app/src/main/assets/maro.properties`
+- `app/src/main/java/ykws/android/maro/data/track/TrackViewModel.kt`
+- `app/src/main/java/ykws/android/maro/data/track/TrackRecordingService.kt`
