@@ -2,7 +2,7 @@
 name: Ui_Settings
 status: active
 created: 2026-06-09 15:28
-modified: 2026-09-10 10:45
+modified: 2026-09-11 08:24
 ---
 
 **Description:** Settings page UI, settings persistence (SharedPreferences), settings-related widgets, and settings UX enhancements.
@@ -13,6 +13,7 @@ modified: 2026-09-10 10:45
 
 ## Implemented
 
+- **tab-finalization phase 1 (2026-09-11, `feature/settings-menu-clean`)** — one section-title style app-wide (sentence case; `ui.font.section.size` 17→18sp with the `AppConfig.uiFontSectionSize` fallback 17f→18f; [`SectionHeader`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt:2008) lost its `uppercase` param and the 9 call sites dropped the arg). `SettingsToggleRow` retired for a box-less `ToggleRowContent` ([L2067](../../app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt:2067)): Coastline is now `Card { ToggleRowContent(…) }`, Orientation aids is one `Card` with 3 rows and 2 `SectionDivider`s. Settings tab strip migrated from the hand-rolled Row + `drawBehind` indicator to M3 `SecondaryScrollableTabRow` ([L261](../../app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt:261)) with **custom content-sized cells** (`Box` + `selectable(role = Role.Tab)`, 8dp horizontal / 14dp vertical, M3's full-cell secondary indicator, `edgePadding = 24.dp`) — `PrimaryTabRow` and the legacy `ScrollableTabRow` were both rejected during on-device validation (fixed ~24dp stub indicator; M3 `Tab` padding wrapped "Navigation" and its 90dp minimum left side gaps; the legacy row is deprecated); label token `ui.font.tab.size=18sp`, SemiBold (Bold when selected) (`AppConfig.uiFontTabSize` 18f). `docs/ui-component-guidelines.md` §1/§2.1/§2.3/§2.4/§2.5/§2.6/§2.9/§4 rewritten to the single "row + Card + functionally-defined sections" model. `apk-build.bat` SUCCESS, no new warnings; Ask review PASS; tab strip validated on device → `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_tab-finalization.md`
 - **C12 OverlayLayer param collapse — complete (2026-09-10, `feature/refact-C12`)** — the final slice of the MapScreen step-2 refactor. New same-package `OverlayLayerParams.kt` holds six public `@Immutable` data classes: `OverlayChrome` (7), `MenuOverlayData` (12), `SettingsOverlayData` (5), `TrackInfoOverlayData` (4), `TrackListOverlayData` (3) and `MarkerListOverlayData` (4). `OverlayLayer` dropped **89 → 60 params** — the read-only params were removed from several separated signature regions with every interleaved callback left in place, and all six bundles are unpacked into 35 same-named locals at the top of the body so the body and every child call stay unchanged. The single call site in `MapScreen.kt` builds the bundles inline (plain values, never `remember`-ed); the 44 callbacks deliberately stay individual params, because bundling them would pull them out of composable-call argument position and defeat Compose lambda memoization. Two dead `rememberLazyListState()` signature defaults and their orphan import were deleted. Public visibility is required — a public `OverlayLayer` cannot expose an `internal` type. `apk-build.bat` SUCCESS with zero new warnings on every tier; Ask reviews 8/8 and 8/8 pass, and tiers 1b/1c were verified by direct pre-image `git diff` (params in/out, `ScrollState` and `LazyListState` routing, byte-identical call-site expressions). The R10 recomposition metric is waived in writing (plan R10 entry). Tiers 1a-i + 1a-ii committed as `ec57458`, Tier 1b as `a000c18`. A separate follow-up pass repaired the ~30 line-anchored citations the signature shrink had invalidated (22 markdown files, docs only) and synced the drawer/code docs → `xTrack/Ui_Settings/260909_FEAT_PLN_Ui_Settings_mapScreen-orchestration-monolith-refactor.md` (C12 APPENDIX)
 
 - **finalise-feature (2026-09-07)** — closed all remaining open sections. `render-tweaks` closed as already-implemented (its June 25 proposals — `ui.padding.card.vertical=8dp` + card background standardization to `uiCardBackground` — were delivered by the card-expander-nestedcard-refactor + properties-normalization); `header-normalization` closed as implemented & merged (PR #217, shared `DrawerHeader`); `settings apply on close` closed as out-of-scope/not-needed (settings keep firing immediately). Guideline docs (ui-component-guidelines + ui-drawer-guidelines) verified in sync with code — no drift found.
@@ -32,6 +33,13 @@ modified: 2026-09-10 10:45
 - **fix-status-persistance** — `selectedTab` hoisted to MapScreen with `rememberSaveable`; pager–tab sync race fixed
 - **tab organization** — Material 3 TabRow + HorizontalPager (3 tabs); per-tab scroll states; custom blue indicator
 - **track-drawer-settings-btn** — Settings gear in Track Drawer header (64dp), drawer padding trimmed, redundant map Settings button removed
+
+### Tab finalization follow-ups
+
+- [ ] **A — optional description on the toggle row.** §2.1 mandates a description, but the Auto-show zones rows ([L1199+](../../app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt:1199)) are label-only. Decide: mark the description optional in §2.1 + `ToggleRowContent(description: String? = null)`, then unify those rows.
+- [ ] **B — row padding convention.** `ToggleRowContent` carries its own row padding; `SliderRowContent` ([L2109](../../app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt:2109)) relies on the caller. Pick one convention and pin it in the guidelines.
+- [ ] **C — align §2.2** with §2.1/§2.3 — it still reads "Standalone Slider" and shows the caller-padding wrapper.
+- [x] **D — resolved.** Custom tab cells inherit no M3 text style, so the `titleSmall` 0.1sp tracking no longer applies.
 
 ## Rules
 - **Defer to [`docs/ui-component-guidelines.md`](../../docs/ui-component-guidelines.md)** — the canonical source for all settings UI patterns (grouped cards §2.3, nested surfaces §2.4, dividers §2.6, headers §2.9, anti-patterns §4). No UI rules are duplicated here.

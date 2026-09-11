@@ -14,15 +14,13 @@
 
 ```
 New setting?
-  ├─ Standalone toggle?          → SettingsToggleRow           (§2.1)
-  ├─ Standalone slider?          → SliderRowContent on a Card   (§2.2)
-  ├─ Toggle + sub-settings?      → Card + Expander + NestedCard (§2.3)
-  │   └─ Sub controls (any type) → NestedCard                  (§2.4)
-  ├─ Exclusive 2–3 choice?       → Segmented selector            (§2.7)
-  ├─ Double-thumb value range?   → RangeSlider section           (§2.8)
-  ├─ Feature w/ sub-settings?    → Grouped card: feature toggle + sibling expander (§2.3)
-  ├─ Toggle group + slider?      → Grouped card (§2.3)
-  └─ Drawer/Track card?          → Same card surface, specific rows (§5)
+  ├─ One control (toggle/slider)? → control row on a Card         (§2.1, §2.2)
+  ├─ Several related controls?    → Card + rows + SectionDividers  (§2.3)
+  ├─ Control + sub-settings?      → Card + Expander + NestedCard   (§2.3)
+  │   └─ Sub controls (any type) → NestedCard                     (§2.4)
+  ├─ Exclusive 2–3 choice?        → Segmented selector            (§2.7)
+  ├─ Double-thumb value range?    → RangeSlider section           (§2.8)
+  └─ Drawer/Track card?           → Same card surface, specific rows (§5)
 ```
 
 ---
@@ -66,11 +64,34 @@ Column(
 > Drawer-specific row-height / divider-gap rules live in [`ui-drawer-guidelines.md` §8](ui-drawer-guidelines.md#8-card-pattern);
 > the list-item card shell (accent bar variant) lives in [`ui-drawer-guidelines.md` §9](ui-drawer-guidelines.md#9-list-item-card-pattern-track--marker).
 
-### 2.1 Standalone Toggle — `SettingsToggleRow`
+### 2.1 Toggle Row — `ToggleRowContent`
 
-Self-contained card (`uiCardBackground`, 12dp radius, 16×8dp pad). Gap between: `${ui.spacing.card.gap}`.
+A toggle is a **row**, never a card. The rendering is identical whether the card holds one row or ten:
 
-🔴 Never nest inside a grouped card — it IS a card.
+| Element | Value |
+|---------|-------|
+| Label | 16sp Medium, `uiSettingsTextPrimary` (`ui.font.toggle.size`) |
+| Description | 13sp, `uiSettingsTextMuted` (`ui.font.desc.size`) |
+| Label→control gap | `${ui.spacing.label.control}` (16dp) |
+| Control | `Switch` with accent colours (`uiSettingsAccent`) |
+| Row padding | 16dp horizontal (`uiPaddingCardHorizontal`) × 2dp vertical (`${ui.padding.toggle.vertical}`) |
+
+```kotlin
+Row(
+    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp),
+    horizontalArrangement = Arrangement.SpaceBetween,
+    verticalAlignment = Alignment.CenterVertically
+) {
+    Column(Modifier.weight(1f)) {
+        Text(label,       color = uiSettingsTextPrimary, fontSize = 16.sp, fontWeight = Medium)
+        Text(description, color = uiSettingsTextMuted,   fontSize = 13.sp)
+    }
+    Spacer(Modifier.width(16.dp))
+    Switch(checked, onCheckedChange, colors = …accent…)
+}
+```
+
+The row carries **no** background, radius or surface of its own — the enclosing `Card` owns that (§2.3). A one-toggle card is therefore plain `Card { ToggleRowContent(…) }`; nothing special-cases it.
 
 ### 2.2 Standalone Slider — `SliderRowContent` on a `Card`
 
@@ -84,15 +105,23 @@ Card {
 }
 ```
 
-### 2.3 Grouped Card — `Card` + `Expander` + `NestedCard`
+### 2.3 Card = rows + sections — `Card`, `SectionDivider`, `Expander`
 
-A section surface is a `Card` (20% white, 12dp radius) holding **inline toggle rows** (not `SettingsToggleRow`) and/or `Expander`s:
+A **`Card`** is one surface (20% white, 12dp radius, `${ui.padding.card.vertical}` = 8dp vertical padding) holding **1..N control rows**. The rows are the content; the card is the box (§2.1, §2.2).
+
+The card is divided into **sections**, defined **functionally**: controls that belong together form one section; a control that stands alone is its own section.
+
+- **Between sections** → `SectionDivider()` (§2.6).
+- **Within a section** → `${ui.spacing.grouped.row.gap}` (8dp) between rows, no divider.
+
+A card may additionally reveal optional or advanced content through one or more `Expander`s:
 
 ```
 Card {
-    Row(16×${ui.padding.toggle.vertical} pad) { Text + Switch }   ← inline toggle
-    Spacer(${ui.spacing.grouped.row.gap})
-    Row(16×${ui.padding.toggle.vertical} pad) { Text + Switch }   ← more toggles
+    ToggleRowContent(…)                        ← section 1
+    SectionDivider()
+    ToggleRowContent(…)
+    ToggleRowContent(…)                        ← section 2: two related rows, 8dp apart
 
     Spacer(${ui.spacing.grouped.after-expander})
     Box(pad h=16) {
@@ -105,13 +134,16 @@ Card {
 }
 ```
 
+**Worked examples:** Coastline = `Card { ToggleRowContent(…) }` — one section, no divider. Orientation aids = three rows with two `SectionDivider`s — one section per control. Auto-show zones = two rows 8dp apart (one section) + `SectionDivider` + one row (second section).
+
 🔴 **No settings visibility is conditional on another setting's state.** Settings are always shown; a toggle controls *behavior*, never *visibility*. E.g. the GPS-tuning expander is always visible regardless of GPS mode — the GPS mode toggle only controls whether GPS tuning takes effect, not whether the expander renders. Do not wrap a setting or expander in `if (someOtherSetting)`.
 
 ### 2.4 Inside-Expander Content — `NestedCard`
 
-🔴 **Limit encapsulation — prefer a collapsible section.** When a card accumulates many related controls, split them into a collapsible `Expander` section rather than nesting another card. Collapsible = secondary detail; primary toggles stay inline.
+**Depth cap (law):** a settings section is at most **`Card` → one `Expander` → `NestedCard` → controls**. `NestedCard` is a *surface treatment*, not a nesting tier — it is the paint on the panel the `Expander` reveals. Never place a card (or any full `uiCardBackground` surface) inside a `NestedCard`.
 
-**Inception rule (applies to ALL controls):** a settings section is at most **Card → Expander → NestedCard → controls**.
+**Preference (not law):** when one card accumulates many related controls, prefer revealing the secondary ones behind an `Expander` rather than growing the card. Primary controls stay inline; secondary detail collapses. There is no count threshold — judge it by whether the content is optional.
+
 - **Card** — top-level section surface (`uiCardBackground`, 20% white, 12dp radius).
 - **Expander** — the collapsible disclosure row; it has **no box of its own** and sits directly on the Card.
 - **NestedCard** — the single nested container revealed when the Expander is open (`ui.nested.card.bg` `#0DFFFFFF` + `ui.nested.card.border` `#40FFFFFF`). It holds the controls.
@@ -150,11 +182,14 @@ Expander(label, expanded, onToggle) {
 
 ### 2.5 Expander Labels
 
-`Expander` defaults: `uiSettingsTextPrimary`, 16sp, Medium — matches the toggle (`SettingsToggleRow`) and slider (`SliderRowContent`) label font. Never override `labelStyle` per call site.
+`Expander` defaults: `uiSettingsTextPrimary`, 16sp, Medium — matches the toggle row (§2.1) and slider row (§2.2) label font. Never override `labelStyle` per call site.
 
 ### 2.6 Section Dividers
 
-**Visible divider** (`uiSettingsDivider`, 6dp gap above/below, 16dp horizontal inset) between distinct content blocks inside a card (e.g., "Colors" vs sliders in Track settings; toggle-only cards such as Regenerate Layers). **Spacer only** (8dp) between simple toggle rows that are not sections (e.g., Categories).
+A card is divided into **sections**, defined **functionally**: controls that belong together form one section; a control that stands alone is its own section.
+
+- **Between sections** → the visible divider: `uiSettingsDivider`, `${ui.divider.gap}` (6dp) above/below, 16dp horizontal inset.
+- **Within a section** → `${ui.spacing.grouped.row.gap}` (8dp) between rows. No divider.
 
 ```
 Spacer(6.dp)
@@ -210,7 +245,7 @@ Render as a **direct section** — header + description + value (`ui.settings.va
 
 ### 2.9 Header Hierarchy
 
-- `SectionHeader` — 17sp bold, `ui.settings.accent`; top-level sections only. `uppercase = true` (default) renders ALL-CAPS with 1sp letter-spacing; `uppercase = false` renders title case ("Layers", "Navigation") with no letter-spacing.
+- `SectionHeader` — top-level sections only. **One style app-wide:** sentence case ("Layers", "Navigation"), 18sp bold, `ui.settings.accent`, no letter-spacing (`ui.font.section.size`). There is no casing variant.
 - `SubSectionHeader` — 16sp SemiBold, `ui.settings.text.muted` + optional 13sp `ui.settings.text.secondary` description; the standard header for any sub-section inside a card/expander.
 - **Card description** (Layers tab) — 13sp `ui.settings.text.muted`, inside the card, horizontal 16dp pad with no extra vertical padding, followed by a 4dp spacer before the first expander.
 
@@ -270,7 +305,8 @@ Full token list: [`ui.properties`](../app/src/main/assets/ui.properties).
 
 ## 4. Anti-Patterns
 
-- ❌ A card inside the `NestedCard` (a third level), or a full `uiCardBackground` card used as the `NestedCard` (stacked 20% white) — §2.4 inception rule
+- ❌ A card inside the `NestedCard` (a third level), or a full `uiCardBackground` card used as the `NestedCard` (stacked 20% white) — §2.4 depth cap
+- ❌ A control row that paints its own card surface (background/radius) — the `Card` owns the box (§2.1, §2.3)
 - ❌ Per-call `labelStyle` on `Expander`
 - ❌ Visible dividers between top-level cards (use spacer)
 - ❌ `SliderRowContent(label="", …)` (use inline Row+Slider)

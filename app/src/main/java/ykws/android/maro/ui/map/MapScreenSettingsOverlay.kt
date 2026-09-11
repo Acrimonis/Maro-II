@@ -40,6 +40,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -86,6 +87,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.SecondaryScrollableTabRow
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -102,8 +104,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.foundation.pager.HorizontalPager
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.Size
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -142,8 +142,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
@@ -207,6 +207,7 @@ import ykws.android.maro.data.track.WhereAmIProvider
 
 /** Animation duration per GPS-follow scroll (ms). Must be < min GPS fix interval (1s). */
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun SettingsOverlay(
     settings: AppSettings,
@@ -255,39 +256,32 @@ internal fun SettingsOverlay(
                 onClose = onDismiss,
             )
 
-            // ── Tab bar (manual Row + indicator instead of TabRow) ─────────
+            // ── Tab bar — scrollable, content-sized cells + full-cell underline ──
             val tabColor = ComposeColor(AppConfig.uiSettingsAccent)
-            val tabCount = settingsTabLabels.size
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .background(ComposeColor(AppConfig.uiSettingsBackground))
-                    .drawBehind {
-                        // Draw the selected tab indicator line at the bottom
-                        val tabWidth = size.width / tabCount
-                        val indicatorLeft = tabWidth * selectedTab
-                        drawRect(
-                            color = tabColor,
-                            topLeft = Offset(indicatorLeft, size.height - 3.dp.toPx()),
-                            size = Size(tabWidth, 3.dp.toPx())
-                        )
-                    }
+            SecondaryScrollableTabRow(
+                selectedTabIndex = selectedTab,
+                containerColor = ComposeColor(AppConfig.uiSettingsBackground),
+                edgePadding = 24.dp,
+                divider = {},
             ) {
                 settingsTabLabels.forEachIndexed { index, labelRes ->
                     val isSelected = selectedTab == index
                     Box(
                         modifier = Modifier
-                            .weight(1f)
-                            .clickable { onTabChange(index) }
-                            .padding(vertical = 14.dp),
+                            .selectable(
+                                selected = isSelected,
+                                role = Role.Tab,
+                                onClick = { onTabChange(index) }
+                            )
+                            .padding(horizontal = 8.dp, vertical = 14.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
                             text = stringResource(labelRes),
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 14.sp,
-                            color = if (isSelected) tabColor else ComposeColor(AppConfig.uiSettingsTextSecondary)
+                            color = if (isSelected) tabColor else ComposeColor(AppConfig.uiSettingsTextSecondary),
+                            fontSize = AppConfig.uiFontTabSize.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
+                            maxLines = 1
                         )
                     }
                 }
@@ -345,7 +339,7 @@ private fun LayersSettings(
             .verticalScroll(scrollState)
     ) {
         // ── Tracks ──────────────────────────────────────────────────────
-        SectionHeader(title = stringResource(R.string.settings_section_tracks), uppercase = false)
+        SectionHeader(title = stringResource(R.string.settings_section_tracks))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         Card {
             Text(
@@ -666,7 +660,7 @@ private fun LayersSettings(
         Spacer(modifier = Modifier.height(12.dp))
 
         // ── Markers ─────────────────────────────────────────────────────
-        SectionHeader(title = stringResource(R.string.settings_section_markers), uppercase = false)
+        SectionHeader(title = stringResource(R.string.settings_section_markers))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         Card {
             Text(
@@ -866,7 +860,7 @@ private fun LayersSettings(
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingCardGap.dp))
 
         // ── Regulated zones ─────────────────────────────────────────────
-        SectionHeader(title = stringResource(R.string.settings_regulated_zones_label), uppercase = false)
+        SectionHeader(title = stringResource(R.string.settings_regulated_zones_label))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         Card {
             Text(
@@ -938,7 +932,7 @@ private fun LayersSettings(
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingCardGap.dp))
 
         // ── 300m Band ───────────────────────────────────────────────────
-        SectionHeader(title = stringResource(R.string.settings_zone300_label), uppercase = false)
+        SectionHeader(title = stringResource(R.string.settings_zone300_label))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         Card {
             Text(
@@ -1015,19 +1009,21 @@ private fun LayersSettings(
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingCardGap.dp))
 
         // ── Coastline — the only on/off without a map-fan button ───────
-        SectionHeader(title = stringResource(R.string.settings_coastline_label), uppercase = false)
+        SectionHeader(title = stringResource(R.string.settings_coastline_label))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
-        SettingsToggleRow(
-            label = stringResource(R.string.settings_coastline_label),
-            description = stringResource(R.string.settings_coastline_desc),
-            checked = settings.coastlineVisible,
-            onCheckedChange = { visible -> onUpdateSettings { it.copy(coastlineVisible = visible) } }
-        )
+        Card {
+            ToggleRowContent(
+                label = stringResource(R.string.settings_coastline_label),
+                description = stringResource(R.string.settings_coastline_desc),
+                checked = settings.coastlineVisible,
+                onCheckedChange = { visible -> onUpdateSettings { it.copy(coastlineVisible = visible) } }
+            )
+        }
 
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
 
         // ── Danger Zones (was: low-depth warning) ──────────────────────
-        SectionHeader(title = stringResource(R.string.settings_danger_zones_label), uppercase = false)
+        SectionHeader(title = stringResource(R.string.settings_danger_zones_label))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         Card {
             Text(
@@ -1132,7 +1128,7 @@ private fun LayersSettings(
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingCardGap.dp))
 
         // ── Depth — EMODnet shallow filter ─────────────────────────────
-        SectionHeader(title = stringResource(R.string.settings_depth_label), uppercase = false)
+        SectionHeader(title = stringResource(R.string.settings_depth_label))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         Card {
             Text(
@@ -1179,32 +1175,34 @@ private fun NavigationSettings(
             .verticalScroll(scrollState)
     ) {
         // ── Orientation aids ────────────────────────────────────────────
-        SectionHeader(title = stringResource(R.string.settings_section_orientation), uppercase = false)
+        SectionHeader(title = stringResource(R.string.settings_section_orientation))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
-        SettingsToggleRow(
-            label = stringResource(R.string.settings_heading_line_label),
-            description = stringResource(R.string.settings_heading_line_desc),
-            checked = settings.headingLineVisible,
-            onCheckedChange = { visible -> onUpdateSettings { it.copy(headingLineVisible = visible) } }
-        )
-        Spacer(modifier = Modifier.height(AppConfig.uiSpacingCardGap.dp))
-        SettingsToggleRow(
-            label = stringResource(R.string.settings_cap_arrow_label),
-            description = stringResource(R.string.settings_cap_arrow_desc),
-            checked = settings.capArrowVisible,
-            onCheckedChange = { visible -> onUpdateSettings { it.copy(capArrowVisible = visible) } }
-        )
-        Spacer(modifier = Modifier.height(AppConfig.uiSpacingCardGap.dp))
-        SettingsToggleRow(
-            label = stringResource(R.string.settings_demo_heading_label),
-            description = stringResource(R.string.settings_demo_heading_desc),
-            checked = settings.demoHeadingUp,
-            onCheckedChange = { headingUp -> onUpdateSettings { it.copy(demoHeadingUp = headingUp) } }
-        )
+        Card {
+            ToggleRowContent(
+                label = stringResource(R.string.settings_heading_line_label),
+                description = stringResource(R.string.settings_heading_line_desc),
+                checked = settings.headingLineVisible,
+                onCheckedChange = { visible -> onUpdateSettings { it.copy(headingLineVisible = visible) } }
+            )
+            SectionDivider()
+            ToggleRowContent(
+                label = stringResource(R.string.settings_cap_arrow_label),
+                description = stringResource(R.string.settings_cap_arrow_desc),
+                checked = settings.capArrowVisible,
+                onCheckedChange = { visible -> onUpdateSettings { it.copy(capArrowVisible = visible) } }
+            )
+            SectionDivider()
+            ToggleRowContent(
+                label = stringResource(R.string.settings_demo_heading_label),
+                description = stringResource(R.string.settings_demo_heading_desc),
+                checked = settings.demoHeadingUp,
+                onCheckedChange = { headingUp -> onUpdateSettings { it.copy(demoHeadingUp = headingUp) } }
+            )
+        }
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
 
         // ── Re-display on approach ─────────────────────────────────────
-        SectionHeader(title = stringResource(R.string.settings_redisplay_label), uppercase = false)
+        SectionHeader(title = stringResource(R.string.settings_redisplay_label))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
         Card {
@@ -2017,14 +2015,14 @@ private fun SystemSettings(
 // ── Settings sub-components ─────────────────────────────────────────────────
 
 @Composable
-private fun SectionHeader(title: String, uppercase: Boolean = true) {
+private fun SectionHeader(title: String) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
-            text = if (uppercase) title.uppercase() else title,
+            text = title,
             color = ComposeColor(AppConfig.uiSettingsAccent),
             fontSize = AppConfig.uiFontSectionSize.sp,
             fontWeight = FontWeight.Bold,
-            letterSpacing = if (uppercase) 1.sp else 0.sp
+            letterSpacing = 0.sp
         )
     }
 }
@@ -2075,8 +2073,9 @@ private fun SettingsLanguageRow(
     }
 }
 
+/** Label + description + switch row WITHOUT its own box — placed directly on a [Card]. */
 @Composable
-private fun SettingsToggleRow(
+private fun ToggleRowContent(
     label: String,
     description: String,
     checked: Boolean,
@@ -2085,9 +2084,7 @@ private fun SettingsToggleRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(AppConfig.uiRadiusCard.dp))
-            .background(ComposeColor(AppConfig.uiCardBackground))
-            .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingCardVertical.dp),
+            .padding(horizontal = AppConfig.uiPaddingCardHorizontal.dp, vertical = AppConfig.uiPaddingToggleVertical.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {

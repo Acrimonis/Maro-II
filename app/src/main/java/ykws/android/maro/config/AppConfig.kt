@@ -510,8 +510,9 @@ object AppConfig {
     var uiRadiusExpander: Float = 8f; private set
 
     // Font sizes (sp)
-    var uiFontSectionSize: Float = 17f; private set
+    var uiFontSectionSize: Float = 18f; private set
     var uiFontSubsectionSize: Float = 16f; private set
+    var uiFontTabSize: Float = 18f; private set
     var uiFontToggleSize: Float = 16f; private set
     var uiFontDescSize: Float = 13f; private set
     var uiFontCommentSize: Float = 12f; private set
@@ -902,6 +903,7 @@ object AppConfig {
             // Font sizes
             uiFontSectionSize = sp("ui.font.section.size", uiFontSectionSize)
             uiFontSubsectionSize = sp("ui.font.subsection.size", uiFontSubsectionSize)
+            uiFontTabSize = sp("ui.font.tab.size", uiFontTabSize)
             uiFontToggleSize = sp("ui.font.toggle.size", uiFontToggleSize)
             uiFontDescSize = sp("ui.font.desc.size", uiFontDescSize)
             uiFontCommentSize = sp("ui.font.comment.size", uiFontCommentSize)

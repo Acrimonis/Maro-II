@@ -2,6 +2,8 @@
 
 **Session:** menu-render-upt — planned + finalized (Ask-reviewed A1–A7). Branch `feature/menu-render-upt` created from origin/develop. Plan: normalize Menu drawer rendering to Settings theme (shared SectionHeader/Card/SectionDivider + token spacing, uniform 48dp rows, title-case strings). Not yet implemented.
 
+**Branch:** `feature/settings-menu-clean` — created 2026-09-11 from origin/develop.
+
 **State:**
 - `toggle-zones-marker-in-menu [x]` — implemented (prior session)
 - `dashboard-clickability-reorder [x]` — implemented
