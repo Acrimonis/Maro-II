@@ -107,7 +107,7 @@ fun WizardDrawer(
         modifier = Modifier
             .fillMaxSize()
             .clip(drawerShape)
-            .background(ComposeColor(AppConfig.uiSettingsBackground))
+            .background(ComposeColor(AppConfig.uiBackground))
             .then(if (isLandscape) Modifier.windowInsetsPadding(WindowInsets.statusBars) else Modifier)
     ) {
             // ── Top bar: Cancel ← + title + dot progress ────────────────────

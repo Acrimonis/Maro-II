@@ -33,7 +33,7 @@ fun WizardDrawer(
     totalSteps: Int,              // ← computed in OverlayLayer
     stepIndex: Int                // ← computed in OverlayLayer
 ) {
-    Column(fillMaxSize().clip(shape).background(uiSettingsBackground)) {
+    Column(fillMaxSize().clip(shape).background(uiBackground)) {
         WizardTopBar(stepIndex, totalSteps, onCancel)
         
         Box(weight(1f).fillMaxWidth()) {

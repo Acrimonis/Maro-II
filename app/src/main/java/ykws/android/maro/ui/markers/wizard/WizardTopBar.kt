@@ -33,8 +33,8 @@ import ykws.android.maro.config.AppConfig
 
 @Composable
 internal fun WizardTopBar(stepIndex: Int, totalSteps: Int, onCancel: () -> Unit) {
-    val accent = ComposeColor(AppConfig.uiSettingsAccent)
-    val divider = ComposeColor(AppConfig.uiSettingsDivider)
+    val accent = ComposeColor(AppConfig.uiAccent)
+    val divider = ComposeColor(AppConfig.uiDividerColor)
 
     Row(
         modifier = Modifier
@@ -47,19 +47,19 @@ internal fun WizardTopBar(stepIndex: Int, totalSteps: Int, onCancel: () -> Unit)
             modifier = Modifier
                 .size(32.dp)
                 .clip(CircleShape)
-                .background(ComposeColor(AppConfig.uiSettingsSwitchTrackInactive))
+                .background(ComposeColor(AppConfig.uiSwitchTrackInactive))
         ) {
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                 contentDescription = stringResource(R.string.cd_cancel),
-                tint = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                tint = ComposeColor(AppConfig.uiTextPrimary),
                 modifier = Modifier.size(18.dp)
             )
         }
         Spacer(Modifier.width(16.dp))
         Text(
             text = "Create Marker",
-            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+            color = ComposeColor(AppConfig.uiTextPrimary),
             fontSize = 17.sp,
             fontWeight = FontWeight.Bold
         )

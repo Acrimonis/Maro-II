@@ -2,7 +2,7 @@
 name: ColorManagement
 status: active
 created: 2026-06-16 14:05
-modified: 2026-06-22 14:04
+modified: 2026-09-11 15:12
 ---
 
 # Feature: Color Management
@@ -41,6 +41,7 @@ Canonical colour taxonomy + naming convention. Hardcoded `ComposeColor.White` au
 ## Implemented
 
 - **Alias Interpolation** — `${key}` resolver in `AppConfig.init()`; green→`status.success`, low-depth→`status.error`
+- **ui-token-de-settings** — 14 shared UI tokens de-`settings`-ified (property keys + `AppConfig` accessors + all call sites + doc resync; `ui.settings.divider` → `ui.divider.color`), values and strings unchanged → `xTrack/ColorManagement/260911_FEAT_PLN_ColorManagement_ui-token-de-settings.md`
 
 ## Rules
 

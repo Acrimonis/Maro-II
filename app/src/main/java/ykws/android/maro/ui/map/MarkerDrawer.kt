@@ -223,7 +223,7 @@ private fun MarkerDetailContent(
                 else "%.1f km".format(distM / 1000.0)
             Text(
                 text = "$dir of boat - $distStr",
-                color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                color = ComposeColor(AppConfig.uiTextMuted),
                 fontSize = 13.sp
             )
             Spacer(Modifier.height(6.dp))
@@ -249,7 +249,7 @@ private fun MarkerDetailContent(
         Spacer(Modifier.height(12.dp))
         Text(
             "Marker not found",
-            color = ComposeColor(AppConfig.uiSettingsTextMuted),
+            color = ComposeColor(AppConfig.uiTextMuted),
             fontSize = 13.sp
         )
     }
@@ -286,7 +286,7 @@ private fun MatchResultContent(
         if (matches.isEmpty()) {
             Text(
                 text = "in the middle of nowhere",
-                color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                color = ComposeColor(AppConfig.uiTextMuted),
                 fontSize = 14.sp,
                 fontStyle = FontStyle.Italic,
                 textAlign = TextAlign.Center,
@@ -314,8 +314,8 @@ private fun MarkerPrevNext(
     selectedCount: Int
 ) {
     Spacer(Modifier.height(10.dp))
-    val accentBg = ComposeColor(AppConfig.uiSettingsAccent)
-    val accentFg = ComposeColor(AppConfig.uiSettingsTextPrimary)
+    val accentBg = ComposeColor(AppConfig.uiAccent)
+    val accentFg = ComposeColor(AppConfig.uiTextPrimary)
     val disabledAlpha = 0.35f
     val isListMode = viewModel.drawerSource == DrawerSource.LIST
     val isAtFirst = isListMode && selectedIndex == 0
@@ -410,7 +410,7 @@ private fun MatchRow(match: WhereAmIMatch, boatPosition: LatLng?) {
                 val text = if (distStr != null) "$dir of boat - $distStr" else dir
                 Text(
                     text = text,
-                    color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                    color = ComposeColor(AppConfig.uiTextMuted),
                     fontSize = 11.sp
                 )
             }
@@ -422,7 +422,7 @@ private fun MatchRow(match: WhereAmIMatch, boatPosition: LatLng?) {
             ) {
                 Text(
                     text = marker.name,
-                    color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                    color = ComposeColor(AppConfig.uiTextPrimary),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
                     maxLines = 1,
@@ -432,7 +432,7 @@ private fun MatchRow(match: WhereAmIMatch, boatPosition: LatLng?) {
                 if (icon != null) {
                     Text(
                         text = icon,
-                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        color = ComposeColor(AppConfig.uiTextMuted),
                         fontSize = 11.sp
                     )
                 }
@@ -504,8 +504,8 @@ fun MarkerColorPickerDialog(
                                 .background(ComposeColor(color))
                                 .border(
                                     width = if (isSelected) 3.dp else 1.dp,
-                                    color = if (isSelected) ComposeColor(AppConfig.uiSettingsAccent)
-                                        else ComposeColor(AppConfig.uiSettingsDivider),
+                                    color = if (isSelected) ComposeColor(AppConfig.uiAccent)
+                                        else ComposeColor(AppConfig.uiDividerColor),
                                     shape = RoundedCornerShape(8.dp)
                                 )
                                 .clickable { onColorSelected(index) }

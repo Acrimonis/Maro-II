@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.ui.components.ToggleRow
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.regulation.RegulatedZoneSet
 import ykws.android.maro.data.regulation.ZoneDisplayCategory
@@ -167,7 +168,7 @@ fun RegulationZoneCategoryIcon(
                 text = if (speedKn != null) "${speedKn.toInt()}" else "",
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary)
+                color = ComposeColor(AppConfig.uiTextPrimary)
             )
         } else {
             // Emoji Text for all non-speed categories
@@ -287,10 +288,10 @@ fun RegulatedZoneInfoText(
                 text = if (keyInfo.isNotBlank()) "$emoji $name — $keyInfo" else "$emoji $name",
                 fontSize = 9.sp,
                 lineHeight = 14.sp,
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                color = ComposeColor(AppConfig.uiTextPrimary),
                 modifier = Modifier
                     .clip(RoundedCornerShape(4.dp))
-                    .background(ComposeColor(AppConfig.uiSettingsTextScrim))
+                    .background(ComposeColor(AppConfig.uiTextScrim))
                     .padding(horizontal = 3.dp, vertical = 1.dp)
             )
         }
@@ -329,10 +330,10 @@ internal fun CategoryToggleGroup(
                                 modifier = Modifier
                                     .size(28.dp)
                                     .clip(RoundedCornerShape(4.dp))
-                                    .background(ComposeColor(AppConfig.uiSettingsDanger)),
+                                    .background(ComposeColor(AppConfig.uiDanger)),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Text("10", color = ComposeColor(AppConfig.uiSettingsTextPrimary), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                Text("10", color = ComposeColor(AppConfig.uiTextPrimary), fontSize = 12.sp, fontWeight = FontWeight.Bold)
                             }
                         } else {
                             Text(item.emoji, fontSize = 18.sp)
@@ -375,13 +376,13 @@ fun BoatSizeSlider(
         ) {
             Text(
                 text = "\uD83D\uDEA4 Boat length",
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                color = ComposeColor(AppConfig.uiTextPrimary),
                 fontSize = AppConfig.uiFontToggleSize.sp,
                 fontWeight = FontWeight.Medium
             )
             Text(
                 text = "${settings.boatSizeM.toInt()} m",
-                color = ComposeColor(AppConfig.uiSettingsAccent),
+                color = ComposeColor(AppConfig.uiAccent),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold
             )
@@ -396,9 +397,9 @@ fun BoatSizeSlider(
             steps = 21,
             modifier = Modifier.fillMaxWidth(),
             colors = SliderDefaults.colors(
-                thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
-                inactiveTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.3f)
+                thumbColor = ComposeColor(AppConfig.uiAccent),
+                activeTrackColor = ComposeColor(AppConfig.uiAccent),
+                inactiveTrackColor = ComposeColor(AppConfig.uiAccent).copy(alpha = 0.3f)
             )
         )
     }

@@ -212,7 +212,7 @@ fun MarkerManagementOverlay(
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 CenteredPinIcon(sizeDp = 64)
                 Spacer(modifier = Modifier.height(24.dp))
-                Text(stringResource(R.string.marker_empty), color = Color(AppConfig.uiSettingsTextMuted), fontSize = 18.sp, fontWeight = FontWeight.Medium)
+                Text(stringResource(R.string.marker_empty), color = Color(AppConfig.uiTextMuted), fontSize = 18.sp, fontWeight = FontWeight.Medium)
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(
                     onClick = onCreateFirst,
@@ -306,7 +306,7 @@ internal fun MarkerCardContent(
                 ) {
                     Text(
                         text = coordinateHeader(marker),
-                        color = Color(AppConfig.uiSettingsTextMuted),
+                        color = Color(AppConfig.uiTextMuted),
                         fontSize = MARKER_HEADER_FONT_SIZE,
                         lineHeight = 12.sp,
                         maxLines = 1,
@@ -367,7 +367,7 @@ internal fun MarkerCardContent(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                             contentDescription = stringResource(R.string.cd_view_marker),
-                            tint = Color(AppConfig.uiSettingsTextMuted),
+                            tint = Color(AppConfig.uiTextMuted),
                             modifier = Modifier.size(28.dp)
                         )
                     }
@@ -379,7 +379,7 @@ internal fun MarkerCardContent(
                         onValueChange = { nameText = it },
                         singleLine = true,
                         textStyle = TextStyle(
-                            color = Color(AppConfig.uiSettingsTextPrimary),
+                            color = Color(AppConfig.uiTextPrimary),
                             fontSize = MARKER_TITLE_FONT_SIZE,
                             lineHeight = 16.sp,
                             fontWeight = FontWeight.SemiBold
@@ -387,9 +387,9 @@ internal fun MarkerCardContent(
                         colors = TextFieldDefaults.colors(
                             focusedContainerColor = Color.Transparent,
                             unfocusedContainerColor = Color.Transparent,
-                            focusedTextColor = Color(AppConfig.uiSettingsTextPrimary),
-                            unfocusedTextColor = Color(AppConfig.uiSettingsTextPrimary),
-                            cursorColor = Color(AppConfig.uiSettingsTextPrimary)
+                            focusedTextColor = Color(AppConfig.uiTextPrimary),
+                            unfocusedTextColor = Color(AppConfig.uiTextPrimary),
+                            cursorColor = Color(AppConfig.uiTextPrimary)
                         ),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(onDone = {
@@ -402,7 +402,7 @@ internal fun MarkerCardContent(
                 } else {
                     Text(
                         text = marker.name,
-                        color = Color(AppConfig.uiSettingsTextPrimary),
+                        color = Color(AppConfig.uiTextPrimary),
                         fontSize = MARKER_TITLE_FONT_SIZE,
                         lineHeight = 16.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -424,13 +424,13 @@ internal fun MarkerCardContent(
                         singleLine = false,
                         minLines = 1,
                         maxLines = 3,
-                        textStyle = TextStyle(color = Color(AppConfig.uiSettingsTextMuted), fontSize = MARKER_DESC_FONT_SIZE, lineHeight = 14.sp),
+                        textStyle = TextStyle(color = Color(AppConfig.uiTextMuted), fontSize = MARKER_DESC_FONT_SIZE, lineHeight = 14.sp),
                         colors = TextFieldDefaults.colors(
                             focusedContainerColor = Color.Transparent,
                             unfocusedContainerColor = Color.Transparent,
-                            focusedTextColor = Color(AppConfig.uiSettingsTextMuted),
-                            unfocusedTextColor = Color(AppConfig.uiSettingsTextMuted),
-                            cursorColor = Color(AppConfig.uiSettingsTextPrimary)
+                            focusedTextColor = Color(AppConfig.uiTextMuted),
+                            unfocusedTextColor = Color(AppConfig.uiTextMuted),
+                            cursorColor = Color(AppConfig.uiTextPrimary)
                         ),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(onDone = {
@@ -443,8 +443,8 @@ internal fun MarkerCardContent(
                 } else {
                     Text(
                         text = marker.description.ifBlank { "Add description..." },
-                        color = if (marker.description.isBlank()) Color(AppConfig.uiSettingsTextMuted).copy(alpha = 0.4f)
-                                else Color(AppConfig.uiSettingsTextMuted),
+                        color = if (marker.description.isBlank()) Color(AppConfig.uiTextMuted).copy(alpha = 0.4f)
+                                else Color(AppConfig.uiTextMuted),
                         fontSize = MARKER_DESC_FONT_SIZE,
                         lineHeight = 14.sp,
                         maxLines = 2,
@@ -472,7 +472,7 @@ internal fun MarkerCardContent(
                     ) {
                         Text(
                             text = trackTitle,
-                            color = Color(AppConfig.uiSettingsTextPrimary),
+                            color = Color(AppConfig.uiTextPrimary),
                             fontSize = 13.sp,
                             lineHeight = 14.sp,
                             fontWeight = FontWeight.Medium,
@@ -483,7 +483,7 @@ internal fun MarkerCardContent(
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                             contentDescription = stringResource(R.string.cd_view_track),
-                            tint = Color(AppConfig.uiSettingsTextMuted),
+                            tint = Color(AppConfig.uiTextMuted),
                             modifier = Modifier.size(28.dp)
                         )
                     }
@@ -507,7 +507,7 @@ private fun coordinateHeader(marker: UserMarker): String {
 @Composable
 private fun CenteredPinIcon(sizeDp: Int) {
     val density = LocalDensity.current
-    val color = Color(AppConfig.uiSettingsTextMuted).copy(alpha = 0.4f)
+    val color = Color(AppConfig.uiTextMuted).copy(alpha = 0.4f)
 
     androidx.compose.foundation.Canvas(
         modifier = Modifier.size(sizeDp.dp)

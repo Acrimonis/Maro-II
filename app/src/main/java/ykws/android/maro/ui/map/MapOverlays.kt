@@ -116,7 +116,7 @@ internal fun CenterMarkerOverlay(
             Text(
                 text = "\u2295",
                 fontSize = (finalSizeDp.value / 1.5f).sp,
-                color = ComposeColor(AppConfig.uiSettingsAccent),
+                color = ComposeColor(AppConfig.uiAccent),
                 textAlign = TextAlign.Center,
             )
         }

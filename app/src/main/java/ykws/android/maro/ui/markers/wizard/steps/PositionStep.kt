@@ -52,14 +52,14 @@ internal fun PositionStep(viewModel: MarkersViewModel, isCorridorP1: Boolean) {
         ) {
             Text(
                 text = "Move the map to set $typeLabel",
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                color = ComposeColor(AppConfig.uiTextPrimary),
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Medium
             )
             Spacer(Modifier.height(4.dp))
             Text(
                 text = "Tap Next when ready.",
-                color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                color = ComposeColor(AppConfig.uiTextMuted),
                 fontSize = 12.sp
             )
 
@@ -68,7 +68,7 @@ internal fun PositionStep(viewModel: MarkersViewModel, isCorridorP1: Boolean) {
                 Spacer(Modifier.height(8.dp))
                 Text(
                     text = "%.4f, %.4f".format(pos.latitude, pos.longitude),
-                    color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                    color = ComposeColor(AppConfig.uiTextMuted),
                     fontSize = 11.sp,
                     fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace
                 )

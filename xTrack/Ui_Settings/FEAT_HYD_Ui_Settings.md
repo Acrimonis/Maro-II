@@ -1,59 +1,31 @@
 # Ui_Settings — Hydration (2026-09-11)
 
-## Section-title colour — item A (IMPLEMENTED)
+## State — session complete and merged
 
-Branch `feature/settings-menu-clean`. Plan: [`260911_FEAT_PLN_Ui_Settings_section-title-color.md`](260911_FEAT_PLN_Ui_Settings_section-title-color.md).
+The session branch `feature/settings-menu-clean` is **merged into `develop` via PR #227** (`1c2f681`). Its final commits were `6ff95b3` (item A colours + stale-code/properties cleanup) and `b3483d0` (docs/tracking). Work then moved to a new branch **`feature/menu-twks`**, created from `origin/develop` — which already contains the merge, so the new branch has the row model.
 
-Sub-section titles promoted from `ui.settings.text.muted` to `ui.settings.text.primary` (`#FFFFFF`, 16sp SemiBold) at 3 render sites (`SubSectionHeader` title; `SingleColorSubSection` both the swatch-on-title-line branch and the description-carrying branch — 7 call sites inherit). Descriptions stay `ui.settings.text.secondary` (`#78909C`, 13sp); `CardDescription` stays `ui.settings.text.muted` (`#B0BEC5`, 13sp). Hierarchy now comes from **weight + spacing**. Device-validated: headings white, descriptions dimmed, groups readable. Docs synced: guideline §2.9, `SubSectionHeader` KDoc, `colors.properties` comment, `color-scheme.md` §7 roles. Uncommitted on the branch (item A + docs sync + this dead-code/properties cleanup pass).
+Delivered this session:
 
-## Session — tab-finalization phase 1 (IMPLEMENTED)
+- **Row family normalization R1–R8** — one row model across the overlay: renames (`ToggleRow`, `SliderRow`, `SegmentedRow`, `ColorRow`, `ColorPairRow`), new `RangeSliderRow` + `CardDescription`, 13 hand-rolled inline toggle rows and the hand-rolled dividers converted, `CategoryToggleGroup` (internal) rebuilt on `ToggleRow.leadingIcon`, and **container-owned horizontal inset** (`Card`/`NestedCard` own it; rows pad vertically only — grep invariant: `AppConfig.uiPaddingCardHorizontal` exactly 2 in the overlay). `SettingsFrequencyRow` deleted — GPS frequency became a 3-option picker with per-stop captions, the one deliberate behaviour change. Builds SUCCESS after every step; R3/R4 and R7 device-validated.
+- **Item A — sub-section title colour** — `SubSectionHeader` and `SingleColorSubSection` titles promoted from `ui.settings.text.muted` to `ui.settings.text.primary` (16sp SemiBold) at 3 sites (7 call sites inherit); descriptions stay `secondary`, `CardDescription` stays `muted`. Hierarchy is now weight + spacing. Device-validated.
+- **Stale-code/properties cleanup** — 127 unused imports, dead `Expander(labelStyle)` parameter, a dangling KDoc, 4 orphan property keys with 2 unused accessors.
+- **Docs** — guidelines rewritten for the row model (§1 naming rule + container-owned inset, §2.0–§2.2, §2.6–§2.9, §4), then corrected again for the cleanup (§2.5 and §4 dropped the now-impossible `labelStyle` override; §2.10's popup title no longer claims "SubSectionHeader style"). `color-scheme.md` §7 text roles synced.
 
-Branch `feature/settings-menu-clean`. Plan: [`260911_FEAT_PLN_Ui_Settings_tab-finalization.md`](260911_FEAT_PLN_Ui_Settings_tab-finalization.md).
+## Open
 
-Delivered:
-
-- **P1.1** — `SectionHeader(title)` with no `uppercase` parameter, sentence case, `letterSpacing = 0.sp`; the 9 `uppercase = false` arguments dropped; `ui.font.section.size` 17→18sp plus the `AppConfig.uiFontSectionSize` fallback 17f→18f.
-- **P1.2** — `SettingsToggleRow` retired → box-less `ToggleRowContent` (label 16sp Medium + description 13sp muted + 16dp spacer + accent `Switch`; row padding 16dp horizontal × 2dp vertical). Coastline = `Card { ToggleRowContent(…) }`; Orientation aids = one `Card`, 3 rows, 2 `SectionDivider`s.
-- **P1.3** — `docs/ui-component-guidelines.md` §1, §2.1, §2.3, §2.4, §2.5, §2.6, §2.9, §4 rewritten to the single "row + Card + functionally-defined sections" model; `ui.properties` comments refreshed.
-- **P1.4** — settings tab strip → M3 `SecondaryScrollableTabRow` (`divider = {}`, `containerColor = uiSettingsBackground`, `edgePadding = 24.dp`, needs `@OptIn(ExperimentalMaterial3Api::class)` on `SettingsOverlay`) with **custom content-sized cells** (`Box` + `selectable(role = Role.Tab)`, 8dp horizontal / 14dp vertical) and M3's full-cell secondary indicator; label token `ui.font.tab.size=18sp`, SemiBold (Bold when selected) + `AppConfig.uiFontTabSize` (18f). Horizontal scrolling is a safety net for narrow screens and large font scale. Validated on device.
-
-Verification: `apk-build.bat` SUCCESS (1m 05s), no new warnings. Ask review PASS. Committed as `0b01d1e` (phase 1) + `f579409` (spacing).
-
-- **Spacing pass (same day)** — all four tabs now share one section boundary (`ui.spacing.section.gap`, 24 → 14dp) and one title→card gap (`ui.spacing.header.bottom`, 8 → 6dp); Layers' five 12dp / raw `12.dp` gaps were the outliers. §2.11 documents the tab strip. Validated on device.
-
-## Row family normalization (R1–R8 done)
-
-Branch `feature/settings-menu-clean`. Plan: [`260911_FEAT_PLN_Ui_Settings_row-naming-normalization.md`](260911_FEAT_PLN_Ui_Settings_row-naming-normalization.md).
-
-- **R1 (done — committed `f8b380e`)** — `ToggleRowContent`→`ToggleRow`, `SliderRowContent`→`SliderRow`, `SettingsLanguageRow`→`SegmentedRow`, `ColorSwatchRow`→`ColorRow`, `ColorSwatchPairRow`→`ColorPairRow`, definitions and all call sites; no old symbol remains.
-- **R2 (done — committed `f8b380e`)** — new `RangeSliderRow` (label/description optional, mandatory right-aligned value line, two-thumb slider, no surface of its own) now backs all **8** inline `RangeSlider` sites; the value line is tokenised (`uiFontRangeSize`, was a hardcoded `14.sp` twice) and descriptions normalised to `uiFontDescSize` (13sp, was 12sp three times). Deviation: the four sites that already sit under a `SubSectionHeader` pass no label, rather than having their heading replaced.
-- **R3 (done — uncommitted)** — `SegmentedRow` generalised to `<T>` (`options`/`selected`/`onSelect` + optional `captions`) and made **surface-free**: connected segments with outer-only rounding, unselected segments outlined, `selectableGroup()` + `Role.RadioButton`. Adopted at Arrow density; the Language picker was wrapped in a `Card`, so no control on the page paints its own surface any more.
-- **R4 (done — uncommitted)** — GPS frequency is a 3-option `SegmentedRow` (Élevée 1 s/1 m · Équilibrée 2 s/5 m · Éco 4 s/10 m) with per-stop captions; `SettingsFrequencyRow` deleted — no symbol remains. Intentional behaviour change: a free 1–4 s range became three presets.
-- **R5 (done — uncommitted)** — `CardDescription` extracted (owns its trailing spacer, **keeps today's 16dp inset until R7**) and all six inline descriptions migrated: Tracks, Markers, Regulated zones, 300 m band, Danger zones, Depth.
-- **R6 (done — uncommitted at bake time)** — `ToggleRow` gained `leadingIcon: @Composable (() -> Unit)? = null` (additive, 8dp gap). **13** hand-rolled inline label+`Switch` rows converted to `ToggleRow`: speed-zone/regulated-zone auto-show, map offset GPS/demo, GPS mode (keeps `onGpsModeChange` + `onDismiss`), stop detection enable + GPS delay, keep screen on, debug rays, and the four Regenerate-layers rows. Seven more sites (coastline, heading line, cap arrow, demo heading up, both re-display enables, 300 m band auto-show) were **already** `ToggleRow` — nothing to do. **1 row deliberately skipped**: `regulationInfoVisible` is genuinely bespoke (raw `14.sp` label, no `uiPaddingToggleVertical`, no `.weight(1f)` column, partial switch colours) and waits for R7 like the category group.
-  **Divider finding:** the pattern quoted in the plan (`height(1dp)` + literal `16dp`) does not exist. The real one is `Spacer(uiDividerGap 6dp)` + `Box(fillMaxWidth → padding(horizontal = uiPaddingCardHorizontal) → height(uiDividerHeight) → background(uiSettingsDivider))` + `Spacer(6dp)` — byte-identical to `SectionDivider()`. Only **3** matched 1:1 (the Regenerate-layers dividers) and were converted; **4** were left for R7 (three sit in a `NestedCard` that already supplies the 16dp — a swap would double the inset — and the Re-display one is bracketed by `uiSpacingGroupedRowGap` 8dp, not 6dp).
-- **R7 (done — uncommitted at bake time)** — the only *layout* change. `Card` now owns `horizontal = uiPaddingCardHorizontal` (matching `NestedCard`), so **14** inset-only wrappers collapsed (12 `Box` + the 2 `Column` around the boat-offset and FPS sliders) and the row definitions (`CardDescription`, `ToggleRow`) plus `SectionDivider()` dropped their own horizontal padding — this is what gives the **Language picker** its 16dp inset (the symptom reported on device). Grep invariant met literally: `AppConfig.uiPaddingCardHorizontal` occurs **exactly twice** in the overlay (`Card` + `NestedCard`); no `padding(horizontal = 16.dp)` and no `RegulatedZoneCategoryToggles` remain. `MapScreenSettingsOverlay.kt` **2415 → 2014** lines overall across R6+R7; the R7 diff is line-noisy by nature (each collapsed wrapper re-indents its body).
-  **Dividers:** Tracks ×2 + regulated-zones info → `SectionDivider()`; the Re-display one stays inline (its neighbours use `uiSpacingGroupedRowGap` 8dp, not `uiDividerGap` 6dp) with an explanatory comment — flagged, not silent. The regulated-zones info divider's gaps did move 4dp → 6dp.
-  **Category group ([`RegulatedZoneComponents.kt`](RegulatedZoneComponents.kt)):** `RegulatedZoneCategoryToggles` → `CategoryToggleGroup`, `fun` → `internal`, each row rebuilt on `ToggleRow` with the `leadingIcon` slot carrying the 28dp box / emoji / red "10" / strike overlay; labels 14sp → 16sp, switches adopt `ToggleRow` colours; still renders inside the parent `NestedCard` with no self-drawn container. The bespoke `regulationInfoVisible` row also moved to `ToggleRow`. Unused `Switch`/`SwitchDefaults`/`width` imports removed.
-  **Deviation:** `ToggleRow` visibility `private` → `internal`, required because the group lives in the sibling file while `ToggleRow` stays in the overlay.
-- **R8 (done — docs + tracking, no source changes)** — [`docs/ui-component-guidelines.md`](../../docs/ui-component-guidelines.md) rewritten: §1 gains the naming rule (`<Control>Row` / `<Thing>Group`, no `Settings` prefix) and the container-owned-inset rule; §2.0 states `Card`/`NestedCard` own `ui.padding.card.horizontal`; §2.1 documents `ToggleRow` (description optional, `leadingIcon`, vertical-only padding); §2.2 renames to `SliderRow` and drops the caller-padding paragraph (**closes follow-up C**); §2.3/§2.4/§2.6 drop the stale `…RowContent` names and the `Box(pad h=16)` wrapper; §2.7 documents `SegmentedRow` (connected, outlined unselected, accent fill, `selectableGroup()` + `RadioButton`, captions, surface-free); §2.8 documents `RangeSliderRow` (mandatory value line); §2.9 documents `CardDescription` vs `SubSectionHeader`; §4 anti-patterns updated. Tracking: `FEAT_DSC` gains the R1–R8 `## Implemented` entry + both plan pointers and folds `### Tab finalization follow-ups` (A/B closed by R6/R7, C by R8, D already resolved); `GLOBAL_CONTEXT` focus + summary refreshed. Symbol sweep across `docs/` + `xTrack/`: no live doc carries a stale name (historical plans/hydrations retained as records).
-- Builds after each step: SUCCESS, no new warnings.
-- **Backlog — moved to its own plan, now IMPLEMENTED.** Sub-section titles inside collapsible zones were `ui.settings.text.muted` (16sp SemiBold) beside white 16sp row labels, so grey headings read as accidental; Option A (promote to `primary`) is **implemented** — see §Section-title colour above. Plan: `260911_FEAT_PLN_Ui_Settings_section-title-color.md`.
-
-## Phase-1 follow-ups — all closed
-
-**A** (description optional on the toggle row) and **B** (row-padding convention) closed by R6/R7; **C** (§2.2 alignment) closed by R8; **D** already resolved. The `### Tab finalization follow-ups` section in [`FEAT_DSC_Ui_Settings.md`](FEAT_DSC_Ui_Settings.md) is folded.
-
-## Prior — C12 OverlayLayer param collapse (complete, awaiting push + PR)
-
-`feature/refact-C12` holds 3 commits (`ec57458`, `a000c18`, `96259b5`), ahead of `origin/develop`; on-device functional test PASSED (2026-09-10); the ~30 invalidated doc anchors were repaired. Remaining: push the branch and open the PR into `develop` — the branch tracks `origin/develop`, so use an explicit refspec rather than a bare `git push`.
+- Nothing open for Ui_Settings — follow-ups A–D are all closed and `### Tab finalization follow-ups` is folded.
+- Carried backlog (documented, not implemented): popup section titles still use the dashboard `uiDashboardTextMuted` token (§2.10, a known token-scope wart); tokens referenced only from docs were kept rather than deleted; 2 unused `maro.properties` keys.
+- Prior, still outstanding: `feature/refact-C12` holds 3 commits (`ec57458`, `a000c18`, `96259b5`) needing push + PR.
 
 ## Key Files
 
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt` — settings overlay, 4 tabs, `SectionHeader`, `ToggleRow`, `SliderRow`, `RangeSliderRow`, `SegmentedRow`, `CardDescription`, `Card`, `SectionDivider`; `SettingsToggleRow` and `SettingsFrequencyRow` no longer exist
-- `app/src/main/java/ykws/android/maro/config/AppConfig.kt` — UI token accessors (`uiFontSectionSize` 18f, `uiFontTabSize` 18f)
-- `app/src/main/assets/ui.properties` — token values
-- `docs/ui-component-guidelines.md` — canonical UI rules
-- `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_tab-finalization.md` — phase-1 plan of record
-- `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_row-naming-normalization.md` — row-family normalization plan of record (R1–R8 done)
-- `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_section-title-color.md` — sub-section title colour (Option A, implemented)
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt` — overlay, 4 tabs, and the row primitives (`ToggleRow`, `SliderRow`, `RangeSliderRow`, `SegmentedRow`, `CardDescription`, `Card`, `NestedCard`, `SectionDivider`, `Expander`)
+- `app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneComponents.kt` — `CategoryToggleGroup`
+- `app/src/main/java/ykws/android/maro/config/AppConfig.kt` + `app/src/main/assets/ui.properties` / `colors.properties` — tokens
+- `docs/ui-component-guidelines.md` — canonical UI rules; `docs/color-scheme.md` §7 — colour roles
+
+## Plans of record
+
+- `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_row-naming-normalization.md` — R1–R8 (implemented)
+- `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_section-title-color.md` — item A (implemented)
+- `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_tab-finalization.md` — phase 1 (implemented)

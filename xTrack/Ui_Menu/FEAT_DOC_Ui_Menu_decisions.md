@@ -23,6 +23,6 @@
 - **Source:** [`MapScreen.kt:1371`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1371)
 
 ## 5. Switch Colors
-- **Decision:** Use `uiSettingsAccent` (checked), `uiSettingsTextMuted` (unchecked thumb), `uiSettingsSwitchTrackInactive` (unchecked track).
+- **Decision:** Use `uiAccent` (checked), `uiTextMuted` (unchecked thumb), `uiSwitchTrackInactive` (unchecked track).
 - **Rationale:** Matches the Settings page "Zone shapes" Switch at line 3327. Consistent visual language.
 - **Source:** [`MenuDrawerOverlay.kt:314-319`](app/src/main/java/ykws/android/maro/ui/map/MenuDrawerOverlay.kt:314)

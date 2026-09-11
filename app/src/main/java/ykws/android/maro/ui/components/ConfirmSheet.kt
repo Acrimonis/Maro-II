@@ -51,7 +51,7 @@ fun ConfirmSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-        containerColor = Color(AppConfig.uiSettingsBackground)
+        containerColor = Color(AppConfig.uiBackground)
     ) {
         Column(
             modifier = Modifier
@@ -61,20 +61,20 @@ fun ConfirmSheet(
         ) {
             Text(
                 title,
-                color = Color(AppConfig.uiSettingsTextPrimary),
+                color = Color(AppConfig.uiTextPrimary),
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold
             )
             Spacer(Modifier.height(12.dp))
             Text(
                 message,
-                color = Color(AppConfig.uiSettingsTextPrimary),
+                color = Color(AppConfig.uiTextPrimary),
                 fontSize = 14.sp
             )
             Spacer(Modifier.height(16.dp))
             HorizontalDivider(
                 thickness = 0.5.dp,
-                color = Color(AppConfig.uiSettingsDivider)
+                color = Color(AppConfig.uiDividerColor)
             )
             Spacer(Modifier.height(12.dp))
             Row(
@@ -89,14 +89,14 @@ fun ConfirmSheet(
                 ) {
                     Text(
                         stringResource(R.string.action_cancel),
-                        color = Color(AppConfig.uiSettingsAccent)
+                        color = Color(AppConfig.uiAccent)
                     )
                 }
                 Button(
                     onClick = onConfirm,
                     modifier = Modifier.weight(1f),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (isDestructive) Color(AppConfig.semanticDanger) else Color(AppConfig.uiSettingsAccent)
+                        containerColor = if (isDestructive) Color(AppConfig.semanticDanger) else Color(AppConfig.uiAccent)
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {

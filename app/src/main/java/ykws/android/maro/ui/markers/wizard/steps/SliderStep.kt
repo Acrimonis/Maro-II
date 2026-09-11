@@ -37,7 +37,7 @@ internal fun SliderStep(
     onValueChange: (Double) -> Unit,
     comment: String? = null
 ) {
-    val accent = ComposeColor(AppConfig.uiSettingsAccent)
+    val accent = ComposeColor(AppConfig.uiAccent)
 
     Column(
         modifier = Modifier
@@ -54,7 +54,7 @@ internal fun SliderStep(
         ) {
             Text(
                 title,
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                color = ComposeColor(AppConfig.uiTextPrimary),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium
             )
@@ -68,7 +68,7 @@ internal fun SliderStep(
         if (comment != null) {
             Text(
                 comment,
-                color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                color = ComposeColor(AppConfig.uiTextMuted),
                 fontSize = 11.sp
             )
             Spacer(Modifier.height(4.dp))
@@ -92,12 +92,12 @@ internal fun SliderStep(
         ) {
             Text(
                 "0 $unit",
-                color = ComposeColor(AppConfig.uiSettingsTextSecondary),
+                color = ComposeColor(AppConfig.uiTextSecondary),
                 fontSize = 11.sp
             )
             Text(
                 "${range.endInclusive.toLong()} $unit",
-                color = ComposeColor(AppConfig.uiSettingsTextSecondary),
+                color = ComposeColor(AppConfig.uiTextSecondary),
                 fontSize = 11.sp
             )
         }

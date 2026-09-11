@@ -40,8 +40,6 @@ import androidx.compose.material3.RangeSlider
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SecondaryScrollableTabRow
@@ -73,7 +71,11 @@ import androidx.compose.ui.semantics.Role
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.first
 import ykws.android.maro.data.settings.AppSettings
+import ykws.android.maro.ui.components.CardArea
 import ykws.android.maro.ui.components.DrawerHeader
+import ykws.android.maro.ui.components.SectionDivider
+import ykws.android.maro.ui.components.SectionHeader
+import ykws.android.maro.ui.components.ToggleRow
 import ykws.android.maro.spatial.MarkerMatcher
 import ykws.android.maro.spatial.NoOpWhereAmIDebugger
 import ykws.android.maro.spatial.VisualWhereAmIDebugger
@@ -113,7 +115,7 @@ internal fun SettingsOverlay(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(ComposeColor(AppConfig.uiSettingsBackground))
+            .background(ComposeColor(AppConfig.uiBackground))
     ) {
         Column(
             modifier = Modifier
@@ -128,10 +130,10 @@ internal fun SettingsOverlay(
             )
 
             // ── Tab bar — scrollable, content-sized cells + full-cell underline ──
-            val tabColor = ComposeColor(AppConfig.uiSettingsAccent)
+            val tabColor = ComposeColor(AppConfig.uiAccent)
             SecondaryScrollableTabRow(
                 selectedTabIndex = selectedTab,
-                containerColor = ComposeColor(AppConfig.uiSettingsBackground),
+                containerColor = ComposeColor(AppConfig.uiBackground),
                 edgePadding = 24.dp,
                 divider = {},
             ) {
@@ -149,7 +151,7 @@ internal fun SettingsOverlay(
                     ) {
                         Text(
                             text = stringResource(labelRes),
-                            color = if (isSelected) tabColor else ComposeColor(AppConfig.uiSettingsTextSecondary),
+                            color = if (isSelected) tabColor else ComposeColor(AppConfig.uiTextSecondary),
                             fontSize = AppConfig.uiFontTabSize.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.SemiBold,
                             maxLines = 1
@@ -185,7 +187,7 @@ internal fun SettingsOverlay(
             // ── Footer ────────────────────────────────────────────────────
             Text(
                 text = stringResource(R.string.app_version_footer),
-                color = ComposeColor(AppConfig.uiSettingsFooterText),
+                color = ComposeColor(AppConfig.uiFooterText),
                 fontSize = 12.sp,
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
@@ -212,7 +214,7 @@ private fun LayersSettings(
         // ── Tracks ──────────────────────────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_section_tracks))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
-        Card {
+        CardArea {
             CardDescription(stringResource(R.string.settings_tracks_desc))
 
             Expander(
@@ -225,7 +227,7 @@ private fun LayersSettings(
                     // Number of tracks
                     Text(
                         text = stringResource(R.string.settings_tracks_count_label),
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                        color = ComposeColor(AppConfig.uiTextPrimary),
                         fontSize = AppConfig.uiFontToggleSize.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -236,13 +238,13 @@ private fun LayersSettings(
                     ) {
                         Text(
                             text = stringResource(R.string.settings_tracks_count_desc),
-                            color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                            color = ComposeColor(AppConfig.uiTextMuted),
                             fontSize = AppConfig.uiFontDescSize.sp,
                             modifier = Modifier.weight(1f)
                         )
                         Text(
                             text = "%d".format(settings.trackingRenderNb),
-                            color = ComposeColor(AppConfig.uiSettingsValueText),
+                            color = ComposeColor(AppConfig.uiValueText),
                             fontSize = AppConfig.uiFontValueSize.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -255,9 +257,9 @@ private fun LayersSettings(
                         valueRange = 0f..20f,
                         steps = 20,
                         colors = SliderDefaults.colors(
-                            thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                            activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
-                            inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                            thumbColor = ComposeColor(AppConfig.uiAccent),
+                            activeTrackColor = ComposeColor(AppConfig.uiAccent),
+                            inactiveTrackColor = ComposeColor(AppConfig.uiSwitchTrackInactive)
                         )
                     )
 
@@ -314,13 +316,13 @@ private fun LayersSettings(
                     // Colors
                     Text(
                         text = stringResource(R.string.settings_colors_label),
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                        color = ComposeColor(AppConfig.uiTextPrimary),
                         fontSize = AppConfig.uiFontToggleSize.sp,
                         fontWeight = FontWeight.Medium
                     )
                     Text(
                         text = stringResource(R.string.settings_colors_desc),
-                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        color = ComposeColor(AppConfig.uiTextMuted),
                         fontSize = 12.sp
                     )
                     ColorRow(
@@ -424,7 +426,7 @@ private fun LayersSettings(
         // ── Markers ─────────────────────────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_section_markers))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
-        Card {
+        CardArea {
             CardDescription(stringResource(R.string.settings_markers_desc))
             Expander(
                 label = stringResource(R.string.settings_marker_rendering_label),
@@ -578,7 +580,7 @@ private fun LayersSettings(
         // ── Regulated zones ─────────────────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_regulated_zones_label))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
-        Card {
+        CardArea {
             CardDescription(stringResource(R.string.settings_regulated_zones_desc))
             // Regulation info — collapsible toggle for info text panel
             Expander(
@@ -624,7 +626,7 @@ private fun LayersSettings(
         // ── 300m Band ───────────────────────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_zone300_label))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
-        Card {
+        CardArea {
             CardDescription(stringResource(R.string.settings_zone300_desc))
             Expander(
                 label = stringResource(R.string.settings_zone300_appearance_label),
@@ -681,7 +683,7 @@ private fun LayersSettings(
         // ── Coastline — the only on/off without a map-fan button ───────
         SectionHeader(title = stringResource(R.string.settings_coastline_label))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
-        Card {
+        CardArea {
             ToggleRow(
                 label = stringResource(R.string.settings_coastline_label),
                 description = stringResource(R.string.settings_coastline_desc),
@@ -695,7 +697,7 @@ private fun LayersSettings(
         // ── Danger Zones (was: low-depth warning) ──────────────────────
         SectionHeader(title = stringResource(R.string.settings_danger_zones_label))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
-        Card {
+        CardArea {
             CardDescription(stringResource(R.string.settings_danger_zones_desc))
             // Warning sliders — always visible, persisted expander
             Expander(
@@ -752,12 +754,12 @@ private fun LayersSettings(
                     ) {
                         Text(
                             text = stringResource(R.string.settings_value_depth, 0f),
-                            color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                            color = ComposeColor(AppConfig.uiTextMuted),
                             fontSize = AppConfig.uiFontCommentSize.sp
                         )
                         Text(
                             text = stringResource(R.string.settings_value_depth, 5f),
-                            color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                            color = ComposeColor(AppConfig.uiTextMuted),
                             fontSize = AppConfig.uiFontCommentSize.sp
                         )
                     }
@@ -771,7 +773,7 @@ private fun LayersSettings(
         // ── Depth — EMODnet shallow filter ─────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_depth_label))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
-        Card {
+        CardArea {
             CardDescription(stringResource(R.string.settings_depth_desc))
             Expander(label = stringResource(R.string.settings_emodnet_section_label), expanded = settingsVm.isExpanded("depth_cutoff"),
                 onToggle = { settingsVm.setExpanded("depth_cutoff", !settingsVm.isExpanded("depth_cutoff")) }
@@ -810,7 +812,7 @@ private fun NavigationSettings(
         // ── Orientation aids ────────────────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_section_orientation))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
-        Card {
+        CardArea {
             ToggleRow(
                 label = stringResource(R.string.settings_heading_line_label),
                 description = stringResource(R.string.settings_heading_line_desc),
@@ -838,7 +840,7 @@ private fun NavigationSettings(
         SectionHeader(title = stringResource(R.string.settings_redisplay_label))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
-        Card {
+        CardArea {
             ToggleRow(
                 label = stringResource(R.string.settings_redisplay_enable_gps),
                 checked = settings.approachAutoShowGps,
@@ -880,7 +882,7 @@ private fun NavigationSettings(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(AppConfig.uiDividerHeight.dp)
-                    .background(ComposeColor(AppConfig.uiSettingsDivider))
+                    .background(ComposeColor(AppConfig.uiDividerColor))
             )
             Spacer(Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
 
@@ -919,7 +921,7 @@ private fun NavigationSettings(
     // ── Automatic map offset ──────────────────────────────────────────────
     SectionHeader(title = stringResource(R.string.settings_map_offset_label))
 
-    Card {
+    CardArea {
         // GPS mode toggle
         ToggleRow(
             label = stringResource(R.string.settings_gps_mode_label),
@@ -975,7 +977,7 @@ private fun PositionSettings(
         SectionHeader(title = stringResource(R.string.settings_section_position))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
-        Card {
+        CardArea {
             ToggleRow(
                 label = stringResource(R.string.settings_gps_mode_label),
                 description = stringResource(R.string.settings_gps_mode_desc),
@@ -996,13 +998,13 @@ private fun PositionSettings(
                 NestedCard {
                     Text(
                         text = stringResource(R.string.settings_freq_label),
-                        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                        color = ComposeColor(AppConfig.uiTextPrimary),
                         fontSize = AppConfig.uiFontToggleSize.sp,
                         fontWeight = FontWeight.Medium
                     )
                     Text(
                         text = stringResource(R.string.settings_freq_desc),
-                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        color = ComposeColor(AppConfig.uiTextMuted),
                         fontSize = AppConfig.uiFontDescSize.sp
                     )
                     Spacer(modifier = Modifier.height(4.dp))
@@ -1049,7 +1051,7 @@ private fun PositionSettings(
         SectionHeader(title = stringResource(R.string.settings_idle_section_label))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
-        Card {
+        CardArea {
             ToggleRow(
                 label = stringResource(R.string.settings_stop_enable_label),
                 description = stringResource(R.string.settings_stop_enable_desc),
@@ -1122,7 +1124,7 @@ private fun SystemSettings(
         SectionHeader(title = stringResource(R.string.settings_section_language))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
-        Card {
+        CardArea {
             SegmentedRow(
                 options = listOf(
                     // (code, label) — endonyms (English/Français) read the same in every locale.
@@ -1141,7 +1143,7 @@ private fun SystemSettings(
         SectionHeader(title = stringResource(R.string.settings_section_screen))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
-        Card {
+        CardArea {
             // Keep screen on
             ToggleRow(
                 label = stringResource(R.string.settings_keep_screen_on_label),
@@ -1183,7 +1185,7 @@ private fun SystemSettings(
         // ── Regenerate Layers ─────────────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_regenerate_layers))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
-        Card {
+        CardArea {
             ToggleRow(
                 label = stringResource(R.string.settings_regen_depth_grid_label),
                 description = stringResource(R.string.settings_regen_depth_grid_desc),
@@ -1228,10 +1230,10 @@ private fun SystemSettings(
                     onRegenerateRasters(selected)
                     onDismiss()
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = ComposeColor(AppConfig.uiSettingsAccent)),
+                colors = ButtonDefaults.buttonColors(containerColor = ComposeColor(AppConfig.uiAccent)),
                 shape = RoundedCornerShape(AppConfig.uiRadiusCard.dp)
             ) {
-                Text(stringResource(R.string.action_regenerate), color = ComposeColor(AppConfig.uiSettingsTextPrimary))
+                Text(stringResource(R.string.action_regenerate), color = ComposeColor(AppConfig.uiTextPrimary))
             }
         }
 
@@ -1241,23 +1243,10 @@ private fun SystemSettings(
 
 // ── Settings sub-components ─────────────────────────────────────────────────
 
-@Composable
-private fun SectionHeader(title: String) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = title,
-            color = ComposeColor(AppConfig.uiSettingsAccent),
-            fontSize = AppConfig.uiFontSectionSize.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 0.sp
-        )
-    }
-}
-
 /**
  * Single-choice segmented control — Material 3 shape: one **connected** control, outer ends rounded,
  * a single hairline outline, accent fill on the selected segment only. **Surface-free**, so the
- * enclosing [Card]/[NestedCard] owns the surface. [captions] renders one line under each segment.
+ * enclosing [CardArea]/[NestedCard] owns the surface. [captions] renders one line under each segment.
  *
  * Accessibility: `selectableGroup()` plus a [Role.RadioButton] per segment, so it is announced as
  * "n of m, selected" instead of as unrelated buttons.
@@ -1276,7 +1265,7 @@ private fun <T> SegmentedRow(
                 .clip(RoundedCornerShape(AppConfig.uiRadiusCard.dp))
                 .border(
                     width = 1.dp,
-                    color = ComposeColor(AppConfig.uiSettingsDivider),
+                    color = ComposeColor(AppConfig.uiDividerColor),
                     shape = RoundedCornerShape(AppConfig.uiRadiusCard.dp)
                 )
                 .selectableGroup()
@@ -1286,7 +1275,7 @@ private fun <T> SegmentedRow(
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .background(if (isSelected) ComposeColor(AppConfig.uiSettingsAccent) else ComposeColor.Transparent)
+                        .background(if (isSelected) ComposeColor(AppConfig.uiAccent) else ComposeColor.Transparent)
                         .selectable(
                             selected = isSelected,
                             role = Role.RadioButton,
@@ -1297,7 +1286,7 @@ private fun <T> SegmentedRow(
                 ) {
                     Text(
                         text = label,
-                        color = if (isSelected) ComposeColor(AppConfig.uiSettingsTextPrimary) else ComposeColor(AppConfig.uiSettingsTextMuted),
+                        color = if (isSelected) ComposeColor(AppConfig.uiTextPrimary) else ComposeColor(AppConfig.uiTextMuted),
                         fontSize = 14.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                     )
@@ -1309,7 +1298,7 @@ private fun <T> SegmentedRow(
                 options.forEachIndexed { index, _ ->
                     Text(
                         text = captions.getOrElse(index) { "" },
-                        color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                        color = ComposeColor(AppConfig.uiTextMuted),
                         fontSize = AppConfig.uiFontCommentSize.sp,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.weight(1f)
@@ -1329,66 +1318,13 @@ private fun <T> SegmentedRow(
 private fun CardDescription(text: String) {
     Text(
         text = text,
-        color = ComposeColor(AppConfig.uiSettingsTextMuted),
+        color = ComposeColor(AppConfig.uiTextMuted),
         fontSize = AppConfig.uiFontDescSize.sp
     )
     Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
 }
 
-/**
- * Label + optional description + switch row WITHOUT its own box — placed directly on a [Card] or
- * inside a [NestedCard], which own the horizontal inset; this row pads vertically only.
- * [leadingIcon] renders before the label column with the standard 8dp gap.
- */
-@Composable
-internal fun ToggleRow(
-    label: String,
-    description: String? = null,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    leadingIcon: @Composable (() -> Unit)? = null
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = AppConfig.uiPaddingToggleVertical.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        if (leadingIcon != null) {
-            leadingIcon()
-            Spacer(modifier = Modifier.width(8.dp))
-        }
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = label,
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-                fontSize = AppConfig.uiFontToggleSize.sp,
-                fontWeight = FontWeight.Medium
-            )
-            if (description != null) {
-                Text(
-                    text = description,
-                    color = ComposeColor(AppConfig.uiSettingsTextMuted),
-                    fontSize = AppConfig.uiFontDescSize.sp
-                )
-            }
-        }
-        Spacer(modifier = Modifier.width(AppConfig.uiSpacingLabelControl.dp))
-        Switch(
-            checked = checked,
-            onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                checkedTrackColor = ComposeColor(AppConfig.uiSettingsAccent).copy(alpha = 0.4f),
-                uncheckedThumbColor = ComposeColor(AppConfig.uiSettingsTextMuted),
-                uncheckedTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
-            )
-        )
-    }
-}
-
-/** A label + value + slider WITHOUT its own box — placed directly on a [Card] or inside a [NestedCard]. */
+/** A label + value + slider WITHOUT its own box — placed directly on a [CardArea] or inside a [NestedCard]. */
 @Composable
 private fun SliderRow(
     label: String,
@@ -1408,20 +1344,20 @@ private fun SliderRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = label,
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                color = ComposeColor(AppConfig.uiTextPrimary),
                 fontSize = AppConfig.uiFontToggleSize.sp,
                 fontWeight = FontWeight.Medium
             )
             Text(
                 text = description,
-                color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                color = ComposeColor(AppConfig.uiTextMuted),
                 fontSize = AppConfig.uiFontDescSize.sp
             )
         }
         Spacer(modifier = Modifier.width(AppConfig.uiSpacingLabelControl.dp))
         Text(
             text = valueLabel,
-            color = ComposeColor(AppConfig.uiSettingsValueText),
+            color = ComposeColor(AppConfig.uiValueText),
             fontSize = AppConfig.uiFontValueSize.sp,
             fontWeight = FontWeight.Bold
         )
@@ -1433,16 +1369,16 @@ private fun SliderRow(
         valueRange = valueRange,
         steps = steps,
         colors = SliderDefaults.colors(
-            thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-            activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
-            inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+            thumbColor = ComposeColor(AppConfig.uiAccent),
+            activeTrackColor = ComposeColor(AppConfig.uiAccent),
+            inactiveTrackColor = ComposeColor(AppConfig.uiSwitchTrackInactive)
         )
     )
 }
 
 /**
  * Label (+ optional description) + right-aligned value + two-thumb slider, WITHOUT its own box —
- * placed directly on a [Card] or inside a [NestedCard] ([`ui-component-guidelines` §2.8](../../../../../../docs/ui-component-guidelines.md)).
+ * placed directly on a [CardArea] or inside a [NestedCard] ([`ui-component-guidelines` §2.8](../../../../../../docs/ui-component-guidelines.md)).
  * Pass `label = null` where a [SubSectionHeader] already supplies the heading.
  */
 @Composable
@@ -1460,7 +1396,7 @@ private fun RangeSliderRow(
         if (label != null) {
             Text(
                 text = label,
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                color = ComposeColor(AppConfig.uiTextPrimary),
                 fontSize = AppConfig.uiFontToggleSize.sp,
                 fontWeight = FontWeight.Medium
             )
@@ -1468,13 +1404,13 @@ private fun RangeSliderRow(
         if (description != null) {
             Text(
                 text = description,
-                color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                color = ComposeColor(AppConfig.uiTextMuted),
                 fontSize = AppConfig.uiFontDescSize.sp
             )
         }
         Text(
             text = valueLabel,
-            color = ComposeColor(AppConfig.uiSettingsValueText),
+            color = ComposeColor(AppConfig.uiValueText),
             fontSize = AppConfig.uiFontRangeSize.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.End,
@@ -1487,34 +1423,21 @@ private fun RangeSliderRow(
             steps = steps,
             onValueChangeFinished = onValueChangeFinished,
             colors = SliderDefaults.colors(
-                thumbColor = ComposeColor(AppConfig.uiSettingsAccent),
-                activeTrackColor = ComposeColor(AppConfig.uiSettingsAccent),
-                inactiveTrackColor = ComposeColor(AppConfig.uiSettingsSwitchTrackInactive)
+                thumbColor = ComposeColor(AppConfig.uiAccent),
+                activeTrackColor = ComposeColor(AppConfig.uiAccent),
+                inactiveTrackColor = ComposeColor(AppConfig.uiSwitchTrackInactive)
             )
         )
     }
 }
 
-/** Section divider between settings sections. */
-@Composable
-private fun SectionDivider() {
-    Spacer(Modifier.height(AppConfig.uiDividerGap.dp))
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(AppConfig.uiDividerHeight.dp)
-            .background(ComposeColor(AppConfig.uiSettingsDivider))
-    )
-    Spacer(Modifier.height(AppConfig.uiDividerGap.dp))
-}
-
-/** Sub-heading (16sp SemiBold `ui.settings.text.primary`) with an optional 13sp `ui.settings.text.secondary` one-line description, for grouping settings in a section. */
+/** Sub-heading (16sp SemiBold `ui.text.primary`) with an optional 13sp `ui.text.secondary` one-line description, for grouping settings in a section. */
 @Composable
 private fun SubSectionHeader(title: String, description: String? = null) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = title,
-            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+            color = ComposeColor(AppConfig.uiTextPrimary),
             fontSize = AppConfig.uiFontSubsectionSize.sp,
             fontWeight = FontWeight.SemiBold
         )
@@ -1522,7 +1445,7 @@ private fun SubSectionHeader(title: String, description: String? = null) {
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = description,
-                color = ComposeColor(AppConfig.uiSettingsTextSecondary),
+                color = ComposeColor(AppConfig.uiTextSecondary),
                 fontSize = AppConfig.uiFontDescSize.sp
             )
         }
@@ -1555,7 +1478,7 @@ private fun SingleColorSubSection(
             ) {
                 Text(
                     text = title,
-                    color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                    color = ComposeColor(AppConfig.uiTextPrimary),
                     fontSize = AppConfig.uiFontSubsectionSize.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f)
@@ -1565,7 +1488,7 @@ private fun SingleColorSubSection(
         } else {
             Text(
                 text = title,
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                color = ComposeColor(AppConfig.uiTextPrimary),
                 fontSize = AppConfig.uiFontSubsectionSize.sp,
                 fontWeight = FontWeight.SemiBold
             )
@@ -1577,7 +1500,7 @@ private fun SingleColorSubSection(
             ) {
                 Text(
                     text = description,
-                    color = ComposeColor(AppConfig.uiSettingsTextSecondary),
+                    color = ComposeColor(AppConfig.uiTextSecondary),
                     fontSize = AppConfig.uiFontDescSize.sp,
                     modifier = Modifier.weight(1f)
                 )
@@ -1604,25 +1527,8 @@ private fun ColorSwatchButton(color: Int, onClick: () -> Unit) {
             .clip(RoundedCornerShape(4.dp))
             .background(ComposeColor(color))
             .clickable(onClick = onClick)
-            .border(1.dp, ComposeColor(AppConfig.uiSettingsDivider), RoundedCornerShape(6.dp))
+            .border(1.dp, ComposeColor(AppConfig.uiDividerColor), RoundedCornerShape(6.dp))
     )
-}
-
-/** Main card surface — 20% white `uiCardBackground`, 12dp radius. Holds a section's description, expanders, and/or standalone controls. */
-@Composable
-private fun Card(content: @Composable () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(AppConfig.uiRadiusCard.dp))
-            .background(ComposeColor(AppConfig.uiCardBackground))
-            .padding(
-                horizontal = AppConfig.uiPaddingCardHorizontal.dp,
-                vertical = AppConfig.uiPaddingCardVertical.dp
-            )
-    ) {
-        content()
-    }
 }
 
 /** Nested 5% white container (`0x0DFFFFFF` + `0x40FFFFFF` border) shown when an [Expander] is open. Holds any controls, optionally split into sections by [SectionDivider]. */
@@ -1666,7 +1572,7 @@ private fun Expander(
         ) {
             Text(
                 text = label,
-                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                color = ComposeColor(AppConfig.uiTextPrimary),
                 fontSize = AppConfig.uiFontToggleSize.sp,
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier.weight(1f)
@@ -1708,7 +1614,7 @@ private fun ColorRow(
     ) {
         Text(
             text = label,
-            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+            color = ComposeColor(AppConfig.uiTextPrimary),
             fontSize = 14.sp
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1719,13 +1625,13 @@ private fun ColorRow(
                     .clip(RoundedCornerShape(4.dp))
                     .background(ComposeColor(color))
                     .clickable { showPicker = true }
-                    .border(1.dp, ComposeColor(AppConfig.uiSettingsDivider), RoundedCornerShape(6.dp))
+                    .border(1.dp, ComposeColor(AppConfig.uiDividerColor), RoundedCornerShape(6.dp))
             )
             if (showPickLabel) {
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = stringResource(R.string.color_picker_pick),
-                    color = ComposeColor(AppConfig.uiSettingsAccent),
+                    color = ComposeColor(AppConfig.uiAccent),
                     fontSize = 13.sp,
                     modifier = Modifier.clickable { showPicker = true }
                 )
@@ -1790,8 +1696,8 @@ private fun ColorPickerDialog(
                                 .background(ComposeColor(presetColor))
                                 .border(
                                     width = if (presetColor == currentColor) 3.dp else 1.dp,
-                                    color = if (presetColor == currentColor) ComposeColor(AppConfig.uiSettingsAccent)
-                                        else ComposeColor(AppConfig.uiSettingsDivider),
+                                    color = if (presetColor == currentColor) ComposeColor(AppConfig.uiAccent)
+                                        else ComposeColor(AppConfig.uiDividerColor),
                                     shape = RoundedCornerShape(8.dp)
                                 )
                                 .clickable {
@@ -1834,7 +1740,7 @@ private fun ColorPairRow(
     ) {
         Text(
             text = label,
-            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+            color = ComposeColor(AppConfig.uiTextPrimary),
             fontSize = 14.sp
         )
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1845,10 +1751,10 @@ private fun ColorPairRow(
                     .clip(RoundedCornerShape(4.dp))
                     .background(ComposeColor(fromColor))
                     .clickable { showFromPicker = true }
-                    .border(1.dp, ComposeColor(AppConfig.uiSettingsDivider), RoundedCornerShape(4.dp))
+                    .border(1.dp, ComposeColor(AppConfig.uiDividerColor), RoundedCornerShape(4.dp))
             )
             Spacer(Modifier.width(6.dp))
-            Text("→", color = ComposeColor(AppConfig.uiSettingsTextMuted), fontSize = 14.sp)
+            Text("→", color = ComposeColor(AppConfig.uiTextMuted), fontSize = 14.sp)
             Spacer(Modifier.width(6.dp))
             // To swatch
             Box(
@@ -1857,7 +1763,7 @@ private fun ColorPairRow(
                     .clip(RoundedCornerShape(4.dp))
                     .background(ComposeColor(toColor))
                     .clickable { showToPicker = true }
-                    .border(1.dp, ComposeColor(AppConfig.uiSettingsDivider), RoundedCornerShape(4.dp))
+                    .border(1.dp, ComposeColor(AppConfig.uiDividerColor), RoundedCornerShape(4.dp))
             )
         }
     }

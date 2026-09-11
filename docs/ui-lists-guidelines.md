@@ -237,7 +237,7 @@ header typography, divider, chevron, popup styling) are canonical in
 |---------|-------|-------|
 | Accent stripe | `accentColor` | Per-item (computed by batch lambda) |
 | Snackbar bg | `uiCardBackground` @ 7.65% alpha | |
-| Undo text | `uiSettingsAccent` | Blue accent |
+| Undo text | `uiAccent` | Blue accent |
 
 ## Key Files
 
@@ -301,7 +301,7 @@ Marker cards in [`MarkerManagementOverlay`](app/src/main/java/ykws/android/maro/
 **Chevron affordance:**
 - Each marker card carries a `KeyboardArrowRight` chevron at `Alignment.BottomEnd`
 - The chevron is a **48dp tappable gutter** (`Box` + `.clickable(onClick = onTap)`) so it's a real hit target, not a decorative icon
-- Icon size: **28dp**; color: `uiSettingsTextMuted`
+- Icon size: **28dp**; color: `uiTextMuted`
 - The chevron is **hidden in the detail drawer** (`showChevron = false` in `MarkerCardContent`) — list only
 
 **Inline editing (double-click to edit):**
@@ -315,7 +315,7 @@ Marker cards in [`MarkerManagementOverlay`](app/src/main/java/ykws/android/maro/
 - List → swipe-to-delete (`SwipeableItemCard`)
 - Detail drawer header → trash icon (track header = `Close · Title · Delete`; marker header = `Delete` only)
 
-**Consistency rule:** All navigation chevrons (`KeyboardArrowRight`) use the 28dp icon size and `uiSettingsTextMuted` color; the marker card wraps it in the 48dp tappable gutter. This covers:
+**Consistency rule:** All navigation chevrons (`KeyboardArrowRight`) use the 28dp icon size and `uiTextMuted` color; the marker card wraps it in the 48dp tappable gutter. This covers:
 - Marker card chevrons (list overlay)
 - Menu drawer navigation rows ("Manage Tracks", "Manage Markers")
 
@@ -341,7 +341,7 @@ ListOverlayScaffold<T>
 │   ├── Close (X) + "N selected"
 │   ├── "Select all" / "Deselect all" chip
 │   ├── Action bar: scrollable Row of action buttons (in-flow, 4dp below header)
-│   │   └── HorizontalDivider(uiSettingsDivider) below
+│   │   └── HorizontalDivider(uiDividerColor) below
 │   └── Filter/sort row hidden
 │
 └── LazyColumn (fillMaxSize)
@@ -407,8 +407,8 @@ mode) are committed immediately — `ListAction.PermanentDelete` emitted for eac
 | Layer | Token / Spec |
 |---|---|
 | Tonal shift | `uiCardBackground` + `Color.White.copy(alpha = 0.15f)` overlay |
-| Border | 1dp `uiSettingsAccent` (#1565C0), `RoundedCornerShape(12.dp)` |
-| Checkmark circle | 24dp, `uiSettingsAccent` fill, `CircleShape` |
+| Border | 1dp `uiAccent` (#1565C0), `RoundedCornerShape(12.dp)` |
+| Checkmark circle | 24dp, `uiAccent` fill, `CircleShape` |
 | Checkmark icon | White `Icons.Filled.Check`, 16dp, centered in circle |
 | Position | `Alignment.TopEnd`, 4dp padding |
 
@@ -435,8 +435,8 @@ In multiselect mode, horizontal drags are ignored.
 |---|---|
 | Position | In-flow between multiselect header and LazyColumn — 4dp below header |
 | Height | ~44dp (content-driven, 6dp vertical padding) |
-| Background | `uiSettingsBackground` (solid opaque) |
-| Separator | `HorizontalDivider(uiSettingsDivider)` below the button row |
+| Background | `uiBackground` (solid opaque) |
+| Separator | `HorizontalDivider(uiDividerColor)` below the button row |
 | Layout | `Row`, `Arrangement.SpaceEvenly`, `horizontalScroll` |
 | Button | `TextButton` with icon (20dp) + label, `ButtonColors.icon` tint |
 | Destructive | `uiDashboardZoneDanger` tint when `isDestructive = true` |

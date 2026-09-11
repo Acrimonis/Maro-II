@@ -2,7 +2,7 @@
 name: Ui_Menu
 status: active
 created: 2026-07-05 06:57
-modified: 2026-09-09 06:52
+modified: 2026-09-11 14:59
 ---
 
 # Feature: Ui_Menu
@@ -13,11 +13,13 @@ track recording, and marker management sections. Rendered via `OverlayLayer` →
 `DrawerSlot` → `MenuDrawerOverlay`; the drawer's read-only menu data travels in the
 `MenuOverlayData` bundle (`OverlayLayerParams.kt`) rather than as individual `OverlayLayer`
 params (callbacks stay individual). Uses `DrawerScaffold` for fixed-header +
-scrollable body.
+scrollable body, and renders its three sections with the shared Settings stencils
+(`SectionHeader` / `CardArea` / `SectionDivider` / `ToggleRow` in `ui/components`).
 
 
 ## Implemented
 
+- **menu-render-upt** — Menu drawer body rewritten onto the shared Settings stencils + spacing tokens; stencils extracted to `ui/components` (sentence-case strings) → `xTrack/Ui_Menu/260909_FEAT_PLN_Ui_Menu_menu-render-upt.md`
 - **toggle-zones-marker-in-menu** — "Show Zones on Map" switch in MARKERS card → `xTrack/Ui_Menu/260705_FEAT_PLN_Ui_Menu_toggle-zones-marker-in-menu.md`
 
 ## Key Files
