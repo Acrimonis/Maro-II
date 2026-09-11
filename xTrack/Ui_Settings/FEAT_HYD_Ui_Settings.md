@@ -1,56 +1,59 @@
-# Ui_Settings — Hydration (2026-09-10)
+# Ui_Settings — Hydration (2026-09-11)
 
-## State
-C12 OverlayLayer parameter-object collapse is **complete** on `feature/refact-C12` — the final slice of the
-MapScreen orchestration-monolith refactor (step 2; C1–C11 were merged earlier via PR #225). The new
-same-package `OverlayLayerParams.kt` hosts six public `@Immutable` data classes:
+## Section-title colour — item A (IMPLEMENTED)
 
-| Bundle | Fields |
-|---|---|
-| `OverlayChrome` | 7 — drawer/wizard visibility flags + `wizardStep` + `drawerState` |
-| `MenuOverlayData` | 12 — GPS mode, menu toggles, first-track/marker ids, track/marker map referentials + counts |
-| `SettingsOverlayData` | 5 — settings tab + four scroll positions |
-| `TrackInfoOverlayData` | 4 — track-info drawer visibility, track, id list, index |
-| `TrackListOverlayData` | 3 — track sort, track filter, track list scroll state |
-| `MarkerListOverlayData` | 4 — markers, marker sort, marker filter, marker list scroll state |
+Branch `feature/settings-menu-clean`. Plan: [`260911_FEAT_PLN_Ui_Settings_section-title-color.md`](260911_FEAT_PLN_Ui_Settings_section-title-color.md).
 
-`OverlayLayer` went **89 → 60 params**: the read-only params were removed from several separated signature
-regions with every interleaved callback left in place, and all six bundles are unpacked into 35 same-named
-locals at the top of the body, so the body and every child call are textually unchanged. The single call
-site in `MapScreen.kt` builds the bundles inline (plain values, never `remember`-ed). The 44 callbacks
-deliberately stay individual params — bundling them pulls them out of composable-call argument position and
-defeats Compose lambda memoization. Two dead `rememberLazyListState()` defaults and their two orphan imports
-were deleted. Public visibility on the bundles is required: a public `OverlayLayer` cannot expose an
-`internal` type.
+Sub-section titles promoted from `ui.settings.text.muted` to `ui.settings.text.primary` (`#FFFFFF`, 16sp SemiBold) at 3 render sites (`SubSectionHeader` title; `SingleColorSubSection` both the swatch-on-title-line branch and the description-carrying branch — 7 call sites inherit). Descriptions stay `ui.settings.text.secondary` (`#78909C`, 13sp); `CardDescription` stays `ui.settings.text.muted` (`#B0BEC5`, 13sp). Hierarchy now comes from **weight + spacing**. Device-validated: headings white, descriptions dimmed, groups readable. Docs synced: guideline §2.9, `SubSectionHeader` KDoc, `colors.properties` comment, `color-scheme.md` §7 roles. Uncommitted on the branch (item A + docs sync + this dead-code/properties cleanup pass).
 
-`apk-build.bat` SUCCESS with zero new warnings on every tier. Ask reviews 8/8 and 8/8 passed for tiers
-1a-i/1a-ii; tiers 1b/1c were verified by a direct pre-image `git diff` (params in/out, `ScrollState` and
-`LazyListState` routing, byte-identical call-site expressions). The R10 recomposition metric is waived in
-writing (plan C12 appendix). The ~30 line-anchored citations the signature shrink invalidated were repaired
-across 22 markdown files (docs only), and the drawer/code docs were synced.
+## Session — tab-finalization phase 1 (IMPLEMENTED)
 
-Commits so far on this branch: `ec57458` (tiers 1a-i + 1a-ii), `a000c18` (tier 1b); tier 1c plus the
-citation/doc pass is the third commit.
+Branch `feature/settings-menu-clean`. Plan: [`260911_FEAT_PLN_Ui_Settings_tab-finalization.md`](260911_FEAT_PLN_Ui_Settings_tab-finalization.md).
 
-Earlier in the feature (all merged): settings subtree extraction into `MapScreenSettingsOverlay.kt`, header
-normalization (PR #217), properties and opacity/transparency normalization, Card/Expander/NestedCard
-refactor, drawer content measurement, marker "Belongs to track".
+Delivered:
 
-## Target Files
-- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayerParams.kt` — new; the six C12 bundles
-- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt` — signature + 35-line destructure block
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — the single `OverlayLayer(...)` call site
-- `xTrack/Ui_Settings/260909_FEAT_PLN_Ui_Settings_mapScreen-orchestration-monolith-refactor.md` — C12 plan of record
-- `docs/ui-drawer-guidelines.md` — new-drawer wiring procedure (bundle field, never a new signature param)
-- `docs/maro-code.md` — `ui/map` package listing
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt` — extracted settings subtree
+- **P1.1** — `SectionHeader(title)` with no `uppercase` parameter, sentence case, `letterSpacing = 0.sp`; the 9 `uppercase = false` arguments dropped; `ui.font.section.size` 17→18sp plus the `AppConfig.uiFontSectionSize` fallback 17f→18f.
+- **P1.2** — `SettingsToggleRow` retired → box-less `ToggleRowContent` (label 16sp Medium + description 13sp muted + 16dp spacer + accent `Switch`; row padding 16dp horizontal × 2dp vertical). Coastline = `Card { ToggleRowContent(…) }`; Orientation aids = one `Card`, 3 rows, 2 `SectionDivider`s.
+- **P1.3** — `docs/ui-component-guidelines.md` §1, §2.1, §2.3, §2.4, §2.5, §2.6, §2.9, §4 rewritten to the single "row + Card + functionally-defined sections" model; `ui.properties` comments refreshed.
+- **P1.4** — settings tab strip → M3 `SecondaryScrollableTabRow` (`divider = {}`, `containerColor = uiSettingsBackground`, `edgePadding = 24.dp`, needs `@OptIn(ExperimentalMaterial3Api::class)` on `SettingsOverlay`) with **custom content-sized cells** (`Box` + `selectable(role = Role.Tab)`, 8dp horizontal / 14dp vertical) and M3's full-cell secondary indicator; label token `ui.font.tab.size=18sp`, SemiBold (Bold when selected) + `AppConfig.uiFontTabSize` (18f). Horizontal scrolling is a safety net for narrow screens and large font scale. Validated on device.
 
-## Next Step
-**On-device functional test PASSED (2026-09-10):** drawers, menu/list filters, both Link toggles,
-track-info prev/next and the settings tabs all behave as before — no regression from the C12 collapse.
-C12 is therefore complete and the branch is ready to land: `feature/refact-C12` holds 3 commits
-(`ec57458`, `a000c18`, `96259b5`) and is ahead of `origin/develop`.
+Verification: `apk-build.bat` SUCCESS (1m 05s), no new warnings. Ask review PASS. Committed as `0b01d1e` (phase 1) + `f579409` (spacing).
 
-Remaining: push the branch and open the PR into `develop`. The branch still **tracks `origin/develop`**,
-so push with `#push`'s explicit refspec (or a one-time `git push -u origin feature/refact-C12`) rather than
-a bare `git push`. Nothing further is queued for this feature.
+- **Spacing pass (same day)** — all four tabs now share one section boundary (`ui.spacing.section.gap`, 24 → 14dp) and one title→card gap (`ui.spacing.header.bottom`, 8 → 6dp); Layers' five 12dp / raw `12.dp` gaps were the outliers. §2.11 documents the tab strip. Validated on device.
+
+## Row family normalization (R1–R8 done)
+
+Branch `feature/settings-menu-clean`. Plan: [`260911_FEAT_PLN_Ui_Settings_row-naming-normalization.md`](260911_FEAT_PLN_Ui_Settings_row-naming-normalization.md).
+
+- **R1 (done — committed `f8b380e`)** — `ToggleRowContent`→`ToggleRow`, `SliderRowContent`→`SliderRow`, `SettingsLanguageRow`→`SegmentedRow`, `ColorSwatchRow`→`ColorRow`, `ColorSwatchPairRow`→`ColorPairRow`, definitions and all call sites; no old symbol remains.
+- **R2 (done — committed `f8b380e`)** — new `RangeSliderRow` (label/description optional, mandatory right-aligned value line, two-thumb slider, no surface of its own) now backs all **8** inline `RangeSlider` sites; the value line is tokenised (`uiFontRangeSize`, was a hardcoded `14.sp` twice) and descriptions normalised to `uiFontDescSize` (13sp, was 12sp three times). Deviation: the four sites that already sit under a `SubSectionHeader` pass no label, rather than having their heading replaced.
+- **R3 (done — uncommitted)** — `SegmentedRow` generalised to `<T>` (`options`/`selected`/`onSelect` + optional `captions`) and made **surface-free**: connected segments with outer-only rounding, unselected segments outlined, `selectableGroup()` + `Role.RadioButton`. Adopted at Arrow density; the Language picker was wrapped in a `Card`, so no control on the page paints its own surface any more.
+- **R4 (done — uncommitted)** — GPS frequency is a 3-option `SegmentedRow` (Élevée 1 s/1 m · Équilibrée 2 s/5 m · Éco 4 s/10 m) with per-stop captions; `SettingsFrequencyRow` deleted — no symbol remains. Intentional behaviour change: a free 1–4 s range became three presets.
+- **R5 (done — uncommitted)** — `CardDescription` extracted (owns its trailing spacer, **keeps today's 16dp inset until R7**) and all six inline descriptions migrated: Tracks, Markers, Regulated zones, 300 m band, Danger zones, Depth.
+- **R6 (done — uncommitted at bake time)** — `ToggleRow` gained `leadingIcon: @Composable (() -> Unit)? = null` (additive, 8dp gap). **13** hand-rolled inline label+`Switch` rows converted to `ToggleRow`: speed-zone/regulated-zone auto-show, map offset GPS/demo, GPS mode (keeps `onGpsModeChange` + `onDismiss`), stop detection enable + GPS delay, keep screen on, debug rays, and the four Regenerate-layers rows. Seven more sites (coastline, heading line, cap arrow, demo heading up, both re-display enables, 300 m band auto-show) were **already** `ToggleRow` — nothing to do. **1 row deliberately skipped**: `regulationInfoVisible` is genuinely bespoke (raw `14.sp` label, no `uiPaddingToggleVertical`, no `.weight(1f)` column, partial switch colours) and waits for R7 like the category group.
+  **Divider finding:** the pattern quoted in the plan (`height(1dp)` + literal `16dp`) does not exist. The real one is `Spacer(uiDividerGap 6dp)` + `Box(fillMaxWidth → padding(horizontal = uiPaddingCardHorizontal) → height(uiDividerHeight) → background(uiSettingsDivider))` + `Spacer(6dp)` — byte-identical to `SectionDivider()`. Only **3** matched 1:1 (the Regenerate-layers dividers) and were converted; **4** were left for R7 (three sit in a `NestedCard` that already supplies the 16dp — a swap would double the inset — and the Re-display one is bracketed by `uiSpacingGroupedRowGap` 8dp, not 6dp).
+- **R7 (done — uncommitted at bake time)** — the only *layout* change. `Card` now owns `horizontal = uiPaddingCardHorizontal` (matching `NestedCard`), so **14** inset-only wrappers collapsed (12 `Box` + the 2 `Column` around the boat-offset and FPS sliders) and the row definitions (`CardDescription`, `ToggleRow`) plus `SectionDivider()` dropped their own horizontal padding — this is what gives the **Language picker** its 16dp inset (the symptom reported on device). Grep invariant met literally: `AppConfig.uiPaddingCardHorizontal` occurs **exactly twice** in the overlay (`Card` + `NestedCard`); no `padding(horizontal = 16.dp)` and no `RegulatedZoneCategoryToggles` remain. `MapScreenSettingsOverlay.kt` **2415 → 2014** lines overall across R6+R7; the R7 diff is line-noisy by nature (each collapsed wrapper re-indents its body).
+  **Dividers:** Tracks ×2 + regulated-zones info → `SectionDivider()`; the Re-display one stays inline (its neighbours use `uiSpacingGroupedRowGap` 8dp, not `uiDividerGap` 6dp) with an explanatory comment — flagged, not silent. The regulated-zones info divider's gaps did move 4dp → 6dp.
+  **Category group ([`RegulatedZoneComponents.kt`](RegulatedZoneComponents.kt)):** `RegulatedZoneCategoryToggles` → `CategoryToggleGroup`, `fun` → `internal`, each row rebuilt on `ToggleRow` with the `leadingIcon` slot carrying the 28dp box / emoji / red "10" / strike overlay; labels 14sp → 16sp, switches adopt `ToggleRow` colours; still renders inside the parent `NestedCard` with no self-drawn container. The bespoke `regulationInfoVisible` row also moved to `ToggleRow`. Unused `Switch`/`SwitchDefaults`/`width` imports removed.
+  **Deviation:** `ToggleRow` visibility `private` → `internal`, required because the group lives in the sibling file while `ToggleRow` stays in the overlay.
+- **R8 (done — docs + tracking, no source changes)** — [`docs/ui-component-guidelines.md`](../../docs/ui-component-guidelines.md) rewritten: §1 gains the naming rule (`<Control>Row` / `<Thing>Group`, no `Settings` prefix) and the container-owned-inset rule; §2.0 states `Card`/`NestedCard` own `ui.padding.card.horizontal`; §2.1 documents `ToggleRow` (description optional, `leadingIcon`, vertical-only padding); §2.2 renames to `SliderRow` and drops the caller-padding paragraph (**closes follow-up C**); §2.3/§2.4/§2.6 drop the stale `…RowContent` names and the `Box(pad h=16)` wrapper; §2.7 documents `SegmentedRow` (connected, outlined unselected, accent fill, `selectableGroup()` + `RadioButton`, captions, surface-free); §2.8 documents `RangeSliderRow` (mandatory value line); §2.9 documents `CardDescription` vs `SubSectionHeader`; §4 anti-patterns updated. Tracking: `FEAT_DSC` gains the R1–R8 `## Implemented` entry + both plan pointers and folds `### Tab finalization follow-ups` (A/B closed by R6/R7, C by R8, D already resolved); `GLOBAL_CONTEXT` focus + summary refreshed. Symbol sweep across `docs/` + `xTrack/`: no live doc carries a stale name (historical plans/hydrations retained as records).
+- Builds after each step: SUCCESS, no new warnings.
+- **Backlog — moved to its own plan, now IMPLEMENTED.** Sub-section titles inside collapsible zones were `ui.settings.text.muted` (16sp SemiBold) beside white 16sp row labels, so grey headings read as accidental; Option A (promote to `primary`) is **implemented** — see §Section-title colour above. Plan: `260911_FEAT_PLN_Ui_Settings_section-title-color.md`.
+
+## Phase-1 follow-ups — all closed
+
+**A** (description optional on the toggle row) and **B** (row-padding convention) closed by R6/R7; **C** (§2.2 alignment) closed by R8; **D** already resolved. The `### Tab finalization follow-ups` section in [`FEAT_DSC_Ui_Settings.md`](FEAT_DSC_Ui_Settings.md) is folded.
+
+## Prior — C12 OverlayLayer param collapse (complete, awaiting push + PR)
+
+`feature/refact-C12` holds 3 commits (`ec57458`, `a000c18`, `96259b5`), ahead of `origin/develop`; on-device functional test PASSED (2026-09-10); the ~30 invalidated doc anchors were repaired. Remaining: push the branch and open the PR into `develop` — the branch tracks `origin/develop`, so use an explicit refspec rather than a bare `git push`.
+
+## Key Files
+
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt` — settings overlay, 4 tabs, `SectionHeader`, `ToggleRow`, `SliderRow`, `RangeSliderRow`, `SegmentedRow`, `CardDescription`, `Card`, `SectionDivider`; `SettingsToggleRow` and `SettingsFrequencyRow` no longer exist
+- `app/src/main/java/ykws/android/maro/config/AppConfig.kt` — UI token accessors (`uiFontSectionSize` 18f, `uiFontTabSize` 18f)
+- `app/src/main/assets/ui.properties` — token values
+- `docs/ui-component-guidelines.md` — canonical UI rules
+- `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_tab-finalization.md` — phase-1 plan of record
+- `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_row-naming-normalization.md` — row-family normalization plan of record (R1–R8 done)
+- `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_section-title-color.md` — sub-section title colour (Option A, implemented)
