@@ -10,4 +10,4 @@ The three-branch integration into `feature/mergitur` is COMPLETE, baked and read
 - `xTrack/BoatTrace/260911_FEAT_PLN_BoatTrace_resume-confirm-backup.md` — amendment recording the accepted visibility change
 
 ## Next Step
-Push `feature/mergitur` and open the PR to `develop` with the per-hop SHAs in the body, then device smoke test the confirm dialog, resume-with-backup, live polyline and map visibility/selection. Watch the B1 side effect: the backup copy now consumes a map display slot.
+Commit the 1 ms twin-ordering nudge (`TrackViewModel.duplicateTrack` + `MapSelectionPolicyTest`), then push `feature/mergitur` and open the PR to `develop` with the per-hop SHAs in the body, then device smoke test the confirm dialog, resume-with-backup, live polyline and map visibility/selection. Watch the consumer side of B1: the copy still consumes a display slot while it exists, but it can no longer take the tie from its original.

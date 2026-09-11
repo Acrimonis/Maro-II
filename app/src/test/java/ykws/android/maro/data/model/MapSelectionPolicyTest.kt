@@ -11,8 +11,9 @@ import ykws.android.maro.data.track.TrackSummary
 
 /**
  * Pure policy tests — no device, no IO. Covers the map-render visibility contract:
- * eligibility, ranking + cap, focus override, session boost (+ reset invalidation), and the
- * deliberate asymmetry between tracks (ranked + capped) and markers (filter-only, no cap).
+ * eligibility, ranking + cap, focus override, session boost (+ reset invalidation), resume-backup
+ * twin ordering, and the deliberate asymmetry between tracks (ranked + capped) and markers
+ * (filter-only, no cap).
  */
 class MapSelectionPolicyTest {
 
@@ -64,6 +65,34 @@ class MapSelectionPolicyTest {
         )
         val selected = trackPolicy.select(items, ListFilter(), cap = 2, focus = MapRenderFocus(), todayMidnightMs = today)
         assertEquals(listOf("newest", "tieHigh"), selected.map { it.id })
+    }
+
+    // ── Resume-backup twin ordering (1 ms nudge) ──────────────────────────
+
+    /**
+     * `TrackViewModel.duplicateTrack` nudges the copy 1 ms older than its original so the twins never
+     * tie on `startTimeMs`. Contract: at an exact cap the copy is always the one dropped, whatever
+     * order the summaries arrive in — without the nudge the pair ties and the winner falls back to
+     * that order.
+     */
+    @Test
+    fun resumeBackupTwin_copyDroppedFirst_regardlessOfInputOrder() {
+        val start = today - 2 * dayMs
+        val original = summary("original", startTimeMs = start)
+        val copy = summary("original (backup)", startTimeMs = start - 1)   // the nudge
+        val filler = summary("filler", startTimeMs = today)
+
+        // Cap exactly fits the filler plus one twin → the copy must lose.
+        val forward = trackPolicy.select(
+            listOf(original, copy, filler), ListFilter(), cap = 2, focus = MapRenderFocus(), todayMidnightMs = today
+        )
+        assertEquals(listOf("filler", "original"), forward.map { it.id })
+
+        // Same set, reversed input order → identical outcome (determinism, not list order).
+        val reversed = trackPolicy.select(
+            listOf(filler, copy, original), ListFilter(), cap = 2, focus = MapRenderFocus(), todayMidnightMs = today
+        )
+        assertEquals(listOf("filler", "original"), reversed.map { it.id })
     }
 
     // ── Focus override ────────────────────────────────────────────────────

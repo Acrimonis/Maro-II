@@ -227,12 +227,18 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
      *
      * NB: map visibility is derived (TrackSelectionPolicy), not a persisted flag, so the copy is
      * unpinned and un-boosted rather than force-hidden.
+     *
+     * The copy's [Track.startTimeMs] is nudged 1 ms older than the original's so the twins never tie
+     * on the policy's `startTimeMs desc` ranking: at an exact render cap the copy is deterministically
+     * the one dropped, instead of the outcome falling back to summary list order.
      */
     suspend fun duplicateTrack(trackId: String, nameSuffix: String): String? {
         val track = repository.load(trackId) ?: return null
         val copy = track.copy(
             id = UUID.randomUUID().toString(),
             name = "${track.name} $nameSuffix",
+            // Deterministic twin ordering — see KDoc. The copy always loses an exact-cap tie.
+            startTimeMs = track.startTimeMs - 1,
             pinned = false,
             updatedAtEpochMs = System.currentTimeMillis()
         )

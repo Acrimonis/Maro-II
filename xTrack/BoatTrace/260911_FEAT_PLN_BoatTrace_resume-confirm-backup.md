@@ -124,7 +124,15 @@ with a derived selection policy, so the Mergitur integration dropped the now-dea
 **Decision (user, 2026-09-11): accept the new behaviour as correct.** The backup copy renders like any
 ordinary stored track — unpinned and un-boosted, but no longer hidden — so it can appear on the map,
 compete for the display cap, and draw the same geometry as the replayed live line after a resume. The
-KDoc on `resumeTrack` was corrected to match; no code logic was changed.
+KDoc on `resumeTrack` was corrected to match.
+
+**Follow-up (2026-09-11, same session): the twin tie is now deterministic.** `duplicateTrack` nudges the
+copy's `startTimeMs` 1 ms older than the original's, so the two never tie on the selection policy's
+`startTimeMs desc` ranking: at an exact render cap the copy is always the one dropped, instead of the
+winner falling back to summary list order. Locked by
+`MapSelectionPolicyTest.resumeBackupTwin_copyDroppedFirst_regardlessOfInputOrder`. The copy still draws
+when the budget allows and still occupies a slot while it exists — that cost was accepted as operational
+and short-lived.
 
 Consequences for the device smoke test: after a ticked resume, confirm the backup card exists, is
 unpinned, and that the duplicated geometry on the map is acceptable. Surrounding integration record:
