@@ -494,7 +494,6 @@ object AppConfig {
     var uiSpacingGroupedRowGap: Float = 8f; private set
     var uiSpacingGroupedAfterExpander: Float = 4f; private set
     var uiSpacingLabelControl: Float = 16f; private set
-    var uiSpacingExpanderToSlider: Float = 8f; private set
     var uiSpacingExpanderToContent: Float = 4f; private set
 
     // Padding (dp)
@@ -523,9 +522,8 @@ object AppConfig {
     var uiNestedCardBg: Int = 0x0DFFFFFF.toInt(); private set
     var uiNestedCardBorder: Int = 0x40FFFFFF.toInt(); private set
 
-    // Divider (dp height/gap + colour)
+    // Divider (dp height/gap)
     var uiDividerHeight: Float = 1f; private set
-    var uiDividerColor: Int = 0x26FFFFFF.toInt(); private set
     var uiDividerGap: Float = 6f; private set
 
     /**
@@ -885,7 +883,6 @@ object AppConfig {
             uiSpacingGroupedRowGap = dp("ui.spacing.grouped.row.gap", uiSpacingGroupedRowGap)
             uiSpacingGroupedAfterExpander = dp("ui.spacing.grouped.after-expander", uiSpacingGroupedAfterExpander)
             uiSpacingLabelControl = dp("ui.spacing.label.control", uiSpacingLabelControl)
-            uiSpacingExpanderToSlider = dp("ui.spacing.expander.to-slider", uiSpacingExpanderToSlider)
             uiSpacingExpanderToContent = dp("ui.spacing.expander.to-content", uiSpacingExpanderToContent)
 
             // Padding
@@ -916,7 +913,6 @@ object AppConfig {
 
             // Divider
             uiDividerHeight = dp("ui.divider.height", uiDividerHeight)
-            props.getProperty("ui.divider.color")?.let { parseColorOrNull(it) }?.let { uiDividerColor = it }
             uiDividerGap = dp("ui.divider.gap", uiDividerGap)
 
         } catch (_: Exception) {

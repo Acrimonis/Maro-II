@@ -3,8 +3,6 @@ package ykws.android.maro.ui.map
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import ykws.android.maro.data.regulation.contains
 import ykws.android.maro.data.regulation.displayCategories
 import androidx.compose.foundation.layout.Arrangement

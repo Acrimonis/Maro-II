@@ -1,83 +1,41 @@
 
 package ykws.android.maro.ui.map
 import ykws.android.maro.config.AppConfig
-import ykws.android.maro.data.track.TrackRecordingService
-import ykws.android.maro.data.model.matchesFilter
-import ykws.android.maro.data.track.toGpx
-import ykws.android.maro.data.track.ImportMode
-
-import android.Manifest
-import android.annotation.SuppressLint
-import android.app.Activity
-import android.content.Context
-import android.content.ContextWrapper
-import android.content.Intent
-import android.content.pm.PackageManager
-import android.net.Uri
-import android.os.SystemClock
+import ykws.android.maro.data.depth.RasterCache
 import android.provider.Settings
-import android.view.MotionEvent
-import android.graphics.Bitmap
 import android.graphics.Color
-import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import ykws.android.maro.R
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.ScrollState
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.ime
-import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.RangeSlider
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -86,127 +44,39 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SecondaryScrollableTabRow
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import android.util.Log
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.platform.LocalLifecycleOwner
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.border
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color as ComposeColor
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalView
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextStyle
-import androidx.core.content.ContextCompat
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.StrokeCap
-import kotlin.math.cos
-import kotlin.math.sin
-import org.osmdroid.config.Configuration
-import org.osmdroid.events.MapListener
-import org.osmdroid.events.ScrollEvent
-import org.osmdroid.events.ZoomEvent
-import org.osmdroid.tileprovider.tilesource.TileSourceFactory
-import org.osmdroid.util.GeoPoint
-import org.osmdroid.views.MapView
-import org.osmdroid.views.overlay.GroundOverlay
-import org.osmdroid.views.overlay.Polygon
-import org.osmdroid.views.overlay.Polyline
-import kotlin.math.pow
 import kotlin.math.roundToInt
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.withContext
-import ykws.android.maro.data.depth.DepthConstants
-import ykws.android.maro.data.depth.RasterCache
-import ykws.android.maro.data.model.BoundingBox
-import ykws.android.maro.data.model.CoastlinePoint
-import ykws.android.maro.data.model.CoastlineSegment
-import ykws.android.maro.data.model.CoastlineState
-import ykws.android.maro.data.model.DepthSample
-import ykws.android.maro.data.model.DepthState
-import ykws.android.maro.data.model.GenerationProgress
-import ykws.android.maro.data.model.Isobath
-import ykws.android.maro.data.model.RasterProgress
-import ykws.android.maro.data.model.LatLng
-import ykws.android.maro.data.model.ValidationReport
-import ykws.android.maro.data.model.Zone300Data
-import ykws.android.maro.data.regulation.RegulatedZoneSet
-import ykws.android.maro.data.regulation.RegulatedZonesRepository
 import ykws.android.maro.data.settings.AppSettings
-import ykws.android.maro.data.model.markers.MarkerGeometry
-import ykws.android.maro.data.model.markers.MarkerOrigin
-import ykws.android.maro.data.model.markers.UserMarker
-import ykws.android.maro.data.markers.UserMarkerRepository
-import ykws.android.maro.ui.components.ConfirmSheet
 import ykws.android.maro.ui.components.DrawerHeader
-import ykws.android.maro.spatial.SpatialOperations
-import ykws.android.maro.spatial.DebugSegment
 import ykws.android.maro.spatial.MarkerMatcher
 import ykws.android.maro.spatial.NoOpWhereAmIDebugger
 import ykws.android.maro.spatial.VisualWhereAmIDebugger
-import ykws.android.maro.ui.map.MarkersViewModel
-import ykws.android.maro.ui.map.MarkerDrawer
-import ykws.android.maro.ui.map.toMarkerSnapshot
-import ykws.android.maro.data.track.IdleThresholdCallback
-import ykws.android.maro.data.track.IdleCaptureResult
-import ykws.android.maro.data.track.WhereAmIProvider
-
-/** Animation duration per GPS-follow scroll (ms). Must be < min GPS fix interval (1s). */
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1638,13 +1508,13 @@ private fun SectionDivider() {
     Spacer(Modifier.height(AppConfig.uiDividerGap.dp))
 }
 
-/** Dimmer sub-heading with an optional one-line description, for grouping settings in a section. */
+/** Sub-heading (16sp SemiBold `ui.settings.text.primary`) with an optional 13sp `ui.settings.text.secondary` one-line description, for grouping settings in a section. */
 @Composable
 private fun SubSectionHeader(title: String, description: String? = null) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text(
             text = title,
-            color = ComposeColor(AppConfig.uiSettingsTextMuted),
+            color = ComposeColor(AppConfig.uiSettingsTextPrimary),
             fontSize = AppConfig.uiFontSubsectionSize.sp,
             fontWeight = FontWeight.SemiBold
         )
@@ -1685,7 +1555,7 @@ private fun SingleColorSubSection(
             ) {
                 Text(
                     text = title,
-                    color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                    color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                     fontSize = AppConfig.uiFontSubsectionSize.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.weight(1f)
@@ -1695,7 +1565,7 @@ private fun SingleColorSubSection(
         } else {
             Text(
                 text = title,
-                color = ComposeColor(AppConfig.uiSettingsTextMuted),
+                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
                 fontSize = AppConfig.uiFontSubsectionSize.sp,
                 fontWeight = FontWeight.SemiBold
             )
@@ -1779,11 +1649,6 @@ private fun Expander(
     label: String,
     expanded: Boolean,
     onToggle: () -> Unit,
-    labelStyle: TextStyle = TextStyle(
-        color = ComposeColor(AppConfig.uiSettingsTextPrimary),
-        fontSize = AppConfig.uiFontToggleSize.sp,
-        fontWeight = FontWeight.Medium
-    ),
     content: @Composable () -> Unit
 ) {
     val rotation by animateFloatAsState(
@@ -1801,7 +1666,9 @@ private fun Expander(
         ) {
             Text(
                 text = label,
-                style = labelStyle,
+                color = ComposeColor(AppConfig.uiSettingsTextPrimary),
+                fontSize = AppConfig.uiFontToggleSize.sp,
+                fontWeight = FontWeight.Medium,
                 modifier = Modifier.weight(1f)
             )
             Icon(
