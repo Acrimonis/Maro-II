@@ -528,7 +528,7 @@ internal fun TrackCardContent(
                     ) {
                         Icon(
                             imageVector = Icons.Filled.PlayArrow,
-                            contentDescription = "Resume recording",
+                            contentDescription = stringResource(R.string.cd_resume_recording),
                             tint = ButtonColors.icon,
                             modifier = Modifier.size(24.dp)
                         )

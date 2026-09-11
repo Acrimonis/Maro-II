@@ -1,26 +1,35 @@
 # BoatTrace — Hydration Snapshot
 
-**Baked at:** 2026-09-11 15:55 UTC
-**Active Subfeature:** live-track-paint-regression
+**Baked at:** 2026-09-11 16:15 UTC
+**Active Subfeature:** resume-confirm-backup
 **Branch:** feature/tracks-recording (created from origin/develop 2026-09-11)
 
 ## Session Summary
 
-Diagnosed and fixed the live recorded track no longer painting in real time.
+Two fixes on this branch:
 
-- **Root cause (confirmed):** the C3/C4 seam extraction turned a `by collectAsState()` delegate read into a plain-parameter read. `MapTrackOverlayLiveEffects` received a frozen `TrackRecorderUiState`, so `snapshotFlow { trackRecorderState.state }` inside an effect keyed on `(mapView, trackingColorActive)` emitted the launch-time value once and never saw `OFF → ON`. The `track_recording` polyline was never created and both consumers silently bailed (append dropped points, trailing segment returned early).
-- **Proof:** `git log` shows `MapTrackOverlayEffects.kt` has a single commit (`9d95a16`, PR #225); its parent `MapScreen.kt` contains no `snapshotFlow` at all and reads the state directly. The wrapper was introduced by the extraction.
-- **Fix:** creation effect re-keyed on `trackRecorderState.state`; append/trailing self-heal (create the line on demand); `!it.isLive` added to the map-resolve filter and highlighted pull-back (latent — reachable only on resume, where the main `.bin` is re-saved with `endTimeMs = null`).
-- Build `assembleDebug` SUCCESSFUL; Ask review SOUND. Uncommitted at bake time.
+1. **live-track-paint-regression** (committed `69d92a0`) — the live polyline was never created after the C3/C4
+   seam extraction: the creation effect read a frozen `TrackRecorderUiState` parameter through `snapshotFlow`,
+   so it emitted the launch-time `OFF` value once and never saw `OFF → ON`; append dropped every point and the
+   trailing segment bailed. Proof: the pre-#225 monolith has no `snapshotFlow` at all and reads the state
+   directly. Fix: effect keyed on `trackRecorderState.state`, self-healing append/trailing, `isLive` excluded
+   from the map-resolve path (latent, resume-only).
+2. **resume-confirm-backup** — resuming a stored track now opens a confirmation sheet (ConfirmSheet geometry)
+   with a default-checked backup box; confirm writes a hidden, unpinned copy (fresh UUID, suffixed name,
+   marker links stay on the original) then resumes the original; Cancel/scrim dismiss only. Wired on the list
+   card — which no longer auto-dismisses — and on both dashboard cards, gated by `isRecording`. EN+FR strings.
+   Ask review SOUND; build SUCCESSFUL.
 
 ## Next Step
 
-Device E2E: fresh recording paints the active line point-by-point (demo + GPS), resume still paints, GAP seam dashed, filter cases clean.
+Device E2E for both: fresh recording paints point-by-point and survives filters; resume sheet appears on all
+three surfaces with the box checked, writes a backup only when ticked, and continues on the original.
 
 ## Key Files
 
-- `app/src/main/java/ykws/android/maro/ui/map/MapTrackOverlayEffects.kt`
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` (ResumeConfirmSheet, host, PendingTrackResume, closeTrackDrawer)
+- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt` (onResumeRequest + three card sites)
+- `app/src/main/java/ykws/android/maro/data/track/TrackViewModel.kt` (duplicateTrack, resumeTrack)
+- `app/src/main/java/ykws/android/maro/ui/map/MapTrackOverlayEffects.kt` (live polyline effects)
 - `xTrack/BoatTrace/260911_FEAT_PLN_BoatTrace_live-track-paint-regression.md`
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
-- `app/src/main/java/ykws/android/maro/data/track/TrackViewModel.kt`
-- `app/src/main/java/ykws/android/maro/data/track/TrackRecordingService.kt`
+- `xTrack/BoatTrace/260911_FEAT_PLN_BoatTrace_resume-confirm-backup.md`

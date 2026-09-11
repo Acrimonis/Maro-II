@@ -273,6 +273,13 @@
     <string name="marker_unnamed">this marker</string>
     <string name="action_delete">Delete</string>
     <string name="action_cancel">Cancel</string>
+    <string name="action_resume">Resume</string>
+    <!-- Resume confirmation sheet -->
+    <string name="resume_confirm_title">Resume recording</string>
+    <string name="resume_confirm_message">New points will be appended to this track, which stays open until you stop recording.</string>
+    <string name="resume_confirm_backup">Back up this track before resuming</string>
+    <string name="track_backup_suffix">(backup)</string>
+    <string name="cd_resume_recording">Resume recording</string>
     <string name="marker_color_title">Marker Color</string>
     <string name="marker_icon_title">Marker Icon</string>
     <string name="marker_icon_none">None (✕)</string>

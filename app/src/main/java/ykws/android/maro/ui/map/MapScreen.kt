@@ -234,6 +234,12 @@ internal data class PendingTrackImport(
     val matchName: String
 )
 
+/** Held while the user confirms resuming a stored track (with or without a backup copy). */
+internal data class PendingTrackResume(
+    val trackId: String,
+    val fromList: Boolean
+)
+
 /** Transient import feedback: result counts or a hard failure. */
 internal sealed interface ImportBannerState {
     data class Result(val imported: Int, val ignored: Int) : ImportBannerState
@@ -1495,6 +1501,22 @@ fun MapScreen(
             !it.isLive && it.matchesFilter(appSettings.trackMapFilter, ykws.android.maro.data.model.todayMidnightMs()) && (it.pinned || it.visibleOnMap)
         }
 
+        // Resume confirmation: non-null while the sheet awaits the Resume/Cancel choice.
+        var pendingResume by remember { mutableStateOf<PendingTrackResume?>(null) }
+
+        // Close the track detail drawer (restores the pre-navigation camera when the map was untouched).
+        val closeTrackDrawer: () -> Unit = {
+            if (!trackDrawerState.mapWasInteracted) {
+                preNavigationState?.let { pre ->
+                    mapView?.controller?.setZoom(pre.zoom)
+                    mapView?.controller?.setCenter(GeoPoint(pre.centerLat, pre.centerLon))
+                }
+            }
+            highlightedTrackId = null
+            trackDrawerState = TrackDrawerState()
+            preNavigationState = null
+        }
+
         OverlayLayer(
             chrome = OverlayChrome(
                 showSettings = showSettings,
@@ -1658,18 +1680,9 @@ fun MapScreen(
                 trackListIds = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id },
                 currentTrackIndex = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id }.indexOf(trackDrawerState.track?.id ?: "").coerceAtLeast(0),
             ),
-            onTrackDrawerClose = {
-                if (!trackDrawerState.mapWasInteracted) {
-                    preNavigationState?.let { pre ->
-                        mapView?.controller?.setZoom(pre.zoom)
-                        mapView?.controller?.setCenter(GeoPoint(pre.centerLat, pre.centerLon))
-                    }
-                }
-                highlightedTrackId = null
-                trackDrawerState = TrackDrawerState()
-                preNavigationState = null
-            },
+            onTrackDrawerClose = closeTrackDrawer,
             onNavigateToTrack = { id -> openTrackDetail(id) },
+            onResumeRequest = { id, fromList -> pendingResume = PendingTrackResume(id, fromList) },
             onMarkerSortStateChange = { newState ->
                 viewModel.updateSettings { it.copy(markerListSort = newState) }
                 markersViewModel.refreshSort(newState)
@@ -1871,6 +1884,24 @@ fun MapScreen(
             setTrackOpStatus = { trackOpStatus = it },
             showImportBanner = { b -> showImportBanner(b) }
         )
+
+        // ── Resume confirmation sheet (optional backup) — hosted outside the drawers so closing the
+        //    source surface cannot drop it ──
+        val resumeBackupSuffix = stringResource(R.string.track_backup_suffix)
+        pendingResume?.let { pending ->
+            ResumeConfirmSheet(
+                title = stringResource(R.string.resume_confirm_title),
+                message = stringResource(R.string.resume_confirm_message),
+                backupLabel = stringResource(R.string.resume_confirm_backup),
+                confirmLabel = stringResource(R.string.action_resume),
+                onConfirm = { backup ->
+                    trackViewModel.resumeTrack(pending.trackId, if (backup) resumeBackupSuffix else null)
+                    if (pending.fromList) showTrackHistory = false else closeTrackDrawer()
+                    pendingResume = null
+                },
+                onDismiss = { pendingResume = null }
+            )
+        }
 
 
         // ── Screen lock: full-screen input scrim + top-most unlock button ──
@@ -2518,6 +2549,69 @@ internal fun RecordingExitSheet(
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Text("Discard track", color = ComposeColor.White, fontWeight = FontWeight.Bold)
+            }
+            Spacer(Modifier.height(16.dp))
+        }
+    }
+}
+
+/**
+ * Resume confirmation sheet — [ConfirmSheet] geometry plus an optional backup checkbox
+ * (checked by default). The caller owns the resume + backup side-effects.
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun ResumeConfirmSheet(
+    title: String,
+    message: String,
+    backupLabel: String,
+    confirmLabel: String,
+    onConfirm: (backup: Boolean) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var backup by remember { mutableStateOf(true) }
+    androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+        containerColor = ComposeColor(AppConfig.uiBackground)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(title, color = ComposeColor(AppConfig.uiTextPrimary), fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(12.dp))
+            Text(message, color = ComposeColor(AppConfig.uiTextPrimary), fontSize = 14.sp)
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                androidx.compose.material3.Checkbox(
+                    checked = backup,
+                    onCheckedChange = { backup = it },
+                    colors = androidx.compose.material3.CheckboxDefaults.colors(checkedColor = ComposeColor(AppConfig.uiAccent))
+                )
+                Text(backupLabel, color = ComposeColor(AppConfig.uiTextPrimary), fontSize = 14.sp)
+            }
+            Spacer(Modifier.height(4.dp))
+            androidx.compose.material3.HorizontalDivider(thickness = 0.5.dp, color = ComposeColor(AppConfig.uiDividerColor))
+            Spacer(Modifier.height(12.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                androidx.compose.material3.TextButton(onClick = onDismiss, modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.action_cancel), color = ComposeColor(AppConfig.uiAccent))
+                }
+                Button(
+                    onClick = { onConfirm(backup) },
+                    modifier = Modifier.weight(1f),
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = ComposeColor(AppConfig.uiAccent)),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(confirmLabel, color = ComposeColor.White, fontWeight = FontWeight.Bold)
+                }
             }
             Spacer(Modifier.height(16.dp))
         }

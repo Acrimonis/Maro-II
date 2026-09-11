@@ -137,6 +137,8 @@ fun OverlayLayer(
     trackInfo: TrackInfoOverlayData,
     onTrackDrawerClose: () -> Unit = {},
     onNavigateToTrack: (String) -> Unit = {},
+    /** Opens the resume confirmation sheet; `fromList` selects which surface closes on confirm. */
+    onResumeRequest: (String, Boolean) -> Unit = { _, _ -> },
     onTrackPrev: () -> Unit = {},
     onTrackNext: () -> Unit = {},
     onShareTrack: (String) -> Unit = {},
@@ -500,6 +502,8 @@ fun OverlayLayer(
                                 if (name != null || comment != null) trackViewModel.updateTrack(id, name, comment)
                             },
                             onShareGpx = { onShareTrack(track.id) },
+                            onResumeTrack = { id -> onResumeRequest(id, false) },
+                            isRecording = trackRecorderState.state == ykws.android.maro.data.track.TrackRecorderState.ON,
                             onTap = null,
                             showChevron = false
                         )
@@ -592,6 +596,8 @@ fun OverlayLayer(
                                 if (name != null || comment != null) trackViewModel.updateTrack(id, name, comment)
                             },
                             onShareGpx = { onShareTrack(track.id) },
+                            onResumeTrack = { id -> onResumeRequest(id, false) },
+                            isRecording = trackRecorderState.state == ykws.android.maro.data.track.TrackRecorderState.ON,
                             onTap = null,
                             showChevron = false
                         )
@@ -661,10 +667,7 @@ fun OverlayLayer(
                 onAction = onTrackAction,
                 onDismiss = onDismissTrackHistory,
                 onNavigateToTrack = onNavigateToTrack,
-                onResumeTrack = { id ->
-                    trackViewModel.resumeTrack(id)
-                    onDismissTrackHistory()
-                },
+                onResumeTrack = { id -> onResumeRequest(id, true) },
                 onMergeTracks = { ids, name, keepOriginals ->
                     trackViewModel.mergeTracks(ids, name, keepOriginals)
                 },

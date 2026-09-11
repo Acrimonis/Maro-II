@@ -5,6 +5,7 @@ import android.content.Intent
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import java.util.UUID
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -179,20 +180,46 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
     /**
      * Resume a finalized track as a live recording.
      * Routes to the service which loads the track, forces visibleOnMap, and resumes.
+     *
+     * @param backupNameSuffix when non-null, a hidden copy of the stored track is written first so the
+     *        pre-resume state is preserved (the resume itself continues on the original track).
      */
-    fun resumeTrack(trackId: String) {
+    fun resumeTrack(trackId: String, backupNameSuffix: String? = null) {
         // Guard: cannot resume while already recording
         if (_uiState.value.state == TrackRecorderState.ON) {
             Log.w("MaroII_TrackVM", "resumeTrack: already recording")
             return
         }
-        startService(TrackRecordingService.ACTION_RESUME_TRACK) {
-            putExtra(TrackRecordingService.EXTRA_TRACK_ID, trackId)
-        }
         viewModelScope.launch {
+            // Backup first: the resume clears endTimeMs and the service may force visibleOnMap on the
+            // resumed track, so the snapshot must be written before the intent is sent.
+            if (backupNameSuffix != null) {
+                duplicateTrack(trackId, backupNameSuffix)
+                refreshSummaries()
+            }
+            startService(TrackRecordingService.ACTION_RESUME_TRACK) {
+                putExtra(TrackRecordingService.EXTRA_TRACK_ID, trackId)
+            }
             delay(500)
             refreshSummaries()
         }
+    }
+
+    /**
+     * Write a hidden, unpinned copy of a stored track under a suffixed name and return the new id.
+     * Marker links (`UserMarker.trackId`) stay on the original — the copy carries no markers.
+     */
+    suspend fun duplicateTrack(trackId: String, nameSuffix: String): String? {
+        val track = repository.load(trackId) ?: return null
+        val copy = track.copy(
+            id = UUID.randomUUID().toString(),
+            name = "${track.name} $nameSuffix",
+            visibleOnMap = false,
+            pinned = false,
+            updatedAtEpochMs = System.currentTimeMillis()
+        )
+        repository.save(copy)
+        return copy.id
     }
 
     /** Reload track summaries, mark active track as [ListableItem.isLive]. */

@@ -272,6 +272,13 @@
     <string name="marker_unnamed">ce repère</string>
     <string name="action_delete">Supprimer</string>
     <string name="action_cancel">Annuler</string>
+    <string name="action_resume">Reprendre</string>
+    <!-- Resume confirmation sheet -->
+    <string name="resume_confirm_title">Reprendre l\'enregistrement</string>
+    <string name="resume_confirm_message">Les nouveaux points seront ajoutés à ce trajet, qui restera ouvert jusqu\'à l\'arrêt de l\'enregistrement.</string>
+    <string name="resume_confirm_backup">Sauvegarder ce trajet avant de reprendre</string>
+    <string name="track_backup_suffix">(sauvegarde)</string>
+    <string name="cd_resume_recording">Reprendre l\'enregistrement</string>
     <string name="marker_color_title">Couleur du repère</string>
     <string name="marker_icon_title">Icône du repère</string>
     <string name="marker_icon_none">Aucune (✕)</string>
