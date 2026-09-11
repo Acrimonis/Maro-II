@@ -247,7 +247,7 @@ Render as a **direct section** — header + description + value (`ui.settings.va
 
 - `SectionHeader` — top-level sections only. **One style app-wide:** sentence case ("Layers", "Navigation"), 18sp bold, `ui.settings.accent`, no letter-spacing (`ui.font.section.size`). There is no casing variant.
 - `SubSectionHeader` — 16sp SemiBold, `ui.settings.text.muted` + optional 13sp `ui.settings.text.secondary` description; the standard header for any sub-section inside a card/expander.
-- **Card description** (Layers tab) — 13sp `ui.settings.text.muted`, inside the card, horizontal 16dp pad with no extra vertical padding, followed by a 4dp spacer before the first expander.
+- **Card description** (Layers tab) — 13sp `ui.settings.text.muted`, inside the card, horizontal 16dp pad with no extra vertical padding, followed by a 6dp spacer (`${ui.spacing.header.bottom}`) before the first expander.
 
 ### 2.10 Popup Styling (canonical)
 
@@ -282,14 +282,30 @@ All popup icons use `ButtonColors.icon` tint + `ButtonColors.iconSizeDp` (28dp) 
 
 ---
 
+### 2.11 Settings Tab Strip
+
+The Settings overlay tab bar is Material 3's **`SecondaryScrollableTabRow`** — same-size tabs that fail soft by scrolling rather than clipping:
+
+| Aspect | Value |
+|--------|-------|
+| Row | `SecondaryScrollableTabRow(selectedTabIndex = …, containerColor = uiSettingsBackground, edgePadding = 24.dp, divider = {})` |
+| `@OptIn` | `ExperimentalMaterial3Api::class` on the enclosing composable |
+| Cells | **custom**, never M3 `Tab` — `Box` + `selectable(selected = …, role = Role.Tab, onClick = …)`, padding 8dp horizontal × 14dp vertical |
+| Indicator | M3's default secondary indicator — spans the whole cell and animates |
+| Label | `${ui.font.tab.size}` (18sp) **SemiBold**; accent + **Bold** when selected, `uiSettingsTextSecondary` otherwise |
+
+Why custom cells: M3 `Tab` adds its own horizontal padding plus a 90dp minimum width, which wrapped the "Navigation" label and left side gaps, and `PrimaryTabRow`'s default indicator is a fixed ~24dp stub. Cells sized to their label keep the whole strip visible on a 360dp screen, with horizontal scrolling acting only as the safety net for large accessibility font scale.
+
+---
+
 ## 3. Spacing Quick Reference
 
 | Context | Token | Value |
 |---|---|---|
 | Card vertical (top/bottom) | `ui.padding.card.vertical` | 8dp |
 | Card→card (standalone) | `ui.spacing.card.gap` | 12dp |
-| Section→section | `ui.spacing.section.gap` | 24dp |
-| Header→first card | `ui.spacing.header.bottom` | 8dp |
+| Section→section | `ui.spacing.section.gap` | 14dp |
+| Header→first card | `ui.spacing.header.bottom` | 6dp |
 | Inline toggle→toggle | `ui.spacing.grouped.row.gap` | 8dp |
 | Before expander (in grouped card) | `ui.spacing.grouped.after-expander` | 4dp |
 | Expander header row (top/bottom) | `ui.padding.expander.vertical` | 6dp |

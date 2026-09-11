@@ -657,7 +657,7 @@ private fun LayersSettings(
             Spacer(Modifier.height(4.dp))
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
 
         // ── Markers ─────────────────────────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_section_markers))
@@ -857,7 +857,7 @@ private fun LayersSettings(
             Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
         }
 
-        Spacer(modifier = Modifier.height(AppConfig.uiSpacingCardGap.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
 
         // ── Regulated zones ─────────────────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_regulated_zones_label))
@@ -929,7 +929,7 @@ private fun LayersSettings(
             Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
         }
 
-        Spacer(modifier = Modifier.height(AppConfig.uiSpacingCardGap.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
 
         // ── 300m Band ───────────────────────────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_zone300_label))
@@ -1006,7 +1006,7 @@ private fun LayersSettings(
             Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
         }
 
-        Spacer(modifier = Modifier.height(AppConfig.uiSpacingCardGap.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
 
         // ── Coastline — the only on/off without a map-fan button ───────
         SectionHeader(title = stringResource(R.string.settings_coastline_label))
@@ -1125,7 +1125,7 @@ private fun LayersSettings(
             Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
         }
 
-        Spacer(modifier = Modifier.height(AppConfig.uiSpacingCardGap.dp))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
 
         // ── Depth — EMODnet shallow filter ─────────────────────────────
         SectionHeader(title = stringResource(R.string.settings_depth_label))

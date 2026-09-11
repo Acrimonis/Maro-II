@@ -13,6 +13,8 @@ Delivered:
 
 Verification: `apk-build.bat` SUCCESS (1m 05s), no new warnings. Ask review PASS. Nothing committed.
 
+- **Spacing pass (same day)** — all four tabs now share one section boundary (`ui.spacing.section.gap`, 24 → 14dp) and one title→card gap (`ui.spacing.header.bottom`, 8 → 6dp); Layers' five 12dp / raw `12.dp` gaps were the outliers. §2.11 documents the tab strip. Validated on device.
+
 ## Open — phase-1 follow-ups
 
 Logged in [`FEAT_DSC_Ui_Settings.md`](FEAT_DSC_Ui_Settings.md) under `### Tab finalization follow-ups`: **A** description optional on the toggle row (Auto-show zones rows are label-only), **B** row-padding convention (`ToggleRowContent` self-pads, `SliderRowContent` does not), **C** align §2.2 with §2.1/§2.3. **D** is resolved — custom tab cells inherit no M3 text style, so the `titleSmall` 0.1sp tracking no longer applies.

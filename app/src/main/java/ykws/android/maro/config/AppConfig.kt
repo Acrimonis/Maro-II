@@ -489,8 +489,8 @@ object AppConfig {
 
     // Spacing (dp)
     var uiSpacingCardGap: Float = 12f; private set
-    var uiSpacingSectionGap: Float = 24f; private set
-    var uiSpacingHeaderBottom: Float = 8f; private set
+    var uiSpacingSectionGap: Float = 14f; private set
+    var uiSpacingHeaderBottom: Float = 6f; private set
     var uiSpacingGroupedRowGap: Float = 8f; private set
     var uiSpacingGroupedAfterExpander: Float = 4f; private set
     var uiSpacingLabelControl: Float = 16f; private set
