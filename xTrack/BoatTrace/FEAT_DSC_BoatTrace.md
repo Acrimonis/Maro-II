@@ -28,7 +28,6 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 - [ ] E2E resume-confirm-backup: sheet appears from list + both dashboard cards; checkbox checked by default; backup written only when ticked (new card, hidden on map, unpinned, no marker links); recording continues on the original; Cancel changes nothing
 
 #### Docs
-- `plans/boat-trace-design-discussion.md` — full design & implementation plan
 
 ### track-list
 
@@ -75,7 +74,7 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 - `xTrack/BoatTrace/260831_FEAT_PLN_BoatTrace_marker-export-import.md` — plan
 
 ## Rules
-- Feature-scoped plans go in `xTrack/[Feature]/FEAT_PLN_[Feature]_[topic].md`, NOT in `plans/`.
+- Feature-scoped plans go in `xTrack/[Feature]/YYMMDD_FEAT_PLN_[Feature]_[topic].md`.
 - Track points only recorded while speed > 2.5 kn; OFF→ON via geofence exit (10s debounce) or manual Start.
 - Internal storage: Protobuf binary (kotlinx-serialization-protobuf), not JSON. Export: GPX 1.1.
 - Recording lifecycle: ON state persists through stationary; only point capture suspends via `isStill()`.
@@ -83,7 +82,6 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 - Swipe-to-delete on TrackHistoryOverlay with snackbar undo.
 
 ## Docs
-- `plans/boat-trace-design-discussion.md` — final design and implementation plan
 - `xTrack/BoatTrace/260618_FEAT_PLN_BoatTrace_TrackList_Design.md` — track list UI requirements
 - `xTrack/BoatTrace/FEAT_DOC_BoatTrace_decisions.md` — comprehensive decisions record (7 categories, 40+ decisions)
 - `xTrack/BoatTrace/260620_FEAT_PLN_BoatTrace_gps-line-acquisition.md` — GPS point acquisition

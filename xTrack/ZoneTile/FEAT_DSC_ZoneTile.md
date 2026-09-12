@@ -18,8 +18,6 @@ Zone information tiles and map overlay rendering — zone-ahead cone/line, zone 
 
 ## Key Files
 
-## OwnedFiles
-
 ## Docs
 - `xTrack/ZoneTile/260614_FEAT_PLN_ZoneTile_ahead-cone-implementation.md` — Zone ahead cone implementation
 - `xTrack/ZoneTile/260614_FEAT_PLN_ZoneTile_ahead-line-implementation.md` — Zone ahead line implementation

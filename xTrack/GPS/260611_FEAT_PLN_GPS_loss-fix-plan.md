@@ -4,7 +4,7 @@
 > Branch: `feature/GPS-Fix`  
 > Active Feature: GPS  
 > Subfeature: `gps-loss`  
-> Derived from: [`plans/gps-loss-investigation.md`](plans/gps-loss-investigation.md)
+> Derived from: [`260611_FEAT_PLN_GPS_loss-investigation.md`](260611_FEAT_PLN_GPS_loss-investigation.md)
 
 ---
 

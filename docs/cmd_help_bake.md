@@ -4,7 +4,7 @@
 Snapshot + consolidation into per-feature hydration memory.
 
   [no param]  1. Update section checkmarks in the current feature file.
-              2. Consolidate sections (criteria C1–C12 below): fold-done, trim-empty,
+              2. Consolidate sections (criteria C1–C13 below): fold-done, trim-empty,
                  split, merge, rename-normalize.
               3. Update the feature's row in the ## Feature Summaries table in
                  GLOBAL_CONTEXT.md (recompute one_liner if needed, bump modified date).
@@ -14,7 +14,7 @@ Snapshot + consolidation into per-feature hydration memory.
                  ~200-word micro-state summary (state, target files, next step).
               6. Prune the ## Focus History stack in GLOBAL_CONTEXT.md beyond cap 10.
               7. Prompt user to clear the workspace.
-              Also triggered automatically by closing phrases (done, goodbye, etc.).
+              Runs only on explicit invocation — nothing triggers it implicitly.
 
   Section criteria (canonical):
   C1 Cohesion — one section = one bounded theme.

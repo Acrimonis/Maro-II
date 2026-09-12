@@ -71,7 +71,7 @@ case, so **not** a casing offender, only a mis-namespaced one), is left alone by
    - [`docs/ui-drawer-guidelines.md`](../../docs/ui-drawer-guidelines.md:152) (`:152-153,207-210,245-246,269-312,330-335,386`).
    - [`docs/ui-lists-guidelines.md`](../../docs/ui-lists-guidelines.md:239) (`:239-240,304,318,344,409-411,437-439`).
    - [`xTrack/Ui_Menu/FEAT_DOC_Ui_Menu_decisions.md`](../Ui_Menu/FEAT_DOC_Ui_Menu_decisions.md:25) (`:25-26`) and
-     [`plans/wizard-drawerslot-separation-plan.md`](../../plans/wizard-drawerslot-separation-plan.md:36).
+     [`xTrack/Markers/260625_FEAT_PLN_Markers_wizard-drawerslot-separation.md`](../Markers/260625_FEAT_PLN_Markers_wizard-drawerslot-separation.md:36).
    - Then grep for residual `uiSettings` / `ui.settings` text.
 5. **[`docs/color-scheme.md`](../../docs/color-scheme.md)** — re-sync listed `ui.settings.*` keys.
    ⚠️ [`docs/color-scheme.md:278`](../../docs/color-scheme.md:278) already lists a **stale**

@@ -1,15 +1,17 @@
 <!-- scope: reference -->
 ## Git — workflow shortcuts
 
-Convenience wrappers over standard git. **🔴 See [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md) for the Hard Rule — `#merge`/`#push`/`#commit` refuse on `develop`/`main`.**
+Convenience wrappers over standard git. **🔴 See [`docs/GIT_WORKFLOW.md`](GIT_WORKFLOW.md) for the Hard Rule — `#merge`/`#push`/`#commit` refuse on `develop`/`main`.**
 
   #new [branch_name]       fetch `origin/develop`, checkout `-b feature/[branch_name]` tracking it.
-  #commit             #bake + git add -A && git commit. ALWAYS prompts for confirmation
+  #commit             git add -A && git commit. Offers a bake first when the active feature's
+                      state moved since its last bake. Always asks before committing
                       — even when chained. 🚫 refuses on develop/main.
-  #push               git push origin [current-branch]. 🚫 refuses on develop/main.
+  #push               git push origin [current-branch]. Asks for confirmation. 🚫 refuses on develop/main.
   #move [branch_name]      stash → switch (existing) → pop.
   #move new [branch_name]  stash → create 'feature/[branch_name]' from origin/develop → pop.
   #cherry [target]    list unpushed commits, interactive pick to cherry-pick to [target].
+                      Asks for confirmation.
   #copy [target]      alias for #cherry.
   #rename [branch]    git branch -m [branch].
   #merge              Smart sync from origin/develop into current feature branch:

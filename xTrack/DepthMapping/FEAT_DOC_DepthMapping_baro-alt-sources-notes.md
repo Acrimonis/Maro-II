@@ -1,7 +1,7 @@
 <!-- scope: feature -->
 # BARO — Alternative Bathymetry Sources (finer than HOMONIM 100m)
 
-> **Parent**: [BARO - Step 01 - Data sources discussion](plans/BARO - Step 01 - Data sources discussion.md)
+> **Parent**: [FEAT_DOC_DepthMapping_baro-data-sources-discussion.md](FEAT_DOC_DepthMapping_baro-data-sources-discussion.md)
 > **Context**: HOMONIM NM at 0.001° (~100m) is too coarse for scuba diving site identification (10–80m range). We need resolution in the 10–30m range to identify reef structures, drop-offs, wrecks, and pinnacles.
 > **Status**: Research phase — 2026-06-01
 

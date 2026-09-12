@@ -2,7 +2,7 @@
 name: WorkflowImprovement
 status: active
 created: 2026-06-03 00:00
-modified: 2026-09-11 19:52
+modified: 2026-09-12 09:36
 ---
 
 # Feature: WorkflowImprovement
@@ -34,7 +34,8 @@ Git command shortcuts: #new / #checkout / #commit / #push / #move / #cherry·#co
 - `.claude/skills/xtrack/references/templates.md` — file templates
 
 ## Docs
-- `docs/cmd_help.md` — command reference summary table
+- `xTrack/WorkflowImprovement/260912_FEAT_PLN_WorkflowImprovement_docs-integrity.md` — docs & rulebook integrity pass (registry single-sourcing, `plans/` removal, `#doctor` checks a–p)
+- `docs/cmd_help.md` — derived printed view of §7b
 - `docs/cmd_help_now.md` — #now / #list detail
 - `docs/cmd_help_status.md` — #status / #status diff detail
 - `docs/cmd_help_track.md` — #track detail
@@ -53,20 +54,19 @@ Git command shortcuts: #new / #checkout / #commit / #push / #move / #cherry·#co
 - `xTrack/WorkflowImprovement/260608_FEAT_PLN_WorkflowImprovement_planning.md` — Zero-Piecemeal Writes discussion exception design
 - `xTrack/WorkflowImprovement/260609_FEAT_PLN_WorkflowImprovement_feat-summary-layer.md` — FEAT_ summary layer token optimization discussion
 - `xTrack/WorkflowImprovement/260609_FEAT_PLN_WorkflowImprovement_xtrack-reorg.md` — xTrack FEAT_* file reorganization implementation spec
-- `xTrack/WorkflowImprovement/FEAT_DOC_WorkflowImprovement_profile.md` — feature profile doc
 - `xTrack/WorkflowImprovement/260620_FEAT_PLN_WorkflowImprovement_core-directives-promotion.md` — Core Directives promotion implementation plan
 - `xTrack/WorkflowImprovement/260620_FEAT_PLN_WorkflowImprovement_hard-rules-enforcement.md` — Hard rules enforcement discussion
 - `xTrack/WorkflowImprovement/260617_FEAT_PLN_WorkflowImprovement_merge-conflict-resolution.md` — AI-assisted #merge conflict resolution spec
 - `xTrack/WorkflowImprovement/260617_FEAT_PLN_WorkflowImprovement_cmd-dispatch-refactor.md` — Command lookup dispatch refactor plan
 - `xTrack/WorkflowImprovement/260617_FEAT_PLN_WorkflowImprovement_agents-md-optimization-plan.md` — AGENTS.md optimization pass findings
 - `xTrack/WorkflowImprovement/260617_FEAT_PLN_WorkflowImprovement_newtask-delegation.md` — new_task delegation: Architect → Code without mode switch
-- `plans/plan-migration-plan.md` — Plan-to-FEAT_PLN_ bulk migration plan (62 files)
 - `xTrack/Documentation/260610_FEAT_PLN_Documentation_git-merge-command.md` — Git merge command design
 - `xTrack/WorkflowImprovement/260628_FEAT_PLN_WorkflowImprovement_merge-strategy.md` — #merge hybrid strategy: pre-flight + trivial/non-trivial classification + auto-select + #implement pipeline
 - `xTrack/WorkflowImprovement/260628_FEAT_PLN_WorkflowImprovement_trunk-to-leaf.md` — AGENTS.md trunk-to-leaf token optimization: deduplicate, condense, Lazy-Load Index
 
 ## Implemented
 
+- **docs & rulebook integrity pass (2026-09-12, `feature/wrKFl`)** — registry single-sourced (AGENTS.md §7b normative; `cmd_help.md` stamped derived; `GIT_WORKFLOW.md` demoted to git detail, `## OwnedFiles` mechanism retired), `#checkout` de-registered and `#list` given its missing page, `#bake` explicit-only with `#commit` offering a stale-bake first (a `Last Bake` stamp added to the FEAT_HYD template), tiered git confirmation policy, `plans/` and `docs/oZer/` deleted (3 plan re-homes incl. the new **Tasker** feature, 5 research re-homes, 2 deletions), README pointer-ised with GDAL moved into SETUP, MARO_ARCHITECTURE plus seven docs audited, `#doctor` extended to checks a–p → `xTrack/WorkflowImprovement/260912_FEAT_PLN_WorkflowImprovement_docs-integrity.md`
 - **GLOBAL_CONTEXT.md rules migration (2026-09-11)** — GLOBAL_CONTEXT.md reduced to state-only (`## Global Rules`, `## Global Instructions`, `## Always-Loaded Context` removed after bullet-by-bullet triage, not bulk deletion); rules consolidated into AGENTS.md — new §9 Environment & Tooling, QUESTIONS directive, MODE LOCK anti-`#implement` clause, §7a state-only invariant, `#rule global` retargeted to Core Directives; downstream sync (`cmd_help_rule`, `cmd_help_doctor` lint, `templates.md`, `cmd_help_implement` dead pointer) → `xTrack/WorkflowImprovement/260911_FEAT_PLN_WorkflowImprovement_global-context-rules-migration.md`
 - **hard rules — Core Directives promotion (2026-06-20)** — 10 rules to prefix-cache zone, §5 git ops hardened, #doctor check (j) → `xTrack/WorkflowImprovement/260620_FEAT_PLN_WorkflowImprovement_core-directives-promotion.md`
 - **AGENTS.md token optimization (2026-06-20)** — 207→149 lines, §7b collapsed to table → `xTrack/WorkflowImprovement/260620_FEAT_PLN_WorkflowImprovement_agents-md-optimization.md`

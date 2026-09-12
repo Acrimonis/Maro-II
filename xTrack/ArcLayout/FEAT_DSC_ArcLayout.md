@@ -7,7 +7,7 @@ modified: 2026-09-06 21:19
 
 **Description:** Replace the two isolated layer toggle buttons on the map's right-edge control stack with a single anchor button that fans out into a pure-Compose arc menu to the left, exposing 4 layer toggles (low depth warning, 300m zone, depth layer, regulated zones) as a cohesive multi-toggle control.
 
-**Reference:** [`plans/arclayout-feature-plan.md`](../../plans/arclayout-feature-plan.md)
+**Reference:** [`260613_FEAT_PLN_ArcLayout_feature-plan.md`](260613_FEAT_PLN_ArcLayout_feature-plan.md)
 
 ## Sections
 
@@ -41,10 +41,10 @@ FanLayout framework (θ-parameterized, parent-at-center, equidistance) ported th
 - `app/src/main/java/ykws/android/maro/ui/map/ArcLayoutToggle.kt`
 
 #### Docs
-- `plans/arclayout-button-analysis.md` — original analysis
-- `plans/fanlayout-extension-discussion.md` — toggle + badge + animation design
-- `plans/fanlayout-equidistance-rule.md` — equidistance geometry rule
-- `plans/fanlayout-child-centering-rule.md` — child button centering design rule
+- `260614_FEAT_PLN_ArcLayout_button-analysis.md` — original analysis
+- `260614_FEAT_PLN_ArcLayout_extension-discussion.md` — toggle + badge + animation design
+- `260614_FEAT_PLN_ArcLayout_equidistance-rule.md` — equidistance geometry rule
+- `260614_FEAT_PLN_ArcLayout_child-centering-rule.md` — child button centering design rule
 
 ## Implemented
 
@@ -53,7 +53,7 @@ FanLayout framework (θ-parameterized, parent-at-center, equidistance) ported th
 - **control-stack-button-swap** — moved Add Zone (add-marker) button above the layer FanLayout in the main-screen control stack (MapScreen.kt), so the fan sits below the add-marker control
 
 ## Rules
-- Keep the plan at `plans/arclayout-feature-plan.md` as the single source of truth for design decisions
+- Keep the plan at `260613_FEAT_PLN_ArcLayout_feature-plan.md` as the single source of truth for design decisions
 - No library dependencies — pure Compose custom layout
 
 ## Docs

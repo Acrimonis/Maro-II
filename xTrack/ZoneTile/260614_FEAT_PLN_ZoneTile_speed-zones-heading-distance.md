@@ -20,7 +20,7 @@ The card currently shows:
 
 ### What's needed (heading-ahead)
 
-Per the [speed-zones-design.md](../plans/speed-zones-design.md) §3, heading is available from:
+Per the [speed-zones-design.md](260614_FEAT_PLN_ZoneTile_speed-zones-design.md) §3, heading is available from:
 - **GPS mode**: GPS COG (course over ground) or compass azimuth fallback
 - **Demo mode**: pan velocity direction (bearing between successive `computeDemoSpeed()` calls)
 

@@ -50,7 +50,7 @@ The header row (back button + "Settings" title) stays pinned above the tabs — 
 | Tab selection | `rememberSaveable { mutableIntStateOf(0) }` | Survives overlay dismiss/reopen, survives config change |
 | Scroll state per tab | 3x hoisted `ScrollState` at `MapScreen` level (alongside existing `settingsScrollOffset`) | Session-only, resets on app restart |
 
-The existing session scroll persistence (hoisted [`ScrollState`](plans/settings-scroll-persistence.md)) is extended per-tab: instead of one scroll state, hold 3 — one per tab, hoisted to [`MapScreen`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:159) alongside `showSettings`.
+The existing session scroll persistence (hoisted [`ScrollState`](260609_FEAT_PLN_Ui_Settings_scroll-persistence.md)) is extended per-tab: instead of one scroll state, hold 3 — one per tab, hoisted to [`MapScreen`](app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:159) alongside `showSettings`.
 
 ## Implementation steps
 

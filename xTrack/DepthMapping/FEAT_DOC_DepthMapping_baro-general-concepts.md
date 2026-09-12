@@ -83,7 +83,7 @@ BARO extends Maro II with **real-time depth information** (0–80 m) overlaid on
 | Archive | Source | Resolution | Depth Range | Coverage | Role |
 |---------|--------|------------|-------------|----------|------|
 | `1060_6310.7z` | SHOM Litto3D PACA | 1 m (LIDAR) | 0–10 m | Coastal strip, very nearshore | Ground collision + anchoring |
-| ~~`MNT_FACADE_GDL-CA_HOMONIM_NM.7z`~~ | ~~SHOM HOMONIM NM~~ | ~~~100 m~~ | ~~0–80+ m~~ | ❌ **Dropped 2026-06-01** — too coarse (100m) for dive site identification. See [alternative sources](plans/BARO - alternative sources finer than HOMONIM.md). |
+| ~~`MNT_FACADE_GDL-CA_HOMONIM_NM.7z`~~ | ~~SHOM HOMONIM NM~~ | ~~~100 m~~ | ~~0–80+ m~~ | ❌ **Dropped 2026-06-01** — too coarse (100m) for dive site identification. See [alternative sources](FEAT_DOC_DepthMapping_baro-alt-sources-notes.md). |
 
 > **Note**: HOMONIM files removed from `data/`. We are now researching finer alternatives: Sentinel-2 SDB (10m, 0–25m), SHOM coastal MNT (25–50m), and Navionics SonarChart (1–30m).
 
@@ -115,7 +115,7 @@ BARO extends Maro II with **real-time depth information** (0–80 m) overlaid on
 | **Litto3D tile coverage gap** | The tile `1060_6310` covers only ~28 km² around Antibes/Golfe-Juan. To cover the full app coastline zone (Cannes→Menton), dozens more tiles are needed from SHOM. | Critical |
 | **Depth sign convention** | Litto3D: positive = altitude; HOMONIM: negative = depth. Must normalize to a single convention. | Medium |
 
-See [BARO - Step 01 - Data sources discussion](plans/BARO - Step 01 - Data sources discussion.md) for exhaustive analysis.
+See [FEAT_DOC_DepthMapping_baro-data-sources-discussion.md](FEAT_DOC_DepthMapping_baro-data-sources-discussion.md) for exhaustive analysis.
 
 ---
 
@@ -164,11 +164,10 @@ BathymetryViewModel
 
 ## 7. Related Documents
 
-- [BARO - Step 01 - Data sources discussion](plans/BARO - Step 01 - Data sources discussion.md) *(pending)*
-- [BARO - gathering of data from public publications](plans/BARO - gathering of data from public publications.md) *(pending)*
-- [Phase 1 Complete Summary](plans/phase1-complete-summary.md) — existing coastline pipeline reference
-- [Coastline migration design](plans/coastline-migration-design.md) — Protobuf cache pattern
-- [Distance to shore](plans/distance-to-shore.md) — spatial query patterns
+- [FEAT_DOC_DepthMapping_baro-data-sources-discussion.md](FEAT_DOC_DepthMapping_baro-data-sources-discussion.md) — Step 01 data-source analysis
+- [FEAT_DOC_DepthMapping_baro-alt-sources-notes.md](FEAT_DOC_DepthMapping_baro-alt-sources-notes.md) — sources finer than HOMONIM
+- [Coastline protobuf cache plan](../Coastline/260529_FEAT_PLN_Coastline_protobuf-cache-plan.md) — Protobuf cache pattern
+- [Distance to shore](../Coastline/260529_FEAT_PLN_Coastline_distance-to-shore.md) — spatial query patterns
 
 ---
 

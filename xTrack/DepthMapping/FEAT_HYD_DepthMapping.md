@@ -15,7 +15,7 @@
 - `DepthPrebakeTest` then parses both sources → `mergeDeep` + `mergeShallowShoalest` → produces combined `.bin`
 
 ## Files Changed
-- `plans/litto3d-regression-analysis.md` — created (regression analysis doc)
+- `xTrack/DepthMapping/260610_FEAT_PLN_DepthMapping_litto3d-regression-analysis.md` — created (regression analysis doc)
 - `xTrack/DepthMapping/FEAT_DSC_DepthMapping.md` — attached analysis doc to ## Docs
 
 ## Next Step

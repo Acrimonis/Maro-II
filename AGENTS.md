@@ -6,15 +6,20 @@
 
 # Core Directives & Communication Style
 
-- **🎯 DIRECT RESPONSE: Answer only what was asked, then stop.**
-  DO NOT suggest next steps, ask follow-ups, or extend the conversation.
-  EXCEPTION: IF the prior interaction reached natural conclusion
-  (user said "done", "goodbye", "that's all", or topic clearly exhausted) →
-  THEN you MAY add 1 high-level future-direction bullet at the very end.
+## Output Contract
 
-- **🗣️ CONCISE: Minimum viable communication.**
-  Say what must be said — nothing more. Zero fluff, zero extrapolation,
-  zero speculative prose. IF a sentence doesn't carry signal → cut it.
+- **🎯 Answer only what was asked, then stop.** No next steps, no follow-ups, no extending the
+  conversation. EXCEPTION: once the interaction has reached natural conclusion (user said "done",
+  "goodbye", or the topic is clearly exhausted) → you MAY add 1 high-level future-direction bullet
+  at the very end.
+- **🗣️ Minimum viable communication.** Say what must be said — nothing more. Zero fluff, zero
+  extrapolation, zero speculative prose. IF a sentence doesn't carry signal → cut it.
+- **📋 Summarize only what changed.** If the tool output already answered the request, emit only
+  `"Done."` When the task involved multi-step changes or non-obvious decisions → emit:
+  1. Bullet list of what changed (files touched, logic altered, config).
+  2. ELIJP (ELIJP = "Explain Like I'm a Junior Programmer") — one or two plain-language sentences
+     explaining the *purpose* of the change. Strip Android/Kotlin jargon where possible.
+     IF a Java-backend analogy maps cleanly → use it.
 
 - **⛔ SCOPE LOCK: Zero scope creep.**
   IF the prompt doesn't explicitly request it → do NOT implement it.
@@ -41,8 +46,7 @@
   `git merge`, or `git rebase` without the user's explicit, unambiguous go-ahead.**
   Committing inside `new_task(Code)` subtasks is NOT exempt. `git add` may be used to stage when preparing a `#commit`; do not stage preemptively.
   **Read-only git queries (`git status`, `git log`, `git branch`, `git diff`, `git fetch`) are always permitted in any mode.**
-  **Exception:** `#commit`, `#push`, `#merge`, and all git-related `#`-commands are self-contained confirmations — the user's explicit invocation of the command constitutes the go-ahead. No additional confirmation prompt is required.
-- **Read-only git queries (`git status`, `git log`, `git branch`, `git diff`, `git fetch`) are always permitted in any mode.**
+  **Exception:** git-related `#`-commands are self-contained confirmations — the explicit invocation is the go-ahead. `#commit`, `#push`, `#merge` and `#cherry` still ask before acting, even when chained; `#new`, `#move`, `#move new` and `#rename` do not.
 
 - **🔴 ABSOLUTE RULE: NEVER write to `develop` or `main` — no pushes,
   no force-pushes, no reverts, no direct commits, no local merges into them.
@@ -64,13 +68,6 @@
 - **🪲 DEVICE LOGCAT WORKFLOW: If a debug session needs on-device logcat evidence, do NOT capture it unprompted.
   ASK the user to deploy the build and perform the operation, then WAIT — fetch the logcat only once the user tells you to (the user drives the device; the agent pulls the evidence on command).
 
-- **📋 TASK COMPLETION:** If the tool output already answered the request, emit only `"Done."` — do not re-describe what was already displayed. Summarize only when multi-step changes, code modifications, or non-obvious decisions occurred. IF the task involved multi-step changes → emit:
-  1. Bullet list of what changed (files touched, logic altered, config).
-  2. ELIJP explanation (ELIJP = "Explain Like I'm a Junior Programmer") — one or
-     two plain-language sentences explaining the *purpose* of the change.
-     Strip Android/Kotlin jargon where possible.
-     IF a Java-backend analogy maps cleanly → use it.
-
 - You may challenge ideas, but defer to my judgement.
 
 - **Explain/Discuss Gate:** Prompt ending with "explain"/"discuss" → discussion only,
@@ -78,30 +75,32 @@
   the discussion; (b) `#focus`/`#focus [name] [section]` permitted during discussion.
 
 # Developer Profile & Architectural Translation
-- User: Senior Java backend dev → Android/Kotlin. Map ViewModels/Repos ↔ Spring Beans/Services, StateFlow ↔ reactive streams. Highlight idiomatic Kotlin (coroutines, data classes, functional collections).
-- **Async Rule:** Kotlin Coroutines + Flow only — no raw threads or executors.
+- User: Senior Java backend dev → Android/Kotlin. Map ViewModels/Repos ↔ Spring Beans/Services, StateFlow ↔ reactive streams.
 
-# 1. MAD Replication — port legacy → Compose + ViewModel + StateFlow + Coroutines/Flow. Never copy-paste legacy.
+# 1. Code Practice — write idiomatic Kotlin for this codebase; never copy-paste from elsewhere.
+- **Async:** Coroutines + Flow only — no raw threads or executors.
+- **Idioms:** data classes for state, immutable collections, functional transforms over manual loops, `val` unless mutation is required.
+- **No copy-paste:** adapting code means rewriting it into this project's patterns and naming — never pasting a block and patching it.
 
-# 2. Greenfield Extraction — (1) pure Kotlin domain, (2) ViewModel+StateFlow/Coroutines, (3) stateless Compose UI.
+# 2. Architecture Layering — pure Kotlin domain → ViewModel + StateFlow/coroutines → stateless Compose UI.
 
-# 3. Token Optimization — prefer bulk writes and strict context isolation; targeted follow-up patches allowed. See Core Directives WRITE-ONCE + CONCISE.
+# 3. Token Optimization — prefer bulk writes and strict context isolation; targeted follow-up patches allowed. See Core Directives: WRITE-ONCE + the Output Contract.
 
 # 4. Loop Control — max 3–5 autonomous loops per task. Two consecutive build failures → halt. New deps/libs → approval first.
 
-# 5. Git Operations — see Core Directives above + `docs/GIT_WORKFLOW.md`. Feature work on `feature/*`; merge to `develop`/`main` via PR only.
-- **🔴 NO GIT EDITOR: Never open an interactive editor for git commands.** Always use `-m "message"` for commits, `--no-edit` for rebases/merges, and `-S` (signoff) or other flags as needed. If a git command would spawn vim/nano, it must be re-run with the appropriate non-interactive flag. Applies to all modes, all tasks, all agents.
+# 5. Git Operations — see the `#merge` / `#push` / `#commit` rows in §7b, the Core Directives above, and `docs/GIT_WORKFLOW.md` for detail.
+- **🔴 NO GIT EDITOR: Never open an interactive editor for git commands.** Always use `-m "message"`, `--no-edit`, and non-interactive flags; if a command would spawn vim/nano, re-run it with them. Applies to all modes, all tasks, all agents.
 
 # 6. Spatial Engine — see `docs/MARO_ARCHITECTURE.md`.
 
 # 7a. xTrack — Stack, Bootstrap & Lifecycle
-- **Memory Stack:** Context footprint: `xTrack/` (features) + `GLOBAL_CONTEXT.md` (routing), `xTrack/[Feature]/FEAT_DSC_[Feature].md` (epics), `xTrack/[Feature]/FEAT_HYD_[Feature].md` (session state). Auto-create on first `#track`/`#focus`.
+- **Memory Stack:** Context footprint: `xTrack/` (features) + `GLOBAL_CONTEXT.md` (routing), `xTrack/[Feature]/FEAT_DSC_[Feature].md` (epics), `xTrack/[Feature]/FEAT_HYD_[Feature].md` (session state, written by `#bake`). The feature directory + `FEAT_DSC_` are auto-created on first `#track`/`#focus`; `FEAT_HYD_` appears at first `#bake`.
 - **Sections:** Feature files group work under `### [Section]` headings (no subfeature state). Keep a section only while it holds an open todo, a retained rule, or a doc/key-file mapping; `#bake` folds the rest into `## Implemented` (one-liner + plan pointer; planless = bare one-liner). Full criteria in `docs/cmd_help_bake.md`.
 - **Focus History:** `GLOBAL_CONTEXT.md` keeps an append-only newest-first stack (cap 10) of `[timestamp] [Feature] — one-liner → FEAT_HYD_[Feature].md`. Top = current focus. `#focus` pushes; `#bake` prunes.
-- **🔴 PLAN FILE PLACEMENT: All `FEAT_PLN_*.md`, `FEAT_DOC_*.md`, and feature-scoped design files MUST be created in `xTrack/[Feature]/` — NEVER in `plans/`.** The `plans/` directory is a legacy landing zone; new plan files go directly to the feature directory with proper `YYMMDD_FEAT_PLN_[Feature]_[topic].md` naming.
+- **🔴 PLAN FILE PLACEMENT: All `FEAT_PLN_*.md`, `FEAT_DOC_*.md` and feature-scoped design files MUST be created in `xTrack/[Feature]/`, named `YYMMDD_FEAT_PLN_[Feature]_[topic].md`.**
 - **🔴 GLOBAL_CONTEXT.md IS STATE-ONLY:** it carries the routing map, feature summaries, focus history, global todos and the doc index — never rules, instructions or process specs. All rules live in this file; the `#rule` `global` target appends to Core Directives above.
 - **Feature scoping:** Route docs, key files and todos to the owning feature. Keep feature files lean — `## Docs` for references, `## Key Files` for source paths.
-- **Always-loaded (prefix-cache zone):** `AGENTS.md`, `xTrack/GLOBAL_CONTEXT.md`, `.claude/skills/xtrack/SKILL.md`. Keep these three small and free of duplication.
+- **Always-loaded (prefix-cache zone):** `AGENTS.md`, `xTrack/GLOBAL_CONTEXT.md`. Keep both small and free of duplication.
 - **Turn 1 Protocol:** Self-contained request → answer directly. Ambiguous/continuing work → read `GLOBAL_CONTEXT.md`, match intent against Routing Map, open matching feature file + hydration. No match → ask scoping question.
 
 # 7b. xTrack — Command Reference
@@ -114,26 +113,25 @@ Intercept `#`-prefix. All name lookups use fuzzy-resolve cascade (exact → subs
 | `#list` | Dashboard of all features from GLOBAL_CONTEXT.md Feature Summaries table — includes Summary and Modified columns, sorted by Modified desc. Alias: `#features` |
 | `#focus [name]` | Pivot active feature (push Focus History entry); bare=prompt pick. Optional `#focus [name] [section]` hydrates only that section |
 | `#track [name]` | Create new feature file + GLOBAL_CONTEXT.md routing/summary rows |
-| `#bake` | Snapshot + consolidation: checkmarks, section rules (fold-done, trim-empty, split, merge, rename-normalize), feature summary, front-matter date, hydration, prune Focus History > 10 |
+| `#bake` | Snapshot + consolidation: checkmarks, section rules (fold-done, trim-empty, split, merge, rename-normalize), feature summary, front-matter date, hydration, prune Focus History > 10. Fires only on explicit invocation |
 | `#todo` | Bare=list, `[desc]`=append, `[target]:[desc]`=cross-feature. Same 3-tier for `#rule` |
 | `#rule` | Same 3-tier as `#todo`. `global` → appends to this file's Core Directives; parent/feature/section → the feature file |
 | `#doc` | Sub-commands: create, list, read, attach, detach, audit, update. Docs attach to `## Docs` |
 | `#status` | Dashboard of active/named feature (reads top Focus History entry). `#status diff` for changes since last bake |
 | `#now` | Lightweight orientation: top Focus History entry (feature), CWD, Last Bake. Aliases: `#context`, `#here`, `#feat`, `#feature` |
 | `#help [cmd]` | Scan `docs/cmd_help_*.md` filenames, fuzzy-resolve `[cmd]` against stem, read match. Bare=print reference table |
-| `#doctor` | Lint xTrack (a-j checks); `#doctor fix` auto-repairs safe classes |
+| `#doctor` | Lint xTrack (checks a–p); `#doctor fix` auto-repairs safe classes |
 | `#merge` | Pre-flight analysis → trivial/non-trivial classification → auto-select rebase/merge → confirm (yes for direct, `#implement` for full validation pipeline). Push + PR link. **Never touches `develop`/`main`.** |
 | `#implement` | Pipeline: Code→implement+build → Ask→review → Architect→report+## Implemented |
 | `#new [branch]` | Create `feature/[branch]` from `origin/develop` |
-| `#checkout [branch]` | Switch to existing branch; `#checkout new [branch]` creates + switches |
-| `#commit` | `#bake` + `git add -A && git commit` (always prompts confirm) |
-| `#push` | Push current branch to origin. Refuses on `develop`/`main` |
+| `#commit` | Stage + commit; if the active feature's `xTrack/[Feature]/` state has moved since its hydration baseline, offer a bake first. Asks before committing |
+| `#push` | Push current branch to origin. Asks before pushing. Refuses on `develop`/`main` |
 | `#move [branch]` | Stash → switch → pop (existing branch) |
 | `#move new [branch]` | Stash → create `feature/[branch]` from `origin/develop` → pop |
 | `#cherry [target]` | Interactive cherry-pick of unpushed commits (alias: `#copy`) |
 | `#rename [branch]` | Rename current branch via `git branch -m` |
 
-Full detail per command in `docs/cmd_help_*.md` — loaded by `#help`. See `docs/cmd_help.md` for the complete reference table.
+Full detail per command in `docs/cmd_help_*.md` — loaded by `#help`. `docs/cmd_help.md` is a derived printed view of §7b.
 
 # 8. Mode Handoff Protocol — all modes return control to Architect on completion.
 
@@ -173,6 +171,7 @@ Load these only when the task domain matches:
 | Spatial, bathymetry, depth, coastline | `docs/MARO_ARCHITECTURE.md` |
 | UI components, layouts, theme | `docs/ui-component-guidelines.md` |
 | Drawers, bottom sheets, overlays | `docs/ui-drawer-guidelines.md` |
+| Lists, filters, swipe actions, multiselect | `docs/ui-lists-guidelines.md` |
 | Color tokens, theming, palette | `docs/color-scheme.md` |
 | Material Symbols icons (standalone) | `docs/material-icons-standalone-guide.md` |
 | Git workflow, merge strategy, conflicts | `docs/GIT_WORKFLOW.md` |

@@ -1,4 +1,5 @@
 <!-- scope: reference -->
+<!-- derived from AGENTS.md §7b — regenerate from it; do not hand-edit -->
 View:     #now                 current context: active feature + working path (top Focus History entry) [alias #context #here #feat #feature]
           #list                compact feature table with Modified column, sorted by Modified desc (from GLOBAL_CONTEXT.md summaries) [alias #features]
           #status              feature details (active = top Focus History entry)
@@ -24,10 +25,9 @@ Docs:     #doc                 feature docs (scope-aware)
 Session:  #bake                snapshot + consolidation (checkmarks, section fold/trim/split/merge, summaries table, FEAT_HYD_, prune Focus History > 10)
           #help                this list
 Pipeline: #implement           full pipeline: Code → build → Ask review → Architect report
-Git:      🔴 See [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md) for full rules + enforcement.
+Git:      🔴 See [`docs/GIT_WORKFLOW.md`](GIT_WORKFLOW.md) for full rules + enforcement.
            #new [branch]        create `feature/[branch]` from origin/develop
-           #checkout [branch]   switch to existing branch; #checkout new [branch] creates + switches
-           #commit              bake + add + commit. ALWAYS prompts confirm. 🚫 refuses on develop/main.
+           #commit              stage + commit; offers a bake first when the feature moved since its last bake. Asks confirm. 🚫 refuses on develop/main.
            #push                push current branch. 🚫 refuses on develop/main.
            #move [branch]       stash → switch → pop (existing)
            #move new [branch]   stash → create feature/[branch] from develop → pop

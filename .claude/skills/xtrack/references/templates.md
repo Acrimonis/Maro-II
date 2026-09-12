@@ -34,11 +34,18 @@ on first `#bake` of a feature.
 ## Global Todos
 
 - [ ] [cross-cutting todo]
+
+## Cross-Reference Docs
+Docs available via `#doc read [name]` from any feature. Fuzzy-resolve searches this table.
+
+| Doc | Owner Feature | One-Liner |
+|-----|---------------|-----------|
+| `[doc-name].md` | [Feature] | [one-liner] |
 ```
 
 ---
 
-## `xTrack/FEAT_DSC_[Name].md`
+## `xTrack/[Feature]/FEAT_DSC_[Name].md`
 
 A YAML front-matter header (machine-readable: status, dates) followed by
 the prose body. The `one_liner` lives in the
@@ -82,9 +89,6 @@ modified: [YYYY-MM-DD HH:mm]   # equals created on #track; bumped by #bake when 
 ## Key Files
 - `path/to/source` — [brief description]
 
-## OwnedFiles
-- `path/to/source` — [brief description why feature owns this]
-
 ## Docs
 - `FEAT_DOC_[Feature]_[name].md` — [brief description]
 
@@ -108,6 +112,8 @@ the next session can resume cold. Keep it tight and transactional — not a chan
 
 ```markdown
 # Context Hydration — [Feature] — [YYYY-MM-DD]
+
+**Last Bake:** [YYYY-MM-DD HH:mm UTC] — written by `#bake`; absence means never baked
 
 ## State
 [2-4 sentences: what compiles, what's in progress, current statuses.]
@@ -138,9 +144,7 @@ Feature-scoped reference documentation (created by `#doc create` when
 ## `YYMMDD_FEAT_PLN_[Feature]_[topic].md`
 
 Feature-scoped plan / design discussion file. **MUST be created in
-`xTrack/[Feature]/` — NEVER in `plans/`.** The `plans/` directory is a legacy
-landing zone; all new plan files go directly to the feature directory.
-The `YYMMDD` prefix is the creation date (from git history or filesystem).
+`xTrack/[Feature]/`.** The `YYMMDD` prefix is the creation date (from git history or filesystem).
 Scope tag is `feature`.
 
 ```markdown

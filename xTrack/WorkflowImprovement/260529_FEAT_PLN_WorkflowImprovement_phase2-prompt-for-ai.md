@@ -146,7 +146,7 @@ After changes:
 
 ## Reference
 
-See [`plans/coastline-persistence-and-optimization-analysis.md`](plans/coastline-persistence-and-optimization-analysis.md) for the full storage format analysis.
+See [`xTrack/Coastline/260529_FEAT_PLN_Coastline_persistence-optimization.md`](../Coastline/260529_FEAT_PLN_Coastline_persistence-optimization.md) for the full storage format analysis.
 
 Git branch: `feature/coastline-generator-bis` — Phase 1 is already merged here.
 

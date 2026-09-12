@@ -39,19 +39,6 @@ Manage documentation attached to a feature scope.
                       ## Docs (or a section's #### Docs).
                       Bare (no name): show current docs and prompt which to detach.
 
-  update              Refresh the active feature's documentation to reflect current
-                      implementation state. Runs a multi-step cleanup:
-                      1. Scan all FEAT_PLN_* files + source code, extract functional
-                         decisions with rationale, group by category
-                      2. Cross-reference plans vs actual source — plans often deviate
-                      3. Create/update FEAT_DOC_[Feature]_decisions.md capturing every
-                         architectural/functional decision with source file references
-                      4. Rewrite ## Implemented as concise current-state bullet groups —
-                         no historical "simplified from" language, just what IS
-                      5. Remove completed [x] todo lists from sections (redundant
-                         with Implemented + decisions doc)
-                      6. Move unchecked items from completed sections to parent ## Todos
-                      7. Strip all deprecated terminology (old state names, stale naming)
-                      8. Remove empty #### Rules, #### Key Files, #### Docs sections
-                      9. Update hydration file, bump modified date, #bake
-                      Target: ~60% line reduction on the feature doc.
+  update              Refresh the active feature's documentation to match current
+                      implementation. Full 9-step pipeline lives in its own page:
+                      docs/cmd_help_doc_update.md

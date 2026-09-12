@@ -156,7 +156,7 @@ The white buttons are the brightest elements on screen.
 | `#FF1A1A2E` (solid outer bg) | Solid, darkest possible | Even flatter against map |
 | Keep white (`#CCFFFFFF`) | High contrast, distinct | Stands out from dark theme |
 
-The existing [`plans/btn-color-harmonization.md`](../plans/btn-color-harmonization.md)
+The existing [`260616_FEAT_PLN_ColorManagement_btn-color-harmonization.md`](260616_FEAT_PLN_ColorManagement_btn-color-harmonization.md)
 covers this direction extensively — including a post-mortem of why
 semi-transparent dark bg failed (§ "Post-Mortem — Why Option A failed").
 
@@ -254,7 +254,7 @@ This discussion covers **fill colours and icon colours only**. The following are
 
 | Document | Coverage |
 |---|---|
-| [`plans/btn-color-harmonization.md`](../plans/btn-color-harmonization.md) | Full harmonization proposal: dark bg + white icons; post-mortem of failed Option A; normalization of all buttons to `MapControlButton` |
-| [`plans/color-props-migration-plan.md`](../plans/color-props-migration-plan.md) | Migration plan to move ALL colours into `colors.properties` (broader scope) |
+| [`260616_FEAT_PLN_ColorManagement_btn-color-harmonization.md`](260616_FEAT_PLN_ColorManagement_btn-color-harmonization.md) | Full harmonization proposal: dark bg + white icons; post-mortem of failed Option A; normalization of all buttons to `MapControlButton` |
+| [`260616_FEAT_PLN_ColorManagement_props-migration.md`](260616_FEAT_PLN_ColorManagement_props-migration.md) | Migration plan to move ALL colours into `colors.properties` (broader scope) |
 | [`docs/color-scheme.md`](../docs/color-scheme.md) | Canonical reference for all colour tokens |
 

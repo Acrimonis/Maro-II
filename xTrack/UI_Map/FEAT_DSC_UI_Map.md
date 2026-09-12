@@ -122,7 +122,6 @@ Manual two-finger map rotation in demo mode, deriving the cap-arrow bearing from
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`, `CoastlineViewModel.kt`, `data/settings/SettingsManager.kt`, `res/values*/strings.xml`
 
 #### Docs
-- `plans/rotate-map-demo-mode-implications.md`
 
 ### decenter-map
 
@@ -183,7 +182,6 @@ explicit values/ViewModels + inline callbacks).
 - `xTrack/UI_Map/260616_FEAT_PLN_UI_Map_overlay-layout-rationalization.md` — Map overlay layout rationalization
 - `xTrack/UI_Map/260612_FEAT_PLN_UI_Map_icon-rendering-overhaul.md` — Icon rendering overhaul
 - `xTrack/UI_Map/260620_FEAT_PLN_UI_Map_decenter-map-discussion.md` — Decenter map design discussion
-- `docs/map-lib-migration-plan.md` — osmdroid → MapLibre GL migration plan
 - `xTrack/UI_Map/260711_FEAT_PLN_UI_Map_map-offset-dynamic-plan.md` — Map offset dynamic plan
 - `xTrack/UI_Map/260712_FEAT_PLN_UI_Map_map-offset-phase2-properties-settings.md` — Map offset phase 2
 - `xTrack/UI_Map/260712_FEAT_PLN_UI_Map_map-offset-scroll-fix-clean.md` — Map offset scroll fix

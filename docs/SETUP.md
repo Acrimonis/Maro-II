@@ -10,7 +10,7 @@ Everything needed to get a development machine ready for Maro II.
 
 | Dependency | Check |
 |-----------|-------|
-| **Java 17+** | `java -version` |
+| **JDK 17+** (Corretto 21 is what `JAVA_HOME` currently points at) | `java -version` |
 | **Android SDK** | `$ANDROID_SDK` must point to a valid SDK with `platforms;android-34` and `build-tools;34.0.0` installed |
 
 ---
@@ -21,7 +21,33 @@ Everything needed to get a development machine ready for Maro II.
 |----------|-------|
 | `ANDROID_SDK` | `C:\Users\nbadino\Programs_nICo\_Dev_\Android_SDK_CLI` |
 | `JAVA_HOME` | `C:\Users\nbadino\.java\corretto-21.0.7` |
-| `GRADDLE_HOME` | `C:\Users\nbadino\Programs_nICo\_Dev_\Graddle` |
+| `GRADLE_HOME` | `C:\Users\nbadino\Programs_nICo\_Dev_\Graddle` |
+
+---
+
+## GDAL
+
+GDAL is needed only to **regenerate** baked data — the app itself never requires it. The bake
+scripts wire it up for the duration of a bake; it does not need to be on the global PATH.
+
+Install (Windows — pick one):
+
+- **Portable (minimal):** from <https://gisinternals.com/release.php> download the **x64 · MSVC 2022 ·
+  latest stable GDAL** "Compiled binaries" zip, extract it, and run `SDKShell.bat` (sets `PATH` +
+  `PROJ_LIB` + `GDAL_DATA`); launch the build from that shell.
+- **conda:** `conda install -c conda-forge gdal`.
+
+**Simplest — one variable:** set **`GDAL_HOME`** = your extracted GDAL root (e.g. `D:\…\GDal`).
+The bake scripts (`tools\gdal_env.bat`) derive `PATH` + `GDAL_DATA` + `PROJ_LIB`/`PROJ_DATA` from it
+automatically (GISInternals layout) — nothing else to configure.
+
+Or put GDAL on `PATH` globally (`<GDAL>` = the root): `PATH` += `<GDAL>\bin` and
+`<GDAL>\bin\gdal\apps`; `GDAL_DATA` = `<GDAL>\bin\gdal-data`; `PROJ_DATA` = `<GDAL>\bin\proj9\SHARE`.
+
+Verify with `gdalwarp --version` and `projinfo EPSG:2154` (the latter confirms PROJ).
+
+> The bakes read the region bounding box from `maro.region.lonWest` / `maro.region.lonEast` in
+> [`gradle.properties`](../gradle.properties) — the single region source of truth.
 
 ---
 

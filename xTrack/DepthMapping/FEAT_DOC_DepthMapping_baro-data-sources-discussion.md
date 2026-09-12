@@ -1,7 +1,7 @@
 <!-- scope: feature -->
 # BARO — Step 01: Data Sources Analysis
 
-> **Parent**: [BARO - general concepts.md](plans/BARO - general concepts.md)
+> **Parent**: [FEAT_DOC_DepthMapping_baro-general-concepts.md](FEAT_DOC_DepthMapping_baro-general-concepts.md)
 > **Status**: Analysis complete — 2026-06-01
 > **Purpose**: Exhaustive technical comparison of the two identified SHOM datasets to inform the data ingestion pipeline design.
 

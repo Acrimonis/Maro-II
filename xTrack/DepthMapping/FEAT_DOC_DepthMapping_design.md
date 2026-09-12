@@ -8,7 +8,7 @@ Design notes for the **DepthMapping** feature epic (codename **BARO**, from
 Cannes → Menton, incl. Îles de Lérins).
 
 Upstream source-of-truth for data sourcing is the prior research under
-[`docs/oZer/`](oZer) (the five `BARO - *.md` notes). **DepthMapping ≡ BARO.** This
+`xTrack/DepthMapping/` (the five `FEAT_DOC_DepthMapping_baro-*.md` notes). **DepthMapping ≡ BARO.** This
 document is the consolidated, API-validated design; the build order and signatures
 live in [DepthMappingPlan.md](DepthMappingPlan.md).
 
@@ -195,4 +195,4 @@ The priority deliverable. A harness usable both **dev-time (JUnit)** and **runti
 | Validation | `data/depth/validation/{ControlPoints,DepthValidator,ValidationReport}.kt` |
 | Scalar contour (shared geometry) | `spatial/SpatialOperations.kt` (`marchingSquaresScalar`) |
 | Render + readout | `ui/map/MapScreen.kt`, `ui/map/DepthViewModel.kt` |
-| Prior research | [`docs/oZer/BARO - *.md`](oZer) |
+| Prior research | [`FEAT_DOC_DepthMapping_baro-general-concepts.md`](FEAT_DOC_DepthMapping_baro-general-concepts.md) |
