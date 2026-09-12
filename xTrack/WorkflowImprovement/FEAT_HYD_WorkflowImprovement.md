@@ -14,4 +14,4 @@ The command-flow design is fully shipped. The Output Contract now carries a coun
 - `xTrack/WorkflowImprovement/260912_FEAT_PLN_WorkflowImprovement_command-flow.md` — the shipped design
 
 ## Next Step
-Commit this pass (the bake is already run), then push `feature/wrKFl` — four commits plus this one. Then the second retirement gate: `docs-integrity` (self-retiring, Outcome already written) and `archive-lifecycle` (unblocked by the first real run). Still deferred: git-shortcut verification, the post-merge `xTrack/` reconcile, the ~198-plan triage and the `#implement` build-only-when-source-changed refinement.
+Both retirement gates have run — nine plans in `xxArchive/` with index rows, seventeen left in the feature folder. Next is a `#bake` to fold the two newly retired entries and refresh this state; pushing `feature/wrKFl` is user-owned, never proposed and never reminded. Still deferred: git-shortcut verification, the post-merge `xTrack/` reconcile, the ~198-plan triage and the `#implement` build-only-when-source-changed refinement.

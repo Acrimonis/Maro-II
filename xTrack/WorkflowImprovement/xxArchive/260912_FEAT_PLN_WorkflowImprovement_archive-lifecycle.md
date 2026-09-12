@@ -85,6 +85,6 @@ The ~198-file backlog triage — a separate effort, run per feature once the mec
 
 Delivered as designed. The design migrated out of the integrity plan (which now keeps only a pointer, so the two cannot drift); `AGENTS.md` gained the §7a `xxArchive/` exclusion and the §7b `#archive` row in a single write; `#doctor` moved to checks **a–r**, adding index↔disk drift, the inverse-leak check and the report-only retirement nudge; `docs/cmd_help_archive.md` was created; `cmd_help.md` and `cmd_help_bake.md` were updated; and `templates.md` gained the `INDEX.md` schema. No scope deviations. Not done, by design: the ~198-file backlog triage.
 
-**Retirement deferred.** By this pass's own lifecycle, a plan whose contract is still load-bearing is promoted rather than archived — and this one defines a mechanism that has not yet been exercised once. It retires only after `#archive` has run for real.
+**Retirement gate met.** By this pass's own lifecycle, a plan whose contract was still load-bearing is promoted rather than archived — and this one defines a mechanism that had not yet been exercised once. It waited only until `#archive` had run for real; that happened on 2026-09-12, when the first pass retired seven files, so the plan now retires.
 
 **Amended after review** — an unresolved walk joins the digest floor as a fourth gate (close / resume / park), recorded here and once in the command-flow plan (rule 5). It lands with that plan's `#walk` step, in the same write as the §7a/C12 single statement and this plan's gate text.

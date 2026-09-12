@@ -7,7 +7,8 @@ Convenience wrappers over standard git. **🔴 See [`docs/GIT_WORKFLOW.md`](GIT_
   #commit             git add -A && git commit. Offers a bake first when the active feature's
                       state moved since its last bake. Always asks before committing
                       — even when chained. 🚫 refuses on develop/main.
-  #push               git push origin [current-branch]. Asks for confirmation. 🚫 refuses on develop/main.
+  #push               git push origin [current-branch]. User-invoked only — the agent never proposes
+                      or reminds. Asks for confirmation. 🚫 refuses on develop/main.
   #move [branch_name]      stash → switch (existing) → pop.
   #move new [branch_name]  stash → create 'feature/[branch_name]' from origin/develop → pop.
   #cherry [target]    list unpushed commits, interactive pick to cherry-pick to [target].

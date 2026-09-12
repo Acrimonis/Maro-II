@@ -33,7 +33,7 @@ Pipeline: #implement           full pipeline: Code → build → Ask review → 
 Git:      🔴 See [`docs/GIT_WORKFLOW.md`](GIT_WORKFLOW.md) for full rules + enforcement.
            #new [branch]        create `feature/[branch]` from origin/develop
            #commit              stage + commit; offers a bake first when the feature moved since its last bake. Asks confirm. 🚫 refuses on develop/main.
-           #push                push current branch. 🚫 refuses on develop/main.
+           #push                push current branch (user-invoked only — never proposed or reminded). 🚫 refuses on develop/main.
            #move [branch]       stash → switch → pop (existing)
            #move new [branch]   stash → create feature/[branch] from develop → pop
            #cherry [target]     interactive cherry-pick unpushed commits

@@ -62,6 +62,10 @@
   the proposal has moved since the question was asked (or if the gate is the final release of the
   action) the gate is re-asked rather than assumed.
 
+- **🔴 PUSH IS USER-OWNED.** Never ask whether to push, never list pushing as a next step, and never
+  remind that commits are unpushed — the user decides when. Commands that push (`#push`, `#merge`)
+  do so only when invoked; proposing one is a workflow violation in every mode.
+
 - **🔴 ABSOLUTE RULE: NEVER write to `develop` or `main` — no pushes,
   no force-pushes, no reverts, no direct commits, no local merges into them.
   Any operation that modifies these branches is forbidden. This rule supersedes
@@ -146,7 +150,7 @@ Intercept `#`-prefix. All name lookups use fuzzy-resolve cascade (exact → subs
 | `#brief` · `#full` | Output mode: subtract the contract's three optional parts (ELIJP, containment blocks, verification lists) or restore them, reporting the resulting mode. Session-lived — `#focus` resets to full |
 | `#new [branch]` | Create `feature/[branch]` from `origin/develop` |
 | `#commit` | Stage + commit; if the active feature's `xTrack/[Feature]/` state has moved since its hydration baseline, offer a bake first. Asks before committing |
-| `#push` | Push current branch to origin. Asks before pushing. Refuses on `develop`/`main` |
+| `#push` | Push current branch to origin. Fires only on explicit invocation — never proposed, never reminded. Asks before pushing. Refuses on `develop`/`main` |
 | `#move [branch]` | Stash → switch → pop (existing branch) |
 | `#move new [branch]` | Stash → create `feature/[branch]` from `origin/develop` → pop |
 | `#cherry [target]` | Interactive cherry-pick of unpushed commits (alias: `#copy`) |
