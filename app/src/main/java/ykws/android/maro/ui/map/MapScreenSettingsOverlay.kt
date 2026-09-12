@@ -1115,6 +1115,7 @@ private fun SystemSettings(
     onDismiss: () -> Unit,
     scrollState: ScrollState
 ) {
+    val settingsVm = androidx.lifecycle.viewmodel.compose.viewModel<SettingsViewModel>()
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -1144,13 +1145,70 @@ private fun SystemSettings(
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
         CardArea {
-            // Keep screen on
+            // Keep screen on — window flag, so this is inherently "while the app is in front".
             ToggleRow(
                 label = stringResource(R.string.settings_keep_screen_on_label),
                 description = stringResource(R.string.settings_keep_screen_on_desc),
                 checked = settings.keepScreenOn,
                 onCheckedChange = { on -> onUpdateSettings { it.copy(keepScreenOn = on) } }
             )
+
+            // Movement gate — additive: with this off the screen is held the whole time the app is
+            // in front (the previous behaviour); with it on the hold follows movement + interaction.
+            Expander(
+                label = stringResource(R.string.settings_screen_gate_label),
+                expanded = settingsVm.isExpanded("screen_gate"),
+                onToggle = {
+                    settingsVm.setExpanded("screen_gate", !settingsVm.isExpanded("screen_gate"))
+                }
+            ) {
+                NestedCard {
+                    ToggleRow(
+                        label = stringResource(R.string.settings_hold_screen_moving_label),
+                        description = stringResource(R.string.settings_hold_screen_moving_desc),
+                        checked = settings.keepScreenOnMovementGate,
+                        onCheckedChange = { on ->
+                            onUpdateSettings { it.copy(keepScreenOnMovementGate = on) }
+                        }
+                    )
+
+                    SectionDivider()
+
+                    SliderRow(
+                        label = stringResource(R.string.settings_screen_speed_threshold_label),
+                        description = stringResource(R.string.settings_screen_speed_threshold_desc),
+                        valueLabel = stringResource(
+                            R.string.settings_screen_speed_threshold_value,
+                            settings.keepScreenOnSpeedThresholdKn
+                        ),
+                        value = settings.keepScreenOnSpeedThresholdKn,
+                        valueRange = 0.5f..5f,
+                        steps = 8,
+                        onValueChange = { v ->
+                            onUpdateSettings { it.copy(keepScreenOnSpeedThresholdKn = v) }
+                        }
+                    )
+
+                    SectionDivider()
+
+                    SliderRow(
+                        label = stringResource(R.string.settings_screen_grace_label),
+                        description = stringResource(R.string.settings_screen_grace_desc),
+                        valueLabel = stringResource(
+                            R.string.settings_screen_grace_value,
+                            settings.keepScreenOnGraceMinutes
+                        ),
+                        value = settings.keepScreenOnGraceMinutes.toFloat(),
+                        valueRange = AppConfig.powerScreenGraceMinMinutes.toFloat()..
+                            AppConfig.powerScreenGraceMaxMinutes.toFloat(),
+                        steps = AppConfig.powerScreenGraceMaxMinutes -
+                            AppConfig.powerScreenGraceMinMinutes - 1,
+                        onValueChange = { v ->
+                            onUpdateSettings { it.copy(keepScreenOnGraceMinutes = v.roundToInt()) }
+                        }
+                    )
+                }
+            }
 
             SectionDivider()
 

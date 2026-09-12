@@ -18,6 +18,7 @@
 | `data/markers/` | User markers CRUD (Pin, Circle, Corridor) | `UserMarkerRepository.kt` |
 | `data/location/` | GPS source, compass, adaptive policy | `GpsLocationSource.kt`, `CompassSource.kt`, `AdaptiveGpsPolicy.kt` |
 | `data/settings/` | SharedPreferences wrapper | `SettingsManager.kt` |
+| `data/power/` | Power management: framework-free screen-hold policy + its Android keeper | `PowerPolicy.kt`, `PowerKeeper.kt` |
 | `spatial/` | Spatial indexing and queries — the computational core | `CoastlineSpatialIndex.kt`, `MarkerMatcher.kt`, `SpeedZoneIndex.kt`, `SpatialOperations.kt`, `Zone300Builder.kt` |
 | `ui/map/` | Compose map screen, overlays, drawers, depth rendering, markers UI | `MapScreen.kt`, `MapControls.kt`, `MapOverlays.kt`, `CoastlineMapView.kt`, `TrackSharing.kt`, `MapOverlayRenderer.kt`, `DepthViewModel.kt`, `DepthBitmap.kt`, `DepthColorRamp.kt`, `OverlayLayer.kt`, `OverlayLayerParams.kt`, `DrawerSlot.kt`, `MarkerOverlay.kt`, `MarkerDrawer.kt`, `MarkersViewModel.kt`, `MarkerManagementOverlay.kt`, `WizardDrawer.kt`, `MenuDrawerOverlay.kt`, `TrackHistoryOverlay.kt`, `RegulatedZoneComponents.kt`, `FanLayout.kt`, `FanConfig.kt`, `NavigationViewModel.kt` |
 | `ui/components/` | Shared UI primitives | `DrawerScaffold.kt`, `ListOverlayScaffold.kt`, `ConfirmDialog.kt`, `IconPickerDialog.kt` |
@@ -36,12 +37,13 @@
 | **Markers** | `data/markers/`, `data/model/markers/`, `spatial/MarkerMatcher.kt`, `ui/map/MarkerOverlay.kt`, `ui/map/MarkerDrawer.kt`, `ui/map/MarkersViewModel.kt`, `ui/markers/wizard/` |
 | **Zone300** | `spatial/Zone300Builder.kt`, `spatial/CoastlineSpatialIndex.kt`, `data/model/Zone300Data.kt` |
 | **GPS** | `data/location/`, `config/AppConfig.kt` (GPS tuning constants) |
+| **Performance** | `data/power/`, `data/location/`, `data/settings/SettingsManager.kt`, `config/AppConfig.kt` |
 | **DepthSafety** | `ui/map/DepthViewModel.kt` (danger depth), `ui/map/LowDepthWarningBitmap.kt` |
 | **ArcLayout** | `ui/map/FanLayout.kt`, `ui/map/FanConfig.kt`, `ui/map/FanIconComponents.kt` |
 | **ZoneTile** | `ui/map/MapOverlayRenderer.kt` (zone tile rendering), `ui/map/RegulatedZoneComponents.kt` |
 | **Ui_Settings** | `data/settings/SettingsManager.kt`, `config/AppConfig.kt` |
 | **Ui_Menu** | `ui/map/MenuDrawerOverlay.kt`, `ui/map/DrawerSlot.kt` |
-| **Ui_General** | `ui/map/MapScreen.kt` (back handler, keep-screen-on), `ui/components/` |
+| **Ui_General** | `ui/map/MapScreen.kt` (back handler), `ui/components/` |
 | **BakeNormalization** | Prebake tools in `app/src/test/` (JUnit prebake tests), `tools/` (bat scripts + GDAL) |
 
 ## Anchor Classes
@@ -70,6 +72,7 @@
 | `MapOverlayRenderer.kt` | `ui/map/` | Renders overlays onto map (depth, zones, tracks, markers) |
 | `SettingsManager.kt` | `data/settings/` | SharedPreferences read/write — all persisted config |
 | `GpsLocationSource.kt` | `data/location/` | GPS location provider (real + demo mode) |
+| `PowerKeeper.kt` | `data/power/` | Power management: gathers the inputs and publishes the screen-hold / keep-alive decision; its pure, framework-free half is `PowerPolicy.kt` |
 
 ## MapScreen Decomposition (2026-09 refactor)
 

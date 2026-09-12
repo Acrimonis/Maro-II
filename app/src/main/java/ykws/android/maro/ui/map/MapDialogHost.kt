@@ -55,7 +55,9 @@ internal fun MapDialogHost(
     applyGpsMode: (Boolean) -> Unit,
     // ── Battery optimization (A4) ──
     showBatteryOptDialog: Boolean,
-    closeBatteryOptDialog: () -> Unit
+    closeBatteryOptDialog: () -> Unit,
+    /** Marks the prompt as answered, so it never reappears (persisted via AppSettings). */
+    onBatteryOptPrompted: () -> Unit
 ) {
     // ── Recording-aware exit sheet (shown on double-back while recording) ──
     val exitSaveLabel = stringResource(R.string.recording_exit_save)
@@ -181,8 +183,7 @@ internal fun MapDialogHost(
         AlertDialog(
             onDismissRequest = {
                 closeBatteryOptDialog()
-                context.getSharedPreferences("maro_battery_prefs", Context.MODE_PRIVATE)
-                    .edit().putBoolean("battery_opt_prompted", true).apply()
+                onBatteryOptPrompted()
             },
             title = { Text(stringResource(R.string.battery_opt_title)) },
             text = { Text(stringResource(R.string.battery_opt_message)) },
@@ -190,8 +191,7 @@ internal fun MapDialogHost(
                 TextButton(
                     onClick = {
                         closeBatteryOptDialog()
-                        context.getSharedPreferences("maro_battery_prefs", Context.MODE_PRIVATE)
-                            .edit().putBoolean("battery_opt_prompted", true).apply()
+                        onBatteryOptPrompted()
                         val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
                             data = Uri.parse("package:${context.packageName}")
                         }
@@ -204,8 +204,7 @@ internal fun MapDialogHost(
                 TextButton(
                     onClick = {
                         closeBatteryOptDialog()
-                        context.getSharedPreferences("maro_battery_prefs", Context.MODE_PRIVATE)
-                            .edit().putBoolean("battery_opt_prompted", true).apply()
+                        onBatteryOptPrompted()
                         trackViewModel.startRecording()
                     }
                 ) { Text(stringResource(R.string.battery_opt_not_now)) }

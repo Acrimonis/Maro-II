@@ -643,8 +643,7 @@ fun MapScreen(
     ) { granted ->
         if (granted) {
             // Proceed: battery prompt → recording
-            val prefs = context.getSharedPreferences("maro_battery_prefs", Context.MODE_PRIVATE)
-            if (!prefs.getBoolean("battery_opt_prompted", false)) {
+            if (!appSettings.batteryOptimizationPrompted) {
                 showBatteryOptDialog = true
             } else {
                 trackViewModel.startRecording()
@@ -1208,8 +1207,7 @@ fun MapScreen(
                 recoveryTrack = recoveryTrack,
                 onStartRecording = {
                     val startRecordingWithBatteryCheck: () -> Unit = {
-                        val prefs = context.getSharedPreferences("maro_battery_prefs", Context.MODE_PRIVATE)
-                        if (!prefs.getBoolean("battery_opt_prompted", false)) {
+                        if (!appSettings.batteryOptimizationPrompted) {
                             showBatteryOptDialog = true
                         } else {
                             trackViewModel.startRecording()
@@ -1904,7 +1902,10 @@ fun MapScreen(
             applyGpsMode = applyGpsMode,
             // ── Battery optimization (A4) ──
             showBatteryOptDialog = showBatteryOptDialog,
-            closeBatteryOptDialog = { showBatteryOptDialog = false }
+            closeBatteryOptDialog = { showBatteryOptDialog = false },
+            onBatteryOptPrompted = {
+                viewModel.updateSettings { it.copy(batteryOptimizationPrompted = true) }
+            }
         )
 
         // ── Single-GPX import conflict sheet (Duplicate / Override / Cancel) — host in MapImportConflictHost ──
