@@ -127,6 +127,22 @@ the next session can resume cold. Keep it tight and transactional — not a chan
 
 ---
 
+## `xTrack/[Feature]/xxArchive/INDEX.md`
+
+One index per archive folder — the only file `#archive` reads, and the only entry point for retired
+material. Cross-cutting retirements use `docs/xxArchive/INDEX.md` with the same columns.
+
+```markdown
+| File | Created | Archived | Status | Summary | Tags | Superseded-by |
+|------|---------|----------|--------|---------|------|---------------|
+| `[YYMMDD]_FEAT_PLN_[Feature]_[topic].md` | [YYYY-MM-DD] | [YYYY-MM-DD] | shipped | [one line: what it was and what came of it] | [tags] | — |
+```
+
+`Status` is one of `shipped` · `superseded` · `promoted`. Abandoned material is deleted, never filed
+here.
+
+---
+
 ## `FEAT_DOC_[Feature]_[name].md`
 
 Feature-scoped reference documentation (created by `#doc create` when

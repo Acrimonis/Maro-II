@@ -1,7 +1,7 @@
 <!-- scope: feature -->
 # Docs & Rulebook Integrity Pass
 
-**Feature:** WorkflowImprovement · **Date:** 2026-09-12 · **Branch:** `feature/wrKFl` · **Status:** amended after review — awaiting approval
+**Feature:** WorkflowImprovement · **Date:** 2026-09-12 · **Branch:** `feature/wrKFl` · **Status:** **EXECUTED** — baseline `2b74f09`, pass commit `5558f3b`. The phase tables below are the executed record, not instructions; see `## Outcome` at the end for what shipped versus what was planned.
 **Source:** review of [`AGENTS.md`](../../AGENTS.md:1) and its linked references — 12 stale refs, 11 duplicate/contradiction classes, 7 orphan classes, 15 review defects (R1–R15).
 **Nature:** documentation/registry layer only. No `.kt` source changes, no build, no new dependencies.
 
@@ -116,6 +116,8 @@ Same classes as the main review — stale paths, facts stated twice, retired voc
 
 ## Phase 5 — Regression checks (defined here, AGENTS.md row written in G5)
 
+Applied in Phase 5 and now canonical in [`docs/cmd_help_doctor.md`](../../docs/cmd_help_doctor.md:6) — the summary below is the record of what was defined:
+
 **(k)** registry divergence — diff command rows across §7b / `cmd_help.md` / `cmd_help_git.md`. **(l)** path existence — every backticked path in AGENTS.md and `docs/*.md` resolves; scope limited to those files; skip bracketed placeholders and `*` globs (R9). **(m)** duplicate bullets in AGENTS.md. **(n)** `plans/` residue and `*plan*.md` outside `xTrack/`. **(o)** `## Docs` index ↔ disk mismatch. **(p)** semver-like tokens (`\d+\.\d+\.\d+`) in README — the fastest-drifting class in a pointer-only file.
 
 Definitions land in [`docs/cmd_help_doctor.md`](../../docs/cmd_help_doctor.md:6) (lazy, cache-neutral); the `#doctor` row edit in [`AGENTS.md:124`](../../AGENTS.md:124) happens once, in G5.
@@ -167,7 +169,11 @@ Definitions land in [`docs/cmd_help_doctor.md`](../../docs/cmd_help_doctor.md:6)
 | WorkflowImprovement feature file | O4, V1 |
 | The eight docs in Phase 4b | one pass each |
 
-## Annex A — Phase 6 target text
+## Annex A — Phase 6 target text (APPLIED — approved draft snapshot)
+
+> These blocks were applied verbatim into `AGENTS.md`, `templates.md` and `SKILL.md`. The live files
+> are normative; this annex is retained only as the record of what was approved. Any future change
+> goes to the live file, never here — see `## Outcome` for the two places where what shipped differs.
 
 **G1 · Code Practice (replaces §1 MAD Replication)**
 ```
@@ -260,19 +266,9 @@ This file is the Claude-side entry point for the xTrack system; the specificatio
 > Versions, file inventories and derivable facts are not repeated here — follow the pointers.
 ```
 
-## Annex B — Plan lifecycle & `#archive` (deferred, own pass)
+## Annex B — migrated
 
-**Problem:** a plan file does four jobs — intent/rationale, execution scratchpad, provenance pointer, de-facto specification. The fourth is misfiled: a plan has no update path, a `FEAT_DOC_*` does. **Rule: if a document must stay true, it cannot be a plan.**
-
-**Three tiers.** *Active* — `xTrack/[Feature]/FEAT_PLN_*.md`, attached in `## Docs`, citable by `## Implemented`. *Digest* — decisions into `FEAT_DOC_[Feature]_decisions.md`, retained behaviour into `## Rules`, one bare `## Implemented` line with the pointer dropped. *Archive* — the file in `xTrack/[Feature]/xxArchive/`, detached, unreferenced.
-
-**Lifecycle.** Shipped → write `## Outcome`, extract digest, archive. Superseded → tombstone "superseded by X", archive. Promoted → becomes a `FEAT_DOC_*` living reference, then archive. Abandoned (never to be executed) → **delete**, not archive (A9).
-
-**`xxArchive/` rules.** Index at `xxArchive/INDEX.md` — `File | Created | Archived | Status (shipped/superseded/promoted) | Summary | Tags | Superseded-by`. The AI never reads the folder unless explicitly requested; the index is the only cheap entry point. Five consumers must learn the exclusion: `#doc list`, `#doc audit`, `#doc update`, `#bake`, `#doctor` (which instead lints index drift). Cross-cutting retirements go to `docs/xxArchive/`.
-
-**`#archive` command.** bare = list the feature's plans and offer a multi-select · `[name]` = move + index row + detach + drop pointer · `search [terms]` = fuzzy-search the index only · `restore [name]` = un-archive. Read-access to a body requires an explicit per-request unlock. Default for the digest: **offer, don't mandate**. `#doctor` gains a report-only nudge for plans whose work is in `## Implemented` but still active.
-
-**Backlog:** ~198 `FEAT_PLN_*` files. Triage per feature (~25 decisions), not per plan; uncited plans archive without a human read.
+The plan-lifecycle design and the `#archive` command spec now live in their own plan of record: [`260912_FEAT_PLN_WorkflowImprovement_archive-lifecycle.md`](260912_FEAT_PLN_WorkflowImprovement_archive-lifecycle.md:1) — migrated there per P7, before implementation began. This file keeps no copy, so nothing here can drift against it.
 
 ## Out of scope
 
@@ -284,3 +280,22 @@ This file is the Claude-side entry point for the xTrack system; the specificatio
 ## Validation criteria
 
 No fact about a command or git rule stated in more than one normative place · every path in AGENTS.md and `docs/*.md` resolves · `plans/` gone · no file carries a dangling `plans/`, `docs/DepthMappingBake.md`, `GLOBAL_TODOS.md`, `#doc sync` or `.clinerules`-as-dead reference · each registered command resolves via `#help` · checks k–p all pass, and would fail if any of the above regressed.
+
+## Outcome
+
+**Shipped as planned.** Four hops, committed as `5558f3b` on the baseline `2b74f09`: the registry was single-sourced (AGENTS.md §7b normative, `cmd_help.md` stamped derived, GIT_WORKFLOW demoted to detail), `#checkout` de-registered and `#list` given its missing page, `#bake` made explicit-only with `#commit` offering a stale bake, the git prompt policy tiered, `plans/` and `docs/oZer/` deleted (8 renames, 2 deletions, the Tasker feature created), README pointer-ised with GDAL moved into SETUP, MARO_ARCHITECTURE plus seven docs audited, and `#doctor` extended to checks a–p. Checks k–p passed; the Ask review verified 19 of 20 ledger decisions.
+
+**Deviations from plan.**
+
+1. **No build** — C5 anticipated it: a docs-only pass cannot change build output, so the pipeline's build step was skipped as a no-op. This is the precedent behind the proposed `#implement` refinement ("build when source changed").
+2. **S2 and S5 merged** — GIT_WORKFLOW's stale `#merge` spec was deleted rather than rewritten, since the live spec is single-sourced in `cmd_help_git.md`.
+3. **The confirmation-policy paragraph was dropped** from `cmd_help_git.md` — the normative text lives in the Core Directives, so a third copy was avoided.
+4. **Three files took a second write** — `MARO_ARCHITECTURE.md`, `cmd_help.md`, `cmd_help_git.md`, for fixes found after their first pass. A WRITE-ONCE deviation, judged cheaper than deferring.
+5. **A10 landed partially, then closed** — the trio edit shipped in Phase 6; SKILL.md's body was missed and corrected only after the Ask review caught it.
+6. **One self-inflicted typo was reverted** — a pointer briefly rewritten to `..._global-rules-migration.md` was restored to `..._global-context-rules-migration.md` in the same hop.
+
+**Counted differently than planned.** O9 estimated ~16 live `plans/` pointers; execution repaired roughly 24 across 15 files.
+
+**Recorded, not changed (pre-existing cosmetics).** The ABSOLUTE RULE continuation at [`AGENTS.md:47`](../../AGENTS.md:47) sits outside its bold span; the `## Output Contract` heading nests inside the bullet section.
+
+**Deferred.** Annex B is this file's only live content. When the `#archive` pass starts it migrates to its own plan file, after which this file retires with its digest extracted.

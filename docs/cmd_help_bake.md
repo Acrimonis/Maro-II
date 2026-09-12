@@ -13,7 +13,9 @@ Snapshot + consolidation into per-feature hydration memory.
               5. Create/overwrite xTrack/[Feature]/FEAT_HYD_[Feature].md with a
                  ~200-word micro-state summary (state, target files, next step).
               6. Prune the ## Focus History stack in GLOBAL_CONTEXT.md beyond cap 10.
-              7. Prompt user to clear the workspace.
+              7. Report retirement candidates: plans still attached in the feature's ## Docs whose
+                 work appears in ## Implemented. Report only — #archive does the moving.
+              8. Prompt user to clear the workspace.
               Runs only on explicit invocation — nothing triggers it implicitly.
 
   Section criteria (canonical):

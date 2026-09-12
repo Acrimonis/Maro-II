@@ -2,7 +2,7 @@
 name: WorkflowImprovement
 status: active
 created: 2026-06-03 00:00
-modified: 2026-09-12 09:36
+modified: 2026-09-12 11:14
 ---
 
 # Feature: WorkflowImprovement
@@ -13,7 +13,7 @@ Improving the xTrack workflow and command system (canonicalized in AGENTS.md) �
 ## Sections
 ### gitting-it
 
-Git command shortcuts: #new / #checkout / #commit / #push / #move / #cherry·#copy / #rename / #merge — canonical in AGENTS.md §7b + docs/cmd_help_git.md. #commit always prompts; #merge does pre-flight → classify → auto-select → confirm → push+PR. None auto-executes — the no-git-write rule still applies.
+Git command shortcuts: #new / #commit / #push / #move / #cherry·#copy / #rename / #merge — canonical in AGENTS.md §7b + docs/cmd_help_git.md. Prompts are tiered: `#commit`, `#push`, `#merge` and `#cherry` ask before acting, while branch operations (`#new`, `#move`, `#move new`, `#rename`) do not. `#merge` runs pre-flight → classify → auto-select → confirm → push + PR, and none of them auto-executes — the no-git-write rule holds in every mode.
 
 #### Todos
 - [ ] On-device / real-repo verification of all git shortcuts — deferred, low priority
@@ -21,6 +21,18 @@ Git command shortcuts: #new / #checkout / #commit / #push / #move / #cherry·#co
 #### Key Files
 - `docs/cmd_help_git.md` — git shortcut detail
 - `xTrack/Documentation/260610_FEAT_PLN_Documentation_git-move-command.md` — #move/#cherry design
+
+### command-flow
+
+The Output Contract's brevity rule had a unit-missing cap problem: "minimum viable communication" is an adjective, with nothing to count and nothing to check. The session's most-used verbs — step through items, request an independent review, grant permission — were also unnamed, so they were re-typed as prose each turn. A seven-item walk closed the Ask review of the design: the contract gains a bullet-as-unit cap, the challenge clause is scoped to recommendations while MODE LOCK keeps authorisation, a gate must name the action it authorises, an open walk blocks both `#bake`'s fold and `#archive`'s retirement, and the output mode is session-lived and reset by `#focus`. Three rules plus four commands (`#go`, `#review`, `#walk`, `#brief`/`#full`) are designed but unshipped; `#plan` and `#challenge` were dropped as failing the "adds what context cannot imply" test.
+
+#### Todos
+- [ ] Write the six accepted resolutions into the command-flow plan (three rules, §7a + bake C12 single statement, gate bullet, mode-reset sentence)
+- [ ] Add the open-walk gate sentence to the archive-lifecycle plan (fourth `#archive` gate, exits close / resume / park)
+- [ ] Ship the rules first (no registry cost), then `#go`, then `#review` with its guard lines, then `#walk`, then `#brief`
+
+#### Docs
+- `xTrack/WorkflowImprovement/260912_FEAT_PLN_WorkflowImprovement_command-flow.md` — the design: rules, the four rows, ship order
 
 ## Todos
 - [ ] **Post-merge reconcile xTrack/ across branches** — deferred. Procedure documented in FEAT_DSC; execute when first cross-branch xTrack conflict occurs.
@@ -34,6 +46,7 @@ Git command shortcuts: #new / #checkout / #commit / #push / #move / #cherry·#co
 - `.claude/skills/xtrack/references/templates.md` — file templates
 
 ## Docs
+- `xTrack/WorkflowImprovement/260912_FEAT_PLN_WorkflowImprovement_archive-lifecycle.md` — plan lifecycle + `#archive` command (xxArchive tier, digest floor, `#doctor` checks q–r)
 - `xTrack/WorkflowImprovement/260912_FEAT_PLN_WorkflowImprovement_docs-integrity.md` — docs & rulebook integrity pass (registry single-sourcing, `plans/` removal, `#doctor` checks a–p)
 - `docs/cmd_help.md` — derived printed view of §7b
 - `docs/cmd_help_now.md` — #now / #list detail
@@ -46,6 +59,8 @@ Git command shortcuts: #new / #checkout / #commit / #push / #move / #cherry·#co
 - `docs/cmd_help_bake.md` — #bake detail
 - `docs/cmd_help_help.md` — #help detail
 - `docs/cmd_help_doctor.md` — #doctor detail
+- `docs/cmd_help_archive.md` — #archive detail (xxArchive tier, digest floor, retirement candidates)
+- `docs/cmd_help_list.md` — #list dashboard detail
 - `docs/cmd_help_git.md` — git workflow shortcuts detail
 - `docs/cmd_help_doc_audit.md` — #doc audit detail
 - `docs/cmd_help_doc_update.md` — #doc update detail
@@ -66,6 +81,7 @@ Git command shortcuts: #new / #checkout / #commit / #push / #move / #cherry·#co
 
 ## Implemented
 
+- **archive lifecycle + `#archive` command (2026-09-12, `feature/wrKFl`)** — plan lifecycle defined (Active → Digest → `xxArchive/`; shipped / superseded / promoted exits, abandonment routed to deletion); design migrated to its own plan per P7 so no copy remains; `AGENTS.md` gained the `xxArchive/` never-read rule (§7a) and the `#archive` §7b row (explicit invocation only) in one write; `#doctor` extended to checks a–r with index↔disk drift, the inverse-leak check and a report-only retirement nudge; new `docs/cmd_help_archive.md`; `templates.md` gained the `INDEX.md` schema; `#bake` reports retirement candidates → `xTrack/WorkflowImprovement/260912_FEAT_PLN_WorkflowImprovement_archive-lifecycle.md`
 - **docs & rulebook integrity pass (2026-09-12, `feature/wrKFl`)** — registry single-sourced (AGENTS.md §7b normative; `cmd_help.md` stamped derived; `GIT_WORKFLOW.md` demoted to git detail, `## OwnedFiles` mechanism retired), `#checkout` de-registered and `#list` given its missing page, `#bake` explicit-only with `#commit` offering a stale-bake first (a `Last Bake` stamp added to the FEAT_HYD template), tiered git confirmation policy, `plans/` and `docs/oZer/` deleted (3 plan re-homes incl. the new **Tasker** feature, 5 research re-homes, 2 deletions), README pointer-ised with GDAL moved into SETUP, MARO_ARCHITECTURE plus seven docs audited, `#doctor` extended to checks a–p → `xTrack/WorkflowImprovement/260912_FEAT_PLN_WorkflowImprovement_docs-integrity.md`
 - **GLOBAL_CONTEXT.md rules migration (2026-09-11)** — GLOBAL_CONTEXT.md reduced to state-only (`## Global Rules`, `## Global Instructions`, `## Always-Loaded Context` removed after bullet-by-bullet triage, not bulk deletion); rules consolidated into AGENTS.md — new §9 Environment & Tooling, QUESTIONS directive, MODE LOCK anti-`#implement` clause, §7a state-only invariant, `#rule global` retargeted to Core Directives; downstream sync (`cmd_help_rule`, `cmd_help_doctor` lint, `templates.md`, `cmd_help_implement` dead pointer) → `xTrack/WorkflowImprovement/260911_FEAT_PLN_WorkflowImprovement_global-context-rules-migration.md`
 - **hard rules — Core Directives promotion (2026-06-20)** — 10 rules to prefix-cache zone, §5 git ops hardened, #doctor check (j) → `xTrack/WorkflowImprovement/260620_FEAT_PLN_WorkflowImprovement_core-directives-promotion.md`

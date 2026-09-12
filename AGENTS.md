@@ -98,6 +98,7 @@
 - **Sections:** Feature files group work under `### [Section]` headings (no subfeature state). Keep a section only while it holds an open todo, a retained rule, or a doc/key-file mapping; `#bake` folds the rest into `## Implemented` (one-liner + plan pointer; planless = bare one-liner). Full criteria in `docs/cmd_help_bake.md`.
 - **Focus History:** `GLOBAL_CONTEXT.md` keeps an append-only newest-first stack (cap 10) of `[timestamp] [Feature] — one-liner → FEAT_HYD_[Feature].md`. Top = current focus. `#focus` pushes; `#bake` prunes.
 - **🔴 PLAN FILE PLACEMENT: All `FEAT_PLN_*.md`, `FEAT_DOC_*.md` and feature-scoped design files MUST be created in `xTrack/[Feature]/`, named `YYMMDD_FEAT_PLN_[Feature]_[topic].md`.**
+- **`xxArchive/` (retired files):** retired plans and docs live in `xTrack/[Feature]/xxArchive/` beside an `INDEX.md`; cross-cutting retirements go to `docs/xxArchive/`. Every feature-summarising command (`#bake`, `#status`, `#doctor`, `#doc list`, `#doc audit`, `#doc update`) **excludes these folders**. `#archive` is the only command that may enter one, and inside it only `INDEX.md` is read — a body needs an explicit per-file request.
 - **🔴 GLOBAL_CONTEXT.md IS STATE-ONLY:** it carries the routing map, feature summaries, focus history, global todos and the doc index — never rules, instructions or process specs. All rules live in this file; the `#rule` `global` target appends to Core Directives above.
 - **Feature scoping:** Route docs, key files and todos to the owning feature. Keep feature files lean — `## Docs` for references, `## Key Files` for source paths.
 - **Always-loaded (prefix-cache zone):** `AGENTS.md`, `xTrack/GLOBAL_CONTEXT.md`. Keep both small and free of duplication.
@@ -117,10 +118,11 @@ Intercept `#`-prefix. All name lookups use fuzzy-resolve cascade (exact → subs
 | `#todo` | Bare=list, `[desc]`=append, `[target]:[desc]`=cross-feature. Same 3-tier for `#rule` |
 | `#rule` | Same 3-tier as `#todo`. `global` → appends to this file's Core Directives; parent/feature/section → the feature file |
 | `#doc` | Sub-commands: create, list, read, attach, detach, audit, update. Docs attach to `## Docs` |
+| `#archive` | Retire a feature-scoped plan or doc: bare = list the feature's plans and offer a multi-select · `[name]` = move to `xxArchive/` with an index row and the digest floor · `search [terms]` = fuzzy-search the index only (`all` sweeps every feature) · `restore [name]` = un-archive. Fires only on explicit invocation |
 | `#status` | Dashboard of active/named feature (reads top Focus History entry). `#status diff` for changes since last bake |
 | `#now` | Lightweight orientation: top Focus History entry (feature), CWD, Last Bake. Aliases: `#context`, `#here`, `#feat`, `#feature` |
 | `#help [cmd]` | Scan `docs/cmd_help_*.md` filenames, fuzzy-resolve `[cmd]` against stem, read match. Bare=print reference table |
-| `#doctor` | Lint xTrack (checks a–p); `#doctor fix` auto-repairs safe classes |
+| `#doctor` | Lint xTrack (checks a–r); `#doctor fix` auto-repairs safe classes |
 | `#merge` | Pre-flight analysis → trivial/non-trivial classification → auto-select rebase/merge → confirm (yes for direct, `#implement` for full validation pipeline). Push + PR link. **Never touches `develop`/`main`.** |
 | `#implement` | Pipeline: Code→implement+build → Ask→review → Architect→report+## Implemented |
 | `#new [branch]` | Create `feature/[branch]` from `origin/develop` |

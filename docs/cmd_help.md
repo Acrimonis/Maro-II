@@ -24,6 +24,7 @@ Docs:     #doc                 feature docs (scope-aware)
           #doc audit           check docs for missing scope tags, orphans, invalid scopes
 Session:  #bake                snapshot + consolidation (checkmarks, section fold/trim/split/merge, summaries table, FEAT_HYD_, prune Focus History > 10)
           #help                this list
+          #archive             retire a feature-scoped plan or doc into xxArchive/ (explicit invocation only)
 Pipeline: #implement           full pipeline: Code → build → Ask review → Architect report
 Git:      🔴 See [`docs/GIT_WORKFLOW.md`](GIT_WORKFLOW.md) for full rules + enforcement.
            #new [branch]        create `feature/[branch]` from origin/develop
@@ -35,5 +36,5 @@ Git:      🔴 See [`docs/GIT_WORKFLOW.md`](GIT_WORKFLOW.md) for full rules + en
            #copy [target]       alias for #cherry
            #rename [branch]     git branch -m
            #merge               pre-flight → trivial/non-trivial → auto-select rebase/merge → confirm (yes=direct, #implement=pipeline). 🚫 refuses on develop/main.
-Health:   #doctor              lint xTrack for drift (flags active_subfeature/#sub remnants)
+Health:   #doctor              lint xTrack for drift (checks a-r; flags active_subfeature/#sub remnants, registry divergence, retired-file drift)
           #doctor fix          auto-repair
