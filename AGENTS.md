@@ -1,7 +1,7 @@
 # AGENTS.md
 
 > **Canonical rulebook for Maro-II — single source of truth.**
-> Adapters — thin pointers, no content: `CLAUDE.md`, `.clinerules`, `.claude/skills/xtrack/`. AGENTS.md wins on any conflict.
+> Adapters — thin pointers, no content: `CLAUDE.md`, `.clinerules/`, `.claude/skills/xtrack/`. AGENTS.md wins on any conflict.
 > Section numbers (3, 6, 7a, 7b, …) stable — referenced from other docs.
 
 # Core Directives & Communication Style
@@ -111,7 +111,7 @@ Intercept `#`-prefix. All name lookups use fuzzy-resolve cascade (exact → subs
 
 | #cmd | Action |
 |------|--------|
-| `#list` | Dashboard of all features from GLOBAL_CONTEXT.md Feature Summaries table — includes Summary and Modified columns, sorted by Modified desc |
+| `#list` | Dashboard of all features from GLOBAL_CONTEXT.md Feature Summaries table — includes Summary and Modified columns, sorted by Modified desc. Alias: `#features` |
 | `#focus [name]` | Pivot active feature (push Focus History entry); bare=prompt pick. Optional `#focus [name] [section]` hydrates only that section |
 | `#track [name]` | Create new feature file + GLOBAL_CONTEXT.md routing/summary rows |
 | `#bake` | Snapshot + consolidation: checkmarks, section rules (fold-done, trim-empty, split, merge, rename-normalize), feature summary, front-matter date, hydration, prune Focus History > 10 |
@@ -119,7 +119,7 @@ Intercept `#`-prefix. All name lookups use fuzzy-resolve cascade (exact → subs
 | `#rule` | Same 3-tier as `#todo`. `global` → appends to this file's Core Directives; parent/feature/section → the feature file |
 | `#doc` | Sub-commands: create, list, read, attach, detach, audit, update. Docs attach to `## Docs` |
 | `#status` | Dashboard of active/named feature (reads top Focus History entry). `#status diff` for changes since last bake |
-| `#now` | Lightweight orientation: top Focus History entry (feature), CWD, Last Bake |
+| `#now` | Lightweight orientation: top Focus History entry (feature), CWD, Last Bake. Aliases: `#context`, `#here`, `#feat`, `#feature` |
 | `#help [cmd]` | Scan `docs/cmd_help_*.md` filenames, fuzzy-resolve `[cmd]` against stem, read match. Bare=print reference table |
 | `#doctor` | Lint xTrack (a-j checks); `#doctor fix` auto-repairs safe classes |
 | `#merge` | Pre-flight analysis → trivial/non-trivial classification → auto-select rebase/merge → confirm (yes for direct, `#implement` for full validation pipeline). Push + PR link. **Never touches `develop`/`main`.** |
@@ -129,7 +129,7 @@ Intercept `#`-prefix. All name lookups use fuzzy-resolve cascade (exact → subs
 | `#commit` | `#bake` + `git add -A && git commit` (always prompts confirm) |
 | `#push` | Push current branch to origin. Refuses on `develop`/`main` |
 | `#move [branch]` | Stash → switch → pop (existing branch) |
-| `#move new [branch]` | Stash → create from `origin/develop` → pop |
+| `#move new [branch]` | Stash → create `feature/[branch]` from `origin/develop` → pop |
 | `#cherry [target]` | Interactive cherry-pick of unpushed commits (alias: `#copy`) |
 | `#rename [branch]` | Rename current branch via `git branch -m` |
 
@@ -138,7 +138,7 @@ Full detail per command in `docs/cmd_help_*.md` — loaded by `#help`. See `docs
 # 8. Mode Handoff Protocol — all modes return control to Architect on completion.
 
 ## 8a. Agent-Specific Adapter Files
-`.claude/`, `.clinerules`, `CLAUDE.md` are thin adapters — pointer to this file only. Any info beyond redirect is stale — ignore and flag.
+`.claude/`, `.clinerules/`, `CLAUDE.md` are thin adapters — pointer to this file only. Any info beyond redirect is stale — ignore and flag.
 
 ## 8b. Handoff Rules by Mode
 

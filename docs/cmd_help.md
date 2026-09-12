@@ -19,7 +19,7 @@ Docs:     #doc                 feature docs (scope-aware)
           #doc read [name]     load doc into context (scans xTrack/*/FEAT_DOC_/xTrack/*/FEAT_PLN_/docs/)
           #doc attach [name]   link doc → feature ## Docs (bare = prompt)
           #doc detach [name]   unlink doc (bare = prompt)
-          #doc sync [name]     generate/update xTrack/[name]/FEAT_DOC_[name]_profile.md from feature + summaries
+          #doc update          refresh feature docs to implementation (decisions doc, ## Implemented rewrite, prune completed todos, bump dates, #bake)
           #doc audit           check docs for missing scope tags, orphans, invalid scopes
 Session:  #bake                snapshot + consolidation (checkmarks, section fold/trim/split/merge, summaries table, FEAT_HYD_, prune Focus History > 10)
           #help                this list
@@ -30,7 +30,7 @@ Git:      🔴 See [`docs/GIT_WORKFLOW.md`](docs/GIT_WORKFLOW.md) for full rules
            #commit              bake + add + commit. ALWAYS prompts confirm. 🚫 refuses on develop/main.
            #push                push current branch. 🚫 refuses on develop/main.
            #move [branch]       stash → switch → pop (existing)
-           #move new [branch]   stash → create from develop → pop
+           #move new [branch]   stash → create feature/[branch] from develop → pop
            #cherry [target]     interactive cherry-pick unpushed commits
            #copy [target]       alias for #cherry
            #rename [branch]     git branch -m

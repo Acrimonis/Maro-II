@@ -124,7 +124,7 @@ the next session can resume cold. Keep it tight and transactional — not a chan
 ## `FEAT_DOC_[Feature]_[name].md`
 
 Feature-scoped reference documentation (created by `#doc create` when
-"Feature-scoped" is chosen, or by `#doc sync`). Scope tag is always `feature`.
+"Feature-scoped" is chosen). Scope tag is always `feature`.
 
 ```markdown
 <!-- scope: feature -->

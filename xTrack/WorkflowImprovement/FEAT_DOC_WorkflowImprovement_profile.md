@@ -38,8 +38,7 @@
 - `docs/cmd_help_now.md` — #now / #list detail
 - `docs/cmd_help_status.md` — #status / #status diff detail
 - `docs/cmd_help_track.md` — #track detail
-- `docs/cmd_help_focus.md` — #focus / #focus sub / #focus out detail
-- `docs/cmd_help_sub.md` — #sub detail
+- `docs/cmd_help_focus.md` — #focus / #focus [name] [section] detail
 - `docs/cmd_help_todo.md` — #todo detail
 - `docs/cmd_help_rule.md` — #rule detail
 - `docs/cmd_help_doc.md` — #doc detail
@@ -47,7 +46,7 @@
 - `docs/cmd_help_help.md` — #help detail
 - `docs/cmd_help_doctor.md` — #doctor detail
 - `docs/cmd_help_git.md` — Git workflow shortcuts detail
-- `docs/cmd_help_doc_sync.md` — #doc sync detail
+- `docs/cmd_help_doc_update.md` — #doc update detail
 - `docs/cmd_help_doc_audit.md` — #doc audit detail
 - `docs/GIT_WORKFLOW.md` — Git workflow conventions
 - `xTrack/WorkflowImprovement/260608_FEAT_PLN_WorkflowImprovement_planning.md` — Zero-Piecemeal Writes discussion exception design
