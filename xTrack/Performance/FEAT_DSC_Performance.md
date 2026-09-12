@@ -2,7 +2,7 @@
 name: Performance
 status: active
 created: 2026-06-07 00:00
-modified: 2026-09-12 09:58
+modified: 2026-09-12 10:57
 ---
 
 # Feature: Performance
@@ -42,10 +42,7 @@ Two **independent** channels: the screen flag (window-scoped, front-only by cons
 (service-scoped).
 
 #### Todos
-- [ ] Device verification (plan §11): grace release with the slider at its 1-minute minimum, interaction reset at ~30 s, speed gate in demo mode, master-off regression, recording floor with the app backgrounded
-- [ ] Close the exemption-query gap: `MapScreen.kt` gates on `batteryOptimizationPrompted` alone while `MainActivity.kt` also checks `PowerKeeper.isExemptFromBatteryOptimizations()`, so an already-exempt user can still be prompted on the MapScreen path
-- [ ] Remove the two dead imports in `MainActivity.kt` (`SharedPreferences`, `PowerManager`)
-- [ ] Ticker nit: `PowerKeeper.start()` recomputes every 5 s even once the screen has been released — gate it on `_state.value.screenOn` as well
+- [ ] Device verification (plan §11): grace release with the slider at its 1-minute minimum, interaction reset at ~30 s, demo mode grace-governed, recording floor with the app backgrounded, plus the master-off check that isolates an external screen-awake source (Developer options "Stay awake while charging") from our own flag
 - [ ] Phases 2–4 are gated: Tasker reconciliation, then the conditional service, then passive markers (4a) and the zone latch + notification segment (4b)
 
 #### Rules
@@ -74,7 +71,10 @@ Two **independent** channels: the screen flag (window-scoped, front-only by cons
 - **compass-gating** — `_needsCompass` StateFlow gates the compass on GPS-course absence
 - **settings-ui** — "Acquisition GPS" presets + Advanced sliders + "Rendu carte" refresh-rate slider
 - **power-management freshness fix (2026-09-12)** — a push is no longer treated as a reading: `PowerKeeper.onSpeed` requires an `isNewReading` flag, new `SpeedFreshness` tracks the newest genuine reading, GPS mode pairs the speed with the app's `gpsStale` signal so a lost fix ages out at the staleness bound, and demo mode became **grace-governed** (pan speed is not motion). 6 regression cases in `SpeedFreshnessTest`; build SUCCESS → `xTrack/Performance/260912_FEAT_PLN_Performance_power-management-centralization.md` (decision 15)
+- **power-management cleanup + review findings (2026-09-12)** — Ask-reviewed pass: the grace KDoc corrected to 1–15, the grace ticker now re-evaluates only while a hold is live (so its KDoc finally matches the code), a dangling KDoc sentence repaired, dead imports removed from `MainActivity` and `PowerKeeper`, and the battery-exemption question consolidated into `data/power/BatteryExemption` — one `shouldPrompt(context, settings)` predicate shared by all four trigger sites, which also stops the MapScreen path prompting a user who is already exempt. APK SUCCESS
 - **power-management Phase 1 (2026-09-12)** — centralised the screen-hold decision into `data/power/`: `PowerPolicy` (framework-free, **stateless** — speed gate above 1 kn **or** within grace of the last touch; unknown speed holds, stale speed releases; additive master-vs-gate semantics) + `PowerKeeper` (`StateFlow<PowerState>`, pushed settings/speed/touch inputs, 5 s grace ticker, recording floor, exemption query). The window flag is now driven by the keeper from a single mutation point, and `dispatchTouchEvent` feeds the interaction timestamp. Settings → System → Screen gained a renamed toggle ("Don't lock the phone while the app is open", French ambiguity removed) plus an expander holding the movement gate, threshold and grace sliders. Phase 0 corrected the stale power rule and the `keepScreenOn` default contradiction (`false`, no behaviour change). Phase 1c consolidated the battery-optimization prompt: the flag moved into `AppSettings` with a legacy migration, and the trigger moved to recording start with recovery kept as a secondary. 17 unit tests green; `apk-build.bat` SUCCESS → `xTrack/Performance/260912_FEAT_PLN_Performance_power-management-centralization.md`
+
+- **power-management review findings (2026-09-12)** — second pass over the Ask findings: the keeper's KDoc now states it **delegates** the exemption query to `BatteryExemption` and keeps the method as the phase-3 service-lifecycle seam (decided **keep**, since deleting it would strand the keeper's `Context`), `MapScreen` imports the predicate instead of qualifying it twice, and plan §4.1/§4.2 were aligned so the same ownership split is described in the same words in all three places. No behaviour change; APK SUCCESS
 
 ## Rules
 - No new external dependencies — framework `LocationManager`/`SensorManager` + SharedPreferences only.

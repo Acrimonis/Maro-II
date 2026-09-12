@@ -181,6 +181,7 @@ import ykws.android.maro.data.model.ValidationReport
 import ykws.android.maro.data.model.Zone300Data
 import ykws.android.maro.data.regulation.RegulatedZoneSet
 import ykws.android.maro.data.regulation.RegulatedZonesRepository
+import ykws.android.maro.data.power.BatteryExemption
 import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.MarkerOrigin
@@ -643,7 +644,7 @@ fun MapScreen(
     ) { granted ->
         if (granted) {
             // Proceed: battery prompt → recording
-            if (!appSettings.batteryOptimizationPrompted) {
+            if (BatteryExemption.shouldPrompt(context, appSettings)) {
                 showBatteryOptDialog = true
             } else {
                 trackViewModel.startRecording()
@@ -1207,7 +1208,7 @@ fun MapScreen(
                 recoveryTrack = recoveryTrack,
                 onStartRecording = {
                     val startRecordingWithBatteryCheck: () -> Unit = {
-                        if (!appSettings.batteryOptimizationPrompted) {
+                        if (BatteryExemption.shouldPrompt(context, appSettings)) {
                             showBatteryOptDialog = true
                         } else {
                             trackViewModel.startRecording()

@@ -3,13 +3,11 @@ package ykws.android.maro
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
-import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.content.res.Resources
 import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Bundle
-import android.os.PowerManager
 import android.provider.Settings
 import android.view.MotionEvent
 import android.view.WindowInsetsController
@@ -42,6 +40,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.flow.combine
 import java.util.Locale
+import ykws.android.maro.data.power.BatteryExemption
 import ykws.android.maro.data.power.PowerKeeper
 import ykws.android.maro.data.track.TrackRecordingService
 import ykws.android.maro.ui.map.NavigationViewModel
@@ -164,16 +163,13 @@ class MainActivity : ComponentActivity() {
                         val recording by TrackRecordingService.isRecording.collectAsState()
                         LaunchedEffect(recording, appSettings.batteryOptimizationPrompted) {
                             if (recording &&
-                                !appSettings.batteryOptimizationPrompted &&
-                                !powerKeeper.isExemptFromBatteryOptimizations()
+                                BatteryExemption.shouldPrompt(this@MainActivity, appSettings)
                             ) {
                                 showBatteryDialog = true
                             }
                         }
                         LaunchedEffect(Unit) {
-                            if (!appSettings.batteryOptimizationPrompted &&
-                                !powerKeeper.isExemptFromBatteryOptimizations()
-                            ) {
+                            if (BatteryExemption.shouldPrompt(this@MainActivity, appSettings)) {
                                 val orphans = ykws.android.maro.data.track.TrackRepository(this@MainActivity)
                                     .recoverOrphanedCheckpoints()
                                 if (orphans.isNotEmpty()) showBatteryDialog = true

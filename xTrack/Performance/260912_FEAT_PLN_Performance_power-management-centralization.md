@@ -113,7 +113,8 @@ keepAlive = recording || passiveCaptureActive || zoneLatched
 ```
 
 `PowerState(screenOn: Boolean, keepAlive: Boolean)`. The battery-exemption question is deliberately
-**outside** `PowerState` — it is an advisory owned by `PowerKeeper`, not a property of the power state.
+**outside** `PowerState` — the prompt **trigger** is the keeper's, the **query** itself lives in
+`data/power/BatteryExemption.kt`, and neither is a property of the power state.
 
 ### 4.2 `data/power/PowerKeeper.kt` — the Android-side owner
 
@@ -126,7 +127,10 @@ Scoped to the **screen channel** in phase 1; grown in phase 3 to own service sta
   `NavigationViewModel.gpsStale`, so a lost fix keeps the value but stops counting as a new reading.
 - Phase 3 adds service start/stop ownership — replacing the unconditional start and the three
   `MapScreen` stop sites.
-- Owns the battery-exemption query and prompt — replaces the prefs-file + recovery-side-effect trigger.
+- Owns the battery-exemption **prompt trigger** — replaces the prefs-file + recovery-side-effect trigger.
+  The exemption **query** itself is delegated to `data/power/BatteryExemption.kt`, the single home shared
+  with the two `MapScreen` gates; the keeper's `isExemptFromBatteryOptimizations()` is the seam kept for
+  the phase-3 service lifecycle.
 - Does **not** touch the window: that needs an Activity, so it stays a thin applier.
 
 Named `PowerKeeper` deliberately — `PowerManager` would shadow `android.os.PowerManager`.

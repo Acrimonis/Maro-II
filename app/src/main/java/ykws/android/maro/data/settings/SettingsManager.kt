@@ -95,7 +95,7 @@ data class AppSettings(
     /** Movement gate: speed over ground (knots) above which the boat counts as moving. */
     val keepScreenOnSpeedThresholdKn: Float =
         ykws.android.maro.config.AppConfig.powerScreenMovementThresholdKn,
-    /** Movement gate: minutes (5–30) without movement and interaction before the screen is released. */
+    /** Movement gate: minutes (1–15, default from `maro.properties`) without movement or interaction. */
     val keepScreenOnGraceMinutes: Int =
         ykws.android.maro.config.AppConfig.powerScreenGraceDefaultMinutes,
     /**

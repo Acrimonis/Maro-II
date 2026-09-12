@@ -1,7 +1,6 @@
 package ykws.android.maro.data.power
 
 import android.content.Context
-import android.os.PowerManager
 import android.os.SystemClock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -22,11 +21,12 @@ import ykws.android.maro.data.track.TrackRecordingService
  * publishes the result as [state]. It deliberately does **not** touch the window: `FLAG_KEEP_SCREEN_ON`
  * needs an Activity, so the Activity remains a thin applier that only flips the flag on change.
  *
- * Scope in phase 1 is the **screen channel**. Own
+ * Scope in phase 1 is the **screen channel**. It owns:
  * - [PowerPolicy] — pure decision
  * - [applySettings] — the user-facing settings
  * - [onSpeed] / [onTouch] — pushed runtime inputs
- * - [isExemptFromBatteryOptimizations] — the exemption query's single home
+ * - [isExemptFromBatteryOptimizations] — delegates the exemption query to [BatteryExemption], its
+ *   single home; kept as the seam for the phase-3 service lifecycle
  * - [start] — the recording observer and the grace ticker
  *
  * ### Input wiring
@@ -106,11 +106,7 @@ class PowerKeeper(private val context: Context) {
      * Whether the app is already exempt from battery optimization. Returns `true` when the service
      * cannot be reached, so a failure to query never turns into a nagging prompt.
      */
-    fun isExemptFromBatteryOptimizations(): Boolean {
-        val powerManager = context.getSystemService(Context.POWER_SERVICE) as? PowerManager
-            ?: return true
-        return powerManager.isIgnoringBatteryOptimizations(context.packageName)
-    }
+    fun isExemptFromBatteryOptimizations(): Boolean = BatteryExemption.isExempt(context)
 
     /**
      * Begin observing the recording floor and start the grace ticker.
@@ -130,7 +126,10 @@ class PowerKeeper(private val context: Context) {
         scope.launch {
             while (isActive) {
                 delay(TICK_MS)
-                if (keepScreenOn && movementGateEnabled) recompute()
+                // Only while a hold is actually live: every path that can re-acquire one goes through
+                // an input change (onSpeed / onTouch / applySettings), so nothing depends on the
+                // ticker waking a released state — and a released state costs nothing.
+                if (keepScreenOn && movementGateEnabled && _state.value.screenOn) recompute()
             }
         }
     }
