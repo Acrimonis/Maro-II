@@ -103,6 +103,7 @@
 - **Feature scoping:** Route docs, key files and todos to the owning feature. Keep feature files lean — `## Docs` for references, `## Key Files` for source paths.
 - **Always-loaded (prefix-cache zone):** `AGENTS.md`, `xTrack/GLOBAL_CONTEXT.md`. Keep both small and free of duplication.
 - **Turn 1 Protocol:** Self-contained request → answer directly. Ambiguous/continuing work → read `GLOBAL_CONTEXT.md`, match intent against Routing Map, open matching feature file + hydration. No match → ask scoping question.
+- **Command delta on open:** Opening a feature — `#focus`, `#track`, or Turn 1 once it resolves a feature — prints a short delta of new and updated commands, once per open and silently when empty. The delta is the newest-first (max 3) WorkflowImprovement `## Implemented` entries that add or change a command, under one plain label.
 
 # 7b. xTrack — Command Reference
 Intercept `#`-prefix. All name lookups use fuzzy-resolve cascade (exact → substring → edit-distance → reject — stop on first unique match).
@@ -112,8 +113,8 @@ Intercept `#`-prefix. All name lookups use fuzzy-resolve cascade (exact → subs
 | #cmd | Action |
 |------|--------|
 | `#list` | Dashboard of all features from GLOBAL_CONTEXT.md Feature Summaries table — includes Summary and Modified columns, sorted by Modified desc. Alias: `#features` |
-| `#focus [name]` | Pivot active feature (push Focus History entry); bare=prompt pick. Optional `#focus [name] [section]` hydrates only that section |
-| `#track [name]` | Create new feature file + GLOBAL_CONTEXT.md routing/summary rows |
+| `#focus [name]` | Pivot active feature (push Focus History entry); bare=prompt pick. Optional `#focus [name] [section]` hydrates only that section; prints the command delta |
+| `#track [name]` | Create new feature file + GLOBAL_CONTEXT.md routing/summary rows; prints the command delta |
 | `#bake` | Snapshot + consolidation: checkmarks, section rules (fold-done, trim-empty, split, merge, rename-normalize), feature summary, front-matter date, hydration, prune Focus History > 10. Fires only on explicit invocation |
 | `#todo` | Bare=list, `[desc]`=append, `[target]:[desc]`=cross-feature. Same 3-tier for `#rule` |
 | `#rule` | Same 3-tier as `#todo`. `global` → appends to this file's Core Directives; parent/feature/section → the feature file |

@@ -1,15 +1,15 @@
 # Context Hydration — WorkflowImprovement — 2026-09-12
 
-**Last Bake:** 2026-09-12 11:14 UTC
+**Last Bake:** 2026-09-12 11:30 UTC
 
 ## State
-The docs & rulebook integrity pass is COMPLETE and COMMITTED (`5558f3b`) on `feature/wrKFl`. The archive lifecycle + `#archive` pass is IMPLEMENTED but UNCOMMITTED — `AGENTS.md` §7a xxArchive rule and §7b row, `docs/cmd_help_archive.md`, `#doctor` checks q–r plus the retirement nudge, `templates.md` INDEX schema, `#bake` retirement candidates — and still owes the Architect report and a commit. The command-flow design was captured in its own plan, reviewed by Ask, and its seven findings walked to closure: six accepted (single-statement §7a fold rule with bake C12 as a pointer; challenge clause scoped to recommendations with MODE LOCK untouched; objection sentence on the contract's reporting bullet; a gate must name the action it authorises; an open walk is a fourth `#archive` gate with close / resume / park, so it blocks both `#bake`'s fold and retirement; the output mode is session-lived, reset by `#focus`) and one no-action. Those six resolutions are NOT yet written into the plan, whose status line still reads "awaiting Ask review". No build was run — no `.kt` file changed in either pass.
+Three change sets sit on `feature/wrKFl`: the docs & rulebook integrity pass (`5558f3b`, committed), the archive lifecycle + `#archive` pass together with both plan files (`cd2f635`, committed), and — uncommitted right now — the **command delta on feature open**: `AGENTS.md` §7a states it once, the `#focus` and `#track` rows point at it, both pages and the two `cmd_help.md` lines mirror it, and the WorkflowImprovement `## Implemented` head carries its fold line; the Ask hop approved with no fixes and no build ran (docs-only). The command-flow design is fully walked — seven findings, six accepted resolutions applied to its plan, including the §7a/C12 single statement, the gate rule, the `## Walk` gates and the session-lived output mode. Nothing from it is implemented: three Core Directive texts plus `#go`, `#review`, `#walk`, `#brief`/`#full` remain unshipped, and the archive plan carries one design-only amendment (an unresolved walk as `#archive`'s fourth gate).
 
 ## Target Files
-- `AGENTS.md` — Core Directives (contract, challenge, gate), §7a xxArchive + fold rule, §7b `#archive` row, checks a–r
-- `docs/cmd_help_archive.md`, `docs/cmd_help_doctor.md` — archive spec and the a–r check set
-- `xTrack/WorkflowImprovement/260912_FEAT_PLN_WorkflowImprovement_command-flow.md` — design awaiting the six amendments
-- `xTrack/WorkflowImprovement/260912_FEAT_PLN_WorkflowImprovement_archive-lifecycle.md` — digest floor + the open-walk gate sentence
+- `AGENTS.md` — new §7a command-delta bullet and the two §7b row pointers; the `xxArchive/` rule and `#doctor` a–r from the previous pass
+- `docs/cmd_help_focus.md`, `docs/cmd_help_track.md`, `docs/cmd_help.md` — the delta's mirrored surfaces
+- `xTrack/WorkflowImprovement/260912_FEAT_PLN_WorkflowImprovement_command-flow.md` — the unshipped design; Part 5 holds the ship order
+- `xTrack/WorkflowImprovement/260912_FEAT_PLN_WorkflowImprovement_archive-lifecycle.md` — digest floor plus the fourth-gate amendment
 
 ## Next Step
-Write the six accepted resolutions into the command-flow plan and the walk gate into the archive plan (md-only), then close the archive pipeline with the Architect report and commit the archive pass. Only after that commit: ship the rules, then `#go`, `#review` with its guard lines, `#walk`, and `#brief`. Deferred: the ~198-plan backlog triage and the `#implement` "build when source changed" refinement.
+Commit the command-delta change. Then implement the command-flow rules in ship order — the three Core Directive texts first, then `#go`, `#review` with its two guard lines, `#walk` with the `## Walk` template, and `#brief` — each as its own pass. Deferred: the retirement candidates this bake reported, the ~198-plan backlog triage, and the `#implement` build-only-when-source-changed refinement.

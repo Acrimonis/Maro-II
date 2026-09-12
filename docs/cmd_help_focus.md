@@ -12,5 +12,9 @@ Switch the active feature for the current session.
   [name] [section]  After resolving the feature, hydrate only that ### [section] block
                   (transient — no persistent state stored).
 
+  Opening prints the command delta: the newest (max 3) WorkflowImprovement ## Implemented
+  entries that add or change a command — once per open, under one plain label, silent
+  when empty.
+
   Retired: #focus sub / #focus out (subfeatures removed). Sections are addressed
   directly via [name] [section] or #todo/#rule [section]:...

@@ -10,3 +10,7 @@ Create a new tracked feature.
                   3. Add a row to the ## Feature Summaries table with a derived one_liner
                   If input is a descriptive phrase rather than PascalCase, derive
                   a clean feature name and confirm before creating.
+
+  Opening prints the command delta: the newest (max 3) WorkflowImprovement ## Implemented
+  entries that add or change a command — once per open, under one plain label, silent
+  when empty.
