@@ -31,3 +31,7 @@ Rationale: these are xTrack management commands, not implementation — they man
 
 - Created: `plans/planning.md` (this file)
 - Attached to: `xTrack/FEATURE_SCOPE_WorkflowImprovement.md` `## Docs`
+
+## Outcome
+
+Shipped: the discussion exception allowing one `FEAT_PLN_` file to capture a discussion, with `#focus` left live during it. It survives as the Explain/Discuss Gate in the Core Directives; the `#sub` pivots named here were later retired with subfeatures.

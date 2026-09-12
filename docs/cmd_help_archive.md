@@ -7,7 +7,7 @@ Fires **only on explicit invocation** — nothing triggers it implicitly, and no
 enter `xxArchive/`.
 
   [no param]       List the active feature's plans and documents, then offer a multi-select of what
-                   to archive. Before moving anything, ask the one qualifying question:
+                   to archive. Before moving anything, ask the qualifying question:
                    "does anything here still define current behaviour?"
                      yes → promotion is mandatory first: the retained rule goes to ## Rules and the
                            decisions to FEAT_DOC_[Feature]_decisions.md
@@ -23,6 +23,10 @@ enter `xxArchive/`.
 
   restore [name]   Move the file back, re-attach it in ## Docs, restore its ## Implemented pointer,
                    delete its index row. The next #bake records the event.
+
+**Fourth gate — an unresolved walk.** A plan carrying an open `## Walk` is refused the way a missing
+digest is, and challenged with the walk's own three exits: close it, resume it, or park it — parking
+promotes the open points into the digest's ## Outcome.
 
 Index columns: `File | Created | Archived | Status (shipped/superseded/promoted) | Summary | Tags | Superseded-by`
 

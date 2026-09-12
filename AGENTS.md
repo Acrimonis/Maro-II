@@ -8,18 +8,25 @@
 
 ## Output Contract
 
+- **📏 Bullets are the unit.** One bullet = one idea, and a bullet stays within roughly two
+  sentences — needing a third means it is two bullets. No limit on how many bullets a reply has.
+- **🏗️ Long content lives in files.** No headings and no nested bullets in a reply; a list, table or
+  code block appears only as a containment block, and anything that does not fit the cap belongs in
+  the file the reply points at.
+- **🩹 Clarity exception.** A bullet may exceed the cap only to *contain* something — a list, a table,
+  a code block. Padding prose never qualifies.
+- **🎯 Answer first.** The first bullet is the answer, so a reader who stops after it has the result.
+- **🔍 Item-by-item reviews.** List every item as a flat marker of under ten words, then expand only
+  the active one into a full paragraph, so the reply stays the same size as the list shortens.
+- **📋 Report only what changed.** If the tool output already answered the request, emit only `Done.`
+  For multi-step changes, add an ELIJP — one or two plain sentences on purpose, jargon stripped.
+- **🗣️ Recommendations argue against themselves.** State the strongest objection to your own
+  recommendation, or say none was found. A question is asked only when its answer changes what
+  happens next.
 - **🎯 Answer only what was asked, then stop.** No next steps, no follow-ups, no extending the
   conversation. EXCEPTION: once the interaction has reached natural conclusion (user said "done",
   "goodbye", or the topic is clearly exhausted) → you MAY add 1 high-level future-direction bullet
   at the very end.
-- **🗣️ Minimum viable communication.** Say what must be said — nothing more. Zero fluff, zero
-  extrapolation, zero speculative prose. IF a sentence doesn't carry signal → cut it.
-- **📋 Summarize only what changed.** If the tool output already answered the request, emit only
-  `"Done."` When the task involved multi-step changes or non-obvious decisions → emit:
-  1. Bullet list of what changed (files touched, logic altered, config).
-  2. ELIJP (ELIJP = "Explain Like I'm a Junior Programmer") — one or two plain-language sentences
-     explaining the *purpose* of the change. Strip Android/Kotlin jargon where possible.
-     IF a Java-backend analogy maps cleanly → use it.
 
 - **⛔ SCOPE LOCK: Zero scope creep.**
   IF the prompt doesn't explicitly request it → do NOT implement it.
@@ -42,11 +49,18 @@
 - **🔴 QUESTIONS: Answer before acting.** A question is not an implicit implementation
   order — answer it, then wait for direction. Applies in every mode.
 
+- **🎯 Challenge instead of assuming.** Ambiguity or mere implied approval is a stop-and-ask,
+  never a guess — authorisation stays with MODE LOCK, answer-first with QUESTIONS.
+
 - **🔴 ABSOLUTE RULE: No agent may execute `git add`, `git commit`, `git push`,
   `git merge`, or `git rebase` without the user's explicit, unambiguous go-ahead.**
   Committing inside `new_task(Code)` subtasks is NOT exempt. `git add` may be used to stage when preparing a `#commit`; do not stage preemptively.
   **Read-only git queries (`git status`, `git log`, `git branch`, `git diff`, `git fetch`) are always permitted in any mode.**
   **Exception:** git-related `#`-commands are self-contained confirmations — the explicit invocation is the go-ahead. `#commit`, `#push`, `#merge` and `#cherry` still ask before acting, even when chained; `#new`, `#move`, `#move new` and `#rename` do not.
+
+- **🚦 A gate names its action.** A confirmation gate states the exact action it authorises, and if
+  the proposal has moved since the question was asked (or if the gate is the final release of the
+  action) the gate is re-asked rather than assumed.
 
 - **🔴 ABSOLUTE RULE: NEVER write to `develop` or `main` — no pushes,
   no force-pushes, no reverts, no direct commits, no local merges into them.
@@ -95,7 +109,7 @@
 
 # 7a. xTrack — Stack, Bootstrap & Lifecycle
 - **Memory Stack:** Context footprint: `xTrack/` (features) + `GLOBAL_CONTEXT.md` (routing), `xTrack/[Feature]/FEAT_DSC_[Feature].md` (epics), `xTrack/[Feature]/FEAT_HYD_[Feature].md` (session state, written by `#bake`). The feature directory + `FEAT_DSC_` are auto-created on first `#track`/`#focus`; `FEAT_HYD_` appears at first `#bake`.
-- **Sections:** Feature files group work under `### [Section]` headings (no subfeature state). Keep a section only while it holds an open todo, a retained rule, or a doc/key-file mapping; `#bake` folds the rest into `## Implemented` (one-liner + plan pointer; planless = bare one-liner). Full criteria in `docs/cmd_help_bake.md`.
+- **Sections:** Feature files group work under `### [Section]` headings (no subfeature state). Keep a section only while it holds an open todo, a retained rule, a doc/key-file mapping **or an open walk** (`## Walk`); `#bake` folds the rest into `## Implemented` (one-liner + plan pointer; planless = bare one-liner). This sentence is the sole statement of the criterion — `docs/cmd_help_bake.md` C12 points here.
 - **Focus History:** `GLOBAL_CONTEXT.md` keeps an append-only newest-first stack (cap 10) of `[timestamp] [Feature] — one-liner → FEAT_HYD_[Feature].md`. Top = current focus. `#focus` pushes; `#bake` prunes.
 - **🔴 PLAN FILE PLACEMENT: All `FEAT_PLN_*.md`, `FEAT_DOC_*.md` and feature-scoped design files MUST be created in `xTrack/[Feature]/`, named `YYMMDD_FEAT_PLN_[Feature]_[topic].md`.**
 - **`xxArchive/` (retired files):** retired plans and docs live in `xTrack/[Feature]/xxArchive/` beside an `INDEX.md`; cross-cutting retirements go to `docs/xxArchive/`. Every feature-summarising command (`#bake`, `#status`, `#doctor`, `#doc list`, `#doc audit`, `#doc update`) **excludes these folders**. `#archive` is the only command that may enter one, and inside it only `INDEX.md` is read — a body needs an explicit per-file request.
@@ -126,6 +140,10 @@ Intercept `#`-prefix. All name lookups use fuzzy-resolve cascade (exact → subs
 | `#doctor` | Lint xTrack (checks a–r); `#doctor fix` auto-repairs safe classes |
 | `#merge` | Pre-flight analysis → trivial/non-trivial classification → auto-select rebase/merge → confirm (yes for direct, `#implement` for full validation pipeline). Push + PR link. **Never touches `develop`/`main`.** |
 | `#implement` | Pipeline: Code→implement+build → Ask→review → Architect→report+## Implemented |
+| `#go` | Agree with the question currently open; re-asks if the proposal moved since it was asked. `#go impl` = agree and run the `#implement` pipeline |
+| `#review [target]` | Independent review of the resolved target — walk item → plan in design → last `#implement` run's Target Files → live proposal (a challenge). Prints "Reviewing X because Y"; a target is fuzzy-resolved |
+| `#walk [source]` · `#next` · `#prev` · `#skip` · `#done` | Cursor over an enumerated set, one item expanded at a time. State lives in the feature file's `## Walk` section; an open walk blocks `#bake`'s fold and `#archive`'s retirement |
+| `#brief` · `#full` | Output mode: subtract the contract's three optional parts (ELIJP, containment blocks, verification lists) or restore them, reporting the resulting mode. Session-lived — `#focus` resets to full |
 | `#new [branch]` | Create `feature/[branch]` from `origin/develop` |
 | `#commit` | Stage + commit; if the active feature's `xTrack/[Feature]/` state has moved since its hydration baseline, offer a bake first. Asks before committing |
 | `#push` | Push current branch to origin. Asks before pushing. Refuses on `develop`/`main` |

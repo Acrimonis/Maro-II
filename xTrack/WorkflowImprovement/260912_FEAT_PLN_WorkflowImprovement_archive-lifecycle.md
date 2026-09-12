@@ -1,7 +1,7 @@
 <!-- scope: feature -->
 # Plan Lifecycle & the `#archive` Command
 
-**Feature:** WorkflowImprovement · **Date:** 2026-09-12 · **Branch:** `feature/wrKFl` · **Status:** in implementation
+**Feature:** WorkflowImprovement · **Date:** 2026-09-12 · **Branch:** `feature/wrKFl` · **Status:** implemented — one amendment deferred to the `#walk` step
 **Migrated from:** Annex B of [`260912_FEAT_PLN_WorkflowImprovement_docs-integrity.md`](260912_FEAT_PLN_WorkflowImprovement_docs-integrity.md:1), carrying review resolutions B1–B12.
 
 ## Problem
@@ -87,4 +87,4 @@ Delivered as designed. The design migrated out of the integrity plan (which now 
 
 **Retirement deferred.** By this pass's own lifecycle, a plan whose contract is still load-bearing is promoted rather than archived — and this one defines a mechanism that has not yet been exercised once. It retires only after `#archive` has run for real.
 
-**Amended after review** — an unresolved walk joins the digest floor as a fourth gate (close / resume / park), recorded here and once in the command-flow plan. Design only: not yet implemented.
+**Amended after review** — an unresolved walk joins the digest floor as a fourth gate (close / resume / park), recorded here and once in the command-flow plan (rule 5). It lands with that plan's `#walk` step, in the same write as the §7a/C12 single statement and this plan's gate text.

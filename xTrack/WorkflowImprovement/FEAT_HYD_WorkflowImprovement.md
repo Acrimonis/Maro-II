@@ -1,16 +1,17 @@
 # Context Hydration — WorkflowImprovement — 2026-09-12
 
-**Last Bake:** 2026-09-12 11:30 UTC
-**Updated:** 2026-09-12 11:52 UTC — session close (retirement todo logged, Focus History entry pushed)
+**Last Bake:** 2026-09-12 12:30 UTC
+**Updated:** 2026-09-12 12:30 UTC — bake after the command-flow pass
 
 ## State
-Three change sets sit on `feature/wrKFl`: the docs & rulebook integrity pass (`5558f3b`), the archive lifecycle + `#archive` pass together with both plan files (`cd2f635`), and the **command delta on feature open** (`37e238a`), which landed with the Ask hop approving and no build running (docs-only). The command-flow design is fully walked — seven findings, six accepted resolutions applied to its plan, including the §7a/C12 single statement, the gate rule, the `## Walk` gates and the session-lived output mode. Nothing from it is implemented: three Core Directive texts plus `#go`, `#review`, `#walk`, `#brief`/`#full` remain unshipped, and the archive plan carries one design-only amendment (an unresolved walk as `#archive`'s fourth gate). The eight retirement candidates the bake reported are now a durable feature todo, so nothing about this session depends on its conversation. Focus History gained one closing entry; the stack is transiently 11 deep and the next `#bake` prunes the oldest.
+The command-flow design is fully shipped. The Output Contract now carries a countable unit, the containment rule, the objection bullet and the question threshold, with "minimum viable communication" retired; rule 2 scopes ambiguity to MODE LOCK and QUESTIONS, and rule 3 makes a gate name its action. §7b gained four rows — `#go`, `#review`, `#walk` with `#next`/`#prev`/`#skip`/`#done`, and `#brief`/`#full` — each with a page and a `cmd_help.md` line, plus the `## Walk` template, the §7a/C12 single statement and `#archive`'s fourth gate; `#doctor` stays a–r. The first real `#archive` run retired six candidates as seven files into `xxArchive/`, each with an appended `## Outcome`, an `INDEX.md` row, five `## Docs` detachments and five pointer drops, with checks q–r verified clean. The walk closed with one point still open — the push. Two candidates (`docs-integrity`, `archive-lifecycle`) are held for a second gate, and the whole pass is uncommitted on `feature/wrKFl`.
 
 ## Target Files
-- `AGENTS.md` — §7a command-delta bullet and the two §7b row pointers; the `xxArchive/` rule and `#doctor` a–r from the previous pass
-- `docs/cmd_help_focus.md`, `docs/cmd_help_track.md`, `docs/cmd_help.md` — the delta's mirrored surfaces
-- `xTrack/WorkflowImprovement/260912_FEAT_PLN_WorkflowImprovement_command-flow.md` — the unshipped design; Part 5 holds the ship order
-- `xTrack/WorkflowImprovement/260912_FEAT_PLN_WorkflowImprovement_archive-lifecycle.md` — digest floor plus the fourth-gate amendment
+- `AGENTS.md` — Output Contract rewrite, rules 2–3, §7a keep-criterion, §7b rows for `#go` / `#review` / `#walk` / `#brief`
+- `docs/cmd_help_go.md`, `docs/cmd_help_review.md`, `docs/cmd_help_walk.md`, `docs/cmd_help_brief.md` — the four new pages
+- `docs/cmd_help.md`, `docs/cmd_help_bake.md`, `docs/cmd_help_archive.md`, `docs/cmd_help_implement.md`, `.claude/skills/xtrack/references/templates.md` — mirrored surfaces
+- `xTrack/WorkflowImprovement/xxArchive/INDEX.md` — seven rows from the first pass
+- `xTrack/WorkflowImprovement/260912_FEAT_PLN_WorkflowImprovement_command-flow.md` — the shipped design
 
 ## Next Step
-Push `feature/wrKFl` — three commits are local-only and nothing else is uncommitted. Then implement the command-flow rules in ship order: the three Core Directive texts first, then `#go`, `#review` with its two guard lines, `#walk` with the `## Walk` template, and `#brief` — each as its own pass. Retirement comes next: `#archive` per candidate, starting with the integrity plan. Still deferred: the ~198-plan backlog triage and the `#implement` build-only-when-source-changed refinement.
+Commit this pass (the bake is already run), then push `feature/wrKFl` — four commits plus this one. Then the second retirement gate: `docs-integrity` (self-retiring, Outcome already written) and `archive-lifecycle` (unblocked by the first real run). Still deferred: git-shortcut verification, the post-merge `xTrack/` reconcile, the ~198-plan triage and the `#implement` build-only-when-source-changed refinement.

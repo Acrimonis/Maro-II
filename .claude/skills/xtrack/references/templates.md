@@ -92,6 +92,14 @@ modified: [YYYY-MM-DD HH:mm]   # equals created on #track; bumped by #bake when 
 ## Docs
 - `FEAT_DOC_[Feature]_[name].md` — [brief description]
 
+## Walk
+**Date:** [YYYY-MM-DD] · **Source:** [pending set / named plan] · **Active:** [item]
+- [ ] 1 · [item]
+- [ ] 2 · [item]
+
+[On close: one bullet per resolution, plus anything dropped. `#bake` snapshots this section but never
+clears it — the fold is blocked while the walk is open, and so is `#archive`'s retirement.]
+
 ## Implemented
 - [one-liner of what shipped] → [FEAT_PLN_* / FEAT_DOC_* pointer]
 - [planless one-liner, no pointer]

@@ -1,8 +1,9 @@
 <!-- scope: feature -->
 # Command Flow — Rules & the Four Surviving Commands
 
-**Feature:** WorkflowImprovement · **Date:** 2026-09-12 · **Branch:** `feature/wrKFl` · **Status:** reviewed — six walk resolutions applied, awaiting implementation
+**Feature:** WorkflowImprovement · **Date:** 2026-09-12 · **Branch:** `feature/wrKFl` · **Status:** reviewed — six walk resolutions plus one review pass applied, awaiting implementation
 **Origin:** two walks over this session — eight items on the interaction flow, then seven on the Ask review's findings — resolved one point at a time and folded below. Items 1–6 of the second walk changed the design; item 7 found nothing to change.
+**Review pass:** the `#review` cascade resolved to ship-order item 1 (no walk open, this plan still in design), and its findings are folded below as `R1`–`R5` — self-scoping rule 2, splitting the reporting bullet, ending the containment/ban collision, correcting the ship order, and moving the C12 amendment to the walk step.
 
 ## Problem
 
@@ -17,8 +18,9 @@ Two failures with one shared cause. The Output Contract's brevity rule — "mini
 
 - **📏 Bullets are the unit.** One bullet = one idea, and a bullet stays within roughly two
   sentences — needing a third means it is two bullets. No limit on how many bullets a reply has.
-- **🏗️ Long content lives in files.** No headings, no tables, no nested bullets in a reply; lists,
-  tables and code that do not fit the cap belong in the file the reply points at.
+- **🏗️ Long content lives in files.** No headings and no nested bullets in a reply; a list, table or
+  code block appears only as a containment block, and anything that does not fit the cap belongs in
+  the file the reply points at.
 - **🩹 Clarity exception.** A bullet may exceed the cap only to *contain* something — a list, a table,
   a code block. Padding prose never qualifies.
 - **🎯 Answer first.** The first bullet is the answer, so a reader who stops after it has the result.
@@ -26,23 +28,26 @@ Two failures with one shared cause. The Output Contract's brevity rule — "mini
   the active one into a full paragraph, so the reply stays the same size as the list shortens.
 - **📋 Report only what changed.** If the tool output already answered the request, emit only `Done.`
   For multi-step changes, add an ELIJP — one or two plain sentences on purpose, jargon stripped.
-  Recommendations state the strongest objection to themselves, or say none was found, and a question
-  is asked only when its answer changes what happens next.
+- **🗣️ Recommendations argue against themselves.** State the strongest objection to your own
+  recommendation, or say none was found. A question is asked only when its answer changes what
+  happens next.
 - **🎯 Answer only what was asked, then stop.** No next steps, no follow-ups. Once the interaction has
   reached natural conclusion you MAY add one future-direction bullet at the very end.
 ```
 
-Three named **optional parts** — ELIJP, containment blocks, verification lists — because `#brief` subtracts exactly those, which is why this contract ships before that command. The objection and ask-threshold sentences are **not** optional parts: they ride the reporting bullet, so `#brief` never subtracts them.
+Three named **optional parts** — ELIJP, containment blocks, verification lists — because `#brief` subtracts exactly those, which is why this contract ships before that command. The objection bullet and the question threshold are **not** optional parts, so `#brief` never subtracts them (R1) — the reporting bullet carried four jobs, which the cap one bullet above it rejects at sight.
+
+Cost: the rewrite replaces the old brevity bullet and adds six, so the prefix-cache zone grows by roughly ten lines. Accepted — verbosity was this session's costliest defect, and the unit is what the old bullet lacked.
 
 The threshold is the whole test — it governs bare-command guessing ("in doubt ask"), unprompted questions and recommendation framing alike, so it needs no rule of its own.
 
 ### 2. Challenge instead of assuming
 
 ```
-- **🎯 Challenge instead of assuming.** When a directive is ambiguous or merely implies approval, stop and ask rather than picking a reading and proceeding.
+- **🎯 Challenge instead of assuming.** Ambiguity or mere implied approval is a stop-and-ask, never a guess — authorisation stays with MODE LOCK, answer-first with QUESTIONS (R2).
 ```
 
-Deliberately **not** unified with MODE LOCK: MODE LOCK owns authorisation — may I start? — while this owns ambiguity and presentation of recommendations — what should happen next? Each states its own scope; neither claims to be the general form of the other.
+Deliberately **not** unified with MODE LOCK: MODE LOCK owns authorisation — may I start? — while this owns ambiguity and presentation of recommendations — what should happen next? Each states its own scope; neither claims to be the general form of the other. The bullet therefore names both scopes (`R2`), so it cannot be read as a third statement of MODE LOCK's closing sentence.
 
 ### 3. Gate rule
 
@@ -87,10 +92,10 @@ Four rows, each needing a §7b row, a `docs/cmd_help_*.md` page and a `cmd_help.
 
 ## Part 5 — Ship order
 
-1. Rules 1–5 — no rows, and fixes today's verbosity complaint immediately
+1. Contract text — rules 1, 2 and 3 only (no rows), which fixes today's verbosity complaint immediately
 2. `#go`
-3. `#review`, with the guard lines
-4. `#walk` and its four facets
+3. `#review` and its page — rule 4's cascade lives there, with the two guard lines
+4. `#walk` and its four facets — rule 5's walk state, the `## Walk` template and the §7a/C12 single-statement amendment land together
 5. `#brief` / `#full`, once the contract's optional parts exist
 
 If only two commands ship, they are `#go` and `#review` — both wrap mechanics that already exist.

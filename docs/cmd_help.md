@@ -25,7 +25,11 @@ Docs:     #doc                 feature docs (scope-aware)
 Session:  #bake                snapshot + consolidation (checkmarks, section fold/trim/split/merge, summaries table, FEAT_HYD_, prune Focus History > 10)
           #help                this list
           #archive             retire a feature-scoped plan or doc into xxArchive/ (explicit invocation only)
+          #review              review the cascade-resolved target — walk item → plan in design → last #implement run → live proposal (challenge)
+          #walk                cursor over the pending set, one item at a time — facets #next #prev #skip #done
+          #brief / #full       output mode — brief subtracts ELIJP, containment blocks, verification lists; #focus resets to full
 Pipeline: #implement           full pipeline: Code → build → Ask review → Architect report
+          #go                  agree with the open question (re-asks if the proposal moved); #go impl = agree + run the pipeline
 Git:      🔴 See [`docs/GIT_WORKFLOW.md`](GIT_WORKFLOW.md) for full rules + enforcement.
            #new [branch]        create `feature/[branch]` from origin/develop
            #commit              stage + commit; offers a bake first when the feature moved since its last bake. Asks confirm. 🚫 refuses on develop/main.

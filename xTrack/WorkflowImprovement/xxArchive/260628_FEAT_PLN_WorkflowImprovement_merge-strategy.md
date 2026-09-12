@@ -177,3 +177,7 @@ Architect mode:
 - 🔴 Integration to `develop`/`main` is still via GitHub PR only
 - `#merge` is still self-confirming (#-command invocation = go-ahead)
 - Stash/pop still protects uncommitted work
+
+## Outcome
+
+Shipped: `#merge` runs pre-flight analysis, classifies trivial vs non-trivial, auto-selects rebase or merge, then confirms. The behaviour is now documented in the `AGENTS.md` §7b row and `docs/GIT_WORKFLOW.md`; this file keeps only the design rationale.
