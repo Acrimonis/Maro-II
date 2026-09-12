@@ -101,9 +101,17 @@
     <string name="settings_emodnet_cutoff_label">Cutoff depth</string>
     <string name="settings_emodnet_cutoff_desc">Hide EMODnet depths shallower than this (shown as no data). 0 = off</string>
     <string name="settings_section_screen">Screen</string>
-    <string name="settings_section_power">Power saving</string>
-    <string name="settings_keep_screen_on_label">Keep phone on</string>
-    <string name="settings_keep_screen_on_desc">Keep the screen on while the app is running</string>
+    <string name="settings_keep_screen_on_label">Don\'t lock the phone while the app is open</string>
+    <string name="settings_keep_screen_on_desc">Prevents the screen from turning off automatically</string>
+    <string name="settings_screen_gate_label">Release the screen when stopped</string>
+    <string name="settings_hold_screen_moving_label">Hold the screen while moving</string>
+    <string name="settings_hold_screen_moving_desc">Lets the phone lock once you stop</string>
+    <string name="settings_screen_speed_threshold_label">Movement threshold</string>
+    <string name="settings_screen_speed_threshold_desc">Speed above which the boat counts as moving</string>
+    <string name="settings_screen_speed_threshold_value">%1$.1f kn</string>
+    <string name="settings_screen_grace_label">Lock delay</string>
+    <string name="settings_screen_grace_desc">Locks after this long with no movement and no interaction</string>
+    <string name="settings_screen_grace_value">%1$d min</string>
     <string name="settings_sub_gps_label">GPS acquisition</string>
     <string name="settings_sub_gps_desc">Updating your position while under way</string>
     <string name="settings_sub_render_label">Map rendering</string>

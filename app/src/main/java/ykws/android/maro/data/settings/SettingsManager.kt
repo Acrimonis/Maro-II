@@ -80,8 +80,29 @@ data class AppSettings(
     val distanceToShore: Double = Double.NaN,
     /** App language: "system" (device locale, English fallback), "en", or "fr". */
     val languageCode: String = "system",
-    /** Keep the device screen awake while the app is in the foreground. */
-    val keepScreenOn: Boolean = true,
+    /**
+     * Master "don't lock the phone while the app is open" setting: holds `FLAG_KEEP_SCREEN_ON` on
+     * the window while the app is in front. Default `false`, matching the read fallback below and
+     * the shipped behaviour — the screen may sleep unless the user asks otherwise.
+     *
+     * With [keepScreenOnMovementGate] off the screen is held the whole time the app is in front.
+     * With it on, the hold follows [keepScreenOnSpeedThresholdKn] and [keepScreenOnGraceMinutes].
+     * See `xTrack/Performance/FEAT_DSC_Performance.md` (power management).
+     */
+    val keepScreenOn: Boolean = false,
+    /** Hold the screen only while moving, or shortly after the last touch, instead of always. */
+    val keepScreenOnMovementGate: Boolean = false,
+    /** Movement gate: speed over ground (knots) above which the boat counts as moving. */
+    val keepScreenOnSpeedThresholdKn: Float =
+        ykws.android.maro.config.AppConfig.powerScreenMovementThresholdKn,
+    /** Movement gate: minutes (1–15, default from `maro.properties`) without movement or interaction. */
+    val keepScreenOnGraceMinutes: Int =
+        ykws.android.maro.config.AppConfig.powerScreenGraceDefaultMinutes,
+    /**
+     * True once the battery-optimization prompt has been shown and answered, so it never reappears.
+     * Absorbed from the legacy `maro_battery_prefs` store on first run (see the migration in `init`).
+     */
+    val batteryOptimizationPrompted: Boolean = false,
     /** Highlight charted shallow water as a bright grounding-hazard overlay. */
     val lowDepthWarningVisible: Boolean = true,
     /** Crash depth (m): the overlay is fully opaque from the surface down to this depth. */
@@ -301,6 +322,14 @@ class SettingsManager(
         // No settings versioning. Missing or outdated values fall back to defaults at read time, so
         // basic functionality is always preserved. Idempotent cleanup of keys the code no longer reads
         // (legacy keys replaced by later settings; harmless to remove on every start).
+        // One-time absorb of the legacy battery-prompt flag (it used to live in its own prefs file),
+        // so nobody is prompted a second time now that the flag is part of AppSettings.
+        if (!prefs.contains(KEY_BATTERY_OPT_PROMPTED)) {
+            val legacy = context.getSharedPreferences(LEGACY_BATTERY_PREFS, Context.MODE_PRIVATE)
+                .getBoolean(LEGACY_BATTERY_OPT_PROMPTED, false)
+            if (legacy) prefs.edit().putBoolean(KEY_BATTERY_OPT_PROMPTED, true).apply()
+        }
+
         prefs.edit()
             .remove("user_markers_visible")          // replaced by marker_layer_state (v3)
             .remove("zone300_autoshow_gps")          // approach re-display rework (v6)
@@ -346,6 +375,19 @@ class SettingsManager(
         distanceToShore  = prefs.getFloat(KEY_DISTANCE_TO_SHORE, Float.NaN).toDouble(),
         languageCode     = prefs.getString(KEY_LANGUAGE_CODE, "system") ?: "system",
         keepScreenOn     = prefs.getBoolean(KEY_KEEP_SCREEN_ON, false),
+        keepScreenOnMovementGate = prefs.getBoolean(KEY_KEEP_SCREEN_ON_MOVEMENT_GATE, false),
+        keepScreenOnSpeedThresholdKn = prefs.getFloat(
+            KEY_KEEP_SCREEN_ON_SPEED_THRESHOLD_KN,
+            ykws.android.maro.config.AppConfig.powerScreenMovementThresholdKn
+        ),
+        keepScreenOnGraceMinutes = prefs.getInt(
+            KEY_KEEP_SCREEN_ON_GRACE_MIN,
+            ykws.android.maro.config.AppConfig.powerScreenGraceDefaultMinutes
+        ).coerceIn(
+            ykws.android.maro.config.AppConfig.powerScreenGraceMinMinutes,
+            ykws.android.maro.config.AppConfig.powerScreenGraceMaxMinutes
+        ),
+        batteryOptimizationPrompted = prefs.getBoolean(KEY_BATTERY_OPT_PROMPTED, false),
         lowDepthWarningVisible = prefs.getBoolean(KEY_LOW_DEPTH_WARNING_VISIBLE, true),
         lowDepthCrashDepthM = prefs.getFloat(KEY_LOW_DEPTH_CRASH_DEPTH_M, DepthConstants.LOW_DEPTH_CRASH_DEPTH_M.toFloat()),
         lowDepthStartWarningM = prefs.getFloat(KEY_LOW_DEPTH_START_WARNING_M, DepthConstants.LOW_DEPTH_START_WARNING_M.toFloat()),
@@ -478,6 +520,10 @@ class SettingsManager(
             .putFloat(KEY_DISTANCE_TO_SHORE, updated.distanceToShore.toFloat())
             .putString(KEY_LANGUAGE_CODE, updated.languageCode)
             .putBoolean(KEY_KEEP_SCREEN_ON, updated.keepScreenOn)
+            .putBoolean(KEY_KEEP_SCREEN_ON_MOVEMENT_GATE, updated.keepScreenOnMovementGate)
+            .putFloat(KEY_KEEP_SCREEN_ON_SPEED_THRESHOLD_KN, updated.keepScreenOnSpeedThresholdKn)
+            .putInt(KEY_KEEP_SCREEN_ON_GRACE_MIN, updated.keepScreenOnGraceMinutes)
+            .putBoolean(KEY_BATTERY_OPT_PROMPTED, updated.batteryOptimizationPrompted)
             .putBoolean(KEY_LOW_DEPTH_WARNING_VISIBLE, updated.lowDepthWarningVisible)
             .putFloat(KEY_LOW_DEPTH_CRASH_DEPTH_M, updated.lowDepthCrashDepthM)
             .putFloat(KEY_LOW_DEPTH_START_WARNING_M, updated.lowDepthStartWarningM)
@@ -593,6 +639,13 @@ class SettingsManager(
         private const val KEY_DISTANCE_TO_SHORE = "distance_to_shore"
         private const val KEY_LANGUAGE_CODE = "language_code"
         private const val KEY_KEEP_SCREEN_ON = "keep_screen_on"
+        private const val KEY_KEEP_SCREEN_ON_MOVEMENT_GATE = "keep_screen_on_movement_gate"
+        private const val KEY_KEEP_SCREEN_ON_SPEED_THRESHOLD_KN = "keep_screen_on_speed_threshold_kn"
+        private const val KEY_KEEP_SCREEN_ON_GRACE_MIN = "keep_screen_on_grace_min"
+        private const val KEY_BATTERY_OPT_PROMPTED = "battery_optimization_prompted"
+        /** Legacy store the prompt flag used to live in, plus its key — read once by the migration. */
+        private const val LEGACY_BATTERY_PREFS = "maro_battery_prefs"
+        private const val LEGACY_BATTERY_OPT_PROMPTED = "battery_opt_prompted"
         private const val KEY_LOW_DEPTH_WARNING_VISIBLE = "low_depth_warning_visible"
         private const val KEY_LOW_DEPTH_CRASH_DEPTH_M = "low_depth_crash_depth_m"
         private const val KEY_LOW_DEPTH_START_WARNING_M = "low_depth_start_warning_m"
