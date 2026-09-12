@@ -2,7 +2,7 @@
 name: Performance
 status: active
 created: 2026-06-07 00:00
-modified: 2026-09-12 09:40
+modified: 2026-09-12 09:58
 ---
 
 # Feature: Performance
@@ -54,6 +54,8 @@ Two **independent** channels: the screen flag (window-scoped, front-only by cons
 - The window flag keeps exactly **one** mutation point (the Activity applier) — that is what avoids the Android 16 false→true reset regression.
 - A keep-alive reason can only *sustain* a running service, never start one — detecting the condition requires GPS.
 - Numbers live by nature: the user's chosen values in `SettingsManager` prefs, while the bounds, the default and the developer constants come from `maro.properties` via `AppConfig` (`power.screen.*`). `PowerPolicy` references neither — every number arrives through its inputs.
+- **A push is not a reading.** Freshness must be sourced from the data — a required `isNewReading` flag tracked by `SpeedFreshness` — never inferred from a call arriving, or a re-published cached speed holds the screen forever. Pinned by `SpeedFreshnessTest`.
+- Demo mode is grace-governed: it has no speed truth, so pan speed is not treated as motion.
 
 #### Key Files
 - `app/src/main/java/ykws/android/maro/data/power/PowerPolicy.kt` — framework-free decision
@@ -71,6 +73,7 @@ Two **independent** channels: the screen flag (window-scoped, front-only by cons
 - **map-refresh-cap** — `mapRefreshFps` + capped `cameraUpdates` flow; single `setCenter`+`mapOrientation` applier (drop `animateTo`)
 - **compass-gating** — `_needsCompass` StateFlow gates the compass on GPS-course absence
 - **settings-ui** — "Acquisition GPS" presets + Advanced sliders + "Rendu carte" refresh-rate slider
+- **power-management freshness fix (2026-09-12)** — a push is no longer treated as a reading: `PowerKeeper.onSpeed` requires an `isNewReading` flag, new `SpeedFreshness` tracks the newest genuine reading, GPS mode pairs the speed with the app's `gpsStale` signal so a lost fix ages out at the staleness bound, and demo mode became **grace-governed** (pan speed is not motion). 6 regression cases in `SpeedFreshnessTest`; build SUCCESS → `xTrack/Performance/260912_FEAT_PLN_Performance_power-management-centralization.md` (decision 15)
 - **power-management Phase 1 (2026-09-12)** — centralised the screen-hold decision into `data/power/`: `PowerPolicy` (framework-free, **stateless** — speed gate above 1 kn **or** within grace of the last touch; unknown speed holds, stale speed releases; additive master-vs-gate semantics) + `PowerKeeper` (`StateFlow<PowerState>`, pushed settings/speed/touch inputs, 5 s grace ticker, recording floor, exemption query). The window flag is now driven by the keeper from a single mutation point, and `dispatchTouchEvent` feeds the interaction timestamp. Settings → System → Screen gained a renamed toggle ("Don't lock the phone while the app is open", French ambiguity removed) plus an expander holding the movement gate, threshold and grace sliders. Phase 0 corrected the stale power rule and the `keepScreenOn` default contradiction (`false`, no behaviour change). Phase 1c consolidated the battery-optimization prompt: the flag moved into `AppSettings` with a legacy migration, and the trigger moved to recording start with recovery kept as a secondary. 17 unit tests green; `apk-build.bat` SUCCESS → `xTrack/Performance/260912_FEAT_PLN_Performance_power-management-centralization.md`
 
 ## Rules

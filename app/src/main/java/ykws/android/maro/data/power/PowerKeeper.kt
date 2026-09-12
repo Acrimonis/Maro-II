@@ -34,6 +34,12 @@ import ykws.android.maro.data.track.TrackRecordingService
  * GPS subscription of its own and `data/power/` never depends on `ui/`. A null push (the source has
  * no speed right now) is **ignored**: the last known speed is retained and loss of fixes is handled
  * by the staleness bound instead, which keeps a brief dropout from dropping the hold.
+ *
+ * ### Freshness contract (do not weaken this)
+ * A push is **not** a reading. The source re-publishes its cached speed whenever unrelated state
+ * changes, so the caller states whether the reading is new ([SpeedFreshness]) and only a new reading
+ * ages from zero. Inferring freshness from call arrival — the original implementation — let a stale
+ * cached speed re-stamp itself indefinitely and hold the screen on forever.
  */
 class PowerKeeper(private val context: Context) {
 
@@ -52,7 +58,9 @@ class PowerKeeper(private val context: Context) {
 
     /** Null until a real speed has ever been reported. */
     private var speedKn: Float? = null
-    private var lastFixMs = 0L
+
+    /** When the last *genuinely new* speed reading arrived — see the freshness contract above. */
+    private val freshness = SpeedFreshness()
     private var lastTouchMs = SystemClock.elapsedRealtime()
     private var recording = false
 
@@ -70,11 +78,15 @@ class PowerKeeper(private val context: Context) {
 
     /**
      * Push the latest speed over ground. Ignored when null — see the class KDoc.
+     *
+     * @param isNewReading true only when the source knows this is a new reading; re-publishing a
+     *   cached value must pass false, or a stale speed will never age out. The parameter is
+     *   deliberately required so a caller cannot fall back to inferring freshness from the call.
      */
-    fun onSpeed(speedKn: Float?) {
+    fun onSpeed(speedKn: Float?, isNewReading: Boolean) {
         if (speedKn == null) return
         this.speedKn = speedKn
-        lastFixMs = SystemClock.elapsedRealtime()
+        freshness.onReading(SystemClock.elapsedRealtime(), isNewReading)
         recompute()
     }
 
@@ -130,7 +142,9 @@ class PowerKeeper(private val context: Context) {
                 keepScreenOn = keepScreenOn,
                 movementGateEnabled = movementGateEnabled,
                 speedKn = speedKn,
-                fixAgeMs = now - lastFixMs,
+                // No genuine reading yet → "cannot prove freshness", which the policy resolves as
+                // stale (unless the speed itself is still unknown, which holds instead).
+                fixAgeMs = freshness.ageMs(now) ?: Long.MAX_VALUE,
                 lastTouchAgeMs = now - lastTouchMs,
                 thresholdKn = thresholdKn,
                 graceMs = graceMs,

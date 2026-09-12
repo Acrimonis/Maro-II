@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.flow.combine
 import java.util.Locale
 import ykws.android.maro.data.power.PowerKeeper
 import ykws.android.maro.data.track.TrackRecordingService
@@ -97,12 +98,20 @@ class MainActivity : ComponentActivity() {
                 powerKeeper.applySettings(appSettings)
             }
             LaunchedEffect(appSettings.gpsMode) {
-                viewModel.navigationState.collect { nav ->
-                    // Same rule the dashboard uses: GPS speed in GPS mode, synthetic speed in demo
-                    // mode (a stationary demo map reports no speed, which means "not moving").
-                    powerKeeper.onSpeed(
-                        if (appSettings.gpsMode) nav.speedKnots else nav.demoSpeedKnots ?: 0f
-                    )
+                if (appSettings.gpsMode) {
+                    // Freshness must come from the data, never from a push arriving: the navigation
+                    // state re-publishes its cached speed on unrelated emissions, and the app's own
+                    // staleness signal is what proves a reading is new.
+                    combine(viewModel.navigationState, viewModel.gpsStale) { nav, stale ->
+                        nav.speedKnots to !stale
+                    }.collect { (speedKn, isNew) ->
+                        powerKeeper.onSpeed(speedKn, isNewReading = isNew)
+                    }
+                } else {
+                    // Demo mode has no speed truth — dragging the map *is* the interaction, and the
+                    // lock-delay grace already covers that. Pan speed is deliberately not used as
+                    // motion here, which also makes the demo behaviour deterministic.
+                    powerKeeper.onSpeed(0f, isNewReading = false)
                 }
             }
 

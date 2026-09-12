@@ -84,6 +84,12 @@ confusion. The screen channel is front-only *by construction*, and the setting i
     as prefs, which put slider bounds and a developer constant in a user-editable store. `PowerPolicy`
     itself now references **neither** — every number arrives through `PowerInputs`, which keeps it
     trivially unit-testable.
+15. **A push is not a reading.** Freshness is sourced from the data, not inferred from a call arriving:
+    `PowerKeeper.onSpeed` requires an `isNewReading` flag, `SpeedFreshness` tracks the newest genuine
+    reading, and only a new reading ages from zero. Added 2026-09-12 after the original implementation
+    let a re-published cached speed re-stamp itself forever and hold the screen. Demo mode has no speed
+    truth at all, so it is **grace-governed**: pan speed is not treated as motion, and dragging the map
+    is the interaction that holds the screen.
 
 ## 4. Design
 
@@ -116,6 +122,8 @@ Scoped to the **screen channel** in phase 1; grown in phase 3 to own service sta
 - Holds `StateFlow<PowerState>`.
 - Phase 1 observes settings, the UI position/speed feed, the last-touch timestamp, and
   `TrackRecordingService.isRecording` (for the floor).
+- Phase 1 also consumes the app's own freshness signals: in GPS mode the caller pairs the speed with
+  `NavigationViewModel.gpsStale`, so a lost fix keeps the value but stops counting as a new reading.
 - Phase 3 adds service start/stop ownership — replacing the unconditional start and the three
   `MapScreen` stop sites.
 - Owns the battery-exemption query and prompt — replaces the prefs-file + recovery-side-effect trigger.
