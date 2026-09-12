@@ -2,7 +2,7 @@
 name: WorkflowImprovement
 status: active
 created: 2026-06-03 00:00
-modified: 2026-09-12 11:30
+modified: 2026-09-12 11:52
 ---
 
 # Feature: WorkflowImprovement
@@ -34,6 +34,7 @@ The Output Contract's brevity rule had a unit-missing cap problem: "minimum viab
 
 ## Todos
 - [ ] **Post-merge reconcile xTrack/ across branches** — deferred. Procedure documented in FEAT_DSC; execute when first cross-branch xTrack conflict occurs.
+- [ ] **Retirement candidates reported by the 2026-09-12 11:30 bake** — decide per file with `#archive`: docs-integrity (its `## Outcome` says it retires now that Annex B has migrated), archive-lifecycle (defers itself until `#archive` has run for real), core-directives-promotion, agents-md-optimization, merge-strategy, trunk-to-leaf, process-simplification, planning
 - `AGENTS.md` is the canonical rulebook and directly writable; edit without prompting (`.clinerules/`/`CLAUDE.md` are pointers).
 
 ## Key Files
