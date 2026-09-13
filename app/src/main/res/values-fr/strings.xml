@@ -100,9 +100,17 @@
     <string name="settings_emodnet_cutoff_label">Profondeur seuil</string>
     <string name="settings_emodnet_cutoff_desc">Masquer les profondeurs EMODnet inférieures à ce seuil (affichées sans donnée). 0 = désactivé</string>
     <string name="settings_section_screen">Écran</string>
-    <string name="settings_section_power">Économie d\'énergie</string>
-    <string name="settings_keep_screen_on_label">Garder le téléphone allumé</string>
-    <string name="settings_keep_screen_on_desc">Garder l\'écran allumé pendant que l\'app fonctionne</string>
+    <string name="settings_keep_screen_on_label">Ne pas verrouiller le téléphone quand l\'app est ouverte</string>
+    <string name="settings_keep_screen_on_desc">Empêche l\'extinction automatique de l\'écran</string>
+    <string name="settings_screen_gate_label">Libérer l\'écran à l\'arrêt</string>
+    <string name="settings_hold_screen_moving_label">Garder l\'écran allumé en déplacement</string>
+    <string name="settings_hold_screen_moving_desc">Permet le verrouillage dès l\'arrêt</string>
+    <string name="settings_screen_speed_threshold_label">Seuil de mouvement</string>
+    <string name="settings_screen_speed_threshold_desc">Vitesse au-dessus de laquelle le bateau est considéré en mouvement</string>
+    <string name="settings_screen_speed_threshold_value">%1$.1f nd</string>
+    <string name="settings_screen_grace_label">Délai de verrouillage</string>
+    <string name="settings_screen_grace_desc">Verrouille après ce délai sans mouvement ni interaction</string>
+    <string name="settings_screen_grace_value">%1$d min</string>
     <string name="settings_sub_gps_label">Acquisition GPS</string>
     <string name="settings_sub_gps_desc">Mise à jour de votre position pendant la navigation</string>
     <string name="settings_sub_render_label">Rendu carte</string>

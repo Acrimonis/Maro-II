@@ -2,13 +2,13 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-09-07 15:36
+modified: 2026-09-12 09:05
 ---
 
 # Feature: Ui_General
 
 **Description:**
-App-lifecycle UX for the Maro-II app: back-exit guard, keep-screen-on, edge-to-edge rendering, WindowInsets management, list normalization, drawer framework, and menu-drawer UX.
+App-lifecycle UX for the Maro-II app: back-exit guard, edge-to-edge rendering, WindowInsets management, list normalization, drawer framework, and menu-drawer UX. (Keep-screen-on moved to the Performance feature 2026-09-12.)
 
 ## Sections
 
@@ -42,7 +42,7 @@ Long-press multiselect mode on list items: scaffold owns selection state + conte
 - **scrim-strengths-and-dashboard-close** — unified 0.50 scrim on menu/settings/lists only; menu/fan open closes dashboard → `xTrack/Ui_General/260904_FEAT_PLN_Ui_General_scrim-strengths-and-dashboard-close.md`
 - **drawer-dynamic-height** — bottom-anchored drawers with card-height probe + animated height
 - **drawer-vertical-rhythm** — uniform 12dp card padding / header vpad / footer rhythm
-- **screen-lock** — 📵 splash guard (LockScrim + unlock toggle + zoom gated) → `xTrack/Ui_General/260827_FEAT_PLN_Ui_General_touch-input-lock.md`
+- **touch-lock** — 📵 splash guard blocking accidental touches (LockScrim + unlock toggle + zoom gated; `status.lock.*` tokens). Renamed from "screen-lock" 2026-09-12 so `screen lock` is free for the device-timeout feature owned by Performance → `xTrack/Ui_General/260827_FEAT_PLN_Ui_General_touch-input-lock.md`
 - **menu-drawer-rows** — "Tracks"/"Markers" rows; chevron opens first filtered/sorted item → `xTrack/Ui_General/260816_FEAT_PLN_Ui_General_menu-drawer-rows.md`
 - **delete-advance-next** — drawer delete advances to adjacent item + snackbar undo stack → `xTrack/Ui_General/260816_FEAT_PLN_Ui_General_delete-advance-next.md`
 - **top-left-icons** — GPS→tracking→land/water order; GPS click-to-toggle; 🐾 icon; red idle dot → `xTrack/Ui_General/260816_FEAT_PLN_Ui_General_top-left-icons-reorder.md`
@@ -51,7 +51,7 @@ Long-press multiselect mode on list items: scaffold owns selection state + conte
 - **filter** — extensible `ListFilter` (tracks=date+pinned, markers=pinned+geometry+origin), sort UX normalized → `xTrack/Ui_General/260702_FEAT_PLN_Ui_General_filter.md`
 - **filter everywhere** — map mirrors filtered list; fan binary ON/OFF → `xTrack/Ui_General/260702_FEAT_PLN_Ui_General_filter-everywhere.md`
 - **BackToExitConfirm** — double-back-to-exit guard
-- **KeepScreenOn** — keep-screen-on setting
+- **KeepScreenOn** — keep-screen-on setting (ownership moved to Performance 2026-09-12: the policy and keeper now live in `data/power/` and the setting is documented in `xTrack/Performance/FEAT_DSC_Performance.md`)
 - **page layout** — `enableEdgeToEdge()` + status-bar immersion + WindowInsets
 - **immersive ui rework** — targeted insets only on overlays; map fills full screen
 - **tweak drawer** — `DrawerScaffold`/`DrawerHeader` shared components → `xTrack/Ui_General/260703_FEAT_PLN_Ui_General_tweak-drawer.md`

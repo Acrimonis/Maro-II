@@ -135,6 +135,26 @@ object AppConfig {
     var trackingGapTimeThresholdSec: Long = 120L
         private set
 
+    // ── Power management — screen hold ───────────────────────────────
+    // Bounds, default and developer constants only. The value the user picks lives in
+    // SettingsManager prefs; these define the slider range and the fallbacks.
+
+    /** Lock-delay lower bound (minutes). Set via `power.screen.grace.minMinutes` in maro.properties. */
+    var powerScreenGraceMinMinutes: Int = 1
+        private set
+    /** Lock-delay upper bound (minutes). Set via `power.screen.grace.maxMinutes` in maro.properties. */
+    var powerScreenGraceMaxMinutes: Int = 15
+        private set
+    /** Default lock delay (minutes), clamped into the bounds above. Set via `power.screen.grace.defaultMinutes`. */
+    var powerScreenGraceDefaultMinutes: Int = 5
+        private set
+    /** Speed over ground (knots) above which the boat counts as moving. Set via `power.screen.movementThresholdKn`. */
+    var powerScreenMovementThresholdKn: Float = 1.0f
+        private set
+    /** Age (ms) beyond which the last speed reading is treated as lost. Set via `power.screen.stalenessBoundMs`. */
+    var powerScreenStalenessBoundMs: Long = 30_000L
+        private set
+
     // ── Marker sort scoring ─────────────────────────────────────────
     /** Pin type weight. Lower = higher priority. */
     var markerSortTypeWeightPin: Double = 0.5
@@ -665,6 +685,31 @@ object AppConfig {
             props.getProperty("tracking.gapTimeThresholdSec")?.toLongOrNull()?.let {
                 trackingGapTimeThresholdSec = it.coerceAtLeast(0L)
             }
+
+            // ── Power management — screen hold ──────────────────────────────
+            props.getProperty("power.screen.grace.minMinutes")?.toIntOrNull()?.let {
+                powerScreenGraceMinMinutes = it.coerceIn(1, 60)
+            }
+            props.getProperty("power.screen.grace.maxMinutes")?.toIntOrNull()?.let {
+                powerScreenGraceMaxMinutes = it.coerceIn(1, 60)
+            }
+            props.getProperty("power.screen.grace.defaultMinutes")?.toIntOrNull()?.let {
+                powerScreenGraceDefaultMinutes = it.coerceIn(1, 60)
+            }
+            props.getProperty("power.screen.movementThresholdKn")?.toFloatOrNull()?.let {
+                powerScreenMovementThresholdKn = it.coerceIn(0.1f, 20f)
+            }
+            props.getProperty("power.screen.stalenessBoundMs")?.toLongOrNull()?.let {
+                powerScreenStalenessBoundMs = it.coerceAtLeast(1_000L)
+            }
+            // A malformed file must not produce an inverted range (the KDoc promises no crashes on bad
+            // config), so fall back to the shipped bounds and clamp the default inside them.
+            if (powerScreenGraceMinMinutes >= powerScreenGraceMaxMinutes) {
+                powerScreenGraceMinMinutes = 1
+                powerScreenGraceMaxMinutes = 15
+            }
+            powerScreenGraceDefaultMinutes = powerScreenGraceDefaultMinutes
+                .coerceIn(powerScreenGraceMinMinutes, powerScreenGraceMaxMinutes)
 
             // ── Track direction arrows (speed-based density) ────────────────
             props.getProperty("track.direction.speedFloorKn")?.toFloatOrNull()?.let {

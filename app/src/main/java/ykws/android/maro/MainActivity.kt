@@ -3,14 +3,13 @@ package ykws.android.maro
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
-import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.content.res.Resources
 import android.graphics.drawable.ColorDrawable
 import android.net.Uri
 import android.os.Bundle
-import android.os.PowerManager
 import android.provider.Settings
+import android.view.MotionEvent
 import android.view.WindowInsetsController
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -37,16 +36,33 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.flow.combine
 import java.util.Locale
+import ykws.android.maro.data.power.BatteryExemption
+import ykws.android.maro.data.power.PowerKeeper
+import ykws.android.maro.data.track.TrackRecordingService
 import ykws.android.maro.ui.map.NavigationViewModel
 import ykws.android.maro.ui.map.DepthViewModel
 import ykws.android.maro.ui.map.MapScreen
 import ykws.android.maro.config.AppConfig
 
 class MainActivity : ComponentActivity() {
+
+    /**
+     * Power-management owner for the screen channel — decides whether `FLAG_KEEP_SCREEN_ON`
+     * should be held. Lazy so [dispatchTouchEvent], which can fire before the first composition,
+     * always has an instance. See `xTrack/Performance/FEAT_DSC_Performance.md`.
+     */
+    private val powerKeeper: PowerKeeper by lazy { PowerKeeper(applicationContext) }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Start the keeper's observers (recording floor + grace ticker) with the Activity's scope.
+        // The window flag itself is applied further down in the composition, from the keeper's state.
+        powerKeeper.start(lifecycleScope)
 
         // Enable edge-to-edge rendering: content draws behind the system status bar
         // and navigation bar, which become transparent. Must be called before setContent().
@@ -75,6 +91,29 @@ class MainActivity : ComponentActivity() {
             val depthViewModel: DepthViewModel = viewModel()
             val appSettings by viewModel.settings.collectAsState()
 
+            // Feed the keeper. It owns the decision; the Activity only supplies what only the UI
+            // can see — the persisted settings, the live speed, and (below) the touch stream.
+            LaunchedEffect(appSettings) {
+                powerKeeper.applySettings(appSettings)
+            }
+            LaunchedEffect(appSettings.gpsMode) {
+                if (appSettings.gpsMode) {
+                    // Freshness must come from the data, never from a push arriving: the navigation
+                    // state re-publishes its cached speed on unrelated emissions, and the app's own
+                    // staleness signal is what proves a reading is new.
+                    combine(viewModel.navigationState, viewModel.gpsStale) { nav, stale ->
+                        nav.speedKnots to !stale
+                    }.collect { (speedKn, isNew) ->
+                        powerKeeper.onSpeed(speedKn, isNewReading = isNew)
+                    }
+                } else {
+                    // Demo mode has no speed truth — dragging the map *is* the interaction, and the
+                    // lock-delay grace already covers that. Pan speed is deliberately not used as
+                    // motion here, which also makes the demo behaviour deterministic.
+                    powerKeeper.onSpeed(0f, isNewReading = false)
+                }
+            }
+
             // Apply the user's language choice by overriding the Compose context + configuration
             // so every stringResource below resolves in the chosen locale. "system" leaves the
             // device locale intact (English default, French on a fr device); "en"/"fr" force it.
@@ -95,8 +134,11 @@ class MainActivity : ComponentActivity() {
                         // Uses the window flag directly instead of View.keepScreenOn to avoid the
                         // DisposableEffect onDispose toggle glitch (brief false→true reset that
                         // trips Android 16's aggressive power management). Reset on dispose.
-                        DisposableEffect(appSettings.keepScreenOn) {
-                            if (appSettings.keepScreenOn) {
+                        // The decision now comes from PowerKeeper (movement gate + interaction
+                        // grace); this stays the single place the flag is ever mutated.
+                        val powerState by powerKeeper.state.collectAsState()
+                        DisposableEffect(powerState.screenOn) {
+                            if (powerState.screenOn) {
                                 window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
                             } else {
                                 window.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -112,18 +154,25 @@ class MainActivity : ComponentActivity() {
                             depthViewModel.initCache(this@MainActivity)
                         }
 
-                        // ── Battery optimization prompt on startup (recovery scenario) ──
+                        // ── Battery optimization prompt ──
+                        // Primary trigger: a recording starts — that is when the exemption matters,
+                        // and it fires before the problem rather than after it. Secondary: startup
+                        // recovery, where an orphaned checkpoint proves a recording was live when the
+                        // app was killed. The "already asked" flag now lives in AppSettings.
                         var showBatteryDialog by remember { mutableStateOf(false) }
-                        val prefs = remember { getSharedPreferences(PREFS_NAME, MODE_PRIVATE) }
+                        val recording by TrackRecordingService.isRecording.collectAsState()
+                        LaunchedEffect(recording, appSettings.batteryOptimizationPrompted) {
+                            if (recording &&
+                                BatteryExemption.shouldPrompt(this@MainActivity, appSettings)
+                            ) {
+                                showBatteryDialog = true
+                            }
+                        }
                         LaunchedEffect(Unit) {
-                            val wasPrompted = prefs.getBoolean(KEY_BATTERY_OPT_PROMPTED, false)
-                            if (!wasPrompted) {
-                                // Check if recording was active — orphaned checkpoint implies it was
+                            if (BatteryExemption.shouldPrompt(this@MainActivity, appSettings)) {
                                 val orphans = ykws.android.maro.data.track.TrackRepository(this@MainActivity)
                                     .recoverOrphanedCheckpoints()
-                                if (orphans.isNotEmpty()) {
-                                    showBatteryDialog = true
-                                }
+                                if (orphans.isNotEmpty()) showBatteryDialog = true
                             }
                         }
 
@@ -131,7 +180,7 @@ class MainActivity : ComponentActivity() {
                             BatteryOptimizationDialog(
                                 onOpenSettings = {
                                     showBatteryDialog = false
-                                    prefs.edit().putBoolean(KEY_BATTERY_OPT_PROMPTED, true).apply()
+                                    viewModel.updateSettings { it.copy(batteryOptimizationPrompted = true) }
                                     val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
                                         data = Uri.parse("package:$packageName")
                                     }
@@ -139,7 +188,7 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onNotNow = {
                                     showBatteryDialog = false
-                                    prefs.edit().putBoolean(KEY_BATTERY_OPT_PROMPTED, true).apply()
+                                    viewModel.updateSettings { it.copy(batteryOptimizationPrompted = true) }
                                 }
                             )
                         }
@@ -159,10 +208,16 @@ class MainActivity : ComponentActivity() {
         startForegroundService(Intent(this, ykws.android.maro.data.track.TrackRecordingService::class.java))
     }
 
-    companion object {
-        private const val PREFS_NAME = "maro_battery_prefs"
-        const val KEY_BATTERY_OPT_PROMPTED = "battery_opt_prompted"
+    /**
+     * Every touch — Compose or the osmdroid `MapView` — passes through here, so this is the one
+     * choke point that can see all user interaction. The keeper only records a timestamp, so this
+     * stays cheap enough to sit in the touch path; it never drives recomposition per event.
+     */
+    override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
+        powerKeeper.onTouch()
+        return super.dispatchTouchEvent(ev)
     }
+
 }
 
 /**

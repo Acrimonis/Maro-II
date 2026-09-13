@@ -181,6 +181,7 @@ import ykws.android.maro.data.model.ValidationReport
 import ykws.android.maro.data.model.Zone300Data
 import ykws.android.maro.data.regulation.RegulatedZoneSet
 import ykws.android.maro.data.regulation.RegulatedZonesRepository
+import ykws.android.maro.data.power.BatteryExemption
 import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.model.markers.MarkerGeometry
 import ykws.android.maro.data.model.markers.MarkerOrigin
@@ -643,8 +644,7 @@ fun MapScreen(
     ) { granted ->
         if (granted) {
             // Proceed: battery prompt → recording
-            val prefs = context.getSharedPreferences("maro_battery_prefs", Context.MODE_PRIVATE)
-            if (!prefs.getBoolean("battery_opt_prompted", false)) {
+            if (BatteryExemption.shouldPrompt(context, appSettings)) {
                 showBatteryOptDialog = true
             } else {
                 trackViewModel.startRecording()
@@ -1208,8 +1208,7 @@ fun MapScreen(
                 recoveryTrack = recoveryTrack,
                 onStartRecording = {
                     val startRecordingWithBatteryCheck: () -> Unit = {
-                        val prefs = context.getSharedPreferences("maro_battery_prefs", Context.MODE_PRIVATE)
-                        if (!prefs.getBoolean("battery_opt_prompted", false)) {
+                        if (BatteryExemption.shouldPrompt(context, appSettings)) {
                             showBatteryOptDialog = true
                         } else {
                             trackViewModel.startRecording()
@@ -1904,7 +1903,10 @@ fun MapScreen(
             applyGpsMode = applyGpsMode,
             // ── Battery optimization (A4) ──
             showBatteryOptDialog = showBatteryOptDialog,
-            closeBatteryOptDialog = { showBatteryOptDialog = false }
+            closeBatteryOptDialog = { showBatteryOptDialog = false },
+            onBatteryOptPrompted = {
+                viewModel.updateSettings { it.copy(batteryOptimizationPrompted = true) }
+            }
         )
 
         // ── Single-GPX import conflict sheet (Duplicate / Override / Cancel) — host in MapImportConflictHost ──
