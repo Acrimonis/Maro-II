@@ -1,6 +1,6 @@
 # marker-pin — Pin Toggle Implementation Plan
 
-> **Parent:** xTrack/Markers | **Plan:** [plans/marker-pin.md](../../plans/marker-pin.md)
+> **Parent:** xTrack/Markers
 > **Date:** 2026-06-26
 
 ## Summary

@@ -1,6 +1,6 @@
 # marker-pin-tri-state — Fan Layer Tri-State Toggle
 
-> **Parent:** xTrack/Markers/marker-pin | **Plan:** [plans/marker-pin-tri-state.md](../../plans/marker-pin-tri-state.md)
+> **Parent:** xTrack/Markers
 > **Date:** 2026-06-26
 
 ## Summary

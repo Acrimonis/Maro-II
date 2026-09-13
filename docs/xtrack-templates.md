@@ -1,4 +1,9 @@
+<!-- scope: reference -->
 # xTrack File Templates
+
+> Sub-truth pointed from `AGENTS.md`'s Lazy-Load Index. Rules live in `AGENTS.md`; this file holds the
+> file shapes only. Its former home, `.claude/skills/xtrack/references/templates.md`, was removed —
+> adapters carry pointers, never content (§8a).
 
 Templates for the xTrack memory stack. Fill placeholders in `[brackets]`. Use
 ISO 8601 UTC dates (`YYYY-MM-DD HH:mm`) from the environment — never
@@ -34,11 +39,18 @@ on first `#bake` of a feature.
 ## Global Todos
 
 - [ ] [cross-cutting todo]
+
+## Cross-Reference Docs
+Docs available via `#doc read [name]` from any feature. Fuzzy-resolve searches this table.
+
+| Doc | Owner Feature | One-Liner |
+|-----|---------------|-----------|
+| `[doc-name].md` | [Feature] | [one-liner] |
 ```
 
 ---
 
-## `xTrack/FEAT_DSC_[Name].md`
+## `xTrack/[Feature]/FEAT_DSC_[Name].md`
 
 A YAML front-matter header (machine-readable: status, dates) followed by
 the prose body. The `one_liner` lives in the
@@ -82,11 +94,21 @@ modified: [YYYY-MM-DD HH:mm]   # equals created on #track; bumped by #bake when 
 ## Key Files
 - `path/to/source` — [brief description]
 
-## OwnedFiles
-- `path/to/source` — [brief description why feature owns this]
-
 ## Docs
 - `FEAT_DOC_[Feature]_[name].md` — [brief description]
+
+## Walk
+**Level 1 — Date:** [YYYY-MM-DD] · **Source:** [pending set / named plan] · **Active:** [n]
+- [ ] 1 · [item]
+- [ ] 2 · [subject] — summary; child walk open
+
+**Level 2 — Date:** [YYYY-MM-DD] · **Parent:** 2 · **Active:** [n]
+- [ ] 1 · [sub-item]
+
+[Exhaustion closes a level: one bullet summary naming resolutions and drops, written into the parent
+item at level 2 and into the digest's `## Outcome` at level 1. A closed child renders as
+`- [x] n · [subject] — child walk closed: [one-line resolution, drops named]`. Never cleared, never
+trimmed, kept while any level is open — the fold and `#archive`'s retirement both wait.]
 
 ## Implemented
 - [one-liner of what shipped] → [FEAT_PLN_* / FEAT_DOC_* pointer]
@@ -109,6 +131,8 @@ the next session can resume cold. Keep it tight and transactional — not a chan
 ```markdown
 # Context Hydration — [Feature] — [YYYY-MM-DD]
 
+**Last Bake:** [YYYY-MM-DD HH:mm UTC] — written by `#bake`; absence means never baked
+
 ## State
 [2-4 sentences: what compiles, what's in progress, current statuses.]
 
@@ -121,10 +145,26 @@ the next session can resume cold. Keep it tight and transactional — not a chan
 
 ---
 
+## `xTrack/[Feature]/xxArchive/INDEX.md`
+
+One index per archive folder — the only file `#archive` reads, and the only entry point for retired
+material. Cross-cutting retirements use `docs/xxArchive/INDEX.md` with the same columns.
+
+```markdown
+| File | Created | Archived | Status | Summary | Tags | Superseded-by |
+|------|---------|----------|--------|---------|------|---------------|
+| `[YYMMDD]_FEAT_PLN_[Feature]_[topic].md` | [YYYY-MM-DD] | [YYYY-MM-DD] | shipped | [one line: what it was and what came of it] | [tags] | — |
+```
+
+`Status` is one of `shipped` · `superseded` · `promoted`. Abandoned material is deleted, never filed
+here.
+
+---
+
 ## `FEAT_DOC_[Feature]_[name].md`
 
 Feature-scoped reference documentation (created by `#doc create` when
-"Feature-scoped" is chosen, or by `#doc sync`). Scope tag is always `feature`.
+"Feature-scoped" is chosen). Scope tag is always `feature`.
 
 ```markdown
 <!-- scope: feature -->
@@ -138,9 +178,7 @@ Feature-scoped reference documentation (created by `#doc create` when
 ## `YYMMDD_FEAT_PLN_[Feature]_[topic].md`
 
 Feature-scoped plan / design discussion file. **MUST be created in
-`xTrack/[Feature]/` — NEVER in `plans/`.** The `plans/` directory is a legacy
-landing zone; all new plan files go directly to the feature directory.
-The `YYMMDD` prefix is the creation date (from git history or filesystem).
+`xTrack/[Feature]/`.** The `YYMMDD` prefix is the creation date (from git history or filesystem).
 Scope tag is `feature`.
 
 ```markdown

@@ -5,7 +5,7 @@ Refresh the active feature's documentation to match current implementation reali
 
 ### What it does (9-step pipeline)
 
-1. **Harvest decisions** — Scan all `FEAT_PLN_*` files + source code for the active feature. Extract every architectural/functional decision with rationale and source file references.
+1. **Harvest decisions** — Scan the active feature's `FEAT_PLN_*` files (its `xxArchive/` excluded — retired material is never re-harvested) plus source code. Extract every architectural/functional decision with rationale and source file references.
 
 2. **Cross-reference** — Compare plans against actual source code; read each plan's `## Outcome` (if present) as the canonical "what actually shipped" input. Plans often deviate during implementation.
 

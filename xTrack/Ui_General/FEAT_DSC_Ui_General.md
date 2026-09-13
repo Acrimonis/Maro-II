@@ -73,6 +73,7 @@ Long-press multiselect mode on list items: scaffold owns selection state + conte
 - `docs/ui-lists-guidelines.md` — ListOverlayScaffold API, filter system, swipe-to-delete
 - `docs/ui-component-guidelines.md` — canonical UI component patterns
 - `docs/ui-drawer-guidelines.md` — DrawerScaffold API
+- `xTrack/Ui_General/260701_FEAT_PLN_Ui_General_listable-item-interface.md` — ListableItem migration plan (marker + track lists under one interface)
 - `docs/material-icons-standalone-guide.md` — standalone icon registry
 - `docs/color-scheme.md` — canonical colour tokens
 - `xTrack/UI_Map/260616_FEAT_PLN_UI_Map_map-overlay-layout-rationalization.md` — 2-column Row layout refactor

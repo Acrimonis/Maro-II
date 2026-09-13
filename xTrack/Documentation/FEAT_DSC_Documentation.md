@@ -21,7 +21,7 @@ Cross-cutting project documentation — README, FAQs, setup guides, architecture
 - **planeding** — `plans/*.md` migrated to `xTrack/[Feature]/FEAT_PLN_*` convention
 
 ## Rules
-- Feature-scoped discussion/plan files go in `xTrack/[Feature]/FEAT_PLN_[Feature]_[topic].md` (not in `plans/`). The `plans/` directory is legacy; new plans use the `FEAT_PLN_` convention under the target feature's xTrack directory.
+- Feature-scoped discussion/plan files go in `xTrack/[Feature]/YYMMDD_FEAT_PLN_[Feature]_[topic].md`.
 - `docs/maro-code.md` is the single source of truth for feature-to-code mapping. Feature files reference it; do not duplicate file listings.
 ## Key Files
 - `docs/maro-code.md` — feature-to-code navigation map (primary reference)

@@ -68,4 +68,4 @@ Files: `app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt`,
 ## Out of scope
 
 - Phase 2 — menu drawer normalization (`Ui_Menu`).
-- Historical references in other features' docs (`xTrack/BoatTrace/260620_FEAT_PLN_BoatTrace_settings-page-rules.md` R1, `xTrack/Markers/260703_FEAT_PLN_Markers_setting-markers.md`, `xTrack/Performance/FEAT_DOC_Performance_battery-design.md`, `docs/map-lib-migration-plan.md`) — reference-only, not edited here.
+- Historical references in other features' docs (`xTrack/BoatTrace/260620_FEAT_PLN_BoatTrace_settings-page-rules.md` R1, `xTrack/Markers/260703_FEAT_PLN_Markers_setting-markers.md`, `xTrack/Performance/FEAT_DOC_Performance_battery-design.md`) — reference-only, not edited here.

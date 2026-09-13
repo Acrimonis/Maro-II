@@ -4,7 +4,7 @@
 Snapshot + consolidation into per-feature hydration memory.
 
   [no param]  1. Update section checkmarks in the current feature file.
-              2. Consolidate sections (criteria C1–C12 below): fold-done, trim-empty,
+              2. Consolidate sections (criteria C1–C13 below): fold-done, trim-empty,
                  split, merge, rename-normalize.
               3. Update the feature's row in the ## Feature Summaries table in
                  GLOBAL_CONTEXT.md (recompute one_liner if needed, bump modified date).
@@ -13,8 +13,10 @@ Snapshot + consolidation into per-feature hydration memory.
               5. Create/overwrite xTrack/[Feature]/FEAT_HYD_[Feature].md with a
                  ~200-word micro-state summary (state, target files, next step).
               6. Prune the ## Focus History stack in GLOBAL_CONTEXT.md beyond cap 10.
-              7. Prompt user to clear the workspace.
-              Also triggered automatically by closing phrases (done, goodbye, etc.).
+              7. Report retirement candidates: plans still attached in the feature's ## Docs whose
+                 work appears in ## Implemented. Report only — #archive does the moving.
+              8. Prompt user to clear the workspace.
+              Runs only on explicit invocation — nothing triggers it implicitly.
 
   Section criteria (canonical):
   C1 Cohesion — one section = one bounded theme.
@@ -28,5 +30,5 @@ Snapshot + consolidation into per-feature hydration memory.
   C9 Trim-empty — empty sections fold too.
   C10 Split — >8 items or two themes.
   C11 Merge — duplicate headings.
-  C12 Keep-if-signal — survives only with open todo / retained rule / doc-key-file mapping.
-  C13 Live trim — open sections keep a detailed 2–4 sentence summary + open [ ] todos + valid Rules/Key Files/Docs; drop done [x] todos.
+  C12 Keep-if-signal — criterion per AGENTS.md §7a (sole statement of it; open todo / retained rule / doc-key-file mapping / open walk at any level). The ## Walk section is snapshotted, never cleared, and its items are never folded as done while any level is open — a fold attempted then is challenged with the walk's own three exits: close it, resume it, or park it. Its state is never copied into FEAT_HYD_, which at most points at it.
+  C13 Live trim — open sections keep a detailed 2–4 sentence summary + open [ ] todos + valid Rules/Key Files/Docs; drop done [x] todos. The ## Walk section is exempt: a ticked walk item is history, not a completed todo.

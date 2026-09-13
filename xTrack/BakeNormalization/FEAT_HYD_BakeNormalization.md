@@ -18,7 +18,7 @@
 ## Next
 - `apk-deploy.bat` → on device pan into the eastern nearshore (Antibes→Nice); confirm the Profondeur
   card reads a **bold green `Litto3D`** there → then tick the come-back todo + the `depth source` sub.
-- Open: validate the intermittent-Overpass theory (also in GLOBAL_TODOS).
+- Open: validate the intermittent-Overpass theory (canonical todo in `GLOBAL_CONTEXT.md`).
 - Likely PR `feature/litto3d-shallow` → develop once verified.
 
 ## Key files

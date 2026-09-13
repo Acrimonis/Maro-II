@@ -32,23 +32,24 @@ empty layer until prebaked.
 
 **Sources (all prebaked on the computer).** OSM coastline (Overpass), EMODnet depth (REST / WCS),
 SHOM Litto3D (GDAL reproject), SHOM survey lots, Sentinel-2 SDB — every source is gathered +
-processed at build time by its prebake tool (e.g. `tools/bake_*.bat` + GDAL, then a JVM
+processed at build time by its prebake tool (e.g. `tools\bake-*.bat` + GDAL, then a JVM
 `*PrebakeTest`) and committed as a bundled `.bin`. None is fetched on-device.
 
-**Storage conventions.** Bundled cooked dataset → `app/src/main/assets/<dataset>/<region>.bin`
-(ships in the APK). Build intermediates (e.g. depth `.asc` from GDAL) live under `tools/` and are
-**not** bundled. `app/preloaded/` is deprecated. The only build prop is the **map extent** (W/E)
-in `gradle.properties` → `BuildConfig`; N/S stay constant (coast → ~6 NM).
+**Storage conventions.** Baked datasets live in the gitignored `data/app-assets/<dataset>/` tree and
+are packaged into the APK at build time through an asset srcDir — depth `.asc` sources and their
+`.bin` outputs both sit there, and the `.asc` is excluded from the APK. `app/preloaded/` is
+deprecated. The only build prop is the **map extent** (W/E) in `gradle.properties` → `BuildConfig`;
+N/S stay constant (coast → ~6 NM).
 
-**Status (2026-06-06): adopted.** Repositories are pure loaders; `CoastlinePrebakeTest` +
-`DepthPrebakeTest` and the `apk-build.bat` prompts are in place; build green. Remaining: the W/E
-`RegionConfig` prop, and producing the actual bundled `.bin` assets by running the prebakes.
+**Status: adopted.** Repositories are pure loaders; only the app reads the baked `.bin` assets, and
+a missing asset simply means an empty layer until the next bake. Bakes are driven by
+`apk-bake.bat` / `tools\bake-*.bat`; `apk-build.bat` never bakes.
 
 ## Reference Docs
 
 | Doc | Scope | When to load |
 |-----|-------|-------------|
 | [docs/color-scheme.md](color-scheme.md) | Color tokens, palette, alias chains | Changing any UI color |
-| [docs/settings-page-guidelines.md](settings-page-guidelines.md) | Settings page UI patterns and layout rules | Adding/modifying settings |
+| [docs/ui-component-guidelines.md](ui-component-guidelines.md) | Component + settings patterns: cards, rows, headers, dividers, popup styling, spacing tokens | Building or modifying any settings, menu or list surface |
 | [docs/material-icons-standalone-guide.md](material-icons-standalone-guide.md) | How to add Material Symbols icons as standalone ImageVector .kt files | Adding new icons |
 | [docs/ui-drawer-guidelines.md](ui-drawer-guidelines.md) | Drawer/overlay UI framework: OverlayLayer + DrawerSlot architecture, animation specs, composable contract, how to add a new drawer | Any drawer or transient UI surface work |

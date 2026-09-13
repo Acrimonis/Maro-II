@@ -214,3 +214,7 @@ For every `xTrack/*/FEAT_DSC_*.md`:
 1. WRITE-ONCE severity marker: 🟡 (guideline).
 2. No persistent section state in GLOBAL_CONTEXT — transient only via `#focus [Feature] [Section]`.
 3. GLOBAL_CONTEXT session state: Focus History stack, newest-first, cap 10; `#focus`/`#now`/`#status`/`#bake` updated.
+
+## Outcome
+
+Shipped, all three: the WRITE-ONCE guideline, subfeatures replaced by sections, and the Focus History stack. All three now live in `AGENTS.md` §7a and the Core Directives, so this file records the reasoning rather than the rule.

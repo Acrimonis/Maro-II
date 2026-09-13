@@ -5,7 +5,7 @@
 **Recoverable synthesis** of the bathymetry data-source research for **DepthMapping**
 (codename BARO). Keep this file current whenever source findings or the data strategy
 change (per the feature rule). Supersedes the exploratory notes in
-[`oZer/BARO - *.md`](oZer) with live-verified facts.
+[`FEAT_DOC_DepthMapping_baro-*.md`](FEAT_DOC_DepthMapping_baro-general-concepts.md) with live-verified facts.
 
 - **Zone:** Cannes → Menton (French Riviera). Box ≈ lat 43.40–43.80°N, lon 6.65–7.55°E.
   Landmarks: Îles de Lérins (Sainte-Marguerite / Saint-Honorat), Cap d'Antibes, Golfe-Juan,

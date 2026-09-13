@@ -81,3 +81,7 @@ Condense 5 lines → 3 lines. Reference the Lazy-Load Index in AGENTS.md.
 - §7a/§7b command table untouched
 - #-command behavior unchanged
 - No rules weakened or removed
+
+## Outcome
+
+Shipped: §5 merged into the Core Directives, §§1–4 condensed, Lazy-Load Index added. `AGENTS.md` has since been restructured twice, so the line counts and section numbering quoted here are historical — the structure they produced is what survived.

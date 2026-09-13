@@ -100,7 +100,7 @@ Migration: existing tracks get `pinned = false`. First load after migration: use
 
 ### 5b. Settings — Tracking section
 
-Following [`settings-page-guidelines.md`](docs/settings-page-guidelines.md:1):
+Following [`ui-component-guidelines.md`](../../docs/ui-component-guidelines.md:1):
 
 **Before (current):**
 ```

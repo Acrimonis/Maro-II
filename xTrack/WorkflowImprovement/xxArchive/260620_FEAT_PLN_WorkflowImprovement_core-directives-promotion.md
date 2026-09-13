@@ -226,3 +226,7 @@ After promoting WRITE-ONCE and NO BINARY READS to Core Directives, remove them f
 - [`xTrack/GLOBAL_CONTEXT.md`](xTrack/GLOBAL_CONTEXT.md) — sync Global Rules
 - [`docs/cmd_help_git.md`](docs/cmd_help_git.md) — git command docs
 - [`xTrack/WorkflowImprovement/FEAT_DSC_WorkflowImprovement.md`](xTrack/WorkflowImprovement/FEAT_DSC_WorkflowImprovement.md:146) — `hard rules` subfeature
+
+## Outcome
+
+Shipped: ten hard rules promoted into the prefix-cache Core Directives zone, §5 git operations hardened, and a new `#doctor` check (j). Superseded in part — the rule texts were rewritten on 2026-09-12 and the check range is now a–r, so the current wording lives in `AGENTS.md`, not here.

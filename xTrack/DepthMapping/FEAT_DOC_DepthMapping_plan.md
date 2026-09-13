@@ -203,7 +203,7 @@ per-tier mean bias/RMSE/max → datum-mismatch flag → pass/fail).
 
 ## 12. Deferred / parked
 - Sentinel-2 SDB on-device fetch (Copernicus OIDC+STAC+OData+Stumpf) — see
-  [`docs/oZer/BARO - Fetch Sentinel.md`](oZer).
+  [`FEAT_DOC_DepthMapping_baro-fetch-sentinel.md`](FEAT_DOC_DepthMapping_baro-fetch-sentinel.md).
 - Real-time tide correction (LAT datum is the conservative stand-in).
 - Two-resolution grid (fine shallow / coarse deep) — only if 25 m single grid (~14 MB) too heavy.
 - Confirm exact IGN69↔LAT↔MSL offsets during the Litto3D bake.

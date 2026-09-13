@@ -107,3 +107,7 @@ No other files need changing — this is AGENTS.md only.
 - Fuzzy resolution protocol retained (critical for #-command dispatch)
 - Core Directives intact — no behavioral rules removed
 - `#help [cmd]` fallback documented so AI knows where to find full detail
+
+## Outcome
+
+Shipped: 207 → 149 lines and the table-form §7b. The 2026-09-12 integrity pass rewrote the contract and added rows, so the line figures here are historical; the table form is what survived.

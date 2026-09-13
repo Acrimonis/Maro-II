@@ -1,7 +1,7 @@
 <!-- scope: feature -->
 # BARO — Fetching Sentinel-2 Data
 
-> **Parent**: [BARO - Sentinel-2 SDB guide](plans/BARO - Sentinel-2 SDB guide.md)
+> **Parent**: [FEAT_DOC_DepthMapping_baro-sentinel2-sdb-guide.md](FEAT_DOC_DepthMapping_baro-sentinel2-sdb-guide.md)
 > **Status**: Documented — 2026-06-02
 > **Purpose**: Technical reference for programmatic Sentinel-2 L2A imagery fetching via Copernicus Data Space APIs. Covers the authentication, search, and download pipeline used to obtain 10m multispectral bands for SDB processing.
 

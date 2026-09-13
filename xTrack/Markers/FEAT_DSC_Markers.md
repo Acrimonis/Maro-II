@@ -55,20 +55,8 @@ Static settings-driven halo ring differentiates pinned (white, strong) from unpi
 - `app/src/main/java/ykws/android/maro/ui/markers/wizard/WizardButtonRow.kt`
 - `app/src/main/java/ykws/android/maro/ui/map/MarkerColors.kt`
 
-## OwnedFiles
-- `app/src/main/java/ykws/android/maro/data/model/markers/`
-- `app/src/main/java/ykws/android/maro/data/markers/`
-- `app/src/main/java/ykws/android/maro/spatial/MarkerMatcher.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/MarkerOverlay.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/MarkerAppearance.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/MarkerHalo.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/MarkerDrawer.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/WizardDrawer.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/MarkerManagementOverlay.kt`
-- `app/src/main/java/ykws/android/maro/ui/markers/wizard/`
-
 ## Docs
+- `xTrack/Markers/260625_FEAT_PLN_Markers_wizard-drawerslot-separation.md` — wizard step extraction + DrawerSlot abstraction design
 - `xTrack/Markers/260905_FEAT_PLN_Markers_pin-halo-rendering.md` — pin halo rendering plan (implemented)
 - `xTrack/Markers/260904_FEAT_PLN_Markers_icon-pin-decoupling.md` — icon/pin decoupling + pin re-implementation plan (implemented)
 - `xTrack/Markers/FEAT_DOC_Markers_decisions.md` — architectural decisions with rationale and source references

@@ -1,7 +1,7 @@
 <!-- scope: feature -->
 # BARO — Sentinel-2 Satellite-Derived Bathymetry (SDB) Guide
 
-> **Parent**: [BARO - general concepts.md](plans/BARO - general concepts.md)
+> **Parent**: [FEAT_DOC_DepthMapping_baro-general-concepts.md](FEAT_DOC_DepthMapping_baro-general-concepts.md)
 > **Status**: Research & access guide — 2026-06-02
 > **Purpose**: How to obtain 10m-resolution bathymetry (0–25m) for the Côte d'Azur from free Sentinel-2 satellite imagery.
 

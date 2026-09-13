@@ -194,4 +194,4 @@ During each step, progress interpolates linearly within its band. For example, d
 
 - Feature: [`DepthSafety`](../xTrack/FEATURE_SCOPE_DepthSafety.md)
 - Subfeature: `caching`
-- Measurements: [`plans/caching.md`](../plans/caching.md)
+- Measurements: [`260609_FEAT_PLN_DepthMapping_caching.md`](260609_FEAT_PLN_DepthMapping_caching.md)

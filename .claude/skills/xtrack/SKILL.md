@@ -14,5 +14,5 @@ the xTrack system live in **`AGENTS.md`** (§ 7a/7b) at the repo root.
 - § 7a — Stack layout, bootstrap, lifecycle
 - § 7b — Command reference (all `#`-commands)
 
-Do not read this file for operational instructions. If anything here conflicts
-with `AGENTS.md`, `AGENTS.md` wins.
+This file is the Claude-side entry point for the xTrack command system — the specification
+lives in `AGENTS.md` §7a/§7b, which wins on any conflict.

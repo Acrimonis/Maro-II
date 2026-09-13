@@ -45,3 +45,7 @@
 7. **Simplify §4 loop control** — clarity improvement
 
 Total estimated savings: **~25 lines** (from ~110 → ~85) without losing any feature coverage.
+
+## Outcome
+
+Findings only — nothing was implemented from this file directly. The 2026-06-20 optimization pass and the 2026-09-12 integrity pass consumed the items, so no statement here defines current behaviour.

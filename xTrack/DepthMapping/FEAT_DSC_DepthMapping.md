@@ -10,7 +10,7 @@ modified: 2026-06-10 12:13
 **Description:**
 Map seafloor depth within the scoped zone across the 0–60 m range at the best practical precision — high-precision collision avoidance in 0–5 m, and best-available seafloor profiling in 5–60 m. Output feeds depth contour curves and/or colour depth maps.
 
-> **DepthMapping ≡ BARO** (prior research codename). Source-of-truth for data sourcing: `docs/oZer/BARO - *.md`.
+> **DepthMapping ≡ BARO** (prior research codename). Source-of-truth for data sourcing: `xTrack/DepthMapping/FEAT_DOC_DepthMapping_baro-*.md`.
 
 ## Sections
 
@@ -89,7 +89,11 @@ Unify data prebaking across datasets (coastline, Zone300, depth): tagged JVM pre
 
 ## Docs
 - `xTrack/DepthMapping/FEAT_DOC_DepthMapping_design.md`, `_plan.md`, `_bake.md`, `_sources.md`
-- `docs/oZer/BARO - *.md` (×5) — prior research
+- `xTrack/DepthMapping/FEAT_DOC_DepthMapping_baro-general-concepts.md` — BARO concepts, requirements and data discovery
+- `xTrack/DepthMapping/FEAT_DOC_DepthMapping_baro-data-sources-discussion.md` — Step 01: exhaustive SHOM dataset comparison
+- `xTrack/DepthMapping/FEAT_DOC_DepthMapping_baro-alt-sources-notes.md` — sources finer than HOMONIM 100m
+- `xTrack/DepthMapping/FEAT_DOC_DepthMapping_baro-sentinel2-sdb-guide.md` — Sentinel-2 satellite-derived bathymetry guide
+- `xTrack/DepthMapping/FEAT_DOC_DepthMapping_baro-fetch-sentinel.md` — programmatic Sentinel-2 fetching via Copernicus
 - `xTrack/DepthMapping/260609_FEAT_PLN_DepthMapping_emodnet-gate-nodata-color.md`
 - `xTrack/DepthMapping/260610_FEAT_PLN_DepthMapping_litto3d-regression-analysis.md`
 - `xTrack/DepthMapping/260609_FEAT_PLN_DepthMapping_oom-mmap-fix.md`
