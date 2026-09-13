@@ -1,7 +1,7 @@
 <!-- scope: feature -->
 # Command Flow — Rules & the Four Surviving Commands
 
-**Feature:** WorkflowImprovement · **Date:** 2026-09-12 · **Branch:** `feature/wrKFl` · **Status:** reviewed — six walk resolutions plus one review pass applied, awaiting implementation
+**Feature:** WorkflowImprovement · **Date:** 2026-09-12 · **Branch:** `feature/wrKFl` · **Status:** shipped — six walk resolutions plus one review pass applied; implemented 2026-09-12 and recorded in the feature's `## Implemented`
 **Origin:** two walks over this session — eight items on the interaction flow, then seven on the Ask review's findings — resolved one point at a time and folded below. Items 1–6 of the second walk changed the design; item 7 found nothing to change.
 **Review pass:** the `#review` cascade resolved to ship-order item 1 (no walk open, this plan still in design), and its findings are folded below as `R1`–`R5` — self-scoping rule 2, splitting the reporting bullet, ending the containment/ban collision, correcting the ship order, and moving the C12 amendment to the walk step.
 
@@ -103,3 +103,9 @@ If only two commands ship, they are `#go` and `#review` — both wrap mechanics 
 ## Out of scope
 
 The ~198-file plan backlog. Housekeeping: the archive pass is uncommitted, and mixing two change sets in one working tree makes both harder to review, so its commit lands before this work starts.
+
+## Outcome
+
+Shipped on `feature/wrKFl` on 2026-09-12. Rules 1–3 landed in `AGENTS.md` Core Directives ("minimum viable communication" retired), §7a gained the walk keep-criterion with `docs/cmd_help_bake.md` C12 reduced to a pointer, and `#go` / `#review` / `#walk` (with `#next` / `#prev` / `#skip` / `#done`) / `#brief`·`#full` are registered in §7b with pages, `cmd_help.md` lines, the `## Walk` template and both `#review` guard lines. `#doctor` stayed a–r and `#archive`'s fourth gate landed.
+
+Deviations, reviewed 2026-09-13: rule 3 had picked up a clause this design never carried — "(or if the gate is the final release of the action)" — since removed; `#plan`'s residue rules (the design/implemented phase test and extend-versus-new) were never written; and the walk-reporting rule shipped only in `docs/cmd_help_walk.md`, now given a session-start home in §7a's Turn 1 Protocol with its untriggerable close half dropped.

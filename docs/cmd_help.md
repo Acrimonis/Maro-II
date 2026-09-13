@@ -26,7 +26,7 @@ Session:  #bake                snapshot + consolidation (checkmarks, section fol
           #help                this list
           #archive             retire a feature-scoped plan or doc into xxArchive/ (explicit invocation only)
           #review              review the cascade-resolved target — walk item → plan in design → last #implement run → live proposal (challenge)
-          #walk                cursor over the pending set, one item at a time — facets #next #prev #skip #done
+          #walk                cursor over the pending set, one item at a time, exhaustion closes — facets #next #prev #skip
           #brief / #full       output mode — brief subtracts ELIJP, containment blocks, verification lists; #focus resets to full
 Pipeline: #implement           full pipeline: Code → build → Ask review → Architect report
           #go                  agree with the open question (re-asks if the proposal moved); #go impl = agree + run the pipeline

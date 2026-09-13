@@ -1,4 +1,9 @@
+<!-- scope: reference -->
 # xTrack File Templates
+
+> Sub-truth pointed from `AGENTS.md`'s Lazy-Load Index. Rules live in `AGENTS.md`; this file holds the
+> file shapes only. Its former home, `.claude/skills/xtrack/references/templates.md`, was removed —
+> adapters carry pointers, never content (§8a).
 
 Templates for the xTrack memory stack. Fill placeholders in `[brackets]`. Use
 ISO 8601 UTC dates (`YYYY-MM-DD HH:mm`) from the environment — never
@@ -93,12 +98,17 @@ modified: [YYYY-MM-DD HH:mm]   # equals created on #track; bumped by #bake when 
 - `FEAT_DOC_[Feature]_[name].md` — [brief description]
 
 ## Walk
-**Date:** [YYYY-MM-DD] · **Source:** [pending set / named plan] · **Active:** [item]
+**Level 1 — Date:** [YYYY-MM-DD] · **Source:** [pending set / named plan] · **Active:** [n]
 - [ ] 1 · [item]
-- [ ] 2 · [item]
+- [ ] 2 · [subject] — summary; child walk open
 
-[On close: one bullet per resolution, plus anything dropped. `#bake` snapshots this section but never
-clears it — the fold is blocked while the walk is open, and so is `#archive`'s retirement.]
+**Level 2 — Date:** [YYYY-MM-DD] · **Parent:** 2 · **Active:** [n]
+- [ ] 1 · [sub-item]
+
+[Exhaustion closes a level: one bullet summary naming resolutions and drops, written into the parent
+item at level 2 and into the digest's `## Outcome` at level 1. A closed child renders as
+`- [x] n · [subject] — child walk closed: [one-line resolution, drops named]`. Never cleared, never
+trimmed, kept while any level is open — the fold and `#archive`'s retirement both wait.]
 
 ## Implemented
 - [one-liner of what shipped] → [FEAT_PLN_* / FEAT_DOC_* pointer]

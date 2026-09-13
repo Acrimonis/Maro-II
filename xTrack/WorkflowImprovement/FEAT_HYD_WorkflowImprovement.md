@@ -1,17 +1,18 @@
-# Context Hydration — WorkflowImprovement — 2026-09-12
+# Context Hydration — WorkflowImprovement — 2026-09-13
 
-**Last Bake:** 2026-09-12 12:30 UTC
-**Updated:** 2026-09-12 12:30 UTC — bake after the command-flow pass
+**Last Bake:** 2026-09-13 19:02 UTC
+**Updated:** 2026-09-13 19:02 UTC — bake after the walk-stack and adapter-clean-up pass
 
 ## State
-The command-flow design is fully shipped. The Output Contract now carries a countable unit, the containment rule, the objection bullet and the question threshold, with "minimum viable communication" retired; rule 2 scopes ambiguity to MODE LOCK and QUESTIONS, and rule 3 makes a gate name its action. §7b gained four rows — `#go`, `#review`, `#walk` with `#next`/`#prev`/`#skip`/`#done`, and `#brief`/`#full` — each with a page and a `cmd_help.md` line, plus the `## Walk` template, the §7a/C12 single statement and `#archive`'s fourth gate; `#doctor` stays a–r. The first real `#archive` run retired six candidates as seven files into `xxArchive/`, each with an appended `## Outcome`, an `INDEX.md` row, five `## Docs` detachments and five pointer drops, with checks q–r verified clean. The walk closed with one point still open — the push. Two candidates (`docs-integrity`, `archive-lifecycle`) are held for a second gate, and the whole pass is uncommitted on `feature/wrKFl`.
+The 2026-09-12 command-flow review was remediated: the plan's stale status flipped to shipped with an `## Outcome`, rule 3 lost its undefined "final release" clause, the walk-reporting rule gained a home in §7a's Turn 1 Protocol, `#bake`'s walk handling was stated on its page, and the plan lifecycle — extend versus new, in-design meaning the pointer is absent from `## Implemented` — went into §7a. The walk-stack then shipped: a walk descends one level into its active item on a bold `Level 2` line with a `Parent:` pointer, closes by exhaustion, and `#done` was retired across the §7b row, the walk page and the derived `cmd_help.md` line — moving the close-or-park challenge to the two gates, which now read any open level. The adapter clean-up moved the file templates to `docs/xtrack-templates.md`, deleted `.claude/skills/xtrack/references/`, pointed AGENTS.md's Lazy-Load Index at the new home and trimmed the `.clinerules` rationale.
 
 ## Target Files
-- `AGENTS.md` — Output Contract rewrite, rules 2–3, §7a keep-criterion, §7b rows for `#go` / `#review` / `#walk` / `#brief`
-- `docs/cmd_help_go.md`, `docs/cmd_help_review.md`, `docs/cmd_help_walk.md`, `docs/cmd_help_brief.md` — the four new pages
-- `docs/cmd_help.md`, `docs/cmd_help_bake.md`, `docs/cmd_help_archive.md`, `docs/cmd_help_implement.md`, `.claude/skills/xtrack/references/templates.md` — mirrored surfaces
-- `xTrack/WorkflowImprovement/xxArchive/INDEX.md` — seven rows from the first pass
-- `xTrack/WorkflowImprovement/260912_FEAT_PLN_WorkflowImprovement_command-flow.md` — the shipped design
+- `AGENTS.md` — Turn 1 walk report, plan lifecycle, Lazy-Load Index row, `#walk` row without `#done`
+- `docs/xtrack-templates.md` — new home of the file fixtures, `## Walk` schema included
+- `docs/cmd_help_walk.md` — the stack spec; `docs/cmd_help_bake.md`, `docs/cmd_help_archive.md`, `docs/cmd_help_review.md` — gate and cascade wording
+- `docs/cmd_help_doctor.md` — check (k) reads existence, never wording
+- `.clinerules/rules/agents-source-of-truth.md` — pointer only
+- `xTrack/WorkflowImprovement/260913_FEAT_PLN_WorkflowImprovement_walk-stack.md`, `..._adapter-cleanup.md` — the two shipped plans
 
 ## Next Step
-Both retirement gates have run — nine plans in `xxArchive/` with index rows, seventeen left in the feature folder. Next is a `#bake` to fold the two newly retired entries and refresh this state; pushing `feature/wrKFl` is user-owned, never proposed and never reminded. Still deferred: git-shortcut verification, the post-merge `xTrack/` reconcile, the ~198-plan triage and the `#implement` build-only-when-source-changed refinement.
+Decide `#doctor` check (s), the report-only lint that the adapters carry nothing but a pointer, then the deferred pair: on-device git-shortcut verification and the post-merge `xTrack/` reconcile. Pushing `feature/wrKFl` is user-owned, never proposed and never reminded.

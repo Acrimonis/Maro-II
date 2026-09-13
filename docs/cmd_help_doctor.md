@@ -12,8 +12,8 @@ Lint the xTrack stack for structural drift.
               Ownership (i-j): rule sections in GLOBAL_CONTEXT.md (rules belong in AGENTS.md) ·
               orphan docs inside xTrack (the docs/ footprint is `#doc audit`'s job; archives are
               excluded from both).
-              Registry integrity (k-o): command rows diverging between AGENTS.md §7b,
-              docs/cmd_help.md and docs/cmd_help_git.md · backticked paths in AGENTS.md and
+              Registry integrity (k-o): command rows present across AGENTS.md §7b,
+              docs/cmd_help.md and docs/cmd_help_git.md — existence, never wording · backticked paths in AGENTS.md and
               docs/*.md that do not resolve (skip [placeholders] and glob patterns) · duplicate
               bullets in AGENTS.md · `plans/` residue or *plan*.md outside xTrack/ · a feature's
               ## Docs index disagreeing with disk.

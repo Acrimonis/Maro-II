@@ -2,7 +2,7 @@
 name: WorkflowImprovement
 status: active
 created: 2026-06-03 00:00
-modified: 2026-09-12 12:30
+modified: 2026-09-13 19:02
 ---
 
 # Feature: WorkflowImprovement
@@ -23,6 +23,7 @@ Git command shortcuts: #new / #commit / #push / #move / #cherry·#copy / #rename
 - `xTrack/Documentation/260610_FEAT_PLN_Documentation_git-move-command.md` — #move/#cherry design
 
 ## Todos
+- [ ] **Decide `#doctor` check (s)** — report-only lint that the adapters (`CLAUDE.md`, `.clinerules/`, `.claude/skills/xtrack/`) carry nothing but a pointer; parked 2026-09-13 after the adapter clean-up, when the content was removed but no guard was added.
 - [ ] **Post-merge reconcile xTrack/ across branches** — deferred. Procedure documented in FEAT_DSC; execute when first cross-branch xTrack conflict occurs.
 - `AGENTS.md` is the canonical rulebook and directly writable; edit without prompting (`.clinerules/`/`CLAUDE.md` are pointers).
 
@@ -31,10 +32,12 @@ Git command shortcuts: #new / #commit / #push / #move / #cherry·#copy / #rename
 - `docs/cmd_help.md` — command reference summary + per-command sections
 - `docs/cmd_help_git.md` — git workflow shortcuts
 - `xTrack/GLOBAL_CONTEXT.md` — state only: routing map, feature summaries, focus history, global todos, doc index (rules live in `AGENTS.md`)
-- `.claude/skills/xtrack/references/templates.md` — file templates
+- `docs/xtrack-templates.md` — file templates (sub-truth pointed from `AGENTS.md`'s Lazy-Load Index)
 
 ## Docs
 - `xTrack/WorkflowImprovement/260912_FEAT_PLN_WorkflowImprovement_command-flow.md` — Output Contract rules plus the `#go` / `#review` / `#walk` / `#brief` rows and their ship order
+- `xTrack/WorkflowImprovement/260913_FEAT_PLN_WorkflowImprovement_walk-stack.md` — depth-1 child walks, the `#done` retirement and the walk section's schema
+- `xTrack/WorkflowImprovement/260913_FEAT_PLN_WorkflowImprovement_adapter-cleanup.md` — adapter folders hold pointers only; the file templates rehomed to `docs/xtrack-templates.md`
 - `docs/cmd_help.md` — derived printed view of §7b
 - `docs/cmd_help_now.md` — #now / #list detail
 - `docs/cmd_help_status.md` — #status / #status diff detail
@@ -61,7 +64,22 @@ Git command shortcuts: #new / #commit / #push / #move / #cherry·#copy / #rename
 - `xTrack/WorkflowImprovement/260617_FEAT_PLN_WorkflowImprovement_newtask-delegation.md` — new_task delegation: Architect → Code without mode switch
 - `xTrack/Documentation/260610_FEAT_PLN_Documentation_git-merge-command.md` — Git merge command design
 
+## Walk
+**Level 1 — Date:** 2026-09-13 · **Source:** pending set — open todos plus carry-overs from the 2026-09-13 review · **Closed:** 2026-09-13
+- [x] 1 · Bake page states the walk challenge at the fold
+- [x] 2 · Check (k)'s wording versus the terse-row rationale
+- [x] 3 · Bare `#brief` mode query in row and page
+- [ ] 4 · Decide `#doctor` check (s) — adapter content lint
+- [x] 5 · Trim the `.clinerules` rationale to a pointer
+- [ ] 6 · Deferred pair — git-shortcut verification, post-merge `xTrack/` reconcile
+
+- Resolutions: the bake page now carries the walk's three-exit challenge · check (k) reads existence-never-wording · the bare `#brief` query closed as no-change, the Forms column being design notes · the clinerules adapter is a pointer with its rationale removed. Dropped: item 4 parked by `#skip`, its `#doctor` check (s) decision carried by the feature todo, and item 6 left unstepped, its two members already deferred elsewhere.
+
 ## Implemented
+
+- **adapter clean-up — adapters carry pointers, never content (2026-09-13, `feature/wrKFl`)** — the 182-line template file moved to `docs/xtrack-templates.md` and `.claude/skills/xtrack/references/` was deleted so `SKILL.md` stands alone as a pointer; AGENTS.md's Lazy-Load Index gained the row, the feature's `## Key Files`, its hydration and the walk-stack plan were re-pointed, and the `.clinerules` rule adapter was stripped of its rationale → `xTrack/WorkflowImprovement/260913_FEAT_PLN_WorkflowImprovement_adapter-cleanup.md`
+- **walk-stack — depth-1 child walks (2026-09-13, `feature/wrKFl`)** — a walk descends once into its active item on a bold `Level 2` line carrying its own date and a `Parent:` pointer, closing by exhaustion with resolutions and drops written into the parent; `#done` was retired across the §7b row, the walk page and the `cmd_help.md` line, moving the close-or-park challenge to the two gates; §7a's keep-criterion reads any level, C12 echoes it, C13 exempts walk items and the fixture lives in `docs/xtrack-templates.md` → `xTrack/WorkflowImprovement/260913_FEAT_PLN_WorkflowImprovement_walk-stack.md`
+- **command-flow review remediation (2026-09-13, `feature/wrKFl`)** — the plan's stale status flipped to shipped with an `## Outcome`; rule 3's undefined "final release of the action" clause deleted; the walk-reporting rule given a home in §7a's Turn 1 Protocol with its untriggerable close half dropped; `#bake`'s walk handling stated on its page; the plan lifecycle — extend versus new, and in-design meaning the pointer is absent from `## Implemented` — written into §7a; the bake page gained the walk's three-exit challenge and check (k) was reworded as existence, never wording → `xTrack/WorkflowImprovement/260912_FEAT_PLN_WorkflowImprovement_command-flow.md`
 
 - **command-flow rules + four commands (2026-09-12, `feature/wrKFl`)** — the Output Contract gained a countable unit (`📏 Bullets are the unit`), the containment rule and the `🗣️ Recommendations argue against themselves` bullet, retiring "minimum viable communication"; rule 2 scopes ambiguity to MODE LOCK and QUESTIONS, rule 3 makes a gate name its action and re-ask when the proposal moved; four §7b rows shipped with pages — `#go` (Pipeline group), `#review` (cascade plus the pipeline guard in `cmd_help_implement.md`), `#walk` with `#next` / `#prev` / `#skip` / `#done`, the `## Walk` template and the §7a/C12 single statement, and `#brief` / `#full` with the mode definition and the three optional parts; `#doctor` unchanged at a–r → `xTrack/WorkflowImprovement/260912_FEAT_PLN_WorkflowImprovement_command-flow.md`
 - **first real `#archive` pass (2026-09-12, `feature/wrKFl`)** — six candidates retired as seven files (core-directives-promotion, merge-strategy, trunk-to-leaf, planning, both agents-md-optimization plans, process-simplification) into `xTrack/WorkflowImprovement/xxArchive/`, each with an appended `## Outcome`, plus an `INDEX.md` of seven rows, five `## Docs` detachments and five `## Implemented` pointer drops; checks q–r verified clean; the second gate then retired `docs-integrity` and `archive-lifecycle` the same day, taking the index to nine rows

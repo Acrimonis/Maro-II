@@ -4,20 +4,45 @@
 Cursor over an enumerated set — one item expanded at a time, the rest as flat markers.
 
   [no param]       Start on the pending set: the active feature's open todos and unimplemented
-                   plan items, in ship order.
+                   plan items, in ship order; with a stack already open, resume its top level.
 
   [source]         A name or ID starts the cursor there instead of at the top.
 
-  #next            Advance one item.
+  #next            Advance one item; past the last item the level closes.
   #prev            Step back one item.
   #skip            Park the active item without resolving it.
-  #done            Close the walk; with points still open it challenges instead — close, resume or
-                   park, where parking promotes the open points into the digest's ## Outcome.
 
 Walk state lives in the feature file's `## Walk` section — never the hydration, which `#bake`
-regenerates — and carries its own date. Exhaustion closes it with a bullet summary of resolutions
-and of anything dropped. A bare `#review` resolves to the active item, so review and stepping share
-one cursor.
+regenerates — and carries its own date. Exhaustion closes a level with a bullet summary of
+resolutions and of anything dropped, and a drop's open points are promoted into the parent item at
+level 2 and into the digest's `## Outcome` at level 1. Stepping never interrogates: the three exits —
+close, resume, park — are challenged at the gates below, where open points can actually be lost. A
+bare `#review` resolves to the active item, so review and stepping share one cursor.
 
-An open walk is reported at session start and again before the session closes, and it blocks both
-gates that would otherwise lose it: `#bake`'s fold and `#archive`'s retirement.
+**The stack — one level deep.** A walk descends once into its own active item, so a subject needing
+more than one exchange gets its own thread instead of an oversized reply.
+
+  Level 1          The walk itself — the bold **Level 1** line carrying date, source and active item,
+                   with its items as flat numbered markers beneath it.
+  Level 2          The child — a bold **Level 2** line below the items, carrying its own date, a
+                   `Parent:` pointer to the parent item's number, and its own active item. Never
+                   `###`-prefixed, so `#bake` and `#doctor` cannot read it as a feature section.
+  Opening          Automatic and agent-side: a child opens when the active item's answer ends in a
+                   gate — the question you must answer before the item can close. No facet opens it,
+                   and the reply names the item it descended into.
+  One at a time    A second subject waits until the current child closes. A level-2 walk never opens a
+                   level-3 — a sub-item that would need one is challenged at the gate instead, with
+                   promotion to a plan file as the escape.
+  Return           Advancing past the last item of a child closes it and puts the cursor back on its
+                   parent, which is ticked in the same step with a one-line summary naming resolutions
+                   and drops. While a child is open its parent item cannot be exhausted, so nothing
+                   moves the cursor by hand.
+  Frozen numbers   Parent items are not reordered, inserted or renumbered while a child is open, so
+                   the `Parent:` pointer cannot dangle.
+  Parked           A level left unexhausted is parked, and a parked level counts as an open walk.
+
+**Gates and read path.** An open walk is reported at session start, when the feature file is opened —
+the top of the stack, naming any parked parent beneath it. Any open level blocks both gates that would
+otherwise lose it: `#bake`'s fold and `#archive`'s retirement. `#bake` snapshots every level, clears
+none, never trims walk items with its live trim, and never copies walk state into `FEAT_HYD_`, which
+at most points at it.

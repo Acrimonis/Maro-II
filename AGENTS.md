@@ -59,8 +59,7 @@
   **Exception:** git-related `#`-commands are self-contained confirmations — the explicit invocation is the go-ahead. `#commit`, `#push`, `#merge` and `#cherry` still ask before acting, even when chained; `#new`, `#move`, `#move new` and `#rename` do not.
 
 - **🚦 A gate names its action.** A confirmation gate states the exact action it authorises, and if
-  the proposal has moved since the question was asked (or if the gate is the final release of the
-  action) the gate is re-asked rather than assumed.
+  the proposal has moved since the question was asked the gate is re-asked rather than assumed.
 
 - **🔴 PUSH IS USER-OWNED.** Never ask whether to push, never list pushing as a next step, and never
   remind that commits are unpushed — the user decides when. Commands that push (`#push`, `#merge`)
@@ -113,14 +112,14 @@
 
 # 7a. xTrack — Stack, Bootstrap & Lifecycle
 - **Memory Stack:** Context footprint: `xTrack/` (features) + `GLOBAL_CONTEXT.md` (routing), `xTrack/[Feature]/FEAT_DSC_[Feature].md` (epics), `xTrack/[Feature]/FEAT_HYD_[Feature].md` (session state, written by `#bake`). The feature directory + `FEAT_DSC_` are auto-created on first `#track`/`#focus`; `FEAT_HYD_` appears at first `#bake`.
-- **Sections:** Feature files group work under `### [Section]` headings (no subfeature state). Keep a section only while it holds an open todo, a retained rule, a doc/key-file mapping **or an open walk** (`## Walk`); `#bake` folds the rest into `## Implemented` (one-liner + plan pointer; planless = bare one-liner). This sentence is the sole statement of the criterion — `docs/cmd_help_bake.md` C12 points here.
+- **Sections:** Feature files group work under `### [Section]` headings (no subfeature state). Keep a section only while it holds an open todo, a retained rule, a doc/key-file mapping **or an open walk** (`## Walk`, any level); `#bake` folds the rest into `## Implemented` (one-liner + plan pointer; planless = bare one-liner). This sentence is the sole statement of the criterion — `docs/cmd_help_bake.md` C12 points here.
 - **Focus History:** `GLOBAL_CONTEXT.md` keeps an append-only newest-first stack (cap 10) of `[timestamp] [Feature] — one-liner → FEAT_HYD_[Feature].md`. Top = current focus. `#focus` pushes; `#bake` prunes.
-- **🔴 PLAN FILE PLACEMENT: All `FEAT_PLN_*.md`, `FEAT_DOC_*.md` and feature-scoped design files MUST be created in `xTrack/[Feature]/`, named `YYMMDD_FEAT_PLN_[Feature]_[topic].md`.**
+- **🔴 PLAN FILE PLACEMENT: All `FEAT_PLN_*.md`, `FEAT_DOC_*.md` and feature-scoped design files MUST be created in `xTrack/[Feature]/`, named `YYMMDD_FEAT_PLN_[Feature]_[topic].md`.** Extend the existing plan while the topic continues and start a new one on a context switch; a plan is in design until its pointer appears in the feature's `## Implemented`.
 - **`xxArchive/` (retired files):** retired plans and docs live in `xTrack/[Feature]/xxArchive/` beside an `INDEX.md`; cross-cutting retirements go to `docs/xxArchive/`. Every feature-summarising command (`#bake`, `#status`, `#doctor`, `#doc list`, `#doc audit`, `#doc update`) **excludes these folders**. `#archive` is the only command that may enter one, and inside it only `INDEX.md` is read — a body needs an explicit per-file request.
 - **🔴 GLOBAL_CONTEXT.md IS STATE-ONLY:** it carries the routing map, feature summaries, focus history, global todos and the doc index — never rules, instructions or process specs. All rules live in this file; the `#rule` `global` target appends to Core Directives above.
 - **Feature scoping:** Route docs, key files and todos to the owning feature. Keep feature files lean — `## Docs` for references, `## Key Files` for source paths.
 - **Always-loaded (prefix-cache zone):** `AGENTS.md`, `xTrack/GLOBAL_CONTEXT.md`. Keep both small and free of duplication.
-- **Turn 1 Protocol:** Self-contained request → answer directly. Ambiguous/continuing work → read `GLOBAL_CONTEXT.md`, match intent against Routing Map, open matching feature file + hydration. No match → ask scoping question.
+- **Turn 1 Protocol:** Self-contained request → answer directly. Ambiguous/continuing work → read `GLOBAL_CONTEXT.md`, match intent against Routing Map, open matching feature file + hydration. No match → ask scoping question. An open `## Walk` in the matched feature file is reported before anything else — the one piece of state a cold open silently misses.
 - **Command delta on open:** Opening a feature — `#focus`, `#track`, or Turn 1 once it resolves a feature — prints a short delta of new and updated commands, once per open and silently when empty. The delta is the newest-first (max 3) WorkflowImprovement `## Implemented` entries that add or change a command, under one plain label.
 
 # 7b. xTrack — Command Reference
@@ -146,7 +145,7 @@ Intercept `#`-prefix. All name lookups use fuzzy-resolve cascade (exact → subs
 | `#implement` | Pipeline: Code→implement+build → Ask→review → Architect→report+## Implemented |
 | `#go` | Agree with the question currently open; re-asks if the proposal moved since it was asked. `#go impl` = agree and run the `#implement` pipeline |
 | `#review [target]` | Independent review of the resolved target — walk item → plan in design → last `#implement` run's Target Files → live proposal (a challenge). Prints "Reviewing X because Y"; a target is fuzzy-resolved |
-| `#walk [source]` · `#next` · `#prev` · `#skip` · `#done` | Cursor over an enumerated set, one item expanded at a time. State lives in the feature file's `## Walk` section; an open walk blocks `#bake`'s fold and `#archive`'s retirement |
+| `#walk [source]` · `#next` · `#prev` · `#skip` | Cursor over an enumerated set, one item expanded at a time; exhaustion closes it. State lives in the feature file's `## Walk` section; an open walk blocks `#bake`'s fold and `#archive`'s retirement |
 | `#brief` · `#full` | Output mode: subtract the contract's three optional parts (ELIJP, containment blocks, verification lists) or restore them, reporting the resulting mode. Session-lived — `#focus` resets to full |
 | `#new [branch]` | Create `feature/[branch]` from `origin/develop` |
 | `#commit` | Stage + commit; if the active feature's `xTrack/[Feature]/` state has moved since its hydration baseline, offer a bake first. Asks before committing |
@@ -202,4 +201,5 @@ Load these only when the task domain matches:
 | Git workflow, merge strategy, conflicts | `docs/GIT_WORKFLOW.md` |
 | Project setup, build, deploy | `docs/SETUP.md` |
 | FAQs, common issues | `docs/FAQ.md` |
+| xTrack file shapes — FEAT_DSC, FEAT_HYD, FEAT_DOC, FEAT_PLN, GLOBAL_CONTEXT, Walk, INDEX | `docs/xtrack-templates.md` |
 | Any #-command detail | `docs/cmd_help_[cmd].md` via `#help` |

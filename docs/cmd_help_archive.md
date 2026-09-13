@@ -24,9 +24,10 @@ enter `xxArchive/`.
   restore [name]   Move the file back, re-attach it in ## Docs, restore its ## Implemented pointer,
                    delete its index row. The next #bake records the event.
 
-**Fourth gate — an unresolved walk.** A plan carrying an open `## Walk` is refused the way a missing
-digest is, and challenged with the walk's own three exits: close it, resume it, or park it — parking
-promotes the open points into the digest's ## Outcome.
+**Fourth gate — an unresolved walk.** A plan carrying an open `## Walk` at any level — including a
+parked parent beneath an open child — is refused the way a missing digest is, and challenged with the
+walk's own three exits: close it, resume it, or park it. A drop's open points are promoted into the
+parent item at level 2, and into the digest's `## Outcome` at level 1.
 
 Index columns: `File | Created | Archived | Status (shipped/superseded/promoted) | Summary | Tags | Superseded-by`
 

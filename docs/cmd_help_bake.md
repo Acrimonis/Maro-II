@@ -30,5 +30,5 @@ Snapshot + consolidation into per-feature hydration memory.
   C9 Trim-empty — empty sections fold too.
   C10 Split — >8 items or two themes.
   C11 Merge — duplicate headings.
-  C12 Keep-if-signal — criterion per AGENTS.md §7a (sole statement of it; open todo / retained rule / doc-key-file mapping / open walk).
-  C13 Live trim — open sections keep a detailed 2–4 sentence summary + open [ ] todos + valid Rules/Key Files/Docs; drop done [x] todos.
+  C12 Keep-if-signal — criterion per AGENTS.md §7a (sole statement of it; open todo / retained rule / doc-key-file mapping / open walk at any level). The ## Walk section is snapshotted, never cleared, and its items are never folded as done while any level is open — a fold attempted then is challenged with the walk's own three exits: close it, resume it, or park it. Its state is never copied into FEAT_HYD_, which at most points at it.
+  C13 Live trim — open sections keep a detailed 2–4 sentence summary + open [ ] todos + valid Rules/Key Files/Docs; drop done [x] todos. The ## Walk section is exempt: a ticked walk item is history, not a completed todo.
