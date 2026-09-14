@@ -2,7 +2,7 @@
 name: Tracks
 status: active
 created: 2026-06-15 21:43
-modified: 2026-09-14 15:52
+modified: 2026-09-14 17:05
 ---
 
 # Feature: Tracks
@@ -26,8 +26,6 @@ Trace the boat's movement (position, speed) during active navigation. One trace 
 - [ ] E2E: Verify settings persistence of tack fields across app restart
 - [ ] E2E live-track-paint-regression: fresh recording paints the active line point-by-point (demo + GPS); resume still paints; GAP seam stays dashed; no duplicate history copy when a Map filter is applied
 - [ ] E2E resume-confirm-backup: sheet appears from list + both dashboard cards; checkbox checked by default; backup written only when ticked (new card, hidden on map, unpinned, no marker links); recording continues on the original; Cancel changes nothing
-
-#### Docs
 
 ### track-list
 
@@ -93,9 +91,10 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 - `xTrack/Tracks/260911_FEAT_PLN_Tracks_live-track-paint-regression.md` — live-track paint regression: diagnosis + fix (evidence, fix options, follow-ups)
 - `xTrack/Tracks/260911_FEAT_PLN_Tracks_resume-confirm-backup.md` — resume confirmation sheet + optional backup copy (decisions D1–D7, verified constraints, follow-ups)
 - `xTrack/Tracks/260914_FEAT_PLN_Tracks_selected-track-speed-heatmap.md` — selected-track speed heatmap: banded ramp, declared tick scale, persisted eye toggle, the count key removed and the scale foot (sections 16–19)
+- `xTrack/Tracks/260914_FEAT_PLN_Tracks_render-modes.md` — render modes: the three-way switch, the banded scope, the fade, the store, the two surfaces and the eye's scoped override (sections 1–6)
 
 ## Walk
-**Level 1 — Date:** 2026-09-14 · **Source:** the 260914 selected-track speed heatmap plan's open points and implementation steps — the feature's older device-E2E todos are excluded, being a verification backlog rather than plan items · **Active:** 14
+**Level 1 — Date:** 2026-09-14 · **Source:** the 260914 selected-track speed heatmap plan's open points and implementation steps — the feature's older device-E2E todos are excluded, being a verification backlog rather than plan items · **Active:** 14 · **Closed:** 2026-09-14
 - [x] 1 · Arrow colour inside the banded line (D4a) — child walk closed: arrows take the local band colour
 - [x] 2 · Scope and legend (D5) — child walk closed: scope is the selected track only, the live line untouched; legend carried to item 8
 - [x] 3 · Confirm the owning feature is Tracks — child walk closed: a section of Tracks, not a new feature
@@ -109,8 +108,12 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 - [x] 11 · Fold the second Ask pass B1–B17 — carrier stated, legend anchored bottom-left, validation policy withdrawn
 - [x] 12 · Implement the change on feature/track-speed — shipped: twelve tests green, apk-build SUCCESS, no high defect from the Ask hop
 - [x] 13 · Remediate the Ask hop's findings — two resolved by removal, five parked by decision, five carried into the next hop (plan §17, §18)
-- [ ] 14 · Device E2E on a real track — user-owned; the build is green and the run follows their call
+- [x] 14 · Device E2E on a real track — closed as **dropped**, not deferred: the build is green, but the run is not this session's work
 - [x] 15 · Plan Outcome and feature-file pointers — Outcome extended, the Implemented entry added
+
+- **Summary — closed 2026-09-14:** the source ran to its end — the selected-track speed heatmap shipped on `feature/track-speed` over three `#implement` passes, the two review hops folded, and the plan's Outcome extended with ramp v5, the declared scale and the persisted mode.
+- Item 14 closed as **dropped** rather than parked, which exhausts the level and moves its open points out of the walk: the unrun device E2E and the five §18 residues are promoted into the plan's `## Outcome`.
+- Its subject continues in the level below, which walks the render-mode generalization requested in the same session.
 
 **Level 2 — Date:** 2026-09-14 · **Parent:** 1 · **Active:** 1 · **Closed:** 2026-09-14
 - [x] 1 · Local band colour — chosen: each arrow takes the colour of the segment it sits on
@@ -191,6 +194,115 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 
 - Resolutions: the eye toggle moves one session-wide mode, starting from `track.heatmap.mode`, with nothing persisted and no per-track state; the legend remains the readout of that single state. Dropped: per-track memory and per-track persistence. Folded with it: R2–R10 corrected the plan's body, so the band count, the ramp domain, the core alpha, the neutral tint, the carry window, the legend's file, the shared derivation, the z-lift cost, the seam rule and the verification criteria are now stated rather than implied.
 
+**Level 1 — Date:** 2026-09-14 · **Source:** the same session's request to generalize the shipped speed heatmap to every track — the render-mode triple toggle, the two surfaces it lands on, and the retirement of the menu's direction toggle · **Active:** 13
+- [x] 1 · Tri-state semantics and the arrow axis — resolved: the mode owns the arrows, three readings dropped
+- [x] 2 · Banded scope: which tracks take the ramp, and the live line — resolved: history and pinned both band, the live line unchanged; pinned legibility carried into item 3
+- [ ] 3 · Selection cue once every rendered track is banded — **parked 2026-09-14**: for now the distinction rests on the differing transparency levels; the item is revisited later, and its child keeps the four readings — its width half is settled by the plan's D11, so colour alone remains open
+- [x] 4 · One persisted mode: the store, the migration and the file key — resolved: one non-null field defaulting to Simple, no migration, the properties key dropped
+- [x] 5 · Settings surface: the Colours block becoming Default Colors, with no mode row — resolved: the inner heading is renamed, the expander label kept
+- [x] 6 · Menu section: retire the direction toggle, add Tracks rendering — resolved: the switch takes the retired row's slot, the live card moves to the head
+- [x] 7 · Arrow-density controls after the merge — resolved: the expander is untouched
+- [x] 8 · Legend trigger once no track need be selected — resolved: drawn whenever the mode is Heat Map
+- [x] 9 · Ramp meets the transparency settings — the fade each stored track keeps — resolved: the fade multiplies the band alpha
+- [ ] 10 · Per-track ramp cost, for up to 20 history plus pinned tracks — **parked 2026-09-14**: skipped without resolution, its three readings kept and the measurement from the session's discussion recorded in its child
+- [x] 11 · Strings EN and FR, and the dead direction strings removed — resolved: Colours replaces Heat Map as the option label, two strings deleted
+- [x] 12 · Drawer-header eye toggle: keep as a flip, or retire — resolved: it stays, scoped to the selected track
+- [ ] 13 · Plan file, then feature-file pointers once it lands — plan filed 2026-09-14 at `xTrack/Tracks/260914_FEAT_PLN_Tracks_render-modes.md`, its Docs pointer in place; the `## Implemented` pointer and the level's closure wait on the change itself
+
+**Level 2 — Date:** 2026-09-14 · **Parent:** 1 · **Active:** 1 · **Closed:** 2026-09-14
+- [x] 1 · One tri-state owns both axes — chosen: Simple is the default colours with no arrows, Dir and Speed keeps those colours and adds arrows, Heat Map bands the strokes and colours each arrow by its band
+- [ ] 2 · Dir and Speed hard-wires the density — dropped: the arrow density row and both range sliders stay as they are
+- [ ] 3 · Two surfaces by design — dropped: Settings and the menu carry the same three options
+- [ ] 4 · Axes stay separate — dropped: the mode owns the arrows, so the ramp always draws them
+
+- Resolutions: the render mode is the single owner of strokes and arrows — Simple is the default-colour rendering with no arrows, Dir and Speed keeps those colours and adds the arrows, Heat Map bands the strokes and colours each arrow by the band it sits on. `tracksDirectionVisible` retires with its stored `true` migrating to Dir and Speed, while the density control and both arrow range sliders survive untouched. Dropped: hard-wiring speed-based density, letting the two surfaces diverge, and keeping the arrows as an independent axis — the last knowingly gives up the one combination the choice forbids, a heat map with the arrows switched off.
+
+**Level 2 — Date:** 2026-09-14 · **Parent:** 2 · **Active:** 1 · **Closed:** 2026-09-14
+- [x] 1 · History and pinned banded — chosen: the mode governs both stored-track loops, and the live recording line keeps its own appearance
+- [ ] 2 · History, pinned and the live line — dropped: the ramp is not rebuilt on the append path
+- [ ] 3 · History only — dropped: pinned tracks would read as a second visual language
+- [ ] 4 · History and pinned banded — dropped: subsumed by the choice, which already bands pinned
+
+- Resolutions: the render mode governs the two stored-track loops — history and pinned — inside the loop that exists today, so each stored track is banded once per rebuild; the live recording line keeps its appearance, since banding it would move a ramp rebuild onto the append path. The pinned amber gradient is given up in heat map mode, colour being the speed reading there, which carries one open point into item 3: with colour spent, how a pinned track stays legible is a cue question, not a colour question. Dropped: banding the live line, and a history-only scope.
+
+**Level 2 — Date:** 2026-09-14 · **Parent:** 3 · **Active:** 1
+- [ ] 1 · Casing only, selection — the selected track carries the 16f dark casing and the z-lift, nothing else changes
+- [ ] 2 · Gold survives selection — the selected track keeps its gold core in heat map mode, so the ramp covers the unselected only
+- [ ] 3 · Casing carries both cues — a selection casing token plus a distinguishable pinned casing, so neither depends on colour
+- [ ] 4 · No map cue — selection and pinned identity are expressed outside the map, by the drawer header and the pin
+
+- **Parked 2026-09-14, gate unanswered:** the interim rule is that stored tracks are told apart by their differing transparency levels as they are set today, so this pass ships no new cue and adds no casing token. The four readings stay as the point to resume from, because the question returns the moment colour is spent on speed — the selected track and a pinned one both lose the cue they carry now.
+
+**Level 2 — Date:** 2026-09-14 · **Parent:** 4 · **Active:** 1 · **Closed:** 2026-09-14
+- [x] 1 · One non-null stored mode defaulting to Simple — chosen: a single `TrackRenderMode` field in `AppSettings` beside its key constant, default SIMPLE, no migration and no properties key
+- [ ] 2 · Nullable, with the file as fallback — dropped: a second default source is what the cold-start defect was made of
+- [ ] 3 · Keep `track.heatmap.mode` and its tokens — dropped with the key
+- [ ] 4 · Derive the mode from the two legacy booleans — dropped: the store could then express combinations the toggle cannot
+
+- Resolutions: the mode is one non-null field in `AppSettings`, persisted under its own key and defaulting to SIMPLE; neither `speed_heatmap` nor `track_direction_visible` is read any more, so an install that held either returns to the default — the accepted consequence of going back to default rather than migrating. `track.heatmap.mode` goes with them, which leaves one default (the code constant) and one owner of the current value (the store); the ramp keeps its `track.heatmap.*` prefix even though the mode now covers three renderings, renaming it touching the baked file and the parser for no behaviour change. Dropped: a nullable mode reading the file as a fallback, keeping the mode key, and deriving the mode from the two booleans.
+
+**Level 2 — Date:** 2026-09-14 · **Parent:** 5 · **Active:** 1 · **Closed:** 2026-09-14
+- [x] 1 · Inner heading renamed only — chosen: the Colours heading and its description become Default Colors, naming the rendering used outside Heat Map, while the expander keeps its Track rendering label
+- [ ] 2 · Expander renamed — dropped: the expander also holds the track count and both transparency ranges
+- [ ] 3 · Expander dissolved — dropped with the rename, which makes the split unnecessary
+
+- Corrected 2026-09-14 before anything was chosen: the three-way switch belongs to the menu, not to Settings, so the four readings that assumed a Settings switch are void and are replaced by these three. The mode row is no longer this item's subject — item 6 carries it, as a "Tracks rendering" label that takes the place of the "Show dir & speed" row.
+
+- Resolutions: the Settings structure stands as it is and only the inner Colours heading is renamed Default Colors, its description naming those colours as the rendering used outside Heat Map; the expander keeps its Track rendering label. Dropped: renaming the expander itself, since it also carries the track count and both transparency ranges, which govern all three modes and are not colours, and dissolving the expander into separate headings, which the rename makes pointless. The label change is one string pair, EN and FR, and it lands with item 11.
+
+**Level 2 — Date:** 2026-09-14 · **Parent:** 6 · **Active:** 1 · **Closed:** 2026-09-14
+- [x] 1 · The retired toggle's slot — chosen: the "Tracks rendering" caption and its three-way row replace the "Show dir & speed" row in place, the dividers unchanged
+- [ ] 2 · Top of the Tracks card — dropped: the live recording block holds that place
+- [ ] 3 · Stacked rows instead of a segmented control — dropped: the three options fit one segmented row
+
+- Resolutions: the Tracks rendering section replaces the "Show dir & speed" row in its own slot, carrying the three-way switch Simple | Dir & Speed | Heat Map under one caption, and the Tracks card's order is settled as the live card, then the track list row with its count and chevron, then the three-way switch, then the Import and Export pair — which moves the live block to the head of the card from its present place after the import pair. Dropped: heading the card with the switch, and stacked rows, the three labels fitting one segmented row at drawer width. The switch reads and writes the single stored mode, so the menu and the map cannot disagree.
+
+**Level 2 — Date:** 2026-09-14 · **Parent:** 7 · **Active:** 1 · **Closed:** 2026-09-14
+- [x] 1 · Untouched — chosen: the Track Speed and Direction expander keeps its label and all three controls
+- [ ] 2 · Retitled and described — dropped with the choice
+- [ ] 3 · Retitled, dimmed in Simple — dropped with the choice
+
+- Resolutions: the arrow expander ships exactly as it is — label, density choice, gap range and speed range unchanged — so nothing in Settings states that Simple draws no arrows. The cost is accepted: a user can move those controls while Simple is current and see nothing change, and the menu switch is the only thing that explains why. Dropped: retitling the expander, and dimming its controls in Simple.
+
+**Level 2 — Date:** 2026-09-14 · **Parent:** 8 · **Active:** 1 · **Closed:** 2026-09-14
+- [x] 1 · Whenever the mode is Heat Map — chosen: the legend is drawn whenever tracks render as a heat map, selection no longer a condition
+- [ ] 2 · Unchanged — dropped with the choice
+- [ ] 3 · Then dismissed — dropped with the choice
+- [ ] 4 · Its own control — dropped with the choice
+
+- Resolutions: the legend is drawn whenever the mode is Heat Map, so the ramp's key stands for the whole time the ramp is in use and the old selected-track conjunction goes with the mode itself. Dropped: keeping the selection condition, an auto-dismiss, and a show-or-hide control on the strip.
+
+**Level 2 — Date:** 2026-09-14 · **Parent:** 9 · **Active:** 1 · **Closed:** 2026-09-14
+- [x] 1 · The fade multiplies the bands — chosen: each band's alpha is the track's own fade value, newest to oldest for history and the pinned range for pinned, times the ramp's core alpha
+- [ ] 2 · The ramp ignores the fade — dropped: it would strip the only cue left once colour reads speed
+- [ ] 3 · The fade replaces the ramp's alpha — dropped: one alpha would govern instead of two, at the price of the core-alpha key meaning nothing for stored tracks
+
+- Resolutions: the banded stroke meets the transparency settings the way every other rendering does — the colour arrives from the ramp and the alpha is the track's own fade, so a history track fades newest to oldest and a pinned one fades across its own range, with the ramp's core alpha multiplied in. Dropped: ignoring the fade, which would leave every stored track at one opacity and take away the cue item 3 was parked on, and letting the fade replace the core alpha, which would make that key meaningless for stored tracks. Cost accepted: two alphas multiply, so the heaviest fade values desaturate the bands and the oldest tracks read their speed least sharply.
+
+**Level 2 — Date:** 2026-09-14 · **Parent:** 10 · **Active:** 1
+- [ ] 1 · Trim the rebuild keys — bands are derived per track inside the loop that exists, and the effect stops keying on values the current mode does not read
+- [ ] 2 · Trim and cache — the same trim plus a per-track band cache keyed by track id, so a transparency or count change re-derives only the alphas
+- [ ] 3 · Trim, then measure — ship the uncached path and let a device run decide whether a cache is warranted
+
+- **Parked 2026-09-14, gate unanswered:** the item is skipped rather than resolved and these three readings are the point to resume from. What stands from the session's discussion is the measurement: per rebuild the banded path stays linear in the points of the rendered tracks, since each band builds only its own geometry, while the object and polyline counts rise by a constant factor — so no cache is committed, and nothing new bounds the track count, the not-pinned slider and the unconditional pinned render being what bounded it before.
+
+- Resolutions: none — the item was parked, so nothing is dropped and nothing is chosen; the three readings stand open.
+
+**Level 2 — Date:** 2026-09-14 · **Parent:** 11 · **Active:** 1 · **Closed:** 2026-09-14
+- [x] 1 · The third option is renamed — chosen: the switch reads Simple | Dir & Speed | Colours in English and Simple | Dir & Vitesse | Couleurs in French, while the ramp keeps its own name in the plan and the properties
+- [ ] 2 · Heat Map stays the option label — dropped with the choice
+- [ ] 3 · The label differs between locales — dropped: one control, one meaning
+
+- Resolutions: the switch carries three option labels — Simple, Dir & Speed, Colours, in French Simple, Dir & Vitesse, Couleurs — under a caption reading Tracks rendering and Rendu des traces, while the ramp keeps its Heat Map name everywhere the code and the properties refer to it. The Settings colours heading becomes Default Colors and Couleurs par défaut, its description naming those colours as the rendering used outside Colours. The two retired strings are deleted from both locales: "Show dir & speed" and the unreferenced "Show tracks direction on map". Dropped: keeping Heat Map as the option label, and letting one control's label mean different things in the two locales.
+
+**Level 2 — Date:** 2026-09-14 · **Parent:** 12 · **Active:** 1 · **Closed:** 2026-09-14
+- [ ] 1 · Retire the eye — dropped with the choice
+- [x] 2 · Keep it as a Colours shortcut — chosen with an amendment: its effect is scoped to the selected track, so it never moves the mode every other track renders by
+- [ ] 3 · Keep it, landing on Simple — dropped with the choice
+- [ ] 4 · Replace it with the switch — dropped with the choice
+
+- Resolutions: the eye keeps its place in the drawer header and its business is the selected track alone — it flips that one track's rendering and leaves the mode that governs every other stored track untouched, so the menu switch stays the only writer of the mode. Dropped: retiring the eye, letting it land on Simple, and replacing it with the switch. One point is carried into item 13, since item 4 stopped reading the legacy key the eye used to write: the eye now needs a value of its own, and the plan must say where it lives and whether it persists.
+
 ## Implemented
 
 - **Data model** — `Track`/`TrackPoint` protobuf, `TrackSummary` index, relative `timeOffsetSec`
@@ -225,3 +337,4 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 - **live-track-paint-regression (2026-09-11)** — live polyline was never created after the C3/C4 seam extraction (creation effect read a frozen parameter through `snapshotFlow`); creation re-keyed on recorder state, append/trailing made self-healing, `isLive` excluded from the map-resolve path → `xTrack/Tracks/260911_FEAT_PLN_Tracks_live-track-paint-regression.md`
 - **resume-confirm-backup (2026-09-11)** — resuming a stored track now asks first: `ResumeConfirmSheet` with a default-checked backup box; confirm writes a hidden, unpinned copy (fresh UUID, suffixed name, marker links stay on the original) then resumes the original; wired on the list card (early dismiss dropped) and both dashboard cards, gated by `isRecording` → `xTrack/Tracks/260911_FEAT_PLN_Tracks_resume-confirm-backup.md`
 - **selected-track-speed-heatmap (2026-09-14)** — the selected track renders as a banded speed ramp in place of the gold highlight: `track.heatmap.familyN.*` colours on per-family draw steps, `track.heatmap.scaleTicks` positions printed with labels free to differ from them, nothing drawn inside the bar, and a drawer-header eye toggle whose choice persists with the key as the first-run default → `xTrack/Tracks/260914_FEAT_PLN_Tracks_selected-track-speed-heatmap.md`
+- **speed-heatmap-v5-and-persistence (2026-09-14)** — the third `#implement` pass on the entry above: six ramp families at 5/7/12/15/35/70 each on its own draw step, the label-drop rule removed so every tick row prints its own text, `track.heatmap.familyCount` removed so the file's `familyN.*` keys end the ramp, `track.heatmap.scaleMinKn` (2 kn) as the bar's foot to the table's last position, `heatmap` accepted as the mode token with `speed` as its alias, and the eye's stored choice now actually read at cold start — the settings flow seeded from the snapshot the view-model had already loaded → `xTrack/Tracks/260914_FEAT_PLN_Tracks_selected-track-speed-heatmap.md`
