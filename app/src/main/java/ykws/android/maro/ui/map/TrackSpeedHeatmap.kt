@@ -74,10 +74,19 @@ internal fun colorAt(speedKn: Float?, ramp: HeatmapRamp): Int {
 
 /**
  * Quantise the resolved [speeds] into draw bands: one [SpeedBand] per maximal run of equal
- * appearance, each carrying its own geometry, with [ramp]'s core alpha baked into every band —
+ * appearance, each carrying its own geometry, with the band's alpha baked into every band —
  * including the neutral ones, so a GAP seam and a speed band read at the same weight.
  *
- * Each band's width comes from the family it sits in, since every family declares its own step; a
+ * The alpha is [fade] — the track's own recency reading — times [ramp]'s core alpha (D8), so
+ * transparency means the same thing in all three modes and the fade stays the cue the parked
+ * selection item relies on. Two alphas multiply, which is the accepted cost: the heaviest fades
+ * desaturate the bands and the oldest tracks read their speed least sharply.
+ *
+ * The width is a parameter rather than a constant (D11), so every stored track takes the width its
+ * position earns — history's newest 8f, every other history track and every pinned one 6f — and a
+ * mode switch never restyles the map's density.
+ *
+ * Each band's colour comes from the family it sits in, since every family declares its own step; a
  * flat family collapses to one band whatever that step, because its colours are equal and adjacent
  * equal appearances merge. Merging applies to consecutive equal appearances only — never across a
  * GAP, whose seam stays its own neutral band.
@@ -88,13 +97,16 @@ internal fun colorAt(speedKn: Float?, ramp: HeatmapRamp): Int {
 internal fun bandedAppearances(
     points: List<TrackPoint>,
     speeds: List<Float?>,
-    ramp: HeatmapRamp
+    ramp: HeatmapRamp,
+    strokeWidth: Float,
+    fade: Float = 1f
 ): List<SpeedBand> {
     if (points.isEmpty()) return emptyList()
-    val alpha = (ramp.coreAlpha.coerceIn(0f, 1f) * 255f).roundToInt().coerceIn(0, 255)
+    val combined = ramp.coreAlpha.coerceIn(0f, 1f) * fade.coerceIn(0f, 1f)
+    val alpha = (combined * 255f).roundToInt().coerceIn(0, 255)
     val appearances = points.indices.map { i ->
         val quantised = quantiseKn(if (i < speeds.size) speeds[i] else null, ramp)
-        TrackPolylineAppearance(withAlpha(colorAt(quantised, ramp), alpha), SELECTED_CORE_STROKE_WIDTH)
+        TrackPolylineAppearance(withAlpha(colorAt(quantised, ramp), alpha), strokeWidth)
     }
 
     val bands = mutableListOf<SpeedBand>()

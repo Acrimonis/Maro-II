@@ -104,12 +104,7 @@ object AppConfig {
     var trackDirectionMaxSpacingDp: Int = 320
         private set
 
-    // ── Selected-track speed heatmap (from maro.properties) ──────────────
-    /** Start-up rendering of the selected track. Default HIGHLIGHT (gold).
-     *  Set via `track.heatmap.mode`; the drawer's eye toggle stores its own choice, so once that has
-     *  been tapped this key is never consulted again. */
-    var trackHeatmapMode: TrackHeatmapMode = TrackHeatmapMode.HIGHLIGHT
-        private set
+    // ── Speed heatmap ramp (from maro.properties) ────────────────────────
     /** Parsed speed ramp: families as a list — each carrying its own draw step — the core alpha and
      *  the neutral tint. There is no count key: the read walks `familyN` from 1 upward and stops at the
      *  first index missing a key, so the file alone decides the ramp's length.
@@ -774,22 +769,12 @@ object AppConfig {
                 trackDirectionMaxSpacingDp = it.coerceIn(4, 640)
             }
 
-            // ── Selected-track speed heatmap ────────────────────────────────
-            // Read as written: no validation and no warning channel. A family that does not fully
-            // parse ends the ramp and the families parsed so far stand; if none parses, the shipped
-            // default ramp is kept, so a missing key never leaves the render without a ramp.
-            // `heatmap` is the shipped token and `speed` stays accepted as its alias, since the key was
-            // written as `speed` while the parser only knew that one spelling; any other value is
-            // HIGHLIGHT, which is also what an absent key leaves in place.
-            props.getProperty("track.heatmap.mode")?.trim()?.let {
-                trackHeatmapMode = if (
-                    it.equals("heatmap", ignoreCase = true) || it.equals("speed", ignoreCase = true)
-                ) {
-                    TrackHeatmapMode.SPEED
-                } else {
-                    TrackHeatmapMode.HIGHLIGHT
-                }
-            }
+            // ── Speed heatmap ramp ──────────────────────────────────────────
+            // The rendering mode is no longer a file key (D3): it is one persisted field in
+            // `AppSettings`, so the ramp below is all this block still owns. Read as written: no
+            // validation and no warning channel. A family that does not fully parse ends the ramp and
+            // the families parsed so far stand; if none parses, the shipped default ramp is kept, so a
+            // missing key never leaves the render without a ramp.
             run {
                 val families = parseHeatmapFamilies(
                     lookup = { props.getProperty(it) },

@@ -202,8 +202,13 @@ data class AppSettings(
     /** Unpinned halo border/stroke transparency % (0-100). Default 60 = faint ring. */
     val markerHaloUnpinnedBorderTransparencyPct: Int = 60,
     val tracksVisible: Boolean = true,
-    /** Draw direction arrows along rendered tracks (history + pinned). */
-    val tracksDirectionVisible: Boolean = false,
+    /**
+     * How every stored track is drawn — Simple, Dir & Speed or Colours (D1, D3). One non-null value
+     * owns both the strokes and the arrows, so the menu switch is its only writer; neither the retired
+     * `track_direction_visible` nor `speed_heatmap` is read any more, so an install that held either
+     * starts on Simple rather than being migrated.
+     */
+    val trackRenderMode: ykws.android.maro.config.TrackRenderMode = ykws.android.maro.config.TrackRenderMode.SIMPLE,
     /** Direction-arrow density mode: uniform on-screen spacing or speed-based. */
     val trackDirectionDensity: ykws.android.maro.ui.map.TrackDirectionDensity = ykws.android.maro.ui.map.TrackDirectionDensity.UNIFORM,
     /** Speed (kn) below which direction arrows use minimum spacing. */
@@ -214,15 +219,6 @@ data class AppSettings(
     val trackDirectionMinSpacingDp: Int = ykws.android.maro.config.AppConfig.trackDirectionMinSpacingDp,
     /** Maximum on-screen spacing (dp) between direction arrows. */
     val trackDirectionMaxSpacingDp: Int = ykws.android.maro.config.AppConfig.trackDirectionMaxSpacingDp,
-    /**
-     * Selected-track rendering mode the user last chose: true = speed heatmap, false = gold highlight,
-     * null = they have not chosen yet, so `track.heatmap.mode` in `maro.properties` is the start-up
-     * default. Set by the drawer header's eye toggle.
-     *
-     * Persisted as a String rather than a Boolean because a boolean pref cannot express "unset", and
-     * unset is exactly the state that keeps the file's default live.
-     */
-    val speedHeatmap: Boolean? = null,
     /** Number of historical tracks to render on the map (0-20). */
     val trackingRenderNb: Int = BuildConfig.TRACKING_RENDER_NB,
     /** ARGB color for the active recording track. */
@@ -447,7 +443,10 @@ class SettingsManager(
         markerHaloUnpinnedFillTransparencyPct = prefs.getInt(KEY_MARKER_HALO_UNPINNED_FILL_TRANSPARENCY_PCT, 90),
         markerHaloUnpinnedBorderTransparencyPct = prefs.getInt(KEY_MARKER_HALO_UNPINNED_BORDER_TRANSPARENCY_PCT, 60),
         tracksVisible = prefs.getBoolean(KEY_TRACKS_VISIBLE, true),
-        tracksDirectionVisible = prefs.getBoolean(KEY_TRACKS_DIRECTION_VISIBLE, false),
+        trackRenderMode = try {
+            ykws.android.maro.config.TrackRenderMode.valueOf(
+                prefs.getString(KEY_TRACK_RENDER_MODE, "SIMPLE") ?: "SIMPLE")
+        } catch (_: Exception) { ykws.android.maro.config.TrackRenderMode.SIMPLE },
         trackDirectionDensity = try {
             ykws.android.maro.ui.map.TrackDirectionDensity.valueOf(
                 prefs.getString(KEY_TRACK_DIRECTION_DENSITY, "UNIFORM") ?: "UNIFORM")
@@ -456,7 +455,6 @@ class SettingsManager(
         trackDirectionSpeedCeilingKn = prefs.getFloat(KEY_TRACK_DIRECTION_SPEED_CEILING_KN, ykws.android.maro.config.AppConfig.trackDirectionSpeedCeilingKn),
         trackDirectionMinSpacingDp = prefs.getInt(KEY_TRACK_DIRECTION_MIN_SPACING_DP, ykws.android.maro.config.AppConfig.trackDirectionMinSpacingDp),
         trackDirectionMaxSpacingDp = prefs.getInt(KEY_TRACK_DIRECTION_MAX_SPACING_DP, ykws.android.maro.config.AppConfig.trackDirectionMaxSpacingDp),
-        speedHeatmap = prefs.getString(KEY_SPEED_HEATMAP, null)?.toBooleanStrictOrNull(),
         trackingRenderNb = prefs.getInt(KEY_TRACKING_RENDER_NB, BuildConfig.TRACKING_RENDER_NB).coerceIn(0, 20),
         trackingColorActive = prefs.getInt(KEY_TRACKING_COLOR_ACTIVE, BuildConfig.TRACKING_COLOR_ACTIVE),
         trackingColorHistory = prefs.getInt(KEY_TRACKING_COLOR_HISTORY, BuildConfig.TRACKING_COLOR_HISTORY),
@@ -581,13 +579,12 @@ class SettingsManager(
             .putInt(KEY_MARKER_HALO_UNPINNED_FILL_TRANSPARENCY_PCT, updated.markerHaloUnpinnedFillTransparencyPct)
             .putInt(KEY_MARKER_HALO_UNPINNED_BORDER_TRANSPARENCY_PCT, updated.markerHaloUnpinnedBorderTransparencyPct)
             .putBoolean(KEY_TRACKS_VISIBLE, updated.tracksVisible)
-            .putBoolean(KEY_TRACKS_DIRECTION_VISIBLE, updated.tracksDirectionVisible)
+            .putString(KEY_TRACK_RENDER_MODE, updated.trackRenderMode.name)
             .putString(KEY_TRACK_DIRECTION_DENSITY, updated.trackDirectionDensity.name)
             .putFloat(KEY_TRACK_DIRECTION_SPEED_FLOOR_KN, updated.trackDirectionSpeedFloorKn)
             .putFloat(KEY_TRACK_DIRECTION_SPEED_CEILING_KN, updated.trackDirectionSpeedCeilingKn)
             .putInt(KEY_TRACK_DIRECTION_MIN_SPACING_DP, updated.trackDirectionMinSpacingDp)
             .putInt(KEY_TRACK_DIRECTION_MAX_SPACING_DP, updated.trackDirectionMaxSpacingDp)
-            .putString(KEY_SPEED_HEATMAP, updated.speedHeatmap?.toString())
             .putInt(KEY_TRACKING_RENDER_NB, updated.trackingRenderNb)
             .putInt(KEY_TRACKING_COLOR_ACTIVE, updated.trackingColorActive)
             .putInt(KEY_TRACKING_COLOR_HISTORY, updated.trackingColorHistory)
@@ -694,14 +691,13 @@ class SettingsManager(
         private const val KEY_TRACK_GEOFENCE_RADIUS_M = "track_geofence_radius_m"
         private const val KEY_TRACK_GEOFENCE_ENABLED = "track_geofence_enabled"
         private const val KEY_TRACKS_VISIBLE = "tracks_visible"
-        private const val KEY_TRACKS_DIRECTION_VISIBLE = "tracks_direction_visible"
+        /** How stored tracks are drawn; the two retired keys it replaces are never read again. */
+        private const val KEY_TRACK_RENDER_MODE = "track_render_mode"
         private const val KEY_TRACK_DIRECTION_DENSITY = "track_direction_density"
         private const val KEY_TRACK_DIRECTION_SPEED_FLOOR_KN = "track_direction_speed_floor_kn"
         private const val KEY_TRACK_DIRECTION_SPEED_CEILING_KN = "track_direction_speed_ceiling_kn"
         private const val KEY_TRACK_DIRECTION_MIN_SPACING_DP = "track_direction_min_spacing_dp"
         private const val KEY_TRACK_DIRECTION_MAX_SPACING_DP = "track_direction_max_spacing_dp"
-        /** Selected-track rendering mode; absent means "follow `track.heatmap.mode`". */
-        private const val KEY_SPEED_HEATMAP = "speed_heatmap"
         private const val KEY_MARKER_LAYER_STATE = "marker_layer_state"
         private const val KEY_MARKER_ZONES_VISIBLE = "marker_zones_visible"
         private const val KEY_MARKER_HALO_SIZE = "marker_halo_size"

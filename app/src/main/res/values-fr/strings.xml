@@ -275,7 +275,10 @@
     <!-- Menu drawer -->
     <string name="menu_manage_tracks">Traces</string>
     <string name="menu_show_zones">Afficher les zones</string>
-    <string name="menu_show_tracks_direction">Afficher dir &amp; vitesse</string>
+    <string name="menu_tracks_rendering">Rendu des traces</string>
+    <string name="menu_render_mode_simple">Simple</string>
+    <string name="menu_render_mode_dir_speed">Dir &amp; Vitesse</string>
+    <string name="menu_render_mode_colours">Couleurs</string>
     <string name="menu_manage_markers">Repères</string>
     <string name="track_status_recording">● Enregistrement</string>
     <string name="track_status_idle">● En attente</string>
@@ -319,7 +322,6 @@
     <string name="settings_reg_info_visible">Texte d\'info visible</string>
     <string name="settings_section_tracks">Traces</string>
     <string name="settings_tracks_desc">Afficher les traces enregistrées</string>
-    <string name="settings_tracks_direction_label">Afficher la direction des traces</string>
     <string name="settings_tracks_direction_desc">Dessiner des flèches de direction le long des traces</string>
     <string name="settings_tracks_direction_settings_label">Direction et Vitesse de direction</string>
     <string name="settings_tracks_direction_density_label">Densité des flèches</string>
@@ -338,8 +340,8 @@
     <string name="settings_transparency_value_fmt">Récent %1$d%%  –  Ancien %2$d%%</string>
     <string name="settings_pinned_transparency_label">Transparence des épinglées</string>
     <string name="settings_pinned_transparency_desc" formatted="false">Dégradé sur les traces épinglées uniquement, indépendant des non épinglées. 0% = opaque, 100% = invisible.</string>
-    <string name="settings_colors_label">Couleurs</string>
-    <string name="settings_colors_desc">Anciennes traces : dégradé du plus récent (De) au plus ancien (Vers). Épinglées : dégradé ambre/orange.</string>
+    <string name="settings_colors_label">Couleurs par défaut</string>
+    <string name="settings_colors_desc">Les couleurs avec lesquelles Simple et Dir &amp; Vitesse dessinent. Anciennes traces : dégradé du plus récent (De) au plus ancien (Vers). Épinglées : dégradé ambre/orange.</string>
     <string name="settings_section_markers">Repères</string>
     <string name="settings_markers_desc">Configurer le rendu des repères et la création des repères automatiques d\'arrêt</string>
     <string name="settings_marker_idle_threshold_label">Seuil d\'arrêt</string>

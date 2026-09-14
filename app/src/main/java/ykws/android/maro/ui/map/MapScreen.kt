@@ -1,7 +1,7 @@
 
 package ykws.android.maro.ui.map
 import ykws.android.maro.config.AppConfig
-import ykws.android.maro.config.TrackHeatmapMode
+import ykws.android.maro.config.TrackRenderMode
 import ykws.android.maro.data.track.TrackRecordingService
 import ykws.android.maro.data.model.matchesFilter
 import ykws.android.maro.data.track.toGpx
@@ -357,6 +357,26 @@ internal fun SnackRow(
  * @param colorTo end color (0xRRGGBB, no alpha) for oldest track.
  * @param strokeWidth polyline stroke width in px (default 6f).
  */
+/**
+ * The track's own fade value as an alpha fraction (D8) — the index-over-total reading between the
+ * two transparency ranges that the appearance factory has always taken, extracted so the banded path
+ * reuses it instead of re-deriving it. A history track fades newest to oldest, a pinned one across
+ * its own range, and both multiply the ramp's core alpha on the banded path.
+ */
+internal fun trackFadeAlpha(
+    index: Int,
+    total: Int,
+    transparencyNewest: Int,
+    transparencyOldest: Int
+): Float {
+    val newest = minOf(transparencyNewest, transparencyOldest)
+    val oldest = maxOf(transparencyNewest, transparencyOldest)
+    val alphaNewest = (100 - newest) / 100f   // newest (index 0) -> lower transparency = higher alpha
+    val alphaOldest = (100 - oldest) / 100f   // oldest -> higher transparency = lower alpha
+    val t = if (total <= 1) 0f else index.toFloat() / (total - 1).toFloat()
+    return (alphaNewest - t * (alphaNewest - alphaOldest)).coerceIn(0f, 1f)
+}
+
 internal fun computeTrackPolylineAppearance(
     index: Int,
     total: Int,
@@ -366,13 +386,9 @@ internal fun computeTrackPolylineAppearance(
     colorTo: Int,
     strokeWidth: Float = 6f
 ): TrackPolylineAppearance {
-    val newest = minOf(transparencyNewest, transparencyOldest)
-    val oldest = maxOf(transparencyNewest, transparencyOldest)
-    val alphaNewest = (100 - newest) / 100f   // newest (index 0) -> lower transparency = higher alpha
-    val alphaOldest = (100 - oldest) / 100f   // oldest -> higher transparency = lower alpha
     val t = if (total <= 1) 0f else index.toFloat() / (total - 1).toFloat()
-    val alphaFraction = alphaNewest - t * (alphaNewest - alphaOldest)
-    val alphaInt = (alphaFraction * 255).toInt().coerceIn(0, 255)
+    val alphaInt = (trackFadeAlpha(index, total, transparencyNewest, transparencyOldest) * 255)
+        .toInt().coerceIn(0, 255)
 
     val r = ((colorFrom shr 16 and 0xFF) * (1f - t) + (colorTo shr 16 and 0xFF) * t).toInt().coerceIn(0, 255)
     val g = ((colorFrom shr 8 and 0xFF) * (1f - t) + (colorTo shr 8 and 0xFF) * t).toInt().coerceIn(0, 255)
@@ -446,17 +462,13 @@ fun MapScreen(
     // ── Click-N-Move state ─────────────────────────────────────────────
     var highlightedTrackId by remember { mutableStateOf<String?>(null) }
 
-    // ── Selected-track rendering mode ──────────────────────────────────
-    // One session-wide value: it starts from the user's stored choice when there is one and from the
-    // maro.properties default (read once at startup) while there is not, and the drawer header's eye
-    // toggle moves it and writes the choice back through the settings store.
-    var heatmapMode by remember {
-        mutableStateOf(
-            appSettings.speedHeatmap
-                ?.let { speed -> if (speed) TrackHeatmapMode.SPEED else TrackHeatmapMode.HIGHLIGHT }
-                ?: AppConfig.trackHeatmapMode
-        )
-    }
+    // ── Selected-track rendering override ──────────────────────────────
+    // The mode itself is stored state (`appSettings.trackRenderMode`), written by the menu's Tracks
+    // rendering switch, so the map only reads it. This is the drawer eye's own value (D10), scoped to
+    // the selected track alone: null follows the mode, true bands that one track, false draws it in
+    // the default colours without arrows. It is session-only and never persisted (§3c), so a relaunch
+    // lands on the stored mode.
+    var eyeTrackOverride by remember { mutableStateOf<Boolean?>(null) }
     var preNavigationState by remember { mutableStateOf<PreNavigationState?>(null) }
     var trackNavigateState by remember { mutableStateOf<TrackNavigateState?>(null) }
     var trackDrawerState by remember { mutableStateOf(TrackDrawerState()) }
@@ -926,7 +938,8 @@ fun MapScreen(
         mapView = mapView,
         showSettings = showSettings,
         highlightedTrackId = highlightedTrackId,
-        heatmapMode = heatmapMode,
+        renderMode = appSettings.trackRenderMode,
+        eyeOverride = eyeTrackOverride,
         allTrackSummaries = allTrackSummaries,
         focus = trackViewModel.renderFocus,
         appSettings = appSettings,
@@ -1363,13 +1376,13 @@ fun MapScreen(
                 )
             }
 
-            // ── Selected-track speed legend (Compose chrome, the map's top-left) ──
-            // Shown only while the mode is heatmap and a track is selected, so it spends map space
-            // only in the situation it explains. Anchored below the top-left toggle-button row on
-            // that row's own 6 dp gutter — itself offset by the landscape dashboard when there is
-            // one — and drawn as Compose chrome rather than an osmdroid overlay, so no polyline can
-            // ever paint over it.
-            if (heatmapMode == TrackHeatmapMode.SPEED && highlightedTrackId != null) {
+            // ── Speed legend (Compose chrome, the map's top-left) ──
+            // Drawn whenever the mode is Colours (D7), so the ramp's key stands for the whole time
+            // the ramp is in use and selection is no longer a condition. Anchored below the top-left
+            // toggle-button row on that row's own 6 dp gutter — itself offset by the landscape
+            // dashboard when there is one — and drawn as Compose chrome rather than an osmdroid
+            // overlay, so no polyline can ever paint over it.
+            if (appSettings.trackRenderMode == TrackRenderMode.HEATMAP) {
                 TrackSpeedLegend(
                     ramp = AppConfig.trackHeatmapRamp,
                     ticks = AppConfig.trackHeatmapScaleTicks,
@@ -1638,7 +1651,7 @@ fun MapScreen(
                 autoShowMasterOverride = appSettings.autoShowMasterOverride,
                 gpsToggleColor = gpsToggleColor,
                 markerZonesVisible = appSettings.markerZonesVisible,
-                tracksDirectionVisible = appSettings.tracksDirectionVisible,
+                trackRenderMode = appSettings.trackRenderMode,
                 firstTrackId = firstTrackId,
                 firstMarkerId = firstMarkerId,
                 trackMapFilterState = appSettings.trackMapFilter,
@@ -1653,8 +1666,10 @@ fun MapScreen(
                 viewModel.updateSettings { it.copy(markerZonesVisible = !appSettings.markerZonesVisible) }
                 mapView?.invalidate()
             },
-            onToggleTracksDirection = {
-                viewModel.updateSettings { it.copy(tracksDirectionVisible = !appSettings.tracksDirectionVisible) }
+            onRenderModeChange = { newMode ->
+                // D3: one stored mode, written by this switch only; the map reads it and the eye's own
+                // override never touches it.
+                viewModel.updateSettings { it.copy(trackRenderMode = newMode) }
                 mapView?.invalidate()
             },
             onTrackAction = { action ->
@@ -1770,19 +1785,16 @@ fun MapScreen(
                 trackInfoDrawerData = trackDrawerState.track,
                 trackListIds = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id },
                 currentTrackIndex = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id }.indexOf(trackDrawerState.track?.id ?: "").coerceAtLeast(0),
-                heatmapMode = heatmapMode,
-                onToggleHeatmapMode = {
-                    val next = if (heatmapMode == TrackHeatmapMode.SPEED) {
-                        TrackHeatmapMode.HIGHLIGHT
-                    } else {
-                        TrackHeatmapMode.SPEED
-                    }
-                    heatmapMode = next
-                    // §17's persistence reversal: the choice is stored, so `track.heatmap.mode` is the
-                    // first-run default only and a relaunch honours what the user last picked.
-                    viewModel.updateSettings {
-                        it.copy(speedHeatmap = next == TrackHeatmapMode.SPEED)
-                    }
+                renderMode = appSettings.trackRenderMode,
+                eyeOverride = eyeTrackOverride,
+                onToggleEyeOverride = {
+                    // D10: the eye moves the selected track alone, never the mode every other track
+                    // renders by. From Simple it turns the ramp on and from Colours it turns it off;
+                    // the Dir & Speed reading stays open in the plan's §4.
+                    val bandedNow = eyeTrackOverride
+                        ?: (appSettings.trackRenderMode == TrackRenderMode.HEATMAP)
+                    eyeTrackOverride = !bandedNow
+                    mapView?.invalidate()
                 },
             ),
             onTrackDrawerClose = closeTrackDrawer,

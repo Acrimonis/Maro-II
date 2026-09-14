@@ -46,7 +46,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ykws.android.maro.config.AppConfig
-import ykws.android.maro.config.TrackHeatmapMode
+import ykws.android.maro.config.TrackRenderMode
 import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.depth.RasterCache
 import ykws.android.maro.data.model.LatLng
@@ -110,7 +110,8 @@ fun OverlayLayer(
     onGpsModeChange: (Boolean) -> Unit,
     onAutoShowMasterChange: (Boolean) -> Unit = {},
     onToggleMarkerZones: () -> Unit = {},
-    onToggleTracksDirection: () -> Unit = {},
+    /** The menu's Tracks rendering switch (D5): the one writer of the stored mode. */
+    onRenderModeChange: (TrackRenderMode) -> Unit = {},
 
     // ── Track history data ───────────────────────────────────────────────
     onTrackAction: (ykws.android.maro.data.model.ListAction) -> Unit,
@@ -177,7 +178,7 @@ fun OverlayLayer(
     val autoShowMasterOverride = menu.autoShowMasterOverride
     val gpsToggleColor = menu.gpsToggleColor
     val markerZonesVisible = menu.markerZonesVisible
-    val tracksDirectionVisible = menu.tracksDirectionVisible
+    val trackRenderMode = menu.trackRenderMode
     val firstTrackId = menu.firstTrackId
     val firstMarkerId = menu.firstMarkerId
     val trackMapFilterState = menu.trackMapFilterState
@@ -193,8 +194,9 @@ fun OverlayLayer(
     val trackInfoDrawerData = trackInfo.trackInfoDrawerData
     val trackListIds = trackInfo.trackListIds
     val currentTrackIndex = trackInfo.currentTrackIndex
-    val heatmapMode = trackInfo.heatmapMode
-    val onToggleHeatmapMode = trackInfo.onToggleHeatmapMode
+    val renderMode = trackInfo.renderMode
+    val eyeOverride = trackInfo.eyeOverride
+    val onToggleEyeOverride = trackInfo.onToggleEyeOverride
 
     // ── Opened track's accent bar ────────────────────────────────────────
     // Identity, not selection (A9): the accent is the track's own resolved render colour — the one
@@ -370,8 +372,8 @@ fun OverlayLayer(
                 markerFilterAxes = ykws.android.maro.data.model.markerFilterAxes(),
                 markerZonesVisible = markerZonesVisible,
                 onToggleMarkerZones = onToggleMarkerZones,
-                tracksDirectionVisible = tracksDirectionVisible,
-                onToggleTracksDirection = onToggleTracksDirection,
+                trackRenderMode = trackRenderMode,
+                onRenderModeChange = onRenderModeChange,
                 onImportTracks = { onDismissMenu(); onTrackAction(ykws.android.maro.data.model.ListAction.ImportTracks) },
                 onExportAllTracks = { onDismissMenu(); onTrackAction(ykws.android.maro.data.model.ListAction.BatchExportGpx(trackSummaries.map { it.id }.toSet())) }
             )
@@ -485,8 +487,9 @@ fun OverlayLayer(
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(bottomStart = 16.dp),
                         headerActions = {
                             TrackDrawerHeaderActions(
-                                speedHeatmapOn = heatmapMode == TrackHeatmapMode.SPEED,
-                                onToggleHeatmapMode = onToggleHeatmapMode,
+                                bandedOn = eyeOverride
+                                    ?: (renderMode == TrackRenderMode.HEATMAP),
+                                onToggleEyeOverride = onToggleEyeOverride,
                                 onDelete = { onDeleteTrack(track.id) }
                             )
                         },
@@ -578,8 +581,9 @@ fun OverlayLayer(
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(0.dp),
                         headerActions = {
                             TrackDrawerHeaderActions(
-                                speedHeatmapOn = heatmapMode == TrackHeatmapMode.SPEED,
-                                onToggleHeatmapMode = onToggleHeatmapMode,
+                                bandedOn = eyeOverride
+                                    ?: (renderMode == TrackRenderMode.HEATMAP),
+                                onToggleEyeOverride = onToggleEyeOverride,
                                 onDelete = { onDeleteTrack(track.id) }
                             )
                         },
@@ -777,25 +781,26 @@ fun OverlayLayer(
 }
 
 /**
- * The track drawer's header actions: the speed-heatmap eye toggle, then the trash.
+ * The track drawer's header actions: the eye toggle, then the trash.
  *
- * The toggle carries no label — its state rides the icon convention, the accent at full alpha for
- * speed mode and the inactive alpha token for gold, and the map's legend doubles as its readout
- * because the legend exists only in speed mode.
+ * The toggle carries no label — its state rides the icon convention, the accent at full alpha while
+ * the selected track is banded and the inactive alpha token otherwise. It moves that one track and
+ * never the stored mode (D10), and the map's legend doubles as its readout because the legend exists
+ * whenever the ramp does.
  */
 @Composable
 private fun TrackDrawerHeaderActions(
-    speedHeatmapOn: Boolean,
-    onToggleHeatmapMode: () -> Unit,
+    bandedOn: Boolean,
+    onToggleEyeOverride: () -> Unit,
     onDelete: () -> Unit
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-        IconButton(onClick = onToggleHeatmapMode, modifier = Modifier.size(36.dp)) {
+        IconButton(onClick = onToggleEyeOverride, modifier = Modifier.size(36.dp)) {
             Icon(
                 Visibility,
-                "Speed heatmap",
+                "Track rendering",
                 tint = ButtonColors.icon.copy(
-                    alpha = if (speedHeatmapOn) 1f else AppConfig.buttonActionIconInactiveAlpha
+                    alpha = if (bandedOn) 1f else AppConfig.buttonActionIconInactiveAlpha
                 ),
                 modifier = Modifier.size(24.dp)
             )

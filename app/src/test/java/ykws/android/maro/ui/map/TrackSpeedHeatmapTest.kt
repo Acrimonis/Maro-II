@@ -62,8 +62,12 @@ class TrackSpeedHeatmapTest {
 
     private fun alphaOf(argb: Int): Int = argb ushr 24 and 0xFF
 
-    private fun bandedBands(points: List<TrackPoint>, carryMaxSec: Int = 10) =
-        bandedAppearances(points, resolveSpeeds(points, carryMaxSec), ramp)
+    private fun bandedBands(
+        points: List<TrackPoint>,
+        carryMaxSec: Int = 10,
+        strokeWidth: Float = SELECTED_CORE_STROKE_WIDTH,
+        fade: Float = 1f
+    ) = bandedAppearances(points, resolveSpeeds(points, carryMaxSec), ramp, strokeWidth, fade)
 
     /** The expected gradient output, written independently of the production interpolation. */
     private fun blend(fromArgb: Int, toArgb: Int, t: Float): Int {
@@ -447,7 +451,7 @@ class TrackSpeedHeatmapTest {
     }
 
     @Test
-    fun everyBandCarriesTheCoreAlphaAndTheCoreWidth() {
+    fun everyBandCarriesTheCoreAlphaAtAnUnfadedRow() {
         val points = listOf(
             p(speedMps = 1f, timeMs = 0L),
             p(timeMs = 1000L, type = PointType.GAP),
@@ -457,9 +461,38 @@ class TrackSpeedHeatmapTest {
         val bands = bandedBands(points)
 
         assertTrue(bands.isNotEmpty())
-        assertEquals(230, alphaOf(bands[0].appearance.argb))        // round(0.9 × 255)
+        assertEquals(230, alphaOf(bands[0].appearance.argb))        // round(0.9 × 1 × 255)
         bands.forEach { assertEquals(230, alphaOf(it.appearance.argb)) }
         bands.forEach { assertEquals(SELECTED_CORE_STROKE_WIDTH, it.appearance.strokeWidth, 0.001f) }
+    }
+
+    // ── D8's fade multiplication and D11's width ─────────────────────────
+
+    @Test
+    fun theBandAlphaIsTheTracksOwnFadeTimesTheRampCoreAlpha() {
+        val points = pointsAtKn(1f, 2f, 3f)                         // one flat green band
+
+        val full = bandedBands(points, fade = 1f)
+        val half = bandedBands(points, fade = 0.5f)
+        val oldest = bandedBands(points, fade = 0f)
+
+        assertEquals(230, alphaOf(full[0].appearance.argb))         // round(0.9 × 1.0 × 255)
+        assertEquals(115, alphaOf(half[0].appearance.argb))         // round(0.9 × 0.5 × 255)
+        assertEquals(0, alphaOf(oldest[0].appearance.argb))         // the heaviest fade disappears
+        // The fade moves the alpha alone: the hue the ramp resolved is untouched.
+        assertEquals(rgb(full[0].appearance.argb), rgb(half[0].appearance.argb))
+    }
+
+    @Test
+    fun everyBandCarriesTheWidthItWasGiven() {
+        val points = pointsAtKn(0.5f, 6f)                           // green then blue: two bands
+
+        val older = bandedBands(points, strokeWidth = 6f)
+        val newest = bandedBands(points, strokeWidth = 8f)
+
+        assertTrue(older.size >= 2)
+        older.forEach { assertEquals(6f, it.appearance.strokeWidth, 0.001f) }
+        newest.forEach { assertEquals(8f, it.appearance.strokeWidth, 0.001f) }
     }
 
     // ── The legend's tick table ──────────────────────────────────────────

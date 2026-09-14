@@ -1310,7 +1310,7 @@ private fun SystemSettings(
  * "n of m, selected" instead of as unrelated buttons.
  */
 @Composable
-private fun <T> SegmentedRow(
+internal fun <T> SegmentedRow(
     options: List<Pair<T, String>>,
     selected: T,
     onSelect: (T) -> Unit,
