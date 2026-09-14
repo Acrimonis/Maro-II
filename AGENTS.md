@@ -56,7 +56,8 @@
   `git merge`, or `git rebase` without the user's explicit, unambiguous go-ahead.**
   Committing inside `new_task(Code)` subtasks is NOT exempt. `git add` may be used to stage when preparing a `#commit`; do not stage preemptively.
   **Read-only git queries (`git status`, `git log`, `git branch`, `git diff`, `git fetch`) are always permitted in any mode.**
-  **Exception:** git-related `#`-commands are self-contained confirmations — the explicit invocation is the go-ahead. `#commit`, `#push`, `#merge` and `#cherry` still ask before acting, even when chained; `#new`, `#move`, `#move new` and `#rename` do not.
+  **Exception:** a git-related `#`-command **is** the explicit, unambiguous go-ahead — the invocation authorises the operation, so the agent executes it rather than re-asking, asking the user to run it, or reading it as a mere request for one.
+  `#commit`, `#push`, `#merge` and `#cherry` confirm the action's scope — what gets staged, pushed, merged or picked — and never re-litigate authorisation, chained or not; `#new`, `#move`, `#move new` and `#rename` ask nothing at all.
 
 - **🚦 A gate names its action.** A confirmation gate states the exact action it authorises, and if
   the proposal has moved since the question was asked the gate is re-asked rather than assumed.

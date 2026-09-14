@@ -26,7 +26,7 @@ Fold done sections into `## Implemented` as pointer entries, promoting retained 
 
 1. WorkflowImprovement (7 retained sections).
 2. DepthSafety, DepthMapping, ArcLayout, Performance, ColorManagement, Documentation.
-3. GPS, BoatTrace, Markers (large).
+3. GPS, Tracks, Markers (large).
 4. Ui_General, Ui_Dashboard, Ui_Settings, Ui_Menu, UI_Map.
 5. RegulatedZones, ZoneTile, Coastline, Navigation, CheckDev, Health, BakeNormalization.
 

@@ -198,7 +198,7 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
      *        The copy is unpinned and un-boosted but deliberately NOT force-hidden: map visibility is
      *        derived from the selection policy, so it renders like any other stored track. Accepted
      *        2026-09-11 during the Mergitur integration — see
-     *        `xTrack/BoatTrace/260911_FEAT_PLN_BoatTrace_resume-confirm-backup.md`.
+     *        `xTrack/Tracks/260911_FEAT_PLN_Tracks_resume-confirm-backup.md`.
      */
     fun resumeTrack(trackId: String, backupNameSuffix: String? = null) {
         // Guard: cannot resume while already recording

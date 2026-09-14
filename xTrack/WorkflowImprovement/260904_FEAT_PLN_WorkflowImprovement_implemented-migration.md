@@ -6,7 +6,7 @@
 
 ## Scope
 
-19 `FEAT_DSC_*.md` files carry a `## Implemented` (or section-level `#### Implemented`) in prose form: Coastline, ZoneTile, Ui_General, Navigation, Markers, Ui_Menu, GPS, Ui_Dashboard, BoatTrace, WorkflowImprovement, UI_Map, and 8 more.
+19 `FEAT_DSC_*.md` files carry a `## Implemented` (or section-level `#### Implemented`) in prose form: Coastline, ZoneTile, Ui_General, Navigation, Markers, Ui_Menu, GPS, Ui_Dashboard, Tracks, WorkflowImprovement, UI_Map, and 8 more.
 
 ## Target format
 
