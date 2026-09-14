@@ -1,7 +1,7 @@
 <!-- scope: feature -->
 # Rename the BoatTrace feature to Tracks
 
-**Date:** 2026-09-14 · **Status:** approved as written — D1 and D2 closed; no rename executed yet
+**Date:** 2026-09-14 · **Status:** shipped — committed as `322f4cc` on `feature/track-speed`; see `## Outcome`
 **Scope:** xTrack state migration — directory, file names, in-file references, routing/summary rows, cross-feature live pointers, two code comments.
 
 ## 1. Why
@@ -57,4 +57,6 @@ BoatTrace names a recording subsystem after a nautical pun while the feature own
 - **Text:** 142 occurrences of the exact token replaced across 56 files, then four closing edits found by verification — three cross-feature references in `xTrack/Markers/260624_…`, `xTrack/Markers/260702_…` and `xTrack/Mergitur/260911_…` (the last holding the only surviving dangling path), plus the D3 `tracks` keyword in the routing row.
 - **Verification:** a repo-wide search returns zero hits in `*.kt`, `*.properties`, `*.bat` and all of `docs/`; the only `xTrack` survivors are this record and `xxArchive/260912_…_docs-integrity.md`, both deliberate. D1's staleness concern proved unfounded — `origin/develop` already carried the full 2026-09-13 xTrack state.
 - **Deviations:** a throwaway `.bat` for the renames and a `.ps1` for the text pass were used and then deleted — cmd cannot substring-substitute a `for` variable and a batch line-read destroys Markdown blank lines and `!` — a deliberate bend of §9's CMD-only rule. `BoatTraceViewModel` in the verification plan's logcat line became `TracksViewModel`, which names a class that never existed either way. Only the PascalCase token was in scope, so the `boat-trace` / `boat-tracing` / `boat` / `trace` routing keywords and slugs stay, as D3 intended.
-- **Open gates:** `#bake` on Tracks (explicit invocation only, and it prunes Focus History back to 10), `#commit` (asks first), and the `## Implemented` pointer plus `## Docs` attachment for this plan, which land once the migration is committed.
+- **Committed and closed:** `322f4cc` on `feature/track-speed` staged 75 files — 55 renames, one delete/add pair, 17 modifications and this plan — leaving a clean tree, and the pointer now sits in WorkflowImprovement's `## Docs` and `## Implemented`.
+- **One non-rename presentation:** the move recorded as delete+create is the one-line redirect stub `260618_FEAT_PLN_Tracks_adaptive-isstill-settings-redesign.md`, which git re-added rather than renamed after line-ending normalisation — content unchanged, history presentation only.
+- **Still open:** `#bake` on Tracks, which fires only on explicit invocation and would also prune Focus History back to 10.

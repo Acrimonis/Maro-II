@@ -93,6 +93,86 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 - `xTrack/Tracks/260911_FEAT_PLN_Tracks_live-track-paint-regression.md` — live-track paint regression: diagnosis + fix (evidence, fix options, follow-ups)
 - `xTrack/Tracks/260911_FEAT_PLN_Tracks_resume-confirm-backup.md` — resume confirmation sheet + optional backup copy (decisions D1–D7, verified constraints, follow-ups)
 
+## Walk
+**Level 1 — Date:** 2026-09-14 · **Source:** the 260914 selected-track speed heatmap plan's open points and implementation steps — the feature's older device-E2E todos are excluded, being a verification backlog rather than plan items · **Active:** 12
+- [x] 1 · Arrow colour inside the banded line (D4a) — child walk closed: arrows take the local band colour
+- [x] 2 · Scope and legend (D5) — child walk closed: scope is the selected track only, the live line untouched; legend carried to item 8
+- [x] 3 · Confirm the owning feature is Tracks — child walk closed: a section of Tracks, not a new feature
+- [x] 4 · Settings surface — child walk closed: no UI in this pass, the mode and ramp load from `maro.properties`
+- [x] 5 · Band mapping as a pure, unit-tested function — child walk closed: `ui/map/TrackSpeedHeatmap.kt` plus its test
+- [x] 6 · Wire banded appearances into the selected-track branch — child walk closed: one dispatcher, two self-contained paths
+- [x] 7 · Keep arrows when enabled, spacing rules untouched — child walk closed: an optional colour resolver, spacing rules untouched
+- [x] 8 · Legend, if item 2 keeps it — child walk closed: a compact map strip, only while heatmap mode has a selected track
+- [x] 9 · Fold the review findings R1–R10 into the plan before any code — child walks closed: eye toggle in the detail header, session-wide mode
+- [x] 10 · Fold the Ask-review findings A1–A14: queued fixes applied, A7, A9 and A10 decided
+- [x] 11 · Fold the second Ask pass B1–B17 — carrier stated, legend anchored bottom-left, validation policy withdrawn
+- [ ] 12 · Implement the change on feature/track-speed — the work package in §6 of the plan
+- [ ] 13 · Build, deploy, device E2E on a real track
+- [ ] 14 · Plan Outcome and feature-file pointers
+
+**Level 2 — Date:** 2026-09-14 · **Parent:** 1 · **Active:** 1 · **Closed:** 2026-09-14
+- [x] 1 · Local band colour — chosen: each arrow takes the colour of the segment it sits on
+- [ ] 2 · Constant contrast colour — dropped with the choice
+- [ ] 3 · Under-stroke per arrow — dropped with the choice
+
+- Resolutions: arrows carry the local band colour, reading as part of the speed profile. Dropped: the constant-contrast and per-arrow under-stroke alternatives; the first loses the arrow-as-speed cue, the second adds up to 2000 strokes on the overlay rebuild path.
+
+**Level 2 — Date:** 2026-09-14 · **Parent:** 2 · **Active:** 1 · **Closed:** 2026-09-14
+- [x] 1 · Global mode over whichever track is selected — confirmed: the mode governs the selected track
+- [x] 2 · Live recording line — excluded, no behaviour change there
+- [ ] 3 · Legend — carried out to item 8 rather than resolved here
+
+- Resolutions: heatmap mode governs the selected track only, the live recording path untouched. Dropped: extending the mode to the live line, which would need its own incremental banding rather than a reuse of the stored-track branch. Carried: the legend, now item 8.
+
+**Level 2 — Date:** 2026-09-14 · **Parent:** 3 · **Active:** 1 · **Closed:** 2026-09-14
+- [x] 1 · A new section of Tracks — chosen: one owner for the selected-track render branch
+- [ ] 2 · A new tracked feature — dropped with the choice
+
+- Resolutions: the heatmap ships as a section of Tracks, keeping the render branch, its arrows and its settings under one owner. Dropped: a new tracked feature, which would have split one render path across two feature files.
+
+**Level 2 — Date:** 2026-09-14 · **Parent:** 4 · **Active:** 3 · **Closed:** 2026-09-14
+- [ ] 1 · One segmented row in the Tracks settings section — dropped: no settings UI in this pass
+- [ ] 2 · Segmented row plus sliders for the 5 and 10 kn edges — dropped with the surface
+- [x] 3 · No UI at all — chosen: the mode and the ramp are `maro.properties` keys
+
+- Resolutions: no Settings surface in this pass — the selected-track rendering mode and the whole ramp are read from `maro.properties`, so changing them is a file edit plus a rebuild, and a `track.heatmap.mode` key carries the choice. Dropped: the segmented row and the band-edge sliders.
+
+**Level 2 — Date:** 2026-09-14 · **Parent:** 5 · **Active:** 1 · **Closed:** 2026-09-14
+- [x] 1 · A new file `ui/map/TrackSpeedHeatmap.kt` — chosen, with its own unit test
+- [ ] 2 · Beside `computeTrackPolylineAppearance` in `MapScreen.kt` — dropped with the choice
+
+- Resolutions: the band mapping ships as `ui/map/TrackSpeedHeatmap.kt` with `TrackSpeedHeatmapTest`, mirroring `DepthColorRamp` and its own file, so `MapScreen.kt` does not grow. Dropped: placing it in `MapScreen.kt` beside the existing appearance factory.
+
+**Level 2 — Date:** 2026-09-14 · **Parent:** 6 · **Active:** 1 · **Closed:** 2026-09-14
+- [x] 1 · One dispatcher plus two self-contained paths — chosen: no logic replicated, each path whole
+- [ ] 2 · Inline the mode branch at both sites — dropped: replication rejected
+
+- Resolutions: the selected track's appearance list comes from a single dispatcher that hands off to two self-contained path builders — today's gold casing-and-core pair, and the heatmap's casing plus banded core — so the mode is decided once and the branch is not copied to the two call sites. The effect's key list gains the mode and the ramp values so a rebuild with edited properties re-renders. Dropped: inlining the branch at both sites.
+
+**Level 2 — Date:** 2026-09-14 · **Parent:** 7 · **Active:** 1 · **Closed:** 2026-09-14
+- [x] 1 · A colour resolver on the overlay — chosen: one chevron per anchor in its local band, casing once beneath
+- [ ] 2 · One colour for every arrow — dropped: it contradicts the local-colour decision
+
+- Resolutions: the overlay gains an optional resolver — null keeps today's appearance iteration, so every non-selected track draws exactly as now, while heatmap mode paints one chevron per anchor in that anchor's band with the dark casing chevron once beneath. Spacing is untouched: `spacingPxForSpeed` and the UNIFORM/SPEED density rules stay as they are. Dropped: one colour for every arrow.
+
+**Level 2 — Date:** 2026-09-14 · **Parent:** 8 · **Active:** 1 · **Closed:** 2026-09-14
+- [x] 1 · A compact map legend strip — chosen: ticks at 5, 10 and the top, only while a track is selected in heatmap mode
+- [ ] 2 · No legend in this pass — dropped with the choice
+
+- Resolutions: the legend ships as a compact map strip with ticks at 5, 10 and the window top, drawn only while heatmap mode is on and a track is selected. Dropped: documenting the thresholds in `maro.properties` alone — a ramp whose edges sit at 5 and 10 kn cannot be read without a visible scale.
+
+**Level 2 — Date:** 2026-09-14 · **Parent:** 9 · **Active:** 2 · **Closed:** 2026-09-14
+- [x] 1 · Restore one minimal control — chosen, but sited on the selected track's detail view, not in Settings
+- [ ] 2 · Re-word the Request line — dropped: the control makes the original wording true again
+
+- Resolutions: R1 closes with an eye toggle in the selected track's header — reviewed since to sit in `OverlayLayer`'s drawer header, left of the trash — moving one session-wide mode that defaults to `maro.properties`; item 4's decision stands untouched because the control is not a Settings surface. Dropped: re-wording the Request line.
+
+**Level 2 — Date:** 2026-09-14 · **Parent:** 9 · **Active:** 1 · **Closed:** 2026-09-14
+- [x] 1 · One session-wide mode — chosen: the eye moves the mode itself, the file key being the start-up default
+- [ ] 2 · Per-track memory — dropped: one state is simpler and the legend explains a single ramp
+
+- Resolutions: the eye toggle moves one session-wide mode, starting from `track.heatmap.mode`, with nothing persisted and no per-track state; the legend remains the readout of that single state. Dropped: per-track memory and per-track persistence. Folded with it: R2–R10 corrected the plan's body, so the band count, the ramp domain, the core alpha, the neutral tint, the carry window, the legend's file, the shared derivation, the z-lift cost, the seam rule and the verification criteria are now stated rather than implied.
+
 ## Implemented
 
 - **Data model** — `Track`/`TrackPoint` protobuf, `TrackSummary` index, relative `timeOffsetSec`

@@ -35,6 +35,7 @@ Git command shortcuts: #new / #commit / #push / #move / #cherry·#copy / #rename
 - `docs/xtrack-templates.md` — file templates (sub-truth pointed from `AGENTS.md`'s Lazy-Load Index)
 
 ## Docs
+- `xTrack/WorkflowImprovement/260914_FEAT_PLN_WorkflowImprovement_boattrace-rename-to-tracks.md` — BoatTrace → Tracks feature rename: decisions D1–D5, the measured footprint and the shipped Outcome
 - `xTrack/WorkflowImprovement/260912_FEAT_PLN_WorkflowImprovement_command-flow.md` — Output Contract rules plus the `#go` / `#review` / `#walk` / `#brief` rows and their ship order
 - `xTrack/WorkflowImprovement/260913_FEAT_PLN_WorkflowImprovement_walk-stack.md` — depth-1 child walks, the `#done` retirement and the walk section's schema
 - `xTrack/WorkflowImprovement/260913_FEAT_PLN_WorkflowImprovement_adapter-cleanup.md` — adapter folders hold pointers only; the file templates rehomed to `docs/xtrack-templates.md`
@@ -76,6 +77,8 @@ Git command shortcuts: #new / #commit / #push / #move / #cherry·#copy / #rename
 - Resolutions: the bake page now carries the walk's three-exit challenge · check (k) reads existence-never-wording · the bare `#brief` query closed as no-change, the Forms column being design notes · the clinerules adapter is a pointer with its rationale removed. Dropped: item 4 parked by `#skip`, its `#doctor` check (s) decision carried by the feature todo, and item 6 left unstepped, its two members already deferred elsewhere.
 
 ## Implemented
+
+- **BoatTrace → Tracks feature rename (2026-09-14, `feature/track-speed`, `322f4cc`)** — 56 paths moved by `git mv` out of `xTrack/BoatTrace/` into `xTrack/Tracks/` with the exact PascalCase token replaced 142 times across the live tree plus four closing edits found by verification; the routing row (now carrying the `tracks` keyword), the summary label and both focus-history paths were updated, and `docs/maro-code.md`, the `TrackViewModel` KDoc path and the `maro.properties` comment swept clean — `AGENTS.md` and `docs/cmd_help_git.md` gained the clause that a git `#`-command is its own explicit go-ahead → `xTrack/WorkflowImprovement/260914_FEAT_PLN_WorkflowImprovement_boattrace-rename-to-tracks.md`
 
 - **adapter clean-up — adapters carry pointers, never content (2026-09-13, `feature/wrKFl`)** — the 182-line template file moved to `docs/xtrack-templates.md` and `.claude/skills/xtrack/references/` was deleted so `SKILL.md` stands alone as a pointer; AGENTS.md's Lazy-Load Index gained the row, the feature's `## Key Files`, its hydration and the walk-stack plan were re-pointed, and the `.clinerules` rule adapter was stripped of its rationale → `xTrack/WorkflowImprovement/260913_FEAT_PLN_WorkflowImprovement_adapter-cleanup.md`
 - **walk-stack — depth-1 child walks (2026-09-13, `feature/wrKFl`)** — a walk descends once into its active item on a bold `Level 2` line carrying its own date and a `Parent:` pointer, closing by exhaustion with resolutions and drops written into the parent; `#done` was retired across the §7b row, the walk page and the `cmd_help.md` line, moving the close-or-park challenge to the two gates; §7a's keep-criterion reads any level, C12 echoes it, C13 exempts walk items and the fixture lives in `docs/xtrack-templates.md` → `xTrack/WorkflowImprovement/260913_FEAT_PLN_WorkflowImprovement_walk-stack.md`
