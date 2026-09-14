@@ -4,6 +4,7 @@ import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
+import ykws.android.maro.config.TrackHeatmapMode
 import ykws.android.maro.data.model.ListFilter
 import ykws.android.maro.data.model.ListSortState
 import ykws.android.maro.data.model.markers.UserMarker
@@ -88,6 +89,14 @@ data class TrackInfoOverlayData(
     val trackInfoDrawerData: Track?,
     val trackListIds: List<String>,
     val currentTrackIndex: Int,
+    /**
+     * Selected-track rendering mode. It rides the track-info bundle because the control lives in
+     * that drawer's header — the alternative was widening an already wide `OverlayLayer` (B17).
+     */
+    val heatmapMode: TrackHeatmapMode = TrackHeatmapMode.HIGHLIGHT,
+    /** Drawer-header eye toggle: moves the mode for the session and stores the choice in settings, so
+     *  `track.heatmap.mode` is its first-run default only. */
+    val onToggleHeatmapMode: () -> Unit = {},
 )
 
 /**

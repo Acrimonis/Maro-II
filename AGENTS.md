@@ -62,9 +62,12 @@
 - **🚦 A gate names its action.** A confirmation gate states the exact action it authorises, and if
   the proposal has moved since the question was asked the gate is re-asked rather than assumed.
 
-- **🔴 PUSH IS USER-OWNED.** Never ask whether to push, never list pushing as a next step, and never
-  remind that commits are unpushed — the user decides when. Commands that push (`#push`, `#merge`)
-  do so only when invoked; proposing one is a workflow violation in every mode.
+- **🔴 PUSH, COMMIT AND DEPLOY ARE USER-OWNED.** Never ask whether to push, commit or deploy, never list
+  one as a next step, and never remind that commits are unpushed or that a build is undeployed — the
+  user decides when. Commands that push or commit (`#push`, `#merge`, `#commit`) do so only when
+  invoked, and `apk-deploy.bat` / `apk-push.bat` are never proposed either; proposing any of them is a
+  workflow violation in every mode. Asking the user to deploy so a change can be checked on a device is
+  a `#`-command away from them, not a step for the agent to offer.
 
 - **🔴 ABSOLUTE RULE: NEVER write to `develop` or `main` — no pushes,
   no force-pushes, no reverts, no direct commits, no local merges into them.

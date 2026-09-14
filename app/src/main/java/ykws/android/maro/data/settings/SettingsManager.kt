@@ -214,6 +214,15 @@ data class AppSettings(
     val trackDirectionMinSpacingDp: Int = ykws.android.maro.config.AppConfig.trackDirectionMinSpacingDp,
     /** Maximum on-screen spacing (dp) between direction arrows. */
     val trackDirectionMaxSpacingDp: Int = ykws.android.maro.config.AppConfig.trackDirectionMaxSpacingDp,
+    /**
+     * Selected-track rendering mode the user last chose: true = speed heatmap, false = gold highlight,
+     * null = they have not chosen yet, so `track.heatmap.mode` in `maro.properties` is the start-up
+     * default. Set by the drawer header's eye toggle.
+     *
+     * Persisted as a String rather than a Boolean because a boolean pref cannot express "unset", and
+     * unset is exactly the state that keeps the file's default live.
+     */
+    val speedHeatmap: Boolean? = null,
     /** Number of historical tracks to render on the map (0-20). */
     val trackingRenderNb: Int = BuildConfig.TRACKING_RENDER_NB,
     /** ARGB color for the active recording track. */
@@ -447,6 +456,7 @@ class SettingsManager(
         trackDirectionSpeedCeilingKn = prefs.getFloat(KEY_TRACK_DIRECTION_SPEED_CEILING_KN, ykws.android.maro.config.AppConfig.trackDirectionSpeedCeilingKn),
         trackDirectionMinSpacingDp = prefs.getInt(KEY_TRACK_DIRECTION_MIN_SPACING_DP, ykws.android.maro.config.AppConfig.trackDirectionMinSpacingDp),
         trackDirectionMaxSpacingDp = prefs.getInt(KEY_TRACK_DIRECTION_MAX_SPACING_DP, ykws.android.maro.config.AppConfig.trackDirectionMaxSpacingDp),
+        speedHeatmap = prefs.getString(KEY_SPEED_HEATMAP, null)?.toBooleanStrictOrNull(),
         trackingRenderNb = prefs.getInt(KEY_TRACKING_RENDER_NB, BuildConfig.TRACKING_RENDER_NB).coerceIn(0, 20),
         trackingColorActive = prefs.getInt(KEY_TRACKING_COLOR_ACTIVE, BuildConfig.TRACKING_COLOR_ACTIVE),
         trackingColorHistory = prefs.getInt(KEY_TRACKING_COLOR_HISTORY, BuildConfig.TRACKING_COLOR_HISTORY),
@@ -577,6 +587,7 @@ class SettingsManager(
             .putFloat(KEY_TRACK_DIRECTION_SPEED_CEILING_KN, updated.trackDirectionSpeedCeilingKn)
             .putInt(KEY_TRACK_DIRECTION_MIN_SPACING_DP, updated.trackDirectionMinSpacingDp)
             .putInt(KEY_TRACK_DIRECTION_MAX_SPACING_DP, updated.trackDirectionMaxSpacingDp)
+            .putString(KEY_SPEED_HEATMAP, updated.speedHeatmap?.toString())
             .putInt(KEY_TRACKING_RENDER_NB, updated.trackingRenderNb)
             .putInt(KEY_TRACKING_COLOR_ACTIVE, updated.trackingColorActive)
             .putInt(KEY_TRACKING_COLOR_HISTORY, updated.trackingColorHistory)
@@ -689,6 +700,8 @@ class SettingsManager(
         private const val KEY_TRACK_DIRECTION_SPEED_CEILING_KN = "track_direction_speed_ceiling_kn"
         private const val KEY_TRACK_DIRECTION_MIN_SPACING_DP = "track_direction_min_spacing_dp"
         private const val KEY_TRACK_DIRECTION_MAX_SPACING_DP = "track_direction_max_spacing_dp"
+        /** Selected-track rendering mode; absent means "follow `track.heatmap.mode`". */
+        private const val KEY_SPEED_HEATMAP = "speed_heatmap"
         private const val KEY_MARKER_LAYER_STATE = "marker_layer_state"
         private const val KEY_MARKER_ZONES_VISIBLE = "marker_zones_visible"
         private const val KEY_MARKER_HALO_SIZE = "marker_halo_size"

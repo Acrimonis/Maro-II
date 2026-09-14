@@ -6,10 +6,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import org.osmdroid.views.MapView
+import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.MapRenderFocus
 import ykws.android.maro.data.model.TrackSelectionPolicy
 import ykws.android.maro.data.model.matchesFilter
+import ykws.android.maro.config.HeatmapRamp
+import ykws.android.maro.config.TrackHeatmapMode
 import ykws.android.maro.data.settings.AppSettings
+import ykws.android.maro.data.track.TrackPoint
 
 /**
  * History/pinned track overlay incremental-diff (extracted from MapScreen).
@@ -20,6 +24,11 @@ internal fun MapTrackOverlayHistoryDiff(
     mapView: MapView?,
     showSettings: Boolean,
     highlightedTrackId: String?,
+    /**
+     * Runtime rendering mode for the selected track. Read once before composition, so an edited
+     * `maro.properties` needs a relaunch — only this session value belongs in the key list.
+     */
+    heatmapMode: TrackHeatmapMode,
     allTrackSummaries: List<ykws.android.maro.data.track.TrackSummary>,
     focus: MapRenderFocus,
     appSettings: AppSettings,
@@ -35,6 +44,7 @@ internal fun MapTrackOverlayHistoryDiff(
         appSettings.trackingColorPinnedFrom, appSettings.trackingColorPinnedTo,
         appSettings.trackingTransparencyPinnedNewest, appSettings.trackingTransparencyPinnedOldest,
         appSettings.trackMapFilter, appSettings.trackFilterLinked, allTrackSummaries, highlightedTrackId,
+        heatmapMode,
         appSettings.trackDirectionDensity, appSettings.trackDirectionMinSpacingDp, appSettings.trackDirectionMaxSpacingDp,
         appSettings.trackDirectionSpeedFloorKn, appSettings.trackDirectionSpeedCeilingKn) {
         val mv = mapView ?: return@LaunchedEffect
@@ -94,13 +104,24 @@ internal fun MapTrackOverlayHistoryDiff(
             val track = trackViewModel.loadTrackDetailCached(summary.id) ?: continue
             if (track.trackPoints.isEmpty()) continue
 
-            val appearances = if (summary.id == highlightedTrackId) {
-                listOf(
-                    TrackPolylineAppearance(0xCC000000.toInt(), 16f),
-                    TrackPolylineAppearance(0xFFFFD700.toInt() or (0xFF shl 24), 8f)
+            if (summary.id == highlightedTrackId) {
+                // One dispatcher, two paths: the selected track's strokes and chevrons come from
+                // selectedTrackRendering, so the history and pinned loops cannot drift apart.
+                val rendering = selectedTrackRendering(
+                    points = track.trackPoints,
+                    title = "track_hist_${summary.id}",
+                    mode = heatmapMode,
+                    ramp = AppConfig.trackHeatmapRamp,
+                    carryMaxSec = AppConfig.trackHeatmapCarryMaxSec
                 )
+                trackOverlays.addAll(rendering.overlays)
+                if (appSettings.tracksDirectionVisible) {
+                    trackOverlays.add(
+                        rendering.directionOverlay(track.trackPoints, directionSpacingProvider, "track_arrow_${summary.id}")
+                    )
+                }
             } else {
-                listOf(computeTrackPolylineAppearance(
+                val appearance = computeTrackPolylineAppearance(
                     index = index,
                     total = total,
                     transparencyNewest = appSettings.trackingTransparencyNewest,
@@ -108,24 +129,18 @@ internal fun MapTrackOverlayHistoryDiff(
                     colorFrom = appSettings.trackingColorPastFrom,
                     colorTo = appSettings.trackingColorPastTo,
                     strokeWidth = if (index == 0) 8f else 6f
-                ))
-            }
-
-            for (appearance in appearances) {
+                )
                 // Solid segments between gaps, dashed for gap segments (split in buildSegmentOverlays).
                 trackOverlays.addAll(
                     buildSegmentOverlays(track.trackPoints, appearance, "track_hist_${summary.id}")
                 )
-            }
-
-            if (appSettings.tracksDirectionVisible) {
-                trackOverlays.add(
+                if (appSettings.tracksDirectionVisible) {
                     TrackDirectionOverlay(
                         points = track.trackPoints,
-                        appearances = appearances,
+                        appearances = listOf(appearance),
                         spacingPx = directionSpacingProvider
-                    ).apply { title = "track_arrow_${summary.id}" }
-                )
+                    ).apply { title = "track_arrow_${summary.id}" }.also { trackOverlays.add(it) }
+                }
             }
 
             historyOverlays.add(trackOverlays)
@@ -154,13 +169,22 @@ internal fun MapTrackOverlayHistoryDiff(
             val track = trackViewModel.loadTrackDetailCached(summary.id) ?: continue
             if (track.trackPoints.isEmpty()) continue
 
-            val appearances = if (summary.id == highlightedTrackId) {
-                listOf(
-                    TrackPolylineAppearance(0xCC000000.toInt(), 16f),
-                    TrackPolylineAppearance(0xFFFFD700.toInt() or (0xFF shl 24), 8f)
+            if (summary.id == highlightedTrackId) {
+                val rendering = selectedTrackRendering(
+                    points = track.trackPoints,
+                    title = "track_pin_${summary.id}",
+                    mode = heatmapMode,
+                    ramp = AppConfig.trackHeatmapRamp,
+                    carryMaxSec = AppConfig.trackHeatmapCarryMaxSec
                 )
+                trackOverlays.addAll(rendering.overlays)
+                if (appSettings.tracksDirectionVisible) {
+                    trackOverlays.add(
+                        rendering.directionOverlay(track.trackPoints, directionSpacingProvider, "track_arrow_${summary.id}")
+                    )
+                }
             } else {
-                listOf(computeTrackPolylineAppearance(
+                val appearance = computeTrackPolylineAppearance(
                     index = index,
                     total = pinnedTotal,
                     transparencyNewest = appSettings.trackingTransparencyPinnedNewest,
@@ -168,24 +192,18 @@ internal fun MapTrackOverlayHistoryDiff(
                     colorFrom = appSettings.trackingColorPinnedFrom,
                     colorTo = appSettings.trackingColorPinnedTo,
                     strokeWidth = 6f
-                ))
-            }
-
-            for (appearance in appearances) {
+                )
                 // Solid segments between gaps, dashed for gap segments (split in buildSegmentOverlays).
                 trackOverlays.addAll(
                     buildSegmentOverlays(track.trackPoints, appearance, "track_pin_${summary.id}")
                 )
-            }
-
-            if (appSettings.tracksDirectionVisible) {
-                trackOverlays.add(
+                if (appSettings.tracksDirectionVisible) {
                     TrackDirectionOverlay(
                         points = track.trackPoints,
-                        appearances = appearances,
+                        appearances = listOf(appearance),
                         spacingPx = directionSpacingProvider
-                    ).apply { title = "track_arrow_${summary.id}" }
-                )
+                    ).apply { title = "track_arrow_${summary.id}" }.also { trackOverlays.add(it) }
+                }
             }
 
             pinnedOverlays.add(trackOverlays)
@@ -222,6 +240,99 @@ internal fun MapTrackOverlayHistoryDiff(
         mv.invalidate()
     }
 }
+
+/** The selected track's dark casing — the fixed 16f stroke that carries the selection cue. */
+private val SELECTED_CASING = TrackPolylineAppearance(0xCC000000.toInt(), 16f)
+
+/**
+ * Stroke width (px) of the selected track's core — declared here once and read by both paths: the
+ * gold core in highlight mode and every heatmap band.
+ */
+internal const val SELECTED_CORE_STROKE_WIDTH = 8f
+
+/** The selected track's gold core — the default highlight mode's fill, unchanged. */
+private val SELECTED_GOLD_CORE = TrackPolylineAppearance(0xFFFFD700.toInt(), SELECTED_CORE_STROKE_WIDTH)
+
+/**
+ * A selected track's strokes, beside the inputs its direction chevrons need: the appearance list in
+ * gold mode, or a per-anchor colour resolver plus the casing and metrics that go with it in heatmap
+ * mode (null resolver → today's per-appearance iteration, so no other track changes behaviour).
+ */
+private data class SelectedTrackRendering(
+    val overlays: List<org.osmdroid.views.overlay.Overlay>,
+    val arrowAppearances: List<TrackPolylineAppearance>,
+    val arrowColorResolver: ((ArrowAnchor) -> TrackPolylineAppearance)? = null
+)
+
+/**
+ * Selected-track dispatcher: picks the path by [mode] and returns that path's strokes and chevron
+ * inputs. Both the history loop and the pinned loop call this one entry point.
+ */
+private fun selectedTrackRendering(
+    points: List<TrackPoint>,
+    title: String,
+    mode: TrackHeatmapMode,
+    ramp: HeatmapRamp,
+    carryMaxSec: Int
+): SelectedTrackRendering = when (mode) {
+    TrackHeatmapMode.HIGHLIGHT -> highlightCorePath(points, title)
+    TrackHeatmapMode.SPEED -> heatmapCorePath(points, title, ramp, carryMaxSec)
+}
+
+/**
+ * Highlight path — today's rendering, unchanged: a 16f dark casing under an 8f gold core, one title
+ * per track, and chevrons iterating that appearance list the way they always have.
+ */
+private fun highlightCorePath(points: List<TrackPoint>, title: String): SelectedTrackRendering {
+    val appearances = listOf(SELECTED_CASING, SELECTED_GOLD_CORE)
+    return SelectedTrackRendering(
+        overlays = appearances.flatMap { buildSegmentOverlays(points, it, title) },
+        arrowAppearances = appearances
+    )
+}
+
+/**
+ * Heatmap path (D1): the casing marks the selection and the banded core carries the speed, so no
+ * gold is left to meet the ramp. Every band and every chevron keeps the track's single [title] —
+ * the z-lift matches exact titles while teardown matches prefixes, so a per-band suffix would drop
+ * the selected track below the others at the end of the effect (A6).
+ */
+private fun heatmapCorePath(
+    points: List<TrackPoint>,
+    title: String,
+    ramp: HeatmapRamp,
+    carryMaxSec: Int
+): SelectedTrackRendering {
+    val speeds = resolveSpeeds(points, carryMaxSec)
+    val bands = bandedAppearances(points, speeds, ramp)
+    // The band table is the pure mapping [bandTable] owns; its shared-boundary rule is unit-tested.
+    val bandByIndex = bandTable(points.size, bands)
+    val metrics = bands.firstOrNull()?.appearance
+        ?: TrackPolylineAppearance(ramp.unknownArgb, SELECTED_CORE_STROKE_WIDTH)
+    val resolver: (ArrowAnchor) -> TrackPolylineAppearance = { anchor ->
+        bandByIndex.getOrNull(anchor.segmentIndex)?.appearance ?: metrics
+    }
+    return SelectedTrackRendering(
+        overlays = buildSegmentOverlays(points, SELECTED_CASING, title) +
+            bands.flatMap { buildBandSegmentOverlays(points, it, title) },
+        arrowAppearances = listOf(metrics),
+        arrowColorResolver = resolver
+    )
+}
+
+/** The selected track's chevrons: the appearance iteration in gold mode, the resolver in heatmap. */
+private fun SelectedTrackRendering.directionOverlay(
+    points: List<TrackPoint>,
+    spacingPx: (Float) -> Float,
+    title: String
+): org.osmdroid.views.overlay.Overlay = TrackDirectionOverlay(
+    points = points,
+    appearances = arrowAppearances,
+    spacingPx = spacingPx,
+    colorResolver = arrowColorResolver,
+    chevronMetrics = arrowAppearances.firstOrNull().takeIf { arrowColorResolver != null },
+    casingAppearance = SELECTED_CASING.takeIf { arrowColorResolver != null }
+).apply { this.title = title }
 
 /**
  * Live-recording overlay effects (extracted from MapScreen): active trace polyline

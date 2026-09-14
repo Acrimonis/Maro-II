@@ -7,10 +7,10 @@ import org.osmdroid.views.MapView
 import org.osmdroid.views.overlay.Overlay
 import ykws.android.maro.data.track.PointType
 import ykws.android.maro.data.track.TrackPoint
+import ykws.android.maro.data.track.deriveSpeedMps
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
-import kotlin.math.asin
 import kotlin.math.ln
 import kotlin.math.pow
 import kotlin.math.sqrt
@@ -24,7 +24,8 @@ internal data class ScreenPt(val x: Float, val y: Float)
 /** A direction arrow anchor: position on segment [segmentIndex] at fraction [t], oriented by [bearingDeg]. */
 internal data class ArrowAnchor(val segmentIndex: Int, val t: Float, val bearingDeg: Float)
 
-private const val KNOTS_PER_MPS = 1.94384f
+/** The ui/map package's single metres-per-second → knots factor, shared by this path and the heatmap. */
+internal const val KNOTS_PER_MPS = 1.94384f
 
 /**
  * On-screen spacing (px) between direction arrows for a given speed.
@@ -124,13 +125,32 @@ internal class TrackDirectionOverlay(
     points: List<TrackPoint>,
     private val appearances: List<TrackPolylineAppearance>,
     private val spacingPx: (speedKn: Float) -> Float,
-    private val maxArrows: Int = 2000
+    private val maxArrows: Int = 2000,
+    /**
+     * Per-anchor colour resolver. Null (the default) preserves today's iteration — every anchor is
+     * painted once per appearance — so no other track changes behaviour. Non-null draws one chevron
+     * per anchor in that anchor's own band, over [casingAppearance] laid once beneath it.
+     */
+    private val colorResolver: ((ArrowAnchor) -> TrackPolylineAppearance)? = null,
+    /**
+     * The appearance the chevron metrics (length and stroke width) are read from on the resolver
+     * path — passed in rather than inferred from the colour the resolver returns.
+     */
+    private val chevronMetrics: TrackPolylineAppearance? = null,
+    /** The dark casing chevron painted once beneath every resolver-path chevron. */
+    private val casingAppearance: TrackPolylineAppearance? = null
 ) : Overlay() {
 
     /** Identifier used by the track overlay effect for cleanup and z-order. */
     var title: String = ""
 
-    private val points: List<TrackPoint> = fillMissingSpeed(points)
+    // Spacing keeps its historic behaviour: an underivable speed reads as zero *here*. Carry-forward
+    // belongs to the heatmap's colour alone, so `carryMaxSec` never reaches the arrow path.
+    private val points: List<TrackPoint> = if (points.any { it.speedMps == null }) {
+        points.mapIndexed { i, p ->
+            p.speedMps?.let { p } ?: p.copy(speedMps = deriveSpeedMps(points, i) ?: 0f)
+        }
+    } else points
 
     init {
         if (this.points.isNotEmpty()) {
@@ -174,6 +194,12 @@ internal class TrackDirectionOverlay(
         val viewH = c.height.toFloat()
         val margin = 48f
 
+        val resolver = colorResolver
+        if (resolver != null) {
+            drawResolvedChevrons(c, osmv, anchors, resolver)
+            return
+        }
+
         for (appearance in appearances) {
             val chevronLen = (appearance.strokeWidth * 2.5f).coerceIn(12f, 24f)
             val halfW = chevronLen * 0.6f
@@ -208,32 +234,73 @@ internal class TrackDirectionOverlay(
             }
         }
     }
-}
 
-/** Fill null [TrackPoint.speedMps] with speed derived from time delta + haversine distance. */
-private fun fillMissingSpeed(points: List<TrackPoint>): List<TrackPoint> {
-    if (points.none { it.speedMps == null }) return points
-    return points.mapIndexed { i, p ->
-        if (p.speedMps != null) p else p.copy(speedMps = deriveSpeedMps(points, i))
+    /**
+     * Resolver path (heatmap mode): one chevron per anchor, coloured by that anchor's own band, with
+     * the dark casing chevron laid once beneath it. Metrics come from [chevronMetrics] and the casing
+     * from [casingAppearance] — both passed in, never inferred — and the anchor sampling that placed
+     * these chevrons is untouched.
+     */
+    private fun drawResolvedChevrons(
+        c: Canvas,
+        osmv: MapView,
+        anchors: List<ArrowAnchor>,
+        resolver: (ArrowAnchor) -> TrackPolylineAppearance
+    ) {
+        val metrics = chevronMetrics ?: appearances.firstOrNull() ?: return
+        val chevronLen = (metrics.strokeWidth * 2.5f).coerceIn(12f, 24f)
+        val halfW = chevronLen * 0.6f
+        val strokeWidth = (metrics.strokeWidth * 0.5f).coerceAtLeast(2f)
+        val casingStrokeWidth = ((casingAppearance?.strokeWidth ?: 0f) * 0.5f).coerceAtLeast(2f)
+        val projection = osmv.projection
+        val viewW = c.width.toFloat()
+        val viewH = c.height.toFloat()
+        val margin = 48f
+
+        for (anchor in anchors) {
+            val a = points[anchor.segmentIndex]
+            val b = points[anchor.segmentIndex + 1]
+            geoA.latitude = a.lat
+            geoA.longitude = a.lon
+            projection.toPixels(geoA, screen)
+            val ax = screen.x.toFloat()
+            val ay = screen.y.toFloat()
+            geoB.latitude = b.lat
+            geoB.longitude = b.lon
+            projection.toPixels(geoB, screen)
+            val bx = screen.x.toFloat()
+            val by = screen.y.toFloat()
+            val x = ax + (bx - ax) * anchor.t
+            val y = ay + (by - ay) * anchor.t
+            if (x < -margin || x > viewW + margin || y < -margin || y > viewH + margin) continue
+
+            casingAppearance?.let {
+                drawChevron(c, x, y, anchor.bearingDeg, chevronLen, halfW, casingStrokeWidth, it.argb)
+            }
+            drawChevron(c, x, y, anchor.bearingDeg, chevronLen, halfW, strokeWidth, resolver(anchor).argb)
+        }
     }
-}
 
-private fun deriveSpeedMps(points: List<TrackPoint>, i: Int): Float {
-    val j = if (i + 1 < points.size) i + 1 else i - 1
-    if (j < 0 || j >= points.size) return 0f
-    val a = points[minOf(i, j)]
-    val b = points[maxOf(i, j)]
-    if (a.type == PointType.GAP || b.type == PointType.GAP) return 0f
-    val dtSec = (b.timeOffsetMs - a.timeOffsetMs) / 1000.0
-    if (dtSec <= 0.0) return 0f
-    return (haversineM(a.lat, a.lon, b.lat, b.lon) / dtSec).toFloat()
-}
-
-private fun haversineM(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
-    val r = 6371000.0
-    val dLat = Math.toRadians(lat2 - lat1)
-    val dLon = Math.toRadians(lon2 - lon1)
-    val a = sin(dLat / 2) * sin(dLat / 2) +
-        cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) * sin(dLon / 2) * sin(dLon / 2)
-    return 2 * r * asin(sqrt(a))
+    /** One chevron: two strokes meeting at the anchor, rotated onto its bearing. */
+    private fun drawChevron(
+        c: Canvas,
+        x: Float,
+        y: Float,
+        bearingDeg: Float,
+        chevronLen: Float,
+        halfW: Float,
+        strokeWidth: Float,
+        argb: Int
+    ) {
+        paint.color = argb
+        paint.strokeWidth = strokeWidth
+        paint.style = Paint.Style.STROKE
+        paint.strokeCap = Paint.Cap.ROUND
+        paint.strokeJoin = Paint.Join.ROUND
+        c.save()
+        c.rotate(bearingDeg, x, y)
+        c.drawLine(x, y - chevronLen, x - halfW, y, paint)
+        c.drawLine(x, y - chevronLen, x + halfW, y, paint)
+        c.restore()
+    }
 }

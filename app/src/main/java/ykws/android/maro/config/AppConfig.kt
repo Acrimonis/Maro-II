@@ -103,6 +103,55 @@ object AppConfig {
     /** Direction-arrow maximum on-screen spacing (dp). */
     var trackDirectionMaxSpacingDp: Int = 320
         private set
+
+    // ── Selected-track speed heatmap (from maro.properties) ──────────────
+    /** Start-up rendering of the selected track. Default HIGHLIGHT (gold).
+     *  Set via `track.heatmap.mode`; the drawer's eye toggle stores its own choice, so once that has
+     *  been tapped this key is never consulted again. */
+    var trackHeatmapMode: TrackHeatmapMode = TrackHeatmapMode.HIGHLIGHT
+        private set
+    /** Parsed speed ramp: families as a list — each carrying its own draw step — the core alpha and
+     *  the neutral tint. There is no count key: the read walks `familyN` from 1 upward and stops at the
+     *  first index missing a key, so the file alone decides the ramp's length.
+     *  Default: the seven families the shipped file holds, mirrored key for key.
+     *  Set via `track.heatmap.familyN.*` / `.coreAlpha` / `.unknownColor`. */
+    var trackHeatmapRamp: HeatmapRamp = HeatmapRamp(
+        families = listOf(
+            HeatmapFamily(5f, 0xFF4CAF50.toInt(), 0xFF4CAF50.toInt(), 0.5f),   // flat green to the 5 kn limit
+            HeatmapFamily(7f, 0xFF4CAF50.toInt(), 0xFF1E88E5.toInt(), 0.25f),  // the changeover to blue, 5 to 7
+            HeatmapFamily(12f, 0xFF1E88E5.toInt(), 0xFF1E88E5.toInt(), 0.5f),  // flat blue, 7 to 12
+            HeatmapFamily(15f, 0xFF1E88E5.toInt(), 0xFFFFB74D.toInt(), 0.5f),  // blue warming across 12 to 15
+            HeatmapFamily(35f, 0xFFFFB74D.toInt(), 0xFFEF6C00.toInt(), 1.0f),  // light orange to orange, 15 to 35
+            HeatmapFamily(35f, 0xFFEF6C00.toInt(), 0xFFB71C1C.toInt(), 1.0f),  // the zero-span edge at 35
+            HeatmapFamily(70f, 0xFFB71C1C.toInt(), 0xFF6A1B9A.toInt(), 5.0f)   // red to purple out to 70 kn
+        ),
+        coreAlpha = 0.9f,
+        unknownArgb = 0xFF90A4AE.toInt()
+    )
+        private set
+    /** The legend's tick table: one row per printed label, holding the position it sits at on the bar's
+     *  linear minimum → last-position scale beside the text printed for it. The table is the
+     *  specification — every row prints, with no rule dropping or merging one — so the text may
+     *  deliberately differ from the position. Default: the five rows the shipped file holds, mirrored
+     *  key for key.
+     *  Set via `track.heatmap.scaleTicks`; the table's last position is the bar's own top. */
+    var trackHeatmapScaleTicks: List<HeatmapScaleTick> = listOf(
+        HeatmapScaleTick(7f, "5"),
+        HeatmapScaleTick(12f, "10"),
+        HeatmapScaleTick(23f, "25"),
+        HeatmapScaleTick(30f, "30"),
+        HeatmapScaleTick(35f, "35")
+    )
+        private set
+    /** Foot of the legend's scale (kn): the bar runs from here to the tick table's last position.
+     *  Default 2, mirroring the shipped file. Set via `track.heatmap.scaleMinKn`; an absent key
+     *  leaves this default standing. */
+    var trackHeatmapScaleMinKn: Float = 2f
+        private set
+    /** Carry-forward window (s) over which the heatmap repeats the last known speed.
+     *  Default 10. Set via `track.heatmap.carryMaxSec`. */
+    var trackHeatmapCarryMaxSec: Int = 10
+        private set
     /** Default proximity multiplier for Circle/Corridor user markers. Set via `marker.proximity.zone_multiplier` in maro.properties. */
     var markerProximityZoneMultiplier: Double = 3.0
         private set
@@ -723,6 +772,56 @@ object AppConfig {
             }
             props.getProperty("track.direction.maxSpacingDp")?.toIntOrNull()?.let {
                 trackDirectionMaxSpacingDp = it.coerceIn(4, 640)
+            }
+
+            // ── Selected-track speed heatmap ────────────────────────────────
+            // Read as written: no validation and no warning channel. A family that does not fully
+            // parse ends the ramp and the families parsed so far stand; if none parses, the shipped
+            // default ramp is kept, so a missing key never leaves the render without a ramp.
+            // `heatmap` is the shipped token and `speed` stays accepted as its alias, since the key was
+            // written as `speed` while the parser only knew that one spelling; any other value is
+            // HIGHLIGHT, which is also what an absent key leaves in place.
+            props.getProperty("track.heatmap.mode")?.trim()?.let {
+                trackHeatmapMode = if (
+                    it.equals("heatmap", ignoreCase = true) || it.equals("speed", ignoreCase = true)
+                ) {
+                    TrackHeatmapMode.SPEED
+                } else {
+                    TrackHeatmapMode.HIGHLIGHT
+                }
+            }
+            run {
+                val families = parseHeatmapFamilies(
+                    lookup = { props.getProperty(it) },
+                    parseColorHex = { parseColorOrNull(it) }
+                )
+                if (families.isNotEmpty()) {
+                    trackHeatmapRamp = trackHeatmapRamp.copy(families = families)
+                }
+            }
+            // The scale's foot: the file's written value, or the shipped default when the key is absent
+            // or unreadable — the same policy the tick table and the ramp itself follow.
+            trackHeatmapScaleMinKn = parseHeatmapScaleMinKn(
+                lookup = { props.getProperty(it) },
+                fallbackKn = trackHeatmapScaleMinKn
+            )
+            // The legend's tick table, read in the same shape as the families: parsed rows replace the
+            // shipped default, while an absent or unreadable table leaves that default in place so the
+            // render never loses its scale.
+            run {
+                val ticks = parseHeatmapScaleTicks(lookup = { props.getProperty(it) })
+                if (ticks.isNotEmpty()) {
+                    trackHeatmapScaleTicks = ticks
+                }
+            }
+            props.getProperty("track.heatmap.coreAlpha")?.toFloatOrNull()?.let {
+                trackHeatmapRamp = trackHeatmapRamp.copy(coreAlpha = it.coerceIn(0f, 1f))
+            }
+            props.getProperty("track.heatmap.unknownColor")?.let { parseColorOrNull(it) }?.let {
+                trackHeatmapRamp = trackHeatmapRamp.copy(unknownArgb = it)
+            }
+            props.getProperty("track.heatmap.carryMaxSec")?.toIntOrNull()?.let {
+                trackHeatmapCarryMaxSec = it.coerceAtLeast(0)
             }
 
             // ── Marker debug rays ───────────────────────────────────────

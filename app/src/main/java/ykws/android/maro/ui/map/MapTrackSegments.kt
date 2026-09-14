@@ -43,7 +43,44 @@ internal fun buildSegmentOverlays(
     points: List<TrackPoint>,
     appearance: TrackPolylineAppearance,
     title: String
-): List<org.osmdroid.views.overlay.Overlay> = splitTrackSegments(points).map { segment ->
+): List<org.osmdroid.views.overlay.Overlay> =
+    segmentOverlays(points, splitTrackSegments(points), appearance, title)
+
+/**
+ * Build the osmdroid polylines for **one speed band's own geometry** — the banded twin of
+ * [buildSegmentOverlays], so the banded path never loops an appearance over a full point list.
+ *
+ * GAP points inside the band still split into a dashed bridge, so a seam is drawn once, by the band
+ * that owns it. The [band]'s own indices are all this reads: a band is a set of runs, and the caller
+ * keeps one title per track across every band.
+ */
+internal fun buildBandSegmentOverlays(
+    points: List<TrackPoint>,
+    band: SpeedBand,
+    title: String
+): List<org.osmdroid.views.overlay.Overlay> {
+    val bandPoints = band.pointIndices.map { points[it] }
+    return segmentOverlays(bandPoints, drawableBandSegments(bandPoints), band.appearance, title)
+}
+
+/**
+ * The banded path's segment plan: [splitTrackSegments] with its zero-length dashed bridges dropped.
+ *
+ * A band whose geometry ends on its GAP point splits into a bridge repeating that single point, and
+ * the point it would bridge to belongs to the next band — so the band with the real continuation
+ * draws the visible seam and this one skips the slot instead of adding an invisible polyline.
+ */
+internal fun drawableBandSegments(points: List<TrackPoint>): List<TrackSegment> =
+    splitTrackSegments(points)
+        .filterNot { it.dashed && it.pointIndices.first() == it.pointIndices.last() }
+
+/** Shared polyline construction: one polyline per segment, over [source]. */
+private fun segmentOverlays(
+    source: List<TrackPoint>,
+    segments: List<TrackSegment>,
+    appearance: TrackPolylineAppearance,
+    title: String
+): List<org.osmdroid.views.overlay.Overlay> = segments.map { segment ->
     org.osmdroid.views.overlay.Polyline().apply {
         this.title = title
         outlinePaint.color = appearance.argb
@@ -51,6 +88,6 @@ internal fun buildSegmentOverlays(
         if (segment.dashed) {
             outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(20f, 10f), 0f)
         }
-        setPoints(segment.pointIndices.map { org.osmdroid.util.GeoPoint(points[it].lat, points[it].lon) })
+        setPoints(segment.pointIndices.map { org.osmdroid.util.GeoPoint(source[it].lat, source[it].lon) })
     }
 }

@@ -46,12 +46,14 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.config.TrackHeatmapMode
 import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.depth.RasterCache
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.ui.components.DrawerScaffold
 import ykws.android.maro.ui.components.MeasureHeight
+import ykws.android.maro.ui.icons.Visibility
 
 /** Returns the step sequence for the given marker type (mirror of VM method for UI use). */
 private fun stepSequenceFor(type: MarkerType): List<WizardStep> = when (type) {
@@ -191,6 +193,25 @@ fun OverlayLayer(
     val trackInfoDrawerData = trackInfo.trackInfoDrawerData
     val trackListIds = trackInfo.trackListIds
     val currentTrackIndex = trackInfo.currentTrackIndex
+    val heatmapMode = trackInfo.heatmapMode
+    val onToggleHeatmapMode = trackInfo.onToggleHeatmapMode
+
+    // ── Opened track's accent bar ────────────────────────────────────────
+    // Identity, not selection (A9): the accent is the track's own resolved render colour — the one
+    // the list shows and an unselected map line paints — clamped to full opacity because the bar sits
+    // on a card rather than blending over water. The list derives its accent from pinned/history
+    // splits, a recency sort and a render cap; the drawer holds only a flat, uncapped index, so the
+    // shared helper takes the already-resolved colour rather than recomputing one from other inputs.
+    val trackAccent = ComposeColor(
+        computeTrackPolylineAppearance(
+            index = currentTrackIndex.coerceAtLeast(0),
+            total = trackListIds.size,
+            transparencyNewest = appSettings.trackingTransparencyNewest,
+            transparencyOldest = appSettings.trackingTransparencyOldest,
+            colorFrom = appSettings.trackingColorPastFrom,
+            colorTo = appSettings.trackingColorPastTo
+        ).argb or 0xFF000000.toInt()
+    )
     val trackSortState = trackList.trackSortState
     val trackFilterState = trackList.trackFilterState
     val trackListState = trackList.trackListState
@@ -463,11 +484,11 @@ fun OverlayLayer(
                         contentPadding = PaddingValues(start = 12.dp, end = 12.dp),
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(bottomStart = 16.dp),
                         headerActions = {
-                            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                                IconButton(onClick = { onDeleteTrack(track.id) }, modifier = Modifier.size(36.dp)) {
-                                    Icon(Icons.Filled.Delete, "Delete", tint = ButtonColors.icon, modifier = Modifier.size(24.dp))
-                                }
-                            }
+                            TrackDrawerHeaderActions(
+                                speedHeatmapOn = heatmapMode == TrackHeatmapMode.SPEED,
+                                onToggleHeatmapMode = onToggleHeatmapMode,
+                                onDelete = { onDeleteTrack(track.id) }
+                            )
                         },
                         footer = {
                             if (trackListIds.size > 1) {
@@ -496,7 +517,7 @@ fun OverlayLayer(
                         TrackCardContent(
                             summary = summary,
                             dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US),
-                            accentColor = ComposeColor(0xFFFFD700.toInt()),
+                            accentColor = trackAccent,
                             onUpdateTrack = { id, name, comment, pinned ->
                                 pinned?.let { trackViewModel.setPinned(id, it) }
                                 if (name != null || comment != null) trackViewModel.updateTrack(id, name, comment)
@@ -556,11 +577,11 @@ fun OverlayLayer(
                         contentPadding = PaddingValues(start = 12.dp, end = 12.dp),
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(0.dp),
                         headerActions = {
-                            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                                IconButton(onClick = { onDeleteTrack(track.id) }, modifier = Modifier.size(36.dp)) {
-                                    Icon(Icons.Filled.Delete, "Delete", tint = ButtonColors.icon, modifier = Modifier.size(24.dp))
-                                }
-                            }
+                            TrackDrawerHeaderActions(
+                                speedHeatmapOn = heatmapMode == TrackHeatmapMode.SPEED,
+                                onToggleHeatmapMode = onToggleHeatmapMode,
+                                onDelete = { onDeleteTrack(track.id) }
+                            )
                         },
                         footer = {
                             if (trackListIds.size > 1) {
@@ -589,7 +610,7 @@ fun OverlayLayer(
                         TrackCardContent(
                             summary = summary,
                             dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US),
-                            accentColor = ComposeColor(0xFFFFD700.toInt()),
+                            accentColor = trackAccent,
                             onUpdateTrack = { id, name, comment, pinned ->
                                 pinned?.let { trackViewModel.setPinned(id, it) }
                                 if (name != null || comment != null) trackViewModel.updateTrack(id, name, comment)
@@ -610,7 +631,7 @@ fun OverlayLayer(
                         TrackCardContent(
                             summary = summary,
                             dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US),
-                            accentColor = ComposeColor(0xFFFFD700.toInt()),
+                            accentColor = trackAccent,
                             onUpdateTrack = { _, _, _, _ -> },
                             onShareGpx = {},
                             onTap = null,
@@ -751,6 +772,36 @@ fun OverlayLayer(
                 systemScrollState = systemScrollState,
                 onRegenerateRasters = onRegenerateRasters
             )
+        }
+    }
+}
+
+/**
+ * The track drawer's header actions: the speed-heatmap eye toggle, then the trash.
+ *
+ * The toggle carries no label — its state rides the icon convention, the accent at full alpha for
+ * speed mode and the inactive alpha token for gold, and the map's legend doubles as its readout
+ * because the legend exists only in speed mode.
+ */
+@Composable
+private fun TrackDrawerHeaderActions(
+    speedHeatmapOn: Boolean,
+    onToggleHeatmapMode: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        IconButton(onClick = onToggleHeatmapMode, modifier = Modifier.size(36.dp)) {
+            Icon(
+                Visibility,
+                "Speed heatmap",
+                tint = ButtonColors.icon.copy(
+                    alpha = if (speedHeatmapOn) 1f else AppConfig.buttonActionIconInactiveAlpha
+                ),
+                modifier = Modifier.size(24.dp)
+            )
+        }
+        IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+            Icon(Icons.Filled.Delete, "Delete", tint = ButtonColors.icon, modifier = Modifier.size(24.dp))
         }
     }
 }

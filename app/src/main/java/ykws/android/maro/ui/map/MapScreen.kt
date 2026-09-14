@@ -1,6 +1,7 @@
 
 package ykws.android.maro.ui.map
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.config.TrackHeatmapMode
 import ykws.android.maro.data.track.TrackRecordingService
 import ykws.android.maro.data.model.matchesFilter
 import ykws.android.maro.data.track.toGpx
@@ -204,6 +205,32 @@ private const val GPS_ANIMATION_DURATION_MS = 600L
 
 /** Right-edge control column width (12 gap + 64 button + 6 end). Paint-only reserve for transient overlays; the map itself is never padded by this. */
 internal val RIGHT_CONTROL_COLUMN_INSET = 82.dp
+
+/** Height (dp) of the map's top-left toggle-button row — the 44 dp icon squares the chrome stacks on. */
+private val TOP_TOGGLE_ROW_HEIGHT = 44.dp
+/** Gutter (dp) between the toggle row and whatever map chrome stacks below it. */
+private val TOP_TOGGLE_ROW_GAP = 8.dp
+/** How much tighter (dp) the status-bar inset is taken in portrait than in landscape. */
+private val PORTRAIT_CHROME_TIGHTENING = 6.dp
+
+/**
+ * Top of the map's chrome (dp): the status bar's inset in full in landscape, pulled
+ * [PORTRAIT_CHROME_TIGHTENING] tighter in portrait. The toggle row starts here and anything stacking
+ * below it adds [TOP_TOGGLE_ROW_HEIGHT] and [TOP_TOGGLE_ROW_GAP] — one home for that arithmetic, so
+ * the row and the chrome under it cannot drift apart.
+ */
+@Composable
+private fun chromeTopInset(isLandscape: Boolean): Dp = with(LocalDensity.current) {
+    val statusBar = WindowInsets.statusBars.getTop(this).toDp()
+    if (isLandscape) statusBar else (statusBar - PORTRAIT_CHROME_TIGHTENING).coerceAtLeast(0.dp)
+}
+
+/**
+ * The legend's own top offset (dp): the chrome inset, the toggle row it sits under, and one gap.
+ * Both orientations share [chromeTopInset] — the landscape split only pads the *start* of the map
+ * column — so the legend clears the row by exactly [TOP_TOGGLE_ROW_GAP] in either one.
+ */
+private fun legendTopOffset(chromeTop: Dp): Dp = chromeTop + TOP_TOGGLE_ROW_HEIGHT + TOP_TOGGLE_ROW_GAP
 
 /** Computed polyline rendering appearance: ARGB color + stroke width. */
 data class TrackPolylineAppearance(val argb: Int, val strokeWidth: Float)
@@ -418,6 +445,18 @@ fun MapScreen(
 
     // ── Click-N-Move state ─────────────────────────────────────────────
     var highlightedTrackId by remember { mutableStateOf<String?>(null) }
+
+    // ── Selected-track rendering mode ──────────────────────────────────
+    // One session-wide value: it starts from the user's stored choice when there is one and from the
+    // maro.properties default (read once at startup) while there is not, and the drawer header's eye
+    // toggle moves it and writes the choice back through the settings store.
+    var heatmapMode by remember {
+        mutableStateOf(
+            appSettings.speedHeatmap
+                ?.let { speed -> if (speed) TrackHeatmapMode.SPEED else TrackHeatmapMode.HIGHLIGHT }
+                ?: AppConfig.trackHeatmapMode
+        )
+    }
     var preNavigationState by remember { mutableStateOf<PreNavigationState?>(null) }
     var trackNavigateState by remember { mutableStateOf<TrackNavigateState?>(null) }
     var trackDrawerState by remember { mutableStateOf(TrackDrawerState()) }
@@ -887,6 +926,7 @@ fun MapScreen(
         mapView = mapView,
         showSettings = showSettings,
         highlightedTrackId = highlightedTrackId,
+        heatmapMode = heatmapMode,
         allTrackSummaries = allTrackSummaries,
         focus = trackViewModel.renderFocus,
         appSettings = appSettings,
@@ -1323,6 +1363,26 @@ fun MapScreen(
                 )
             }
 
+            // ── Selected-track speed legend (Compose chrome, the map's top-left) ──
+            // Shown only while the mode is heatmap and a track is selected, so it spends map space
+            // only in the situation it explains. Anchored below the top-left toggle-button row on
+            // that row's own 6 dp gutter — itself offset by the landscape dashboard when there is
+            // one — and drawn as Compose chrome rather than an osmdroid overlay, so no polyline can
+            // ever paint over it.
+            if (heatmapMode == TrackHeatmapMode.SPEED && highlightedTrackId != null) {
+                TrackSpeedLegend(
+                    ramp = AppConfig.trackHeatmapRamp,
+                    ticks = AppConfig.trackHeatmapScaleTicks,
+                    minKn = AppConfig.trackHeatmapScaleMinKn,
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .padding(
+                            start = (if (isLandscape) landscapeDashboardWidth else 0.dp) + 6.dp,
+                            top = legendTopOffset(chromeTopInset(isLandscape))
+                        )
+                )
+            }
+
             // ── Marker overlays (OSMdroid native, via LaunchedEffect) ─────
             if (markerLayerVisible) {
                 val matchResult by markersViewModel.matchResult.collectAsState()
@@ -1710,6 +1770,20 @@ fun MapScreen(
                 trackInfoDrawerData = trackDrawerState.track,
                 trackListIds = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id },
                 currentTrackIndex = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id }.indexOf(trackDrawerState.track?.id ?: "").coerceAtLeast(0),
+                heatmapMode = heatmapMode,
+                onToggleHeatmapMode = {
+                    val next = if (heatmapMode == TrackHeatmapMode.SPEED) {
+                        TrackHeatmapMode.HIGHLIGHT
+                    } else {
+                        TrackHeatmapMode.SPEED
+                    }
+                    heatmapMode = next
+                    // §17's persistence reversal: the choice is stored, so `track.heatmap.mode` is the
+                    // first-run default only and a relaunch honours what the user last picked.
+                    viewModel.updateSettings {
+                        it.copy(speedHeatmap = next == TrackHeatmapMode.SPEED)
+                    }
+                },
             ),
             onTrackDrawerClose = closeTrackDrawer,
             onNavigateToTrack = { id -> openTrackDetail(id) },
@@ -1990,10 +2064,7 @@ fun MapScreen(
         //     The scrim consumes every pointer event so nothing below it (map,
         //     dashboard, drawers, controls) receives touch while locked. The
         //     duplicate button sits above the scrim so the lock can be toggled off.
-        val lockTopInset = with(LocalDensity.current) {
-            val raw = WindowInsets.statusBars.getTop(this).toDp()
-            if (isLandscape) raw else (raw - 6.dp).coerceAtLeast(0.dp)
-        }
+        val lockTopInset = chromeTopInset(isLandscape)
         if (screenLocked) {
             LockScrim(
                 onInterceptedTap = {
@@ -2137,12 +2208,10 @@ private fun MapContent(
     mapCenterOffsetDp: Dp = 0.dp,
 ) {
     Box(modifier = modifier.clipToBounds()) {
-        // ── Compute top inset: full statusBars in landscape, -6dp in portrait ──
+        // ── Top inset: one home for the arithmetic, so the toggle row, the lock button and the
+        // legend all start from the same place. ──
         val density = LocalDensity.current
-        val topInset = with(density) {
-            val raw = WindowInsets.statusBars.getTop(this).toDp()
-            if (isLandscape) raw else (raw - 6.dp).coerceAtLeast(0.dp)
-        }
+        val topInset = chromeTopInset(isLandscape)
         val centerOffsetYPx = with(density) { mapCenterOffsetDp.roundToPx() }
 
         // Memoize per state instance so panning (which does not change state) keeps a

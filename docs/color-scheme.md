@@ -351,7 +351,7 @@ flowchart LR
         CP[colors.properties]
     end
     subgraph maro.properties
-        MP[maro.properties<br/>spatial tunables only]
+        MP[maro.properties<br/>spatial tunables + the speed ramp's band colours and their thresholds as functional data]
     end
     subgraph AppConfig
         ZC[AppConfig.init]

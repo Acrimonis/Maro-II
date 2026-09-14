@@ -2,7 +2,7 @@
 name: Tracks
 status: active
 created: 2026-06-15 21:43
-modified: 2026-09-11 16:15
+modified: 2026-09-14 15:52
 ---
 
 # Feature: Tracks
@@ -59,9 +59,9 @@ Recorder-owned `AutoMarkerManager` for deterministic 🕐 IDLE_AUTO lifecycle; m
 #### Docs
 - `xTrack/Tracks/260831_FEAT_PLN_Tracks_auto-marker-cleanup.md` — cleanup hardening plan
 
-### marker-track-nav (DEFERRED)
+### marker-track-nav
 
-Cross-navigation between track detail and marker detail via `>` links, with a minimal `OverlayBackStack`.
+Deferred — cross-navigation between track detail and marker detail via `>` links, with a minimal `OverlayBackStack`.
 
 #### Docs
 - `xTrack/Tracks/260831_FEAT_PLN_Tracks_marker-track-nav.md` — plan
@@ -92,9 +92,10 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 - `xTrack/Tracks/260717_FEAT_PLN_Tracks_tracks-paint-order.md` — tracks paint order
 - `xTrack/Tracks/260911_FEAT_PLN_Tracks_live-track-paint-regression.md` — live-track paint regression: diagnosis + fix (evidence, fix options, follow-ups)
 - `xTrack/Tracks/260911_FEAT_PLN_Tracks_resume-confirm-backup.md` — resume confirmation sheet + optional backup copy (decisions D1–D7, verified constraints, follow-ups)
+- `xTrack/Tracks/260914_FEAT_PLN_Tracks_selected-track-speed-heatmap.md` — selected-track speed heatmap: banded ramp, declared tick scale, persisted eye toggle, the count key removed and the scale foot (sections 16–19)
 
 ## Walk
-**Level 1 — Date:** 2026-09-14 · **Source:** the 260914 selected-track speed heatmap plan's open points and implementation steps — the feature's older device-E2E todos are excluded, being a verification backlog rather than plan items · **Active:** 12
+**Level 1 — Date:** 2026-09-14 · **Source:** the 260914 selected-track speed heatmap plan's open points and implementation steps — the feature's older device-E2E todos are excluded, being a verification backlog rather than plan items · **Active:** 14
 - [x] 1 · Arrow colour inside the banded line (D4a) — child walk closed: arrows take the local band colour
 - [x] 2 · Scope and legend (D5) — child walk closed: scope is the selected track only, the live line untouched; legend carried to item 8
 - [x] 3 · Confirm the owning feature is Tracks — child walk closed: a section of Tracks, not a new feature
@@ -106,9 +107,10 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 - [x] 9 · Fold the review findings R1–R10 into the plan before any code — child walks closed: eye toggle in the detail header, session-wide mode
 - [x] 10 · Fold the Ask-review findings A1–A14: queued fixes applied, A7, A9 and A10 decided
 - [x] 11 · Fold the second Ask pass B1–B17 — carrier stated, legend anchored bottom-left, validation policy withdrawn
-- [ ] 12 · Implement the change on feature/track-speed — the work package in §6 of the plan
-- [ ] 13 · Build, deploy, device E2E on a real track
-- [ ] 14 · Plan Outcome and feature-file pointers
+- [x] 12 · Implement the change on feature/track-speed — shipped: twelve tests green, apk-build SUCCESS, no high defect from the Ask hop
+- [x] 13 · Remediate the Ask hop's findings — two resolved by removal, five parked by decision, five carried into the next hop (plan §17, §18)
+- [ ] 14 · Device E2E on a real track — user-owned; the build is green and the run follows their call
+- [x] 15 · Plan Outcome and feature-file pointers — Outcome extended, the Implemented entry added
 
 **Level 2 — Date:** 2026-09-14 · **Parent:** 1 · **Active:** 1 · **Closed:** 2026-09-14
 - [x] 1 · Local band colour — chosen: each arrow takes the colour of the segment it sits on
@@ -171,6 +173,22 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 - [x] 1 · One session-wide mode — chosen: the eye moves the mode itself, the file key being the start-up default
 - [ ] 2 · Per-track memory — dropped: one state is simpler and the legend explains a single ramp
 
+**Level 2 — Date:** 2026-09-14 · **Parent:** 13 · **Active:** 1 · **Closed:** 2026-09-14
+- [x] 1 · Crowd rule basis — resolved by removal: the label-drop rule goes, so the basis question is moot
+- [ ] 2 · A NaN tick position parses through into a canvas offset
+- [ ] 3 · The twelve-row cap is untested beside its tested family sibling
+- [ ] 4 · The bar's top is free file text, so a bad last row shortens it silently
+- [x] 5 · The label-drop priority — void: every row now prints its label, overlaps accepted
+- [ ] 6 · The landscape inset diff is still unmeasured
+- [ ] 7 · The assumeTrue guard has no IDE fallback and can skip silently
+- [ ] 8 · The shipped file against section 16 — the tie, and whether it stays a gate
+- [ ] 9 · The mode token: the file writes heatmap, the parser accepts only speed
+- [ ] 10 · No marks inside the colour bar — the labels carry position alone
+- [ ] 11 · The eye toggle persists, reversing section 5's no-persistence non-goal
+- [ ] 12 · Remove the label-drop rule — every table row prints, overlaps accepted
+
+- **Summary — closed 2026-09-14:** 1 and 5 resolved by removal, since §18 deletes the rule they were about; 2, 3, 4, 6 and 7 parked by decision, all of them unreachable without a malformed file and each recorded in §18's own list; 8, 9, 10, 11 and 12 carried into the next hop, recorded in plan §17 and §18.
+
 - Resolutions: the eye toggle moves one session-wide mode, starting from `track.heatmap.mode`, with nothing persisted and no per-track state; the legend remains the readout of that single state. Dropped: per-track memory and per-track persistence. Folded with it: R2–R10 corrected the plan's body, so the band count, the ramp domain, the core alpha, the neutral tint, the carry window, the legend's file, the shared derivation, the z-lift cost, the seam rule and the verification criteria are now stated rather than implied.
 
 ## Implemented
@@ -206,3 +224,4 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 - **gps-switch-confirm** — confirm before switching position source while recording
 - **live-track-paint-regression (2026-09-11)** — live polyline was never created after the C3/C4 seam extraction (creation effect read a frozen parameter through `snapshotFlow`); creation re-keyed on recorder state, append/trailing made self-healing, `isLive` excluded from the map-resolve path → `xTrack/Tracks/260911_FEAT_PLN_Tracks_live-track-paint-regression.md`
 - **resume-confirm-backup (2026-09-11)** — resuming a stored track now asks first: `ResumeConfirmSheet` with a default-checked backup box; confirm writes a hidden, unpinned copy (fresh UUID, suffixed name, marker links stay on the original) then resumes the original; wired on the list card (early dismiss dropped) and both dashboard cards, gated by `isRecording` → `xTrack/Tracks/260911_FEAT_PLN_Tracks_resume-confirm-backup.md`
+- **selected-track-speed-heatmap (2026-09-14)** — the selected track renders as a banded speed ramp in place of the gold highlight: `track.heatmap.familyN.*` colours on per-family draw steps, `track.heatmap.scaleTicks` positions printed with labels free to differ from them, nothing drawn inside the bar, and a drawer-header eye toggle whose choice persists with the key as the first-run default → `xTrack/Tracks/260914_FEAT_PLN_Tracks_selected-track-speed-heatmap.md`
