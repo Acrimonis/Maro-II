@@ -784,9 +784,10 @@ fun OverlayLayer(
  * The track drawer's header actions: the eye toggle, then the trash.
  *
  * The toggle carries no label — its state rides the icon convention, the accent at full alpha while
- * the selected track is banded and the inactive alpha token otherwise. It moves that one track and
- * never the stored mode (D10), and the map's legend doubles as its readout because the legend exists
- * whenever the ramp does.
+ * the selected track is banded and the inactive alpha token otherwise. It moves that one track's fill
+ * and never the stored mode (D10), and the map's legend doubles as its readout in that direction: the
+ * legend exists whenever a banded stroke is on the map, which is the mode being Colours or this eye
+ * having banded the selection.
  */
 @Composable
 private fun TrackDrawerHeaderActions(

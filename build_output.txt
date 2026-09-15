@@ -1,3 +1,6 @@
+======================================
+ Building Maro II APK...
+======================================
 > Task :app:preBuild UP-TO-DATE
 > Task :app:preDebugBuild UP-TO-DATE
 > Task :app:mergeDebugNativeDebugMetadata NO-SOURCE
@@ -20,13 +23,19 @@
 > Task :app:processDebugManifest UP-TO-DATE
 > Task :app:processDebugManifestForPackage UP-TO-DATE
 > Task :app:processDebugResources UP-TO-DATE
+> Task :app:compileDebugKotlin UP-TO-DATE
 > Task :app:javaPreCompileDebug UP-TO-DATE
+> Task :app:compileDebugJavaWithJavac UP-TO-DATE
 > Task :app:mergeDebugShaders UP-TO-DATE
 > Task :app:compileDebugShaders NO-SOURCE
 > Task :app:generateDebugAssets UP-TO-DATE
 > Task :app:mergeDebugAssets UP-TO-DATE
 > Task :app:compressDebugAssets UP-TO-DATE
 > Task :app:desugarDebugFileDependencies UP-TO-DATE
+> Task :app:dexBuilderDebug
+> Task :app:mergeDebugGlobalSynthetics UP-TO-DATE
+> Task :app:processDebugJavaRes UP-TO-DATE
+> Task :app:mergeDebugJavaResource UP-TO-DATE
 > Task :app:checkDebugDuplicateClasses UP-TO-DATE
 > Task :app:mergeExtDexDebug UP-TO-DATE
 > Task :app:mergeLibDexDebug UP-TO-DATE
@@ -36,26 +45,14 @@
 > Task :app:validateSigningDebug UP-TO-DATE
 > Task :app:writeDebugAppMetadata UP-TO-DATE
 > Task :app:writeDebugSigningConfigVersions UP-TO-DATE
-
-> Task :app:compileDebugKotlin
-w: file:///D:/.src/Maro_II/app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:914:21 Condition is always 'true'.
-w: file:///D:/.src/Maro_II/app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1343:26 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
-w: file:///D:/.src/Maro_II/app/src/main/java/ykws/android/maro/MainActivity.kt:227:78 'constructor(p0: String!): Locale' is deprecated. Deprecated in Java.
-w: file:///D:/.src/Maro_II/app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:914:21 Condition is always 'true'.
-w: file:///D:/.src/Maro_II/app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt:1343:26 'val LocalLifecycleOwner: ProvidableCompositionLocal<LifecycleOwner>' is deprecated. Moved to lifecycle-runtime-compose library in androidx.lifecycle.compose package.
-w: file:///D:/.src/Maro_II/app/src/main/java/ykws/android/maro/ui/map/NavigationViewModel.kt:1856:32 Condition is always 'true'.
-w: file:///D:/.src/Maro_II/app/src/main/java/ykws/android/maro/ui/map/NavigationViewModel.kt:1858:53 Condition is always 'true'.
-w: file:///D:/.src/Maro_II/app/src/main/java/ykws/android/maro/ui/map/NavigationViewModel.kt:1895:71 Condition is always 'true'.
-
-> Task :app:compileDebugJavaWithJavac UP-TO-DATE
-> Task :app:dexBuilderDebug
-> Task :app:mergeDebugGlobalSynthetics UP-TO-DATE
-> Task :app:processDebugJavaRes UP-TO-DATE
-> Task :app:mergeDebugJavaResource UP-TO-DATE
 > Task :app:mergeProjectDexDebug
 > Task :app:packageDebug
 > Task :app:createDebugApkListingFileRedirect UP-TO-DATE
 > Task :app:assembleDebug
 
-BUILD SUCCESSFUL in 15s
-41 actionable tasks: 4 executed, 37 up-to-date
+BUILD SUCCESSFUL in 2s
+41 actionable tasks: 3 executed, 38 up-to-date
+======================================
+ Build successful -> app\build\outputs\apk\debug\app-debug.apk [26SEP15 19:59:13]
+ Deploy: apk-deploy.bat (build + push) or apk-push.bat (push only)
+======================================

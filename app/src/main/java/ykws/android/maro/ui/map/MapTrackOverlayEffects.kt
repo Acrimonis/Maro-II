@@ -30,8 +30,11 @@ internal fun MapTrackOverlayHistoryDiff(
      */
     renderMode: TrackRenderMode,
     /**
-     * The drawer eye's own value (D10): null follows [renderMode], true bands the selected track,
-     * false draws it in the default colours without arrows. Session-only and never persisted.
+     * The drawer eye's own value (D10), now persisted on the selection rather than session-only: null
+     * follows [renderMode] — an install whose eye was never tapped holds no value at all — true bands
+     * the selected track, false paints it gold. It decides that one track's *fill* and nothing else:
+     * the arrows follow [renderMode] alone (see [trackRenderPlan]), and because the value belongs to
+     * the selection rather than to a track id, it applies to whichever track the drawer has open.
      */
     eyeOverride: Boolean?,
     allTrackSummaries: List<ykws.android.maro.data.track.TrackSummary>,
@@ -61,13 +64,15 @@ internal fun MapTrackOverlayHistoryDiff(
         add(appSettings.trackingTransparencyOldest)
         add(appSettings.trackingTransparencyPinnedNewest)
         add(appSettings.trackingTransparencyPinnedOldest)
-        // The per-type widths are read on every path in every mode, so the five join the list
-        // unconditionally rather than behind a mode test.
+        // The per-type widths are read on every path in every mode, so the six join the list
+        // unconditionally rather than behind a mode test — the casing's width with them, since the
+        // selection it outlines is drawn in all three.
         add(AppConfig.trackWidthLive)
         add(AppConfig.trackWidthSelected)
         add(AppConfig.trackWidthNewest)
         add(AppConfig.trackWidthPinned)
         add(AppConfig.trackWidthHistory)
+        add(AppConfig.trackWidthSelectedCasing)
         if (renderMode != TrackRenderMode.HEATMAP) {
             // Simple and Dir & Speed paint the stored default colours.
             add(appSettings.trackingColorPastFrom)
@@ -79,12 +84,16 @@ internal fun MapTrackOverlayHistoryDiff(
             add(AppConfig.trackHeatmapRamp)
         }
         if (renderMode != TrackRenderMode.SIMPLE) {
-            // Arrows are drawn in Dir & Speed and in Colours, never in Simple.
+            // Arrows are drawn in Dir & Speed and in Colours, never in Simple — the mode alone decides
+            // that, so the eye no longer gates this group. The chevron's tempering belongs with the
+            // spacing: it is read on every draw of a chevron and nowhere else.
             add(appSettings.trackDirectionDensity)
             add(appSettings.trackDirectionMinSpacingDp)
             add(appSettings.trackDirectionMaxSpacingDp)
             add(appSettings.trackDirectionSpeedFloorKn)
             add(appSettings.trackDirectionSpeedCeilingKn)
+            add(AppConfig.trackArrowScaleKnee)
+            add(AppConfig.trackArrowTemper)
         }
     }
 
@@ -295,6 +304,43 @@ internal fun storedTrackWidth(selected: Boolean, pinned: Boolean, newest: Boolea
 }
 
 /**
+ * The widest width the stored table can hand a track — the reference the chevron length's ceiling is
+ * taken from (2.5 × this, see `chevronLength`), so no class the file ships is flattened by its own
+ * core while a retuned file cannot invert the chevrons against the line they sit on either. The live
+ * width is not part of it: the live recording line draws no chevrons.
+ */
+internal fun widestStoredTrackWidth(): Float = maxOf(
+    AppConfig.trackWidthSelected,
+    AppConfig.trackWidthNewest,
+    AppConfig.trackWidthPinned,
+    AppConfig.trackWidthHistory
+)
+
+/**
+ * The alpha a stored track is drawn at: the selection takes full alpha whatever its own class
+ * transparency is set to, and every other track keeps the fade it earned (D8). This is the one place
+ * the selection's opacity rule lands — the gold path is opaque already and the plain path never
+ * receives a selection, so the banded path is the only one with a fade to override.
+ */
+internal fun storedTrackFade(selected: Boolean, fade: Float): Float = if (selected) 1f else fade
+
+/**
+ * The selected track's casing: the legacy `#CC000000` restored verbatim — black at 80 %, the dark
+ * under-stroke the selection has always worn — at `track.width.selected.casing`, and that width is
+ * the *line's*. Its chevrons take that colour and the width's rim: they are drawn at the coloured V's
+ * own stroke, shifted outward by half this casing's excess over the chevron's tempered core — the core
+ * the coloured V itself is drawn from (see `chevronCasingOffset`)
+ * rather than as a thicker stroke of the same V, on every path a selection can take: the banded path
+ * resolves a band per anchor and the gold path resolves the gold, so both cross the resolver seam this
+ * casing rides on.
+ */
+internal fun selectedTrackCasing(): TrackPolylineAppearance =
+    TrackPolylineAppearance(SELECTED_TRACK_CASING_ARGB, AppConfig.trackWidthSelectedCasing)
+
+/** The casing's colour and alpha: not a file key in this pass, the restored legacy token. */
+private val SELECTED_TRACK_CASING_ARGB = 0xCC000000.toInt()
+
+/**
  * The newest track of a set, by the recency the list sorts on: the greatest `startTimeMs`, with
  * `lastPointTimeMs` breaking a tie, which is the order the selection policy's own ranking reads them
  * in. The policy ranks the focused track first, so a loop over its result opens on the user's
@@ -318,38 +364,61 @@ internal data class TrackRenderPlan(
  * The mode-to-path decision (D1, D10) as a pure function, so the history and pinned loops share one
  * answer and the mapping is unit-testable:
  *
- * - Colours bands every stored track, and draws its arrows.
- * - Dir & Speed keeps the default colours and adds the arrows.
- * - Simple keeps the default colours alone.
+ * - Colours bands every stored track.
+ * - Dir & Speed keeps the default colours.
+ * - Simple keeps the default colours, and is the one mode that draws no arrows.
  *
- * The selected track's own override — the drawer eye, [eyeOverride] — moves that one track and
- * nothing else: true bands it whatever the mode says, false draws it in the default colours without
- * arrows, null follows the mode. In every mode the selected track keeps its z-lift, and gold stays
- * its fill wherever it is not banded.
+ * The selected track's own override — the drawer eye, [eyeOverride] — moves that one track's *fill*
+ * and nothing else: true bands it whatever the mode says, false paints it gold, null follows the mode.
+ * The arrows are [mode]'s alone: Simple draws none and the other two always draw them, whatever the
+ * eye says, so a gold selection in Colours still carries chevrons and a banded selection in Simple
+ * does not. In every mode the selected track keeps its z-lift and its casing.
  */
 internal fun trackRenderPlan(
     mode: TrackRenderMode,
     selected: Boolean,
     eyeOverride: Boolean?
 ): TrackRenderPlan {
-    val effective = if (selected) {
-        when (eyeOverride) {
-            true -> TrackRenderMode.HEATMAP
-            false -> TrackRenderMode.SIMPLE
-            null -> mode
-        }
-    } else mode
+    val banded = if (selected) {
+        eyeOverride ?: (mode == TrackRenderMode.HEATMAP)
+    } else mode == TrackRenderMode.HEATMAP
     val path = when {
-        effective == TrackRenderMode.HEATMAP -> TrackRenderPath.BANDED
+        banded -> TrackRenderPath.BANDED
         selected -> TrackRenderPath.GOLD_HIGHLIGHT
         else -> TrackRenderPath.PLAIN
     }
     return TrackRenderPlan(
         path = path,
-        drawArrows = effective != TrackRenderMode.SIMPLE,
+        drawArrows = mode != TrackRenderMode.SIMPLE,
         selected = selected
     )
 }
+
+/**
+ * What a tap on the drawer eye writes: the selection's banded value *after* that tap. Before the first
+ * one [current] is null and the selection mirrors [mode], so the tap turns that reading around;
+ * afterwards it flips its own value and the mode no longer reaches it. The answer is never null, which
+ * is what makes the first tap the write that puts the key on disk — and the only write that can.
+ */
+internal fun selectionBandedAfterTap(current: Boolean?, mode: TrackRenderMode): Boolean =
+    !(current ?: (mode == TrackRenderMode.HEATMAP))
+
+/**
+ * Whether the speed legend belongs on the map. It follows the *focused track's* fill rather than the
+ * mode and the eye alone: the scale is drawn when a track is selected **and** that selection is painted
+ * from the ramp — `eyeOverride ?: (mode == TrackRenderMode.HEATMAP)`, the very rule [trackRenderPlan]
+ * applies to the selected track. So a selection the eye has flipped to gold hides it, and so does no
+ * selection at all, whatever the mode says: an untouched install with the tracks layer off draws no
+ * banded stroke for a scale to key, and a persisted eye is a value about a selection, never one itself.
+ *
+ * [selected] is the focus the map actually draws, the tracks layer included — a highlighted track with
+ * the layer on. Where no banded stroke reaches the map the legend would be a key to colours nobody sees.
+ */
+internal fun legendVisibleFor(
+    mode: TrackRenderMode,
+    selected: Boolean,
+    eyeOverride: Boolean?
+): Boolean = selected && (eyeOverride ?: (mode == TrackRenderMode.HEATMAP))
 
 /**
  * A stored track's strokes, beside the inputs its direction chevrons need: the appearance list of
@@ -361,7 +430,15 @@ private data class StoredTrackRendering(
     val arrowAppearances: List<TrackPolylineAppearance>,
     val arrowColorResolver: ((ArrowAnchor) -> TrackPolylineAppearance)? = null,
     /** Whether this track's path draws chevrons at all (D1: Simple never does). */
-    val drawArrows: Boolean = false
+    val drawArrows: Boolean = false,
+    /**
+     * The dark casing the resolver path draws once beneath its chevrons, or null where no casing
+     * belongs: every track that is not selected, and any path whose chevrons iterate an appearance
+     * list instead of resolving one. The overlays themselves never carry it — it is the chevrons'
+     * own input — and both halves of it reach them: its colour paints the dark V, and its width,
+     * read against the chevron's own core, sets how far outside the coloured V that dark V sits.
+     */
+    val chevronCasing: TrackPolylineAppearance? = null
 )
 
 /**
@@ -372,6 +449,10 @@ private data class StoredTrackRendering(
  * [strokeWidth] is the D11 width this track earned and [fade] its own recency alpha (D8), both
  * already resolved by the caller; [plainAppearance] is built on demand, so the paths that do not
  * paint default colours never compute one.
+ *
+ * The selection's two rules are applied here and nowhere else, so the history loop and the pinned
+ * loop cannot disagree about them: its fade is forced to full alpha, and its casing is laid beneath
+ * whichever path it took.
  */
 private fun storedTrackRendering(
     points: List<TrackPoint>,
@@ -388,12 +469,24 @@ private fun storedTrackRendering(
             title = title,
             ramp = ramp,
             strokeWidth = strokeWidth,
-            fade = fade
+            fade = storedTrackFade(plan.selected, fade)
         )
         TrackRenderPath.GOLD_HIGHLIGHT -> goldHighlightPath(points, title, strokeWidth)
         TrackRenderPath.PLAIN -> plainPath(points, title, plainAppearance())
     }
-    return rendering.copy(drawArrows = plan.drawArrows)
+    if (!plan.selected) return rendering.copy(drawArrows = plan.drawArrows)
+    // The casing returns beneath the selected track on every path — under the gold core and under
+    // the bands alike — drawn by the core's own segment builder so it dashes across GAP seams, and
+    // sharing the track's title so prefix teardown and the exact-title z-lift keep catching it. Its
+    // chevrons take the same dark wherever they cross the resolver seam, which every path a selection
+    // can take now does — the banded one resolves a band per anchor, the gold one the gold; the plain
+    // path iterates an appearance list and carries no casing input at all.
+    val casing = selectedTrackCasing()
+    return rendering.copy(
+        overlays = buildSegmentOverlays(points, casing, title) + rendering.overlays,
+        chevronCasing = casing.takeIf { plan.path != TrackRenderPath.PLAIN },
+        drawArrows = plan.drawArrows
+    )
 }
 
 /**
@@ -411,18 +504,22 @@ private fun plainPath(
 
 /**
  * Gold-highlight path — the selected track's rendering: one gold core, one title per track, and
- * chevrons iterating that appearance list the way they always have. The core's width is the selected
- * track's own, read from `track.width.selected` like every other path's.
+ * chevrons drawn through the same resolver seam the banded path uses, resolving the gold for every
+ * anchor. The seam is what carries the selection's chevron casing — the appearance-iteration path
+ * has no casing input at all — so the gold selection wears cased chevrons in Simple and Dir & Speed
+ * exactly as a banded one does in Colours. The core's width is the selected track's own, read from
+ * `track.width.selected` like every other path's.
  */
 private fun goldHighlightPath(
     points: List<TrackPoint>,
     title: String,
     strokeWidth: Float
 ): StoredTrackRendering {
-    val appearances = listOf(TrackPolylineAppearance(0xFFFFD700.toInt(), strokeWidth))
+    val gold = TrackPolylineAppearance(0xFFFFD700.toInt(), strokeWidth)
     return StoredTrackRendering(
-        overlays = appearances.flatMap { buildSegmentOverlays(points, it, title) },
-        arrowAppearances = appearances
+        overlays = buildSegmentOverlays(points, gold, title),
+        arrowAppearances = listOf(gold),
+        arrowColorResolver = { gold }
     )
 }
 
@@ -455,7 +552,11 @@ private fun bandedPath(
     )
 }
 
-/** A stored track's chevrons: the appearance iteration off the banded path, the resolver on it. */
+/**
+ * A stored track's chevrons: the appearance iteration for the paths that resolve no colour — every
+ * track that is not selected, and the plain path no selection ever takes — and the resolver seam for
+ * the banded and gold paths, which is where the selection's casing rides.
+ */
 private fun StoredTrackRendering.directionOverlay(
     points: List<TrackPoint>,
     spacingPx: (Float) -> Float,
@@ -465,7 +566,8 @@ private fun StoredTrackRendering.directionOverlay(
     appearances = arrowAppearances,
     spacingPx = spacingPx,
     colorResolver = arrowColorResolver,
-    chevronMetrics = arrowAppearances.firstOrNull().takeIf { arrowColorResolver != null }
+    chevronMetrics = arrowAppearances.firstOrNull().takeIf { arrowColorResolver != null },
+    casingAppearance = chevronCasing
 ).apply { this.title = title }
 
 /**

@@ -50,28 +50,33 @@ class HeatmapRampPropertiesTest {
     }
 
     @Test
-    fun theShippedFileParsesToItsSevenFamilies() {
+    fun theShippedFileParsesToItsEightFamilies() {
         val families = parseFrom(shippedProperties())
 
-        assertEquals("every family must carry maxKn, from, to and stepKn", 7, families.size)
-        assertEquals(listOf(5f, 7f, 12f, 15f, 35f, 35f, 70f), families.map { it.maxKn })
-        assertEquals(listOf(0.5f, 0.25f, 0.5f, 0.5f, 1.0f, 1.0f, 5.0f), families.map { it.stepKn })
+        assertEquals("every family must carry maxKn, from, to and stepKn", 8, families.size)
+        assertEquals(listOf(5f, 7f, 10f, 13f, 15f, 25f, 32f, 70f), families.map { it.maxKn })
+        assertEquals(
+            listOf(0.5f, 0.25f, 0.5f, 0.5f, 1.0f, 3.0f, 3.0f, 5.0f),
+            families.map { it.stepKn }
+        )
         assertEquals(
             listOf(
-                0xFF4CAF50, 0xFF4CAF50, 0xFF1E88E5, 0xFF1E88E5, 0xFFFFB74D, 0xFFEF6C00, 0xFFB71C1C
+                0xFF135FA2, 0xFF135FA2, 0xFF409443, 0xFF409443,
+                0xFFDADAAD, 0xFFFFC53D, 0xFFEF6C00, 0xFF751212
             ).map { it.toInt() },
             families.map { it.fromArgb }
         )
         assertEquals(
             listOf(
-                0xFF4CAF50, 0xFF1E88E5, 0xFF1E88E5, 0xFFFFB74D, 0xFFEF6C00, 0xFFB71C1C, 0xFF6A1B9A
+                0xFF135FA2, 0xFF409443, 0xFF409443, 0xFFDADAAD,
+                0xFFFFC53D, 0xFFEF6C00, 0xFF751212, 0xFF6A1B9A
             ).map { it.toInt() },
             families.map { it.toArgb }
         )
     }
 
     /**
-     * The code's own defaults — `AppConfig`'s six families, its neutral tint and its five scale
+     * The code's own defaults — `AppConfig`'s eight families, its neutral tint and its five scale
      * rows — are tied to the file here: a drift between the two now fails this suite instead of
      * shipping silently.
      */
@@ -103,15 +108,16 @@ class HeatmapRampPropertiesTest {
     }
 
     /**
-     * The shipped table's five rows as shipped, including the deliberate cheat §17 records: the third
-     * row prints 25 at the 23 kn position, so the position and the text must be asserted apart.
+     * The shipped table's five rows as shipped, including the two rows that carry a compliance limit
+     * off its own boundary: 5 prints at the 7 kn row and 10 at the 13 kn row, so the position and the
+     * text must be asserted apart.
      */
     @Test
     fun theShippedTickTableParsesToFiveRowsWithItsPositionsAndTexts() {
         val ticks = ticksFrom(shippedProperties())
 
-        assertEquals(listOf(7f, 12f, 23f, 30f, 35f), ticks.map { it.positionKn })
-        assertEquals(listOf("5", "10", "25", "30", "35"), ticks.map { it.label })
+        assertEquals(listOf(7f, 13f, 22f, 30f, 35f), ticks.map { it.positionKn })
+        assertEquals(listOf("5", "10", "20", "30", "35"), ticks.map { it.label })
     }
 
     /**

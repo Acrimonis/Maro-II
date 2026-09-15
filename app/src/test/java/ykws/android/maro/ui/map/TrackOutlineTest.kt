@@ -10,9 +10,10 @@ import java.io.File
 import java.util.Properties
 
 /**
- * The outline contract's width half: one width per track type read from `maro.properties`, and the
- * newest track found by recency rather than by the loop's position. Pure functions only — the
- * osmdroid drawing stays in the Compose shell, device-verified.
+ * The outline contract: one width per track type read from `maro.properties`, the newest track found
+ * by recency rather than by the loop's position, and the selection's own two rules — full alpha
+ * whatever its class transparency says, and the legacy dark casing at the width its key reads. Pure
+ * functions only — the osmdroid drawing stays in the Compose shell, device-verified.
  *
  * The last test reads the real `maro.properties`, the shape `HeatmapRampPropertiesTest` uses for the
  * ramp: a misspelled key leaves the code's default standing and fails here, where a fixture built from
@@ -39,7 +40,7 @@ class TrackOutlineTest {
     @Test
     fun theShippedWidthsSeparateTheSelectionFromEveryOtherType() {
         assertEquals(12f, AppConfig.trackWidthLive, 0f)
-        assertEquals(12f, AppConfig.trackWidthSelected, 0f)
+        assertEquals(14f, AppConfig.trackWidthSelected, 0f)
         assertEquals(10f, AppConfig.trackWidthNewest, 0f)
         assertEquals(8f, AppConfig.trackWidthPinned, 0f)
         assertEquals(6f, AppConfig.trackWidthHistory, 0f)
@@ -122,12 +123,56 @@ class TrackOutlineTest {
         assertEquals(null, newestTrackId(emptyList()))
     }
 
+    // ── The selection's opacity, and the casing it wears ─────────────────
+
+    @Test
+    fun theSelectionIsDrawnAtFullAlphaWhateverItsClassTransparencySays() {
+        // The rule is one line and it is the whole exemption: the selected track's transparency
+        // setting does not apply to it, while every other stored track keeps the fade it earned.
+        assertEquals(1f, storedTrackFade(selected = true, fade = 0.2f), 0f)
+        assertEquals(1f, storedTrackFade(selected = true, fade = 0f), 0f)
+        assertEquals(1f, storedTrackFade(selected = true, fade = 1f), 0f)
+        assertEquals(0.2f, storedTrackFade(selected = false, fade = 0.2f), 0f)
+        assertEquals(1f, storedTrackFade(selected = false, fade = 1f), 0f)
+    }
+
+    @Test
+    fun theCasingIsTheLegacyDarkAtTheWidthItsOwnKeyReads() {
+        // Held against the shipped pair rather than the code's own two defaults: the claim being
+        // guarded is that the dark shows outside the core the file actually draws, so a casing a
+        // wider shipped core would hide fails here even while both defaults agree with each other.
+        val casing = selectedTrackCasing()
+        val props = shippedProperties()
+
+        assertEquals(0xCC000000.toInt(), casing.argb)
+        val shippedCore = props.getProperty("track.width.selected")!!.toFloat()
+        assertEquals(
+            props.getProperty("track.width.selected.casing")!!.toFloat(),
+            casing.strokeWidth,
+            0f
+        )
+        assertTrue(
+            "the casing must show outside the selected core it is drawn under",
+            casing.strokeWidth > shippedCore
+        )
+        assertEquals(
+            "the rim shows 4 px a side — the legacy pair's thickness, which is what 22 over 14 buys",
+            4f,
+            (casing.strokeWidth - shippedCore) / 2f,
+            0f
+        )
+    }
+
     // ── The shipped file, tied to the code's own defaults ────────────────
 
     /**
-     * The five width keys, read from the real file and held against `AppConfig`'s defaults: a drift
+     * The six width keys, read from the real file and held against `AppConfig`'s defaults: a drift
      * between the two fails here rather than shipping silently, and the key set is asserted first
      * because a misspelled name would leave the default standing without a word.
+     *
+     * Every mismatch is collected and reported in one go: the file can disagree with the code in more
+     * than one family, and asserting them one at a time reports only the first, hiding the rest
+     * behind a red that reads as a single-key drift.
      */
     @Test
     fun theShippedWidthKeysParseToTheCodesOwnDefaults() {
@@ -139,19 +184,43 @@ class TrackOutlineTest {
                 "track.width.live",
                 "track.width.newest",
                 "track.width.pinned",
-                "track.width.selected"
+                "track.width.selected",
+                "track.width.selected.casing"
             ),
             props.stringPropertyNames().filter { it.startsWith("track.width.") }.sorted()
         )
 
-        assertEquals(AppConfig.trackWidthLive, props.getProperty("track.width.live")!!.toFloat(), 0f)
+        val mismatches = listOf(
+            "track.width.live" to AppConfig.trackWidthLive,
+            "track.width.selected" to AppConfig.trackWidthSelected,
+            "track.width.newest" to AppConfig.trackWidthNewest,
+            "track.width.pinned" to AppConfig.trackWidthPinned,
+            "track.width.history" to AppConfig.trackWidthHistory,
+            "track.width.selected.casing" to AppConfig.trackWidthSelectedCasing
+        ).mapNotNull { (key, default) ->
+            val shipped = props.getProperty(key)?.toFloatOrNull()
+            if (shipped == default) null else "$key: shipped $shipped, default $default"
+        }
         assertEquals(
-            AppConfig.trackWidthSelected,
-            props.getProperty("track.width.selected")!!.toFloat(),
+            "shipped width keys must match the code's defaults",
+            emptyList<String>(),
+            mismatches
+        )
+    }
+
+    /**
+     * The casing's own key, held against the code alone: the shipped width above can drift from the
+     * default without touching the casing, so this one stands on its own rather than behind a red.
+     */
+    @Test
+    fun theCasingWidthKeyParsesToTheCodesOwnDefault() {
+        val props = shippedProperties()
+
+        assertEquals(22f, AppConfig.trackWidthSelectedCasing, 0f)
+        assertEquals(
+            AppConfig.trackWidthSelectedCasing,
+            props.getProperty("track.width.selected.casing")!!.toFloat(),
             0f
         )
-        assertEquals(AppConfig.trackWidthNewest, props.getProperty("track.width.newest")!!.toFloat(), 0f)
-        assertEquals(AppConfig.trackWidthPinned, props.getProperty("track.width.pinned")!!.toFloat(), 0f)
-        assertEquals(AppConfig.trackWidthHistory, props.getProperty("track.width.history")!!.toFloat(), 0f)
     }
 }

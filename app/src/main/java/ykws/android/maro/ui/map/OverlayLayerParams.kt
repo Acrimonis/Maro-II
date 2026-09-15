@@ -97,8 +97,10 @@ data class TrackInfoOverlayData(
     val renderMode: TrackRenderMode = TrackRenderMode.SIMPLE,
     /**
      * The drawer header's eye (D10): the selected track's own override, null meaning "follow
-     * [renderMode]". It is session-only and never persisted (§3c), so a relaunch lands on the stored
-     * mode, and it never moves [renderMode] itself — the menu switch stays that value's only writer.
+     * [renderMode]" — which is what an install whose eye was never tapped holds, the key being written
+     * from the first tap on. It lives on the selection, so it applies to whichever track the drawer has
+     * open, and it moves that track's fill alone: the arrows follow [renderMode] whatever the eye says.
+     * It never moves [renderMode] itself — the menu switch stays that value's only writer.
      */
     val eyeOverride: Boolean? = null,
     /** Drawer-header eye toggle: flips [eyeOverride] for the selected track alone. */

@@ -100,8 +100,17 @@ object AppConfig {
     /** Direction-arrow minimum on-screen spacing (dp). */
     var trackDirectionMinSpacingDp: Int = 32
         private set
-    /** Direction-arrow maximum on-screen spacing (dp). */
-    var trackDirectionMaxSpacingDp: Int = 320
+    /** Direction-arrow maximum on-screen spacing (dp). Default 400, the shipped file's value; the
+     *  Settings slider reads it between the same bounds it always had. */
+    var trackDirectionMaxSpacingDp: Int = 400
+        private set
+    /** Chevron tempering knee (px): at or below this core a chevron is drawn at the core itself.
+     *  Default 10. Set via `track.arrow.scaleKnee`. */
+    var trackArrowScaleKnee: Float = 10f
+        private set
+    /** Chevron tempering factor above the knee: the core becomes `knee + (core − knee) × temper`.
+     *  Default 0.5. Set via `track.arrow.temper`. */
+    var trackArrowTemper: Float = 0.5f
         private set
 
     // ── Track outlines: per-type widths (from maro.properties) ───────────
@@ -112,8 +121,8 @@ object AppConfig {
      *  Default 12. Set via `track.width.live`. */
     var trackWidthLive: Float = 12f
         private set
-    /** Stroke width (px) of the selected stored track's core. Default 12. Set via `track.width.selected`. */
-    var trackWidthSelected: Float = 12f
+    /** Stroke width (px) of the selected stored track's core. Default 14. Set via `track.width.selected`. */
+    var trackWidthSelected: Float = 14f
         private set
     /** Stroke width (px) of the newest history track. Default 10. Set via `track.width.newest`. */
     var trackWidthNewest: Float = 10f
@@ -124,36 +133,47 @@ object AppConfig {
     /** Stroke width (px) of every other history track. Default 6. Set via `track.width.history`. */
     var trackWidthHistory: Float = 6f
         private set
+    /** Stroke width (px) of the dark casing drawn beneath the selected track's core — 4 px a side
+     *  over the shipped 14 px core, the legacy pair's own rim thickness, with the casing still
+     *  standing wider than the core it sits under.
+     *  The key sets two things: the line's casing takes this width whole, while a selection's
+     *  chevrons take half its excess over the tempered core as the outward offset of their dark V
+     *  from the coloured one — 5 px at the shipped pair, which clears the coloured centreline by
+     *  2 px. Default 22. Set via `track.width.selected.casing`. */
+    var trackWidthSelectedCasing: Float = 22f
+        private set
 
     // ── Speed heatmap ramp (from maro.properties) ────────────────────────
     /** Parsed speed ramp: families as a list — each carrying its own draw step — and the neutral
      *  tint. There is no count key: the read walks `familyN` from 1 upward and stops at the
      *  first index missing a key, so the file alone decides the ramp's length.
-     *  Default: the seven families the shipped file holds, mirrored key for key.
+     *  Default: the eight families the shipped file holds, mirrored key for key —
+     *  blue through to purple, 5 / 7 / 10 / 13 / 15 / 25 / 32 / 70 kn.
      *  Set via `track.heatmap.familyN.*` / `.unknownColor`. */
     var trackHeatmapRamp: HeatmapRamp = HeatmapRamp(
         families = listOf(
-            HeatmapFamily(5f, 0xFF4CAF50.toInt(), 0xFF4CAF50.toInt(), 0.5f),   // flat green to the 5 kn limit
-            HeatmapFamily(7f, 0xFF4CAF50.toInt(), 0xFF1E88E5.toInt(), 0.25f),  // the changeover to blue, 5 to 7
-            HeatmapFamily(12f, 0xFF1E88E5.toInt(), 0xFF1E88E5.toInt(), 0.5f),  // flat blue, 7 to 12
-            HeatmapFamily(15f, 0xFF1E88E5.toInt(), 0xFFFFB74D.toInt(), 0.5f),  // blue warming across 12 to 15
-            HeatmapFamily(35f, 0xFFFFB74D.toInt(), 0xFFEF6C00.toInt(), 1.0f),  // light orange to orange, 15 to 35
-            HeatmapFamily(35f, 0xFFEF6C00.toInt(), 0xFFB71C1C.toInt(), 1.0f),  // the zero-span edge at 35
-            HeatmapFamily(70f, 0xFFB71C1C.toInt(), 0xFF6A1B9A.toInt(), 5.0f)   // red to purple out to 70 kn
+            HeatmapFamily(5f, 0xFF135FA2.toInt(), 0xFF135FA2.toInt(), 0.5f),   // flat blue to the 5 kn limit
+            HeatmapFamily(7f, 0xFF135FA2.toInt(), 0xFF409443.toInt(), 0.25f),  // the changeover to green, 5 to 7
+            HeatmapFamily(10f, 0xFF409443.toInt(), 0xFF409443.toInt(), 0.5f),  // flat green, 7 to 10
+            HeatmapFamily(13f, 0xFF409443.toInt(), 0xFFDADAAD.toInt(), 0.5f),  // green warming to pale sand, 10 to 13
+            HeatmapFamily(15f, 0xFFDADAAD.toInt(), 0xFFFFC53D.toInt(), 1.0f),  // pale sand to amber, 13 to 15
+            HeatmapFamily(25f, 0xFFFFC53D.toInt(), 0xFFEF6C00.toInt(), 3.0f),  // amber to orange, 15 to 25
+            HeatmapFamily(32f, 0xFFEF6C00.toInt(), 0xFF751212.toInt(), 3.0f),  // orange to dark red, 25 to 32
+            HeatmapFamily(70f, 0xFF751212.toInt(), 0xFF6A1B9A.toInt(), 5.0f)   // dark red to purple out to 70 kn
         ),
-        unknownArgb = 0xFF90A4AE.toInt()
+        unknownArgb = 0xFFF5F5DC.toInt()
     )
         private set
     /** The legend's tick table: one row per printed label, holding the position it sits at on the bar's
      *  linear minimum → last-position scale beside the text printed for it. The table is the
      *  specification — every row prints, with no rule dropping or merging one — so the text may
-     *  deliberately differ from the position. Default: the five rows the shipped file holds, mirrored
-     *  key for key.
+     *  deliberately differ from the position, and the first two rows carry a compliance limit off its
+     *  own boundary by design. Default: the five rows the shipped file holds, mirrored key for key.
      *  Set via `track.heatmap.scaleTicks`; the table's last position is the bar's own top. */
     var trackHeatmapScaleTicks: List<HeatmapScaleTick> = listOf(
         HeatmapScaleTick(7f, "5"),
-        HeatmapScaleTick(12f, "10"),
-        HeatmapScaleTick(23f, "25"),
+        HeatmapScaleTick(13f, "10"),
+        HeatmapScaleTick(22f, "20"),
         HeatmapScaleTick(30f, "30"),
         HeatmapScaleTick(35f, "35")
     )
@@ -784,6 +804,13 @@ object AppConfig {
             props.getProperty("track.direction.maxSpacingDp")?.toIntOrNull()?.let {
                 trackDirectionMaxSpacingDp = it.coerceIn(4, 640)
             }
+            // Chevron tempering: the knee is a core width, the temper a fraction of the excess above it.
+            props.getProperty("track.arrow.scaleKnee")?.toFloatOrNull()?.let {
+                trackArrowScaleKnee = it.coerceAtLeast(0f)
+            }
+            props.getProperty("track.arrow.temper")?.toFloatOrNull()?.let {
+                trackArrowTemper = it.coerceIn(0f, 1f)
+            }
 
             // ── Track outlines: per-type widths ─────────────────────────────
             // Clamped where a value could break the draw — a width below 1 px is not drawable, and a
@@ -793,6 +820,9 @@ object AppConfig {
             props.getProperty("track.width.newest")?.toFloatOrNull()?.let { trackWidthNewest = it.coerceAtLeast(1f) }
             props.getProperty("track.width.pinned")?.toFloatOrNull()?.let { trackWidthPinned = it.coerceAtLeast(1f) }
             props.getProperty("track.width.history")?.toFloatOrNull()?.let { trackWidthHistory = it.coerceAtLeast(1f) }
+            props.getProperty("track.width.selected.casing")?.toFloatOrNull()?.let {
+                trackWidthSelectedCasing = it.coerceAtLeast(1f)
+            }
 
             // ── Speed heatmap ramp ──────────────────────────────────────────
             // The rendering mode is no longer a file key (D3): it is one persisted field in

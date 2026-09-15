@@ -464,11 +464,11 @@ fun MapScreen(
 
     // ── Selected-track rendering override ──────────────────────────────
     // The mode itself is stored state (`appSettings.trackRenderMode`), written by the menu's Tracks
-    // rendering switch, so the map only reads it. This is the drawer eye's own value (D10), scoped to
-    // the selected track alone: null follows the mode, true bands that one track, false draws it in
-    // the default colours without arrows. It is session-only and never persisted (§3c), so a relaunch
-    // lands on the stored mode.
-    var eyeTrackOverride by remember { mutableStateOf<Boolean?>(null) }
+    // rendering switch, so the map only reads it. The drawer eye's own value (D10) is stored beside it
+    // in `appSettings.trackSelectionBanded`, on the selection rather than on any track id: null means
+    // the eye has never been tapped and the selection mirrors the mode, true bands that one track,
+    // false paints it gold. The first tap writes it and from then on it is the user's own value, so it
+    // outlives the session; it moves that track's fill alone, since the arrows follow the mode.
     var preNavigationState by remember { mutableStateOf<PreNavigationState?>(null) }
     var trackNavigateState by remember { mutableStateOf<TrackNavigateState?>(null) }
     var trackDrawerState by remember { mutableStateOf(TrackDrawerState()) }
@@ -939,7 +939,7 @@ fun MapScreen(
         showSettings = showSettings,
         highlightedTrackId = highlightedTrackId,
         renderMode = appSettings.trackRenderMode,
-        eyeOverride = eyeTrackOverride,
+        eyeOverride = appSettings.trackSelectionBanded,
         allTrackSummaries = allTrackSummaries,
         focus = trackViewModel.renderFocus,
         appSettings = appSettings,
@@ -1377,12 +1377,20 @@ fun MapScreen(
             }
 
             // ── Speed legend (Compose chrome, the map's top-left) ──
-            // Drawn whenever the mode is Colours (D7), so the ramp's key stands for the whole time
-            // the ramp is in use and selection is no longer a condition. Anchored below the top-left
+            // Drawn while the focused track's fill is the ramp: a selection the eye has banded, or one
+            // the mode leaves banded. The gate reads the focus the map actually draws — a highlighted
+            // track with the tracks layer on — so neither a persisted eye with nothing selected nor
+            // Colours with the layer off keys colours nobody can see. Anchored below the top-left
             // toggle-button row on that row's own 6 dp gutter — itself offset by the landscape
             // dashboard when there is one — and drawn as Compose chrome rather than an osmdroid
             // overlay, so no polyline can ever paint over it.
-            if (appSettings.trackRenderMode == TrackRenderMode.HEATMAP) {
+            if (
+                legendVisibleFor(
+                    mode = appSettings.trackRenderMode,
+                    selected = highlightedTrackId != null && appSettings.tracksVisible,
+                    eyeOverride = appSettings.trackSelectionBanded
+                )
+            ) {
                 TrackSpeedLegend(
                     ramp = AppConfig.trackHeatmapRamp,
                     ticks = AppConfig.trackHeatmapScaleTicks,
@@ -1786,14 +1794,20 @@ fun MapScreen(
                 trackListIds = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id },
                 currentTrackIndex = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id }.indexOf(trackDrawerState.track?.id ?: "").coerceAtLeast(0),
                 renderMode = appSettings.trackRenderMode,
-                eyeOverride = eyeTrackOverride,
+                eyeOverride = appSettings.trackSelectionBanded,
                 onToggleEyeOverride = {
-                    // D10: the eye moves the selected track alone, never the mode every other track
-                    // renders by. From Simple it turns the ramp on and from Colours it turns it off;
-                    // the Dir & Speed reading stays open in the plan's §4.
-                    val bandedNow = eyeTrackOverride
-                        ?: (appSettings.trackRenderMode == TrackRenderMode.HEATMAP)
-                    eyeTrackOverride = !bandedNow
+                    // D10: the eye moves the selected track's fill alone, never the mode every other
+                    // track renders by. From Simple it turns the ramp on and from Colours it turns it
+                    // off, and from the first tap on the value is its own: the mode stops reaching it.
+                    // The tap's algebra lives in `selectionBandedAfterTap`, where it is unit-tested.
+                    viewModel.updateSettings {
+                        it.copy(
+                            trackSelectionBanded = selectionBandedAfterTap(
+                                appSettings.trackSelectionBanded,
+                                appSettings.trackRenderMode
+                            )
+                        )
+                    }
                     mapView?.invalidate()
                 },
             ),

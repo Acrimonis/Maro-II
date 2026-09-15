@@ -59,8 +59,9 @@ internal fun colorAt(speedKn: Float?, ramp: HeatmapRamp): Int {
  * relies on. Nothing multiplies it: [ramp] supplies the colour and the span only.
  *
  * The width is a parameter rather than a constant (D11), so every stored track takes the width its
- * position earns — history's newest 8f, every other history track and every pinned one 6f — and a
- * mode switch never restyles the map's density.
+ * own key earns — `track.width.newest` for history's newest track, `track.width.pinned` for every
+ * pinned one and `track.width.history` for the rest — and a mode switch never restyles the map's
+ * density, while the shipped file alone decides the numbers.
  *
  * Each band's colour comes from the family it sits in, since every family declares its own step; a
  * flat family collapses to one band whatever that step, because its colours are equal and adjacent

@@ -3,8 +3,10 @@ package ykws.android.maro.ui.map
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.track.PointType
 import ykws.android.maro.data.track.TrackPoint
+import kotlin.math.hypot
 
 class TrackDirectionOverlayTest {
 
@@ -87,5 +89,223 @@ class TrackDirectionOverlayTest {
         val points = listOf(pt(0.0), pt(1000.0))
         val anchors = sampleArrowAnchors(points, identityProject, { 10f }, maxArrows = 5)
         assertEquals(5, anchors.size)
+    }
+
+    // ── The chevron's relations, and the ceiling over them ───────────────
+
+    @Test
+    fun theChevronKeepsTheRelationsOfTheCoreItIsDrawnOver() {
+        val core = AppConfig.trackWidthSelected
+        val length = chevronLength(core, widestStoredTrackWidth())
+
+        assertEquals("the length is 2.5 × the core", core * 2.5f, length, 0.001f)
+        assertEquals("the half-width is 0.6 × the length", length * 0.6f, chevronHalfWidth(length), 0.001f)
+        assertEquals("the coloured stroke is 0.5 × the core", core * 0.5f, chevronStrokeWidth(core), 0.001f)
+    }
+
+    // ── Chevron tempering, above the knee only ───────────────────────────
+
+    @Test
+    fun theThinClassesKeepTheirOwnCore() {
+        val knee = AppConfig.trackArrowScaleKnee
+        val temper = AppConfig.trackArrowTemper
+
+        assertEquals("the shipped knee", 10f, knee, 0.001f)
+        assertEquals("the shipped temper", 0.5f, temper, 0.001f)
+        listOf(
+            "history" to AppConfig.trackWidthHistory,
+            "pinned" to AppConfig.trackWidthPinned,
+            "newest" to AppConfig.trackWidthNewest
+        ).forEach { (what, core) ->
+            assertEquals(
+                "the $what core is used as it is, and the shipped table keeps it at or below the knee",
+                core,
+                temperedCore(core, knee, temper),
+                0.001f
+            )
+            assertTrue("the $what core must not be touched by the knee", core <= knee)
+        }
+        assertEquals("the knee itself is untouched", knee, temperedCore(knee, knee, temper), 0.001f)
+    }
+
+    @Test
+    fun theSelectedCoreIsTemperedAndItsThreeMultiplesReadTheTemperedOne() {
+        val knee = AppConfig.trackArrowScaleKnee
+        val temper = AppConfig.trackArrowTemper
+        val core = AppConfig.trackWidthSelected
+        val tempered = knee + (core - knee) * temper
+
+        assertTrue("the shipped selected core sits above the knee", core > knee)
+        assertEquals(tempered, temperedCore(core, knee, temper), 0.001f)
+        assertTrue("the tempered core must shrink the oversized arrows", tempered < core)
+
+        // The length, the half-width and the coloured stroke all follow the tempered core, so the
+        // selected track's arrows stop reading oversized while the three thin classes are untouched.
+        val length = chevronLength(tempered, widestStoredTrackWidth())
+        assertEquals("the length is 2.5 × the tempered core", tempered * 2.5f, length, 0.001f)
+        assertTrue(
+            "the raw core would have drawn the longer chevron",
+            chevronLength(core, widestStoredTrackWidth()) > length
+        )
+        assertEquals("the half-width is 0.6 × that length", length * 0.6f, chevronHalfWidth(length), 0.001f)
+        assertEquals(
+            "the coloured stroke is 0.5 × the tempered core",
+            tempered * 0.5f,
+            chevronStrokeWidth(tempered),
+            0.001f
+        )
+    }
+
+    @Test
+    fun theCasingArmRunsOutsideTheColouredOneAtTheRimThickness() {
+        val core = AppConfig.trackWidthSelected
+        val casing = AppConfig.trackWidthSelectedCasing
+        // The coloured V is drawn from the tempered core, so the rim is read against that same core —
+        // the two strokes are one width, and a rim measured off the raw core would sit further inward.
+        val tempered = temperedCore(core, AppConfig.trackArrowScaleKnee, AppConfig.trackArrowTemper)
+        val length = chevronLength(tempered, widestStoredTrackWidth())
+        val halfW = chevronHalfWidth(length)
+
+        // The rim is the line's own, read from first principles rather than from the implementation's
+        // arithmetic: half the casing's excess over the tempered core.
+        val rim = (casing - tempered) / 2f
+        assertEquals("the tempered core is the one the coloured V is drawn from", 12f, tempered, 0.001f)
+        assertEquals("half the casing's excess over the tempered core", 5f, rim, 0.001f)
+        assertEquals("the function agrees with that rim", rim, chevronCasingOffset(casing, tempered), 0.001f)
+        assertTrue("the dark V must sit outside the coloured one", rim > 0f)
+
+        val coloured = chevronV(0f, length, halfW)
+        val dark = chevronV(rim, length, halfW, CHEVRON_CAP_OVERLAP_PX)
+
+        // Collinear with the coloured arms pushed out, and never scaled: both endpoints of each dark
+        // arm measure exactly the rim from the coloured arm's own line.
+        listOf("apex" to dark.apex, "left tip" to dark.leftTip).forEach { (what, point) ->
+            assertEquals(
+                "the dark $what sits the rim from the coloured left arm",
+                rim,
+                perpendicularDistance(point, coloured.apex, coloured.leftTip),
+                0.01f
+            )
+        }
+        listOf("apex" to dark.apex, "right tip" to dark.rightTip).forEach { (what, point) ->
+            assertEquals(
+                "the dark $what sits the rim from the coloured right arm",
+                rim,
+                perpendicularDistance(point, coloured.apex, coloured.rightTip),
+                0.01f
+            )
+        }
+
+        // The apex is where the two shifted arms meet, so it stays on the bearing axis, and each tip
+        // wraps the coloured corner instead of stopping short of it.
+        assertEquals("the dark apex stays on the bearing", 0f, dark.apex.x, 0.001f)
+        assertTrue("the dark left tip must reach past the coloured one", dark.leftTip.x < coloured.leftTip.x)
+        assertTrue("the dark right tip must reach past the coloured one", dark.rightTip.x > coloured.rightTip.x)
+
+        // Both strokes are the same width, so the dark band runs from the coloured centreline outward
+        // and never crosses to the inside of the V — the rim is outside by construction, and at the
+        // shipped pair the casing's excess over the tempered core leaves that inner edge 2 px clear of
+        // the centreline, still inside the coloured stroke's own 3 px half-width and so covered by it.
+        val innerEdge = rim - chevronStrokeWidth(tempered) / 2f
+        assertTrue("the dark stroke's inner edge must never cross the coloured centreline", innerEdge >= 0f)
+        assertEquals("the inner edge clears the coloured centreline by 2 px at the shipped pair", 2f, innerEdge, 0.001f)
+
+        // A casing no wider than the tempered core pins the dark V exactly under the coloured one: no
+        // rim, and no inversion of the two strokes either.
+        assertEquals(0f, chevronCasingOffset(tempered, tempered), 0.001f)
+        assertEquals(0f, chevronCasingOffset(tempered, tempered + 10f), 0.001f)
+        assertEquals("no rim means no wrapping", coloured, chevronV(0f, length, halfW, CHEVRON_CAP_OVERLAP_PX))
+    }
+
+    @Test
+    fun theRimIsMeasuredFromTheTemperedCoreHoweverTheKneeAndTemperMove() {
+        // The file's own selected pair and its knee and temper, as the draw path reads them: the casing
+        // is 22 over the *tempered* 12 px core, whose dark inner edge clears the coloured centreline by
+        // 2 px. Measured from the raw 14 px core of the same pair it clears by half a pixel instead —
+        // the band pulled 1.5 px inward, which is why the tempered core is the reference.
+        val rawCore = 14f
+        val casing = 22f
+        val knee = 10f
+        val temper = 0.5f
+        val innerEdgeOf = { core: Float ->
+            chevronCasingOffset(casing, core) - chevronStrokeWidth(core) / 2f
+        }
+
+        val tempered = temperedCore(rawCore, knee, temper)
+        assertEquals("the file's pair tempers 14 down to 12", 12f, tempered, 0.001f)
+        assertEquals(
+            "measured from the tempered core the inner edge clears the coloured centreline by 2 px",
+            2f,
+            innerEdgeOf(tempered),
+            0.001f
+        )
+        assertEquals(
+            "the raw core pulls the band's inner edge 1.5 px nearer that centreline",
+            0.5f,
+            innerEdgeOf(rawCore),
+            0.001f
+        )
+        assertTrue(
+            "the raw core's band sits the nearer of the two to the coloured centreline",
+            innerEdgeOf(rawCore) < innerEdgeOf(tempered)
+        )
+
+        // Every knee and temper moves that core, and the rim moves with it: the offset is read from the
+        // core the coloured V is drawn from, so a casing at 1.5 × the tempered core keeps the inner edge
+        // on the centreline at every setting rather than inside it. The tempered core never falls below
+        // the smaller of the knee and the raw core, so the chevron stroke's 2 px floor cannot bite here.
+        listOf(4f, 8f, 14f, 24f).forEach { core ->
+            listOf(4f, 10f, 20f).forEach { knee ->
+                listOf(0f, 0.25f, 0.5f, 1f).forEach { temper ->
+                    val t = temperedCore(core, knee, temper)
+                    val innerEdge = chevronCasingOffset(t * 1.5f, t) - chevronStrokeWidth(t) / 2f
+
+                    assertEquals("core=$core knee=$knee temper=$temper", 0f, innerEdge, 0.001f)
+                }
+            }
+        }
+    }
+
+    /** Perpendicular distance from [point] to the line through [a] and [b], sign ignored. */
+    private fun perpendicularDistance(point: ScreenPt, a: ScreenPt, b: ScreenPt): Float {
+        val dx = b.x - a.x
+        val dy = b.y - a.y
+        return kotlin.math.abs((point.x - a.x) * dy - (point.y - a.y) * dx) / hypot(dx, dy)
+    }
+
+    @Test
+    fun theCeilingIsTheWidestStoredWidthSoItCannotBiteInsideTheTable() {
+        val ceiling = widestStoredTrackWidth()
+        val widths = listOf(
+            AppConfig.trackWidthSelected,
+            AppConfig.trackWidthNewest,
+            AppConfig.trackWidthPinned,
+            AppConfig.trackWidthHistory
+        )
+
+        assertEquals(
+            "the reference is the widest of the table, not the selected width alone",
+            maxOf(
+                AppConfig.trackWidthSelected,
+                AppConfig.trackWidthNewest,
+                AppConfig.trackWidthPinned,
+                AppConfig.trackWidthHistory
+            ),
+            ceiling,
+            0.001f
+        )
+        assertTrue("a retuned file must not push the reference under the selected core", ceiling >= AppConfig.trackWidthSelected)
+        widths.forEach { width ->
+            assertEquals(
+                "a ${width}px core keeps the pure relation: the ceiling cannot bite at it",
+                width * 2.5f,
+                chevronLength(width, ceiling),
+                0.001f
+            )
+        }
+        // Beyond the table it still caps, so a widened class cannot outgrow the file's own reference.
+        assertEquals(ceiling * 2.5f, chevronLength(ceiling * 4f, ceiling), 0.001f)
+        // The old 12 px floor flattened the thin end; the relations alone govern it now.
+        assertEquals(2.5f, chevronLength(1f, ceiling), 0.001f)
     }
 }

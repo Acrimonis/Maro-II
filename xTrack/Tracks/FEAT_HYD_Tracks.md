@@ -1,20 +1,21 @@
 # Context Hydration — Tracks — 2026-09-15
 
-**Last Bake:** 2026-09-15 14:06 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-09-15 19:58 UTC — written by `#bake`; absence means never baked
 **Branch:** feature/no-black-casing, created from `b2f6d69`
 
 ## State
 
-Two things shipped here today, both green and both uncommitted. First, the selected track's 16f black casing is deleted: `SELECTED_CASING` and its uses on the gold and banded paths, the chevron casing in `TrackDirectionOverlay` with its stroke width and draw block, the `arrowCasingAppearance` field, and the banded path's now-unread `selected` flag — so the selected track is drawn as its core alone, above every other overlay. Second, the per-type widths were ported from `2728c78` with every rim piece left behind: `track.width.live=12`, `.selected=12`, `.newest=10`, `.pinned=8`, `.history=6` with their `AppConfig` accessors, a per-type width resolver replacing the four constants, the gold core and all nine live-line sites reading the keys, the newest track derived from recency rather than the loop's index, and the five values in the rebuild key list. `apk-build.bat` SUCCESS on both passes, the scoped track tests green, and the three `HeatmapRampPropertiesTest` reds are the pre-existing `track.heatmap.*` file-versus-default drift. The rim is parked in `260914_FEAT_PLN_Tracks_pinned-cue-casing.md` with the alpha-stacking finding and the three shapes that would repair it, and the walk's item 3 closed on reading 4 — no dark stroke, no new map cue — with the rim's reading parked beside it.
+Shipped on this branch: the per-type widths are configuration — `track.width.live` / `.selected` / `.newest` / `.pinned` / `.history` / `.selected.casing` = 12 / 14 / 10 / 8 / 6 / 22 px, every code default mirroring the file key for key — the selected track is opaque, cased and drawn above every other trace, the chevrons are in proportion to their own line with an outside-only dark rim, and the controls are separated: arrows follow the stored mode alone, the drawer eye picks only the selection's fill and persists on the first tap, and the legend was given the eye as a trigger. **Open, in `260914_FEAT_PLN_Tracks_pinned-cue-casing.md` §2**, whose three items were reviewed twice and are executable as written: §2.1 the arrowhead rim at the line's weight, §2.2 the legend gate on banded strokes rather than the focused fill, §2.3 the strip's chrome — the toggle row's width and its own background token. The walk's level of 2026-09-15 is open, Active 6, its items 6 and 7 being §2.2 and §2.3 of that plan. The rim itself stays parked with the alpha-stacking finding and the three shapes that would repair it.
 
 ## Target Files
 
-- `xTrack/Tracks/260914_FEAT_PLN_Tracks_pinned-cue-casing.md` — the requirements as they now stand, the parked rim and its three candidate shapes
-- `app/src/main/assets/maro.properties` — the `track.width.*` group
-- `app/src/main/java/ykws/android/maro/config/AppConfig.kt` — the five accessors
-- `app/src/main/java/ykws/android/maro/ui/map/MapTrackOverlayEffects.kt` — the per-type resolver, the recency-derived newest track, the rebuild keys
-- `app/src/test/java/ykws/android/maro/ui/map/TrackOutlineTest.kt` — width mapping, recency, and the shipped keys against the defaults
+- `app/src/main/java/ykws/android/maro/ui/map/TrackDirectionOverlay.kt` — the rim offset's argument and the comments that argue the tempered reference
+- `app/src/main/java/ykws/android/maro/ui/map/MapTrackOverlayEffects.kt` — `legendVisibleFor` and the painted-id set it needs
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — the gate's caller, the toggle row's geometry, the legend's modifier
+- `app/src/main/java/ykws/android/maro/ui/map/TrackSpeedLegend.kt` — the strip's alignment and background
+- `app/src/main/java/ykws/android/maro/config/AppConfig.kt` — the new legend token's accessor, then `app/src/main/assets/colors.properties` for the token
+- Tests: `app/src/test/java/ykws/android/maro/ui/map/TrackDirectionOverlayTest.kt`, `TrackRenderModePathTest.kt`
 
 ## Next Step
 
-Take the two changes to a device — the selection with no casing, and the 12 / 10 / 8 / 6 widths — then decide whether the rim returns and in which shape. `feature/track-speed` remains the reference for the abandoned rim implementation and is already pushed.
+Implement §2.1 on its own, then §2.2 and §2.3 as one ordered pair, per the plan's Order line; `apk-build.bat` with the scoped `ui.map` tests green, the pre-existing reds outside that scope untouched.

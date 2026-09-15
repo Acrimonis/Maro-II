@@ -209,6 +209,13 @@ data class AppSettings(
      * starts on Simple rather than being migrated.
      */
     val trackRenderMode: ykws.android.maro.config.TrackRenderMode = ykws.android.maro.config.TrackRenderMode.SIMPLE,
+    /**
+     * The drawer eye's own value, held on the *selection* rather than on any track id, so it applies to
+     * whichever track the drawer has open. Null means the key has never been written — the selection
+     * mirrors [trackRenderMode] — while true bands the selection and false paints it gold in every mode.
+     * The first tap writes it, after which the value is the user's own and the mode no longer reaches it.
+     */
+    val trackSelectionBanded: Boolean? = null,
     /** Direction-arrow density mode: uniform on-screen spacing or speed-based. */
     val trackDirectionDensity: ykws.android.maro.ui.map.TrackDirectionDensity = ykws.android.maro.ui.map.TrackDirectionDensity.UNIFORM,
     /** Speed (kn) below which direction arrows use minimum spacing. */
@@ -447,6 +454,11 @@ class SettingsManager(
             ykws.android.maro.config.TrackRenderMode.valueOf(
                 prefs.getString(KEY_TRACK_RENDER_MODE, "SIMPLE") ?: "SIMPLE")
         } catch (_: Exception) { ykws.android.maro.config.TrackRenderMode.SIMPLE },
+        // Absent until the eye is first tapped, and `contains` is what tells that apart from a written
+        // false: the default below can never stand in for "mirror the mode".
+        trackSelectionBanded = if (prefs.contains(KEY_TRACK_SELECTION_BANDED)) {
+            prefs.getBoolean(KEY_TRACK_SELECTION_BANDED, false)
+        } else null,
         trackDirectionDensity = try {
             ykws.android.maro.ui.map.TrackDirectionDensity.valueOf(
                 prefs.getString(KEY_TRACK_DIRECTION_DENSITY, "UNIFORM") ?: "UNIFORM")
@@ -614,6 +626,11 @@ class SettingsManager(
             .putBoolean(KEY_MAP_OFFSET_DEMO, updated.mapOffsetDemo)
             .putInt(KEY_MAP_OFFSET_BOAT_FROM_BOTTOM_PCT, updated.mapOffsetBoatFromBottomPct)
             .putFloat(KEY_MAX_RECORDING_ACCURACY_M, updated.maxRecordingAccuracyM)
+            .also { editor ->
+                // Written from the first tap on and never before it: a null value is the untouched eye,
+                // and an install that never tapped it must hold no key rather than a defaulted one.
+                updated.trackSelectionBanded?.let { editor.putBoolean(KEY_TRACK_SELECTION_BANDED, it) }
+            }
             .apply()
     }
 
@@ -693,6 +710,8 @@ class SettingsManager(
         private const val KEY_TRACKS_VISIBLE = "tracks_visible"
         /** How stored tracks are drawn; the two retired keys it replaces are never read again. */
         private const val KEY_TRACK_RENDER_MODE = "track_render_mode"
+        /** The drawer eye's two-state value on the selection; absent until its first tap. */
+        private const val KEY_TRACK_SELECTION_BANDED = "track_selection_banded"
         private const val KEY_TRACK_DIRECTION_DENSITY = "track_direction_density"
         private const val KEY_TRACK_DIRECTION_SPEED_FLOOR_KN = "track_direction_speed_floor_kn"
         private const val KEY_TRACK_DIRECTION_SPEED_CEILING_KN = "track_direction_speed_ceiling_kn"
