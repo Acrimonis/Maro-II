@@ -867,7 +867,7 @@ fun MapScreen(
                                     val solid = org.osmdroid.views.overlay.Polyline().apply {
                                         title = "track_recording"
                                         outlinePaint.color = appSettings.trackingColorActive
-                                        outlinePaint.strokeWidth = 10f
+                                        outlinePaint.strokeWidth = AppConfig.trackWidthLive
                                         setPoints(solidPts)
                                     }
                                     mv.overlays.add(solid)
@@ -883,7 +883,7 @@ fun MapScreen(
                             val gap = org.osmdroid.views.overlay.Polyline().apply {
                                 title = "track_recording"
                                 outlinePaint.color = appSettings.trackingColorActive
-                                outlinePaint.strokeWidth = 10f
+                                outlinePaint.strokeWidth = AppConfig.trackWidthLive
                                 outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(20f, 10f), 0f)
                                 setPoints(gapPts)
                             }
@@ -900,7 +900,7 @@ fun MapScreen(
                             val finalSolid = org.osmdroid.views.overlay.Polyline().apply {
                                 title = "track_recording"
                                 outlinePaint.color = appSettings.trackingColorActive
-                                outlinePaint.strokeWidth = 10f
+                                outlinePaint.strokeWidth = AppConfig.trackWidthLive
                                 setPoints(finalPts)
                             }
                             mv.overlays.add(finalSolid)

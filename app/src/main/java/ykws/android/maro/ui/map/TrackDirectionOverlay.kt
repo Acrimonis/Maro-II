@@ -129,16 +129,14 @@ internal class TrackDirectionOverlay(
     /**
      * Per-anchor colour resolver. Null (the default) preserves today's iteration — every anchor is
      * painted once per appearance — so no other track changes behaviour. Non-null draws one chevron
-     * per anchor in that anchor's own band, over [casingAppearance] laid once beneath it.
+     * per anchor in that anchor's own band.
      */
     private val colorResolver: ((ArrowAnchor) -> TrackPolylineAppearance)? = null,
     /**
      * The appearance the chevron metrics (length and stroke width) are read from on the resolver
      * path — passed in rather than inferred from the colour the resolver returns.
      */
-    private val chevronMetrics: TrackPolylineAppearance? = null,
-    /** The dark casing chevron painted once beneath every resolver-path chevron. */
-    private val casingAppearance: TrackPolylineAppearance? = null
+    private val chevronMetrics: TrackPolylineAppearance? = null
 ) : Overlay() {
 
     /** Identifier used by the track overlay effect for cleanup and z-order. */
@@ -236,10 +234,9 @@ internal class TrackDirectionOverlay(
     }
 
     /**
-     * Resolver path (heatmap mode): one chevron per anchor, coloured by that anchor's own band, with
-     * the dark casing chevron laid once beneath it. Metrics come from [chevronMetrics] and the casing
-     * from [casingAppearance] — both passed in, never inferred — and the anchor sampling that placed
-     * these chevrons is untouched.
+     * Resolver path (heatmap mode): one chevron per anchor, coloured by that anchor's own band.
+     * Metrics come from [chevronMetrics] — passed in, never inferred — and the anchor sampling that
+     * placed these chevrons is untouched.
      */
     private fun drawResolvedChevrons(
         c: Canvas,
@@ -251,7 +248,6 @@ internal class TrackDirectionOverlay(
         val chevronLen = (metrics.strokeWidth * 2.5f).coerceIn(12f, 24f)
         val halfW = chevronLen * 0.6f
         val strokeWidth = (metrics.strokeWidth * 0.5f).coerceAtLeast(2f)
-        val casingStrokeWidth = ((casingAppearance?.strokeWidth ?: 0f) * 0.5f).coerceAtLeast(2f)
         val projection = osmv.projection
         val viewW = c.width.toFloat()
         val viewH = c.height.toFloat()
@@ -274,9 +270,6 @@ internal class TrackDirectionOverlay(
             val y = ay + (by - ay) * anchor.t
             if (x < -margin || x > viewW + margin || y < -margin || y > viewH + margin) continue
 
-            casingAppearance?.let {
-                drawChevron(c, x, y, anchor.bearingDeg, chevronLen, halfW, casingStrokeWidth, it.argb)
-            }
             drawChevron(c, x, y, anchor.bearingDeg, chevronLen, halfW, strokeWidth, resolver(anchor).argb)
         }
     }

@@ -2,7 +2,7 @@
 name: Tracks
 status: active
 created: 2026-06-15 21:43
-modified: 2026-09-14 17:05
+modified: 2026-09-15 14:06
 ---
 
 # Feature: Tracks
@@ -94,6 +94,7 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 - `xTrack/Tracks/260914_FEAT_PLN_Tracks_render-modes.md` — render modes: the three-way switch, the banded scope, the fade, the store, the two surfaces and the eye's scoped override (sections 1–6)
 - `xTrack/Tracks/260915_FEAT_PLN_Tracks_ramp-alpha-ceiling-removal.md` — ramp alpha: the coreAlpha ceiling removed, a band's alpha being the track's own fade alone
 - `xTrack/Tracks/260915_FEAT_PLN_Tracks_carry-window-removal.md` — speed resolution: the carry window removed, leaving stored-then-derived and a neutral seam
+- `xTrack/Tracks/260914_FEAT_PLN_Tracks_pinned-cue-casing.md` — the selection cue: the dark casing removed, and the rim parked with the alpha-stacking finding and its three candidate shapes
 
 ## Walk
 **Level 1 — Date:** 2026-09-14 · **Source:** the 260914 selected-track speed heatmap plan's open points and implementation steps — the feature's older device-E2E todos are excluded, being a verification backlog rather than plan items · **Active:** 14 · **Closed:** 2026-09-14
@@ -196,10 +197,10 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 
 - Resolutions: the eye toggle moves one session-wide mode, starting from `track.heatmap.mode`, with nothing persisted and no per-track state; the legend remains the readout of that single state. Dropped: per-track memory and per-track persistence. Folded with it: R2–R10 corrected the plan's body, so the band count, the ramp domain, the core alpha, the neutral tint, the carry window, the legend's file, the shared derivation, the z-lift cost, the seam rule and the verification criteria are now stated rather than implied.
 
-**Level 1 — Date:** 2026-09-14 · **Source:** the same session's request to generalize the shipped speed heatmap to every track — the render-mode triple toggle, the two surfaces it lands on, and the retirement of the menu's direction toggle · **Active:** 3
+**Level 1 — Date:** 2026-09-14 · **Source:** the same session's request to generalize the shipped speed heatmap to every track — the render-mode triple toggle, the two surfaces it lands on, and the retirement of the menu's direction toggle · **Active:** 3 · **Closed:** 2026-09-15
 - [x] 1 · Tri-state semantics and the arrow axis — resolved: the mode owns the arrows, three readings dropped
 - [x] 2 · Banded scope: which tracks take the ramp, and the live line — resolved: history and pinned both band, the live line unchanged; pinned legibility carried into item 3
-- [ ] 3 · Selection cue once every rendered track is banded — **parked 2026-09-14**: for now the distinction rests on the differing transparency levels; the item is revisited later, and its child keeps the four readings — its width half is settled by the plan's D11, so colour alone remains open
+- [x] 3 · Selection cue once every rendered track is banded — closed 2026-09-15: the dark casing is removed on `feature/no-black-casing` and the widths became configuration the same afternoon, so the selected track is 12 px against the newest track's 10, on top of everything, gold in the two simple modes; the rim stays parked in the pinned-cue plan
 - [x] 4 · One persisted mode: the store, the migration and the file key — resolved: one non-null field defaulting to Simple, no migration, the properties key dropped
 - [x] 5 · Settings surface: the Colours block becoming Default Colors, with no mode row — resolved: the inner heading is renamed, the expander label kept
 - [x] 6 · Menu section: retire the direction toggle, add Tracks rendering — resolved: the switch takes the retired row's slot, the live card moves to the head
@@ -227,13 +228,15 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 
 - Resolutions: the render mode governs the two stored-track loops — history and pinned — inside the loop that exists today, so each stored track is banded once per rebuild; the live recording line keeps its appearance, since banding it would move a ramp rebuild onto the append path. The pinned amber gradient is given up in heat map mode, colour being the speed reading there, which carries one open point into item 3: with colour spent, how a pinned track stays legible is a cue question, not a colour question. Dropped: banding the live line, and a history-only scope.
 
-**Level 2 — Date:** 2026-09-14 · **Parent:** 3 · **Active:** 1
-- [ ] 1 · Casing only, selection — the selected track carries the 16f dark casing and the z-lift, nothing else changes
-- [ ] 2 · Gold survives selection — the selected track keeps its gold core in heat map mode, so the ramp covers the unselected only
-- [ ] 3 · Casing carries both cues — a selection casing token plus a distinguishable pinned casing, so neither depends on colour
-- [ ] 4 · No map cue — selection and pinned identity are expressed outside the map, by the drawer header and the pin
+**Level 2 — Date:** 2026-09-14 · **Parent:** 3 · **Active:** 4 · **Closed:** 2026-09-15
+- [ ] 1 · Casing only, selection — **void 2026-09-15**: it shipped, and it is the reading the removal undid
+- [ ] 2 · Gold survives selection — **void 2026-09-15**: it needs the ramp to cover the unselected only, which D2 forbids
+- [ ] 3 · Casing carries both cues — **parked 2026-09-15**: it is the rim, and the rim is parked in the pinned-cue plan with the alpha-stacking finding and the three shapes that would repair it
+- [x] 4 · No map cue — chosen 2026-09-15: with the casing gone, selection and pinned identity are expressed outside the map, by the z-lift, the gold interior in the two simple modes, the drawer header and the pin
 
-- **Parked 2026-09-14, gate unanswered:** the interim rule is that stored tracks are told apart by their differing transparency levels as they are set today, so this pass ships no new cue and adds no casing token. The four readings stay as the point to resume from, because the question returns the moment colour is spent on speed — the selected track and a pinned one both lose the cue they carry now.
+- **Summary — closed 2026-09-15:** resolved by reading 4 — no dark stroke, and the map carries no new cue — with readings 1 and 2 void and reading 3 parked as the rim. The separation the casing used to carry moved into width, the per-type widths shipping the same afternoon, so the selected track is 12 px against the newest track's 10.
+
+- **Resolutions:** the selected track keeps its z-lift and its gold interior where the ramp is not painting, and loses the 16f black casing; the rim, its alpha boost and the per-type width table stay parked, each with the reason it did not ship.
 
 **Level 2 — Date:** 2026-09-14 · **Parent:** 4 · **Active:** 1 · **Closed:** 2026-09-14
 - [x] 1 · One non-null stored mode defaulting to Simple — chosen: a single `TrackRenderMode` field in `AppSettings` beside its key constant, default SIMPLE, no migration and no properties key
@@ -343,3 +346,4 @@ Track export hardening (unique names, Windows-safe sanitization) + import modes 
 - **track-render-modes (2026-09-14)** — the heatmap generalized to every stored track under one three-way switch: `TrackRenderMode` with one persisted `AppSettings.trackRenderMode` (default Simple, the two legacy keys and `track.heatmap.mode` dropped), one `trackRenderPlan()` dispatching the plain, gold and banded paths across both stored-track loops, the banded path taking the track's own fade (D8) and width (D11), a mode-aware rebuild key list, the menu's Tracks rendering section replacing the "Show dir & speed" row with the live block at the card's head, the Settings heading renamed Default Colors, the legend keyed on the mode alone, and the drawer eye scoped to the selected track as a session-only override; `apk-build.bat` SUCCESS with 48 scoped tests green and two Ask-hop mediums open (the eye's override also rewrites the arrow decision, and the arrow rebuild keys are absent while the mode is Simple with the eye banding) → `xTrack/Tracks/260914_FEAT_PLN_Tracks_render-modes.md`
 - **ramp-alpha-ceiling-removal (2026-09-15)** — R4's 0.9 ceiling is gone: a band's alpha is the track's own fade alone, and `track.heatmap.coreAlpha` leaves the key list, the `AppConfig` parse and the `HeatmapRamp` type, the two heatmap test classes retuned with it; `apk-build.bat` SUCCESS, 63 heatmap tests run, the three pre-existing `HeatmapRampPropertiesTest` reds untouched → `xTrack/Tracks/260915_FEAT_PLN_Tracks_ramp-alpha-ceiling-removal.md`
 - **carry-window-removal (2026-09-15)** — `track.heatmap.carryMaxSec` and its logic are gone: a point's speed is the stored value or a derivation from its neighbour, else null, with the carry state, the window parameter and the Colours rebuild key removed and the properties key deleted; `apk-build.bat` SUCCESS, `TrackSpeedHeatmapTest` 32/32 green, the same three reds untouched → `xTrack/Tracks/260915_FEAT_PLN_Tracks_carry-window-removal.md`
+- **no-black-casing (2026-09-15, `feature/no-black-casing`)** — the selected track's 16f black casing is deleted: `SELECTED_CASING` and its uses on the gold and banded paths, the chevron casing in `TrackDirectionOverlay` with its stroke width and draw block, the `arrowCasingAppearance` field, and the banded path's now-unread `selected` flag; the per-type widths followed the same afternoon, ported from `2728c78` with the rim left behind — five `track.width.*` keys (12 / 12 / 10 / 8 / 6), the four width constants gone, the live line's nine sites and the gold core reading the keys, and the newest track derived from recency rather than the loop's index; `apk-build.bat` SUCCESS with the scoped track tests green and the three pre-existing reds untouched → `xTrack/Tracks/260914_FEAT_PLN_Tracks_pinned-cue-casing.md`

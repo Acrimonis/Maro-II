@@ -31,6 +31,9 @@ class TrackSpeedHeatmapTest {
     private val red = 0xFFB71C1C.toInt()
     private val purple = 0xFF6A1B9A.toInt()
 
+    /** The width fixture the banded tests pass through, kept local: it is the parameter, not a shipped value. */
+    private val fixtureStrokeWidth = 12f
+
     /** Six families with per-family steps, pinned as a fixture: v4 of the grid, not what the file holds. */
     private val ramp = HeatmapRamp(
         families = listOf(
@@ -63,7 +66,7 @@ class TrackSpeedHeatmapTest {
 
     private fun bandedBands(
         points: List<TrackPoint>,
-        strokeWidth: Float = SELECTED_CORE_STROKE_WIDTH,
+        strokeWidth: Float = fixtureStrokeWidth,
         fade: Float = 1f
     ) = bandedAppearances(points, resolveSpeeds(points), ramp, strokeWidth, fade)
 
@@ -445,7 +448,7 @@ class TrackSpeedHeatmapTest {
         assertTrue(bands.isNotEmpty())
         assertEquals(255, alphaOf(bands[0].appearance.argb))        // the fade alone: round(1.0 × 255)
         bands.forEach { assertEquals(255, alphaOf(it.appearance.argb)) }
-        bands.forEach { assertEquals(SELECTED_CORE_STROKE_WIDTH, it.appearance.strokeWidth, 0.001f) }
+        bands.forEach { assertEquals(fixtureStrokeWidth, it.appearance.strokeWidth, 0.001f) }
     }
 
     // ── The track's own fade as the band's alpha, and D11's width ────────

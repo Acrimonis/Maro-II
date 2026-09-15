@@ -104,6 +104,27 @@ object AppConfig {
     var trackDirectionMaxSpacingDp: Int = 320
         private set
 
+    // ── Track outlines: per-type widths (from maro.properties) ───────────
+    // All three rendering modes read this table: the widths are what the map draws stored tracks and
+    // the live recording line from. Widths are pixels, not dp, and every default mirrors the shipped
+    // file key for key.
+    /** Stroke width (px) of the live recording line, its GAP bridges and its trailing segment.
+     *  Default 12. Set via `track.width.live`. */
+    var trackWidthLive: Float = 12f
+        private set
+    /** Stroke width (px) of the selected stored track's core. Default 12. Set via `track.width.selected`. */
+    var trackWidthSelected: Float = 12f
+        private set
+    /** Stroke width (px) of the newest history track. Default 10. Set via `track.width.newest`. */
+    var trackWidthNewest: Float = 10f
+        private set
+    /** Stroke width (px) of every pinned track. Default 8. Set via `track.width.pinned`. */
+    var trackWidthPinned: Float = 8f
+        private set
+    /** Stroke width (px) of every other history track. Default 6. Set via `track.width.history`. */
+    var trackWidthHistory: Float = 6f
+        private set
+
     // ── Speed heatmap ramp (from maro.properties) ────────────────────────
     /** Parsed speed ramp: families as a list — each carrying its own draw step — and the neutral
      *  tint. There is no count key: the read walks `familyN` from 1 upward and stops at the
@@ -763,6 +784,15 @@ object AppConfig {
             props.getProperty("track.direction.maxSpacingDp")?.toIntOrNull()?.let {
                 trackDirectionMaxSpacingDp = it.coerceIn(4, 640)
             }
+
+            // ── Track outlines: per-type widths ─────────────────────────────
+            // Clamped where a value could break the draw — a width below 1 px is not drawable, and a
+            // width past this bound would swallow the map. An unreadable value leaves the default.
+            props.getProperty("track.width.live")?.toFloatOrNull()?.let { trackWidthLive = it.coerceAtLeast(1f) }
+            props.getProperty("track.width.selected")?.toFloatOrNull()?.let { trackWidthSelected = it.coerceAtLeast(1f) }
+            props.getProperty("track.width.newest")?.toFloatOrNull()?.let { trackWidthNewest = it.coerceAtLeast(1f) }
+            props.getProperty("track.width.pinned")?.toFloatOrNull()?.let { trackWidthPinned = it.coerceAtLeast(1f) }
+            props.getProperty("track.width.history")?.toFloatOrNull()?.let { trackWidthHistory = it.coerceAtLeast(1f) }
 
             // ── Speed heatmap ramp ──────────────────────────────────────────
             // The rendering mode is no longer a file key (D3): it is one persisted field in
