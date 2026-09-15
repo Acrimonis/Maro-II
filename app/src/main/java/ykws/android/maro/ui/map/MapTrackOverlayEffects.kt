@@ -70,7 +70,6 @@ internal fun MapTrackOverlayHistoryDiff(
         } else {
             // Colours paints from the ramp instead.
             add(AppConfig.trackHeatmapRamp)
-            add(AppConfig.trackHeatmapCarryMaxSec)
         }
         if (renderMode != TrackRenderMode.SIMPLE) {
             // Arrows are drawn in Dir & Speed and in Colours, never in Simple.
@@ -146,7 +145,6 @@ internal fun MapTrackOverlayHistoryDiff(
                 title = "track_hist_${summary.id}",
                 plan = trackRenderPlan(renderMode, summary.id == highlightedTrackId, eyeOverride),
                 ramp = AppConfig.trackHeatmapRamp,
-                carryMaxSec = AppConfig.trackHeatmapCarryMaxSec,
                 strokeWidth = width,
                 fade = trackFadeAlpha(
                     index = index,
@@ -204,7 +202,6 @@ internal fun MapTrackOverlayHistoryDiff(
                 title = "track_pin_${summary.id}",
                 plan = trackRenderPlan(renderMode, summary.id == highlightedTrackId, eyeOverride),
                 ramp = AppConfig.trackHeatmapRamp,
-                carryMaxSec = AppConfig.trackHeatmapCarryMaxSec,
                 strokeWidth = PINNED_STROKE_WIDTH,
                 // D8: a pinned track fades across its own range, exactly as it does today.
                 fade = trackFadeAlpha(
@@ -360,7 +357,6 @@ private fun storedTrackRendering(
     title: String,
     plan: TrackRenderPlan,
     ramp: HeatmapRamp,
-    carryMaxSec: Int,
     strokeWidth: Float,
     fade: Float,
     plainAppearance: () -> TrackPolylineAppearance
@@ -370,7 +366,6 @@ private fun storedTrackRendering(
             points = points,
             title = title,
             ramp = ramp,
-            carryMaxSec = carryMaxSec,
             strokeWidth = strokeWidth,
             fade = fade,
             selected = plan.selected
@@ -416,12 +411,11 @@ private fun bandedPath(
     points: List<TrackPoint>,
     title: String,
     ramp: HeatmapRamp,
-    carryMaxSec: Int,
     strokeWidth: Float,
     fade: Float,
     selected: Boolean
 ): StoredTrackRendering {
-    val speeds = resolveSpeeds(points, carryMaxSec)
+    val speeds = resolveSpeeds(points)
     val bands = bandedAppearances(points, speeds, ramp, strokeWidth, fade)
     // The band table is the pure mapping [bandTable] owns; its shared-boundary rule is unit-tested.
     val bandByIndex = bandTable(points.size, bands)

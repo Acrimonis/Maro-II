@@ -105,11 +105,11 @@ object AppConfig {
         private set
 
     // ── Speed heatmap ramp (from maro.properties) ────────────────────────
-    /** Parsed speed ramp: families as a list — each carrying its own draw step — the core alpha and
-     *  the neutral tint. There is no count key: the read walks `familyN` from 1 upward and stops at the
+    /** Parsed speed ramp: families as a list — each carrying its own draw step — and the neutral
+     *  tint. There is no count key: the read walks `familyN` from 1 upward and stops at the
      *  first index missing a key, so the file alone decides the ramp's length.
      *  Default: the seven families the shipped file holds, mirrored key for key.
-     *  Set via `track.heatmap.familyN.*` / `.coreAlpha` / `.unknownColor`. */
+     *  Set via `track.heatmap.familyN.*` / `.unknownColor`. */
     var trackHeatmapRamp: HeatmapRamp = HeatmapRamp(
         families = listOf(
             HeatmapFamily(5f, 0xFF4CAF50.toInt(), 0xFF4CAF50.toInt(), 0.5f),   // flat green to the 5 kn limit
@@ -120,7 +120,6 @@ object AppConfig {
             HeatmapFamily(35f, 0xFFEF6C00.toInt(), 0xFFB71C1C.toInt(), 1.0f),  // the zero-span edge at 35
             HeatmapFamily(70f, 0xFFB71C1C.toInt(), 0xFF6A1B9A.toInt(), 5.0f)   // red to purple out to 70 kn
         ),
-        coreAlpha = 0.9f,
         unknownArgb = 0xFF90A4AE.toInt()
     )
         private set
@@ -142,10 +141,6 @@ object AppConfig {
      *  Default 2, mirroring the shipped file. Set via `track.heatmap.scaleMinKn`; an absent key
      *  leaves this default standing. */
     var trackHeatmapScaleMinKn: Float = 2f
-        private set
-    /** Carry-forward window (s) over which the heatmap repeats the last known speed.
-     *  Default 10. Set via `track.heatmap.carryMaxSec`. */
-    var trackHeatmapCarryMaxSec: Int = 10
         private set
     /** Default proximity multiplier for Circle/Corridor user markers. Set via `marker.proximity.zone_multiplier` in maro.properties. */
     var markerProximityZoneMultiplier: Double = 3.0
@@ -799,14 +794,8 @@ object AppConfig {
                     trackHeatmapScaleTicks = ticks
                 }
             }
-            props.getProperty("track.heatmap.coreAlpha")?.toFloatOrNull()?.let {
-                trackHeatmapRamp = trackHeatmapRamp.copy(coreAlpha = it.coerceIn(0f, 1f))
-            }
             props.getProperty("track.heatmap.unknownColor")?.let { parseColorOrNull(it) }?.let {
                 trackHeatmapRamp = trackHeatmapRamp.copy(unknownArgb = it)
-            }
-            props.getProperty("track.heatmap.carryMaxSec")?.toIntOrNull()?.let {
-                trackHeatmapCarryMaxSec = it.coerceAtLeast(0)
             }
 
             // ── Marker debug rays ───────────────────────────────────────

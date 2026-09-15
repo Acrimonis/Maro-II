@@ -19,39 +19,16 @@ data class SpeedBand(val pointIndices: List<Int>, val appearance: TrackPolylineA
 
 /**
  * Resolve one speed per point, in knots, applying the null policy: a stored speed wins, an absent
- * one is derived from time delta + haversine distance, a value that is still absent carries the last
- * known speed across a short gap so one lost fix cannot flicker the colour, and a long span or a GAP
- * seam answers null — which [colorAt] paints as the neutral tint.
- *
- * The carry is forward-only, is measured from the last known speed (so a same-timestamp lost fix
- * keeps the colour rather than flickering), never crosses a GAP seam, and stops at [carryMaxSec].
+ * one is derived from time delta + haversine distance, and a value that is still absent — or a GAP
+ * seam — answers null, which [colorAt] paints as the neutral tint.
  */
-internal fun resolveSpeeds(points: List<TrackPoint>, carryMaxSec: Int): List<Float?> {
-    if (points.isEmpty()) return emptyList()
-    val carryMs = carryMaxSec.coerceAtLeast(0).toLong() * 1000L
-    val resolved = ArrayList<Float?>(points.size)
-    var carriedKn: Float? = null
-    var carriedAtMs = 0L
-    for (i in points.indices) {
-        val point = points[i]
-        if (point.type == PointType.GAP) {
-            // A GAP marker is a discontinuity, not a short gap: the seam reads neutral.
-            carriedKn = null
-            resolved += null
-            continue
-        }
-        val kn = point.speedMps?.let { it * KNOTS_PER_MPS }
+internal fun resolveSpeeds(points: List<TrackPoint>): List<Float?> = points.mapIndexed { i, point ->
+    when {
+        // A GAP marker is a discontinuity, not a short gap: the seam reads neutral.
+        point.type == PointType.GAP -> null
+        else -> point.speedMps?.let { it * KNOTS_PER_MPS }
             ?: deriveSpeedMps(points, i)?.let { it * KNOTS_PER_MPS }
-        if (kn != null) {
-            carriedKn = kn
-            carriedAtMs = point.timeOffsetMs
-            resolved += kn
-        } else {
-            val elapsedMs = point.timeOffsetMs - carriedAtMs
-            resolved += carriedKn?.takeIf { elapsedMs in 0..carryMs }
-        }
     }
-    return resolved
 }
 
 /**
@@ -77,10 +54,9 @@ internal fun colorAt(speedKn: Float?, ramp: HeatmapRamp): Int {
  * appearance, each carrying its own geometry, with the band's alpha baked into every band —
  * including the neutral ones, so a GAP seam and a speed band read at the same weight.
  *
- * The alpha is [fade] — the track's own recency reading — times [ramp]'s core alpha (D8), so
- * transparency means the same thing in all three modes and the fade stays the cue the parked
- * selection item relies on. Two alphas multiply, which is the accepted cost: the heaviest fades
- * desaturate the bands and the oldest tracks read their speed least sharply.
+ * The alpha is [fade] alone — the track's own recency reading — so a banded stroke is drawn at the
+ * transparency the user's sliders ask for and the fade stays the cue the parked selection item
+ * relies on. Nothing multiplies it: [ramp] supplies the colour and the span only.
  *
  * The width is a parameter rather than a constant (D11), so every stored track takes the width its
  * position earns — history's newest 8f, every other history track and every pinned one 6f — and a
@@ -102,8 +78,7 @@ internal fun bandedAppearances(
     fade: Float = 1f
 ): List<SpeedBand> {
     if (points.isEmpty()) return emptyList()
-    val combined = ramp.coreAlpha.coerceIn(0f, 1f) * fade.coerceIn(0f, 1f)
-    val alpha = (combined * 255f).roundToInt().coerceIn(0, 255)
+    val alpha = (fade.coerceIn(0f, 1f) * 255f).roundToInt().coerceIn(0, 255)
     val appearances = points.indices.map { i ->
         val quantised = quantiseKn(if (i < speeds.size) speeds[i] else null, ramp)
         TrackPolylineAppearance(withAlpha(colorAt(quantised, ramp), alpha), strokeWidth)

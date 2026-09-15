@@ -71,8 +71,8 @@ class HeatmapRampPropertiesTest {
     }
 
     /**
-     * The code's own defaults — `AppConfig`'s six families, its alpha, its neutral tint and its five
-     * scale rows — are tied to the file here: a drift between the two now fails this suite instead of
+     * The code's own defaults — `AppConfig`'s six families, its neutral tint and its five scale
+     * rows — are tied to the file here: a drift between the two now fails this suite instead of
      * shipping silently.
      */
     @Test
@@ -80,7 +80,6 @@ class HeatmapRampPropertiesTest {
         val props = shippedProperties()
         val parsed = HeatmapRamp(
             families = parseFrom(props),
-            coreAlpha = props.getProperty("track.heatmap.coreAlpha")!!.toFloat(),
             unknownArgb = hexToArgb(props.getProperty("track.heatmap.unknownColor")!!)!!
         )
 

@@ -30,7 +30,8 @@ const val HEATMAP_MAX_SCALE_TICKS = 12
  * no special case: where one family ends on a hue and the next begins on another, the jump the eye
  * reads (the 15 kn hard edge, say) is produced by the two colours alone.
  *
- * Both colours are opaque ARGB; the line's alpha arrives separately as [HeatmapRamp.coreAlpha].
+ * Both colours are opaque ARGB; a family declares hue alone, and the line's own alpha is applied
+ * where the stroke is assembled.
  */
 data class HeatmapFamily(val maxKn: Float, val fromArgb: Int, val toArgb: Int, val stepKn: Float)
 
@@ -41,7 +42,6 @@ data class HeatmapFamily(val maxKn: Float, val fromArgb: Int, val toArgb: Int, v
  */
 data class HeatmapRamp(
     val families: List<HeatmapFamily>,
-    val coreAlpha: Float,
     val unknownArgb: Int
 ) {
     /** Top of the ramp's own domain: zero to the highest family that parses. */

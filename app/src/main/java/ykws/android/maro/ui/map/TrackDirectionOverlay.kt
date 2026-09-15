@@ -144,8 +144,8 @@ internal class TrackDirectionOverlay(
     /** Identifier used by the track overlay effect for cleanup and z-order. */
     var title: String = ""
 
-    // Spacing keeps its historic behaviour: an underivable speed reads as zero *here*. Carry-forward
-    // belongs to the heatmap's colour alone, so `carryMaxSec` never reaches the arrow path.
+    // Spacing keeps its historic behaviour: an underivable speed reads as zero *here*, while the
+    // heatmap's colour answers the ramp's neutral tint for the very same point.
     private val points: List<TrackPoint> = if (points.any { it.speedMps == null }) {
         points.mapIndexed { i, p ->
             p.speedMps?.let { p } ?: p.copy(speedMps = deriveSpeedMps(points, i) ?: 0f)

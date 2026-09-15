@@ -16,9 +16,9 @@ import ykws.android.maro.data.track.deriveSpeedMps
 /**
  * The speed mapping's own unit test, beside [TrackPolylineAppearanceTest]: ramp v4's two flat zones,
  * the one-knot changeover between them, the anchors at 5 / 6 / 10 / 15 / 35 / 70 kn, the hard edge at
- * 15, each family's own draw step, the family bound, the neutral tint path, the carry window, the band
- * grouping and the two band counts the v4 grid measures. Pure functions only — the osmdroid
- * drawing stays in the Compose shell.
+ * 15, each family's own draw step, the family bound, the neutral tint path, the band grouping and the
+ * two band counts the v4 grid measures. Pure functions only — the osmdroid drawing stays in the
+ * Compose shell.
  */
 class TrackSpeedHeatmapTest {
 
@@ -41,7 +41,6 @@ class TrackSpeedHeatmapTest {
             HeatmapFamily(35f, orange, red, 1.0f),          // the hard edge at 15, deepening to 35
             HeatmapFamily(70f, red, purple, 5.0f)           // the range almost nothing occupies
         ),
-        coreAlpha = 0.9f,
         unknownArgb = 0xFF90A4AE.toInt()
     )
 
@@ -64,10 +63,9 @@ class TrackSpeedHeatmapTest {
 
     private fun bandedBands(
         points: List<TrackPoint>,
-        carryMaxSec: Int = 10,
         strokeWidth: Float = SELECTED_CORE_STROKE_WIDTH,
         fade: Float = 1f
-    ) = bandedAppearances(points, resolveSpeeds(points, carryMaxSec), ramp, strokeWidth, fade)
+    ) = bandedAppearances(points, resolveSpeeds(points), ramp, strokeWidth, fade)
 
     /** The expected gradient output, written independently of the production interpolation. */
     private fun blend(fromArgb: Int, toArgb: Int, t: Float): Int {
@@ -114,7 +112,7 @@ class TrackSpeedHeatmapTest {
 
     @Test
     fun resolveSpeedsConvertsStoredMetresPerSecondToKnots() {
-        val speeds = resolveSpeeds(listOf(p(speedMps = 5f, timeMs = 0L)), carryMaxSec = 10)
+        val speeds = resolveSpeeds(listOf(p(speedMps = 5f, timeMs = 0L)))
         assertEquals(5f * 1.94384f, speeds[0]!!, 0.001f)
     }
 
@@ -330,7 +328,7 @@ class TrackSpeedHeatmapTest {
         )
     }
 
-    // ── The neutral tint and the carry window ────────────────────────────
+    // ── The neutral tint, and the two null branches ──────────────────────
 
     @Test
     fun anUnknownSpeedAnswersTheNeutralTint() {
@@ -341,7 +339,7 @@ class TrackSpeedHeatmapTest {
     fun aTrackWithoutDerivableSpeedIsNeutralEndToEnd() {
         // No stored speed and no positive time delta: nothing is derivable, so nothing is invented.
         val points = (0..4).map { p(timeMs = 0L, lat = it * 0.0001) }
-        val speeds = resolveSpeeds(points, carryMaxSec = 10)
+        val speeds = resolveSpeeds(points)
         assertTrue(speeds.all { it == null })
 
         val bands = bandedBands(points)
@@ -351,33 +349,17 @@ class TrackSpeedHeatmapTest {
     }
 
     @Test
-    fun aLostFixInsideTheCarryWindowKeepsTheLastKnownSpeed() {
-        val points = listOf(p(speedMps = 5f, timeMs = 1000L), p(timeMs = 1000L))
-        val speeds = resolveSpeeds(points, carryMaxSec = 10)
-
-        assertEquals(5f * 1.94384f, speeds[0]!!, 0.001f)
-        assertEquals(5f * 1.94384f, speeds[1]!!, 0.001f)
-    }
-
-    @Test
-    fun aGapSeamResetsTheCarry() {
+    fun aGapSeamAndThePointAfterItBothReadNeutral() {
         val points = listOf(
             p(speedMps = 5f, timeMs = 0L),
             p(timeMs = 1000L, type = PointType.GAP),
             p(timeMs = 1000L)
         )
-        val speeds = resolveSpeeds(points, carryMaxSec = 10)
+        val speeds = resolveSpeeds(points)
 
+        assertEquals(5f * 1.94384f, speeds[0]!!, 0.001f)
         assertNull(speeds[1])
         assertNull(speeds[2])
-    }
-
-    @Test
-    fun anUnderivablePointOutsideTheCarryWindowIsNeutral() {
-        // The stall from the last known speed runs backwards here, which is outside the window.
-        val speeds = resolveSpeeds(listOf(p(speedMps = 5f, timeMs = 60_000L), p(timeMs = 1000L)), carryMaxSec = 10)
-
-        assertNull(speeds[1])
     }
 
     // ── Band grouping, the alpha and the GAP split ───────────────────────
@@ -451,7 +433,7 @@ class TrackSpeedHeatmapTest {
     }
 
     @Test
-    fun everyBandCarriesTheCoreAlphaAtAnUnfadedRow() {
+    fun everyBandCarriesTheSameAlphaAtAnUnfadedRow() {
         val points = listOf(
             p(speedMps = 1f, timeMs = 0L),
             p(timeMs = 1000L, type = PointType.GAP),
@@ -461,23 +443,23 @@ class TrackSpeedHeatmapTest {
         val bands = bandedBands(points)
 
         assertTrue(bands.isNotEmpty())
-        assertEquals(230, alphaOf(bands[0].appearance.argb))        // round(0.9 × 1 × 255)
-        bands.forEach { assertEquals(230, alphaOf(it.appearance.argb)) }
+        assertEquals(255, alphaOf(bands[0].appearance.argb))        // the fade alone: round(1.0 × 255)
+        bands.forEach { assertEquals(255, alphaOf(it.appearance.argb)) }
         bands.forEach { assertEquals(SELECTED_CORE_STROKE_WIDTH, it.appearance.strokeWidth, 0.001f) }
     }
 
-    // ── D8's fade multiplication and D11's width ─────────────────────────
+    // ── The track's own fade as the band's alpha, and D11's width ────────
 
     @Test
-    fun theBandAlphaIsTheTracksOwnFadeTimesTheRampCoreAlpha() {
+    fun theBandAlphaIsTheTracksOwnFadeAlone() {
         val points = pointsAtKn(1f, 2f, 3f)                         // one flat green band
 
         val full = bandedBands(points, fade = 1f)
         val half = bandedBands(points, fade = 0.5f)
         val oldest = bandedBands(points, fade = 0f)
 
-        assertEquals(230, alphaOf(full[0].appearance.argb))         // round(0.9 × 1.0 × 255)
-        assertEquals(115, alphaOf(half[0].appearance.argb))         // round(0.9 × 0.5 × 255)
+        assertEquals(255, alphaOf(full[0].appearance.argb))         // round(1.0 × 255)
+        assertEquals(128, alphaOf(half[0].appearance.argb))         // round(0.5 × 255)
         assertEquals(0, alphaOf(oldest[0].appearance.argb))         // the heaviest fade disappears
         // The fade moves the alpha alone: the hue the ramp resolved is untouched.
         assertEquals(rgb(full[0].appearance.argb), rgb(half[0].appearance.argb))
