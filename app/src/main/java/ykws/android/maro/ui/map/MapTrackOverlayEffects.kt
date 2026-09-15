@@ -2,8 +2,7 @@ package ykws.android.maro.ui.map
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.snapshotFlow
 import org.osmdroid.views.MapView
 import ykws.android.maro.config.AppConfig
@@ -40,11 +39,18 @@ internal fun MapTrackOverlayHistoryDiff(
     allTrackSummaries: List<ykws.android.maro.data.track.TrackSummary>,
     focus: MapRenderFocus,
     appSettings: AppSettings,
+    /**
+     * The ids whose overlays this pass actually painted, history and pinned alike: the effect writes
+     * them where the overlays are added rather than from the set it asked for, so a summary whose detail
+     * failed to load counts for nothing. The legend gate reads it (see [legendVisibleForState]).
+     */
+    paintedTrackIds: MutableState<Set<String>>,
     trackViewModel: ykws.android.maro.data.track.TrackViewModel
 ) {
     // ── Track overlay: incremental diff for history tracks with fading opacity ──
-    // Track the set of currently-rendered track IDs to avoid full teardown+rebuild.
-    val renderedTrackIds = remember { mutableStateOf(setOf<String>()) }
+    // What the loops below actually paint, published at the end of the pass: the legend gate asks this
+    // set rather than the selection policy, which is stateful and runs once, here.
+    val painted = mutableSetOf<String>()
 
     // Mode-aware rebuild keys (§3b): values the current mode does not read must not trigger a rebuild,
     // so a default-colour edit cannot rebuild a heat-mapped map. The count and both transparency
@@ -136,7 +142,6 @@ internal fun MapTrackOverlayHistoryDiff(
                 todayMidnightMs = midnightMs
             )
         } else emptyList()
-        val desiredIds = historyList.map { it.id }.toSet()
 
         // Remove all existing track history overlays + direction arrows — rebuild from scratch
         val toRemove = mv.overlays.filter { overlay ->
@@ -196,6 +201,9 @@ internal fun MapTrackOverlayHistoryDiff(
             }
 
             historyOverlays.add(trackOverlays)
+            // Only where a stroke actually landed: a single-point track emits no segment at all —
+            // splitTrackSegments returns none — so it must not count as a banded stroke on the map.
+            if (rendering.overlays.isNotEmpty()) painted.add(summary.id)
         }
         historyOverlays.reverse()
         for (trackOverlays in historyOverlays) {
@@ -256,6 +264,8 @@ internal fun MapTrackOverlayHistoryDiff(
             }
 
             pinnedOverlays.add(trackOverlays)
+            // Same rule as the history loop: no stroke, no paint to key the legend on.
+            if (rendering.overlays.isNotEmpty()) painted.add(summary.id)
         }
         pinnedOverlays.reverse()
         for (trackOverlays in pinnedOverlays) {
@@ -284,7 +294,7 @@ internal fun MapTrackOverlayHistoryDiff(
             mv.overlays.addAll(highlightedOverlays)
         }
 
-        renderedTrackIds.value = desiredIds
+        paintedTrackIds.value = painted.toSet()
         OverlayZOrder.reorder(mv)
         mv.invalidate()
     }
@@ -328,8 +338,8 @@ internal fun storedTrackFade(selected: Boolean, fade: Float): Float = if (select
  * The selected track's casing: the legacy `#CC000000` restored verbatim — black at 80 %, the dark
  * under-stroke the selection has always worn — at `track.width.selected.casing`, and that width is
  * the *line's*. Its chevrons take that colour and the width's rim: they are drawn at the coloured V's
- * own stroke, shifted outward by half this casing's excess over the chevron's tempered core — the core
- * the coloured V itself is drawn from (see `chevronCasingOffset`)
+ * own stroke, shifted outward by half this casing's excess over the line's own width — the very rim
+ * the line wears, and never the chevron's tempered core (see `chevronCasingOffset`)
  * rather than as a thicker stroke of the same V, on every path a selection can take: the banded path
  * resolves a band per anchor and the gold path resolves the gold, so both cross the resolver seam this
  * casing rides on.
@@ -404,21 +414,73 @@ internal fun selectionBandedAfterTap(current: Boolean?, mode: TrackRenderMode): 
     !(current ?: (mode == TrackRenderMode.HEATMAP))
 
 /**
- * Whether the speed legend belongs on the map. It follows the *focused track's* fill rather than the
- * mode and the eye alone: the scale is drawn when a track is selected **and** that selection is painted
- * from the ramp — `eyeOverride ?: (mode == TrackRenderMode.HEATMAP)`, the very rule [trackRenderPlan]
- * applies to the selected track. So a selection the eye has flipped to gold hides it, and so does no
- * selection at all, whatever the mode says: an untouched install with the tracks layer off draws no
- * banded stroke for a scale to key, and a persisted eye is a value about a selection, never one itself.
+ * Whether the speed legend belongs on the map. It keys banded strokes and nothing else, so it is drawn
+ * exactly while the map carries one — the mode with banded strokes painted on it, or the selection the
+ * eye has banded — and hidden everywhere else.
  *
- * [selected] is the focus the map actually draws, the tracks layer included — a highlighted track with
- * the layer on. Where no banded stroke reaches the map the legend would be a key to colours nobody sees.
+ * [storedOnMap] is that first half, and it leads the answer: the ids the effect actually painted,
+ * history and pinned alike, asked of the same planner the map renders by ([trackRenderPlan]), so the
+ * tracks layer being off, a painted set that is empty — count 0, or every summary's detail failed to
+ * load — or a set whose only banded candidate is a selection the eye has flipped gold all hide the
+ * scale whatever the mode says. Colours keeps it while nothing is selected, because the other tracks
+ * stay banded under it.
+ *
+ * [selectionOpen] and [eyeOverride] are the eye's own half: the value is about a selection, so it bands
+ * nothing while there is none, while a selection the eye has banded is the one banded stroke a mode
+ * that paints none can still put on the map.
  */
-internal fun legendVisibleFor(
+private fun legendVisibleFor(
     mode: TrackRenderMode,
-    selected: Boolean,
+    storedOnMap: Boolean,
+    selectionOpen: Boolean,
     eyeOverride: Boolean?
-): Boolean = selected && (eyeOverride ?: (mode == TrackRenderMode.HEATMAP))
+): Boolean = storedOnMap && (mode == TrackRenderMode.HEATMAP || (selectionOpen && eyeOverride == true))
+
+/**
+ * The same gate taken from the map's own state rather than from its parts, so the composition that
+ * asks it and the test that pins it call one entry point: [bandedStrokeOnMap] supplies `storedOnMap`,
+ * [highlightedTrackId]'s nullness supplies `selectionOpen`, and [legendVisibleFor] decides. The name
+ * says which of the two is which — this one reads state, the predicate above takes the decided parts —
+ * so a call site need not count arguments to tell them apart. A caller has no
+ * `storedOnMap`/`selectionOpen` pair to swap, which is the one pair a positional mirror of the
+ * predicate could not catch.
+ */
+internal fun legendVisibleForState(
+    paintedIds: Set<String>,
+    mode: TrackRenderMode,
+    highlightedTrackId: String?,
+    eyeOverride: Boolean?,
+    tracksVisible: Boolean
+): Boolean = legendVisibleFor(
+    mode = mode,
+    storedOnMap = bandedStrokeOnMap(
+        paintedIds = paintedIds,
+        mode = mode,
+        highlightedTrackId = highlightedTrackId,
+        eyeOverride = eyeOverride,
+        tracksVisible = tracksVisible
+    ),
+    selectionOpen = highlightedTrackId != null,
+    eyeOverride = eyeOverride
+)
+
+/**
+ * Whether the map carries a banded stroke right now — the legend gate's `storedOnMap` input, in one
+ * home so the composition that asks it and the test that pins it cannot drift apart. The tracks layer
+ * must be on and one of the ids the effect actually painted drawn from the ramp by the same planner
+ * the map renders by ([trackRenderPlan]): the layer off, an empty painted set — count 0, or every
+ * summary's detail failed to load — or a set whose only banded candidate is a selection the eye has
+ * flipped gold all answer false, whatever the mode says.
+ */
+internal fun bandedStrokeOnMap(
+    paintedIds: Set<String>,
+    mode: TrackRenderMode,
+    highlightedTrackId: String?,
+    eyeOverride: Boolean?,
+    tracksVisible: Boolean
+): Boolean = tracksVisible && paintedIds.any { id ->
+    trackRenderPlan(mode, id == highlightedTrackId, eyeOverride).path == TrackRenderPath.BANDED
+}
 
 /**
  * A stored track's strokes, beside the inputs its direction chevrons need: the appearance list of
@@ -436,7 +498,7 @@ private data class StoredTrackRendering(
      * belongs: every track that is not selected, and any path whose chevrons iterate an appearance
      * list instead of resolving one. The overlays themselves never carry it — it is the chevrons'
      * own input — and both halves of it reach them: its colour paints the dark V, and its width,
-     * read against the chevron's own core, sets how far outside the coloured V that dark V sits.
+     * read against the line's own width, sets how far outside the coloured V that dark V sits.
      */
     val chevronCasing: TrackPolylineAppearance? = null
 )

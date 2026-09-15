@@ -34,7 +34,7 @@ import ykws.android.maro.data.track.TrackRecorderUiState
  * A pulsing dot in the top-right quadrant indicates sub-state (recording vs idle).
  *
  * States:
- * - **OFF:** Not tracking. White background at dimmed alpha (like GPS DEMO). No dot.
+ * - **OFF:** Not tracking. White background at the shared disabled-toggle alpha (like GPS DEMO). No dot.
  * - **ON + moving:** Tracking and recording points. Green background, red pulsing dot.
  * - **ON + idle:** Tracking but stationary, not recording points. Blue background, red pulsing dot.
  */
@@ -53,7 +53,10 @@ fun TrackStatusIcon(
     when (recorderState.state) {
         TrackRecorderState.OFF -> {
             baseColor = Color(AppConfig.statusTrackingOff)
-            bgAlpha = AppConfig.statusTrackingAlphaDimmed
+            // The shared disabled weight, the same property the GPS DEMO and lock OFF boxes read and the
+            // legend's card paints. The 0.50 below dims the glyph alone: the whole-box `.alpha()` sits
+            // after `.background(...)`, so the fill composites at the property's value alone.
+            bgAlpha = AppConfig.buttonDisabledBackgroundAlpha
             contentAlpha = 0.50f
             showDot = false
             dotColor = Color.Transparent
@@ -87,7 +90,7 @@ fun TrackStatusIcon(
 
     Box(
         modifier = modifier
-            .size(44.dp)
+            .size(TOP_TOGGLE_SQUARE)
             .clip(RoundedCornerShape(8.dp))
             .background(baseColor.copy(alpha = bgAlpha))
             .clickable(onClick = onClick)

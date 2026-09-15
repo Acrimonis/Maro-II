@@ -22,6 +22,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -53,7 +54,8 @@ private const val LEGEND_SAMPLE_LABEL = "35"
  * on, is one. A speed outside that window is still painted on the line and simply absent from the
  * scale. The table *is* the specification: no mark is drawn inside the colour and no row is dropped, so
  * the labels carry position alone and two rows closer than a label box overlap rather than losing one
- * of their values. Visibility is the caller's decision: heatmap mode with a track selected.
+ * of their values. Visibility is the caller's decision: the map carrying a banded stroke, which is what
+ * [legendVisibleForState] asks.
  */
 @Composable
 internal fun TrackSpeedLegend(
@@ -64,20 +66,34 @@ internal fun TrackSpeedLegend(
 ) {
     val topKn = ticks.lastOrNull()?.positionKn ?: 0f
     if (ramp.families.isEmpty() || topKn - minKn <= 0f) return
-    // The zone info tiles' own text token, taken as that token rather than as a copied value, so a
-    // label and a tile's text stay in step through the palette.
-    val labelColor = ComposeColor(AppConfig.uiTextPrimary)
+    // The palette's own token for secondary information: the card is white at 25 %, so the primary
+    // white these labels wore is illegible now the scrim is gone, and this mid blue-grey reads over
+    // both bright water and dark.
+    val labelColor = ComposeColor(AppConfig.uiTextSecondary)
     val labelHalfHeight = rememberedLabelHalfHeightDp()
 
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
-            // The same token the map's zone info text uses, taken as that token so the two match by
-            // construction when the palette moves.
-            .background(ComposeColor(AppConfig.uiTextScrim))
-            .border(1.dp, ComposeColor(AppConfig.uiDividerColor), RoundedCornerShape(12.dp))
-            .padding(horizontal = 10.dp, vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            // 8 dp, the corner the row's own toggle buttons wear (MapControls.kt), so the strip reads as
+            // one of their squares rather than as a panel sitting beside them.
+            .clip(RoundedCornerShape(8.dp))
+            // What all three disabled toggles paint, from the one property that governs that weight:
+            // `AppConfig.buttonDisabledBackgroundAlpha`, read by the GPS DEMO (MapControls.kt), tracking
+            // OFF (TrackStatusIcon.kt) and lock OFF boxes too. The inactive token is copied at it rather
+            // than multiplied — copy(alpha = …) replaces the token's own 0x33 — and this card applies no
+            // box alpha of its own, so the property's value is the whole composite.
+            .background(
+                ComposeColor(AppConfig.semanticInactive).copy(alpha = AppConfig.buttonDisabledBackgroundAlpha)
+            )
+            .border(1.dp, ComposeColor(AppConfig.uiDividerColor), RoundedCornerShape(8.dp))
+            // Asymmetric on purpose: 6 dp on the start holds the bar on the button's left edge and the
+            // 2 dp end is slack, which hands the label box about 4 dp more room than the 6 dp a side the
+            // strip first shipped with. A raised font scale overflowing visibly is the design, and the
+            // label's size is the knob if that ever bites.
+            .padding(start = 6.dp, end = 2.dp, top = 8.dp, bottom = 8.dp),
+        // Start-aligned rather than centred: the caller gives the card one toggle button's width on the
+        // row's own gutter, so the bar sits on that gutter with the card's padding alone between them.
+        horizontalAlignment = Alignment.Start
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Canvas(modifier = Modifier.width(LEGEND_BAR_WIDTH).height(LEGEND_BAR_HEIGHT)) {
@@ -105,6 +121,12 @@ internal fun TrackSpeedLegend(
                         text = tick.label,
                         color = labelColor,
                         fontSize = LEGEND_LABEL_SIZE,
+                        // Bolder at the same size: a heavier stroke of the same colour reads stronger
+                        // over pale water, and the measurement is handed the same face so the bar's end
+                        // insets stay true to what is drawn.
+                        fontWeight = FontWeight.Bold,
+                        // One line, so a label that does not fit shows rather than wrapping.
+                        maxLines = 1,
                         modifier = Modifier.offset(
                             y = tickOffsetDp(
                                 kn = tick.positionKn,
@@ -124,13 +146,19 @@ internal fun TrackSpeedLegend(
 /**
  * Half the label's *real* line box at the current font scale (dp), measured rather than guessed. The
  * labels are centred on their rows by it, and it is the bar's own end inset, so the endmost labels are
- * drawn whole instead of clipped. The former floor under the measurement went with the label-drop rule
- * that consumed it; nothing here depends on a minimum gap any more.
+ * drawn whole instead of clipped. The style carries [FontWeight.Bold], the face the labels draw, so the
+ * box is the one actually used rather than the regular face's: bold shares the regular face's vertical
+ * metrics, but measuring the drawn face no longer rests on the two agreeing. The former floor under the
+ * measurement went with the label-drop rule that consumed it; nothing here depends on a minimum gap any
+ * more.
  */
 @Composable
 private fun rememberedLabelHalfHeightDp(): Dp = with(LocalDensity.current) {
     rememberTextMeasurer()
-        .measure(text = LEGEND_SAMPLE_LABEL, style = TextStyle(fontSize = LEGEND_LABEL_SIZE))
+        .measure(
+            text = LEGEND_SAMPLE_LABEL,
+            style = TextStyle(fontSize = LEGEND_LABEL_SIZE, fontWeight = FontWeight.Bold)
+        )
         .size.height
         .toDp() / 2f
 }

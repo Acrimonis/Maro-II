@@ -116,6 +116,7 @@ Affects right-edge control-stack buttons (settings gear, zoom +/−, layer toggl
 | `ui.button.icon` | `#E0E0E0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#E0E0E0;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Icon symbols (gear, +/−, layer glyphs, layer stripes) |
 | `ui.button.icon.active.alpha` | `1.0` | — | Icon opacity when toggle is ON |
 | `ui.button.icon.inactive.alpha` | `0.25` | — | Icon opacity when toggle is OFF |
+| `ui.button.disabled.background.alpha` | `0.33` | — | Background opacity of a disabled toggle (GPS DEMO, tracking OFF, lock OFF) and of the speed legend's card — one shared weight for all four |
 | `ui.button.badge.text` | `#E0E0E0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#E0E0E0;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Badge count text |
 | `ui.button.badge.active.alpha` | `1.0` | — | Badge opacity when enabled (≥1 active child) |
 | `ui.button.badge.inactive.alpha` | `0.25` | — | Badge opacity when disabled (0 active children) |
@@ -215,7 +216,7 @@ The hypsometric ramp interpolates between shallow (pale cyan) and deep (navy) en
 
 | State | Token | Default | Swatch | Alpha |
 |---|---|---|---|---|
-| DEMO | `status.gps.demo` | `#FFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | `status.gps.alpha.dimmed` = 0.50 |
+| DEMO | `status.gps.demo` | `#FFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | `ui.button.disabled.background.alpha` = 0.33 |
 | ACQUIRING | `status.gps.acquiring` | `#FFA726` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFA726;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | `status.gps.alpha.active` = 0.75 |
 | HEALTHY | `status.gps.healthy` | `${ui.dashboard.status.success}` = `#CC4CAF50` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#4CAF50;opacity:0.8;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | `status.gps.alpha.active` = 0.75 |
 | IDLE | `status.gps.idle` | `#1565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | `status.gps.alpha.active` = 0.75 |
@@ -224,7 +225,7 @@ The hypsometric ramp interpolates between shallow (pale cyan) and deep (navy) en
 | Alpha Token | Default | Usage |
 |---|---|---|
 | `status.gps.alpha.active` | `0.75` | GPS active states + Earth/Water active background |
-| `status.gps.alpha.dimmed` | `0.50` | GPS DEMO state + informational regulated zone icons |
+| `status.gps.alpha.dimmed` | `0.50` | Informational regulated zone icons — no toggle reads it any more |
 
 ### Earth/Water Icon
 
@@ -265,6 +266,7 @@ The settings card surfaces reuse the shared Main card / Inner card tokens (also 
 | `ui.text.primary` | `#FFFFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Section titles, sub-section headings, primary labels |
 | `ui.text.muted` | `#FFB0BEC5` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#B0BEC5;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Descriptive text, card descriptions (never headings) |
 | `ui.text.secondary` | `#FF78909C` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#78909C;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Tab inactive text, sub-section descriptions, secondary info |
+| `ui.text.scrim` | `#4D16213E` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#16213E;opacity:0.3;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Text scrim background for map overlay info text (deep navy @ 30%) |
 | `ui.footer.text` | `#FF546E7A` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#546E7A;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Version footer text |
 
 ### Interactive Elements

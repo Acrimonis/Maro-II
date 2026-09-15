@@ -41,6 +41,12 @@ import androidx.compose.ui.unit.sp
 internal enum class ControlId { SETTINGS, LAYER_FAN, ZOOM, MENU }
 
 /**
+ * Side (dp) of one square in the map's top-left toggle-button row — these buttons' own size, and the
+ * single home for it: the row's chrome in `MapScreen.kt` reads it for its inset arithmetic too.
+ */
+internal val TOP_TOGGLE_SQUARE = 44.dp
+
+/**
  * A 44×44 dp icon square representing either water (🌊) or earth (🏔️).
  *
  * No text caption — icon only. The background tint indicates whether this
@@ -56,7 +62,7 @@ internal fun EarthWaterIcon(
 ) {
     Box(
         modifier = modifier
-            .size(44.dp)
+            .size(TOP_TOGGLE_SQUARE)
             .clip(RoundedCornerShape(8.dp))
             .background(
                 if (isActive) activeColor.copy(alpha = AppConfig.statusGpsAlphaActive)
@@ -109,7 +115,11 @@ internal fun GpsStatusIcon(
     when (state) {
         GpsIconState.DEMO -> {
             baseColor = ComposeColor(AppConfig.statusGpsDemo)
-            bgAlpha = AppConfig.statusGpsAlphaDimmed
+            // The one disabled weight the tracking and lock toggles share and the legend's card paints.
+            // This state alphas its glyph alone (contentAlpha below), so the box carries no alpha of its
+            // own and `contentAlpha` never reaches the fill: a background's weight is its own alpha, and
+            // the fill therefore composites at the property's value alone while the glyph dims to 0.50.
+            bgAlpha = AppConfig.buttonDisabledBackgroundAlpha
             contentAlpha = 0.50f
         }
         GpsIconState.ACQUIRING -> { baseColor = ComposeColor(AppConfig.statusGpsAcquiring); bgAlpha = AppConfig.statusGpsAlphaActive; contentAlpha = 1f }
@@ -121,7 +131,7 @@ internal fun GpsStatusIcon(
     }
     Box(
         modifier = modifier
-            .size(44.dp)
+            .size(TOP_TOGGLE_SQUARE)
             .clip(RoundedCornerShape(8.dp))
             .background(baseColor.copy(alpha = bgAlpha))
             .clickable(onClick = onClick),
@@ -147,7 +157,7 @@ internal fun RecenterButton(
 ) {
     Box(
         modifier = modifier
-            .size(44.dp)
+            .size(TOP_TOGGLE_SQUARE)
             .clip(RoundedCornerShape(8.dp))
             .background(ComposeColor(0xFF2196F3).copy(alpha = 0.30f))
             .clickable(onClick = onClick),
@@ -172,12 +182,12 @@ internal fun LockScreenButton(
     modifier: Modifier = Modifier
 ) {
     val baseColor = if (locked) ComposeColor(AppConfig.statusLockOn) else ComposeColor(AppConfig.statusLockOff)
-    val bgAlpha = if (locked) AppConfig.statusLockAlphaActive else AppConfig.statusLockAlphaDimmed
+    val bgAlpha = if (locked) AppConfig.statusLockAlphaActive else AppConfig.buttonDisabledBackgroundAlpha
     val contentAlpha = if (locked) 1f else 0.50f
     val cd = stringResource(if (locked) R.string.cd_unlock_screen else R.string.cd_lock_screen)
     Box(
         modifier = modifier
-            .size(44.dp)
+            .size(TOP_TOGGLE_SQUARE)
             .clip(RoundedCornerShape(8.dp))
             .background(baseColor.copy(alpha = bgAlpha))
             .clickable(onClick = onClick)

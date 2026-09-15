@@ -124,8 +124,9 @@ private fun interpolatedSpeedKn(a: TrackPoint, b: TrackPoint, t: Float): Float {
  * that is wider than the knee draws arrows proportional to something nearer the thin end instead of
  * to its own full width. A factor of 1 is the identity, 0 pins every wide class to the knee.
  *
- * Only the chevron's three multiples read this: the line's own casing offset is the line's physical
- * rim and stays on the raw core.
+ * Only the chevron's three multiples read this: the chevron's own casing offset joined the raw-core
+ * side instead, reading the line's physical width, because the rim belongs to the selection rather
+ * than to the stroke it edges.
  */
 internal fun temperedCore(coreWidth: Float, knee: Float, temper: Float): Float =
     if (coreWidth <= knee) coreWidth else knee + (coreWidth - knee) * temper
@@ -150,21 +151,24 @@ internal fun chevronHalfWidth(chevronLength: Float): Float = chevronLength * 0.6
 internal fun chevronStrokeWidth(coreWidth: Float): Float = (coreWidth * 0.5f).coerceAtLeast(2f)
 
 /**
- * How far the dark casing chevron sits outside the coloured V: half the line's casing over the core —
- * `(casingWidth − coreWidth) / 2` — which is the rim the line itself wears under the very same rule.
+ * How far the dark casing chevron sits outside the coloured V: half the line's casing over the line's
+ * own width — `(casingWidth − coreWidth) / 2` — which is the rim the line itself wears under the very
+ * same rule.
  *
- * [coreWidth] is the *tempered* core the coloured chevron is drawn from ([temperedCore]), never the raw
- * width: the dark V and the coloured one share a stroke width, and the coloured stroke is itself read
- * from the tempered core, so a rim measured against the thicker raw core pulls the band inward — at the
- * file's 22-over-14 pair the raw-core offset lands the dark band's inner edge 0.5 px clear of the
- * coloured centreline where the tempered core's own rim clears it by 2. The tempered core is what keeps
- * the band on the coloured V's own metrics rather than nearer its centreline.
+ * [coreWidth] is the line's own width (`TrackPolylineAppearance.strokeWidth`), never the *tempered*
+ * core the coloured chevron's length and stroke are read from ([temperedCore]): the rim belongs to the
+ * selection and not to the stroke it edges, so the line and its arrowheads wear one weight and the
+ * offset is the very `(casing − core) / 2` the line's own casing uses. At the file's 22-over-14 pair
+ * that is 4 px, standing the dark band's inner edge 1 px clear of the coloured centreline — the coloured
+ * stroke is 6 px wide there, read from the tempered 12 px core — where a rim taken from that tempered
+ * core would be 5 px and clear it by 2. The coloured stroke itself is untouched by the reference: it
+ * stays the tempered core's own half, 6 px.
  *
- * Floored at zero, so a file that sets the casing no wider than the tempered core draws the dark exactly
- * under the coloured V rather than turning the two strokes inside out. A wider key is followed rather
- * than clamped: at 1.5 × the tempered core the dark band's inner edge reaches the coloured centreline,
- * past it that edge leaves the centreline — the shipped 22 over 12 clears it by 2 px — and past 2 × it
- * clears the coloured stroke altogether, opening a gap between rim and core.
+ * Floored at zero, so a file that sets the casing no wider than the line draws the dark exactly under
+ * the coloured V rather than turning the two strokes inside out. A wider key is followed rather than
+ * clamped: while `casingWidth − coreWidth` stays under the coloured stroke's own width the dark band's
+ * inner edge sits inside that stroke and is covered by it, at that width it reaches the stroke's outer
+ * edge, and past it the rim leaves the stroke behind and a gap opens between rim and core.
  */
 internal fun chevronCasingOffset(casingWidth: Float, coreWidth: Float): Float =
     ((casingWidth - coreWidth) * 0.5f).coerceAtLeast(0f)
@@ -195,13 +199,13 @@ internal const val CHEVRON_CAP_OVERLAP_PX = 0.5f
  * the rim shows outside the V alone. Every point of the dark V's path therefore lies outside the
  * coloured V, the two overlapping along the coloured stroke's outer edge down each arm — but at the
  * vertex the shipped offset has outgrown the coloured cap: the dark join's round cap sits
- * `apex shift − coloured stroke`, ~3.7 px, ahead of the coloured apex's own cap at the file's
- * 22-over-14 pair, and the band's inner-edge apex reaches ~3.9 px ahead of the coloured apex against
+ * `apex shift − coloured stroke`, ~1.8 px, ahead of the coloured apex's own cap at the file's
+ * 22-over-14 pair, and the band's inner-edge apex reaches ~1.8 px ahead of the coloured apex against
  * that cap's 3 px reach, so the dark vertex stands in front of the coloured tip with a hair of
  * background between them rather than tucked under it. That is the geometry the pair now draws, not an
- * artefact of the pass: the vertex reads as a nub at the shipped pair, and the casing pass drawing
- * first is what keeps the rest of the join — the overlap down each arm — under the coloured stroke.
- * No clipping, no path operation, nothing to mask.
+ * artefact of the pass: the vertex reads as a sliver at the shipped pair now that the offset reads the
+ * line's width, and the casing pass drawing first is what keeps the rest of the join — the overlap down
+ * each arm — under the coloured stroke. No clipping, no path operation, nothing to mask.
  */
 internal fun chevronV(
     offset: Float,
@@ -255,9 +259,9 @@ internal class TrackDirectionOverlay(
     /**
      * The selected track's casing: the dark under-shape drawn once beneath every chevron on the
      * resolver path, or null (the default) for none. Its colour is the dark the chevrons are painted
-     * in, and its width, read against the tempered core the chevron's metrics came from, is what sets
-     * how far out the dark V sits (see [chevronCasingOffset] and [chevronV]). A caller that passes none gets
-     * exactly the chevrons this overlay drew before the casing existed.
+     * in, and its width, read against the line's own width, is what sets how far out the dark V sits
+     * (see [chevronCasingOffset] and [chevronV]). A caller that passes none gets exactly the chevrons
+     * this overlay drew before the casing existed.
      */
     private val casingAppearance: TrackPolylineAppearance? = null,
     /**
@@ -396,7 +400,7 @@ internal class TrackDirectionOverlay(
         // The casing, when the caller passed one, is drawn here and only here: one pass over every
         // chevron before the coloured pass, so the dark sits beneath them all rather than under each
         // in turn. It is the *same V* shifted outward by the line's rim — half the line's casing over
-        // the tempered core the coloured V is read from — and drawn at the coloured stroke's own width,
+        // the line's own width — and drawn at the coloured stroke's own width,
         // not as a thicker stroke of that V:
         // a thicker stroke shows the rim on both sides of every arm, inside the notch as well as
         // outside it, while a shifted V shows it outside alone, the coloured V covering the overlap
@@ -408,9 +412,10 @@ internal class TrackDirectionOverlay(
         // tip rather than tucking it under.
         val casing = casingAppearance
         if (casing != null) {
-            // The offset is read from the tempered core, the one the coloured V's own metrics came from:
-            // the two strokes are one width, so any thicker reference would float the rim inward.
-            val offset = chevronCasingOffset(casing.strokeWidth, core)
+            // The offset is read from the line's own width, not the tempered core the coloured V's
+            // metrics came from: the rim belongs to the selection, so the line and its arrowheads wear
+            // one weight.
+            val offset = chevronCasingOffset(casing.strokeWidth, metrics.strokeWidth)
             val darkV = chevronV(offset, chevronLen, halfW, CHEVRON_CAP_OVERLAP_PX)
             forEachVisibleChevron(c, osmv, anchors) { _, x, y, bearing ->
                 drawChevron(c, x, y, bearing, darkV, strokeWidth, casing.argb)

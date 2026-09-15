@@ -135,67 +135,83 @@ class TrackRenderModePathTest {
         assertTrue(goldInColours.drawArrows)
     }
 
-    // ── The legend follows the focused track's fill ──────────────────────
+    // ── The legend keys banded strokes, and only them ────────────────────
 
     @Test
-    fun theLegendNeedsASelectionWhoseFillIsTheRamp() {
-        // No selection hides it, whatever the mode and the eye say: with nothing focused the map draws
-        // no banded stroke to key — a persisted eye is a value *about* a selection, never one itself,
-        // and Colours with the tracks layer off has no stored track left to band.
-        assertFalse(
+    fun theLegendNeedsABandedStrokeOnTheMap() {
+        // The caller's own gate: MapScreen's derived input and this call are the same entry point —
+        // legendVisibleForState over the raw state — so which input goes where cannot drift between
+        // them, and the banded-stroke derivation stays the one bandedStrokeOnMap makes.
+        fun gate(
+            mode: TrackRenderMode,
+            paintedIds: List<String>,
+            selectedId: String?,
+            eye: Boolean?,
+            tracksVisible: Boolean = true
+        ): Boolean = legendVisibleForState(
+            paintedIds = paintedIds.toSet(),
+            mode = mode,
+            highlightedTrackId = selectedId,
+            eyeOverride = eye,
+            tracksVisible = tracksVisible
+        )
+
+        // Colours bands every stored track, so the others keep the scale up under a selection the eye has
+        // flipped gold — and unselecting does not take it away either: it is the ramp on the map the
+        // scale keys, not the selection's own fill.
+        assertTrue(
+            "Colours, the eye's gold selection with the others still banded",
+            gate(TrackRenderMode.HEATMAP, listOf("a", "b"), selectedId = "a", eye = false)
+        )
+        assertTrue(
             "Colours with nothing selected",
-            legendVisibleFor(TrackRenderMode.HEATMAP, selected = false, eyeOverride = null)
-        )
-        assertFalse(
-            "a persisted eye with nothing selected",
-            legendVisibleFor(TrackRenderMode.HEATMAP, selected = false, eyeOverride = true)
-        )
-        assertFalse(
-            "Simple with nothing selected",
-            legendVisibleFor(TrackRenderMode.SIMPLE, selected = false, eyeOverride = true)
+            gate(TrackRenderMode.HEATMAP, listOf("a", "b"), selectedId = null, eye = null)
         )
 
-        // A selection the eye has flipped to gold hides it, in Colours too: the ramp is no longer what
-        // the focused track is drawn as, and it is that one track the scale is on the map for.
+        // The shipped bug: the eye flips the selection gold and it is the only track painted, so the map
+        // carries no banded stroke at all.
         assertFalse(
-            "a selection the eye has flipped to gold",
-            legendVisibleFor(TrackRenderMode.HEATMAP, selected = true, eyeOverride = false)
-        )
-        assertFalse(
-            "a gold selection in Dir & Speed",
-            legendVisibleFor(TrackRenderMode.DIR_SPEED, selected = true, eyeOverride = false)
+            "Colours, the eye's gold selection alone",
+            gate(TrackRenderMode.HEATMAP, listOf("a"), selectedId = "a", eye = false)
         )
 
-        // The eye banding a selection shows it, in both modes that do not band on their own.
+        // An empty painted set hides it in every mode — count 0, or every summary's detail failed to
+        // load — and so does the tracks layer being off, whatever else says otherwise.
+        assertFalse(
+            "Colours with nothing painted",
+            gate(TrackRenderMode.HEATMAP, emptyList(), selectedId = "a", eye = null)
+        )
+        // A selection the eye has banded hides too while it never landed a stroke: the eye bands a
+        // stroke that exists, and an empty painted set holds none.
+        assertFalse(
+            "Simple, the eye banding a selection that never landed a stroke",
+            gate(TrackRenderMode.SIMPLE, emptyList(), selectedId = "a", eye = true)
+        )
+        assertFalse(
+            "Colours with the tracks layer off",
+            gate(TrackRenderMode.HEATMAP, listOf("a"), selectedId = "a", eye = null, tracksVisible = false)
+        )
+
+        // The eye is the only thing banding in the other two modes, and a selection it has banded is a
+        // banded stroke on the map.
         assertTrue(
-            "the eye banding a selection in Simple",
-            legendVisibleFor(TrackRenderMode.SIMPLE, selected = true, eyeOverride = true)
+            "Simple, the eye banding the selection",
+            gate(TrackRenderMode.SIMPLE, listOf("a"), selectedId = "a", eye = true)
         )
         assertTrue(
-            "the eye banding a selection in Dir & Speed",
-            legendVisibleFor(TrackRenderMode.DIR_SPEED, selected = true, eyeOverride = true)
+            "Dir & Speed, the eye banding the selection",
+            gate(TrackRenderMode.DIR_SPEED, listOf("a"), selectedId = "a", eye = true)
         )
 
-        // Colours with a selection shows it: the mode's own answer, the eye untouched.
-        assertTrue(
-            "Colours with a selection",
-            legendVisibleFor(TrackRenderMode.HEATMAP, selected = true, eyeOverride = null)
+        // The value is about a selection, and there is none: a persisted eye bands nothing on its own.
+        assertFalse(
+            "Simple, the eye set with nothing selected",
+            gate(TrackRenderMode.SIMPLE, emptyList(), selectedId = null, eye = true)
         )
-    }
-
-    @Test
-    fun theLegendAgreesWithTheSelectedTracksOwnPath() {
-        // The gate is the selection's fill and nothing else, so it cannot drift from the path the
-        // selected track is actually drawn by — the ramp on the map is exactly a BANDED selection.
-        TrackRenderMode.entries.forEach { mode ->
-            listOf(null, true, false).forEach { eye ->
-                assertEquals(
-                    "$mode, eye=$eye",
-                    trackRenderPlan(mode, selected = true, eye).path == TrackRenderPath.BANDED,
-                    legendVisibleFor(mode, selected = true, eyeOverride = eye)
-                )
-            }
-        }
+        assertFalse(
+            "Dir & Speed, the eye set with nothing selected",
+            gate(TrackRenderMode.DIR_SPEED, emptyList(), selectedId = null, eye = true)
+        )
     }
 
     // ── The eye's persisted value: what a tap writes ─────────────────────

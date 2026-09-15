@@ -160,18 +160,20 @@ class TrackDirectionOverlayTest {
     fun theCasingArmRunsOutsideTheColouredOneAtTheRimThickness() {
         val core = AppConfig.trackWidthSelected
         val casing = AppConfig.trackWidthSelectedCasing
-        // The coloured V is drawn from the tempered core, so the rim is read against that same core —
-        // the two strokes are one width, and a rim measured off the raw core would sit further inward.
+        // The rim belongs to the selection rather than to the stroke it edges, so it is read against the
+        // line's own width — never against the tempered core the coloured V's metrics come from, which
+        // would float the band further out.
         val tempered = temperedCore(core, AppConfig.trackArrowScaleKnee, AppConfig.trackArrowTemper)
         val length = chevronLength(tempered, widestStoredTrackWidth())
         val halfW = chevronHalfWidth(length)
 
-        // The rim is the line's own, read from first principles rather than from the implementation's
-        // arithmetic: half the casing's excess over the tempered core.
-        val rim = (casing - tempered) / 2f
+        // Read from first principles rather than from the implementation's arithmetic: half the casing's
+        // excess over the line's own width.
+        val rim = (casing - core) / 2f
         assertEquals("the tempered core is the one the coloured V is drawn from", 12f, tempered, 0.001f)
-        assertEquals("half the casing's excess over the tempered core", 5f, rim, 0.001f)
-        assertEquals("the function agrees with that rim", rim, chevronCasingOffset(casing, tempered), 0.001f)
+        assertEquals("half the casing's excess over the line's own width", 4f, rim, 0.001f)
+        assertEquals("the function agrees with that rim", rim, chevronCasingOffset(casing, core), 0.001f)
+        assertEquals("the shipped 22-over-14 pair, by hand", 4f, chevronCasingOffset(22f, 14f), 0.001f)
         assertTrue("the dark V must sit outside the coloured one", rim > 0f)
 
         val coloured = chevronV(0f, length, halfW)
@@ -204,63 +206,75 @@ class TrackDirectionOverlayTest {
 
         // Both strokes are the same width, so the dark band runs from the coloured centreline outward
         // and never crosses to the inside of the V — the rim is outside by construction, and at the
-        // shipped pair the casing's excess over the tempered core leaves that inner edge 2 px clear of
+        // shipped pair the casing's excess over the line's own width leaves that inner edge 1 px clear of
         // the centreline, still inside the coloured stroke's own 3 px half-width and so covered by it.
         val innerEdge = rim - chevronStrokeWidth(tempered) / 2f
         assertTrue("the dark stroke's inner edge must never cross the coloured centreline", innerEdge >= 0f)
-        assertEquals("the inner edge clears the coloured centreline by 2 px at the shipped pair", 2f, innerEdge, 0.001f)
+        assertEquals("the inner edge clears the coloured centreline by 1 px at the shipped pair", 1f, innerEdge, 0.001f)
 
-        // A casing no wider than the tempered core pins the dark V exactly under the coloured one: no
-        // rim, and no inversion of the two strokes either.
-        assertEquals(0f, chevronCasingOffset(tempered, tempered), 0.001f)
-        assertEquals(0f, chevronCasingOffset(tempered, tempered + 10f), 0.001f)
+        // A casing no wider than the line pins the dark V exactly under the coloured one: no rim, and no
+        // inversion of the two strokes either.
+        assertEquals(0f, chevronCasingOffset(core, core), 0.001f)
+        assertEquals(0f, chevronCasingOffset(core, core + 10f), 0.001f)
         assertEquals("no rim means no wrapping", coloured, chevronV(0f, length, halfW, CHEVRON_CAP_OVERLAP_PX))
     }
 
     @Test
-    fun theRimIsMeasuredFromTheTemperedCoreHoweverTheKneeAndTemperMove() {
+    fun theRimIsMeasuredFromTheLinesWidthHoweverTheKneeAndTemperMove() {
         // The file's own selected pair and its knee and temper, as the draw path reads them: the casing
-        // is 22 over the *tempered* 12 px core, whose dark inner edge clears the coloured centreline by
-        // 2 px. Measured from the raw 14 px core of the same pair it clears by half a pixel instead —
-        // the band pulled 1.5 px inward, which is why the tempered core is the reference.
-        val rawCore = 14f
+        // is 22 over the line's 14 px width, whose dark inner edge clears the coloured centreline by
+        // 1 px — the coloured stroke being the tempered 12 px core's own half, 6 px. Read from that
+        // tempered core the band would be floated 1 px further out and clear it by 2, which is why the
+        // line's own width is the reference.
+        val line = 14f
         val casing = 22f
         val knee = 10f
         val temper = 0.5f
-        val innerEdgeOf = { core: Float ->
-            chevronCasingOffset(casing, core) - chevronStrokeWidth(core) / 2f
+        val colouredStroke = chevronStrokeWidth(temperedCore(line, knee, temper))
+        val innerEdgeOf = { reference: Float ->
+            chevronCasingOffset(casing, reference) - colouredStroke / 2f
         }
 
-        val tempered = temperedCore(rawCore, knee, temper)
+        val tempered = temperedCore(line, knee, temper)
         assertEquals("the file's pair tempers 14 down to 12", 12f, tempered, 0.001f)
         assertEquals(
-            "measured from the tempered core the inner edge clears the coloured centreline by 2 px",
+            "measured from the line's own width the inner edge clears the coloured centreline by 1 px",
+            1f,
+            innerEdgeOf(line),
+            0.001f
+        )
+        assertEquals(
+            "the tempered core instead floats the band's inner edge 1 px further out",
             2f,
             innerEdgeOf(tempered),
             0.001f
         )
-        assertEquals(
-            "the raw core pulls the band's inner edge 1.5 px nearer that centreline",
-            0.5f,
-            innerEdgeOf(rawCore),
-            0.001f
-        )
         assertTrue(
-            "the raw core's band sits the nearer of the two to the coloured centreline",
-            innerEdgeOf(rawCore) < innerEdgeOf(tempered)
+            "the line's own width keeps the band the nearer of the two to the coloured centreline",
+            innerEdgeOf(line) < innerEdgeOf(tempered)
         )
 
-        // Every knee and temper moves that core, and the rim moves with it: the offset is read from the
-        // core the coloured V is drawn from, so a casing at 1.5 × the tempered core keeps the inner edge
-        // on the centreline at every setting rather than inside it. The tempered core never falls below
-        // the smaller of the knee and the raw core, so the chevron stroke's 2 px floor cannot bite here.
+        // The knee and the temper move the coloured core, and the coloured stroke with it, never the rim:
+        // that reads the line's own width alone, so one casing keeps one offset whatever the two settings
+        // are set to, and it is the coloured stroke that decides how near the coloured centreline the dark
+        // band's inner edge falls. The tempered core never rises above the line's own width, so reading it
+        // instead can only float the rim outward.
         listOf(4f, 8f, 14f, 24f).forEach { core ->
             listOf(4f, 10f, 20f).forEach { knee ->
                 listOf(0f, 0.25f, 0.5f, 1f).forEach { temper ->
-                    val t = temperedCore(core, knee, temper)
-                    val innerEdge = chevronCasingOffset(t * 1.5f, t) - chevronStrokeWidth(t) / 2f
+                    val rimFromTheLine = chevronCasingOffset(casing, core)
+                    val rimFromTheTemperedCore = chevronCasingOffset(casing, temperedCore(core, knee, temper))
 
-                    assertEquals("core=$core knee=$knee temper=$temper", 0f, innerEdge, 0.001f)
+                    assertEquals(
+                        "core=$core knee=$knee temper=$temper: half the casing's excess over the line's width",
+                        (casing - core).coerceAtLeast(0f) / 2f,
+                        rimFromTheLine,
+                        0.001f
+                    )
+                    assertTrue(
+                        "core=$core knee=$knee temper=$temper: the tempered core instead never pulls the rim inward",
+                        rimFromTheTemperedCore >= rimFromTheLine
+                    )
                 }
             }
         }

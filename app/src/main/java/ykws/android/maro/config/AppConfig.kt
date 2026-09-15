@@ -59,6 +59,12 @@ object AppConfig {
     var buttonActionIconInactiveAlpha: Float = 0.25f
         private set
 
+    /** Background alpha (0.0–1.0) every disabled toggle paints — GPS DEMO, tracking OFF and lock OFF —
+     *  and the speed legend's card shares, so the four surfaces read one weight. Default 0.33.
+     *  Set via `ui.button.disabled.background.alpha` in colors.properties. */
+    var buttonDisabledBackgroundAlpha: Float = 0.33f
+        private set
+
     /** ARGB colour for badge count text.
      *  Default #E0E0E0. Set via `ui.button.badge.text` in colors.properties. */
     var uiButtonBadgeText: Int = 0xFFE0E0E0.toInt()
@@ -136,10 +142,10 @@ object AppConfig {
     /** Stroke width (px) of the dark casing drawn beneath the selected track's core — 4 px a side
      *  over the shipped 14 px core, the legacy pair's own rim thickness, with the casing still
      *  standing wider than the core it sits under.
-     *  The key sets two things: the line's casing takes this width whole, while a selection's
-     *  chevrons take half its excess over the tempered core as the outward offset of their dark V
-     *  from the coloured one — 5 px at the shipped pair, which clears the coloured centreline by
-     *  2 px. Default 22. Set via `track.width.selected.casing`. */
+     *  The key sets two things, and both are that same rim: the line's casing takes this width whole,
+     *  while a selection's chevrons take half its excess over the line's own width as the outward
+     *  offset of their dark V from the coloured one — 4 px at the shipped pair, which clears the
+     *  coloured centreline by 1 px. Default 22. Set via `track.width.selected.casing`. */
     var trackWidthSelectedCasing: Float = 22f
         private set
 
@@ -384,7 +390,9 @@ object AppConfig {
     /** GPS icon active-state background alpha (0.0–1.0). Default 0.75. Set via `status.gps.alpha.active` in colors.properties. */
     var statusGpsAlphaActive: Float = 0.75f
         private set
-    /** GPS icon dimmed-state background alpha (0.0–1.0). Default 0.50. Set via `status.gps.alpha.dimmed` in colors.properties. */
+    /** Background alpha (0.0–1.0) for informational regulated-zone icons, this key's only reader.
+     *  Default 0.50. Set via `status.gps.alpha.dimmed` in colors.properties; the disabled toggles
+     *  read `buttonDisabledBackgroundAlpha` instead. */
     var statusGpsAlphaDimmed: Float = 0.50f
         private set
 
@@ -407,9 +415,6 @@ object AppConfig {
     /** Screen-lock icon active-state background alpha (0.0–1.0). Default 0.75. Set via `status.lock.alpha.active` in colors.properties. */
     var statusLockAlphaActive: Float = 0.75f
         private set
-    /** Screen-lock icon dimmed-state background alpha (0.0–1.0). Default 0.50. Set via `status.lock.alpha.dimmed` in colors.properties. */
-    var statusLockAlphaDimmed: Float = 0.50f
-        private set
 
     /** Tracking icon HEALTHY state (ON + moving, recording) colour. Default #CC4CAF50. Set via `status.tracking.healthy` in colors.properties. */
     var statusTrackingHealthy: Int = 0xCC4CAF50.toInt()
@@ -428,9 +433,6 @@ object AppConfig {
         private set
     /** Tracking icon active-state background alpha (0.0–1.0). Default 0.75. Set via `status.tracking.alpha.active` in colors.properties. */
     var statusTrackingAlphaActive: Float = 0.75f
-        private set
-    /** Tracking icon dimmed-state background alpha (0.0–1.0). Default 0.50. Set via `status.tracking.alpha.dimmed` in colors.properties. */
-    var statusTrackingAlphaDimmed: Float = 0.50f
         private set
 
     // ── Dashboard depth readout tints ─────────────────────────────────────────
@@ -460,7 +462,7 @@ object AppConfig {
     /** Settings panel slider value readout colour. Default #FF48a7f5. Set via `ui.value.text` in colors.properties. */
     var uiValueText: Int = 0xFF48a7f5.toInt()
         private set
-    /** Scrim background for map overlay info text. Default #80000000 (black 50%). Set via `ui.text.scrim` in colors.properties. */
+    /** Scrim background for map overlay info text. Default #4D16213E (deep navy 30%). Set via `ui.text.scrim` in colors.properties. */
     var uiTextScrim: Int = 0x4D16213E.toInt()
         private set
     /** Settings panel card background. Default #33FFFFFF (20% white). Set via `ui.card.background` in colors.properties. */
@@ -895,6 +897,7 @@ object AppConfig {
             props.getProperty("ui.button.badge.text")?.let { parseColorOrNull(it) }?.let { uiButtonBadgeText = it }
             props.getProperty("ui.button.badge.active.alpha")?.toFloatOrNull()?.let { buttonBadgeActiveAlpha = it.coerceIn(0f, 1f) }
             props.getProperty("ui.button.badge.inactive.alpha")?.toFloatOrNull()?.let { buttonBadgeInactiveAlpha = it.coerceIn(0f, 1f) }
+            props.getProperty("ui.button.disabled.background.alpha")?.toFloatOrNull()?.let { buttonDisabledBackgroundAlpha = it.coerceIn(0f, 1f) }
 
             // ── Semantic colours ──────────────────────────────────────────────────
             props.getProperty("semantic.danger")?.let { parseColorOrNull(it) }?.let { semanticDanger = it }
@@ -971,7 +974,6 @@ object AppConfig {
             props.getProperty("status.tracking.dot.recording")?.let { parseColorOrNull(it) }?.let { statusTrackingDotRecording = it }
             props.getProperty("status.tracking.dot.idle")?.let { parseColorOrNull(it) }?.let { statusTrackingDotIdle = it }
             props.getProperty("status.tracking.alpha.active")?.toFloatOrNull()?.let { statusTrackingAlphaActive = it.coerceIn(0f, 1f) }
-            props.getProperty("status.tracking.alpha.dimmed")?.toFloatOrNull()?.let { statusTrackingAlphaDimmed = it.coerceIn(0f, 1f) }
 
             props.getProperty("status.earthWater.water")?.let { parseColorOrNull(it) }?.let { statusEarthWaterWater = it }
             props.getProperty("status.earthWater.land")?.let { parseColorOrNull(it) }?.let { statusEarthWaterLand = it }
@@ -980,7 +982,6 @@ object AppConfig {
             props.getProperty("status.lock.off")?.let { parseColorOrNull(it) }?.let { statusLockOff = it }
             props.getProperty("status.lock.on")?.let { parseColorOrNull(it) }?.let { statusLockOn = it }
             props.getProperty("status.lock.alpha.active")?.toFloatOrNull()?.let { statusLockAlphaActive = it.coerceIn(0f, 1f) }
-            props.getProperty("status.lock.alpha.dimmed")?.toFloatOrNull()?.let { statusLockAlphaDimmed = it.coerceIn(0f, 1f) }
 
             // ── Dashboard depth readout tints ─────────────────────────────────
             props.getProperty("ui.dashboard.readout.collision")?.let { parseColorOrNull(it) }?.let { uiDashboardReadoutCollision = it }

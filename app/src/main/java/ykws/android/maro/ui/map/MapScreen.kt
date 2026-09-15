@@ -93,6 +93,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -206,18 +207,18 @@ private const val GPS_ANIMATION_DURATION_MS = 600L
 /** Right-edge control column width (12 gap + 64 button + 6 end). Paint-only reserve for transient overlays; the map itself is never padded by this. */
 internal val RIGHT_CONTROL_COLUMN_INSET = 82.dp
 
-/** Height (dp) of the map's top-left toggle-button row — the 44 dp icon squares the chrome stacks on. */
-private val TOP_TOGGLE_ROW_HEIGHT = 44.dp
-/** Gutter (dp) between the toggle row and whatever map chrome stacks below it. */
-private val TOP_TOGGLE_ROW_GAP = 8.dp
+/** Gutter (dp) between two of those squares — the row's start inset too, and the legend's with it. */
+private val TOP_TOGGLE_GUTTER = 6.dp
+/** Height (dp) of the map's top-left toggle-button row — the icon squares the chrome stacks on. */
+private val TOP_TOGGLE_ROW_HEIGHT = TOP_TOGGLE_SQUARE
 /** How much tighter (dp) the status-bar inset is taken in portrait than in landscape. */
 private val PORTRAIT_CHROME_TIGHTENING = 6.dp
 
 /**
  * Top of the map's chrome (dp): the status bar's inset in full in landscape, pulled
- * [PORTRAIT_CHROME_TIGHTENING] tighter in portrait. The toggle row starts here and anything stacking
- * below it adds [TOP_TOGGLE_ROW_HEIGHT] and [TOP_TOGGLE_ROW_GAP] — one home for that arithmetic, so
- * the row and the chrome under it cannot drift apart.
+ * [PORTRAIT_CHROME_TIGHTENING] tighter in portrait. The toggle row starts here, and the chrome that
+ * stacks below it adds [TOP_TOGGLE_ROW_HEIGHT] plus its own gap — [legendTopOffset] takes the row's
+ * own [TOP_TOGGLE_GUTTER], since the strip sits as far below the row as its buttons do from each other.
  */
 @Composable
 private fun chromeTopInset(isLandscape: Boolean): Dp = with(LocalDensity.current) {
@@ -226,11 +227,13 @@ private fun chromeTopInset(isLandscape: Boolean): Dp = with(LocalDensity.current
 }
 
 /**
- * The legend's own top offset (dp): the chrome inset, the toggle row it sits under, and one gap.
- * Both orientations share [chromeTopInset] — the landscape split only pads the *start* of the map
- * column — so the legend clears the row by exactly [TOP_TOGGLE_ROW_GAP] in either one.
+ * The legend's own top offset (dp): the chrome inset, the toggle row it sits under, and the row's own
+ * gutter. The strip must sit as far below the row as the row's buttons sit from each other, so the gap
+ * is [TOP_TOGGLE_GUTTER] rather than one of its own. Both orientations share [chromeTopInset] — the
+ * landscape split only pads the *start* of the map column — so the legend clears the row by exactly
+ * that gutter in either one.
  */
-private fun legendTopOffset(chromeTop: Dp): Dp = chromeTop + TOP_TOGGLE_ROW_HEIGHT + TOP_TOGGLE_ROW_GAP
+private fun legendTopOffset(chromeTop: Dp): Dp = chromeTop + TOP_TOGGLE_ROW_HEIGHT + TOP_TOGGLE_GUTTER
 
 /** Computed polyline rendering appearance: ARGB color + stroke width. */
 data class TrackPolylineAppearance(val argb: Int, val strokeWidth: Float)
@@ -934,6 +937,9 @@ fun MapScreen(
     )
 
     // ── History/pinned track overlay diff (extracted to MapTrackOverlayEffects) ──
+    // The ids that effect actually painted — history and pinned — read by the legend gate below rather
+    // than recomputed there: the effect alone knows which summaries settled into an overlay.
+    val paintedTrackIds = remember { mutableStateOf(setOf<String>()) }
     MapTrackOverlayHistoryDiff(
         mapView = mapView,
         showSettings = showSettings,
@@ -943,6 +949,7 @@ fun MapScreen(
         allTrackSummaries = allTrackSummaries,
         focus = trackViewModel.renderFocus,
         appSettings = appSettings,
+        paintedTrackIds = paintedTrackIds,
         trackViewModel = trackViewModel
     )
 
@@ -1377,20 +1384,33 @@ fun MapScreen(
             }
 
             // ── Speed legend (Compose chrome, the map's top-left) ──
-            // Drawn while the focused track's fill is the ramp: a selection the eye has banded, or one
-            // the mode leaves banded. The gate reads the focus the map actually draws — a highlighted
-            // track with the tracks layer on — so neither a persisted eye with nothing selected nor
-            // Colours with the layer off keys colours nobody can see. Anchored below the top-left
-            // toggle-button row on that row's own 6 dp gutter — itself offset by the landscape
+            // Drawn while the map carries a banded stroke: Colours paints every stored track from the
+            // ramp and the eye bands the selection in the other two modes. So the gate reads the ids the
+            // track effect actually painted — unselecting leaves the scale up in Colours, and a painted
+            // set holding no banded stroke takes it down — asking the same planner the map renders by
+            // for each of them. The selection policy is never rerun here: the effect owns it, and
+            // recomputing it inside composition would repeat a stateful mutation. Anchored below the
+            // top-left toggle-button row on that row's own 6 dp gutter — itself offset by the landscape
             // dashboard when there is one — and drawn as Compose chrome rather than an osmdroid
             // overlay, so no polyline can ever paint over it.
-            if (
-                legendVisibleFor(
-                    mode = appSettings.trackRenderMode,
-                    selected = highlightedTrackId != null && appSettings.tracksVisible,
-                    eyeOverride = appSettings.trackSelectionBanded
-                )
-            ) {
+            // The gate's input, derived rather than read in this scope: the painted set moves without the
+            // boolean moving, so only a change of the boolean re-reads this body. Keyed on the settings
+            // object, whose fields are plain values no recomposition alone can invalidate.
+            val legendVisible by remember(appSettings) {
+                derivedStateOf {
+                    legendVisibleForState(
+                        paintedIds = paintedTrackIds.value,
+                        mode = appSettings.trackRenderMode,
+                        highlightedTrackId = highlightedTrackId,
+                        eyeOverride = appSettings.trackSelectionBanded,
+                        tracksVisible = appSettings.tracksVisible
+                    )
+                }
+            }
+            if (legendVisible) {
+                // The strip is one toggle button wide and its left edge is the row's own gutter, so its
+                // two vertical edges are the leftmost button's two edges, with the recenter button never
+                // entering the arithmetic. Its 6 dp *start* padding insets the bar from that edge.
                 TrackSpeedLegend(
                     ramp = AppConfig.trackHeatmapRamp,
                     ticks = AppConfig.trackHeatmapScaleTicks,
@@ -1398,9 +1418,10 @@ fun MapScreen(
                     modifier = Modifier
                         .align(Alignment.TopStart)
                         .padding(
-                            start = (if (isLandscape) landscapeDashboardWidth else 0.dp) + 6.dp,
+                            start = (if (isLandscape) landscapeDashboardWidth else 0.dp) + TOP_TOGGLE_GUTTER,
                             top = legendTopOffset(chromeTopInset(isLandscape))
                         )
+                        .width(TOP_TOGGLE_SQUARE)
                 )
             }
 
@@ -2118,7 +2139,10 @@ fun MapScreen(
                     onClick = onToggleScreenLock,
                     modifier = Modifier
                         .align(Alignment.TopStart)
-                        .padding(top = lockTopInset, start = 6.dp + (44.dp + 6.dp) * 3)
+                        .padding(
+                            top = lockTopInset,
+                            start = TOP_TOGGLE_GUTTER + (TOP_TOGGLE_SQUARE + TOP_TOGGLE_GUTTER) * 3
+                        )
                 )
                 ZoomControls(
                     onZoomIn = {
@@ -2348,8 +2372,8 @@ private fun MapContent(
                 // top zone: Earth, Track, GPS, Recenter (statusBars minus 6dp)
                 Row(
                     modifier = Modifier
-                        .padding(top = topInset, start = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        .padding(top = topInset, start = TOP_TOGGLE_GUTTER),
+                    horizontalArrangement = Arrangement.spacedBy(TOP_TOGGLE_GUTTER),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     GpsStatusIcon(
