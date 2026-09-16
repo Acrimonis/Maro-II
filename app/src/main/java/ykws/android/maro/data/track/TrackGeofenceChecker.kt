@@ -1,28 +1,19 @@
 package ykws.android.maro.data.track
 
-import kotlin.math.atan2
-import kotlin.math.cos
-import kotlin.math.sin
-import kotlin.math.sqrt
+import ykws.android.maro.data.model.LatLng
+import ykws.android.maro.spatial.SpatialOperations
 
 /**
- * Pure-function geofence checker using Haversine distance.
+ * Pure-function geofence checker. Its distance comes from [SpatialOperations.haversine] — the app's
+ * single haversine implementation — so this object keeps no second copy of the formula.
  */
 object TrackGeofenceChecker {
-
-    private const val EARTH_RADIUS_M = 6_371_000.0
 
     /**
      * Haversine distance between two WGS84 points in metres.
      */
-    fun distanceM(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
-        val dLat = Math.toRadians(lat2 - lat1)
-        val dLon = Math.toRadians(lon2 - lon1)
-        val a = sin(dLat / 2.0).let { it * it } +
-                cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) *
-                sin(dLon / 2.0).let { it * it }
-        return EARTH_RADIUS_M * 2.0 * atan2(sqrt(a), sqrt(1.0 - a))
-    }
+    fun distanceM(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double =
+        SpatialOperations.haversine(LatLng(lat1, lon1), LatLng(lat2, lon2))
 
     /**
      * Returns true when [posLat]/[posLon] is within [radiusM] of [originLat]/[originLon].

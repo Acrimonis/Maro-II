@@ -1,6 +1,7 @@
 
 package ykws.android.maro.ui.map
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.config.TrackRenderMode
 import ykws.android.maro.data.track.TrackRecordingService
 import ykws.android.maro.data.model.matchesFilter
 import ykws.android.maro.data.track.toGpx
@@ -92,6 +93,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -204,6 +206,37 @@ private const val GPS_ANIMATION_DURATION_MS = 600L
 
 /** Right-edge control column width (12 gap + 64 button + 6 end). Paint-only reserve for transient overlays; the map itself is never padded by this. */
 internal val RIGHT_CONTROL_COLUMN_INSET = 82.dp
+
+/** Gutter (dp) between two of those squares — the row's start inset too, and the legend's, the
+ *  regulated-zone column's and the bottom-left strip's with it. Read from the palette's
+ *  `ui.map.toggle.gutter` (default 6 dp) — the one reader of that key. */
+internal val TOP_TOGGLE_GUTTER: Dp get() = AppConfig.uiMapToggleGutter.dp
+/** Height (dp) of the map's top-left toggle-button row — the icon squares the chrome stacks on,
+ *  so it is `ui.map.toggle.square` itself. */
+private val TOP_TOGGLE_ROW_HEIGHT: Dp get() = TOP_TOGGLE_SQUARE
+/** How much tighter (dp) the status-bar inset is taken in portrait than in landscape. */
+private val PORTRAIT_CHROME_TIGHTENING = 6.dp
+
+/**
+ * Top of the map's chrome (dp): the status bar's inset in full in landscape, pulled
+ * [PORTRAIT_CHROME_TIGHTENING] tighter in portrait. The toggle row starts here, and the chrome that
+ * stacks below it adds [TOP_TOGGLE_ROW_HEIGHT] plus its own gap — [legendTopOffset] takes the row's
+ * own [TOP_TOGGLE_GUTTER], since the strip sits as far below the row as its buttons do from each other.
+ */
+@Composable
+private fun chromeTopInset(isLandscape: Boolean): Dp = with(LocalDensity.current) {
+    val statusBar = WindowInsets.statusBars.getTop(this).toDp()
+    if (isLandscape) statusBar else (statusBar - PORTRAIT_CHROME_TIGHTENING).coerceAtLeast(0.dp)
+}
+
+/**
+ * The legend's own top offset (dp): the chrome inset, the toggle row it sits under, and the row's own
+ * gutter. The strip must sit as far below the row as the row's buttons sit from each other, so the gap
+ * is [TOP_TOGGLE_GUTTER] rather than one of its own. Both orientations share [chromeTopInset] — the
+ * landscape split only pads the *start* of the map column — so the legend clears the row by exactly
+ * that gutter in either one.
+ */
+private fun legendTopOffset(chromeTop: Dp): Dp = chromeTop + TOP_TOGGLE_ROW_HEIGHT + TOP_TOGGLE_GUTTER
 
 /** Computed polyline rendering appearance: ARGB color + stroke width. */
 data class TrackPolylineAppearance(val argb: Int, val strokeWidth: Float)
@@ -330,6 +363,26 @@ internal fun SnackRow(
  * @param colorTo end color (0xRRGGBB, no alpha) for oldest track.
  * @param strokeWidth polyline stroke width in px (default 6f).
  */
+/**
+ * The track's own fade value as an alpha fraction (D8) — the index-over-total reading between the
+ * two transparency ranges that the appearance factory has always taken, extracted so the banded path
+ * reuses it instead of re-deriving it. A history track fades newest to oldest, a pinned one across
+ * its own range, and both multiply the ramp's core alpha on the banded path.
+ */
+internal fun trackFadeAlpha(
+    index: Int,
+    total: Int,
+    transparencyNewest: Int,
+    transparencyOldest: Int
+): Float {
+    val newest = minOf(transparencyNewest, transparencyOldest)
+    val oldest = maxOf(transparencyNewest, transparencyOldest)
+    val alphaNewest = (100 - newest) / 100f   // newest (index 0) -> lower transparency = higher alpha
+    val alphaOldest = (100 - oldest) / 100f   // oldest -> higher transparency = lower alpha
+    val t = if (total <= 1) 0f else index.toFloat() / (total - 1).toFloat()
+    return (alphaNewest - t * (alphaNewest - alphaOldest)).coerceIn(0f, 1f)
+}
+
 internal fun computeTrackPolylineAppearance(
     index: Int,
     total: Int,
@@ -339,13 +392,9 @@ internal fun computeTrackPolylineAppearance(
     colorTo: Int,
     strokeWidth: Float = 6f
 ): TrackPolylineAppearance {
-    val newest = minOf(transparencyNewest, transparencyOldest)
-    val oldest = maxOf(transparencyNewest, transparencyOldest)
-    val alphaNewest = (100 - newest) / 100f   // newest (index 0) -> lower transparency = higher alpha
-    val alphaOldest = (100 - oldest) / 100f   // oldest -> higher transparency = lower alpha
     val t = if (total <= 1) 0f else index.toFloat() / (total - 1).toFloat()
-    val alphaFraction = alphaNewest - t * (alphaNewest - alphaOldest)
-    val alphaInt = (alphaFraction * 255).toInt().coerceIn(0, 255)
+    val alphaInt = (trackFadeAlpha(index, total, transparencyNewest, transparencyOldest) * 255)
+        .toInt().coerceIn(0, 255)
 
     val r = ((colorFrom shr 16 and 0xFF) * (1f - t) + (colorTo shr 16 and 0xFF) * t).toInt().coerceIn(0, 255)
     val g = ((colorFrom shr 8 and 0xFF) * (1f - t) + (colorTo shr 8 and 0xFF) * t).toInt().coerceIn(0, 255)
@@ -418,6 +467,14 @@ fun MapScreen(
 
     // ── Click-N-Move state ─────────────────────────────────────────────
     var highlightedTrackId by remember { mutableStateOf<String?>(null) }
+
+    // ── Selected-track rendering override ──────────────────────────────
+    // The mode itself is stored state (`appSettings.trackRenderMode`), written by the menu's Tracks
+    // rendering switch, so the map only reads it. The drawer eye's own value (D10) is stored beside it
+    // in `appSettings.trackSelectionBanded`, on the selection rather than on any track id: null means
+    // the eye has never been tapped and the selection mirrors the mode, true bands that one track,
+    // false paints it gold. The first tap writes it and from then on it is the user's own value, so it
+    // outlives the session; it moves that track's fill alone, since the arrows follow the mode.
     var preNavigationState by remember { mutableStateOf<PreNavigationState?>(null) }
     var trackNavigateState by remember { mutableStateOf<TrackNavigateState?>(null) }
     var trackDrawerState by remember { mutableStateOf(TrackDrawerState()) }
@@ -816,7 +873,7 @@ fun MapScreen(
                                     val solid = org.osmdroid.views.overlay.Polyline().apply {
                                         title = "track_recording"
                                         outlinePaint.color = appSettings.trackingColorActive
-                                        outlinePaint.strokeWidth = 10f
+                                        outlinePaint.strokeWidth = AppConfig.trackWidthLive
                                         setPoints(solidPts)
                                     }
                                     mv.overlays.add(solid)
@@ -832,7 +889,7 @@ fun MapScreen(
                             val gap = org.osmdroid.views.overlay.Polyline().apply {
                                 title = "track_recording"
                                 outlinePaint.color = appSettings.trackingColorActive
-                                outlinePaint.strokeWidth = 10f
+                                outlinePaint.strokeWidth = AppConfig.trackWidthLive
                                 outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(20f, 10f), 0f)
                                 setPoints(gapPts)
                             }
@@ -849,7 +906,7 @@ fun MapScreen(
                             val finalSolid = org.osmdroid.views.overlay.Polyline().apply {
                                 title = "track_recording"
                                 outlinePaint.color = appSettings.trackingColorActive
-                                outlinePaint.strokeWidth = 10f
+                                outlinePaint.strokeWidth = AppConfig.trackWidthLive
                                 setPoints(finalPts)
                             }
                             mv.overlays.add(finalSolid)
@@ -883,13 +940,19 @@ fun MapScreen(
     )
 
     // ── History/pinned track overlay diff (extracted to MapTrackOverlayEffects) ──
+    // The ids that effect actually painted — history and pinned — read by the legend gate below rather
+    // than recomputed there: the effect alone knows which summaries settled into an overlay.
+    val paintedTrackIds = remember { mutableStateOf(setOf<String>()) }
     MapTrackOverlayHistoryDiff(
         mapView = mapView,
         showSettings = showSettings,
         highlightedTrackId = highlightedTrackId,
+        renderMode = appSettings.trackRenderMode,
+        eyeOverride = appSettings.trackSelectionBanded,
         allTrackSummaries = allTrackSummaries,
         focus = trackViewModel.renderFocus,
         appSettings = appSettings,
+        paintedTrackIds = paintedTrackIds,
         trackViewModel = trackViewModel
     )
 
@@ -1323,6 +1386,76 @@ fun MapScreen(
                 )
             }
 
+            // ── Speed legend (Compose chrome, the map's top-left) ──
+            // Drawn while the map carries a banded stroke: Colours paints every stored track from the
+            // ramp and the eye bands the selection in the other two modes. So the gate reads the ids the
+            // track effect actually painted — unselecting leaves the scale up in Colours, and a painted
+            // set holding no banded stroke takes it down — asking the same planner the map renders by
+            // for each of them. The selection policy is never rerun here: the effect owns it, and
+            // recomputing it inside composition would repeat a stateful mutation. Anchored below the
+            // top-left toggle-button row on that row's own 6 dp gutter — itself offset by the landscape
+            // dashboard when there is one — and drawn as Compose chrome rather than an osmdroid
+            // overlay, so no polyline can ever paint over it.
+            // The gate's input, derived rather than read in this scope: the painted set moves without the
+            // boolean moving, so only a change of the boolean re-reads this body. Keyed on the settings
+            // object, whose fields are plain values no recomposition alone can invalidate.
+            val legendVisible by remember(appSettings) {
+                derivedStateOf {
+                    legendVisibleForState(
+                        paintedIds = paintedTrackIds.value,
+                        mode = appSettings.trackRenderMode,
+                        highlightedTrackId = highlightedTrackId,
+                        eyeOverride = appSettings.trackSelectionBanded,
+                        tracksVisible = appSettings.tracksVisible
+                    )
+                }
+            }
+            if (legendVisible) {
+                // D1–D3, D6: one control, two faces, one anchor. The gate above keeps deciding whether the
+                // control exists at all — it is untouched by this toggle — while the persisted flag decides
+                // only which face it wears, so the card is on screen while the scale is expanded and the
+                // row's own square while it is collapsed: never both at once, and the square carries no
+                // active styling because "active" is this very card. The two arms share one anchor value
+                // and differ only in the width the card asserts over the square's own size.
+                val legendAnchor = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(
+                        start = (if (isLandscape) landscapeDashboardWidth else 0.dp) + TOP_TOGGLE_GUTTER,
+                        top = legendTopOffset(chromeTopInset(isLandscape))
+                    )
+                if (appSettings.trackLegendExpanded) {
+                    // The strip is one toggle button wide and its left edge is the row's own gutter, so its
+                    // two vertical edges are the leftmost button's two edges, with the recenter button never
+                    // entering the arithmetic. Its 6 dp *start* padding insets the bar from that edge.
+                    TrackSpeedLegend(
+                        ramp = AppConfig.trackHeatmapRamp,
+                        ticks = AppConfig.trackHeatmapScaleTicks,
+                        minKn = AppConfig.trackHeatmapScaleMinKn,
+                        onToggle = { viewModel.updateSettings { it.copy(trackLegendExpanded = false) } },
+                        modifier = legendAnchor.width(TOP_TOGGLE_SQUARE)
+                    )
+                } else {
+                    // The shared anchor, its own size being the card's width: the square lands on the GPS
+                    // square's left edge with the row's own 6 dp gap below it. It is the shared square read
+                    // directly — no `LegendToggleButton` of its own — with the surface's inactive face:
+                    // "active" is the card itself being on screen, so the two faces never appear together,
+                    // and the square types neither a fill nor a corner. The glyph is the stopwatch a
+                    // tachymeter is engraved on, `\u23F1\uFE0F`: U+23F1 is Emoji_Presentation=No, so the
+                    // selector is what asks for the colour emoji the row's four glyphs wear.
+                    MapToggleSquare(
+                        face = mapSurfaceFaceInactive(),
+                        onClick = { viewModel.updateSettings { it.copy(trackLegendExpanded = true) } },
+                        contentDescription = stringResource(R.string.cd_expand_speed_scale),
+                        modifier = legendAnchor
+                    ) {
+                        Text(
+                            text = "\u23F1\uFE0F",
+                            fontSize = TOP_TOGGLE_ICON_SIZE
+                        )
+                    }
+                }
+            }
+
             // ── Marker overlays (OSMdroid native, via LaunchedEffect) ─────
             if (markerLayerVisible) {
                 val matchResult by markersViewModel.matchResult.collectAsState()
@@ -1578,7 +1711,7 @@ fun MapScreen(
                 autoShowMasterOverride = appSettings.autoShowMasterOverride,
                 gpsToggleColor = gpsToggleColor,
                 markerZonesVisible = appSettings.markerZonesVisible,
-                tracksDirectionVisible = appSettings.tracksDirectionVisible,
+                trackRenderMode = appSettings.trackRenderMode,
                 firstTrackId = firstTrackId,
                 firstMarkerId = firstMarkerId,
                 trackMapFilterState = appSettings.trackMapFilter,
@@ -1593,8 +1726,10 @@ fun MapScreen(
                 viewModel.updateSettings { it.copy(markerZonesVisible = !appSettings.markerZonesVisible) }
                 mapView?.invalidate()
             },
-            onToggleTracksDirection = {
-                viewModel.updateSettings { it.copy(tracksDirectionVisible = !appSettings.tracksDirectionVisible) }
+            onRenderModeChange = { newMode ->
+                // D3: one stored mode, written by this switch only; the map reads it and the eye's own
+                // override never touches it.
+                viewModel.updateSettings { it.copy(trackRenderMode = newMode) }
                 mapView?.invalidate()
             },
             onTrackAction = { action ->
@@ -1710,6 +1845,23 @@ fun MapScreen(
                 trackInfoDrawerData = trackDrawerState.track,
                 trackListIds = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id },
                 currentTrackIndex = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id }.indexOf(trackDrawerState.track?.id ?: "").coerceAtLeast(0),
+                renderMode = appSettings.trackRenderMode,
+                eyeOverride = appSettings.trackSelectionBanded,
+                onToggleEyeOverride = {
+                    // D10: the eye moves the selected track's fill alone, never the mode every other
+                    // track renders by. From Simple it turns the ramp on and from Colours it turns it
+                    // off, and from the first tap on the value is its own: the mode stops reaching it.
+                    // The tap's algebra lives in `selectionBandedAfterTap`, where it is unit-tested.
+                    viewModel.updateSettings {
+                        it.copy(
+                            trackSelectionBanded = selectionBandedAfterTap(
+                                appSettings.trackSelectionBanded,
+                                appSettings.trackRenderMode
+                            )
+                        )
+                    }
+                    mapView?.invalidate()
+                },
             ),
             onTrackDrawerClose = closeTrackDrawer,
             onNavigateToTrack = { id -> openTrackDetail(id) },
@@ -1990,10 +2142,7 @@ fun MapScreen(
         //     The scrim consumes every pointer event so nothing below it (map,
         //     dashboard, drawers, controls) receives touch while locked. The
         //     duplicate button sits above the scrim so the lock can be toggled off.
-        val lockTopInset = with(LocalDensity.current) {
-            val raw = WindowInsets.statusBars.getTop(this).toDp()
-            if (isLandscape) raw else (raw - 6.dp).coerceAtLeast(0.dp)
-        }
+        val lockTopInset = chromeTopInset(isLandscape)
         if (screenLocked) {
             LockScrim(
                 onInterceptedTap = {
@@ -2021,7 +2170,10 @@ fun MapScreen(
                     onClick = onToggleScreenLock,
                     modifier = Modifier
                         .align(Alignment.TopStart)
-                        .padding(top = lockTopInset, start = 6.dp + (44.dp + 6.dp) * 3)
+                        .padding(
+                            top = lockTopInset,
+                            start = TOP_TOGGLE_GUTTER + (TOP_TOGGLE_SQUARE + TOP_TOGGLE_GUTTER) * 3
+                        )
                 )
                 ZoomControls(
                     onZoomIn = {
@@ -2137,12 +2289,10 @@ private fun MapContent(
     mapCenterOffsetDp: Dp = 0.dp,
 ) {
     Box(modifier = modifier.clipToBounds()) {
-        // ── Compute top inset: full statusBars in landscape, -6dp in portrait ──
+        // ── Top inset: one home for the arithmetic, so the toggle row, the lock button and the
+        // legend all start from the same place. ──
         val density = LocalDensity.current
-        val topInset = with(density) {
-            val raw = WindowInsets.statusBars.getTop(this).toDp()
-            if (isLandscape) raw else (raw - 6.dp).coerceAtLeast(0.dp)
-        }
+        val topInset = chromeTopInset(isLandscape)
         val centerOffsetYPx = with(density) { mapCenterOffsetDp.roundToPx() }
 
         // Memoize per state instance so panning (which does not change state) keeps a
@@ -2253,8 +2403,8 @@ private fun MapContent(
                 // top zone: Earth, Track, GPS, Recenter (statusBars minus 6dp)
                 Row(
                     modifier = Modifier
-                        .padding(top = topInset, start = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        .padding(top = topInset, start = TOP_TOGGLE_GUTTER),
+                    horizontalArrangement = Arrangement.spacedBy(TOP_TOGGLE_GUTTER),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     GpsStatusIcon(
@@ -2270,9 +2420,7 @@ private fun MapContent(
                     )
                     EarthWaterIcon(
                         emoji = if (isWater) "🌊" else "🏔️",
-                        isActive = true,
-                        activeColor = if (isWater) ComposeColor(AppConfig.statusEarthWaterWater) else ComposeColor(AppConfig.statusEarthWaterLand),
-                        contentDescription = if (isWater) stringResource(R.string.side_water) else stringResource(R.string.side_land),
+                        color = if (isWater) ComposeColor(AppConfig.statusEarthWaterWater) else ComposeColor(AppConfig.statusEarthWaterLand),
                     )
                     LockScreenButton(
                         locked = screenLocked,
@@ -2287,20 +2435,20 @@ private fun MapContent(
                 Spacer(modifier = Modifier.weight(1f))
 
                 // btm zone: tags + txt + overlays
-                // In landscape, clear the nav bar; in portrait, match cb's 6dp gap.
+                // In landscape, clear the nav bar; in portrait, match the row's own `ui.map.toggle.gutter`.
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .then(
                             if (isLandscape) Modifier.windowInsetsPadding(WindowInsets.navigationBars)
-                            else Modifier.padding(bottom = 6.dp)
+                            else Modifier.padding(bottom = TOP_TOGGLE_GUTTER)
                         )
                 ) {
                     // Behind layer: regulated zone icons + info text
                     Row(
                         modifier = Modifier
                             .align(Alignment.BottomStart)
-                            .padding(start = 6.dp)
+                            .padding(start = TOP_TOGGLE_GUTTER)
                     ) {
                         RegulatedZoneWarningStrip(
                             regulatedZones = visibleRegulatedZones,
@@ -2315,7 +2463,7 @@ private fun MapContent(
                                 inZone300 = inZone300,
                                 modifier = Modifier
                                     .weight(1f)
-                                    .padding(start = 4.dp)
+                                    .padding(start = AppConfig.uiMapOverlayGap.dp)
                                     .align(Alignment.Bottom)
                             )
                         }

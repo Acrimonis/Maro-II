@@ -1,5 +1,7 @@
 @echo off
 REM Maro II APK Deploy: sync D:\.src\.data -> data\app-assets, build, push.
+REM RC carries the first non-zero child exit code, so a failed push cannot report as success.
+set "RC=0"
 echo.
 echo  /====================================================\
 echo  ^|           Maro II - APK Deploy Tool                 ^|
@@ -19,18 +21,23 @@ echo  [1/3] Building APK...
 call "%~dp0apk-build.bat"
 if errorlevel 1 (
     echo  [ERROR] Build failed.
+    set "RC=1"
     goto :end
 )
 echo  [OK] Build succeeded.
 
 echo  [2/3] Pushing APK to device...
 call "%~dp0apk-push.bat"
+REM Capture the push result before _timestamp.bat runs: its trailing `set` clears errorlevel.
+set "PUSH_RC=%ERRORLEVEL%"
 call "%~dp0_timestamp.bat"
-if errorlevel 1 (
+if not "%PUSH_RC%"=="0" (
     echo  Maro II - Deploy FAILED. [%TS%]
+    set "RC=%PUSH_RC%"
 ) else (
     echo  Maro II - Deploy completed successfully. [%TS%]
 )
 
 :end
 echo ======================================
+exit /b %RC%

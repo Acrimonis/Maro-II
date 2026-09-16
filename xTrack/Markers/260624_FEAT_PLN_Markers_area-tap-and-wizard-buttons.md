@@ -126,7 +126,7 @@ No user-facing configuration exists.
 ### Design
 
 Add a collapsible **"Markers"** section in the main Settings page, following the
-same pattern as BoatTrace's Tracking section (`SectionHeader` + expandable card).
+same pattern as the Tracks feature's Tracking section (`SectionHeader` + expandable card).
 
 | Setting | Default | `colors.properties` token |
 |---|---|---|

@@ -7,7 +7,7 @@ The three-branch integration into `feature/mergitur` is COMPLETE, baked and read
 - `xTrack/Mergitur/260911_FEAT_PLN_Mergitur_three-branch-integration.md` — authority plan v3 with `## Outcome`
 - `app/src/main/java/ykws/android/maro/data/track/TrackViewModel.kt` — resume/backup re-seated onto TI's `renderFocus`; KDoc corrected
 - `app/src/main/java/ykws/android/maro/ui/map/MapTrackOverlayEffects.kt` — TR's live-track exclusion now feeding `TrackSelectionPolicy`
-- `xTrack/BoatTrace/260911_FEAT_PLN_BoatTrace_resume-confirm-backup.md` — amendment recording the accepted visibility change
+- `xTrack/Tracks/260911_FEAT_PLN_Tracks_resume-confirm-backup.md` — amendment recording the accepted visibility change
 
 ## Next Step
 Commit the 1 ms twin-ordering nudge (`TrackViewModel.duplicateTrack` + `MapSelectionPolicyTest`), then push `feature/mergitur` and open the PR to `develop` with the per-hop SHAs in the body, then device smoke test the confirm dialog, resume-with-backup, live polyline and map visibility/selection. Watch the consumer side of B1: the copy still consumes a display slot while it exists, but it can no longer take the tie from its original.

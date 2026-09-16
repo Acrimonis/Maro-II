@@ -6,12 +6,9 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -22,21 +19,22 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.track.TrackRecorderState
 import ykws.android.maro.data.track.TrackRecorderUiState
 
 /**
- * Tracking status icon — matches [GpsStatusIcon] and [EarthWaterIcon] styling.
+ * Tracking status icon — one of the row's squares, painted by [MapToggleSquare] on the shared
+ * [MapSurface].
  *
- * 44×44 dp rounded square with 🐾 paw-prints emoji, colored background per state.
- * A pulsing dot in the top-right quadrant indicates sub-state (recording vs idle).
+ * 44×44 dp rounded square with 🐾 paw-prints emoji, coloured background per state. A pulsing dot in the
+ * top-right quadrant indicates sub-state (recording vs idle); the dot is this control's own and is not the
+ * surface's business.
  *
- * States:
- * - **OFF:** Not tracking. White background at dimmed alpha (like GPS DEMO). No dot.
- * - **ON + moving:** Tracking and recording points. Green background, red pulsing dot.
- * - **ON + idle:** Tracking but stationary, not recording points. Blue background, red pulsing dot.
+ * States, one resolved [MapSurfaceFace] each:
+ * - **OFF:** the shared inactive face — the fill painted whole, the glyph alone dimmed. No dot.
+ * - **ON + moving:** `status.tracking.healthy` green at the shared active alpha, red pulsing dot.
+ * - **ON + idle:** `status.tracking.idle` blue at the shared active alpha, red pulsing dot.
  */
 @Composable
 fun TrackStatusIcon(
@@ -44,33 +42,20 @@ fun TrackStatusIcon(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val baseColor: Color
-    val bgAlpha: Float
-    val contentAlpha: Float
-    val showDot: Boolean
-    val dotColor: Color
-
-    when (recorderState.state) {
-        TrackRecorderState.OFF -> {
-            baseColor = Color(AppConfig.statusTrackingOff)
-            bgAlpha = AppConfig.statusTrackingAlphaDimmed
-            contentAlpha = 0.50f
-            showDot = false
-            dotColor = Color.Transparent
-        }
-        TrackRecorderState.ON -> {
-            baseColor = if (recorderState.isMoving)
-                Color(AppConfig.statusTrackingHealthy)
-            else
-                Color(AppConfig.statusTrackingIdle)
-            bgAlpha = AppConfig.statusTrackingAlphaActive
-            contentAlpha = 1f
-            showDot = true
-            dotColor = if (recorderState.isMoving)
-                Color(AppConfig.statusTrackingDotRecording)
-            else
-                Color(AppConfig.statusTrackingDotIdle)
-        }
+    val face = when (recorderState.state) {
+        TrackRecorderState.OFF -> mapSurfaceFaceInactive()
+        TrackRecorderState.ON -> mapSurfaceFaceActive(
+            Color(
+                if (recorderState.isMoving) AppConfig.statusTrackingHealthy
+                else AppConfig.statusTrackingIdle
+            )
+        )
+    }
+    val showDot = recorderState.state == TrackRecorderState.ON
+    val dotColor = when {
+        !showDot -> Color.Transparent
+        recorderState.isMoving -> Color(AppConfig.statusTrackingDotRecording)
+        else -> Color(AppConfig.statusTrackingDotIdle)
     }
 
     // Pulsing animation for the dot
@@ -85,28 +70,22 @@ fun TrackStatusIcon(
         label = "trackDotAlpha"
     )
 
-    Box(
-        modifier = modifier
-            .size(44.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(baseColor.copy(alpha = bgAlpha))
-            .clickable(onClick = onClick)
-            .alpha(contentAlpha),
-        contentAlignment = Alignment.Center
-    ) {
+    MapToggleSquare(face = face, onClick = onClick, modifier = modifier) {
         Text(
             text = "\uD83D\uDC3E", // 🐾 paw prints
-            fontSize = 22.sp,
+            fontSize = TOP_TOGGLE_ICON_SIZE,
             fontWeight = FontWeight.Bold
         )
 
-        // Pulsing dot centered in top-right quadrant (22×22dp area, 16dp circle)
+        // Pulsing dot, top-right of the square. MapToggleSquare sizes this content box to the padded
+        // area, so TopEnd here is the square's own corner inset by `ui.map.surface.padding` (6 dp) on
+        // both axes — the same 10 dp dot at the same 6 dp inset the pre-surface version drew, and now by
+        // construction rather than because the paw's measured box happened to be the padded 32 dp.
         if (showDot) {
             Box(
                 modifier = Modifier
-                    .size(16.dp)
+                    .size(10.dp)
                     .align(Alignment.TopEnd)
-                    .padding(top = 6.dp, end = 6.dp)
                     .alpha(dotAlpha)
                     .clip(CircleShape)
                     .background(dotColor)

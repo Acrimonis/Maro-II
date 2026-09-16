@@ -3,6 +3,8 @@
 
 Convenience wrappers over standard git. **🔴 See [`docs/GIT_WORKFLOW.md`](GIT_WORKFLOW.md) for the Hard Rule — `#merge`/`#push`/`#commit` refuse on `develop`/`main`.**
 
+A git `#`-command **is** its own go-ahead: the invocation authorises the operation, so the agent executes it — never re-confirmed as a permission question, never handed back for the user to run. `#commit` / `#push` / `#merge` / `#cherry` confirm only the action's scope; `#new` / `#move` / `#move new` / `#rename` ask nothing.
+
   #new [branch_name]       fetch `origin/develop`, checkout `-b feature/[branch_name]` tracking it.
   #commit             git add -A && git commit. Offers a bake first when the active feature's
                       state moved since its last bake. Always asks before committing

@@ -117,8 +117,9 @@ class NavigationViewModel(
     /** Initial settings snapshot — used to seed StateFlow initial values. */
     private val initialAppSettings: AppSettings = settingsManager.settings.value
 
-    /** Reactive settings StateFlow — bridged to [SettingsManager.settings] after init. */
-    val settings: StateFlow<AppSettings> = MutableStateFlow(AppSettings())
+    /** Reactive settings StateFlow — seeded from the snapshot above, so the first composition already
+     *  reads the persisted values, then bridged to [SettingsManager.settings] after init. */
+    val settings: StateFlow<AppSettings> = MutableStateFlow(initialAppSettings)
 
     /** Initialise the cache directory and load coastline via cache-aside pattern. */
     fun initCache(context: Context) {

@@ -33,7 +33,7 @@
 | **DepthMapping** | `data/depth/`, `data/depth/raster/`, `spatial/`, `ui/map/DepthViewModel.kt`, `ui/map/DepthBitmap.kt` |
 | **Coastline** | `data/coastline/`, `spatial/CoastlineSpatialIndex.kt` |
 | **RegulatedZones** | `data/regulation/`, `spatial/SpeedZoneIndex.kt`, `ui/map/RegulatedZoneComponents.kt` |
-| **BoatTrace** | `data/track/`, `ui/map/TrackHistoryOverlay.kt`, `ui/map/TrackStatusIcon.kt` |
+| **Tracks** | `data/track/`, `ui/map/TrackHistoryOverlay.kt`, `ui/map/TrackStatusIcon.kt` |
 | **Markers** | `data/markers/`, `data/model/markers/`, `spatial/MarkerMatcher.kt`, `ui/map/MarkerOverlay.kt`, `ui/map/MarkerDrawer.kt`, `ui/map/MarkersViewModel.kt`, `ui/markers/wizard/` |
 | **Zone300** | `spatial/Zone300Builder.kt`, `spatial/CoastlineSpatialIndex.kt`, `data/model/Zone300Data.kt` |
 | **GPS** | `data/location/`, `config/AppConfig.kt` (GPS tuning constants) |

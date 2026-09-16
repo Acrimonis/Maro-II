@@ -24,8 +24,8 @@
 **Why it is a defect:** the field is a **dead remnant with no owner and no lifecycle**:
 
 - nothing in the current code writes `false`; every writer sets `true` (`TrackRecorder.kt:1082`, `TrackMerger.kt:147`, `TrackRecordingService.kt:335`);
-- there is **no UI toggle now** — but there *was*: `branch_history.txt:127-128` shows the eye toggle, and §1.4 of `xTrack/BoatTrace/FEAT_DOC_BoatTrace_decisions.md` documents it as the "hide individual tracks" feature;
-- it was **superseded but never removed** — `xTrack/BoatTrace/260622_FEAT_PLN_BoatTrace_pinned-tracks.md:68` ("replace with `pinned`"); `pinned` shipped, the flag and its gate stayed;
+- there is **no UI toggle now** — but there *was*: `branch_history.txt:127-128` shows the eye toggle, and §1.4 of `xTrack/Tracks/FEAT_DOC_Tracks_decisions.md` documents it as the "hide individual tracks" feature;
+- it was **superseded but never removed** — `xTrack/Tracks/260622_FEAT_PLN_Tracks_pinned-tracks.md:68` ("replace with `pinned`"); `pinned` shipped, the flag and its gate stayed;
 - a `false` reaching the app from legacy/imported data **silently suppresses rendering** with no user-recoverable path.
 
 **Principle:** visibility is a **projection** — a pure function of track data + filters + view state. It must not be persisted on the entity. Hiding a track is a **filter-layer** concern, not a property of the track.
@@ -176,7 +176,7 @@ Cross-checked against the whole repo (`visibleOnMap` appears in 8 production fil
 - **R4 — "No import special-casing" corrected**: import still marks the id as session-recent; only **persisted** special-casing disappears.
 - **R6 — Boost rules**: bounded, ephemeral (cleared on process death), never overrides the layer toggles (`tracksVisible`, `markerLayerState`).
 - **R7 — Menu counter**: track badge becomes `!isLive && matchesFilter(...)`; marker badge untouched. Supersedes the `Ui_General/260909` hidden-exclusion note.
-- **R8 — Doc hygiene**: supersede §1.4 of `FEAT_DOC_BoatTrace_decisions.md` with filter-scope wording + pointer here; leave historical plans untouched.
+- **R8 — Doc hygiene**: supersede §1.4 of `FEAT_DOC_Tracks_decisions.md` with filter-scope wording + pointer here; leave historical plans untouched.
 - **R9 — Cheap staging**: Stage 0 exists as a one-line symptom fix.
 
 ---

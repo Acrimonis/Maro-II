@@ -2,8 +2,8 @@
 # Ui_Menu — Architectural Decisions
 
 ## 1. Feature Scope
-- **Decision:** Extract menu drawer concerns into a dedicated `Ui_Menu` feature rather than scattering across BoatTrace/Ui_General/UI_Map.
-- **Rationale:** `MenuDrawerOverlay` was originally created by BoatTrace, modified by Ui_General (tweak-drawer, filter-everywhere), and hosted by UI_Map (OverlayLayer). Centralizing ownership prevents multi-feature conflicts and gives the drawer a clear home.
+- **Decision:** Extract menu drawer concerns into a dedicated `Ui_Menu` feature rather than scattering across Tracks/Ui_General/UI_Map.
+- **Rationale:** `MenuDrawerOverlay` was originally created by Tracks, modified by Ui_General (tweak-drawer, filter-everywhere), and hosted by UI_Map (OverlayLayer). Centralizing ownership prevents multi-feature conflicts and gives the drawer a clear home.
 - **Source:** `GLOBAL_CONTEXT.md` routing map, `xTrack/Ui_Menu/FEAT_DSC_Ui_Menu.md`
 
 ## 2. Marker Zones Toggle — Placement

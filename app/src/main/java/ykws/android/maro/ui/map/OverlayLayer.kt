@@ -46,12 +46,14 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.config.TrackRenderMode
 import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.depth.RasterCache
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.ui.components.DrawerScaffold
 import ykws.android.maro.ui.components.MeasureHeight
+import ykws.android.maro.ui.icons.Visibility
 
 /** Returns the step sequence for the given marker type (mirror of VM method for UI use). */
 private fun stepSequenceFor(type: MarkerType): List<WizardStep> = when (type) {
@@ -108,7 +110,8 @@ fun OverlayLayer(
     onGpsModeChange: (Boolean) -> Unit,
     onAutoShowMasterChange: (Boolean) -> Unit = {},
     onToggleMarkerZones: () -> Unit = {},
-    onToggleTracksDirection: () -> Unit = {},
+    /** The menu's Tracks rendering switch (D5): the one writer of the stored mode. */
+    onRenderModeChange: (TrackRenderMode) -> Unit = {},
 
     // ── Track history data ───────────────────────────────────────────────
     onTrackAction: (ykws.android.maro.data.model.ListAction) -> Unit,
@@ -175,7 +178,7 @@ fun OverlayLayer(
     val autoShowMasterOverride = menu.autoShowMasterOverride
     val gpsToggleColor = menu.gpsToggleColor
     val markerZonesVisible = menu.markerZonesVisible
-    val tracksDirectionVisible = menu.tracksDirectionVisible
+    val trackRenderMode = menu.trackRenderMode
     val firstTrackId = menu.firstTrackId
     val firstMarkerId = menu.firstMarkerId
     val trackMapFilterState = menu.trackMapFilterState
@@ -191,6 +194,26 @@ fun OverlayLayer(
     val trackInfoDrawerData = trackInfo.trackInfoDrawerData
     val trackListIds = trackInfo.trackListIds
     val currentTrackIndex = trackInfo.currentTrackIndex
+    val renderMode = trackInfo.renderMode
+    val eyeOverride = trackInfo.eyeOverride
+    val onToggleEyeOverride = trackInfo.onToggleEyeOverride
+
+    // ── Opened track's accent bar ────────────────────────────────────────
+    // Identity, not selection (A9): the accent is the track's own resolved render colour — the one
+    // the list shows and an unselected map line paints — clamped to full opacity because the bar sits
+    // on a card rather than blending over water. The list derives its accent from pinned/history
+    // splits, a recency sort and a render cap; the drawer holds only a flat, uncapped index, so the
+    // shared helper takes the already-resolved colour rather than recomputing one from other inputs.
+    val trackAccent = ComposeColor(
+        computeTrackPolylineAppearance(
+            index = currentTrackIndex.coerceAtLeast(0),
+            total = trackListIds.size,
+            transparencyNewest = appSettings.trackingTransparencyNewest,
+            transparencyOldest = appSettings.trackingTransparencyOldest,
+            colorFrom = appSettings.trackingColorPastFrom,
+            colorTo = appSettings.trackingColorPastTo
+        ).argb or 0xFF000000.toInt()
+    )
     val trackSortState = trackList.trackSortState
     val trackFilterState = trackList.trackFilterState
     val trackListState = trackList.trackListState
@@ -349,8 +372,8 @@ fun OverlayLayer(
                 markerFilterAxes = ykws.android.maro.data.model.markerFilterAxes(),
                 markerZonesVisible = markerZonesVisible,
                 onToggleMarkerZones = onToggleMarkerZones,
-                tracksDirectionVisible = tracksDirectionVisible,
-                onToggleTracksDirection = onToggleTracksDirection,
+                trackRenderMode = trackRenderMode,
+                onRenderModeChange = onRenderModeChange,
                 onImportTracks = { onDismissMenu(); onTrackAction(ykws.android.maro.data.model.ListAction.ImportTracks) },
                 onExportAllTracks = { onDismissMenu(); onTrackAction(ykws.android.maro.data.model.ListAction.BatchExportGpx(trackSummaries.map { it.id }.toSet())) }
             )
@@ -463,11 +486,12 @@ fun OverlayLayer(
                         contentPadding = PaddingValues(start = 12.dp, end = 12.dp),
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(bottomStart = 16.dp),
                         headerActions = {
-                            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                                IconButton(onClick = { onDeleteTrack(track.id) }, modifier = Modifier.size(36.dp)) {
-                                    Icon(Icons.Filled.Delete, "Delete", tint = ButtonColors.icon, modifier = Modifier.size(24.dp))
-                                }
-                            }
+                            TrackDrawerHeaderActions(
+                                bandedOn = eyeOverride
+                                    ?: (renderMode == TrackRenderMode.HEATMAP),
+                                onToggleEyeOverride = onToggleEyeOverride,
+                                onDelete = { onDeleteTrack(track.id) }
+                            )
                         },
                         footer = {
                             if (trackListIds.size > 1) {
@@ -496,7 +520,7 @@ fun OverlayLayer(
                         TrackCardContent(
                             summary = summary,
                             dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US),
-                            accentColor = ComposeColor(0xFFFFD700.toInt()),
+                            accentColor = trackAccent,
                             onUpdateTrack = { id, name, comment, pinned ->
                                 pinned?.let { trackViewModel.setPinned(id, it) }
                                 if (name != null || comment != null) trackViewModel.updateTrack(id, name, comment)
@@ -556,11 +580,12 @@ fun OverlayLayer(
                         contentPadding = PaddingValues(start = 12.dp, end = 12.dp),
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(0.dp),
                         headerActions = {
-                            Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-                                IconButton(onClick = { onDeleteTrack(track.id) }, modifier = Modifier.size(36.dp)) {
-                                    Icon(Icons.Filled.Delete, "Delete", tint = ButtonColors.icon, modifier = Modifier.size(24.dp))
-                                }
-                            }
+                            TrackDrawerHeaderActions(
+                                bandedOn = eyeOverride
+                                    ?: (renderMode == TrackRenderMode.HEATMAP),
+                                onToggleEyeOverride = onToggleEyeOverride,
+                                onDelete = { onDeleteTrack(track.id) }
+                            )
                         },
                         footer = {
                             if (trackListIds.size > 1) {
@@ -589,7 +614,7 @@ fun OverlayLayer(
                         TrackCardContent(
                             summary = summary,
                             dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US),
-                            accentColor = ComposeColor(0xFFFFD700.toInt()),
+                            accentColor = trackAccent,
                             onUpdateTrack = { id, name, comment, pinned ->
                                 pinned?.let { trackViewModel.setPinned(id, it) }
                                 if (name != null || comment != null) trackViewModel.updateTrack(id, name, comment)
@@ -610,7 +635,7 @@ fun OverlayLayer(
                         TrackCardContent(
                             summary = summary,
                             dateFormat = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US),
-                            accentColor = ComposeColor(0xFFFFD700.toInt()),
+                            accentColor = trackAccent,
                             onUpdateTrack = { _, _, _, _ -> },
                             onShareGpx = {},
                             onTap = null,
@@ -751,6 +776,38 @@ fun OverlayLayer(
                 systemScrollState = systemScrollState,
                 onRegenerateRasters = onRegenerateRasters
             )
+        }
+    }
+}
+
+/**
+ * The track drawer's header actions: the eye toggle, then the trash.
+ *
+ * The toggle carries no label — its state rides the icon convention, the accent at full alpha while
+ * the selected track is banded and the inactive alpha token otherwise. It moves that one track's fill
+ * and never the stored mode (D10), and the map's legend doubles as its readout in that direction: the
+ * legend exists whenever a banded stroke is on the map, which is the mode being Colours or this eye
+ * having banded the selection.
+ */
+@Composable
+private fun TrackDrawerHeaderActions(
+    bandedOn: Boolean,
+    onToggleEyeOverride: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        IconButton(onClick = onToggleEyeOverride, modifier = Modifier.size(36.dp)) {
+            Icon(
+                Visibility,
+                "Track rendering",
+                tint = ButtonColors.icon.copy(
+                    alpha = if (bandedOn) 1f else AppConfig.buttonActionIconInactiveAlpha
+                ),
+                modifier = Modifier.size(24.dp)
+            )
+        }
+        IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+            Icon(Icons.Filled.Delete, "Delete", tint = ButtonColors.icon, modifier = Modifier.size(24.dp))
         }
     }
 }

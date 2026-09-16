@@ -59,6 +59,89 @@ object AppConfig {
     var buttonActionIconInactiveAlpha: Float = 0.25f
         private set
 
+    // ── Map surface & its two control families (from colors.properties) ───────────
+    // The `ui.map.surface.*` block below is the family's one set of settings, read through the single
+    // painting path in ui/map/MapSurface.kt, which names the surfaces that paint through it and the boxes
+    // that stay outside. What stays per family is only what is genuinely family-specific: the toggle row's
+    // square, gutter and glyph size, and the overlay cards' text tokens.
+
+    /** ARGB fill of the shared map surface. Default `#A8FFFFFF` (white at 66 %).
+     *  Set via `ui.map.surface.inactive` in colors.properties. */
+    var uiMapSurfaceInactive: Int = 0xA8FFFFFF.toInt()
+        private set
+
+    /** Corner radius (dp) every surface clips to. Default 8.
+     *  Set via `ui.map.surface.corner.radius`. */
+    var uiMapSurfaceCornerRadius: Float = 8f
+        private set
+
+    /** Padding (dp) the surface applies inside its own edge — inert on a centred square. Default 6.
+     *  Set via `ui.map.surface.padding`. */
+    var uiMapSurfacePadding: Float = 6f
+        private set
+
+    /** ARGB border colour every surface draws. Default `#14FFFFFF` (alias of `ui.divider.color`).
+     *  Set via `ui.map.surface.border.color`. */
+    var uiMapSurfaceBorderColor: Int = 0x14FFFFFF.toInt()
+        private set
+
+    /** Border width (dp) every surface draws. Default 1. Set via `ui.map.surface.border.width`. */
+    var uiMapSurfaceBorderWidth: Float = 1f
+        private set
+
+    /** Alpha (0.0–1.0) an inactive surface dims its *content* to, never its fill. Default 0.75.
+     *  Set via `ui.map.surface.inactive.content.alpha` in colors.properties. */
+    var uiMapSurfaceInactiveContentAlpha: Float = 0.75f
+        private set
+
+    /** Background alpha (0.0–1.0) an active surface paints its own state colour at. Default 0.65.
+     *  Set via `ui.map.surface.active.alpha`. */
+    var uiMapSurfaceActiveAlpha: Float = 0.65f
+        private set
+
+    /** Side (dp) of one square in the row. Default 44. Set via `ui.map.toggle.square`. */
+    var uiMapToggleSquare: Float = 44f
+        private set
+
+    /** Gutter (dp) between two squares — the row's own start inset too. Default 6.
+     *  Set via `ui.map.toggle.gutter` in colors.properties. */
+    var uiMapToggleGutter: Float = 6f
+        private set
+
+    /** Emoji glyph size (sp) inside one square. Default 22.
+     *  Set via `ui.map.toggle.icon.size` in colors.properties. */
+    var uiMapToggleIconSize: Float = 22f
+        private set
+
+    /** Text colour on the shared surface. Default `#FF78909C`
+     *  (alias of `ui.text.secondary`). Set via `ui.map.overlay.text.color`. */
+    var uiMapOverlayTextColor: Int = 0xFF78909C.toInt()
+        private set
+
+    /** Text weight on the shared surface, parsed as an `Int` clamped to 100–900 and mapped with
+     *  `FontWeight(…)` at the call site. Default 700. Set via `ui.map.overlay.text.weight`. */
+    var uiMapOverlayTextWeight: Int = 700
+        private set
+
+    /** Text size (sp) on the shared surface. Default 10.
+     *  Set via `ui.map.overlay.text.size`. */
+    var uiMapOverlayTextSize: Float = 10f
+        private set
+
+    /** Line height (sp) of the zone-info line's text. Default 14.
+     *  Set via `ui.map.overlay.text.line.height`. */
+    var uiMapOverlayTextLineHeight: Float = 14f
+        private set
+
+    /** Gap (dp) between an overlay card's parts. Default 6. Set via `ui.map.overlay.gap`. */
+    var uiMapOverlayGap: Float = 6f
+        private set
+
+    /** Gap (dp) between two rows of the zone-info line's column. Default 2.
+     *  Set via `ui.map.overlay.line.spacing`. */
+    var uiMapOverlayLineSpacing: Float = 2f
+        private set
+
     /** ARGB colour for badge count text.
      *  Default #E0E0E0. Set via `ui.button.badge.text` in colors.properties. */
     var uiButtonBadgeText: Int = 0xFFE0E0E0.toInt()
@@ -100,8 +183,88 @@ object AppConfig {
     /** Direction-arrow minimum on-screen spacing (dp). */
     var trackDirectionMinSpacingDp: Int = 32
         private set
-    /** Direction-arrow maximum on-screen spacing (dp). */
-    var trackDirectionMaxSpacingDp: Int = 320
+    /** Direction-arrow maximum on-screen spacing (dp). Default 400, the shipped file's value; the
+     *  Settings slider reads it between the same bounds it always had. */
+    var trackDirectionMaxSpacingDp: Int = 400
+        private set
+    /** Chevron tempering knee (px): at or below this core a chevron is drawn at the core itself.
+     *  Default 10. Set via `track.arrow.scaleKnee`. */
+    var trackArrowScaleKnee: Float = 10f
+        private set
+    /** Chevron tempering factor above the knee: the core becomes `knee + (core − knee) × temper`.
+     *  Default 0.5. Set via `track.arrow.temper`. */
+    var trackArrowTemper: Float = 0.5f
+        private set
+
+    // ── Track outlines: per-type widths (from maro.properties) ───────────
+    // All three rendering modes read this table: the widths are what the map draws stored tracks and
+    // the live recording line from. Widths are pixels, not dp, and every default mirrors the shipped
+    // file key for key.
+    /** Stroke width (px) of the live recording line, its GAP bridges and its trailing segment.
+     *  Default 12. Set via `track.width.live`. */
+    var trackWidthLive: Float = 12f
+        private set
+    /** Stroke width (px) of the selected stored track's core. Default 14. Set via `track.width.selected`. */
+    var trackWidthSelected: Float = 14f
+        private set
+    /** Stroke width (px) of the newest history track. Default 10. Set via `track.width.newest`. */
+    var trackWidthNewest: Float = 10f
+        private set
+    /** Stroke width (px) of every pinned track. Default 8. Set via `track.width.pinned`. */
+    var trackWidthPinned: Float = 8f
+        private set
+    /** Stroke width (px) of every other history track. Default 6. Set via `track.width.history`. */
+    var trackWidthHistory: Float = 6f
+        private set
+    /** Stroke width (px) of the dark casing drawn beneath the selected track's core — 4 px a side
+     *  over the shipped 14 px core, the legacy pair's own rim thickness, with the casing still
+     *  standing wider than the core it sits under.
+     *  The key sets two things, and both are that same rim: the line's casing takes this width whole,
+     *  while a selection's chevrons take half its excess over the line's own width as the outward
+     *  offset of their dark V from the coloured one — 4 px at the shipped pair, which clears the
+     *  coloured centreline by 1 px. Default 22. Set via `track.width.selected.casing`. */
+    var trackWidthSelectedCasing: Float = 22f
+        private set
+
+    // ── Speed heatmap ramp (from maro.properties) ────────────────────────
+    /** Parsed speed ramp: families as a list — each carrying its own draw step — and the neutral
+     *  tint. There is no count key: the read walks `familyN` from 1 upward and stops at the
+     *  first index missing a key, so the file alone decides the ramp's length.
+     *  Default: the eight families the shipped file holds, mirrored key for key —
+     *  blue through to purple, 5 / 7 / 10 / 13 / 15 / 25 / 32 / 70 kn.
+     *  Set via `track.heatmap.familyN.*` / `.unknownColor`. */
+    var trackHeatmapRamp: HeatmapRamp = HeatmapRamp(
+        families = listOf(
+            HeatmapFamily(5f, 0xFF135FA2.toInt(), 0xFF135FA2.toInt(), 0.5f),   // flat blue to the 5 kn limit
+            HeatmapFamily(7f, 0xFF135FA2.toInt(), 0xFF409443.toInt(), 0.25f),  // the changeover to green, 5 to 7
+            HeatmapFamily(10f, 0xFF409443.toInt(), 0xFF409443.toInt(), 0.5f),  // flat green, 7 to 10
+            HeatmapFamily(13f, 0xFF409443.toInt(), 0xFFDADAAD.toInt(), 0.5f),  // green warming to pale sand, 10 to 13
+            HeatmapFamily(15f, 0xFFDADAAD.toInt(), 0xFFFFC53D.toInt(), 1.0f),  // pale sand to amber, 13 to 15
+            HeatmapFamily(25f, 0xFFFFC53D.toInt(), 0xFFEF6C00.toInt(), 3.0f),  // amber to orange, 15 to 25
+            HeatmapFamily(32f, 0xFFEF6C00.toInt(), 0xFF751212.toInt(), 3.0f),  // orange to dark red, 25 to 32
+            HeatmapFamily(70f, 0xFF751212.toInt(), 0xFF6A1B9A.toInt(), 5.0f)   // dark red to purple out to 70 kn
+        ),
+        unknownArgb = 0xFFF5F5DC.toInt()
+    )
+        private set
+    /** The legend's tick table: one row per printed label, holding the position it sits at on the bar's
+     *  linear minimum → last-position scale beside the text printed for it. The table is the
+     *  specification — every row prints, with no rule dropping or merging one — so the text may
+     *  deliberately differ from the position, and the first two rows carry a compliance limit off its
+     *  own boundary by design. Default: the five rows the shipped file holds, mirrored key for key.
+     *  Set via `track.heatmap.scaleTicks`; the table's last position is the bar's own top. */
+    var trackHeatmapScaleTicks: List<HeatmapScaleTick> = listOf(
+        HeatmapScaleTick(7f, "5"),
+        HeatmapScaleTick(13f, "10"),
+        HeatmapScaleTick(22f, "20"),
+        HeatmapScaleTick(30f, "30"),
+        HeatmapScaleTick(35f, "35")
+    )
+        private set
+    /** Foot of the legend's scale (kn): the bar runs from here to the tick table's last position.
+     *  Default 2, mirroring the shipped file. Set via `track.heatmap.scaleMinKn`; an absent key
+     *  leaves this default standing. */
+    var trackHeatmapScaleMinKn: Float = 2f
         private set
     /** Default proximity multiplier for Circle/Corridor user markers. Set via `marker.proximity.zone_multiplier` in maro.properties. */
     var markerProximityZoneMultiplier: Double = 3.0
@@ -298,16 +461,11 @@ object AppConfig {
     /** GPS icon STALE state background colour. Default from semantic.danger = #CCB71C1C (red 80%). Set via `status.gps.stale` in colors.properties. */
     var statusGpsStale: Int = 0xCCB71C1C.toInt()
         private set
-    /** GPS icon ESTIMATING state background colour (dead reckoning). Default #FFB300 (amber). Set via `status.gps.estimating` in colors.properties. */
+    /** GPS icon ESTIMATING state background colour (dead reckoning). Default #FFB300 (amber).
+     *  Code-only: `colors.properties` has no `status.gps.estimating` key, so this default is not a
+     *  palette setting — the file's GPS block holds the other five states. */
     var statusGpsEstimating: Int = 0xFFFFB300.toInt()
         private set
-    /** GPS icon active-state background alpha (0.0–1.0). Default 0.75. Set via `status.gps.alpha.active` in colors.properties. */
-    var statusGpsAlphaActive: Float = 0.75f
-        private set
-    /** GPS icon dimmed-state background alpha (0.0–1.0). Default 0.50. Set via `status.gps.alpha.dimmed` in colors.properties. */
-    var statusGpsAlphaDimmed: Float = 0.50f
-        private set
-
     /** EarthWater icon water-state colour. Default #1565C0. Set via `status.earthWater.water` in colors.properties. */
     var statusEarthWaterWater: Int = 0xFF1565C0.toInt()
         private set
@@ -324,12 +482,6 @@ object AppConfig {
     /** Screen-lock icon ON (locked) background colour. Default from semantic.info = #FF1565C0 (blue). Set via `status.lock.on` in colors.properties. */
     var statusLockOn: Int = 0xFF1565C0.toInt()
         private set
-    /** Screen-lock icon active-state background alpha (0.0–1.0). Default 0.75. Set via `status.lock.alpha.active` in colors.properties. */
-    var statusLockAlphaActive: Float = 0.75f
-        private set
-    /** Screen-lock icon dimmed-state background alpha (0.0–1.0). Default 0.50. Set via `status.lock.alpha.dimmed` in colors.properties. */
-    var statusLockAlphaDimmed: Float = 0.50f
-        private set
 
     /** Tracking icon HEALTHY state (ON + moving, recording) colour. Default #CC4CAF50. Set via `status.tracking.healthy` in colors.properties. */
     var statusTrackingHealthy: Int = 0xCC4CAF50.toInt()
@@ -345,12 +497,6 @@ object AppConfig {
         private set
     /** Tracking icon dot colour when idle (stationary). Default from semantic.danger = #CCB71C1C (red 80%). Set via `status.tracking.dot.idle` in colors.properties. */
     var statusTrackingDotIdle: Int = 0xCCB71C1C.toInt()
-        private set
-    /** Tracking icon active-state background alpha (0.0–1.0). Default 0.75. Set via `status.tracking.alpha.active` in colors.properties. */
-    var statusTrackingAlphaActive: Float = 0.75f
-        private set
-    /** Tracking icon dimmed-state background alpha (0.0–1.0). Default 0.50. Set via `status.tracking.alpha.dimmed` in colors.properties. */
-    var statusTrackingAlphaDimmed: Float = 0.50f
         private set
 
     // ── Dashboard depth readout tints ─────────────────────────────────────────
@@ -380,7 +526,7 @@ object AppConfig {
     /** Settings panel slider value readout colour. Default #FF48a7f5. Set via `ui.value.text` in colors.properties. */
     var uiValueText: Int = 0xFF48a7f5.toInt()
         private set
-    /** Scrim background for map overlay info text. Default #80000000 (black 50%). Set via `ui.text.scrim` in colors.properties. */
+    /** Scrim background for map overlay info text. Default #4D16213E (deep navy 30%). Set via `ui.text.scrim` in colors.properties. */
     var uiTextScrim: Int = 0x4D16213E.toInt()
         private set
     /** Settings panel card background. Default #33FFFFFF (20% white). Set via `ui.card.background` in colors.properties. */
@@ -724,6 +870,59 @@ object AppConfig {
             props.getProperty("track.direction.maxSpacingDp")?.toIntOrNull()?.let {
                 trackDirectionMaxSpacingDp = it.coerceIn(4, 640)
             }
+            // Chevron tempering: the knee is a core width, the temper a fraction of the excess above it.
+            props.getProperty("track.arrow.scaleKnee")?.toFloatOrNull()?.let {
+                trackArrowScaleKnee = it.coerceAtLeast(0f)
+            }
+            props.getProperty("track.arrow.temper")?.toFloatOrNull()?.let {
+                trackArrowTemper = it.coerceIn(0f, 1f)
+            }
+
+            // ── Track outlines: per-type widths ─────────────────────────────
+            // Clamped where a value could break the draw — a width below 1 px is not drawable, and a
+            // width past this bound would swallow the map. An unreadable value leaves the default.
+            props.getProperty("track.width.live")?.toFloatOrNull()?.let { trackWidthLive = it.coerceAtLeast(1f) }
+            props.getProperty("track.width.selected")?.toFloatOrNull()?.let { trackWidthSelected = it.coerceAtLeast(1f) }
+            props.getProperty("track.width.newest")?.toFloatOrNull()?.let { trackWidthNewest = it.coerceAtLeast(1f) }
+            props.getProperty("track.width.pinned")?.toFloatOrNull()?.let { trackWidthPinned = it.coerceAtLeast(1f) }
+            props.getProperty("track.width.history")?.toFloatOrNull()?.let { trackWidthHistory = it.coerceAtLeast(1f) }
+            props.getProperty("track.width.selected.casing")?.toFloatOrNull()?.let {
+                trackWidthSelectedCasing = it.coerceAtLeast(1f)
+            }
+
+            // ── Speed heatmap ramp ──────────────────────────────────────────
+            // The rendering mode is no longer a file key (D3): it is one persisted field in
+            // `AppSettings`, so the ramp below is all this block still owns. Read as written: no
+            // validation and no warning channel. A family that does not fully parse ends the ramp and
+            // the families parsed so far stand; if none parses, the shipped default ramp is kept, so a
+            // missing key never leaves the render without a ramp.
+            run {
+                val families = parseHeatmapFamilies(
+                    lookup = { props.getProperty(it) },
+                    parseColorHex = { parseColorOrNull(it) }
+                )
+                if (families.isNotEmpty()) {
+                    trackHeatmapRamp = trackHeatmapRamp.copy(families = families)
+                }
+            }
+            // The scale's foot: the file's written value, or the shipped default when the key is absent
+            // or unreadable — the same policy the tick table and the ramp itself follow.
+            trackHeatmapScaleMinKn = parseHeatmapScaleMinKn(
+                lookup = { props.getProperty(it) },
+                fallbackKn = trackHeatmapScaleMinKn
+            )
+            // The legend's tick table, read in the same shape as the families: parsed rows replace the
+            // shipped default, while an absent or unreadable table leaves that default in place so the
+            // render never loses its scale.
+            run {
+                val ticks = parseHeatmapScaleTicks(lookup = { props.getProperty(it) })
+                if (ticks.isNotEmpty()) {
+                    trackHeatmapScaleTicks = ticks
+                }
+            }
+            props.getProperty("track.heatmap.unknownColor")?.let { parseColorOrNull(it) }?.let {
+                trackHeatmapRamp = trackHeatmapRamp.copy(unknownArgb = it)
+            }
 
             // ── Marker debug rays ───────────────────────────────────────
             props.getProperty("marker.debug.rays.enabled")?.toBooleanStrictOrNull()?.let {
@@ -762,6 +961,23 @@ object AppConfig {
             props.getProperty("ui.button.badge.text")?.let { parseColorOrNull(it) }?.let { uiButtonBadgeText = it }
             props.getProperty("ui.button.badge.active.alpha")?.toFloatOrNull()?.let { buttonBadgeActiveAlpha = it.coerceIn(0f, 1f) }
             props.getProperty("ui.button.badge.inactive.alpha")?.toFloatOrNull()?.let { buttonBadgeInactiveAlpha = it.coerceIn(0f, 1f) }
+            // ── Map surface & its two control families ───────────────────────
+            props.getProperty("ui.map.surface.inactive")?.let { parseColorOrNull(it) }?.let { uiMapSurfaceInactive = it }
+            props.getProperty("ui.map.surface.corner.radius")?.toFloatOrNull()?.let { uiMapSurfaceCornerRadius = it }
+            props.getProperty("ui.map.surface.padding")?.toFloatOrNull()?.let { uiMapSurfacePadding = it }
+            props.getProperty("ui.map.surface.border.color")?.let { parseColorOrNull(it) }?.let { uiMapSurfaceBorderColor = it }
+            props.getProperty("ui.map.surface.border.width")?.toFloatOrNull()?.let { uiMapSurfaceBorderWidth = it }
+            props.getProperty("ui.map.surface.inactive.content.alpha")?.toFloatOrNull()?.let { uiMapSurfaceInactiveContentAlpha = it.coerceIn(0f, 1f) }
+            props.getProperty("ui.map.surface.active.alpha")?.toFloatOrNull()?.let { uiMapSurfaceActiveAlpha = it.coerceIn(0f, 1f) }
+            props.getProperty("ui.map.toggle.square")?.toFloatOrNull()?.let { uiMapToggleSquare = it }
+            props.getProperty("ui.map.toggle.gutter")?.toFloatOrNull()?.let { uiMapToggleGutter = it }
+            props.getProperty("ui.map.toggle.icon.size")?.toFloatOrNull()?.let { uiMapToggleIconSize = it }
+            props.getProperty("ui.map.overlay.text.color")?.let { parseColorOrNull(it) }?.let { uiMapOverlayTextColor = it }
+            props.getProperty("ui.map.overlay.text.weight")?.toIntOrNull()?.let { uiMapOverlayTextWeight = it.coerceIn(100, 900) }
+            props.getProperty("ui.map.overlay.text.size")?.toFloatOrNull()?.let { uiMapOverlayTextSize = it }
+            props.getProperty("ui.map.overlay.text.line.height")?.toFloatOrNull()?.let { uiMapOverlayTextLineHeight = it }
+            props.getProperty("ui.map.overlay.gap")?.toFloatOrNull()?.let { uiMapOverlayGap = it }
+            props.getProperty("ui.map.overlay.line.spacing")?.toFloatOrNull()?.let { uiMapOverlayLineSpacing = it }
 
             // ── Semantic colours ──────────────────────────────────────────────────
             props.getProperty("semantic.danger")?.let { parseColorOrNull(it) }?.let { semanticDanger = it }
@@ -829,16 +1045,12 @@ object AppConfig {
             props.getProperty("status.gps.idle")?.let { parseColorOrNull(it) }?.let { statusGpsIdle = it }
             props.getProperty("status.gps.stale")?.let { parseColorOrNull(it) }?.let { statusGpsStale = it }
             props.getProperty("status.gps.estimating")?.let { parseColorOrNull(it) }?.let { statusGpsEstimating = it }
-            props.getProperty("status.gps.alpha.active")?.toFloatOrNull()?.let { statusGpsAlphaActive = it.coerceIn(0f, 1f) }
-            props.getProperty("status.gps.alpha.dimmed")?.toFloatOrNull()?.let { statusGpsAlphaDimmed = it.coerceIn(0f, 1f) }
 
             props.getProperty("status.tracking.healthy")?.let { parseColorOrNull(it) }?.let { statusTrackingHealthy = it }
             props.getProperty("status.tracking.idle")?.let { parseColorOrNull(it) }?.let { statusTrackingIdle = it }
             props.getProperty("status.tracking.off")?.let { parseColorOrNull(it) }?.let { statusTrackingOff = it }
             props.getProperty("status.tracking.dot.recording")?.let { parseColorOrNull(it) }?.let { statusTrackingDotRecording = it }
             props.getProperty("status.tracking.dot.idle")?.let { parseColorOrNull(it) }?.let { statusTrackingDotIdle = it }
-            props.getProperty("status.tracking.alpha.active")?.toFloatOrNull()?.let { statusTrackingAlphaActive = it.coerceIn(0f, 1f) }
-            props.getProperty("status.tracking.alpha.dimmed")?.toFloatOrNull()?.let { statusTrackingAlphaDimmed = it.coerceIn(0f, 1f) }
 
             props.getProperty("status.earthWater.water")?.let { parseColorOrNull(it) }?.let { statusEarthWaterWater = it }
             props.getProperty("status.earthWater.land")?.let { parseColorOrNull(it) }?.let { statusEarthWaterLand = it }
@@ -846,8 +1058,6 @@ object AppConfig {
 
             props.getProperty("status.lock.off")?.let { parseColorOrNull(it) }?.let { statusLockOff = it }
             props.getProperty("status.lock.on")?.let { parseColorOrNull(it) }?.let { statusLockOn = it }
-            props.getProperty("status.lock.alpha.active")?.toFloatOrNull()?.let { statusLockAlphaActive = it.coerceIn(0f, 1f) }
-            props.getProperty("status.lock.alpha.dimmed")?.toFloatOrNull()?.let { statusLockAlphaDimmed = it.coerceIn(0f, 1f) }
 
             // ── Dashboard depth readout tints ─────────────────────────────────
             props.getProperty("ui.dashboard.readout.collision")?.let { parseColorOrNull(it) }?.let { uiDashboardReadoutCollision = it }

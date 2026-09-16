@@ -276,7 +276,10 @@
     <!-- Menu drawer -->
     <string name="menu_manage_tracks">Tracks</string>
     <string name="menu_show_zones">Show zones</string>
-    <string name="menu_show_tracks_direction">Show dir &amp; speed</string>
+    <string name="menu_tracks_rendering">Tracks rendering</string>
+    <string name="menu_render_mode_simple">Simple</string>
+    <string name="menu_render_mode_dir_speed">Arrows</string>
+    <string name="menu_render_mode_colours">Colours</string>
     <string name="menu_manage_markers">Markers</string>
     <string name="track_status_recording">● Recording</string>
     <string name="track_status_idle">● Idle</string>
@@ -320,7 +323,6 @@
     <string name="settings_reg_info_visible">Info text visible</string>
     <string name="settings_section_tracks">Tracks</string>
     <string name="settings_tracks_desc">Recorded tracks on the map</string>
-    <string name="settings_tracks_direction_label">Show tracks direction on map</string>
     <string name="settings_tracks_direction_desc">Draw direction arrows along recorded tracks</string>
     <string name="settings_tracks_direction_settings_label">Track Speed and Direction</string>
     <string name="settings_tracks_direction_density_label">Arrow density</string>
@@ -339,8 +341,8 @@
     <string name="settings_transparency_value_fmt">Newest %1$d%%  –  Oldest %2$d%%</string>
     <string name="settings_pinned_transparency_label">Pinned transparency</string>
     <string name="settings_pinned_transparency_desc" formatted="false">Fade across pinned tracks only, independent of the not-pinned range. 0% = opaque, 100% = invisible.</string>
-    <string name="settings_colors_label">Colors</string>
-    <string name="settings_colors_desc">Past tracks: color gradient from newest (From) to oldest (To). Pinned tracks: amber/orange gradient.</string>
+    <string name="settings_colors_label">Default Colors</string>
+    <string name="settings_colors_desc">The colours Simple and Dir &amp; Speed draw with. Past tracks: color gradient from newest (From) to oldest (To). Pinned tracks: amber/orange gradient.</string>
     <string name="settings_section_markers">Markers</string>
     <string name="settings_markers_desc">Configure how markers are rendered and when automatic idle markers are created</string>
     <string name="settings_marker_idle_threshold_label">Idle threshold</string>
@@ -401,6 +403,8 @@
     <string name="toast_screen_locked">Screen locked</string>
     <string name="toast_screen_unlocked">Screen unlocked</string>
     <string name="cd_selected">Selected</string>
+    <string name="cd_collapse_speed_scale">Collapse the speed scale</string>
+    <string name="cd_expand_speed_scale">Expand the speed scale</string>
 
     <!-- Multiselect -->
     <string name="multiselect_count">%d selected</string>

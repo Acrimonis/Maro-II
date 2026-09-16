@@ -291,7 +291,7 @@ touch-lock rename; the additive master-versus-gate semantics; the tunables home.
   app is unusable without it.
 - **Conditional service** silently breaks the Tasker integration and changes notification behaviour — a
   deliberate choice, not a side effect.
-- **Passive-marker capture** is pipeline work, not a settings row, and touches BoatTrace.
+- **Passive-marker capture** is pipeline work, not a settings row, and touches Tracks.
 - **Stale background state** — any predicate depending on the UI update loop is wrong by construction.
 - **Android 16 window-flag regression** if the apply path stops being a single mutation.
 - **Terminology collision** between the new device-lock setting and the existing 📵 guard — mitigated by

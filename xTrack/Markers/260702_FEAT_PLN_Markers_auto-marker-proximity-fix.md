@@ -2,7 +2,7 @@
 
 **Created:** 2026-07-02 22:55 UTC
 **Branch:** feature/markers-date-points-fix
-**Feature:** Markers (cross-cutting with BoatTrace/GPS)
+**Feature:** Markers (cross-cutting with Tracks/GPS)
 
 ## Problem
 

@@ -17,30 +17,6 @@ import ykws.android.maro.data.regulation.ZoneDisplayCategory
  */
 object RegulatedZoneIconProvider {
 
-    /** Emoji character for each zone type (legacy — used for map rendering). */
-    fun emojiForType(type: RegulatedZoneType): String = when (type) {
-        RegulatedZoneType.SPEED_LIMIT -> "\u26A1\uFE0F"           // ⚡️ lightning
-        RegulatedZoneType.ANCHORING_PROHIBITED -> "\u2693\uFE0F"  // ⚓️ anchor
-        RegulatedZoneType.ACCESS_PROHIBITED -> "\uD83D\uDEAB"     // 🚫 prohibited
-        RegulatedZoneType.ENVIRONMENTAL -> "\uD83C\uDF3F"          // 🌿 herb
-        RegulatedZoneType.MOORING -> "\uD83D\uDE9F"                // 🛟 ring buoy
-        RegulatedZoneType.FISHING_PROHIBITED -> "\uD83D\uDC1F"     // 🐟 fish
-        RegulatedZoneType.NAVIGATION_RESTRICTION -> "\u26A0\uFE0F" // ⚠️ warning
-        RegulatedZoneType.OTHER -> "\u2753"                        // ❓ question mark
-    }
-
-    /** Background colour tint for each zone type (legacy — used for map rendering). */
-    fun colorForType(type: RegulatedZoneType): Color = when (type) {
-        RegulatedZoneType.SPEED_LIMIT -> Color(AppConfig.regulatedZoneTypeSpeedLimit)           // Blue
-        RegulatedZoneType.ANCHORING_PROHIBITED -> Color(AppConfig.regulatedZoneTypeAnchoringProhibited)  // Amber
-        RegulatedZoneType.ACCESS_PROHIBITED -> Color(AppConfig.regulatedZoneTypeAccessProhibited)     // Red
-        RegulatedZoneType.ENVIRONMENTAL -> Color(AppConfig.regulatedZoneTypeEnvironmental)         // Green
-        RegulatedZoneType.MOORING -> Color(AppConfig.regulatedZoneTypeMooring)               // Teal
-        RegulatedZoneType.FISHING_PROHIBITED -> Color(AppConfig.regulatedZoneTypeFishingProhibited)    // Yellow
-        RegulatedZoneType.NAVIGATION_RESTRICTION -> Color(AppConfig.regulatedZoneTypeNavigationRestriction) // Purple
-        RegulatedZoneType.OTHER -> Color(AppConfig.regulatedZoneTypeOther)                 // Blue Grey
-    }
-
     // ── Display category mappings (warning strip) ──────────────────────────
 
     /**
@@ -77,19 +53,5 @@ object RegulatedZoneIconProvider {
         ZoneDisplayCategory.FISHING_PROHIBITED -> Color(AppConfig.regulatedZoneTypeSpeedLimit) // Dark blue — uniform background
         ZoneDisplayCategory.ENVIRONMENTAL -> Color(AppConfig.regulatedZoneTypeSpeedLimit)   // Dark blue — uniform background
         ZoneDisplayCategory.INFORMATION -> Color(AppConfig.regulatedZoneTypeSpeedLimit)     // Dark blue — uniform background
-    }
-
-    /**
-     * Background alpha (0.0–1.0) for each [ZoneDisplayCategory].
-     * Prohibition/warning icons use [AppConfig.statusGpsAlphaActive] (75 %),
-     * informational icons use [AppConfig.statusGpsAlphaDimmed] (50 %).
-     */
-    fun alphaForCategory(category: ZoneDisplayCategory): Float {
-        return when (category) {
-            ZoneDisplayCategory.SEAPLANE -> AppConfig.statusGpsAlphaDimmed
-            ZoneDisplayCategory.ENVIRONMENTAL -> AppConfig.statusGpsAlphaDimmed
-            ZoneDisplayCategory.INFORMATION -> AppConfig.statusGpsAlphaDimmed
-            else -> AppConfig.statusGpsAlphaActive
-        }
     }
 }

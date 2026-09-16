@@ -2,7 +2,7 @@
 name: RegulatedZones
 status: active
 created: 2026-06-11 18:00
-modified: 2026-06-13 20:23
+modified: 2026-09-16 14:15
 ---
 
 # Feature: RegulatedZones
@@ -46,8 +46,8 @@ Vessel-size filtering + speed-limit extraction at bake time; icon assignment + w
 #### Todos
 - [ ] Phase 1 — data extraction & type audit
 - [ ] Phase 2 — bake-time filtering (`RegulationFilter` + maro.properties keys)
-- [ ] Phase 3 — icon assignment (`RegulatedZoneIconProvider`)
-- [ ] Phase 4 — warning strip UI (`RegulatedZoneWarningStrip`)
+- [x] Phase 3 — icon assignment (`RegulatedZoneIconProvider`) — built; the tag column's family alignment is §11 of `260916_FEAT_PLN_ColorManagement_map-surface-normalization.md`
+- [x] Phase 4 — warning strip UI (`RegulatedZoneWarningStrip`) — built; its tag column is painted by the surface family in that same §11
 
 #### Rules
 - Filter runs at bake time; speed zones always apply via `appliesTo()`; default filtered types: ENVIRONMENTAL/FISHING_PROHIBITED/OTHER
@@ -101,6 +101,7 @@ Decouple cone/green-line drawing and colour the direction arrow by speed complia
 - Personal-use app — regulatory data fetched offline, not redistributed
 - Bake before build: `bake-regulated-zones` as an `apk-bake.bat` target
 - The 300 m band (Zone300) is owned by Coastline/Zone300 — this feature references but never duplicates it
+- The warning strip sits bottom-left, is fed by the zones that contain the boat, dedupes by display category and speed, and suppresses the regulated speed tags while the 300 m band is in force (promoted from the retired icon-warnings plan)
 
 ## Key Files
 - `app/src/main/java/ykws/android/maro/data/regulation/` — model, clients, aggregator, serializer, repository
@@ -111,7 +112,6 @@ Decouple cone/green-line drawing and colour the direction arrow by speed complia
 - `xTrack/RegulatedZones/260612_FEAT_PLN_RegulatedZones_data-lookup-plan.md`
 - `xTrack/RegulatedZones/260612_FEAT_PLN_RegulatedZones_filter-design.md`
 - `xTrack/RegulatedZones/260612_FEAT_PLN_RegulatedZones_hexagon-fix-plan.md`
-- `xTrack/RegulatedZones/260612_FEAT_PLN_RegulatedZones_icon-warnings-plan.md`
 - `xTrack/RegulatedZones/260612_FEAT_PLN_RegulatedZones_multi-source-normalization.md`
 - `xTrack/RegulatedZones/260612_FEAT_PLN_RegulatedZones_reqs-formalized.md`
 - `xTrack/RegulatedZones/260612_FEAT_PLN_RegulatedZones_toggle-merge-design.md`

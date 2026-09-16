@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.config.TrackRenderMode
 import ykws.android.maro.data.track.TrackRecorderState
 import ykws.android.maro.data.track.TrackRecorderUiState
 import ykws.android.maro.ui.components.CardArea
@@ -77,8 +78,10 @@ fun MenuDrawerOverlay(
     onOpenFirstMarker: (() -> Unit)? = null,
     markerZonesVisible: Boolean = true,
     onToggleMarkerZones: () -> Unit = {},
-    tracksDirectionVisible: Boolean = true,
-    onToggleTracksDirection: () -> Unit = {},
+    /** The stored render mode the Tracks rendering switch shows (D5). */
+    trackRenderMode: TrackRenderMode = TrackRenderMode.SIMPLE,
+    /** The switch's writer: the menu owns the mode, and nothing else writes it (D3). */
+    onRenderModeChange: (TrackRenderMode) -> Unit = {},
     onImportTracks: () -> Unit = {},
     onExportAllTracks: () -> Unit = {},
     onDismiss: () -> Unit,
@@ -191,6 +194,22 @@ fun MenuDrawerOverlay(
         Spacer(Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
 
         CardArea {
+            // ── Live stats (only when recording) — the card's head, per D5 ──
+            if (recorderState.state == TrackRecorderState.ON) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    StatRow(stringResource(R.string.track_stat_state), if (recorderState.isMoving) stringResource(R.string.track_status_recording) else stringResource(R.string.track_status_idle))
+                    StatRow(stringResource(R.string.track_stat_elapsed), formatDuration(recorderState.elapsedSeconds))
+                    StatRow(stringResource(R.string.track_stat_points), "${recorderState.pointCount}")
+                    StatRow(stringResource(R.string.track_stat_distance), stringResource(R.string.menu_stat_distance_nm, recorderState.distanceNm))
+                    StatRow(stringResource(R.string.track_stat_max_speed), stringResource(R.string.menu_stat_speed_kn, recorderState.maxSpeedKn))
+                    StatRow(stringResource(R.string.track_stat_avg_speed), stringResource(R.string.menu_stat_speed_kn, recorderState.avgSpeedKn))
+                    StatRow(stringResource(R.string.track_stat_idle), formatDuration(recorderState.idleDurationSec))
+                }
+                SectionDivider()
+            }
+
             // ── Track List row ─────────────────────────────
             Row(
                 modifier = Modifier
@@ -229,13 +248,31 @@ fun MenuDrawerOverlay(
                 }
             }
 
-            // ── Track direction toggle ─────────────────────
+            // ── Tracks rendering switch ────────────────────
+            // D5: it replaces the retired "Show dir & speed" row in its own slot, so no other row
+            // moves; Simple | Dir & Speed | Colours, and the live block sits at the card's head.
             SectionDivider()
-            ToggleRow(
-                label = stringResource(R.string.menu_show_tracks_direction),
-                checked = tracksDirectionVisible,
-                onCheckedChange = { onToggleTracksDirection() }
-            )
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = AppConfig.uiPaddingToggleVertical.dp)
+            ) {
+                Text(
+                    text = stringResource(R.string.menu_tracks_rendering),
+                    color = Color(AppConfig.uiTextMuted),
+                    fontSize = AppConfig.uiFontDescSize.sp
+                )
+                Spacer(Modifier.height(6.dp))
+                SegmentedRow(
+                    options = listOf(
+                        TrackRenderMode.SIMPLE to stringResource(R.string.menu_render_mode_simple),
+                        TrackRenderMode.DIR_SPEED to stringResource(R.string.menu_render_mode_dir_speed),
+                        TrackRenderMode.HEATMAP to stringResource(R.string.menu_render_mode_colours)
+                    ),
+                    selected = trackRenderMode,
+                    onSelect = onRenderModeChange
+                )
+            }
 
             // ── Import / Export pair ───────────────────────
             SectionDivider()
@@ -292,21 +329,6 @@ fun MenuDrawerOverlay(
                 }
             }
 
-            // ── Live stats (only when recording) ──────────
-            if (recorderState.state == TrackRecorderState.ON) {
-                SectionDivider()
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    StatRow(stringResource(R.string.track_stat_state), if (recorderState.isMoving) stringResource(R.string.track_status_recording) else stringResource(R.string.track_status_idle))
-                    StatRow(stringResource(R.string.track_stat_elapsed), formatDuration(recorderState.elapsedSeconds))
-                    StatRow(stringResource(R.string.track_stat_points), "${recorderState.pointCount}")
-                    StatRow(stringResource(R.string.track_stat_distance), stringResource(R.string.menu_stat_distance_nm, recorderState.distanceNm))
-                    StatRow(stringResource(R.string.track_stat_max_speed), stringResource(R.string.menu_stat_speed_kn, recorderState.maxSpeedKn))
-                    StatRow(stringResource(R.string.track_stat_avg_speed), stringResource(R.string.menu_stat_speed_kn, recorderState.avgSpeedKn))
-                    StatRow(stringResource(R.string.track_stat_idle), formatDuration(recorderState.idleDurationSec))
-                }
-            }
         }
 
         Spacer(Modifier.height(AppConfig.uiSpacingSectionGap.dp))

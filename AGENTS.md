@@ -56,14 +56,18 @@
   `git merge`, or `git rebase` without the user's explicit, unambiguous go-ahead.**
   Committing inside `new_task(Code)` subtasks is NOT exempt. `git add` may be used to stage when preparing a `#commit`; do not stage preemptively.
   **Read-only git queries (`git status`, `git log`, `git branch`, `git diff`, `git fetch`) are always permitted in any mode.**
-  **Exception:** git-related `#`-commands are self-contained confirmations — the explicit invocation is the go-ahead. `#commit`, `#push`, `#merge` and `#cherry` still ask before acting, even when chained; `#new`, `#move`, `#move new` and `#rename` do not.
+  **Exception:** a git-related `#`-command **is** the explicit, unambiguous go-ahead — the invocation authorises the operation, so the agent executes it rather than re-asking, asking the user to run it, or reading it as a mere request for one.
+  `#commit`, `#push`, `#merge` and `#cherry` confirm the action's scope — what gets staged, pushed, merged or picked — and never re-litigate authorisation, chained or not; `#new`, `#move`, `#move new` and `#rename` ask nothing at all.
 
 - **🚦 A gate names its action.** A confirmation gate states the exact action it authorises, and if
   the proposal has moved since the question was asked the gate is re-asked rather than assumed.
 
-- **🔴 PUSH IS USER-OWNED.** Never ask whether to push, never list pushing as a next step, and never
-  remind that commits are unpushed — the user decides when. Commands that push (`#push`, `#merge`)
-  do so only when invoked; proposing one is a workflow violation in every mode.
+- **🔴 PUSH, COMMIT AND DEPLOY ARE USER-OWNED.** Never ask whether to push, commit or deploy, never list
+  one as a next step, and never remind that commits are unpushed or that a build is undeployed — the
+  user decides when. Commands that push or commit (`#push`, `#merge`, `#commit`) do so only when
+  invoked, and `apk-deploy.bat` / `apk-push.bat` are never proposed either; proposing any of them is a
+  workflow violation in every mode. Asking the user to deploy so a change can be checked on a device is
+  a `#`-command away from them, not a step for the agent to offer.
 
 - **🔴 ABSOLUTE RULE: NEVER write to `develop` or `main` — no pushes,
   no force-pushes, no reverts, no direct commits, no local merges into them.
@@ -75,6 +79,13 @@
 - **🟡 WRITE-ONCE (guideline): Prefer one comprehensive write per source file; batch related edits.**
   Avoid full-file rewrite loops and save-compile-rewrite churn — each rewrite invalidates the prompt cache.
   Targeted apply_diff patches for build errors, review feedback, or discovered edge cases are normal.
+
+- **🔴 ONE HOME PER FACT: a value, a claim or a reader list is written once.** `*.properties` is the source
+  of truth for every value — code defaults and documentation follow it, never the reverse — and a duplicate
+  that cannot be avoided is deleted rather than kept in sync.
+
+- **🔴 CENTRALISE AND TRIM: docs describe, they do not restate.** A doc points at the key, the accessor or the
+  code instead of repeating a number or a caller list; secondary copies are trimmed as a matter of course.
 
 - **🔴 NO BINARY READS: Never open, read, or search `.bin`, `.tif`, `.xyz`,
   `.nc` files.** Treat spatial data files as opaque blobs.
