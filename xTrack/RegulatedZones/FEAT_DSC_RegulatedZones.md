@@ -2,7 +2,7 @@
 name: RegulatedZones
 status: active
 created: 2026-06-11 18:00
-modified: 2026-06-13 20:23
+modified: 2026-09-16 14:15
 ---
 
 # Feature: RegulatedZones
@@ -46,8 +46,8 @@ Vessel-size filtering + speed-limit extraction at bake time; icon assignment + w
 #### Todos
 - [ ] Phase 1 — data extraction & type audit
 - [ ] Phase 2 — bake-time filtering (`RegulationFilter` + maro.properties keys)
-- [ ] Phase 3 — icon assignment (`RegulatedZoneIconProvider`)
-- [ ] Phase 4 — warning strip UI (`RegulatedZoneWarningStrip`)
+- [x] Phase 3 — icon assignment (`RegulatedZoneIconProvider`) — built; the tag column's family alignment is §11 of `260916_FEAT_PLN_ColorManagement_map-surface-normalization.md`
+- [x] Phase 4 — warning strip UI (`RegulatedZoneWarningStrip`) — built; its tag column is painted by the surface family in that same §11
 
 #### Rules
 - Filter runs at bake time; speed zones always apply via `appliesTo()`; default filtered types: ENVIRONMENTAL/FISHING_PROHIBITED/OTHER

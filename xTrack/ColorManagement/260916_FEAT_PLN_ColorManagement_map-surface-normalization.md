@@ -145,8 +145,9 @@ flowchart TD
 - **Two strings are now unreferenced in Kotlin:** `side_water` and `side_land` lost their only caller when
   the dead description went. They stay declared for now; removing them, or giving the land/water square a
   real label, is a separate decision.
-- **The zone icon keeps its own literals:** `RegulatedZoneComponents.kt`'s 44 dp and 8 dp are outside the
-  named family by design, and the values coincide today.
+- **Superseded 2026-09-16 — the zone icon no longer keeps its own literals.** This point and Ask finding 14
+  were reversed the same day: the bottom-left stack is now painted by the family in its active state, and §11
+  is the record.
 - **Open after the device report — the legend's label ceiling.** The card is 44 dp wide, so its content box
   is 32, and the 14 dp bar plus the 6 dp gap leave **12 dp** for a label that measures 11.2–11.4 dp at
   10 sp/700: it fits with under 1 dp spare and clips symmetrically above a font scale of about 1.06. The
@@ -188,7 +189,8 @@ fixed in a remediation hop. All in-scope findings are closed; the rest are recor
   size stays single.
 - **13 — Info — the zone card's inset.** **Recorded in §8:** no card changed size, both padding keys holding
   6.
-- **14 — Info — the zone icon's own literals.** **Accepted**, recorded in §8.
+- **14 — Info — the zone icon's own literals.** **Accepted** at the time, **reversed 2026-09-16** — the stack
+  joins the family; see §11.
 
 ## 9. Review findings, 2026-09-16
 
@@ -215,3 +217,122 @@ the rest are recorded with their dispositions.
 - **R9 — Low — the verification section over-claimed.** **Recorded in §8.**
 - **R10 — Info — the recenter button's action colour is described but not sourced.** **Closed:** it is the
   family's own active blue, the one the locked square paints, so the hop invents nothing and adds no key.
+
+## 11. Zone-tag alignment, 2026-09-16
+
+The bottom-left zone stack — `RegulationZoneComponents.kt`'s `RegulationZoneCategoryIcon` — was the one box
+this plan left outside the family. It joins it here.
+
+- **D7 — The tags join the family in its active state.** Each tag is painted by `MapToggleSquare` with
+  `mapSurfaceFaceActive(categoryColour)`, taking the shared fill weight, corner, border and padding; the
+  wrapper's tap parameter stays unused, a tag being never tapped and having no off state.
+- **D8 — The alpha tier flattens.** Every tag takes `ui.map.surface.active.alpha` (`0.65`), so prohibition
+  drops from `0.75` and information rises from `0.50` to one weight. `RegulatedZoneIconProvider`'s
+  `alphaForCategory()` and the two keys it read, `status.gps.alpha.active` and `status.gps.alpha.dimmed`,
+  retire with it.
+- **D9 — The glyphs retune to the padded box.** The surface's 6 dp padding leaves a 32 dp content box. The
+  emoji takes `ui.map.toggle.icon.size` (`22 sp`) like every other square in the family; the speed number
+  drops from `28 sp` to `26 sp` bold, a value being the one thing a tag sizes for itself. The strike keeps its
+  proportions — `0.04 × width` between 8 % and 92 % — so inside the padded box it spans 32 dp at about
+  1.28 dp against 1.76 dp today.
+- **D10 — Geometry, spacing and position come from the shared keys.** The square side is the family's own
+  square, so `ui.map.toggle.square` is read through the painting path and not duplicated; the column's gap
+  moves from 2 dp to `ui.map.toggle.gutter`; the strip's start inset and its portrait bottom clearance both
+  leave their 6 dp literals for that same key; and the zone-info text's 4 dp start gap becomes
+  `ui.map.overlay.gap`. The tag's colour source is untouched — the category still decides the fill.
+- **D11 — Every claim about the old boundary is rewritten, at all four of its homes.** `colors.properties`
+  (the family block's exception sentence), `MapSurface.kt` (the KDoc sentence repeating it), `AppConfig.kt`
+  (the same sentence in the surface block's comment) and `docs/color-scheme.md` (the family section's own
+  copy). `MapToggleSquare`'s KDoc stops describing a top-left row square and its reader count goes from six to
+  seven; §8's bullet above and Ask finding 14 are struck.
+- **D12 — The settings preview stays.** `CategoryToggleGroup`'s 28 dp leading icon is a list icon in a
+  settings row, not map chrome: neither changed nor recorded.
+- **D13 — One home per fact.** The properties file is the source of truth for every value and the code follows
+  it rather than the reverse. The family's caller and exception lists live in `MapSurface.kt` alone, the palette
+  block names its keys and what each does, and `AppConfig` and the colour doc carry no restatement; a duplicate
+  that cannot be avoided is deleted rather than kept in sync.
+
+Steps:
+
+1. `RegulatedZoneComponents.kt` — re-seat `RegulationZoneCategoryIcon` on `MapToggleSquare` with the active
+   face; the 44 dp size and the 8 dp corner literals go, the emoji drops to the shared size, the number drops
+   to 26 sp, the strike keeps its ratio.
+2. `RegulatedZoneComponents.kt`, `MapScreen.kt` — the column's 2 dp gap onto `ui.map.toggle.gutter`, the
+   strip's start inset and portrait bottom clearance onto the same key, and the info text's 4 dp start gap
+   onto `ui.map.overlay.gap`.
+3. `RegulatedZoneIconProvider.kt` — `alphaForCategory()` deleted.
+4. `AppConfig.kt`, `colors.properties` — the two keys, their loader lines and the accessors removed with the
+   KDoc naming their reader, and the surface block's comment rewritten.
+5. `MapSurface.kt` — the exception sentence in the KDoc, and `MapToggleSquare`'s description with its count.
+6. `docs/color-scheme.md` — the two retired rows, the alpha table row that named one of them against the icon
+   provider, and the family section's exception sentence.
+7. `xTrack/RegulatedZones/FEAT_DSC_RegulatedZones.md` — Phase 3 and Phase 4 still describe this composable as
+   unbuilt; tick them against this section.
+8. Build, scoped tests, then the device run, which carries the stack alongside the three judgements already
+   owed.
+
+Files:
+
+- `app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneComponents.kt` — the tag, the column gap, the info
+  line's start gap
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — the strip's start inset and bottom clearance
+- `app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneIconProvider.kt` — `alphaForCategory()` removed
+- `app/src/main/java/ykws/android/maro/ui/map/MapSurface.kt` — both KDoc sentences and the reader count
+- `app/src/main/java/ykws/android/maro/config/AppConfig.kt`, `app/src/main/assets/colors.properties` — the two
+  retired keys, their KDoc and the family block's comment
+- `docs/color-scheme.md` — the retired rows, the alpha table and the family section
+- `xTrack/RegulatedZones/FEAT_DSC_RegulatedZones.md` — the two stale phase todos
+
+Verification:
+
+- No tag types its own side, corner, border, gap or clearance; the colour, the number and the strike are all
+  it still decides — a code-review criterion, not a test.
+- The exception list names only `ZoomButton`, `LockBanner` and `MapStatusBanner` at all four of its homes —
+  likewise by inspection.
+- `alphaForCategory()` and the two retired keys have no reader and no loader line left.
+- The values the code and the docs carry are the file's: no restatement of a `ui.map` value survives outside
+  `colors.properties` and the colour doc.
+- `apk-build.bat` and the scoped `ui.map` + `config` run stay green.
+
+Not in scope: the tag's colour source, the settings preview icon, and any tap, state or memory on a tag.
+
+Open after this pass:
+
+- A four-tag column stands 194 dp tall against 182; if that is too much of the bottom-left corner on a busy
+  zone, the fix is a token value rather than a second path.
+- The 22 sp emoji and the 26 sp number inside the 32 dp box are device-judged, and either is a one-value
+  change if the tags read too small.
+- The tags now read at one weight rather than two; if the informational categories vanish into the map behind
+  the fill, the fix is `ui.map.surface.active.alpha`.
+- The border is `${ui.divider.color}` over fills whose weight you kept, so on the dark blue tags it may barely
+  read; the dial is the border colour, not a second path.
+- `ui.map.surface.active.alpha` realigned to the file's `0.65` dims all five active squares, not only the tags,
+  so the device run judges the row's GPS, tracking, lock, recenter and earth/water faces with the stack.
+- The two Tracks and ColorManagement hydration snapshots still describe the old boundary and the old alpha pair;
+  the next bake regenerates them, which is why neither was hand-edited.
+
+## 12. Ask-hop findings, 2026-09-16
+
+Fourteen findings from the `#implement` Ask pass, all closed in one remediation hop except the two held for the
+user.
+
+- **1 and 2 — the alpha pair disagreed across five homes.** `colors.properties` holds `inactive.content.alpha`
+  `0.75` and `active.alpha` `0.65`, while `AppConfig` defaulted `0.45` and `0.75` and the colour doc, the recipe
+  doc and the state files repeated the old pair. **Settled by the user's rule:** the properties file is the
+  source of truth, so both defaults moved onto it and every doc followed; the recipe doc and the state files now
+  name keys instead of numbers.
+- **3, 5 and 6 — the family claim lived in five places and had drifted.** **Fixed by deletion rather than a
+  fifth rewrite:** `MapSurface.kt` is the one home for who paints through the path and for the three boxes
+  outside it, the palette block states its keys and what each does, `AppConfig`'s comment carries purpose only,
+  and the colour doc's copy is gone. The same record gains the two retired `status.gps.alpha.*` keys with
+  `ui.map.surface.active.alpha` as their successor.
+- **4 — `ui.map.overlay.gap`'s reader list was stale at three homes.** **Fixed:** the three enumerations went.
+- **8, 9 and 10 — three claims the change made false, or that were already false.** The tag file's `44×44 dp`
+  literal became key-based, the clearance comment names `ui.map.toggle.gutter`, and the content alpha's
+  "glyph and tracking dot alike" clause went, the dot living on the on-face where the content alpha is 1.
+- **12 — `FEAT_DSC_RegulatedZones`' front matter.** **Fixed:** `modified` moved to 2026-09-16.
+- **13 and 14 — the hop's own notes.** The scoped run is green and touches nothing on this path, so it is no
+  evidence for the change; and D7–D10 are matched exactly rather than approximated.
+- **7 and 11 — open for the user.** `emojiForType()` and `colorForType()` are dead beside the deletion, and an
+  unarchived RegulatedZones plan still teaches the superseded hand-painted recipe. Both were held back rather
+  than folded in.

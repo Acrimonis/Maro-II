@@ -78,18 +78,4 @@ object RegulatedZoneIconProvider {
         ZoneDisplayCategory.ENVIRONMENTAL -> Color(AppConfig.regulatedZoneTypeSpeedLimit)   // Dark blue — uniform background
         ZoneDisplayCategory.INFORMATION -> Color(AppConfig.regulatedZoneTypeSpeedLimit)     // Dark blue — uniform background
     }
-
-    /**
-     * Background alpha (0.0–1.0) for each [ZoneDisplayCategory].
-     * Prohibition/warning icons use [AppConfig.statusGpsAlphaActive] (75 %),
-     * informational icons use [AppConfig.statusGpsAlphaDimmed] (50 %).
-     */
-    fun alphaForCategory(category: ZoneDisplayCategory): Float {
-        return when (category) {
-            ZoneDisplayCategory.SEAPLANE -> AppConfig.statusGpsAlphaDimmed
-            ZoneDisplayCategory.ENVIRONMENTAL -> AppConfig.statusGpsAlphaDimmed
-            ZoneDisplayCategory.INFORMATION -> AppConfig.statusGpsAlphaDimmed
-            else -> AppConfig.statusGpsAlphaActive
-        }
-    }
 }

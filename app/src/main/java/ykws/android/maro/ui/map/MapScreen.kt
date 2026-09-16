@@ -207,9 +207,10 @@ private const val GPS_ANIMATION_DURATION_MS = 600L
 /** Right-edge control column width (12 gap + 64 button + 6 end). Paint-only reserve for transient overlays; the map itself is never padded by this. */
 internal val RIGHT_CONTROL_COLUMN_INSET = 82.dp
 
-/** Gutter (dp) between two of those squares — the row's start inset too, and the legend's with it.
- *  Read from the palette's `ui.map.toggle.gutter` (default 6 dp). */
-private val TOP_TOGGLE_GUTTER: Dp get() = AppConfig.uiMapToggleGutter.dp
+/** Gutter (dp) between two of those squares — the row's start inset too, and the legend's, the
+ *  regulated-zone column's and the bottom-left strip's with it. Read from the palette's
+ *  `ui.map.toggle.gutter` (default 6 dp) — the one reader of that key. */
+internal val TOP_TOGGLE_GUTTER: Dp get() = AppConfig.uiMapToggleGutter.dp
 /** Height (dp) of the map's top-left toggle-button row — the icon squares the chrome stacks on,
  *  so it is `ui.map.toggle.square` itself. */
 private val TOP_TOGGLE_ROW_HEIGHT: Dp get() = TOP_TOGGLE_SQUARE
@@ -2434,20 +2435,20 @@ private fun MapContent(
                 Spacer(modifier = Modifier.weight(1f))
 
                 // btm zone: tags + txt + overlays
-                // In landscape, clear the nav bar; in portrait, match cb's 6dp gap.
+                // In landscape, clear the nav bar; in portrait, match the row's own `ui.map.toggle.gutter`.
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .then(
                             if (isLandscape) Modifier.windowInsetsPadding(WindowInsets.navigationBars)
-                            else Modifier.padding(bottom = 6.dp)
+                            else Modifier.padding(bottom = TOP_TOGGLE_GUTTER)
                         )
                 ) {
                     // Behind layer: regulated zone icons + info text
                     Row(
                         modifier = Modifier
                             .align(Alignment.BottomStart)
-                            .padding(start = 6.dp)
+                            .padding(start = TOP_TOGGLE_GUTTER)
                     ) {
                         RegulatedZoneWarningStrip(
                             regulatedZones = visibleRegulatedZones,
@@ -2462,7 +2463,7 @@ private fun MapContent(
                                 inZone300 = inZone300,
                                 modifier = Modifier
                                     .weight(1f)
-                                    .padding(start = 4.dp)
+                                    .padding(start = AppConfig.uiMapOverlayGap.dp)
                                     .align(Alignment.Bottom)
                             )
                         }

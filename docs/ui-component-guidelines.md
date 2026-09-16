@@ -444,14 +444,14 @@ palette) and exposes them via
 
 **Visual recipe — one surface block (`ui.map.surface.*`) for every box that paints a background:**
 
-| Aspect | Value |
+| Aspect | Key |
 |---|---|
-| Fill | `ui.map.surface.inactive` = `#A8FFFFFF`, painted whole: the fill's own weight is in the token |
-| Corner / padding / border | `ui.map.surface.corner.radius` (8dp) / `.padding` (6dp) / `.border.color` + `.border.width` (1dp) |
-| Active face | the square's own state colour at `ui.map.surface.active.alpha` = 0.75 |
-| Inactive content alpha | `ui.map.surface.inactive.content.alpha` = 0.45 — the content dims, never the box |
-| Square geometry | `ui.map.toggle.square` (44dp), `ui.map.toggle.gutter` (6dp), `ui.map.toggle.icon.size` (22sp) |
-| Overlay-card text | `ui.map.overlay.text.color` + `.weight` (100–900, 700 = bold) + `.size` (10sp) |
+| Fill | `ui.map.surface.inactive`, painted whole: the fill's own weight is in the token |
+| Corner / padding / border | `ui.map.surface.corner.radius` / `.padding` / `.border.color` + `.border.width` |
+| Active face | the square's own state colour at `ui.map.surface.active.alpha` |
+| Inactive content alpha | `ui.map.surface.inactive.content.alpha` — the content dims, never the box |
+| Square geometry | `ui.map.toggle.square` / `ui.map.toggle.gutter` / `ui.map.toggle.icon.size` |
+| Overlay-card text | `ui.map.overlay.text.color` + `.weight` (bold) + `.size` |
 
 **State → colour mapping:**
 

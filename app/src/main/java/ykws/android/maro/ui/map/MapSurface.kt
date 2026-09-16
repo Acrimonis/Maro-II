@@ -62,9 +62,8 @@ internal fun mapSurfaceFaceActive(color: Color): MapSurfaceFace =
  * corner, draws the shared border and applies the shared padding, all from the `ui.map.surface.*` block.
  *
  * The family it covers is the row's status squares and the recenter square (through [MapToggleSquare]),
- * the collapsed legend square and both overlay cards. It is not a claim about every box on the map:
- * `ZoomButton`, `LockBanner`, `MapStatusBanner` and the regulated-zone icon stack paint their own faces
- * and stay outside it.
+ * the collapsed legend square, the bottom-left regulated-zone tag column and both overlay cards. The only
+ * boxes outside it are `ZoomButton`, `LockBanner` and `MapStatusBanner`, which paint their own faces.
  *
  * The inactive fade lands on the **content**, never on the box: `Modifier.alpha` sits on the inner
  * wrapper, so an inactive face still paints its fill at the property's own weight and only the glyph
@@ -115,12 +114,14 @@ internal fun MapSurface(
 }
 
 /**
- * One square of the map's top-left toggle row, layered on [MapSurface]: it adds the row's own size and
- * passes the tap through so the ripple follows the surface's corner.
+ * One fixed-size square of the map chrome, layered on [MapSurface]: it adds the family's own square side
+ * and passes the tap through so the ripple follows the surface's corner — a caller with no tap, like a
+ * zone tag, simply omits it.
  *
  * The glyph's size is not this composable's: each caller draws its own emoji at [TOP_TOGGLE_ICON_SIZE],
- * and that one accessor is read six times — the five row squares and `MapScreen`'s collapsed legend
- * square — which is what keeps `ui.map.toggle.icon.size` single. Nothing is added in here.
+ * and that one accessor is read seven times — the five row squares, `MapScreen`'s collapsed legend square
+ * and the regulated-zone tag column — which is what keeps `ui.map.toggle.icon.size` single. Nothing is
+ * added in here.
  *
  * The content box fills the padded area by construction, because a square's size is fixed: the wrapper
  * below takes the padding's own box whatever the glyph's measured one turns out to be, so an alignment

@@ -80,6 +80,13 @@
   Avoid full-file rewrite loops and save-compile-rewrite churn — each rewrite invalidates the prompt cache.
   Targeted apply_diff patches for build errors, review feedback, or discovered edge cases are normal.
 
+- **🔴 ONE HOME PER FACT: a value, a claim or a reader list is written once.** `*.properties` is the source
+  of truth for every value — code defaults and documentation follow it, never the reverse — and a duplicate
+  that cannot be avoided is deleted rather than kept in sync.
+
+- **🔴 CENTRALISE AND TRIM: docs describe, they do not restate.** A doc points at the key, the accessor or the
+  code instead of repeating a number or a caller list; secondary copies are trimmed as a matter of course.
+
 - **🔴 NO BINARY READS: Never open, read, or search `.bin`, `.tif`, `.xyz`,
   `.nc` files.** Treat spatial data files as opaque blobs.
   Read metadata and parsing code only.

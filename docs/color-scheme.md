@@ -130,11 +130,6 @@ Affects right-edge control-stack buttons (settings gear, zoom +/−, layer toggl
 **Source:** [`colors.properties`](../app/src/main/assets/colors.properties) → `AppConfig.uiMap*`
 **Painting path:** [`MapSurface.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapSurface.kt) — `MapSurface` paints every box of the surface family, `MapToggleSquare` layers the row's own size and tap on it.
 
-One block drives the surface family: the row's four status squares (GPS DEMO, tracking OFF, lock OFF,
-Earth/Water), the recenter square, the legend's collapsed square and both overlay cards (speed legend,
-zone-info line). No reader types a fill, a corner, a border or a padding of its own, and boxes outside the
-family — `ZoomButton`, `LockBanner`, `MapStatusBanner`, the zone icon stack — paint their own faces.
-
 | Token | Value | Usage |
 |---|---|---|
 | `ui.map.surface.inactive` | `#A8FFFFFF` | The one fill every surface paints — white at 66 % |
@@ -142,8 +137,8 @@ family — `ZoomButton`, `LockBanner`, `MapStatusBanner`, the zone icon stack �
 | `ui.map.surface.padding` | `6` dp | Padding the surface applies inside its own edge — the cards' inset |
 | `ui.map.surface.border.color` | `${ui.divider.color}` → `#14FFFFFF` | Border every surface draws |
 | `ui.map.surface.border.width` | `1` dp | Border width |
-| `ui.map.surface.inactive.content.alpha` | `0.45` | Content dim of an inactive face — the content dims, never the fill |
-| `ui.map.surface.active.alpha` | `0.75` | Alpha an active face paints its own state colour at |
+| `ui.map.surface.inactive.content.alpha` | `0.75` | Content dim of an inactive face — the content dims, never the fill |
+| `ui.map.surface.active.alpha` | `0.65` | Alpha an active face paints its own state colour at |
 
 A square's size and gutter are geometry rather than surface, so they stay in the toggle family:
 
@@ -161,7 +156,7 @@ The overlay cards keep their text tokens; the surface never dims their content:
 | `ui.map.overlay.text.weight` | `700` | Text weight on the shared surface (100–900, mapped with `FontWeight(…)`) |
 | `ui.map.overlay.text.size` | `10` sp | Text size on the shared surface |
 | `ui.map.overlay.text.line.height` | `14` sp | Line height of the zone-info line's text |
-| `ui.map.overlay.gap` | `${ui.map.toggle.gutter}` → `6` dp | Gap between an overlay card's parts (legend bar → labels) — the documented cross-family alias of the row's gutter |
+| `ui.map.overlay.gap` | `${ui.map.toggle.gutter}` → `6` dp | Gap between an overlay card's parts |
 | `ui.map.overlay.line.spacing` | `2` dp | Gap between two rows of the zone-info line |
 
 **Retired in the map-surface normalization (2026-09-16):** `ui.map.toggle.inactive.background` and
@@ -267,23 +262,21 @@ The hypsometric ramp interpolates between shallow (pale cyan) and deep (navy) en
 | State | Token | Default | Swatch | Alpha |
 |---|---|---|---|---|
 | DEMO | `status.gps.demo` | `${semantic.inactive}` = `#33FFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#33FFFFFF;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | No square reads it — the DEMO square paints `ui.map.surface.inactive`, its glyph at `ui.map.surface.inactive.content.alpha`; the key keeps a live reader, the menu drawer's GPS switch (`AppConfig.statusGpsDemo`) |
-| ACQUIRING | `status.gps.acquiring` | `#FFA726` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFA726;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | `ui.map.surface.active.alpha` = 0.75 |
-| HEALTHY | `status.gps.healthy` | `${ui.dashboard.status.success}` = `#CC4CAF50` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#4CAF50;opacity:0.8;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | `ui.map.surface.active.alpha` = 0.75 |
-| IDLE | `status.gps.idle` | `#1565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | `ui.map.surface.active.alpha` = 0.75 |
-| STALE | `status.gps.stale` | `#F44336` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#F44336;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | `ui.map.surface.active.alpha` = 0.75 |
-
-| Alpha Token | Default | Usage |
-|---|---|---|
-| `status.gps.alpha.active` | `0.75` | Regulated-zone prohibited/warning icons — the row's square paints `ui.map.surface.active.alpha` instead |
-| `status.gps.alpha.dimmed` | `0.50` | Informational regulated zone icons — no square reads it any more |
+| ACQUIRING | `status.gps.acquiring` | `#FFA726` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFA726;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | `ui.map.surface.active.alpha` = 0.65 |
+| HEALTHY | `status.gps.healthy` | `${ui.dashboard.status.success}` = `#CC4CAF50` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#4CAF50;opacity:0.8;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | `ui.map.surface.active.alpha` = 0.65 |
+| IDLE | `status.gps.idle` | `#1565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | `ui.map.surface.active.alpha` = 0.65 |
+| STALE | `status.gps.stale` | `#F44336` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#F44336;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | `ui.map.surface.active.alpha` = 0.65 |
 
 ### Earth/Water Icon
 
 | State | Token | Default | Swatch | Alpha |
 |---|---|---|---|---|
-| Water (active) | `status.earthWater.water` | `#1565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | `ui.map.surface.active.alpha` = 0.75 |
-| Land (active) | `status.earthWater.land` | `${ui.dashboard.status.success}` = `#CC4CAF50` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#4CAF50;opacity:0.8;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | `ui.map.surface.active.alpha` = 0.75 |
+| Water (active) | `status.earthWater.water` | `#1565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | `ui.map.surface.active.alpha` = 0.65 |
+| Land (active) | `status.earthWater.land` | `${ui.dashboard.status.success}` = `#CC4CAF50` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#4CAF50;opacity:0.8;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | `ui.map.surface.active.alpha` = 0.65 |
 | Inactive | `status.earthWater.inactive` | `${semantic.inactive}` = `#33FFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;opacity:0.2;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | No reader — the square resolves water or land only, so the inactive wing is gone (D5) |
+
+**Retired in the map-surface normalization (2026-09-16):** `status.gps.alpha.active` and
+`status.gps.alpha.dimmed` — the zone-tag column's fill weight is now `ui.map.surface.active.alpha`.
 
 ---
 
@@ -343,6 +336,7 @@ The settings card surfaces reuse the shared Main card / Inner card tokens (also 
 **Property prefix:** `regulatedZone.type.*`
 **Source:** [`colors.properties`](../app/src/main/assets/colors.properties) → `AppConfig.regulatedZoneType*`
 **Usage:** [`RegulatedZoneIconProvider.kt`](../app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneIconProvider.kt), [`MapScreen.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt)
+**Fill weight:** the bottom-left tag column paints its category colour through the surface family — `MapToggleSquare` + `mapSurfaceFaceActive()` at `ui.map.surface.active.alpha`, so no key of its own carries an alpha.
 
 | Token | Default | Swatch | Zone Type |
 |---|---|---|---|

@@ -55,8 +55,9 @@ val CATEGORY_PRIORITY: Map<ZoneDisplayCategory, Int> = mapOf(
 /**
  * Bottom-left warning strip showing icons as a vertical stack.
  *
- * Icons are 44×44 dp, ordered from most restrictive (SPEED_LIMIT at the
- * bottom) to informational (INFORMATION at the top). Deduplicates by
+ * Icons are one `ui.map.toggle.square` square each, ordered from most
+ * restrictive (SPEED_LIMIT at the bottom) to informational (INFORMATION at the
+ * top). Deduplicates by
  * (displayCategory, speedLimitKn).
  *
  * When [inZone300] is true, the 300m zone is injected as a SPEED_LIMIT entry
@@ -118,7 +119,7 @@ fun RegulatedZoneWarningStrip(
     // Vertical column: first item at bottom (most restrictive), last at top
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+        verticalArrangement = Arrangement.spacedBy(TOP_TOGGLE_GUTTER),
     ) {
         // Render in reverse so the first sorted item (most restrictive)
         // appears at the bottom of the stack
@@ -129,19 +130,24 @@ fun RegulatedZoneWarningStrip(
 }
 
 /**
- * A single 44×44 dp icon for a [ZoneDisplayCategory], displaying the category's
- * emoji (or speed number) on a coloured rounded-square background, with a thin
- * Canvas-drawn red diagonal strike overlay for prohibition categories.
+ * One tag of the bottom-left stack: a [ZoneDisplayCategory]'s emoji (or its knot number) on a
+ * coloured square, with a thin Canvas-drawn red diagonal strike overlay for prohibition categories.
  *
- * Speed limit zones render the knot value as bold white text instead of an emoji
+ * The square is a family square: [MapToggleSquare] paints the tag's own category colour through
+ * `mapSurfaceFaceActive(...)`, so it takes the shared fill, corner, border and padding at
+ * `ui.map.surface.active.alpha`. A tag is never tapped and has no off state, so no tap and no state
+ * are passed.
+ *
+ * The surface's 6 dp padding leaves a 32 dp content box, and the glyphs are tuned to it: the emoji
+ * takes [TOP_TOGGLE_ICON_SIZE] like every other square in the family, the number is the one value a
+ * tag sizes for itself — 26 sp bold in [AppConfig.uiTextPrimary] — and the strike keeps its
+ * `0.04 × width` weight between 8 % and 92 %, spanning 32 dp at about 1.28 dp on that box.
+ *
+ * Speed limit zones render the knot value as bold text instead of an emoji
  * (e.g. "5" or "10") so the user can distinguish different speed limits at a glance.
  *
- * Background alpha is sourced from [RegulatedZoneIconProvider.alphaForCategory]:
- * prohibition/warning icons use [AppConfig.iconBackActiveAlpha] (75 %),
- * informational icons use [AppConfig.iconBackInactiveAlpha] (50 %).
- *
- * Categories requiring a strike (NO_ANCHOR, NO_DIVING, NO_ACCESS) render the emoji
- * Text first, then overlay a thin red diagonal line via Canvas on top.
+ * Categories requiring a strike (NO_ANCHOR, NO_DIVING, NO_ACCESS, FISHING_PROHIBITED) render the
+ * emoji Text first, then overlay a thin red diagonal line via Canvas on top.
  */
 @Composable
 fun RegulationZoneCategoryIcon(
@@ -149,24 +155,19 @@ fun RegulationZoneCategoryIcon(
     speedKn: Double? = null,
     modifier: Modifier = Modifier
 ) {
-    val bgColor = RegulatedZoneIconProvider.colorForCategory(category)
-    val alpha = RegulatedZoneIconProvider.alphaForCategory(category)
     val hasStrike = category == ZoneDisplayCategory.NO_ANCHOR ||
             category == ZoneDisplayCategory.NO_DIVING ||
             category == ZoneDisplayCategory.NO_ACCESS ||
             category == ZoneDisplayCategory.FISHING_PROHIBITED
 
-    Box(
+    MapToggleSquare(
+        face = mapSurfaceFaceActive(RegulatedZoneIconProvider.colorForCategory(category)),
         modifier = modifier
-            .size(44.dp)
-            .clip(RoundedCornerShape(8.dp))
-            .background(bgColor.copy(alpha = alpha)),
-        contentAlignment = Alignment.Center
     ) {
         if (category == ZoneDisplayCategory.SPEED_LIMIT) {
             Text(
                 text = if (speedKn != null) "${speedKn.toInt()}" else "",
-                fontSize = 28.sp,
+                fontSize = 26.sp,
                 fontWeight = FontWeight.Bold,
                 color = ComposeColor(AppConfig.uiTextPrimary)
             )
@@ -174,7 +175,7 @@ fun RegulationZoneCategoryIcon(
             // Emoji Text for all non-speed categories
             Text(
                 text = RegulatedZoneIconProvider.emojiForCategory(category),
-                fontSize = 24.sp
+                fontSize = TOP_TOGGLE_ICON_SIZE
             )
         }
 
