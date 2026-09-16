@@ -353,3 +353,21 @@ regulatedZones.iconsOnly=false
 | Memory from many Marker instances | SHOM returns ~72 zones for Nice-Fréjus; after filtering, ~40 remain. Markers are lightweight. If zones grow, batch limit at 200. |
 | Protobuf schema change breaks existing `.bin` assets | New fields are nullable with defaults (`= null`), so old assets deserialize without error. Users must re-bake to see icons. |
 
+---
+
+## Outcome
+
+**Shipped, though not entirely as drawn here.** `RegulationFilter` runs at bake time with the vessel-size and
+type gates and the `regulatedZones.filteredTypes` default this plan set; `RegulatedZoneIconProvider` carries the
+mappings; and the warning strip exists at the map's bottom-left, fed by the zones containing the boat, deduped by
+display category and speed, with the regulated speed tags suppressed inside the 300 m band.
+`regulatedZones.iconsOnly` was never wired, and the polygon fill stayed.
+
+**Superseded by the passes that followed.** The strip became a vertical column of category tags rather than the
+horizontal scrolled row drawn here, and the type-based icons gave way to the eight display categories. The
+hand-painted 44 dp box with its `RoundedCornerShape(8.dp)` and `alpha = 0.75f` — the recipe in phase 4 above —
+was replaced on 2026-09-16 by the shared map-surface family, the stack painting through `MapToggleSquare` with
+`mapSurfaceFaceActive()` at `ui.map.surface.active.alpha`
+(`xTrack/ColorManagement/260916_FEAT_PLN_ColorManagement_map-surface-normalization.md` §11). The strip's own
+behaviour rule was promoted into the feature file's `## Rules` before this plan was retired.
+

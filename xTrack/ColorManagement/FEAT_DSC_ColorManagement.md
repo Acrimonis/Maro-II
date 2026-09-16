@@ -85,21 +85,24 @@ Canonical colour taxonomy + naming convention. Hardcoded `ComposeColor.White` au
 - **Summary — closed 2026-09-16:** the ten points ran to the end — the stack is painted by the family in its active state, with the square side, the row's gutter, the overlay's gap and both insets read from shared keys, the glyph retune accepted and `alphaForCategory()` plus the two `status.gps.alpha.*` keys retired.
 - Dropped: a separate border call, keeping the tags hand-painted, the neutral square-key rename, a named constant for the bottom clearance, the 4 dp stack-to-text gap, and any record of the settings preview icon. Nothing carried.
 
-**Level 1 — Date:** 2026-09-16 · **Source:** the `#implement` Ask hop's fourteen findings on the zone-tag alignment · **Active:** 7
+**Level 1 — Date:** 2026-09-16 · **Source:** the `#implement` Ask hop's fourteen findings on the zone-tag alignment · **Active:** 11 · **Closed:** 2026-09-16
 - [x] 1 · The file's content alpha 0.75 against the code's 0.45 — resolved: the properties file is the source of truth, so AppConfig's fallback and every doc realign to 0.75
 - [x] 2 · active.alpha 0.65 in the file against 0.75 elsewhere — resolved by the same rule: the docs and the default move to 0.65, which dims all five active squares and joins the device-judged list
 - [x] 3 · A fifth home still calls the tag outside the family — resolved by deletion rather than a fifth rewrite: one home keeps the family's member list, the other copies go
 - [x] 4 · ui.map.overlay.gap's reader list, three homes — resolved: the three enumerations deleted under D13
 - [x] 5 · No retirement record for the two removed keys — resolved: both recorded, `ui.map.surface.active.alpha` named as successor
 - [x] 6 · Three exception sentences close the list flatly — resolved: one home now, `MapSurface.kt`
-- [ ] 7 · Dead emojiForType and colorForType
+- [x] 7 · Dead emojiForType and colorForType — resolved: both deleted, the provider keeping only what the tags read
 - [x] 8 · The 44×44 KDoc literal in the tag's own file — resolved: key-based on `ui.map.toggle.square`
 - [x] 9 · The clearance comment that says cb — resolved: it names `ui.map.toggle.gutter`
 - [x] 10 · A comment claiming the content alpha dims the dot — resolved: the false clause deleted
-- [ ] 11 · An unarchived superseded recipe plan
+- [x] 11 · An unarchived superseded recipe plan — resolved: archived to `xTrack/RegulatedZones/xxArchive/` with an index row, its Outcome written and its live strip rule promoted to the feature's `## Rules`
 - [x] 12 · RegulatedZones front matter still reads June — resolved: `modified` set to 2026-09-16
 - [x] 13 · Green tests carry no evidence — no action, the hop's own honesty note
 - [x] 14 · D7–D10 matched exactly — no action, the hop's completeness note
+
+- **Summary — closed 2026-09-16:** all fourteen findings resolved — the properties file became the source of truth for every value with the two `AppConfig` defaults and every doc moved onto it, the family's caller and exception lists collapsed to `MapSurface.kt` alone, three stale reader lists, a false claim and two loose literals were corrected, the dead `emojiForType()`/`colorForType()` pair was deleted, and the superseded icon-warnings plan was retired into `xTrack/RegulatedZones/xxArchive/` with an index row, its Outcome written and its live strip rule promoted to `## Rules`.
+- Dropped: nothing. Nothing carried.
 
 ## Colour Modification Prompt
 

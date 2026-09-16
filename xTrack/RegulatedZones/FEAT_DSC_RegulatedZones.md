@@ -101,6 +101,7 @@ Decouple cone/green-line drawing and colour the direction arrow by speed complia
 - Personal-use app — regulatory data fetched offline, not redistributed
 - Bake before build: `bake-regulated-zones` as an `apk-bake.bat` target
 - The 300 m band (Zone300) is owned by Coastline/Zone300 — this feature references but never duplicates it
+- The warning strip sits bottom-left, is fed by the zones that contain the boat, dedupes by display category and speed, and suppresses the regulated speed tags while the 300 m band is in force (promoted from the retired icon-warnings plan)
 
 ## Key Files
 - `app/src/main/java/ykws/android/maro/data/regulation/` — model, clients, aggregator, serializer, repository
@@ -111,7 +112,6 @@ Decouple cone/green-line drawing and colour the direction arrow by speed complia
 - `xTrack/RegulatedZones/260612_FEAT_PLN_RegulatedZones_data-lookup-plan.md`
 - `xTrack/RegulatedZones/260612_FEAT_PLN_RegulatedZones_filter-design.md`
 - `xTrack/RegulatedZones/260612_FEAT_PLN_RegulatedZones_hexagon-fix-plan.md`
-- `xTrack/RegulatedZones/260612_FEAT_PLN_RegulatedZones_icon-warnings-plan.md`
 - `xTrack/RegulatedZones/260612_FEAT_PLN_RegulatedZones_multi-source-normalization.md`
 - `xTrack/RegulatedZones/260612_FEAT_PLN_RegulatedZones_reqs-formalized.md`
 - `xTrack/RegulatedZones/260612_FEAT_PLN_RegulatedZones_toggle-merge-design.md`
