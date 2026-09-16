@@ -25,6 +25,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ykws.android.maro.config.AppConfig
@@ -40,8 +41,8 @@ import kotlin.math.roundToInt
 private val LEGEND_BAR_HEIGHT = 150.dp
 /** Legend bar width (dp). */
 private val LEGEND_BAR_WIDTH = 14.dp
-/** Tick label size (sp). */
-private val LEGEND_LABEL_SIZE = 10.sp
+/** Tick label size (sp) — `ui.map.overlay.text.size`, the overlay family's one text size. */
+private val LEGEND_LABEL_SIZE: TextUnit get() = AppConfig.uiMapOverlayTextSize.sp
 /** Any single-line label, measured for its line box: every label shares that height. */
 private const val LEGEND_SAMPLE_LABEL = "35"
 
@@ -66,31 +67,31 @@ internal fun TrackSpeedLegend(
 ) {
     val topKn = ticks.lastOrNull()?.positionKn ?: 0f
     if (ramp.families.isEmpty() || topKn - minKn <= 0f) return
-    // The palette's own token for secondary information: the card is white at 25 %, so the primary
-    // white these labels wore is illegible now the scrim is gone, and this mid blue-grey reads over
-    // both bright water and dark.
-    val labelColor = ComposeColor(AppConfig.uiTextSecondary)
-    val labelHalfHeight = rememberedLabelHalfHeightDp()
+    // The overlay card's own pair, so the labels move with the fill they sit on:
+    // `ui.map.overlay.text.color` — mid blue-grey, the palette's secondary token — reads over both
+    // bright water and dark, and `ui.map.overlay.text.weight` owns the face.
+    val labelColor = ComposeColor(AppConfig.uiMapOverlayTextColor)
+    val labelWeight = FontWeight(AppConfig.uiMapOverlayTextWeight)
+    val labelHalfHeight = rememberedLabelHalfHeightDp(labelWeight)
 
     Column(
         modifier = modifier
-            // 8 dp, the corner the row's own toggle buttons wear (MapControls.kt), so the strip reads as
-            // one of their squares rather than as a panel sitting beside them.
-            .clip(RoundedCornerShape(8.dp))
-            // What all three disabled toggles paint, from the one property that governs that weight:
-            // `AppConfig.buttonDisabledBackgroundAlpha`, read by the GPS DEMO (MapControls.kt), tracking
-            // OFF (TrackStatusIcon.kt) and lock OFF boxes too. The inactive token is copied at it rather
-            // than multiplied — copy(alpha = …) replaces the token's own 0x33 — and this card applies no
-            // box alpha of its own, so the property's value is the whole composite.
-            .background(
-                ComposeColor(AppConfig.semanticInactive).copy(alpha = AppConfig.buttonDisabledBackgroundAlpha)
+            // The overlay family's corner, the one both cards wear (ui.map.overlay.corner.radius), so
+            // the strip reads as a card rather than as a panel sitting beside the row.
+            .clip(RoundedCornerShape(AppConfig.uiMapOverlayCornerRadius.dp))
+            // The shared map surface both families alias, taken whole: `ui.map.overlay.background`
+            // already carries its own weight, and this card applies no box alpha of its own, so the
+            // property's value is the whole composite.
+            .background(ComposeColor(AppConfig.uiMapOverlayBackground))
+            .border(
+                AppConfig.uiMapOverlayBorderWidth.dp,
+                ComposeColor(AppConfig.uiMapOverlayBorderColor),
+                RoundedCornerShape(AppConfig.uiMapOverlayCornerRadius.dp)
             )
-            .border(1.dp, ComposeColor(AppConfig.uiDividerColor), RoundedCornerShape(8.dp))
-            // Asymmetric on purpose: 6 dp on the start holds the bar on the button's left edge and the
-            // 2 dp end is slack, which hands the label box about 4 dp more room than the 6 dp a side the
-            // strip first shipped with. A raised font scale overflowing visibly is the design, and the
-            // label's size is the knob if that ever bites.
-            .padding(start = 6.dp, end = 2.dp, top = 8.dp, bottom = 8.dp),
+            // The overlay family's one padding, 6 dp a side. It replaces the asymmetric start/end pair
+            // this strip first shipped with (6 / 2, the end slack for label room) and its 8 dp vertical
+            // pair, so a raised font scale now has 4 dp less to overflow into.
+            .padding(AppConfig.uiMapOverlayPadding.dp),
         // Start-aligned rather than centred: the caller gives the card one toggle button's width on the
         // row's own gutter, so the bar sits on that gutter with the card's padding alone between them.
         horizontalAlignment = Alignment.Start
@@ -113,7 +114,7 @@ internal fun TrackSpeedLegend(
                     )
                 }
             }
-            Spacer(Modifier.width(6.dp))
+            Spacer(Modifier.width(AppConfig.uiMapOverlayGap.dp))
             Box(Modifier.height(LEGEND_BAR_HEIGHT)) {
                 // Every row prints: the table is the specification, so nothing here drops a label.
                 ticks.forEach { tick ->
@@ -121,10 +122,10 @@ internal fun TrackSpeedLegend(
                         text = tick.label,
                         color = labelColor,
                         fontSize = LEGEND_LABEL_SIZE,
-                        // Bolder at the same size: a heavier stroke of the same colour reads stronger
-                        // over pale water, and the measurement is handed the same face so the bar's end
-                        // insets stay true to what is drawn.
-                        fontWeight = FontWeight.Bold,
+                        // The weight is the property's: a heavier stroke of the same colour reads
+                        // stronger over pale water, and the measurement is handed the same face so the
+                        // bar's end insets stay true to what is drawn.
+                        fontWeight = labelWeight,
                         // One line, so a label that does not fit shows rather than wrapping.
                         maxLines = 1,
                         modifier = Modifier.offset(
@@ -146,18 +147,17 @@ internal fun TrackSpeedLegend(
 /**
  * Half the label's *real* line box at the current font scale (dp), measured rather than guessed. The
  * labels are centred on their rows by it, and it is the bar's own end inset, so the endmost labels are
- * drawn whole instead of clipped. The style carries [FontWeight.Bold], the face the labels draw, so the
- * box is the one actually used rather than the regular face's: bold shares the regular face's vertical
- * metrics, but measuring the drawn face no longer rests on the two agreeing. The former floor under the
- * measurement went with the label-drop rule that consumed it; nothing here depends on a minimum gap any
- * more.
+ * drawn whole instead of clipped. The style carries [weight], the face the labels themselves draw — so
+ * the box is the one actually used rather than the other face's: the two share vertical metrics, but
+ * measuring the drawn face no longer rests on their agreeing. The former floor under the measurement
+ * went with the label-drop rule that consumed it; nothing here depends on a minimum gap any more.
  */
 @Composable
-private fun rememberedLabelHalfHeightDp(): Dp = with(LocalDensity.current) {
+private fun rememberedLabelHalfHeightDp(weight: FontWeight): Dp = with(LocalDensity.current) {
     rememberTextMeasurer()
         .measure(
             text = LEGEND_SAMPLE_LABEL,
-            style = TextStyle(fontSize = LEGEND_LABEL_SIZE, fontWeight = FontWeight.Bold)
+            style = TextStyle(fontSize = LEGEND_LABEL_SIZE, fontWeight = weight)
         )
         .size.height
         .toDp() / 2f

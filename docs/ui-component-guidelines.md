@@ -444,12 +444,12 @@ semantic palette) and exposes them via
 
 | Aspect | Value |
 |---|---|
-| Size / radius | 44dp / 8dp |
-| Glyph | emoji, 22sp |
-| Active bg alpha | `status.*.alpha.active` = 0.75 |
-| Dimmed bg alpha | `status.*.alpha.dimmed` = 0.50 |
-| Inactive content alpha | 0.50 (emoji dimmed) |
-| Inactive bg | `${semantic.inactive}` (#33FFFFFF) |
+| Size / radius | `ui.map.toggle.square` (44dp) / `ui.map.toggle.corner.radius` (8dp) |
+| Glyph | emoji, `ui.map.toggle.icon.size` (22sp) |
+| Active bg alpha | `ui.map.toggle.active.background.alpha` = 0.75 |
+| Inactive bg | `${ui.map.toggle.inactive.background}` → `${ui.map.surface.inactive}` (#A8FFFFFF) |
+| Inactive content alpha | `ui.map.toggle.inactive.icon.alpha` = 0.50 (emoji dimmed) |
+| Overlay-card text | `ui.map.overlay.text.color` + `ui.map.overlay.text.weight` (100–900, 700 = bold) |
 
 **State → colour mapping:**
 
@@ -461,10 +461,11 @@ semantic palette) and exposes them via
 | Screen lock | `semantic.inactive` (📵) | locked=`semantic.info` (📵) |
 
 > Exception: `EarthWaterIcon` keeps its emoji at full alpha in the inactive state (no
-> contentAlpha dimming) and reuses `statusGpsAlphaActive` for its active bg alpha.
+> contentAlpha dimming) and reads `AppConfig.uiMapToggleActiveBackgroundAlpha` for its active bg alpha.
 
-🔴 New icons must: declare a `status.<name>.*` token family, parse it in `AppConfig`, and follow
-the alpha/contentAlpha recipe above — never hardcode hex in the composable.
+🔴 New icons must: take the row's shared `ui.map.toggle.*` geometry and its one inactive fill,
+declare their own state colours as a `status.<name>.*` token family, parse them in `AppConfig`, and
+follow the alpha/contentAlpha recipe above — never hardcode hex in the composable.
 
 **Lock-screen overlay placement:** the lock toggle sits right of the Earth/Water icon in the
 top-left status row (GPS → Tracking → Earth/Water → Lock → Recenter). When locked, the overlay

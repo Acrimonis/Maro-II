@@ -207,10 +207,12 @@ private const val GPS_ANIMATION_DURATION_MS = 600L
 /** Right-edge control column width (12 gap + 64 button + 6 end). Paint-only reserve for transient overlays; the map itself is never padded by this. */
 internal val RIGHT_CONTROL_COLUMN_INSET = 82.dp
 
-/** Gutter (dp) between two of those squares — the row's start inset too, and the legend's with it. */
-private val TOP_TOGGLE_GUTTER = 6.dp
-/** Height (dp) of the map's top-left toggle-button row — the icon squares the chrome stacks on. */
-private val TOP_TOGGLE_ROW_HEIGHT = TOP_TOGGLE_SQUARE
+/** Gutter (dp) between two of those squares — the row's start inset too, and the legend's with it.
+ *  Read from the palette's `ui.map.toggle.gutter` (default 6 dp). */
+private val TOP_TOGGLE_GUTTER: Dp get() = AppConfig.uiMapToggleGutter.dp
+/** Height (dp) of the map's top-left toggle-button row — the icon squares the chrome stacks on,
+ *  so it is `ui.map.toggle.square` itself. */
+private val TOP_TOGGLE_ROW_HEIGHT: Dp get() = TOP_TOGGLE_SQUARE
 /** How much tighter (dp) the status-bar inset is taken in portrait than in landscape. */
 private val PORTRAIT_CHROME_TIGHTENING = 6.dp
 

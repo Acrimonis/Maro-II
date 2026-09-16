@@ -1,20 +1,20 @@
-# Context Hydration — Tracks — 2026-09-15
+# Context Hydration — Tracks — 2026-09-16
 
-**Last Bake:** 2026-09-15 19:58 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-09-16 06:31 UTC — written by `#bake`; absence means never baked
 **Branch:** feature/no-black-casing, created from `b2f6d69`
 
 ## State
 
-Shipped on this branch: the per-type widths are configuration — `track.width.live` / `.selected` / `.newest` / `.pinned` / `.history` / `.selected.casing` = 12 / 14 / 10 / 8 / 6 / 22 px, every code default mirroring the file key for key — the selected track is opaque, cased and drawn above every other trace, the chevrons are in proportion to their own line with an outside-only dark rim, the controls are separated, the arrowhead's rim reads the line's own width, and the legend gate asks whether a banded stroke is painted on the map rather than what the focused track's fill is. **The strip's chrome was then rebuilt after the device rejected its first shape**: it is one toggle button wide with its left edge on the row's own gutter, its card paints what a disabled toggle paints (white at 50 %, `copy(alpha = …)` replacing the token's own 20 % rather than multiplying it), the `ui.legend.background` token is gone from all four files that named it, and with it the six Ask-hop lows. Two nits stay in the plan's §5: a code comment repeating the superseded ~10 % arithmetic, and the test's hand-mirrored outer wiring. `apk-build.bat` SUCCESS with 126 scoped `ui.map` and `config` tests green, and the work sits uncommitted on top of `16a4f09`, which carries the bake and the plan's rewrite.
+The selection rendering and the legend work are shipped and reviewed: the selected track is opaque, cased and drawn above every other trace, the arrowhead's rim reads the line's own width, the legend gate keys banded strokes through one shared entry point, and the speed scale is one toggle button wide on the row's gutter with its gap equal to that same gutter. Since 2026-09-16 the map's chrome around it is configuration: two families, `ui.map.toggle.*` and `ui.map.overlay.*`, over one shared `ui.map.surface.inactive` (`#A8FFFFFF`), so the five squares' size, radius and glyph size and both cards' fill, text colour, 100–900 weight, size, radius, padding, border and gaps all live in `colors.properties`; the `ui.button.disabled.*` trio and three `status.*.alpha.*` keys went with it, `status.gps.alpha.active` staying for the regulated-zone icons that read it. `apk-build.bat` SUCCESS and 126 scoped tests green. **Open and recorded:** the legend's label box is back to 12 dp where the second pass had lifted it to 16, the zone line's converged padding takes its line gap from 4 to 14 dp, three boxes read the glyph dim where the keys and docs say four, `EarthWaterIcon`'s inactive arm is dead code its call site never reaches, and several keys now have no reader — `ui.text.scrim`, two retired-by-use alphas and four state colours.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — the legend's width, start and padding; the toggle row's shared square and gutter; the gate's arguments and derived state
-- `app/src/main/java/ykws/android/maro/ui/map/TrackSpeedLegend.kt` — its own padding, the label fit and the stale KDoc
-- `app/src/main/java/ykws/android/maro/config/AppConfig.kt`, `app/src/main/assets/colors.properties`, `docs/color-scheme.md` — the legend token, to be removed
-- `app/src/main/java/ykws/android/maro/ui/map/MapTrackOverlayEffects.kt` — `legendVisibleFor` and the painted-id set
-- Tests: `TrackDirectionOverlayTest.kt`, `TrackRenderModePathTest.kt`
+- `app/src/main/assets/colors.properties` — the two families and the shared source, with the retired keys gone
+- `app/src/main/java/ykws/android/maro/config/AppConfig.kt` — the eighteen accessors, their loader lines and the retired ones
+- `app/src/main/java/ykws/android/maro/ui/map/MapControls.kt` and `TrackStatusIcon.kt` — the five squares
+- `app/src/main/java/ykws/android/maro/ui/map/TrackSpeedLegend.kt`, `RegulatedZoneComponents.kt` and `MapScreen.kt` — the two cards and the row's geometry
+- `docs/color-scheme.md` and `docs/ui-component-guidelines.md` — the family sections and the recipes
 
 ## Next Step
 
-Correct the two nits the Ask hop left — the strip's background comment and the test's outer wiring — then run the device look at all three modes with a translucent track set, whose cases are in the plan's §3.
+Judge the converged values on a device — the legend's label fit at the largest font scale, the zone stack's new line gap at three lines, and the mid-grey text on the 66 % fill over pale shallow water — then clear the readerless keys and the `EarthWaterIcon` arm in one hop.

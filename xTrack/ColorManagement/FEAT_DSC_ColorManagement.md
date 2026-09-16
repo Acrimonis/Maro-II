@@ -2,7 +2,7 @@
 name: ColorManagement
 status: active
 created: 2026-06-16 14:05
-modified: 2026-09-11 15:12
+modified: 2026-09-16 06:31
 ---
 
 # Feature: Color Management
@@ -42,6 +42,7 @@ Canonical colour taxonomy + naming convention. Hardcoded `ComposeColor.White` au
 
 - **Alias Interpolation** — `${key}` resolver in `AppConfig.init()`; green→`status.success`, low-depth→`status.error`
 - **ui-token-de-settings** — 14 shared UI tokens de-`settings`-ified (property keys + `AppConfig` accessors + all call sites + doc resync; `ui.settings.divider` → `ui.divider.color`), values and strings unchanged → `xTrack/ColorManagement/260911_FEAT_PLN_ColorManagement_ui-token-de-settings.md`
+- **map-chrome-families (2026-09-15/16, `feature/no-black-casing`)** — the map's toggle row and its two overlay cards were normalised onto two `ui.map.*` families over one shared surface: `ui.map.surface.inactive` (`#A8FFFFFF`, the single fill a switched-off button and a card wear, replacing `semantic.inactive` multiplied by an alpha), `ui.map.toggle.*` (inactive background and glyph dim, the active tint alpha superseding `status.gps/tracking/lock.alpha.active` for the row, and the square, gutter, corner radius and icon size that were literals in five composables) and `ui.map.overlay.*` (background, text colour and a 100–900 weight replacing the bold boolean, text size, corner radius, padding, border and the two gaps). Eighteen keys and their `AppConfig` properties arrived in one pass; the `ui.button.disabled.*` trio of the day before and the two retired `status.*.alpha.active` keys went, `status.gps.alpha.active` staying for the regulated-zone icons that read it; the palette's own doc gained both family sections with the retired rows removed, and the component guidelines' status-icon recipe moved onto the families. Converged values took the zone line from 9 to 10 sp, 3/1 to 6 dp padding and 4 to 8 dp corners, and the legend to a uniform 6 dp padding — each recorded as a risk the device must judge rather than special-cased with a second key → `xTrack/Tracks/FEAT_DSC_Tracks.md` and `xTrack/ZoneTile/FEAT_DSC_ZoneTile.md`
 
 ## Rules
 

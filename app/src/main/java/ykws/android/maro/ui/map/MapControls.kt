@@ -34,6 +34,8 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -41,10 +43,17 @@ import androidx.compose.ui.unit.sp
 internal enum class ControlId { SETTINGS, LAYER_FAN, ZOOM, MENU }
 
 /**
- * Side (dp) of one square in the map's top-left toggle-button row — these buttons' own size, and the
- * single home for it: the row's chrome in `MapScreen.kt` reads it for its inset arithmetic too.
+ * Side (dp) of one square in the map's top-left toggle-button row, from the palette's
+ * `ui.map.toggle.square` (default 44 dp) — these buttons' own size, and the single home for it: the
+ * row's chrome in `MapScreen.kt` reads it for its inset arithmetic too.
  */
-internal val TOP_TOGGLE_SQUARE = 44.dp
+internal val TOP_TOGGLE_SQUARE: Dp get() = AppConfig.uiMapToggleSquare.dp
+
+/** Corner radius (dp) of one of those squares — `ui.map.toggle.corner.radius` (default 8 dp). */
+internal val TOP_TOGGLE_CORNER_RADIUS: Dp get() = AppConfig.uiMapToggleCornerRadius.dp
+
+/** Emoji glyph size (sp) drawn inside one of those squares — `ui.map.toggle.icon.size` (default 22 sp). */
+internal val TOP_TOGGLE_ICON_SIZE: TextUnit get() = AppConfig.uiMapToggleIconSize.sp
 
 /**
  * A 44×44 dp icon square representing either water (🌊) or earth (🏔️).
@@ -63,16 +72,16 @@ internal fun EarthWaterIcon(
     Box(
         modifier = modifier
             .size(TOP_TOGGLE_SQUARE)
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(TOP_TOGGLE_CORNER_RADIUS))
             .background(
-                if (isActive) activeColor.copy(alpha = AppConfig.statusGpsAlphaActive)
-                else ComposeColor(AppConfig.statusEarthWaterInactive)
+                if (isActive) activeColor.copy(alpha = AppConfig.uiMapToggleActiveBackgroundAlpha)
+                else ComposeColor(AppConfig.uiMapToggleInactiveBackground)
             ),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = emoji,
-            fontSize = 22.sp
+            fontSize = TOP_TOGGLE_ICON_SIZE
         )
     }
 }
@@ -114,32 +123,31 @@ internal fun GpsStatusIcon(
     val contentAlpha: Float
     when (state) {
         GpsIconState.DEMO -> {
-            baseColor = ComposeColor(AppConfig.statusGpsDemo)
-            // The one disabled weight the tracking and lock toggles share and the legend's card paints.
-            // This state alphas its glyph alone (contentAlpha below), so the box carries no alpha of its
-            // own and `contentAlpha` never reaches the fill: a background's weight is its own alpha, and
-            // the fill therefore composites at the property's value alone while the glyph dims to 0.50.
-            bgAlpha = AppConfig.buttonDisabledBackgroundAlpha
-            contentAlpha = 0.50f
+            // The row's one inactive fill, painted whole: `ui.map.toggle.inactive.background` already
+            // carries its weight (`ui.map.surface.inactive`, white at 66 %), so the box adds no alpha of
+            // its own and `contentAlpha` never reaches the fill — the glyph alone dims.
+            baseColor = ComposeColor(AppConfig.uiMapToggleInactiveBackground)
+            bgAlpha = 1f
+            contentAlpha = AppConfig.uiMapToggleInactiveIconAlpha
         }
-        GpsIconState.ACQUIRING -> { baseColor = ComposeColor(AppConfig.statusGpsAcquiring); bgAlpha = AppConfig.statusGpsAlphaActive; contentAlpha = 1f }
-        GpsIconState.HEALTHY -> { baseColor = ComposeColor(AppConfig.statusGpsHealthy); bgAlpha = AppConfig.statusGpsAlphaActive; contentAlpha = 1f }
-        GpsIconState.IDLE -> { baseColor = ComposeColor(AppConfig.statusGpsIdle); bgAlpha = AppConfig.statusGpsAlphaActive; contentAlpha = 1f }
-        GpsIconState.STALE -> { baseColor = ComposeColor(AppConfig.statusGpsStale); bgAlpha = AppConfig.statusGpsAlphaActive; contentAlpha = 1f }
-        GpsIconState.ESTIMATING -> { baseColor = ComposeColor(AppConfig.statusGpsEstimating); bgAlpha = AppConfig.statusGpsAlphaActive; contentAlpha = 1f }
-        GpsIconState.WEAK -> { baseColor = ComposeColor(AppConfig.statusGpsAcquiring); bgAlpha = AppConfig.statusGpsAlphaActive; contentAlpha = 1f }
+        GpsIconState.ACQUIRING -> { baseColor = ComposeColor(AppConfig.statusGpsAcquiring); bgAlpha = AppConfig.uiMapToggleActiveBackgroundAlpha; contentAlpha = 1f }
+        GpsIconState.HEALTHY -> { baseColor = ComposeColor(AppConfig.statusGpsHealthy); bgAlpha = AppConfig.uiMapToggleActiveBackgroundAlpha; contentAlpha = 1f }
+        GpsIconState.IDLE -> { baseColor = ComposeColor(AppConfig.statusGpsIdle); bgAlpha = AppConfig.uiMapToggleActiveBackgroundAlpha; contentAlpha = 1f }
+        GpsIconState.STALE -> { baseColor = ComposeColor(AppConfig.statusGpsStale); bgAlpha = AppConfig.uiMapToggleActiveBackgroundAlpha; contentAlpha = 1f }
+        GpsIconState.ESTIMATING -> { baseColor = ComposeColor(AppConfig.statusGpsEstimating); bgAlpha = AppConfig.uiMapToggleActiveBackgroundAlpha; contentAlpha = 1f }
+        GpsIconState.WEAK -> { baseColor = ComposeColor(AppConfig.statusGpsAcquiring); bgAlpha = AppConfig.uiMapToggleActiveBackgroundAlpha; contentAlpha = 1f }
     }
     Box(
         modifier = modifier
             .size(TOP_TOGGLE_SQUARE)
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(TOP_TOGGLE_CORNER_RADIUS))
             .background(baseColor.copy(alpha = bgAlpha))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = "📡",
-            fontSize = 22.sp,
+            fontSize = TOP_TOGGLE_ICON_SIZE,
             modifier = if (contentAlpha < 1f) Modifier.alpha(contentAlpha) else Modifier
         )
     }
@@ -158,14 +166,14 @@ internal fun RecenterButton(
     Box(
         modifier = modifier
             .size(TOP_TOGGLE_SQUARE)
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(TOP_TOGGLE_CORNER_RADIUS))
             .background(ComposeColor(0xFF2196F3).copy(alpha = 0.30f))
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = "📍",
-            fontSize = 22.sp
+            fontSize = TOP_TOGGLE_ICON_SIZE
         )
     }
 }
@@ -181,14 +189,16 @@ internal fun LockScreenButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val baseColor = if (locked) ComposeColor(AppConfig.statusLockOn) else ComposeColor(AppConfig.statusLockOff)
-    val bgAlpha = if (locked) AppConfig.statusLockAlphaActive else AppConfig.buttonDisabledBackgroundAlpha
-    val contentAlpha = if (locked) 1f else 0.50f
+    // Unlocked, the box is the row's inactive fill painted whole (see GpsIconState.DEMO), so the
+    // glyph alone carries the dim.
+    val baseColor = if (locked) ComposeColor(AppConfig.statusLockOn) else ComposeColor(AppConfig.uiMapToggleInactiveBackground)
+    val bgAlpha = if (locked) AppConfig.uiMapToggleActiveBackgroundAlpha else 1f
+    val contentAlpha = if (locked) 1f else AppConfig.uiMapToggleInactiveIconAlpha
     val cd = stringResource(if (locked) R.string.cd_unlock_screen else R.string.cd_lock_screen)
     Box(
         modifier = modifier
             .size(TOP_TOGGLE_SQUARE)
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(TOP_TOGGLE_CORNER_RADIUS))
             .background(baseColor.copy(alpha = bgAlpha))
             .clickable(onClick = onClick)
             .semantics { contentDescription = cd }
@@ -197,7 +207,7 @@ internal fun LockScreenButton(
     ) {
         Text(
             text = "\uD83D\uDCF5",
-            fontSize = 22.sp
+            fontSize = TOP_TOGGLE_ICON_SIZE
         )
     }
 }

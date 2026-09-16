@@ -22,7 +22,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.track.TrackRecorderState
 import ykws.android.maro.data.track.TrackRecorderUiState
@@ -52,12 +51,12 @@ fun TrackStatusIcon(
 
     when (recorderState.state) {
         TrackRecorderState.OFF -> {
-            baseColor = Color(AppConfig.statusTrackingOff)
-            // The shared disabled weight, the same property the GPS DEMO and lock OFF boxes read and the
-            // legend's card paints. The 0.50 below dims the glyph alone: the whole-box `.alpha()` sits
-            // after `.background(...)`, so the fill composites at the property's value alone.
-            bgAlpha = AppConfig.buttonDisabledBackgroundAlpha
-            contentAlpha = 0.50f
+            // The row's one inactive fill — `ui.map.toggle.inactive.background`, the same the GPS DEMO
+            // and lock OFF boxes paint — taken whole, since it already carries its own weight. The glyph
+            // dims alone: the whole-box `.alpha()` sits after `.background(...)`.
+            baseColor = Color(AppConfig.uiMapToggleInactiveBackground)
+            bgAlpha = 1f
+            contentAlpha = AppConfig.uiMapToggleInactiveIconAlpha
             showDot = false
             dotColor = Color.Transparent
         }
@@ -66,7 +65,7 @@ fun TrackStatusIcon(
                 Color(AppConfig.statusTrackingHealthy)
             else
                 Color(AppConfig.statusTrackingIdle)
-            bgAlpha = AppConfig.statusTrackingAlphaActive
+            bgAlpha = AppConfig.uiMapToggleActiveBackgroundAlpha
             contentAlpha = 1f
             showDot = true
             dotColor = if (recorderState.isMoving)
@@ -91,7 +90,7 @@ fun TrackStatusIcon(
     Box(
         modifier = modifier
             .size(TOP_TOGGLE_SQUARE)
-            .clip(RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(TOP_TOGGLE_CORNER_RADIUS))
             .background(baseColor.copy(alpha = bgAlpha))
             .clickable(onClick = onClick)
             .alpha(contentAlpha),
@@ -99,7 +98,7 @@ fun TrackStatusIcon(
     ) {
         Text(
             text = "\uD83D\uDC3E", // 🐾 paw prints
-            fontSize = 22.sp,
+            fontSize = TOP_TOGGLE_ICON_SIZE,
             fontWeight = FontWeight.Bold
         )
 

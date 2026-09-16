@@ -259,7 +259,7 @@ fun RegulatedZoneInfoText(
 
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.Bottom)
+        verticalArrangement = Arrangement.spacedBy(AppConfig.uiMapOverlayLineSpacing.dp, Alignment.Bottom)
     ) {
         // Render in reverse so most restrictive (first in sorted order) is at bottom
         categoryLines.reversed().forEach { (category, speedKn, zone) ->
@@ -284,15 +284,22 @@ fun RegulatedZoneInfoText(
                 zone != null && zone.description.isNotBlank() -> zone.description.replace("\n", " ")
                 else -> ""
             }
+            // The line's chrome is the speed legend's own, both cards being one overlay family: the
+            // shared map surface both families alias, and the pair its text wears — colour from
+            // `ui.map.overlay.text.color`, weight from `ui.map.overlay.text.weight`, size from
+            // `ui.map.overlay.text.size`, corner and padding from the same family. The converged 10 sp
+            // and 6 dp are larger than the 9 sp / 3×1 dp this line first shipped with; the risk is
+            // reported rather than answered with a second key.
             Text(
                 text = if (keyInfo.isNotBlank()) "$emoji $name — $keyInfo" else "$emoji $name",
-                fontSize = 9.sp,
+                fontSize = AppConfig.uiMapOverlayTextSize.sp,
                 lineHeight = 14.sp,
-                color = ComposeColor(AppConfig.uiTextPrimary),
+                color = ComposeColor(AppConfig.uiMapOverlayTextColor),
+                fontWeight = FontWeight(AppConfig.uiMapOverlayTextWeight),
                 modifier = Modifier
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(ComposeColor(AppConfig.uiTextScrim))
-                    .padding(horizontal = 3.dp, vertical = 1.dp)
+                    .clip(RoundedCornerShape(AppConfig.uiMapOverlayCornerRadius.dp))
+                    .background(ComposeColor(AppConfig.uiMapOverlayBackground))
+                    .padding(AppConfig.uiMapOverlayPadding.dp)
             )
         }
     }
