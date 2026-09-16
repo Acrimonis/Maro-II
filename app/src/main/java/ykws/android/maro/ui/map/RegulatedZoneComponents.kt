@@ -63,18 +63,22 @@ val CATEGORY_PRIORITY: Map<ZoneDisplayCategory, Int> = mapOf(
  * When [inZone300] is true, the 300m zone is injected as a SPEED_LIMIT entry
  * at the highest priority (bottom of stack), and regulated SPEED_LIMIT icons
  * are suppressed to avoid duplicating speed limit info.
+ *
+ * The stack answers for [markerPosition], not for the boat: that point is the boat while the map
+ * follows it and the viewpoint while the map has been moved, so a dragged map shows what the user
+ * is looking at. The band's answer arrives as [inZone300], computed at the same point.
  */
 @Composable
 fun RegulatedZoneWarningStrip(
     regulatedZones: RegulatedZoneSet?,
-    boatPosition: LatLng? = null,
+    markerPosition: LatLng? = null,
     inZone300: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    val categories = remember(regulatedZones, boatPosition, inZone300) {
+    val categories = remember(regulatedZones, markerPosition, inZone300) {
         val base = if (regulatedZones != null && regulatedZones.zones.isNotEmpty()) {
-            val zones = if (boatPosition != null) {
-                regulatedZones.zones.filter { it.contains(boatPosition) }
+            val zones = if (markerPosition != null) {
+                regulatedZones.zones.filter { it.contains(markerPosition) }
             } else {
                 regulatedZones.zones
             }
@@ -208,15 +212,15 @@ fun RegulationZoneCategoryIcon(
 @Composable
 fun RegulatedZoneInfoText(
     regulatedZones: RegulatedZoneSet?,
-    boatPosition: LatLng? = null,
+    markerPosition: LatLng? = null,
     inZone300: Boolean = false,
     modifier: Modifier = Modifier
 ) {
     // Derive the same deduplicated (category, speedKn) pairs as the warning strip
-    val categoryLines = remember(regulatedZones, boatPosition, inZone300) {
+    val categoryLines = remember(regulatedZones, markerPosition, inZone300) {
         val base = if (regulatedZones != null && regulatedZones.zones.isNotEmpty()) {
-            val zones = if (boatPosition != null) {
-                regulatedZones.zones.filter { it.contains(boatPosition) }
+            val zones = if (markerPosition != null) {
+                regulatedZones.zones.filter { it.contains(markerPosition) }
             } else {
                 regulatedZones.zones
             }

@@ -1,22 +1,20 @@
 # Hydration: Navigation
 
-**State:** Active — auto-show validation baked (2026-09-08), feature/auto-show-zones committed + pushed.
+**Baked:** 2026-09-16 17:10 UTC
+**Last Bake:** 2026-09-16 17:10 UTC
+**Status:** active
 
-**Session summary:** Validated demo-mode auto-show of regulated zones + 300 m band (reported: demo
-does not reveal though Settings on). Instrumented build (`AutoShow` tag) + on-device logcat proved
-**no code defect**: `autoShowMasterOverride` (drawer "Auto-show zones" master switch) was OFF →
-`globalEnabled=false` → auto-show suppressed in both modes. GPS "working" was the layers being
-visible, not auto-show. Demo speed/cone/data were healthy. Legacy auto-show knowledge consolidated
-into `FEAT_DOC_Navigation_auto-show.md`; ZoneTile legacy plan stubbed; Ui_Settings stays settings
-owner. Stale code comments corrected (demoBearingDeg never set; demo heading always 0° north;
-two-finger rotate writes bearingDeg for map orientation only). LOGCAT WORKFLOW rule added to
-AGENTS.md + GLOBAL_CONTEXT.
+## State
 
-**Target files (branch):**
-- `xTrack/Navigation/*` — auto-show docs (new FEAT_DOC, plan, DSC section, hydration)
-- `app/src/main/java/ykws/android/maro/ui/map/NavigationViewModel.kt` — comment/KDoc corrections only
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — comment corrections only
+The dashboard's position source is mode-aware: `dashboardPositionFor(marker, boat, gpsMode)` in `DashboardPosition.kt` returns the boat in GPS mode and the marker in demo, and the `dashboardPosition` flow feeds the shore pipeline in place of `_mapCenter`, so a dragged map can no longer move the water flag, the distance, the band state, the speed-zone query or the zone situation. `syncCenterFromBoat` gates both boat-driven centre writes behind `autoFollowSuppressed` — the user owns the centre until the recenter button or the resume timer hands it back, and both now restore it in-frame. The tag stack and the auto-reveal narrowing keep the marker by decision, so the screen answers two questions on purpose. Plan `260916_FEAT_PLN_Navigation_dashboard-position-source.md` is implemented: `DashboardPositionTest` green, `apk-build.bat` SUCCESS, device pass open.
 
-**Outcome:** no functional change required; user enables the drawer master switch to use auto-show.
+## Target Files
 
-**Previous session:** Cap arrow + direction line fix complete (bearingDeg removed from render math).
+- `app/src/main/java/ykws/android/maro/ui/map/DashboardPosition.kt` — the pure predicate
+- `app/src/main/java/ykws/android/maro/ui/map/NavigationViewModel.kt` — `dashboardPosition`, `syncCenterFromBoat`, `recenterNow`, `startTimer`
+- `app/src/test/java/ykws/android/maro/ui/map/DashboardPositionTest.kt` — the three cases
+- `xTrack/Navigation/260916_FEAT_PLN_Navigation_dashboard-position-source.md` — the plan and its review V1–V8
+
+## Next Step
+
+Device pass: the band card and the distance stay on the boat while the map is dragged in GPS mode, the same values follow the marker in demo, an approach reveal still fires at the configured distance, and the recenter button and the timer each restore the centre at once.

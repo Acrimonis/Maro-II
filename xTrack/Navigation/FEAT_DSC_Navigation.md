@@ -2,7 +2,7 @@
 name: Navigation
 status: active
 created: 2026-06-10 08:40
-modified: 2026-09-08 16:49
+modified: 2026-09-16 17:10
 ---
 
 # Feature: Navigation
@@ -60,12 +60,15 @@ Auto-show / re-display of regulated zones and the 300 m band on approach, in GPS
 
 - **auto-show validation (2026-09-08)** — demo-mode auto-show investigated on feature/auto-show-zones (instrumented build + logcat, tag `AutoShow`): root cause was **no code defect** — the drawer "Auto-show zones" master override (`autoShowMasterOverride`) was OFF, so `globalEnabled` was false and auto-show was suppressed in both modes; demo SOG/cone/data all healthy. Stale demo-heading code comments corrected (`demoBearingDeg` never set — demo heading stays 0°/north; pan derives speed only). Auto-show knowledge consolidated → `xTrack/Navigation/FEAT_DOC_Navigation_auto-show.md`; plan `xTrack/Navigation/260908_FEAT_PLN_Navigation_auto-show-demo-mode.md`
 - **dash distance (2026-07-04)** — unified distance tile: single-branch speed-limit compare, ETA for SHOM exit, shore-bound 300m gate, Lérins override
+- **dashboard position source (2026-09-16, `feature/tracking-more`)** — the shore pipeline reads `dashboardPositionFor(marker, boat, gpsMode)`: the boat in GPS mode, the marker in demo, so a dragged map can no longer move the dashboard; `syncCenterFromBoat` stops the boat's own fixes grabbing the map centre while auto-follow is suppressed, and `recenterNow()` restores it in the same frame. Three cases covered by `DashboardPositionTest`; `apk-build.bat` SUCCESS. → `xTrack/Navigation/260916_FEAT_PLN_Navigation_dashboard-position-source.md`
 
 ## Todos
 - [ ] On-device visual verification of all navigation features
 
 ## Rules
+- Suppressed auto-follow means the user owns the map centre: no fix may write it until the recenter button or the resume timer hands it back. The resume timer does not yet restore it in-frame — `startTimer()`/`NavigationViewModel.kt:466` clears suppression only
 
 ## Key Files
 
 ## Docs
+- `xTrack/Navigation/260916_FEAT_PLN_Navigation_dashboard-position-source.md` — dashboard position source and the centre-ownership gate
