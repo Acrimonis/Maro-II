@@ -1,23 +1,20 @@
 # Hydration: RegulatedZones
 
-**Baked:** 2026-06-13 20:23 UTC
+**Baked:** 2026-09-16 17:10 UTC
+**Last Bake:** 2026-09-16 17:10 UTC
 **Status:** active
-**Active subfeature:** design (15/18 complete), more-dedebug (0/2, newly created)
 
 ## State
 
-SpeedZones implementation complete: SpeedZone model, SpeedZoneIndex grid spatial index with exhaustive containment, SpeedLimitCard replacing Zone300Card with 6 render states, heading-ahead cone + green line overlays, generalized zoneAutoShowDecision() with ZoneAutoShowConfig. Performance fixes: pipeline throttled from 150ms→333ms (~3 Hz) to resolve drag stutter; uniform border rule applied (removed pulsing animation, all tiles get solid border matching cardColor).
+The bottom-left tag stack no longer rides the layer's visibility. Its set is derived from the Zone categories settings (`tagRegulatedZones` in `MapContent`), the stack is fed the marker point, and the 300 m sign carries its own band result (`markerInZone300`, the analytic `CoastlineRepository.isIn300mZone` at the marker) while the dashboard keeps `inZone300` for the boat. `MapContent`'s `boatPosition` parameter is gone and the strip's own parameter is now `markerPosition`. The 300 m sign stays unconditional by decision — it ignores the category toggles where every other tag follows them. Plan `260916_FEAT_PLN_RegulatedZones_tag-stack-trigger.md` is implemented: `apk-build.bat` SUCCESS, `DashboardPositionTest` green, device pass open.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/ui/map/CoastlineViewModel.kt` — SHORE_SAMPLE_INTERVAL_MS=333L, heading-ahead pipeline
-- `app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt` — SpeedLimitCard, uniform border rule, SpeedCard color-coding
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — cone+line overlay, LaunchedEffect
-- `app/src/main/java/ykws/android/maro/spatial/SpeedZoneIndex.kt` — grid spatial index
-- `app/src/main/java/ykws/android/maro/data/regulation/SpeedZone.kt` — runtime model
-- `app/src/main/java/ykws/android/maro/data/regulation/SpeedZoneBuilder.kt` — builder + zone name filter
-- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — auto-show toggles
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — `tagRegulatedZones`, the strip and info-text wiring, the deleted `boatPosition` parameter
+- `app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneComponents.kt` — the `markerPosition` parameter and its marker-point KDoc
+- `app/src/main/java/ykws/android/maro/ui/map/NavigationViewModel.kt` — `markerInZone300`
+- `xTrack/RegulatedZones/260916_FEAT_PLN_RegulatedZones_tag-stack-trigger.md` — the plan, its review R1–R9 and the walk
 
 ## Next Step
 
-On-device validation of speed zone distance logic. Then address more-dedebug subfeature: decouple cone/green line drawing, color arrow by speed compliance.
+Device pass: with the layer off over the Cap d'Antibes speed zone the tag shows, unticking the Speed limit category removes it, and dragging the map clear of the zone removes it too.

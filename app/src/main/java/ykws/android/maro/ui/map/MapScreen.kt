@@ -449,6 +449,7 @@ fun MapScreen(
     val zone300 by viewModel.zone300.collectAsState()
     val zoneSituation by viewModel.zoneSituation.collectAsState()
     val zone300Overlay by viewModel.zone300OverlayVisible.collectAsState()
+    val markerInZone300 by viewModel.markerInZone300.collectAsState()
     val regulatedZoneOverlay by viewModel.regulatedZoneOverlayVisible.collectAsState()
     val appSettings by viewModel.settings.collectAsState()
     var mapView by remember { mutableStateOf<MapView?>(null) }
@@ -1231,9 +1232,9 @@ fun MapScreen(
                 navigationState = navigationState,
                 gpsIconState = gpsIconState,
                 onGpsModeToggle = { onGpsModeChange(!appSettings.gpsMode) },
-                // Demo mode (gpsPosition == null): use mapCenter as fallback so
-                // geo-fence still works when panning the map in demo/manual mode.
-                boatPosition = gpsPosition ?: mapCenter,
+                // The tag stack's marker point is the map centre (§5.6 of the tag-stack plan),
+                // and the band sign it shows is the marker's own band result.
+                markerInZone300 = markerInZone300,
                 headingDeg = effectiveHeadingDeg,
                 onCenterChanged = onCenterChanged,
                 onZoomChanged = viewModel::updateZoomLevel,
@@ -2237,7 +2238,7 @@ private fun MapContent(
     mapView: MapView?,
     navigationState: NavigationState = NavigationState(),
     gpsIconState: GpsIconState = GpsIconState.DEMO,
-    boatPosition: LatLng? = null,
+    markerInZone300: Boolean = false,
     headingDeg: Double = -1.0,
     onCenterChanged: (Double, Double) -> Unit,
     onZoomChanged: (Double) -> Unit,
@@ -2328,6 +2329,11 @@ private fun MapContent(
                 if (nearby.isEmpty()) null else base.copy(zones = nearby)
             }
         } else null
+        // Tags follow the Zone categories settings and the marker point — never the layer's
+        // visibility, which gates the polygons above only.
+        val tagRegulatedZones = remember(regulatedZones, appSettings) {
+            filterRegulatedZones(regulatedZones, appSettings.boatSizeM) { appSettings.isCategoryVisible(it) }
+        }
         // Apply low-depth (<1.5 m) warning visibility toggle
         val visibleLowDepthWarning = if (appSettings.lowDepthWarningVisible) lowDepthWarningBitmap else null
         // Apply depth layer colour map + isobath contours visibility toggle
@@ -2451,16 +2457,16 @@ private fun MapContent(
                             .padding(start = TOP_TOGGLE_GUTTER)
                     ) {
                         RegulatedZoneWarningStrip(
-                            regulatedZones = visibleRegulatedZones,
-                            boatPosition = boatPosition,
-                            inZone300 = inZone300,
+                            regulatedZones = tagRegulatedZones,
+                            markerPosition = mapCenter,
+                            inZone300 = markerInZone300,
                             modifier = Modifier.align(Alignment.Bottom)
                         )
                         if (appSettings.regulationInfoVisible) {
                             RegulatedZoneInfoText(
-                                regulatedZones = visibleRegulatedZones,
-                                boatPosition = boatPosition,
-                                inZone300 = inZone300,
+                                regulatedZones = tagRegulatedZones,
+                                markerPosition = mapCenter,
+                                inZone300 = markerInZone300,
                                 modifier = Modifier
                                     .weight(1f)
                                     .padding(start = AppConfig.uiMapOverlayGap.dp)

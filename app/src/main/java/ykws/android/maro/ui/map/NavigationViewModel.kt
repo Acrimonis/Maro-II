@@ -216,6 +216,17 @@ class NavigationViewModel(
     private val _inZone300 = MutableStateFlow(false)
     val inZone300: StateFlow<Boolean> = _inZone300.asStateFlow()
 
+    /**
+     * 300 m band membership of the map marker — the tag stack's own band sign, so the sign
+     * answers "what am I looking at" while [inZone300] keeps answering for the dashboard.
+     */
+    val markerInZone300: StateFlow<Boolean> =
+        _mapCenter
+            .sample(SHORE_SAMPLE_INTERVAL_MS)
+            .map { repository.isIn300mZone(it.latitude, it.longitude) }
+            .distinctUntilChanged()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
+
     /** Signed distance (m) to the 300 m boundary (+ outside, − inside); null if unknown. */
     private val _distanceToZone = MutableStateFlow<Double?>(null)
     val distanceToZone: StateFlow<Double?> = _distanceToZone.asStateFlow()
@@ -432,6 +443,19 @@ class NavigationViewModel(
     fun recenterNow() {
         resumeJob?.cancel()
         _autoFollowSuppressed.value = false
+        // Restore the centre in the same frame instead of waiting for the next fix.
+        _gpsPosition.value?.let { syncCenterFromBoat(it) }
+    }
+
+    /**
+     * Boat-driven centre write. Suppressed auto-follow means the user owns the centre: while the
+     * map has been moved and has not been recentred — by [recenterNow] or by the resume timer —
+     * a fix, or its dead-reckoned continuation, may not take that value back.
+     */
+    private fun syncCenterFromBoat(position: LatLng) {
+        if (!_autoFollowSuppressed.value) {
+            updateMapCenter(position.latitude, position.longitude)
+        }
     }
 
     /** Start (or restart) the auto-follow resume timer. */
@@ -440,6 +464,8 @@ class NavigationViewModel(
         resumeJob = viewModelScope.launch {
             delay(settings.value.recenterDelaySeconds.coerceIn(1, 10).toLong() * 1_000L)
             _autoFollowSuppressed.value = false
+            // Expiry is a recentre: hand the centre back in-frame, exactly as the button does.
+            _gpsPosition.value?.let { syncCenterFromBoat(it) }
         }
     }
 
@@ -452,6 +478,16 @@ class NavigationViewModel(
         }
     }
 
+    /**
+     * Dashboard position: the boat in GPS mode, the marker in demo mode — the single source the
+     * shore pipeline reads, so the dashboard never describes the spot the user dragged to.
+     * Design: `xTrack/Navigation/260916_FEAT_PLN_Navigation_dashboard-position-source.md` §4.7.
+     */
+    private val dashboardPosition: Flow<LatLng> =
+        combine(_mapCenter, _gpsPosition, settings) { marker, boat, s ->
+            dashboardPositionFor(marker, boat, s.gpsMode)
+        }.distinctUntilChanged()
+
     init {
         // ── Shore recompute pipeline (throttled) ───────────────────────────
         // osmdroid fires a scroll event on every frame of a pan/fling (30–60/s);
@@ -460,7 +496,9 @@ class NavigationViewModel(
         // sample() collapses the stream to ~6–7 updates/s — imperceptible for
         // on-screen text — flowOn moves the work off the main thread, and
         // mapLatest cancels a stale computation when the center moves again.
-        _mapCenter
+        // Reads the dashboard position rather than the raw map centre: the boat in GPS mode,
+        // the marker in demo (see [dashboardPosition]).
+        dashboardPosition
             .sample(SHORE_SAMPLE_INTERVAL_MS)
             .mapLatest { center ->
                 val result = repository.distanceToCoast(center.latitude, center.longitude)
@@ -730,7 +768,7 @@ class NavigationViewModel(
                 val now = SystemClock.elapsedRealtime()
                 _gpsPosition.value = fix.position
                 _boatIsWater.value = repository.isOnWater(fix.position.latitude, fix.position.longitude)
-                updateMapCenter(fix.position.latitude, fix.position.longitude)
+                syncCenterFromBoat(fix.position)
 
                 // ── Acquisition mode update (BEFORE watchdog) ──────────────
                 // Update adaptive policy first so the watchdog gate reads current fix's state.
@@ -976,7 +1014,7 @@ class NavigationViewModel(
                 )
                 _gpsPosition.value = estimatedPos
                 _boatIsWater.value = repository.isOnWater(estimatedPos.latitude, estimatedPos.longitude)
-                updateMapCenter(estimatedPos.latitude, estimatedPos.longitude)
+                syncCenterFromBoat(estimatedPos)
                 _navigationState.update { it.copy(bearingDeg = state.bearingDeg) }
                 delay(DEAD_RECKONING_INTERVAL_MS)
                 elapsedMs += DEAD_RECKONING_INTERVAL_MS
