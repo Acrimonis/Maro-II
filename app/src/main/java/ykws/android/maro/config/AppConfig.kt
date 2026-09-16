@@ -59,40 +59,53 @@ object AppConfig {
     var buttonActionIconInactiveAlpha: Float = 0.25f
         private set
 
-    // ── Map toggle row & overlay cards (from colors.properties) ───────────
-    // Two families over one shared fill: the row's five squares read `ui.map.toggle.*`, the speed
-    // legend and the map's zone-info line read `ui.map.overlay.*`, and both alias that surface.
+    // ── Map surface & its two control families (from colors.properties) ───────────
+    // One surface paints the whole family — the row's four status squares, the recenter square, the
+    // legend's collapsed square and both overlay cards — through the single path in ui/map/MapSurface.kt,
+    // and the `ui.map.surface.*` block below is its one set of settings. Boxes outside the family
+    // (ZoomButton, LockBanner, MapStatusBanner, the zone icon stack) paint their own faces. What stays per
+    // family is only what is genuinely family-specific: the toggle row's square, gutter and glyph size,
+    // and the overlay cards' text tokens.
 
-    /** ARGB fill the map's five inactive boxes — the row's four status squares and the legend's
-     *  collapsed speed-scale square — and its two overlay cards paint; the shared source the two
-     *  families below alias. Default `#A8FFFFFF` (white at 66 %).
+    /** ARGB fill of the shared map surface — the row's four status squares, the recenter square, the
+     *  legend's collapsed speed-scale square and both overlay cards. Default `#A8FFFFFF` (white at 66 %).
      *  Set via `ui.map.surface.inactive` in colors.properties. */
     var uiMapSurfaceInactive: Int = 0xA8FFFFFF.toInt()
         private set
 
-    /** Inactive fill of the row's toggle boxes — `EarthWaterIcon` (neither side active) and
-     *  `GpsStatusIcon` (DEMO) in MapControls.kt, `TrackStatusIcon` (OFF), `LockScreenButton`
-     *  (unlocked). Default = [uiMapSurfaceInactive]. Set via `ui.map.toggle.inactive.background`. */
-    var uiMapToggleInactiveBackground: Int = 0xA8FFFFFF.toInt()
+    /** Corner radius (dp) every surface clips to — the squares and both cards alike. Default 8.
+     *  Set via `ui.map.surface.corner.radius`. */
+    var uiMapSurfaceCornerRadius: Float = 8f
         private set
 
-    /** Alpha (0.0–1.0) the inactive boxes dim their emoji glyph to, leaving the fill's own weight
-     *  alone — GPS DEMO, tracking OFF, lock OFF. Default 0.50.
-     *  Set via `ui.map.toggle.inactive.icon.alpha` in colors.properties. */
-    var uiMapToggleInactiveIconAlpha: Float = 0.50f
+    /** Padding (dp) the surface applies inside its own edge — the cards' inset, inert on a centred
+     *  square. Default 6. Set via `ui.map.surface.padding`. */
+    var uiMapSurfacePadding: Float = 6f
         private set
 
-    /** Background alpha (0.0–1.0) of an active toggle over its state colour — every non-DEMO branch
-     *  of `GpsStatusIcon`, both active branches of `EarthWaterIcon`, `LockScreenButton` locked and
-     *  `TrackStatusIcon` ON. Default 0.75.
-     *  Set via `ui.map.toggle.active.background.alpha` in colors.properties. */
-    var uiMapToggleActiveBackgroundAlpha: Float = 0.75f
+    /** ARGB border colour every surface draws. Default `#14FFFFFF` (alias of `ui.divider.color`).
+     *  Set via `ui.map.surface.border.color`. */
+    var uiMapSurfaceBorderColor: Int = 0x14FFFFFF.toInt()
         private set
 
-    /** Side (dp) of one square in the row, read by the five squares (`EarthWaterIcon`,
-     *  `GpsStatusIcon`, `RecenterButton`, `LockScreenButton`, `TrackStatusIcon`) and by MapScreen's
-     *  row height, legend width and locked-mirror offset. Default 44.
-     *  Set via `ui.map.toggle.square` in colors.properties. */
+    /** Border width (dp) every surface draws. Default 1. Set via `ui.map.surface.border.width`. */
+    var uiMapSurfaceBorderWidth: Float = 1f
+        private set
+
+    /** Alpha (0.0–1.0) an inactive surface dims its *content* to, never its fill — GPS DEMO,
+     *  tracking OFF, lock OFF and the legend's collapsed square. Default 0.45.
+     *  Set via `ui.map.surface.inactive.content.alpha` in colors.properties. */
+    var uiMapSurfaceInactiveContentAlpha: Float = 0.45f
+        private set
+
+    /** Background alpha (0.0–1.0) an active surface paints its own state colour at — every non-DEMO
+     *  branch of `GpsStatusIcon`, `EarthWaterIcon`, `LockScreenButton` locked, `TrackStatusIcon` ON and
+     *  the recenter square. Default 0.75. Set via `ui.map.surface.active.alpha`. */
+    var uiMapSurfaceActiveAlpha: Float = 0.75f
+        private set
+
+    /** Side (dp) of one square in the row, read by `MapToggleSquare` and by MapScreen's row height,
+     *  legend width and locked-mirror offset. Default 44. Set via `ui.map.toggle.square`. */
     var uiMapToggleSquare: Float = 44f
         private set
 
@@ -102,65 +115,40 @@ object AppConfig {
     var uiMapToggleGutter: Float = 6f
         private set
 
-    /** Corner radius (dp) of one square, read by the five squares. Default 8.
-     *  Set via `ui.map.toggle.corner.radius` in colors.properties. */
-    var uiMapToggleCornerRadius: Float = 8f
-        private set
-
-    /** Emoji glyph size (sp) inside one square, read by the five squares. Default 22.
+    /** Emoji glyph size (sp) inside one square, read by each square's own content. Default 22.
      *  Set via `ui.map.toggle.icon.size` in colors.properties. */
     var uiMapToggleIconSize: Float = 22f
         private set
 
-    /** ARGB fill of the two overlay cards — the speed legend (TrackSpeedLegend.kt) and the map's
-     *  zone-info line (RegulatedZoneComponents.kt). Default = [uiMapSurfaceInactive].
-     *  Set via `ui.map.overlay.background` in colors.properties. */
-    var uiMapOverlayBackground: Int = 0xA8FFFFFF.toInt()
-        private set
-
-    /** Text colour on that overlay fill, read by the same two cards. Default `#FF78909C`
+    /** Text colour on the shared surface, read by the two overlay cards. Default `#FF78909C`
      *  (alias of `ui.text.secondary`). Set via `ui.map.overlay.text.color`. */
     var uiMapOverlayTextColor: Int = 0xFF78909C.toInt()
         private set
 
-    /** Text weight on that overlay fill, read by the same two cards: parsed as an `Int` clamped to
+    /** Text weight on the shared surface, read by the two overlay cards: parsed as an `Int` clamped to
      *  100–900 and mapped with `FontWeight(…)` at the call site. Default 700.
      *  Set via `ui.map.overlay.text.weight`. */
     var uiMapOverlayTextWeight: Int = 700
         private set
 
-    /** Text size (sp) on that overlay fill, read by the same two cards. Default 10.
+    /** Text size (sp) on the shared surface, read by the two overlay cards. Default 10.
      *  Set via `ui.map.overlay.text.size`. */
     var uiMapOverlayTextSize: Float = 10f
         private set
 
-    /** Corner radius (dp) of an overlay card, read by the same two cards. Default 8.
-     *  Set via `ui.map.overlay.corner.radius`. */
-    var uiMapOverlayCornerRadius: Float = 8f
-        private set
-
-    /** Padding (dp) inside an overlay card, read by the same two cards. Default 6.
-     *  Set via `ui.map.overlay.padding`. */
-    var uiMapOverlayPadding: Float = 6f
-        private set
-
-    /** Border colour of an overlay card, read by the speed legend. Default `#14FFFFFF`
-     *  (alias of `ui.divider.color`). Set via `ui.map.overlay.border.color`. */
-    var uiMapOverlayBorderColor: Int = 0x14FFFFFF.toInt()
-        private set
-
-    /** Border width (dp) of an overlay card, read by the speed legend. Default 1.
-     *  Set via `ui.map.overlay.border.width`. */
-    var uiMapOverlayBorderWidth: Float = 1f
+    /** Line height (sp) of the zone-info line's text, read by RegulatedZoneComponents.kt. Default 14.
+     *  Set via `ui.map.overlay.text.line.height`. */
+    var uiMapOverlayTextLineHeight: Float = 14f
         private set
 
     /** Gap (dp) between an overlay card's parts, read by the speed legend's bar-to-label gap.
-     *  Default 6 (alias of [uiMapToggleGutter]). Set via `ui.map.overlay.gap`. */
+     *  Default 6 — the documented cross-family alias of [uiMapToggleGutter].
+     *  Set via `ui.map.overlay.gap`. */
     var uiMapOverlayGap: Float = 6f
         private set
 
-    /** Gap (dp) between two rows of an overlay card, read by the zone-info line's column.
-     *  Default 2. Set via `ui.map.overlay.line.spacing`. */
+    /** Gap (dp) between two rows of the zone-info line's column. Default 2.
+     *  Set via `ui.map.overlay.line.spacing`. */
     var uiMapOverlayLineSpacing: Float = 2f
         private set
 
@@ -483,18 +471,20 @@ object AppConfig {
     /** GPS icon STALE state background colour. Default from semantic.danger = #CCB71C1C (red 80%). Set via `status.gps.stale` in colors.properties. */
     var statusGpsStale: Int = 0xCCB71C1C.toInt()
         private set
-    /** GPS icon ESTIMATING state background colour (dead reckoning). Default #FFB300 (amber). Set via `status.gps.estimating` in colors.properties. */
+    /** GPS icon ESTIMATING state background colour (dead reckoning). Default #FFB300 (amber).
+     *  Code-only: `colors.properties` has no `status.gps.estimating` key, so this default is not a
+     *  palette setting — the file's GPS block holds the other five states. */
     var statusGpsEstimating: Int = 0xFFFFB300.toInt()
         private set
     /** Background alpha (0.0–1.0) for the regulated-zone icons' prohibited and warning categories,
      *  this key's only reader (`RegulatedZoneIconProvider.alphaForCategory`) — the toggle row's
-     *  active states read [uiMapToggleActiveBackgroundAlpha] instead. Default 0.75.
+     *  active states read [uiMapSurfaceActiveAlpha] instead. Default 0.75.
      *  Set via `status.gps.alpha.active` in colors.properties. */
     var statusGpsAlphaActive: Float = 0.75f
         private set
     /** Background alpha (0.0–1.0) for informational regulated-zone icons, this key's only reader.
      *  Default 0.50. Set via `status.gps.alpha.dimmed` in colors.properties; the row's inactive
-     *  boxes paint [uiMapToggleInactiveBackground] instead. */
+     *  squares paint [uiMapSurfaceInactive] instead. */
     var statusGpsAlphaDimmed: Float = 0.50f
         private set
 
@@ -993,23 +983,21 @@ object AppConfig {
             props.getProperty("ui.button.badge.text")?.let { parseColorOrNull(it) }?.let { uiButtonBadgeText = it }
             props.getProperty("ui.button.badge.active.alpha")?.toFloatOrNull()?.let { buttonBadgeActiveAlpha = it.coerceIn(0f, 1f) }
             props.getProperty("ui.button.badge.inactive.alpha")?.toFloatOrNull()?.let { buttonBadgeInactiveAlpha = it.coerceIn(0f, 1f) }
-            // ── Map toggle row & overlay cards ───────────────────────────────
+            // ── Map surface & its two control families ───────────────────────
             props.getProperty("ui.map.surface.inactive")?.let { parseColorOrNull(it) }?.let { uiMapSurfaceInactive = it }
-            props.getProperty("ui.map.toggle.inactive.background")?.let { parseColorOrNull(it) }?.let { uiMapToggleInactiveBackground = it }
-            props.getProperty("ui.map.toggle.inactive.icon.alpha")?.toFloatOrNull()?.let { uiMapToggleInactiveIconAlpha = it.coerceIn(0f, 1f) }
-            props.getProperty("ui.map.toggle.active.background.alpha")?.toFloatOrNull()?.let { uiMapToggleActiveBackgroundAlpha = it.coerceIn(0f, 1f) }
+            props.getProperty("ui.map.surface.corner.radius")?.toFloatOrNull()?.let { uiMapSurfaceCornerRadius = it }
+            props.getProperty("ui.map.surface.padding")?.toFloatOrNull()?.let { uiMapSurfacePadding = it }
+            props.getProperty("ui.map.surface.border.color")?.let { parseColorOrNull(it) }?.let { uiMapSurfaceBorderColor = it }
+            props.getProperty("ui.map.surface.border.width")?.toFloatOrNull()?.let { uiMapSurfaceBorderWidth = it }
+            props.getProperty("ui.map.surface.inactive.content.alpha")?.toFloatOrNull()?.let { uiMapSurfaceInactiveContentAlpha = it.coerceIn(0f, 1f) }
+            props.getProperty("ui.map.surface.active.alpha")?.toFloatOrNull()?.let { uiMapSurfaceActiveAlpha = it.coerceIn(0f, 1f) }
             props.getProperty("ui.map.toggle.square")?.toFloatOrNull()?.let { uiMapToggleSquare = it }
             props.getProperty("ui.map.toggle.gutter")?.toFloatOrNull()?.let { uiMapToggleGutter = it }
-            props.getProperty("ui.map.toggle.corner.radius")?.toFloatOrNull()?.let { uiMapToggleCornerRadius = it }
             props.getProperty("ui.map.toggle.icon.size")?.toFloatOrNull()?.let { uiMapToggleIconSize = it }
-            props.getProperty("ui.map.overlay.background")?.let { parseColorOrNull(it) }?.let { uiMapOverlayBackground = it }
             props.getProperty("ui.map.overlay.text.color")?.let { parseColorOrNull(it) }?.let { uiMapOverlayTextColor = it }
             props.getProperty("ui.map.overlay.text.weight")?.toIntOrNull()?.let { uiMapOverlayTextWeight = it.coerceIn(100, 900) }
             props.getProperty("ui.map.overlay.text.size")?.toFloatOrNull()?.let { uiMapOverlayTextSize = it }
-            props.getProperty("ui.map.overlay.corner.radius")?.toFloatOrNull()?.let { uiMapOverlayCornerRadius = it }
-            props.getProperty("ui.map.overlay.padding")?.toFloatOrNull()?.let { uiMapOverlayPadding = it }
-            props.getProperty("ui.map.overlay.border.color")?.let { parseColorOrNull(it) }?.let { uiMapOverlayBorderColor = it }
-            props.getProperty("ui.map.overlay.border.width")?.toFloatOrNull()?.let { uiMapOverlayBorderWidth = it }
+            props.getProperty("ui.map.overlay.text.line.height")?.toFloatOrNull()?.let { uiMapOverlayTextLineHeight = it }
             props.getProperty("ui.map.overlay.gap")?.toFloatOrNull()?.let { uiMapOverlayGap = it }
             props.getProperty("ui.map.overlay.line.spacing")?.toFloatOrNull()?.let { uiMapOverlayLineSpacing = it }
 

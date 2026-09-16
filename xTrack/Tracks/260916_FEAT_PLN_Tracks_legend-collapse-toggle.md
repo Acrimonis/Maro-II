@@ -18,6 +18,11 @@ square follows the row's own toggle rendering with the ⏱ glyph and carries no 
   `.corner.radius`, `.icon.size`), painted with the row's inactive fill
   (`ui.map.toggle.inactive.background`, i.e. `ui.map.surface.inactive` at its own weight) and its dim
   glyph (`ui.map.toggle.inactive.icon.alpha`). No new palette key: this is what that family is for.
+  **Amended 2026-09-16:** the map-surface normalisation moved this file's ground — the fill is now read
+  as `ui.map.surface.inactive` directly, the dim is `ui.map.surface.inactive.content.alpha`, the corner
+  is `ui.map.surface.corner.radius`, and `LegendToggleButton` was deleted into the shared painting path;
+  the rest of this file's key and accessor names follow those renames. See
+  `xTrack/ColorManagement/260916_FEAT_PLN_ColorManagement_map-surface-normalization.md`.
 - **D2 — The card replaces the square.** While expanded the square does not exist, so there is no
   active styling anywhere — "active" is the card itself being on screen. The control therefore never
   shows two things at once.

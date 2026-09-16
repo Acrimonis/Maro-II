@@ -1,33 +1,26 @@
 package ykws.android.maro.ui.map
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -64,9 +57,11 @@ private const val LEGEND_SAMPLE_LABEL = "35"
  * [legendVisibleForState] asks.
  *
  * The card *is* the collapse target: no handle, no chevron — the whole strip is one tap surface, and
- * [onToggle] is what the caller writes when it is tapped. Its ripple is bounded by the card's own corner
- * because the tap sits inside the `.clip(...)` below, and the geometry itself is untouched, so the
- * expanded face stays pixel-identical to the strip that shipped before the toggle.
+ * [onToggle] is what the caller writes when it is tapped. It paints through [MapSurface], which also
+ * takes the tap inside its own clip so the ripple stays bounded by the card's corner; the geometry is
+ * otherwise untouched, so the expanded face stays pixel-identical to the strip that shipped before the
+ * toggle — the card's inset included, since `ui.map.surface.padding` carries the 6 dp the card used to
+ * apply itself.
  */
 @Composable
 internal fun TrackSpeedLegend(
@@ -78,7 +73,7 @@ internal fun TrackSpeedLegend(
 ) {
     val topKn = ticks.lastOrNull()?.positionKn ?: 0f
     if (ramp.families.isEmpty() || topKn - minKn <= 0f) return
-    // The overlay card's own pair, so the labels move with the fill they sit on:
+    // The overlay cards' own pair, so the labels move with the fill they sit on:
     // `ui.map.overlay.text.color` — mid blue-grey, the palette's secondary token — reads over both
     // bright water and dark, and `ui.map.overlay.text.weight` owns the face.
     val labelColor = ComposeColor(AppConfig.uiMapOverlayTextColor)
@@ -87,33 +82,20 @@ internal fun TrackSpeedLegend(
     // What the tap will do, not the state it is in: the card is shown while the scale is expanded.
     val collapseCd = stringResource(R.string.cd_collapse_speed_scale)
 
-    Column(
-        modifier = modifier
-            // The overlay family's corner, the one both cards wear (ui.map.overlay.corner.radius), so
-            // the strip reads as a card rather than as a panel sitting beside the row.
-            .clip(RoundedCornerShape(AppConfig.uiMapOverlayCornerRadius.dp))
-            // The shared map surface both families alias, taken whole: `ui.map.overlay.background`
-            // already carries its own weight, and this card applies no box alpha of its own, so the
-            // property's value is the whole composite.
-            .background(ComposeColor(AppConfig.uiMapOverlayBackground))
-            .border(
-                AppConfig.uiMapOverlayBorderWidth.dp,
-                ComposeColor(AppConfig.uiMapOverlayBorderColor),
-                RoundedCornerShape(AppConfig.uiMapOverlayCornerRadius.dp)
-            )
-            // The card is the whole target (D3), so the tap sits before the padding: the 6 dp ring is
-            // part of the surface the user hits, and the ripple is clipped by the `.clip` above.
-            .clickable(onClick = onToggle)
-            .semantics { contentDescription = collapseCd }
-            // The overlay family's one padding, 6 dp a side. It replaces the asymmetric start/end pair
-            // this strip first shipped with (6 / 2, the end slack for label room) and its 8 dp vertical
-            // pair, so a raised font scale now has 4 dp less to overflow into.
-            .padding(AppConfig.uiMapOverlayPadding.dp),
-        // Start-aligned rather than centred: the caller gives the card one toggle button's width on the
-        // row's own gutter, so the bar sits on that gutter with the card's padding alone between them.
-        horizontalAlignment = Alignment.Start
+    // Start-aligned rather than centred: the caller gives the card one toggle button's width on the
+    // row's own gutter, so the bar sits on that gutter with the card's padding alone between them.
+    MapSurface(
+        face = mapSurfaceFace(),
+        modifier = modifier,
+        onClick = onToggle,
+        contentDescription = collapseCd,
+        contentAlignment = Alignment.CenterStart
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        // The row takes the card's whole content box: the bar keeps its own width, the gap its own,
+        // and the label column the rest — from the bar's right edge to the card's right inner edge.
+        // Content-sizing the column left the labels hard against the 12 dp the card's 32 dp content
+        // box has left after the bar and the gap, so the column now spans bar-to-border instead.
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Canvas(modifier = Modifier.width(LEGEND_BAR_WIDTH).height(LEGEND_BAR_HEIGHT)) {
                 // The scale is inset at both ends by half a label, so the end labels are drawn whole;
                 // the fill still covers the whole bar, clamped at the ends.
@@ -132,7 +114,13 @@ internal fun TrackSpeedLegend(
                 }
             }
             Spacer(Modifier.width(AppConfig.uiMapOverlayGap.dp))
-            Box(Modifier.height(LEGEND_BAR_HEIGHT)) {
+            // `weight(1f)` gives the column everything the bar and the gap leave, so the labels own
+            // the space between the bar and the card's right inner edge. They are centred in it
+            // rather than stacked at the bar's edge because what the card hands out is a column, not
+            // a text width: centring spends an unused remainder evenly instead of leaving a ragged
+            // right edge. Horizontal packing only — the bar, the gap, the tick offsets, the label
+            // measurement and the height arithmetic are untouched.
+            Box(Modifier.height(LEGEND_BAR_HEIGHT).weight(1f)) {
                 // Every row prints: the table is the specification, so nothing here drops a label.
                 ticks.forEach { tick ->
                     Text(
@@ -145,15 +133,25 @@ internal fun TrackSpeedLegend(
                         fontWeight = labelWeight,
                         // One line, so a label that does not fit shows rather than wrapping.
                         maxLines = 1,
-                        modifier = Modifier.offset(
-                            y = tickOffsetDp(
-                                kn = tick.positionKn,
-                                minKn = minKn,
-                                topKn = topKn,
-                                barHeightDp = LEGEND_BAR_HEIGHT.value,
-                                insetDp = labelHalfHeight.value
-                            ).dp - labelHalfHeight
-                        )
+                        // And no wrapping either: `softWrap = false` is the rule that cannot be left
+                        // to `maxLines`, which only caps the line count — a label too wide for its box
+                        // overflows instead of reflowing onto a second line.
+                        softWrap = false,
+                        // Centred in the column the row leaves it. The text fills that column so the
+                        // alignment has a box to centre in: left to itself the box would shrink to the
+                        // text and `Center` would be a no-op.
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .offset(
+                                y = tickOffsetDp(
+                                    kn = tick.positionKn,
+                                    minKn = minKn,
+                                    topKn = topKn,
+                                    barHeightDp = LEGEND_BAR_HEIGHT.value,
+                                    insetDp = labelHalfHeight.value
+                                ).dp - labelHalfHeight
+                            )
                     )
                 }
             }

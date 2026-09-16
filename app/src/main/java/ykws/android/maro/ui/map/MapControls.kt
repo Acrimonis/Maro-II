@@ -4,7 +4,6 @@ import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -25,13 +24,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
@@ -49,35 +45,27 @@ internal enum class ControlId { SETTINGS, LAYER_FAN, ZOOM, MENU }
  */
 internal val TOP_TOGGLE_SQUARE: Dp get() = AppConfig.uiMapToggleSquare.dp
 
-/** Corner radius (dp) of one of those squares — `ui.map.toggle.corner.radius` (default 8 dp). */
-internal val TOP_TOGGLE_CORNER_RADIUS: Dp get() = AppConfig.uiMapToggleCornerRadius.dp
-
 /** Emoji glyph size (sp) drawn inside one of those squares — `ui.map.toggle.icon.size` (default 22 sp). */
 internal val TOP_TOGGLE_ICON_SIZE: TextUnit get() = AppConfig.uiMapToggleIconSize.sp
 
 /**
- * A 44×44 dp icon square representing either water (🌊) or earth (🏔️).
+ * A 44×44 dp icon square showing either water (🌊) or earth (🏔️), painted by [MapToggleSquare] on the
+ * shared [MapSurface].
  *
- * No text caption — icon only. The background tint indicates whether this
- * side is currently active based on the map center position.
+ * No text caption — icon only, and no semantics either: the square has no tap, so nothing here was ever
+ * exposed to accessibility and nothing is lost by not naming it. [color] is the side that is under the
+ * boat, so the square always paints an active face and there is no inactive wing left to reach: one
+ * resolved face is the whole state (D5, map-surface normalization).
  */
 @Composable
 internal fun EarthWaterIcon(
     emoji: String,
-    isActive: Boolean,
-    activeColor: ComposeColor,
-    contentDescription: String,
+    color: ComposeColor,
     modifier: Modifier = Modifier
 ) {
-    Box(
+    MapToggleSquare(
+        face = mapSurfaceFaceActive(color),
         modifier = modifier
-            .size(TOP_TOGGLE_SQUARE)
-            .clip(RoundedCornerShape(TOP_TOGGLE_CORNER_RADIUS))
-            .background(
-                if (isActive) activeColor.copy(alpha = AppConfig.uiMapToggleActiveBackgroundAlpha)
-                else ComposeColor(AppConfig.uiMapToggleInactiveBackground)
-            ),
-        contentAlignment = Alignment.Center
     ) {
         Text(
             text = emoji,
@@ -101,14 +89,19 @@ internal fun HamburgerIcon() {
 }
 
 /**
- * 5-state GPS indicator icon — leftmost in the top-left status row.
+ * 7-state GPS indicator icon — leftmost in the top-left status row.
  *
- * States match the derived [GpsIconState] enum:
- * - [DEMO]: GPS toggle off, gray satellite outline
- * - [ACQUIRING]: GPS on but no fix yet, amber background + pulsing dot
- * - [HEALTHY]: GPS fix good, green background
- * - [IDLE]: GPS fix but stationary (reduced cadence), cyan background
- * - [STALE]: GPS lost / hasLock false / error, red background
+ * The state table below is this control's own; the painting is not. Every branch resolves one
+ * [MapSurfaceFace] and hands it to [MapToggleSquare], which is the row's single square.
+ *
+ * - [GpsIconState.DEMO]: GPS toggle off, satellite outline — the inactive face, glyph dimmed
+ * - [GpsIconState.ACQUIRING]: GPS on but no fix yet, amber face
+ * - [GpsIconState.HEALTHY]: GPS fix good, green face
+ * - [GpsIconState.IDLE]: GPS fix but stationary (reduced cadence), blue face
+ * - [GpsIconState.STALE]: GPS lost / hasLock false / error, red face
+ * - [GpsIconState.ESTIMATING]: dead-reckoning fix, its own amber — `AppConfig.statusGpsEstimating`, a code
+ *   default the palette has no key for (deliberate: `colors.properties` holds the other five states)
+ * - [GpsIconState.WEAK]: fix too weak to trust, the acquiring amber
  */
 internal enum class GpsIconState { DEMO, ACQUIRING, HEALTHY, IDLE, STALE, ESTIMATING, WEAK }
 
@@ -118,58 +111,40 @@ internal fun GpsStatusIcon(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val baseColor: ComposeColor
-    val bgAlpha: Float
-    val contentAlpha: Float
-    when (state) {
-        GpsIconState.DEMO -> {
-            // The row's one inactive fill, painted whole: `ui.map.toggle.inactive.background` already
-            // carries its weight (`ui.map.surface.inactive`, white at 66 %), so the box adds no alpha of
-            // its own and `contentAlpha` never reaches the fill — the glyph alone dims.
-            baseColor = ComposeColor(AppConfig.uiMapToggleInactiveBackground)
-            bgAlpha = 1f
-            contentAlpha = AppConfig.uiMapToggleInactiveIconAlpha
-        }
-        GpsIconState.ACQUIRING -> { baseColor = ComposeColor(AppConfig.statusGpsAcquiring); bgAlpha = AppConfig.uiMapToggleActiveBackgroundAlpha; contentAlpha = 1f }
-        GpsIconState.HEALTHY -> { baseColor = ComposeColor(AppConfig.statusGpsHealthy); bgAlpha = AppConfig.uiMapToggleActiveBackgroundAlpha; contentAlpha = 1f }
-        GpsIconState.IDLE -> { baseColor = ComposeColor(AppConfig.statusGpsIdle); bgAlpha = AppConfig.uiMapToggleActiveBackgroundAlpha; contentAlpha = 1f }
-        GpsIconState.STALE -> { baseColor = ComposeColor(AppConfig.statusGpsStale); bgAlpha = AppConfig.uiMapToggleActiveBackgroundAlpha; contentAlpha = 1f }
-        GpsIconState.ESTIMATING -> { baseColor = ComposeColor(AppConfig.statusGpsEstimating); bgAlpha = AppConfig.uiMapToggleActiveBackgroundAlpha; contentAlpha = 1f }
-        GpsIconState.WEAK -> { baseColor = ComposeColor(AppConfig.statusGpsAcquiring); bgAlpha = AppConfig.uiMapToggleActiveBackgroundAlpha; contentAlpha = 1f }
+    val face = when (state) {
+        // The inactive face paints the shared fill whole and dims the glyph alone — the fill's own
+        // weight is in the token, so no box alpha is added on top of it.
+        GpsIconState.DEMO -> mapSurfaceFaceInactive()
+        GpsIconState.ACQUIRING, GpsIconState.WEAK -> mapSurfaceFaceActive(ComposeColor(AppConfig.statusGpsAcquiring))
+        GpsIconState.HEALTHY -> mapSurfaceFaceActive(ComposeColor(AppConfig.statusGpsHealthy))
+        GpsIconState.IDLE -> mapSurfaceFaceActive(ComposeColor(AppConfig.statusGpsIdle))
+        GpsIconState.STALE -> mapSurfaceFaceActive(ComposeColor(AppConfig.statusGpsStale))
+        GpsIconState.ESTIMATING -> mapSurfaceFaceActive(ComposeColor(AppConfig.statusGpsEstimating))
     }
-    Box(
-        modifier = modifier
-            .size(TOP_TOGGLE_SQUARE)
-            .clip(RoundedCornerShape(TOP_TOGGLE_CORNER_RADIUS))
-            .background(baseColor.copy(alpha = bgAlpha))
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = "📡",
-            fontSize = TOP_TOGGLE_ICON_SIZE,
-            modifier = if (contentAlpha < 1f) Modifier.alpha(contentAlpha) else Modifier
-        )
+    MapToggleSquare(face = face, onClick = onClick, modifier = modifier) {
+        Text(text = "📡", fontSize = TOP_TOGGLE_ICON_SIZE)
     }
 }
 
 /**
- * Recenter button — appears in the top-left status row when the map is frozen
- * (auto-follow suppressed by pan, drawer, or wizard). Tapping immediately
- * smooth-scrolls back to the GPS position.
+ * Recenter button — appears in the top-left status row while the map is suppressed (auto-follow stopped
+ * by a pan, a drawer or the wizard) and is simply absent otherwise: that absence is the one behaviour it
+ * owns. Tapping immediately smooth-scrolls back to the GPS position.
+ *
+ * Shown, it is an ordinary family square wearing the app's accent blue — `ui.accent`, the palette's
+ * `semantic.info` — at the shared active alpha. It reads the accent key because the colour is the app's
+ * accent rather than another control's state, and it types no colour of its own (D4, map-surface
+ * normalization).
  */
 @Composable
 internal fun RecenterButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box(
+    MapToggleSquare(
+        face = mapSurfaceFaceActive(ComposeColor(AppConfig.uiAccent)),
+        onClick = onClick,
         modifier = modifier
-            .size(TOP_TOGGLE_SQUARE)
-            .clip(RoundedCornerShape(TOP_TOGGLE_CORNER_RADIUS))
-            .background(ComposeColor(0xFF2196F3).copy(alpha = 0.30f))
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
     ) {
         Text(
             text = "📍",
@@ -179,9 +154,10 @@ internal fun RecenterButton(
 }
 
 /**
- * Screen-lock toggle — leftmost in the top-left status row. 📱 (unlocked,
- * dimmed inactive) ↔ 🔒 (locked, caution/amber active). Matches the
- * GpsStatusIcon / TrackStatusIcon recipe: 44dp box, 8dp radius, 22sp emoji.
+ * Screen-lock toggle — one slot in the top-left status row. The glyph is 📵 in both states and only the
+ * face changes: unlocked is the inactive face with that glyph dimmed, locked paints `status.lock.on` blue
+ * at the shared active alpha, as the design has it. The square's paint is [MapToggleSquare]'s; this
+ * control owns the two faces and the content description.
  */
 @Composable
 internal fun LockScreenButton(
@@ -189,64 +165,21 @@ internal fun LockScreenButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // Unlocked, the box is the row's inactive fill painted whole (see GpsIconState.DEMO), so the
-    // glyph alone carries the dim.
-    val baseColor = if (locked) ComposeColor(AppConfig.statusLockOn) else ComposeColor(AppConfig.uiMapToggleInactiveBackground)
-    val bgAlpha = if (locked) AppConfig.uiMapToggleActiveBackgroundAlpha else 1f
-    val contentAlpha = if (locked) 1f else AppConfig.uiMapToggleInactiveIconAlpha
+    val face = if (locked) {
+        mapSurfaceFaceActive(ComposeColor(AppConfig.statusLockOn))
+    } else {
+        mapSurfaceFaceInactive()
+    }
     val cd = stringResource(if (locked) R.string.cd_unlock_screen else R.string.cd_lock_screen)
-    Box(
-        modifier = modifier
-            .size(TOP_TOGGLE_SQUARE)
-            .clip(RoundedCornerShape(TOP_TOGGLE_CORNER_RADIUS))
-            .background(baseColor.copy(alpha = bgAlpha))
-            .clickable(onClick = onClick)
-            .semantics { contentDescription = cd }
-            .alpha(contentAlpha),
-        contentAlignment = Alignment.Center
+    MapToggleSquare(
+        face = face,
+        onClick = onClick,
+        modifier = modifier,
+        contentDescription = cd
     ) {
         Text(
             text = "\uD83D\uDCF5",
             fontSize = TOP_TOGGLE_ICON_SIZE
-        )
-    }
-}
-
-/**
- * The speed-scale control's collapsed face: one 44 dp square on the toggle row's own recipe, showing the
- * ⏱ glyph with **no** active state — "active" is the scale being open, which is the card itself, so the
- * two faces never appear together. For the inactive paint it follows the row's GPS DEMO branch, and that
- * branch alone ([GpsStatusIcon] `GpsIconState.DEMO`): `ui.map.toggle.inactive.background` painted whole,
- * its weight already in the token so the box adds no alpha of its own, with the dim reaching the glyph
- * alone. That is not how every square in the row paints inactive — the lock square alphas its whole box
- * and the recenter square hardcodes its own blue — so the reference is the branch, not the row. Tapping
- * expands the scale again.
- *
- * The glyph is the stopwatch, the instrument a tachymeter is engraved on, written `\u23F1\uFE0F`:
- * U+23F1 is Emoji_Presentation=No, so the U+FE0F selector is what asks for the colour emoji the row's
- * four glyphs wear by default, and the thinner text-style fallback that class can take is accepted —
- * U+1F55B, the clock face this replaced, would have avoided the selector at the cost of reading as noon
- * rather than as an instrument.
- */
-@Composable
-internal fun LegendToggleButton(
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val cd = stringResource(R.string.cd_expand_speed_scale)
-    Box(
-        modifier = modifier
-            .size(TOP_TOGGLE_SQUARE)
-            .clip(RoundedCornerShape(TOP_TOGGLE_CORNER_RADIUS))
-            .background(ComposeColor(AppConfig.uiMapToggleInactiveBackground).copy(alpha = 1f))
-            .clickable(onClick = onClick)
-            .semantics { contentDescription = cd },
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = "\u23F1\uFE0F",
-            fontSize = TOP_TOGGLE_ICON_SIZE,
-            modifier = Modifier.alpha(AppConfig.uiMapToggleInactiveIconAlpha)
         )
     }
 }

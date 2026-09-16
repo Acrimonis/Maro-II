@@ -431,49 +431,51 @@ Source: [`MarkerOverlay.kt`](../app/src/main/java/ykws/android/maro/ui/map/Marke
 
 ---
 
-### 5.5 Top-Left Status Icons (`GpsStatusIcon` / `TrackStatusIcon` / `EarthWaterIcon` / `LockScreenButton` / `LegendToggleButton`)
+### 5.5 Top-Left Status Squares (`GpsStatusIcon` / `TrackStatusIcon` / `EarthWaterIcon` / `LockScreenButton` / `RecenterButton`)
 
-44×44dp rounded square (8dp radius) with a 22sp emoji glyph, one slot each in the top-left
-status row ([`MapScreen.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt)). Every
-icon family declares its own colour tokens in
-[`colors.properties`](../app/src/main/assets/colors.properties) (alias-interpolated from the
-semantic palette) and exposes them via
+44×44dp rounded square with a 22sp emoji glyph, one slot each in the top-left status row
+([`MapScreen.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt)). Every square's paint comes
+from one path in [`MapSurface.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapSurface.kt):
+`MapSurface` paints the fill, clips the corner, draws the border and applies the padding, and
+`MapToggleSquare` layers the row's own size and the tap on it. A square declares only its own state colours
+in [`colors.properties`](../app/src/main/assets/colors.properties) (alias-interpolated from the semantic
+palette) and exposes them via
 [`AppConfig.kt`](../app/src/main/java/ykws/android/maro/config/AppConfig.kt).
 
-**Visual recipe:**
+**Visual recipe — one surface block (`ui.map.surface.*`) for every box that paints a background:**
 
 | Aspect | Value |
 |---|---|
-| Size / radius | `ui.map.toggle.square` (44dp) / `ui.map.toggle.corner.radius` (8dp) |
-| Glyph | emoji, `ui.map.toggle.icon.size` (22sp) |
-| Active bg alpha | `ui.map.toggle.active.background.alpha` = 0.75 |
-| Inactive bg | `${ui.map.toggle.inactive.background}` → `${ui.map.surface.inactive}` (#A8FFFFFF) |
-| Inactive content alpha | `ui.map.toggle.inactive.icon.alpha` = 0.50 (emoji dimmed) |
-| Overlay-card text | `ui.map.overlay.text.color` + `ui.map.overlay.text.weight` (100–900, 700 = bold) |
+| Fill | `ui.map.surface.inactive` = `#A8FFFFFF`, painted whole: the fill's own weight is in the token |
+| Corner / padding / border | `ui.map.surface.corner.radius` (8dp) / `.padding` (6dp) / `.border.color` + `.border.width` (1dp) |
+| Active face | the square's own state colour at `ui.map.surface.active.alpha` = 0.75 |
+| Inactive content alpha | `ui.map.surface.inactive.content.alpha` = 0.45 — the content dims, never the box |
+| Square geometry | `ui.map.toggle.square` (44dp), `ui.map.toggle.gutter` (6dp), `ui.map.toggle.icon.size` (22sp) |
+| Overlay-card text | `ui.map.overlay.text.color` + `.weight` (100–900, 700 = bold) + `.size` (10sp) |
 
 **State → colour mapping:**
 
-| Icon | Off / inactive | Active states |
+| Square | Off / inactive | Active face |
 |---|---|---|
-| GPS | `semantic.inactive` | acquiring=`semantic.caution`, healthy=`semantic.compliant`, idle=`semantic.info`, stale/weak=`semantic.danger` |
-| Tracking | `semantic.inactive` | moving=`semantic.compliant`, idle=`semantic.info` |
-| Earth/Water | `semantic.inactive` | water=`semantic.info`, land=`semantic.compliant` |
-| Screen lock | `semantic.inactive` (📵) | locked=`semantic.info` (📵) |
+| GPS | `mapSurfaceFaceInactive()` (DEMO) | acquiring/weak=`semantic.caution`, healthy=`semantic.compliant`, idle=`semantic.info`, stale=`semantic.danger` |
+| Tracking | `mapSurfaceFaceInactive()` (OFF) | moving=`semantic.compliant`, idle=`semantic.info` |
+| Earth/Water | — (always a resolved face) | water=`semantic.info`, land=`semantic.compliant` |
+| Screen lock | `mapSurfaceFaceInactive()` (📵) | locked=`semantic.info` (📵) |
+| Recenter | absent when there is nothing to recenter | `ui.accent` = `semantic.info` |
 
-> Exception: `EarthWaterIcon` keeps its emoji at full alpha in the inactive state (no
-> contentAlpha dimming) and reads `AppConfig.uiMapToggleActiveBackgroundAlpha` for its active bg alpha.
+The face is resolved by the square itself — `mapSurfaceFace()`, `mapSurfaceFaceInactive()` or
+`mapSurfaceFaceActive(colour)` in `MapSurface.kt` — and the surface only paints it, so no state logic lives
+in the painting path. Because the fade sits on the content, the tracking-OFF and lock-OFF squares paint the
+fill whole and dim their glyph alone; they no longer fade the box.
 
-The recipe's **fifth consumer** is `LegendToggleButton`, the speed-scale control's collapsed face below
-the row: same square, same corner and same glyph size, but its inactive paint follows the GPS DEMO branch
-alone — the fill painted whole, the dim reaching the glyph alone — rather than the row as a whole, since
-the lock square alphas its whole box and the recenter square hardcodes its own blue. Its glyph is the
-stopwatch written `\u23F1\uFE0F`: `Emoji_Presentation=No`, so the selector is what asks for the colour
-form. It carries **no** active state at all — the control's active form is the expanded scale card, which
-is what the square stands in for — so the two faces are never on screen together.
+**The collapsed legend square** is the same `MapToggleSquare` read directly by `MapScreen.kt`: one square on
+the shared surface carrying the ⏱ stopwatch written `\u23F1\uFE0F` (`Emoji_Presentation=No`, so the selector
+is what asks for the colour form) and **no** active face — the control's active form is the expanded scale
+card, so the two faces are never on screen together.
 
-🔴 New icons must: take the row's shared `ui.map.toggle.*` geometry and its one inactive fill,
-declare their own state colours as a `status.<name>.*` token family, parse them in `AppConfig`, and
-follow the alpha/contentAlpha recipe above — never hardcode hex in the composable.
+🔴 New squares must: paint through `MapToggleSquare`/`MapSurface`, resolve one face from their own state,
+declare their own colours as a `status.<name>.*` token family parsed in `AppConfig`, and never hardcode a
+fill, a corner, a border or a padding in the composable.
 
 **Lock-screen overlay placement:** the lock toggle sits right of the Earth/Water icon in the
 top-left status row (GPS → Tracking → Earth/Water → Lock → Recenter). When locked, the overlay

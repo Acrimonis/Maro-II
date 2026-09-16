@@ -106,7 +106,7 @@ semantic.compliant → ui.dashboard.status.success → status.gps.healthy → #C
 ## 2. Round Action Button Colours
 
 **Property prefix:** `ui.button.*`
-**Source:** [`colors.properties`](../app/src/main/assets/colors.properties) → `AppConfig.buttonAction*` for these, `AppConfig.uiMap*` for the two map families below → [`ButtonColors`](../app/src/main/java/ykws/android/maro/ui/map/FanIconComponents.kt:30)
+**Source:** [`colors.properties`](../app/src/main/assets/colors.properties) → `AppConfig.buttonAction*` for these, `AppConfig.uiMap*` for the map surface and its two families below → [`ButtonColors`](../app/src/main/java/ykws/android/maro/ui/map/FanIconComponents.kt:30)
 
 Affects right-edge control-stack buttons (settings gear, zoom +/−, layer toggles), the fan parent button, and the active-child badge.
 
@@ -124,34 +124,53 @@ Affects right-edge control-stack buttons (settings gear, zoom +/−, layer toggl
 
 **Toggle state logic:** Active = `icon` at full alpha; Inactive = `icon` at 25% alpha. Same hue, alpha-only distinction.
 
-### Map Toggle Row & Overlay Cards
+### Map Surface & Toggle Row
 
-**Property prefix:** `ui.map.toggle.*` / `ui.map.overlay.*`
+**Property prefix:** `ui.map.surface.*` / `ui.map.toggle.*` / `ui.map.overlay.*`
 **Source:** [`colors.properties`](../app/src/main/assets/colors.properties) → `AppConfig.uiMap*`
+**Painting path:** [`MapSurface.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapSurface.kt) — `MapSurface` paints every box of the surface family, `MapToggleSquare` layers the row's own size and tap on it.
 
-Both families alias one shared fill, `ui.map.surface.inactive` = `#A8FFFFFF` (white at 66 %), so the
-switched-off toggle boxes and the two overlay cards agree by construction.
+One block drives the surface family: the row's four status squares (GPS DEMO, tracking OFF, lock OFF,
+Earth/Water), the recenter square, the legend's collapsed square and both overlay cards (speed legend,
+zone-info line). No reader types a fill, a corner, a border or a padding of its own, and boxes outside the
+family — `ZoomButton`, `LockBanner`, `MapStatusBanner`, the zone icon stack — paint their own faces.
 
 | Token | Value | Usage |
 |---|---|---|
-| `ui.map.surface.inactive` | `#A8FFFFFF` | The one fill the row's four status squares, the legend's collapsed square and both cards paint; both families alias it |
-| `ui.map.toggle.inactive.background` | `${ui.map.surface.inactive}` → `#A8FFFFFF` | GPS DEMO, tracking OFF, lock OFF, Earth/Water inactive |
-| `ui.map.toggle.inactive.icon.alpha` | `0.50` | Glyph dim the row's four status squares and the legend's collapsed square share |
-| `ui.map.toggle.active.background.alpha` | `0.75` | Background alpha of an active toggle over its state colour |
+| `ui.map.surface.inactive` | `#A8FFFFFF` | The one fill every surface paints — white at 66 % |
+| `ui.map.surface.corner.radius` | `8` dp | Corner radius the squares and both cards clip to |
+| `ui.map.surface.padding` | `6` dp | Padding the surface applies inside its own edge — the cards' inset |
+| `ui.map.surface.border.color` | `${ui.divider.color}` → `#14FFFFFF` | Border every surface draws |
+| `ui.map.surface.border.width` | `1` dp | Border width |
+| `ui.map.surface.inactive.content.alpha` | `0.45` | Content dim of an inactive face — the content dims, never the fill |
+| `ui.map.surface.active.alpha` | `0.75` | Alpha an active face paints its own state colour at |
+
+A square's size and gutter are geometry rather than surface, so they stay in the toggle family:
+
+| Token | Value | Usage |
+|---|---|---|
 | `ui.map.toggle.square` | `44` dp | Side of one square — also the row height, the legend's width and the locked-mirror offset |
 | `ui.map.toggle.gutter` | `6` dp | Gutter between two squares — the row's own start inset too |
-| `ui.map.toggle.corner.radius` | `8` dp | Corner radius of a square |
 | `ui.map.toggle.icon.size` | `22` sp | Emoji glyph size inside a square |
-| `ui.map.overlay.background` | `${ui.map.surface.inactive}` → `#A8FFFFFF` | Fill of the speed legend and the map's zone-info line |
-| `ui.map.overlay.text.color` | `${ui.text.secondary}` → `#FF78909C` | Text on that fill — alias to the palette's secondary token |
-| `ui.map.overlay.text.weight` | `700` | Text weight on that fill (100–900, mapped with `FontWeight(…)`) |
-| `ui.map.overlay.text.size` | `10` sp | Text size on that fill |
-| `ui.map.overlay.corner.radius` | `8` dp | Corner radius of an overlay card |
-| `ui.map.overlay.padding` | `6` dp | Padding inside an overlay card |
-| `ui.map.overlay.border.color` | `${ui.divider.color}` → `#14FFFFFF` | Card border |
-| `ui.map.overlay.border.width` | `1` dp | Card border width |
-| `ui.map.overlay.gap` | `${ui.map.toggle.gutter}` → `6` dp | Gap between an overlay card's parts (legend bar → labels) |
+
+The overlay cards keep their text tokens; the surface never dims their content:
+
+| Token | Value | Usage |
+|---|---|---|
+| `ui.map.overlay.text.color` | `${ui.text.secondary}` → `#FF78909C` | Text on the shared surface — alias to the palette's secondary token |
+| `ui.map.overlay.text.weight` | `700` | Text weight on the shared surface (100–900, mapped with `FontWeight(…)`) |
+| `ui.map.overlay.text.size` | `10` sp | Text size on the shared surface |
+| `ui.map.overlay.text.line.height` | `14` sp | Line height of the zone-info line's text |
+| `ui.map.overlay.gap` | `${ui.map.toggle.gutter}` → `6` dp | Gap between an overlay card's parts (legend bar → labels) — the documented cross-family alias of the row's gutter |
 | `ui.map.overlay.line.spacing` | `2` dp | Gap between two rows of the zone-info line |
+
+**Retired in the map-surface normalization (2026-09-16):** `ui.map.toggle.inactive.background` and
+`ui.map.overlay.background` (two names for the one fill), `ui.map.toggle.active.background.alpha` (the
+active weight, now `ui.map.surface.active.alpha`), `ui.map.toggle.inactive.icon.alpha` (the glyph dim, now
+`ui.map.surface.inactive.content.alpha`), `ui.map.toggle.corner.radius`, `ui.map.overlay.corner.radius`,
+`ui.map.overlay.padding` and `ui.map.overlay.border.color` / `.border.width` — each one a duplicate of a
+`ui.map.surface.*` row above. The rectangles read `AppConfig.uiMapSurface*` through `MapSurface`, and
+`AppConfig.uiMapSurfaceInactive` is the single colour accessor they share.
 
 **Converged values:** the overlay family's single 10 sp / 6 dp pair replaces the zone-info line's
 original 9 sp type and 3×1 dp padding — a reported risk rather than a second key.
@@ -247,24 +266,24 @@ The hypsometric ramp interpolates between shallow (pale cyan) and deep (navy) en
 
 | State | Token | Default | Swatch | Alpha |
 |---|---|---|---|---|
-| DEMO | `status.gps.demo` | `#FFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Superseded — the DEMO box paints `ui.map.toggle.inactive.background` |
-| ACQUIRING | `status.gps.acquiring` | `#FFA726` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFA726;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | `status.gps.alpha.active` = 0.75 |
-| HEALTHY | `status.gps.healthy` | `${ui.dashboard.status.success}` = `#CC4CAF50` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#4CAF50;opacity:0.8;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | `status.gps.alpha.active` = 0.75 |
-| IDLE | `status.gps.idle` | `#1565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | `status.gps.alpha.active` = 0.75 |
-| STALE | `status.gps.stale` | `#F44336` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#F44336;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | `status.gps.alpha.active` = 0.75 |
+| DEMO | `status.gps.demo` | `${semantic.inactive}` = `#33FFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#33FFFFFF;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | No square reads it — the DEMO square paints `ui.map.surface.inactive`, its glyph at `ui.map.surface.inactive.content.alpha`; the key keeps a live reader, the menu drawer's GPS switch (`AppConfig.statusGpsDemo`) |
+| ACQUIRING | `status.gps.acquiring` | `#FFA726` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFA726;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | `ui.map.surface.active.alpha` = 0.75 |
+| HEALTHY | `status.gps.healthy` | `${ui.dashboard.status.success}` = `#CC4CAF50` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#4CAF50;opacity:0.8;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | `ui.map.surface.active.alpha` = 0.75 |
+| IDLE | `status.gps.idle` | `#1565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | `ui.map.surface.active.alpha` = 0.75 |
+| STALE | `status.gps.stale` | `#F44336` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#F44336;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | `ui.map.surface.active.alpha` = 0.75 |
 
 | Alpha Token | Default | Usage |
 |---|---|---|
-| `status.gps.alpha.active` | `0.75` | Regulated-zone prohibited/warning icons — the row's toggles read `ui.map.toggle.active.background.alpha` |
-| `status.gps.alpha.dimmed` | `0.50` | Informational regulated zone icons — no toggle reads it any more |
+| `status.gps.alpha.active` | `0.75` | Regulated-zone prohibited/warning icons — the row's square paints `ui.map.surface.active.alpha` instead |
+| `status.gps.alpha.dimmed` | `0.50` | Informational regulated zone icons — no square reads it any more |
 
 ### Earth/Water Icon
 
 | State | Token | Default | Swatch | Alpha |
 |---|---|---|---|---|
-| Water (active) | `status.earthWater.water` | `#1565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | `ui.map.toggle.active.background.alpha` = 0.75 |
-| Land (active) | `status.earthWater.land` | `${ui.dashboard.status.success}` = `#CC4CAF50` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#4CAF50;opacity:0.8;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | `ui.map.toggle.active.background.alpha` = 0.75 |
-| Inactive | `status.earthWater.inactive` | `#EEFFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;opacity:0.93;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Superseded — the inactive box paints `ui.map.toggle.inactive.background` |
+| Water (active) | `status.earthWater.water` | `#1565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | `ui.map.surface.active.alpha` = 0.75 |
+| Land (active) | `status.earthWater.land` | `${ui.dashboard.status.success}` = `#CC4CAF50` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#4CAF50;opacity:0.8;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | `ui.map.surface.active.alpha` = 0.75 |
+| Inactive | `status.earthWater.inactive` | `${semantic.inactive}` = `#33FFFFFF` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFFFFF;opacity:0.2;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | No reader — the square resolves water or land only, so the inactive wing is gone (D5) |
 
 ---
 

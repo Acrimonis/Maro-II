@@ -1435,11 +1435,23 @@ fun MapScreen(
                     )
                 } else {
                     // The shared anchor, its own size being the card's width: the square lands on the GPS
-                    // square's left edge with the row's own 6 dp gap below it.
-                    LegendToggleButton(
+                    // square's left edge with the row's own 6 dp gap below it. It is the shared square read
+                    // directly — no `LegendToggleButton` of its own — with the surface's inactive face:
+                    // "active" is the card itself being on screen, so the two faces never appear together,
+                    // and the square types neither a fill nor a corner. The glyph is the stopwatch a
+                    // tachymeter is engraved on, `\u23F1\uFE0F`: U+23F1 is Emoji_Presentation=No, so the
+                    // selector is what asks for the colour emoji the row's four glyphs wear.
+                    MapToggleSquare(
+                        face = mapSurfaceFaceInactive(),
                         onClick = { viewModel.updateSettings { it.copy(trackLegendExpanded = true) } },
+                        contentDescription = stringResource(R.string.cd_expand_speed_scale),
                         modifier = legendAnchor
-                    )
+                    ) {
+                        Text(
+                            text = "\u23F1\uFE0F",
+                            fontSize = TOP_TOGGLE_ICON_SIZE
+                        )
+                    }
                 }
             }
 
@@ -2407,9 +2419,7 @@ private fun MapContent(
                     )
                     EarthWaterIcon(
                         emoji = if (isWater) "🌊" else "🏔️",
-                        isActive = true,
-                        activeColor = if (isWater) ComposeColor(AppConfig.statusEarthWaterWater) else ComposeColor(AppConfig.statusEarthWaterLand),
-                        contentDescription = if (isWater) stringResource(R.string.side_water) else stringResource(R.string.side_land),
+                        color = if (isWater) ComposeColor(AppConfig.statusEarthWaterWater) else ComposeColor(AppConfig.statusEarthWaterLand),
                     )
                     LockScreenButton(
                         locked = screenLocked,

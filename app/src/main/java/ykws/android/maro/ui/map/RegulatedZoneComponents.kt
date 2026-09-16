@@ -284,23 +284,20 @@ fun RegulatedZoneInfoText(
                 zone != null && zone.description.isNotBlank() -> zone.description.replace("\n", " ")
                 else -> ""
             }
-            // The line's chrome is the speed legend's own, both cards being one overlay family: the
-            // shared map surface both families alias, and the pair its text wears — colour from
-            // `ui.map.overlay.text.color`, weight from `ui.map.overlay.text.weight`, size from
-            // `ui.map.overlay.text.size`, corner and padding from the same family. The converged 10 sp
-            // and 6 dp are larger than the 9 sp / 3×1 dp this line first shipped with; the risk is
-            // reported rather than answered with a second key.
-            Text(
-                text = if (keyInfo.isNotBlank()) "$emoji $name — $keyInfo" else "$emoji $name",
-                fontSize = AppConfig.uiMapOverlayTextSize.sp,
-                lineHeight = 14.sp,
-                color = ComposeColor(AppConfig.uiMapOverlayTextColor),
-                fontWeight = FontWeight(AppConfig.uiMapOverlayTextWeight),
-                modifier = Modifier
-                    .clip(RoundedCornerShape(AppConfig.uiMapOverlayCornerRadius.dp))
-                    .background(ComposeColor(AppConfig.uiMapOverlayBackground))
-                    .padding(AppConfig.uiMapOverlayPadding.dp)
-            )
+            // The line's box is the same [MapSurface] the legend card paints — one fill, one corner, one
+            // border and one padding — so this line gains the outline it never had (D3). Its text keeps
+            // the overlay family's own tokens: colour from `ui.map.overlay.text.color`, weight from
+            // `ui.map.overlay.text.weight`, size from `ui.map.overlay.text.size` and line height from
+            // `ui.map.overlay.text.line.height`.
+            MapSurface(face = mapSurfaceFace()) {
+                Text(
+                    text = if (keyInfo.isNotBlank()) "$emoji $name — $keyInfo" else "$emoji $name",
+                    fontSize = AppConfig.uiMapOverlayTextSize.sp,
+                    lineHeight = AppConfig.uiMapOverlayTextLineHeight.sp,
+                    color = ComposeColor(AppConfig.uiMapOverlayTextColor),
+                    fontWeight = FontWeight(AppConfig.uiMapOverlayTextWeight)
+                )
+            }
         }
     }
 }
