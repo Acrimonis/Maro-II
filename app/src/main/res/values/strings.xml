@@ -403,6 +403,8 @@
     <string name="toast_screen_locked">Screen locked</string>
     <string name="toast_screen_unlocked">Screen unlocked</string>
     <string name="cd_selected">Selected</string>
+    <string name="cd_collapse_speed_scale">Collapse the speed scale</string>
+    <string name="cd_expand_speed_scale">Expand the speed scale</string>
 
     <!-- Multiselect -->
     <string name="multiselect_count">%d selected</string>

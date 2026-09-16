@@ -134,9 +134,9 @@ switched-off toggle boxes and the two overlay cards agree by construction.
 
 | Token | Value | Usage |
 |---|---|---|
-| `ui.map.surface.inactive` | `#A8FFFFFF` | The one fill the four inactive boxes and both cards paint; both families alias it |
+| `ui.map.surface.inactive` | `#A8FFFFFF` | The one fill the row's four status squares, the legend's collapsed square and both cards paint; both families alias it |
 | `ui.map.toggle.inactive.background` | `${ui.map.surface.inactive}` → `#A8FFFFFF` | GPS DEMO, tracking OFF, lock OFF, Earth/Water inactive |
-| `ui.map.toggle.inactive.icon.alpha` | `0.50` | Glyph dim the four inactive boxes share |
+| `ui.map.toggle.inactive.icon.alpha` | `0.50` | Glyph dim the row's four status squares and the legend's collapsed square share |
 | `ui.map.toggle.active.background.alpha` | `0.75` | Background alpha of an active toggle over its state colour |
 | `ui.map.toggle.square` | `44` dp | Side of one square — also the row height, the legend's width and the locked-mirror offset |
 | `ui.map.toggle.gutter` | `6` dp | Gutter between two squares — the row's own start inset too |

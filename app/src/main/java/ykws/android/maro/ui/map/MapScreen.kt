@@ -1410,21 +1410,37 @@ fun MapScreen(
                 }
             }
             if (legendVisible) {
-                // The strip is one toggle button wide and its left edge is the row's own gutter, so its
-                // two vertical edges are the leftmost button's two edges, with the recenter button never
-                // entering the arithmetic. Its 6 dp *start* padding insets the bar from that edge.
-                TrackSpeedLegend(
-                    ramp = AppConfig.trackHeatmapRamp,
-                    ticks = AppConfig.trackHeatmapScaleTicks,
-                    minKn = AppConfig.trackHeatmapScaleMinKn,
-                    modifier = Modifier
-                        .align(Alignment.TopStart)
-                        .padding(
-                            start = (if (isLandscape) landscapeDashboardWidth else 0.dp) + TOP_TOGGLE_GUTTER,
-                            top = legendTopOffset(chromeTopInset(isLandscape))
-                        )
-                        .width(TOP_TOGGLE_SQUARE)
-                )
+                // D1–D3, D6: one control, two faces, one anchor. The gate above keeps deciding whether the
+                // control exists at all — it is untouched by this toggle — while the persisted flag decides
+                // only which face it wears, so the card is on screen while the scale is expanded and the
+                // row's own square while it is collapsed: never both at once, and the square carries no
+                // active styling because "active" is this very card. The two arms share one anchor value
+                // and differ only in the width the card asserts over the square's own size.
+                val legendAnchor = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(
+                        start = (if (isLandscape) landscapeDashboardWidth else 0.dp) + TOP_TOGGLE_GUTTER,
+                        top = legendTopOffset(chromeTopInset(isLandscape))
+                    )
+                if (appSettings.trackLegendExpanded) {
+                    // The strip is one toggle button wide and its left edge is the row's own gutter, so its
+                    // two vertical edges are the leftmost button's two edges, with the recenter button never
+                    // entering the arithmetic. Its 6 dp *start* padding insets the bar from that edge.
+                    TrackSpeedLegend(
+                        ramp = AppConfig.trackHeatmapRamp,
+                        ticks = AppConfig.trackHeatmapScaleTicks,
+                        minKn = AppConfig.trackHeatmapScaleMinKn,
+                        onToggle = { viewModel.updateSettings { it.copy(trackLegendExpanded = false) } },
+                        modifier = legendAnchor.width(TOP_TOGGLE_SQUARE)
+                    )
+                } else {
+                    // The shared anchor, its own size being the card's width: the square lands on the GPS
+                    // square's left edge with the row's own 6 dp gap below it.
+                    LegendToggleButton(
+                        onClick = { viewModel.updateSettings { it.copy(trackLegendExpanded = true) } },
+                        modifier = legendAnchor
+                    )
+                }
             }
 
             // ── Marker overlays (OSMdroid native, via LaunchedEffect) ─────

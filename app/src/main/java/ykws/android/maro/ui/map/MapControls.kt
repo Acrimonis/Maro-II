@@ -213,6 +213,45 @@ internal fun LockScreenButton(
 }
 
 /**
+ * The speed-scale control's collapsed face: one 44 dp square on the toggle row's own recipe, showing the
+ * ⏱ glyph with **no** active state — "active" is the scale being open, which is the card itself, so the
+ * two faces never appear together. For the inactive paint it follows the row's GPS DEMO branch, and that
+ * branch alone ([GpsStatusIcon] `GpsIconState.DEMO`): `ui.map.toggle.inactive.background` painted whole,
+ * its weight already in the token so the box adds no alpha of its own, with the dim reaching the glyph
+ * alone. That is not how every square in the row paints inactive — the lock square alphas its whole box
+ * and the recenter square hardcodes its own blue — so the reference is the branch, not the row. Tapping
+ * expands the scale again.
+ *
+ * The glyph is the stopwatch, the instrument a tachymeter is engraved on, written `\u23F1\uFE0F`:
+ * U+23F1 is Emoji_Presentation=No, so the U+FE0F selector is what asks for the colour emoji the row's
+ * four glyphs wear by default, and the thinner text-style fallback that class can take is accepted —
+ * U+1F55B, the clock face this replaced, would have avoided the selector at the cost of reading as noon
+ * rather than as an instrument.
+ */
+@Composable
+internal fun LegendToggleButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val cd = stringResource(R.string.cd_expand_speed_scale)
+    Box(
+        modifier = modifier
+            .size(TOP_TOGGLE_SQUARE)
+            .clip(RoundedCornerShape(TOP_TOGGLE_CORNER_RADIUS))
+            .background(ComposeColor(AppConfig.uiMapToggleInactiveBackground).copy(alpha = 1f))
+            .clickable(onClick = onClick)
+            .semantics { contentDescription = cd },
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "\u23F1\uFE0F",
+            fontSize = TOP_TOGGLE_ICON_SIZE,
+            modifier = Modifier.alpha(AppConfig.uiMapToggleInactiveIconAlpha)
+        )
+    }
+}
+
+/**
  * Full-screen transparent input blocker shown when the screen is locked.
  * Consumes every pointer event (tap, drag, pinch) so nothing below it —
  * osmdroid map, dashboard, drawers, controls — receives touch.

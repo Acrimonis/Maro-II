@@ -63,8 +63,9 @@ object AppConfig {
     // Two families over one shared fill: the row's five squares read `ui.map.toggle.*`, the speed
     // legend and the map's zone-info line read `ui.map.overlay.*`, and both alias that surface.
 
-    /** ARGB fill the map's four inactive toggle boxes and its two overlay cards paint — the shared
-     *  source the two families below alias. Default `#A8FFFFFF` (white at 66 %).
+    /** ARGB fill the map's five inactive boxes — the row's four status squares and the legend's
+     *  collapsed speed-scale square — and its two overlay cards paint; the shared source the two
+     *  families below alias. Default `#A8FFFFFF` (white at 66 %).
      *  Set via `ui.map.surface.inactive` in colors.properties. */
     var uiMapSurfaceInactive: Int = 0xA8FFFFFF.toInt()
         private set

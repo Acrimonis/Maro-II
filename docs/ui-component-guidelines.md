@@ -431,7 +431,7 @@ Source: [`MarkerOverlay.kt`](../app/src/main/java/ykws/android/maro/ui/map/Marke
 
 ---
 
-### 5.5 Top-Left Status Icons (`GpsStatusIcon` / `TrackStatusIcon` / `EarthWaterIcon` / `LockScreenButton`)
+### 5.5 Top-Left Status Icons (`GpsStatusIcon` / `TrackStatusIcon` / `EarthWaterIcon` / `LockScreenButton` / `LegendToggleButton`)
 
 44×44dp rounded square (8dp radius) with a 22sp emoji glyph, one slot each in the top-left
 status row ([`MapScreen.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt)). Every
@@ -462,6 +462,14 @@ semantic palette) and exposes them via
 
 > Exception: `EarthWaterIcon` keeps its emoji at full alpha in the inactive state (no
 > contentAlpha dimming) and reads `AppConfig.uiMapToggleActiveBackgroundAlpha` for its active bg alpha.
+
+The recipe's **fifth consumer** is `LegendToggleButton`, the speed-scale control's collapsed face below
+the row: same square, same corner and same glyph size, but its inactive paint follows the GPS DEMO branch
+alone — the fill painted whole, the dim reaching the glyph alone — rather than the row as a whole, since
+the lock square alphas its whole box and the recenter square hardcodes its own blue. Its glyph is the
+stopwatch written `\u23F1\uFE0F`: `Emoji_Presentation=No`, so the selector is what asks for the colour
+form. It carries **no** active state at all — the control's active form is the expanded scale card, which
+is what the square stands in for — so the two faces are never on screen together.
 
 🔴 New icons must: take the row's shared `ui.map.toggle.*` geometry and its one inactive fill,
 declare their own state colours as a `status.<name>.*` token family, parse them in `AppConfig`, and

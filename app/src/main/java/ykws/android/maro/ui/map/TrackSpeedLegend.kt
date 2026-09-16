@@ -3,6 +3,7 @@ package ykws.android.maro.ui.map
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,6 +22,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -28,6 +32,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.config.HeatmapRamp
 import ykws.android.maro.config.HeatmapScaleTick
@@ -57,12 +62,18 @@ private const val LEGEND_SAMPLE_LABEL = "35"
  * the labels carry position alone and two rows closer than a label box overlap rather than losing one
  * of their values. Visibility is the caller's decision: the map carrying a banded stroke, which is what
  * [legendVisibleForState] asks.
+ *
+ * The card *is* the collapse target: no handle, no chevron — the whole strip is one tap surface, and
+ * [onToggle] is what the caller writes when it is tapped. Its ripple is bounded by the card's own corner
+ * because the tap sits inside the `.clip(...)` below, and the geometry itself is untouched, so the
+ * expanded face stays pixel-identical to the strip that shipped before the toggle.
  */
 @Composable
 internal fun TrackSpeedLegend(
     ramp: HeatmapRamp,
     ticks: List<HeatmapScaleTick>,
     minKn: Float,
+    onToggle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val topKn = ticks.lastOrNull()?.positionKn ?: 0f
@@ -73,6 +84,8 @@ internal fun TrackSpeedLegend(
     val labelColor = ComposeColor(AppConfig.uiMapOverlayTextColor)
     val labelWeight = FontWeight(AppConfig.uiMapOverlayTextWeight)
     val labelHalfHeight = rememberedLabelHalfHeightDp(labelWeight)
+    // What the tap will do, not the state it is in: the card is shown while the scale is expanded.
+    val collapseCd = stringResource(R.string.cd_collapse_speed_scale)
 
     Column(
         modifier = modifier
@@ -88,6 +101,10 @@ internal fun TrackSpeedLegend(
                 ComposeColor(AppConfig.uiMapOverlayBorderColor),
                 RoundedCornerShape(AppConfig.uiMapOverlayCornerRadius.dp)
             )
+            // The card is the whole target (D3), so the tap sits before the padding: the 6 dp ring is
+            // part of the surface the user hits, and the ripple is clipped by the `.clip` above.
+            .clickable(onClick = onToggle)
+            .semantics { contentDescription = collapseCd }
             // The overlay family's one padding, 6 dp a side. It replaces the asymmetric start/end pair
             // this strip first shipped with (6 / 2, the end slack for label room) and its 8 dp vertical
             // pair, so a raised font scale now has 4 dp less to overflow into.
