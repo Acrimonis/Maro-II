@@ -70,6 +70,25 @@ enum class DrawerSource {
     WHERE_AM_I
 }
 
+/**
+ * R2 core — does a change to a referential close the open dashboard's walk?
+ *
+ * A viewing panel's Prev/Next reads the world its surface was opened from: the list referential for
+ * [DrawerSource.LIST], the map referential for [DrawerSource.MAP]. [DrawerSource.WHERE_AM_I] walks the
+ * match set of the query, which no list or map filter rewrites, so it never closes this way.
+ *
+ * The caller answers the two flags for the world its change landed in: the list filter and the list sort
+ * answer for the list world, the map filter and the map reset for the map world. Membership is the answer
+ * where it exists — the selected marker having left that world — while a sort or a reset, which leave no
+ * membership to test, pass the world itself as the change.
+ */
+internal fun scopeClosed(source: DrawerSource, inListWorld: Boolean, inMapWorld: Boolean): Boolean =
+    when (source) {
+        DrawerSource.LIST -> inListWorld
+        DrawerSource.MAP -> inMapWorld
+        DrawerSource.WHERE_AM_I -> false
+    }
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Create/edit form state
 // ─────────────────────────────────────────────────────────────────────────────
@@ -432,17 +451,38 @@ class MarkersViewModel(
         applyFilterSort(effectiveFilter, effective)
     }
 
-    /** Filter + sort into [_markers], auto-closing the viewing panel when the selected marker is filtered out. */
+    /**
+     * R2 entry point for the map referential: the map world was rewritten, so re-test the open dashboard.
+     * The list-referential write is served by [applyFilterSort]; a map write need not pass through it, so
+     * the map controls report here.
+     */
+    fun onMapReferentialChanged() {
+        val listFilter = settingsFlow?.value?.markerListFilter ?: ListFilter()
+        applyScopeGuard(_allMarkers.value.filter { it.matchesFilter(listFilter) })
+    }
+
+    /** Filter + sort into [_markers]; the scope guard then re-tests the open dashboard (R2). */
     private fun applyFilterSort(filter: ListFilter, sort: ykws.android.maro.data.model.ListSortState) {
         val filtered = _allMarkers.value.filter { it.matchesFilter(filter) }
         _markers.value = sortMarkers(filtered, sort)
-        // Auto-close reacts only to the LIST-opened panel (list filter change). MAP-opened views are
-        // never closed by a list-filter change; map filters cannot change while a dash is open.
-        if (_drawerState.value is MarkerDrawerState.Viewing && drawerSource == DrawerSource.LIST) {
-            val selected = _selectedMarkerId.value
-            if (selected != null && filtered.none { it.id == selected }) {
-                closeDrawer()
-            }
+        applyScopeGuard(filtered)
+    }
+
+    /**
+     * R2: the world the open walk reads decides whether the dashboard survives — the list referential for
+     * a list-opened panel, the map referential for a map-opened one ([scopeClosed]), so a write to the
+     * other world is display-only and leaves it open.
+     *
+     * @param listWorld the markers the list referential holds after the change.
+     */
+    private fun applyScopeGuard(listWorld: List<UserMarker>) {
+        if (_drawerState.value !is MarkerDrawerState.Viewing) return
+        val selected = _selectedMarkerId.value ?: return
+        val mapFilter = settingsFlow?.value?.markerMapFilter ?: ListFilter()
+        val listWorldLost = listWorld.none { it.id == selected }
+        val mapWorldLost = _allMarkers.value.none { it.id == selected && it.matchesFilter(mapFilter) }
+        if (scopeClosed(drawerSource, inListWorld = listWorldLost, inMapWorld = mapWorldLost)) {
+            closeDrawer()
         }
     }
 

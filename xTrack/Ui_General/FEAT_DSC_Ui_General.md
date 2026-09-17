@@ -2,7 +2,7 @@
 name: Ui_General
 status: active
 created: 2026-06-08 16:43
-modified: 2026-09-12 09:05
+modified: 2026-09-17 14:27
 ---
 
 # Feature: Ui_General
@@ -11,10 +11,6 @@ modified: 2026-09-12 09:05
 App-lifecycle UX for the Maro-II app: back-exit guard, edge-to-edge rendering, WindowInsets management, list normalization, drawer framework, and menu-drawer UX. (Keep-screen-on moved to the Performance feature 2026-09-12.)
 
 ## Sections
-
-### map-print-layout
-
-#### Todos
 
 ### track list colors
 
@@ -34,12 +30,14 @@ Long-press multiselect mode on list items: scaffold owns selection state + conte
 
 ## Implemented
 
+- **dashboard-close-conditions** — the selected-item dashboard (marker detail, track detail) closes on exactly two conditions: a surface wanting its slot (the wizard, the other selected-item dashboard) or a change of the world its Prev/Next walks. The menu, settings and both lists keep the selection — the four detail slots stand down while a panel is open — the one-item guard lives inside the openers, and the ten referential callbacks close through two named helpers → `xTrack/Ui_General/260917_FEAT_PLN_Ui_General_dashboard-close-conditions.md`
+
 - **track-filter-date-range** — Track Date Range filter extended+reordered: 7 options shortest→longest (Last week → Last 6 month) with All last + default; THIS_YEAR dropped → `xTrack/Ui_General/260907_FEAT_PLN_Ui_General_track-filter-date-range.md`
 - **marker-filter-remove-geometry** — markers filter no longer exposes a Geometry (Pins/Circles/Corridors) axis; icon/pinned/origin remain, origin ungated → `xTrack/Ui_General/260907_FEAT_PLN_Ui_General_marker-filter-remove-geometry.md`
 - **list-count-display** — filtered item counts: Track History title "· N" + menu Tracks/Markers row counts left of chevron, live track excluded → `xTrack/Ui_General/260907_FEAT_PLN_Ui_General_list-count-display.md`
 - **compact-list-cards** — tighter list cards (14sp desc, reduced padding, no header→title divider)
 - **landscape-drawer-settings-sizing** — landscape panels open at portrait widths (menu 75% / settings full short edge), shared scrim → `xTrack/Ui_General/260904_FEAT_PLN_Ui_General_landscape-drawer-settings-sizing.md`
-- **scrim-strengths-and-dashboard-close** — unified 0.50 scrim on menu/settings/lists only; menu/fan open closes dashboard → `xTrack/Ui_General/260904_FEAT_PLN_Ui_General_scrim-strengths-and-dashboard-close.md`
+- **scrim-strengths-and-dashboard-close** — unified 0.50 scrim on menu/settings/lists only; the fan keeps the selected-item dashboard open. The menu arm is superseded 2026-09-17 (see `## Rules`) → `xTrack/Ui_General/260904_FEAT_PLN_Ui_General_scrim-strengths-and-dashboard-close.md`
 - **drawer-dynamic-height** — bottom-anchored drawers with card-height probe + animated height
 - **drawer-vertical-rhythm** — uniform 12dp card padding / header vpad / footer rhythm
 - **touch-lock** — 📵 splash guard blocking accidental touches (LockScrim + unlock toggle + zoom gated; `status.lock.*` tokens). Renamed from "screen-lock" 2026-09-12 so `screen lock` is free for the device-timeout feature owned by Performance → `xTrack/Ui_General/260827_FEAT_PLN_Ui_General_touch-input-lock.md`
@@ -66,6 +64,9 @@ Long-press multiselect mode on list items: scaffold owns selection state + conte
 - **menu** — drawer menu items wrapped in card backgrounds
 
 ## Rules
+- The selected-item dashboard — the marker detail drawer and the track detail drawer — closes on exactly two conditions: a surface that wants its own slot (the marker/track wizard, the other selected-item dashboard), or a change of the scope of the world its Prev/Next walks.
+- The menu, settings, track history and marker management are panels over the map: they never close it, and the selection returns when they close. Every other action — the layer fan, displays, zoom, lock, gestures — leaves it open.
+- Action table, code sites and the open checks: `xTrack/Ui_General/260917_FEAT_PLN_Ui_General_dashboard-close-conditions.md`.
 
 ## Key Files
 

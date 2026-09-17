@@ -46,14 +46,13 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ykws.android.maro.config.AppConfig
-import ykws.android.maro.config.TrackRenderMode
 import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.depth.RasterCache
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.ui.components.DrawerScaffold
 import ykws.android.maro.ui.components.MeasureHeight
-import ykws.android.maro.ui.icons.Visibility
+import ykws.android.maro.ui.icons.Speed
 
 /** Returns the step sequence for the given marker type (mirror of VM method for UI use). */
 private fun stepSequenceFor(type: MarkerType): List<WizardStep> = when (type) {
@@ -95,6 +94,8 @@ fun OverlayLayer(
     onDismissMarkerManagement: () -> Unit,
     onWizardCancel: () -> Unit,
     onMarkerDrawerClose: () -> Unit,
+    /** R1: the marker wizard takes the dashboard slot — the other selected-item dashboard closes first. */
+    onMarkerWizardEntry: () -> Unit = {},
     onOpenTrackHistoryFromMenu: () -> Unit,
     onOpenMarkerManagementFromMenu: () -> Unit,
     onOpenSettingsFromMenu: () -> Unit,
@@ -110,8 +111,10 @@ fun OverlayLayer(
     onGpsModeChange: (Boolean) -> Unit,
     onAutoShowMasterChange: (Boolean) -> Unit = {},
     onToggleMarkerZones: () -> Unit = {},
-    /** The menu's Tracks rendering switch (D5): the one writer of the stored mode. */
-    onRenderModeChange: (TrackRenderMode) -> Unit = {},
+    /** The menu's arrows chip (D5): one half of the pair that writes the two render axes. */
+    onTrackArrowsChange: (Boolean) -> Unit = {},
+    /** The menu's colours chip (D5): the other half of that same writer. */
+    onTrackColoursChange: (Boolean) -> Unit = {},
 
     // ── Track history data ───────────────────────────────────────────────
     onTrackAction: (ykws.android.maro.data.model.ListAction) -> Unit,
@@ -178,7 +181,8 @@ fun OverlayLayer(
     val autoShowMasterOverride = menu.autoShowMasterOverride
     val gpsToggleColor = menu.gpsToggleColor
     val markerZonesVisible = menu.markerZonesVisible
-    val trackRenderMode = menu.trackRenderMode
+    val trackArrows = menu.trackArrows
+    val trackColours = menu.trackColours
     val firstTrackId = menu.firstTrackId
     val firstMarkerId = menu.firstMarkerId
     val trackMapFilterState = menu.trackMapFilterState
@@ -194,7 +198,7 @@ fun OverlayLayer(
     val trackInfoDrawerData = trackInfo.trackInfoDrawerData
     val trackListIds = trackInfo.trackListIds
     val currentTrackIndex = trackInfo.currentTrackIndex
-    val renderMode = trackInfo.renderMode
+    val trackInfoColours = trackInfo.trackColours
     val eyeOverride = trackInfo.eyeOverride
     val onToggleEyeOverride = trackInfo.onToggleEyeOverride
 
@@ -244,6 +248,15 @@ fun OverlayLayer(
         || showMarkerManagement
         || (showWizard && imeHeightDp > 0.dp))
         && !dialogScrimActive
+
+    // ── A panel over the map owns the region while it is open ────────────
+    // The menu, the settings page, the track history and the marker management list are panels over the
+    // map, not occupants of the dashboard slot, so R1 keeps the selection open behind them (which is what
+    // leaves the render chips, the display settings and the list filters reachable with an item selected).
+    // The ladder declares the scrim and the menu before the detail slots, so the slots stand down here:
+    // without this gate a surviving dashboard would draw over the panel's own scrim. State is untouched,
+    // so the dashboard returns when the panel closes.
+    val panelOwnsRegion = showTrackDrawer || showSettings || showTrackHistory || showMarkerManagement
 
     Box(modifier = Modifier.fillMaxSize()) {
         // ── 1. Scrim (hard toggle — no animation) ────────────────────────
@@ -372,8 +385,10 @@ fun OverlayLayer(
                 markerFilterAxes = ykws.android.maro.data.model.markerFilterAxes(),
                 markerZonesVisible = markerZonesVisible,
                 onToggleMarkerZones = onToggleMarkerZones,
-                trackRenderMode = trackRenderMode,
-                onRenderModeChange = onRenderModeChange,
+                trackArrows = trackArrows,
+                trackColours = trackColours,
+                onTrackArrowsChange = onTrackArrowsChange,
+                onTrackColoursChange = onTrackColoursChange,
                 onImportTracks = { onDismissMenu(); onTrackAction(ykws.android.maro.data.model.ListAction.ImportTracks) },
                 onExportAllTracks = { onDismissMenu(); onTrackAction(ykws.android.maro.data.model.ListAction.BatchExportGpx(trackSummaries.map { it.id }.toSet())) }
             )
@@ -382,7 +397,8 @@ fun OverlayLayer(
         // ── 4. MarkerDrawer ──────────────────────────────────────────────
         if (isLandscape) {
             DrawerSlot(
-                visible = drawerState is MarkerDrawerState.Viewing || drawerState is MarkerDrawerState.MatchResult,
+                visible = (drawerState is MarkerDrawerState.Viewing || drawerState is MarkerDrawerState.MatchResult) &&
+                    !panelOwnsRegion,
                 modifier = Modifier
                     .align(Alignment.CenterStart)
                     .width(landscapeDashboardWidth)
@@ -397,7 +413,8 @@ fun OverlayLayer(
                     boatPosition = boatPosition,
                     onRequestDelete = onRequestMarkerDelete,
                     trackTitleLookup = trackTitleLookup,
-                    onOpenMarkerTrack = { id -> onMarkerDrawerClose(); onOpenMarkerTrack(id) }
+                    onOpenMarkerTrack = { id -> onMarkerDrawerClose(); onOpenMarkerTrack(id) },
+                    onWizardEntry = onMarkerWizardEntry
                 )
             }
         } else {
@@ -405,7 +422,7 @@ fun OverlayLayer(
             // no probe. The DrawerSlot (AnimatedVisibility) sizes to the content's natural height;
             // the FROM_BOTTOM slide adapts automatically.
             DrawerSlot(
-                visible = drawerState is MarkerDrawerState.Viewing,
+                visible = drawerState is MarkerDrawerState.Viewing && !panelOwnsRegion,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth(),
@@ -420,6 +437,7 @@ fun OverlayLayer(
                     onRequestDelete = onRequestMarkerDelete,
                     trackTitleLookup = trackTitleLookup,
                     onOpenMarkerTrack = { id -> onMarkerDrawerClose(); onOpenMarkerTrack(id) },
+                    onWizardEntry = onMarkerWizardEntry,
                     // Portrait marker detail drawer must never be smaller than the original
                     // dashboard — its wrap-content panel floors at portraitDashboardHeight.
                     minPanelHeight = portraitDashboardHeight
@@ -428,7 +446,7 @@ fun OverlayLayer(
 
             // MatchResult (Where-Am-I) — unchanged full-height fixed slot (its own scroll host).
             DrawerSlot(
-                visible = drawerState is MarkerDrawerState.MatchResult,
+                visible = drawerState is MarkerDrawerState.MatchResult && !panelOwnsRegion,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
@@ -443,7 +461,8 @@ fun OverlayLayer(
                     boatPosition = boatPosition,
                     onRequestDelete = onRequestMarkerDelete,
                     trackTitleLookup = trackTitleLookup,
-                    onOpenMarkerTrack = { id -> onMarkerDrawerClose(); onOpenMarkerTrack(id) }
+                    onOpenMarkerTrack = { id -> onMarkerDrawerClose(); onOpenMarkerTrack(id) },
+                    onWizardEntry = onMarkerWizardEntry
                 )
             }
         }
@@ -453,7 +472,7 @@ fun OverlayLayer(
         val isAtTrackLast = currentTrackIndex >= trackListIds.lastIndex
         if (isLandscape) {
             DrawerSlot(
-                visible = showTrackInfoDrawer,
+                visible = showTrackInfoDrawer && !panelOwnsRegion,
                 modifier = Modifier
                     .align(Alignment.CenterStart)
                     .width(landscapeDashboardWidth)
@@ -487,8 +506,7 @@ fun OverlayLayer(
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(bottomStart = 16.dp),
                         headerActions = {
                             TrackDrawerHeaderActions(
-                                bandedOn = eyeOverride
-                                    ?: (renderMode == TrackRenderMode.HEATMAP),
+                                bandedOn = eyeOverride ?: trackInfoColours,
                                 onToggleEyeOverride = onToggleEyeOverride,
                                 onDelete = { onDeleteTrack(track.id) }
                             )
@@ -563,7 +581,7 @@ fun OverlayLayer(
             val animatedHeight by animateDpAsState(targetHeight, tween(250))
 
             DrawerSlot(
-                visible = showTrackInfoDrawer,
+                visible = showTrackInfoDrawer && !panelOwnsRegion,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
@@ -581,8 +599,7 @@ fun OverlayLayer(
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(0.dp),
                         headerActions = {
                             TrackDrawerHeaderActions(
-                                bandedOn = eyeOverride
-                                    ?: (renderMode == TrackRenderMode.HEATMAP),
+                                bandedOn = eyeOverride ?: trackInfoColours,
                                 onToggleEyeOverride = onToggleEyeOverride,
                                 onDelete = { onDeleteTrack(track.id) }
                             )
@@ -781,13 +798,15 @@ fun OverlayLayer(
 }
 
 /**
- * The track drawer's header actions: the eye toggle, then the trash.
+ * The track drawer's header actions: the speed toggle, then the trash.
  *
- * The toggle carries no label — its state rides the icon convention, the accent at full alpha while
- * the selected track is banded and the inactive alpha token otherwise. It moves that one track's fill
- * and never the stored mode (D10), and the map's legend doubles as its readout in that direction: the
- * legend exists whenever a banded stroke is on the map, which is the mode being Colours or this eye
- * having banded the selection.
+ * The toggle carries no label — its state rides the icon convention, the accent at full alpha while the
+ * selected track is banded and the inactive alpha token otherwise — and it wears the same speedometer
+ * the speed scale's collapsed face does, so the control that reads the ramp and the one that flips it
+ * for a single track speak one visual language. It moves that one track's fill and never the stored
+ * flags (D10), and the map's legend doubles as its readout in that direction: the legend is drawn while
+ * a banded stroke is on the map *and*, once a track is open, while that track's own fill is the ramp —
+ * so the scale follows the very fill this toggle owns.
  */
 @Composable
 private fun TrackDrawerHeaderActions(
@@ -798,7 +817,7 @@ private fun TrackDrawerHeaderActions(
     Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         IconButton(onClick = onToggleEyeOverride, modifier = Modifier.size(36.dp)) {
             Icon(
-                Visibility,
+                Speed,
                 "Track rendering",
                 tint = ButtonColors.icon.copy(
                     alpha = if (bandedOn) 1f else AppConfig.buttonActionIconInactiveAlpha

@@ -7,15 +7,15 @@ import org.junit.Test
 import java.io.File
 
 /**
- * The render-mode string set, tied to the two files that carry it (D9): the caption and the three
- * option labels exist in both locales, the two retired keys are gone from both, and the Settings
- * heading is renamed in both.
+ * The render-control string set, tied to the two files that carry it: the caption and the two option
+ * labels exist in both locales, the retired triple's label is gone from both, and the Settings heading
+ * is renamed in both.
  *
  * The XML is read as text — no Android resource machinery — with the same file-first convention
  * `HeatmapRampPropertiesTest` uses, so the test CWD is the `app` module while `maro.repoDir` is
  * honoured first for a repo-root run.
  */
-class TrackRenderModeStringsTest {
+class TrackRenderStringsTest {
 
     private fun stringsFile(locale: String): File = System.getProperty("maro.repoDir")
         ?.let { File(it, "app/src/main/res/$locale/strings.xml") }
@@ -33,12 +33,11 @@ class TrackRenderModeStringsTest {
         listOf("values", "values-fr").map { it to stringsText(it) }
 
     @Test
-    fun bothLocalesCarryTheCaptionAndTheThreeOptionLabels() {
+    fun bothLocalesCarryTheCaptionAndTheTwoOptionLabels() {
         val expected = listOf(
             "menu_tracks_rendering",
-            "menu_render_mode_simple",
-            "menu_render_mode_dir_speed",
-            "menu_render_mode_colours"
+            "menu_render_arrows",
+            "menu_render_colours"
         )
 
         bothLocales().forEach { (locale, xml) ->
@@ -49,16 +48,19 @@ class TrackRenderModeStringsTest {
     }
 
     @Test
-    fun theTwoRetiredDirectionStringsAreGoneFromBothLocales() {
+    fun theRetiredTriplesLabelAndTheTwoDirectionStringsAreGoneFromBothLocales() {
+        val retired = listOf(
+            "menu_render_mode_simple",
+            "menu_render_mode_dir_speed",
+            "menu_render_mode_colours",
+            "menu_show_tracks_direction",
+            "settings_tracks_direction_label"
+        )
+
         bothLocales().forEach { (locale, xml) ->
-            assertFalse(
-                "menu_show_tracks_direction is still declared in $locale",
-                xml.contains("name=\"menu_show_tracks_direction\"")
-            )
-            assertFalse(
-                "settings_tracks_direction_label is still declared in $locale",
-                xml.contains("name=\"settings_tracks_direction_label\"")
-            )
+            retired.forEach { key ->
+                assertFalse("$key is still declared in $locale", xml.contains("name=\"$key\""))
+            }
         }
     }
 
@@ -72,7 +74,7 @@ class TrackRenderModeStringsTest {
 
     @Test
     fun theArrowsControlsKeepTheirOwnStrings() {
-        // D6: the expander ships untouched, so its label and description must survive the rename.
+        // The expander ships untouched, so its label and description must survive the rename.
         bothLocales().forEach { (locale, xml) ->
             assertTrue("$locale lost the arrow density label", xml.contains("settings_tracks_direction_desc"))
         }

@@ -276,10 +276,9 @@
     <!-- Menu drawer -->
     <string name="menu_manage_tracks">Tracks</string>
     <string name="menu_show_zones">Show zones</string>
-    <string name="menu_tracks_rendering">Tracks rendering</string>
-    <string name="menu_render_mode_simple">Simple</string>
-    <string name="menu_render_mode_dir_speed">Arrows</string>
-    <string name="menu_render_mode_colours">Colours</string>
+    <string name="menu_tracks_rendering">Display Tracks with:</string>
+    <string name="menu_render_arrows">Arrows</string>
+    <string name="menu_render_colours">Colours</string>
     <string name="menu_manage_markers">Markers</string>
     <string name="track_status_recording">● Recording</string>
     <string name="track_status_idle">● Idle</string>
@@ -342,7 +341,7 @@
     <string name="settings_pinned_transparency_label">Pinned transparency</string>
     <string name="settings_pinned_transparency_desc" formatted="false">Fade across pinned tracks only, independent of the not-pinned range. 0% = opaque, 100% = invisible.</string>
     <string name="settings_colors_label">Default Colors</string>
-    <string name="settings_colors_desc">The colours Simple and Dir &amp; Speed draw with. Past tracks: color gradient from newest (From) to oldest (To). Pinned tracks: amber/orange gradient.</string>
+    <string name="settings_colors_desc">The colours drawn while Colours is off. Past tracks: color gradient from newest (From) to oldest (To). Pinned tracks: amber/orange gradient.</string>
     <string name="settings_section_markers">Markers</string>
     <string name="settings_markers_desc">Configure how markers are rendered and when automatic idle markers are created</string>
     <string name="settings_marker_idle_threshold_label">Idle threshold</string>

@@ -275,10 +275,9 @@
     <!-- Menu drawer -->
     <string name="menu_manage_tracks">Traces</string>
     <string name="menu_show_zones">Afficher les zones</string>
-    <string name="menu_tracks_rendering">Rendu des traces</string>
-    <string name="menu_render_mode_simple">Simple</string>
-    <string name="menu_render_mode_dir_speed">Flêches</string>
-    <string name="menu_render_mode_colours">Couleurs</string>
+    <string name="menu_tracks_rendering">Afficher les traces avec :</string>
+    <string name="menu_render_arrows">Flèches</string>
+    <string name="menu_render_colours">Couleurs</string>
     <string name="menu_manage_markers">Repères</string>
     <string name="track_status_recording">● Enregistrement</string>
     <string name="track_status_idle">● En attente</string>
@@ -341,7 +340,7 @@
     <string name="settings_pinned_transparency_label">Transparence des épinglées</string>
     <string name="settings_pinned_transparency_desc" formatted="false">Dégradé sur les traces épinglées uniquement, indépendant des non épinglées. 0% = opaque, 100% = invisible.</string>
     <string name="settings_colors_label">Couleurs par défaut</string>
-    <string name="settings_colors_desc">Les couleurs avec lesquelles Simple et Dir &amp; Vitesse dessinent. Anciennes traces : dégradé du plus récent (De) au plus ancien (Vers). Épinglées : dégradé ambre/orange.</string>
+    <string name="settings_colors_desc">Les couleurs utilisées lorsque Couleurs est désactivé. Anciennes traces : dégradé du plus récent (De) au plus ancien (Vers). Épinglées : dégradé ambre/orange.</string>
     <string name="settings_section_markers">Repères</string>
     <string name="settings_markers_desc">Configurer le rendu des repères et la création des repères automatiques d\'arrêt</string>
     <string name="settings_marker_idle_threshold_label">Seuil d\'arrêt</string>

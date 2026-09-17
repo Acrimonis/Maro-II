@@ -19,6 +19,7 @@ New setting?
   ├─ Control + sub-settings?      → Card + Expander + NestedCard   (§2.3)
   │   └─ Sub controls (any type) → NestedCard                     (§2.4)
   ├─ Exclusive 2–3 choice?        → SegmentedRow                   (§2.7)
+  ├─ Independent on/off choices?  → MultiSelectRow                 (§2.7b)
   ├─ Double-thumb value range?    → RangeSliderRow                 (§2.8)
   └─ Drawer/Track card?           → Same card surface, specific rows (§5)
 ```
@@ -243,6 +244,22 @@ all of them: `SegmentedRow(options, selected, onSelect, captions = null)`.
   the call site supplies the `CardArea`/`NestedCard` (§2.0).
 
 **Do not hand-roll two `Text` rows with `clickable`** — use this control. Do not paint a surface on it.
+
+### 2.7b Multi-Select Row — `MultiSelectRow`
+
+The same connected shape, for choices that do **not** exclude each other — two or more flags, each on or
+off by itself (the menu drawer's Arrows and Colours chips are the shipped case):
+`MultiSelectRow(options, isOn, onToggle)`.
+
+- **Same geometry as §2.7** — one outline, outer ends rounded (`ui.radius.card`), equal halves; each half
+  paints the accent fill while it is on and the muted label while it is off. No combination is refused,
+  including none.
+- **Accessibility** — deliberately **no** `selectableGroup()`: each half is `toggleable` with
+  `Role.Checkbox`, so it is announced as "check box, checked/unchecked" rather than as "n of m, selected".
+- **Surface-free**, exactly as §2.7 is, so the call site supplies the `CardArea`/`NestedCard`.
+
+**Use §2.7 when the options exclude one another, and this one when they are independent.** Both live in
+`ui/components` so a change to the outline they share is seen once.
 
 ### 2.8 Range Slider Row — `RangeSliderRow`
 

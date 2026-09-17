@@ -53,8 +53,8 @@ private const val LEGEND_SAMPLE_LABEL = "35"
  * on, is one. A speed outside that window is still painted on the line and simply absent from the
  * scale. The table *is* the specification: no mark is drawn inside the colour and no row is dropped, so
  * the labels carry position alone and two rows closer than a label box overlap rather than losing one
- * of their values. Visibility is the caller's decision: the map carrying a banded stroke, which is what
- * [legendVisibleForState] asks.
+ * of their values. Visibility is the caller's decision: the map carrying the ramp's fill — and, while a
+ * track is open, that track's own fill — which is what [legendVisibleForState] asks.
  *
  * The card *is* the collapse target: no handle, no chevron — the whole strip is one tap surface, and
  * [onToggle] is what the caller writes when it is tapped. It paints through [MapSurface], which also

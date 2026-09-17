@@ -1,31 +1,33 @@
 # Hydration: Ui_General
 
-**Session:** Filters-link — List/Map filter referential decoupling. IMPLEMENTED and committed on
-`feature/filters-link` (Ask reviewed, builds SUCCESS).
+**Session:** dashboard-close-conditions — the selected-item dashboard's autoclose was re-assessed and
+replaced by two rules. Shipped, reviewed in both directions, build SUCCESS, uncommitted.
 
 ## State
-- **Filters-link decoupling — Implemented.** Two filter referentials per type (List and Map), linked by
-  default, with a Link/LinkOff toggle in the menu. The menu filter drives the Map referential; the list
-  headers drive the List referential; linked edits write both, unlinked writes only its own, re-link from
-  the menu converges list to map. Map rendering applies the Map filter over the unfiltered track set;
-  marker map overlay uses the map-filtered world; reveal-on-select force-draws a from-list item while its
-  panel is open; map-tapped markers open from the map world (`DrawerSource.MAP`, clamp nav); menu counters
-  reflect map items to be rendered; whereAmI overrides the map filter.
-- Settings use Option B: prefs versioning removed; `trackMapFilter`/`markerMapFilter`/
-  `trackFilterLinked`/`markerFilterLinked` keys default (Map = All, link = ON); defunct legacy keys
-  cleaned idempotently.
-- MapScreen code health step 1 done under Ui_Settings: Settings overlay subtree extracted to
-  `MapScreenSettingsOverlay.kt` (MapScreen 5841 → 3417 lines).
+- **The rule set.** The marker/track detail drawer closes on exactly two conditions: a surface wanting
+  the dashboard's own slot (the marker/track wizard, the other selected-item dashboard), or a change of
+  the world the open item's Prev/Next walks. Everything else keeps it.
+- **The keep.** The menu, settings and both lists are panels over the map: `panelOwnsRegion` in
+  `OverlayLayer` hides the four detail slots while one is open, so the panel wins the region and the
+  selection returns on close. The menu no longer closes anything.
+- **The seams.** One `closeSelectedItemDashboards()` for the slot rule; the one-item guard lives inside
+  `openTrackDetail`/`openMarkerDetail`; the ten referential callbacks close through
+  `closeDashboardsForScopeChange`; `scopeClosed()` in `MarkersViewModel` is the pure core, covered by
+  `DashboardScopeClosedTest`.
+- The device report that started it — a control closing the dashboard — traced to the menu button one
+  slot above the fan anchor; the fan never closed it.
 
-## Commits (feature/filters-link)
-b4693df foundation · 123b8b2 bake · b71a230 settings extraction · c79ddff bake · de2f013 wiring ·
-48bb560 marker map-tap MAP world.
+## Target files
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`, `OverlayLayer.kt`, `MarkerDrawer.kt`,
+  `MarkersViewModel.kt`
+- `app/src/test/java/ykws/android/maro/ui/map/DashboardScopeClosedTest.kt`
 
 ## Plans
-- `xTrack/Ui_General/260909_FEAT_PLN_Ui_General_filters-link-decoupling.md` (status: Implemented)
+- `xTrack/Ui_General/260917_FEAT_PLN_Ui_General_dashboard-close-conditions.md` (status: shipped)
 
 ## Next
-Optional residuals none; queued: MapScreen orchestration-monolith refactor (code health step 2, after this
-feature lands via PR).
+Device pass owed: the panel stacking in both orientations, the two three-stripe icons tapped with a
+track open, and the action matrix (displays keep, list filter/sort closes, `+` replaces). Optional
+`#bake` items: the feature summary and this file are current; nothing else queued.
 
-**Last Bake:** 2026-09-09 12:18 UTC
+**Last Bake:** 2026-09-17 14:27 UTC
