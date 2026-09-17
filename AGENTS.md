@@ -37,7 +37,9 @@ touching the device, and stating a claim about the code with no file read behind
 - **🔍 Item-by-item reviews.** List every item as a flat marker of under ten words, then expand only
   the active one into a full paragraph, so the reply stays the same size as the list shortens.
 - **📋 Report only what changed.** If the tool output already answered the request, emit only `Done.`
-  For multi-step changes, add an ELIJP — one or two plain sentences on purpose, jargon stripped.
+  A report states the problem and the fix, never the mechanism, unless a rule requires the evidence; for
+  multi-step changes, add an ELIJP — one or two plain sentences on purpose, jargon stripped — and an
+  ELI20, the same thing in twenty words.
 - **🗣️ Recommendations argue against themselves.** State the strongest objection to your own
   recommendation, or say none was found. A question is asked only when its answer changes what
   happens next.
@@ -74,6 +76,12 @@ touching the device, and stating a claim about the code with no file read behind
   "ready for `#implement`" is the user's sentence to write.
 
 - **💬 QUESTIONS: Answer before acting.** Answer the question, then wait for direction. Applies in every mode.
+
+- **💬 TECHNICAL CHOICE IS THE AGENT'S: a choice that changes nothing the user can see is not asked about.**
+  WHEN a decision touches the implementation of work already ordered → decide it, state it in one line, and
+  judge it on code health and performance. A new dependency stays §4's, no file is deleted or renamed and
+  nothing is committed on this rule, the write still waiting on `MODE LOCK`.
+  WHEN the choice would change what the user sees → it is the user's, and `ASK, DON'T GUESS` applies.
 
 - **🛑 GIT WRITES AND DEPLOYS ARE THE USER'S CALL: run them only on the word, and never raise them.**
   WHEN a command would change the tree, the index or a ref → it runs only on the user's explicit word:

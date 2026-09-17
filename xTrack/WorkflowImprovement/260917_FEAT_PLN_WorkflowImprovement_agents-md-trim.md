@@ -51,6 +51,6 @@ project does not yet collect. This plan ships the compressions and names the evi
 ## 5. How it ships
 
 - **Step 1 — the three compressions**, one `apply_diff` on `AGENTS.md`, no rule text, no force word, no trigger touched.
-- **Step 2 — the census check.** Re-run the rule search: it must still return 19 rules across the same tiers, proving the trim touched prose only.
+- **Step 2 — the census check.** Re-run the rule search: the count must be unchanged by the trim, whatever it is when the cut is taken — 20 as of 2026-09-17 — proving the trim touched prose only.
 - **Step 3 — `#doctor`'s tier check** acts as the regression guard, since a compression that swallowed a tier glyph is exactly the fault it now reports.
 - **No file outside `AGENTS.md` is touched**, and `docs/cmd_help.md` needs no regeneration because no §7b row changes.

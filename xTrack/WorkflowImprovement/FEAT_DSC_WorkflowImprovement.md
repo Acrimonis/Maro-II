@@ -2,7 +2,7 @@
 name: WorkflowImprovement
 status: active
 created: 2026-06-03 00:00
-modified: 2026-09-17 19:10
+modified: 2026-09-17 19:45
 ---
 
 # Feature: WorkflowImprovement
@@ -37,6 +37,7 @@ Git command shortcuts: #new / #commit / #push / #move / #cherry·#copy / #rename
 - `docs/xtrack-templates.md` — file templates (sub-truth pointed from `AGENTS.md`'s Lazy-Load Index)
 
 ## Docs
+- `xTrack/WorkflowImprovement/260917_FEAT_PLN_WorkflowImprovement_reply-shape-and-delegated-choices.md` — how a reply reads and which choices are the agent's: the shipped 💬 delegation rule, the reworded report bullet, and the review's blockers
 - `xTrack/WorkflowImprovement/260917_FEAT_PLN_WorkflowImprovement_agents-md-trim.md` — the rulebook trim: the measured 252-line baseline, three safe compressions, the rejected candidates and the evidence path that replaces trimming prose
 - `xTrack/WorkflowImprovement/260916_FEAT_PLN_WorkflowImprovement_core-directive-lifecycle.md` — the rule lifecycle: the tier legend, the settled decisions, the three enforcement tiers and the review's residue
 - `xTrack/WorkflowImprovement/260916_FEAT_PLN_WorkflowImprovement_walk-context-and-directive-reload.md` — the `#walk` plan: the evaluating set, the documented `Closed` semantics now shipped on the page, axes A1/A2/A4 still in design, and the cache analysis in §4
@@ -138,6 +139,8 @@ Git command shortcuts: #new / #commit / #push / #move / #cherry·#copy / #rename
 - Resolutions: the bake page now carries the walk's three-exit challenge · check (k) reads existence-never-wording · the bare `#brief` query closed as no-change, the Forms column being design notes · the clinerules adapter is a pointer with its rationale removed. Dropped: item 4 parked by `#skip`, its `#doctor` check (s) decision carried by the feature todo, and item 6 left unstepped, its two members already deferred elsewhere.
 
 ## Implemented
+
+- **reply shape and delegated choices (2026-09-17, `feature/some-wflw`)** — the rulebook now says how a report reads and who decides an invisible choice. The `📋 Report only what changed` bullet was reworded rather than added to: a report gives the problem and the fix in plain words, never the mechanism, with an ELIJP and its twenty-word ELI20. A new 💬 rule, `TECHNICAL CHOICE IS THE AGENT'S`, makes a choice that changes nothing the user can see the agent's to make, scoped to work already ordered, with a new dependency left to §4, no deletion or rename licensed and no commit, the write still waiting on `MODE LOCK`. The brief page folds the twenty-word form into the ELIJP part, keeping its three-part list closed. The Ask hop returned one blocking finding and fifteen record-hygiene items: the blocking one is that `ASK, DON'T GUESS`'s first clause reads *a detail*, which at ⛔ outranks the new 💬 rule and so defeats the delegation; it is unfixed and is the next step. Census moved 19 → 20 with 💬 at five. → `xTrack/WorkflowImprovement/260917_FEAT_PLN_WorkflowImprovement_reply-shape-and-delegated-choices.md`
 
 - **the halves made live, plus their review's fixes (2026-09-17, `feature/some-wflw`)** — the `#implement` pipeline ran on the three pending page changes. `#doctor` gained `(s)`, the check that every rule bullet wears a tier glyph, with the letter range moving on its row and in the derived view; `#review` gained the sweep facet that reports the five covered classes run without a verdict line; and `docs/cmd_help_walk.md` gained the documented `Closed` semantics and the one rendering rule, with a single clause added to the `#walk` row. The Ask hop returned no blocking finding and five should-fix, all applied: the check's predicate now names its domain and says *tier glyph*, the derived `#walk` line carries the closed-level clause, `#brief` exempts the walk cursor and the review sweep, the sweep binds the challenge form too, and the doctor page's opening now covers the rulebook. Corrected with them: the `#doctor` letter reserved for the adapter lint moved to `(t)`, the plan's `a–r` parenthetical went so the range keeps one home, and the walk plan's withdrawn `Closed`-level check was marked as withdrawn rather than left standing → `xTrack/WorkflowImprovement/260916_FEAT_PLN_WorkflowImprovement_core-directive-lifecycle.md`
 

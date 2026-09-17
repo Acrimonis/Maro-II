@@ -12,7 +12,7 @@ written anywhere. Neither command touches hydration or feature state.
 
 The three optional parts, and only these:
 
-  ELIJP            The one-or-two plain sentences added to a multi-step report.
+  ELIJP            The one-or-two plain sentences added to a multi-step report, and its twenty-word form — subtracted together.
   Containment      The list, table or code block a bullet may carry when the content does not fit.
   Verification     The short checked list a report may carry after a multi-step change.
 
