@@ -73,6 +73,26 @@ import ykws.android.maro.ui.components.DrawerScaffold
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * The inspect cursor's own Prev/Next, handed to the marker card while it was opened by an inspect
+ * pick: the ends of the frozen ladder and what a press on either does. The card reads these rather
+ * than the ViewModel's own marker walk, because the ladder mixes both types and the cursor above the
+ * drawers is its one author.
+ */
+internal data class InspectWalk(
+    val atFirst: Boolean,
+    val atLast: Boolean,
+    /**
+     * True while an inspect open is in flight and this card is the predecessor held for it (plan §5):
+     * the whole step surface stands down for that window — the two walk arms, Back, and this card's own
+     * Delete and Edit, because each of them would interleave with the open about to land on this very
+     * slot.
+     */
+    val held: Boolean,
+    val onPrev: () -> Unit,
+    val onNext: () -> Unit
+)
+
+/**
  * Pure-content drawer for marker viewing and match results.
  *
  * Animation and shadow are provided by [OverlayLayer].
@@ -87,7 +107,7 @@ import ykws.android.maro.ui.components.DrawerScaffold
  *                      the same [MarkerDrawerState], so the marker being edited is never closed.
  */
 @Composable
-fun MarkerDrawer(
+internal fun MarkerDrawer(
     viewModel: MarkersViewModel,
     isLandscape: Boolean,
     onClose: () -> Unit,
@@ -96,7 +116,12 @@ fun MarkerDrawer(
     trackTitleLookup: (String) -> String? = { null },
     onOpenMarkerTrack: (String) -> Unit = {},
     onWizardEntry: () -> Unit = {},
-    minPanelHeight: Dp = 0.dp
+    minPanelHeight: Dp = 0.dp,
+    /**
+     * The inspect cursor's own Prev/Next, non-null exactly while this card was opened by an inspect
+     * pick: the merged ladder's walk then replaces the marker walk, ends and taps alike.
+     */
+    walk: InspectWalk? = null
 ) {
     val drawerState by viewModel.drawerState.collectAsState()
     val isOpen = drawerState !is MarkerDrawerState.Hidden
@@ -112,7 +137,7 @@ fun MarkerDrawer(
     }
 
     when (drawerState) {
-        is MarkerDrawerState.Viewing -> ViewingContent(viewModel, onClose, boatPosition, panelShape, onRequestDelete, isLandscape, trackTitleLookup, onOpenMarkerTrack, onWizardEntry, minPanelHeight)
+        is MarkerDrawerState.Viewing -> ViewingContent(viewModel, onClose, boatPosition, panelShape, onRequestDelete, isLandscape, trackTitleLookup, onOpenMarkerTrack, onWizardEntry, minPanelHeight, walk)
         is MarkerDrawerState.MatchResult -> MatchResultContent(viewModel, onClose, boatPosition, panelShape, isLandscape)
         else -> { /* Creating/Editing handled by WizardDrawer */ }
     }
@@ -133,7 +158,8 @@ private fun ViewingContent(
     trackTitleLookup: (String) -> String? = { null },
     onOpenMarkerTrack: (String) -> Unit = {},
     onWizardEntry: () -> Unit = {},
-    minPanelHeight: Dp = 0.dp
+    minPanelHeight: Dp = 0.dp,
+    walk: InspectWalk? = null
 ) {
     val markers by viewModel.markers.collectAsState()
     val selectedIds by viewModel.selectedMarkerIds.collectAsState()
@@ -143,17 +169,22 @@ private fun ViewingContent(
     val marker = currentId?.let { id -> markers.find { it.id == id } }
     val hasMultiple = selectedIds.size > 1
 
+    // The predecessor held for an in-flight inspect open: this card's own Delete stands down with the
+    // walk, because the advance it triggers would interleave with the open about to land here (§5).
+    val held = walk?.held == true
+    val disabledAlpha = 0.35f
+
     val deleteAction: @Composable () -> Unit = {
         if (marker != null) {
             Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 IconButton(
-                    onClick = { onRequestDelete(marker.id, marker.name) },
+                    onClick = { if (!held) onRequestDelete(marker.id, marker.name) },
                     modifier = Modifier.size(36.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Filled.Delete,
                         contentDescription = stringResource(R.string.cd_delete),
-                        tint = ButtonColors.icon,
+                        tint = ButtonColors.icon.copy(alpha = if (held) disabledAlpha else 1f),
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -163,7 +194,7 @@ private fun ViewingContent(
 
     val footerContent: @Composable () -> Unit = {
         if (hasMultiple) {
-            MarkerPrevNext(viewModel, selectedIndex, selectedIds.size)
+            MarkerPrevNext(viewModel, selectedIndex, selectedIds.size, walk)
         }
     }
 
@@ -195,7 +226,8 @@ private fun ViewingContent(
             trackTitleLookup = trackTitleLookup,
             onOpenMarkerTrack = onOpenMarkerTrack,
             onWizardEntry = onWizardEntry,
-            viewModel = viewModel
+            viewModel = viewModel,
+            held = held
         )
     }
 }
@@ -212,7 +244,9 @@ private fun MarkerDetailContent(
     trackTitleLookup: (String) -> String?,
     onOpenMarkerTrack: (String) -> Unit,
     onWizardEntry: () -> Unit,
-    viewModel: MarkersViewModel
+    viewModel: MarkersViewModel,
+    /** True while an inspect open holds this card as its predecessor — the Edit stands down with it. */
+    held: Boolean = false
 ) {
     if (marker != null) {
         // Direction + distance (if boatPosition available)
@@ -245,8 +279,12 @@ private fun MarkerDetailContent(
                 // marker half is left alone: the wizard replaces the Viewing content inside the same
                 // MarkerDrawerState, so a marker excluded from the list world is never closed out from
                 // under the edit (`startWizard` would find nothing and leave a silent no-op).
-                onWizardEntry()
-                viewModel.startWizard(marker.id)
+                // While an inspect open holds this card, the wizard stands down with everything else:
+                // its disarm would clear the very hand-off holding this card for the successor (§5).
+                if (!held) {
+                    onWizardEntry()
+                    viewModel.startWizard(marker.id)
+                }
             },
             onSetIcon = { id, icon -> viewModel.setMarkerIcon(id, icon) },
             onSetPin = { id, pinned -> viewModel.setMarkerPinned(id, pinned) },
@@ -316,20 +354,36 @@ private fun MatchResultContent(
     }
 }
 
-/** Previous/Next navigation pills — shared by the landscape body and the pinned portrait footer. */
+/**
+ * Previous/Next navigation pills — shared by the landscape body and the pinned portrait footer.
+ *
+ * The walk is a callback rather than a ViewModel read ([walk]) because an inspect-opened card steps
+ * the merged distance ladder, which the inspect cursor above both drawers owns; null leaves the
+ * card on its own world, so a list- or map-opened card walks exactly as it always did.
+ */
 @Composable
 private fun MarkerPrevNext(
     viewModel: MarkersViewModel,
     selectedIndex: Int,
-    selectedCount: Int
+    selectedCount: Int,
+    walk: InspectWalk? = null
 ) {
     Spacer(Modifier.height(10.dp))
     val accentBg = ComposeColor(AppConfig.uiAccent)
     val accentFg = ComposeColor(AppConfig.uiTextPrimary)
     val disabledAlpha = 0.35f
     val isListMode = viewModel.drawerSource == DrawerSource.LIST
-    val isAtFirst = isListMode && selectedIndex == 0
-    val isAtLast = isListMode && selectedIndex == selectedCount - 1
+    // An inspect-sourced card whose cursor is gone — disarmed while its open was still in flight —
+    // has no walk at all: the ViewModel's own marker walk stands down for that source, so the pills
+    // must read as at both ends rather than enabled and dead. The same "never dead" intent the
+    // marker-delete undo fallback answers (plan §5, §8).
+    val noInspectWalk = viewModel.drawerSource == DrawerSource.INSPECT && walk == null
+    // The ladder's own ends when the card is inspect-opened — a step lands only where the frozen
+    // pass knows there is a target, so no press falls on something unknown.
+    val isAtFirst = walk?.atFirst ?: (noInspectWalk || (isListMode && selectedIndex == 0))
+    val isAtLast = walk?.atLast ?: (noInspectWalk || (isListMode && selectedIndex == selectedCount - 1))
+    val onPrev: () -> Unit = walk?.onPrev ?: viewModel::viewPreviousMarker
+    val onNext: () -> Unit = walk?.onNext ?: viewModel::viewNextMarker
 
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
@@ -342,7 +396,7 @@ private fun MarkerPrevNext(
                 .clip(RoundedCornerShape(8.dp))
                 .background(accentBg.copy(alpha = if (isAtFirst) disabledAlpha else 1f))
                 .then(
-                    if (!isAtFirst) Modifier.clickable { viewModel.viewPreviousMarker() }
+                    if (!isAtFirst) Modifier.clickable { onPrev() }
                     else Modifier
                 )
                 .padding(vertical = 10.dp),
@@ -361,7 +415,7 @@ private fun MarkerPrevNext(
                 .clip(RoundedCornerShape(8.dp))
                 .background(accentBg.copy(alpha = if (isAtLast) disabledAlpha else 1f))
                 .then(
-                    if (!isAtLast) Modifier.clickable { viewModel.viewNextMarker() }
+                    if (!isAtLast) Modifier.clickable { onNext() }
                     else Modifier
                 )
                 .padding(vertical = 10.dp),

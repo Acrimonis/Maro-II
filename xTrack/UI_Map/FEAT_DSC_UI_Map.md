@@ -2,7 +2,7 @@
 name: UI_Map
 status: active
 created: 2026-06-07 00:00
-modified: 2026-09-04 19:30
+modified: 2026-09-17 18:10
 ---
 
 **Description:** Map display layer management — depth layer, color depth layer, orientation-aware rendering, marker highlight.
@@ -168,6 +168,7 @@ explicit values/ViewModels + inline callbacks).
 - **speed in demo** — pan-velocity-derived demo speed in SpeedCard (150ms cadence)
 - **boat-center** — boat marker decoupled Image + cap-arrow Canvas; shifted down half-height
 - **marker filter + dashboard close** — marker filter drives map overlay; panel auto-closes; list-context stacking removed
+- **inspect mode** — drag-to-select by proximity from the marker point: the ⊕ square gated on having something inspectable, one radius derivation feeding both the ring and the pick gate, the layer-visible map-filtered candidate set warmed at arming, a candidate line the mode owns, a quiet-clock pick with one pick per gesture, and a frozen distance ladder walked by one inspect cursor that crosses between marker and track cards; the pick, the camera and the look are the canonical selection path, so the mode is an entry point rather than a second renderer → `xTrack/UI_Map/260917_FEAT_PLN_UI_Map_inspect-mode.md`
 
 ## Todos
 
@@ -185,3 +186,16 @@ explicit values/ViewModels + inline callbacks).
 - `xTrack/UI_Map/260711_FEAT_PLN_UI_Map_map-offset-dynamic-plan.md` — Map offset dynamic plan
 - `xTrack/UI_Map/260712_FEAT_PLN_UI_Map_map-offset-phase2-properties-settings.md` — Map offset phase 2
 - `xTrack/UI_Map/260712_FEAT_PLN_UI_Map_map-offset-scroll-fix-clean.md` — Map offset scroll fix
+- `xTrack/UI_Map/260917_FEAT_PLN_UI_Map_inspect-mode.md` — Inspect mode plan (walk source)
+
+## Walk
+**Level 1 — Date:** 2026-09-17 · **Source:** `260917_FEAT_PLN_UI_Map_inspect-mode.md` · **Active:** closed
+- [x] 1 · Shape markers — child walk closed: a marker measures to its point (a circle to its centre), a corridor to its segment, a track to its polyline; no shape, no band width, no inside-ness bonus
+- [x] 2 · Tap versus lift precedence — child walk closed: one trigger, purely the clock; a lift only stops the movement that resets it, and the centre marker's whereAmI tap is suppressed while armed so it cannot race the trigger for the same slot
+- [x] 3 · Captured delay-return — child walk closed: the wait starts again on exit, a full `recenterDelaySeconds`, never a deadline left running underneath the mode
+- [x] 4 · What signals a rebuild for the patch re-application — child walk closed: option 5, a rebuild generation counter plus a mode-owned candidate overlay, which drops the paint patch and the mutate-or-add fork; markers stay on their existing short rebuild
+- [x] 5 · Rotation and the state the mode carries — child walk closed: no action, the manifest's `configChanges` means rotation does not recreate the activity, so the mode, its card and its ladder survive and only the slot geometry re-lays out
+- [x] 6 · Empty candidate set — child walk closed: the ring draws with nothing highlighted and nothing opening, and the ⊕ square is disabled while disarmed and nothing is inspectable, staying tappable while armed so the mode is never trapped
+- [x] 7 · The first touch closes a card and sweeps — child walk closed: navigation never closes the card; it closes on Back or a referential change, and a later gesture's pick replaces it, with one pick allowed per gesture so the fling cannot swap it
+- [x] 8 · Stale two-set wording in the plan's §3 — child walk closed: §3 now reads one source for the sweep and the ladder, gated by the layer rather than by the render cap
+- Level closed 2026-09-17 — all eight points resolved into the plan; dropped: none
