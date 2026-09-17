@@ -3,8 +3,8 @@
 
 > **Purpose:** Canonical reference for rendering any drawer/panel surface in Maro II.
 > **Created:** 2026-06-24 — normalisation pass (I1–I6).
-> **Updated:** 2026-09-11 — `ConfirmDialog` owns its own `ui.scrim.alpha` layer and is painted by the ladder `ConfirmRequestHost` **above every drawer and the map** (flush-bottom panel, rounded top corners, open-bottom accent border, 450 ms panel slide); the ladder scrim serves drawers/settings/wizard only and **yields while any dialog is visible**, so the two dim layers never stack — both scrims are hard on/off toggles (no fade); the shared dialog-dismiss registry and the dialog-first scrim branch are deleted; §3 surfaces table + scrim section updated, `ModalBottomSheet`/`AlertDialog` confirmations retired.
-> **Previous:** 2026-09-06 — consolidation (canonical homes, pointers, Decision Log removed) + header vertical padding normalized to 6dp.
+> **Updated:** 2026-09-17 — the Layer 0 tree states the Earth/Water status icon as hidden while the Layers tab's "Show Land/Water Icon" setting is off.
+> **Previous:** 2026-09-11 — `ConfirmDialog` owns its own `ui.scrim.alpha` layer and is painted by the ladder `ConfirmRequestHost` **above every drawer and the map** (flush-bottom panel, rounded top corners, open-bottom accent border, 450 ms panel slide); the ladder scrim serves drawers/settings/wizard only and **yields while any dialog is visible**, so the two dim layers never stack — both scrims are hard on/off toggles (no fade); the shared dialog-dismiss registry and the dialog-first scrim branch are deleted; §3 surfaces table + scrim section updated, `ModalBottomSheet`/`AlertDialog` confirmations retired.
 
 ---
 
@@ -17,7 +17,7 @@ Layer 0 (permanent, always rendered):
 ├── MapContent (map + overlays)
 ├── DashboardPanel (4-card dashboard)
 ├── Right-edge controls (fan, add zone, zoom)
-├── GPS / Track / EarthWater status icons
+├── GPS / Track / EarthWater status icons (EarthWater hidden when the Layers tab setting is off)
 └── Regulated zone warning strip
 
 Layer 1 (transient, self-contained):

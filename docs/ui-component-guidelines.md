@@ -495,12 +495,15 @@ declare their own colours as a `status.<name>.*` token family parsed in `AppConf
 fill, a corner, a border or a padding in the composable.
 
 **Lock-screen overlay placement:** the lock toggle sits right of the Earth/Water icon in the
-top-left status row (GPS → Tracking → Earth/Water → Lock → Recenter). When locked, the overlay
-recreates the same controls above the input-blocking scrim (duplicate unlock button, `ZoomControls`,
-`LockBanner`); those duplicates must live inside a `Box` padded exactly like `MapContent`'s
-dashboard padding (portrait: bottom = `portraitDashboardHeight`; landscape: start =
-`landscapeDashboardWidth`) so they align over the originals in both orientations. The locked
-zoom controls accept a double-tap only (single splash taps are ignored).
+top-left status row (GPS → Tracking → Earth/Water → Lock → Recenter). Earth/Water is that row's one
+setting-driven conditional slot — the Layers tab's "Show Land/Water Icon" (`showLandWaterIcon`,
+default on) hides the square, and the row's `Arrangement.spacedBy` closes the gap;
+`lockMirrorStartOffset()` reads the same flag, because the row's order is what the duplicate's offset
+depends on. When locked, the overlay recreates the same controls above the input-blocking scrim
+(duplicate unlock button, `ZoomControls`, `LockBanner`); those duplicates must live inside a `Box`
+padded exactly like `MapContent`'s dashboard padding (portrait: bottom = `portraitDashboardHeight`;
+landscape: start = `landscapeDashboardWidth`) so they align over the originals in both orientations.
+The locked zoom controls accept a double-tap only (single splash taps are ignored).
 
 ### 5.6 Confirmation Dialog — `ConfirmDialog`
 

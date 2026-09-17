@@ -237,6 +237,17 @@ private fun chromeTopInset(isLandscape: Boolean): Dp = with(LocalDensity.current
  */
 private fun legendTopOffset(chromeTop: Dp): Dp = chromeTop + TOP_TOGGLE_ROW_HEIGHT + TOP_TOGGLE_GUTTER
 
+/**
+ * Start offset (dp) of the locked-screen duplicate lock square: the row's own start gutter plus one
+ * square-and-gutter per button that precedes the lock button. The row's order — GPS, tracking,
+ * land/water, lock — is this value's dependency, so hiding the land/water square shifts the duplicate
+ * by exactly that square and gutter and keeps it over the original. The count is written once, here.
+ */
+private fun lockMirrorStartOffset(showLandWaterIcon: Boolean): Dp {
+    val squaresBeforeLock = if (showLandWaterIcon) 3 else 2
+    return TOP_TOGGLE_GUTTER + (TOP_TOGGLE_SQUARE + TOP_TOGGLE_GUTTER) * squaresBeforeLock
+}
+
 /** Computed polyline rendering appearance: ARGB color + stroke width. */
 data class TrackPolylineAppearance(val argb: Int, val strokeWidth: Float)
 
@@ -2239,7 +2250,7 @@ fun MapScreen(
                         .align(Alignment.TopStart)
                         .padding(
                             top = lockTopInset,
-                            start = TOP_TOGGLE_GUTTER + (TOP_TOGGLE_SQUARE + TOP_TOGGLE_GUTTER) * 3
+                            start = lockMirrorStartOffset(appSettings.showLandWaterIcon)
                         )
                 )
                 ZoomControls(
@@ -2470,7 +2481,7 @@ private fun MapContent(
             // ── LEFT COLUMN: top + middle + btm ──────────────────────────
             Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
 
-                // top zone: Earth, Track, GPS, Recenter (statusBars minus 6dp)
+                // top zone: GPS, tracking, land/water, lock, + recenter while auto-follow is paused (statusBars minus 6dp)
                 Row(
                     modifier = Modifier
                         .padding(top = topInset, start = TOP_TOGGLE_GUTTER),
@@ -2488,10 +2499,12 @@ private fun MapContent(
                         else
                             onStartRecording
                     )
-                    EarthWaterIcon(
-                        emoji = if (isWater) "🌊" else "🏔️",
-                        color = if (isWater) ComposeColor(AppConfig.statusEarthWaterWater) else ComposeColor(AppConfig.statusEarthWaterLand),
-                    )
+                    if (appSettings.showLandWaterIcon) {
+                        EarthWaterIcon(
+                            emoji = if (isWater) "🌊" else "🏔️",
+                            color = if (isWater) ComposeColor(AppConfig.statusEarthWaterWater) else ComposeColor(AppConfig.statusEarthWaterLand),
+                        )
+                    }
                     LockScreenButton(
                         locked = screenLocked,
                         onClick = onToggleScreenLock

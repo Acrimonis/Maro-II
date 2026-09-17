@@ -72,6 +72,8 @@
     <string name="settings_regen_warning_desc">Rebuild the shallow-water magenta hazard overlay</string>
     <string name="settings_coastline_label">Coastline</string>
     <string name="settings_coastline_desc">Show the coastline on the map</string>
+    <string name="settings_land_water_icon_label">Show Land/Water Icon</string>
+    <string name="settings_land_water_icon_desc">The square shows whether the boat is over water or land, and is hidden when off</string>
     <string name="settings_zone300_label">300m Zone</string>
     <string name="settings_zone300_desc">Tune the colour and transparency of the 300 m coastal band</string>
     <string name="settings_zone300_color_label">Zone color</string>

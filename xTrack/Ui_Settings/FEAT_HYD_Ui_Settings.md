@@ -1,36 +1,21 @@
-# Ui_Settings — Hydration (2026-09-11 20:00 UTC)
+# Context Hydration — Ui_Settings — 2026-09-17
 
-## State — confirm-dialog normalization COMPLETE (uncommitted at bake time)
+**Last Bake:** 2026-09-17 20:44 UTC
 
-Branch **`feature/tracks-recording`** (from `origin/develop`), working tree dirty. The confirmation-dialog plan is fully delivered: one `ConfirmDialog` on the overlay ladder replaces every `ModalBottomSheet` confirmation and the merge / orphan-recovery `AlertDialog`s.
+**Directive trace:** three of the five covered action classes were met and none stopped — no dependency added, no machine-shaped data file opened, no work started without an order, since the branch and the `#focus` write were both instructed. Nothing touched the device, and the one unsourced claim, a sentence in the plan explaining why the default stays out of `maro.properties`, was caught in review and corrected.
 
-- **Component** — [`ConfirmDialog.kt`](../../app/src/main/java/ykws/android/maro/ui/components/ConfirmDialog.kt): portrait-width panel (`min(maxWidth, maxHeight)`) both orientations, flush bottom, rounded top corners, open-bottom accent border, nav inset inside, IME retained, wrap + scroll, 450 ms panel slide, caller actions (primary/secondary/danger), optional bottom-most Cancel.
-- **Scrim ownership** — the dialog owns its own `ui.scrim.alpha` layer; ladder plumbing deleted (`LocalDialogDismiss`, `activeDialogDismiss`, dialog-first `scrimDismiss`).
-- **Hoist** — merge + batch delete raised via `ConfirmRequest` / `ConfirmRequestHost` ([`MapScreen.kt`](../../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt)); source drawer stays open.
-- **P4 (this session)** — all scrims are hard on/off toggles; the ladder scrim yields while any dialog is visible (`OverlayChrome.dialogScrimActive` in [`OverlayLayerParams.kt`](../../app/src/main/java/ykws/android/maro/ui/map/OverlayLayerParams.kt)), so dims never stack.
-- Build `gradlew.bat assembleDebug` SUCCESSFUL.
+## State
 
-## Next step
+The Layers tab's "Show Land/Water Icon" section shipped on `feature/hide-law`, uncommitted at bake time. One persisted `showLandWaterIcon` (`show_land_water_icon`, plain `true`, an absent key meaning shown) hides the map row's 🌊/🏔️ square; the row reflows through its own `Arrangement.spacedBy`, and the locked-screen mirror's hard-coded three-square offset became `lockMirrorStartOffset()` — 156 dp with the square, 106 dp without — the count's single home, its KDoc naming the row's order as the value's dependency. The strings are one `settings_land_water_icon_label` serving both the section header and the row label, plus a one-line description, in EN and FR. `apk-build.bat` was SUCCESSFUL on both hops of the `#implement` pipeline, and the Ask hop's five prose findings were closed in a second Code hop.
 
-Commit + push `feature/tracks-recording`, then device-verify the on/off scrim toggle (dialog over an open drawer, both orientations) and open the PR into `develop`.
+Carried forward, unverified since the 2026-09-11 bake: `SlideDirection.FADE_ONLY` in `DrawerSlot.kt` was recorded as unreachable dead code and remains a cleanup candidate.
 
-## Warts / follow-ups
+## Target Files
 
-- `SlideDirection.FADE_ONLY` in `DrawerSlot.kt` is now unreachable (dead code) — cleanup candidate.
-- The instant toggle changes every drawer's dim feel (snaps around the slide), not just dialogs — accepted.
-- Prior, still outstanding: `feature/refact-C12` holds 3 commits (`ec57458`, `a000c18`, `96259b5`) needing push + PR.
+- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — the setting, its key, and the loader and saver pair
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — the row's guard and `lockMirrorStartOffset()`
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt` — the new section in `LayersSettings`
 
-## Key Files
+## Next Step
 
-- `app/src/main/java/ykws/android/maro/ui/components/ConfirmDialog.kt` — the single confirmation dialog
-- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt` — ladder scrim (hard toggle, yields to dialogs)
-- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayerParams.kt` — `OverlayChrome.dialogScrimActive`
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — dialog state, guard flag, flag feed
-- `docs/ui-drawer-guidelines.md`, `docs/ui-component-guidelines.md` — scrim/dialog specs
-
-## Plans of record
-
-- `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_confirm-dialog-normalization.md` — dialog normalization + scrim ownership (P1 closed, P2 + P4 implemented)
-- `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_row-naming-normalization.md` — R1–R8 (implemented)
-- `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_section-title-color.md` — item A (implemented)
-- `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_tab-finalization.md` — phase 1 (implemented)
+Whether the locked-screen duplicate lock square lands on the original once the square is hidden — decidable only on device, the arithmetic being exact and integer-valued at the default tokens.
