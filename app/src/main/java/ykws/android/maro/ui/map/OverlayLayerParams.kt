@@ -4,7 +4,6 @@ import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
-import ykws.android.maro.config.TrackRenderMode
 import ykws.android.maro.data.model.ListFilter
 import ykws.android.maro.data.model.ListSortState
 import ykws.android.maro.data.model.markers.UserMarker
@@ -49,8 +48,10 @@ data class MenuOverlayData(
     val autoShowMasterOverride: Boolean,
     val gpsToggleColor: Color,
     val markerZonesVisible: Boolean,
-    /** The stored render mode the menu's Tracks rendering switch reads and writes (D5). */
-    val trackRenderMode: TrackRenderMode,
+    /** The arrows axis the menu's first chip reads and writes (D5). */
+    val trackArrows: Boolean,
+    /** The colours axis its second chip reads and writes — the same single owner (D5). */
+    val trackColours: Boolean,
     val firstTrackId: String?,
     val firstMarkerId: String?,
     val trackMapFilterState: ListFilter,
@@ -91,16 +92,17 @@ data class TrackInfoOverlayData(
     val trackListIds: List<String>,
     val currentTrackIndex: Int,
     /**
-     * The stored render mode. It rides the track-info bundle because the control lives in that
-     * drawer's header — the alternative was widening an already wide `OverlayLayer` (B17).
+     * The colours axis, which the drawer header's eye mirrors while it has never been tapped. It rides
+     * the track-info bundle because the control lives in that drawer's header — the alternative was
+     * widening an already wide `OverlayLayer` (B17).
      */
-    val renderMode: TrackRenderMode = TrackRenderMode.SIMPLE,
+    val trackColours: Boolean = true,
     /**
      * The drawer header's eye (D10): the selected track's own override, null meaning "follow
-     * [renderMode]" — which is what an install whose eye was never tapped holds, the key being written
-     * from the first tap on. It lives on the selection, so it applies to whichever track the drawer has
-     * open, and it moves that track's fill alone: the arrows follow [renderMode] whatever the eye says.
-     * It never moves [renderMode] itself — the menu switch stays that value's only writer.
+     * [trackColours]" — which is what an install whose eye was never tapped holds, the key being
+     * written from the first tap on. It lives on the selection, so it applies to whichever track the
+     * drawer has open, and it moves that track's fill alone: the chevrons follow the arrows flag
+     * whatever the eye says. It never moves either flag — the menu's twin box stays their only writer.
      */
     val eyeOverride: Boolean? = null,
     /** Drawer-header eye toggle: flips [eyeOverride] for the selected track alone. */

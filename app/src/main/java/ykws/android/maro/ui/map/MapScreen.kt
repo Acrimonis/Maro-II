@@ -1,7 +1,6 @@
 
 package ykws.android.maro.ui.map
 import ykws.android.maro.config.AppConfig
-import ykws.android.maro.config.TrackRenderMode
 import ykws.android.maro.data.track.TrackRecordingService
 import ykws.android.maro.data.model.matchesFilter
 import ykws.android.maro.data.track.toGpx
@@ -470,12 +469,13 @@ fun MapScreen(
     var highlightedTrackId by remember { mutableStateOf<String?>(null) }
 
     // ── Selected-track rendering override ──────────────────────────────
-    // The mode itself is stored state (`appSettings.trackRenderMode`), written by the menu's Tracks
-    // rendering switch, so the map only reads it. The drawer eye's own value (D10) is stored beside it
-    // in `appSettings.trackSelectionBanded`, on the selection rather than on any track id: null means
-    // the eye has never been tapped and the selection mirrors the mode, true bands that one track,
-    // false paints it gold. The first tap writes it and from then on it is the user's own value, so it
-    // outlives the session; it moves that track's fill alone, since the arrows follow the mode.
+    // Both axes are stored state (`appSettings.trackArrows`, `appSettings.trackColours`), written by
+    // the menu's twin box, so the map only reads them. The drawer eye's own value (D10) is stored
+    // beside them in `appSettings.trackSelectionBanded`, on the selection rather than on any track id:
+    // null means the eye has never been tapped and the selection mirrors the colours flag, true bands
+    // that one track, false paints it gold. The first tap writes it and from then on it is the user's
+    // own value, so it outlives the session; it moves that track's fill alone, since the chevrons
+    // follow the arrows flag.
     var preNavigationState by remember { mutableStateOf<PreNavigationState?>(null) }
     var trackNavigateState by remember { mutableStateOf<TrackNavigateState?>(null) }
     var trackDrawerState by remember { mutableStateOf(TrackDrawerState()) }
@@ -948,7 +948,8 @@ fun MapScreen(
         mapView = mapView,
         showSettings = showSettings,
         highlightedTrackId = highlightedTrackId,
-        renderMode = appSettings.trackRenderMode,
+        trackArrows = appSettings.trackArrows,
+        trackColours = appSettings.trackColours,
         eyeOverride = appSettings.trackSelectionBanded,
         allTrackSummaries = allTrackSummaries,
         focus = trackViewModel.renderFocus,
@@ -1404,7 +1405,8 @@ fun MapScreen(
                 derivedStateOf {
                     legendVisibleForState(
                         paintedIds = paintedTrackIds.value,
-                        mode = appSettings.trackRenderMode,
+                        trackArrows = appSettings.trackArrows,
+                        trackColours = appSettings.trackColours,
                         highlightedTrackId = highlightedTrackId,
                         eyeOverride = appSettings.trackSelectionBanded,
                         tracksVisible = appSettings.tracksVisible
@@ -1712,7 +1714,8 @@ fun MapScreen(
                 autoShowMasterOverride = appSettings.autoShowMasterOverride,
                 gpsToggleColor = gpsToggleColor,
                 markerZonesVisible = appSettings.markerZonesVisible,
-                trackRenderMode = appSettings.trackRenderMode,
+                trackArrows = appSettings.trackArrows,
+                trackColours = appSettings.trackColours,
                 firstTrackId = firstTrackId,
                 firstMarkerId = firstMarkerId,
                 trackMapFilterState = appSettings.trackMapFilter,
@@ -1727,10 +1730,15 @@ fun MapScreen(
                 viewModel.updateSettings { it.copy(markerZonesVisible = !appSettings.markerZonesVisible) }
                 mapView?.invalidate()
             },
-            onRenderModeChange = { newMode ->
-                // D3: one stored mode, written by this switch only; the map reads it and the eye's own
-                // override never touches it.
-                viewModel.updateSettings { it.copy(trackRenderMode = newMode) }
+            onTrackArrowsChange = { arrows ->
+                // D3: one writer for the pair; the map reads the axes and the eye's own override never
+                // touches either of them. Each chip folds into its own `copy`, so a tap never rewrites
+                // the axis the user did not touch.
+                viewModel.updateSettings { it.copy(trackArrows = arrows) }
+                mapView?.invalidate()
+            },
+            onTrackColoursChange = { colours ->
+                viewModel.updateSettings { it.copy(trackColours = colours) }
                 mapView?.invalidate()
             },
             onTrackAction = { action ->
@@ -1846,18 +1854,19 @@ fun MapScreen(
                 trackInfoDrawerData = trackDrawerState.track,
                 trackListIds = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id },
                 currentTrackIndex = trackSummaries.filter { !it.isLive && "t:${it.id}" !in pendingDeleteIds }.map { it.id }.indexOf(trackDrawerState.track?.id ?: "").coerceAtLeast(0),
-                renderMode = appSettings.trackRenderMode,
+                trackColours = appSettings.trackColours,
                 eyeOverride = appSettings.trackSelectionBanded,
                 onToggleEyeOverride = {
-                    // D10: the eye moves the selected track's fill alone, never the mode every other
-                    // track renders by. From Simple it turns the ramp on and from Colours it turns it
-                    // off, and from the first tap on the value is its own: the mode stops reaching it.
-                    // The tap's algebra lives in `selectionBandedAfterTap`, where it is unit-tested.
+                    // D10: the eye moves the selected track's fill alone, never the colours flag every
+                    // other track renders by. With Colours off it turns the ramp on for this one track,
+                    // with Colours on it turns this track off it, and from the first tap the value is
+                    // the user's own: the flag stops reaching it. The tap's algebra lives in
+                    // `selectionBandedAfterTap`, where it is unit-tested.
                     viewModel.updateSettings {
                         it.copy(
                             trackSelectionBanded = selectionBandedAfterTap(
                                 appSettings.trackSelectionBanded,
-                                appSettings.trackRenderMode
+                                appSettings.trackColours
                             )
                         )
                     }
