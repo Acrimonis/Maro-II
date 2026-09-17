@@ -7,6 +7,12 @@ status: planned
 
 # Plan: Marker filter on map + dashboard auto-close
 
+> **Change 2 re-assessed 2026-09-17.** Changes 1 (the filter drives the map overlay) and 3 (list-context
+> stacking removed) stand as shipped. The menu/fan close arms of change 2 are superseded — the close
+> conditions are now the two rules and the action table in
+> `xTrack/Ui_General/260917_FEAT_PLN_Ui_General_dashboard-close-conditions.md`, which keeps the selected
+> item open under the menu.
+
 ## Goal
 
 1. Marker filter must hide non-matching pins on the map, not just the drawer (match track behaviour).

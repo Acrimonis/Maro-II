@@ -7,6 +7,11 @@ status: planned
 
 # Plan: Scrim strengths + dashboard close behaviour
 
+> **Partly superseded 2026-09-17.** The scrim matrix above stands unchanged. Of the dashboard close
+> behaviour, the fan arm stands and the menu arm is superseded: the menu now keeps the selection, since
+> it is a panel over the map rather than an occupant of the dashboard slot. Current rules and the
+> action table live in `xTrack/Ui_General/260917_FEAT_PLN_Ui_General_dashboard-close-conditions.md`.
+
 ## Scrim matrix (final)
 
 | Surface | Scrim | Tap outside | Map |
