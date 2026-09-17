@@ -2,7 +2,7 @@
 name: WorkflowImprovement
 status: active
 created: 2026-06-03 00:00
-modified: 2026-09-17 19:45
+modified: 2026-09-17 19:57
 ---
 
 # Feature: WorkflowImprovement
@@ -25,6 +25,7 @@ Git command shortcuts: #new / #commit / #push / #move / #cherry·#copy / #rename
 ## Todos
 - [ ] **Decide the rule lifecycle's remaining questions** — the trim's cut: the plan is drafted and measured, and the cut is parked at 2.4% of the file. Closed 2026-09-17: the reload's name, the registry of ids (declined), the trace's home (one sentence in `FEAT_HYD_`, carried by `#bake`), and the gate line (ships, over five classes named in `AGENTS.md`). Detail in `260916_FEAT_PLN_WorkflowImprovement_core-directive-lifecycle.md` §7 and `260917_FEAT_PLN_WorkflowImprovement_agents-md-trim.md`.
 - [ ] **Settle the review's residual findings** — the ⛔ two-force reading, the plan's drifted anchors and duplicate blocks, and the stale live records naming retired rules; the 2026-09-17 review pass took the anchors and the stale records, and the `#rule` walk closed the same day, so what remains here is the ⛔ two-force reading alone.
+- [ ] **Rescope `ASK, DON'T GUESS`'s first clause from *a detail* to *a fact*** — the one blocking finding against the 💬 delegation rule: at ⛔ it outranks that rule and so defeats it for exactly the unstated choice the delegation exists for. Detail in `260917_FEAT_PLN_WorkflowImprovement_reply-shape-and-delegated-choices.md` §2.3.
 - [ ] **Decide `#doctor` check (t)** — report-only lint that the adapters (`CLAUDE.md`, `.clinerules/`, `.claude/skills/xtrack/`) carry nothing but a pointer; parked 2026-09-13 after the adapter clean-up, when the content was removed but no guard was added. Re-lettered from (s) on 2026-09-17, which the rulebook tier check took.
 - [ ] **Post-merge reconcile xTrack/ across branches** — deferred. Procedure documented in FEAT_DSC; execute when first cross-branch xTrack conflict occurs.
 - `AGENTS.md` is the canonical rulebook and directly writable; edit without prompting (`.clinerules/`/`CLAUDE.md` are pointers).
