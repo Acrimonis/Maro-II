@@ -49,7 +49,13 @@ internal fun MapTrackOverlayHistoryDiff(
      * failed to load counts for nothing. The legend gate reads it (see [legendVisibleForState]).
      */
     paintedTrackIds: MutableState<Set<String>>,
-    trackViewModel: ykws.android.maro.data.track.TrackViewModel
+    trackViewModel: ykws.android.maro.data.track.TrackViewModel,
+    /**
+     * Bumped once at the end of every pass. Inspect mode's own candidate overlay is not part of this
+     * rebuild — it is added and removed by the mode — but a rebuild can float other tracks above it,
+     * so the mode re-stacks on each bump: one list operation, not a repaint.
+     */
+    rebuildGeneration: MutableState<Int>
 ) {
     // ── Track overlay: incremental diff for history tracks with fading opacity ──
     // What the loops below actually paint, published at the end of the pass: the legend gate asks this
@@ -302,6 +308,8 @@ internal fun MapTrackOverlayHistoryDiff(
         paintedTrackIds.value = painted.toSet()
         OverlayZOrder.reorder(mv)
         mv.invalidate()
+        // The pass is done: whoever paints a line of their own on top of the track band re-stacks now.
+        rebuildGeneration.value = rebuildGeneration.value + 1
     }
 }
 
@@ -498,8 +506,11 @@ internal fun bandedStrokeOnMap(
  * A stored track's strokes, beside the inputs its direction chevrons need: the appearance list of
  * the path it took, or — on the banded path — a per-anchor colour resolver with the metrics that go
  * with it (a null resolver keeps the per-appearance iteration).
+ *
+ * Internal because inspect mode paints its candidate through this same dispatcher: the gold the
+ * sweep shows and the gold the card's selection wears are one function, never two.
  */
-private data class StoredTrackRendering(
+internal data class StoredTrackRendering(
     val overlays: List<org.osmdroid.views.overlay.Overlay>,
     val arrowAppearances: List<TrackPolylineAppearance>,
     val arrowColorResolver: ((ArrowAnchor) -> TrackPolylineAppearance)? = null,
@@ -528,7 +539,7 @@ private data class StoredTrackRendering(
  * loop cannot disagree about them: its fade is forced to full alpha, and its casing is laid beneath
  * whichever path it took.
  */
-private fun storedTrackRendering(
+internal fun storedTrackRendering(
     points: List<TrackPoint>,
     title: String,
     plan: TrackRenderPlan,

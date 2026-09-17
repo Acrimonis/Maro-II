@@ -107,6 +107,21 @@ data class TrackInfoOverlayData(
     val eyeOverride: Boolean? = null,
     /** Drawer-header eye toggle: flips [eyeOverride] for the selected track alone. */
     val onToggleEyeOverride: () -> Unit = {},
+    /**
+     * Inspect mode's provenance flag (plan §5): the frozen distance ladder, in walk order, when the
+     * card on screen was opened by an inspect pick, and null when it was opened anywhere else.
+     *
+     * It decides whether [trackListIds] / [currentTrackIndex] read the ladder or the list world, so
+     * a list-opened track keeps walking the list even while the mode is armed — and it is also the
+     * flag the drawer's own close path reads to disarm.
+     */
+    val inspectLadder: List<String>? = null,
+    /**
+     * True while an inspect open is in flight, so this card is the predecessor being held for its
+     * successor (plan §5): both walk buttons read as at their end and grey out, because a step taken
+     * now would rewrite the navigate target and cancel the open that is about to land here.
+     */
+    val walkHeld: Boolean = false,
 )
 
 /**

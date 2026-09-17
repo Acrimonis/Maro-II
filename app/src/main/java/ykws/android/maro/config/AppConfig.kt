@@ -113,6 +113,16 @@ object AppConfig {
     var uiMapToggleIconSize: Float = 22f
         private set
 
+    // ── Inspect mode (from maro.properties) ──────────────────────────────────────────────────────
+    // The sleuth square in the status row arms a viewport pick. Eligibility is the screen itself — a
+    // candidate's own bbox against the projection's visible bounds — so the only key left is the
+    // trigger's quiet time; the sweep, the ordering, the metric and the walk are all structural.
+
+    /** Quiet time (ms) the map must stand still after a genuine finger lift before the highlighted
+     *  item is picked. Default 666. Set via `ui.map.inspect.dwell.ms`. */
+    var uiMapInspectDwellMs: Long = 666L
+        private set
+
     /** Text colour on the shared surface. Default `#FF78909C`
      *  (alias of `ui.text.secondary`). Set via `ui.map.overlay.text.color`. */
     var uiMapOverlayTextColor: Int = 0xFF78909C.toInt()
@@ -972,6 +982,12 @@ object AppConfig {
             props.getProperty("ui.map.toggle.square")?.toFloatOrNull()?.let { uiMapToggleSquare = it }
             props.getProperty("ui.map.toggle.gutter")?.toFloatOrNull()?.let { uiMapToggleGutter = it }
             props.getProperty("ui.map.toggle.icon.size")?.toFloatOrNull()?.let { uiMapToggleIconSize = it }
+            // ── Inspect mode ─────────────────────────────────────────────────
+            // The clamp keeps a malformed file from breaking the trigger: a dwell of zero would pick
+            // on the first frame of every pan.
+            props.getProperty("ui.map.inspect.dwell.ms")?.toLongOrNull()?.let {
+                uiMapInspectDwellMs = it.coerceIn(0L, 5_000L)
+            }
             props.getProperty("ui.map.overlay.text.color")?.let { parseColorOrNull(it) }?.let { uiMapOverlayTextColor = it }
             props.getProperty("ui.map.overlay.text.weight")?.toIntOrNull()?.let { uiMapOverlayTextWeight = it.coerceIn(100, 900) }
             props.getProperty("ui.map.overlay.text.size")?.toFloatOrNull()?.let { uiMapOverlayTextSize = it }

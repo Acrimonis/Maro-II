@@ -66,6 +66,11 @@ enum class DrawerSource {
     LIST,
     /** Opened by tapping a marker on the map → prev/next follows the map world, clamps at edges. */
     MAP,
+    /**
+     * Opened by an inspect pick → prev/next follows the frozen distance ladder, which the inspect
+     * cursor above both drawers owns, so this source never walks a world of its own.
+     */
+    INSPECT,
     /** Opened from whereAmI query → prev/next wraps, existing behavior. */
     WHERE_AM_I
 }
@@ -74,8 +79,10 @@ enum class DrawerSource {
  * R2 core — does a change to a referential close the open dashboard's walk?
  *
  * A viewing panel's Prev/Next reads the world its surface was opened from: the list referential for
- * [DrawerSource.LIST], the map referential for [DrawerSource.MAP]. [DrawerSource.WHERE_AM_I] walks the
- * match set of the query, which no list or map filter rewrites, so it never closes this way.
+ * [DrawerSource.LIST], the map referential for [DrawerSource.MAP]. [DrawerSource.INSPECT] answers on
+ * the map world because its ladder is snapshotted from the same map-filtered set a map filter change
+ * rewrites. [DrawerSource.WHERE_AM_I] walks the match set of the query, which no list or map filter
+ * rewrites, so it never closes this way.
  *
  * The caller answers the two flags for the world its change landed in: the list filter and the list sort
  * answer for the list world, the map filter and the map reset for the map world. Membership is the answer
@@ -86,6 +93,7 @@ internal fun scopeClosed(source: DrawerSource, inListWorld: Boolean, inMapWorld:
     when (source) {
         DrawerSource.LIST -> inListWorld
         DrawerSource.MAP -> inMapWorld
+        DrawerSource.INSPECT -> inMapWorld
         DrawerSource.WHERE_AM_I -> false
     }
 
@@ -394,12 +402,16 @@ class MarkersViewModel(
         _drawerState.value = MarkerDrawerState.Viewing
     }
 
-    private fun isClampedSource() = drawerSource == DrawerSource.LIST || drawerSource == DrawerSource.MAP
+    private fun isClampedSource() = drawerSource == DrawerSource.LIST || drawerSource == DrawerSource.MAP ||
+        drawerSource == DrawerSource.INSPECT
 
-    /** Navigate to the previous marker. Clamps when LIST/MAP source, wraps when WHERE_AM_I. */
+    /** Navigate to the previous marker. Clamps when LIST/MAP/INSPECT source, wraps when WHERE_AM_I. */
     fun viewPreviousMarker() {
         val ids = _selectedMarkerIds.value
         if (ids.size <= 1) return
+        // Inspect: the cursor above the drawers owns the merged walk and never moves the camera, so
+        // this ViewModel's own marker walk stands down entirely.
+        if (drawerSource == DrawerSource.INSPECT) return
         val current = _selectedMarkerIndex.value
         val newIndex = if (isClampedSource()) {
             (current - 1).coerceAtLeast(0)
@@ -414,10 +426,12 @@ class MarkersViewModel(
         }
     }
 
-    /** Navigate to the next marker. Clamps when LIST/MAP source, wraps when WHERE_AM_I. */
+    /** Navigate to the next marker. Clamps when LIST/MAP/INSPECT source, wraps when WHERE_AM_I. */
     fun viewNextMarker() {
         val ids = _selectedMarkerIds.value
         if (ids.size <= 1) return
+        // Inspect: as above — the cursor walks the merged ladder.
+        if (drawerSource == DrawerSource.INSPECT) return
         val current = _selectedMarkerIndex.value
         val newIndex = if (isClampedSource()) {
             (current + 1).coerceAtMost(ids.lastIndex)

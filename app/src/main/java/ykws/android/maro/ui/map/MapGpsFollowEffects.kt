@@ -18,8 +18,17 @@ internal fun MapGpsFollowEffects(
     viewModel: NavigationViewModel,
     depthViewModel: DepthViewModel,
     appSettings: AppSettings,
-    autoFollowSuppressed: Boolean
+    autoFollowSuppressed: Boolean,
+    /**
+     * Non-consuming touch observation for inspect mode's movement gate: the mode needs each gesture's
+     * own boundaries — its zero is taken at the start of one and its lift is not a scroll event — so
+     * the gesture id is bumped here. This listener already exists and already returns false, so the
+     * hook is added to it rather than a second listener being installed — a second
+     * `setOnTouchListener` would silently replace this one and break `notifyUserInteraction()`.
+     */
+    onMapTouch: (Int) -> Unit = {}
 ) {
+    val onMapTouchState = androidx.compose.runtime.rememberUpdatedState(onMapTouch)
     // ── Force marker to match MapView zoom once the view is ready ────────
     // Even though _zoomLevel is seeded from persisted settings, there can be
     // a frame where collectAsState() captures the initial default before the
@@ -32,6 +41,7 @@ internal fun MapGpsFollowEffects(
         var rotating = false
         var lastAngleDeg = 0f
         mv.setOnTouchListener { _, ev ->
+            onMapTouchState.value(ev.actionMasked)
             when (ev.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     viewModel.notifyUserInteraction()
