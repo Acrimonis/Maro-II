@@ -1,24 +1,26 @@
 package ykws.android.maro.ui.map
 
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.map
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.track.PointType
 import ykws.android.maro.data.track.TrackPoint
 import ykws.android.maro.spatial.SpatialOperations
-import kotlin.math.cos
-import kotlin.math.hypot
-import kotlin.math.pow
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Inspect mode — the ranking core
 //
 // Inspect mode answers "what is this line near me?" by ranking the inspectable items by distance
 // from the marker point. This file owns the whole of that ranking and nothing that paints it:
-// the metric, the ordering, the hysteresis, the ladder and the radius derivation are pure Kotlin,
-// so ring and gate read one derivation and both are unit-testable without a device.
+// the metric, the viewport test, the ordering, the ladder and the sweep pipeline are pure Kotlin,
+// so the whole behaviour is unit-testable without a device.
 //
-// Two consumers, one metric (plan §3):
-//  - the sweep needs only the nearest item → [nearest], an O(N) minimum scan per frame;
-//  - the ladder needs the whole order → [rank], a full sort, run once at the pick.
+// Two consumers, one metric (plan §2, §3):
+//  - the sweep needs only the nearest eligible item → [nearest], an O(N) minimum scan per frame over
+//    the candidates whose cached bbox overlaps the viewport;
+//  - the ladder needs the whole order → [rank], a full sort, run once at the pick and deliberately
+//    not viewport-filtered, so a Next may walk to an off-screen item.
 // Both read the same loaded geometry, so the gold is always the ladder's first entry.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -43,23 +45,73 @@ internal sealed interface InspectGeometry {
 }
 
 /**
- * One inspectable item: its id, what kind it is — the ladder's tie-break reads that — and the
- * geometry the metric measures. A marker's kind and its geometry are independent: a corridor is a
- * MARKER measured as a LINE.
+ * A rectangle in degrees, edges inclusive.
+ *
+ * The inspect mode's eligibility test is one of these against the viewport: overlap first, distance
+ * second, so a nearer item off screen loses to a farther one on it (plan §2). A candidate's own box
+ * is derived once at warm time, so the per-frame test is a rectangle comparison and never a
+ * geometry walk. Pure and Android-free: the caller converts the projection's own bounds into one.
+ */
+internal data class InspectBounds(
+    val north: Double,
+    val east: Double,
+    val south: Double,
+    val west: Double
+) {
+
+    /** True when the two rectangles share ground, an edge alone counting as shared. */
+    fun overlaps(other: InspectBounds): Boolean =
+        south <= other.north && other.south <= north && west <= other.east && other.west <= east
+
+    companion object {
+
+        /** A point's own degenerate box. */
+        fun of(point: LatLng): InspectBounds =
+            InspectBounds(point.latitude, point.longitude, point.latitude, point.longitude)
+
+        /**
+         * The extent of a line's stored points — its own box, seams included, since this is a
+         * containment test and not a measurement. An empty list yields an inverted box, which
+         * overlaps nothing; the warm pass's own non-empty rule makes that case unreachable.
+         */
+        fun of(points: List<TrackPoint>): InspectBounds {
+            var north = Double.NEGATIVE_INFINITY
+            var east = Double.NEGATIVE_INFINITY
+            var south = Double.POSITIVE_INFINITY
+            var west = Double.POSITIVE_INFINITY
+            for (point in points) {
+                if (point.lat > north) north = point.lat
+                if (point.lat < south) south = point.lat
+                if (point.lon > east) east = point.lon
+                if (point.lon < west) west = point.lon
+            }
+            return InspectBounds(north, east, south, west)
+        }
+    }
+}
+
+/**
+ * One inspectable item: its id, what kind it is — the ladder's tie-break reads that — the geometry
+ * the metric measures, and the bbox that decides eligibility.
+ *
+ * A marker's kind and its geometry are independent: a corridor is a MARKER measured as a LINE. The
+ * bbox follows the geometry: a point's own position, or a line's extent, both derived here so warm
+ * time is the only time the geometry is walked for it (plan §2).
  */
 internal data class InspectCandidate(
     val id: String,
     val kind: InspectKind,
-    val geometry: InspectGeometry
+    val geometry: InspectGeometry,
+    val bounds: InspectBounds
 ) {
     companion object {
         /** A pin, or a circle at its centre. */
         fun point(id: String, kind: InspectKind, point: LatLng): InspectCandidate =
-            InspectCandidate(id, kind, InspectGeometry.Point(point))
+            InspectCandidate(id, kind, InspectGeometry.Point(point), InspectBounds.of(point))
 
         /** A polyline: a track, or a corridor's centre line. */
         fun line(id: String, kind: InspectKind, points: List<TrackPoint>): InspectCandidate =
-            InspectCandidate(id, kind, InspectGeometry.Line(points))
+            InspectCandidate(id, kind, InspectGeometry.Line(points), InspectBounds.of(points))
     }
 }
 
@@ -71,7 +123,7 @@ internal data class InspectRank(
 )
 
 /**
- * The inspect ranking: the metric, the order, the hysteresis and the ladder.
+ * The inspect ranking: the metric, the viewport test, the order and the ladder.
  *
  * Every function here is pure and side-effect free; the sweep and the ladder both go through
  * [distance], so the two can never disagree about how far an item is.
@@ -117,6 +169,9 @@ internal object InspectRanking {
     /**
      * The full ladder over [candidates], ascending by distance, ties broken markers before tracks
      * and then by id ascending — deterministic, so the walk is reproducible and testable.
+     *
+     * Deliberately **not** viewport-filtered (plan §5): the ladder is the walk world a Next steps
+     * through, and a step may land on an item the screen has since left behind.
      */
     fun rank(anchor: LatLng, candidates: List<InspectCandidate>): List<InspectRank> =
         candidates
@@ -124,14 +179,18 @@ internal object InspectRanking {
             .sortedWith(compareBy({ it.distanceM }, { if (it.kind == InspectKind.MARKER) 0 else 1 }, { it.id }))
 
     /**
-     * The sweep's O(N) minimum scan: the nearest candidate strictly inside [radiusM], or null when
-     * nothing is in range — which is what clears the gold.
+     * The sweep's O(N) minimum scan: the closest candidate whose own box overlaps [viewport], or
+     * null when the viewport holds none — which is what clears the gold and lets the scan stand
+     * idle until the map moves again.
+     *
+     * Overlap first and distance second, so the answer is never an item the screen does not show,
+     * and no incumbent is held: the true closest of this scan wins on every re-rank (plan §2, §3).
      */
-    fun nearest(anchor: LatLng, candidates: List<InspectCandidate>, radiusM: Double): InspectRank? {
+    fun nearest(anchor: LatLng, candidates: List<InspectCandidate>, viewport: InspectBounds): InspectRank? {
         var best: InspectRank? = null
         for (candidate in candidates) {
+            if (!viewport.overlaps(candidate.bounds)) continue
             val d = distance(anchor, candidate)
-            if (d > radiusM) continue
             val current = best
             if (current == null ||
                 d < current.distanceM ||
@@ -148,122 +207,27 @@ internal object InspectRanking {
             candidate.kind != current.kind -> candidate.kind == InspectKind.MARKER
             else -> candidate.id < current.id
         }
-
-    /**
-     * The hysteresis winner: [current] keeps the gold unless [challenger] is closer by
-     * [hysteresisPct] per cent, or [current] has itself left the radius. A null [challenger] clears
-     * the candidate outright, which is the case that removes the gold.
-     */
-    fun winner(
-        current: InspectRank?,
-        challenger: InspectRank?,
-        radiusM: Double,
-        hysteresisPct: Float
-    ): InspectRank? {
-        if (challenger == null) return null
-        if (current == null) return challenger
-        if (current.id == challenger.id) return challenger
-        // The incumbent has left the radius: the challenger takes the gold whatever the margin.
-        if (current.distanceM > radiusM) return challenger
-        val margin = (1.0 - hysteresisPct.coerceIn(0f, 100f) / 100.0)
-        return if (challenger.distanceM < current.distanceM * margin) challenger else current
-    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// The movement gate (plan §5) — the clock may not run until the gesture has moved the map
+// The sweep pipeline (plan §3) — conflate stale ticks, never cancel a scan
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * The movement gate: has the gesture that is running moved the map by at least [minMoveDp]?
+ * The sweep's pipeline over [ticks]: stale motion ticks are conflated, and a scan already in flight
+ * is **never** cancelled, because the collector is a plain one — `collect`, not `collectLatest`.
  *
- * The number is the anchor's **own point** travelling across the screen, not the finger's travel:
- * [downX]/[downY] is where that point sat when the finger went down and [nowX]/[nowY] is where the
- * same point is projected now, so a pinch — which scales the map and carries every point but its
- * focus across the screen — counts through the same measurement as a pan, and a touch that leaves
- * the map exactly where it was cannot open the gate however long it rests. The comparison is in dp
- * ([density] px per dp), so the key reads in the same units as the rest of the map chrome.
+ * So every tick that survives the conflation publishes its own result, and the previous highlight
+ * stands until its successor lands; no result is ever dropped in favour of a newer tick. The
+ * conflation is what keeps a fast drag from queueing a scan per frame, and the reason each scan is
+ * a cheap O(N) minimum over warm geometry off the UI thread.
  *
- * Pure and Android-free, like the rest of the ranking core, so the behaviour is unit-testable
- * without a device; the caller owns the two projections.
+ * Android-free, so the conflate-and-never-cancel behaviour is unit-tested without a device. [scan]
+ * takes the tick it was started for, which is the caller's own bookkeeping rather than an input to
+ * the scan itself.
  */
-internal fun inspectArmGateOpen(
-    downX: Float,
-    downY: Float,
-    nowX: Float,
-    nowY: Float,
-    density: Float,
-    minMoveDp: Float
-): Boolean {
-    val dx = nowX - downX
-    val dy = nowY - downY
-    return hypot(dx.toDouble(), dy.toDouble()) >= minMoveDp.coerceAtLeast(0f) * density
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// The one radius derivation (plan §2) — the drawn ring and the pick gate both read it
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * The ring's radius in dp: the boat icon's own size at this zoom, times [factor], floored at
- * [minDp] and capped at [maxViewportPct] of the smaller viewport side.
- *
- * Always the boat formula — never the land dot's — so water and land cannot flip the range, and
- * the distance-to-shore multiplier is part of it so tightening near the coast is shared by ring
- * and gate alike.
- */
-internal fun inspectRadiusDp(
-    zoomLevel: Double,
-    distMultiplier: Float,
-    viewportMinDp: Float,
-    factor: Float,
-    minDp: Float,
-    maxViewportPct: Float
-): Float {
-    val boatDp = BOAT_BASE_DP * 2.0.pow(ZOOM_EXPONENT * (zoomLevel - REF_ZOOM))
-    val raw = boatDp * factor * distMultiplier
-    val ceiling = maxViewportPct.coerceAtLeast(0f) * viewportMinDp
-    return raw.toFloat().coerceIn(minDp, maxOf(minDp, ceiling))
-}
-
-/**
- * The distance-to-shore multiplier the boat icon itself wears: [DIST_SHRINK_MIN_MULT] on the coast,
- * ramping to 1.0 at [DIST_SHRINK_RAMP_M], and 1.0 whenever the shore distance is unknown. Read from
- * the marker's own constants so the ring can never breathe differently from the icon it circles.
- */
-internal fun inspectDistMultiplier(distanceToShore: Double?): Float =
-    if (distanceToShore == null) 1.0f
-    else (DIST_SHRINK_MIN_MULT +
-        (1.0 - DIST_SHRINK_MIN_MULT) * (distanceToShore / DIST_SHRINK_RAMP_M).coerceIn(0.0, 1.0)).toFloat()
-
-/**
- * Ground resolution (m per screen pixel) at [latitude] and [zoomLevel] — the Web Mercator
- * resolution osmdroid's TileSystem computes, written here so the conversion stays pure and testable
- * rather than reaching into the library from the ranking.
- */
-internal fun groundResolutionMetersPerPx(latitude: Double, zoomLevel: Double): Double {
-    val clampedLat = latitude.coerceIn(-MER_MAX_LAT, MER_MAX_LAT)
-    val mapSizePx = MER_TILE_SIZE_PX * 2.0.pow(zoomLevel)
-    return cos(Math.toRadians(clampedLat)) * 2.0 * Math.PI * MER_EARTH_RADIUS_M / mapSizePx
-}
-
-/**
- * The ring's radius in metres — the dp value through the screen's own dp→px scale and the ground
- * resolution at the anchor. One function, so the drawn ring and the pick gate cannot drift.
- */
-internal fun inspectRadiusMeters(
-    radiusDp: Float,
-    pxPerDp: Float,
-    anchorLat: Double,
-    zoomLevel: Double
-): Double = pxPerDp.toDouble() * radiusDp.toDouble() * groundResolutionMetersPerPx(anchorLat, zoomLevel)
-
-/** WGS84 mean radius used by the Web Mercator resolution (osmdroid's TileSystem radius). */
-private const val MER_EARTH_RADIUS_M = 6_378_137.0
-/** Tile edge in pixels — the Mercator map size is this times 2^zoom. */
-private const val MER_TILE_SIZE_PX = 256.0
-/** Mercator's own latitude clamp. */
-private const val MER_MAX_LAT = 85.05112878
+internal fun <T> inspectSweep(ticks: Flow<Int>, scan: suspend (Int) -> T): Flow<T> =
+    ticks.conflate().map { scan(it) }
 
 /** The track point's geo pair, so the metric never re-derives one. */
 private fun TrackPoint.latLng(): LatLng = LatLng(lat, lon)

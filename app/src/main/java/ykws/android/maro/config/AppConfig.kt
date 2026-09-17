@@ -113,51 +113,14 @@ object AppConfig {
     var uiMapToggleIconSize: Float = 22f
         private set
 
-    // ── Inspect mode (from maro.properties, plus the ring's look from colors.properties) ─────────
-    // The sleuth square in the status row arms a proximity pick. The first three keys are the ring's
-    // single derivation — read by the drawn ring and by the pick gate alike, so the two cannot
-    // drift — the next three tune the trigger, the candidate's stability and the gesture's own
-    // minimum travel, and the ring's own weight and alpha are paint tokens beside the map surface
-    // family.
+    // ── Inspect mode (from maro.properties) ──────────────────────────────────────────────────────
+    // The sleuth square in the status row arms a viewport pick. Eligibility is the screen itself — a
+    // candidate's own bbox against the projection's visible bounds — so the only key left is the
+    // trigger's quiet time; the sweep, the ordering, the metric and the walk are all structural.
 
-    /** Multiplier on the boat icon size in the inspect ring's radius. Default 1.5.
-     *  Set via `ui.map.inspect.radius.factor`. */
-    var uiMapInspectRadiusFactor: Float = 1.5f
-        private set
-
-    /** Floor (dp) of the ring, so it stays finger-sized where the icon is tiny. Default 44.
-     *  Set via `ui.map.inspect.radius.min.dp`. */
-    var uiMapInspectRadiusMinDp: Float = 44f
-        private set
-
-    /** Ceiling of the ring as a fraction of the smaller viewport side. Default 0.35.
-     *  Set via `ui.map.inspect.radius.max.viewport.pct`. */
-    var uiMapInspectRadiusMaxViewportPct: Float = 0.35f
-        private set
-
-    /** Quiet time (ms) with the map still and a candidate in range before that one is picked.
-     *  Default 400. Set via `ui.map.inspect.dwell.ms`. */
-    var uiMapInspectDwellMs: Long = 400L
-        private set
-
-    /** Screen travel (dp) of the anchor's own point a gesture must cover before the dwell clock may
-     *  run, so arming alone never picks. Default 24. Set via `ui.map.inspect.arm.move.dp`. */
-    var uiMapInspectArmMoveDp: Float = 24f
-        private set
-
-    /** Closeness margin (per cent) a challenger needs to take the gold from the incumbent.
-     *  Default 15. Set via `ui.map.inspect.hysteresis.pct`. */
-    var uiMapInspectHysteresisPct: Float = 15f
-        private set
-
-    /** Line weight (dp) of the inspect ring. Default 2.
-     *  Set via `ui.map.inspect.ring.width` in colors.properties. */
-    var uiMapInspectRingWidthDp: Float = 2f
-        private set
-
-    /** Alpha (0.0–1.0) the inspect ring paints the accent at. Default 0.55.
-     *  Set via `ui.map.inspect.ring.alpha` in colors.properties. */
-    var uiMapInspectRingAlpha: Float = 0.55f
+    /** Quiet time (ms) the map must stand still after a genuine finger lift before the highlighted
+     *  item is picked. Default 666. Set via `ui.map.inspect.dwell.ms`. */
+    var uiMapInspectDwellMs: Long = 666L
         private set
 
     /** Text colour on the shared surface. Default `#FF78909C`
@@ -1020,36 +983,10 @@ object AppConfig {
             props.getProperty("ui.map.toggle.gutter")?.toFloatOrNull()?.let { uiMapToggleGutter = it }
             props.getProperty("ui.map.toggle.icon.size")?.toFloatOrNull()?.let { uiMapToggleIconSize = it }
             // ── Inspect mode ─────────────────────────────────────────────────
-            // Each clamp keeps a malformed file from breaking the draw or the trigger: a factor of
-            // zero would collapse the ring, a floor above the viewport would swallow the map, a
-            // dwell of zero would pick on the first frame of every pan, and a movement floor of zero
-            // would open the gate on a touch that never moved the map at all.
-            props.getProperty("ui.map.inspect.radius.factor")?.toFloatOrNull()?.let {
-                uiMapInspectRadiusFactor = it.coerceIn(0.1f, 10f)
-            }
-            props.getProperty("ui.map.inspect.radius.min.dp")?.toFloatOrNull()?.let {
-                uiMapInspectRadiusMinDp = it.coerceAtLeast(1f)
-            }
-            props.getProperty("ui.map.inspect.radius.max.viewport.pct")?.toFloatOrNull()?.let {
-                uiMapInspectRadiusMaxViewportPct = it.coerceIn(0.05f, 1f)
-            }
+            // The clamp keeps a malformed file from breaking the trigger: a dwell of zero would pick
+            // on the first frame of every pan.
             props.getProperty("ui.map.inspect.dwell.ms")?.toLongOrNull()?.let {
                 uiMapInspectDwellMs = it.coerceIn(0L, 5_000L)
-            }
-            // A zero here would open the gate on a touch that never moved the map, i.e. the mode
-            // would pick the moment it is armed over a candidate.
-            props.getProperty("ui.map.inspect.arm.move.dp")?.toFloatOrNull()?.let {
-                uiMapInspectArmMoveDp = it.coerceIn(1f, 200f)
-            }
-            props.getProperty("ui.map.inspect.hysteresis.pct")?.toFloatOrNull()?.let {
-                uiMapInspectHysteresisPct = it.coerceIn(0f, 90f)
-            }
-            // The ring's own look: colour is `ui.accent`, these two are the rest of it.
-            props.getProperty("ui.map.inspect.ring.width")?.toFloatOrNull()?.let {
-                uiMapInspectRingWidthDp = it.coerceIn(0.5f, 8f)
-            }
-            props.getProperty("ui.map.inspect.ring.alpha")?.toFloatOrNull()?.let {
-                uiMapInspectRingAlpha = it.coerceIn(0f, 1f)
             }
             props.getProperty("ui.map.overlay.text.color")?.let { parseColorOrNull(it) }?.let { uiMapOverlayTextColor = it }
             props.getProperty("ui.map.overlay.text.weight")?.toIntOrNull()?.let { uiMapOverlayTextWeight = it.coerceIn(100, 900) }

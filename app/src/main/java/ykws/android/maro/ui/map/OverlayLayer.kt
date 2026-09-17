@@ -204,6 +204,7 @@ internal fun OverlayLayer(
     val trackInfoDrawerData = trackInfo.trackInfoDrawerData
     val trackListIds = trackInfo.trackListIds
     val currentTrackIndex = trackInfo.currentTrackIndex
+    val trackWalkHeld = trackInfo.walkHeld
     val trackInfoColours = trackInfo.trackColours
     val eyeOverride = trackInfo.eyeOverride
     val onToggleEyeOverride = trackInfo.onToggleEyeOverride
@@ -460,8 +461,10 @@ internal fun OverlayLayer(
         //        full-height left column, so its content swap has no measured size to resize to,
         //        while portrait's wraps to the measured card. The slot closes nothing itself, so
         //        every existing close rule stays the one author of that.
-        val isAtTrackFirst = currentTrackIndex <= 0
-        val isAtTrackLast = currentTrackIndex >= trackListIds.lastIndex
+        // A walk held for an in-flight open reads as at both ends at once, so its two buttons grey
+        // out and carry no tap: the step surface is inert until the successor lands (plan §5).
+        val isAtTrackFirst = currentTrackIndex <= 0 || trackWalkHeld
+        val isAtTrackLast = currentTrackIndex >= trackListIds.lastIndex || trackWalkHeld
         // Which panel the one selected-item slot renders: R1 keeps the two selected-item panels
         // exclusive, so "which panel is open" is the whole decision.
         val markerCardOpen = drawerState is MarkerDrawerState.Viewing

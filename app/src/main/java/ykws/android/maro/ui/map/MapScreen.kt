@@ -511,23 +511,42 @@ fun MapScreen(
     var trackDrawerState by remember { mutableStateOf(TrackDrawerState()) }
 
     // ── Inspect mode (plan §1) ───────────────────────────────────────────
-    // Session-lived and never persisted. The sleuth square arms a proximity pick; the state below is
-    // the mode's own — the sweep's candidate, the merged ladder's cursor, the demo centre captured at
-    // arming, and the gesture boundary the movement gate takes its own zero at.
+    // Session-lived and never persisted. The sleuth square arms a viewport pick; the state below is
+    // the mode's own — the sweep's highlighted candidate, the merged ladder's cursor, the demo centre
+    // captured at arming, and the map's touch boundaries the trigger clock reads its lifts from.
     var inspectArmed by rememberSaveable { mutableStateOf(false) }
     var inspectCandidate by remember { mutableStateOf<InspectRank?>(null) }
     var inspectCursor by remember { mutableStateOf<InspectCursor?>(null) }
+    // The cursor as it stood before a step, kept for the whole of that step's open: the cursor
+    // advances before the opener is called, so an open that dies must be able to put it back — left
+    // on the successor's slot, the pills of the predecessor still on screen would describe a card
+    // that never arrived (plan §5).
+    var inspectCursorBeforeStep by remember { mutableStateOf<InspectCursor?>(null) }
     var inspectCapturedDemoCenter by remember { mutableStateOf<GeoPoint?>(null) }
+    // The canonical guard (plan §6): true once the user moved the map themselves after the card
+    // opened, so the close leaves the frame where they put it — no demo centre back, no GPS re-pin —
+    // exactly as a list-opened card leaves it. The mode's own camera never counts, and the flag is
+    // cleared at every new open and at the mode's exit.
+    var inspectMapMovedByUser by remember { mutableStateOf(false) }
     // True from the moment an inspect pick — or an armed tap on a marker — opens a card until that card
     // closes. It is the *intent* rather than the fact, which is why it is set before an opener is called
-    // and survives the whole of that asynchronous open: a cross-type step closes one card before the
-    // other lands. The pick disarms the mode the moment this card lands, so it is also the flag the
+    // and survives the whole of that asynchronous open, including the window a cross-type step keeps the
+    // predecessor on screen for. The armed half ends when this card lands, so it is also the flag the
     // follow gates are keyed on (§5) — the card, never the armed flag, is what holds the centre.
     var inspectCardOpen by remember { mutableStateOf(false) }
-    // True while an opener is in flight and no card has landed yet: the landing rule must not read the
-    // gap between the old card closing and the new one opening as the user having closed the card.
-    var inspectOpening by remember { mutableStateOf(false) }
-    var mapGestureId by remember { mutableIntStateOf(0) }
+    // The one owner of "an open is in flight" (plan §5): the successor that open is flying towards plus
+    // the predecessor card held on screen until it lands. One value rather than an in-flight flag beside
+    // a separate target, so the mode can never be left waiting for an open that will not land — clearing
+    // this *is* the landing, and nothing else has to agree about what is expected.
+    var inspectHandoff by remember { mutableStateOf<InspectHandoff?>(null) }
+    // Bumped at every genuine finger lift on the map: the only event that may start the trigger
+    // clock, so the arming seed and a resting finger can never pick (plan §5).
+    var mapLiftId by remember { mutableIntStateOf(0) }
+    // Bumped for every user action that is neither map motion nor a panel change — the lock square,
+    // a layer chip, a settings write. One bump site rather than a reset scattered through each
+    // handler: the mode folds it with the map's own motion into its single activity tick (plan §5).
+    var mapActivityId by remember { mutableIntStateOf(0) }
+    LaunchedEffect(screenLocked, appSettings) { mapActivityId++ }
     // Bumped at the end of every canonical track-rebuild pass: the mode re-stacks its own candidate
     // overlay on each bump, because a rebuild can float other tracks above it.
     val trackRebuildGeneration = remember { mutableStateOf(0) }
@@ -864,12 +883,11 @@ fun MapScreen(
         depthViewModel = depthViewModel,
         appSettings = appSettings,
         autoFollowSuppressed = autoFollowSuppressed,
-        // The mode's movement gate takes its own zero at each gesture's start, counted here at the
-        // map's own touch boundaries. osmdroid owns the gesture, so the hook rides on the listener
-        // that already exists and never consumes rather than installing a second one, which would
-        // replace it.
+        // The mode's clock may only start on a genuine finger lift, counted here at the map's own
+        // touch boundaries. osmdroid owns the gesture, so the hook rides on the listener that already
+        // exists and never consumes rather than installing a second one, which would replace it.
         onMapTouch = { action ->
-            if (action == MotionEvent.ACTION_DOWN) mapGestureId++
+            if (action == MotionEvent.ACTION_UP) mapLiftId++
         }
     )
 
@@ -891,6 +909,9 @@ fun MapScreen(
 
     // ── User markers: from MarkersViewModel ─────────────────────────────────────────
     val userMarkers by markersViewModel.markers.collectAsState()
+    // The marker card's own id (plan §5): the landing rule reads it to recognise the successor of an
+    // inspect open, so the one declaration sits above the overlay it is also painted from.
+    val selectedMarkerId by markersViewModel.selectedMarkerId.collectAsState()
     val markerLayerState by markersViewModel.markerLayerState.collectAsState()
     val markerLayerVisible = markerLayerState != MarkerLayerState.HIDDEN
     // Map-referential markers: the map overlay renders the MAP filter world (list uses markers).
@@ -1228,17 +1249,6 @@ fun MapScreen(
             // centre, so the geo point under the marker is read at `centre + offset` — the check behind
             // that is recorded on `inspectAnchor`, whose fallback is the implementation.
             val inspectOffsetPx = with(LocalDensity.current) { mapCenterOffsetDp.roundToPx() }
-            val inspectViewportMinDp = minOf(maxWidth.value, maxHeight.value)
-            // The ring and the pick gate read the same derivation; only the inputs differ in timing,
-            // the ring following the sampled shore distance and the gate the live one.
-            val inspectRingRadiusDp = inspectRadiusDp(
-                zoomLevel = zoomLevel,
-                distMultiplier = inspectDistMultiplier(distanceToShore),
-                viewportMinDp = inspectViewportMinDp,
-                factor = AppConfig.uiMapInspectRadiusFactor,
-                minDp = AppConfig.uiMapInspectRadiusMinDp,
-                maxViewportPct = AppConfig.uiMapInspectRadiusMaxViewportPct
-            )
 
             // ── The selected-item opener, above the mode that calls it ─────────────────────────────
             // The mode's pick and every step call it directly and a local function cannot be
@@ -1248,13 +1258,42 @@ fun MapScreen(
             val mgmtMarkers by markersViewModel.markers.collectAsState()
 
             /**
-             * Drops the mode's intent when an inspect open lands no card at all (plan §5). The mode
+             * The inspect ladder's own resolver (plan §5): the map-filtered markers — the very
+             * collection the ranking was built from — read live off its flow rather than snapshotted,
+             * because a snapshot would answer with the item as it stood when the ladder froze, so an
+             * edit would show a stale card and a delete would keep resurrecting one.
+             *
+             * Handing this to the cursor is what makes the walk and the lookup incapable of disagreeing:
+             * resolved against the list world instead, an id the map filter keeps but a narrower list
+             * filter drops misses, and the step dies with nothing on screen. The line half needs no
+             * counterpart — the ranking and the opener both load through `loadTrackDetailCached`.
+             */
+            val inspectMarkerLookup: (String) -> UserMarker? = { id ->
+                markersViewModel.mapMarkers.value.find { it.id == id }
+            }
+
+            /**
+             * Drops the in-flight hand-off when an inspect open lands no card at all (plan §5). The mode
              * itself stays armed, because nothing was opened and so nothing was exited.
+             *
+             * A predecessor held for that open is still on screen, so the mode's intent and its hold on
+             * the centre stay with it — cleared here they would hand the centre back under a card that is
+             * still up. Only an open that lands nothing with no card beneath it spends the intent.
+             *
+             * A step that dies also hands the cursor back to the slot the standing card shows, so the
+             * walk keeps describing the card the user is actually looking at.
              */
             fun abandonInspectOpen() {
-                inspectCardOpen = false
-                inspectOpening = false
-                viewModel.setInspectCardOpen(false)
+                inspectHandoff = null
+                val cardOnScreen = markersViewModel.drawerState.value is MarkerDrawerState.Viewing ||
+                    trackDrawerState.isOpen
+                if (cardOnScreen) {
+                    inspectCursorBeforeStep?.let { inspectCursor = it }
+                } else {
+                    inspectCardOpen = false
+                    viewModel.setInspectCardOpen(false)
+                }
+                inspectCursorBeforeStep = null
             }
 
             /**
@@ -1271,17 +1310,22 @@ fun MapScreen(
              * returns to the frame the selection was made on and not to the last step's. Nothing here
              * reaches for the list once [walkWorld] is the ladder: the card carries the world it walks,
              * and that world alone is what its Prev/Next reads.
+             *
+             * [closeMarkerCard] is that R1 close, left standing for every caller but a cross-type step:
+             * the step holds the marker card — it is the predecessor, and holding it is what keeps the
+             * one selected-item slot filled while this open is in flight (plan §5).
              */
             fun openSelectedTrack(
                 candidates: List<String>,
                 walkWorld: List<String>? = null,
                 freshSelection: Boolean = true,
+                closeMarkerCard: Boolean = true,
                 onNone: () -> Unit = {}
             ) {
-                // R1: one selected item at a time — opening a track detail closes the marker detail drawer.
-                // A walk step is a selection too in this one sense: the other card goes before this one
-                // arrives, whatever world the step lands in.
-                closeMarkerDashboard()
+                // R1: one selected item at a time — opening a track detail closes the marker detail
+                // drawer. A walk step is a selection too in this one sense, but it defers that close to
+                // its own landing instead, so the slot never empties between the two cards (plan §5).
+                if (closeMarkerCard) closeMarkerDashboard()
                 if (freshSelection) {
                     if (!appSettings.tracksVisible) {
                         viewModel.updateSettings { it.copy(tracksVisible = true) }
@@ -1351,27 +1395,50 @@ fun MapScreen(
              * carries. [walkWorld] hands over the frozen ladder and the inspect source; null keeps the
              * list world, so a list-opened marker card behaves exactly as it does today.
              */
-            fun openMarkerDetail(id: String, walkWorld: List<String>? = null) {
-                val marker = mgmtMarkers.find { it.id == id }
+            fun openMarkerDetail(
+                id: String,
+                walkWorld: List<String>? = null,
+                /** False while a cross-type step holds the track card for this open's landing (§5). */
+                closeTrackCard: Boolean = true,
+                /**
+                 * The world this id is resolved in. An inspect step hands over the ladder's own
+                 * resolver, so the id is looked up in the collection its walk was ranked from; the
+                 * default is the list world, which is what a list, menu or map route has always used.
+                 */
+                markerLookup: ((String) -> UserMarker?)? = null,
+                /**
+                 * Which world a non-null [walkWorld] is: the frozen ladder ([DrawerSource.INSPECT]) or
+                 * the map-filtered collection an armed tap came from ([DrawerSource.MAP]). Ignored when
+                 * there is no world, where the list world is the only world there is.
+                 */
+                walkWorldSource: DrawerSource = DrawerSource.INSPECT
+            ) {
+                val marker = (markerLookup ?: { lookupId -> mgmtMarkers.find { it.id == lookupId } })(id)
                 if (marker == null) {
-                    if (walkWorld != null) abandonInspectOpen()
+                    // Guarded on the in-flight open itself, never on the world this open walks: an
+                    // armed tap's open walks the map world and is just as capable of landing nothing,
+                    // and a hand-off left standing here would swallow every close and hold the centre
+                    // until the toggle (plan §5).
+                    if (inspectHandoff != null) abandonInspectOpen()
                     return
                 }
-                // R1: one selected item at a time — opening a marker detail closes the track detail drawer.
-                closeTrackDrawer()
+                // R1: one selected item at a time — opening a marker detail closes the track detail
+                // drawer, unless a cross-type step is holding it until this card lands (plan §5).
+                if (closeTrackCard) closeTrackDrawer()
                 markersViewModel.showLayer()
                 showMarkerManagement = false
                 navigateToTarget = NavigateTarget(
                     geoPoint = GeoPoint(marker.centerPoint.latitude, marker.centerPoint.longitude),
                     markerId = id,
                     worldIds = walkWorld,
-                    source = if (walkWorld != null) DrawerSource.INSPECT else DrawerSource.LIST
+                    source = if (walkWorld != null) walkWorldSource else DrawerSource.LIST
                 )
             }
 
             /** Arms the mode. Demo's captured centre is the map's own, i.e. the point under the marker. */
             fun armInspectMode() {
                 if (inspectArmed) return
+                inspectMapMovedByUser = false
                 inspectCapturedDemoCenter = if (appSettings.gpsMode) null else {
                     mapView?.let { mv ->
                         inspectAnchor(mv, inspectOffsetPx)?.let { GeoPoint(it.latitude, it.longitude) }
@@ -1382,23 +1449,38 @@ fun MapScreen(
             }
 
             /**
-             * Disarms and restores the feed. The GPS half is the ViewModel's (`disarmInspect`); demo's
-             * is here, because nothing else can put the demo centre back — the demo position is fed
-             * *from* the centre, so the sweep has carried the boat across the map with it.
+             * The demo half of the mode's single exit (plan §6): the centre captured at arming is put
+             * back, and a map the user moved after the card opened is left alone, exactly as a
+             * list-opened card leaves it. The capture is spent either way, so a later open and close
+             * cannot resurrect it.
+             */
+            fun applyInspectDemoExit() {
+                if (!inspectMapMovedByUser) {
+                    inspectCapturedDemoCenter?.let { mapView?.controller?.setCenter(it) }
+                }
+                inspectCapturedDemoCenter = null
+                inspectMapMovedByUser = false
+            }
+
+            /**
+             * Disarms the mode and hands the feed back. The armed half stands down here; the retained
+             * capture lands at the mode's *single* exit (plan §6), so with a card still standing this
+             * only clears the walk state and leaves that card's close to apply the capture — this path
+             * and the close can therefore never both restore. The GPS half is the ViewModel's
+             * (`disarmInspect`, whose verdict this call reads); demo's is [applyInspectDemoExit],
+             * because nothing else can put the demo centre back — the demo position is fed *from* the
+             * centre, so the sweep has carried the boat across the map with it.
              */
             fun disarmInspectMode() {
                 if (!inspectArmed) return
                 inspectArmed = false
                 inspectCandidate = null
                 inspectCursor = null
-                inspectCardOpen = false
-                inspectOpening = false
-                viewModel.disarmInspect()
-                // A card still on screen is an ordinary selection from here, so it no longer holds the
-                // centre through the follow gates: the disarm's own restore has just done that.
-                viewModel.setInspectCardOpen(false)
-                inspectCapturedDemoCenter?.let { mapView?.controller?.setCenter(it) }
-                inspectCapturedDemoCenter = null
+                inspectCursorBeforeStep = null
+                inspectHandoff = null
+                if (viewModel.disarmInspect(mapMovedByUser = inspectMapMovedByUser)) {
+                    applyInspectDemoExit()
+                }
             }
 
             /**
@@ -1413,22 +1495,62 @@ fun MapScreen(
              * dropped here rather than restored by a later close. A step of an already-open card finds
              * the mode disarmed and spends nothing.
              */
-            fun openInspectCard(id: String, kind: InspectKind, ladder: List<String>?, picked: Boolean) {
-                if (inspectArmed) {
-                    viewModel.releaseInspectFollow()
-                    inspectCapturedDemoCenter = null
-                }
+            fun openInspectCard(
+                id: String,
+                kind: InspectKind,
+                cursor: InspectCursor?,
+                picked: Boolean,
+                /**
+                 * The collection an armed tap came from, already seated on the tapped marker. It is
+                 * handed over only when no ladder is seated: before the first pick there is no frozen
+                 * pass, and the map-filtered set the tap itself came from is the one world certain to
+                 * hold the marker under the finger (plan §5).
+                 */
+                tapWorld: List<String>? = null
+            ) {
+                // The capture taken at arming is retained: a pick no longer spends it, and the follow
+                // gates keep the centre held while this card stands. It lands at the mode's single
+                // exit — this card's close (plan §6) — and the guard starts afresh with the new card.
+                inspectMapMovedByUser = false
+                // What the open must do about a card already on screen: the mode's own other-kind card
+                // is held until this successor lands, so the slot's visibility OR never goes false and
+                // the swap reads as an in-place content change (plan §5). The rule is pure and
+                // unit-tested beside `inspectLanded`.
+                val held = inspectHeldCard(
+                    opening = kind,
+                    markerCardOpen = markersViewModel.drawerState.value is MarkerDrawerState.Viewing,
+                    markerCardInspectSourced = markersViewModel.drawerSource == DrawerSource.INSPECT,
+                    trackCardOpen = trackDrawerState.isOpen,
+                    trackCardInspectSourced = trackDrawerState.inspectLadder != null
+                )
+                // Set before the opener is called, because the landing rule reads it: this is the one
+                // record of what this open is flying towards and of what must not go until it arrives.
+                inspectHandoff = InspectHandoff(InspectTarget(id, kind), held)
                 inspectCardOpen = true
-                inspectOpening = true
                 viewModel.setInspectCardOpen(true)
                 when (kind) {
                     InspectKind.TRACK -> openSelectedTrack(
                         candidates = listOf(id),
-                        walkWorld = ladder,
+                        walkWorld = cursor?.ladderIds,
                         freshSelection = picked,
+                        closeMarkerCard = held == null,
                         onNone = { abandonInspectOpen() }
                     )
-                    InspectKind.MARKER -> openMarkerDetail(id, ladder)
+                    InspectKind.MARKER -> {
+                        // With no ladder the walk is the map-filtered collection the tap came from,
+                        // resolved through that collection's own lookup and walked by the map's
+                        // clamped walk — never the list world, which may have filtered the tapped
+                        // marker out and would seat the card on whichever marker happened to be
+                        // first, with both pills pointing at a walk that cannot move (plan §5).
+                        openMarkerDetail(
+                            id = id,
+                            walkWorld = cursor?.ladderIds ?: tapWorld,
+                            closeTrackCard = held == null,
+                            markerLookup = cursor?.resolveMarker
+                                ?: if (tapWorld != null) inspectMarkerLookup else null,
+                            walkWorldSource = if (cursor != null) DrawerSource.INSPECT else DrawerSource.MAP
+                        )
+                    }
                 }
             }
 
@@ -1438,10 +1560,19 @@ fun MapScreen(
              * and opening the other, which is what makes the swap read as a content change (plan §5).
              */
             fun applyInspectStep(cursor: InspectCursor) {
-                inspectCursor = cursor
+                // One step at a time: while an open is in flight its successor owns the slot, and a
+                // second step taken now would rewrite the navigate target, cancel the running open and
+                // leave the first card never landing (plan §5). The buttons are greyed for that same
+                // window; this is the guard that cannot be reached around.
+                if (inspectHandoff != null) return
                 val next = cursor.current ?: return
+                // The slot stepped away from is kept for the whole of this open: the cursor advances
+                // before the opener is called, and a step that dies must hand it back rather than
+                // leave the predecessor's pills describing the successor's slot (plan §5).
+                inspectCursorBeforeStep = inspectCursor
+                inspectCursor = cursor
                 inspectCandidate = null
-                openInspectCard(next.id, next.kind, cursor.ladderIds, picked = false)
+                openInspectCard(next.id, next.kind, cursor, picked = false)
             }
 
             // ── F2: Build synthetic unconfirmed marker for overlay preview ─────
@@ -1498,27 +1629,62 @@ fun MapScreen(
             // mode the moment its card is on screen (plan §5), so nothing is left for the close to
             // restore: the capture was spent at the pick, and the ladder keeps the track card's own
             // pre-navigation restore stood down. Two gates keep the asynchronous open honest — nothing
-            // is read as a close until a card has actually landed, and the gap between one card closing
-            // and the next landing (a cross-type step) is not a close either. That second gate is why
-            // the intent and the in-flight flag are separate.
-            LaunchedEffect(drawerState, trackDrawerState.isOpen, inspectArmed, inspectCardOpen, inspectOpening) {
+            // is read as a close until a card has actually landed, and the window a cross-type step
+            // holds open (the predecessor still on screen, the successor in flight) is not a close
+            // either. Both gates read the one hand-off, because the only thing a landing can be is its
+            // successor's own provenance: the marker card showing the id it opens, the track drawer open
+            // on the new id. Left as "some card is open", the rule fires at the step itself, spends the
+            // in-flight mark, disarms early and then reads the successor's arrival as a close.
+            LaunchedEffect(
+                drawerState, selectedMarkerId, trackDrawerState, inspectCardOpen, inspectHandoff, inspectArmed
+            ) {
                 if (!inspectCardOpen) return@LaunchedEffect
-                if (drawerState is MarkerDrawerState.Viewing || trackDrawerState.isOpen) {
-                    // A card is on screen. Only the arrival of the open this mode made is a landing:
-                    // any other card that happens to be open leaves the mode exactly as it is.
-                    if (inspectOpening) {
-                        inspectOpening = false
-                        if (inspectArmed) inspectArmed = false
+                val handoff = inspectHandoff
+                if (handoff != null) {
+                    val landed = inspectLanded(
+                        target = handoff.target,
+                        viewingMarkerId = selectedMarkerId.takeIf { drawerState is MarkerDrawerState.Viewing },
+                        trackOpen = trackDrawerState.isOpen,
+                        trackId = trackDrawerState.track?.id
+                    )
+                    if (!landed) return@LaunchedEffect
+                    // The successor is on screen, so the slot can no longer empty: the predecessor held
+                    // for it closes now, in that same frame, and the slot's visibility OR never goes
+                    // false — the step reads as an in-place content change rather than a close followed
+                    // by a reopen (plan §5).
+                    inspectHandoff = null
+                    // The step landed, so the slot it stepped away from is no longer needed.
+                    inspectCursorBeforeStep = null
+                    when (handoff.held) {
+                        InspectKind.MARKER -> closeMarkerDashboard()
+                        InspectKind.TRACK -> closeTrackDrawer()
+                        null -> {}
+                    }
+                    // The open this mode made has landed, so the armed half stands down here — but the
+                    // card is still on screen, so it keeps the hold on the centre and the capture that
+                    // lands when it closes (plan §6).
+                    if (inspectArmed) {
+                        inspectArmed = false
+                        viewModel.disarmInspect(mapMovedByUser = inspectMapMovedByUser)
                     }
                     return@LaunchedEffect
                 }
-                if (inspectOpening) return@LaunchedEffect
-                // The card is gone. The mode's hold on the centre ends with it, on the ordinary delay
-                // rather than in this frame — the framing the pick's own camera set must stand.
+                if (drawerState is MarkerDrawerState.Viewing || trackDrawerState.isOpen) {
+                    // A card is on screen with nothing in flight: the settled state, until it closes.
+                    return@LaunchedEffect
+                }
+                // The card is gone. This is the mode's single exit (plan §6): the capture retained
+                // since arming is applied here, once — the demo half riding on the ViewModel's own
+                // verdict, so both halves land together or not at all.
+                val applied = viewModel.setInspectCardOpen(
+                    open = false,
+                    mapMovedByUser = inspectMapMovedByUser
+                )
                 inspectCardOpen = false
                 inspectCandidate = null
                 inspectCursor = null
-                viewModel.setInspectCardOpen(false)
+                inspectCursorBeforeStep = null
+                if (applied) applyInspectDemoExit()
             }
 
             // ── The marker card's Prev/Next while it is inspect-opened ──
@@ -1528,9 +1694,16 @@ fun MapScreen(
             val inspectWalk: InspectWalk? =
                 if (markersViewModel.drawerSource == DrawerSource.INSPECT) {
                     inspectCursor?.let { cursor ->
+                        // A step surface is inert while an open is in flight: the held card's two arms
+                        // both read as at their end and grey out, because a step taken now would cancel
+                        // the open that is about to land on this very slot (plan §5).
+                        val held = inspectHandoff != null
                         InspectWalk(
-                            atFirst = !cursor.canPrev,
-                            atLast = !cursor.canNext,
+                            atFirst = !cursor.canPrev || held,
+                            atLast = !cursor.canNext || held,
+                            // The card's own controls stand down for that same window: Delete and Edit
+                            // would interleave with the open about to land on this very slot (plan §5).
+                            held = held,
                             onPrev = { cursor.step(-1)?.let { applyInspectStep(it) } },
                             onNext = { cursor.step(1)?.let { applyInspectStep(it) } }
                         )
@@ -1538,17 +1711,21 @@ fun MapScreen(
                 } else null
 
             // ── Inspect mode: warm, sweep, trigger, candidate overlay ──
+            // "A panel owns the screen": the menu, settings, the two lists and the layer fan. While
+            // one of them is open the trigger clock is suspended and its close starts a fresh wait
+            // (§5); the fan is in the set because its own scrim owns the map for as long as it shows.
+            val inspectPanelOpen = showSettings || showTrackDrawer || showTrackHistory ||
+                showMarkerManagement || anyFanExpanded
             MapInspectEffects(
                 mapView = mapView,
                 armed = inspectArmed,
                 centerOffsetPx = inspectOffsetPx,
-                viewportMinDp = inspectViewportMinDp,
-                zoomLevel = zoomLevel,
-                distanceToShore = distanceToShore,
                 markers = inspectMarkerCandidates,
                 trackIds = inspectTrackIds,
                 trackViewModel = trackViewModel,
-                gestureId = mapGestureId,
+                liftId = mapLiftId,
+                activityId = mapActivityId,
+                panelOpen = inspectPanelOpen,
                 highlightedTrackId = highlightedTrackId,
                 rebuildGeneration = trackRebuildGeneration.value,
                 // The same plan inputs the canonical rebuild paints the selection from, so the gold the
@@ -1562,10 +1739,26 @@ fun MapScreen(
                     // capture in — and the pass lands almost at once, being a sort over a few dozen warm
                     // entries.
                     inspectCandidate = null
-                    inspectCursor = InspectCursor.at(ladder, picked.id)
-                    openInspectCard(picked.id, picked.kind, inspectCursor?.ladderIds, picked = true)
+                    // The ladder's own resolver travels with the cursor: every slot this pass opens, and
+                    // every step after it, is looked up in the collection the ranking was built from, so
+                    // the walk and the lookup cannot disagree (plan §5).
+                    inspectCursor = InspectCursor.at(ladder, picked.id, inspectMarkerLookup)
+                    openInspectCard(picked.id, picked.kind, inspectCursor, picked = true)
                 }
             )
+
+            // ── Process death: the two halves of the arming are put back in step ──
+            // The armed flag is `rememberSaveable`, so a restored screen comes back armed, while the
+            // ViewModel is a fresh instance whose own armed flag is false and whose feed was never
+            // frozen: its disarm and its release would both no-op, so toggling the mode off would hand
+            // nothing back. Re-arming it once on restore is the cheap correct half of that asymmetry —
+            // it captures the follow state as it now stands and freezes, exactly as the toggle does, so
+            // the exit is the ordinary one. The demo centre the arm captures is session-lived state that
+            // process death cannot carry, so the restore has it as nothing — and nothing is precisely
+            // what that disarm path would have to hand back (plan §6).
+            LaunchedEffect(Unit) {
+                if (inspectArmed && !viewModel.inspectModeArmed) viewModel.armInspect()
+            }
 
             // ── F2c: Freeze auto-follow when entering marker creation/editing wizard ──
             // The disarm comes first, because the wizard's freeze is the one that must survive: a
@@ -1574,8 +1767,8 @@ fun MapScreen(
             // this order the wizard's freeze is the last write and stands for the whole wizard.
             LaunchedEffect(drawerState) {
                 if (drawerState is MarkerDrawerState.Creating || drawerState is MarkerDrawerState.Editing) {
-                    // The wizard owns the map centre and puts its crosshair where the ring was drawn,
-                    // so entering it disarms the mode (plan §1, Panels).
+                    // The wizard owns the map centre and puts its crosshair there, so entering it
+                    // disarms the mode (plan §1, Panels).
                     disarmInspectMode()
                     viewModel.freezeFollow()
                 }
@@ -1752,7 +1945,6 @@ fun MapScreen(
                 inspectArmed = inspectArmed,
                 inspectEnabled = inspectAvailable,
                 onToggleInspect = { if (inspectArmed) disarmInspectMode() else armInspectMode() },
-                inspectRadiusDp = inspectRingRadiusDp,
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(
@@ -1870,7 +2062,6 @@ fun MapScreen(
             // ── Marker overlays (OSMdroid native, via LaunchedEffect) ─────
             if (markerLayerVisible) {
                 val matchResult by markersViewModel.matchResult.collectAsState()
-                val selectedMarkerId by markersViewModel.selectedMarkerId.collectAsState()
                 // Reveal-on-select: a marker opened from a list but excluded by the map filter is
                 // force-drawn while its detail panel is open.
                 val revealMarker = if (drawerState is MarkerDrawerState.Viewing || drawerState is MarkerDrawerState.MatchResult) {
@@ -1887,14 +2078,22 @@ fun MapScreen(
                     onMarkerTap = { ids ->
                         ids.firstOrNull()?.let { sel ->
                             if (inspectArmed) {
-                                // While armed a tap opens through the canonical inspect opener, on the
-                                // ladder the mode has frozen, so the card's walk never silently switches
-                                // to the map world. Before the first pick there is no ladder to seat, and
-                                // then the drawer's own list world keeps both buttons live.
-                                inspectCursor?.ladder?.let { ladder ->
-                                    InspectCursor.at(ladder, sel)?.let { inspectCursor = it }
+                                // While armed a tap opens through the canonical inspect opener. A ladder
+                                // already frozen is the mode's own walk and wins; before the first pick
+                                // there is none to seat, and the tap's world is then the map-filtered
+                                // collection the tap itself came from — the very set the sweep ranks —
+                                // and never the list world, which may have filtered this marker out and
+                                // would seat the card on whichever marker came first (plan §5).
+                                val seated = inspectCursor?.ladder
+                                    ?.let { InspectCursor.at(it, sel, inspectMarkerLookup) }
+                                if (seated != null) inspectCursor = seated
+                                val tapWorld = if (seated != null) null else {
+                                    val mapIds = mapMarkersState.map { it.id }
+                                    if (mapIds.contains(sel)) mapIds else listOf(sel) + mapIds
                                 }
-                                openInspectCard(sel, InspectKind.MARKER, inspectCursor?.ladderIds, picked = false)
+                                openInspectCard(
+                                    sel, InspectKind.MARKER, seated, picked = false, tapWorld = tapWorld
+                                )
                             } else {
                                 // R1: one selected item at a time — a map tap closes the track detail drawer.
                                 closeTrackDrawer()
@@ -1927,47 +2126,62 @@ fun MapScreen(
         // ── Click-N-Move: sequential navigate flow ──────────────────────────
         LaunchedEffect(navigateToTarget) {
             val target = navigateToTarget ?: return@LaunchedEffect
-            val mv = mapView ?: return@LaunchedEffect
-
-            // 1. Focus the marker: corridor/circle zoom-to-fit the whole zone (bbox);
-            //    pin is a single point — centre only.
-            val focusMarker = userMarkers.find { it.id == target.markerId }
-            if (focusMarker == null ||
-                (focusMarker.geometry !is ykws.android.maro.data.model.markers.MarkerGeometry.Circle &&
-                    focusMarker.geometry !is ykws.android.maro.data.model.markers.MarkerGeometry.Corridor)
-            ) {
-                mv.controller.animateTo(target.geoPoint, null, GPS_ANIMATION_DURATION_MS)
-            } else {
-                val b = focusMarker.bbox
-                mv.zoomToBoundingBox(
-                    org.osmdroid.util.BoundingBox(b.latNorth, b.lonEast, b.latSouth, b.lonWest),
-                    true, 64
-                )
-            }
-
-            // 2. Wait for animation to settle
-            delay(GPS_ANIMATION_DURATION_MS + 50L)
-
-            // 3. Run whereAmI synchronously on background thread
-            val boatPos = gpsPosition ?: mapCenter
-            val result = withContext(Dispatchers.Default) {
-                markersViewModel.whereAmISync(boatPos)
-            }
-
-            // 4. Build navigation set: whereAmI matches + clicked marker (always included)
-            val whereAmIIds = result.allMatches.map { match ->
-                when (match) {
-                    is ykws.android.maro.spatial.WhereAmIMatch.ZoneMatch -> match.marker.id
-                    is ykws.android.maro.spatial.WhereAmIMatch.LineOfSightMatch -> match.marker.id
+            val mv = mapView
+            if (mv != null) {
+                // 1. Focus the marker: corridor/circle zoom-to-fit the whole zone (bbox);
+                //    pin is a single point — centre only.
+                val focusMarker = userMarkers.find { it.id == target.markerId }
+                if (focusMarker == null ||
+                    (focusMarker.geometry !is ykws.android.maro.data.model.markers.MarkerGeometry.Circle &&
+                        focusMarker.geometry !is ykws.android.maro.data.model.markers.MarkerGeometry.Corridor)
+                ) {
+                    mv.controller.animateTo(target.geoPoint, null, GPS_ANIMATION_DURATION_MS)
+                } else {
+                    val b = focusMarker.bbox
+                    mv.zoomToBoundingBox(
+                        org.osmdroid.util.BoundingBox(b.latNorth, b.lonEast, b.latSouth, b.lonWest),
+                        true, 64
+                    )
                 }
-            }
-            val matchedIds = (whereAmIIds + target.markerId).distinct()
 
-            // 5. Open the drawer on its own walk world: the full filtered list for a list selection, the
-            // frozen inspect ladder when the mode handed one over (plan §5). The world decides what
-            // Prev/Next steps through, and the source says which world that is.
-            val worldIds = target.worldIds ?: markersViewModel.markers.value.map { it.id }
-            markersViewModel.openEditDrawer(worldIds, selectedId = target.markerId, source = target.source)
+                // 2. Wait for animation to settle
+                delay(GPS_ANIMATION_DURATION_MS + 50L)
+
+                // 3. Run whereAmI synchronously on background thread
+                val boatPos = gpsPosition ?: mapCenter
+                val result = withContext(Dispatchers.Default) {
+                    markersViewModel.whereAmISync(boatPos)
+                }
+
+                // 4. Build navigation set: whereAmI matches + clicked marker (always included)
+                val whereAmIIds = result.allMatches.map { match ->
+                    when (match) {
+                        is ykws.android.maro.spatial.WhereAmIMatch.ZoneMatch -> match.marker.id
+                        is ykws.android.maro.spatial.WhereAmIMatch.LineOfSightMatch -> match.marker.id
+                    }
+                }
+                val matchedIds = (whereAmIIds + target.markerId).distinct()
+
+                // 5. Open the drawer on its own walk world: the full filtered list for a list selection,
+                // the frozen inspect ladder when the mode handed one over, the map-filtered collection an
+                // armed tap came from (plan §5). The world decides what Prev/Next steps through, and the
+                // source says which world that is.
+                val worldIds = target.worldIds ?: markersViewModel.markers.value.map { it.id }
+                markersViewModel.openEditDrawer(worldIds, selectedId = target.markerId, source = target.source)
+            }
+            // The tail runs on every exit of this effect, the null-mapView one included, where the
+            // camera never flew and no drawer was ever asked for: the hand-off clears either way, and
+            // the navigate target is spent so the effect cannot re-run on a stale one. The drawer opens
+            // synchronously, so "still not Viewing" means this open seated nothing — a marker deleted
+            // while the camera was flying, an empty world, or no map to fly it (plan §5). The guard is
+            // the in-flight open itself and not the world it walks, because an armed tap's open walks
+            // the map world and can land nothing just as easily.
+            val handoff = inspectHandoff
+            if (handoff != null && handoff.target.id == target.markerId &&
+                markersViewModel.drawerState.value !is MarkerDrawerState.Viewing
+            ) {
+                abandonInspectOpen()
+            }
 
             navigateToTarget = null
         }
@@ -2002,12 +2216,22 @@ fun MapScreen(
             if (trackDrawerState.isOpen && trackNavigateState == null) {
                 trackDrawerState = trackDrawerState.copy(mapWasInteracted = true)
             }
+            // The inspect card's own guard (plan §6), the same canonical rule: once the open's camera
+            // has settled — the open landed, no navigate target in flight and no zoom-to-fit pending —
+            // a centre change is the user's own move, and the close leaves the frame alone.
+            if (inspectCardOpen && inspectHandoff == null &&
+                trackNavigateState == null && navigateToTarget == null
+            ) {
+                inspectMapMovedByUser = true
+            }
         }
 
         // ── Track drawer: BackHandler close ──────────────────────────────
         if (trackDrawerState.isOpen) {
-            // Routed through the one close helper — same camera-restore semantics.
-            BackHandler { closeTrackDrawer() }
+            // Routed through the one close helper — same camera-restore semantics. While an inspect
+            // open is in flight this card is the predecessor held for it, so Back is swallowed rather
+            // than allowed to close the card out from under the landing successor (plan §5).
+            BackHandler { if (inspectHandoff == null) closeTrackDrawer() }
         }
 
         // ── Layer 1: Overlay (transient drawers, Wizard, Settings, scrim) ──
@@ -2052,7 +2276,11 @@ fun MapScreen(
             onDismissMarkerManagement = { showMarkerManagement = false },
             onWizardCancel = { markersViewModel.wizardCancel() },
             onMarkerDrawerClose = {
-                markersViewModel.closeDrawer()
+                // While an inspect open is in flight this card is the predecessor held for it: its
+                // close — Back or the header cross — would empty the slot the successor is about to
+                // fill, so the surface is inert for that window and closes normally once the swap has
+                // landed (plan §5).
+                if (inspectHandoff == null) markersViewModel.closeDrawer()
             },
             // The marker card's merged walk while it is inspect-opened; null leaves it on its own world.
             markerInspectWalk = inspectWalk,
@@ -2228,6 +2456,9 @@ fun MapScreen(
                 currentTrackIndex = trackListIds.indexOf(trackDrawerState.track?.id ?: "").coerceAtLeast(0),
                 // The provenance flag the drawer's close path and this bundle both read.
                 inspectLadder = trackDrawerState.inspectLadder,
+                // An in-flight inspect open holds this card as its predecessor: both walk buttons grey
+                // out for that window rather than letting a second step cancel the pending landing (§5).
+                walkHeld = inspectHandoff != null,
                 trackColours = appSettings.trackColours,
                 eyeOverride = appSettings.trackSelectionBanded,
                 onToggleEyeOverride = {
@@ -2381,7 +2612,23 @@ fun MapScreen(
                 if (targetIdx >= 0) {
                     val targetId = selection[targetIdx]
                     val filtered = selection.filter { "m:$it" !in pendingDeleteIds }
-                    markersViewModel.openEditDrawer(filtered, selectedId = targetId, source = source)
+                    // The deleted marker is the slot the merged walk was sitting on, so the advance
+                    // re-seats the cursor on its neighbour — and drops it when the frozen ladder holds
+                    // no such slot, falling back to the map world exactly as the undo path does,
+                    // because an inspect-sourced card with no cursor carries a walk that can never
+                    // move (plan §5).
+                    val reSeated = inspectCursor?.ladder
+                        ?.let { InspectCursor.at(it, targetId, inspectMarkerLookup) }
+                    if (source == DrawerSource.INSPECT) {
+                        inspectCursor = reSeated
+                        markersViewModel.openEditDrawer(
+                            filtered,
+                            selectedId = targetId,
+                            source = if (reSeated != null) DrawerSource.INSPECT else DrawerSource.MAP
+                        )
+                    } else {
+                        markersViewModel.openEditDrawer(filtered, selectedId = targetId, source = source)
+                    }
                 } else {
                     markersViewModel.closeDrawer()
                 }
@@ -2695,13 +2942,11 @@ private fun MapContent(
     onToggleScreenLock: () -> Unit = {},
     modifier: Modifier = Modifier,
     mapCenterOffsetDp: Dp = 0.dp,
-    /** True while inspect mode is armed: the sleuth square's active face and the ring's own gate. */
+    /** True while inspect mode is armed: the sleuth square's active face. */
     inspectArmed: Boolean = false,
     /** False while the mode is disarmed and nothing is inspectable — the square carries no tap. */
     inspectEnabled: Boolean = true,
     onToggleInspect: () -> Unit = {},
-    /** The ring's radius (dp), already derived: the same value the pick gate converts to metres. */
-    inspectRadiusDp: Float = 0f,
 ) {
     Box(modifier = modifier.clipToBounds()) {
         // ── Top inset: one home for the arithmetic, so the toggle row, the lock button and the
@@ -2793,16 +3038,6 @@ private fun MapContent(
             DirectionLine(
                 modifier = Modifier.fillMaxSize(),
                 centerOffsetYDp = mapCenterOffsetDp
-            )
-        }
-
-        // The mode's ring: layer 0 and behind the boat image, drawn only while armed, from the one
-        // radius derivation the pick gate also reads.
-        if (inspectArmed) {
-            InspectRingOverlay(
-                radiusDp = inspectRadiusDp,
-                centerOffsetYDp = mapCenterOffsetDp,
-                modifier = Modifier.fillMaxSize()
             )
         }
 

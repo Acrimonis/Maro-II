@@ -116,6 +116,12 @@ data class TrackInfoOverlayData(
      * flag the drawer's own close path reads to disarm.
      */
     val inspectLadder: List<String>? = null,
+    /**
+     * True while an inspect open is in flight, so this card is the predecessor being held for its
+     * successor (plan §5): both walk buttons read as at their end and grey out, because a step taken
+     * now would rewrite the navigate target and cancel the open that is about to land here.
+     */
+    val walkHeld: Boolean = false,
 )
 
 /**
