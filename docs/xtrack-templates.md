@@ -128,6 +128,12 @@ from each feature's sections and `## Implemented`.
 at `xTrack/[Feature]/FEAT_HYD_[Feature].md`. A ~200-word micro-state summary so
 the next session can resume cold. Keep it tight and transactional — not a changelog.
 
+**This block is the shape's only statement.** The title form, the order of the header lines and the
+section list below are the whole of it, and no second title or section list is used anywhere. `#bake`
+rewrites the file whole, so a file written before a change here converges at its next bake, and one
+whose last bake predates the `Directive trace:` line gains it then, carried forward from that run —
+never back-filled by hand, the session it would describe having already ended.
+
 ```markdown
 # Context Hydration — [Feature] — [YYYY-MM-DD]
 

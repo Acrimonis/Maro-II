@@ -7,10 +7,11 @@ A git `#`-command **is** its own go-ahead: the invocation authorises the operati
 
   #new [branch_name]       fetch `origin/develop`, checkout `-b feature/[branch_name]` tracking it.
   #commit             git add -A && git commit. Offers a bake first when the active feature's
-                      state moved since its last bake. Always asks before committing
-                      — even when chained. 🚫 refuses on develop/main.
+                      state moved since its last bake. Confirms the staged set and the message
+                      — a scope gate, never a permission one. 🚫 refuses on develop/main.
   #push               git push origin [current-branch]. User-invoked only — the agent never proposes
-                      or reminds. Asks for confirmation. 🚫 refuses on develop/main.
+                      or reminds. Confirms the branch and the remote — a scope gate, never a
+                      permission one. 🚫 refuses on develop/main.
   #move [branch_name]      stash → switch (existing) → pop. Bare = list local branches, newest first,
                       pick one.
   #move new [branch_name]  stash → create 'feature/[branch_name]' from origin/develop → pop.

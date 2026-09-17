@@ -10,14 +10,17 @@ Snapshot + consolidation into per-feature hydration memory.
                  GLOBAL_CONTEXT.md (recompute one_liner if needed, bump modified date).
               4. Set modified in front-matter to current YYYY-MM-DD HH:mm (UTC)
                  — only if the feature was actually modified this session.
-              5. Create/overwrite xTrack/[Feature]/FEAT_HYD_[Feature].md with a
-                 ~200-word micro-state summary (state, target files, next step) and one
-                 **Directive trace:** sentence — which of the five covered action classes were
-                 met since the last bake and whether any stopped; carried forward each run.
-              6. Prune the ## Focus History stack in GLOBAL_CONTEXT.md beyond cap 10.
-              7. Report retirement candidates: plans still attached in the feature's ## Docs whose
+              5. Create/overwrite xTrack/[Feature]/FEAT_HYD_[Feature].md in the shape
+                 docs/xtrack-templates.md holds — the shape, its Directive trace included, is
+                 stated once, there, and is not restated here.
+              6. Rewrite the top ## Focus History entry in GLOBAL_CONTEXT.md to what the session
+                 actually shipped. #focus pushed a one-liner describing the intent, so an
+                 implemented session otherwise leaves the stack describing a plan that no
+                 longer exists; the timestamp stays as pushed, the one-liner is what moves.
+              7. Prune the ## Focus History stack in GLOBAL_CONTEXT.md beyond cap 10.
+              8. Report retirement candidates: plans still attached in the feature's ## Docs whose
                  work appears in ## Implemented. Report only — #archive does the moving.
-              8. Prompt user to clear the workspace.
+              9. Prompt user to clear the workspace.
               Runs only on explicit invocation — nothing triggers it implicitly.
 
   Section criteria (canonical):
