@@ -211,17 +211,24 @@ data class AppSettings(
      */
     val trackLegendExpanded: Boolean = true,
     /**
-     * How every stored track is drawn — Simple, Dir & Speed or Colours (D1, D3). One non-null value
-     * owns both the strokes and the arrows, so the menu switch is its only writer; neither the retired
-     * `track_direction_visible` nor `speed_heatmap` is read any more, so an install that held either
-     * starts on Simple rather than being migrated.
+     * Whether stored tracks wear direction chevrons — one of the two render axes the menu's twin box
+     * owns, and the arrows' only owner: the eye never moves it, so a gold selection keeps its chevrons
+     * and a banded one does not, whatever the eye says. Default off, so a device that wrote neither
+     * axis and holds no retired value opens on the ramp without chevrons.
      */
-    val trackRenderMode: ykws.android.maro.config.TrackRenderMode = ykws.android.maro.config.TrackRenderMode.SIMPLE,
+    val trackArrows: Boolean = false,
+    /**
+     * Whether stored tracks are painted from the speed ramp rather than from the default colours — the
+     * other render axis, and the one a fresh install opens on. It is the *fill* alone: while it is on,
+     * the ramp's bands replace `trackingColorPast*`/`trackingColorPinned*` wherever a stored track is
+     * drawn, and the chevrons stay [trackArrows]' business.
+     */
+    val trackColours: Boolean = true,
     /**
      * The drawer eye's own value, held on the *selection* rather than on any track id, so it applies to
      * whichever track the drawer has open. Null means the key has never been written — the selection
-     * mirrors [trackRenderMode] — while true bands the selection and false paints it gold in every mode.
-     * The first tap writes it, after which the value is the user's own and the mode no longer reaches it.
+     * mirrors [trackColours] — while true bands the selection and false paints it gold. The first tap
+     * writes it, after which the value is the user's own and the flag no longer reaches it.
      */
     val trackSelectionBanded: Boolean? = null,
     /** Direction-arrow density mode: uniform on-screen spacing or speed-based. */
@@ -366,6 +373,27 @@ class SettingsManager(
     private val _settings = MutableStateFlow(load())
     val settings: StateFlow<AppSettings> = _settings.asStateFlow()
 
+    /**
+     * One-time migration of the retired three-way value, run as the two axes are read: `SIMPLE` meant
+     * neither axis, `DIR_SPEED` the chevrons alone and `HEATMAP` — the shipped token for the visible
+     * *Colours* — both. It writes the two flags **and** erases the old key in one edit, so storage
+     * carries the new axes alone and the retired word never becomes a second home for a value; absent
+     * means a device that never wrote it, which takes the fresh-install default instead.
+     *
+     * Called from the `trackArrows` argument, whose read precedes `trackColours`': the first migrates
+     * and the second then reads the flag the first wrote, rather than migrating twice.
+     */
+    private fun migrateRenderAxes(): String? {
+        if (prefs.contains(KEY_TRACK_ARROWS) || prefs.contains(KEY_TRACK_COLOURS)) return null
+        val legacy = prefs.getString(KEY_TRACK_RENDER_MODE, null) ?: return null
+        prefs.edit()
+            .putBoolean(KEY_TRACK_ARROWS, legacy != "SIMPLE")
+            .putBoolean(KEY_TRACK_COLOURS, legacy == "HEATMAP")
+            .remove(KEY_TRACK_RENDER_MODE)
+            .apply()
+        return legacy
+    }
+
     private fun load(): AppSettings = AppSettings(
         defaultLatitude  = prefs.getFloat(KEY_DEFAULT_LAT, 43.55f).toDouble(),
         defaultLongitude = prefs.getFloat(KEY_DEFAULT_LON, 7.00f).toDouble(),
@@ -460,10 +488,10 @@ class SettingsManager(
         tracksVisible = prefs.getBoolean(KEY_TRACKS_VISIBLE, true),
         // Absent means expanded: today's behaviour is the fallback, so no install has anything to migrate.
         trackLegendExpanded = prefs.getBoolean(KEY_TRACK_LEGEND_EXPANDED, true),
-        trackRenderMode = try {
-            ykws.android.maro.config.TrackRenderMode.valueOf(
-                prefs.getString(KEY_TRACK_RENDER_MODE, "SIMPLE") ?: "SIMPLE")
-        } catch (_: Exception) { ykws.android.maro.config.TrackRenderMode.SIMPLE },
+        // The two render axes: the arrows' argument runs the retired-value migration and the colours'
+        // then reads the flag that migration wrote, so the pair can never be read half-migrated.
+        trackArrows = prefs.getBoolean(KEY_TRACK_ARROWS, migrateRenderAxes()?.let { it != "SIMPLE" } ?: false),
+        trackColours = prefs.getBoolean(KEY_TRACK_COLOURS, true),
         // Absent until the eye is first tapped, and `contains` is what tells that apart from a written
         // false: the default below can never stand in for "mirror the mode".
         trackSelectionBanded = if (prefs.contains(KEY_TRACK_SELECTION_BANDED)) {
@@ -602,7 +630,8 @@ class SettingsManager(
             .putInt(KEY_MARKER_HALO_UNPINNED_BORDER_TRANSPARENCY_PCT, updated.markerHaloUnpinnedBorderTransparencyPct)
             .putBoolean(KEY_TRACKS_VISIBLE, updated.tracksVisible)
             .putBoolean(KEY_TRACK_LEGEND_EXPANDED, updated.trackLegendExpanded)
-            .putString(KEY_TRACK_RENDER_MODE, updated.trackRenderMode.name)
+            .putBoolean(KEY_TRACK_ARROWS, updated.trackArrows)
+            .putBoolean(KEY_TRACK_COLOURS, updated.trackColours)
             .putString(KEY_TRACK_DIRECTION_DENSITY, updated.trackDirectionDensity.name)
             .putFloat(KEY_TRACK_DIRECTION_SPEED_FLOOR_KN, updated.trackDirectionSpeedFloorKn)
             .putFloat(KEY_TRACK_DIRECTION_SPEED_CEILING_KN, updated.trackDirectionSpeedCeilingKn)
@@ -721,7 +750,11 @@ class SettingsManager(
         private const val KEY_TRACKS_VISIBLE = "tracks_visible"
         /** The speed-scale control's face; non-null, so an unwritten key simply reads back as expanded. */
         private const val KEY_TRACK_LEGEND_EXPANDED = "track_legend_expanded"
-        /** How stored tracks are drawn; the two retired keys it replaces are never read again. */
+        /** Whether stored tracks wear direction chevrons; the menu's twin box is its only writer. */
+        private const val KEY_TRACK_ARROWS = "track_arrows"
+        /** Whether stored tracks are painted from the speed ramp; the same writer, the other chip. */
+        private const val KEY_TRACK_COLOURS = "track_colours"
+        /** The retired triple: read once by the migration, which erases it in the same edit. */
         private const val KEY_TRACK_RENDER_MODE = "track_render_mode"
         /** The drawer eye's two-state value on the selection; absent until its first tap. */
         private const val KEY_TRACK_SELECTION_BANDED = "track_selection_banded"

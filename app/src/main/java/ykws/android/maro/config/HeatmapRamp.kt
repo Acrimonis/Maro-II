@@ -1,21 +1,8 @@
 package ykws.android.maro.config
 
 /**
- * How a stored track is drawn — the single owner of both strokes and arrows (D1), so no second flag
- * can disagree with it:
- *
- * - [SIMPLE] — the default colours, no arrows.
- * - [DIR_SPEED] — those same colours, plus direction arrows.
- * - [HEATMAP] — banded strokes from the speed ramp, each arrow coloured by the band it sits on. Its
- *   visible label is **Colours**; the internal and properties vocabulary stays heat-map.
- *
- * It governs the two stored-track loops — history and pinned — and never the live recording line
- * (D2). The value is one non-null persisted field in `AppSettings` (D3): an install that held either
- * retired key starts on [SIMPLE], which is accepted rather than migrated.
+ * Bound on the family read: the loop walks 1..this, and the first index missing a key ends it.
  */
-enum class TrackRenderMode { SIMPLE, DIR_SPEED, HEATMAP }
-
-/** Bound on the family read: the loop walks 1..this, and the first index missing a key ends it. */
 const val HEATMAP_MAX_FAMILIES = 8
 
 /** Bound on `track.heatmap.scaleTicks`: at most this many rows are read, as the families are bounded. */

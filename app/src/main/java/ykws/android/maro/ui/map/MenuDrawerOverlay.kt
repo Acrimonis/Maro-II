@@ -37,17 +37,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
-import ykws.android.maro.config.TrackRenderMode
 import ykws.android.maro.data.track.TrackRecorderState
 import ykws.android.maro.data.track.TrackRecorderUiState
 import ykws.android.maro.ui.components.CardArea
 import ykws.android.maro.ui.components.FilterControl
+import ykws.android.maro.ui.components.MultiSelectRow
 import ykws.android.maro.ui.components.SectionDivider
 import ykws.android.maro.ui.components.SectionHeader
 import ykws.android.maro.ui.components.ToggleRow
 import ykws.android.maro.ui.icons.Link
 import ykws.android.maro.ui.icons.LinkOff
 import ykws.android.maro.ui.icons.Refresh
+
+/** The two render axes the Tracks rendering row toggles, in the order the twin box draws them (D5). */
+private enum class TrackAxis { ARROWS, COLOURS }
 
 /**
  * Menu slide panel — pure content composable.
@@ -78,10 +81,14 @@ fun MenuDrawerOverlay(
     onOpenFirstMarker: (() -> Unit)? = null,
     markerZonesVisible: Boolean = true,
     onToggleMarkerZones: () -> Unit = {},
-    /** The stored render mode the Tracks rendering switch shows (D5). */
-    trackRenderMode: TrackRenderMode = TrackRenderMode.SIMPLE,
-    /** The switch's writer: the menu owns the mode, and nothing else writes it (D3). */
-    onRenderModeChange: (TrackRenderMode) -> Unit = {},
+    /** The arrows axis the twin box's first chip shows (D5). */
+    trackArrows: Boolean = false,
+    /** The colours axis its second chip shows — the same two flags the map renders by. */
+    trackColours: Boolean = true,
+    /** The arrows chip's writer: the menu owns both axes, and nothing else writes either (D3). */
+    onTrackArrowsChange: (Boolean) -> Unit = {},
+    /** The colours chip's writer, the other half of that same single owner (D3). */
+    onTrackColoursChange: (Boolean) -> Unit = {},
     onImportTracks: () -> Unit = {},
     onExportAllTracks: () -> Unit = {},
     onDismiss: () -> Unit,
@@ -248,9 +255,10 @@ fun MenuDrawerOverlay(
                 }
             }
 
-            // ── Tracks rendering switch ────────────────────
-            // D5: it replaces the retired "Show dir & speed" row in its own slot, so no other row
-            // moves; Simple | Dir & Speed | Colours, and the live block sits at the card's head.
+            // ── Tracks rendering: two independent axes ────────────────────
+            // D5: the row replaces the retired "Show dir & speed" one in its own slot, so no other row
+            // moves, and the live block sits at the card's head. One chip per axis, each on or off by
+            // itself, so all four combinations are states: neither, arrows only, colours only, both.
             SectionDivider()
             Column(
                 modifier = Modifier
@@ -263,14 +271,23 @@ fun MenuDrawerOverlay(
                     fontSize = AppConfig.uiFontDescSize.sp
                 )
                 Spacer(Modifier.height(6.dp))
-                SegmentedRow(
+                MultiSelectRow(
                     options = listOf(
-                        TrackRenderMode.SIMPLE to stringResource(R.string.menu_render_mode_simple),
-                        TrackRenderMode.DIR_SPEED to stringResource(R.string.menu_render_mode_dir_speed),
-                        TrackRenderMode.HEATMAP to stringResource(R.string.menu_render_mode_colours)
+                        TrackAxis.ARROWS to stringResource(R.string.menu_render_arrows),
+                        TrackAxis.COLOURS to stringResource(R.string.menu_render_colours)
                     ),
-                    selected = trackRenderMode,
-                    onSelect = onRenderModeChange
+                    isOn = { axis ->
+                        when (axis) {
+                            TrackAxis.ARROWS -> trackArrows
+                            TrackAxis.COLOURS -> trackColours
+                        }
+                    },
+                    onToggle = { axis ->
+                        when (axis) {
+                            TrackAxis.ARROWS -> onTrackArrowsChange(!trackArrows)
+                            TrackAxis.COLOURS -> onTrackColoursChange(!trackColours)
+                        }
+                    }
                 )
             }
 

@@ -10,7 +10,6 @@ import ykws.android.maro.data.model.MapRenderFocus
 import ykws.android.maro.data.model.TrackSelectionPolicy
 import ykws.android.maro.data.model.matchesFilter
 import ykws.android.maro.config.HeatmapRamp
-import ykws.android.maro.config.TrackRenderMode
 import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.track.TrackPoint
 
@@ -24,15 +23,20 @@ internal fun MapTrackOverlayHistoryDiff(
     showSettings: Boolean,
     highlightedTrackId: String?,
     /**
-     * The stored render mode (D1, D3): it decides the path for every stored track, so the menu
-     * switch is its only writer and this effect only reads it.
+     * The arrows axis (D1, D3): the menu's twin box is its only writer and this effect only reads it.
+     * It decides the chevrons alone — a stored track's *fill* is [trackColours]' business.
      */
-    renderMode: TrackRenderMode,
+    trackArrows: Boolean,
     /**
-     * The drawer eye's own value (D10), now persisted on the selection rather than session-only: null
-     * follows [renderMode] — an install whose eye was never tapped holds no value at all — true bands
+     * The colours axis (D1, D3): on, every stored track paints from the speed ramp; off, they keep the
+     * stored default colours. Same single writer as [trackArrows].
+     */
+    trackColours: Boolean,
+    /**
+     * The drawer eye's own value (D10), persisted on the selection rather than session-only: null
+     * follows [trackColours] — an install whose eye was never tapped holds no value at all — true bands
      * the selected track, false paints it gold. It decides that one track's *fill* and nothing else:
-     * the arrows follow [renderMode] alone (see [trackRenderPlan]), and because the value belongs to
+     * the chevrons follow [trackArrows] alone (see [trackRenderPlan]), and because the value belongs to
      * the selection rather than to a track id, it applies to whichever track the drawer has open.
      */
     eyeOverride: Boolean?,
@@ -52,14 +56,15 @@ internal fun MapTrackOverlayHistoryDiff(
     // set rather than the selection policy, which is stateful and runs once, here.
     val painted = mutableSetOf<String>()
 
-    // Mode-aware rebuild keys (§3b): values the current mode does not read must not trigger a rebuild,
-    // so a default-colour edit cannot rebuild a heat-mapped map. The count and both transparency
-    // ranges stay in every mode, because D8 makes the fade live in all three.
+    // Axis-aware rebuild keys (§3b): values the current axes do not read must not trigger a rebuild, so
+    // a default-colour edit cannot rebuild a ramp-painted map. The count and both transparency ranges
+    // stay whatever the axes say, because D8 makes the fade live in every combination.
     val rebuildKeys: List<Any?> = buildList {
         add(mapView)
         add(showSettings)
         add(highlightedTrackId)
-        add(renderMode)
+        add(trackArrows)
+        add(trackColours)
         add(eyeOverride)
         add(appSettings.tracksVisible)
         add(appSettings.trackingRenderNb)
@@ -79,20 +84,20 @@ internal fun MapTrackOverlayHistoryDiff(
         add(AppConfig.trackWidthPinned)
         add(AppConfig.trackWidthHistory)
         add(AppConfig.trackWidthSelectedCasing)
-        if (renderMode != TrackRenderMode.HEATMAP) {
-            // Simple and Dir & Speed paint the stored default colours.
+        if (!trackColours) {
+            // Colours off means the default colours are the fill, so their four keys join here.
             add(appSettings.trackingColorPastFrom)
             add(appSettings.trackingColorPastTo)
             add(appSettings.trackingColorPinnedFrom)
             add(appSettings.trackingColorPinnedTo)
         } else {
-            // Colours paints from the ramp instead.
+            // Colours on paints from the ramp instead.
             add(AppConfig.trackHeatmapRamp)
         }
-        if (renderMode != TrackRenderMode.SIMPLE) {
-            // Arrows are drawn in Dir & Speed and in Colours, never in Simple — the mode alone decides
-            // that, so the eye no longer gates this group. The chevron's tempering belongs with the
-            // spacing: it is read on every draw of a chevron and nowhere else.
+        if (trackArrows) {
+            // The chevrons' group belongs to the arrows flag alone — the eye never draws them, so it
+            // cannot gate this. The tempering rides with the spacing: it is read on every chevron draw
+            // and nowhere else.
             add(appSettings.trackDirectionDensity)
             add(appSettings.trackDirectionMinSpacingDp)
             add(appSettings.trackDirectionMaxSpacingDp)
@@ -172,7 +177,7 @@ internal fun MapTrackOverlayHistoryDiff(
             val rendering = storedTrackRendering(
                 points = track.trackPoints,
                 title = "track_hist_${summary.id}",
-                plan = trackRenderPlan(renderMode, selected, eyeOverride),
+                plan = trackRenderPlan(trackArrows, trackColours, selected, eyeOverride),
                 ramp = AppConfig.trackHeatmapRamp,
                 strokeWidth = width,
                 fade = trackFadeAlpha(
@@ -234,7 +239,7 @@ internal fun MapTrackOverlayHistoryDiff(
             val rendering = storedTrackRendering(
                 points = track.trackPoints,
                 title = "track_pin_${summary.id}",
-                plan = trackRenderPlan(renderMode, selected, eyeOverride),
+                plan = trackRenderPlan(trackArrows, trackColours, selected, eyeOverride),
                 ramp = AppConfig.trackHeatmapRamp,
                 strokeWidth = width,
                 // D8: a pinned track fades across its own range, exactly as it does today.
@@ -371,27 +376,28 @@ internal data class TrackRenderPlan(
 )
 
 /**
- * The mode-to-path decision (D1, D10) as a pure function, so the history and pinned loops share one
- * answer and the mapping is unit-testable:
+ * The axes-to-path decision (D1, D10) as a pure function, so the history and pinned loops share one
+ * answer and the mapping is unit-testable. The two axes are independent, which is what gives the four
+ * combinations — neither, arrows only, colours only, both:
  *
- * - Colours bands every stored track.
- * - Dir & Speed keeps the default colours.
- * - Simple keeps the default colours, and is the one mode that draws no arrows.
+ * - [trackColours] bands every stored track; off, they keep the stored default colours.
+ * - [trackArrows] draws the chevrons; off, none is drawn in any combination.
  *
  * The selected track's own override — the drawer eye, [eyeOverride] — moves that one track's *fill*
- * and nothing else: true bands it whatever the mode says, false paints it gold, null follows the mode.
- * The arrows are [mode]'s alone: Simple draws none and the other two always draw them, whatever the
- * eye says, so a gold selection in Colours still carries chevrons and a banded selection in Simple
- * does not. In every mode the selected track keeps its z-lift and its casing.
+ * and nothing else: true bands it whatever the flag says, false paints it gold, null follows
+ * [trackColours]. The chevrons are [trackArrows]' alone: a gold selection with the flag on still
+ * carries them and a banded selection with it off does not, whatever the eye says. In every
+ * combination the selected track keeps its z-lift and its casing.
  */
 internal fun trackRenderPlan(
-    mode: TrackRenderMode,
+    trackArrows: Boolean,
+    trackColours: Boolean,
     selected: Boolean,
     eyeOverride: Boolean?
 ): TrackRenderPlan {
     val banded = if (selected) {
-        eyeOverride ?: (mode == TrackRenderMode.HEATMAP)
-    } else mode == TrackRenderMode.HEATMAP
+        eyeOverride ?: trackColours
+    } else trackColours
     val path = when {
         banded -> TrackRenderPath.BANDED
         selected -> TrackRenderPath.GOLD_HIGHLIGHT
@@ -399,42 +405,45 @@ internal fun trackRenderPlan(
     }
     return TrackRenderPlan(
         path = path,
-        drawArrows = mode != TrackRenderMode.SIMPLE,
+        drawArrows = trackArrows,
         selected = selected
     )
 }
 
 /**
  * What a tap on the drawer eye writes: the selection's banded value *after* that tap. Before the first
- * one [current] is null and the selection mirrors [mode], so the tap turns that reading around;
- * afterwards it flips its own value and the mode no longer reaches it. The answer is never null, which
- * is what makes the first tap the write that puts the key on disk — and the only write that can.
+ * one [current] is null and the selection mirrors [trackColours], so the tap turns that reading
+ * around; afterwards it flips its own value and the flag no longer reaches it. The answer is never
+ * null, which is what makes the first tap the write that puts the key on disk — and the only write
+ * that can.
  */
-internal fun selectionBandedAfterTap(current: Boolean?, mode: TrackRenderMode): Boolean =
-    !(current ?: (mode == TrackRenderMode.HEATMAP))
+internal fun selectionBandedAfterTap(current: Boolean?, trackColours: Boolean): Boolean =
+    !(current ?: trackColours)
 
 /**
- * Whether the speed legend belongs on the map. It keys banded strokes and nothing else, so it is drawn
- * exactly while the map carries one — the mode with banded strokes painted on it, or the selection the
- * eye has banded — and hidden everywhere else.
+ * Whether the speed legend belongs on the map. It keys the fill the ramp paints and nothing else, so it
+ * is drawn exactly while that fill is on the map — settled 2026-09-17, and narrowed that same day: the
+ * painted strokes first, then the open track's own fill.
  *
- * [storedOnMap] is that first half, and it leads the answer: the ids the effect actually painted,
+ * [storedOnMap] is the stroke half, and it leads the answer: the ids the effect actually painted,
  * history and pinned alike, asked of the same planner the map renders by ([trackRenderPlan]), so the
  * tracks layer being off, a painted set that is empty — count 0, or every summary's detail failed to
- * load — or a set whose only banded candidate is a selection the eye has flipped gold all hide the
- * scale whatever the mode says. Colours keeps it while nothing is selected, because the other tracks
- * stay banded under it.
+ * load — or a set whose only banded candidate is the selection itself all hide the scale whatever the
+ * flags say.
  *
- * [selectionOpen] and [eyeOverride] are the eye's own half: the value is about a selection, so it bands
- * nothing while there is none, while a selection the eye has banded is the one banded stroke a mode
- * that paints none can still put on the map.
+ * [selectionOpen] and [eyeOverride] are the second half, and they follow the fill the drawer has open:
+ * with a track selected the scale lives and dies with *that* track's fill — the eye's own value, or
+ * [trackColours] while the eye has never been tapped — so flipping the selection gold takes the key
+ * away even while the other painted tracks stay banded, and a selection the eye has banded is the one
+ * banded stroke a run with the flag off can still raise it for. With nothing selected it falls back to
+ * [trackColours] alone, since the other tracks then carry the ramp or nobody does.
  */
 private fun legendVisibleFor(
-    mode: TrackRenderMode,
+    trackColours: Boolean,
     storedOnMap: Boolean,
     selectionOpen: Boolean,
     eyeOverride: Boolean?
-): Boolean = storedOnMap && (mode == TrackRenderMode.HEATMAP || (selectionOpen && eyeOverride == true))
+): Boolean = storedOnMap && (if (selectionOpen) (eyeOverride ?: trackColours) else trackColours)
 
 /**
  * The same gate taken from the map's own state rather than from its parts, so the composition that
@@ -447,15 +456,17 @@ private fun legendVisibleFor(
  */
 internal fun legendVisibleForState(
     paintedIds: Set<String>,
-    mode: TrackRenderMode,
+    trackArrows: Boolean,
+    trackColours: Boolean,
     highlightedTrackId: String?,
     eyeOverride: Boolean?,
     tracksVisible: Boolean
 ): Boolean = legendVisibleFor(
-    mode = mode,
+    trackColours = trackColours,
     storedOnMap = bandedStrokeOnMap(
         paintedIds = paintedIds,
-        mode = mode,
+        trackArrows = trackArrows,
+        trackColours = trackColours,
         highlightedTrackId = highlightedTrackId,
         eyeOverride = eyeOverride,
         tracksVisible = tracksVisible
@@ -470,16 +481,17 @@ internal fun legendVisibleForState(
  * must be on and one of the ids the effect actually painted drawn from the ramp by the same planner
  * the map renders by ([trackRenderPlan]): the layer off, an empty painted set — count 0, or every
  * summary's detail failed to load — or a set whose only banded candidate is a selection the eye has
- * flipped gold all answer false, whatever the mode says.
+ * flipped gold all answer false, whatever the flags say.
  */
 internal fun bandedStrokeOnMap(
     paintedIds: Set<String>,
-    mode: TrackRenderMode,
+    trackArrows: Boolean,
+    trackColours: Boolean,
     highlightedTrackId: String?,
     eyeOverride: Boolean?,
     tracksVisible: Boolean
 ): Boolean = tracksVisible && paintedIds.any { id ->
-    trackRenderPlan(mode, id == highlightedTrackId, eyeOverride).path == TrackRenderPath.BANDED
+    trackRenderPlan(trackArrows, trackColours, id == highlightedTrackId, eyeOverride).path == TrackRenderPath.BANDED
 }
 
 /**

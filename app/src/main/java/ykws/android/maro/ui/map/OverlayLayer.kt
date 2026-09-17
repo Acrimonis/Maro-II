@@ -46,14 +46,13 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ykws.android.maro.config.AppConfig
-import ykws.android.maro.config.TrackRenderMode
 import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.data.depth.RasterCache
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.ui.components.DrawerScaffold
 import ykws.android.maro.ui.components.MeasureHeight
-import ykws.android.maro.ui.icons.Visibility
+import ykws.android.maro.ui.icons.Speed
 
 /** Returns the step sequence for the given marker type (mirror of VM method for UI use). */
 private fun stepSequenceFor(type: MarkerType): List<WizardStep> = when (type) {
@@ -110,8 +109,10 @@ fun OverlayLayer(
     onGpsModeChange: (Boolean) -> Unit,
     onAutoShowMasterChange: (Boolean) -> Unit = {},
     onToggleMarkerZones: () -> Unit = {},
-    /** The menu's Tracks rendering switch (D5): the one writer of the stored mode. */
-    onRenderModeChange: (TrackRenderMode) -> Unit = {},
+    /** The menu's arrows chip (D5): one half of the pair that writes the two render axes. */
+    onTrackArrowsChange: (Boolean) -> Unit = {},
+    /** The menu's colours chip (D5): the other half of that same writer. */
+    onTrackColoursChange: (Boolean) -> Unit = {},
 
     // ── Track history data ───────────────────────────────────────────────
     onTrackAction: (ykws.android.maro.data.model.ListAction) -> Unit,
@@ -178,7 +179,8 @@ fun OverlayLayer(
     val autoShowMasterOverride = menu.autoShowMasterOverride
     val gpsToggleColor = menu.gpsToggleColor
     val markerZonesVisible = menu.markerZonesVisible
-    val trackRenderMode = menu.trackRenderMode
+    val trackArrows = menu.trackArrows
+    val trackColours = menu.trackColours
     val firstTrackId = menu.firstTrackId
     val firstMarkerId = menu.firstMarkerId
     val trackMapFilterState = menu.trackMapFilterState
@@ -194,7 +196,7 @@ fun OverlayLayer(
     val trackInfoDrawerData = trackInfo.trackInfoDrawerData
     val trackListIds = trackInfo.trackListIds
     val currentTrackIndex = trackInfo.currentTrackIndex
-    val renderMode = trackInfo.renderMode
+    val trackInfoColours = trackInfo.trackColours
     val eyeOverride = trackInfo.eyeOverride
     val onToggleEyeOverride = trackInfo.onToggleEyeOverride
 
@@ -372,8 +374,10 @@ fun OverlayLayer(
                 markerFilterAxes = ykws.android.maro.data.model.markerFilterAxes(),
                 markerZonesVisible = markerZonesVisible,
                 onToggleMarkerZones = onToggleMarkerZones,
-                trackRenderMode = trackRenderMode,
-                onRenderModeChange = onRenderModeChange,
+                trackArrows = trackArrows,
+                trackColours = trackColours,
+                onTrackArrowsChange = onTrackArrowsChange,
+                onTrackColoursChange = onTrackColoursChange,
                 onImportTracks = { onDismissMenu(); onTrackAction(ykws.android.maro.data.model.ListAction.ImportTracks) },
                 onExportAllTracks = { onDismissMenu(); onTrackAction(ykws.android.maro.data.model.ListAction.BatchExportGpx(trackSummaries.map { it.id }.toSet())) }
             )
@@ -487,8 +491,7 @@ fun OverlayLayer(
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(bottomStart = 16.dp),
                         headerActions = {
                             TrackDrawerHeaderActions(
-                                bandedOn = eyeOverride
-                                    ?: (renderMode == TrackRenderMode.HEATMAP),
+                                bandedOn = eyeOverride ?: trackInfoColours,
                                 onToggleEyeOverride = onToggleEyeOverride,
                                 onDelete = { onDeleteTrack(track.id) }
                             )
@@ -581,8 +584,7 @@ fun OverlayLayer(
                         shape = androidx.compose.foundation.shape.RoundedCornerShape(0.dp),
                         headerActions = {
                             TrackDrawerHeaderActions(
-                                bandedOn = eyeOverride
-                                    ?: (renderMode == TrackRenderMode.HEATMAP),
+                                bandedOn = eyeOverride ?: trackInfoColours,
                                 onToggleEyeOverride = onToggleEyeOverride,
                                 onDelete = { onDeleteTrack(track.id) }
                             )
@@ -781,13 +783,15 @@ fun OverlayLayer(
 }
 
 /**
- * The track drawer's header actions: the eye toggle, then the trash.
+ * The track drawer's header actions: the speed toggle, then the trash.
  *
- * The toggle carries no label — its state rides the icon convention, the accent at full alpha while
- * the selected track is banded and the inactive alpha token otherwise. It moves that one track's fill
- * and never the stored mode (D10), and the map's legend doubles as its readout in that direction: the
- * legend exists whenever a banded stroke is on the map, which is the mode being Colours or this eye
- * having banded the selection.
+ * The toggle carries no label — its state rides the icon convention, the accent at full alpha while the
+ * selected track is banded and the inactive alpha token otherwise — and it wears the same speedometer
+ * the speed scale's collapsed face does, so the control that reads the ramp and the one that flips it
+ * for a single track speak one visual language. It moves that one track's fill and never the stored
+ * flags (D10), and the map's legend doubles as its readout in that direction: the legend is drawn while
+ * a banded stroke is on the map *and*, once a track is open, while that track's own fill is the ramp —
+ * so the scale follows the very fill this toggle owns.
  */
 @Composable
 private fun TrackDrawerHeaderActions(
@@ -798,7 +802,7 @@ private fun TrackDrawerHeaderActions(
     Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         IconButton(onClick = onToggleEyeOverride, modifier = Modifier.size(36.dp)) {
             Icon(
-                Visibility,
+                Speed,
                 "Track rendering",
                 tint = ButtonColors.icon.copy(
                     alpha = if (bandedOn) 1f else AppConfig.buttonActionIconInactiveAlpha

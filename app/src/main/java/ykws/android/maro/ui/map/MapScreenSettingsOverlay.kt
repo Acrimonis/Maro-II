@@ -2,6 +2,7 @@
 package ykws.android.maro.ui.map
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.depth.RasterCache
+import ykws.android.maro.ui.components.SegmentedRow
 import android.provider.Settings
 import android.graphics.Color
 import ykws.android.maro.R
@@ -1301,71 +1302,6 @@ private fun SystemSettings(
 
 // ── Settings sub-components ─────────────────────────────────────────────────
 
-/**
- * Single-choice segmented control — Material 3 shape: one **connected** control, outer ends rounded,
- * a single hairline outline, accent fill on the selected segment only. **Surface-free**, so the
- * enclosing [CardArea]/[NestedCard] owns the surface. [captions] renders one line under each segment.
- *
- * Accessibility: `selectableGroup()` plus a [Role.RadioButton] per segment, so it is announced as
- * "n of m, selected" instead of as unrelated buttons.
- */
-@Composable
-internal fun <T> SegmentedRow(
-    options: List<Pair<T, String>>,
-    selected: T,
-    onSelect: (T) -> Unit,
-    captions: List<String>? = null
-) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(AppConfig.uiRadiusCard.dp))
-                .border(
-                    width = 1.dp,
-                    color = ComposeColor(AppConfig.uiDividerColor),
-                    shape = RoundedCornerShape(AppConfig.uiRadiusCard.dp)
-                )
-                .selectableGroup()
-        ) {
-            options.forEachIndexed { index, (value, label) ->
-                val isSelected = value == selected
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .background(if (isSelected) ComposeColor(AppConfig.uiAccent) else ComposeColor.Transparent)
-                        .selectable(
-                            selected = isSelected,
-                            role = Role.RadioButton,
-                            onClick = { onSelect(value) }
-                        )
-                        .padding(vertical = 10.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = label,
-                        color = if (isSelected) ComposeColor(AppConfig.uiTextPrimary) else ComposeColor(AppConfig.uiTextMuted),
-                        fontSize = 14.sp,
-                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
-                    )
-                }
-            }
-        }
-        if (captions != null) {
-            Row(modifier = Modifier.fillMaxWidth()) {
-                options.forEachIndexed { index, _ ->
-                    Text(
-                        text = captions.getOrElse(index) { "" },
-                        color = ComposeColor(AppConfig.uiTextMuted),
-                        fontSize = AppConfig.uiFontCommentSize.sp,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-        }
-    }
-}
 
 /**
  * Card lead-in description: one muted 13sp sentence under a [SectionHeader], placed before the
