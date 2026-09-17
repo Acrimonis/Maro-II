@@ -168,6 +168,7 @@ explicit values/ViewModels + inline callbacks).
 - **speed in demo** — pan-velocity-derived demo speed in SpeedCard (150ms cadence)
 - **boat-center** — boat marker decoupled Image + cap-arrow Canvas; shifted down half-height
 - **marker filter + dashboard close** — marker filter drives map overlay; panel auto-closes; list-context stacking removed
+- **inspect mode** — drag-to-select by proximity from the marker point: the ⊕ square gated on having something inspectable, one radius derivation feeding both the ring and the pick gate, the layer-visible map-filtered candidate set warmed at arming, a candidate line the mode owns, a quiet-clock pick with one pick per gesture, and a frozen distance ladder walked by one inspect cursor that crosses between marker and track cards; the pick, the camera and the look are the canonical selection path, so the mode is an entry point rather than a second renderer → `xTrack/UI_Map/260917_FEAT_PLN_UI_Map_inspect-mode.md`
 
 ## Todos
 

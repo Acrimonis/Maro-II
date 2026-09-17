@@ -79,7 +79,7 @@ private fun stepSequenceFor(type: MarkerType): List<WizardStep> = when (type) {
  * Layer 1 (this composable) is transient — any overlay fits into this framework.
  */
 @Composable
-fun OverlayLayer(
+internal fun OverlayLayer(
     // ── State flags ──────────────────────────────────────────────────────
     chrome: OverlayChrome,
     // ── Layout ───────────────────────────────────────────────────────────
@@ -146,6 +146,12 @@ fun OverlayLayer(
     onResumeRequest: (String, Boolean) -> Unit = { _, _ -> },
     onTrackPrev: () -> Unit = {},
     onTrackNext: () -> Unit = {},
+    /**
+     * The inspect cursor's own Prev/Next for an inspect-opened marker card (plan §5): the merged
+     * ladder's walk replaces the marker walk while this is non-null. Null everywhere else, so a
+     * list- or map-opened card keeps walking its own world.
+     */
+    markerInspectWalk: InspectWalk? = null,
     onShareTrack: (String) -> Unit = {},
     onRequestMarkerDelete: (String, String) -> Unit = { _, _ -> },
     onDeleteTrack: (String) -> Unit = {},
@@ -394,11 +400,14 @@ fun OverlayLayer(
             )
         }
 
-        // ── 4. MarkerDrawer ──────────────────────────────────────────────
+        // ── 4. MatchResult (Where-Am-I) — unchanged full-height fixed slot (its own scroll host) ──
+        // It is not a selected item, so it keeps its own surface in both orientations. Viewing (a marker
+        // card) and the track card share the one selected-item slot declared below, beside the track
+        // panel's own measuring: a single surface is what lets a cross-type step swap its content in
+        // place, in portrait and in landscape alike (plan §5).
         if (isLandscape) {
             DrawerSlot(
-                visible = (drawerState is MarkerDrawerState.Viewing || drawerState is MarkerDrawerState.MatchResult) &&
-                    !panelOwnsRegion,
+                visible = drawerState is MarkerDrawerState.MatchResult && !panelOwnsRegion,
                 modifier = Modifier
                     .align(Alignment.CenterStart)
                     .width(landscapeDashboardWidth)
@@ -414,37 +423,11 @@ fun OverlayLayer(
                     onRequestDelete = onRequestMarkerDelete,
                     trackTitleLookup = trackTitleLookup,
                     onOpenMarkerTrack = { id -> onMarkerDrawerClose(); onOpenMarkerTrack(id) },
-                    onWizardEntry = onMarkerWizardEntry
+                    onWizardEntry = onMarkerWizardEntry,
+                    walk = markerInspectWalk
                 )
             }
         } else {
-            // Viewing (marker detail) — wrap-content slot: no fixed .height, no animateDpAsState,
-            // no probe. The DrawerSlot (AnimatedVisibility) sizes to the content's natural height;
-            // the FROM_BOTTOM slide adapts automatically.
-            DrawerSlot(
-                visible = drawerState is MarkerDrawerState.Viewing && !panelOwnsRegion,
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth(),
-                slideDirection = SlideDirection.FROM_BOTTOM,
-                shadowEdge = ShadowEdge.TOP
-            ) {
-                MarkerDrawer(
-                    viewModel = markersViewModel,
-                    isLandscape = false,
-                    onClose = onMarkerDrawerClose,
-                    boatPosition = boatPosition,
-                    onRequestDelete = onRequestMarkerDelete,
-                    trackTitleLookup = trackTitleLookup,
-                    onOpenMarkerTrack = { id -> onMarkerDrawerClose(); onOpenMarkerTrack(id) },
-                    onWizardEntry = onMarkerWizardEntry,
-                    // Portrait marker detail drawer must never be smaller than the original
-                    // dashboard — its wrap-content panel floors at portraitDashboardHeight.
-                    minPanelHeight = portraitDashboardHeight
-                )
-            }
-
-            // MatchResult (Where-Am-I) — unchanged full-height fixed slot (its own scroll host).
             DrawerSlot(
                 visible = drawerState is MarkerDrawerState.MatchResult && !panelOwnsRegion,
                 modifier = Modifier
@@ -467,12 +450,24 @@ fun OverlayLayer(
             }
         }
 
-        // ── 4b. TrackInfoDrawer (no scrim — map stays interactive) ────────
+        // ── 4b. The selected-item slot: one surface, its content swapped in place (no scrim —
+        //        the map stays interactive). R1 makes the two selected-item panels exclusive, so
+        //        "which panel is open" is the whole decision, and a cross-type step changes which
+        //        panel this slot renders rather than closing one card and opening the other: the slot
+        //        stays mounted and only its content changes, where two slots would play one card's
+        //        exit alongside the other's enter and read as two events (plan §5). Landscape and
+        //        portrait each get their own slot geometry — the landscape panel's is the fixed
+        //        full-height left column, so its content swap has no measured size to resize to,
+        //        while portrait's wraps to the measured card. The slot closes nothing itself, so
+        //        every existing close rule stays the one author of that.
         val isAtTrackFirst = currentTrackIndex <= 0
         val isAtTrackLast = currentTrackIndex >= trackListIds.lastIndex
+        // Which panel the one selected-item slot renders: R1 keeps the two selected-item panels
+        // exclusive, so "which panel is open" is the whole decision.
+        val markerCardOpen = drawerState is MarkerDrawerState.Viewing
         if (isLandscape) {
             DrawerSlot(
-                visible = showTrackInfoDrawer && !panelOwnsRegion,
+                visible = (markerCardOpen || showTrackInfoDrawer) && !panelOwnsRegion,
                 modifier = Modifier
                     .align(Alignment.CenterStart)
                     .width(landscapeDashboardWidth)
@@ -480,7 +475,8 @@ fun OverlayLayer(
                 slideDirection = SlideDirection.FROM_LEFT,
                 shadowEdge = ShadowEdge.RIGHT
             ) {
-                trackInfoDrawerData?.let { track ->
+                val track = trackInfoDrawerData
+                if (showTrackInfoDrawer && track != null) {
                     val summary = ykws.android.maro.data.track.TrackSummary(
                         id = track.id,
                         name = track.name,
@@ -550,6 +546,21 @@ fun OverlayLayer(
                             showChevron = false
                         )
                     }
+                } else if (markerCardOpen) {
+                    // The marker card, on the same surface: an inspect-opened one takes the merged
+                    // ladder's cursor walk, null everywhere else so a list- or map-opened card walks
+                    // its own world exactly as it always did.
+                    MarkerDrawer(
+                        viewModel = markersViewModel,
+                        isLandscape = true,
+                        onClose = onMarkerDrawerClose,
+                        boatPosition = boatPosition,
+                        onRequestDelete = onRequestMarkerDelete,
+                        trackTitleLookup = trackTitleLookup,
+                        onOpenMarkerTrack = { id -> onMarkerDrawerClose(); onOpenMarkerTrack(id) },
+                        onWizardEntry = onMarkerWizardEntry,
+                        walk = markerInspectWalk
+                    )
                 }
             }
         } else {
@@ -580,16 +591,20 @@ fun OverlayLayer(
             val targetHeight = maxOf(portraitDashboardHeight, 48.dp + cardHeight + footerMeasuredHeight)
             val animatedHeight by animateDpAsState(targetHeight, tween(250))
 
+            // The portrait half of the one selected-item slot: the slot stays mounted and only its
+            // content and its measured height change (the landscape half is declared above).
             DrawerSlot(
-                visible = showTrackInfoDrawer && !panelOwnsRegion,
+                visible = (markerCardOpen || showTrackInfoDrawer) && !panelOwnsRegion,
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .height(animatedHeight),
+                    // Only the track panel measures itself; the marker panel keeps the wrap-content
+                    // sizing it has always had, floored at the dashboard height.
+                    .then(if (showTrackInfoDrawer) Modifier.height(animatedHeight) else Modifier),
                 slideDirection = SlideDirection.FROM_BOTTOM,
                 shadowEdge = ShadowEdge.TOP
             ) {
-                if (track != null && summary != null) {
+                if (showTrackInfoDrawer && track != null && summary != null) {
                     DrawerScaffold(
                         title = track.name,
                         onClose = onTrackDrawerClose,
@@ -643,6 +658,24 @@ fun OverlayLayer(
                             showChevron = false
                         )
                     }
+                } else if (markerCardOpen) {
+                    // The marker card, on the same surface: an inspect-opened one takes the merged
+                    // ladder's cursor walk, null everywhere else so a list- or map-opened card walks
+                    // its own world exactly as it always did.
+                    MarkerDrawer(
+                        viewModel = markersViewModel,
+                        isLandscape = false,
+                        onClose = onMarkerDrawerClose,
+                        boatPosition = boatPosition,
+                        onRequestDelete = onRequestMarkerDelete,
+                        trackTitleLookup = trackTitleLookup,
+                        onOpenMarkerTrack = { id -> onMarkerDrawerClose(); onOpenMarkerTrack(id) },
+                        onWizardEntry = onMarkerWizardEntry,
+                        // Portrait marker detail drawer must never be smaller than the original
+                        // dashboard — its wrap-content panel floors at portraitDashboardHeight.
+                        minPanelHeight = portraitDashboardHeight,
+                        walk = markerInspectWalk
+                    )
                 }
             }
 

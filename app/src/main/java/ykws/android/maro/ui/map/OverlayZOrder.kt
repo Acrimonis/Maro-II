@@ -21,13 +21,16 @@ import org.osmdroid.views.overlay.Polyline
  */
 internal object OverlayZOrder {
 
-    /** Title prefixes identifying track overlays (history, pinned, live, trailing, arrows). */
+    /** Title prefixes identifying track overlays (history, pinned, live, trailing, arrows, inspect). */
     private val TRACK_TITLE_PREFIXES = listOf(
         "track_hist_",
         "track_pin_",
         "track_recording",
         "track_trailing",
-        "track_arrow_"
+        "track_arrow_",
+        // Inspect mode's own candidate line: it must land in the track band, or its unrecognised
+        // title would drop it below every track and break the selection-above-all invariant.
+        "track_inspect_"
     )
 
     /** Identifies overlays that belong to the track band. */

@@ -411,25 +411,35 @@ class NavigationViewModel(
     /**
      * Called on each user map touch. Pauses GPS auto-follow + auto-orientation, then resumes the
      * user-configured recenter delay (settings.recenterDelaySeconds, 1–10 s) after the last touch
-     * (snaps back to the GPS position, heading-up). Timer is skipped while a drawer is open.
+     * (snaps back to the GPS position, heading-up). Timer is skipped while a drawer is open, and
+     * while the inspect mode holds the centre: arming a sweep must not leave a deadline running
+     * underneath it, and neither may a card the mode opened.
      */
     fun notifyUserInteraction() {
         _autoFollowSuppressed.value = true
         resumeJob?.cancel()
-        if (!drawerOpen) startTimer()
+        // A fresh pan is an ordinary release: whatever the mode had loaned the user is superseded.
+        inspectLoaned = false
+        if (!drawerOpen && !inspectHoldsCentre) startTimer()
     }
 
     /**
      * Called when any drawer opens or closes. Pauses the pan-resume timer while a drawer is open
      * so the map doesn't snap back during marker creation, settings, or other drawer operations.
-     * On close, springs back to the GPS position immediately if auto-follow was suppressed.
+     * On close, springs back to the GPS position immediately if auto-follow was suppressed — except
+     * while the inspect mode holds the centre (armed, or with the card it opened still on screen),
+     * where an in-frame spring-back would yank the anchor the mode sweeps from or the frame the
+     * pick's own camera just set.
      */
     fun setDrawerOpen(open: Boolean) {
         drawerOpen = open
-        if (open) {
-            resumeJob?.cancel()
-        } else if (_autoFollowSuppressed.value) {
-            recenterNow()
+        when {
+            open -> resumeJob?.cancel()
+            // The frame the pick's camera set is handed back on the ordinary delay, never in this
+            // frame: an immediate recentre on the card's close would undo the very framing the mode
+            // was used to choose.
+            inspectLoaned && !inspectCardOpen -> startTimer()
+            _autoFollowSuppressed.value && !inspectHoldsCentre -> recenterNow()
         }
     }
 
@@ -439,9 +449,97 @@ class NavigationViewModel(
         resumeJob?.cancel()
     }
 
+    // ── Inspect mode feed coupling (plan §6) ─────────────────────────────────
+    // The mode owns the centre while it is armed and while a card it opened is on screen — the pick
+    // disarms the mode the moment its card lands, so the card is the second half of the hold. A
+    // manual disarm restores exactly what arming interrupted; a pick spends that capture instead and
+    // hands the centre back the way a pan does. Two paths would otherwise silently revert the
+    // freeze, which is why both are gated on [inspectHoldsCentre] above rather than left to the
+    // arming call alone.
+
+    /** True while inspect mode is armed. */
+    private var inspectArmed = false
+
+    /** True while the card the mode opened is on screen: the pick's own hold, after the disarm. */
+    private var inspectCardOpen = false
+
+    /**
+     * True while the centre is on loan to the frame the pick's camera set: the next drawer close
+     * returns it on the ordinary delay rather than in that frame.
+     */
+    private var inspectLoaned = false
+
+    /** Either half of the mode's hold on the centre — the follow gates read this, never `armed`. */
+    private val inspectHoldsCentre: Boolean get() = inspectArmed || inspectCardOpen
+
+    /** The follow state captured at arming: was the map already panned, and was a timer pending? */
+    private var inspectCapturedSuppressed = false
+    private var inspectCapturedTimerLive = false
+
+    /** Whether inspect mode is armed — the map's own chrome reads it too. */
+    val inspectModeArmed: Boolean get() = inspectArmed
+
+    /** Arm the mode: capture the follow state, then suppress and cancel the resume timer. */
+    fun armInspect() {
+        if (inspectArmed) return
+        inspectArmed = true
+        inspectLoaned = false
+        inspectCapturedSuppressed = _autoFollowSuppressed.value
+        inspectCapturedTimerLive = resumeJob?.isActive == true
+        freezeFollow()
+    }
+
+    /**
+     * The lifetime of the card the mode opened, so the follow gates can be keyed on the card rather
+     * than on the armed flag: the pick disarms the mode at once, and a gate keyed on `armed` alone
+     * would let the card's own close snap the map back.
+     */
+    fun setInspectCardOpen(open: Boolean) {
+        if (inspectCardOpen == open) return
+        inspectCardOpen = open
+        // The close ends the mode's hold on the centre: the frame stands and the boat takes the
+        // centre back on the ordinary delay, exactly as it does after a pan.
+        if (!open && !inspectArmed && !drawerOpen && _autoFollowSuppressed.value) startTimer()
+    }
+
+    /**
+     * Disarm and restore the captured feed state: a map that was already panned keeps the position
+     * the user swept to and starts a *full* recenter delay from this moment — never the remainder of
+     * the timer the mode cancelled, which would snap the boat back the instant it is disarmed —
+     * while a map that was following takes the centre back in the same frame.
+     */
+    fun disarmInspect() {
+        if (!inspectArmed) return
+        inspectArmed = false
+        if (inspectCapturedSuppressed || inspectCapturedTimerLive) {
+            _autoFollowSuppressed.value = true
+            startTimer()
+        } else {
+            _autoFollowSuppressed.value = false
+            _gpsPosition.value?.let { syncCenterFromBoat(it) }
+        }
+    }
+
+    /**
+     * The pick's own half of the exit (plan §5): the capture is spent, so nothing is restored later,
+     * and the freeze is released the way a pan releases it — suppressed, with the ordinary
+     * delay-return started unless a drawer or the mode is still holding it back. The frame the pick's
+     * camera goes on to set is therefore the frame that stands.
+     */
+    fun releaseInspectFollow() {
+        if (!inspectArmed) return
+        inspectCapturedSuppressed = false
+        inspectCapturedTimerLive = false
+        inspectLoaned = true
+        _autoFollowSuppressed.value = true
+        resumeJob?.cancel()
+        if (!drawerOpen && !inspectHoldsCentre) startTimer()
+    }
+
     /** Immediately recenter the map to the GPS position, cancelling any pending timer. */
     fun recenterNow() {
         resumeJob?.cancel()
+        inspectLoaned = false
         _autoFollowSuppressed.value = false
         // Restore the centre in the same frame instead of waiting for the next fix.
         _gpsPosition.value?.let { syncCenterFromBoat(it) }
@@ -463,6 +561,8 @@ class NavigationViewModel(
         resumeJob?.cancel()
         resumeJob = viewModelScope.launch {
             delay(settings.value.recenterDelaySeconds.coerceIn(1, 10).toLong() * 1_000L)
+            // Expiry is the boat taking the centre back, so whatever the mode had loaned is over.
+            inspectLoaned = false
             _autoFollowSuppressed.value = false
             // Expiry is a recentre: hand the centre back in-frame, exactly as the button does.
             _gpsPosition.value?.let { syncCenterFromBoat(it) }
