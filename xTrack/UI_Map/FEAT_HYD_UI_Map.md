@@ -1,27 +1,18 @@
 # UI_Map — Hydration Snapshot
 
-**Baked:** 2026-09-04 19:30 UTC
+**Baked:** 2026-09-17 18:10 UTC
 
 ## Active State
-- **Subfeature:** marker filter + dashboard close
-- **Branch:** feature/ui-map-filter
+Inspect mode is fully designed and **not implemented**. The plan `260917_FEAT_PLN_UI_Map_inspect-mode.md` carries eight sections, five property keys and no open design item; the feature file's `## Walk` section holds the closed eight-point review that resolved it, and it is closed rather than parked.
 
-## What Changed This Session
-1. **Marker filter drives the map** — `MarkerOverlay` now renders from the filtered `markers` list, so the filter hides pins on the map too (was the unfiltered `allMarkers`).
-2. **Auto-close on filtered-out** — `applyFilterSort()` closes the viewing panel when the active filter excludes the selected marker (Viewing only).
-3. **Menu/fan close dashboards** — `closeSelectedItemDashboards()` closes the open marker/track dashboard when the side menu opens or a layer fan expands (open only, wizard preserved).
-4. **List-context stacking removed** — deleted `OpenedFromList` flags, `ListScrollState` saves, reopen-on-close blocks, `fromList` params, and `restoredScrollState` plumbing. Closing an item returns to the map; Prev/Next remains the navigation path.
+No source file changed this session — the work was design plus a challenge pass — so the map behaves exactly as before. The design's spine: a ⊕ square in the top-left row arms a proximity pick; the sweep ranks the layer-visible map-filtered items by distance from the marker point; a quiet-map timer picks the nearest without moving the camera; the card then walks a frozen distance ladder through one new inspect cursor that can cross between marker and track cards.
 
-## Design Decisions
-- `_allMarkers` kept as the unfiltered source of truth for `whereAmI` proximity + ghost-pin checks.
-- `preNavigationState` map-viewport restore for tracks kept (map context, not list context).
+Owed before shipping: two device checks (the commit swap's frame time at the 20-track render cap, and the card's slot against the anchor band in both orientations) and two code checks (whether `mapView.mapCenter` already carries the centre offset, and the non-consuming release observer).
 
 ## Target Files
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/MarkersViewModel.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/TrackHistoryOverlay.kt`
-- `app/src/main/java/ykws/android/maro/ui/map/MarkerManagementOverlay.kt`
+- `xTrack/UI_Map/260917_FEAT_PLN_UI_Map_inspect-mode.md` — the plan and its 16 steps
+- `ui/map/MapScreen.kt`, `MapTrackOverlayEffects.kt`, `MapOverlays.kt`, `MapControls.kt`, `MarkerOverlay.kt`, `MarkersViewModel.kt`
+- `config/AppConfig.kt`, `assets/colors.properties`, `res/values*/strings.xml`
 
 ## Next Step
-- On-device verify: filter hides map pins; opening menu/fan closes the detail panel; closing an item returns to the map.
+`#impl` — start at step S1, the pure `InspectRanking` with the points-and-lines metric and the dp → metres radius derivation.
