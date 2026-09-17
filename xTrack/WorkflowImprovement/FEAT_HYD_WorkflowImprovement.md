@@ -1,18 +1,21 @@
-# Context Hydration — WorkflowImprovement — 2026-09-13
+# Context Hydration — WorkflowImprovement — 2026-09-17
 
-**Last Bake:** 2026-09-13 19:02 UTC
-**Updated:** 2026-09-13 19:02 UTC — bake after the walk-stack and adapter-clean-up pass
+**Last Bake:** 2026-09-17 19:10 UTC
+**Updated:** 2026-09-17 19:10 UTC — bake after the rulebook governance pass on `feature/some-wflw`
+
+**Directive trace:** no covered action stopped since the last bake. Two boundary cases were met in conversation — claims about the code made before the file was read, corrected when challenged — and neither took a verdict line, the line not being honoured in behaviour yet. No dependency was added, no machine-shaped data file was opened, no device was touched, and every implementation waited for an order.
 
 ## State
-The 2026-09-12 command-flow review was remediated: the plan's stale status flipped to shipped with an `## Outcome`, rule 3 lost its undefined "final release" clause, the walk-reporting rule gained a home in §7a's Turn 1 Protocol, `#bake`'s walk handling was stated on its page, and the plan lifecycle — extend versus new, in-design meaning the pointer is absent from `## Implemented` — went into §7a. The walk-stack then shipped: a walk descends one level into its active item on a bold `Level 2` line with a `Parent:` pointer, closes by exhaustion, and `#done` was retired across the §7b row, the walk page and the derived `cmd_help.md` line — moving the close-or-park challenge to the two gates, which now read any open level. The adapter clean-up moved the file templates to `docs/xtrack-templates.md`, deleted `.claude/skills/xtrack/references/`, pointed AGENTS.md's Lazy-Load Index at the new home and trimmed the `.clinerules` rationale.
+
+`AGENTS.md` now governs by tier: a five-tier legend (🛑 AUTHORISATION · ⛔ BOUNDARY · 💬 CONDUCT · 🧹 AUTHORSHIP · 🟢 GUIDELINE) states each tier's force and the precedence between them, and all 19 rules wear one, with the five action classes that carry a verdict line named in the legend zone. `#rule` was rebuilt — bare prints the legend, a tier name or glyph reloads that tier with a fingerprint, `all` reads the whole file and answers with a staleness verdict — and the registry of ids was declined. Enforcement runs in three tiers: the command refusals, the five-class verdict line, and the `#review` sweep, with one `Directive trace` sentence written into this file at each bake. `#doctor` gained check (s), every rule bullet wearing a tier glyph, and the letter reserved for the adapter lint moved to (t). `docs/cmd_help_walk.md` carries documented `Closed` semantics and one rendering rule; `GIT_WORKFLOW.md` completes a refused command after the move; bare `#move` picks from a branch list.
 
 ## Target Files
-- `AGENTS.md` — Turn 1 walk report, plan lifecycle, Lazy-Load Index row, `#walk` row without `#done`
-- `docs/xtrack-templates.md` — new home of the file fixtures, `## Walk` schema included
-- `docs/cmd_help_walk.md` — the stack spec; `docs/cmd_help_bake.md`, `docs/cmd_help_archive.md`, `docs/cmd_help_review.md` — gate and cascade wording
-- `docs/cmd_help_doctor.md` — check (k) reads existence, never wording
-- `.clinerules/rules/agents-source-of-truth.md` — pointer only
-- `xTrack/WorkflowImprovement/260913_FEAT_PLN_WorkflowImprovement_walk-stack.md`, `..._adapter-cleanup.md` — the two shipped plans
+
+- `AGENTS.md` — tier legend, the five action classes, the 19 rules, §7b rows (`#rule`, `#review`, `#walk`, `#move`, `#doctor`)
+- `docs/cmd_help_rule.md`, `docs/cmd_help_review.md`, `docs/cmd_help_walk.md`, `docs/cmd_help_doctor.md`, `docs/cmd_help_brief.md`, `docs/cmd_help_git.md`, `docs/cmd_help_bake.md`, `docs/cmd_help.md`
+- `docs/GIT_WORKFLOW.md`, `docs/xtrack-templates.md` — the exit clause and the hydration shape's trace line
+- `xTrack/WorkflowImprovement/260916_FEAT_PLN_WorkflowImprovement_core-directive-lifecycle.md`, `..._walk-context-and-directive-reload.md`, `260917_..._agents-md-trim.md` — the three plans in design
 
 ## Next Step
-Decide `#doctor` check (s), the report-only lint that the adapters carry nothing but a pointer, then the deferred pair: on-device git-shortcut verification and the post-merge `xTrack/` reconcile. Pushing `feature/wrKFl` is user-owned, never proposed and never reminded.
+
+The trim's cut, parked at 2.4% with its plan written; the walk plan's axes A1/A2/A4 remain design; and the retirement candidates in `## Docs` — six shipped WorkflowImprovement plans plus two Documentation ones — await an `#archive` pass on the user's word.

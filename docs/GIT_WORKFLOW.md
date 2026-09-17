@@ -5,16 +5,14 @@
 > Git **detail** — branch model, conflict policy, hard-rule notes. The hard rule and the command
 > specs are single-sourced in `AGENTS.md` (Core Directives + §7b), which wins on any conflict.
 
-## 🔴 ABSOLUTE RULE: NEVER write to develop or main — EVER
+## Protected branches
 
-**Any** write operation on `develop` or `main` is **strictly forbidden** — this includes:
-- `git push`/`git push --force`/`git push --force-with-lease`
-- `git commit` directly on the branch
-- `git revert` or any form of undo that writes
-- `git merge` or `git rebase` targeting these branches
+The prohibition is single-sourced in `AGENTS.md` — **🛑 PROTECTED BRANCHES** — and is not restated here.
 
-If a command would write to `develop` or `main`, the AI **must abort immediately**
-and propose `#move new <name>` to create a fresh feature branch.
+What this file adds is the exit: if a command would write to `develop` or `main`, abort immediately and
+create a fresh feature branch (`#move new <name>`) rather than working out a way to do it — then, once
+the move is done, complete the command that was refused, on the new branch, without asking again: the
+invocation was the go-ahead, and the move changes the target rather than the entitlement.
 
 ## Branch Model
 

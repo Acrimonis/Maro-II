@@ -146,7 +146,7 @@ CardArea {
 
 **Worked examples:** Coastline = `CardArea { ToggleRow(…) }` — one section, no divider. Orientation aids = three rows with two `SectionDivider`s — one section per control. Auto-show zones = two rows 8dp apart (one section) + `SectionDivider` + one row (second section).
 
-🔴 **No settings visibility is conditional on another setting's state.** Settings are always shown; a toggle controls *behavior*, never *visibility*. E.g. the GPS-tuning expander is always visible regardless of GPS mode — the GPS mode toggle only controls whether GPS tuning takes effect, not whether the expander renders. Do not wrap a setting or expander in `if (someOtherSetting)`.
+**No settings visibility is conditional on another setting's state.** Settings are always shown; a toggle controls *behavior*, never *visibility*. E.g. the GPS-tuning expander is always visible regardless of GPS mode — the GPS mode toggle only controls whether GPS tuning takes effect, not whether the expander renders. Do not wrap a setting or expander in `if (someOtherSetting)`.
 
 ### 2.4 Inside-Expander Content — `NestedCard`
 
@@ -242,7 +242,7 @@ all of them: `SegmentedRow(options, selected, onSelect, captions = null)`.
 - **Surface-free** — the row paints **no** surface of its own (only its 1dp outline, no outer padding);
   the call site supplies the `CardArea`/`NestedCard` (§2.0).
 
-🔴 Do not hand-roll two `Text` rows with `clickable` — use this control. Do not paint a surface on it.
+**Do not hand-roll two `Text` rows with `clickable`** — use this control. Do not paint a surface on it.
 
 ### 2.8 Range Slider Row — `RangeSliderRow`
 
@@ -390,7 +390,7 @@ Three-line `Column` inside a rounded card (`8dp` radius, `4×2dp` pad, `uiCardBa
 | Value | auto (14–64.sp) | Bold | `#E0E0E0` | `ui.dashboard.text.primary` |
 | Subtitle | 13.sp | Medium | `#B0BEC5` | hardcoded in `DashboardColors.textMutedBright` |
 
-🔴 The value uses `Modifier.weight(1f)` — it fills all remaining space after title + subtitle measure. Any font size increase on title or subtitle reduces the value's auto-sized ceiling. Keep title + subtitle combined height ≤ ~34dp to preserve value readability.
+**The value uses `Modifier.weight(1f)`** — it fills all remaining space after title + subtitle measure. Any font size increase on title or subtitle reduces the value's auto-sized ceiling. Keep title + subtitle combined height ≤ ~34dp to preserve value readability.
 
 Source: [`DashboardPanel.kt`](../app/src/main/java/ykws/android/maro/ui/map/DashboardPanel.kt) — `DashboardCard` composable, `DashboardColors` object.
 ---
@@ -425,7 +425,7 @@ When a map element (track polyline, marker geometry) enters a highlighted state 
 2. When `isHighlighted` is true, emit dark versions BEFORE gold versions using `COLOR_HIGHLIGHT_UNDER` and `baseWidth + HIGHLIGHT_UNDER_STROKE_ADD`
 3. Compute `isHighlighted` at call site: `val isHighlighted = element.id == highlightedElementId`
 
-🔴 Never apply under-strokes to proximity previews or fill polygons — highlights only.
+**Never apply under-strokes to proximity previews or fill polygons** — highlights only.
 
 Source: [`MarkerOverlay.kt`](../app/src/main/java/ykws/android/maro/ui/map/MarkerOverlay.kt) + track polyline rendering in [`MapScreen.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt).
 
@@ -473,7 +473,7 @@ the shared surface carrying the ⏱ stopwatch written `\u23F1\uFE0F` (`Emoji_Pre
 is what asks for the colour form) and **no** active face — the control's active form is the expanded scale
 card, so the two faces are never on screen together.
 
-🔴 New squares must: paint through `MapToggleSquare`/`MapSurface`, resolve one face from their own state,
+**New squares must:** paint through `MapToggleSquare`/`MapSurface`, resolve one face from their own state,
 declare their own colours as a `status.<name>.*` token family parsed in `AppConfig`, and never hardcode a
 fill, a corner, a border or a padding in the composable.
 
@@ -556,4 +556,4 @@ Box(
 }
 ```
 
-🔴 Do not apply padding at a higher level (e.g. `Surface` in `MainActivity`) — it would offset the full-screen map. Apply at the screen root `Box` only.
+**Do not apply padding at a higher level** (e.g. `Surface` in `MainActivity`) — it would offset the full-screen map. Apply at the screen root `Box` only.

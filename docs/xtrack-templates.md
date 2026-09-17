@@ -133,6 +133,10 @@ the next session can resume cold. Keep it tight and transactional — not a chan
 
 **Last Bake:** [YYYY-MM-DD HH:mm UTC] — written by `#bake`; absence means never baked
 
+**Directive trace:** [one sentence: which of the five covered action classes were met since the last
+bake and whether any stopped. Written by `#bake` from the session and carried forward — a state, never
+a changelog.]
+
 ## State
 [2-4 sentences: what compiles, what's in progress, current statuses.]
 

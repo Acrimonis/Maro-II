@@ -11,9 +11,7 @@ Manage:   #track [name]        create feature (xTrack/[name]/FEAT_DSC_, YAML fro
 Track:    #todo                list todos (scope-aware)
           #todo [desc]         add todo (scope-aware)
           #todo [tgt]:[desc]   add todo (tgt: feature|section|parent|global)
-          #rule                list rules (scope-aware)
-          #rule [desc]         add rule (scope-aware)
-          #rule [tgt]:[desc]   add rule (tgt: feature|section|parent|global)
+          #rule                print the tier legend; [tier] (exact name or glyph) = reload that tier's rules (one-line fingerprint); all = report whether the held copy is stale. Explicit invocation only
 Docs:     #doc                 feature docs (scope-aware)
           #doc list            list docs grouped by source (DOC / PLN / docs/)
           #doc create [name]   create doc (prompts: feature-scoped → xTrack/*/FEAT_DOC_ or cross-cutting → docs/)
@@ -25,12 +23,12 @@ Docs:     #doc                 feature docs (scope-aware)
 Session:  #bake                snapshot + consolidation (checkmarks, section fold/trim/split/merge, summaries table, FEAT_HYD_, prune Focus History > 10)
           #help                this list
           #archive             retire a feature-scoped plan or doc into xxArchive/ (explicit invocation only)
-          #review              review the cascade-resolved target — walk item → plan in design → last #implement run → live proposal (challenge)
-          #walk                cursor over the pending set, one item at a time, exhaustion closes — facets #next #prev #skip
+          #review              review the cascade-resolved target — walk item → plan in design → last #implement run → live proposal (challenge); also sweeps the five covered action classes that ran without a verdict line
+          #walk                cursor over the pending set, one item at a time, exhaustion closes — facets #next #prev #skip; a Closed level is closed by decision, not a bar to resuming its parked point
           #brief / #full       output mode — brief subtracts ELIJP, containment blocks, verification lists; #focus resets to full
 Pipeline: #implement           full pipeline: Code → build → Ask review → Architect report
           #go                  agree with the open question (re-asks if the proposal moved); #go impl = agree + run the pipeline
-Git:      🔴 See [`docs/GIT_WORKFLOW.md`](GIT_WORKFLOW.md) for full rules + enforcement.
+Git:      🛑 See [`docs/GIT_WORKFLOW.md`](GIT_WORKFLOW.md) for full rules + enforcement.
            #new [branch]        create `feature/[branch]` from origin/develop
            #commit              stage + commit; offers a bake first when the feature moved since its last bake. Asks confirm. 🚫 refuses on develop/main.
            #push                push current branch (user-invoked only — never proposed or reminded). 🚫 refuses on develop/main.
@@ -40,5 +38,5 @@ Git:      🔴 See [`docs/GIT_WORKFLOW.md`](GIT_WORKFLOW.md) for full rules + en
            #copy [target]       alias for #cherry
            #rename [branch]     git branch -m
            #merge               pre-flight → trivial/non-trivial → auto-select rebase/merge → confirm (yes=direct, #implement=pipeline). 🚫 refuses on develop/main.
-Health:   #doctor              lint xTrack for drift (checks a-r; flags active_subfeature/#sub remnants, registry divergence, retired-file drift)
+Health:   #doctor              lint xTrack and the rulebook for drift (checks a–s; flags active_subfeature/#sub remnants, registry divergence, retired-file drift, a rule bullet without a tier glyph)
           #doctor fix          auto-repair

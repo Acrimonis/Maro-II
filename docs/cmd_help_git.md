@@ -1,7 +1,7 @@
 <!-- scope: reference -->
 ## Git — workflow shortcuts
 
-Convenience wrappers over standard git. **🔴 See [`docs/GIT_WORKFLOW.md`](GIT_WORKFLOW.md) for the Hard Rule — `#merge`/`#push`/`#commit` refuse on `develop`/`main`.**
+Convenience wrappers over standard git. **🛑 The rules are single-sourced in `AGENTS.md` — `GIT WRITES AND DEPLOYS ARE THE USER'S CALL` and `PROTECTED BRANCHES`; this page keeps the command detail, and [`docs/GIT_WORKFLOW.md`](GIT_WORKFLOW.md) the branch model.**
 
 A git `#`-command **is** its own go-ahead: the invocation authorises the operation, so the agent executes it — never re-confirmed as a permission question, never handed back for the user to run. `#commit` / `#push` / `#merge` / `#cherry` confirm only the action's scope; `#new` / `#move` / `#move new` / `#rename` ask nothing.
 
@@ -11,8 +11,10 @@ A git `#`-command **is** its own go-ahead: the invocation authorises the operati
                       — even when chained. 🚫 refuses on develop/main.
   #push               git push origin [current-branch]. User-invoked only — the agent never proposes
                       or reminds. Asks for confirmation. 🚫 refuses on develop/main.
-  #move [branch_name]      stash → switch (existing) → pop.
+  #move [branch_name]      stash → switch (existing) → pop. Bare = list local branches, newest first,
+                      pick one.
   #move new [branch_name]  stash → create 'feature/[branch_name]' from origin/develop → pop.
+                      Bare = prompt for the name, prefilled 'feature/'.
   #cherry [target]    list unpushed commits, interactive pick to cherry-pick to [target].
                       Asks for confirmation.
   #copy [target]      alias for #cherry.
@@ -66,5 +68,5 @@ A git `#`-command **is** its own go-ahead: the invocation authorises the operati
   | Build files | Accept incoming versions, keep local deps |
   | Source .kt | Feature-owned → feature wins; shared → merge attempt |
 
-  🔴 NEVER writes to develop/main — PR handles integration.
-  🔴 No auto-push unless branch was already on remote before #merge.
+  🛑 NEVER writes to develop/main — PR handles integration.
+  🛑 No auto-push unless branch was already on remote before #merge.

@@ -15,6 +15,11 @@ An independent review of the artefact the cascade resolves — the reviewer argu
 `## Implemented` pointer alone — never from a plan's own status line, so a stale header cannot steer
 the cascade.
 
+**Sweep.** Every `#review`, a challenge included since the sweep is a property of the command rather
+than of the stronger form, also reports the five covered action classes that ran in the session without
+a verdict line — the classes named in `AGENTS.md`'s legend zone — and it names the gaps rather than the
+verdicts it found.
+
 **Guard:** while an `#implement` pipeline is running, that pipeline owns its Ask hop — `#review`
 performs no mid-run review, and the pipeline is never steered from outside it.
 

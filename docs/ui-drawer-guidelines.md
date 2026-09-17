@@ -114,7 +114,7 @@ Formula) and the dialog scrim read the same token.
 
 ### Portrait Drawer Height Floor
 
-🔴 **A bottom-anchored drawer is never smaller than the original dashboard.** Its height is
+**A bottom-anchored drawer is never smaller than the original dashboard.** Its height is
 `maxOf(portraitDashboardHeight, <content height>)` — the dashboard height is a floor, so the drawer either
 matches the dashboard or grows taller to fit its content. It must never render shorter than the dashboard
 (otherwise its top edge would sit lower than the dashboard's top).
@@ -130,7 +130,7 @@ matches the dashboard or grows taller to fit its content. It must never render s
 
 ### Landscape Full-Column Coverage
 
-🔴 **A left-anchored item drawer (marker / track / wizard) must cover the whole original landscape
+**A left-anchored item drawer (marker / track / wizard) must cover the whole original landscape
 dashboard column** — `align(CenterStart)` + `landscapeDashboardWidth` + `fillMaxHeight()`, filled
 top-to-bottom. Wrap-content is portrait-only; in landscape the drawer uses the non-wrap full-height
 branch so the top of the column is never left uncovered by a shorter content panel.
@@ -156,7 +156,7 @@ ladder scrim sits *below* the drawers, while the dialog scrim is composited *abo
 
 ### Scrim Behavior Rule
 
-🔴 **All drawers must close when the scrim is tapped.** The scrim click handler calls the drawer's dismiss callback. The scrim renders with no fade — it is either present or absent.
+**All drawers must close when the scrim is tapped.** The scrim click handler calls the drawer's dismiss callback. The scrim renders with no fade — it is either present or absent.
 
 `scrimDismiss` is a plain ladder over the drawer surfaces: settings → menu → track history → marker
 management → wizard blur. It has **no dialog branch** — a `ConfirmDialog` owns its own scrim and its
