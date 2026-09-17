@@ -82,6 +82,9 @@ import ykws.android.maro.ui.components.DrawerScaffold
  * @param isLandscape   Whether the device is in landscape orientation.
  * @param onClose       Called when the drawer is dismissed.
  * @param boatPosition  Current boat position for distance-to-boat display.
+ * @param onWizardEntry R1: the wizard takes the dashboard slot, so the track dashboard closes first.
+ *                      The marker half needs no close: the wizard replaces the Viewing content inside
+ *                      the same [MarkerDrawerState], so the marker being edited is never closed.
  */
 @Composable
 fun MarkerDrawer(
@@ -92,6 +95,7 @@ fun MarkerDrawer(
     onRequestDelete: (String, String) -> Unit = { _, _ -> },
     trackTitleLookup: (String) -> String? = { null },
     onOpenMarkerTrack: (String) -> Unit = {},
+    onWizardEntry: () -> Unit = {},
     minPanelHeight: Dp = 0.dp
 ) {
     val drawerState by viewModel.drawerState.collectAsState()
@@ -108,7 +112,7 @@ fun MarkerDrawer(
     }
 
     when (drawerState) {
-        is MarkerDrawerState.Viewing -> ViewingContent(viewModel, onClose, boatPosition, panelShape, onRequestDelete, isLandscape, trackTitleLookup, onOpenMarkerTrack, minPanelHeight)
+        is MarkerDrawerState.Viewing -> ViewingContent(viewModel, onClose, boatPosition, panelShape, onRequestDelete, isLandscape, trackTitleLookup, onOpenMarkerTrack, onWizardEntry, minPanelHeight)
         is MarkerDrawerState.MatchResult -> MatchResultContent(viewModel, onClose, boatPosition, panelShape, isLandscape)
         else -> { /* Creating/Editing handled by WizardDrawer */ }
     }
@@ -128,6 +132,7 @@ private fun ViewingContent(
     isLandscape: Boolean,
     trackTitleLookup: (String) -> String? = { null },
     onOpenMarkerTrack: (String) -> Unit = {},
+    onWizardEntry: () -> Unit = {},
     minPanelHeight: Dp = 0.dp
 ) {
     val markers by viewModel.markers.collectAsState()
@@ -189,6 +194,7 @@ private fun ViewingContent(
             boatPosition = boatPosition,
             trackTitleLookup = trackTitleLookup,
             onOpenMarkerTrack = onOpenMarkerTrack,
+            onWizardEntry = onWizardEntry,
             viewModel = viewModel
         )
     }
@@ -205,6 +211,7 @@ private fun MarkerDetailContent(
     boatPosition: LatLng?,
     trackTitleLookup: (String) -> String?,
     onOpenMarkerTrack: (String) -> Unit,
+    onWizardEntry: () -> Unit,
     viewModel: MarkersViewModel
 ) {
     if (marker != null) {
@@ -234,7 +241,11 @@ private fun MarkerDetailContent(
             onOpenTrack = marker.trackId?.let { tid -> { onOpenMarkerTrack(tid) } },
             onTap = {},
             onEdit = {
-                viewModel.closeDrawer()
+                // R1: the wizard takes this dashboard's slot — only the track dashboard closes. The
+                // marker half is left alone: the wizard replaces the Viewing content inside the same
+                // MarkerDrawerState, so a marker excluded from the list world is never closed out from
+                // under the edit (`startWizard` would find nothing and leave a silent no-op).
+                onWizardEntry()
                 viewModel.startWizard(marker.id)
             },
             onSetIcon = { id, icon -> viewModel.setMarkerIcon(id, icon) },

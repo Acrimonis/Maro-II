@@ -496,17 +496,59 @@ fun MapScreen(
     val allTrackSummaries by trackViewModel.allSummaries.collectAsState()
     val recoveryTrack by trackViewModel.recoveryTrack.collectAsState()
     val trackScope = rememberCoroutineScope()
-    // ── Close selected-item dashboards (marker + track) when menu/fan opens ──
-    fun closeSelectedItemDashboards() {
-        if (markersViewModel.drawerState.value is MarkerDrawerState.Viewing ||
-            markersViewModel.drawerState.value is MarkerDrawerState.MatchResult
-        ) {
+    // ── Selected-item dashboards — the two close rules ───────────────────
+    // R1: a control that wants the dashboard's own slot closes it — the marker/track wizard (same size,
+    // same position, slid in over the dashboard) or the other selected-item dashboard (one selected item
+    // at a time). R2 (see `closeDashboardsForScopeChange`): a control that rewrites the referential the
+    // open item's Prev/Next walk reads closes it. Everything else leaves it open, so the menu, the
+    // settings page, both lists, the layer fan, the chips and every display-only control keep the
+    // selection — which is what makes R2 a live rule rather than a dead guard.
+
+    /** R1: closes the open marker detail dashboard (Viewing / MatchResult) — never the wizard. */
+    fun closeMarkerDashboard() {
+        val state = markersViewModel.drawerState.value
+        if (state is MarkerDrawerState.Viewing || state is MarkerDrawerState.MatchResult) {
             markersViewModel.closeDrawer()
+        }
+    }
+
+    /** Closes the track detail drawer, restoring the pre-navigation camera when the map was untouched. */
+    fun closeTrackDrawer() {
+        if (!trackDrawerState.mapWasInteracted) {
+            preNavigationState?.let { pre ->
+                mapView?.controller?.setZoom(pre.zoom)
+                mapView?.controller?.setCenter(GeoPoint(pre.centerLat, pre.centerLon))
+            }
         }
         highlightedTrackId = null
         trackDrawerState = TrackDrawerState()
         preNavigationState = null
     }
+
+    /** R1 entry point: the wizard or the other dashboard wants the slot, so both dashboards stand down. */
+    fun closeSelectedItemDashboards() {
+        closeMarkerDashboard()
+        closeTrackDrawer()
+    }
+
+    /**
+     * R2 entry point: a referential the open item's Prev/Next walk reads was rewritten, so that dashboard
+     * closes. Each caller passes the world its own change landed in — the list filter, the list sort and
+     * the list reset pass [markerListWorld] / [trackListWorld]; the map filter and the map reset pass
+     * [markerMapWorld] and, for a track, [trackListWorld] exactly when `trackFilterLinked` carried the
+     * write into the list world the walk reads. A write to the other world is display-only.
+     */
+    fun closeDashboardsForScopeChange(
+        markerListWorld: Boolean = false,
+        markerMapWorld: Boolean = false,
+        trackListWorld: Boolean = false
+    ) {
+        if (scopeClosed(markersViewModel.drawerSource, inListWorld = markerListWorld, inMapWorld = markerMapWorld)) {
+            closeMarkerDashboard()
+        }
+        if (trackListWorld) closeTrackDrawer()
+    }
+
     // Single-GPX import whose match dialog is pending a Duplicate / Override / Cancel choice.
     var pendingTrackImport by remember { mutableStateOf<PendingTrackImport?>(null) }
     // Import feedback banner: null = hidden; Result / Failed shows briefly at the map bottom.
@@ -841,6 +883,9 @@ fun MapScreen(
             when (event) {
                 is ykws.android.maro.data.track.TrackEvent.DrawerAutoOpenRequested -> {
                     if (markersViewModel.drawerState.value == MarkerDrawerState.Hidden) {
+                        // R1: the Where-Am-I dashboard is the other selected-item dashboard, so a live
+                        // track dashboard closes first (one selected item at a time).
+                        closeTrackDrawer()
                         val pos = gpsPosition ?: mapCenter
                         markersViewModel.whereAmI(pos)
                     }
@@ -1243,15 +1288,15 @@ fun MapScreen(
                 markerLayerState = markerLayerState,
                 onToggleMarkerLayer = { markersViewModel.toggleMarkerLayer() },
                 onAddZone = { center ->
+                    // R1: the wizard takes the dashboard slot. The other dashboard is the close that
+                    // matters; the same-kind half is what clears a selection the wizard's state cannot.
                     closeSelectedItemDashboards()
                     markersViewModel.startWizard(initialPos = center)
                 },
-                onMarkerTap = { id ->
-                    val worldIds = mapMarkersState.map { it.id }
-                    val navIds = if (worldIds.contains(id)) worldIds else listOf(id) + worldIds
-                    markersViewModel.openEditDrawer(navIds, selectedId = id, source = DrawerSource.MAP)
-                },
                 onWhereAmI = {
+                    // R1: the Where-Am-I dashboard is the other selected-item dashboard, so a live
+                    // track dashboard closes first (one selected item at a time).
+                    closeTrackDrawer()
                     val boatPos = gpsPosition ?: mapCenter
                     markersViewModel.whereAmI(boatPos)
                     // Also snapshot for track recording (MANUAL trigger)
@@ -1262,10 +1307,10 @@ fun MapScreen(
                     }
                 },
                 onRetry = { viewModel.loadCoastline() },
-                onOpenTrackDrawer = {
-                    if (!showTrackDrawer) closeSelectedItemDashboards()
-                    showTrackDrawer = !showTrackDrawer
-                },
+                // R1 keep: the menu is a panel over the map, not an occupant of the dashboard slot, so the
+                // selection survives it and returns when the menu closes (OverlayLayer stands the detail
+                // slots down while a panel is open).
+                onOpenTrackDrawer = { showTrackDrawer = !showTrackDrawer },
                 showTrackDrawer = showTrackDrawer,
                 showTrackHistory = showTrackHistory,
                 trackRecorderState = trackRecorderState,
@@ -1295,7 +1340,6 @@ fun MapScreen(
                     }
                 },
                 onStopRecording = { showStopRecordingSheet = true },
-                onViewTrackList = { showTrackHistory = true },
                 onDismissTrackHistory = { showTrackHistory = false },
                 onUpdateTrack = { id, name, comment, pinned ->
                     pinned?.let { trackViewModel.setPinned(id, it) }
@@ -1478,6 +1522,8 @@ fun MapScreen(
                     unconfirmedMarker = unconfirmedMarker,
                     onMarkerTap = { ids ->
                         ids.firstOrNull()?.let { sel ->
+                            // R1: one selected item at a time — a map tap closes the track detail drawer.
+                            closeTrackDrawer()
                             val worldIds = mapMarkersState.map { it.id }
                             val navIds = if (worldIds.contains(sel)) worldIds else listOf(sel) + worldIds
                             markersViewModel.openEditDrawer(navIds, selectedId = sel, source = DrawerSource.MAP)
@@ -1580,17 +1626,8 @@ fun MapScreen(
 
         // ── Track drawer: BackHandler close ──────────────────────────────
         if (trackDrawerState.isOpen) {
-            BackHandler {
-                if (!trackDrawerState.mapWasInteracted) {
-                    preNavigationState?.let { pre ->
-                        mapView?.controller?.setZoom(pre.zoom)
-                        mapView?.controller?.setCenter(GeoPoint(pre.centerLat, pre.centerLon))
-                    }
-                }
-                highlightedTrackId = null
-                trackDrawerState = TrackDrawerState()
-                preNavigationState = null
-            }
+            // Routed through the one close helper — same camera-restore semantics.
+            BackHandler { closeTrackDrawer() }
         }
 
         // ── Layer 1: Overlay (transient drawers, Wizard, Settings, scrim) ──
@@ -1602,6 +1639,8 @@ fun MapScreen(
         val firstMarkerId = mgmtMarkers.firstOrNull()?.id
 
         fun openTrackDetail(id: String) {
+            // R1: one selected item at a time — opening a track detail closes the marker detail drawer.
+            closeMarkerDashboard()
             if (!appSettings.tracksVisible) {
                 viewModel.updateSettings { it.copy(tracksVisible = true) }
             }
@@ -1649,6 +1688,8 @@ fun MapScreen(
 
         fun openMarkerDetail(id: String) {
             val marker = mgmtMarkers.find { it.id == id } ?: return
+            // R1: one selected item at a time — opening a marker detail closes the track detail drawer.
+            closeTrackDrawer()
             markersViewModel.showLayer()
             showMarkerManagement = false
             navigateToTarget = NavigateTarget(
@@ -1661,19 +1702,6 @@ fun MapScreen(
         // pinned included (they always render). Render-cap divergence is acceptable.
         val trackMapVisibleCount = allTrackSummaries.count {
             !it.isLive && it.matchesFilter(appSettings.trackMapFilter, ykws.android.maro.data.model.todayMidnightMs())
-        }
-
-        // Close the track detail drawer (restores the pre-navigation camera when the map was untouched).
-        val closeTrackDrawer: () -> Unit = {
-            if (!trackDrawerState.mapWasInteracted) {
-                preNavigationState?.let { pre ->
-                    mapView?.controller?.setZoom(pre.zoom)
-                    mapView?.controller?.setCenter(GeoPoint(pre.centerLat, pre.centerLon))
-                }
-            }
-            highlightedTrackId = null
-            trackDrawerState = TrackDrawerState()
-            preNavigationState = null
         }
 
         CompositionLocalProvider(LocalConfirmDialogHost provides confirmDialogHost) {
@@ -1701,6 +1729,9 @@ fun MapScreen(
             onMarkerDrawerClose = {
                 markersViewModel.closeDrawer()
             },
+            // R1: the drawer Edit path needs only the track half closed — the marker half is replaced
+            // by the wizard's own MarkerDrawerState, so the marker being edited is never closed.
+            onMarkerWizardEntry = { closeTrackDrawer() },
             onOpenTrackHistoryFromMenu = { showTrackHistory = true },
             onOpenMarkerManagementFromMenu = { showMarkerManagement = true },
             onOpenSettingsFromMenu = { showSettings = true },
@@ -1759,11 +1790,15 @@ fun MapScreen(
                 trackListState = trackListState,
             ),
             onTrackSortStateChange = { newState ->
+                // R2: the sort rewrites the list world the open track walk reads.
+                closeDashboardsForScopeChange(trackListWorld = true)
                 viewModel.updateSettings { it.copy(trackListSort = newState) }
                 trackViewModel.refreshSummaries(newState, reloadFromDisk = false)
                 mapView?.invalidate()
             },
             onTrackFilterChange = { newFilter ->
+                // R2: the list filter rewrites the list world the open track walk reads.
+                closeDashboardsForScopeChange(trackListWorld = true)
                 viewModel.updateSettings { s ->
                     if (s.trackFilterLinked) s.copy(trackListFilter = newFilter, trackMapFilter = newFilter)
                     else s.copy(trackListFilter = newFilter)
@@ -1771,6 +1806,8 @@ fun MapScreen(
                 trackViewModel.refreshSummaries(filter = newFilter, reloadFromDisk = false)
             },
             onTrackReset = {
+                // R2: the reset rewrites the list world the open track walk reads.
+                closeDashboardsForScopeChange(trackListWorld = true)
                 val resetFilter = ykws.android.maro.data.model.ListFilter()
                 viewModel.updateSettings { s ->
                     if (s.trackFilterLinked) s.copy(trackListSort = ykws.android.maro.data.model.ListSortState(), trackListFilter = resetFilter, trackMapFilter = resetFilter)
@@ -1784,6 +1821,9 @@ fun MapScreen(
             // ── Track map referential (menu filter) + link ────────────────
             onTrackMapFilterChange = { newFilter ->
                 val linked = appSettings.trackFilterLinked
+                // R2: while the link is on, the map write moves the list world the track walk reads with
+                // it; unlinked it is display-only and the open track dashboard stays.
+                closeDashboardsForScopeChange(trackListWorld = linked)
                 viewModel.updateSettings { s ->
                     if (s.trackFilterLinked) s.copy(trackListFilter = newFilter, trackMapFilter = newFilter)
                     else s.copy(trackMapFilter = newFilter)
@@ -1794,6 +1834,8 @@ fun MapScreen(
             onTrackMapReset = {
                 val resetFilter = ykws.android.maro.data.model.ListFilter()
                 val linked = appSettings.trackFilterLinked
+                // R2: a linked map reset moves the list world the track walk reads with it.
+                closeDashboardsForScopeChange(trackListWorld = linked)
                 viewModel.updateSettings { s ->
                     if (s.trackFilterLinked) s.copy(trackListFilter = resetFilter, trackMapFilter = resetFilter)
                     else s.copy(trackMapFilter = resetFilter)
@@ -1840,6 +1882,9 @@ fun MapScreen(
                 when (action) {
                     is ykws.android.maro.data.model.ListAction.NavigateToItem -> openMarkerDetail(action.id)
                     is ykws.android.maro.data.model.ListAction.EditItem -> {
+                        // R1: the wizard takes the dashboard slot — a dashboard left open behind the list
+                        // stands down, so no stale selection survives into the wizard.
+                        closeSelectedItemDashboards()
                         showMarkerManagement = false
                         markersViewModel.startWizard(action.id)
                     }
@@ -1873,15 +1918,20 @@ fun MapScreen(
                     mapView?.invalidate()
                 },
             ),
-            onTrackDrawerClose = closeTrackDrawer,
+            onTrackDrawerClose = { closeTrackDrawer() },
             onNavigateToTrack = { id -> openTrackDetail(id) },
             onResumeRequest = { id, fromList -> pendingResume = PendingTrackResume(id, fromList) },
             onMarkerSortStateChange = { newState ->
+                // R2: the sort rewrites the list world a list-opened marker walk reads; a map-opened one
+                // reads the map world and stays open.
+                closeDashboardsForScopeChange(markerListWorld = true)
                 viewModel.updateSettings { it.copy(markerListSort = newState) }
                 markersViewModel.refreshSort(newState)
             },
             onMarkerFilterChange = { newFilter ->
                 android.util.Log.d("MaroMapRefresh", "onMarkerFilterChange: $newFilter")
+                // R2: the list filter rewrites the list world a list-opened marker walk reads.
+                closeDashboardsForScopeChange(markerListWorld = true)
                 viewModel.updateSettings { s ->
                     if (s.markerFilterLinked) s.copy(markerListFilter = newFilter, markerMapFilter = newFilter)
                     else s.copy(markerListFilter = newFilter)
@@ -1890,6 +1940,8 @@ fun MapScreen(
             },
             onMarkerReset = {
                 android.util.Log.d("MaroMapRefresh", "onMarkerReset")
+                // R2: the reset rewrites the list world a list-opened marker walk reads.
+                closeDashboardsForScopeChange(markerListWorld = true)
                 val resetFilter = ykws.android.maro.data.model.ListFilter()
                 viewModel.updateSettings { s ->
                     if (s.markerFilterLinked) s.copy(markerListSort = ykws.android.maro.data.model.ListSortState(), markerListFilter = resetFilter, markerMapFilter = resetFilter)
@@ -1900,18 +1952,26 @@ fun MapScreen(
             // ── Marker map referential (menu filter) + link ───────────────
             onMarkerMapFilterChange = { newFilter ->
                 val linked = appSettings.markerFilterLinked
+                // R2: a map-opened marker walk reads the map world, so this write closes it. The view
+                // model then re-tests the linked list world too — a map write need not pass through
+                // `refreshSort`, which is why the control reports here as well.
+                closeDashboardsForScopeChange(markerMapWorld = true)
                 viewModel.updateSettings { s ->
                     if (s.markerFilterLinked) s.copy(markerListFilter = newFilter, markerMapFilter = newFilter)
                     else s.copy(markerMapFilter = newFilter)
                 }
+                markersViewModel.onMapReferentialChanged()
                 if (linked) markersViewModel.refreshSort(filter = newFilter)
             },
             onMarkerMapReset = {
+                // R2: a map-opened marker walk reads the map world, so this reset closes it.
+                closeDashboardsForScopeChange(markerMapWorld = true)
                 val resetFilter = ykws.android.maro.data.model.ListFilter()
                 viewModel.updateSettings { s ->
                     if (s.markerFilterLinked) s.copy(markerListFilter = resetFilter, markerMapFilter = resetFilter)
                     else s.copy(markerMapFilter = resetFilter)
                 }
+                markersViewModel.onMapReferentialChanged()
                 if (appSettings.markerFilterLinked) markersViewModel.refreshSort(filter = resetFilter)
             },
             markerFilterLinked = appSettings.markerFilterLinked,
@@ -1920,8 +1980,9 @@ fun MapScreen(
                 viewModel.updateSettings { s -> s.copy(markerFilterLinked = !s.markerFilterLinked) }
             },
             onCreateFirst = {
-                showMarkerManagement = false
+                // R1: the wizard takes the dashboard slot — the other dashboard closes first.
                 closeSelectedItemDashboards()
+                showMarkerManagement = false
                 markersViewModel.startWizard(initialPos = mapCenter)
             },
             onSetIcon = { id, icon -> markersViewModel.setMarkerIcon(id, icon) },
@@ -1956,11 +2017,7 @@ fun MapScreen(
                 val before = if (i >= 0) {
                     fullIds.subList(0, i).asReversed().filter { "t:$it" !in pendingDeleteIds }
                 } else emptyList()
-                openFirstValidTrack(after + before) {
-                    highlightedTrackId = null
-                    trackDrawerState = TrackDrawerState()
-                    preNavigationState = null
-                }
+                openFirstValidTrack(after + before) { closeTrackDrawer() }
             },
             onRequestMarkerDelete = { id, name ->
                 val selection = markersViewModel.selectedMarkerIds.value
@@ -2255,7 +2312,6 @@ private fun MapContent(
     markerLayerState: MarkerLayerState = MarkerLayerState.SHOW_ALL,
     onToggleMarkerLayer: () -> Unit = {},
     onAddZone: (LatLng) -> Unit = {},
-    onMarkerTap: (String) -> Unit = {},
     onWhereAmI: () -> Unit = {},
     onRetry: () -> Unit,
     onOpenTrackDrawer: () -> Unit = {},
@@ -2266,7 +2322,6 @@ private fun MapContent(
     recoveryTrack: ykws.android.maro.data.track.Track? = null,
     onStartRecording: () -> Unit = {},
     onStopRecording: () -> Unit = {},
-    onViewTrackList: () -> Unit = {},
     onDismissTrackHistory: () -> Unit = {},
     onUpdateTrack: (String, String?, String?, Boolean?) -> Unit = { _, _, _, _ -> },
     onDeleteTrack: (String) -> Unit = {},
