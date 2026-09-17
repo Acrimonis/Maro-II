@@ -3,8 +3,8 @@
 
 > **Purpose:** Canonical reference for rendering any drawer/panel surface in Maro II.
 > **Created:** 2026-06-24 — normalisation pass (I1–I6).
-> **Updated:** 2026-09-11 — `ConfirmDialog` owns its own `ui.scrim.alpha` layer and is painted by the ladder `ConfirmRequestHost` **above every drawer and the map** (flush-bottom panel, rounded top corners, open-bottom accent border, 450 ms panel slide); the ladder scrim serves drawers/settings/wizard only and **yields while any dialog is visible**, so the two dim layers never stack — both scrims are hard on/off toggles (no fade); the shared dialog-dismiss registry and the dialog-first scrim branch are deleted; §3 surfaces table + scrim section updated, `ModalBottomSheet`/`AlertDialog` confirmations retired.
-> **Previous:** 2026-09-06 — consolidation (canonical homes, pointers, Decision Log removed) + header vertical padding normalized to 6dp.
+> **Updated:** 2026-09-17 — the Layer 0 tree states the Earth/Water status icon as hidden while the Layers tab's "Show Land/Water Icon" setting is off.
+> **Previous:** 2026-09-11 — `ConfirmDialog` owns its own `ui.scrim.alpha` layer and is painted by the ladder `ConfirmRequestHost` **above every drawer and the map** (flush-bottom panel, rounded top corners, open-bottom accent border, 450 ms panel slide); the ladder scrim serves drawers/settings/wizard only and **yields while any dialog is visible**, so the two dim layers never stack — both scrims are hard on/off toggles (no fade); the shared dialog-dismiss registry and the dialog-first scrim branch are deleted; §3 surfaces table + scrim section updated, `ModalBottomSheet`/`AlertDialog` confirmations retired.
 
 ---
 
@@ -17,7 +17,7 @@ Layer 0 (permanent, always rendered):
 ├── MapContent (map + overlays)
 ├── DashboardPanel (4-card dashboard)
 ├── Right-edge controls (fan, add zone, zoom)
-├── GPS / Track / EarthWater status icons
+├── GPS / Track / EarthWater status icons (EarthWater hidden when the Layers tab setting is off)
 └── Regulated zone warning strip
 
 Layer 1 (transient, self-contained):
@@ -114,7 +114,7 @@ Formula) and the dialog scrim read the same token.
 
 ### Portrait Drawer Height Floor
 
-🔴 **A bottom-anchored drawer is never smaller than the original dashboard.** Its height is
+**A bottom-anchored drawer is never smaller than the original dashboard.** Its height is
 `maxOf(portraitDashboardHeight, <content height>)` — the dashboard height is a floor, so the drawer either
 matches the dashboard or grows taller to fit its content. It must never render shorter than the dashboard
 (otherwise its top edge would sit lower than the dashboard's top).
@@ -130,7 +130,7 @@ matches the dashboard or grows taller to fit its content. It must never render s
 
 ### Landscape Full-Column Coverage
 
-🔴 **A left-anchored item drawer (marker / track / wizard) must cover the whole original landscape
+**A left-anchored item drawer (marker / track / wizard) must cover the whole original landscape
 dashboard column** — `align(CenterStart)` + `landscapeDashboardWidth` + `fillMaxHeight()`, filled
 top-to-bottom. Wrap-content is portrait-only; in landscape the drawer uses the non-wrap full-height
 branch so the top of the column is never left uncovered by a shorter content panel.
@@ -156,7 +156,7 @@ ladder scrim sits *below* the drawers, while the dialog scrim is composited *abo
 
 ### Scrim Behavior Rule
 
-🔴 **All drawers must close when the scrim is tapped.** The scrim click handler calls the drawer's dismiss callback. The scrim renders with no fade — it is either present or absent.
+**All drawers must close when the scrim is tapped.** The scrim click handler calls the drawer's dismiss callback. The scrim renders with no fade — it is either present or absent.
 
 `scrimDismiss` is a plain ladder over the drawer surfaces: settings → menu → track history → marker
 management → wizard blur. It has **no dialog branch** — a `ConfirmDialog` owns its own scrim and its

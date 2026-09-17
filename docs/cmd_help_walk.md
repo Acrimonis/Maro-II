@@ -19,6 +19,18 @@ level 2 and into the digest's `## Outcome` at level 1. Stepping never interrogat
 close, resume, park — are challenged at the gates below, where open points can actually be lost. A
 bare `#review` resolves to the active item, so review and stepping share one cursor.
 
+**Rendered shape.** One expanded item in a headed, visually separated block carrying `Why it is here`
+and, where a gate exists, `What closing it means` and `Open question`; the rest as flat numbered
+markers with the cursor position marked, and a footer naming any parked level beneath. The expanded
+block is the only prose, and it stays inside the Output Contract's bullet cap.
+
+**Closed levels.** A level marked `Closed` is one closed by decision, and the corpus keeps resume
+points inside such levels — `xTrack/Tracks/FEAT_DSC_Tracks.md` line 289 is the live example, a
+`Closed:` level whose unticked item is the point to resume from. An open landing on a closed level
+reports it in one line, names any unticked item as a parked point with its resume condition, and asks
+before resuming that point; otherwise it builds a fresh set — it never resumes the level silently and
+never refuses the parked point.
+
 **The stack — one level deep.** A walk descends once into its own active item, so a subject needing
 more than one exchange gets its own thread instead of an oversized reply.
 

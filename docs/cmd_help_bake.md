@@ -10,20 +10,25 @@ Snapshot + consolidation into per-feature hydration memory.
                  GLOBAL_CONTEXT.md (recompute one_liner if needed, bump modified date).
               4. Set modified in front-matter to current YYYY-MM-DD HH:mm (UTC)
                  — only if the feature was actually modified this session.
-              5. Create/overwrite xTrack/[Feature]/FEAT_HYD_[Feature].md with a
-                 ~200-word micro-state summary (state, target files, next step).
-              6. Prune the ## Focus History stack in GLOBAL_CONTEXT.md beyond cap 10.
-              7. Report retirement candidates: plans still attached in the feature's ## Docs whose
+              5. Create/overwrite xTrack/[Feature]/FEAT_HYD_[Feature].md in the shape
+                 docs/xtrack-templates.md holds — the shape, its Directive trace included, is
+                 stated once, there, and is not restated here.
+              6. Rewrite the top ## Focus History entry in GLOBAL_CONTEXT.md to what the session
+                 actually shipped. #focus pushed a one-liner describing the intent, so an
+                 implemented session otherwise leaves the stack describing a plan that no
+                 longer exists; the timestamp stays as pushed, the one-liner is what moves.
+              7. Prune the ## Focus History stack in GLOBAL_CONTEXT.md beyond cap 10.
+              8. Report retirement candidates: plans still attached in the feature's ## Docs whose
                  work appears in ## Implemented. Report only — #archive does the moving.
-              8. Prompt user to clear the workspace.
+              9. Prompt user to clear the workspace.
               Runs only on explicit invocation — nothing triggers it implicitly.
 
   Section criteria (canonical):
   C1 Cohesion — one section = one bounded theme.
   C2 Threshold — ≥2 items or multi-turn theme.
-  C3 Emergent — no create command; formed from #todo/#rule targeting.
+  C3 Emergent — no create command; formed from #todo targeting.
   C4 Stable heading — ### [noun-phrase], routing vocabulary.
-  C5 Targeting — #todo/#rule [Section]:...; #focus [Feature] [Section].
+  C5 Targeting — #todo [Section]:...; #focus [Feature] [Section].
   C6 No state — no active_subfeature, #sub, or #focus sub/out.
   C7 Optional slots — keep only populated #### Todos/Rules/Key Files/Docs.
   C8 Fold-done — done sections fold into ## Implemented as a one-liner + plan pointer; drop the finished #### Todos (the one-liner summarizes); promote still-valid #### Rules + #### Key Files + #### Docs to feature level (drop stale rules); append ## Outcome to the plan.

@@ -212,8 +212,17 @@ internal val RIGHT_CONTROL_COLUMN_INSET = 82.dp
  *  `ui.map.toggle.gutter` (default 6 dp) — the one reader of that key. */
 internal val TOP_TOGGLE_GUTTER: Dp get() = AppConfig.uiMapToggleGutter.dp
 
-/** 0-based slot of the lock square in the top-left row: GPS, record, earth/water, inspect, lock. */
+/** 0-based slot of the lock square in the top-left row: GPS, record, earth/water, inspect, lock —
+ *  one less while the earth/water square is hidden by its setting, which [lockSlot] decides. */
 private const val TOP_TOGGLE_LOCK_SLOT = 4
+
+/**
+ * The lock square's slot in a row drawn with or without the earth/water square. The row's order is
+ * this value's dependency: hiding that square takes the slot down by one, so the locked-screen mirror
+ * stays over the original. [topToggleSlotOffset] still owns the arithmetic.
+ */
+private fun lockSlot(earthWaterShown: Boolean): Int =
+    if (earthWaterShown) TOP_TOGGLE_LOCK_SLOT else TOP_TOGGLE_LOCK_SLOT - 1
 
 /**
  * Start offset (dp) of the square at [slot] in that row — the row's own start gutter, then one
@@ -2827,9 +2836,9 @@ fun MapScreen(
                         .align(Alignment.TopStart)
                         .padding(
                             top = lockTopInset,
-                            // The row's own slot arithmetic, so inserting the inspect square moved this
-                            // mirror by editing one constant rather than this literal.
-                            start = topToggleSlotOffset(TOP_TOGGLE_LOCK_SLOT)
+                            // The arithmetic's one home, over the slot the row actually drew: the
+                            // earth/water square is the one the setting can take away.
+                            start = topToggleSlotOffset(lockSlot(appSettings.showLandWaterIcon))
                         )
                 )
                 ZoomControls(
@@ -3067,7 +3076,7 @@ private fun MapContent(
             // ── LEFT COLUMN: top + middle + btm ──────────────────────────
             Column(modifier = Modifier.weight(1f).fillMaxHeight()) {
 
-                // top zone: Earth, Track, GPS, Recenter (statusBars minus 6dp)
+                // top zone: GPS, tracking, land/water, inspect, lock, + recenter while auto-follow is paused (statusBars minus 6dp)
                 Row(
                     modifier = Modifier
                         .padding(top = topInset, start = TOP_TOGGLE_GUTTER),
@@ -3085,10 +3094,12 @@ private fun MapContent(
                         else
                             onStartRecording
                     )
-                    EarthWaterIcon(
-                        emoji = if (isWater) "🌊" else "🏔️",
-                        color = if (isWater) ComposeColor(AppConfig.statusEarthWaterWater) else ComposeColor(AppConfig.statusEarthWaterLand),
-                    )
+                    if (appSettings.showLandWaterIcon) {
+                        EarthWaterIcon(
+                            emoji = if (isWater) "🌊" else "🏔️",
+                            color = if (isWater) ComposeColor(AppConfig.statusEarthWaterWater) else ComposeColor(AppConfig.statusEarthWaterLand),
+                        )
+                    }
                     InspectToggleButton(
                         armed = inspectArmed,
                         enabled = inspectEnabled,

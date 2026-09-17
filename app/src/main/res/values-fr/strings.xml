@@ -71,6 +71,8 @@
     <string name="settings_regen_warning_desc">Reconstruire l\'alerte magenta des hauts-fonds</string>
     <string name="settings_coastline_label">Trait de côte</string>
     <string name="settings_coastline_desc">Afficher la ligne de côte sur la carte</string>
+    <string name="settings_land_water_icon_label">Afficher l\'icône terre/eau</string>
+    <string name="settings_land_water_icon_desc">L\'icône indique si le bateau se trouve sur l\'eau ou sur terre, et elle est masquée lorsqu\'elle est désactivée</string>
     <string name="settings_zone300_label">Zone des 300 m</string>
     <string name="settings_zone300_desc">Régler la couleur et la transparence de la bande côtière des 300 m</string>
     <string name="settings_zone300_color_label">Couleur de la zone</string>

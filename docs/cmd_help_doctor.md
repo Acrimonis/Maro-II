@@ -1,7 +1,7 @@
 <!-- scope: reference -->
 ## #doctor
 
-Lint the xTrack stack for structural drift.
+Lint the xTrack stack and the rulebook for structural drift.
 
   [no param]  Run all checks and print findings grouped by severity.
 
@@ -21,11 +21,14 @@ Lint the xTrack stack for structural drift.
               Archive (q-r): xxArchive/INDEX.md rows disagreeing with the files on disk (a file with
               no row, a row pointing at an absent file) · an archived file still referenced from a
               live ## Docs / ## Rules / ## Implemented block.
+              Legend (s): every rule bullet in AGENTS.md wears a tier glyph drawn from the legend — one
+              whose glyph is missing or unknown is reported. The Output Contract's bullets are 💬 by the
+              legend's own declaration, so they are not faults.
               Nudge (report-only): a plan still attached in a feature's ## Docs whose work already
               appears in that feature's ## Implemented — a retirement candidate for #archive.
 
   fix         Auto-repair safe classes: dedupe routing rows, normalize dates,
               strip active_subfeature/#sub remnants, sync Feature Summaries ↔ FEAT_DSC_ files.
-              Everything from shape, ownership, registry integrity, doc drift and archive onward is
-              report-only — printed, never auto-fixed.
+              Everything from shape, ownership, registry integrity, doc drift, archive and legend
+              onward is report-only — printed, never auto-fixed.
               #bake runs the auto-fix subset first.

@@ -2,7 +2,7 @@
 name: Ui_Settings
 status: active
 created: 2026-06-09 15:28
-modified: 2026-09-11 20:00
+modified: 2026-09-17 20:44
 ---
 
 **Description:** Settings page UI, settings persistence (SharedPreferences), settings-related widgets, and settings UX enhancements.
@@ -12,6 +12,8 @@ modified: 2026-09-11 20:00
 > this feature file defers to it and does not duplicate those rules. Colour tokens: [`docs/color-scheme.md`](../../docs/color-scheme.md) §7.
 
 ## Implemented
+
+- **show-land-water-icon (2026-09-17, `feature/hide-law`)** — the Layers tab gained a "Show Land/Water Icon" section after Coastline: `showLandWaterIcon` (`show_land_water_icon`, plain `true`, an absent key meaning shown) hides the map row's 🌊/🏔️ square, which the row's own `Arrangement.spacedBy` reflows with no spacer or width arithmetic added, and the locked-screen mirror's hard-coded three-square offset became `lockMirrorStartOffset()` — 156 dp with the square, 106 dp without — so the count has one home whose KDoc names the row's order as its dependency; `settings_land_water_icon_label` serves both header and row label with a one-line description beside it in EN and FR, the two live docs state the conditional square while the `xTrack/UI_Map` inventory row is left stale on purpose, and the Ask hop's five prose findings were closed in a second Code hop with `apk-build.bat` SUCCESSFUL → `xTrack/Ui_Settings/260917_FEAT_PLN_Ui_Settings_hide-land-water-icon.md`
 
 - **confirm-dialog normalization — complete (2026-09-11, `feature/tracks-recording`)** — one `ConfirmDialog` (`ui/components`) replaces every `ModalBottomSheet` confirmation and the merge / orphan-recovery `AlertDialog`s: portrait-width panel (`min(maxWidth, maxHeight)`) in both orientations, flush to the bottom edge, rounded top corners only, open-bottom accent border, nav-bar inset inside the panel, IME retained, height wraps + scrolls, 450 ms panel slide; caller-supplied stacked full-width actions (primary accent / secondary outlined / danger red) with an optional bottom-most Cancel (none on recording-exit, stop-recording, orphan recovery). The dialog owns its **own** full-screen `ui.scrim.alpha` scrim; drawer-hosted merge / batch delete are hoisted to the ladder via `ConfirmRequest` / `ConfirmRequestHost` (source drawer stays open, merge exits multiselect on confirm). Ladder dialog plumbing deleted (`LocalDialogDismiss`, `activeDialogDismiss`, dialog-first `scrimDismiss`). Follow-up **P4**: all scrims are hard on/off toggles and the ladder scrim **yields** while any `ConfirmDialog` is visible (`OverlayChrome.dialogScrimActive`), so dims never stack. Build SUCCESS → `xTrack/Ui_Settings/260911_FEAT_PLN_Ui_Settings_confirm-dialog-normalization.md`
 

@@ -19,6 +19,7 @@ import ykws.android.maro.data.regulation.ZoneDisplayCategory
  *                             no persisted position exists.
  * @property defaultLongitude  Initial map center longitude (WGS84, °E).
  * @property coastlineVisible  Whether the coastline polyline overlay is drawn.
+ * @property showLandWaterIcon Whether the top-left row's land/water status square is drawn.
  * @property zone300Visible    Whether the 300 m regulatory band overlay is drawn.
  * @property zone300AutoShowGps   GPS mode: auto-reveal the hidden 300 m band on approach.
  *                             When off, the band stays under manual control in GPS mode.
@@ -55,6 +56,7 @@ data class AppSettings(
     val defaultLatitude: Double = 43.55,
     val defaultLongitude: Double = 7.00,
     val coastlineVisible: Boolean = BuildConfig.LAYER_COASTLINE_DEFAULT,
+    val showLandWaterIcon: Boolean = true,
     val zone300Visible: Boolean = BuildConfig.LAYER_ZONE300_DEFAULT,
     val zoneAutoRevealDistanceM: Float = 100f,
     val zoneAutoRevealTimeS: Int = 10,
@@ -398,6 +400,7 @@ class SettingsManager(
         defaultLatitude  = prefs.getFloat(KEY_DEFAULT_LAT, 43.55f).toDouble(),
         defaultLongitude = prefs.getFloat(KEY_DEFAULT_LON, 7.00f).toDouble(),
         coastlineVisible = prefs.getBoolean(KEY_COASTLINE_VISIBLE, BuildConfig.LAYER_COASTLINE_DEFAULT),
+        showLandWaterIcon = prefs.getBoolean(KEY_SHOW_LAND_WATER_ICON, true),
         zone300Visible   = prefs.getBoolean(KEY_ZONE300_VISIBLE, BuildConfig.LAYER_ZONE300_DEFAULT),
         zoneAutoRevealDistanceM = prefs.getFloat(KEY_ZONE_AUTOREVEAL_DIST_M, defaultAutoRevealDistM),
         zoneAutoRevealTimeS     = prefs.getInt(KEY_ZONE_AUTOREVEAL_TIME_S, defaultAutoRevealTimeS),
@@ -553,6 +556,7 @@ class SettingsManager(
             .putFloat(KEY_DEFAULT_LAT, updated.defaultLatitude.toFloat())
             .putFloat(KEY_DEFAULT_LON, updated.defaultLongitude.toFloat())
             .putBoolean(KEY_COASTLINE_VISIBLE, updated.coastlineVisible)
+            .putBoolean(KEY_SHOW_LAND_WATER_ICON, updated.showLandWaterIcon)
             .putBoolean(KEY_ZONE300_VISIBLE, updated.zone300Visible)
             .putFloat(KEY_ZONE_AUTOREVEAL_DIST_M, updated.zoneAutoRevealDistanceM)
             .putInt(KEY_ZONE_AUTOREVEAL_TIME_S, updated.zoneAutoRevealTimeS)
@@ -679,6 +683,7 @@ class SettingsManager(
         private const val KEY_DEFAULT_LAT = "default_lat"
         private const val KEY_DEFAULT_LON = "default_lon"
         private const val KEY_COASTLINE_VISIBLE = "coastline_visible"
+        private const val KEY_SHOW_LAND_WATER_ICON = "show_land_water_icon"
         private const val KEY_ZONE300_VISIBLE = "zone300_visible"
         private const val KEY_ZONE_AUTOREVEAL_DIST_M = "zone_autoreveal_dist_m"
         private const val KEY_ZONE_AUTOREVEAL_TIME_S = "zone_autoreveal_time_s"

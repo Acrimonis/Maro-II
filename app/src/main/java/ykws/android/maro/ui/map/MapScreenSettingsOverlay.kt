@@ -695,6 +695,20 @@ private fun LayersSettings(
 
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
 
+        // ── Land/Water icon — the row square's own on/off ──────────────
+        SectionHeader(title = stringResource(R.string.settings_land_water_icon_label))
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
+        CardArea {
+            ToggleRow(
+                label = stringResource(R.string.settings_land_water_icon_label),
+                description = stringResource(R.string.settings_land_water_icon_desc),
+                checked = settings.showLandWaterIcon,
+                onCheckedChange = { visible -> onUpdateSettings { it.copy(showLandWaterIcon = visible) } }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
+
         // ── Danger Zones (was: low-depth warning) ──────────────────────
         SectionHeader(title = stringResource(R.string.settings_danger_zones_label))
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
