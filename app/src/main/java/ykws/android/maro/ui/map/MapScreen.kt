@@ -3012,6 +3012,8 @@ private fun MapContent(
         CoastlineMapView(
             segments = segments,
             regulatedZones = visibleRegulatedZones,
+            regulatedZoneFillTransparencyPct = appSettings.regulatedZoneFillTransparencyPct,
+            regulatedZoneBoundaryTransparencyPct = appSettings.regulatedZoneBoundaryTransparencyPct,
             zone300 = visibleZone300,
             zone300Color = appSettings.zone300Color,
             zone300FillTransparencyPct = appSettings.zone300FillTransparencyPct,

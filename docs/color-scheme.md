@@ -336,6 +336,7 @@ The settings card surfaces reuse the shared Main card / Inner card tokens (also 
 **Property prefix:** `regulatedZone.type.*`
 **Source:** [`colors.properties`](../app/src/main/assets/colors.properties) → `AppConfig.regulatedZoneType*`
 **Usage:** [`RegulatedZoneIconProvider.kt`](../app/src/main/java/ykws/android/maro/ui/map/RegulatedZoneIconProvider.kt), [`MapScreen.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt)
+**Polygon alpha (not owned here):** the zone polygons' fill and outline alphas are user settings — `regulatedZoneFillTransparencyPct` (default 80) and `regulatedZoneBoundaryTransparencyPct` (default 20), from the Regulated Zones Appearance row in Settings — so only the RGB of the tokens below reaches the map, and `Paint.alpha` replaces a packed `#CC` on the outline rather than multiplying it.
 **Fill weight:** the bottom-left tag column paints its category colour through the surface family — `MapToggleSquare` + `mapSurfaceFaceActive()` at `ui.map.surface.active.alpha`, so no key of its own carries an alpha.
 
 | Token | Default | Swatch | Zone Type |

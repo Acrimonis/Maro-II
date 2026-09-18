@@ -170,6 +170,8 @@ internal fun ErrorOverlay(
 internal fun CoastlineMapView(
     segments: List<CoastlineSegment>,
     regulatedZones: RegulatedZoneSet?,
+    regulatedZoneFillTransparencyPct: Int,
+    regulatedZoneBoundaryTransparencyPct: Int,
     zone300: Zone300Data?,
     zone300Color: Int,
     zone300FillTransparencyPct: Int,
@@ -217,7 +219,7 @@ internal fun CoastlineMapView(
                 drawDepthMap(this, depthBitmap, depthBox, zoomLevel, tracker.depth)
                 drawLowDepthWarning(this, lowDepthWarningBitmap, depthBox, zoomLevel, tracker.lowDepth)
                 drawIsobaths(this, isobaths, zoomLevel, tracker.isobaths)
-                drawRegulatedZones(this, regulatedZones, zoomLevel, tracker.regulatedZones)
+                drawRegulatedZones(this, regulatedZones, zoomLevel, regulatedZoneFillTransparencyPct, regulatedZoneBoundaryTransparencyPct, tracker.regulatedZones)
                 drawZone300(this, zone300, zoomLevel, zone300Color, zone300FillTransparencyPct, zone300BoundaryTransparencyPct, tracker.zone300)
                 drawCoastline(this, segments, tracker.coastline)
 
@@ -231,6 +233,8 @@ internal fun CoastlineMapView(
                 tracker.lastIsobathZoom = zoomLevel
                 tracker.lastRegulatedZones = regulatedZones
                 tracker.lastRegZoneZoom = zoomLevel
+                tracker.lastRegZoneFillTransparencyPct = regulatedZoneFillTransparencyPct
+                tracker.lastRegZoneBoundaryTransparencyPct = regulatedZoneBoundaryTransparencyPct
                 tracker.lastZone300 = zone300
                 tracker.lastZone300Zoom = zoomLevel
                 tracker.lastZone300Color = zone300Color
@@ -291,14 +295,23 @@ internal fun CoastlineMapView(
     }
 
     // Regulated zones layer
-    LaunchedEffect(regulatedZones, zoomLevel) {
+    LaunchedEffect(regulatedZones, zoomLevel, regulatedZoneFillTransparencyPct, regulatedZoneBoundaryTransparencyPct) {
         val mv = localMapView.value ?: return@LaunchedEffect
-        if (regulatedZones === tracker.lastRegulatedZones && zoomLevel == tracker.lastRegZoneZoom) return@LaunchedEffect
+        // The transparency pair belongs in the guard, not only in the keys: a slider commit leaves
+        // the zone set and the zoom untouched, so without these two the effect would return early
+        // and the setting would look dead until the next zoom change.
+        if (regulatedZones === tracker.lastRegulatedZones &&
+            zoomLevel == tracker.lastRegZoneZoom &&
+            regulatedZoneFillTransparencyPct == tracker.lastRegZoneFillTransparencyPct &&
+            regulatedZoneBoundaryTransparencyPct == tracker.lastRegZoneBoundaryTransparencyPct
+        ) return@LaunchedEffect
         mv.overlays.removeAll(tracker.regulatedZones)
         tracker.regulatedZones.clear()
-        drawRegulatedZones(mv, regulatedZones, zoomLevel, tracker.regulatedZones)
+        drawRegulatedZones(mv, regulatedZones, zoomLevel, regulatedZoneFillTransparencyPct, regulatedZoneBoundaryTransparencyPct, tracker.regulatedZones)
         tracker.lastRegulatedZones = regulatedZones
         tracker.lastRegZoneZoom = zoomLevel
+        tracker.lastRegZoneFillTransparencyPct = regulatedZoneFillTransparencyPct
+        tracker.lastRegZoneBoundaryTransparencyPct = regulatedZoneBoundaryTransparencyPct
         OverlayZOrder.reorder(mv)
         mv.invalidate()
     }

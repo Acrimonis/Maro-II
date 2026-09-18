@@ -91,6 +91,7 @@ Decouple cone/green-line drawing and colour the direction arrow by speed complia
 
 ## Implemented
 
+- **zones-transparency (2026-09-18, `feature/zones-transparency-settings`)** — `drawRegulatedZones()` no longer bakes its own alphas: the polygon fill and outline alpha now come from the user's transparency pair (`regulatedZoneFillTransparencyPct` default 80, `regulatedZoneBoundaryTransparencyPct` default 20, set by the Regulated Zones Appearance row in Settings), derived through the shared `transparencyPctToAlpha`, and `regulatedZoneColor()` returns the per-type hue alone — the `RegulationZoneColor` pair is gone. The icon stack is untouched: it paints opaque category colours. → `xTrack/Ui_Settings/260918_FEAT_PLN_Ui_Settings_regulated-zones-transparency.md`
 - **display-layer** — `RegulatedZonesRepository` asset loader + 8-type colour palette + `drawRegulatedZones()` + visibility toggle + layer button
 - **toggle-control-merge** — 4-state cycle button (`ZoneLayerButton` / `ZoneLayerState`) + settings toggle; `maro.properties` defaults
 - **preparation-for-icons-layout** — GPS icon moved top-left beside EarthWater; icon transparency properties
@@ -108,6 +109,7 @@ Decouple cone/green-line drawing and colour the direction arrow by speed complia
 ## Key Files
 - `app/src/main/java/ykws/android/maro/data/regulation/` — model, clients, aggregator, serializer, repository
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — overlay rendering + toggles
+- `app/src/main/java/ykws/android/maro/ui/map/MapOverlayRenderer.kt` — `regulatedZoneColor()` + `drawRegulatedZones()`, whose alphas now come from the settings pair
 
 ## Docs
 - `xTrack/RegulatedZones/260612_FEAT_PLN_RegulatedZones_category-icon-mapping.md`
