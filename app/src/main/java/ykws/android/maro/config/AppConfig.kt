@@ -279,6 +279,17 @@ object AppConfig {
     /** Default proximity multiplier for Circle/Corridor user markers. Set via `marker.proximity.zone_multiplier` in maro.properties. */
     var markerProximityZoneMultiplier: Double = 3.0
         private set
+    /** Share of the smaller displayed map dimension a selected corridor fills when its dashboard
+     *  opens. Set via `marker.focus.corridor_share` in maro.properties. */
+    var markerFocusCorridorShare: Double = 0.50
+        private set
+    /** The same measure for a selected Circle zone. Set via `marker.focus.zone_share`. */
+    var markerFocusZoneShare: Double = 0.30
+        private set
+    /** Nominal footprint (metres) a selected Pin frames, standing in for the default zone's
+     *  diameter. Set via `marker.focus.pin_footprint_m`. */
+    var markerFocusPinFootprintM: Double = 200.0
+        private set
 
     /** Idle threshold (seconds) for BoatMarker snapshot + drawer auto-open. */
     var boatMarkerIdleThresholdSec: Long = 60
@@ -813,6 +824,16 @@ object AppConfig {
             }
             props.getProperty("marker.proximity.zone_multiplier")?.toDoubleOrNull()?.let {
                 markerProximityZoneMultiplier = it.coerceIn(0.0, 20.0)
+            }
+            // ── Marker focus framing ────────────────────────────────────────────
+            props.getProperty("marker.focus.corridor_share")?.toDoubleOrNull()?.let {
+                markerFocusCorridorShare = it.coerceIn(0.1, 1.0)
+            }
+            props.getProperty("marker.focus.zone_share")?.toDoubleOrNull()?.let {
+                markerFocusZoneShare = it.coerceIn(0.1, 1.0)
+            }
+            props.getProperty("marker.focus.pin_footprint_m")?.toDoubleOrNull()?.let {
+                markerFocusPinFootprintM = it.coerceIn(20.0, 2000.0)
             }
             // ── Auto-marker idle tracking ───────────────────────────────────
             props.getProperty("track.boatMarker.autoMarker.idleThresholdSec")?.toLongOrNull()?.let {

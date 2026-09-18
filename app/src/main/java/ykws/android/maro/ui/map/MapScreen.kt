@@ -2132,25 +2132,68 @@ fun MapScreen(
                 )
             }
 
+        // ── Marker focus: one framing rule for every select that shows the card ─────────
+        // The click-N-move flow frames its marker inside the flow itself; every other select — a map
+        // tap, a dashboard Prev/Next step — is framed here. `lastFramedMarkerId` is what stops the
+        // two from flying the same camera twice: the navigate flow records the id it framed and this
+        // effect steps aside for it. The selection going null (the card closed) clears the record, so
+        // re-opening the same marker frames it again.
+        val focusedMarkerId by markersViewModel.selectedMarkerId.collectAsState()
+        var lastFramedMarkerId by remember { mutableStateOf<String?>(null) }
+
+        fun frameMarker(mv: MapView, marker: UserMarker) {
+            val focus = markerFocusTarget(
+                marker = marker,
+                viewportWidthPx = mv.width,
+                viewportHeightPx = mv.height,
+                currentZoom = mv.zoomLevelDouble,
+                corridorShare = AppConfig.markerFocusCorridorShare,
+                zoneShare = AppConfig.markerFocusZoneShare,
+                pinFootprintM = AppConfig.markerFocusPinFootprintM
+            )
+            if (focus == null) {
+                mv.controller.animateTo(
+                    GeoPoint(marker.centerPoint.latitude, marker.centerPoint.longitude),
+                    null,
+                    GPS_ANIMATION_DURATION_MS
+                )
+            } else {
+                mv.controller.animateTo(
+                    GeoPoint(focus.centre.latitude, focus.centre.longitude),
+                    focus.zoom,
+                    GPS_ANIMATION_DURATION_MS
+                )
+            }
+        }
+
+        LaunchedEffect(focusedMarkerId, drawerState) {
+            if (focusedMarkerId == null) {
+                lastFramedMarkerId = null
+                return@LaunchedEffect
+            }
+            if (drawerState !is MarkerDrawerState.Viewing) return@LaunchedEffect
+            // While an inspect open is landing, the camera belongs to that open's own hand-off.
+            if (inspectHandoff != null) return@LaunchedEffect
+            if (focusedMarkerId == lastFramedMarkerId) return@LaunchedEffect
+            val mv = mapView ?: return@LaunchedEffect
+            val marker = userMarkers.find { it.id == focusedMarkerId } ?: return@LaunchedEffect
+            lastFramedMarkerId = focusedMarkerId
+            frameMarker(mv, marker)
+        }
+
         // ── Click-N-Move: sequential navigate flow ──────────────────────────
         LaunchedEffect(navigateToTarget) {
             val target = navigateToTarget ?: return@LaunchedEffect
             val mv = mapView
             if (mv != null) {
-                // 1. Focus the marker: corridor/circle zoom-to-fit the whole zone (bbox);
-                //    pin is a single point — centre only.
+                // 1. Focus the marker through the one framing rule, recording the id so the select
+                //    effect above does not fly the same camera a second time.
                 val focusMarker = userMarkers.find { it.id == target.markerId }
-                if (focusMarker == null ||
-                    (focusMarker.geometry !is ykws.android.maro.data.model.markers.MarkerGeometry.Circle &&
-                        focusMarker.geometry !is ykws.android.maro.data.model.markers.MarkerGeometry.Corridor)
-                ) {
+                if (focusMarker == null) {
                     mv.controller.animateTo(target.geoPoint, null, GPS_ANIMATION_DURATION_MS)
                 } else {
-                    val b = focusMarker.bbox
-                    mv.zoomToBoundingBox(
-                        org.osmdroid.util.BoundingBox(b.latNorth, b.lonEast, b.latSouth, b.lonWest),
-                        true, 64
-                    )
+                    lastFramedMarkerId = target.markerId
+                    frameMarker(mv, focusMarker)
                 }
 
                 // 2. Wait for animation to settle

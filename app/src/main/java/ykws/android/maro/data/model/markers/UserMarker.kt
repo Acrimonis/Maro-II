@@ -66,7 +66,7 @@ data class UserMarker(
      *
      * 4 float comparisons per marker gate the call to [closestUnblockedPoint].
      */
-    val bbox: BBox by lazy { computeBbox(geometry) }
+    val bbox: BBox by lazy { bboxOf(geometry) }
 
     companion object {
         /** Earth radius in metres (WGS84 mean radius). */
@@ -75,7 +75,12 @@ data class UserMarker(
         /** Metres per degree of latitude at the equator. */
         private val M_PER_DEG_LAT = EARTH_RADIUS_M * PI / 180.0
 
-        private fun computeBbox(geometry: MarkerGeometry): BBox {
+        /**
+         * The one metres-to-degrees conversion: the axis-aligned bbox of any [MarkerGeometry].
+         * Module-visible so the map's marker framing can size a pin's nominal footprint through the
+         * same maths instead of a second copy of it.
+         */
+        internal fun bboxOf(geometry: MarkerGeometry): BBox {
             return when (geometry) {
                 is MarkerGeometry.Pin -> {
                     val p = geometry.position
