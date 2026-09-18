@@ -77,9 +77,6 @@ import ykws.android.maro.ui.components.DrawerHeader
 import ykws.android.maro.ui.components.SectionDivider
 import ykws.android.maro.ui.components.SectionHeader
 import ykws.android.maro.ui.components.ToggleRow
-import ykws.android.maro.spatial.MarkerMatcher
-import ykws.android.maro.spatial.NoOpWhereAmIDebugger
-import ykws.android.maro.spatial.VisualWhereAmIDebugger
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -1278,8 +1275,6 @@ private fun SystemSettings(
                 checked = settings.markerDebugRays,
                 onCheckedChange = { on ->
                     onUpdateSettings { it.copy(markerDebugRays = on) }
-                    AppConfig.markerDebugRaysEnabled = on
-                    MarkerMatcher.debugger = if (on) VisualWhereAmIDebugger() else NoOpWhereAmIDebugger
                 }
             )
 

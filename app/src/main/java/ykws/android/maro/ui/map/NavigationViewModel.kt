@@ -411,9 +411,11 @@ class NavigationViewModel(
     /**
      * Called on each user map touch. Pauses GPS auto-follow + auto-orientation, then resumes the
      * user-configured recenter delay (settings.recenterDelaySeconds, 1–10 s) after the last touch
-     * (snaps back to the GPS position, heading-up). Timer is skipped while a drawer is open, and
-     * while the inspect mode holds the centre: arming a sweep must not leave a deadline running
-     * underneath it, and neither may a card the mode opened.
+     * (snaps back to the GPS position, heading-up). The deadline is held while a drawer is open —
+     * the Where-Am-I dashboard included, its state being one of the drawer states — and while the
+     * inspect mode holds the centre: arming a sweep must not leave a deadline running underneath it,
+     * and neither may a card the mode opened, nor may a dashboard the user is reading be yanked out
+     * from under them by the boat taking the centre back.
      */
     fun notifyUserInteraction() {
         _autoFollowSuppressed.value = true
@@ -424,22 +426,32 @@ class NavigationViewModel(
     }
 
     /**
-     * Called when any drawer opens or closes. Pauses the pan-resume timer while a drawer is open
-     * so the map doesn't snap back during marker creation, settings, or other drawer operations.
-     * On close, springs back to the GPS position immediately if auto-follow was suppressed — except
-     * while the inspect mode holds the centre (armed, or with the card it opened still on screen),
-     * where an in-frame spring-back would yank the anchor the mode sweeps from or the frame the
-     * pick's own camera just set.
+     * Called when any drawer opens or closes — the Where-Am-I dashboard included, so its own lifetime
+     * holds the deadline exactly as the wizard's, the settings page's and the lists' do.
+     *
+     * Opening holds the pan-resume timer, so the map doesn't snap back during marker creation,
+     * settings, a Where-Am-I reading or any other drawer operation: the pan outlives the drawer.
+     * Closing restarts the delay from the close — [startTimer] arms a full
+     * `settings.recenterDelaySeconds` rather than the remainder of the deadline it supersedes — so
+     * the boat takes the centre back exactly as it would have without the drawer. A close with
+     * nothing to return to (the map still following) does nothing at all.
+     *
+     * The inspect mode's loaned frame is the one case already on that delay: an in-frame recentre on
+     * the card's close would yank the anchor the mode sweeps from or the frame the pick's camera just
+     * set, and a card still standing keeps the hold instead.
      */
     fun setDrawerOpen(open: Boolean) {
         drawerOpen = open
-        when {
-            open -> resumeJob?.cancel()
-            // The frame the mode's exit left is handed back on the ordinary delay, never in this
-            // frame: an immediate recentre on the card's close would undo the very frame the mode was
-            // armed on.
-            inspectLoaned && !inspectCardOpen -> startTimer()
-            _autoFollowSuppressed.value && !inspectHoldsCentre -> recenterNow()
+        when (panResumeOnDrawerChange(
+            open = open,
+            autoFollowSuppressed = _autoFollowSuppressed.value,
+            inspectLoaned = inspectLoaned,
+            inspectArmed = inspectArmed,
+            inspectCardOpen = inspectCardOpen
+        )) {
+            PanResumeAction.HOLD -> resumeJob?.cancel()
+            PanResumeAction.RESTART -> startTimer()
+            PanResumeAction.NONE -> {}
         }
     }
 
@@ -574,7 +586,7 @@ class NavigationViewModel(
         }
     }
 
-    /** Start (or restart) the auto-follow resume timer. */
+    /** Start (or restart) the auto-follow resume timer — a full delay measured from this call. */
     private fun startTimer() {
         resumeJob?.cancel()
         resumeJob = viewModelScope.launch {

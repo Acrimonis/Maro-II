@@ -2,14 +2,25 @@ package ykws.android.maro.ui.map
 
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.keyframes
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -17,15 +28,19 @@ import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.cos
 import kotlin.math.pow
+import kotlin.math.roundToInt
 import kotlin.math.sin
 
 // ── Tuning constants for dynamic marker sizing ────────────────────────────────
@@ -89,6 +104,9 @@ internal const val CAP_MIN_SPEED_KNOTS = 2.5f
  * @param zoomLevel      Current map zoom (8.0–18.0).
  * @param distanceToShore Distance from map center to nearest coast in meters,
  *                        or `null` when unavailable.
+ * @param onClick        Tap on the boat. It returns true only for the tap it accepted
+ *                       (the one the map's Where-Am-I lambda acts on), and that return
+ *                       is what pulses the zone; the crosshair branch discards it.
  */
 @Composable
 internal fun CenterMarkerOverlay(
@@ -96,7 +114,7 @@ internal fun CenterMarkerOverlay(
     zoomLevel: Double,
     distanceToShore: Double?,
     showCrosshair: Boolean = false,
-    onClick: () -> Unit = {},
+    onClick: () -> Boolean = { false },
     modifier: Modifier = Modifier,
     centerOffsetYDp: Dp = 0.dp,
 ) {
@@ -110,7 +128,9 @@ internal fun CenterMarkerOverlay(
             modifier = modifier
                 .size(if (finalSizeDp < 48.dp) 48.dp else finalSizeDp)
                 .offset(y = centerOffsetYDp)
-                .clickable(onClick = onClick),
+                // The wizard's position step keeps its own rule: a square box, and no pulse —
+                // the acceptance the round zone reports is not this branch's business.
+                .clickable { onClick() },
             contentAlignment = Alignment.Center
         ) {
             Text(
@@ -126,6 +146,9 @@ internal fun CenterMarkerOverlay(
     val drawableId = if (isWater) R.drawable.maro_marker else R.drawable.maro_dot_marker
     val description = if (isWater) stringResource(R.string.marker_position_water)
                       else stringResource(R.string.marker_position_land)
+    // The zone's assistive action: what the tap *does*, named as such, while the sprite above keeps
+    // [description] as its own content description — the state it shows, not the act it offers.
+    val actionLabel = stringResource(R.string.cd_find_markers_at_position)
 
     // ── Base size: exponential zoom scaling ───────────────────────────────
     // dp = baseDp × 2^(ZOOM_EXPONENT × (zoom − REF_ZOOM))
@@ -148,25 +171,141 @@ internal fun CenterMarkerOverlay(
     // On water: the boat image is shifted down by half its height so its top-center
     // aligns with the map center (GPS position at the boat's bow).
     // On land:   the dot stays centered (no offset — a dot has no direction).
-    //
-    // Touch target is always at least 48dp (button-sized) even when the visual
-    // marker is small at low zoom levels.
-    val touchSizeDp = if (finalSizeDp < 48.dp) 48.dp else finalSizeDp
+    // That offset is left exactly as it is: it is what pins the bow to the GPS point.
+    val spriteOffsetYDp = if (isWater) finalSizeDp / 2 else 0.dp
+
+    // ── Tap zone: one fixed circle on the sprite's visual centre ───────────
+    // The zone's diameter is a property, fixed at any zoom; the centre follows the sprite's own
+    // offset while the diameter does not, so the pair is never one scaled value that could grow
+    // the zone back with the boat (R20). The pulse is that zone's own disc, sized by its own
+    // property and never by the sprite.
+    val tapZoneCentreYDp = spriteOffsetYDp
+    val tapZoneDiameter = AppConfig.mapMarkerTapZoneDiameterDp.dp
+    val tapFlashDiameter = AppConfig.mapMarkerTapFlashDiameterDp.dp
+    val tapFlashDurationMs = AppConfig.mapMarkerTapFlashDurationMs
+    // The beat's ceiling: the token's own alpha, the flash's one carrier of transparency — the
+    // colour named beside it is plain, so nothing but this multiplies the drawn peak.
+    val tapFlashAlphaCeiling = AppConfig.mapMarkerTapFlashAlpha
+    // The peak is a fraction of the beat's own duration, so the rise can never overrun the beat.
+    val tapFlashPeakMs = (tapFlashDurationMs * AppConfig.mapMarkerTapFlashPeakRatio).roundToInt()
+    // The box has to contain the circle it hit-tests: a child may *draw* outside its parent
+    // (the hull does, below the bow), but a touch is only offered to a box that holds it.
+    val boxSizeDp = if (isWater) finalSizeDp + tapZoneDiameter
+                   else maxOf(finalSizeDp, tapZoneDiameter)
+
+    // ── Beat on the accepted tap ──────────────────────────────────────────
+    // The map's own UI state, never the view model's: the tap's acceptance comes back from
+    // the map's lambda, and each accepted tap bumps the generation so a second tap inside
+    // the beat restarts it (R22). Nothing here is tied to the dashboard, so a run closed
+    // mid-beat lets the beat finish instead of cutting it.
+    var flashGeneration by remember { mutableIntStateOf(0) }
+    val flashAlpha = remember { Animatable(0f) }
+    LaunchedEffect(flashGeneration) {
+        if (flashGeneration == 0) return@LaunchedEffect
+        // One beat, never a decay: up from nothing to the token's own alpha by
+        // [tapFlashPeakMs], then back out to nothing at [tapFlashDurationMs]. The snap first
+        // is what makes the restart a beat as well: a second tap interrupts the first mid-rise
+        // or mid-fall, and the new one has to begin at nothing rather than at the old value.
+        flashAlpha.snapTo(0f)
+        flashAlpha.animateTo(
+            targetValue = 0f,
+            animationSpec = keyframes<Float> {
+                durationMillis = tapFlashDurationMs.toInt()
+                0f at 0
+                1f at tapFlashPeakMs
+                0f at tapFlashDurationMs.toInt()
+            }
+        )
+    }
+    val currentOnClick by rememberUpdatedState(onClick)
+    // The zone's centre, read through the latest composition rather than captured: the gesture below
+    // outlives the recomposition that moved it (a zoom change, or the distance-to-coast multiplier).
+    val currentTapZoneCentreYDp by rememberUpdatedState(tapZoneCentreYDp)
+
     Box(
         modifier = modifier
-            .size(touchSizeDp)
+            .size(boxSizeDp)
             .offset(y = centerOffsetYDp)
-            .clickable(onClick = onClick),
+            // Keyed on nothing that moves with the sprite: keying on the size would restart the
+            // pointer coroutine on any resize and cancel a tap already in flight, so the geometry
+            // is read per gesture from the live node size and the current centre instead.
+            .pointerInput(Unit) {
+                val slop = viewConfiguration.touchSlop
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    // Read now, at the down this gesture is judged on, never when the coroutine
+                    // started: the sprite may have resized since, and size is the live node's.
+                    val radiusPx = (tapZoneDiameter / 2).toPx()
+                    val centre = Offset(
+                        size.width / 2f,
+                        size.height / 2f + currentTapZoneCentreYDp.toPx()
+                    )
+                    // Radially, never as the rectangle: a touch in the box's corners is not this
+                    // zone's, and it is left unconsumed so the map still gets the gesture.
+                    if ((down.position - centre).getDistance() > radiusPx) return@awaitEachGesture
+                    // Inside the circle the touch is ours, as the old box's clickable made the
+                    // whole box ours, so a pan begun on the boat stops here exactly as before —
+                    // over 48dp now instead of over the entire sprite.
+                    down.consume()
+                    var lifted = false
+                    while (true) {
+                        val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id }
+                            ?: break
+                        if (!change.pressed) { lifted = true; break }
+                        // A drag is never a tap (R21): no query and no flash for it.
+                        if ((change.position - down.position).getDistance() > slop) break
+                    }
+                    if (lifted && currentOnClick()) flashGeneration++
+                }
+            }
+            // The assistive path back to the action the gesture runs, on the same node and through
+            // the same lambda: the guard stands the activation down exactly as it stands the tap down,
+            // and only an accepted one flashes. Merging carries the sprite's own description onto this
+            // node, as the replaced clickable node carried it, so a reader's activate lands on an
+            // action rather than on a description with none — no ripple, and no rectangle to hit.
+            .semantics(mergeDescendants = true) {
+                onClick(label = actionLabel) {
+                    val accepted = currentOnClick()
+                    if (accepted) flashGeneration++
+                    accepted
+                }
+            },
         contentAlignment = Alignment.Center
     ) {
+        // ── Accepted-tap beat: the zone's own disc, drawn *beneath* the sprite ──
+        // Beneath by the user's ruling: the hull stays crisp and the beat reads as the halo
+        // around it instead of a wash across it. Sized by [tapFlashDiameter] and never by
+        // [finalSizeDp], so it reads identically at every zoom, and centred on the very point the
+        // gesture above judges from — the zone's own centre. [requiredSize], not [size]: the box
+        // holds only the sprite plus the zone, so the disc must escape that constraint to reach
+        // its full diameter, and it draws past the box because the box carries no clip while the
+        // touch area stays the radial test's. Where the hull's opaque pixels cover the disc the
+        // gold shows only in the sprite's own transparent margins — the flanks, plus above the
+        // bow and below the stern while the sprite is smaller than the disc.
+        if (flashAlpha.value > 0f) {
+            Canvas(
+                modifier = Modifier
+                    .requiredSize(tapFlashDiameter)
+                    .offset(y = tapZoneCentreYDp)
+            ) {
+                drawCircle(
+                    color = ComposeColor(AppConfig.mapMarkerTapFlashColor),
+                    radius = size.minDimension / 2f,
+                    // The colour is plain and [tapFlashAlphaCeiling] carries the transparency, so
+                    // the beat's own fraction is the only other multiplier: the peak is exactly
+                    // that ceiling and both ends are nothing.
+                    alpha = flashAlpha.value * tapFlashAlphaCeiling,
+                )
+            }
+        }
+
         // ── Boat/land marker ──────────────────────────────────────────────
-        val yOffset = if (isWater) finalSizeDp / 2 else 0.dp
         Image(
             painter = painterResource(id = drawableId),
             contentDescription = description,
             modifier = Modifier
                 .size(finalSizeDp)
-                .offset(y = yOffset),
+                .offset(y = spriteOffsetYDp),
             contentScale = ContentScale.Fit
         )
     }

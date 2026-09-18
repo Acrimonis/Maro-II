@@ -38,8 +38,10 @@ touching the device, and stating a claim about the code with no file read behind
   the active one into a full paragraph, so the reply stays the same size as the list shortens.
 - **📋 Report only what changed.** If the tool output already answered the request, emit only `Done.`
   A report states the problem and the fix, never the mechanism, unless a rule requires the evidence; for
-  multi-step changes, add an ELIJP — one or two plain sentences on purpose, jargon stripped — and an
-  ELI20, the same thing in twenty words.
+  multi-step changes, add an ELIJP — one or two plain sentences on purpose, jargon stripped — the focus
+  line below closing the same in twenty words.
+- **🪧 Focus line.** Every reply closes on one line of twenty words or fewer saying what the exchange
+  settled, in plain words — no mechanism, no paths or identifiers, and never a next step or a question.
 - **🗣️ Recommendations argue against themselves.** State the strongest objection to your own
   recommendation, or say none was found. A question is asked only when its answer changes what
   happens next.

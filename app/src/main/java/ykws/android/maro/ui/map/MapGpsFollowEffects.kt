@@ -1,6 +1,7 @@
 package ykws.android.maro.ui.map
 
 import android.view.MotionEvent
+import android.view.ViewConfiguration
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import org.osmdroid.util.GeoPoint
@@ -26,9 +27,16 @@ internal fun MapGpsFollowEffects(
      * hook is added to it rather than a second listener being installed — a second
      * `setOnTouchListener` would silently replace this one and break `notifyUserInteraction()`.
      */
-    onMapTouch: (Int) -> Unit = {}
+    onMapTouch: (Int) -> Unit = {},
+    /**
+     * Fires once per gesture when a one-finger drag carries the map past touch slop — the pan, and only
+     * the pan: a second finger latches the gesture as a pinch, a tap never exceeds the slop, and the
+     * zoom buttons are controls outside the map that never reach this listener.
+     */
+    onMapPan: () -> Unit = {}
 ) {
     val onMapTouchState = androidx.compose.runtime.rememberUpdatedState(onMapTouch)
+    val onMapPanState = androidx.compose.runtime.rememberUpdatedState(onMapPan)
     // ── Force marker to match MapView zoom once the view is ready ────────
     // Even though _zoomLevel is seeded from persisted settings, there can be
     // a frame where collectAsState() captures the initial default before the
@@ -40,14 +48,20 @@ internal fun MapGpsFollowEffects(
         // Two-finger rotation tracking state.
         var rotating = false
         var lastAngleDeg = 0f
+        // The drag gate ([MapPanDetector]): the pan the map itself performs, read here because a second
+        // `setOnTouchListener` would silently replace this one and take `notifyUserInteraction()` with it.
+        val panDetector = MapPanDetector(ViewConfiguration.get(mv.context).scaledTouchSlop.toFloat())
         mv.setOnTouchListener { _, ev ->
             onMapTouchState.value(ev.actionMasked)
             when (ev.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     viewModel.notifyUserInteraction()
+                    panDetector.down(ev.x, ev.y)
                 }
                 MotionEvent.ACTION_POINTER_DOWN -> {
-                    // Second finger touched — start tracking rotation.
+                    // Second finger touched: the gesture is a pinch from here, so the gate latches it as
+                    // one, and rotation starts tracking when demo heading-up asked for it.
+                    panDetector.pinchStarted()
                     if (ev.pointerCount == 2 && viewModel.settings.value.demoHeadingUp) {
                         val dx = ev.getX(1) - ev.getX(0)
                         val dy = ev.getY(1) - ev.getY(0)
@@ -56,6 +70,7 @@ internal fun MapGpsFollowEffects(
                     }
                 }
                 MotionEvent.ACTION_MOVE -> {
+                    if (panDetector.move(ev.pointerCount, ev.x, ev.y)) onMapPanState.value()
                     if (rotating && ev.pointerCount >= 2) {
                         val dx = ev.getX(1) - ev.getX(0)
                         val dy = ev.getY(1) - ev.getY(0)
@@ -73,8 +88,15 @@ internal fun MapGpsFollowEffects(
                         viewModel.notifyUserInteraction()
                     }
                 }
-                MotionEvent.ACTION_POINTER_UP, MotionEvent.ACTION_UP -> {
+                MotionEvent.ACTION_POINTER_UP -> {
                     rotating = false
+                }
+                // The last finger lifted, or the gesture died: the gate is re-armed for the next one. A
+                // pointer up inside a multi-touch gesture deliberately does not re-arm it — the rest of
+                // that gesture stays the pinch it began as.
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    rotating = false
+                    panDetector.gestureEnd()
                 }
             }
             false // don't consume — the map still pans/zooms normally

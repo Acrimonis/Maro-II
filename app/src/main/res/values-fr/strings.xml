@@ -405,6 +405,7 @@
     <string name="cd_selected">Sélectionné</string>
     <string name="cd_collapse_speed_scale">Réduire l\'échelle de vitesse</string>
     <string name="cd_expand_speed_scale">Déplier l\'échelle de vitesse</string>
+    <string name="cd_find_markers_at_position">Rechercher les repères à votre position</string>
 
     <!-- Multiselect -->
     <string name="multiselect_count">%d sélectionnés</string>

@@ -2,7 +2,7 @@
 name: Markers
 status: active
 created: 2026-06-22 11:52
-modified: 2026-09-18 21:22
+modified: 2026-09-18 22:00
 ---
 
 # Feature: Markers
@@ -31,10 +31,26 @@ Static settings-driven halo ring differentiates pinned (white, strong) from unpi
 ## Todos
 - [ ] fix proximity of date points — rays hit/test all of them
 
+## Walk
+**Level 1 — Date:** 2026-09-18 · **Source:** `xTrack/Markers/260918_FEAT_PLN_Markers_whereami-tap-zone-and-ray-clear.md` · **Active:** 11
+- [x] 1 · Touch zone — a fixed thumb-sized circle centred on the sprite's visual centre at any zoom, with a short transparent-gold ring flash on an accepted tap
+- [x] 2 · Rays cleared when the dashboard closes — segments cleared, the run left to finish, publishing gated on the dashboard still being its own
+- [x] 3 · Rays withdrawn when the debug toggle goes off
+- [x] 4 · Debugger passed per call, the no-op collector for the recorder and the service
+- [x] 5 · One resolve body, the null-index and empty-marker cases kept apart
+- [x] 6 · One query per tap, the recording snapshot ordered against the close
+- [x] 7 · Debugger interface shrunk to what is called
+- [x] 8 · The `marker.debug.rays.enabled` hook — retired 2026-09-18, the setting left as the single carrier
+- [x] 9 · Verification — build, scoped tests, and whatever guards `spatial/`
+- [x] 10 · Device pass — closed by decision 2026-09-18: the user owns it, and this walk no longer tracks it
+- [ ] 11 · Bookkeeping bake across Markers, UI_Map and Ui_Settings
+- [ ] 12 · Proximity of date points — rays hit and test all of them (pre-existing, outside the plan above)
+
 ## Implemented
 
 - **marker-focus-zoom (2026-09-18)** — a marker's dashboard open now frames it to a stated share of the smaller displayed map dimension, replacing the one uniform 64 px border fit that made every zone type land at the same size: corridor 0.50, circle 0.30, and a pin through a nominal 200 m footprint — the default zone's diameter, the wizard's own `radiusM = 100.0` — at the zone's share and never below the current zoom; the three values live as `marker.focus.*` in `maro.properties` behind `AppConfig`, the fit is a pure `MarkerFocus` helper with eight JVM tests, the 8–18 zoom bounds gained one home and `UserMarker.bboxOf` replaced the private metres-to-degrees conversion the pin's footprint reuses; the navigate flow keeps its single camera ownership and every other select — map tap, dashboard Prev/Next — is framed by one effect guarded by `lastFramedMarkerId` and the inspect hand-off, `apk-build.bat` SUCCESS with `MarkerFocusTest` green → `xTrack/Markers/260918_FEAT_PLN_Markers_focus-zoom-fractions.md`
-
+- **whereami-card-close-rule (2026-09-18)** — the Where-Am-I card dismisses on a one-finger map pan by its own rule, the gate held in `ui/map/MapPanDetector.kt` with a pinch latched out of it, while a zoom, a double-tap and the zoom buttons leave it standing; the recorder's idle exit dismisses it as before, and the return-to-boat timer is held while a drawer is open and restarted on close
+- **whereami-tap-zone-and-flash (2026-09-18)** — the boat's touch box replaced by a fixed radial zone on the sprite's visual centre, its diameter, the pulse's, the beat and its peak all read from the `map.marker.tap.*` keys (sprite and its `centerOffsetYDp` unmoved, so the bow stays on the GPS point), consuming only inside the circle and reaching assistive tech as the same accepted action; an accepted tap beats one gold disc beneath the sprite — `map.marker.tap.flash.color` at `map.marker.tap.flash.alpha`, twice the zone's diameter — never while inspect is armed and never for a drag. Shipped with the ray-clear items through the `#implement` pipeline → `xTrack/Markers/260918_FEAT_PLN_Markers_whereami-tap-zone-and-ray-clear.md`
 - **pin-halo-rendering (2026-09-05)** — static halo ring (pinned white / unpinned light-blue, absolute size 18-60px, opacity pairs); pin dimming removed (search dimming kept); corridor always-on colored line + pinned under-line halo; selected-marker gold driven by `selectedMarkerId` (forces zones, folds `navigationZonesVisible`, removes `highlightedMarkerId`); corridor/circle focus zoom-to-fit; icon centered on halo; code split into `MarkerAppearance`/`MarkerHalo` → `xTrack/Markers/260905_FEAT_PLN_Markers_pin-halo-rendering.md`
 - **icon-pin-decoupling (2026-09-04)** — icon fully decoupled from pin (pure POI emoji, no pin semantics); pin re-implemented as real persisted `UserMarker.pinned` mirroring tracks (repo/VM/card/drawer/multi-select/filter/rendering); removed obsolete `migratePinnedToIcon`; settings v7 migration → `xTrack/Markers/260904_FEAT_PLN_Markers_icon-pin-decoupling.md`
 - **multi-select-merge (2026-07-18)** — multi-select delete/pin/merge on marker list → `xTrack/Markers/260718_FEAT_PLN_Markers_multi-select-and-merge.md`
