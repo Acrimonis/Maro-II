@@ -28,25 +28,24 @@ const val REGULATED_ZONE_MIN_ZOOM = 10.0
 const val DEPTH_OVERLAY_BANDS = 8
 
 /**
- * Per-type colour configuration for regulated zone overlays.
- *
- * @property fillARGB ARGB colour int for the translucent polygon fill (alpha pre-applied).
- * @property strokeARGB Fully opaque ARGB colour int for the polygon outline.
+ * Transparency percentage → paint alpha, shared by the 300 m band and the regulated zones.
+ * 0 = opaque (255), 100 = invisible (0). Mirrors the historical 300 m band maths, which truncates
+ * on integer division, so not every alpha has a percentage that reproduces it.
  */
-data class RegulationZoneColor(val fillARGB: Int, val strokeARGB: Int)
+fun transparencyPctToAlpha(pct: Int): Int = ((100 - pct.coerceIn(0, 100)) * 255) / 100
 
-/** Map each [RegulatedZoneType] to a distinct translucent fill + opaque outline colour. */
-fun regulatedZoneColor(type: RegulatedZoneType): RegulationZoneColor = when (type) {
-    // Fill uses 0x30 alpha (~19 %, matching zone300 fill opacity) applied via Color.argb.
-    // Stroke uses full-opacity ARGB with .toInt() for values > Int.MAX_VALUE (0xFF prefix).
-    RegulatedZoneType.SPEED_LIMIT           -> RegulationZoneColor((AppConfig.regulatedZoneTypeSpeedLimit and 0x00FFFFFF) or 0x30000000, AppConfig.regulatedZoneTypeSpeedLimit)  // Blue
-    RegulatedZoneType.ANCHORING_PROHIBITED  -> RegulationZoneColor((AppConfig.regulatedZoneTypeAnchoringProhibited and 0x00FFFFFF) or 0x30000000, AppConfig.regulatedZoneTypeAnchoringProhibited)  // Amber
-    RegulatedZoneType.ACCESS_PROHIBITED     -> RegulationZoneColor((AppConfig.regulatedZoneTypeAccessProhibited and 0x00FFFFFF) or 0x30000000, AppConfig.regulatedZoneTypeAccessProhibited)  // Red
-    RegulatedZoneType.ENVIRONMENTAL         -> RegulationZoneColor((AppConfig.regulatedZoneTypeEnvironmental and 0x00FFFFFF) or 0x30000000, AppConfig.regulatedZoneTypeEnvironmental)  // Green
-    RegulatedZoneType.MOORING               -> RegulationZoneColor((AppConfig.regulatedZoneTypeMooring and 0x00FFFFFF) or 0x30000000, AppConfig.regulatedZoneTypeMooring)  // Teal
-    RegulatedZoneType.FISHING_PROHIBITED    -> RegulationZoneColor((AppConfig.regulatedZoneTypeFishingProhibited and 0x00FFFFFF) or 0x30000000, AppConfig.regulatedZoneTypeFishingProhibited)  // Yellow
-    RegulatedZoneType.NAVIGATION_RESTRICTION -> RegulationZoneColor((AppConfig.regulatedZoneTypeNavigationRestriction and 0x00FFFFFF) or 0x30000000, AppConfig.regulatedZoneTypeNavigationRestriction) // Purple
-    RegulatedZoneType.OTHER                 -> RegulationZoneColor((AppConfig.regulatedZoneTypeOther and 0x00FFFFFF) or 0x30000000, AppConfig.regulatedZoneTypeOther)  // Blue Grey
+/** Map each [RegulatedZoneType] to its distinct polygon hue. */
+fun regulatedZoneColor(type: RegulatedZoneType): Int = when (type) {
+    // Palette ARGB values; only their RGB part reaches the map — the fill and outline alphas come
+    // from the user's transparency pair, so a packed alpha here (a `#CC` prefix) is not used.
+    RegulatedZoneType.SPEED_LIMIT           -> AppConfig.regulatedZoneTypeSpeedLimit             // Blue
+    RegulatedZoneType.ANCHORING_PROHIBITED  -> AppConfig.regulatedZoneTypeAnchoringProhibited     // Amber
+    RegulatedZoneType.ACCESS_PROHIBITED     -> AppConfig.regulatedZoneTypeAccessProhibited        // Red
+    RegulatedZoneType.ENVIRONMENTAL         -> AppConfig.regulatedZoneTypeEnvironmental           // Green
+    RegulatedZoneType.MOORING               -> AppConfig.regulatedZoneTypeMooring                 // Teal
+    RegulatedZoneType.FISHING_PROHIBITED    -> AppConfig.regulatedZoneTypeFishingProhibited       // Yellow
+    RegulatedZoneType.NAVIGATION_RESTRICTION -> AppConfig.regulatedZoneTypeNavigationRestriction  // Purple
+    RegulatedZoneType.OTHER                 -> AppConfig.regulatedZoneTypeOther                   // Blue Grey
 }
 
 /**
@@ -158,8 +157,8 @@ fun drawZone300(
     sink.clear()
     if (zone == null || zoomLevel < ZONE_MIN_ZOOM) return
 
-    val fillAlpha = ((100 - fillTransparencyPct.coerceIn(0, 100)) * 255) / 100
-    val boundaryAlpha = ((100 - boundaryTransparencyPct.coerceIn(0, 100)) * 255) / 100
+    val fillAlpha = transparencyPctToAlpha(fillTransparencyPct)
+    val boundaryAlpha = transparencyPctToAlpha(boundaryTransparencyPct)
 
     // Fill (water only) — translucent red, no outline on the polygon itself.
     for (poly in zone.fillPolygons) {
@@ -196,8 +195,9 @@ fun drawZone300(
 
 /**
  * Draws regulated zones as translucent filled polygons with coloured outlines, one per
- * [RegulatedZone] in the set. Each [RegulatedZoneType] gets a distinct colour (see
- * [regulatedZoneColor]). Polygon holes (island interiors) are supported.
+ * [RegulatedZone] in the set. Each [RegulatedZoneType] gets a distinct hue (see
+ * [regulatedZoneColor]); the fill and outline alphas come from the user's transparency pair
+ * (0 = opaque, 100 = invisible). Polygon holes (island interiors) are supported.
  *
  * Zoom-gated below [REGULATED_ZONE_MIN_ZOOM] and skipped when [zones] is null.
  *
@@ -207,24 +207,28 @@ fun drawRegulatedZones(
     mapView: MapView,
     zones: RegulatedZoneSet?,
     zoomLevel: Double,
+    fillTransparencyPct: Int,
+    boundaryTransparencyPct: Int,
     sink: MutableList<Polygon>
 ) {
     sink.clear()
     if (zones == null || zoomLevel < REGULATED_ZONE_MIN_ZOOM) return
+    val fillAlpha = transparencyPctToAlpha(fillTransparencyPct)
+    val boundaryAlpha = transparencyPctToAlpha(boundaryTransparencyPct)
     for (zone in zones.zones) {
         if (zone.outerRing.size < 3) continue
 
-        val colors = regulatedZoneColor(zone.zoneType)
+        val color = regulatedZoneColor(zone.zoneType)
         val fill = Polygon().apply {
             setPoints(zone.outerRing.map { GeoPoint(it.latitude, it.longitude) })
             val validHoles = zone.holes.filter { it.size >= 3 }
             if (validHoles.isNotEmpty()) {
                 setHoles(validHoles.map { hole -> hole.map { GeoPoint(it.latitude, it.longitude) } })
             }
-            fillPaint.color = colors.fillARGB
-            outlinePaint.color = colors.strokeARGB
+            fillPaint.color = Color.argb(fillAlpha, Color.red(color), Color.green(color), Color.blue(color))
+            outlinePaint.color = color
             outlinePaint.strokeWidth = 3f
-            outlinePaint.alpha = 200
+            outlinePaint.alpha = boundaryAlpha
             outlinePaint.isAntiAlias = true
         }
         mapView.overlays.add(fill)

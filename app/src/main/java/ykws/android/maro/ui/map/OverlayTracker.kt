@@ -36,6 +36,8 @@ class OverlayTracker {
 
     var lastRegulatedZones: RegulatedZoneSet? = null
     var lastRegZoneZoom: Double = -1.0
+    var lastRegZoneFillTransparencyPct: Int = -1
+    var lastRegZoneBoundaryTransparencyPct: Int = -1
 
     var lastZone300: Zone300Data? = null
     var lastZone300Zoom: Double = -1.0

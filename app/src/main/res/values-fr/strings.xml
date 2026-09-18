@@ -77,13 +77,13 @@
     <string name="settings_zone300_desc">Régler la couleur et la transparence de la bande côtière des 300 m</string>
     <string name="settings_zone300_color_label">Couleur de la zone</string>
     <string name="settings_zone300_color_desc">Couleur du remplissage et du contour de la bande des 300 m</string>
-    <string name="settings_zone300_opacity_label">Transparence</string>
     <string name="settings_zone300_opacity_desc">Transparence du contenu et du contour de la zone (0% = opaque, 100% = invisible)</string>
-    <string name="settings_zone300_opacity_value_fmt">Contour %1$d%% · Remplissage %2$d%%</string>
     <string name="settings_zone300_appearance_label">Apparence de la zone des 300 m</string>
     <string name="settings_auto_markers_label">Gestion de la création automatique des repères</string>
     <string name="settings_regulated_zones_label">Zones réglementées</string>
     <string name="settings_regulated_zones_desc">Afficher les zones réglementées (vitesse, mouillage, etc.) sur la carte</string>
+    <string name="settings_regulated_zones_appearance_label">Apparence des zones réglementées</string>
+    <string name="settings_regulated_zones_transparency_desc" formatted="false">Transparence du remplissage et du contour des zones réglementées (0% = opaque, 100% = invisible)</string>
     <string name="settings_danger_zones_label">Zones de danger</string>
     <string name="settings_danger_zones_desc">Surligner les hauts-fonds qui pourraient échouer le bateau</string>
     <string name="settings_low_depth_warning_label">Alerte faible profondeur</string>
@@ -339,6 +339,8 @@
     <string name="settings_transparency_label">Transparence des non épinglées</string>
     <string name="settings_transparency_desc" formatted="false">Dégradé sur les N dernières traces non épinglées : curseur gauche = plus récente, droit = plus ancienne. 0% = opaque, 100% = invisible.</string>
     <string name="settings_transparency_value_fmt">Récent %1$d%%  –  Ancien %2$d%%</string>
+    <string name="settings_transparency_border_fill_label">Transparence</string>
+    <string name="settings_transparency_border_fill_value_fmt">Bord %1$d%% · Remplissage %2$d%%</string>
     <string name="settings_pinned_transparency_label">Transparence des épinglées</string>
     <string name="settings_pinned_transparency_desc" formatted="false">Dégradé sur les traces épinglées uniquement, indépendant des non épinglées. 0% = opaque, 100% = invisible.</string>
     <string name="settings_colors_label">Couleurs par défaut</string>
@@ -356,8 +358,6 @@
     <string name="settings_marker_zoom_desc">Taille de rendu des points et icônes des repères. 100% = taille actuelle</string>
     <string name="settings_marker_halo_size_label">Taille du halo</string>
     <string name="settings_marker_halo_size_desc">Taille de l\'anneau autour de chaque repère</string>
-    <string name="settings_marker_halo_transparency_label">Transparence</string>
-    <string name="settings_marker_halo_value_fmt">Bord %1$d%% · Remplissage %2$d%%</string>
     <string name="settings_marker_halo_colors_label">Couleurs</string>
     <string name="settings_marker_halo_unpinned_label">Non épinglé</string>
     <string name="settings_marker_halo_unpinned_color_label">Couleur non épinglé</string>

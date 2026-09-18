@@ -465,14 +465,14 @@ private fun LayersSettings(
                     SectionDivider()
 
                     // Opacity section
-                    SubSectionHeader(title = stringResource(R.string.settings_marker_halo_transparency_label))
+                    SubSectionHeader(title = stringResource(R.string.settings_transparency_border_fill_label))
                     Spacer(modifier = Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
 
                     // Transparency: 0 = opaque, 100 = invisible. The strong border has low
                     // transparency (left thumb); the faint fill has high transparency (right thumb).
                     RangeSliderRow(
                         label = stringResource(R.string.settings_marker_halo_pinned_label),
-                        valueLabel = stringResource(R.string.settings_marker_halo_value_fmt,
+                        valueLabel = stringResource(R.string.settings_transparency_border_fill_value_fmt,
                             settings.markerHaloPinnedBorderTransparencyPct,
                             settings.markerHaloPinnedFillTransparencyPct),
                         value = settings.markerHaloPinnedBorderTransparencyPct.toFloat()
@@ -493,7 +493,7 @@ private fun LayersSettings(
                     // transparency (left thumb); the faint fill has high transparency (right thumb).
                     RangeSliderRow(
                         label = stringResource(R.string.settings_marker_halo_unpinned_label),
-                        valueLabel = stringResource(R.string.settings_marker_halo_value_fmt,
+                        valueLabel = stringResource(R.string.settings_transparency_border_fill_value_fmt,
                             settings.markerHaloUnpinnedBorderTransparencyPct,
                             settings.markerHaloUnpinnedFillTransparencyPct),
                         value = settings.markerHaloUnpinnedBorderTransparencyPct.toFloat()
@@ -583,6 +583,50 @@ private fun LayersSettings(
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingHeaderBottom.dp))
         CardArea {
             CardDescription(stringResource(R.string.settings_regulated_zones_desc))
+
+            // Appearance first: the only control in this card that changes how the zones look
+            // rather than what they report. Mirrors the 300 m band's Appearance expander.
+            Expander(
+                label = stringResource(R.string.settings_regulated_zones_appearance_label),
+                expanded = settingsVm.isExpanded("reg_appearance"),
+                onToggle = { settingsVm.setExpanded("reg_appearance", !settingsVm.isExpanded("reg_appearance")) }
+            ) {
+                Spacer(Modifier.height(8.dp))
+                NestedCard {
+                    SubSectionHeader(
+                        title = stringResource(R.string.settings_transparency_border_fill_label),
+                        description = stringResource(R.string.settings_regulated_zones_transparency_desc)
+                    )
+                    // Transparency: 0 = opaque, 100 = invisible. The outline is strong (low
+                    // transparency) so it sits on the left thumb; the faint fill has high
+                    // transparency so it sits on the right thumb. Same 5% snap and commit-on-release
+                    // as the 300 m row — the setting is written on drag end, never per tick.
+                    var transparencyDrag by remember {
+                        mutableStateOf(settings.regulatedZoneBoundaryTransparencyPct.toFloat()..settings.regulatedZoneFillTransparencyPct.toFloat())
+                    }
+                    RangeSliderRow(
+                        valueLabel = stringResource(
+                            R.string.settings_transparency_border_fill_value_fmt,
+                            (transparencyDrag.start / 5f).roundToInt() * 5,
+                            (transparencyDrag.endInclusive / 5f).roundToInt() * 5
+                        ),
+                        value = transparencyDrag,
+                        valueRange = 0f..100f,
+                        steps = 19,
+                        onValueChange = { range -> transparencyDrag = range },
+                        onValueChangeFinished = {
+                            onUpdateSettings {
+                                it.copy(
+                                    regulatedZoneBoundaryTransparencyPct = (transparencyDrag.start / 5f).roundToInt() * 5,
+                                    regulatedZoneFillTransparencyPct = (transparencyDrag.endInclusive / 5f).roundToInt() * 5
+                                )
+                            }
+                        }
+                    )
+                }
+            }
+            Spacer(Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
+
             // Regulation info — collapsible toggle for info text panel
             Expander(
                 label = stringResource(R.string.settings_reg_info_settings_label),
@@ -637,7 +681,7 @@ private fun LayersSettings(
                 Spacer(modifier = Modifier.height(8.dp))
                 NestedCard {
                     SubSectionHeader(
-                        title = stringResource(R.string.settings_zone300_opacity_label),
+                        title = stringResource(R.string.settings_transparency_border_fill_label),
                         description = stringResource(R.string.settings_zone300_opacity_desc)
                     )
                     // Transparency: 0 = opaque, 100 = invisible. The boundary is strong
@@ -648,7 +692,7 @@ private fun LayersSettings(
                     }
                     RangeSliderRow(
                         valueLabel = stringResource(
-                            R.string.settings_zone300_opacity_value_fmt,
+                            R.string.settings_transparency_border_fill_value_fmt,
                             (transparencyDrag.start / 5f).roundToInt() * 5,
                             (transparencyDrag.endInclusive / 5f).roundToInt() * 5
                         ),

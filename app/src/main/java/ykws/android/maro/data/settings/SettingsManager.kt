@@ -117,6 +117,10 @@ data class AppSettings(
     val zone300FillTransparencyPct: Int = 80,
     /** 300 m band seaward boundary transparency % (0–100). */
     val zone300BoundaryTransparencyPct: Int = 20,
+    /** Regulated zone polygon fill transparency % (0–100, higher = more invisible). Defaults mirror the 300 m band. */
+    val regulatedZoneFillTransparencyPct: Int = 80,
+    /** Regulated zone polygon outline transparency % (0–100). Defaults mirror the 300 m band. */
+    val regulatedZoneBoundaryTransparencyPct: Int = 20,
     /** Idle threshold (s) before a BoatMarker snapshot + auto-marker is captured. */
     val boatMarkerIdleThresholdSec: Long = ykws.android.maro.config.AppConfig.boatMarkerIdleThresholdSec,
     /** Minimum idle duration (s) before an auto-marker becomes permanent. */
@@ -445,6 +449,8 @@ class SettingsManager(
         zone300Color = prefs.getInt(KEY_ZONE300_COLOR, 0xFFE53935.toInt()),
         zone300FillTransparencyPct = prefs.getInt(KEY_ZONE300_FILL_TRANSPARENCY_PCT, 80),
         zone300BoundaryTransparencyPct = prefs.getInt(KEY_ZONE300_BOUNDARY_TRANSPARENCY_PCT, 20),
+        regulatedZoneFillTransparencyPct = prefs.getInt(KEY_REGULATED_ZONE_FILL_TRANSPARENCY_PCT, 80),
+        regulatedZoneBoundaryTransparencyPct = prefs.getInt(KEY_REGULATED_ZONE_BOUNDARY_TRANSPARENCY_PCT, 20),
         boatMarkerIdleThresholdSec = prefs.getLong(KEY_BOAT_MARKER_IDLE_THRESHOLD_S, ykws.android.maro.config.AppConfig.boatMarkerIdleThresholdSec),
         boatMarkerAutoMarkerMinDurationSec = prefs.getLong(KEY_BOAT_MARKER_AUTO_MIN_DURATION_S, ykws.android.maro.config.AppConfig.boatMarkerAutoMarkerMinDurationSec),
         boatMarkerAutoMarkerDedupRadiusM = prefs.getFloat(KEY_BOAT_MARKER_AUTO_DEDUP_RADIUS_M, ykws.android.maro.config.AppConfig.boatMarkerAutoMarkerDedupRadiusM.toFloat()).toDouble(),
@@ -592,6 +598,8 @@ class SettingsManager(
             .putInt(KEY_ZONE300_COLOR, updated.zone300Color)
             .putInt(KEY_ZONE300_FILL_TRANSPARENCY_PCT, updated.zone300FillTransparencyPct)
             .putInt(KEY_ZONE300_BOUNDARY_TRANSPARENCY_PCT, updated.zone300BoundaryTransparencyPct)
+            .putInt(KEY_REGULATED_ZONE_FILL_TRANSPARENCY_PCT, updated.regulatedZoneFillTransparencyPct)
+            .putInt(KEY_REGULATED_ZONE_BOUNDARY_TRANSPARENCY_PCT, updated.regulatedZoneBoundaryTransparencyPct)
             .putLong(KEY_BOAT_MARKER_IDLE_THRESHOLD_S, updated.boatMarkerIdleThresholdSec)
             .putLong(KEY_BOAT_MARKER_AUTO_MIN_DURATION_S, updated.boatMarkerAutoMarkerMinDurationSec)
             .putFloat(KEY_BOAT_MARKER_AUTO_DEDUP_RADIUS_M, updated.boatMarkerAutoMarkerDedupRadiusM.toFloat())
@@ -722,6 +730,8 @@ class SettingsManager(
         private const val KEY_ZONE300_COLOR = "zone300_fill_color"
         private const val KEY_ZONE300_FILL_TRANSPARENCY_PCT = "zone300_fill_transparency_pct"
         private const val KEY_ZONE300_BOUNDARY_TRANSPARENCY_PCT = "zone300_boundary_transparency_pct"
+        private const val KEY_REGULATED_ZONE_FILL_TRANSPARENCY_PCT = "regulated_zone_fill_transparency_pct"
+        private const val KEY_REGULATED_ZONE_BOUNDARY_TRANSPARENCY_PCT = "regulated_zone_boundary_transparency_pct"
         private const val KEY_BOAT_MARKER_IDLE_THRESHOLD_S = "boat_marker_idle_threshold_s"
         private const val KEY_BOAT_MARKER_AUTO_MIN_DURATION_S = "boat_marker_auto_min_duration_s"
         private const val KEY_BOAT_MARKER_AUTO_DEDUP_RADIUS_M = "boat_marker_auto_dedup_radius_m"

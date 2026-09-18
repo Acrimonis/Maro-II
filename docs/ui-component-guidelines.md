@@ -277,7 +277,7 @@ The two-thumb row: optional label/description, a **mandatory** value line, and t
 - **Two-thumb transparency** (300 m band): left thumb = border (strong, low transparency), right thumb = fill (faint, high transparency); `value = border..fill`; commit on release via `onValueChangeFinished`.
 - **Log-scale** for octave-spanning ranges (e.g. gap 4–640, speed 2–64): map position 0..1 → value with `lo × (hi/lo)^pos` (`logSliderFromValue` / `logSliderToValue`); ~24 positions.
 
-**Transparency convention (app-wide):** all opacity/transparency settings use **TRANSPARENCY** semantics — **0 = opaque (fully visible), 100 = invisible**. Never expose "opacity" (inverted) wording. Label the control **"Transparency"** and format two-thumb values as **"Border X% · Fill Y%"** (border = outer stroke/strong, fill = inner/zone content/faint). Applies to tracks, marker halo, 300 m band, and low-depth warning.
+**Transparency convention (app-wide):** all opacity/transparency settings use **TRANSPARENCY** semantics — **0 = opaque (fully visible), 100 = invisible**. Never expose "opacity" (inverted) wording. Label the control **"Transparency"** and format two-thumb values as **"Border X% · Fill Y%"** (border = outer stroke/strong, fill = inner/zone content/faint). Applies to tracks, marker halo, 300 m band, regulated zone polygons, and low-depth warning; the percentage → alpha derivation is one function, `transparencyPctToAlpha` in [`MapOverlayRenderer.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapOverlayRenderer.kt).
 
 ### 2.9 Header Hierarchy
 
