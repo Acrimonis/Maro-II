@@ -2,7 +2,7 @@
 name: Markers
 status: active
 created: 2026-06-22 11:52
-modified: 2026-09-05 10:42
+modified: 2026-09-18 21:22
 ---
 
 # Feature: Markers
@@ -11,6 +11,15 @@ modified: 2026-09-05 10:42
 User-defined markers on the map — Pin, Circle, and Corridor geometries. Line-of-sight matching with proximity-zone pre-filter (land-blocking via coastline spatial index + 10m grazing tolerance). On-demand "where am I?" query via boat marker tap. Step-by-step wizard for creation/editing. Viewing drawer (card layout) + match result display. Management page with swipe-to-delete. OSMdroid native overlays. Binary layer toggle (HIDDEN/SHOW_ALL). POI emoji icons on markers; pin is a real persisted flag.
 
 ## Sections
+
+### marker-focus-zoom
+
+The camera a selected marker asks for when its dashboard opens: a stated share of the smaller
+displayed map dimension — corridor 0.50, circle zone 0.30 — with a pin framing the default zone's
+200 m footprint at the zone's share and never below the current zoom.
+
+#### Docs
+- `xTrack/Markers/260918_FEAT_PLN_Markers_focus-zoom-fractions.md` — plan (implemented)
 
 ### pin-halo-rendering
 
@@ -23,6 +32,8 @@ Static settings-driven halo ring differentiates pinned (white, strong) from unpi
 - [ ] fix proximity of date points — rays hit/test all of them
 
 ## Implemented
+
+- **marker-focus-zoom (2026-09-18)** — a marker's dashboard open now frames it to a stated share of the smaller displayed map dimension, replacing the one uniform 64 px border fit that made every zone type land at the same size: corridor 0.50, circle 0.30, and a pin through a nominal 200 m footprint — the default zone's diameter, the wizard's own `radiusM = 100.0` — at the zone's share and never below the current zoom; the three values live as `marker.focus.*` in `maro.properties` behind `AppConfig`, the fit is a pure `MarkerFocus` helper with eight JVM tests, the 8–18 zoom bounds gained one home and `UserMarker.bboxOf` replaced the private metres-to-degrees conversion the pin's footprint reuses; the navigate flow keeps its single camera ownership and every other select — map tap, dashboard Prev/Next — is framed by one effect guarded by `lastFramedMarkerId` and the inspect hand-off, `apk-build.bat` SUCCESS with `MarkerFocusTest` green → `xTrack/Markers/260918_FEAT_PLN_Markers_focus-zoom-fractions.md`
 
 - **pin-halo-rendering (2026-09-05)** — static halo ring (pinned white / unpinned light-blue, absolute size 18-60px, opacity pairs); pin dimming removed (search dimming kept); corridor always-on colored line + pinned under-line halo; selected-marker gold driven by `selectedMarkerId` (forces zones, folds `navigationZonesVisible`, removes `highlightedMarkerId`); corridor/circle focus zoom-to-fit; icon centered on halo; code split into `MarkerAppearance`/`MarkerHalo` → `xTrack/Markers/260905_FEAT_PLN_Markers_pin-halo-rendering.md`
 - **icon-pin-decoupling (2026-09-04)** — icon fully decoupled from pin (pure POI emoji, no pin semantics); pin re-implemented as real persisted `UserMarker.pinned` mirroring tracks (repo/VM/card/drawer/multi-select/filter/rendering); removed obsolete `migratePinnedToIcon`; settings v7 migration → `xTrack/Markers/260904_FEAT_PLN_Markers_icon-pin-decoupling.md`
@@ -56,6 +67,7 @@ Static settings-driven halo ring differentiates pinned (white, strong) from unpi
 - `app/src/main/java/ykws/android/maro/ui/map/MarkerColors.kt`
 
 ## Docs
+- `xTrack/Markers/260918_FEAT_PLN_Markers_focus-zoom-fractions.md` — focus zoom framing: the share rule, the value keys, the pure helper and the camera wiring
 - `xTrack/Markers/260625_FEAT_PLN_Markers_wizard-drawerslot-separation.md` — wizard step extraction + DrawerSlot abstraction design
 - `xTrack/Markers/260905_FEAT_PLN_Markers_pin-halo-rendering.md` — pin halo rendering plan (implemented)
 - `xTrack/Markers/260904_FEAT_PLN_Markers_icon-pin-decoupling.md` — icon/pin decoupling + pin re-implementation plan (implemented)

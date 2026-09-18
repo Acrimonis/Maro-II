@@ -1,21 +1,26 @@
-# Hydration — Markers
+# Context Hydration — Markers — 2026-09-18
 
-**Last Bake:** 2026-09-05 10:42
-**State:** icon-pin-decoupling + pin-halo-rendering implemented on branch feature/markers-pin. Build green.
+**Last Bake:** 2026-09-18 21:22 UTC
 
-## Summary
-- **icon-pin-decoupling (implemented)** — icon fully decoupled from pin (pure POI emoji, no pin semantics); pin re-implemented as real persisted `UserMarker.pinned` mirroring tracks (repo/VM/card/drawer/multi-select/filter/rendering); removed obsolete `migratePinnedToIcon`; settings v7 migration. Plan: `260904_FEAT_PLN_Markers_icon-pin-decoupling.md`.
-- **pin-halo-rendering (implemented)** — static settings-driven halo ring differentiates pinned (white, strong) from unpinned (light-blue, faint); pin dimming removed (search dimming kept); corridor always-on colored line + pinned under-line halo; selected-marker gold driven by `selectedMarkerId` (forces zones, folds `navigationZonesVisible`, removes `highlightedMarkerId`); corridor/circle focus zoom-to-fit; icon centered on halo; code split into `MarkerAppearance`/`MarkerHalo`. Plan: `260905_FEAT_PLN_Markers_pin-halo-rendering.md`.
-- **opacity-normalization (implemented, Ui_Settings)** — all opacity/transparency settings standardized on OPACITY; tracks converted transparency→opacity with v8 migration; marker halo + zone300 relabeled. Plan: `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_opacity-normalization.md`.
+**Directive trace:** No dependency was added, no machine-shaped data file was opened, no work started without an order and the device was untouched; the one claim about the code written without a read behind it — the framing values reached through `AppSettings` — was corrected in the same session once the compiler rejected it, so all five classes were met and none stopped.
 
-## Modified Files
-- `xTrack/Markers/260905_FEAT_PLN_Markers_pin-halo-rendering.md` — plan (new)
-- `xTrack/Markers/260904_FEAT_PLN_Markers_icon-pin-decoupling.md` — plan (implemented)
-- `xTrack/Markers/FEAT_DSC_Markers.md` — front-matter, sections, Implemented, Docs
-- `xTrack/Ui_Settings/260905_FEAT_PLN_Ui_Settings_opacity-normalization.md` — plan (new)
-- `xTrack/GLOBAL_CONTEXT.md` — focus pointers + Markers summary row
+## State
 
-## Pending
-- `#todo markers: fix proximity of date points. Rays hit/test all of them.`
-- `#todo gps: back to GPS point -> replace delay by swipe of card`
-- `#todo: normalize localisation and fill holes`
+`marker-focus-zoom` shipped on `feature/mrkrs` (off `origin/develop` at `35c66c0`): opening a marker's
+dashboard now frames that marker to a stated share of the smaller displayed map dimension — corridor
+0.50, circle zone 0.30, and a pin through a nominal 200 m footprint at the zone's share, never below the
+current zoom. The fit is the pure `MarkerFocus.kt`, `MarkerFocusTest` is 8/8 green and `apk-build.bat`
+succeeded, with the scoped `ui.map` + `config` run at 197 tests and only the five pre-existing
+properties-versus-code-default reds. Two behaviours no test covers: whether the framing hop can flip
+`inspectMapMovedByUser` at the wrong moment, and the GPS auto-follow takeover.
+
+## Target Files
+
+- `app/src/main/java/ykws/android/maro/ui/map/MarkerFocus.kt` — the fit, and the only place the share rule is expressed
+- `app/src/main/assets/maro.properties` — the three `marker.focus.*` values behind the behaviour
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — the navigate flow's hop and the select-driven effect that frames every other select
+- `app/src/main/java/ykws/android/maro/config/AppConfig.kt` — the read-only accessors and their clamps
+
+## Next Step
+
+Pin the three `marker.focus.*` keys to their parse with a properties test, the Ask pass's open finding, then run the device pass over a corridor, a circle and a pin with the card open — watching the share, whether GPS auto-follow steals the frame, and whether closing the card leaves the camera alone.

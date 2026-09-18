@@ -49,6 +49,13 @@ import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.MapView
 
+/**
+ * The map's own zoom range — one home for the pair. The view enforces it on its `MapView`, and the
+ * marker focus framing clamps the zoom it asks for to the same bounds, so the two cannot disagree.
+ */
+internal const val MAP_MIN_ZOOM = 8.0
+internal const val MAP_MAX_ZOOM = 18.0
+
 @Composable
 internal fun LoadingOverlay(
     progress: GenerationProgress,
@@ -207,8 +214,8 @@ internal fun CoastlineMapView(
                 setTileSource(TileSourceFactory.MAPNIK)
                 setMultiTouchControls(true)
                 setBuiltInZoomControls(false)
-                minZoomLevel = 8.0
-                maxZoomLevel = 18.0
+                minZoomLevel = MAP_MIN_ZOOM
+                maxZoomLevel = MAP_MAX_ZOOM
                 controller.setZoom(initialZoom)
                 controller.setCenter(GeoPoint(center.latitude, center.longitude))
                 if (centerOffsetYPx != 0) {
