@@ -114,6 +114,7 @@ ui/map/  ──depends on──▶  spatial/  +  data/*/
 | Task | Start Here |
 |------|------------|
 | Add a new map overlay | `ui/map/OverlayLayer.kt` → see existing overlay patterns; read-only state belongs in a bundle in `ui/map/OverlayLayerParams.kt`, never as a new signature param |
+| Change the boat's tap zone or its accepted-tap flash | `ui/map/MapOverlays.kt` + `config/AppConfig.kt` + the `map.marker.tap.*` keys (the whole family — zone, beat, colour and alpha — in `maro.properties`) |
 | Add a new regulated zone source | `data/regulation/RegulationAggregator.kt` + new client class |
 | Change how depth is rendered | `ui/map/DepthViewModel.kt` + `ui/map/DepthColorRamp.kt` |
 | Add a track recording feature | `data/track/TrackRecorder.kt` → `TrackViewModel.kt` → `ui/map/TrackHistoryOverlay.kt` |

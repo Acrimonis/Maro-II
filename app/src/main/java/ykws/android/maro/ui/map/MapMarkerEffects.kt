@@ -10,7 +10,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.flow.MutableSharedFlow
 import org.osmdroid.views.MapView
-import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.model.LatLng
 import ykws.android.maro.data.model.markers.MarkerOrigin
 import ykws.android.maro.data.model.markers.UserMarker
@@ -19,8 +18,6 @@ import ykws.android.maro.data.track.IdleCaptureResult
 import ykws.android.maro.data.track.IdleThresholdCallback
 import ykws.android.maro.data.track.WhereAmIProvider
 import ykws.android.maro.spatial.DebugSegment
-import ykws.android.maro.spatial.MarkerMatcher
-import ykws.android.maro.spatial.VisualWhereAmIDebugger
 
 /**
  * Marker wiring effects (extracted from MapScreen): shared-settings bridge to child
@@ -96,8 +93,8 @@ internal fun MapMarkerEffects(
 }
 
 /**
- * Marker debug effects (extracted from MapScreen): ray-tracer setting sync into
- * AppConfig and the WhereAmI debug-segment visual overlay render.
+ * Marker debug effects (extracted from MapScreen): the WhereAmI debug-segment
+ * visual overlay render.
  */
 @Composable
 internal fun MapMarkerDebugEffects(
@@ -105,26 +102,20 @@ internal fun MapMarkerDebugEffects(
     appSettings: AppSettings,
     debugSegments: List<DebugSegment>
 ) {
-    // Wire debug ray tracer + sync persisted setting → AppConfig
-    LaunchedEffect(Unit) {
-        AppConfig.markerDebugRaysEnabled = appSettings.markerDebugRays
-        if (AppConfig.markerDebugRaysEnabled) {
-            MarkerMatcher.debugger = VisualWhereAmIDebugger()
-            Log.d("WIA", "DEBUGGER: VisualWhereAmIDebugger activated")
-        }
-    }
-
     // ── WhereAmI debug segments: visual overlay on the map ─────────────────
     // Green = clear line-of-sight, Red = blocked by land.
-    LaunchedEffect(mapView, debugSegments) {
+    // The flag is a key as well as a condition: a toggle-off re-runs this effect so the polylines
+    // it owns are withdrawn, while a merely stale non-empty list would redraw them (CH3).
+    LaunchedEffect(mapView, debugSegments, appSettings.markerDebugRays) {
         val mv = mapView ?: run { Log.d("WIA", "DEBUGGER: mapView null, skipping render"); return@LaunchedEffect }
-        Log.d("WIA", "DEBUGGER: rendering ${debugSegments.size} segments")
+        val raysOn = appSettings.markerDebugRays
+        Log.d("WIA", "DEBUGGER: rays=$raysOn segments=${debugSegments.size}")
         // Remove previous debug polylines
         mv.overlays.removeAll {
             (it as? org.osmdroid.views.overlay.Polyline)?.title?.startsWith("wia_debug_") == true
         }
         // Render current segments
-        if (debugSegments.isNotEmpty()) {
+        if (raysOn && debugSegments.isNotEmpty()) {
             debugSegments.forEachIndexed { index, segment ->
                 val color = if (segment.blocked) Color.RED else Color.GREEN
                 val polyline = org.osmdroid.views.overlay.Polyline().apply {

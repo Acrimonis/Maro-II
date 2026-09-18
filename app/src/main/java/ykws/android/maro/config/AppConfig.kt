@@ -309,9 +309,6 @@ object AppConfig {
     var boatMarkerMinTravelBetweenStopsM: Double = 25.0
         private set
 
-    /** Enable visual whereAmI debug rays on the map. Set via `marker.debug.rays.enabled` in maro.properties. */
-    var markerDebugRaysEnabled: Boolean = false
-
     /** Gap distance threshold (m) for inserting GAP markers on track resume. Set via `tracking.gapDistanceThresholdM` in maro.properties. */
     var trackingGapDistanceThresholdM: Double = 200.0
         private set
@@ -616,6 +613,38 @@ object AppConfig {
         private set
     /** Zone300 boundary colour. Default #FFE53935. Set via `map.zone300.boundary` in colors.properties. */
     var mapZone300Boundary: Int = 0xFFE53935.toInt()
+        private set
+    /** Gold wash over the boat, pulsed by an accepted Where-Am-I tap — the gold the
+     *  Where-Am-I result already uses, plain and opaque. The overlay beats it once, up to
+     *  [mapMarkerTapFlashAlpha] and back out to nothing.
+     *  Set via `map.marker.tap.flash.color` in maro.properties. */
+    var mapMarkerTapFlashColor: Int = 0xFFFFD700.toInt()
+        private set
+
+    /** Ceiling the accepted tap's beat rises to, on the 0.0–1.0 scale the `*.alpha` keys share —
+     *  clamped to 0–1 so the drawn alpha can never exceed it. Default 0.50. The alpha's one carrier:
+     *  the flash colour is opaque. Set via `map.marker.tap.flash.alpha` in maro.properties. */
+    var mapMarkerTapFlashAlpha: Float = 0.50f
+        private set
+
+    /** Diameter (dp) of the boat's round tap zone — fixed at any zoom, never following the sprite.
+     *  Default 48. Set via `map.marker.tap.zoneDiameterDp` in maro.properties. */
+    var mapMarkerTapZoneDiameterDp: Float = 48f
+        private set
+
+    /** Diameter (dp) of the accepted tap's pulse disc — twice the zone, so it haloes the hull.
+     *  Default 96. Set via `map.marker.tap.flashDiameterDp` in maro.properties. */
+    var mapMarkerTapFlashDiameterDp: Float = 96f
+        private set
+
+    /** Total duration (ms) of the accepted tap's single beat — the rise, then the way back out.
+     *  Default 540. Set via `map.marker.tap.flashDurationMs` in maro.properties. */
+    var mapMarkerTapFlashDurationMs: Long = 540L
+        private set
+
+    /** Where the beat peaks, as a fraction of its duration — clamped to 0–1 so the rise can never
+     *  overrun the beat. Default 0.3333. Set via `map.marker.tap.flashPeakRatio` in maro.properties. */
+    var mapMarkerTapFlashPeakRatio: Float = 0.3333f
         private set
 
     // ── Progress/error overlay colours ────────────────────────────────────────
@@ -955,10 +984,6 @@ object AppConfig {
                 trackHeatmapRamp = trackHeatmapRamp.copy(unknownArgb = it)
             }
 
-            // ── Marker debug rays ───────────────────────────────────────
-            props.getProperty("marker.debug.rays.enabled")?.toBooleanStrictOrNull()?.let {
-                markerDebugRaysEnabled = it
-            }
             // ── Marker sort scoring ──
             props.getProperty("marker.sort.typeWeight.Pin")?.toDoubleOrNull()?.let {
                 markerSortTypeWeightPin = it.coerceIn(0.0, 1.0)
@@ -1015,6 +1040,12 @@ object AppConfig {
             props.getProperty("ui.map.overlay.text.line.height")?.toFloatOrNull()?.let { uiMapOverlayTextLineHeight = it }
             props.getProperty("ui.map.overlay.gap")?.toFloatOrNull()?.let { uiMapOverlayGap = it }
             props.getProperty("ui.map.overlay.line.spacing")?.toFloatOrNull()?.let { uiMapOverlayLineSpacing = it }
+            // ── Boat tap feedback ────────────────────────────────────────────
+            // The ratio is clamped so the beat's peak can never overrun its own duration.
+            props.getProperty("map.marker.tap.zoneDiameterDp")?.toFloatOrNull()?.let { mapMarkerTapZoneDiameterDp = it }
+            props.getProperty("map.marker.tap.flashDiameterDp")?.toFloatOrNull()?.let { mapMarkerTapFlashDiameterDp = it }
+            props.getProperty("map.marker.tap.flashDurationMs")?.toLongOrNull()?.let { mapMarkerTapFlashDurationMs = it }
+            props.getProperty("map.marker.tap.flashPeakRatio")?.toFloatOrNull()?.let { mapMarkerTapFlashPeakRatio = it.coerceIn(0f, 1f) }
 
             // ── Semantic colours ──────────────────────────────────────────────────
             props.getProperty("semantic.danger")?.let { parseColorOrNull(it) }?.let { semanticDanger = it }
@@ -1133,6 +1164,8 @@ object AppConfig {
             props.getProperty("map.zoneAhead.cone.outline")?.let { parseColorOrNull(it) }?.let { mapZoneAheadConeOutline = it }
             props.getProperty("map.zone300.fill")?.let { parseColorOrNull(it) }?.let { mapZone300Fill = it }
             props.getProperty("map.zone300.boundary")?.let { parseColorOrNull(it) }?.let { mapZone300Boundary = it }
+            props.getProperty("map.marker.tap.flash.color")?.let { parseColorOrNull(it) }?.let { mapMarkerTapFlashColor = it }
+            props.getProperty("map.marker.tap.flash.alpha")?.toFloatOrNull()?.let { mapMarkerTapFlashAlpha = it.coerceIn(0f, 1f) }
 
             // ── Progress/error overlay ────────────────────────────────────────
             props.getProperty("ui.progress.accent")?.let { parseColorOrNull(it) }?.let { uiProgressAccent = it }

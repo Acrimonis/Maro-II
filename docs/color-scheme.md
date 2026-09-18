@@ -189,6 +189,10 @@ original 9 sp type and 3×1 dp padding — a reported risk rather than a second 
 
 **Source:** [`colors.properties`](../app/src/main/assets/colors.properties) → `AppConfig.*`
 
+**Re-homed:** `map.marker.tap.flash.color` and `.alpha` are the flash's functional settings rather than
+palette tokens, and ship in [`maro.properties`](../app/src/main/assets/maro.properties) →
+`AppConfig.mapMarkerTapFlash*`, beside the tap zone and the beat's timing.
+
 ### Coastlines
 
 | Token | Value | Swatch | Usage |

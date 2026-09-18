@@ -593,6 +593,19 @@ fun MapScreen(
     }
 
     /**
+     * The pan's close: a drag on the map dismisses only the Where-Am-I card, and through the same
+     * [MarkersViewModel.closeDrawer] call [closeMarkerDashboard] uses. The reason is the card's own
+     * content — the list it shows is a snapshot of the boat's position, and a drag leaves that snapshot
+     * behind. The guard is MatchResult alone: a marker card being read (Viewing) and the wizard keep
+     * their own rules.
+     */
+    fun closeWhereAmICard() {
+        if (markersViewModel.drawerState.value == MarkerDrawerState.MatchResult) {
+            markersViewModel.closeDrawer()
+        }
+    }
+
+    /**
      * Closes the track detail drawer, restoring the pre-navigation camera when the map was untouched.
      *
      * Inspect (plan §5): while the mode owns the card, the card's own restore stands down and the disarm
@@ -897,7 +910,11 @@ fun MapScreen(
         // exists and never consumes rather than installing a second one, which would replace it.
         onMapTouch = { action ->
             if (action == MotionEvent.ACTION_UP) mapLiftId++
-        }
+        },
+        // The drag's own close, not the recorder's idle exit's: a card the user opened by their own tap
+        // has no recording behind it, so nothing else would ever dismiss it on a drag. A pinch, a
+        // double-tap and the zoom buttons never reach this callback — the gate is one finger and slop.
+        onMapPan = { closeWhereAmICard() }
     )
 
     // Coastline classifier is needed for both the low-depth warning and the depth colour map
@@ -978,6 +995,8 @@ fun MapScreen(
                     }
                 }
                 is ykws.android.maro.data.track.TrackEvent.DrawerAutoCloseRequested -> {
+                    // The recorder's idle exit dismisses the Where-Am-I card, a drag included: a drag
+                    // moves the boat in demo mode, and reading real travel is the exit's own reason.
                     if (markersViewModel.drawerState.value == MarkerDrawerState.MatchResult) {
                         markersViewModel.closeDrawer()
                     }
@@ -1860,12 +1879,14 @@ fun MapScreen(
                     // track dashboard closes first (one selected item at a time).
                     closeTrackDrawer()
                     val boatPos = gpsPosition ?: mapCenter
-                    markersViewModel.whereAmI(boatPos)
-                    // Also snapshot for track recording (MANUAL trigger)
-                    val result = markersViewModel.whereAmISync(boatPos)
-                    val snapshots = result.allMatches.map { it.toMarkerSnapshot() }
-                    if (snapshots.isNotEmpty()) {
-                        trackViewModel.addManualBoatMarker(snapshots)
+                    // C3: one resolution per tap, run once and handed to both. The recording gets its
+                    // MANUAL snapshot from the run's completion, so the note survives a close — the
+                    // run may be superseded for the dashboard, but it never loses what it owes (§10).
+                    markersViewModel.whereAmI(boatPos) { result ->
+                        val snapshots = result.allMatches.map { it.toMarkerSnapshot() }
+                        if (snapshots.isNotEmpty()) {
+                            trackViewModel.addManualBoatMarker(snapshots)
+                        }
                     }
                 },
                 onRetry = { viewModel.loadCoastline() },
@@ -3110,7 +3131,12 @@ private fun MapContent(
             showCrosshair = showCrosshair,
             // While armed the mode owns this point: running the query would race the trigger for the
             // same card slot, so the tap stands down and the map's own markers keep their route.
-            onClick = { if (!inspectArmed) onWhereAmI() },
+            // The return is the acceptance itself: the boat flashes its gold ring only for the tap
+            // that reaches onWhereAmI, never for one that stood down here (R21).
+            onClick = {
+                if (inspectArmed) false
+                else { onWhereAmI(); true }
+            },
             modifier = Modifier.align(Alignment.Center),
             centerOffsetYDp = mapCenterOffsetDp
         )

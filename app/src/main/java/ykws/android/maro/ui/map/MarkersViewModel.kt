@@ -28,6 +28,8 @@ import ykws.android.maro.data.settings.AppSettings
 import ykws.android.maro.spatial.CoastlineSpatialIndex
 import ykws.android.maro.spatial.DebugSegment
 import ykws.android.maro.spatial.MarkerMatcher
+import ykws.android.maro.spatial.NoOpWhereAmIDebugger
+import ykws.android.maro.spatial.VisualWhereAmIDebugger
 import ykws.android.maro.spatial.WhereAmIMatch
 import ykws.android.maro.spatial.WhereAmIResult
 import java.text.SimpleDateFormat
@@ -202,7 +204,7 @@ class MarkersViewModel(
             }.asStateFlow()
         }
 
-    /** Current drawer mode. */
+    /** Current drawer mode — written only through [setDrawerState], which owns the ray lifetime. */
     private val _drawerState = MutableStateFlow<MarkerDrawerState>(MarkerDrawerState.Hidden)
     val drawerState: StateFlow<MarkerDrawerState> = _drawerState.asStateFlow()
 
@@ -353,6 +355,26 @@ class MarkersViewModel(
 
     // ── Drawer control ────────────────────────────────────────────────────
 
+    /**
+     * The sole writer of [_drawerState], and so the owner of the Where-Am-I invariant.
+     *
+     * The rays and the run id that publishes them belong to the MatchResult dashboard alone: any
+     * other destination — a marker card, the wizard, Hidden — retires both here, whichever route
+     * asks for it. A tap that swaps the card in therefore leaves no stale ray on the map, and a run
+     * still in flight cannot publish over the state that replaced it, its id having just been
+     * retired — [whereAmI] reads that id at publication, not at capture (R14/R15).
+     *
+     * Keeping the field private and this function its only writer is what makes the rule hold for
+     * every route, including one added later, rather than for the close funnel it used to sit in.
+     */
+    private fun setDrawerState(next: MarkerDrawerState) {
+        if (next !is MarkerDrawerState.MatchResult) {
+            _debugSegments.value = emptyList()
+            currentOpenId = 0L
+        }
+        _drawerState.value = next
+    }
+
     /** Opens drawer in viewing mode for a single marker (convenience). */
     fun openEditDrawer(markerId: String, selectedId: String? = null, source: DrawerSource = DrawerSource.WHERE_AM_I) {
         openEditDrawer(listOf(markerId), selectedId = selectedId, source = source)
@@ -399,7 +421,7 @@ class MarkersViewModel(
             icon = marker.icon,
             corridorP2 = corridorP2
         )
-        _drawerState.value = MarkerDrawerState.Viewing
+        setDrawerState(MarkerDrawerState.Viewing)
     }
 
     private fun isClampedSource() = drawerSource == DrawerSource.LIST || drawerSource == DrawerSource.MAP ||
@@ -500,9 +522,18 @@ class MarkersViewModel(
         }
     }
 
-    /** Closes the drawer. */
+    /**
+     * Closes the drawer, taking the Where-Am-I rays with it and retiring the open the runs publish to.
+     *
+     * The in-flight run is deliberately left to finish: it still owes its MANUAL note to the
+     * recording (§10), and the retired id is what stops it from publishing. Nothing cancels it, so
+     * rapid taps no longer cancel each other either — the id decides who publishes.
+     *
+     * The rays and the id are [setDrawerState]'s to clear, so this route and every other one carry
+     * the same rule; what is left here is only what a close means on its own.
+     */
     fun closeDrawer() {
-        _drawerState.value = MarkerDrawerState.Hidden
+        setDrawerState(MarkerDrawerState.Hidden)
         _wizardStep.value = null
         editingMarkerId = null
         _selectedMarkerId.value = null
@@ -580,7 +611,7 @@ class MarkersViewModel(
         )
         wizardForward = true
         _wizardStep.value = WizardStep.TypeSelect
-        _drawerState.value = MarkerDrawerState.Creating
+        setDrawerState(MarkerDrawerState.Creating)
     }
 
     /** Begin wizard in edit mode, pre-filled with the marker identified by [markerId]. */
@@ -621,7 +652,7 @@ class MarkersViewModel(
         _wizardStep.value = seq[1]
         // Emit one-shot map-centre request so MapScreen animates to the marker
         _mapCenterRequest.value = _createForm.value.position
-        _drawerState.value = MarkerDrawerState.Editing(markerId)
+        setDrawerState(MarkerDrawerState.Editing(markerId))
     }
 
     /** Advance to the next wizard step. */
@@ -670,7 +701,7 @@ class MarkersViewModel(
         editingMarkerId = null
         _selectedMarkerId.value = null
         _createForm.value = CreateFormState()
-        _drawerState.value = MarkerDrawerState.Hidden
+        setDrawerState(MarkerDrawerState.Hidden)
     }
 
     /** Finish early — save immediately with defaults for remaining steps. */
@@ -741,7 +772,7 @@ class MarkersViewModel(
             val filter = settings?.markerListFilter ?: ListFilter()
             val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
             _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
-            _drawerState.value = MarkerDrawerState.Hidden
+            setDrawerState(MarkerDrawerState.Hidden)
             _lastSavedMarkerId.value = marker.id
             _wizardStep.value = null
             editingMarkerId = null
@@ -787,7 +818,7 @@ class MarkersViewModel(
             val filter = settings?.markerListFilter ?: ListFilter()
             val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
             _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
-            _drawerState.value = MarkerDrawerState.Hidden
+            setDrawerState(MarkerDrawerState.Hidden)
             _wizardStep.value = null
             editingMarkerId = null
             _selectedMarkerId.value = null
@@ -823,7 +854,7 @@ class MarkersViewModel(
             val sort = settings?.markerListSort ?: ykws.android.maro.data.model.ListSortState()
             _markers.value = sortMarkers(all.filter { it.matchesFilter(filter) }, sort)
             if (closeDrawer) {
-                _drawerState.value = MarkerDrawerState.Hidden
+                setDrawerState(MarkerDrawerState.Hidden)
             }
         }
     }
@@ -999,48 +1030,68 @@ class MarkersViewModel(
 
     // ── "Where am I?" on-demand match ─────────────────────────────────────
 
-    private var whereAmIJob: kotlinx.coroutines.Job? = null
+    /** A resolution's matches plus the ray segments its own debugger collected. */
+    private data class Resolution(val result: WhereAmIResult, val segments: List<DebugSegment>)
 
     /**
-     * Synchronous whereAmI — used by the idle threshold callback
-     * which runs inside a coroutine on the recorder's scope.
-     * Returns markers snapshotted at [boatPos].
+     * Monotonic id of the run that opened the dashboard on screen; 0 while none is open.
+     * [setDrawerState] retires it on every move off MatchResult, which is what dates a run as stale.
      */
-    fun whereAmISync(boatPos: LatLng): WhereAmIResult {
-        val index = coastlineIndex ?: return WhereAmIResult(emptyList())
-        val all = _allMarkers.value
-        if (all.isEmpty()) return WhereAmIResult(emptyList())
-        MarkerMatcher.debugger.clear()
-        return MarkerMatcher.resolveAllMarkers(boatPos, all, index)
+    private var openCounter = 0L
+    private var currentOpenId = 0L
+
+    /**
+     * The one resolution body, at [boatPos]: the coastline-index guard, the marker snapshot, the
+     * per-call debugger choice and the resolver call, returning the result with its segments.
+     *
+     * The two empties stay apart (CH5): a missing coastline index returns null and so opens no
+     * dashboard, while an empty marker list resolves to an empty result its caller still publishes.
+     * [collectRays] is the per-run debugger choice — a fresh visual collector only for a UI run whose
+     * rays are wanted, the no-op everywhere else, where the capture would only be discarded (CH4).
+     */
+    private fun resolveAt(boatPos: LatLng, collectRays: Boolean): Resolution? {
+        val index = coastlineIndex ?: return null
+        val debugger = if (collectRays) VisualWhereAmIDebugger() else NoOpWhereAmIDebugger
+        // The empty marker list is the resolver's own case — it answers an empty result, which the
+        // caller still publishes — while the missing index above returns null and opens nothing.
+        val result = MarkerMatcher.resolveAllMarkers(boatPos, _allMarkers.value, index, debugger)
+        return Resolution(result, debugger.getSegments())
     }
 
     /**
-     * Runs [MarkerMatcher.resolveAllMarkers] at [boatPos] using the injected
-     * coastline spatial index.  Posts the result to [matchResult] and switches the
-     * drawer to [MarkerDrawerState.MatchResult].
-     *
-     * Cancels any previous in-progress resolution (rapid-tap guard).
+     * Synchronous whereAmI — used by the idle threshold callback
+     * which runs inside a coroutine on the recorder's scope, and by the service bridge.
+     * Returns markers snapshotted at [boatPos].
      */
-    fun whereAmI(boatPos: LatLng) {
-        val index = coastlineIndex ?: return
-        val all = _allMarkers.value
-        if (all.isEmpty()) {
-            _matchResult.value = WhereAmIResult(emptyList())
-            _drawerState.value = MarkerDrawerState.MatchResult
-            return
-        }
+    fun whereAmISync(boatPos: LatLng): WhereAmIResult =
+        resolveAt(boatPos, collectRays = false)?.result ?: WhereAmIResult(emptyList())
 
-        whereAmIJob?.cancel()
-        MarkerMatcher.debugger.clear()
-        whereAmIJob = viewModelScope.launch {
-            val result = withContext(Dispatchers.Default) {
-                MarkerMatcher.resolveAllMarkers(boatPos, all, index)
-            }
-            val segs = MarkerMatcher.debugger.getSegments()
-            Log.d("WIA", "DEBUGGER: getSegments returned ${segs.size} items")
-            _debugSegments.value = segs
-            _matchResult.value = result
-            _drawerState.value = MarkerDrawerState.MatchResult
+    /**
+     * Runs the resolution at [boatPos] and opens the Where-Am-I dashboard on its result.
+     *
+     * No run cancels another and a close cancels nothing: either would drop the MANUAL note the run
+     * owes the recording (§10). The id stamped here is instead compared at publication — read there
+     * and not captured earlier (R14) — so only the newest run, and only while its own open is still
+     * the current one, publishes; [setDrawerState] retires that id on any move off MatchResult, which
+     * is what keeps a late older run from re-opening a closed dashboard or painting over the card,
+     * the wizard or a newer open (R15).
+     *
+     * Every run hands its result to [onResolved] ahead of that guard, so the note reaches the
+     * recording whatever the drawer does: a tap followed by an instant close still records where the
+     * boat was, and two quick taps record two notes exactly as the two calls do today.
+     */
+    fun whereAmI(boatPos: LatLng, onResolved: (WhereAmIResult) -> Unit = {}) {
+        val runId = ++openCounter
+        currentOpenId = runId
+        val collectRays = settingsFlow?.value?.markerDebugRays == true
+        viewModelScope.launch {
+            val resolution = withContext(Dispatchers.Default) { resolveAt(boatPos, collectRays) }
+                ?: return@launch
+            onResolved(resolution.result)
+            if (currentOpenId != runId) return@launch
+            _debugSegments.value = resolution.segments
+            _matchResult.value = resolution.result
+            setDrawerState(MarkerDrawerState.MatchResult)
         }
     }
 
