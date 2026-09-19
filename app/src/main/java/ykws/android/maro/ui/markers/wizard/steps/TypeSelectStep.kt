@@ -74,11 +74,12 @@ internal fun TypeSelectStep(viewModel: MarkersViewModel) {
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             val types = listOf(
-                Triple(MarkerType.PIN, Icons.Filled.LocationOn, "Pin"),
-                Triple(MarkerType.CIRCLE, Icons.Filled.RadioButtonUnchecked, "Zone"),
-                Triple(MarkerType.CORRIDOR, Conversion_path, "Corridor")
+                Triple(MarkerType.PIN, Icons.Filled.LocationOn, R.string.marker_type_pin),
+                Triple(MarkerType.CIRCLE, Icons.Filled.RadioButtonUnchecked, R.string.marker_type_zone),
+                Triple(MarkerType.CORRIDOR, Conversion_path, R.string.marker_type_corridor)
             )
-            types.forEach { (type, icon, label) ->
+            types.forEach { (type, icon, labelResId) ->
+                val label = stringResource(labelResId)
                 val selected = form.type == type
                 Box(
                     modifier = Modifier
@@ -135,7 +136,7 @@ internal fun TypeSelectStep(viewModel: MarkersViewModel) {
             }
             Spacer(Modifier.width(8.dp))
             Text(
-                text = if (form.icon != null) "Change icon" else "Set icon",
+                text = if (form.icon != null) stringResource(R.string.cd_change_icon) else stringResource(R.string.cd_set_icon),
                 color = mutedText,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium

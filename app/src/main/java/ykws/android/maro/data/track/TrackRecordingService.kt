@@ -361,15 +361,25 @@ class TrackRecordingService : Service() {
         val pointCount = intent?.getIntExtra(EXTRA_POINT_COUNT, 0) ?: 0
 
         // 5-segment title: "Maro II • [GPS|Demo] • [Navigating|Idle|Moving] • [Recording|Ready] • [On Water|On Land]"
-        val modeLabel = if (isDemo) "Demo" else "GPS"
-        val recLabel = if (isRecording) "Recording" else if (hasOrphans) "Recovery available" else "Ready"
-        val navLabel = when {
-            !isMoving -> "Idle"
-            isOnWater -> "Navigating"
-            else -> "Moving"
-        }
-        val waterLabel = if (isOnWater) "On Water" else "On Land"
-        val title = "Maro II • $modeLabel • $navLabel • $recLabel • $waterLabel"
+        val modeLabel = getString(if (isDemo) R.string.state_demo else R.string.state_gps)
+        val recLabel = getString(
+            when {
+                isRecording -> R.string.state_recording
+                hasOrphans -> R.string.state_recovery_available
+                else -> R.string.state_ready
+            }
+        )
+        val navLabel = getString(
+            when {
+                !isMoving -> R.string.state_idle
+                isOnWater -> R.string.state_navigating
+                else -> R.string.state_moving
+            }
+        )
+        val waterLabel = getString(
+            if (isOnWater) R.string.notification_water_on else R.string.notification_water_off
+        )
+        val title = getString(R.string.notification_title_fmt, modeLabel, navLabel, recLabel, waterLabel)
 
         val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Maro II")
@@ -390,7 +400,7 @@ class TrackRecordingService : Service() {
             builder.addAction(
                 NotificationCompat.Action.Builder(
                     0,
-                    "Stop",
+                    getString(R.string.notification_action_stop),
                     stopPendingIntent
                 ).build()
             )
@@ -418,7 +428,7 @@ class TrackRecordingService : Service() {
                 CHANNEL_NAME,
                 NotificationManager.IMPORTANCE_DEFAULT
             ).apply {
-                description = CHANNEL_DESC
+                description = getString(R.string.notification_channel_desc)
                 setSound(null, null)
             }
             val manager = getSystemService(NotificationManager::class.java)
@@ -431,7 +441,6 @@ class TrackRecordingService : Service() {
     companion object {
         private const val CHANNEL_ID = "maro_persistent"
         private const val CHANNEL_NAME = "Maro II"
-        private const val CHANNEL_DESC = "Persistent notification while Maro II is running"
         private const val NOTIFICATION_ID = 1001
 
         /** Intent action: update the foreground notification with current recording stats. */

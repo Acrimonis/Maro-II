@@ -1,5 +1,6 @@
 package ykws.android.maro.data.model
 
+import ykws.android.maro.R
 import ykws.android.maro.data.model.markers.MarkerOrigin
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.data.track.TrackSummary
@@ -60,7 +61,11 @@ fun dateInRange(startTimeMs: Long, range: String, todayMidnightMs: Long): Boolea
 // Predicates
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Live track exempt from date filter only (always shows regardless of date range). */
+/**
+ * Live tracks are exempt from the axes whose subject a recording cannot answer for: the date range,
+ * whose `isLive` arm is the original case, and the position, whose classification would otherwise move
+ * under the user's eyes as the track grows.
+ */
 fun TrackSummary.matchesFilter(f: ListFilter, todayMidnightMs: Long): Boolean =
     f.axes.all { (key, value) ->
         when (key) {
@@ -68,6 +73,13 @@ fun TrackSummary.matchesFilter(f: ListFilter, todayMidnightMs: Long): Boolean =
             "pinned" -> value == "ALL" ||
                 (value == "PINNED" && this.pinned) ||
                 (value == "UNPINNED" && !this.pinned)
+            // The rule itself lives on the summary: water wins the tie, an unclassified track counts
+            // as water, and the live track passes whatever its points say.
+            "position" -> isLive || when (value) {
+                "WATER" -> positionIsWater
+                "LAND" -> !positionIsWater
+                else -> true
+            }
             else -> true
         }
     }
@@ -99,14 +111,16 @@ fun originMatches(origin: MarkerOrigin, value: String): Boolean = when (value) {
 /** One option in a filter axis dropdown. */
 data class FilterOptionSpec(
     val value: String,
-    val label: String,
+    /** Resource id of the option's label — read with `stringResource` where it is drawn. */
+    val labelResId: Int,
     val isDefault: Boolean = false   // true = "All" option
 )
 
 /** One filter axis (dropdown section). */
 data class FilterAxisSpec(
     val key: String,
-    val label: String,
+    /** Resource id of the axis' label — read with `stringResource` where it is drawn. */
+    val labelResId: Int,
     val options: List<FilterOptionSpec>,
     /** Optional key of the axis that gates this axis. If the gating axis value
      *  is in [dependsOnValues], this axis is disabled + grayed out. */
@@ -118,24 +132,33 @@ data class FilterAxisSpec(
 fun trackFilterAxes(): List<FilterAxisSpec> = listOf(
     FilterAxisSpec(
         key = "dateRange",
-        label = "Date Range",
+        labelResId = R.string.filter_axis_date_range,
         options = listOf(
-            FilterOptionSpec("LAST_7_DAYS", "Last week"),
-            FilterOptionSpec("LAST_14_DAYS", "Last 2 weeks"),
-            FilterOptionSpec("LAST_30_DAYS", "Last month"),
-            FilterOptionSpec("LAST_2_MONTHS", "Last 2 month"),
-            FilterOptionSpec("LAST_3_MONTHS", "Last 3 month"),
-            FilterOptionSpec("LAST_6_MONTHS", "Last 6 month"),
-            FilterOptionSpec("ALL", "All", isDefault = true)
+            FilterOptionSpec("LAST_7_DAYS", R.string.filter_option_last_week),
+            FilterOptionSpec("LAST_14_DAYS", R.string.filter_option_last_2_weeks),
+            FilterOptionSpec("LAST_30_DAYS", R.string.filter_option_last_month),
+            FilterOptionSpec("LAST_2_MONTHS", R.string.filter_option_last_2_months),
+            FilterOptionSpec("LAST_3_MONTHS", R.string.filter_option_last_3_months),
+            FilterOptionSpec("LAST_6_MONTHS", R.string.filter_option_last_6_months),
+            FilterOptionSpec("ALL", R.string.filter_option_all, isDefault = true)
         )
     ),
     FilterAxisSpec(
         key = "pinned",
-        label = "Pinned",
+        labelResId = R.string.settings_marker_halo_pinned_label,
         options = listOf(
-            FilterOptionSpec("ALL", "All", isDefault = true),
-            FilterOptionSpec("PINNED", "Pinned"),
-            FilterOptionSpec("UNPINNED", "Unpinned")
+            FilterOptionSpec("ALL", R.string.filter_option_all, isDefault = true),
+            FilterOptionSpec("PINNED", R.string.settings_marker_halo_pinned_label),
+            FilterOptionSpec("UNPINNED", R.string.filter_option_unpinned)
+        )
+    ),
+    FilterAxisSpec(
+        key = "position",
+        labelResId = R.string.settings_tab_position,
+        options = listOf(
+            FilterOptionSpec("ALL", R.string.filter_option_all, isDefault = true),
+            FilterOptionSpec("WATER", R.string.filter_option_on_water),
+            FilterOptionSpec("LAND", R.string.dash_not_at_sea)
         )
     )
 )
@@ -144,29 +167,29 @@ fun trackFilterAxes(): List<FilterAxisSpec> = listOf(
 fun markerFilterAxes(): List<FilterAxisSpec> = listOf(
     FilterAxisSpec(
         key = "icon",
-        label = "Icon",
+        labelResId = R.string.action_icon,
         options = listOf(
-            FilterOptionSpec("ALL", "All", isDefault = true),
-            FilterOptionSpec("WITH_ICON", "With icon"),
-            FilterOptionSpec("WITHOUT_ICON", "Without icon")
+            FilterOptionSpec("ALL", R.string.filter_option_all, isDefault = true),
+            FilterOptionSpec("WITH_ICON", R.string.filter_option_with_icon),
+            FilterOptionSpec("WITHOUT_ICON", R.string.filter_option_without_icon)
         )
     ),
     FilterAxisSpec(
         key = "pinned",
-        label = "Pinned",
+        labelResId = R.string.settings_marker_halo_pinned_label,
         options = listOf(
-            FilterOptionSpec("ALL", "All", isDefault = true),
-            FilterOptionSpec("PINNED", "Pinned"),
-            FilterOptionSpec("UNPINNED", "Unpinned")
+            FilterOptionSpec("ALL", R.string.filter_option_all, isDefault = true),
+            FilterOptionSpec("PINNED", R.string.settings_marker_halo_pinned_label),
+            FilterOptionSpec("UNPINNED", R.string.filter_option_unpinned)
         )
     ),
     FilterAxisSpec(
         key = "origin",
-        label = "Origin",
+        labelResId = R.string.sort_custom_origin,
         options = listOf(
-            FilterOptionSpec("ALL", "All", isDefault = true),
-            FilterOptionSpec("MANUAL", "Manual"),
-            FilterOptionSpec("AUTO", "Auto")
+            FilterOptionSpec("ALL", R.string.filter_option_all, isDefault = true),
+            FilterOptionSpec("MANUAL", R.string.filter_option_manual),
+            FilterOptionSpec("AUTO", R.string.filter_option_auto)
         )
     )
 )

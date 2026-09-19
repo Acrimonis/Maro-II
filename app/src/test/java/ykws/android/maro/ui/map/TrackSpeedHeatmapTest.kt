@@ -276,7 +276,7 @@ class TrackSpeedHeatmapTest {
         val parsed = parseHeatmapFamilies(familyLookup { it * 5 }, ::knownColor)
 
         assertEquals(HEATMAP_MAX_FAMILIES, parsed.size)
-        assertEquals(40f, parsed.last().maxKn, 0.001f)          // family 8
+        assertEquals(45f, parsed.last().maxKn, 0.001f)          // family 9
     }
 
     @Test

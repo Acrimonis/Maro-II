@@ -182,12 +182,12 @@ fun MarkerManagementOverlay(
 
     ListOverlayScaffold(
         items = markers,
-        title = "Markers \u00B7 ${markers.size}",
-        sectionLabel = "YOUR MARKERS",
+        title = stringResource(R.string.marker_list_title_fmt, markers.size),
+        sectionLabel = stringResource(R.string.marker_list_section),
         sortState = sortState,
         onSortStateChange = onSortStateChange,
         customSortFields = markerCustomSortFields,
-        customSortLabel = "Markers",
+        customSortLabelResId = R.string.menu_manage_markers,
         filterAxes = markerFilterAxes(),
         filterState = filterState,
         onFilterChange = onFilterChange,
@@ -272,6 +272,7 @@ internal fun MarkerCardContent(
     var nameText by remember(marker.id) { mutableStateOf(marker.name) }
     var descText by remember(marker.id) { mutableStateOf(marker.description) }
     val keyboard = LocalSoftwareKeyboardController.current
+    val descriptionPlaceholder = stringResource(R.string.marker_description_placeholder)
     BackHandler(enabled = editingField != null) {
         editingField = null
         keyboard?.hide()
@@ -442,7 +443,7 @@ internal fun MarkerCardContent(
                     )
                 } else {
                     Text(
-                        text = marker.description.ifBlank { "Add description..." },
+                        text = marker.description.ifBlank { descriptionPlaceholder },
                         color = if (marker.description.isBlank()) Color(AppConfig.uiTextMuted).copy(alpha = 0.4f)
                                 else Color(AppConfig.uiTextMuted),
                         fontSize = MARKER_DESC_FONT_SIZE,

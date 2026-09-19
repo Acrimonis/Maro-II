@@ -199,7 +199,7 @@ private fun ViewingContent(
     }
 
     DrawerScaffold(
-        title = marker?.name ?: "Marker",
+        title = marker?.name ?: stringResource(R.string.marker_title_fallback),
         onClose = onClose,
         headerHorizontalPadding = 12.dp,
         scrollable = true,
@@ -258,11 +258,11 @@ private fun MarkerDetailContent(
             }
             val bearing = SpatialOperations.initialBearing(boatPosition, markerPos)
             val distM = SpatialOperations.haversine(markerPos, boatPosition)
-            val dir = cardinalDirection(bearing)
-            val distStr = if (distM < 1000.0) "${distM.toLong()} m"
-                else "%.1f km".format(distM / 1000.0)
+            val dir = stringResource(cardinalDirectionRes(bearing))
+            val distStr = if (distM < 1000.0) stringResource(R.string.settings_value_meters, distM.toInt())
+                else stringResource(R.string.dash_value_km, distM / 1000.0)
             Text(
-                text = "$dir of boat - $distStr",
+                text = stringResource(R.string.marker_direction_of_boat_fmt, dir, distStr),
                 color = ComposeColor(AppConfig.uiTextMuted),
                 fontSize = 13.sp
             )
@@ -296,7 +296,7 @@ private fun MarkerDetailContent(
     } else {
         Spacer(Modifier.height(12.dp))
         Text(
-            "Marker not found",
+            stringResource(R.string.marker_not_found),
             color = ComposeColor(AppConfig.uiTextMuted),
             fontSize = 13.sp
         )
@@ -320,7 +320,7 @@ private fun MatchResultContent(
     val result by viewModel.matchResult.collectAsState()
 
     DrawerScaffold(
-        title = "Where Am I?",
+        title = stringResource(R.string.where_am_i_title),
         onClose = onClose,
         headerHorizontalPadding = 12.dp,
         scrollable = true,
@@ -333,7 +333,7 @@ private fun MatchResultContent(
         val matches = result?.allMatches ?: emptyList()
         if (matches.isEmpty()) {
             Text(
-                text = "in the middle of nowhere",
+                text = stringResource(R.string.where_am_i_none),
                 color = ComposeColor(AppConfig.uiTextMuted),
                 fontSize = 14.sp,
                 fontStyle = FontStyle.Italic,
@@ -403,7 +403,7 @@ private fun MarkerPrevNext(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "Previous",
+                text = stringResource(R.string.action_previous),
                 color = accentFg.copy(alpha = if (isAtFirst) disabledAlpha else 1f),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold
@@ -422,7 +422,7 @@ private fun MarkerPrevNext(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "Next",
+                text = stringResource(R.string.action_next),
                 color = accentFg.copy(alpha = if (isAtLast) disabledAlpha else 1f),
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold
@@ -466,12 +466,14 @@ private fun MatchRow(match: WhereAmIMatch, boatPosition: LatLng?) {
         ) {
             // Direction + distance (LineOfSightMatch only)
             if (match is WhereAmIMatch.LineOfSightMatch) {
-                val dir = cardinalDirection(match.bearingDeg)
+                val dir = stringResource(cardinalDirectionRes(match.bearingDeg))
                 val distStr = if (boatPosition != null) {
                     val dist = geometricDistanceToZone(boatPosition, marker.geometry)
-                    if (dist < 1000.0) "${dist.toLong()} m" else "%.1f km".format(dist / 1000.0)
+                    if (dist < 1000.0) stringResource(R.string.settings_value_meters, dist.toInt())
+                    else stringResource(R.string.dash_value_km, dist / 1000.0)
                 } else null
-                val text = if (distStr != null) "$dir of boat - $distStr" else dir
+                val text = if (distStr != null)
+                    stringResource(R.string.marker_direction_of_boat_fmt, dir, distStr) else dir
                 Text(
                     text = text,
                     color = ComposeColor(AppConfig.uiTextMuted),
@@ -520,18 +522,18 @@ private fun geometricDistanceToZone(boat: LatLng, geometry: MarkerGeometry): Dou
     }
 }
 
-/** Converts a bearing (0-360°) to a cardinal direction: N, NE, E, SE, S, SW, W, NW. */
-private fun cardinalDirection(bearingDeg: Double): String {
+/** Resource id of the cardinal direction (N, NE, E, SE, S, SW, W, NW) for a bearing in degrees. */
+private fun cardinalDirectionRes(bearingDeg: Double): Int {
     val normalized = ((bearingDeg % 360) + 360) % 360
     return when {
-        normalized < 22.5 || normalized >= 337.5 -> "N"
-        normalized < 67.5 -> "NE"
-        normalized < 112.5 -> "E"
-        normalized < 157.5 -> "SE"
-        normalized < 202.5 -> "S"
-        normalized < 247.5 -> "SW"
-        normalized < 292.5 -> "W"
-        else -> "NW"
+        normalized < 22.5 || normalized >= 337.5 -> R.string.cardinal_n
+        normalized < 67.5 -> R.string.cardinal_ne
+        normalized < 112.5 -> R.string.cardinal_e
+        normalized < 157.5 -> R.string.cardinal_se
+        normalized < 202.5 -> R.string.cardinal_s
+        normalized < 247.5 -> R.string.cardinal_sw
+        normalized < 292.5 -> R.string.cardinal_w
+        else -> R.string.cardinal_nw
     }
 }
 

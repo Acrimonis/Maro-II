@@ -383,7 +383,7 @@ internal fun SnackRow(
             )
             Spacer(Modifier.width(12.dp))
             androidx.compose.material3.TextButton(onClick = onUndo) {
-                Text("Undo", color = ComposeColor(0xFF80CBC4), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text(stringResource(R.string.action_undo), color = ComposeColor(0xFF80CBC4), fontWeight = FontWeight.Bold, fontSize = 14.sp)
             }
         }
     }
@@ -946,6 +946,18 @@ fun MapScreen(
     // Wire coastline spatial index into MarkersViewModel for land-blocking when ready
     if (coastlineReady) {
         markersViewModel.coastlineIndex = viewModel.spatialIndex
+    }
+
+    // Wire the same coastline into the track repository's position classifier, once it can answer:
+    // the tracks recorded before it loaded then get their sampled counts on the reload that follows,
+    // which is what the track list's On water / On land filter reads.
+    LaunchedEffect(coastlineReady) {
+        if (!coastlineReady) return@LaunchedEffect
+        val bounds = viewModel.coastlineRegionBounds ?: return@LaunchedEffect
+        trackViewModel.attachPositionClassifier(
+            waterTest = { lat, lon -> viewModel.isWaterOrNull(lat, lon) },
+            region = bounds
+        )
     }
 
     // ── Inspect mode's inspectable set (plan §3) ─────────────────────────
@@ -3235,7 +3247,7 @@ private fun MapContent(
                             val rp = rasterProgress!!
                             LoadingOverlay(
                                 progress = GenerationProgress(rp.phase, rp.globalProgress),
-                                title = "Generating Layers"
+                                title = stringResource(R.string.map_generating_layers)
                             )
                         }
                         if (state is CoastlineState.Error) {

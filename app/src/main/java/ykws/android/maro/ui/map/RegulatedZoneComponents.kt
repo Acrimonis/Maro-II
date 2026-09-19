@@ -26,9 +26,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color as ComposeColor
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.ui.components.ToggleRow
 import ykws.android.maro.data.model.LatLng
@@ -384,7 +386,7 @@ fun BoatSizeSlider(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "\uD83D\uDEA4 Boat length",
+                text = stringResource(R.string.settings_boat_length_label),
                 color = ComposeColor(AppConfig.uiTextPrimary),
                 fontSize = AppConfig.uiFontToggleSize.sp,
                 fontWeight = FontWeight.Medium

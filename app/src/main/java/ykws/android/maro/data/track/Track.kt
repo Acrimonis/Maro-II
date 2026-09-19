@@ -55,6 +55,11 @@ fun Track.lastRealPointTimeMsOrNull(): Long? =
 /**
  * Lightweight summary of a [Track] for list display — no polyline points.
  * Stored in the index file for fast listing without loading full tracks.
+ *
+ * [waterPointCount] and [landPointCount] are the sampled position counts the track filter reads:
+ * `-1` on both means the track has never been classified, which is deliberately distinct from a
+ * genuine zero. They live here rather than on the points because the list and the map both read
+ * summaries, and because the index is a cache that may be rebuilt.
  */
 @Serializable
 data class TrackSummary(
@@ -73,7 +78,11 @@ data class TrackSummary(
     @ProtoNumber(13) val pointCount: Int = 0,
     @ProtoNumber(14) val idleDurationSec: Long = 0,
     @ProtoNumber(15) override val updatedAtEpochMs: Long = 0L,
-    @ProtoNumber(16) val lastPointTimeMs: Long = 0L
+    @ProtoNumber(16) val lastPointTimeMs: Long = 0L,
+    /** Sampled points that were on water, or -1 when the track has never been classified. */
+    @ProtoNumber(17) val waterPointCount: Int = TrackPositionCounts.UNCLASSIFIED,
+    /** Sampled points that were on land, or -1 when the track has never been classified. */
+    @ProtoNumber(18) val landPointCount: Int = TrackPositionCounts.UNCLASSIFIED
 ) : ListableItem {
     override val title: String get() = name
     override val description: String get() = comment
@@ -81,6 +90,13 @@ data class TrackSummary(
     override val isPinned: Boolean get() = pinned
     /** Mutable backing for [ListableItem.isLive] — set by ViewModel, never persisted. */
     override var isLive: Boolean = false
+
+    /**
+     * The position filter's reading of this track: water wins the tie, and a track nothing could be
+     * classified for — open sea beyond the baked region included — counts as water.
+     */
+    val positionIsWater: Boolean
+        get() = waterPointCount < 0 || landPointCount < 0 || waterPointCount >= landPointCount
 }
 
 /**

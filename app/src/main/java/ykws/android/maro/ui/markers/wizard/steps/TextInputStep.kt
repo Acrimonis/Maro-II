@@ -26,12 +26,14 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 
 /**
@@ -126,7 +128,8 @@ internal fun TextInputStep(
                 ),
                 placeholder = {
                     Text(
-                        if (singleLine) "e.g. My marker" else "Optional notes\u2026",
+                        if (singleLine) stringResource(R.string.marker_name_hint)
+                        else stringResource(R.string.marker_description_hint),
                         color = ComposeColor(AppConfig.uiTextMuted).copy(alpha = 0.5f),
                         fontSize = 14.sp
                     )

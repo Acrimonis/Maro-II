@@ -206,7 +206,7 @@ class NavigationViewModel(
     )
     val distanceToShore: StateFlow<Double?> = _distanceToShore.asStateFlow()
 
-    /** Current map zoom level (8.0–18.0) — seeded from persisted settings or default 11.0. */
+    /** Current map zoom level (the shipped 11.0–20.0 range) — seeded from persisted settings or default 11.0. */
     private val _zoomLevel: MutableStateFlow<Double> = MutableStateFlow(
         if (initialAppSettings.zoomLevel > 0.0) initialAppSettings.zoomLevel else 11.0
     )
@@ -1418,6 +1418,17 @@ class NavigationViewModel(
      */
     fun isOnWater(latitude: Double, longitude: Double): Boolean =
         repository.isOnWater(latitude, longitude)
+
+    /**
+     * The coastline's containment answer alone, or null when it cannot answer — what the track position
+     * classifier is wired with, the navigable-zone predicate above calling open sea land.
+     */
+    fun isWaterOrNull(latitude: Double, longitude: Double): Boolean? =
+        repository.isWaterOrNull(latitude, longitude)
+
+    /** The region the coastline can answer for, or null before it is loaded. */
+    val coastlineRegionBounds: ykws.android.maro.data.model.RegionBounds?
+        get() = repository.regionBounds
 
     /**
      * Distance and closest point from a GPS position to the coastline.

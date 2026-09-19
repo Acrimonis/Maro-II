@@ -20,6 +20,7 @@ import ykws.android.maro.data.markers.UserMarkerRepository
 import ykws.android.maro.data.model.ListFilter
 import ykws.android.maro.data.model.ListSortState
 import ykws.android.maro.data.model.MapRenderFocus
+import ykws.android.maro.data.model.RegionBounds
 import ykws.android.maro.data.model.matchesFilter
 import ykws.android.maro.data.model.todayMidnightMs
 import ykws.android.maro.data.settings.AppSettings
@@ -244,6 +245,16 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
         )
         repository.save(copy)
         return copy.id
+    }
+
+    /**
+     * Inject the coastline-backed water test and the region it answers for, then reload so the tracks
+     * already listed pick up their sampled counts — the same one-shot injection shape [observeSettings]
+     * uses, called by MapScreen when the coastline becomes ready.
+     */
+    fun attachPositionClassifier(waterTest: (Double, Double) -> Boolean?, region: RegionBounds) {
+        repository.attachPositionClassifier(waterTest, region)
+        refreshSummaries()
     }
 
     /** Reload track summaries, mark active track as [ListableItem.isLive]. */

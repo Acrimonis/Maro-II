@@ -7,6 +7,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoBuf
 import kotlinx.serialization.protobuf.ProtoNumber
 import ykws.android.maro.data.markers.UserMarkerRepository
+import ykws.android.maro.data.model.RegionBounds
 import ykws.android.maro.data.model.markers.MarkerOrigin
 import java.io.File
 import java.nio.file.Files
@@ -38,6 +39,27 @@ class TrackRepository(
 
     private val proto = ProtoBuf.Default
 
+    /**
+     * The water test a position classification may use, and the region it can answer for. Both stay null
+     * until the coastline is loaded, which is itself the gate: an unanswerable sample is never counted,
+     * so "no data yet" can never bake itself into the index as water.
+     */
+    private var positionClassifier: ((Double, Double) -> Boolean?)? = null
+    private var positionRegion: RegionBounds? = null
+
+    /** One sampling pass per attachment, so a library with nothing to classify is not re-scanned. */
+    private var positionPassDone = false
+
+    /**
+     * Attach the coastline-backed water test once it can answer, and let one pass of the tracks still
+     * unclassified follow — the same injection shape the view models use for shared settings.
+     */
+    fun attachPositionClassifier(waterTest: (Double, Double) -> Boolean?, region: RegionBounds) {
+        positionClassifier = waterTest
+        positionRegion = region
+        positionPassDone = false
+    }
+
     /** Save a completed track. */
     suspend fun save(track: Track) = withContext(Dispatchers.IO) {
         val stamped = track.copy(updatedAtEpochMs = System.currentTimeMillis())
@@ -68,8 +90,13 @@ class TrackRepository(
         }
     }
 
-    /** List all track summaries from the index. */
+    /** List all track summaries from the index, sampling any whose position counts are still absent. */
     suspend fun listTracks(): List<TrackSummary> = withContext(Dispatchers.IO) {
+        classifyUnclassified(readIndex())
+    }
+
+    /** The index as it stands: read when present and readable, rebuilt from the track files otherwise. */
+    private suspend fun readIndex(): List<TrackSummary> = withContext(Dispatchers.IO) {
         val indexFile = indexFile()
         if (!indexFile.exists()) return@withContext rebuildIndex()
         try {
@@ -268,13 +295,15 @@ class TrackRepository(
     private fun checkpointFile(id: String): File = File(tracksDir, "${id}_checkpoint.bin")
     private fun indexFile(): File = File(tracksDir, INDEX_FILE_NAME)
 
-    /** Rebuild the index by scanning all `.bin` files. */
+    /** Rebuild the index by scanning all `.bin` files, position counts carried or sampled per track. */
     private suspend fun rebuildIndex(): List<TrackSummary> = withContext(Dispatchers.IO) {
+        val carried = carriedSummaries()
         val summaries = tracksDir.listFiles()
             ?.filter { it.extension == "bin" && !it.name.endsWith("_checkpoint.bin") && it.name != INDEX_FILE_NAME }
             ?.mapNotNull { file ->
                 try {
                     val track = proto.decodeFromByteArray(Track.serializer(), file.readBytes())
+                    val counts = classifyOrCarry(track, carried[track.id])
                     TrackSummary(
                         id = track.id,
                         name = track.name,
@@ -291,7 +320,9 @@ class TrackRepository(
                         pointCount = track.trackPoints.size,
                         updatedAtEpochMs = track.updatedAtEpochMs,
                         lastPointTimeMs = track.lastPointTimeMs.takeIf { it != 0L }
-                            ?: (track.lastRealPointTimeMsOrNull() ?: 0L)
+                            ?: (track.lastRealPointTimeMsOrNull() ?: 0L),
+                        waterPointCount = counts.water,
+                        landPointCount = counts.land
                     )
                 } catch (e: Exception) {
                     file.delete()
@@ -299,9 +330,79 @@ class TrackRepository(
                 }
             } ?: emptyList()
 
+        writeIndex(summaries)
+        summaries
+    }
+
+    /** The index currently on disk, by id — read before a rebuild so counts can survive it. */
+    private fun carriedSummaries(): Map<String, TrackSummary> {
+        val indexFile = indexFile()
+        if (!indexFile.exists()) return emptyMap()
+        return try {
+            proto.decodeFromByteArray(TrackSummaryList.serializer(), indexFile.readBytes())
+                .tracks
+                .associateBy { it.id }
+        } catch (_: Exception) {
+            emptyMap()
+        }
+    }
+
+    /**
+     * The position counts for a freshly decoded track: the ones the index already carried when the track
+     * has not been written since, or a fresh sample when the coastline can answer.
+     *
+     * Carrying them is what keeps one save from re-sampling the whole library, the index being re-derived
+     * from the track files on every mutation; and a sample the coastline cannot answer for is never
+     * cached, so a track keeps the unclassified sentinel rather than baking "no data yet" in as water.
+     */
+    private fun classifyOrCarry(track: Track, previous: TrackSummary?): TrackPositionCounts {
+        if (previous != null &&
+            previous.updatedAtEpochMs == track.updatedAtEpochMs &&
+            previous.waterPointCount >= 0 &&
+            previous.landPointCount >= 0
+        ) {
+            return TrackPositionCounts(previous.waterPointCount, previous.landPointCount)
+        }
+        val test = positionClassifier ?: return TrackPositionCounts()
+        val bounds = positionRegion ?: return TrackPositionCounts()
+        return classifyTrackPosition(track.trackPoints, bounds, test)
+    }
+
+    /**
+     * Sample the tracks whose position counts are still absent and write the index once if any changed.
+     * The rebuild path samples too; this exists for the index that is *read* rather than rebuilt, without
+     * which an upgraded install would show every legacy track under On water until something mutated the
+     * library. One pass per attachment, so an out-of-region library is not re-scanned on every list call.
+     */
+    private suspend fun classifyUnclassified(
+        summaries: List<TrackSummary>
+    ): List<TrackSummary> = withContext(Dispatchers.IO) {
+        if (positionPassDone) return@withContext summaries
+        val test = positionClassifier ?: return@withContext summaries
+        val bounds = positionRegion ?: return@withContext summaries
+        if (summaries.none { it.waterPointCount < 0 || it.landPointCount < 0 }) {
+            positionPassDone = true
+            return@withContext summaries
+        }
+
+        var changed = false
+        val updated = summaries.map { summary ->
+            if (summary.waterPointCount >= 0 && summary.landPointCount >= 0) return@map summary
+            val track = load(summary.id) ?: return@map summary
+            val counts = classifyTrackPosition(track.trackPoints, bounds, test)
+            if (!counts.isClassified) return@map summary
+            changed = true
+            summary.copy(waterPointCount = counts.water, landPointCount = counts.land)
+        }
+        positionPassDone = true
+        if (changed) writeIndex(updated)
+        updated
+    }
+
+    /** Write the index from a summary list. */
+    private suspend fun writeIndex(summaries: List<TrackSummary>) = withContext(Dispatchers.IO) {
         val indexData = proto.encodeToByteArray(TrackSummaryList.serializer(), TrackSummaryList(summaries))
         indexFile().writeBytes(indexData)
-        summaries
     }
 
     /** Write the index from current track files. */

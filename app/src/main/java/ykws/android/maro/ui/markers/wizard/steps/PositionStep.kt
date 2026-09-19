@@ -17,9 +17,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color as ComposeColor
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.ui.map.MarkersViewModel
 
@@ -30,11 +32,14 @@ import ykws.android.maro.ui.map.MarkersViewModel
 @Composable
 internal fun PositionStep(viewModel: MarkersViewModel, isCorridorP1: Boolean) {
     val form by viewModel.createForm.collectAsState()
-    val typeLabel = when (form.type) {
-        ykws.android.maro.ui.map.MarkerType.PIN -> "the pin"
-        ykws.android.maro.ui.map.MarkerType.CIRCLE -> "the zone center"
-        ykws.android.maro.ui.map.MarkerType.CORRIDOR -> if (isCorridorP1) "the corridor start" else "the corridor end"
-    }
+    val typeLabel = stringResource(
+        when (form.type) {
+            ykws.android.maro.ui.map.MarkerType.PIN -> R.string.marker_target_pin
+            ykws.android.maro.ui.map.MarkerType.CIRCLE -> R.string.marker_target_zone_center
+            ykws.android.maro.ui.map.MarkerType.CORRIDOR ->
+                if (isCorridorP1) R.string.marker_target_corridor_start else R.string.marker_target_corridor_end
+        }
+    )
 
     Column(
         modifier = Modifier
@@ -51,14 +56,14 @@ internal fun PositionStep(viewModel: MarkersViewModel, isCorridorP1: Boolean) {
                 .padding(horizontal = 8.dp, vertical = 4.dp)
         ) {
             Text(
-                text = "Move the map to set $typeLabel",
+                text = stringResource(R.string.wizard_position_instruction_fmt, typeLabel),
                 color = ComposeColor(AppConfig.uiTextPrimary),
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Medium
             )
             Spacer(Modifier.height(4.dp))
             Text(
-                text = "Tap Next when ready.",
+                text = stringResource(R.string.wizard_position_ready),
                 color = ComposeColor(AppConfig.uiTextMuted),
                 fontSize = 12.sp
             )

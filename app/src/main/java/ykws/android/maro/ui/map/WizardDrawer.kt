@@ -39,9 +39,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color as ComposeColor
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
 import ykws.android.maro.ui.markers.wizard.WizardButtonRow
 import ykws.android.maro.ui.markers.wizard.WizardTopBar
@@ -176,7 +178,8 @@ private fun WizardStepContent(
             val form by viewModel.createForm.collectAsState()
             val isCorridor = form.type == MarkerType.CORRIDOR
             SliderStep(
-                title = if (isCorridor) "Width" else "Radius",
+                title = if (isCorridor) stringResource(R.string.wizard_slider_width)
+                        else stringResource(R.string.wizard_slider_radius),
                 valueM = if (isCorridor) form.widthM else form.radiusM,
                 range = 0.0..1000.0,
                 step = 25.0,
@@ -186,7 +189,8 @@ private fun WizardStepContent(
                         if (isCorridor) it.copy(widthM = v) else it.copy(radiusM = v)
                     }
                 },
-                comment = if (isCorridor) "Corridor width in metres" else "Zone radius in metres"
+                comment = if (isCorridor) stringResource(R.string.wizard_slider_width_comment)
+                          else stringResource(R.string.wizard_slider_radius_comment)
             )
         }
         is WizardStep.Proximity -> {
@@ -197,7 +201,7 @@ private fun WizardStepContent(
                 MarkerType.CORRIDOR -> form.widthM
             }
             SliderStep(
-                title = "Proximity",
+                title = stringResource(R.string.wizard_slider_proximity),
                 valueM = form.proximityOverrideM.toDoubleOrNull() ?: 100.0,
                 range = 0.0..1000.0,
                 step = 25.0,
@@ -205,13 +209,13 @@ private fun WizardStepContent(
                 onValueChange = { v ->
                     viewModel.updateForm { it.copy(proximityOverrideM = v.toLong().toString()) }
                 },
-                comment = "Alert distance around the zone"
+                comment = stringResource(R.string.wizard_slider_proximity_comment)
             )
         }
         is WizardStep.Title -> {
             val form by viewModel.createForm.collectAsState()
             TextInputStep(
-                label = "Name",
+                label = stringResource(R.string.wizard_field_name),
                 value = form.name,
                 singleLine = true,
                 onValueChange = { v -> viewModel.updateForm { it.copy(name = v) } },
@@ -219,7 +223,7 @@ private fun WizardStepContent(
             )
         }
         is WizardStep.Description -> TextInputStep(
-            label = "Description",
+            label = stringResource(R.string.wizard_field_description),
             value = viewModel.createForm.collectAsState().value.description,
             singleLine = false,
             onValueChange = { v -> viewModel.updateForm { it.copy(description = v) } },

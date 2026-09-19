@@ -13,6 +13,7 @@ import ykws.android.maro.data.model.CoastlineDistanceResult
 import ykws.android.maro.data.model.CoastlineState
 import ykws.android.maro.data.model.GenerationProgress
 import ykws.android.maro.data.model.LatLng
+import ykws.android.maro.data.model.RegionBounds
 import ykws.android.maro.data.model.Zone300Data
 import ykws.android.maro.spatial.CoastlineSpatialIndex
 import ykws.android.maro.spatial.Zone300Builder
@@ -341,6 +342,25 @@ class CoastlineRepository(
         if (distToCoastMeters > SIX_NM_METERS) return false
         return index.isWater(latitude, longitude)
     }
+
+    /**
+     * The containment test alone, for callers that classify rather than navigate: no 6 NM gate — a
+     * passage offshore is still water — and `null` when no index is loaded, so "cannot answer" stays
+     * distinct from "land" rather than collapsing into it.
+     */
+    fun isWaterOrNull(latitude: Double, longitude: Double): Boolean? =
+        spatialIndex?.isWater(latitude, longitude)
+
+    /** The bounds of the region this coastline can answer for, or null before it is loaded. */
+    val regionBounds: RegionBounds?
+        get() = coastlineData?.boundingBox?.let {
+            RegionBounds(
+                latSouth = it.latSouth,
+                latNorth = it.latNorth,
+                lonWest = it.lonWest,
+                lonEast = it.lonEast
+            )
+        }
 
     companion object {
         /** 6 nautical miles in metres (1 NM = 1,852 m exactly). */

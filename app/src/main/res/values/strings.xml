@@ -60,6 +60,7 @@
     <string name="settings_map_offset_demo_desc">Shift map center ahead when panning in free mode</string>
     <string name="settings_map_offset_boat_label">Boat position from bottom</string>
     <string name="settings_map_offset_boat_desc">Where the boat sits at speed. 50% = disabled (centered). Lower = more ahead.</string>
+    <string name="settings_boat_length_label">🚤 Boat length</string>
     <string name="settings_debug_rays_label">Debug rays (WhereAmI)</string>
     <string name="settings_debug_rays_desc">Show green/red line-of-sight rays on the map when tapping the boat marker.</string>
     <string name="settings_regen_depth_grid_label">Depth grid</string>
@@ -214,6 +215,17 @@
     <string name="sort_custom_origin">Origin</string>
     <string name="sort_group_pinned">Group pinned items</string>
 
+    <!-- List surfaces -->
+    <string name="sort_group_custom">Custom</string>
+    <string name="track_history_title_fmt">Track History · %1$d</string>
+    <string name="track_history_section">RECORDED TRACKS</string>
+    <string name="marker_list_title_fmt">Markers · %1$d</string>
+    <string name="marker_list_section">YOUR MARKERS</string>
+    <string name="track_point_count_fmt">%1$d pts</string>
+    <string name="track_comment_placeholder">Add a comment...</string>
+    <string name="track_live_default_name">Recording...</string>
+    <string name="marker_description_placeholder">Add description...</string>
+
     <!-- Recovery dialog -->
     <string name="recovery_title">Unfinished Recording</string>
     <string name="recovery_found">Found an unfinished recording from %1$s.</string>
@@ -314,6 +326,22 @@
     <string name="filter_section_general">General</string>
     <string name="filter_no_match">No items match filters</string>
     <string name="filter_clear">Clear filters</string>
+
+    <!-- Filter axes and options -->
+    <string name="filter_axis_date_range">Date Range</string>
+    <string name="filter_option_last_week">Last week</string>
+    <string name="filter_option_last_2_weeks">Last 2 weeks</string>
+    <string name="filter_option_last_month">Last month</string>
+    <string name="filter_option_last_2_months">Last 2 month</string>
+    <string name="filter_option_last_3_months">Last 3 month</string>
+    <string name="filter_option_last_6_months">Last 6 month</string>
+    <string name="filter_option_all">All</string>
+    <string name="filter_option_unpinned">Unpinned</string>
+    <string name="filter_option_on_water">On water</string>
+    <string name="filter_option_with_icon">With icon</string>
+    <string name="filter_option_without_icon">Without icon</string>
+    <string name="filter_option_manual">Manual</string>
+    <string name="filter_option_auto">Auto</string>
     <string name="color_picker_title">Pick color</string>
     <string name="settings_depth_label">Depth Map</string>
     <string name="settings_depth_desc">Show depth color layer on the map</string>
@@ -380,6 +408,7 @@
     <!-- Content descriptions (accessibility) -->
     <string name="cd_cancel">Cancel</string>
     <string name="cd_close">Close</string>
+    <string name="cd_close_multiselect">Close multiselect</string>
     <string name="cd_settings">Settings</string>
     <string name="cd_reset_filter">Reset filter</string>
     <string name="cd_view_tracks">View track list</string>
@@ -425,6 +454,78 @@
     <string name="confirm_delete_tracks">Delete selected tracks?</string>
     <string name="confirm_delete_markers">Delete selected markers?</string>
     <string name="confirm_batch_delete_title">Delete</string>
+
+    <!-- Marker wizard -->
+    <string name="wizard_title_create">Create Marker</string>
+    <string name="action_previous">Previous</string>
+    <string name="action_next">Next</string>
+    <string name="action_finish">Finish</string>
+    <string name="wizard_position_instruction_fmt">Move the map to set %1$s</string>
+    <string name="wizard_position_ready">Tap Next when ready.</string>
+    <string name="marker_target_pin">the pin</string>
+    <string name="marker_target_zone_center">the zone center</string>
+    <string name="marker_target_corridor_start">the corridor start</string>
+    <string name="marker_target_corridor_end">the corridor end</string>
+    <string name="marker_type_pin">Pin</string>
+    <string name="marker_type_zone">Zone</string>
+    <string name="marker_type_corridor">Corridor</string>
+    <string name="marker_name_hint">e.g. My marker</string>
+    <string name="marker_description_hint">Optional notes…</string>
+    <string name="wizard_slider_width">Width</string>
+    <string name="wizard_slider_radius">Radius</string>
+    <string name="wizard_slider_width_comment">Corridor width in metres</string>
+    <string name="wizard_slider_radius_comment">Zone radius in metres</string>
+    <string name="wizard_slider_proximity">Proximity</string>
+    <string name="wizard_slider_proximity_comment">Alert distance around the zone</string>
+    <string name="wizard_field_name">Name</string>
+    <string name="wizard_field_description">Description</string>
+
+    <!-- Map chrome -->
+    <string name="marker_title_fallback">Marker</string>
+    <string name="marker_not_found">Marker not found</string>
+    <string name="where_am_i_title">Where Am I?</string>
+    <string name="where_am_i_none">in the middle of nowhere</string>
+    <string name="marker_direction_of_boat_fmt">%1$s of boat - %2$s</string>
+    <string name="map_generating_layers">Generating Layers</string>
+    <string name="cardinal_n">N</string>
+    <string name="cardinal_ne">NE</string>
+    <string name="cardinal_e">E</string>
+    <string name="cardinal_se">SE</string>
+    <string name="cardinal_s">S</string>
+    <string name="cardinal_sw">SW</string>
+    <string name="cardinal_w">W</string>
+    <string name="cardinal_nw">NW</string>
+
+    <!-- Notification -->
+    <string name="notification_title_fmt">Maro II • %1$s • %2$s • %3$s • %4$s</string>
+    <string name="notification_water_on">On Water</string>
+    <string name="notification_water_off">On Land</string>
+    <string name="notification_action_stop">Stop</string>
+    <string name="notification_channel_desc">Persistent notification while Maro II is running</string>
+
+    <!-- Track status labels -->
+    <string name="state_recording">Recording</string>
+    <string name="state_idle">Idle</string>
+    <string name="state_ready">Ready</string>
+    <string name="state_recovery_available">Recovery available</string>
+    <string name="state_navigating">Navigating</string>
+    <string name="state_moving">Moving</string>
+    <string name="state_demo">Demo</string>
+    <string name="state_gps">GPS</string>
+
+    <!-- Depth generation phases -->
+    <string name="depth_phase_prepare">Preparing grid</string>
+    <string name="depth_phase_deep_merge">Deep merge</string>
+    <string name="depth_phase_shallow_merge">Coastal merge</string>
+    <string name="depth_phase_zone_clip">6 NM zone clip</string>
+    <string name="depth_phase_validate">Validation</string>
+    <string name="depth_phase_done">Done</string>
+
+    <!-- Settings — track colours -->
+    <string name="settings_color_active_track">Active track</string>
+    <string name="settings_color_past_tracks">Past tracks</string>
+    <string name="settings_color_pinned_tracks">Pinned tracks</string>
+    <string name="settings_language_french">Français</string>
 
     <!-- Misc -->
     <string name="settings_language_english">English</string>
