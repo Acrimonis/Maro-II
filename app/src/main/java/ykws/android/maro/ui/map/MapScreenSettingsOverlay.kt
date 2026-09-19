@@ -94,21 +94,13 @@ internal fun SettingsOverlay(
     positionScrollState: ScrollState,
     systemScrollState: ScrollState,
 ) {
-    val pagerState = rememberPagerState(pageCount = { 4 })
+    val pagerState = rememberPagerState(pageCount = { settingsTabLabels.size })
 
-    // Sync tab selection <-> pager position (bidirectional).
-    // The pagerSyncSettled flag prevents the initial pager→tab sync from
-    // overwriting selectedTab before animateScrollToPage has a chance to
-    // restore the persisted tab selection.
-    val pagerSyncSettled = remember { mutableStateOf(false) }
+    // One direction only — the pager is not user-scrollable, so it never moves on its own and
+    // selectedTab is the single source of truth, which is why no pager-to-tab write-back
+    // exists here (docs/ui-component-guidelines.md 2.11).
     LaunchedEffect(selectedTab) {
         pagerState.animateScrollToPage(selectedTab)
-        pagerSyncSettled.value = true
-    }
-    LaunchedEffect(pagerState.currentPage) {
-        if (pagerSyncSettled.value) {
-            onTabChange(pagerState.currentPage)
-        }
     }
 
     Box(
