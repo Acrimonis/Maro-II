@@ -3,6 +3,8 @@
 
 ## Outcome
 
+**Shipped 2026-09-17 on `feature/some-wflw`** — the 💬 `TECHNICAL CHOICE IS THE AGENT'S` rule and the reworded `📋 Report only what changed` bullet, both living in `AGENTS.md`. Deviations: the delegation rule shipped at 💬 rather than in the 🛑 draft below, and the blocker it left — `ASK, DON'T GUESS`'s first clause reading *a detail* — is still open in the feature's `## Todos`.
+
 Two standing instructions the user gave on 2026-09-17, captured before either is written: a reply states
 the problem and the fix in plain words rather than the mechanism, short, with an ELIJP and an ELI20 side
 by side; and any technical choice that changes no behaviour is the agent's to make. This is the proposal,

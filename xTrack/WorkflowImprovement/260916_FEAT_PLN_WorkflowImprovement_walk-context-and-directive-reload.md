@@ -3,7 +3,7 @@
 
 **Feature:** WorkflowImprovement · **Branch:** `feature/some-wflw` · **Started:** 2026-09-16 · **Status:** in design — Part A alone since 2026-09-17; D1, D2 and D5 are superseded by the shipped `#rule` redesign, recorded in the lifecycle plan
 
-**Split 2026-09-16 — this plan now covers the `#walk` topic alone.** The rule lifecycle it grew — the reload, the registry and the enforcement tiers — is restated against the user's stated requirement in [`260916_FEAT_PLN_WorkflowImprovement_core-directive-lifecycle.md`](260916_FEAT_PLN_WorkflowImprovement_core-directive-lifecycle.md:1), which supersedes Parts B, C and §5.1 below. §4 and §4.2 here remain the cache reference for both plans.
+**Split 2026-09-16 — this plan now covers the `#walk` topic alone.** The rule lifecycle it grew — the reload, the registry and the enforcement tiers — is restated against the user's stated requirement in [`260916_FEAT_PLN_WorkflowImprovement_core-directive-lifecycle.md`](xxArchive/260916_FEAT_PLN_WorkflowImprovement_core-directive-lifecycle.md:1), which supersedes Parts B, C and §5.1 below. §4 and §4.2 here remain the cache reference for both plans.
 
 Two independent changes to the command set, packaged as one plan because both live in `AGENTS.md` §7b and both touch the same three surfaces: the §7b row, a `cmd_help_*` page, and the derived `docs/cmd_help.md`.
 
