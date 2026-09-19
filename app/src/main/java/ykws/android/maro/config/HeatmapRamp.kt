@@ -3,7 +3,7 @@ package ykws.android.maro.config
 /**
  * Bound on the family read: the loop walks 1..this, and the first index missing a key ends it.
  */
-const val HEATMAP_MAX_FAMILIES = 8
+const val HEATMAP_MAX_FAMILIES = 9
 
 /** Bound on `track.heatmap.scaleTicks`: at most this many rows are read, as the families are bounded. */
 const val HEATMAP_MAX_SCALE_TICKS = 12
@@ -23,8 +23,8 @@ const val HEATMAP_MAX_SCALE_TICKS = 12
 data class HeatmapFamily(val maxKn: Float, val fromArgb: Int, val toArgb: Int, val stepKn: Float)
 
 /**
- * Parsed speed ramp — families in ascending [maxKn] order, held as a *list* so six, seven or eight
- * families are a data change alone. Zero to [spanKn] is the ramp's own domain and is not a key: the
+ * Parsed speed ramp — families in ascending [maxKn] order, held as a *list* so six, seven, eight or
+ * nine families are a data change alone. Zero to [spanKn] is the ramp's own domain and is not a key: the
  * window is the ramp, so the top is written once, as the last family's own boundary.
  */
 data class HeatmapRamp(

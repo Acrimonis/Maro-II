@@ -240,19 +240,21 @@ object AppConfig {
     /** Parsed speed ramp: families as a list — each carrying its own draw step — and the neutral
      *  tint. There is no count key: the read walks `familyN` from 1 upward and stops at the
      *  first index missing a key, so the file alone decides the ramp's length.
-     *  Default: the eight families the shipped file holds, mirrored key for key —
-     *  blue through to purple, 5 / 7 / 10 / 13 / 15 / 25 / 32 / 70 kn.
+     *  Default: the nine families the shipped file holds, mirrored key for key — flat green through
+     *  to purple, 4 / 6 / 7 / 9 / 12 / 13 / 22 / 32 / 70 kn, the coarse steps below 13 kn and the
+     *  fine ones above it.
      *  Set via `track.heatmap.familyN.*` / `.unknownColor`. */
     var trackHeatmapRamp: HeatmapRamp = HeatmapRamp(
         families = listOf(
-            HeatmapFamily(5f, 0xFF135FA2.toInt(), 0xFF135FA2.toInt(), 0.5f),   // flat blue to the 5 kn limit
-            HeatmapFamily(7f, 0xFF135FA2.toInt(), 0xFF409443.toInt(), 0.25f),  // the changeover to green, 5 to 7
-            HeatmapFamily(10f, 0xFF409443.toInt(), 0xFF409443.toInt(), 0.5f),  // flat green, 7 to 10
-            HeatmapFamily(13f, 0xFF409443.toInt(), 0xFFDADAAD.toInt(), 0.5f),  // green warming to pale sand, 10 to 13
-            HeatmapFamily(15f, 0xFFDADAAD.toInt(), 0xFFFFC53D.toInt(), 1.0f),  // pale sand to amber, 13 to 15
-            HeatmapFamily(25f, 0xFFFFC53D.toInt(), 0xFFEF6C00.toInt(), 3.0f),  // amber to orange, 15 to 25
-            HeatmapFamily(32f, 0xFFEF6C00.toInt(), 0xFF751212.toInt(), 3.0f),  // orange to dark red, 25 to 32
-            HeatmapFamily(70f, 0xFF751212.toInt(), 0xFF6A1B9A.toInt(), 5.0f)   // dark red to purple out to 70 kn
+            HeatmapFamily(4f, 0xFF1A6B1A.toInt(), 0xFF1A6B1A.toInt(), 1.0f),   // flat green to the 4 kn ceiling
+            HeatmapFamily(6f, 0xFF228B22.toInt(), 0xFF9EE79E.toInt(), 1.0f),   // green lightening, 4 to 6
+            HeatmapFamily(7f, 0xFF9EE79E.toInt(), 0xFF125B9B.toInt(), 1.0f),   // the green-to-blue changeover, 6 to 7
+            HeatmapFamily(9f, 0xFF187AD0.toInt(), 0xFF187AD0.toInt(), 1.0f),   // flat blue, 7 to 9
+            HeatmapFamily(12f, 0xFF187AD0.toInt(), 0xFFB5D8F6.toInt(), 1.0f),  // blue to pale blue, 9 to 12
+            HeatmapFamily(13f, 0xFFB5D8F6.toInt(), 0xFFFFD164.toInt(), 1.0f),  // pale blue to amber, 12 to 13
+            HeatmapFamily(22f, 0xFFFFD164.toInt(), 0xFFEF6C00.toInt(), 1.0f),  // amber to orange, 13 to 22
+            HeatmapFamily(32f, 0xFFEF6C00.toInt(), 0xFF751212.toInt(), 1.0f),  // orange to dark red, 22 to 32
+            HeatmapFamily(70f, 0xFF751212.toInt(), 0xFF6A1B9A.toInt(), 2.0f)   // dark red to purple out to 70 kn
         ),
         unknownArgb = 0xFFF5F5DC.toInt()
     )
