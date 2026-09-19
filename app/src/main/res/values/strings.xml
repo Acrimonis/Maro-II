@@ -73,6 +73,12 @@
     <string name="settings_regen_warning_desc">Rebuild the shallow-water magenta hazard overlay</string>
     <string name="settings_coastline_label">Coastline</string>
     <string name="settings_coastline_desc">Show the coastline on the map</string>
+    <string name="settings_coastline_appearance_label">Coastline Appearance</string>
+    <string name="settings_coastline_width_desc">Width of the coastline stroke (dp)</string>
+    <string name="settings_coastline_transparency_desc" formatted="false">Coastline stroke transparency (0% = opaque, 100% = invisible)</string>
+    <string name="settings_coastline_colors_label">Shoreline colours</string>
+    <string name="settings_coastline_colors_desc">Mainland on the left, island on the right</string>
+    <string name="settings_coastline_pair_label">Mainland / island</string>
     <string name="settings_land_water_icon_label">Show Land/Water Icon</string>
     <string name="settings_land_water_icon_desc">The square shows whether the boat is over water or land, and is hidden when off</string>
     <string name="settings_zone300_label">300m Zone</string>
@@ -81,6 +87,9 @@
     <string name="settings_zone300_color_desc">Fill and boundary color of the 300 m band</string>
     <string name="settings_zone300_opacity_desc">Zone content and border transparency (0% = opaque, 100% = invisible)</string>
     <string name="settings_zone300_appearance_label">300m Zone Appearance</string>
+    <string name="settings_zone300_boundary_width_desc">Width of the 300 m band boundary line (dp)</string>
+    <string name="settings_regulated_zones_outline_width_desc">Width of the regulated zone outlines (dp)</string>
+    <string name="settings_width_label">Stroke width</string>
     <string name="settings_auto_markers_label">Marker Auto Creation management</string>
     <string name="settings_regulated_zones_label">Regulated zones</string>
     <string name="settings_regulated_zones_desc">Show regulated zones (speed limits, anchoring, etc.) on the map</string>
@@ -99,6 +108,17 @@
     <string name="settings_cap_arrow_desc">Show the speed-proportional direction arrow extending from the boat marker</string>
     <string name="settings_demo_heading_label">Demo heading-up</string>
     <string name="settings_demo_heading_desc">Derive heading from pan direction in demo mode instead of north-up</string>
+    <string name="settings_heading_line_appearance_label">Heading Line Appearance</string>
+    <string name="settings_heading_line_width_label">Line thickness</string>
+    <string name="settings_heading_line_width_desc">Thickness of the heading line (dp)</string>
+    <string name="settings_heading_line_transparency_desc" formatted="false">Heading line transparency (0% = opaque, 100% = invisible)</string>
+    <string name="settings_cap_arrow_appearance_label">Arrow Appearance</string>
+    <string name="settings_cap_arrow_width_label">Arrow thickness</string>
+    <string name="settings_cap_arrow_width_desc">Thickness of the arrow shaft (dp); the head keeps its 4 : 1 ratio</string>
+    <string name="settings_cap_arrow_transparency_desc" formatted="false">Arrow transparency (0% = opaque, 100% = invisible)</string>
+    <string name="settings_speed_colour_label">Speed Colour</string>
+    <string name="settings_default_colour_label">Default colour</string>
+    <string name="settings_value_dp_fmt">%.2f dp</string>
     <string name="settings_emodnet_section_label">Shallow cutoff (EMODnet)</string>
     <string name="settings_emodnet_section_desc">Coarse EMODnet data is unreliable in very shallow water near rocks and the coast</string>
     <string name="settings_emodnet_cutoff_label">Cutoff depth</string>
@@ -403,7 +423,6 @@
     <string name="settings_reg_alert_demo_label">Regulated zone alert (Demo)</string>
     <string name="settings_reg_alert_demo_desc">Auto-show regulated zones when panning toward a speed-enforced zone</string>
     <string name="settings_regenerate_layers">Regenerate Layers</string>
-    <string name="color_picker_pick">Pick</string>
 
     <!-- Content descriptions (accessibility) -->
     <string name="cd_cancel">Cancel</string>

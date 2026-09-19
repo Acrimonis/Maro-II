@@ -169,6 +169,10 @@ empty-label row wastes a full-width line for a tiny square). `SubSectionHeader` 
 reserved for **multi-colour** groups under one heading (e.g. Marker halo `Colors` → Pinned / Not pinned). E.g. the
 300 m band "Zone color" is a `SingleColorSubSection`.
 
+**A colour control is the swatch alone — never a text action beside it**, in a labelled `ColorRow` as much as in a
+`SingleColorSubSection`: the tappable swatch is the whole control, and its `contentDescription` carries the row's own
+label so assistive readers still name it.
+
 **Expander state:** open state lives in `SettingsViewModel.expanderStates` — a `mutableStateMapOf<String, Boolean>` keyed by a stable per-expander id. Shared across the four tabs and preserved across rotation and settings reopen for the whole app session; cleared when the app exits, so every expander is collapsed on fresh launch. Never use local `remember`/`rememberSaveable` state for an expander.
 
 All expander content uses the **same `NestedCard` surface** — a single uniform container for every control type:

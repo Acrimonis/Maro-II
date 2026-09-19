@@ -48,8 +48,8 @@ private val COLOR_CONFIRMED = AppConfig.semanticInfo
 
 /** Dark under-stroke for selected markers (dual-outline consistency with track). */
 private val COLOR_HIGHLIGHT_UNDER = 0xCC000000.toInt()
-/** Extra stroke width added to under-stroke for selected markers. */
-private const val HIGHLIGHT_UNDER_STROKE_ADD = 6f
+/** Extra stroke width added to under-stroke for selected markers, in dp — 6 px on the 3× reference. */
+private const val HIGHLIGHT_UNDER_STROKE_ADD_DP = 2f
 
 /** Alpha for dimmed (non-matched) markers during match-result highlighting (30%). */
 private const val DIMMED_ALPHA_FRACTION = 0.30f
@@ -60,8 +60,18 @@ private const val ZONE_FILL_ALPHA_FRACTION = 0.20f
 /** Alpha fraction for proximity preview — 50% for strokes, fills use ZONE_FILL_ALPHA_FRACTION/2 (10%). */
 private const val PROXIMITY_ALPHA_FRACTION = 0.50f
 
-/** Extra stroke width added to the corridor under-line halo beneath the connecting line. */
-private const val CORRIDOR_UNDERLINE_HALO_ADD = 6f
+/** Extra stroke width added to the corridor under-line halo beneath the connecting line, in dp. */
+private const val CORRIDOR_UNDERLINE_HALO_ADD_DP = 2f
+
+/** Confirmed marker circle and corridor band stroke, in dp — the 4 px of the 3× reference. */
+private const val MARKER_STROKE_DP = 4f / 3f
+
+/** The always-on corridor connecting line's stroke, in dp — the 2 px of the 3× reference. */
+private const val CORRIDOR_CONNECTING_STROKE_DP = 2f / 3f
+
+/** The marker's dashed strokes, in dp — the 12 px on and 8 px off of the 3× reference. */
+private const val MARKER_DASH_ON_DP = 4f
+private const val MARKER_DASH_OFF_DP = 8f / 3f
 
 // ── Public composable ─────────────────────────────────────────────────────────
 
@@ -177,7 +187,7 @@ fun MarkerOverlay(
             markers.sortedBy { it.pinned }
         }
 
-        val dotBitmap = createDotBitmap(COLOR_CONFIRMED, radiusMultiplier = zoomFactor)
+        val dotBitmap = createDotBitmap(COLOR_CONFIRMED, mv.paintDensity, radiusMultiplier = zoomFactor)
 
         for (marker in allMarkers) {
             val confirmed = marker.confirmed
@@ -221,6 +231,14 @@ fun MarkerOverlay(
             // proximity for whereAmI matching but suppress visual clutter.
             val showProximity = drawZones && marker.origin != ykws.android.maro.data.model.markers.MarkerOrigin.IDLE_AUTO
 
+            // The strokes the loop hands its helpers are px: the conversion happens once, here, from
+            // the dp constants above at the map's own density.
+            val density = mv.paintDensity
+            val markerStrokePx = dpToPx(MARKER_STROKE_DP, density)
+            val corridorConnectingStrokePx = dpToPx(CORRIDOR_CONNECTING_STROKE_DP, density)
+            val highlightUnderStrokeAddPx = dpToPx(HIGHLIGHT_UNDER_STROKE_ADD_DP, density)
+            val corridorUnderlineHaloAddPx = dpToPx(CORRIDOR_UNDERLINE_HALO_ADD_DP, density)
+
             when (val geom = marker.geometry) {
                 is MarkerGeometry.Pin -> {
                     if (drawGeometry && !skipDots) {
@@ -252,7 +270,7 @@ fun MarkerOverlay(
                         addCirclePolyline(
                             mv, geom.position, previewRadiusM,
                             "$OVERLAY_PREFIX${marker.id}_prox",
-                            proxColor, 2f,
+                            proxColor, corridorConnectingStrokePx,
                             dashed = false
                         )
                     }
@@ -261,6 +279,8 @@ fun MarkerOverlay(
                 is MarkerGeometry.Circle -> {
                     if (drawZones) {
                         addCircleOverlay(mv, geom, marker.id, baseColor, dotBitmap, strokeMultiplier,
+                            strokePx = markerStrokePx,
+                            underStrokeAddPx = highlightUnderStrokeAddPx,
                             confirmed = confirmed, onMarkerTap = onMarkerTap, skipDots = skipDots,
                             isSelected = isSelected, haloSpec = haloSpec,
                             haloSizePct = markerHaloSize,
@@ -297,7 +317,7 @@ fun MarkerOverlay(
                         addCirclePolyline(
                             mv, geom.center, totalRadiusM,
                             "$OVERLAY_PREFIX${marker.id}_prox",
-                            proxColor, 2f,
+                            proxColor, corridorConnectingStrokePx,
                             dashed = false
                         )
                     }
@@ -305,11 +325,16 @@ fun MarkerOverlay(
 
                 is MarkerGeometry.Corridor -> {
                     // Always-on colored connecting line (both zone states, regardless of icon).
-                    addCorridorConnectingLine(mv, geom, marker.id, appearance, haloSpec, haloDimFraction)
+                    addCorridorConnectingLine(
+                        mv, geom, marker.id, appearance, haloSpec, haloDimFraction,
+                        strokePx = corridorConnectingStrokePx,
+                        underStrokeAddPx = highlightUnderStrokeAddPx,
+                        haloAddPx = corridorUnderlineHaloAddPx
+                    )
 
                     // Full pill band (fill + parallels + caps) only when zones shown.
                     if (drawZones) {
-                        addCorridorBand(mv, geom, marker.id, baseColor, strokeMultiplier, isSelected)
+                        addCorridorBand(mv, geom, marker.id, baseColor, strokeMultiplier, isSelected, markerStrokePx, highlightUnderStrokeAddPx)
                     }
 
                     // Endpoint dots (or icons) with halo rings.
@@ -348,7 +373,7 @@ fun MarkerOverlay(
                         addCorridorParallels(
                             mv, geom.p1, geom.p2, halfProx,
                             "$OVERLAY_PREFIX${marker.id}_prox",
-                            proxColor, 2f,
+                            proxColor, corridorConnectingStrokePx,
                             dashed = true,
                             isSelected = false
                         )
@@ -356,7 +381,7 @@ fun MarkerOverlay(
                         addSemiCircleCaps(
                             mv, geom.p1, geom.p2, halfProx, proxBearing,
                             "$OVERLAY_PREFIX${marker.id}_prox",
-                            proxColor, 2f,
+                            proxColor, corridorConnectingStrokePx,
                             dashed = true,
                             isSelected = false
                         )
@@ -401,7 +426,7 @@ fun MarkerOverlay(
                 val geo = GeoPoint(pos.latitude, pos.longitude)
                 // Halo ring behind the icon (sized to the larger icon anchor).
                 if (haloSpec != null) {
-                    addHaloOverlay(mv, geo, haloSpec, MarkerHalo.ICON_ANCHOR_RADIUS_PX,
+                    addHaloOverlay(mv, geo, haloSpec, dpToPx(MarkerHalo.ICON_ANCHOR_RADIUS_DP, mv.paintDensity),
                         markerHaloSize, haloDimFraction, marker.id, "icon", markerPointIconZoom)
                 }
                 val iconMarker = Marker(mv).apply {
@@ -489,7 +514,7 @@ private fun addHaloOverlay(
     suffix: String,
     zoomPct: Int = 100
 ) {
-    val bitmap = MarkerHalo.createBitmap(haloSpec, anchorRadiusPx, sizePct, zoomPct, dimFraction)
+    val bitmap = MarkerHalo.createBitmap(haloSpec, anchorRadiusPx, mv.paintDensity, sizePct, zoomPct, dimFraction)
     mv.overlays.add(Marker(mv).apply {
         position = geo
         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
@@ -521,12 +546,12 @@ private fun addPinOverlay(
 
     // Halo ring behind the dot (sized to the dot anchor)
     if (haloSpec != null) {
-        addHaloOverlay(mv, geo, haloSpec, MarkerHalo.DOT_ANCHOR_RADIUS_PX, haloSizePct, haloDimFraction, markerId, "dot", markerPointIconZoom)
+        addHaloOverlay(mv, geo, haloSpec, dpToPx(MarkerHalo.DOT_ANCHOR_RADIUS_DP, mv.paintDensity), haloSizePct, haloDimFraction, markerId, "dot", markerPointIconZoom)
     }
 
     // Dark under-stroke dot for selected markers (rendered before gold dot)
     if (isSelected) {
-        val underDot = createDotBitmap(COLOR_HIGHLIGHT_UNDER, radiusMultiplier = 1.5f * markerZoom)
+        val underDot = createDotBitmap(COLOR_HIGHLIGHT_UNDER, mv.paintDensity, radiusMultiplier = 1.5f * markerZoom)
         mv.overlays.add(Marker(mv).apply {
             position = geo
             setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
@@ -539,7 +564,7 @@ private fun addPinOverlay(
     val marker = Marker(mv).apply {
         position = geo
         setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
-        icon = BitmapDrawable(mv.context.resources, if (color == COLOR_CONFIRMED) dotBitmap else createDotBitmap(color, radiusMultiplier = markerZoom))
+        icon = BitmapDrawable(mv.context.resources, if (color == COLOR_CONFIRMED) dotBitmap else createDotBitmap(color, mv.paintDensity, radiusMultiplier = markerZoom))
         title = "${OVERLAY_PREFIX}pin_$markerId"
         if (confirmed) {
             setOnMarkerClickListener { _, _ ->
@@ -559,6 +584,9 @@ private fun addCircleOverlay(
     color: Int,
     dotBitmap: Bitmap,
     strokeMultiplier: Float = 1.0f,
+    /** The circle's own stroke in px, and the selection's under-stroke add in px. */
+    strokePx: Float,
+    underStrokeAddPx: Float,
     confirmed: Boolean = true,
     onMarkerTap: (List<String>) -> Unit = {},
     skipDots: Boolean = false,
@@ -584,12 +612,12 @@ private fun addCircleOverlay(
 
     // Dark under-stroke circle for selected markers
     if (isSelected) {
-        val underStrokeW = 4f * strokeMultiplier + HIGHLIGHT_UNDER_STROKE_ADD
+        val underStrokeW = strokePx * strokeMultiplier + underStrokeAddPx
         addCirclePolyline(mv, geom.center, geom.radiusM, "${OVERLAY_PREFIX}circle_${markerId}_ul", COLOR_HIGHLIGHT_UNDER, underStrokeW)
     }
 
     // Circle outline as closed Polyline
-    val strokeW = 4f * strokeMultiplier
+    val strokeW = strokePx * strokeMultiplier
     addCirclePolyline(mv, geom.center, geom.radiusM, "${OVERLAY_PREFIX}circle_$markerId", color, strokeW)
 
     // Center dot (suppressed when skipDots — icon replaces it)
@@ -617,27 +645,31 @@ private fun addCorridorConnectingLine(
     markerId: String,
     appearance: MarkerAppearance,
     haloSpec: MarkerHaloSpec?,
-    haloDimFraction: Float
+    haloDimFraction: Float,
+    /** The line's own stroke and the two adds, all in px. */
+    strokePx: Float,
+    underStrokeAddPx: Float,
+    haloAddPx: Float
 ) {
     val pts = sampleCenterline(geom.p1, geom.p2, CORRIDOR_SAMPLES)
-    val mainW = 2f * appearance.strokeMultiplier
+    val mainW = strokePx * appearance.strokeMultiplier
 
     if (appearance.isSelected) {
         // Dark under-stroke + gold line
         mv.overlays.add(buildPolyline(pts, "${OVERLAY_PREFIX}corr_line_${markerId}_ul",
-            COLOR_HIGHLIGHT_UNDER, mainW + HIGHLIGHT_UNDER_STROKE_ADD, false))
+            COLOR_HIGHLIGHT_UNDER, mainW + underStrokeAddPx, false, density = mv.paintDensity))
         mv.overlays.add(buildPolyline(pts, "${OVERLAY_PREFIX}corr_line_$markerId",
-            appearance.baseColor, mainW, false))
+            appearance.baseColor, mainW, false, density = mv.paintDensity))
     } else if (haloSpec != null) {
         // Pinned under-line halo (thicker colored line beneath) + colored line on top
         val underColor = MarkerHalo.colorWithTransparency(haloSpec.color, haloSpec.borderTransparencyPct, haloDimFraction)
         mv.overlays.add(buildPolyline(pts, "${OVERLAY_PREFIX}corr_line_${markerId}_halo",
-            underColor, mainW + CORRIDOR_UNDERLINE_HALO_ADD, false))
+            underColor, mainW + haloAddPx, false, density = mv.paintDensity))
         mv.overlays.add(buildPolyline(pts, "${OVERLAY_PREFIX}corr_line_$markerId",
-            appearance.baseColor, mainW, false))
+            appearance.baseColor, mainW, false, density = mv.paintDensity))
     } else {
         mv.overlays.add(buildPolyline(pts, "${OVERLAY_PREFIX}corr_line_$markerId",
-            appearance.baseColor, mainW, false))
+            appearance.baseColor, mainW, false, density = mv.paintDensity))
     }
 }
 
@@ -648,7 +680,10 @@ private fun addCorridorBand(
     markerId: String,
     color: Int,
     strokeMultiplier: Float,
-    isSelected: Boolean
+    isSelected: Boolean,
+    /** The band's own stroke in px, and the selection's under-stroke add in px. */
+    strokePx: Float,
+    underStrokeAddPx: Float
 ) {
     val halfW = geom.widthM / 2.0
 
@@ -666,12 +701,12 @@ private fun addCorridorBand(
     mv.overlays.add(fillPoly)
 
     // Two parallel lines at ±halfW
-    addCorridorParallels(mv, geom.p1, geom.p2, halfW, "${OVERLAY_PREFIX}corr_$markerId", color, 4f * strokeMultiplier,
-        isSelected = isSelected)
+    addCorridorParallels(mv, geom.p1, geom.p2, halfW, "${OVERLAY_PREFIX}corr_$markerId", color,
+        strokePx * strokeMultiplier, isSelected = isSelected, underStrokeAddPx = underStrokeAddPx)
 
     // Semi-circle caps at each end (close the band into a pill shape)
-    addSemiCircleCaps(mv, geom.p1, geom.p2, halfW, bearing, "${OVERLAY_PREFIX}corr_$markerId", color, 4f * strokeMultiplier,
-        isSelected = isSelected)
+    addSemiCircleCaps(mv, geom.p1, geom.p2, halfW, bearing, "${OVERLAY_PREFIX}corr_$markerId", color,
+        strokePx * strokeMultiplier, isSelected = isSelected, underStrokeAddPx = underStrokeAddPx)
 }
 
 /** Build a closed polygon tracing the corridor pill shape (fill):
@@ -737,7 +772,7 @@ private fun addCirclePolyline(
     if (points.size < 3) return
     // Close the polygon by appending the first point
     val closed = points + points.first()
-    val polyline = buildPolyline(closed, title, color, strokeWidth, dashed)
+    val polyline = buildPolyline(closed, title, color, strokeWidth, dashed, density = mv.paintDensity)
     mv.overlays.add(polyline)
 }
 
@@ -751,7 +786,9 @@ private fun addCorridorParallels(
     color: Int,
     strokeWidth: Float,
     dashed: Boolean = true,
-    isSelected: Boolean = false
+    isSelected: Boolean = false,
+    /** The selection's under-stroke add in px; zero when the caller inherits none. */
+    underStrokeAddPx: Float = 0f
 ) {
     val centerPts = sampleCenterline(p1, p2, CORRIDOR_SAMPLES)
     if (centerPts.size < 2) return
@@ -765,13 +802,13 @@ private fun addCorridorParallels(
 
     // Dark under-stroke parallels for selected markers
     if (isSelected) {
-        val underStrokeW = strokeWidth + HIGHLIGHT_UNDER_STROKE_ADD
-        mv.overlays.add(buildPolyline(leftPts, "${titleBase}_left_ul", COLOR_HIGHLIGHT_UNDER, underStrokeW, dashed, Paint.Cap.BUTT))
-        mv.overlays.add(buildPolyline(rightPts, "${titleBase}_right_ul", COLOR_HIGHLIGHT_UNDER, underStrokeW, dashed, Paint.Cap.BUTT))
+        val underStrokeW = strokeWidth + underStrokeAddPx
+        mv.overlays.add(buildPolyline(leftPts, "${titleBase}_left_ul", COLOR_HIGHLIGHT_UNDER, underStrokeW, dashed, Paint.Cap.BUTT, mv.paintDensity))
+        mv.overlays.add(buildPolyline(rightPts, "${titleBase}_right_ul", COLOR_HIGHLIGHT_UNDER, underStrokeW, dashed, Paint.Cap.BUTT, mv.paintDensity))
     }
 
-    mv.overlays.add(buildPolyline(leftPts, "${titleBase}_left", color, strokeWidth, dashed, Paint.Cap.BUTT))
-    mv.overlays.add(buildPolyline(rightPts, "${titleBase}_right", color, strokeWidth, dashed, Paint.Cap.BUTT))
+    mv.overlays.add(buildPolyline(leftPts, "${titleBase}_left", color, strokeWidth, dashed, Paint.Cap.BUTT, mv.paintDensity))
+    mv.overlays.add(buildPolyline(rightPts, "${titleBase}_right", color, strokeWidth, dashed, Paint.Cap.BUTT, mv.paintDensity))
 }
 
 /** Add semi-circle caps at p1 and p2 to close the corridor band.
@@ -787,7 +824,9 @@ private fun addSemiCircleCaps(
     color: Int,
     strokeWidth: Float,
     dashed: Boolean = true,
-    isSelected: Boolean = false
+    isSelected: Boolean = false,
+    /** The selection's under-stroke add in px; zero when the caller inherits none. */
+    underStrokeAddPx: Float = 0f
 ) {
     val capSamples = 18
     // Arc: from left-edge (+90°) to right-edge (-90°), sweeping +180° through back (+180°)
@@ -809,13 +848,13 @@ private fun addSemiCircleCaps(
 
     // Dark under-stroke caps for selected markers
     if (isSelected) {
-        val underStrokeW = strokeWidth + HIGHLIGHT_UNDER_STROKE_ADD
-        mv.overlays.add(buildPolyline(p1Arc, "${titleBase}_cap_p1_ul", COLOR_HIGHLIGHT_UNDER, underStrokeW, dashed, Paint.Cap.BUTT))
-        mv.overlays.add(buildPolyline(p2Arc, "${titleBase}_cap_p2_ul", COLOR_HIGHLIGHT_UNDER, underStrokeW, dashed, Paint.Cap.BUTT))
+        val underStrokeW = strokeWidth + underStrokeAddPx
+        mv.overlays.add(buildPolyline(p1Arc, "${titleBase}_cap_p1_ul", COLOR_HIGHLIGHT_UNDER, underStrokeW, dashed, Paint.Cap.BUTT, mv.paintDensity))
+        mv.overlays.add(buildPolyline(p2Arc, "${titleBase}_cap_p2_ul", COLOR_HIGHLIGHT_UNDER, underStrokeW, dashed, Paint.Cap.BUTT, mv.paintDensity))
     }
 
-    mv.overlays.add(buildPolyline(p1Arc, "${titleBase}_cap_p1", color, strokeWidth, dashed, Paint.Cap.BUTT))
-    mv.overlays.add(buildPolyline(p2Arc, "${titleBase}_cap_p2", color, strokeWidth, dashed, Paint.Cap.BUTT))
+    mv.overlays.add(buildPolyline(p1Arc, "${titleBase}_cap_p1", color, strokeWidth, dashed, Paint.Cap.BUTT, mv.paintDensity))
+    mv.overlays.add(buildPolyline(p2Arc, "${titleBase}_cap_p2", color, strokeWidth, dashed, Paint.Cap.BUTT, mv.paintDensity))
 }
 
 /** Build a [Polyline] with the given [geoPoints], [title], [color], and [strokeWidth].
@@ -826,14 +865,26 @@ private fun buildPolyline(
     color: Int,
     strokeWidth: Float,
     dashed: Boolean = true,
-    strokeCap: Paint.Cap = Paint.Cap.ROUND
+    strokeCap: Paint.Cap = Paint.Cap.ROUND,
+    /**
+     * The map's density — required, because the dashed case's dash is dp and the paint takes px.
+     * Every caller names it: a `1f` default here once let a dashed caller draw the 3× reference's
+     * dash unscaled rather than at the map's own density.
+     */
+    density: Float
 ): Polyline {
     return Polyline().apply {
         this.title = title
         outlinePaint.color = color
         outlinePaint.strokeWidth = strokeWidth
         if (dashed) {
-            outlinePaint.pathEffect = DashPathEffect(floatArrayOf(12f, 8f), 0f)
+            outlinePaint.pathEffect = DashPathEffect(
+                floatArrayOf(
+                    dpToPx(MARKER_DASH_ON_DP, density),
+                    dpToPx(MARKER_DASH_OFF_DP, density)
+                ),
+                0f
+            )
         }
         outlinePaint.strokeCap = strokeCap
         outlinePaint.isAntiAlias = true
@@ -894,8 +945,8 @@ private fun destinationPoint(start: LatLng, distanceM: Double, bearingDeg: Doubl
  * Cached statically for the confirmed color to avoid repeated allocations.
  * @param radiusMultiplier Scale factor for the dot radius (1.0 = normal, 1.5 = under-stroke).
  */
-private fun createDotBitmap(color: Int, radiusMultiplier: Float = 1.0f): Bitmap {
-    val radiusPx = (DOT_RADIUS_DP * 3f * radiusMultiplier).toInt()
+private fun createDotBitmap(color: Int, density: Float, radiusMultiplier: Float = 1.0f): Bitmap {
+    val radiusPx = (DOT_RADIUS_DP * density * radiusMultiplier).toInt()
     val size = radiusPx * 2 + 4 // padding
     val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
     val canvas = Canvas(bitmap)

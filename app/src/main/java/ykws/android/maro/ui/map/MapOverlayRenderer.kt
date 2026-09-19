@@ -27,12 +27,55 @@ const val REGULATED_ZONE_MIN_ZOOM = 10.0
 /** Number of horizontal strips per depth raster overlay — see [addBandedOverlay]. ~8 ⇒ sub-metre. */
 const val DEPTH_OVERLAY_BANDS = 8
 
+// ── The baked strokes below, in dp ───────────────────────────────────────────────────────────────
+// These strokes have no caller to hand them over, so each is a dp constant this file converts with the
+// map view's own density. The reference density is 3×: every value is the px it used to be, over three.
+
+/** Isolated-hazard disc ring stroke (dp): the 6 px the disc was always outlined with. */
+private const val HAZARD_RING_STROKE_DP = 2f
+/** Isolated-hazard outer ring and cross stroke (dp): the 5 px of the 3× reference. */
+private const val HAZARD_MARK_STROKE_DP = 5f / 3f
+/** Isobath base widths (dp): the 3 px major and the 2 px minor of the 3× reference. */
+private const val ISOBATH_MAJOR_BASE_DP = 1f
+private const val ISOBATH_MINOR_BASE_DP = 2f / 3f
+/** The isobath's own floor (dp): the 1 px a contour was never drawn thinner than. */
+private const val ISOBATH_MIN_WIDTH_DP = 1f / 3f
+/** The low-confidence dash (dp) — the stroke it rides varies, so it converts by value, not by ratio. */
+private const val ISOBATH_LOWCONF_DASH_ON_DP = 8f / 3f
+private const val ISOBATH_LOWCONF_DASH_OFF_DP = 2f
+
 /**
  * Transparency percentage → paint alpha, shared by the 300 m band and the regulated zones.
  * 0 = opaque (255), 100 = invisible (0). Mirrors the historical 300 m band maths, which truncates
  * on integer division, so not every alpha has a percentage that reproduces it.
  */
 fun transparencyPctToAlpha(pct: Int): Int = ((100 - pct.coerceIn(0, 100)) * 255) / 100
+
+/**
+ * The Compose sibling of [transparencyPctToAlpha]: the same transparency percentage as the alpha
+ * fraction a canvas draw needs. The overlays drawn with `drawLine`/`drawPath` take a fraction rather
+ * than a packed alpha, and sitting here keeps the one percentage semantics — 0 = opaque, 100 =
+ * invisible — in one place instead of a second derivation beside each stroke.
+ */
+fun transparencyPctToAlphaFraction(pct: Int): Float = (100 - pct.coerceIn(0, 100)) / 100f
+
+/**
+ * A dp length as the px an osmdroid paint takes: the caller's density times the dp value.
+ *
+ * The map's stored lengths are dp from 2026-09-19 on, and osmdroid's paints take px, so some layer has
+ * to multiply — and it is the caller, being the one that holds the density. The Compose siblings need
+ * no call of this: `Dp.toPx()` is the same rule, applied where the density is a composition local.
+ * This is that multiplication's one home rather than an idiom repeated beside every stroke.
+ */
+fun dpToPx(dp: Float, density: Float): Float = dp * density
+
+/**
+ * The map's own density: the px-per-dp factor of the view the overlay is painted into. The view
+ * holds it, so a caller already holding one reads it here instead of reaching into
+ * `context.resources.displayMetrics` again — [dpToPx] is the other half of the same rule. The
+ * Compose canvases keep `Dp.toPx()`, their density being a composition local rather than a view's.
+ */
+val MapView.paintDensity: Float get() = context.resources.displayMetrics.density
 
 /** Map each [RegulatedZoneType] to its distinct polygon hue. */
 fun regulatedZoneColor(type: RegulatedZoneType): Int = when (type) {
@@ -51,9 +94,10 @@ fun regulatedZoneColor(type: RegulatedZoneType): Int = when (type) {
 /**
  * Draws the coastline segments on the OSMdroid [MapView].
  *
- * Mainland: solid blue (#1545C0), 10 px
- * Islands:  green (#08805C), 10 px
- * Hazards:  vivid yellow disc + black outline + outer black ring + black cross — isolated offshore point dangers
+ * Plain segments take [mainlandColor] or [islandColor] by [CoastlineSegment.isMainland], at
+ * [widthPx] and the alpha [transparencyPctToAlpha] derives from [transparencyPct] — the appearance
+ * arrives as parameters rather than being read here, so the map view can key its rebuild on it.
+ * Hazards keep their baked disc, ring and cross strokes.
  *
  * A segment is treated as a hazard primarily via its explicit [CoastlineSegment.isHazard] flag
  * (set by [HazardRings.toSegment], persisted in the proto cache). As a fallback for pre-feature
@@ -65,9 +109,14 @@ fun regulatedZoneColor(type: RegulatedZoneType): Int = when (type) {
 fun drawCoastline(
     mapView: MapView,
     segments: List<CoastlineSegment>,
+    mainlandColor: Int,
+    islandColor: Int,
+    widthPx: Float,
+    transparencyPct: Int,
     sink: MutableList<Any>
 ) {
     sink.clear()
+    val alpha = transparencyPctToAlpha(transparencyPct)
     for (segment in segments) {
         val points = segment.points
         if (points.size < 2) continue
@@ -83,12 +132,15 @@ fun drawCoastline(
             // Isolated offshore danger → vivid filled yellow disc with a black outline,
             // plus a black cross spreading a little past the circle. Distinct from green
             // islands / blue mainland and the magenta low-depth overlay.
+            // The hazard's three strokes are this function's own, so the map's density is read here,
+            // where the px the paint takes is written.
+            val hazardDensity = mapView.paintDensity
             val disc = Polygon().apply {
                 setPoints(osmPoints)
                 fillPaint.color = AppConfig.mapHazardDiscFill   // vivid yellow (#FFE800) — full circle
                 fillPaint.isAntiAlias = true
                 outlinePaint.color = AppConfig.mapHazardOutline  // black circle around it
-                outlinePaint.strokeWidth = 6f
+                outlinePaint.strokeWidth = dpToPx(HAZARD_RING_STROKE_DP, hazardDensity)
                 outlinePaint.isAntiAlias = true
             }
             mapView.overlays.add(disc)
@@ -100,7 +152,11 @@ fun drawCoastline(
                 setPoints(osmPoints.map {
                     GeoPoint(cLat + (it.latitude - cLat) * 1.6, cLon + (it.longitude - cLon) * 1.6)
                 })
-                outlinePaint.apply { color = Color.BLACK; strokeWidth = 5f; isAntiAlias = true }
+                outlinePaint.apply {
+                    color = Color.BLACK
+                    strokeWidth = dpToPx(HAZARD_MARK_STROKE_DP, hazardDensity)
+                    isAntiAlias = true
+                }
             }
             mapView.overlays.add(outerRing)
             sink.add(outerRing)
@@ -109,13 +165,21 @@ fun drawCoastline(
             val hLon = (osmPoints.maxOf { it.longitude } - osmPoints.minOf { it.longitude }) / 2.0 * 1.8
             val crossH = Polyline().apply {
                 setPoints(listOf(GeoPoint(cLat, cLon - hLon), GeoPoint(cLat, cLon + hLon)))
-                outlinePaint.apply { color = Color.BLACK; strokeWidth = 5f; isAntiAlias = true }
+                outlinePaint.apply {
+                    color = Color.BLACK
+                    strokeWidth = dpToPx(HAZARD_MARK_STROKE_DP, hazardDensity)
+                    isAntiAlias = true
+                }
             }
             mapView.overlays.add(crossH)
             sink.add(crossH)
             val crossV = Polyline().apply {
                 setPoints(listOf(GeoPoint(cLat - hLat, cLon), GeoPoint(cLat + hLat, cLon)))
-                outlinePaint.apply { color = Color.BLACK; strokeWidth = 5f; isAntiAlias = true }
+                outlinePaint.apply {
+                    color = Color.BLACK
+                    strokeWidth = dpToPx(HAZARD_MARK_STROKE_DP, hazardDensity)
+                    isAntiAlias = true
+                }
             }
             mapView.overlays.add(crossV)
             sink.add(crossV)
@@ -125,10 +189,9 @@ fun drawCoastline(
         val polyline = Polyline().apply {
             setPoints(osmPoints)
             outlinePaint.apply {
-                color = if (segment.isMainland) AppConfig.mapCoastlineMainlandColor
-                        else AppConfig.mapCoastlineIslandColor
-                strokeWidth = AppConfig.mapCoastlineMainlandWidth.toFloat()
-                alpha = 128
+                color = if (segment.isMainland) mainlandColor else islandColor
+                strokeWidth = widthPx
+                this.alpha = alpha
                 isAntiAlias = true
             }
         }
@@ -139,9 +202,9 @@ fun drawCoastline(
 
 /**
  * Draws the precomputed 300 m band: translucent red fill (water only, island land
- * cut out as holes) plus the red seaward boundary line. Zoom-gated — nothing is
- * drawn below [ZONE_MIN_ZOOM] (the band would be sub-pixel) or before the band has
- * been built ([zone] == null).
+ * cut out as holes) plus the red seaward boundary line, stroked at [boundaryWidthPx].
+ * Zoom-gated — nothing is drawn below [ZONE_MIN_ZOOM] (the band would be sub-pixel)
+ * or before the band has been built ([zone] == null).
  *
  * Must be drawn **before** [drawCoastline] so the coastline reads on top of the fill.
  */
@@ -152,6 +215,7 @@ fun drawZone300(
     zoneColor: Int,
     fillTransparencyPct: Int,
     boundaryTransparencyPct: Int,
+    boundaryWidthPx: Float,
     sink: MutableList<Any>
 ) {
     sink.clear()
@@ -184,7 +248,7 @@ fun drawZone300(
             setPoints(line.map { GeoPoint(it.latitude, it.longitude) })
             outlinePaint.apply {
                 color = Color.argb(boundaryAlpha, Color.red(zoneColor), Color.green(zoneColor), Color.blue(zoneColor))
-                strokeWidth = 6f
+                strokeWidth = boundaryWidthPx
                 isAntiAlias = true
             }
         }
@@ -209,6 +273,7 @@ fun drawRegulatedZones(
     zoomLevel: Double,
     fillTransparencyPct: Int,
     boundaryTransparencyPct: Int,
+    outlineWidthPx: Float,
     sink: MutableList<Polygon>
 ) {
     sink.clear()
@@ -227,7 +292,7 @@ fun drawRegulatedZones(
             }
             fillPaint.color = Color.argb(fillAlpha, Color.red(color), Color.green(color), Color.blue(color))
             outlinePaint.color = color
-            outlinePaint.strokeWidth = 3f
+            outlinePaint.strokeWidth = outlineWidthPx
             outlinePaint.alpha = boundaryAlpha
             outlinePaint.isAntiAlias = true
         }
@@ -328,6 +393,8 @@ fun drawIsobaths(
 ) {
     sink.clear()
     if (zoomLevel < DepthConstants.ISOBATH_MIN_DRAW_ZOOM) return
+    // The isobath's widths, floor and dash are dp; the map view's own density is what the paints take.
+    val density = mapView.paintDensity
     for (iso in isobaths) {
         if (iso.depthM <= 2f && zoomLevel < DepthConstants.SHALLOW_ISOBATH_MIN_ZOOM) continue
         val isMajor = iso.depthM.toInt() % 10 == 0
@@ -337,12 +404,21 @@ fun drawIsobaths(
                 setPoints(line.points.map { GeoPoint(it.latitude, it.longitude) })
                 outlinePaint.apply {
                     color = AppConfig.isobarColor(line.source)   // colour by data source
-                    strokeWidth = ((if (isMajor) 3f else 2f) + AppConfig.isobarWidthBonus(line.source)).coerceAtLeast(1f)
+                    // The base pair plus the source bonus, both dp, floored in dp before the conversion.
+                    val widthDp = ((if (isMajor) ISOBATH_MAJOR_BASE_DP else ISOBATH_MINOR_BASE_DP) +
+                        AppConfig.isobarWidthBonus(line.source)).coerceAtLeast(ISOBATH_MIN_WIDTH_DP)
+                    strokeWidth = dpToPx(widthDp, density)
                     alpha = if (isMajor) 180 else 120
                     isAntiAlias = true
                     // Dash genuinely low-confidence fill (GEBCO/interpolated) → reads as "approximate".
                     pathEffect = if (line.confidence <= DepthConstants.ISOBATH_LOWCONF_DASH_MAX)
-                        android.graphics.DashPathEffect(floatArrayOf(8f, 6f), 0f) else null
+                        android.graphics.DashPathEffect(
+                            floatArrayOf(
+                                dpToPx(ISOBATH_LOWCONF_DASH_ON_DP, density),
+                                dpToPx(ISOBATH_LOWCONF_DASH_OFF_DP, density)
+                            ),
+                            0f
+                        ) else null
                 }
             }
             mapView.overlays.add(poly)

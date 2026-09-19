@@ -19,6 +19,9 @@ import ykws.android.maro.data.track.IdleThresholdCallback
 import ykws.android.maro.data.track.WhereAmIProvider
 import ykws.android.maro.spatial.DebugSegment
 
+/** The Where-Am-I debug ray's stroke, in dp — the 3 px of the 3× reference, over three. */
+private const val MARKER_DEBUG_RAY_STROKE_DP = 1f
+
 /**
  * Marker wiring effects (extracted from MapScreen): shared-settings bridge to child
  * ViewModels, crash-orphan cleanup, marker-change watcher, BoatMarker idle callback,
@@ -116,6 +119,9 @@ internal fun MapMarkerDebugEffects(
         }
         // Render current segments
         if (raysOn && debugSegments.isNotEmpty()) {
+            // The debug rays are the map's own strokes, dp like every other length the pass converted:
+            // 3 px on the 3× reference is 1 dp, and the map's density is what the paint below takes.
+            val density = mv.paintDensity
             debugSegments.forEachIndexed { index, segment ->
                 val color = if (segment.blocked) Color.RED else Color.GREEN
                 val polyline = org.osmdroid.views.overlay.Polyline().apply {
@@ -125,7 +131,7 @@ internal fun MapMarkerDebugEffects(
                         org.osmdroid.util.GeoPoint(segment.target.latitude, segment.target.longitude)
                     ))
                     outlinePaint.color = color
-                    outlinePaint.strokeWidth = 3f
+                    outlinePaint.strokeWidth = dpToPx(MARKER_DEBUG_RAY_STROKE_DP, density)
                 }
                 mv.overlays.add(polyline)
             }

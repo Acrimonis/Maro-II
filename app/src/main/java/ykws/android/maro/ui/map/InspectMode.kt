@@ -575,7 +575,8 @@ internal fun MapInspectEffects(
             title = "$INSPECT_TRACK_TITLE_PREFIX${candidate.id}",
             plan = trackRenderPlan(trackArrows, trackColours, selected = true, eyeOverride = eyeOverride),
             ramp = AppConfig.trackHeatmapRamp,
-            strokeWidth = AppConfig.trackWidthSelected,
+            strokeWidth = AppConfig.trackWidthSelectedDp,
+            density = mv.paintDensity,
             fade = 1f,
             // The gold path never reads this — it is built on demand for the plain path alone.
             plainAppearance = { selectedTrackCasing() }

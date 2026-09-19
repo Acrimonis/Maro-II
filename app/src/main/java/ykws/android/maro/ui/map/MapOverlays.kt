@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlin.math.cos
+import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sin
@@ -79,6 +80,46 @@ internal const val CAP_MIN_DP = 1.0
 internal const val CAP_MAX_DP = 65.0
 /** Below this speed (knots) the arrow is hidden. */
 internal const val CAP_MIN_SPEED_KNOTS = 2.5f
+
+/** Head length per unit of shaft width — the shipped 4 : 1, so the 2.25 dp shaft keeps its 9 dp head. */
+internal const val CAP_ARROW_HEAD_RATIO = 4f
+
+/** Half the head's apex angle, in radians — the `0.5` the triangle and the shaft's inset both read. */
+internal const val CAP_ARROW_HALF_SPREAD = 0.5f
+
+/**
+ * Margin on the shaft's tangency depth, as a fraction: 5 % of extra inset, so anti-aliasing at exact
+ * tangency cannot leave a seam where the round cap meets the flanks.
+ */
+internal const val CAP_ARROW_TANGENCY_MARGIN = 1.05f
+
+/**
+ * The arrow's head length (dp) for a shaft of [shaftWidthDp] dp.
+ *
+ * Derived rather than configured: one knob then moves a coherent arrow, where a head of its own could
+ * be set against a shaft it no longer matches. Pure, so the shipped 4 : 1 ratio is unit-covered.
+ */
+internal fun capArrowHeadDp(shaftWidthDp: Float): Float = shaftWidthDp * CAP_ARROW_HEAD_RATIO
+
+/**
+ * The same head, capped against the arrow it caps — `min([CAP_ARROW_HEAD_RATIO] × width, [arrowLenDp] / 2)`.
+ *
+ * The ratio alone would give the thickest shaft on a slow boat a head taller than the arrow carrying it
+ * (32 dp of head against a 5.6 dp arrow at 8 dp), its base falling far below the screen centre. Half the
+ * drawn length is the ceiling, so the head is never taller than the shaft it caps. Pure in its two inputs.
+ */
+internal fun capArrowHeadDp(shaftWidthDp: Float, arrowLenDp: Float): Float =
+    min(capArrowHeadDp(shaftWidthDp), arrowLenDp / 2f)
+
+/**
+ * How far (dp) below the apex the shaft's polyline stops, for a shaft of [shaftWidthDp] dp.
+ *
+ * The tangency depth — `radius / sin(halfSpread)`: the distance from a circle's centre to a line is
+ * `depth × sin(h)`, never `depth × tan(h)`, the latter stopping short and leaving part of the round cap
+ * beside the flanks. Grown by [CAP_ARROW_TANGENCY_MARGIN] so exact tangency cannot show a seam.
+ */
+internal fun capArrowShaftInsetDp(shaftWidthDp: Float): Float =
+    (shaftWidthDp / 2f) / sin(CAP_ARROW_HALF_SPREAD) * CAP_ARROW_TANGENCY_MARGIN
 
 /**
  * A fixed icon drawn at the center of the screen, indicating the current
@@ -310,12 +351,30 @@ internal fun CenterMarkerOverlay(
  * line but below the boat/dot marker. Length scales with speed (knots) and zoom
  * level, matching the marker's exponential zoom factor. Hidden below
  * [CAP_MIN_SPEED_KNOTS] or when the user disables it via [showCapArrow].
+ *
+ * Its appearance arrives as parameters — [shaftWidthDp] with the head derived from it by
+ * [capArrowHeadDp], [color], [transparencyPct] and the [followSpeedColour] mode — so the overlay reads
+ * no appearance value of its own. Under the mode the colour comes from the speed ramp the tracks
+ * paint from, and while [gpsStale] is set it wears that ramp's neutral tint: a lost fix freezes the
+ * arrow at its last length rather than hiding it, and the tint is what stops that frozen arrow from
+ * asserting a band the reading can no longer justify.
+ *
+ * The shaft's polyline stops inside the head at [capArrowShaftInsetDp] — the tangency depth grown by
+ * [CAP_ARROW_TANGENCY_MARGIN], so the flanks stand one cap radius clear of the stroke's centreline with a
+ * margin to spare and nothing of the stroke shows beside or beyond the apex. That apex stays exactly
+ * where it was, because the arrow's length is the value it exists to state. The head is itself capped by
+ * [capArrowHeadDp] against the drawn length, so a short arrow is never swallowed by the head it carries.
  */
 @Composable
 internal fun CapArrowOverlay(
     zoomLevel: Double,
     navigationState: NavigationState,
     showCapArrow: Boolean,
+    shaftWidthDp: Float,
+    color: Int,
+    transparencyPct: Int,
+    followSpeedColour: Boolean,
+    gpsStale: Boolean,
     modifier: Modifier = Modifier,
     centerOffsetYDp: Dp = 0.dp,
 ) {
@@ -327,31 +386,44 @@ internal fun CapArrowOverlay(
     val baseArrowDp = (effectiveSpeedKn!! * CAP_DP_PER_KNOT).coerceIn(CAP_MIN_DP, CAP_MAX_DP)
     val arrowDp = (baseArrowDp * scaleFactor).dp
 
-    val arrowColor = ComposeColor(AppConfig.mapNavigationArrowColor)
+    // The ramp is read here, not passed: it is map-wide render data, while the seven settings are the
+    // user's own values and arrive as parameters. The lookup is the band one, so no per-frame garbage.
+    val ramp = AppConfig.trackHeatmapRamp
+    val arrowColor = ComposeColor(
+        when {
+            !followSpeedColour -> color
+            gpsStale -> ramp.unknownArgb
+            else -> rampColorForSpeed(effectiveSpeedKn, ramp)
+        }
+    ).copy(alpha = transparencyPctToAlphaFraction(transparencyPct))
     Canvas(modifier = modifier) {
         val arrowLenPx = arrowDp.toPx()
         val cX = size.width / 2
         val midY = size.height / 2 + centerOffsetYDp.toPx()
         val endY = midY - arrowLenPx
+        val strokeWidthPx = shaftWidthDp.dp.toPx()
 
+        // The shaft stops the tangency depth below the apex, so the round cap is inscribed in the head
+        // and nothing of the stroke shows beside or beyond it. Never past the drawn length: a capped head
+        // on a short arrow is shallow enough that the depth would otherwise reach below the anchor.
+        val shaftEndY = endY + capArrowShaftInsetDp(shaftWidthDp).dp.toPx().coerceAtMost(arrowLenPx)
         drawLine(
             color = arrowColor,
             start = Offset(cX, midY),
-            end = Offset(cX, endY),
-            strokeWidth = 2.25.dp.toPx(),
+            end = Offset(cX, shaftEndY),
+            strokeWidth = strokeWidthPx,
             cap = StrokeCap.Round
         )
-        val headLen = 9.dp.toPx()
-        val headSpread = 0.5f
+        val headLen = capArrowHeadDp(shaftWidthDp, arrowDp.value).dp.toPx()
         val path = Path().apply {
             moveTo(cX, endY)
             lineTo(
-                cX - (headLen * sin(headSpread)).toFloat(),
-                endY + (headLen * cos(headSpread)).toFloat()
+                cX - (headLen * sin(CAP_ARROW_HALF_SPREAD)).toFloat(),
+                endY + (headLen * cos(CAP_ARROW_HALF_SPREAD)).toFloat()
             )
             lineTo(
-                cX + (headLen * sin(headSpread)).toFloat(),
-                endY + (headLen * cos(headSpread)).toFloat()
+                cX + (headLen * sin(CAP_ARROW_HALF_SPREAD)).toFloat(),
+                endY + (headLen * cos(CAP_ARROW_HALF_SPREAD)).toFloat()
             )
             close()
         }
@@ -361,26 +433,45 @@ internal fun CapArrowOverlay(
 
 // ── Direction line overlay ───────────────────────────────────────────────────
 
+/** Dash length, in multiples of the stroke's own width: 4 on and 2 off. */
+internal const val DASH_ON_WIDTH_RATIO = 4f
+internal const val DASH_OFF_WIDTH_RATIO = 2f
+
 /**
  * Thin dashed line drawn from the screen center (boat position) outward in the
  * heading direction, extending to the edge of the map.
+ *
+ * Its three appearance values arrive as parameters — [strokeWidthDp], [color] and [transparencyPct] —
+ * so the overlay holds no settings read of its own. The dash is proportional to the stroke —
+ * [DASH_ON_WIDTH_RATIO] on and [DASH_OFF_WIDTH_RATIO] off, both taken through `toPx()` — which is the
+ * shipped 12 : 6 px at the 1 dp line on a 3× screen and stays tied to the stroke at every thickness.
  */
 @Composable
 internal fun DirectionLine(
+    strokeWidthDp: Float,
+    color: Int,
+    transparencyPct: Int,
     modifier: Modifier = Modifier,
     centerOffsetYDp: Dp = 0.dp,
 ) {
-    val lineColor = ComposeColor(AppConfig.mapNavigationLineColor)
+    val lineColor = ComposeColor(color).copy(alpha = transparencyPctToAlphaFraction(transparencyPct))
     Canvas(modifier = modifier) {
         val cX = size.width / 2
         val cY = size.height / 2 + centerOffsetYDp.toPx()
+        val strokeWidthPx = strokeWidthDp.dp.toPx()
 
         drawLine(
             color = lineColor,
             start = Offset(cX, cY),
             end = Offset(cX, 0f),
-            strokeWidth = 1.dp.toPx(),
-            pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 6f), 0f),
+            strokeWidth = strokeWidthPx,
+            pathEffect = PathEffect.dashPathEffect(
+                floatArrayOf(
+                    strokeWidthPx * DASH_ON_WIDTH_RATIO,
+                    strokeWidthPx * DASH_OFF_WIDTH_RATIO
+                ),
+                0f
+            ),
             cap = StrokeCap.Round
         )
     }

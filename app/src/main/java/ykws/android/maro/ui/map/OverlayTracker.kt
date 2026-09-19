@@ -38,12 +38,18 @@ class OverlayTracker {
     var lastRegZoneZoom: Double = -1.0
     var lastRegZoneFillTransparencyPct: Int = -1
     var lastRegZoneBoundaryTransparencyPct: Int = -1
+    var lastRegZoneOutlineWidthPx: Float = -1f
 
     var lastZone300: Zone300Data? = null
     var lastZone300Zoom: Double = -1.0
     var lastZone300Color: Int = 0
     var lastZone300FillTransparencyPct: Int = -1
     var lastZone300BoundaryTransparencyPct: Int = -1
+    var lastZone300BoundaryWidthPx: Float = -1f
 
     var lastSegments: List<CoastlineSegment> = emptyList()
+    var lastCoastlineMainlandColor: Int = 0
+    var lastCoastlineIslandColor: Int = 0
+    var lastCoastlineWidthPx: Float = -1f
+    var lastCoastlineTransparencyPct: Int = -1
 }

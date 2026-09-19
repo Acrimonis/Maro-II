@@ -72,6 +72,12 @@
     <string name="settings_regen_warning_desc">Reconstruire l\'alerte magenta des hauts-fonds</string>
     <string name="settings_coastline_label">Trait de côte</string>
     <string name="settings_coastline_desc">Afficher la ligne de côte sur la carte</string>
+    <string name="settings_coastline_appearance_label">Apparence du trait de côte</string>
+    <string name="settings_coastline_width_desc">Épaisseur du trait de côte (dp)</string>
+    <string name="settings_coastline_transparency_desc" formatted="false">Transparence du trait de côte (0% = opaque, 100% = invisible)</string>
+    <string name="settings_coastline_colors_label">Couleurs du littoral</string>
+    <string name="settings_coastline_colors_desc">Continental à gauche, île à droite</string>
+    <string name="settings_coastline_pair_label">Continental / île</string>
     <string name="settings_land_water_icon_label">Afficher l\'icône terre/eau</string>
     <string name="settings_land_water_icon_desc">L\'icône indique si le bateau se trouve sur l\'eau ou sur terre, et elle est masquée lorsqu\'elle est désactivée</string>
     <string name="settings_zone300_label">Zone des 300 m</string>
@@ -80,6 +86,9 @@
     <string name="settings_zone300_color_desc">Couleur du remplissage et du contour de la bande des 300 m</string>
     <string name="settings_zone300_opacity_desc">Transparence du contenu et du contour de la zone (0% = opaque, 100% = invisible)</string>
     <string name="settings_zone300_appearance_label">Apparence de la zone des 300 m</string>
+    <string name="settings_zone300_boundary_width_desc">Épaisseur du trait de limite de la bande des 300 m (dp)</string>
+    <string name="settings_regulated_zones_outline_width_desc">Épaisseur des contours des zones réglementées (dp)</string>
+    <string name="settings_width_label">Épaisseur du trait</string>
     <string name="settings_auto_markers_label">Gestion de la création automatique des repères</string>
     <string name="settings_regulated_zones_label">Zones réglementées</string>
     <string name="settings_regulated_zones_desc">Afficher les zones réglementées (vitesse, mouillage, etc.) sur la carte</string>
@@ -98,6 +107,17 @@
     <string name="settings_cap_arrow_desc">Afficher la flèche de direction proportionnelle à la vitesse depuis le bateau</string>
     <string name="settings_demo_heading_label">Cap en mode démo</string>
     <string name="settings_demo_heading_desc">Déduire le cap de la direction du glissement en mode démo (au lieu du nord en haut)</string>
+    <string name="settings_heading_line_appearance_label">Apparence de la ligne de cap</string>
+    <string name="settings_heading_line_width_label">Épaisseur de la ligne</string>
+    <string name="settings_heading_line_width_desc">Épaisseur de la ligne de cap (dp)</string>
+    <string name="settings_heading_line_transparency_desc" formatted="false">Transparence de la ligne de cap (0% = opaque, 100% = invisible)</string>
+    <string name="settings_cap_arrow_appearance_label">Apparence de la flèche</string>
+    <string name="settings_cap_arrow_width_label">Épaisseur de la flèche</string>
+    <string name="settings_cap_arrow_width_desc">Épaisseur du trait de la flèche (dp) ; la pointe garde son rapport de 4 : 1</string>
+    <string name="settings_cap_arrow_transparency_desc" formatted="false">Transparence de la flèche (0% = opaque, 100% = invisible)</string>
+    <string name="settings_speed_colour_label">Couleur selon la vitesse</string>
+    <string name="settings_default_colour_label">Couleur par défaut</string>
+    <string name="settings_value_dp_fmt">%.2f dp</string>
     <string name="settings_emodnet_section_label">Seuil hauts-fonds (EMODnet)</string>
     <string name="settings_emodnet_section_desc">Les données EMODnet (grossières) sont peu fiables en eau très peu profonde près des rochers et de la côte</string>
     <string name="settings_emodnet_cutoff_label">Profondeur seuil</string>
@@ -402,7 +422,6 @@
     <string name="settings_reg_alert_demo_label">Alerte zone réglementée (Démo)</string>
     <string name="settings_reg_alert_demo_desc">Afficher les zones réglementées en naviguant vers une zone</string>
     <string name="settings_regenerate_layers">Régénérer les couches</string>
-    <string name="color_picker_pick">Choisir</string>
 
     <!-- Content descriptions (accessibility) -->
     <string name="cd_cancel">Annuler</string>

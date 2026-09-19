@@ -197,9 +197,10 @@ object AppConfig {
      *  Settings slider reads it between the same bounds it always had. */
     var trackDirectionMaxSpacingDp: Int = 400
         private set
-    /** Chevron tempering knee (px): at or below this core a chevron is drawn at the core itself.
-     *  Default 10. Set via `track.arrow.scaleKnee`. */
-    var trackArrowScaleKnee: Float = 10f
+    /** Chevron tempering knee (dp): at or below this core a chevron is drawn at the core itself.
+     *  Default 3.3333333 — the 10 px the table stated on the 3× device it was tuned on.
+     *  Set via `track.arrow.scaleKnee`. */
+    var trackArrowScaleKneeDp: Float = 10f / 3f
         private set
     /** Chevron tempering factor above the knee: the core becomes `knee + (core − knee) × temper`.
      *  Default 0.5. Set via `track.arrow.temper`. */
@@ -208,53 +209,57 @@ object AppConfig {
 
     // ── Track outlines: per-type widths (from maro.properties) ───────────
     // All three rendering modes read this table: the widths are what the map draws stored tracks and
-    // the live recording line from. Widths are pixels, not dp, and every default mirrors the shipped
-    // file key for key.
-    /** Stroke width (px) of the live recording line, its GAP bridges and its trailing segment.
-     *  Default 12. Set via `track.width.live`. */
-    var trackWidthLive: Float = 12f
+    // the live recording line from. Widths are dp — the reference density is the 3× device the numbers
+    // were chosen on, and the caller multiplies by the density at the paint site — and every default
+    // mirrors the shipped file key for key.
+    /** Stroke width (dp) of the live recording line, its GAP bridges and its trailing segment.
+     *  Default 4 (the 12 px of the 3× reference). Set via `track.width.live`. */
+    var trackWidthLiveDp: Float = 4f
         private set
-    /** Stroke width (px) of the selected stored track's core. Default 14. Set via `track.width.selected`. */
-    var trackWidthSelected: Float = 14f
+    /** Stroke width (dp) of the selected stored track's core. Default 3.3333333 (the 10 px of the 3×
+     *  reference). Set via `track.width.selected`. */
+    var trackWidthSelectedDp: Float = 10f / 3f
         private set
-    /** Stroke width (px) of the newest history track. Default 10. Set via `track.width.newest`. */
-    var trackWidthNewest: Float = 10f
+    /** Stroke width (dp) of the newest history track. Default 3.6666667 (the 11 px of the 3×
+     *  reference). Set via `track.width.newest`. */
+    var trackWidthNewestDp: Float = 11f / 3f
         private set
-    /** Stroke width (px) of every pinned track. Default 8. Set via `track.width.pinned`. */
-    var trackWidthPinned: Float = 8f
+    /** Stroke width (dp) of every pinned track. Default 3 (the 9 px of the 3× reference).
+     *  Set via `track.width.pinned`. */
+    var trackWidthPinnedDp: Float = 3f
         private set
-    /** Stroke width (px) of every other history track. Default 6. Set via `track.width.history`. */
-    var trackWidthHistory: Float = 6f
+    /** Stroke width (dp) of every other history track. Default 2.6666667 (the 8 px of the 3×
+     *  reference). Set via `track.width.history`. */
+    var trackWidthHistoryDp: Float = 8f / 3f
         private set
-    /** Stroke width (px) of the dark casing drawn beneath the selected track's core — 4 px a side
-     *  over the shipped 14 px core, the legacy pair's own rim thickness, with the casing still
-     *  standing wider than the core it sits under.
+    /** Stroke width (dp) of the dark casing drawn beneath the selected track's core — 1 dp a side over
+     *  the shipped 3.333 dp core, the legacy pair's own rim, with the casing still standing wider than
+     *  the core it sits under.
      *  The key sets two things, and both are that same rim: the line's casing takes this width whole,
      *  while a selection's chevrons take half its excess over the line's own width as the outward
-     *  offset of their dark V from the coloured one — 4 px at the shipped pair, which clears the
-     *  coloured centreline by 1 px. Default 22. Set via `track.width.selected.casing`. */
-    var trackWidthSelectedCasing: Float = 22f
+     *  offset of their dark V from the coloured one — 1 dp at the shipped pair, which clears the
+     *  coloured centreline by 0.167 dp. Default 5.3333335 (the 16 px of the 3× reference).
+     *  Set via `track.width.selected.casing`. */
+    var trackWidthSelectedCasingDp: Float = 16f / 3f
         private set
 
     // ── Speed heatmap ramp (from maro.properties) ────────────────────────
     /** Parsed speed ramp: families as a list — each carrying its own draw step — and the neutral
      *  tint. There is no count key: the read walks `familyN` from 1 upward and stops at the
      *  first index missing a key, so the file alone decides the ramp's length.
-     *  Default: the nine families the shipped file holds, mirrored key for key — flat green through
-     *  to purple, 4 / 6 / 7 / 9 / 12 / 13 / 22 / 32 / 70 kn, the coarse steps below 13 kn and the
-     *  fine ones above it.
+     *  Default: the seven families the shipped file holds, mirrored key for key — flat green inside
+     *  the 5 kn limit, the two 30 % tolerance changeovers at 0.25 and 0.5, then 13 / 22 / 32 / 70 kn.
+     *  The file is the source of truth and this default follows it, not the reverse.
      *  Set via `track.heatmap.familyN.*` / `.unknownColor`. */
     var trackHeatmapRamp: HeatmapRamp = HeatmapRamp(
         families = listOf(
-            HeatmapFamily(4f, 0xFF1A6B1A.toInt(), 0xFF1A6B1A.toInt(), 1.0f),   // flat green to the 4 kn ceiling
-            HeatmapFamily(6f, 0xFF228B22.toInt(), 0xFF9EE79E.toInt(), 1.0f),   // green lightening, 4 to 6
-            HeatmapFamily(7f, 0xFF9EE79E.toInt(), 0xFF125B9B.toInt(), 1.0f),   // the green-to-blue changeover, 6 to 7
-            HeatmapFamily(9f, 0xFF187AD0.toInt(), 0xFF187AD0.toInt(), 1.0f),   // flat blue, 7 to 9
-            HeatmapFamily(12f, 0xFF187AD0.toInt(), 0xFFB5D8F6.toInt(), 1.0f),  // blue to pale blue, 9 to 12
-            HeatmapFamily(13f, 0xFFB5D8F6.toInt(), 0xFFFFD164.toInt(), 1.0f),  // pale blue to amber, 12 to 13
+            HeatmapFamily(5f, 0xFF1A6B1A.toInt(), 0xFF2AAB2A.toInt(), 1.0f),    // flat green inside the 5 kn limit
+            HeatmapFamily(7f, 0xFF2AAB2A.toInt(), 0xFF105189.toInt(), 0.25f),  // green to blue across the 30 % tolerance
+            HeatmapFamily(10f, 0xFF105189.toInt(), 0xFF4EA7FF.toInt(), 0.5f),  // blue out to the 10 kn limit
+            HeatmapFamily(13f, 0xFF4EA7FF.toInt(), 0xFFFFD164.toInt(), 0.5f),  // blue to amber across the tolerance
             HeatmapFamily(22f, 0xFFFFD164.toInt(), 0xFFEF6C00.toInt(), 1.0f),  // amber to orange, 13 to 22
-            HeatmapFamily(32f, 0xFFEF6C00.toInt(), 0xFF751212.toInt(), 1.0f),  // orange to dark red, 22 to 32
-            HeatmapFamily(70f, 0xFF751212.toInt(), 0xFF6A1B9A.toInt(), 2.0f)   // dark red to purple out to 70 kn
+            HeatmapFamily(32f, 0xFFEF6C00.toInt(), 0xFF8B1515.toInt(), 1.0f),  // orange to dark red, 22 to 32
+            HeatmapFamily(70f, 0xFF8B1515.toInt(), 0xFF791FB0.toInt(), 2.0f)   // dark red to purple out to 70 kn
         ),
         unknownArgb = 0xFFF5F5DC.toInt()
     )
@@ -416,24 +421,57 @@ object AppConfig {
     var uiToastText: Int = 0xFFFFFFFF.toInt()
         private set
 
-    /** Coastline mainland colour. Default #1545C0. Set via `map.coastline.mainland.color` in colors.properties. */
+    /** Coastline mainland stroke colour. Default #1545C0. Set via `map.coastline.mainland.color` in maro.properties. */
     var mapCoastlineMainlandColor: Int = 0xFF1545C0.toInt()
         private set
-    /** Coastline mainland stroke width (px). Default 10. Set via `map.coastline.mainland.width` in colors.properties. */
-    var mapCoastlineMainlandWidth: Int = 10
-        private set
-    /** Coastline island colour. Default #08805C. Set via `map.coastline.island.color` in colors.properties. */
+    /** Coastline island stroke colour. Default #08805C. Set via `map.coastline.island.color` in maro.properties. */
     var mapCoastlineIslandColor: Int = 0xFF08805C.toInt()
         private set
-    /** Coastline island stroke width (px). Default 10. Set via `map.coastline.island.width` in colors.properties. */
-    var mapCoastlineIslandWidth: Int = 10
+    /** Coastline stroke width (dp) — one width for mainland and island alike. Default 3.3333333, the
+     *  10 px of the 3× reference. Set via `map.coastline.widthDp` in maro.properties. */
+    var mapCoastlineWidthDp: Float = 10f / 3f
+        private set
+    /** Coastline stroke transparency % (0 = opaque, 100 = invisible). Default 50, the shipped
+     *  half-strength stroke (an alpha of 127). Set via `map.coastline.transparencyPct` in maro.properties. */
+    var mapCoastlineTransparencyPct: Int = 50
+        private set
+    /** 300 m band seaward boundary stroke width (dp). Default 2, the 6 px of the 3× reference.
+     *  Set via `map.zone300.boundary.widthDp` in maro.properties. */
+    var mapZone300BoundaryWidthDp: Float = 2f
+        private set
+    /** Regulated zone outline stroke width (dp). Default 1, the 3 px of the 3× reference.
+     *  Set via `map.regulatedZone.outline.widthDp` in maro.properties. */
+    var mapRegulatedZoneOutlineWidthDp: Float = 1f
         private set
 
-    /** Navigation arrow colour. Default #1565C0. Set via `map.navigation.arrow.color` in colors.properties. */
+    /** Navigation arrow colour — the manual colour, painted while the Speed Colour mode is off.
+     *  Default #1565C0. Set via `map.navigation.arrow.color` in maro.properties. */
     var mapNavigationArrowColor: Int = 0xFF1565C0.toInt()
         private set
-    /** Navigation direction line colour. Default #4D1565C0. Set via `map.navigation.line.color` in colors.properties. */
-    var mapNavigationLineColor: Int = 0x4D1565C0.toInt()
+    /** Cap arrow shaft width (dp) — the head is derived from it at the shipped 4 : 1 ratio.
+     *  Default 2.25. Set via `map.navigation.arrow.widthDp` in maro.properties. */
+    var mapNavigationArrowWidthDp: Float = 2.25f
+        private set
+    /** Cap arrow transparency % (0 = opaque, 100 = invisible). Default 0, the shipped opaque arrow.
+     *  Set via `map.navigation.arrow.transparencyPct` in maro.properties. */
+    var mapNavigationArrowTransparencyPct: Int = 0
+        private set
+    /** Cap arrow colour mode: true = the colour follows the speed the boat carries, read from the
+     *  track speed ramp; false = the arrow's own colour key. Default false.
+     *  Set via `map.navigation.arrow.followSpeedColour` in maro.properties. */
+    var mapNavigationArrowFollowSpeedColour: Boolean = false
+        private set
+    /** Navigation direction line colour — the opaque hue; its alpha has one home in the transparency
+     *  key below. Default #1565C0. Set via `map.navigation.line.color` in maro.properties. */
+    var mapNavigationLineColor: Int = 0xFF1565C0.toInt()
+        private set
+    /** Direction line stroke width (dp). Default 1.
+     *  Set via `map.navigation.line.widthDp` in maro.properties. */
+    var mapNavigationLineWidthDp: Float = 1f
+        private set
+    /** Direction line transparency % (0 = opaque, 100 = invisible). Default 70, the 30 % alpha the
+     *  colour key used to pack. Set via `map.navigation.line.transparencyPct` in maro.properties. */
+    var mapNavigationLineTransparencyPct: Int = 70
         private set
 
     /** Speed (knots) at which the map look-ahead offset reaches its maximum.
@@ -595,25 +633,27 @@ object AppConfig {
         private set
 
     // ── Map overlay colours ───────────────────────────────────────────────────
-    /** Hazard disc fill colour. Default #FFFFE800. Set via `map.hazard.disc.fill` in colors.properties. */
+    /** Hazard disc fill colour. Default #FFFFE800. Set via `map.hazard.disc.fill` in maro.properties. */
     var mapHazardDiscFill: Int = 0xFFFFE800.toInt()
         private set
-    /** Hazard disc outline colour. Default #FF000000. Set via `map.hazard.outline` in colors.properties. */
+    /** Hazard disc outline colour. Default #FF000000. Set via `map.hazard.outline` in maro.properties. */
     var mapHazardOutline: Int = 0xFF000000.toInt()
         private set
-    /** Zone-ahead line colour. Default #CC4CAF50 (alias of ${ui.dashboard.status.success}). Set via `map.zoneAhead.line` in colors.properties. */
+    /** Zone-ahead line colour. Default #CC4CAF50 (alias of ${ui.dashboard.status.success}). Set via `map.zoneAhead.line` in maro.properties. */
     var mapZoneAheadLine: Int = 0xCC4CAF50.toInt()
         private set
-    /** Zone-ahead cone fill colour. Default #FFFFEB00. Set via `map.zoneAhead.cone.fill` in colors.properties. */
+    /** Zone-ahead cone fill colour. Default #FFFFEB00. Set via `map.zoneAhead.cone.fill` in maro.properties. */
     var mapZoneAheadConeFill: Int = 0xFFFFEB00.toInt()
         private set
-    /** Zone-ahead cone outline colour. Default #FFFFC800. Set via `map.zoneAhead.cone.outline` in colors.properties. */
+    /** Zone-ahead cone outline colour. Default #FFFFC800. Set via `map.zoneAhead.cone.outline` in maro.properties. */
     var mapZoneAheadConeOutline: Int = 0xFFFFC800.toInt()
         private set
-    /** Zone300 fill colour (~19 % alpha). Default #30E53935. Set via `map.zone300.fill` in colors.properties. */
+    /** Zone300 fill colour (~19 % alpha, vestigial — the fill's alpha comes from the transparency setting).
+     *  Default #30E53935. Set via `map.zone300.fill` in maro.properties. */
     var mapZone300Fill: Int = 0x30E53935.toInt()
         private set
-    /** Zone300 boundary colour. Default #FFE53935. Set via `map.zone300.boundary` in colors.properties. */
+    /** Zone300 boundary colour — the seed of `AppSettings.zone300Color`. Default #FFE53935.
+     *  Set via `map.zone300.boundary` in maro.properties. */
     var mapZone300Boundary: Int = 0xFFE53935.toInt()
         private set
     /** Gold wash over the boat, pulsed by an accepted Where-Am-I tap — the gold the
@@ -624,9 +664,10 @@ object AppConfig {
         private set
 
     /** Ceiling the accepted tap's beat rises to, on the 0.0–1.0 scale the `*.alpha` keys share —
-     *  clamped to 0–1 so the drawn alpha can never exceed it. Default 0.50. The alpha's one carrier:
+     *  clamped to 0–1 so the drawn alpha can never exceed it. Default 0.33, the shipped file's own
+     *  value: the file is the source of truth and this default follows it. The alpha's one carrier:
      *  the flash colour is opaque. Set via `map.marker.tap.flash.alpha` in maro.properties. */
-    var mapMarkerTapFlashAlpha: Float = 0.50f
+    var mapMarkerTapFlashAlpha: Float = 0.33f
         private set
 
     /** Diameter (dp) of the boat's round tap zone — fixed at any zoom, never following the sprite.
@@ -955,24 +996,26 @@ object AppConfig {
             props.getProperty("track.direction.maxSpacingDp")?.toIntOrNull()?.let {
                 trackDirectionMaxSpacingDp = it.coerceIn(4, 640)
             }
-            // Chevron tempering: the knee is a core width, the temper a fraction of the excess above it.
+            // Chevron tempering: the knee is a core width in dp, the temper a fraction of the excess
+            // above it. Read against the widths it compares with, so the boundary moves with them.
             props.getProperty("track.arrow.scaleKnee")?.toFloatOrNull()?.let {
-                trackArrowScaleKnee = it.coerceAtLeast(0f)
+                trackArrowScaleKneeDp = it.coerceAtLeast(0f)
             }
             props.getProperty("track.arrow.temper")?.toFloatOrNull()?.let {
                 trackArrowTemper = it.coerceIn(0f, 1f)
             }
 
             // ── Track outlines: per-type widths ─────────────────────────────
-            // Clamped where a value could break the draw — a width below 1 px is not drawable, and a
-            // width past this bound would swallow the map. An unreadable value leaves the default.
-            props.getProperty("track.width.live")?.toFloatOrNull()?.let { trackWidthLive = it.coerceAtLeast(1f) }
-            props.getProperty("track.width.selected")?.toFloatOrNull()?.let { trackWidthSelected = it.coerceAtLeast(1f) }
-            props.getProperty("track.width.newest")?.toFloatOrNull()?.let { trackWidthNewest = it.coerceAtLeast(1f) }
-            props.getProperty("track.width.pinned")?.toFloatOrNull()?.let { trackWidthPinned = it.coerceAtLeast(1f) }
-            props.getProperty("track.width.history")?.toFloatOrNull()?.let { trackWidthHistory = it.coerceAtLeast(1f) }
+            // Clamped where a value could break the draw — a width at or below the 1 px floor of the
+            // old unit, expressed here in dp, is not drawable, and a width past this bound would
+            // swallow the map. An unreadable value leaves the default.
+            props.getProperty("track.width.live")?.toFloatOrNull()?.let { trackWidthLiveDp = it.coerceAtLeast(1f / 3f) }
+            props.getProperty("track.width.selected")?.toFloatOrNull()?.let { trackWidthSelectedDp = it.coerceAtLeast(1f / 3f) }
+            props.getProperty("track.width.newest")?.toFloatOrNull()?.let { trackWidthNewestDp = it.coerceAtLeast(1f / 3f) }
+            props.getProperty("track.width.pinned")?.toFloatOrNull()?.let { trackWidthPinnedDp = it.coerceAtLeast(1f / 3f) }
+            props.getProperty("track.width.history")?.toFloatOrNull()?.let { trackWidthHistoryDp = it.coerceAtLeast(1f / 3f) }
             props.getProperty("track.width.selected.casing")?.toFloatOrNull()?.let {
-                trackWidthSelectedCasing = it.coerceAtLeast(1f)
+                trackWidthSelectedCasingDp = it.coerceAtLeast(1f / 3f)
             }
 
             // ── Speed heatmap ramp ──────────────────────────────────────────
@@ -1109,12 +1152,25 @@ object AppConfig {
             props.getProperty("ui.toast.text")?.let { parseColorOrNull(it) }?.let { uiToastText = it }
 
             props.getProperty("map.coastline.mainland.color")?.let { parseColorOrNull(it) }?.let { mapCoastlineMainlandColor = it }
-            props.getProperty("map.coastline.mainland.width")?.toIntOrNull()?.let { mapCoastlineMainlandWidth = it.coerceIn(1, 50) }
             props.getProperty("map.coastline.island.color")?.let { parseColorOrNull(it) }?.let { mapCoastlineIslandColor = it }
-            props.getProperty("map.coastline.island.width")?.toIntOrNull()?.let { mapCoastlineIslandWidth = it.coerceIn(1, 50) }
+            // The three widths are floats now, the keys carrying their unit: a dp value need not be
+            // whole, and 3.333 dp is exactly what the 10 px of the 3× reference becomes.
+            props.getProperty("map.coastline.widthDp")?.toFloatOrNull()?.let { mapCoastlineWidthDp = it }
+            props.getProperty("map.coastline.transparencyPct")?.toIntOrNull()?.let { mapCoastlineTransparencyPct = it.coerceIn(0, 100) }
+            props.getProperty("map.zone300.boundary.widthDp")?.toFloatOrNull()?.let { mapZone300BoundaryWidthDp = it }
+            props.getProperty("map.regulatedZone.outline.widthDp")?.toFloatOrNull()?.let { mapRegulatedZoneOutlineWidthDp = it }
 
             props.getProperty("map.navigation.arrow.color")?.let { parseColorOrNull(it) }?.let { mapNavigationArrowColor = it }
+            // The two widths and the two percentages carry no clamp here: the 1–8 dp, 0.5–4 dp and
+            // 0–100 % spans are the sliders' own facts, applied once where the setting is read.
+            props.getProperty("map.navigation.arrow.widthDp")?.toFloatOrNull()?.let { mapNavigationArrowWidthDp = it }
+            props.getProperty("map.navigation.arrow.transparencyPct")?.toIntOrNull()?.let { mapNavigationArrowTransparencyPct = it }
+            props.getProperty("map.navigation.arrow.followSpeedColour")?.toBooleanStrictOrNull()?.let {
+                mapNavigationArrowFollowSpeedColour = it
+            }
             props.getProperty("map.navigation.line.color")?.let { parseColorOrNull(it) }?.let { mapNavigationLineColor = it }
+            props.getProperty("map.navigation.line.widthDp")?.toFloatOrNull()?.let { mapNavigationLineWidthDp = it }
+            props.getProperty("map.navigation.line.transparencyPct")?.toIntOrNull()?.let { mapNavigationLineTransparencyPct = it }
 
             // ── Map look-ahead offset (dynamic speed-based center shift) ──
             props.getProperty("map.offset.lookahead.maxspeedKn")?.toDoubleOrNull()?.let {
@@ -1210,9 +1266,14 @@ object AppConfig {
             props.getProperty("map.isobar.emodnet.color")?.let { parseColorOrNull(it) }?.let { isobarColors[DepthSource.EMODNET] = it }
             props.getProperty("map.isobar.default.color")?.let { parseColorOrNull(it) }?.let { isobarColorDefault = it }
 
-            // ── Isobath stroke widths (from colors.properties; may also be set via zone.properties) ──
-            props.getProperty("map.isobar.litto3d.width")?.toFloatOrNull()?.let { isobarWidthBonuses[DepthSource.LITTO3D] = it.coerceIn(-4f, 6f) }
-            props.getProperty("map.isobar.emodnet.width")?.toFloatOrNull()?.let { isobarWidthBonuses[DepthSource.EMODNET] = it.coerceIn(-4f, 6f) }
+            // ── Isobath stroke width bonuses (dp) ─────────────────────────
+            // Clamped to the old -4 to +6 px span, expressed in dp so the boundary moves with the unit.
+            props.getProperty("map.isobar.litto3d.widthDp")?.toFloatOrNull()?.let {
+                isobarWidthBonuses[DepthSource.LITTO3D] = it.coerceIn(-4f / 3f, 2f)
+            }
+            props.getProperty("map.isobar.emodnet.widthDp")?.toFloatOrNull()?.let {
+                isobarWidthBonuses[DepthSource.EMODNET] = it.coerceIn(-4f / 3f, 2f)
+            }
 
             // ── Depth colour ramp ─────────────────────────────────────────────
             props.getProperty("map.depth.ramp.shallow.r")?.toIntOrNull()?.let { mapDepthRampShallowR = it.coerceIn(0, 255) }

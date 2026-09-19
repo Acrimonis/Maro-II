@@ -119,6 +119,18 @@ internal fun bandTable(pointCount: Int, bands: List<SpeedBand>): List<SpeedBand?
 }
 
 /**
+ * The ramp's colour for one speed (knots), read as the band the speed belongs to: the quantised band
+ * first, its colour second.
+ *
+ * This is the draw-safe form of [colorAt] for a caller that runs once per frame — it returns an `Int`
+ * and adds no list, no colour object and no second speed-to-colour rule, so a speed-coloured stroke
+ * costs a lookup rather than garbage per frame. A null or unusable speed answers the ramp's own
+ * neutral tint, the rule [colorAt] already carries.
+ */
+internal fun rampColorForSpeed(speedKn: Float?, ramp: HeatmapRamp): Int =
+    colorAt(quantiseKn(speedKn, ramp), ramp)
+
+/**
  * Snap one speed (knots) onto its family's own step grid, so each family's resolution follows its
  * `stepKn` and a re-cut grid is a data change.
  *

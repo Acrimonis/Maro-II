@@ -111,16 +111,32 @@ data class AppSettings(
     val lowDepthCrashDepthM: Float = DepthConstants.LOW_DEPTH_CRASH_DEPTH_M.toFloat(),
     /** Start-warning depth (m): the warning begins here and is transparent at/beyond this depth. */
     val lowDepthStartWarningM: Float = DepthConstants.LOW_DEPTH_START_WARNING_M.toFloat(),
-    /** 300 m band fill + boundary colour (opaque ARGB). Fill alpha is derived from [zone300FillTransparencyPct]. */
-    val zone300Color: Int = 0xFFE53935.toInt(),
+    /**
+     * 300 m band fill + boundary colour (opaque ARGB). Fill alpha is derived from
+     * [zone300FillTransparencyPct]. Seeded from `map.zone300.boundary` in `maro.properties`, so the
+     * property stays the single home of the value rather than a literal here.
+     */
+    val zone300Color: Int = ykws.android.maro.config.AppConfig.mapZone300Boundary,
     /** 300 m band fill transparency % (0–100, higher = more invisible). Default 80 ≈ today's 0x30 fill alpha. */
     val zone300FillTransparencyPct: Int = 80,
     /** 300 m band seaward boundary transparency % (0–100). */
     val zone300BoundaryTransparencyPct: Int = 20,
+    /** 300 m band seaward boundary stroke width (dp). Seeded from `map.zone300.boundary.widthDp`. */
+    val zone300BoundaryWidthDp: Float = ykws.android.maro.config.AppConfig.mapZone300BoundaryWidthDp,
     /** Regulated zone polygon fill transparency % (0–100, higher = more invisible). Defaults mirror the 300 m band. */
     val regulatedZoneFillTransparencyPct: Int = 80,
     /** Regulated zone polygon outline transparency % (0–100). Defaults mirror the 300 m band. */
     val regulatedZoneBoundaryTransparencyPct: Int = 20,
+    /** Regulated zone outline stroke width (dp). Seeded from `map.regulatedZone.outline.widthDp`. */
+    val regulatedZoneOutlineWidthDp: Float = ykws.android.maro.config.AppConfig.mapRegulatedZoneOutlineWidthDp,
+    /** Coastline stroke width (dp), mainland and island alike. Seeded from `map.coastline.widthDp`. */
+    val coastlineWidthDp: Float = ykws.android.maro.config.AppConfig.mapCoastlineWidthDp,
+    /** Coastline stroke transparency % (0–100, higher = more invisible). Seeded from `map.coastline.transparencyPct`. */
+    val coastlineTransparencyPct: Int = ykws.android.maro.config.AppConfig.mapCoastlineTransparencyPct,
+    /** Coastline mainland stroke colour (opaque ARGB). Seeded from `map.coastline.mainland.color`. */
+    val coastlineMainlandColor: Int = ykws.android.maro.config.AppConfig.mapCoastlineMainlandColor,
+    /** Coastline island stroke colour (opaque ARGB). Seeded from `map.coastline.island.color`. */
+    val coastlineIslandColor: Int = ykws.android.maro.config.AppConfig.mapCoastlineIslandColor,
     /** Idle threshold (s) before a BoatMarker snapshot + auto-marker is captured. */
     val boatMarkerIdleThresholdSec: Long = ykws.android.maro.config.AppConfig.boatMarkerIdleThresholdSec,
     /** Minimum idle duration (s) before an auto-marker becomes permanent. */
@@ -142,6 +158,21 @@ data class AppSettings(
     val headingLineVisible: Boolean = true,
     /** Show the speed-proportional cap arrow projecting from the boat marker. */
     val capArrowVisible: Boolean = false,
+    /** Heading line stroke width (dp). Seeded from `map.navigation.line.widthDp`. */
+    val navigationLineWidthDp: Float = ykws.android.maro.config.AppConfig.mapNavigationLineWidthDp,
+    /** Heading line stroke transparency % (0 = opaque, 100 = invisible). Seeded from `map.navigation.line.transparencyPct`. */
+    val navigationLineTransparencyPct: Int = ykws.android.maro.config.AppConfig.mapNavigationLineTransparencyPct,
+    /** Heading line colour (opaque ARGB) — the transparency above carries its alpha. Seeded from `map.navigation.line.color`. */
+    val navigationLineColor: Int = ykws.android.maro.config.AppConfig.mapNavigationLineColor,
+    /** Cap arrow shaft width (dp); the head is derived from it. Seeded from `map.navigation.arrow.widthDp`. */
+    val navigationArrowWidthDp: Float = ykws.android.maro.config.AppConfig.mapNavigationArrowWidthDp,
+    /** Cap arrow transparency % (0 = opaque, 100 = invisible). Seeded from `map.navigation.arrow.transparencyPct`. */
+    val navigationArrowTransparencyPct: Int = ykws.android.maro.config.AppConfig.mapNavigationArrowTransparencyPct,
+    /** Cap arrow manual colour, painted while the Speed Colour mode is off. Seeded from `map.navigation.arrow.color`. */
+    val navigationArrowColor: Int = ykws.android.maro.config.AppConfig.mapNavigationArrowColor,
+    /** Cap arrow colour mode — true follows the speed the boat carries. Seeded from `map.navigation.arrow.followSpeedColour`. */
+    val navigationArrowFollowSpeedColour: Boolean =
+        ykws.android.maro.config.AppConfig.mapNavigationArrowFollowSpeedColour,
     /** Show the hypsometric depth colour map and isobath contour overlays. */
     val depthLayerVisible: Boolean = true,
     /** Whether the regulated zones overlay (speed limits, anchoring, access, …) is drawn. */
@@ -446,11 +477,37 @@ class SettingsManager(
         lowDepthWarningVisible = prefs.getBoolean(KEY_LOW_DEPTH_WARNING_VISIBLE, true),
         lowDepthCrashDepthM = prefs.getFloat(KEY_LOW_DEPTH_CRASH_DEPTH_M, DepthConstants.LOW_DEPTH_CRASH_DEPTH_M.toFloat()),
         lowDepthStartWarningM = prefs.getFloat(KEY_LOW_DEPTH_START_WARNING_M, DepthConstants.LOW_DEPTH_START_WARNING_M.toFloat()),
-        zone300Color = prefs.getInt(KEY_ZONE300_COLOR, 0xFFE53935.toInt()),
+        zone300Color = prefs.getInt(KEY_ZONE300_COLOR, ykws.android.maro.config.AppConfig.mapZone300Boundary),
         zone300FillTransparencyPct = prefs.getInt(KEY_ZONE300_FILL_TRANSPARENCY_PCT, 80),
         zone300BoundaryTransparencyPct = prefs.getInt(KEY_ZONE300_BOUNDARY_TRANSPARENCY_PCT, 20),
+        // The three widths and the coastline transparency are clamped on read: a slider's span is a UI
+        // fact, never a guarantee about what a stored value holds.
+        zone300BoundaryWidthDp = prefs.getFloat(
+            KEY_ZONE300_BOUNDARY_WIDTH_DP,
+            ykws.android.maro.config.AppConfig.mapZone300BoundaryWidthDp
+        ).coerceIn(WIDTH_MIN_DP, WIDTH_MAX_DP),
         regulatedZoneFillTransparencyPct = prefs.getInt(KEY_REGULATED_ZONE_FILL_TRANSPARENCY_PCT, 80),
         regulatedZoneBoundaryTransparencyPct = prefs.getInt(KEY_REGULATED_ZONE_BOUNDARY_TRANSPARENCY_PCT, 20),
+        regulatedZoneOutlineWidthDp = prefs.getFloat(
+            KEY_REGULATED_ZONE_OUTLINE_WIDTH_DP,
+            ykws.android.maro.config.AppConfig.mapRegulatedZoneOutlineWidthDp
+        ).coerceIn(WIDTH_MIN_DP, WIDTH_MAX_DP),
+        coastlineWidthDp = prefs.getFloat(
+            KEY_COASTLINE_WIDTH_DP,
+            ykws.android.maro.config.AppConfig.mapCoastlineWidthDp
+        ).coerceIn(WIDTH_MIN_DP, WIDTH_MAX_DP),
+        coastlineTransparencyPct = prefs.getInt(
+            KEY_COASTLINE_TRANSPARENCY_PCT,
+            ykws.android.maro.config.AppConfig.mapCoastlineTransparencyPct
+        ).coerceIn(0, 100),
+        coastlineMainlandColor = prefs.getInt(
+            KEY_COASTLINE_MAINLAND_COLOR,
+            ykws.android.maro.config.AppConfig.mapCoastlineMainlandColor
+        ),
+        coastlineIslandColor = prefs.getInt(
+            KEY_COASTLINE_ISLAND_COLOR,
+            ykws.android.maro.config.AppConfig.mapCoastlineIslandColor
+        ),
         boatMarkerIdleThresholdSec = prefs.getLong(KEY_BOAT_MARKER_IDLE_THRESHOLD_S, ykws.android.maro.config.AppConfig.boatMarkerIdleThresholdSec),
         boatMarkerAutoMarkerMinDurationSec = prefs.getLong(KEY_BOAT_MARKER_AUTO_MIN_DURATION_S, ykws.android.maro.config.AppConfig.boatMarkerAutoMarkerMinDurationSec),
         boatMarkerAutoMarkerDedupRadiusM = prefs.getFloat(KEY_BOAT_MARKER_AUTO_DEDUP_RADIUS_M, ykws.android.maro.config.AppConfig.boatMarkerAutoMarkerDedupRadiusM.toFloat()).toDouble(),
@@ -461,6 +518,36 @@ class SettingsManager(
         regenWarning = prefs.getBoolean(KEY_REGEN_WARNING, true),
         headingLineVisible = prefs.getBoolean(KEY_HEADING_LINE_VISIBLE, true),
         capArrowVisible   = prefs.getBoolean(KEY_CAP_ARROW_VISIBLE, false),
+        // The two widths and the two transparencies are clamped on read, like the px widths above:
+        // a slider's span is a UI fact, never a guarantee about what a stored value holds.
+        navigationLineWidthDp = prefs.getFloat(
+            KEY_NAVIGATION_LINE_WIDTH_DP,
+            ykws.android.maro.config.AppConfig.mapNavigationLineWidthDp
+        ).coerceIn(NAV_LINE_WIDTH_MIN_DP, NAV_LINE_WIDTH_MAX_DP),
+        navigationLineTransparencyPct = prefs.getInt(
+            KEY_NAVIGATION_LINE_TRANSPARENCY_PCT,
+            ykws.android.maro.config.AppConfig.mapNavigationLineTransparencyPct
+        ).coerceIn(0, 100),
+        navigationLineColor = prefs.getInt(
+            KEY_NAVIGATION_LINE_COLOR,
+            ykws.android.maro.config.AppConfig.mapNavigationLineColor
+        ),
+        navigationArrowWidthDp = prefs.getFloat(
+            KEY_NAVIGATION_ARROW_WIDTH_DP,
+            ykws.android.maro.config.AppConfig.mapNavigationArrowWidthDp
+        ).coerceIn(NAV_ARROW_WIDTH_MIN_DP, NAV_ARROW_WIDTH_MAX_DP),
+        navigationArrowTransparencyPct = prefs.getInt(
+            KEY_NAVIGATION_ARROW_TRANSPARENCY_PCT,
+            ykws.android.maro.config.AppConfig.mapNavigationArrowTransparencyPct
+        ).coerceIn(0, 100),
+        navigationArrowColor = prefs.getInt(
+            KEY_NAVIGATION_ARROW_COLOR,
+            ykws.android.maro.config.AppConfig.mapNavigationArrowColor
+        ),
+        navigationArrowFollowSpeedColour = prefs.getBoolean(
+            KEY_NAVIGATION_ARROW_FOLLOW_SPEED_COLOUR,
+            ykws.android.maro.config.AppConfig.mapNavigationArrowFollowSpeedColour
+        ),
         depthLayerVisible = prefs.getBoolean(KEY_DEPTH_LAYER_VISIBLE, true),
         regulatedZonesVisible = prefs.getBoolean(KEY_REGULATED_ZONES_VISIBLE, BuildConfig.LAYER_REGULATED_ZONES_DEFAULT),
         regulationInfoVisible = prefs.getBoolean(KEY_REGULATION_INFO_VISIBLE, false),
@@ -598,8 +685,14 @@ class SettingsManager(
             .putInt(KEY_ZONE300_COLOR, updated.zone300Color)
             .putInt(KEY_ZONE300_FILL_TRANSPARENCY_PCT, updated.zone300FillTransparencyPct)
             .putInt(KEY_ZONE300_BOUNDARY_TRANSPARENCY_PCT, updated.zone300BoundaryTransparencyPct)
+            .putFloat(KEY_ZONE300_BOUNDARY_WIDTH_DP, updated.zone300BoundaryWidthDp)
             .putInt(KEY_REGULATED_ZONE_FILL_TRANSPARENCY_PCT, updated.regulatedZoneFillTransparencyPct)
             .putInt(KEY_REGULATED_ZONE_BOUNDARY_TRANSPARENCY_PCT, updated.regulatedZoneBoundaryTransparencyPct)
+            .putFloat(KEY_REGULATED_ZONE_OUTLINE_WIDTH_DP, updated.regulatedZoneOutlineWidthDp)
+            .putFloat(KEY_COASTLINE_WIDTH_DP, updated.coastlineWidthDp)
+            .putInt(KEY_COASTLINE_TRANSPARENCY_PCT, updated.coastlineTransparencyPct)
+            .putInt(KEY_COASTLINE_MAINLAND_COLOR, updated.coastlineMainlandColor)
+            .putInt(KEY_COASTLINE_ISLAND_COLOR, updated.coastlineIslandColor)
             .putLong(KEY_BOAT_MARKER_IDLE_THRESHOLD_S, updated.boatMarkerIdleThresholdSec)
             .putLong(KEY_BOAT_MARKER_AUTO_MIN_DURATION_S, updated.boatMarkerAutoMarkerMinDurationSec)
             .putFloat(KEY_BOAT_MARKER_AUTO_DEDUP_RADIUS_M, updated.boatMarkerAutoMarkerDedupRadiusM.toFloat())
@@ -610,6 +703,13 @@ class SettingsManager(
             .putBoolean(KEY_REGEN_WARNING, updated.regenWarning)
             .putBoolean(KEY_HEADING_LINE_VISIBLE, updated.headingLineVisible)
             .putBoolean(KEY_CAP_ARROW_VISIBLE, updated.capArrowVisible)
+            .putFloat(KEY_NAVIGATION_LINE_WIDTH_DP, updated.navigationLineWidthDp)
+            .putInt(KEY_NAVIGATION_LINE_TRANSPARENCY_PCT, updated.navigationLineTransparencyPct)
+            .putInt(KEY_NAVIGATION_LINE_COLOR, updated.navigationLineColor)
+            .putFloat(KEY_NAVIGATION_ARROW_WIDTH_DP, updated.navigationArrowWidthDp)
+            .putInt(KEY_NAVIGATION_ARROW_TRANSPARENCY_PCT, updated.navigationArrowTransparencyPct)
+            .putInt(KEY_NAVIGATION_ARROW_COLOR, updated.navigationArrowColor)
+            .putBoolean(KEY_NAVIGATION_ARROW_FOLLOW_SPEED_COLOUR, updated.navigationArrowFollowSpeedColour)
             .putBoolean(KEY_DEPTH_LAYER_VISIBLE, updated.depthLayerVisible)
             .putBoolean(KEY_REGULATED_ZONES_VISIBLE, updated.regulatedZonesVisible)
             .putFloat(KEY_BOAT_SIZE_M, updated.boatSizeM.toFloat())
@@ -730,8 +830,34 @@ class SettingsManager(
         private const val KEY_ZONE300_COLOR = "zone300_fill_color"
         private const val KEY_ZONE300_FILL_TRANSPARENCY_PCT = "zone300_fill_transparency_pct"
         private const val KEY_ZONE300_BOUNDARY_TRANSPARENCY_PCT = "zone300_boundary_transparency_pct"
+        private const val KEY_ZONE300_BOUNDARY_WIDTH_DP = "zone300_boundary_width_dp"
         private const val KEY_REGULATED_ZONE_FILL_TRANSPARENCY_PCT = "regulated_zone_fill_transparency_pct"
         private const val KEY_REGULATED_ZONE_BOUNDARY_TRANSPARENCY_PCT = "regulated_zone_boundary_transparency_pct"
+        private const val KEY_REGULATED_ZONE_OUTLINE_WIDTH_DP = "regulated_zone_outline_width_dp"
+        private const val KEY_COASTLINE_WIDTH_DP = "coastline_width_dp"
+        private const val KEY_COASTLINE_TRANSPARENCY_PCT = "coastline_transparency_pct"
+        private const val KEY_COASTLINE_MAINLAND_COLOR = "coastline_mainland_color"
+        private const val KEY_COASTLINE_ISLAND_COLOR = "coastline_island_color"
+        private const val KEY_NAVIGATION_LINE_WIDTH_DP = "navigation_line_width_dp"
+        private const val KEY_NAVIGATION_LINE_TRANSPARENCY_PCT = "navigation_line_transparency_pct"
+        private const val KEY_NAVIGATION_LINE_COLOR = "navigation_line_color"
+        private const val KEY_NAVIGATION_ARROW_WIDTH_DP = "navigation_arrow_width_dp"
+        private const val KEY_NAVIGATION_ARROW_TRANSPARENCY_PCT = "navigation_arrow_transparency_pct"
+        private const val KEY_NAVIGATION_ARROW_COLOR = "navigation_arrow_color"
+        private const val KEY_NAVIGATION_ARROW_FOLLOW_SPEED_COLOUR = "navigation_arrow_follow_speed_colour"
+
+        /**
+         * Width slider span (dp) — the settled dp grid every stored width is clamped into on read:
+         * 0.5 to 8 dp covers the 1–20 px the rows used to offer, at the step the rows now snap to.
+         */
+        private const val WIDTH_MIN_DP = 0.5f
+        private const val WIDTH_MAX_DP = 8f
+
+        /** Heading line and cap arrow width spans (dp), the settled 0.5–4 and 1–8 ranges, applied on read. */
+        private const val NAV_LINE_WIDTH_MIN_DP = 0.5f
+        private const val NAV_LINE_WIDTH_MAX_DP = 4f
+        private const val NAV_ARROW_WIDTH_MIN_DP = 1f
+        private const val NAV_ARROW_WIDTH_MAX_DP = 8f
         private const val KEY_BOAT_MARKER_IDLE_THRESHOLD_S = "boat_marker_idle_threshold_s"
         private const val KEY_BOAT_MARKER_AUTO_MIN_DURATION_S = "boat_marker_auto_min_duration_s"
         private const val KEY_BOAT_MARKER_AUTO_DEDUP_RADIUS_M = "boat_marker_auto_dedup_radius_m"

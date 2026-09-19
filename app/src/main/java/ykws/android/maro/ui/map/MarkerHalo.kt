@@ -14,33 +14,37 @@ import android.graphics.Paint
  */
 object MarkerHalo {
 
-    /** Radius of the small centre dot in px (matches MarkerOverlay's dot). */
-    const val DOT_ANCHOR_RADIUS_PX = 18f
+    /** Radius of the small centre dot in dp (matches MarkerOverlay's dot). */
+    const val DOT_ANCHOR_RADIUS_DP = 6f
 
-    /** Radius of the emoji-icon anchor in px (larger than the dot). */
-    const val ICON_ANCHOR_RADIUS_PX = 30f
+    /** Radius of the emoji-icon anchor in dp (larger than the dot). */
+    const val ICON_ANCHOR_RADIUS_DP = 10f
 
-    /** Halo ring radius in px at size % = 0 and zoom 100 % (1× dot size). */
-    private const val MIN_RADIUS_PX = 18f
+    /** Halo ring radius in dp at size % = 0 and zoom 100 % (1× dot size). */
+    private const val MIN_RADIUS_DP = 6f
 
-    /** Halo ring radius in px at size % = 100 and zoom 100 % (2× icon size). */
-    private const val MAX_RADIUS_PX = 60f
+    /** Halo ring radius in dp at size % = 100 and zoom 100 % (2× icon size). */
+    private const val MAX_RADIUS_DP = 20f
 
-    /** Border ring stroke width in px. */
-    private const val BORDER_STROKE_PX = 4f
+    /** Border ring stroke width in dp. */
+    private const val BORDER_STROKE_DP = 4f / 3f
+
+    /** Padding left round the ring inside the bitmap, in dp. */
+    private const val BITMAP_PADDING_DP = 4f / 3f
 
     /**
-     * Map a halo size % (0-100) to a halo ring radius in px.
+     * Map a halo size % (0-100) to a halo ring radius in dp.
      *
-     * The radius at marker zoom 100 % is absolute — 18px at size 0 → 60px at
-     * size 100 — applied uniformly to both dot and icon anchors (NOT proportional
-     * to the anchor). The marker "point/icon rendering zoom" scales the whole
-     * marker (dot/icon), so by rule of three the ring scales by the same factor
-     * ([zoomPct]/100) — at zoom 100 % the rendering is identical to today.
+     * The radius at marker zoom 100 % is absolute — 6 dp at size 0 → 20 dp at size 100 — applied
+     * uniformly to both dot and icon anchors (NOT proportional to the anchor). The marker
+     * "point/icon rendering zoom" scales the whole marker (dot/icon), so by rule of three the ring
+     * scales by the same factor ([zoomPct]/100) — at zoom 100 % the rendering is identical to today.
+     *
+     * Dp, like the rest of the map's lengths: [createBitmap] is where a density turns it into px.
      */
-    fun radiusPxFor(sizePct: Int, zoomPct: Int = 100): Float {
+    fun radiusDpFor(sizePct: Int, zoomPct: Int = 100): Float {
         val t = sizePct.coerceIn(0, 100) / 100f
-        val radiusAtZoom100 = MIN_RADIUS_PX + (MAX_RADIUS_PX - MIN_RADIUS_PX) * t
+        val radiusAtZoom100 = MIN_RADIUS_DP + (MAX_RADIUS_DP - MIN_RADIUS_DP) * t
         return radiusAtZoom100 * zoomPct.coerceIn(50, 150) / 100f
     }
 
@@ -48,10 +52,12 @@ object MarkerHalo {
      * Build a halo [Bitmap]: a filled disc of [spec.color] at [spec.fillTransparencyPct]
      * with a border ring at [spec.borderTransparencyPct].
      *
-     * The halo ring radius is absolute ([radiusPxFor]) and independent of the anchor
+     * The halo ring radius is absolute ([radiusDpFor]) and independent of the anchor
      * it surrounds; [anchorRadiusPx] is retained only for sizing/centering the bitmap
      * so the halo is drawn behind the anchor.
      *
+     * @param density     The screen density: the ring, its border and the bitmap's padding are dp,
+     *                    and this is the one conversion point in the object.
      * @param sizePct     Halo size % (0-100) controlling the ring radius.
      * @param zoomPct     Marker point/icon rendering zoom % (50-150). Scales the ring
      *                    with the marker (rule of three); 100 = today's size.
@@ -61,12 +67,14 @@ object MarkerHalo {
     fun createBitmap(
         spec: MarkerHaloSpec,
         anchorRadiusPx: Float,
+        density: Float,
         sizePct: Int,
         zoomPct: Int = 100,
         dimFraction: Float = 1f
     ): Bitmap {
-        val haloRadius = radiusPxFor(sizePct, zoomPct)
-        val size = (haloRadius * 2 + BORDER_STROKE_PX * 2 + 4).toInt()
+        val haloRadius = dpToPx(radiusDpFor(sizePct, zoomPct), density)
+        val borderPx = dpToPx(BORDER_STROKE_DP, density)
+        val size = (haloRadius * 2 + borderPx * 2 + dpToPx(BITMAP_PADDING_DP, density)).toInt()
         val center = size / 2f
 
         val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
@@ -88,7 +96,7 @@ object MarkerHalo {
                 color = withAlpha(spec.color, spec.borderTransparencyPct, dimFraction)
                 isAntiAlias = true
                 style = Paint.Style.STROKE
-                strokeWidth = BORDER_STROKE_PX
+                strokeWidth = borderPx
             }
             canvas.drawCircle(center, center, haloRadius, borderPaint)
         }

@@ -15,7 +15,11 @@ import java.util.Properties
  * whatever its class transparency says, and the legacy dark casing at the width its key reads. Pure
  * functions only — the osmdroid drawing stays in the Compose shell, device-verified.
  *
- * The last test reads the real `maro.properties`, the shape `HeatmapRampPropertiesTest` uses for the
+ * **The widths are dp since 2026-09-19**, the reference density being the 3× device they were chosen
+ * on, so every shipped number is the px it used to state divided by three and the drawn weight there
+ * is unchanged. The caller multiplies by the density at the paint site; nothing here does.
+ *
+ * The last tests read the real `maro.properties`, the shape `HeatmapRampPropertiesTest` uses for the
  * ramp: a misspelled key leaves the code's default standing and fails here, where a fixture built from
  * those defaults would have stayed green. The test CWD is the `app` module, and `maro.repoDir` is
  * honoured first so a repo-root run finds the file too.
@@ -38,42 +42,43 @@ class TrackOutlineTest {
     // ── The per-type widths, and the shipped defaults behind them ─────────
 
     @Test
-    fun theShippedWidthsSeparateTheSelectionFromEveryOtherType() {
-        assertEquals(12f, AppConfig.trackWidthLive, 0f)
-        assertEquals(14f, AppConfig.trackWidthSelected, 0f)
-        assertEquals(10f, AppConfig.trackWidthNewest, 0f)
-        assertEquals(8f, AppConfig.trackWidthPinned, 0f)
-        assertEquals(6f, AppConfig.trackWidthHistory, 0f)
+    fun theShippedWidthsAreTheFilesNumbersInDp() {
+        // The px the table used to state, over the 3× reference: 12 / 10 / 11 / 9 / 8.
+        assertEquals(4f, AppConfig.trackWidthLiveDp, 1e-6f)
+        assertEquals(10f / 3f, AppConfig.trackWidthSelectedDp, 1e-6f)
+        assertEquals(11f / 3f, AppConfig.trackWidthNewestDp, 1e-6f)
+        assertEquals(3f, AppConfig.trackWidthPinnedDp, 1e-6f)
+        assertEquals(8f / 3f, AppConfig.trackWidthHistoryDp, 1e-6f)
         assertTrue(
-            "the selection must out-weigh the newest track it sits among",
-            AppConfig.trackWidthSelected > AppConfig.trackWidthNewest
+            "the selection must out-weigh the oldest class it sits among",
+            AppConfig.trackWidthSelectedDp > AppConfig.trackWidthHistoryDp
         )
     }
 
     @Test
     fun theWidthATrackEarnsFollowsItsTypeNotTheLoopsPosition() {
         assertEquals(
-            AppConfig.trackWidthSelected,
+            AppConfig.trackWidthSelectedDp,
             storedTrackWidth(selected = true, pinned = true, newest = false),
             0f
         )
         assertEquals(
-            AppConfig.trackWidthSelected,
+            AppConfig.trackWidthSelectedDp,
             storedTrackWidth(selected = true, pinned = false, newest = true),
             0f
         )
         assertEquals(
-            AppConfig.trackWidthPinned,
+            AppConfig.trackWidthPinnedDp,
             storedTrackWidth(selected = false, pinned = true, newest = false),
             0f
         )
         assertEquals(
-            AppConfig.trackWidthNewest,
+            AppConfig.trackWidthNewestDp,
             storedTrackWidth(selected = false, pinned = false, newest = true),
             0f
         )
         assertEquals(
-            AppConfig.trackWidthHistory,
+            AppConfig.trackWidthHistoryDp,
             storedTrackWidth(selected = false, pinned = false, newest = false),
             0f
         )
@@ -85,7 +90,7 @@ class TrackOutlineTest {
     fun theNewestTrackIsTheNewestByRecencyNotWhoeverTheRankingPutsFirst() {
         // The selection policy ranks the focused track first, so the drawn list opens on the user's
         // selection: finding the newest by position would hand the history width to the one track the
-        // user is looking at, on the same map where the true newest takes the heavier one.
+        // user is looking at, on the same map where the true newest takes its own.
         val selected = summary("selected", startTimeMs = 1_000L)
         val newest = summary("newest", startTimeMs = 3_000L)
         val older = summary("older", startTimeMs = 2_000L)
@@ -94,17 +99,17 @@ class TrackOutlineTest {
 
         assertEquals("newest", newestId)
         assertEquals(
-            AppConfig.trackWidthSelected,
+            AppConfig.trackWidthSelectedDp,
             storedTrackWidth(selected = true, pinned = false, newest = selected.id == newestId),
             0f
         )
         assertEquals(
-            AppConfig.trackWidthNewest,
+            AppConfig.trackWidthNewestDp,
             storedTrackWidth(selected = false, pinned = false, newest = newest.id == newestId),
             0f
         )
         assertEquals(
-            AppConfig.trackWidthHistory,
+            AppConfig.trackWidthHistoryDp,
             storedTrackWidth(selected = false, pinned = false, newest = older.id == newestId),
             0f
         )
@@ -156,10 +161,10 @@ class TrackOutlineTest {
             casing.strokeWidth > shippedCore
         )
         assertEquals(
-            "the rim shows 4 px a side — the legacy pair's thickness, which is what 22 over 14 buys",
-            4f,
+            "the rim shows 1 dp a side — 5.333 over the shipped 3.333 buys the legacy pair's 3 px",
+            1f,
             (casing.strokeWidth - shippedCore) / 2f,
-            0f
+            1e-6f
         )
     }
 
@@ -168,7 +173,9 @@ class TrackOutlineTest {
     /**
      * The six width keys, read from the real file and held against `AppConfig`'s defaults: a drift
      * between the two fails here rather than shipping silently, and the key set is asserted first
-     * because a misspelled name would leave the default standing without a word.
+     * because a misspelled name would leave the default standing without a word. The file is the
+     * source of truth, so it is the defaults that follow it — which is what the drift the strokes
+     * change left behind is settled by.
      *
      * Every mismatch is collected and reported in one go: the file can disagree with the code in more
      * than one family, and asserting them one at a time reports only the first, hiding the rest
@@ -191,12 +198,12 @@ class TrackOutlineTest {
         )
 
         val mismatches = listOf(
-            "track.width.live" to AppConfig.trackWidthLive,
-            "track.width.selected" to AppConfig.trackWidthSelected,
-            "track.width.newest" to AppConfig.trackWidthNewest,
-            "track.width.pinned" to AppConfig.trackWidthPinned,
-            "track.width.history" to AppConfig.trackWidthHistory,
-            "track.width.selected.casing" to AppConfig.trackWidthSelectedCasing
+            "track.width.live" to AppConfig.trackWidthLiveDp,
+            "track.width.selected" to AppConfig.trackWidthSelectedDp,
+            "track.width.newest" to AppConfig.trackWidthNewestDp,
+            "track.width.pinned" to AppConfig.trackWidthPinnedDp,
+            "track.width.history" to AppConfig.trackWidthHistoryDp,
+            "track.width.selected.casing" to AppConfig.trackWidthSelectedCasingDp
         ).mapNotNull { (key, default) ->
             val shipped = props.getProperty(key)?.toFloatOrNull()
             if (shipped == default) null else "$key: shipped $shipped, default $default"
@@ -216,11 +223,33 @@ class TrackOutlineTest {
     fun theCasingWidthKeyParsesToTheCodesOwnDefault() {
         val props = shippedProperties()
 
-        assertEquals(22f, AppConfig.trackWidthSelectedCasing, 0f)
+        assertEquals(16f / 3f, AppConfig.trackWidthSelectedCasingDp, 1e-6f)
         assertEquals(
-            AppConfig.trackWidthSelectedCasing,
+            AppConfig.trackWidthSelectedCasingDp,
             props.getProperty("track.width.selected.casing")!!.toFloat(),
-            0f
+            1e-6f
+        )
+    }
+
+    /**
+     * The knee rides with the widths it compares against, so it is a dp core width too: a threshold
+     * left in px would compare a px number against dp cores and silently stop tempering anything.
+     */
+    @Test
+    fun theShippedKneeIsDpAndMovesWithTheWidthsItComparesAgainst() {
+        val props = shippedProperties()
+
+        assertEquals(10f / 3f, AppConfig.trackArrowScaleKneeDp, 1e-6f)
+        assertEquals(
+            AppConfig.trackArrowScaleKneeDp,
+            props.getProperty("track.arrow.scaleKnee")!!.toFloat(),
+            1e-6f
+        )
+        // Read against the same table: the knee is no longer assumed to sit between the classes, only
+        // to be stated in the unit the cores are.
+        assertTrue(
+            "the knee must be a width of the same order as the table it bounds",
+            AppConfig.trackArrowScaleKneeDp <= widestStoredTrackWidth()
         )
     }
 }

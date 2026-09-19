@@ -56,6 +56,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.border
@@ -326,8 +327,7 @@ private fun LayersSettings(
                     ColorRow(
                         label = stringResource(R.string.settings_color_active_track),
                         color = settings.trackingColorActive,
-                        onColorSelected = { c -> onUpdateSettings { it.copy(trackingColorActive = c) } },
-                        showPickLabel = false
+                        onColorSelected = { c -> onUpdateSettings { it.copy(trackingColorActive = c) } }
                     )
                     ColorPairRow(
                         label = stringResource(R.string.settings_color_past_tracks),
@@ -514,14 +514,12 @@ private fun LayersSettings(
                     ColorRow(
                         label = stringResource(R.string.settings_marker_halo_pinned_color_label),
                         color = settings.markerHaloPinnedColor,
-                        onColorSelected = { c -> onUpdateSettings { it.copy(markerHaloPinnedColor = c) } },
-                        showPickLabel = false
+                        onColorSelected = { c -> onUpdateSettings { it.copy(markerHaloPinnedColor = c) } }
                     )
                     ColorRow(
                         label = stringResource(R.string.settings_marker_halo_unpinned_color_label),
                         color = settings.markerHaloUnpinnedColor,
-                        onColorSelected = { c -> onUpdateSettings { it.copy(markerHaloUnpinnedColor = c) } },
-                        showPickLabel = false
+                        onColorSelected = { c -> onUpdateSettings { it.copy(markerHaloUnpinnedColor = c) } }
                     )
                 }
             }
@@ -620,6 +618,21 @@ private fun LayersSettings(
                             }
                         }
                     )
+                    SectionDivider()
+                    // Outline stroke width (dp): a 0.5 dp grid, committed on release like the pair above.
+                    var widthDrag by remember { mutableStateOf(settings.regulatedZoneOutlineWidthDp) }
+                    SliderRow(
+                        label = stringResource(R.string.settings_width_label),
+                        description = stringResource(R.string.settings_regulated_zones_outline_width_desc),
+                        valueLabel = stringResource(R.string.settings_value_dp_fmt, widthDrag),
+                        value = widthDrag,
+                        valueRange = 0.5f..8f,
+                        steps = 14,
+                        onValueChange = { v -> widthDrag = v },
+                        onValueChangeFinished = {
+                            onUpdateSettings { it.copy(regulatedZoneOutlineWidthDp = widthDrag) }
+                        }
+                    )
                 }
             }
             Spacer(Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
@@ -707,6 +720,21 @@ private fun LayersSettings(
                         }
                     )
                     SectionDivider()
+                    // Boundary stroke width (dp): a 0.5 dp grid, committed on release like the pair above.
+                    var widthDrag by remember { mutableStateOf(settings.zone300BoundaryWidthDp) }
+                    SliderRow(
+                        label = stringResource(R.string.settings_width_label),
+                        description = stringResource(R.string.settings_zone300_boundary_width_desc),
+                        valueLabel = stringResource(R.string.settings_value_dp_fmt, widthDrag),
+                        value = widthDrag,
+                        valueRange = 0.5f..8f,
+                        steps = 14,
+                        onValueChange = { v -> widthDrag = v },
+                        onValueChangeFinished = {
+                            onUpdateSettings { it.copy(zone300BoundaryWidthDp = widthDrag) }
+                        }
+                    )
+                    SectionDivider()
                     // Single colour control → SingleColorSubSection: the SubSectionHeader title
                     // row carries the 24dp swatch; description sits below (ui-component-guidelines §2.4).
                     SingleColorSubSection(
@@ -732,6 +760,61 @@ private fun LayersSettings(
                 checked = settings.coastlineVisible,
                 onCheckedChange = { visible -> onUpdateSettings { it.copy(coastlineVisible = visible) } }
             )
+            Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
+            // The shoreline's own look, behind an expander like its two zone neighbours: width,
+            // transparency, then the mainland/island colour pair.
+            Expander(
+                label = stringResource(R.string.settings_coastline_appearance_label),
+                expanded = settingsVm.isExpanded("coastline_appearance"),
+                onToggle = { settingsVm.setExpanded("coastline_appearance", !settingsVm.isExpanded("coastline_appearance")) }
+            ) {
+                Spacer(Modifier.height(8.dp))
+                NestedCard {
+                    // Width (dp): a 0.5 dp grid, committed on release.
+                    var widthDrag by remember { mutableStateOf(settings.coastlineWidthDp) }
+                    SliderRow(
+                        label = stringResource(R.string.settings_width_label),
+                        description = stringResource(R.string.settings_coastline_width_desc),
+                        valueLabel = stringResource(R.string.settings_value_dp_fmt, widthDrag),
+                        value = widthDrag,
+                        valueRange = 0.5f..8f,
+                        steps = 14,
+                        onValueChange = { v -> widthDrag = v },
+                        onValueChangeFinished = {
+                            onUpdateSettings { it.copy(coastlineWidthDp = widthDrag) }
+                        }
+                    )
+                    SectionDivider()
+                    // Transparency: 0 = opaque, 100 = invisible — the app-wide convention.
+                    var transparencyDrag by remember { mutableStateOf(settings.coastlineTransparencyPct.toFloat()) }
+                    SliderRow(
+                        label = stringResource(R.string.settings_transparency_border_fill_label),
+                        description = stringResource(R.string.settings_coastline_transparency_desc),
+                        valueLabel = stringResource(R.string.settings_value_percent, transparencyDrag.roundToInt()),
+                        value = transparencyDrag,
+                        valueRange = 0f..100f,
+                        steps = 19,
+                        onValueChange = { v -> transparencyDrag = v },
+                        onValueChangeFinished = {
+                            onUpdateSettings { it.copy(coastlineTransparencyPct = transparencyDrag.roundToInt()) }
+                        }
+                    )
+                    SectionDivider()
+                    SubSectionHeader(
+                        title = stringResource(R.string.settings_coastline_colors_label),
+                        description = stringResource(R.string.settings_coastline_colors_desc)
+                    )
+                    // Mainland left, island right — the same pair component the track colours use.
+                    ColorPairRow(
+                        label = stringResource(R.string.settings_coastline_pair_label),
+                        fromColor = settings.coastlineMainlandColor,
+                        toColor = settings.coastlineIslandColor,
+                        onFromColorSelected = { c -> onUpdateSettings { it.copy(coastlineMainlandColor = c) } },
+                        onToColorSelected = { c -> onUpdateSettings { it.copy(coastlineIslandColor = c) } }
+                    )
+                }
+            }
+            Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
         }
 
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
@@ -875,6 +958,65 @@ private fun NavigationSettings(
                 checked = settings.headingLineVisible,
                 onCheckedChange = { visible -> onUpdateSettings { it.copy(headingLineVisible = visible) } }
             )
+            // How the line looks, its expander directly below its own toggle — the coastline card's
+            // shape, so the pair reads on/off and then how. Row order inside is thickness, transparency,
+            // colour, the order the coastline card took.
+            Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
+            Expander(
+                label = stringResource(R.string.settings_heading_line_appearance_label),
+                expanded = settingsVm.isExpanded("heading_line_appearance"),
+                onToggle = {
+                    settingsVm.setExpanded(
+                        "heading_line_appearance",
+                        !settingsVm.isExpanded("heading_line_appearance")
+                    )
+                }
+            ) {
+                Spacer(Modifier.height(8.dp))
+                NestedCard {
+                    // Thickness (dp), 0.25 dp steps so the shipped 1 dp stays reachable.
+                    var widthDrag by remember { mutableStateOf(settings.navigationLineWidthDp) }
+                    SliderRow(
+                        label = stringResource(R.string.settings_heading_line_width_label),
+                        description = stringResource(R.string.settings_heading_line_width_desc),
+                        valueLabel = stringResource(R.string.settings_value_dp_fmt, widthDrag),
+                        value = widthDrag,
+                        valueRange = 0.5f..4f,
+                        steps = 13,
+                        onValueChange = { v -> widthDrag = v },
+                        onValueChangeFinished = {
+                            onUpdateSettings { it.copy(navigationLineWidthDp = widthDrag) }
+                        }
+                    )
+                    SectionDivider()
+                    // Transparency: 0 = opaque, 100 = invisible — the app-wide convention, reused from
+                    // the shared label, whose wording fits a single stroke even though its name is broader.
+                    var transparencyDrag by remember {
+                        mutableStateOf(settings.navigationLineTransparencyPct.toFloat())
+                    }
+                    SliderRow(
+                        label = stringResource(R.string.settings_transparency_border_fill_label),
+                        description = stringResource(R.string.settings_heading_line_transparency_desc),
+                        valueLabel = stringResource(R.string.settings_value_percent, transparencyDrag.roundToInt()),
+                        value = transparencyDrag,
+                        valueRange = 0f..100f,
+                        steps = 19,
+                        onValueChange = { v -> transparencyDrag = v },
+                        onValueChangeFinished = {
+                            onUpdateSettings {
+                                it.copy(navigationLineTransparencyPct = transparencyDrag.roundToInt())
+                            }
+                        }
+                    )
+                    SectionDivider()
+                    ColorRow(
+                        label = stringResource(R.string.settings_default_colour_label),
+                        color = settings.navigationLineColor,
+                        onColorSelected = { c -> onUpdateSettings { it.copy(navigationLineColor = c) } }
+                    )
+                }
+            }
+            Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
             SectionDivider()
             ToggleRow(
                 label = stringResource(R.string.settings_cap_arrow_label),
@@ -882,6 +1024,74 @@ private fun NavigationSettings(
                 checked = settings.capArrowVisible,
                 onCheckedChange = { visible -> onUpdateSettings { it.copy(capArrowVisible = visible) } }
             )
+            // The arrow's own look, under its own toggle, before the demo-heading toggle — which owns no
+            // appearance and keeps its place.
+            Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
+            Expander(
+                label = stringResource(R.string.settings_cap_arrow_appearance_label),
+                expanded = settingsVm.isExpanded("cap_arrow_appearance"),
+                onToggle = {
+                    settingsVm.setExpanded(
+                        "cap_arrow_appearance",
+                        !settingsVm.isExpanded("cap_arrow_appearance")
+                    )
+                }
+            ) {
+                Spacer(Modifier.height(8.dp))
+                NestedCard {
+                    // Shaft thickness (dp); the head follows it at the shipped 4 : 1 ratio.
+                    var widthDrag by remember { mutableStateOf(settings.navigationArrowWidthDp) }
+                    SliderRow(
+                        label = stringResource(R.string.settings_cap_arrow_width_label),
+                        description = stringResource(R.string.settings_cap_arrow_width_desc),
+                        valueLabel = stringResource(R.string.settings_value_dp_fmt, widthDrag),
+                        value = widthDrag,
+                        valueRange = 1f..8f,
+                        steps = 27,
+                        onValueChange = { v -> widthDrag = v },
+                        onValueChangeFinished = {
+                            onUpdateSettings { it.copy(navigationArrowWidthDp = widthDrag) }
+                        }
+                    )
+                    SectionDivider()
+                    // Transparency is independent of the colour mode, so a speed-coloured arrow dims too.
+                    var transparencyDrag by remember {
+                        mutableStateOf(settings.navigationArrowTransparencyPct.toFloat())
+                    }
+                    SliderRow(
+                        label = stringResource(R.string.settings_transparency_border_fill_label),
+                        description = stringResource(R.string.settings_cap_arrow_transparency_desc),
+                        valueLabel = stringResource(R.string.settings_value_percent, transparencyDrag.roundToInt()),
+                        value = transparencyDrag,
+                        valueRange = 0f..100f,
+                        steps = 19,
+                        onValueChange = { v -> transparencyDrag = v },
+                        onValueChangeFinished = {
+                            onUpdateSettings {
+                                it.copy(navigationArrowTransparencyPct = transparencyDrag.roundToInt())
+                            }
+                        }
+                    )
+                    SectionDivider()
+                    // Speed Colour: on, the arrow takes the colour of the speed it carries and no longer
+                    // uses the row below. That row deliberately stays active either way — the two labels
+                    // state the precedence, so no disabled-row state is introduced for it.
+                    ToggleRow(
+                        label = stringResource(R.string.settings_speed_colour_label),
+                        checked = settings.navigationArrowFollowSpeedColour,
+                        onCheckedChange = { follow ->
+                            onUpdateSettings { it.copy(navigationArrowFollowSpeedColour = follow) }
+                        }
+                    )
+                    SectionDivider()
+                    ColorRow(
+                        label = stringResource(R.string.settings_default_colour_label),
+                        color = settings.navigationArrowColor,
+                        onColorSelected = { c -> onUpdateSettings { it.copy(navigationArrowColor = c) } }
+                    )
+                }
+            }
+            Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
             SectionDivider()
             ToggleRow(
                 label = stringResource(R.string.settings_demo_heading_label),
@@ -1640,7 +1850,7 @@ private fun Expander(
 }
 
 /**
- * A row showing a color swatch with a label and a "pick" button.
+ * A row showing a labeled color swatch.
  * Tapping the swatch opens a simple color dialog with preset palette.
  * TODO: Replace with Canvas-based HSV color picker for richer selection.
  */
@@ -1648,8 +1858,7 @@ private fun Expander(
 private fun ColorRow(
     label: String,
     color: Int,
-    onColorSelected: (Int) -> Unit,
-    showPickLabel: Boolean = true
+    onColorSelected: (Int) -> Unit
 ) {
     var showPicker by remember { mutableStateOf(false) }
     Row(
@@ -1672,17 +1881,9 @@ private fun ColorRow(
                     .clip(RoundedCornerShape(4.dp))
                     .background(ComposeColor(color))
                     .clickable { showPicker = true }
+                    .semantics { this.contentDescription = label }
                     .border(1.dp, ComposeColor(AppConfig.uiDividerColor), RoundedCornerShape(6.dp))
             )
-            if (showPickLabel) {
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = stringResource(R.string.color_picker_pick),
-                    color = ComposeColor(AppConfig.uiAccent),
-                    fontSize = 13.sp,
-                    modifier = Modifier.clickable { showPicker = true }
-                )
-            }
         }
     }
 

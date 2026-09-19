@@ -95,7 +95,7 @@ class TrackDirectionOverlayTest {
 
     @Test
     fun theChevronKeepsTheRelationsOfTheCoreItIsDrawnOver() {
-        val core = AppConfig.trackWidthSelected
+        val core = AppConfig.trackWidthSelectedDp
         val length = chevronLength(core, widestStoredTrackWidth())
 
         assertEquals("the length is 2.5 × the core", core * 2.5f, length, 0.001f)
@@ -106,41 +106,45 @@ class TrackDirectionOverlayTest {
     // ── Chevron tempering, above the knee only ───────────────────────────
 
     @Test
-    fun theThinClassesKeepTheirOwnCore() {
-        val knee = AppConfig.trackArrowScaleKnee
+    fun theClassesAtOrBelowTheKneeKeepTheirOwnCore() {
+        val knee = AppConfig.trackArrowScaleKneeDp
         val temper = AppConfig.trackArrowTemper
 
-        assertEquals("the shipped knee", 10f, knee, 0.001f)
+        // The knee is a core width in dp now, like the widths it is compared against.
+        assertEquals("the shipped knee, in dp — the 10 px of the 3× reference", 10f / 3f, knee, 0.001f)
         assertEquals("the shipped temper", 0.5f, temper, 0.001f)
+        // The shipped table's thinner classes sit at or below the knee. Which classes those are is the
+        // file's own relation and not this pass's: the pins below state the rule, not a class list.
         listOf(
-            "history" to AppConfig.trackWidthHistory,
-            "pinned" to AppConfig.trackWidthPinned,
-            "newest" to AppConfig.trackWidthNewest
+            "history" to AppConfig.trackWidthHistoryDp,
+            "pinned" to AppConfig.trackWidthPinnedDp
         ).forEach { (what, core) ->
+            assertTrue("the $what core must sit at or below the knee", core <= knee)
             assertEquals(
-                "the $what core is used as it is, and the shipped table keeps it at or below the knee",
+                "the $what core is used as it is",
                 core,
                 temperedCore(core, knee, temper),
                 0.001f
             )
-            assertTrue("the $what core must not be touched by the knee", core <= knee)
         }
         assertEquals("the knee itself is untouched", knee, temperedCore(knee, knee, temper), 0.001f)
     }
 
     @Test
-    fun theSelectedCoreIsTemperedAndItsThreeMultiplesReadTheTemperedOne() {
-        val knee = AppConfig.trackArrowScaleKnee
+    fun theCoreAboveTheKneeIsTemperedAndItsThreeMultiplesReadTheTemperedOne() {
+        val knee = AppConfig.trackArrowScaleKneeDp
         val temper = AppConfig.trackArrowTemper
-        val core = AppConfig.trackWidthSelected
+        // The class above the knee is the widest one the shipped table hands out, whatever its name:
+        // taking it from the table rather than naming a class keeps this a rule, not a class list.
+        val core = widestStoredTrackWidth()
         val tempered = knee + (core - knee) * temper
 
-        assertTrue("the shipped selected core sits above the knee", core > knee)
+        assertTrue("the widest shipped core sits above the knee", core > knee)
         assertEquals(tempered, temperedCore(core, knee, temper), 0.001f)
         assertTrue("the tempered core must shrink the oversized arrows", tempered < core)
 
-        // The length, the half-width and the coloured stroke all follow the tempered core, so the
-        // selected track's arrows stop reading oversized while the three thin classes are untouched.
+        // The length, the half-width and the coloured stroke all follow the tempered core, so that
+        // class's arrows stop reading oversized while the classes at or below the knee are untouched.
         val length = chevronLength(tempered, widestStoredTrackWidth())
         assertEquals("the length is 2.5 × the tempered core", tempered * 2.5f, length, 0.001f)
         assertTrue(
@@ -158,26 +162,32 @@ class TrackDirectionOverlayTest {
 
     @Test
     fun theCasingArmRunsOutsideTheColouredOneAtTheRimThickness() {
-        val core = AppConfig.trackWidthSelected
-        val casing = AppConfig.trackWidthSelectedCasing
+        val core = AppConfig.trackWidthSelectedDp
+        val casing = AppConfig.trackWidthSelectedCasingDp
         // The rim belongs to the selection rather than to the stroke it edges, so it is read against the
         // line's own width — never against the tempered core the coloured V's metrics come from, which
         // would float the band further out.
-        val tempered = temperedCore(core, AppConfig.trackArrowScaleKnee, AppConfig.trackArrowTemper)
+        val tempered = temperedCore(core, AppConfig.trackArrowScaleKneeDp, AppConfig.trackArrowTemper)
         val length = chevronLength(tempered, widestStoredTrackWidth())
         val halfW = chevronHalfWidth(length)
 
         // Read from first principles rather than from the implementation's arithmetic: half the casing's
         // excess over the line's own width.
         val rim = (casing - core) / 2f
-        assertEquals("the tempered core is the one the coloured V is drawn from", 12f, tempered, 0.001f)
-        assertEquals("half the casing's excess over the line's own width", 4f, rim, 0.001f)
+        // The shipped selected core sits at the knee, so the selection is drawn with its own core.
+        assertEquals("the tempered core is the one the coloured V is drawn from", core, tempered, 0.001f)
+        assertEquals("half the casing's excess over the line's own width", 1f, rim, 0.001f)
         assertEquals("the function agrees with that rim", rim, chevronCasingOffset(casing, core), 0.001f)
-        assertEquals("the shipped 22-over-14 pair, by hand", 4f, chevronCasingOffset(22f, 14f), 0.001f)
+        assertEquals(
+            "the shipped 5.333-over-3.333 pair, by hand",
+            1f,
+            chevronCasingOffset(16f / 3f, 10f / 3f),
+            0.001f
+        )
         assertTrue("the dark V must sit outside the coloured one", rim > 0f)
 
         val coloured = chevronV(0f, length, halfW)
-        val dark = chevronV(rim, length, halfW, CHEVRON_CAP_OVERLAP_PX)
+        val dark = chevronV(rim, length, halfW, CHEVRON_CAP_OVERLAP_DP)
 
         // Collinear with the coloured arms pushed out, and never scaled: both endpoints of each dark
         // arm measure exactly the rim from the coloured arm's own line.
@@ -206,29 +216,33 @@ class TrackDirectionOverlayTest {
 
         // Both strokes are the same width, so the dark band runs from the coloured centreline outward
         // and never crosses to the inside of the V — the rim is outside by construction, and at the
-        // shipped pair the casing's excess over the line's own width leaves that inner edge 1 px clear of
-        // the centreline, still inside the coloured stroke's own 3 px half-width and so covered by it.
+        // shipped pair the casing's excess over the line's own width leaves that inner edge a sixth of a
+        // dp clear of the centreline, still inside the coloured stroke's own half-width and so covered.
         val innerEdge = rim - chevronStrokeWidth(tempered) / 2f
         assertTrue("the dark stroke's inner edge must never cross the coloured centreline", innerEdge >= 0f)
-        assertEquals("the inner edge clears the coloured centreline by 1 px at the shipped pair", 1f, innerEdge, 0.001f)
+        assertEquals(
+            "the inner edge clears the coloured centreline by 0.167 dp — 0.5 px — at the shipped pair",
+            1f / 6f,
+            innerEdge,
+            0.001f
+        )
 
         // A casing no wider than the line pins the dark V exactly under the coloured one: no rim, and no
         // inversion of the two strokes either.
         assertEquals(0f, chevronCasingOffset(core, core), 0.001f)
         assertEquals(0f, chevronCasingOffset(core, core + 10f), 0.001f)
-        assertEquals("no rim means no wrapping", coloured, chevronV(0f, length, halfW, CHEVRON_CAP_OVERLAP_PX))
+        assertEquals("no rim means no wrapping", coloured, chevronV(0f, length, halfW, CHEVRON_CAP_OVERLAP_DP))
     }
 
     @Test
     fun theRimIsMeasuredFromTheLinesWidthHoweverTheKneeAndTemperMove() {
-        // The file's own selected pair and its knee and temper, as the draw path reads them: the casing
-        // is 22 over the line's 14 px width, whose dark inner edge clears the coloured centreline by
-        // 1 px — the coloured stroke being the tempered 12 px core's own half, 6 px. Read from that
-        // tempered core the band would be floated 1 px further out and clear it by 2, which is why the
-        // line's own width is the reference.
-        val line = 14f
-        val casing = 22f
-        val knee = 10f
+        // A line above the knee — which the shipped selected pair is not, sitting exactly at it — so the
+        // two references can be told apart: the casing is 6 over the line's 4 dp width, and the coloured
+        // stroke is the tempered core's own half. Read from that tempered core the band would be floated
+        // further out, which is why the line's own width is the reference.
+        val line = 4f
+        val casing = 6f
+        val knee = 10f / 3f
         val temper = 0.5f
         val colouredStroke = chevronStrokeWidth(temperedCore(line, knee, temper))
         val innerEdgeOf = { reference: Float ->
@@ -236,16 +250,16 @@ class TrackDirectionOverlayTest {
         }
 
         val tempered = temperedCore(line, knee, temper)
-        assertEquals("the file's pair tempers 14 down to 12", 12f, tempered, 0.001f)
+        assertEquals("a 4 dp line tempers down to 3.667 dp", 11f / 3f, tempered, 0.001f)
         assertEquals(
-            "measured from the line's own width the inner edge clears the coloured centreline by 1 px",
-            1f,
+            "measured from the line's own width the inner edge lands at a twelfth of a dp",
+            1f / 12f,
             innerEdgeOf(line),
             0.001f
         )
         assertEquals(
-            "the tempered core instead floats the band's inner edge 1 px further out",
-            2f,
+            "the tempered core instead floats the band's inner edge further out",
+            1f / 4f,
             innerEdgeOf(tempered),
             0.001f
         )
@@ -259,8 +273,8 @@ class TrackDirectionOverlayTest {
         // are set to, and it is the coloured stroke that decides how near the coloured centreline the dark
         // band's inner edge falls. The tempered core never rises above the line's own width, so reading it
         // instead can only float the rim outward.
-        listOf(4f, 8f, 14f, 24f).forEach { core ->
-            listOf(4f, 10f, 20f).forEach { knee ->
+        listOf(1f, 2f, 4f, 8f).forEach { core ->
+            listOf(1f, 10f / 3f, 6f).forEach { knee ->
                 listOf(0f, 0.25f, 0.5f, 1f).forEach { temper ->
                     val rimFromTheLine = chevronCasingOffset(casing, core)
                     val rimFromTheTemperedCore = chevronCasingOffset(casing, temperedCore(core, knee, temper))
@@ -291,27 +305,27 @@ class TrackDirectionOverlayTest {
     fun theCeilingIsTheWidestStoredWidthSoItCannotBiteInsideTheTable() {
         val ceiling = widestStoredTrackWidth()
         val widths = listOf(
-            AppConfig.trackWidthSelected,
-            AppConfig.trackWidthNewest,
-            AppConfig.trackWidthPinned,
-            AppConfig.trackWidthHistory
+            AppConfig.trackWidthSelectedDp,
+            AppConfig.trackWidthNewestDp,
+            AppConfig.trackWidthPinnedDp,
+            AppConfig.trackWidthHistoryDp
         )
 
         assertEquals(
             "the reference is the widest of the table, not the selected width alone",
             maxOf(
-                AppConfig.trackWidthSelected,
-                AppConfig.trackWidthNewest,
-                AppConfig.trackWidthPinned,
-                AppConfig.trackWidthHistory
+                AppConfig.trackWidthSelectedDp,
+                AppConfig.trackWidthNewestDp,
+                AppConfig.trackWidthPinnedDp,
+                AppConfig.trackWidthHistoryDp
             ),
             ceiling,
             0.001f
         )
-        assertTrue("a retuned file must not push the reference under the selected core", ceiling >= AppConfig.trackWidthSelected)
+        assertTrue("a retuned file must not push the reference under the widest core", ceiling >= widths.max())
         widths.forEach { width ->
             assertEquals(
-                "a ${width}px core keeps the pure relation: the ceiling cannot bite at it",
+                "a $width dp core keeps the pure relation: the ceiling cannot bite at it",
                 width * 2.5f,
                 chevronLength(width, ceiling),
                 0.001f

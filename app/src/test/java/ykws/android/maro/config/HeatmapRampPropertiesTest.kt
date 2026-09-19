@@ -50,35 +50,36 @@ class HeatmapRampPropertiesTest {
     }
 
     @Test
-    fun theShippedFileParsesToItsNineFamilies() {
+    fun theShippedFileParsesToItsSevenFamilies() {
         val families = parseFrom(shippedProperties())
 
-        assertEquals("every family must carry maxKn, from, to and stepKn", 9, families.size)
-        assertEquals(listOf(4f, 6f, 7f, 9f, 12f, 13f, 22f, 32f, 70f), families.map { it.maxKn })
+        assertEquals("every family must carry maxKn, from, to and stepKn", 7, families.size)
+        assertEquals(listOf(5f, 7f, 10f, 13f, 22f, 32f, 70f), families.map { it.maxKn })
         assertEquals(
-            listOf(1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 2.0f),
+            listOf(1.0f, 0.25f, 0.5f, 0.5f, 1.0f, 1.0f, 2.0f),
             families.map { it.stepKn }
         )
         assertEquals(
             listOf(
-                0xFF1A6B1A, 0xFF228B22, 0xFF9EE79E, 0xFF187AD0, 0xFF187AD0,
-                0xFFB5D8F6, 0xFFFFD164, 0xFFEF6C00, 0xFF751212
+                0xFF1A6B1A, 0xFF2AAB2A, 0xFF105189, 0xFF4EA7FF,
+                0xFFFFD164, 0xFFEF6C00, 0xFF8B1515
             ).map { it.toInt() },
             families.map { it.fromArgb }
         )
         assertEquals(
             listOf(
-                0xFF1A6B1A, 0xFF9EE79E, 0xFF125B9B, 0xFF187AD0, 0xFFB5D8F6,
-                0xFFFFD164, 0xFFEF6C00, 0xFF751212, 0xFF6A1B9A
+                0xFF2AAB2A, 0xFF105189, 0xFF4EA7FF, 0xFFFFD164,
+                0xFFEF6C00, 0xFF8B1515, 0xFF791FB0
             ).map { it.toInt() },
             families.map { it.toArgb }
         )
     }
 
     /**
-     * The code's own defaults — `AppConfig`'s nine families, its neutral tint and its five scale
+     * The code's own defaults — `AppConfig`'s seven families, its neutral tint and its five scale
      * rows — are tied to the file here: a drift between the two now fails this suite instead of
-     * shipping silently.
+     * shipping silently. The file is the source of truth, so it is the default that follows it — the
+     * three-family drift the ramp was carrying is settled by this equality rather than kept beside it.
      */
     @Test
     fun theShippedRampAndScaleParseToTheCodesOwnDefaults() {

@@ -84,12 +84,12 @@ internal fun MapTrackOverlayHistoryDiff(
         // The per-type widths are read on every path in every mode, so the six join the list
         // unconditionally rather than behind a mode test — the casing's width with them, since the
         // selection it outlines is drawn in all three.
-        add(AppConfig.trackWidthLive)
-        add(AppConfig.trackWidthSelected)
-        add(AppConfig.trackWidthNewest)
-        add(AppConfig.trackWidthPinned)
-        add(AppConfig.trackWidthHistory)
-        add(AppConfig.trackWidthSelectedCasing)
+        add(AppConfig.trackWidthLiveDp)
+        add(AppConfig.trackWidthSelectedDp)
+        add(AppConfig.trackWidthNewestDp)
+        add(AppConfig.trackWidthPinnedDp)
+        add(AppConfig.trackWidthHistoryDp)
+        add(AppConfig.trackWidthSelectedCasingDp)
         if (!trackColours) {
             // Colours off means the default colours are the fill, so their four keys join here.
             add(appSettings.trackingColorPastFrom)
@@ -109,7 +109,7 @@ internal fun MapTrackOverlayHistoryDiff(
             add(appSettings.trackDirectionMaxSpacingDp)
             add(appSettings.trackDirectionSpeedFloorKn)
             add(appSettings.trackDirectionSpeedCeilingKn)
-            add(AppConfig.trackArrowScaleKnee)
+            add(AppConfig.trackArrowScaleKneeDp)
             add(AppConfig.trackArrowTemper)
         }
     }
@@ -118,7 +118,7 @@ internal fun MapTrackOverlayHistoryDiff(
         val mv = mapView ?: return@LaunchedEffect
 
         // Direction-arrow spacing provider: uniform (px) or speed-linear (dp → px).
-        val densityScale = mv.context.resources.displayMetrics.density
+        val densityScale = mv.paintDensity
         val minSpacingPx = appSettings.trackDirectionMinSpacingDp * densityScale
         val maxSpacingPx = appSettings.trackDirectionMaxSpacingDp * densityScale
         val directionSpacingProvider: (Float) -> Float = { speedKn ->
@@ -186,6 +186,7 @@ internal fun MapTrackOverlayHistoryDiff(
                 plan = trackRenderPlan(trackArrows, trackColours, selected, eyeOverride),
                 ramp = AppConfig.trackHeatmapRamp,
                 strokeWidth = width,
+                density = densityScale,
                 fade = trackFadeAlpha(
                     index = index,
                     total = total,
@@ -207,7 +208,12 @@ internal fun MapTrackOverlayHistoryDiff(
             trackOverlays.addAll(rendering.overlays)
             if (rendering.drawArrows) {
                 trackOverlays.add(
-                    rendering.directionOverlay(track.trackPoints, directionSpacingProvider, "track_arrow_${summary.id}")
+                    rendering.directionOverlay(
+                        track.trackPoints,
+                        directionSpacingProvider,
+                        "track_arrow_${summary.id}",
+                        densityScale
+                    )
                 )
             }
 
@@ -248,6 +254,7 @@ internal fun MapTrackOverlayHistoryDiff(
                 plan = trackRenderPlan(trackArrows, trackColours, selected, eyeOverride),
                 ramp = AppConfig.trackHeatmapRamp,
                 strokeWidth = width,
+                density = densityScale,
                 // D8: a pinned track fades across its own range, exactly as it does today.
                 fade = trackFadeAlpha(
                     index = index,
@@ -270,7 +277,12 @@ internal fun MapTrackOverlayHistoryDiff(
             trackOverlays.addAll(rendering.overlays)
             if (rendering.drawArrows) {
                 trackOverlays.add(
-                    rendering.directionOverlay(track.trackPoints, directionSpacingProvider, "track_arrow_${summary.id}")
+                    rendering.directionOverlay(
+                        track.trackPoints,
+                        directionSpacingProvider,
+                        "track_arrow_${summary.id}",
+                        densityScale
+                    )
                 )
             }
 
@@ -320,10 +332,10 @@ internal fun MapTrackOverlayHistoryDiff(
  * set being drawn, else `track.width.history`. All three rendering modes read the same table (D11).
  */
 internal fun storedTrackWidth(selected: Boolean, pinned: Boolean, newest: Boolean): Float = when {
-    selected -> AppConfig.trackWidthSelected
-    pinned -> AppConfig.trackWidthPinned
-    newest -> AppConfig.trackWidthNewest
-    else -> AppConfig.trackWidthHistory
+    selected -> AppConfig.trackWidthSelectedDp
+    pinned -> AppConfig.trackWidthPinnedDp
+    newest -> AppConfig.trackWidthNewestDp
+    else -> AppConfig.trackWidthHistoryDp
 }
 
 /**
@@ -333,10 +345,10 @@ internal fun storedTrackWidth(selected: Boolean, pinned: Boolean, newest: Boolea
  * width is not part of it: the live recording line draws no chevrons.
  */
 internal fun widestStoredTrackWidth(): Float = maxOf(
-    AppConfig.trackWidthSelected,
-    AppConfig.trackWidthNewest,
-    AppConfig.trackWidthPinned,
-    AppConfig.trackWidthHistory
+    AppConfig.trackWidthSelectedDp,
+    AppConfig.trackWidthNewestDp,
+    AppConfig.trackWidthPinnedDp,
+    AppConfig.trackWidthHistoryDp
 )
 
 /**
@@ -358,7 +370,7 @@ internal fun storedTrackFade(selected: Boolean, fade: Float): Float = if (select
  * casing rides on.
  */
 internal fun selectedTrackCasing(): TrackPolylineAppearance =
-    TrackPolylineAppearance(SELECTED_TRACK_CASING_ARGB, AppConfig.trackWidthSelectedCasing)
+    TrackPolylineAppearance(SELECTED_TRACK_CASING_ARGB, AppConfig.trackWidthSelectedCasingDp)
 
 /** The casing's colour and alpha: not a file key in this pass, the restored legacy token. */
 private val SELECTED_TRACK_CASING_ARGB = 0xCC000000.toInt()
@@ -545,6 +557,7 @@ internal fun storedTrackRendering(
     plan: TrackRenderPlan,
     ramp: HeatmapRamp,
     strokeWidth: Float,
+    density: Float,
     fade: Float,
     plainAppearance: () -> TrackPolylineAppearance
 ): StoredTrackRendering {
@@ -554,10 +567,11 @@ internal fun storedTrackRendering(
             title = title,
             ramp = ramp,
             strokeWidth = strokeWidth,
+            density = density,
             fade = storedTrackFade(plan.selected, fade)
         )
-        TrackRenderPath.GOLD_HIGHLIGHT -> goldHighlightPath(points, title, strokeWidth)
-        TrackRenderPath.PLAIN -> plainPath(points, title, plainAppearance())
+        TrackRenderPath.GOLD_HIGHLIGHT -> goldHighlightPath(points, title, strokeWidth, density)
+        TrackRenderPath.PLAIN -> plainPath(points, title, plainAppearance(), density)
     }
     if (!plan.selected) return rendering.copy(drawArrows = plan.drawArrows)
     // The casing returns beneath the selected track on every path — under the gold core and under
@@ -568,7 +582,7 @@ internal fun storedTrackRendering(
     // path iterates an appearance list and carries no casing input at all.
     val casing = selectedTrackCasing()
     return rendering.copy(
-        overlays = buildSegmentOverlays(points, casing, title) + rendering.overlays,
+        overlays = buildSegmentOverlays(points, casing, title, density) + rendering.overlays,
         chevronCasing = casing.takeIf { plan.path != TrackRenderPath.PLAIN },
         drawArrows = plan.drawArrows
     )
@@ -581,9 +595,10 @@ internal fun storedTrackRendering(
 private fun plainPath(
     points: List<TrackPoint>,
     title: String,
-    appearance: TrackPolylineAppearance
+    appearance: TrackPolylineAppearance,
+    density: Float
 ): StoredTrackRendering = StoredTrackRendering(
-    overlays = buildSegmentOverlays(points, appearance, title),
+    overlays = buildSegmentOverlays(points, appearance, title, density),
     arrowAppearances = listOf(appearance)
 )
 
@@ -598,11 +613,12 @@ private fun plainPath(
 private fun goldHighlightPath(
     points: List<TrackPoint>,
     title: String,
-    strokeWidth: Float
+    strokeWidth: Float,
+    density: Float
 ): StoredTrackRendering {
     val gold = TrackPolylineAppearance(0xFFFFD700.toInt(), strokeWidth)
     return StoredTrackRendering(
-        overlays = buildSegmentOverlays(points, gold, title),
+        overlays = buildSegmentOverlays(points, gold, title, density),
         arrowAppearances = listOf(gold),
         arrowColorResolver = { gold }
     )
@@ -619,6 +635,7 @@ private fun bandedPath(
     title: String,
     ramp: HeatmapRamp,
     strokeWidth: Float,
+    density: Float,
     fade: Float
 ): StoredTrackRendering {
     val speeds = resolveSpeeds(points)
@@ -631,7 +648,7 @@ private fun bandedPath(
         bandByIndex.getOrNull(anchor.segmentIndex)?.appearance ?: metrics
     }
     return StoredTrackRendering(
-        overlays = bands.flatMap { buildBandSegmentOverlays(points, it, title) },
+        overlays = bands.flatMap { buildBandSegmentOverlays(points, it, title, density) },
         arrowAppearances = listOf(metrics),
         arrowColorResolver = resolver
     )
@@ -645,15 +662,26 @@ private fun bandedPath(
 private fun StoredTrackRendering.directionOverlay(
     points: List<TrackPoint>,
     spacingPx: (Float) -> Float,
-    title: String
+    title: String,
+    density: Float
 ): org.osmdroid.views.overlay.Overlay = TrackDirectionOverlay(
     points = points,
     appearances = arrowAppearances,
     spacingPx = spacingPx,
     colorResolver = arrowColorResolver,
     chevronMetrics = arrowAppearances.firstOrNull().takeIf { arrowColorResolver != null },
-    casingAppearance = chevronCasing
+    casingAppearance = chevronCasing,
+    density = density
 ).apply { this.title = title }
+
+/** The live recording line's stroke in px: its dp key through the map's own density. */
+private fun liveTrackWidthPx(mv: MapView): Float = dpToPx(AppConfig.trackWidthLiveDp, mv.paintDensity)
+
+/** The GAP bridge's dash in px — two values, because the stroke it rides varies by track class. */
+private fun gapDashPx(mv: MapView): FloatArray = floatArrayOf(
+    dpToPx(TRACK_GAP_DASH_ON_DP, mv.paintDensity),
+    dpToPx(TRACK_GAP_DASH_OFF_DP, mv.paintDensity)
+)
 
 /**
  * Live-recording overlay effects (extracted from MapScreen): active trace polyline
@@ -682,7 +710,7 @@ internal fun MapTrackOverlayLiveEffects(
                 val polyline = org.osmdroid.views.overlay.Polyline().apply {
                     title = "track_recording"
                     outlinePaint.color = appSettings.trackingColorActive
-                    outlinePaint.strokeWidth = AppConfig.trackWidthLive
+                    outlinePaint.strokeWidth = liveTrackWidthPx(mv)
                     isVisible = true
                 }
                 mv.overlays.add(polyline)
@@ -715,8 +743,8 @@ internal fun MapTrackOverlayLiveEffects(
                     val gapLine = org.osmdroid.views.overlay.Polyline().apply {
                         title = "track_recording"
                         outlinePaint.color = appSettings.trackingColorActive
-                        outlinePaint.strokeWidth = AppConfig.trackWidthLive
-                        outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(20f, 10f), 0f)
+                        outlinePaint.strokeWidth = liveTrackWidthPx(mv)
+                        outlinePaint.pathEffect = android.graphics.DashPathEffect(gapDashPx(mv), 0f)
                         isVisible = true
                         setPoints(listOf(lastPt, org.osmdroid.util.GeoPoint(point.lat, point.lon)))
                     }
@@ -725,7 +753,7 @@ internal fun MapTrackOverlayLiveEffects(
                 val resumedLine = org.osmdroid.views.overlay.Polyline().apply {
                     title = "track_recording"
                     outlinePaint.color = appSettings.trackingColorActive
-                    outlinePaint.strokeWidth = AppConfig.trackWidthLive
+                    outlinePaint.strokeWidth = liveTrackWidthPx(mv)
                     isVisible = true
                     addPoint(org.osmdroid.util.GeoPoint(point.lat, point.lon))
                 }
@@ -742,7 +770,7 @@ internal fun MapTrackOverlayLiveEffects(
                 val polyline = existing ?: org.osmdroid.views.overlay.Polyline().apply {
                     title = "track_recording"
                     outlinePaint.color = appSettings.trackingColorActive
-                    outlinePaint.strokeWidth = AppConfig.trackWidthLive
+                    outlinePaint.strokeWidth = liveTrackWidthPx(mv)
                     isVisible = true
                 }.also {
                     mv.overlays.add(it)
@@ -780,7 +808,7 @@ internal fun MapTrackOverlayLiveEffects(
                     ?: org.osmdroid.views.overlay.Polyline().apply {
                         title = "track_recording"
                         outlinePaint.color = appSettings.trackingColorActive
-                        outlinePaint.strokeWidth = AppConfig.trackWidthLive
+                        outlinePaint.strokeWidth = liveTrackWidthPx(mv)
                         isVisible = true
                     }.also {
                         mv.overlays.add(it)
@@ -791,7 +819,7 @@ internal fun MapTrackOverlayLiveEffects(
                 val trailing = org.osmdroid.views.overlay.Polyline().apply {
                     title = "track_trailing"
                     outlinePaint.color = (appSettings.trackingColorActive and 0x00FFFFFF) or (0x66000000.toInt())  // ~40% alpha
-                    outlinePaint.strokeWidth = AppConfig.trackWidthLive
+                    outlinePaint.strokeWidth = liveTrackWidthPx(mv)
                     isVisible = true
                     setPoints(listOf(lastPt, org.osmdroid.util.GeoPoint(displayPos.latitude, displayPos.longitude)))
                 }
