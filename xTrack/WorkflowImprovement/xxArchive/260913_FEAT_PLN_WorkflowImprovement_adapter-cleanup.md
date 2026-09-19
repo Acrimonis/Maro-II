@@ -36,4 +36,4 @@ Two rules disagreed and one of them was silently losing. §8a makes every adapte
 
 ## Outcome
 
-[Appended once at completion: what actually shipped + deviations from plan.]
+**Shipped 2026-09-13 on `feature/wrKFl`** — the 182-line template fixtures moved to `docs/xtrack-templates.md` with a scope tag and a banner, `AGENTS.md`'s Lazy-Load Index gained the pointing row, `.claude/skills/xtrack/references/` was deleted so `SKILL.md` stands alone as a pointer, and the four live references to the old path were repaired. Deviations: the two edits made to the old file the same day rode along with the move rather than being reverted. Left out by design: no adapter-content check for `#doctor`, a decision still carried in the feature's `## Todos` as check (t).

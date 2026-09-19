@@ -95,4 +95,4 @@ Three surfaces moved together for `#done` so check (k)'s row ↔ page ↔ line a
 
 ## Outcome
 
-[Appended once at completion: what actually shipped + deviations from plan.]
+**Shipped 2026-09-13 on `feature/wrKFl`** — a walk descends one level into its active item, `#done` is retired so exhaustion is the only close, and the `## Walk` schema with its Level 2 and `Parent:` lines plus the closed-child rendering now lives in `docs/xtrack-templates.md`. The §7a keep-criterion, `cmd_help_bake.md` C12 and C13, the archive page's fourth gate and the review cascade's step 1 were re-pointed together, and the derived `cmd_help.md` facet line lost `#done`. Deviations: none material — the depth cap, the frozen parent numbering and the walk section's exclusion from the live trim all shipped as designed.

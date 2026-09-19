@@ -159,8 +159,9 @@ reaches `## Implemented`.
    same pass and never edited independently.
 3. `docs/cmd_help_archive.md` — detail gains the sub-forms, the workflow, both state sets, the association
    test, the render, the decision log and the gates; it also owns the predicate tests.
-4. `docs/cmd_help_bake.md` and `docs/cmd_help_doctor.md` — their retirement lines become pointers at the
-   sweep, holding no predicate of their own.
+4. `docs/cmd_help_bake.md` and `docs/cmd_help_doctor.md` — neither holds a predicate of its own; the doctor
+   line keeps the corpus's single nudge and gains `#archive sweep` as the path, while the bake line stays a
+   cross-reference, so the warning is never duplicated.
 5. `docs/cmd_help_archive.md` — the abandoned-material clause is scoped to what it means: such material is
    not filed under a retirement status; no command erases it.
 6. `xTrack/WorkflowImprovement/FEAT_DSC_WorkflowImprovement.md` — an `### archive-sweep` section while the
@@ -176,10 +177,9 @@ mapping or open walk keeps it alive.
 itself a `#archive [name]` candidate, with `## Outcome` appended and an index row written. The first real
 sweep subject should be the files this change retires.
 
-One file's status is now uncertain rather than unchanged: `docs/xtrack-templates.md` holds the INDEX
-`Status` enum as `shipped · superseded · promoted`, which has no word for a plan closed without shipping —
-so the templates doc either gains a word or the rulebook states the mapping, which is Q4.
-`docs/GIT_WORKFLOW.md` stays untouched, no git behaviour moving.
+`docs/xtrack-templates.md` changes after all: the INDEX `Status` enum is stated on the archive page alone,
+gaining `dropped` for a plan closed without ever shipping, and the templates doc points at that page
+instead of restating the three words. `docs/GIT_WORKFLOW.md` stays untouched, no git behaviour moving.
 
 ## 8. Gates and refusals
 
@@ -197,20 +197,14 @@ so the templates doc either gains a word or the rulebook states the mapping, whi
 
 - `AGENTS.md` — §7b `#archive` row
 - `docs/cmd_help_archive.md`, `docs/cmd_help.md`, `docs/cmd_help_bake.md`, `docs/cmd_help_doctor.md`
-- `docs/xtrack-templates.md` — only if Q4 adds an index status word
+- `docs/xtrack-templates.md` — the enum moves to the archive page and this doc points at it
 - `xTrack/WorkflowImprovement/FEAT_DSC_WorkflowImprovement.md` — the section, then `## Docs`, then
   `## Implemented`
 
 ## 10. Open questions — the walk set
 
-Q1 closed in the walk on 2026-09-19 and Q2 was resolved as agent-owned (§13 and §14). Two remain, in walk
-order, each changing something the user sees:
-
-- **Q3 — on demand only, or also nudged.** Stage B already makes the bake and doctor lines reference the
-  sweep as the owner of the criterion, so what is open is narrower than the first framing: whether the
-  bake report also names `#archive sweep` as the disposition path, which advertises rather than refers.
-- **Q4 — the index vocabulary.** A plan archived without ever shipping has no allowed `Status` word, so
-  either the enum gains one or the mapping is written down.
+None open. Q1, Q3 and Q4 closed in the walk on 2026-09-19 — §14 records each answer and the reason — and Q2
+was resolved as agent-owned in §13; the level exhausted, so nothing was parked and nothing was dropped.
 
 ## 11. Verification
 
@@ -222,6 +216,8 @@ order, each changing something the user sees:
   naming it.
 - The walk gate is exercised: a feature holding an open level enumerates and refuses disposition.
 - Stage D is exercised: this plan retires itself with an `## Outcome` and an index row.
+- The INDEX enum is stated once, on the archive page, and covers shipped, superseded, promoted and dropped,
+  with the templates doc pointing at it and restating nothing.
 
 ## 12. Review findings folded
 
@@ -270,6 +266,15 @@ and stated rather than asked:
   nothing, so a left row returns at the next sweep; that gap is accepted because D7's follow-up action is
   the mark for anything worth remembering. D9 and D10 are unchanged, and the accepted cost is one re-read
   per left row, narrowed by `sweep [state]`.
+- **Q3, where the nudge lives — closed 2026-09-19 on the user's decision: `#doctor` carries it.** The lint
+  already reports a plan whose work is done as a retirement candidate, so it gains the words `#archive
+  sweep` as the path; the bake keeps a cross-reference only, since a second nudge would duplicate the one
+  warning the corpus already gives, and the warning then arrives while the tree's health is being looked
+  at rather than at every session's end.
+- **Q4, the index vocabulary — closed 2026-09-19 on the user's decision: `dropped` is added.** The enum
+  becomes shipped · superseded · promoted · dropped and is stated on the archive page alone, with
+  `docs/xtrack-templates.md` pointing at it; the page's abandoned-material clause then reads as that status
+  rather than as a deletion no command performs.
 
 ## Outcome
 
