@@ -647,6 +647,29 @@ object AppConfig {
     var mapMarkerTapFlashPeakRatio: Float = 0.3333f
         private set
 
+    /** Exponent of the growth curve the centre sprite (boat / land dot), the wizard's crosshair and
+     *  the cap arrow share: `size = baseAtRefZoom × 2^(exponent × (zoom − 12))`. 0.0 = one fixed size
+     *  at every zoom, 1.0 = grows exactly like the ground — clamped to 0–1 so it can never outgrow the
+     *  map. What it multiplies is the base pair of accessors below; the reference zoom, the coast-shrink
+     *  pair and the arrow's own speed clamps stay code constants in `ui/map/MapOverlays.kt`.
+     *  Default 0.35, settled 2026-09-19 for the 11–20 zoom range.
+     *  Set via `map.marker.size.zoomExponent` in maro.properties. */
+    var mapMarkerSizeZoomExponent: Float = 0.35f
+        private set
+
+    /** Base dp of the boat sprite at the reference zoom — the size the exponent and the distance ramp
+     *  then move. Default 36.8, raised 15 % from 32 on 2026-09-19. Clamped to 1–128 so a stray value
+     *  cannot collapse the layout or fill the screen. Set via `map.marker.size.boatBaseDp` in
+     *  maro.properties. */
+    var mapMarkerSizeBoatBaseDp: Float = 36.8f
+        private set
+
+    /** Base dp of the land dot at the reference zoom, kept at 0.25 × the boat's so the two read as one
+     *  marker in two states. Default 9.2, raised 15 % from 8. Clamped to 1–128 like the boat's.
+     *  Set via `map.marker.size.dotBaseDp` in maro.properties. */
+    var mapMarkerSizeDotBaseDp: Float = 9.2f
+        private set
+
     // ── Progress/error overlay colours ────────────────────────────────────────
     /** Progress overlay accent colour. Default #FF1565C0. Set via `ui.progress.accent` in colors.properties. */
     var uiProgressAccent: Int = 0xFF1565C0.toInt()
@@ -1046,6 +1069,11 @@ object AppConfig {
             props.getProperty("map.marker.tap.flashDiameterDp")?.toFloatOrNull()?.let { mapMarkerTapFlashDiameterDp = it }
             props.getProperty("map.marker.tap.flashDurationMs")?.toLongOrNull()?.let { mapMarkerTapFlashDurationMs = it }
             props.getProperty("map.marker.tap.flashPeakRatio")?.toFloatOrNull()?.let { mapMarkerTapFlashPeakRatio = it.coerceIn(0f, 1f) }
+            // Clamped so the curve can never grow the overlays faster than the ground itself.
+            props.getProperty("map.marker.size.zoomExponent")?.toFloatOrNull()?.let { mapMarkerSizeZoomExponent = it.coerceIn(0f, 1f) }
+            // Clamped positive: a zero or negative dp breaks the layout rather than merely looking wrong.
+            props.getProperty("map.marker.size.boatBaseDp")?.toFloatOrNull()?.let { mapMarkerSizeBoatBaseDp = it.coerceIn(1f, 128f) }
+            props.getProperty("map.marker.size.dotBaseDp")?.toFloatOrNull()?.let { mapMarkerSizeDotBaseDp = it.coerceIn(1f, 128f) }
 
             // ── Semantic colours ──────────────────────────────────────────────────
             props.getProperty("semantic.danger")?.let { parseColorOrNull(it) }?.let { semanticDanger = it }

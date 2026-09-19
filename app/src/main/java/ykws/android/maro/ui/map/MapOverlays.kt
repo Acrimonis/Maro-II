@@ -47,25 +47,17 @@ import kotlin.math.sin
 // The marker resizes like the map itself — exponentially with zoom — but with
 // a mitigating factor so it doesn't grow/shrink as aggressively as ground coverage.
 //
-// Formula:  dp = baseDp × 2^(ZOOM_EXPONENT × (zoomLevel − REF_ZOOM))
+// Formula:  dp = baseDp × 2^(exponent × (zoomLevel − REF_ZOOM))
 //
-// Map ground coverage doubles every +1 zoom level (exponent = 1.0).
-// At [ZOOM_EXPONENT] = 0.3 the marker grows ~23 % per zoom level instead of 100 %.
+// The exponent and the two base sizes it multiplies are configuration values, the `map.marker.size.*`
+// keys in maro.properties behind [AppConfig.mapMarkerSizeZoomExponent],
+// [AppConfig.mapMarkerSizeBoatBaseDp] and [AppConfig.mapMarkerSizeDotBaseDp]: one factor and one pair
+// for the sprite, the wizard's crosshair and the cap arrow alike. Map ground coverage doubles every +1
+// zoom level (exponent = 1.0), so anything below it flattens the overlays against the map. What stays
+// code is the reference zoom below, the coast-shrink pair and the arrow's speed clamps.
 
-/** Reference zoom where the marker is at its [BOAT_BASE_DP] / [DOT_BASE_DP]. */
-internal const val REF_ZOOM = 12.0 // 11.0 -to 18.0
-
-/** Base dp for the boat marker at [REF_ZOOM]. */
-internal const val BOAT_BASE_DP = 32.0
-/** Base dp for the land-dot marker at [REF_ZOOM]. */
-internal const val DOT_BASE_DP  = 8.0
-
-/**
- * Mitigating exponent applied to the zoom delta.
- * 1.0 = resize exactly like the map (doubles every zoom level).
- * 0.3 = gentler curve (~23 % growth per zoom, ~8× over the full 8–18 range).
- */
-internal const val ZOOM_EXPONENT = 0.45
+/** Reference zoom where the marker is at its configured base size, `map.marker.size.*BaseDp`. */
+internal const val REF_ZOOM = 12.0 // the shipped zoom range is 11.0 -to 20.0
 
 // ── Distance-to-coast shrink ramp ─────────────────────────────────────────────
 // When the map center is close to the coastline, the marker shrinks so it
@@ -93,15 +85,15 @@ internal const val CAP_MIN_SPEED_KNOTS = 2.5f
  * GPS position. Stays in place while the map moves beneath it.
  *
  * Sizing is dynamic:
- * - Follows the map zoom level exponentially with mitigating factor
- *   [ZOOM_EXPONENT]: bigger when zoomed in, smaller when zoomed out.
+ * - Follows the map zoom level exponentially with the configured factor
+ *   [AppConfig.mapMarkerSizeZoomExponent]: bigger when zoomed in, smaller when zoomed out.
  * - Shrinks near the coast (≤ [DIST_SHRINK_RAMP_M] m) to avoid visual
  *   "running aground".
  *
  * - On water: displays the Maro boat logo ([R.drawable.maro_marker]).
  * - On land:  displays a blue dot ([R.drawable.maro_dot_marker]).
  *
- * @param zoomLevel      Current map zoom (8.0–18.0).
+ * @param zoomLevel      Current map zoom (the shipped 11.0–20.0 range).
  * @param distanceToShore Distance from map center to nearest coast in meters,
  *                        or `null` when unavailable.
  * @param onClick        Tap on the boat. It returns true only for the tap it accepted
@@ -121,7 +113,7 @@ internal fun CenterMarkerOverlay(
     // ── Crosshair mode: replace boat/dot with a target icon during position-step wizard ──
     if (showCrosshair) {
         val baseDp = 32.0
-        val scaleFactor = 2.0.pow(ZOOM_EXPONENT * (zoomLevel - REF_ZOOM))
+        val scaleFactor = 2.0.pow(AppConfig.mapMarkerSizeZoomExponent * (zoomLevel - REF_ZOOM))
         val finalSizeDp = (baseDp * scaleFactor).dp
 
         Box(
@@ -151,9 +143,9 @@ internal fun CenterMarkerOverlay(
     val actionLabel = stringResource(R.string.cd_find_markers_at_position)
 
     // ── Base size: exponential zoom scaling ───────────────────────────────
-    // dp = baseDp × 2^(ZOOM_EXPONENT × (zoom − REF_ZOOM))
-    val baseDp = if (isWater) BOAT_BASE_DP else DOT_BASE_DP
-    val scaleFactor = 2.0.pow(ZOOM_EXPONENT * (zoomLevel - REF_ZOOM))
+    // dp = baseDp × 2^(exponent × (zoom − REF_ZOOM)), the exponent configured
+    val baseDp = (if (isWater) AppConfig.mapMarkerSizeBoatBaseDp else AppConfig.mapMarkerSizeDotBaseDp).toDouble()
+    val scaleFactor = 2.0.pow(AppConfig.mapMarkerSizeZoomExponent * (zoomLevel - REF_ZOOM))
 
     // ── Distance-to-coast multiplier: [DIST_SHRINK_MIN_MULT] on the coast
     //    → 1.0 at [DIST_SHRINK_RAMP_M] m ───────────────────────────────────
@@ -331,7 +323,7 @@ internal fun CapArrowOverlay(
     val hasSpeed = effectiveSpeedKn != null && effectiveSpeedKn > CAP_MIN_SPEED_KNOTS
     if (!hasSpeed || !showCapArrow) return
 
-    val scaleFactor = 2.0.pow(ZOOM_EXPONENT * (zoomLevel - REF_ZOOM))
+    val scaleFactor = 2.0.pow(AppConfig.mapMarkerSizeZoomExponent * (zoomLevel - REF_ZOOM))
     val baseArrowDp = (effectiveSpeedKn!! * CAP_DP_PER_KNOT).coerceIn(CAP_MIN_DP, CAP_MAX_DP)
     val arrowDp = (baseArrowDp * scaleFactor).dp
 

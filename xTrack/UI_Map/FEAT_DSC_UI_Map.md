@@ -2,7 +2,7 @@
 name: UI_Map
 status: active
 created: 2026-06-07 00:00
-modified: 2026-09-17 18:10
+modified: 2026-09-19 07:35
 ---
 
 **Description:** Map display layer management — depth layer, color depth layer, orientation-aware rendering, marker highlight.
@@ -169,8 +169,10 @@ explicit values/ViewModels + inline callbacks).
 - **boat-center** — boat marker decoupled Image + cap-arrow Canvas; shifted down half-height
 - **marker filter + dashboard close** — marker filter drives map overlay; panel auto-closes; list-context stacking removed
 - **inspect mode** — drag-to-select by proximity from the marker point: the ⊕ square gated on having something inspectable, one radius derivation feeding both the ring and the pick gate, the layer-visible map-filtered candidate set warmed at arming, a candidate line the mode owns, a quiet-clock pick with one pick per gesture, and a frozen distance ladder walked by one inspect cursor that crosses between marker and track cards; the pick, the camera and the look are the canonical selection path, so the mode is an entry point rather than a second renderer → `xTrack/UI_Map/260917_FEAT_PLN_UI_Map_inspect-mode.md`
+- **marker zoom scale configurable** — the growth exponent left the code for `map.marker.size.zoomExponent` (`maro.properties` → `AppConfig.mapMarkerSizeZoomExponent`, clamped 0–1) and moved to 0.35 for the settled 11–20 range, so the centre sprite stops outgrowing the screen offshore at level 20 (388 dp → 223 dp) while the mid levels barely move; the deleted constant's three readers — the sprite, the wizard's crosshair and the cap arrow — now share the one setting. The base pair followed the same day as `map.marker.size.boatBaseDp` (36.8) and `map.marker.size.dotBaseDp` (9.2), clamped 1–128, a 15 % raise on 32 / 8 as a first device test, with `BOAT_BASE_DP` / `DOT_BASE_DP` deleted and the sprite's base read from the pair; the reference zoom, the coast-shrink pair and the arrow's clamps stay code, and the marker-sizing doc carries the real curve with its tunables pointing at the keys → `xTrack/UI_Map/260919_FEAT_PLN_UI_Map_marker-zoom-scale.md`
 
 ## Todos
+- [ ] Device pass against the plan's two tables — the sprite at levels 19 and 20 offshore and inshore, and the 15 % raise on the base pair at each level → `xTrack/UI_Map/260919_FEAT_PLN_UI_Map_marker-zoom-scale.md`
 
 ## Rules
 

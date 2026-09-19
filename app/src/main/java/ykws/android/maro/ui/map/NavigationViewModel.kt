@@ -206,7 +206,7 @@ class NavigationViewModel(
     )
     val distanceToShore: StateFlow<Double?> = _distanceToShore.asStateFlow()
 
-    /** Current map zoom level (8.0–18.0) — seeded from persisted settings or default 11.0. */
+    /** Current map zoom level (the shipped 11.0–20.0 range) — seeded from persisted settings or default 11.0. */
     private val _zoomLevel: MutableStateFlow<Double> = MutableStateFlow(
         if (initialAppSettings.zoomLevel > 0.0) initialAppSettings.zoomLevel else 11.0
     )

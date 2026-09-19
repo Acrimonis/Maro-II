@@ -53,8 +53,8 @@ import org.osmdroid.views.MapView
  * The map's own zoom range — one home for the pair. The view enforces it on its `MapView`, and the
  * marker focus framing clamps the zoom it asks for to the same bounds, so the two cannot disagree.
  */
-internal const val MAP_MIN_ZOOM = 8.0
-internal const val MAP_MAX_ZOOM = 18.0
+internal const val MAP_MIN_ZOOM = 11.0
+internal const val MAP_MAX_ZOOM = 20.0
 
 @Composable
 internal fun LoadingOverlay(

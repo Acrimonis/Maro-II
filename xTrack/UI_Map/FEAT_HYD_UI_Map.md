@@ -1,18 +1,19 @@
-# UI_Map — Hydration Snapshot
+# Context Hydration — UI_Map — 2026-09-19
 
-**Baked:** 2026-09-17 18:10 UTC
+**Last Bake:** 2026-09-19 07:35 UTC
 
-## Active State
-Inspect mode is fully designed and **not implemented**. The plan `260917_FEAT_PLN_UI_Map_inspect-mode.md` carries eight sections, five property keys and no open design item; the feature file's `## Walk` section holds the closed eight-point review that resolved it, and it is closed rather than parked.
+**Directive trace:** Dependency, machine-shaped file, unordered start, device touch and unsourced claim — none arose this session, so none stopped; every claim about the code came out of a file read, and the two false claims found were this session's own and were repaired.
 
-No source file changed this session — the work was design plus a challenge pass — so the map behaves exactly as before. The design's spine: a ⊕ square in the top-left row arms a proximity pick; the sweep ranks the layer-visible map-filtered items by distance from the marker point; a quiet-map timer picks the nearest without moving the camera; the card then walks a frozen distance ladder through one new inspect cursor that can cross between marker and track cards.
-
-Owed before shipping: two device checks (the commit swap's frame time at the 20-track render cap, and the card's slot against the anchor band in both orientations) and two code checks (whether `mapView.mapCenter` already carries the centre offset, and the non-consuming release observer).
+## State
+The marker's scale is configuration and the map's zoom range is settled at 11–20: `map.marker.size.zoomExponent` at 0.35 (was the 0.45 constant), `map.marker.size.boatBaseDp` at 36.8 and `map.marker.size.dotBaseDp` at 9.2, all clamped on parse. `ZOOM_EXPONENT`, `BOAT_BASE_DP` and `DOT_BASE_DP` are deleted, so the sprite, the wizard's crosshair and the cap arrow read the settings while the reference zoom, the coast-shrink pair and the arrow's speed clamps stay code; offshore at level 20 the boat reads 256 dp against the old curve's 388 dp, the dot a quarter of it. `apk-build.bat` SUCCESSFUL with no warnings across the session's four hops, and the scoped `ui.map` + `config` run holds at 213 tests with only the six properties-versus-default reds, none of them reading the new keys. Inspect mode remains designed and unimplemented, owing its own device and code checks.
 
 ## Target Files
-- `xTrack/UI_Map/260917_FEAT_PLN_UI_Map_inspect-mode.md` — the plan and its 16 steps
-- `ui/map/MapScreen.kt`, `MapTrackOverlayEffects.kt`, `MapOverlays.kt`, `MapControls.kt`, `MarkerOverlay.kt`, `MarkersViewModel.kt`
-- `config/AppConfig.kt`, `assets/colors.properties`, `res/values*/strings.xml`
+- `app/src/main/assets/maro.properties` — the `map.marker.size.*` keys and their documentation
+- `app/src/main/java/ykws/android/maro/config/AppConfig.kt` — the three sizing accessors
+- `app/src/main/java/ykws/android/maro/ui/map/MapOverlays.kt` — the sprite's base read, the crosshair and the cap arrow
+- `app/src/main/java/ykws/android/maro/ui/map/CoastlineMapView.kt` — the 11–20 range
+- `xTrack/UI_Map/260919_FEAT_PLN_UI_Map_marker-zoom-scale.md` — the plan, its two passes and their Outcome
+- `xTrack/UI_Map/FEAT_DOC_UI_Map_marker-sizing.md` — the corrected curve and its tunables table
 
 ## Next Step
-`#impl` — start at step S1, the pure `InspectRanking` with the points-and-lines metric and the dp → metres radius derivation.
+Device pass against the plan's two tables: the sprite at levels 19 and 20 offshore and inshore, and the 15 % raise on the base pair at each level.
