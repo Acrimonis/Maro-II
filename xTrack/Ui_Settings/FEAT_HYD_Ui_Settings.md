@@ -1,33 +1,26 @@
 # Context Hydration — Ui_Settings — 2026-09-19
 
-**Last Bake:** 2026-09-19 13:36 UTC — written by `#bake`; absence means never baked
+**Last Bake:** 2026-09-19 13:50 UTC — written by `#bake`; absence means never baked
 
-**Directive trace:** no covered action stopped since the last bake — no dependency was added, no machine-shaped data file was opened, no work began without an explicit order, the device was never touched, and every claim about the code came from a file read. One earlier report held the cap-arrow repairs outstanding when they were already committed; the source showed otherwise and the claim was corrected.
+**Directive trace:** no covered action stopped since the last bake — no dependency was added, no machine-shaped data file was opened, no work began without an explicit order, the device was never touched, and every claim about the code came from a file read. One gap is declared rather than filled: the pager's `currentPage` versus `settledPage` semantics during `animateScrollToPage` could not be read, Compose Foundation 1.11.1 shipping no sources artifact in the local Gradle cache, so the fourth tab's fault is carried as a reasoned mechanism and never as a proven one.
 
 ## State
 
-Branch **`feature/extra-settings`**, now carrying four changes together. The strokes and shoreline colours shipped as `82b2b1d`, rebased onto `origin/develop` and pushed as `217a405`, with a pull request open. The heading line and head arrow appearance — seven settings, the Speed Colour mode, an Appearance expander under each toggle — landed with its four device-review corrections and the colour-row tidy as `256dfc2`. On top sit the px→dp migration of the map's paint lengths, run through the `#implement` pipeline, and the dropped stale test expectations.
+Branch **`feature/setting-tabs`**, cut from `origin/develop` (`7918c0f`) in this session, carrying one change: the Settings overlay's fourth tab took no tap, both strip and page staying on the third. The pager-to-tab write-back, its `pagerSyncSettled` guard and the bidirectional comment are deleted, so `LaunchedEffect(selectedTab) { pagerState.animateScrollToPage(selectedTab) }` is the only effect and `selectedTab` is the single thing that moves the pager; the page count now derives from `settingsTabLabels` instead of the literal 4.
 
-- Build green: `:app:assembleDebug` SUCCESSFUL, and the full suite completes at **478 tests, 0 failures, 9 skipped**, where it stood at 481 with three failures at HEAD since 2026-09-12.
-- The three stale expectations were dropped on the user's order — two `MarkerFilterMigrationTest` v7 cases asserting a prefs migration the code no longer performs, and one `RegulationAggregatorTest` case asserting a type gate the aggregator no longer has — with the false migration claim removed from the class KDoc and one orphaned import. The aggregator's 50 m same-location collapse is now **unpinned**.
-- The px→dp pass renamed three settings keys to `…widthDp` with a `toFloatOrNull` parse, float fields, float prefs keys and a 0.5 dp row grid. **Open, and the user's to call:** the coastline's shipped 3.3333 dp default is not on that grid, so once that row is dragged the 10 px look cannot be returned to.
-- The pipeline's independent review found one High and it is repaired: the marker circle's dash was built with the helper's `density = 1f` default, so the `1f` default is deleted and the compiler now forces all fourteen `buildPolyline` call sites to name a density.
-- **Open:** the device pass over the strokes, the arrow/line and the dp conversion together, plus the second-density emulator check — the only place the conversion is visible, since on the 3× tuning phone it is invisible by design.
-- Wording finding, open: the heading line's colour row reads **Default colour** with nothing to default from.
+- Earlier the same day the extra-settings work — the strokes and shoreline colours, the arrow and line appearance, the px→dp pass and the dropped stale test expectations — reached `origin/develop` as the squash of PR #245, proven tree-identical to the local branch that carried it, so this branch starts with all four; their owed device pass is unchanged.
+- Build green: `apk-build.bat` → BUILD SUCCESSFUL in 19s, `compileDebugKotlin` executing with no warning at all, so nothing names either touched file. The test suite was not run this session; the last full run stood at 478 tests, 0 failures, 9 skipped.
+- The fault's mechanism stays reasoned, never proven, and the fix was chosen so its outcome does not rest on the unread pager semantics.
+- Nothing else moved: no `else` branch on the `when (page)`, no scroll-state bundling or reorder, no strip, indicator or cell change, no dependency, no Compose UI test, no git write beyond this bake's own commit.
+- **Open, and the user's to call:** the device pass over the four tabs and over the merged extra-settings changes, the second-density emulator check, and the coastline row grid's Medium finding.
+- Open, carried: the heading line's colour row reads **Default colour** with nothing to default from.
 
 ## Target Files
 
-- `app/src/main/java/ykws/android/maro/ui/map/MapOverlayRenderer.kt` — the `dpToPx` helper, `transparencyPctToAlphaFraction`, the three `…widthDp` paint sites and the isobath group
-- `app/src/main/java/ykws/android/maro/ui/map/MapOverlays.kt` — the arrow and the line: parameters, the head derivation, the dash ratios, the shaft inset
-- `app/src/main/java/ykws/android/maro/ui/map/MarkerOverlay.kt`, `MarkerHalo.kt`, `MapMarkerEffects.kt` — the marker strokes, the dashes, the two adds and the single density accessor
-- `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt`, `MapScreenSettingsOverlay.kt` — the conversion call sites, the three width rows on their dp grid, the two Appearance expanders
-- `app/src/main/java/ykws/android/maro/config/AppConfig.kt` — the renamed readers, the float fields and the defaults following the file
-- `app/src/main/java/ykws/android/maro/data/settings/SettingsManager.kt` — the renamed settings, their seeds, clamps and `*_width_dp` prefs keys
-- `app/src/main/assets/maro.properties` — the `…widthDp` keys, the swept colours, the reference density stated once
-- `app/src/main/res/values/strings.xml`, `app/src/main/res/values-fr/strings.xml` — the labels in both locales, and the retired `settings_value_px` gone from both
-- `app/src/test/java/ykws/android/maro/ui/map/MapOverlayRendererTest.kt`, `TrackOutlineTest.kt`, `TrackDirectionOverlayTest.kt`, `app/src/test/java/ykws/android/maro/config/HeatmapRampPropertiesTest.kt` — the dp round trips, the ratios and the settled reds
-- `xTrack/UI_Map/260919_FEAT_PLN_UI_Map_px-to-dp-migration.md` — the inventory, the risk table and the review's findings
+- `app/src/main/java/ykws/android/maro/ui/map/MapScreenSettingsOverlay.kt` — the derived page count at line 97 and the one surviving effect at 102–104
+- `docs/ui-component-guidelines.md` — §2.11's single-source-of-truth row
+- `xTrack/Ui_Settings/260919_FEAT_PLN_Ui_Settings_settings-tab-fourth-tap.md` — the plan, its out-of-scope list and its Outcome
 
 ## Next Step
 
-The device pass over all three changes, and the second-density emulator check that is the only evidence the conversion did anything; the row-grid Medium stays the user's decision.
+The device pass: tap each of the four tabs and confirm the strip and the page both land on the tapped tab, then reopen the overlay on a tab other than the first to confirm the persisted tab still lands and the pager still holds four pages. No baseline exists for a before-and-after comparison, so the pass shows the after state alone.

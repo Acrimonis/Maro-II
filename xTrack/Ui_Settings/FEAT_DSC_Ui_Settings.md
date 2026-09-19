@@ -2,7 +2,7 @@
 name: Ui_Settings
 status: active
 created: 2026-06-09 15:28
-modified: 2026-09-19 13:36
+modified: 2026-09-19 13:50
 ---
 
 **Description:** Settings page UI, settings persistence (SharedPreferences), settings-related widgets, and settings UX enhancements.
@@ -12,6 +12,8 @@ modified: 2026-09-19 13:36
 > this feature file defers to it and does not duplicate those rules. Colour tokens: [`docs/color-scheme.md`](../../docs/color-scheme.md) §7.
 
 ## Implemented
+
+- **settings-tab-single-writer (2026-09-19, `feature/setting-tabs`)** — the Settings overlay's fourth tab took no tap, the strip and the page both staying on the third, because a write-back keyed on the pager's `currentPage` could re-target the tab effect mid-animation. The write-back, its `pagerSyncSettled` guard and the bidirectional comment are deleted, leaving `LaunchedEffect(selectedTab) { pagerState.animateScrollToPage(selectedTab) }` as the one effect, and the pager's page count now derives from `settingsTabLabels` in place of the literal 4 so the strip, the pager and the `when (page)` cannot disagree. The fault's mechanism is recorded as **reasoned, never proven** — Compose Foundation 1.11.1 carries no sources artifact in the local Gradle cache — and the fix was chosen so its outcome does not rest on those semantics; `apk-build.bat` SUCCESSFUL in 19s with no warning, `compileDebugKotlin` executing and the sync region reading back as one effect, and `docs/ui-component-guidelines.md` §2.11 gained the single-source-of-truth row → `xTrack/Ui_Settings/260919_FEAT_PLN_Ui_Settings_settings-tab-fourth-tap.md`
 
 - **navigation-arrow-and-line-appearance (2026-09-19, `feature/extra-settings`)** — the head arrow and the heading line gained thickness, colour and transparency, and the arrow a speed colour mode: seven settings, five of them new keys in `maro.properties` (`map.navigation.arrow.widthDp` 2.25, `.transparencyPct` 0, `.followSpeedColour` false, `map.navigation.line.widthDp` 1 and `.transparencyPct` 70) beside the two existing colour keys, with the line's packed `#4D` stripped into its transparency so that alpha has one home. Both overlays take their values as parameters and read `AppConfig` for none of them; the arrow derives its head from its shaft at the shipped 4 : 1 through the pure `capArrowHeadDp()`, `transparencyPctToAlphaFraction()` sits beside the integer helper, and `rampColorForSpeed()` is the allocation-free band read — all three covered by the two new green classes, with the five new keys now pinned against the shipped file. The arrow's **Speed Colour** mode paints the track ramp's band for the speed it carries, through the same `quantiseKn`/`colorAt` the tracks use, and turns to the ramp's neutral tint while `gpsStale` is set — the stale rule governing the speed-derived colour alone, since the **Default colour** row it sits above is never disabled and asserts nothing about the reading. The Navigation tab's Orientation aids card gained a collapsible Appearance expander per item, below its three toggles, with rows reading thickness, transparency, colour in both locales. `apk-build.bat` SUCCESS with no new warnings; the scoped `ui.map` + `config` run holds at 222 tests with only the six pre-existing properties-versus-`AppConfig` drift reds. The device pass is owed → `xTrack/Ui_Settings/260919_FEAT_PLN_Ui_Settings_heading-line-and-arrow-appearance.md`
 
@@ -58,6 +60,7 @@ modified: 2026-09-19 13:36
 - `app/src/main/java/ykws/android/maro/ui/map/OverlayLayer.kt` — the overlay ladder: the drawer scrim and every drawer surface
 
 ## Docs
+- `xTrack/Ui_Settings/260919_FEAT_PLN_Ui_Settings_settings-tab-fourth-tap.md` — the fourth tab's lost tap: the write-back deletion, the derived page count and the §2.11 invariant (implemented; device pass owed)
 - `xTrack/Ui_Settings/260919_FEAT_PLN_Ui_Settings_heading-line-and-arrow-appearance.md` — head arrow and heading line appearance: the seven settings, the Speed Colour mode, the neutral tint while stale, and the never-disabled Default colour row (implemented; device pass owed)
 - `xTrack/Ui_Settings/260919_FEAT_PLN_Ui_Settings_stroke-widths-and-shoreline-colours.md` — stroke widths + shoreline colours: the six settings, the eleven-key colour sweep, the one-clamp-per-value rule and the parked px-to-dp pass (implemented; device pass owed)
 - `xTrack/Ui_Settings/260918_FEAT_PLN_Ui_Settings_regulated-zones-transparency.md` — regulated zone transparency: the Regulated Zones Appearance row, the persisted pair, the shared `transparencyPctToAlpha`, and the string consolidation (implemented; device pass open)

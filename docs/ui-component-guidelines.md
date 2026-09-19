@@ -335,6 +335,7 @@ The Settings overlay tab bar is Material 3's **`SecondaryScrollableTabRow`** —
 | Cells | **custom**, never M3 `Tab` — `Box` + `selectable(selected = …, role = Role.Tab, onClick = …)`, padding 8dp horizontal × 14dp vertical |
 | Indicator | M3's default secondary indicator — spans the whole cell and animates |
 | Label | `${ui.font.tab.size}` (18sp) **SemiBold**; accent + **Bold** when selected, `uiTextSecondary` otherwise |
+| State | **`selectedTab` is the single source of truth**: `pageCount` derives from `settingsTabLabels`, and **no pager→tab write-back exists** while `userScrollEnabled = false` — a returning swipe needs one, reading `settledPage` and never `currentPage` |
 
 Why custom cells: M3 `Tab` adds its own horizontal padding plus a 90dp minimum width, which wrapped the "Navigation" label and left side gaps, and `PrimaryTabRow`'s default indicator is a fixed ~24dp stub. Cells sized to their label keep the whole strip visible on a 360dp screen, with horizontal scrolling acting only as the safety net for large accessibility font scale.
 
