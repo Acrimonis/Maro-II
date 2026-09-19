@@ -108,6 +108,17 @@
     <string name="settings_cap_arrow_desc">Show the speed-proportional direction arrow extending from the boat marker</string>
     <string name="settings_demo_heading_label">Demo heading-up</string>
     <string name="settings_demo_heading_desc">Derive heading from pan direction in demo mode instead of north-up</string>
+    <string name="settings_heading_line_appearance_label">Heading Line Appearance</string>
+    <string name="settings_heading_line_width_label">Line thickness</string>
+    <string name="settings_heading_line_width_desc">Thickness of the heading line (dp)</string>
+    <string name="settings_heading_line_transparency_desc" formatted="false">Heading line transparency (0% = opaque, 100% = invisible)</string>
+    <string name="settings_cap_arrow_appearance_label">Arrow Appearance</string>
+    <string name="settings_cap_arrow_width_label">Arrow thickness</string>
+    <string name="settings_cap_arrow_width_desc">Thickness of the arrow shaft (dp); the head keeps its 4 : 1 ratio</string>
+    <string name="settings_cap_arrow_transparency_desc" formatted="false">Arrow transparency (0% = opaque, 100% = invisible)</string>
+    <string name="settings_speed_colour_label">Speed Colour</string>
+    <string name="settings_default_colour_label">Default colour</string>
+    <string name="settings_value_dp_fmt">%.2f dp</string>
     <string name="settings_emodnet_section_label">Shallow cutoff (EMODnet)</string>
     <string name="settings_emodnet_section_desc">Coarse EMODnet data is unreliable in very shallow water near rocks and the coast</string>
     <string name="settings_emodnet_cutoff_label">Cutoff depth</string>
@@ -413,7 +424,6 @@
     <string name="settings_reg_alert_demo_label">Regulated zone alert (Demo)</string>
     <string name="settings_reg_alert_demo_desc">Auto-show regulated zones when panning toward a speed-enforced zone</string>
     <string name="settings_regenerate_layers">Regenerate Layers</string>
-    <string name="color_picker_pick">Pick</string>
 
     <!-- Content descriptions (accessibility) -->
     <string name="cd_cancel">Cancel</string>

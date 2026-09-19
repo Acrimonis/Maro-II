@@ -439,12 +439,34 @@ object AppConfig {
     var mapRegulatedZoneOutlineWidthPx: Int = 3
         private set
 
-    /** Navigation arrow colour. Default #1565C0. Set via `map.navigation.arrow.color` in maro.properties. */
+    /** Navigation arrow colour — the manual colour, painted while the Speed Colour mode is off.
+     *  Default #1565C0. Set via `map.navigation.arrow.color` in maro.properties. */
     var mapNavigationArrowColor: Int = 0xFF1565C0.toInt()
         private set
-    /** Navigation direction line colour. Default #4D1565C0. Set via `map.navigation.line.color` in
-     *  maro.properties — the packed `#4D` alpha is the line's own 30 % and reaches the paint. */
-    var mapNavigationLineColor: Int = 0x4D1565C0.toInt()
+    /** Cap arrow shaft width (dp) — the head is derived from it at the shipped 4 : 1 ratio.
+     *  Default 2.25. Set via `map.navigation.arrow.widthDp` in maro.properties. */
+    var mapNavigationArrowWidthDp: Float = 2.25f
+        private set
+    /** Cap arrow transparency % (0 = opaque, 100 = invisible). Default 0, the shipped opaque arrow.
+     *  Set via `map.navigation.arrow.transparencyPct` in maro.properties. */
+    var mapNavigationArrowTransparencyPct: Int = 0
+        private set
+    /** Cap arrow colour mode: true = the colour follows the speed the boat carries, read from the
+     *  track speed ramp; false = the arrow's own colour key. Default false.
+     *  Set via `map.navigation.arrow.followSpeedColour` in maro.properties. */
+    var mapNavigationArrowFollowSpeedColour: Boolean = false
+        private set
+    /** Navigation direction line colour — the opaque hue; its alpha has one home in the transparency
+     *  key below. Default #1565C0. Set via `map.navigation.line.color` in maro.properties. */
+    var mapNavigationLineColor: Int = 0xFF1565C0.toInt()
+        private set
+    /** Direction line stroke width (dp). Default 1.
+     *  Set via `map.navigation.line.widthDp` in maro.properties. */
+    var mapNavigationLineWidthDp: Float = 1f
+        private set
+    /** Direction line transparency % (0 = opaque, 100 = invisible). Default 70, the 30 % alpha the
+     *  colour key used to pack. Set via `map.navigation.line.transparencyPct` in maro.properties. */
+    var mapNavigationLineTransparencyPct: Int = 70
         private set
 
     /** Speed (knots) at which the map look-ahead offset reaches its maximum.
@@ -1129,7 +1151,16 @@ object AppConfig {
             props.getProperty("map.regulatedZone.outline.widthPx")?.toIntOrNull()?.let { mapRegulatedZoneOutlineWidthPx = it }
 
             props.getProperty("map.navigation.arrow.color")?.let { parseColorOrNull(it) }?.let { mapNavigationArrowColor = it }
+            // The two widths and the two percentages carry no clamp here: the 1–8 dp, 0.5–4 dp and
+            // 0–100 % spans are the sliders' own facts, applied once where the setting is read.
+            props.getProperty("map.navigation.arrow.widthDp")?.toFloatOrNull()?.let { mapNavigationArrowWidthDp = it }
+            props.getProperty("map.navigation.arrow.transparencyPct")?.toIntOrNull()?.let { mapNavigationArrowTransparencyPct = it }
+            props.getProperty("map.navigation.arrow.followSpeedColour")?.toBooleanStrictOrNull()?.let {
+                mapNavigationArrowFollowSpeedColour = it
+            }
             props.getProperty("map.navigation.line.color")?.let { parseColorOrNull(it) }?.let { mapNavigationLineColor = it }
+            props.getProperty("map.navigation.line.widthDp")?.toFloatOrNull()?.let { mapNavigationLineWidthDp = it }
+            props.getProperty("map.navigation.line.transparencyPct")?.toIntOrNull()?.let { mapNavigationLineTransparencyPct = it }
 
             // ── Map look-ahead offset (dynamic speed-based center shift) ──
             props.getProperty("map.offset.lookahead.maxspeedKn")?.toDoubleOrNull()?.let {

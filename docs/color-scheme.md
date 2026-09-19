@@ -180,7 +180,7 @@ original 9 sp type and 3×1 dp padding — a reported risk rather than a second 
 | Token | Usage |
 |---|---|
 | `map.navigation.arrow.color` | Heading/speed cap arrow (boat marker) |
-| `map.navigation.line.color` | Direction line from boat center — the value carries its own 30 % alpha |
+| `map.navigation.line.color` | Direction line from boat center — the opaque hue; `map.navigation.line.transparencyPct` carries its alpha |
 
 ---
 

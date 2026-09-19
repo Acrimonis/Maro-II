@@ -107,6 +107,17 @@
     <string name="settings_cap_arrow_desc">Afficher la flèche de direction proportionnelle à la vitesse depuis le bateau</string>
     <string name="settings_demo_heading_label">Cap en mode démo</string>
     <string name="settings_demo_heading_desc">Déduire le cap de la direction du glissement en mode démo (au lieu du nord en haut)</string>
+    <string name="settings_heading_line_appearance_label">Apparence de la ligne de cap</string>
+    <string name="settings_heading_line_width_label">Épaisseur de la ligne</string>
+    <string name="settings_heading_line_width_desc">Épaisseur de la ligne de cap (dp)</string>
+    <string name="settings_heading_line_transparency_desc" formatted="false">Transparence de la ligne de cap (0% = opaque, 100% = invisible)</string>
+    <string name="settings_cap_arrow_appearance_label">Apparence de la flèche</string>
+    <string name="settings_cap_arrow_width_label">Épaisseur de la flèche</string>
+    <string name="settings_cap_arrow_width_desc">Épaisseur du trait de la flèche (dp) ; la pointe garde son rapport de 4 : 1</string>
+    <string name="settings_cap_arrow_transparency_desc" formatted="false">Transparence de la flèche (0% = opaque, 100% = invisible)</string>
+    <string name="settings_speed_colour_label">Couleur selon la vitesse</string>
+    <string name="settings_default_colour_label">Couleur par défaut</string>
+    <string name="settings_value_dp_fmt">%.2f dp</string>
     <string name="settings_emodnet_section_label">Seuil hauts-fonds (EMODnet)</string>
     <string name="settings_emodnet_section_desc">Les données EMODnet (grossières) sont peu fiables en eau très peu profonde près des rochers et de la côte</string>
     <string name="settings_emodnet_cutoff_label">Profondeur seuil</string>
@@ -412,7 +423,6 @@
     <string name="settings_reg_alert_demo_label">Alerte zone réglementée (Démo)</string>
     <string name="settings_reg_alert_demo_desc">Afficher les zones réglementées en naviguant vers une zone</string>
     <string name="settings_regenerate_layers">Régénérer les couches</string>
-    <string name="color_picker_pick">Choisir</string>
 
     <!-- Content descriptions (accessibility) -->
     <string name="cd_cancel">Annuler</string>

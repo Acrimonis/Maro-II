@@ -34,6 +34,14 @@ const val DEPTH_OVERLAY_BANDS = 8
  */
 fun transparencyPctToAlpha(pct: Int): Int = ((100 - pct.coerceIn(0, 100)) * 255) / 100
 
+/**
+ * The Compose sibling of [transparencyPctToAlpha]: the same transparency percentage as the alpha
+ * fraction a canvas draw needs. The overlays drawn with `drawLine`/`drawPath` take a fraction rather
+ * than a packed alpha, and sitting here keeps the one percentage semantics — 0 = opaque, 100 =
+ * invisible — in one place instead of a second derivation beside each stroke.
+ */
+fun transparencyPctToAlphaFraction(pct: Int): Float = (100 - pct.coerceIn(0, 100)) / 100f
+
 /** Map each [RegulatedZoneType] to its distinct polygon hue. */
 fun regulatedZoneColor(type: RegulatedZoneType): Int = when (type) {
     // Palette ARGB values; only their RGB part reaches the map — the fill and outline alphas come

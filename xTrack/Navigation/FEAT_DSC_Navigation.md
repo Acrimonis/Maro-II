@@ -21,11 +21,11 @@ Heading/speed cap arrow + dashed direction line projecting from the boat marker.
 
 #### Rules
 - Arrow hides below 2.5 kn (drifting threshold).
-- Arrow length = speed(kn) × 2.17 dp, clamped to [1, 65] dp at REF_ZOOM, scaled with zoom via ZOOM_EXPONENT.
+- Arrow length = speed(kn) × 2.17 dp, clamped to [1, 65] dp at REF_ZOOM, scaled with zoom by `map.marker.size.zoomExponent` — the constant this rule used to name is gone.
 - Arrow always draws straight up (screen-top) — heading-up map rotation aligns heading with screen-up via `mapOrientation = -bearingDeg`.
-- Direction line is a thin dashed line (12px dash / 6px gap, 1dp stroke) from screen center to top edge.
+- Direction line is a thin dashed line from screen center to top edge, its stroke width a setting and its dash proportional to that width rather than a fixed pair of pixels.
 - Navigation state uses a single `NavigationState` data class for atomic Compose reads.
-- Heading line (default ON) and Variable Arrow (default OFF) toggled from Settings → Display → Navigation.
+- Heading line (default ON) and Variable arrow (default OFF) toggled from Settings → Navigation, each with its own Appearance expander directly below its toggle.
 
 #### Key Files
 - `app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt` — CenterMarkerOverlay + DirectionLine composables, settings UI

@@ -19,6 +19,9 @@ import ykws.android.maro.data.settings.AppSettings
  *    `colors.properties`: no key has two homes, and the deletion half of the move is asserted rather
  *    than assumed.
  *  - The retired coastline width pair is gone from `maro.properties`, replaced by the single key.
+ *  - The five heading-line and cap-arrow keys the appearance change added are checked the same way —
+ *    the property file against the default the code carries — and the direction line's colour against
+ *    its now-opaque hue, so a misspelled or one-sided navigation key fails here as well.
  *
  * The test CWD is the `app` module (the convention `HeatmapRampPropertiesTest` follows);
  * `maro.repoDir` is honoured first so the file is found from a repo-root run too.
@@ -89,6 +92,42 @@ class CoastlineAppearancePropertiesTest {
         assertEquals(
             AppConfig.mapCoastlineIslandColor,
             hexToArgb(props.getProperty("map.coastline.island.color"))
+        )
+    }
+
+    @Test
+    fun theFiveNavigationKeysShipInMaroPropertiesAtTheCodesDefaults() {
+        val props = shipped("maro.properties")
+
+        // The widths follow the coastline rows' rule: asserted against the setting, since the property
+        // parse carries no clamp and the dp spans are applied where the setting is read.
+        assertEquals(
+            props.getProperty("map.navigation.arrow.widthDp").trim().toFloat(),
+            AppSettings().navigationArrowWidthDp,
+            0f
+        )
+        assertEquals(
+            AppConfig.mapNavigationArrowTransparencyPct,
+            props.getProperty("map.navigation.arrow.transparencyPct").trim().toInt()
+        )
+        assertEquals(
+            AppConfig.mapNavigationArrowFollowSpeedColour,
+            props.getProperty("map.navigation.arrow.followSpeedColour").trim().toBooleanStrict()
+        )
+        assertEquals(
+            props.getProperty("map.navigation.line.widthDp").trim().toFloat(),
+            AppSettings().navigationLineWidthDp,
+            0f
+        )
+        assertEquals(
+            AppConfig.mapNavigationLineTransparencyPct,
+            props.getProperty("map.navigation.line.transparencyPct").trim().toInt()
+        )
+        // The line colour is the opaque hue: the alpha it once packed now rides the transparency key,
+        // so a re-packed alpha fails against the code's own opaque default here.
+        assertEquals(
+            AppConfig.mapNavigationLineColor,
+            hexToArgb(props.getProperty("map.navigation.line.color"))
         )
     }
 

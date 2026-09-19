@@ -1870,6 +1870,7 @@ fun MapScreen(
                 mapView = mapView,
                 navigationState = navigationState,
                 gpsIconState = gpsIconState,
+                gpsStale = gpsStale,
                 onGpsModeToggle = { onGpsModeChange(!appSettings.gpsMode) },
                 // The tag stack's marker point is the map centre (§5.6 of the tag-stack plan),
                 // and the band sign it shows is the marker's own band result.
@@ -2979,6 +2980,8 @@ private fun MapContent(
     mapView: MapView?,
     navigationState: NavigationState = NavigationState(),
     gpsIconState: GpsIconState = GpsIconState.DEMO,
+    /** True while the last fix is considered stale — the cap arrow's colour-mode tell. */
+    gpsStale: Boolean = false,
     markerInZone300: Boolean = false,
     headingDeg: Double = -1.0,
     onCenterChanged: (Double, Double) -> Unit,
@@ -3129,6 +3132,9 @@ private fun MapContent(
         val moving = navigationState.speedKnots != null || navigationState.demoSpeedKnots != null
         if (moving && appSettings.headingLineVisible) {
             DirectionLine(
+                strokeWidthDp = appSettings.navigationLineWidthDp,
+                color = appSettings.navigationLineColor,
+                transparencyPct = appSettings.navigationLineTransparencyPct,
                 modifier = Modifier.fillMaxSize(),
                 centerOffsetYDp = mapCenterOffsetDp
             )
@@ -3138,6 +3144,11 @@ private fun MapContent(
             zoomLevel = zoomLevel,
             navigationState = navigationState,
             showCapArrow = appSettings.capArrowVisible,
+            shaftWidthDp = appSettings.navigationArrowWidthDp,
+            color = appSettings.navigationArrowColor,
+            transparencyPct = appSettings.navigationArrowTransparencyPct,
+            followSpeedColour = appSettings.navigationArrowFollowSpeedColour,
+            gpsStale = gpsStale,
             modifier = Modifier.fillMaxSize(),
             centerOffsetYDp = mapCenterOffsetDp
         )
