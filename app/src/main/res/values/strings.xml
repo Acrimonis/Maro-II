@@ -51,7 +51,7 @@
     <string name="settings_low_depth_settings_label">Shallow-water warning</string>
     <string name="settings_reg_info_settings_label">Info text panel</string>
     <string name="settings_categories_label">Zone categories</string>
-    <string name="settings_track_settings_label">Track rendering</string>
+    <string name="settings_track_settings_label">Tracks Appearance</string>
     <string name="settings_gps_tuning_label">GPS tuning</string>
     <string name="settings_alert_settings_label">Alert settings</string>
     <string name="settings_map_offset_label">Automatic map offset</string>
@@ -382,7 +382,7 @@
     <string name="settings_marker_min_duration_desc">Minimum idle time for the marker to be kept. Applied when the next recording starts.</string>
     <string name="settings_marker_dedup_radius_label">Dedup radius</string>
     <string name="settings_marker_dedup_radius_desc">Skip a new marker near an existing one. Applied when the next recording starts.</string>
-    <string name="settings_marker_rendering_label">Marker rendering</string>
+    <string name="settings_marker_rendering_label">Markers Appearance</string>
     <string name="settings_marker_zoom_label">Point/icon rendering zoom</string>
     <string name="settings_marker_zoom_desc">Render size of marker points and icons. 100% = current size</string>
     <string name="settings_marker_halo_size_label">Halo size</string>
