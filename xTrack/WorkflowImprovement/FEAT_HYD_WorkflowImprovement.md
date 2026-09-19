@@ -1,20 +1,20 @@
-# Context Hydration — WorkflowImprovement — 2026-09-17
+# Context Hydration — WorkflowImprovement — 2026-09-19
 
-**Last Bake:** 2026-09-17 19:45 UTC
-**Updated:** 2026-09-17 19:45 UTC — bake after the rulebook governance pass and the reply-shape change
+**Last Bake:** 2026-09-19 08:34 UTC
 
-**Directive trace:** no covered action stopped since the last bake. Two boundary cases were met in conversation — claims about the code made before the file was read, corrected when challenged — and neither took a verdict line, the line not being honoured in behaviour yet. No dependency was added, no machine-shaped data file was opened, no device was touched, and every implementation waited for an order.
+**Directive trace:** no covered action stopped since the last bake: no dependency was added, no machine-shaped data file opened, no device touched and no work started unordered, the plan file having been written on an explicit "plan this"; the one gap recorded is a claim about list ordering taken from the rulebook already in context while the file it pointed at stayed unopened, named by the session's own review sweep.
 
 ## State
 
-`AGENTS.md` governs by tier: a five-tier legend (🛑 AUTHORISATION · ⛔ BOUNDARY · 💬 CONDUCT · 🧹 AUTHORSHIP · 🟢 GUIDELINE) states each tier's force and the precedence between them, every rule wears one — **20 of them**, the last being the delegation rule that makes a user-invisible implementation choice the agent's, scoped to ordered work — and the five action classes that carry a verdict line are named in the legend zone. The report bullet was reworded to give the problem and the fix in plain words, with an ELIJP and its twenty-word form. `#rule` prints the legend bare, reloads one tier on argument and answers `all` with a staleness verdict; the registry of ids was declined. Enforcement runs in three tiers: the command refusals, the five-class verdict line, and the `#review` sweep, with one `Directive trace` sentence written here at each bake. `#doctor` gained check (s) — every rule bullet wears a tier glyph — and the letter reserved for the adapter lint moved to (t). `docs/cmd_help_walk.md` carries documented `Closed` semantics and one rendering rule; `GIT_WORKFLOW.md` completes a refused command after the move; bare `#move` picks from a branch list. Open from the last review: the `ASK, DON'T GUESS` clause still reads *a detail*, which outranks the new 💬 rule, so the delegation is not yet effective.
+The `#archive` command now has a designed extension — `#archive sweep` — which enumerates a feature's plans together with their associated docs, prints a description, relevance and status per row, recommends an action, and disposes of each row on the user's word by leave, follow-up or archive. The plan carries decisions D1–D13, separate state sets for plans and docs, and a stateless design whose pending set is re-derived from disk plus a session decision log rather than remembered. Nothing is built: no command row, no page and no command form has been written. The branch `feature/archive` sits on `origin/develop` at `4c74e6c` with nothing committed yet, and one walk level is open over the two remaining functional points, which blocks both the bake fold and any retirement in this feature.
 
 ## Target Files
 
-- `AGENTS.md` — tier legend, the five action classes, the 20 rules, §7b rows (`#rule`, `#review`, `#walk`, `#move`, `#doctor`, `#brief`)
-- `docs/cmd_help_rule.md`, `docs/cmd_help_review.md`, `docs/cmd_help_walk.md`, `docs/cmd_help_doctor.md`, `docs/cmd_help_brief.md`, `docs/cmd_help_git.md`, `docs/cmd_help_bake.md`, `docs/cmd_help.md`, `docs/GIT_WORKFLOW.md`, `docs/xtrack-templates.md`
-- `xTrack/WorkflowImprovement/260916_FEAT_PLN_WorkflowImprovement_core-directive-lifecycle.md`, `..._walk-context-and-directive-reload.md`, `260917_..._agents-md-trim.md`, `260917_..._reply-shape-and-delegated-choices.md` — the four plans in design
+- `xTrack/WorkflowImprovement/260919_FEAT_PLN_WorkflowImprovement_archive-sweep.md` — the plan in design
+- `AGENTS.md` — §7b `#archive` row: the sweep forms and the reserved word
+- `docs/cmd_help_archive.md`, `docs/cmd_help.md`, `docs/cmd_help_bake.md`, `docs/cmd_help_doctor.md`
+- `xTrack/WorkflowImprovement/FEAT_DSC_WorkflowImprovement.md` — the section, `## Docs`, then `## Implemented`
 
 ## Next Step
 
-Rescope `ASK, DON'T GUESS`'s first clause from *a detail* to *a fact*, which is the one blocking finding left against the delegation rule; then the trim's cut, parked at 2.4%, and the retirement candidates — six shipped WorkflowImprovement plans plus two Documentation ones — awaiting an `#archive` pass.
+Close walk item 2, whether the bake report tells the user to run the sweep, and item 3, the index word for a plan closed without shipping; then implement Stage B in the plan's §7 order, beginning with the §7b row.

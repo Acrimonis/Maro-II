@@ -2,7 +2,7 @@
 name: WorkflowImprovement
 status: active
 created: 2026-06-03 00:00
-modified: 2026-09-17 19:57
+modified: 2026-09-19 08:34
 ---
 
 # Feature: WorkflowImprovement
@@ -138,6 +138,11 @@ Git command shortcuts: #new / #commit / #push / #move / #cherry·#copy / #rename
 - [ ] 6 · Deferred pair — git-shortcut verification, post-merge `xTrack/` reconcile
 
 - Resolutions: the bake page now carries the walk's three-exit challenge · check (k) reads existence-never-wording · the bare `#brief` query closed as no-change, the Forms column being design notes · the clinerules adapter is a pointer with its rationale removed. Dropped: item 4 parked by `#skip`, its `#doctor` check (s) decision carried by the feature todo, and item 6 left unstepped, its two members already deferred elsewhere.
+
+**Level 1 — Date:** 2026-09-19 · **Source:** the three open points of `260919_FEAT_PLN_WorkflowImprovement_archive-sweep.md` after its non-functional points were resolved in its §13 · **Active:** 2
+- [x] 1 · Q1 — closed 2026-09-19: volatile stands, a leave writes nothing, D9 and D10 unchanged; the accepted cost is one re-read per left row, narrowed by `sweep [state]`
+- [ ] 2 · Q3 — whether the sweep is on demand only or pointed at by the bake report
+- [ ] 3 · Q4 — the index vocabulary for a plan closed without ever shipping
 
 ## Implemented
 
