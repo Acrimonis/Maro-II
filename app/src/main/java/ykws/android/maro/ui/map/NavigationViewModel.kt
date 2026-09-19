@@ -1420,6 +1420,17 @@ class NavigationViewModel(
         repository.isOnWater(latitude, longitude)
 
     /**
+     * The coastline's containment answer alone, or null when it cannot answer — what the track position
+     * classifier is wired with, the navigable-zone predicate above calling open sea land.
+     */
+    fun isWaterOrNull(latitude: Double, longitude: Double): Boolean? =
+        repository.isWaterOrNull(latitude, longitude)
+
+    /** The region the coastline can answer for, or null before it is loaded. */
+    val coastlineRegionBounds: ykws.android.maro.data.model.RegionBounds?
+        get() = repository.regionBounds
+
+    /**
      * Distance and closest point from a GPS position to the coastline.
      */
     fun distanceToCoast(latitude: Double, longitude: Double) =
