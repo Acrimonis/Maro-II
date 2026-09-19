@@ -2,7 +2,7 @@
 name: Route
 status: active
 created: 2026-08-16 10:44
-modified: 2026-09-19 22:31
+modified: 2026-09-19 22:38
 ---
 
 # Feature: Route
@@ -60,6 +60,8 @@ Set a destination point on the map and have the app compute and trace the fastes
 #### Rules
 - Kotlin coroutines/Flow only
 - Both ends of a route sit in one stretch of connected water: when either resolves into a different stretch, that end is re-resolved to the closest point inside the same stretch, and a destination resolving to land takes the same path (agreed 2026-09-19)
+- The boat can leave the covered water while a route is active: the line stays, a recompute is skipped rather than failing, and the trip figure keeps its last value marked stale the way the app already marks a stale fix (review 2026-09-19)
+- The heuristic is admissible by construction — `min(cruise, limit)` can never exceed the cruise speed, so a distance-over-cruise estimate never overstates the remaining time — and it is stated here so it is not "optimised" away (review 2026-09-19)
 - Mesh load = stream-deserialize on Dispatchers.Default (matches depth/coastline precedent; not memory-mapped)
 
 ### destination-ui
@@ -87,6 +89,10 @@ Set a destination point on the map and have the app compute and trace the fastes
 - MapEventsOverlay.longPressHelper yields a GeoPoint directly; pin/polyline/zoom-to-fit are geo-native osmdroid overlays — no manual screen↔geo projection
 - Ordering and start, agreed 2026-09-19: the line sits above the tracks and below the markers in the existing order, one file owns the map objects, and the start is the position the dashboard reads — the GPS fix in GPS mode, the same seam in demo mode — never the map centre
 - The toggle is the single route control, agreed 2026-09-19 (plan §17): on aims and previews, OK confirms, and off ends the route and cancels an unconfirmed draft; the dialog's Cancel returns to aiming rather than ending anything. It replaces the long-press todo entirely, and the mode is gated the way the inspect toggle is
+- The route toggle and the inspect toggle are mutually exclusive: entering one leaves the other, per the app's single-mode habit (review 2026-09-19)
+- The pin is drawn at the resolved destination, never at the raw aim: an aim landing on land or in another stretch moves to the closest point of the boat's own stretch, and the pin must show where the route actually ends (review 2026-09-19)
+- The line's appearance lives as `maro.properties` keys behind `AppConfig` — following the rule that every drawing value has one home — and gains no Settings row until one is asked for (review 2026-09-19)
+- Arrival carries no state and no cue: reaching the destination is the trip cell reading zero while the line stays drawn, and only the toggle ends a route (agreed 2026-09-19)
 
 ### route-saving
 
@@ -105,6 +111,7 @@ Set a destination point on the map and have the app compute and trace the fastes
 - The pin is the track's existing field: the save offers its initial value while the track list keeps its own control, so the field has one home and two ways to reach it
 - The dialog's four outcomes, agreed 2026-09-19 (plan §20): `Route` follows without saving, `Save & route` writes the track and then follows, `Save only` writes it and ends the mode with the camera returning to the start as on Cancel, and `Cancel` changes nothing
 - The save is an outcome and the pin is a state, so the buttons state outcomes and the dialog's one checkbox is the pin — which is also why the save itself gets no checkbox
+- The saved track takes the standard auto-name the Tracks feature already uses, with `plannedCourse` distinguishing it from a recorded journey (review 2026-09-19)
 
 ## Isolation Design
 

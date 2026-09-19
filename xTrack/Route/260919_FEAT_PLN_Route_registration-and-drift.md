@@ -73,6 +73,9 @@ Set a destination point on the map and trace the fastest water-constrained route
 - **The empty `routing/` directory** is left alone rather than renamed under a live tree.
 - **Two conditions return as questions rather than decisions:** if the benchmark cannot hold the ≤ 500 ms target at the chosen refinement, or the pace sampling proves too thin to trust, that is a performance fork and it comes back as one.
 - **The guarantee the depth gate does not give:** a passage is usable only when a continuous line of soundings deep enough crosses it, which is a connectivity pass over the depth grid per threshold, cached; that work is out of scope, and the grid's own resolution is the other floor.
+- **Arrival, the one hole the full review found in the design itself, now closed:** the state machine runs Idle → Draft → Confirmed and the toggle ends a route, so reaching the destination needs neither a state nor a cue — the trip cell reads zero while the line stays drawn, and only the toggle ends a route. Recorded in the epic's `destination-ui` rules.
+- **Five gaps beside it were decided on the review and recorded in the epic's rules:** the boat leaving the covered water keeps the line with its recompute skipped and the trip figure marked stale; the route and inspect modes are mutually exclusive; the pin is drawn at the resolved destination rather than at the raw aim; the line's appearance lives as `maro.properties` keys with no Settings row yet; and a saved track takes the Tracks feature's standard auto-name with its planned flag distinguishing it.
+- **One thing the review confirmed rather than fixed:** the heuristic is admissible by construction — the cost's minimum can never exceed the cruise speed — so A* stays optimal, and the epic now states it so the property is not optimised away.
 
 ## 7. The implementation sequence
 
