@@ -1,6 +1,7 @@
 package ykws.android.maro.data.depth
 
 import ykws.android.maro.BuildConfig
+import ykws.android.maro.R
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -41,21 +42,22 @@ class DepthGenerator(
         coastlineSegments: List<CoastlineSegment>? = null,
         controlPoints: List<ControlPoint> = ControlPoints.NICE_FREJUS,
         nowMs: Long = System.currentTimeMillis(),
-        onProgress: (phase: String, pct: Int) -> Unit = { _, _ -> }
+        /** Called with a `@StringRes` phase id and its percentage — the caller resolves it. */
+        onProgress: (phaseResId: Int, pct: Int) -> Unit = { _, _ -> }
     ): DepthGrid = withContext(ioDispatcher) {
-        onProgress("Préparation grille", 2)
+        onProgress(R.string.depth_phase_prepare, 2)
         val grid = MutableDepthGrid.empty(regionId, bbox, gridResM, DepthDatum.LAT)
 
         // 1. Deep backbone — best-resolution-wins across all deep sources (EMODnet E5, …).
         val deepSpan = deepSources.size.coerceAtLeast(1)
         deepSources.forEachIndexed { i, src ->
-            onProgress("Fusion profonde", 10 + i * 50 / deepSpan)
+            onProgress(R.string.depth_phase_deep_merge, 10 + i * 50 / deepSpan)
             DepthMerge.mergeDeep(grid, src)
         }
 
         // 2. Shallow precision — Litto3D, shoalest-wins ≤ ceiling (collision-safe).
         if (shallowSource != null) {
-            onProgress("Fusion littorale", 70)
+            onProgress(R.string.depth_phase_shallow_merge, 70)
             DepthMerge.mergeShallowShoalest(grid, shallowSource, DepthConstants.SHALLOW_TIER_MAX_M)
         }
 
@@ -63,7 +65,7 @@ class DepthGenerator(
         //     from the coast so depth is drawn only where the user may navigate. Distance is taken
         //     from the coastline itself → uniform 6 NM around bays AND capes. No-op when no coastline.
         if (!coastlineSegments.isNullOrEmpty()) {
-            onProgress("Découpe zone 6 NM", 72)
+            onProgress(R.string.depth_phase_zone_clip, 72)
             DepthZoneMask.apply(grid, coastlineSegments)
         }
 
@@ -71,10 +73,10 @@ class DepthGenerator(
         val label = buildLabel(deepSources, shallowSource)
         val provisional = grid.toImmutable(null, nowMs, label)
         val report = DepthValidator.validate(provisional, controlPoints, nowMs = nowMs)
-        onProgress("Validation", 95)
+        onProgress(R.string.depth_phase_validate, 95)
 
         val finalGrid = grid.toImmutable(report, nowMs, label)
-        onProgress("Terminé", 100)
+        onProgress(R.string.depth_phase_done, 100)
         finalGrid
     }
 

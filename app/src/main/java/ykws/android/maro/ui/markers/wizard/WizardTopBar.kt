@@ -58,7 +58,7 @@ internal fun WizardTopBar(stepIndex: Int, totalSteps: Int, onCancel: () -> Unit)
         }
         Spacer(Modifier.width(16.dp))
         Text(
-            text = "Create Marker",
+            text = stringResource(R.string.wizard_title_create),
             color = ComposeColor(AppConfig.uiTextPrimary),
             fontSize = 17.sp,
             fontWeight = FontWeight.Bold

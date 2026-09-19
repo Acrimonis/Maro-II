@@ -324,20 +324,20 @@ private fun LayersSettings(
                         fontSize = 12.sp
                     )
                     ColorRow(
-                        label = "Active track",
+                        label = stringResource(R.string.settings_color_active_track),
                         color = settings.trackingColorActive,
                         onColorSelected = { c -> onUpdateSettings { it.copy(trackingColorActive = c) } },
                         showPickLabel = false
                     )
                     ColorPairRow(
-                        label = "Past tracks",
+                        label = stringResource(R.string.settings_color_past_tracks),
                         fromColor = settings.trackingColorPastFrom,
                         toColor = settings.trackingColorPastTo,
                         onFromColorSelected = { c -> onUpdateSettings { it.copy(trackingColorPastFrom = c) } },
                         onToColorSelected = { c -> onUpdateSettings { it.copy(trackingColorPastTo = c) } }
                     )
                     ColorPairRow(
-                        label = "Pinned tracks",
+                        label = stringResource(R.string.settings_color_pinned_tracks),
                         fromColor = settings.trackingColorPinnedFrom,
                         toColor = settings.trackingColorPinnedTo,
                         onFromColorSelected = { c -> onUpdateSettings { it.copy(trackingColorPinnedFrom = c) } },
@@ -1187,7 +1187,7 @@ private fun SystemSettings(
                     // (code, label) — endonyms (English/Français) read the same in every locale.
                     "system" to stringResource(R.string.settings_language_system),
                     "en" to stringResource(R.string.settings_language_english),
-                    "fr" to "Français"
+                    "fr" to stringResource(R.string.settings_language_french)
                 ),
                 selected = settings.languageCode,
                 onSelect = { code -> onUpdateSettings { it.copy(languageCode = code) } }
@@ -1757,7 +1757,7 @@ private fun ColorPickerDialog(
         },
         confirmButton = {
             androidx.compose.material3.TextButton(onClick = onDismiss) {
-                Text("Cancel")
+                Text(stringResource(R.string.action_cancel))
             }
         }
     )

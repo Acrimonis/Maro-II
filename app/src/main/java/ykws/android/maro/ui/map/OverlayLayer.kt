@@ -38,6 +38,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color as ComposeColor
+import androidx.compose.ui.res.stringResource
+import ykws.android.maro.R
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -521,13 +523,13 @@ internal fun OverlayLayer(
                                         .background(accentBg.copy(alpha = if (isAtTrackFirst) disabledAlpha else 1f))
                                         .then(if (!isAtTrackFirst) Modifier.clickable { onTrackPrev() } else Modifier)
                                         .padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
-                                        Text("Previous", color = accentFg.copy(alpha = if (isAtTrackFirst) disabledAlpha else 1f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                        Text(stringResource(R.string.action_previous), color = accentFg.copy(alpha = if (isAtTrackFirst) disabledAlpha else 1f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                                     }
                                     Box(Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
                                         .background(accentBg.copy(alpha = if (isAtTrackLast) disabledAlpha else 1f))
                                         .then(if (!isAtTrackLast) Modifier.clickable { onTrackNext() } else Modifier)
                                         .padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
-                                        Text("Next", color = accentFg.copy(alpha = if (isAtTrackLast) disabledAlpha else 1f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                        Text(stringResource(R.string.action_next), color = accentFg.copy(alpha = if (isAtTrackLast) disabledAlpha else 1f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
                                 Spacer(Modifier.height(10.dp))
@@ -633,13 +635,13 @@ internal fun OverlayLayer(
                                         .background(accentBg.copy(alpha = if (isAtTrackFirst) disabledAlpha else 1f))
                                         .then(if (!isAtTrackFirst) Modifier.clickable { onTrackPrev() } else Modifier)
                                         .padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
-                                        Text("Previous", color = accentFg.copy(alpha = if (isAtTrackFirst) disabledAlpha else 1f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                        Text(stringResource(R.string.action_previous), color = accentFg.copy(alpha = if (isAtTrackFirst) disabledAlpha else 1f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                                     }
                                     Box(Modifier.weight(1f).clip(RoundedCornerShape(8.dp))
                                         .background(accentBg.copy(alpha = if (isAtTrackLast) disabledAlpha else 1f))
                                         .then(if (!isAtTrackLast) Modifier.clickable { onTrackNext() } else Modifier)
                                         .padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
-                                        Text("Next", color = accentFg.copy(alpha = if (isAtTrackLast) disabledAlpha else 1f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                        Text(stringResource(R.string.action_next), color = accentFg.copy(alpha = if (isAtTrackLast) disabledAlpha else 1f), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                                     }
                                 }
                                 Spacer(Modifier.height(10.dp))
@@ -706,10 +708,10 @@ internal fun OverlayLayer(
                         Spacer(Modifier.height(10.dp))
                         Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             Box(Modifier.weight(1f).padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
-                                Text("Previous", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.action_previous), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                             }
                             Box(Modifier.weight(1f).padding(vertical = 10.dp), contentAlignment = Alignment.Center) {
-                                Text("Next", fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.action_next), fontSize = 14.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                         Spacer(Modifier.height(10.dp))

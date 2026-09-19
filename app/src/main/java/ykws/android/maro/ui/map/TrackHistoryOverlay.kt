@@ -294,7 +294,7 @@ fun TrackHistoryOverlay(
             ),
             MultiActionSpec(
                 id = "merge",
-                label = "Merge",
+                label = mergeLabel,
                 icon = Icons.AutoMirrored.Filled.MergeType,
                 enabled = { ids -> ids.size >= 2 },
                 confirmRequest = { ids, onDismiss, onConfirm ->
@@ -335,12 +335,12 @@ fun TrackHistoryOverlay(
 
     ListOverlayScaffold(
         items = trackSummaries,
-        title = "Track History \u00B7 ${trackSummaries.count { !it.isLive }}",
-        sectionLabel = "RECORDED TRACKS",
+        title = stringResource(R.string.track_history_title_fmt, trackSummaries.count { !it.isLive }),
+        sectionLabel = stringResource(R.string.track_history_section),
         sortState = sortState,
         onSortStateChange = onSortStateChange,
         customSortFields = trackCustomSortFields,
-        customSortLabel = "Tracks",
+        customSortLabelResId = R.string.menu_manage_tracks,
         filterAxes = trackFilterAxes(),
         filterState = filterState,
         onFilterChange = onFilterChange,
@@ -541,7 +541,7 @@ internal fun TrackCardContent(
                 color = Color(AppConfig.uiTextMuted), fontSize = 11.sp, lineHeight = 12.sp
             )
             Text(
-                text = "${summary.pointCount} pts",
+                text = stringResource(R.string.track_point_count_fmt, summary.pointCount),
                 color = Color(AppConfig.uiTextMuted), fontSize = 11.sp, lineHeight = 12.sp
             )
             Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -674,7 +674,7 @@ internal fun TrackCardContent(
             )
         } else {
             Text(
-                text = summary.comment.ifBlank { "Add a comment..." },
+                text = summary.comment.ifBlank { stringResource(R.string.track_comment_placeholder) },
                 color = if (summary.comment.isBlank()) Color(AppConfig.uiTextMuted).copy(alpha = 0.4f)
                         else Color(AppConfig.uiTextMuted),
                 fontSize = 13.sp, maxLines = 3, lineHeight = 14.sp,
@@ -733,7 +733,9 @@ private fun LiveTrackCard(
         Color(AppConfig.statusTrackingDotIdle)
 
     val borderColor = dotColor
-    val stateLabel = if (liveState.isMoving) "Recording" else "Idle"
+    val stateLabel = if (liveState.isMoving) stringResource(R.string.state_recording)
+                     else stringResource(R.string.state_idle)
+    val defaultLiveName = stringResource(R.string.track_live_default_name)
 
     // Pulsing animation for border and dot: 0.5 → 0.2 → 0.5
     val infiniteTransition = rememberInfiniteTransition(label = "livePulse")
@@ -748,7 +750,7 @@ private fun LiveTrackCard(
     )
 
     val startDate = remember(liveState.currentTrackId) {
-        liveState.currentTrackName ?: "Recording..."
+        liveState.currentTrackName ?: defaultLiveName
     }
 
     // Inline editing state
@@ -855,7 +857,7 @@ private fun LiveTrackCard(
             )
         } else {
             Text(
-                text = liveState.currentTrackName ?: "Recording...",
+                text = liveState.currentTrackName ?: defaultLiveName,
                 color = Color(AppConfig.uiTextPrimary),
                 fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.fillMaxWidth()
@@ -897,7 +899,7 @@ private fun LiveTrackCard(
         } else {
             val commentText = commentField.text
             Text(
-                text = commentText.ifBlank { "Add a comment..." },
+                text = commentText.ifBlank { stringResource(R.string.track_comment_placeholder) },
                 color = if (commentText.isBlank()) Color(AppConfig.uiTextMuted).copy(alpha = 0.4f)
                         else Color(AppConfig.uiTextMuted),
                 fontSize = 13.sp, maxLines = 3,

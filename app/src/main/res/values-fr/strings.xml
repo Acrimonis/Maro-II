@@ -59,6 +59,7 @@
     <string name="settings_map_offset_demo_desc">Décaler le centre de la carte vers l\'avant en navigation libre</string>
     <string name="settings_map_offset_boat_label">Position du bateau depuis le bas</string>
     <string name="settings_map_offset_boat_desc">Position du bateau en navigation. 50 % = désactivé (centré). Plus bas = plus en avant.</string>
+    <string name="settings_boat_length_label">🚤 Longueur du bateau</string>
     <string name="settings_debug_rays_label">Rayons de débogage (WhereAmI)</string>
     <string name="settings_debug_rays_desc">Afficher les rayons vert/rouge sur la carte en touchant le repère bateau.</string>
     <string name="settings_regen_depth_grid_label">Grille de profondeur</string>
@@ -213,6 +214,17 @@
     <string name="sort_custom_origin">Origine</string>
     <string name="sort_group_pinned">Grouper éléments épinglés</string>
 
+    <!-- List surfaces -->
+    <string name="sort_group_custom">Personnalisé</string>
+    <string name="track_history_title_fmt">Historique des traces · %1$d</string>
+    <string name="track_history_section">TRACES ENREGISTRÉES</string>
+    <string name="marker_list_title_fmt">Repères · %1$d</string>
+    <string name="marker_list_section">VOS REPÈRES</string>
+    <string name="track_point_count_fmt">%1$d pts</string>
+    <string name="track_comment_placeholder">Ajouter un commentaire…</string>
+    <string name="track_live_default_name">Enregistrement…</string>
+    <string name="marker_description_placeholder">Ajouter une description…</string>
+
     <!-- Recovery dialog -->
     <string name="recovery_title">Enregistrement inachevé</string>
     <string name="recovery_found">Enregistrement inachevé trouvé du %1$s.</string>
@@ -313,6 +325,22 @@
     <string name="filter_section_general">Général</string>
     <string name="filter_no_match">Aucun résultat</string>
     <string name="filter_clear">Effacer les filtres</string>
+
+    <!-- Filter axes and options -->
+    <string name="filter_axis_date_range">Période</string>
+    <string name="filter_option_last_week">7 derniers jours</string>
+    <string name="filter_option_last_2_weeks">14 derniers jours</string>
+    <string name="filter_option_last_month">30 derniers jours</string>
+    <string name="filter_option_last_2_months">2 derniers mois</string>
+    <string name="filter_option_last_3_months">3 derniers mois</string>
+    <string name="filter_option_last_6_months">6 derniers mois</string>
+    <string name="filter_option_all">Tous</string>
+    <string name="filter_option_unpinned">Non épinglé</string>
+    <string name="filter_option_on_water">Sur l\'eau</string>
+    <string name="filter_option_with_icon">Avec icône</string>
+    <string name="filter_option_without_icon">Sans icône</string>
+    <string name="filter_option_manual">Manuel</string>
+    <string name="filter_option_auto">Auto</string>
     <string name="color_picker_title">Choisir une couleur</string>
     <string name="settings_depth_label">Carte de profondeur</string>
     <string name="settings_depth_desc">Afficher les fonds marins</string>
@@ -379,6 +407,7 @@
     <!-- Content descriptions (accessibility) -->
     <string name="cd_cancel">Annuler</string>
     <string name="cd_close">Fermer</string>
+    <string name="cd_close_multiselect">Fermer la sélection</string>
     <string name="cd_settings">Paramètres</string>
     <string name="cd_reset_filter">Réinitialiser le filtre</string>
     <string name="cd_view_tracks">Voir la liste des traces</string>
@@ -424,6 +453,78 @@
     <string name="confirm_delete_tracks">Supprimer les traces sélectionnées?</string>
     <string name="confirm_delete_markers">Supprimer les repères sélectionnés?</string>
     <string name="confirm_batch_delete_title">Supprimer</string>
+
+    <!-- Marker wizard -->
+    <string name="wizard_title_create">Créer un repère</string>
+    <string name="action_previous">Précédent</string>
+    <string name="action_next">Suivant</string>
+    <string name="action_finish">Terminer</string>
+    <string name="wizard_position_instruction_fmt">Déplacez la carte pour définir %1$s</string>
+    <string name="wizard_position_ready">Touchez Suivant quand vous êtes prêt.</string>
+    <string name="marker_target_pin">le repère</string>
+    <string name="marker_target_zone_center">le centre de la zone</string>
+    <string name="marker_target_corridor_start">le début du couloir</string>
+    <string name="marker_target_corridor_end">la fin du couloir</string>
+    <string name="marker_type_pin">Point</string>
+    <string name="marker_type_zone">Zone</string>
+    <string name="marker_type_corridor">Couloir</string>
+    <string name="marker_name_hint">ex. Mon repère</string>
+    <string name="marker_description_hint">Notes facultatives…</string>
+    <string name="wizard_slider_width">Largeur</string>
+    <string name="wizard_slider_radius">Rayon</string>
+    <string name="wizard_slider_width_comment">Largeur du couloir en mètres</string>
+    <string name="wizard_slider_radius_comment">Rayon de la zone en mètres</string>
+    <string name="wizard_slider_proximity">Proximité</string>
+    <string name="wizard_slider_proximity_comment">Distance d\'alerte autour de la zone</string>
+    <string name="wizard_field_name">Nom</string>
+    <string name="wizard_field_description">Description</string>
+
+    <!-- Map chrome -->
+    <string name="marker_title_fallback">Repère</string>
+    <string name="marker_not_found">Repère introuvable</string>
+    <string name="where_am_i_title">Où suis-je ?</string>
+    <string name="where_am_i_none">au milieu de nulle part</string>
+    <string name="marker_direction_of_boat_fmt">%1$s du bateau - %2$s</string>
+    <string name="map_generating_layers">Génération des couches</string>
+    <string name="cardinal_n">N</string>
+    <string name="cardinal_ne">NE</string>
+    <string name="cardinal_e">E</string>
+    <string name="cardinal_se">SE</string>
+    <string name="cardinal_s">S</string>
+    <string name="cardinal_sw">SO</string>
+    <string name="cardinal_w">O</string>
+    <string name="cardinal_nw">NO</string>
+
+    <!-- Notification -->
+    <string name="notification_title_fmt">Maro II • %1$s • %2$s • %3$s • %4$s</string>
+    <string name="notification_water_on">Sur l\'eau</string>
+    <string name="notification_water_off">Sur terre</string>
+    <string name="notification_action_stop">Arrêter</string>
+    <string name="notification_channel_desc">Notification permanente pendant l\'exécution de Maro II</string>
+
+    <!-- Track status labels -->
+    <string name="state_recording">Enregistrement</string>
+    <string name="state_idle">Arrêt</string>
+    <string name="state_ready">Prêt</string>
+    <string name="state_recovery_available">Récupération disponible</string>
+    <string name="state_navigating">En navigation</string>
+    <string name="state_moving">En mouvement</string>
+    <string name="state_demo">Démo</string>
+    <string name="state_gps">GPS</string>
+
+    <!-- Depth generation phases -->
+    <string name="depth_phase_prepare">Préparation de la grille</string>
+    <string name="depth_phase_deep_merge">Fusion profonde</string>
+    <string name="depth_phase_shallow_merge">Fusion littorale</string>
+    <string name="depth_phase_zone_clip">Découpe zone 6 NM</string>
+    <string name="depth_phase_validate">Validation</string>
+    <string name="depth_phase_done">Terminé</string>
+
+    <!-- Settings — track colours -->
+    <string name="settings_color_active_track">Trace active</string>
+    <string name="settings_color_past_tracks">Traces passées</string>
+    <string name="settings_color_pinned_tracks">Traces épinglées</string>
+    <string name="settings_language_french">Français</string>
 
     <!-- Misc -->
     <string name="settings_language_english">English</string>

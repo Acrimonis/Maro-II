@@ -149,6 +149,7 @@ touching the device, and stating a claim about the code with no file read behind
 - **Async:** Coroutines + Flow only — no raw threads or executors.
 - **Idioms:** data classes for state, immutable collections, functional transforms over manual loops, `val` unless mutation is required.
 - **No copy-paste:** adapting code means rewriting it into this project's patterns and naming — never pasting a block and patching it.
+- **No hardcoded user-facing strings:** every label, option, title and notification line lives in `res/values/strings.xml` and `res/values-fr/strings.xml` and is read through a `@StringRes` id — a spec type holds the id (the `CustomSortField` shape), never the literal, and both locales carry the key. Brand names, log tags and messages, Compose animation labels and `require` messages are not UI text and stay as they are.
 
 # 2. Architecture Layering — pure Kotlin domain → ViewModel + StateFlow/coroutines → stateless Compose UI.
 

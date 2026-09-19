@@ -285,7 +285,7 @@ internal fun FilterControl(
                                 gatingValue in axis.dependsOnValues
                             val currentValue = filterState.axes[axis.key] ?: axis.options.firstOrNull { it.isDefault }?.value ?: "ALL"
                             
-                            Text(axis.label,
+                            Text(stringResource(axis.labelResId),
                                 color = Color(AppConfig.uiDashboardTextMuted),
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.SemiBold,
@@ -310,7 +310,7 @@ internal fun FilterControl(
                                                 )
                                             }
                                             Spacer(Modifier.width(8.dp))
-                                            Text(option.label,
+                                            Text(stringResource(option.labelResId),
                                                 color = if (isDisabled) Color(AppConfig.uiTextMuted).copy(alpha = 0.4f) else Color(AppConfig.uiTextPrimary),
                                                 fontSize = 15.sp,
                                                 fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
@@ -469,7 +469,7 @@ fun <T : ListableItem> ListOverlayScaffold(
     sortState: ListSortState,
     onSortStateChange: (ListSortState) -> Unit,
     customSortFields: List<CustomSortField> = emptyList(),
-    customSortLabel: String = "Custom",
+    customSortLabelResId: Int = R.string.sort_group_custom,
     filterAxes: List<FilterAxisSpec> = emptyList(),
     filterState: ListFilter = ListFilter(),
     onFilterChange: (ListFilter) -> Unit = {},
@@ -606,7 +606,7 @@ fun <T : ListableItem> ListOverlayScaffold(
                         onClick = { exitMultiselect() },
                         modifier = Modifier.size(32.dp).clip(CircleShape).background(Color(AppConfig.uiSwitchTrackInactive))
                     ) {
-                        Icon(Icons.Filled.Close, "Close multiselect", tint = Color(AppConfig.uiTextPrimary), modifier = Modifier.size(18.dp))
+                        Icon(Icons.Filled.Close, stringResource(R.string.cd_close_multiselect), tint = Color(AppConfig.uiTextPrimary), modifier = Modifier.size(18.dp))
                     }
                     Spacer(Modifier.width(16.dp))
                     Text(
@@ -637,7 +637,7 @@ fun <T : ListableItem> ListOverlayScaffold(
                         onClick = { pendingDeletes.forEach { id -> onAction(ListAction.PermanentDelete(id)) }; pendingDeletes.clear(); onDismiss() },
                         modifier = Modifier.size(32.dp).clip(CircleShape).background(Color(AppConfig.uiSwitchTrackInactive))
                     ) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, "Back", tint = Color(AppConfig.uiTextPrimary), modifier = Modifier.size(18.dp))
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.settings_back), tint = Color(AppConfig.uiTextPrimary), modifier = Modifier.size(18.dp))
                     }
                     Spacer(Modifier.width(16.dp))
                     Text(title, color = Color(AppConfig.uiTextPrimary), fontSize = 17.sp, fontWeight = FontWeight.Bold)
@@ -676,7 +676,7 @@ fun <T : ListableItem> ListOverlayScaffold(
                             FilterControl(filterState = filterState, filterAxes = filterAxes, onFilterChange = onFilterChange)
                         }
                         // Sort
-                        SortControl(state = sortState, customFields = customSortFields, customSectionLabel = customSortLabel, onStateChange = onSortStateChange)
+                        SortControl(state = sortState, customFields = customSortFields, customSectionLabel = stringResource(customSortLabelResId), onStateChange = onSortStateChange)
                         // Reset (direction is toggled in the sort menu on the selected field)
                         val isSortDefault = sortState.field == ListSortField.CREATED && sortState.customFieldKey == null && sortState.descending
                         // Reset
