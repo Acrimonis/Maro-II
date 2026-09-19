@@ -94,7 +94,7 @@ touching the device, and stating a claim about the code with no file read behind
   WHEN a git `#`-command is invoked → the invocation is the go-ahead: execute it rather than asking
   again, asking the user to run it, or reading it as a request for one. `#commit`, `#push`, `#merge`
   and `#cherry` confirm the operation's scope and never re-litigate authorisation; `#new`, `#move`,
-  `#move new` and `#rename` ask nothing.
+  `#move new` and `#rename` ask nothing — save `#new`'s one question when its branch already exists.
   WHEN push, commit or deploy was not asked for → never ask, offer, list or remind, in any mode: no
   "want me to push?", no `apk-deploy.bat` or `apk-push.bat`, no note that commits are unpushed.
   When those happen is not the agent's concern: its delivery is complete when the work is, and it
@@ -205,7 +205,7 @@ Intercept `#`-prefix. All name lookups use fuzzy-resolve cascade (exact → subs
 | `#review [target]` | Independent review of the resolved target — walk item → plan in design → last `#implement` run's Target Files → live proposal (a challenge). Prints "Reviewing X because Y"; a target is fuzzy-resolved. Sweeps the session for the five covered action classes that ran without a verdict line, naming the gaps |
 | `#walk [source]` · `#next` · `#prev` · `#skip` | Cursor over an enumerated set, one item expanded at a time; exhaustion closes it; a level marked `Closed` is closed by decision, never a bar to resuming its parked point. State lives in the feature file's `## Walk` section; an open walk blocks `#bake`'s fold and `#archive`'s retirement |
 | `#brief` · `#full` | Output mode: subtract the contract's three optional parts (ELIJP, containment blocks, verification lists) or restore them, reporting the resulting mode. Session-lived — `#focus` resets to full |
-| `#new [branch]` | Create `feature/[branch]` from `origin/develop` |
+| `#new [branch]` | Create `feature/[branch]` from `origin/develop`. When that local branch already exists, report it and offer recreate (default), another name, or abort — the one case where this command asks |
 | `#commit` | Stage + commit; if the active feature's `xTrack/[Feature]/` state has moved since its hydration baseline, offer a bake first. Confirms the staged set and the message — a scope gate, never a permission one |
 | `#push` | Push current branch to origin. Fires only on explicit invocation — never proposed, never reminded. Confirms the branch and the remote — a scope gate, never a permission one. Refuses on `develop`/`main` |
 | `#move [branch]` | Stash → switch → pop (existing branch); bare = list local branches newest first, then pick |

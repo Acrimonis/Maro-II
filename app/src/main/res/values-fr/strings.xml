@@ -381,7 +381,7 @@
     <string name="settings_marker_min_duration_desc">Durée d\'arrêt minimale pour conserver le repère. Appliquée au prochain enregistrement.</string>
     <string name="settings_marker_dedup_radius_label">Rayon de déduplication</string>
     <string name="settings_marker_dedup_radius_desc">Ignorer un nouveau repère près d\'un repère existant. Appliqué au prochain enregistrement.</string>
-    <string name="settings_marker_rendering_label">Rendu des repères</string>
+    <string name="settings_marker_rendering_label">Rendu des Repères</string>
     <string name="settings_marker_zoom_label">Zoom de rendu point/icône</string>
     <string name="settings_marker_zoom_desc">Taille de rendu des points et icônes des repères. 100% = taille actuelle</string>
     <string name="settings_marker_halo_size_label">Taille du halo</string>

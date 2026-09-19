@@ -29,7 +29,7 @@ Session:  #bake                snapshot + consolidation (checkmarks, section fol
 Pipeline: #implement           full pipeline: Code → build → Ask review → Architect report
           #go                  agree with the open question (re-asks if the proposal moved); #go impl = agree + run the pipeline
 Git:      🛑 See [`docs/GIT_WORKFLOW.md`](GIT_WORKFLOW.md) for full rules + enforcement.
-           #new [branch]        create `feature/[branch]` from origin/develop
+           #new [branch]        create `feature/[branch]` from origin/develop; if that branch exists locally, report it and offer recreate / another name / abort
            #commit              stage + commit; offers a bake first when the feature moved since its last bake. Confirms the staged set and the message. 🚫 refuses on develop/main.
            #push                push current branch (user-invoked only — never proposed or reminded). Confirms the branch and the remote. 🚫 refuses on develop/main.
            #move [branch]       stash → switch → pop (existing)

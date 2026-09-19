@@ -3,9 +3,20 @@
 
 Convenience wrappers over standard git. **🛑 The rules are single-sourced in `AGENTS.md` — `GIT WRITES AND DEPLOYS ARE THE USER'S CALL` and `PROTECTED BRANCHES`; this page keeps the command detail, and [`docs/GIT_WORKFLOW.md`](GIT_WORKFLOW.md) the branch model.**
 
-A git `#`-command **is** its own go-ahead: the invocation authorises the operation, so the agent executes it — never re-confirmed as a permission question, never handed back for the user to run. `#commit` / `#push` / `#merge` / `#cherry` confirm only the action's scope; `#new` / `#move` / `#move new` / `#rename` ask nothing.
+A git `#`-command **is** its own go-ahead: the invocation authorises the operation, so the agent executes it — never re-confirmed as a permission question, never handed back for the user to run. `#commit` / `#push` / `#merge` / `#cherry` confirm only the action's scope; `#new` / `#move` / `#move new` / `#rename` ask nothing, save `#new`'s one question when the branch already exists.
 
   #new [branch_name]       fetch `origin/develop`, checkout `-b feature/[branch_name]` tracking it.
+                      If `feature/[branch_name]` exists locally, name it with the commits it holds
+                      beyond `origin/develop` — `git rev-list --count origin/develop..feature/[branch_name]`,
+                      reported beside the published flag so a branch already merged reads as "the
+                      copies are elsewhere" rather than as "nothing to lose" — and whether it is
+                      published, then offer:
+                        1. recreate from origin/develop   (default) — force-create the branch
+                        2. a different branch name
+                        3. abort — nothing changes
+                      The recreate runs only on the answer; an invoked `#new` otherwise asks nothing.
+                      A dirty working tree is reported before the offer and never stashed — a
+                      force-create checkout carries the modifications across, measured 2026-09-19.
   #commit             git add -A && git commit. Offers a bake first when the active feature's
                       state moved since its last bake. Confirms the staged set and the message
                       — a scope gate, never a permission one. 🚫 refuses on develop/main.
@@ -16,6 +27,8 @@ A git `#`-command **is** its own go-ahead: the invocation authorises the operati
                       pick one.
   #move new [branch_name]  stash → create 'feature/[branch_name]' from origin/develop → pop.
                       Bare = prompt for the name, prefilled 'feature/'.
+                      An existing branch is not handled the way `#new` does it — this entry fails
+                      there, the known sibling left unfixed by the `#new` branch-recreate change.
   #cherry [target]    list unpushed commits, interactive pick to cherry-pick to [target].
                       Asks for confirmation.
   #copy [target]      alias for #cherry.
