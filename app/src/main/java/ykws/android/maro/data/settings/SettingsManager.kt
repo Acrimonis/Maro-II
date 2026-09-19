@@ -121,16 +121,16 @@ data class AppSettings(
     val zone300FillTransparencyPct: Int = 80,
     /** 300 m band seaward boundary transparency % (0–100). */
     val zone300BoundaryTransparencyPct: Int = 20,
-    /** 300 m band seaward boundary stroke width (px). Seeded from `map.zone300.boundary.widthPx`. */
-    val zone300BoundaryWidthPx: Int = ykws.android.maro.config.AppConfig.mapZone300BoundaryWidthPx,
+    /** 300 m band seaward boundary stroke width (dp). Seeded from `map.zone300.boundary.widthDp`. */
+    val zone300BoundaryWidthDp: Float = ykws.android.maro.config.AppConfig.mapZone300BoundaryWidthDp,
     /** Regulated zone polygon fill transparency % (0–100, higher = more invisible). Defaults mirror the 300 m band. */
     val regulatedZoneFillTransparencyPct: Int = 80,
     /** Regulated zone polygon outline transparency % (0–100). Defaults mirror the 300 m band. */
     val regulatedZoneBoundaryTransparencyPct: Int = 20,
-    /** Regulated zone outline stroke width (px). Seeded from `map.regulatedZone.outline.widthPx`. */
-    val regulatedZoneOutlineWidthPx: Int = ykws.android.maro.config.AppConfig.mapRegulatedZoneOutlineWidthPx,
-    /** Coastline stroke width (px), mainland and island alike. Seeded from `map.coastline.widthPx`. */
-    val coastlineWidthPx: Int = ykws.android.maro.config.AppConfig.mapCoastlineWidthPx,
+    /** Regulated zone outline stroke width (dp). Seeded from `map.regulatedZone.outline.widthDp`. */
+    val regulatedZoneOutlineWidthDp: Float = ykws.android.maro.config.AppConfig.mapRegulatedZoneOutlineWidthDp,
+    /** Coastline stroke width (dp), mainland and island alike. Seeded from `map.coastline.widthDp`. */
+    val coastlineWidthDp: Float = ykws.android.maro.config.AppConfig.mapCoastlineWidthDp,
     /** Coastline stroke transparency % (0–100, higher = more invisible). Seeded from `map.coastline.transparencyPct`. */
     val coastlineTransparencyPct: Int = ykws.android.maro.config.AppConfig.mapCoastlineTransparencyPct,
     /** Coastline mainland stroke colour (opaque ARGB). Seeded from `map.coastline.mainland.color`. */
@@ -482,20 +482,20 @@ class SettingsManager(
         zone300BoundaryTransparencyPct = prefs.getInt(KEY_ZONE300_BOUNDARY_TRANSPARENCY_PCT, 20),
         // The three widths and the coastline transparency are clamped on read: a slider's span is a UI
         // fact, never a guarantee about what a stored value holds.
-        zone300BoundaryWidthPx = prefs.getInt(
-            KEY_ZONE300_BOUNDARY_WIDTH_PX,
-            ykws.android.maro.config.AppConfig.mapZone300BoundaryWidthPx
-        ).coerceIn(WIDTH_MIN_PX, WIDTH_MAX_PX),
+        zone300BoundaryWidthDp = prefs.getFloat(
+            KEY_ZONE300_BOUNDARY_WIDTH_DP,
+            ykws.android.maro.config.AppConfig.mapZone300BoundaryWidthDp
+        ).coerceIn(WIDTH_MIN_DP, WIDTH_MAX_DP),
         regulatedZoneFillTransparencyPct = prefs.getInt(KEY_REGULATED_ZONE_FILL_TRANSPARENCY_PCT, 80),
         regulatedZoneBoundaryTransparencyPct = prefs.getInt(KEY_REGULATED_ZONE_BOUNDARY_TRANSPARENCY_PCT, 20),
-        regulatedZoneOutlineWidthPx = prefs.getInt(
-            KEY_REGULATED_ZONE_OUTLINE_WIDTH_PX,
-            ykws.android.maro.config.AppConfig.mapRegulatedZoneOutlineWidthPx
-        ).coerceIn(WIDTH_MIN_PX, WIDTH_MAX_PX),
-        coastlineWidthPx = prefs.getInt(
-            KEY_COASTLINE_WIDTH_PX,
-            ykws.android.maro.config.AppConfig.mapCoastlineWidthPx
-        ).coerceIn(WIDTH_MIN_PX, WIDTH_MAX_PX),
+        regulatedZoneOutlineWidthDp = prefs.getFloat(
+            KEY_REGULATED_ZONE_OUTLINE_WIDTH_DP,
+            ykws.android.maro.config.AppConfig.mapRegulatedZoneOutlineWidthDp
+        ).coerceIn(WIDTH_MIN_DP, WIDTH_MAX_DP),
+        coastlineWidthDp = prefs.getFloat(
+            KEY_COASTLINE_WIDTH_DP,
+            ykws.android.maro.config.AppConfig.mapCoastlineWidthDp
+        ).coerceIn(WIDTH_MIN_DP, WIDTH_MAX_DP),
         coastlineTransparencyPct = prefs.getInt(
             KEY_COASTLINE_TRANSPARENCY_PCT,
             ykws.android.maro.config.AppConfig.mapCoastlineTransparencyPct
@@ -685,11 +685,11 @@ class SettingsManager(
             .putInt(KEY_ZONE300_COLOR, updated.zone300Color)
             .putInt(KEY_ZONE300_FILL_TRANSPARENCY_PCT, updated.zone300FillTransparencyPct)
             .putInt(KEY_ZONE300_BOUNDARY_TRANSPARENCY_PCT, updated.zone300BoundaryTransparencyPct)
-            .putInt(KEY_ZONE300_BOUNDARY_WIDTH_PX, updated.zone300BoundaryWidthPx)
+            .putFloat(KEY_ZONE300_BOUNDARY_WIDTH_DP, updated.zone300BoundaryWidthDp)
             .putInt(KEY_REGULATED_ZONE_FILL_TRANSPARENCY_PCT, updated.regulatedZoneFillTransparencyPct)
             .putInt(KEY_REGULATED_ZONE_BOUNDARY_TRANSPARENCY_PCT, updated.regulatedZoneBoundaryTransparencyPct)
-            .putInt(KEY_REGULATED_ZONE_OUTLINE_WIDTH_PX, updated.regulatedZoneOutlineWidthPx)
-            .putInt(KEY_COASTLINE_WIDTH_PX, updated.coastlineWidthPx)
+            .putFloat(KEY_REGULATED_ZONE_OUTLINE_WIDTH_DP, updated.regulatedZoneOutlineWidthDp)
+            .putFloat(KEY_COASTLINE_WIDTH_DP, updated.coastlineWidthDp)
             .putInt(KEY_COASTLINE_TRANSPARENCY_PCT, updated.coastlineTransparencyPct)
             .putInt(KEY_COASTLINE_MAINLAND_COLOR, updated.coastlineMainlandColor)
             .putInt(KEY_COASTLINE_ISLAND_COLOR, updated.coastlineIslandColor)
@@ -830,11 +830,11 @@ class SettingsManager(
         private const val KEY_ZONE300_COLOR = "zone300_fill_color"
         private const val KEY_ZONE300_FILL_TRANSPARENCY_PCT = "zone300_fill_transparency_pct"
         private const val KEY_ZONE300_BOUNDARY_TRANSPARENCY_PCT = "zone300_boundary_transparency_pct"
-        private const val KEY_ZONE300_BOUNDARY_WIDTH_PX = "zone300_boundary_width_px"
+        private const val KEY_ZONE300_BOUNDARY_WIDTH_DP = "zone300_boundary_width_dp"
         private const val KEY_REGULATED_ZONE_FILL_TRANSPARENCY_PCT = "regulated_zone_fill_transparency_pct"
         private const val KEY_REGULATED_ZONE_BOUNDARY_TRANSPARENCY_PCT = "regulated_zone_boundary_transparency_pct"
-        private const val KEY_REGULATED_ZONE_OUTLINE_WIDTH_PX = "regulated_zone_outline_width_px"
-        private const val KEY_COASTLINE_WIDTH_PX = "coastline_width_px"
+        private const val KEY_REGULATED_ZONE_OUTLINE_WIDTH_DP = "regulated_zone_outline_width_dp"
+        private const val KEY_COASTLINE_WIDTH_DP = "coastline_width_dp"
         private const val KEY_COASTLINE_TRANSPARENCY_PCT = "coastline_transparency_pct"
         private const val KEY_COASTLINE_MAINLAND_COLOR = "coastline_mainland_color"
         private const val KEY_COASTLINE_ISLAND_COLOR = "coastline_island_color"
@@ -846,9 +846,12 @@ class SettingsManager(
         private const val KEY_NAVIGATION_ARROW_COLOR = "navigation_arrow_color"
         private const val KEY_NAVIGATION_ARROW_FOLLOW_SPEED_COLOUR = "navigation_arrow_follow_speed_colour"
 
-        /** Width slider span (px) — the settled 1–20 range every stored width is clamped into on read. */
-        private const val WIDTH_MIN_PX = 1
-        private const val WIDTH_MAX_PX = 20
+        /**
+         * Width slider span (dp) — the settled dp grid every stored width is clamped into on read:
+         * 0.5 to 8 dp covers the 1–20 px the rows used to offer, at the step the rows now snap to.
+         */
+        private const val WIDTH_MIN_DP = 0.5f
+        private const val WIDTH_MAX_DP = 8f
 
         /** Heading line and cap arrow width spans (dp), the settled 0.5–4 and 1–8 ranges, applied on read. */
         private const val NAV_LINE_WIDTH_MIN_DP = 0.5f

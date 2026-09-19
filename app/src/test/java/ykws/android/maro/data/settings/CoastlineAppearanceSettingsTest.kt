@@ -10,8 +10,11 @@ import java.io.File
 
 /**
  * The six shoreline/zone appearance settings added with the stroke-width change:
- * `zone300BoundaryWidthPx`, `regulatedZoneOutlineWidthPx`, `coastlineWidthPx`,
+ * `zone300BoundaryWidthDp`, `regulatedZoneOutlineWidthDp`, `coastlineWidthDp`,
  * `coastlineTransparencyPct`, `coastlineMainlandColor` and `coastlineIslandColor`.
+ *
+ * **The three widths are dp since 2026-09-19**, so they are floats and their span is the dp grid the
+ * settings rows now snap to, not the 1–20 px they used to offer.
  *
  * Three rules are held here.
  *  - Each default is **seeded from `AppConfig`**, so the property stays the single home of the value
@@ -31,9 +34,9 @@ class CoastlineAppearanceSettingsTest {
     fun everyDefaultIsSeededFromTheProperties() {
         val s = settingsFrom()
 
-        assertEquals(AppConfig.mapZone300BoundaryWidthPx, s.zone300BoundaryWidthPx)
-        assertEquals(AppConfig.mapRegulatedZoneOutlineWidthPx, s.regulatedZoneOutlineWidthPx)
-        assertEquals(AppConfig.mapCoastlineWidthPx, s.coastlineWidthPx)
+        assertEquals(AppConfig.mapZone300BoundaryWidthDp, s.zone300BoundaryWidthDp, 1e-6f)
+        assertEquals(AppConfig.mapRegulatedZoneOutlineWidthDp, s.regulatedZoneOutlineWidthDp, 1e-6f)
+        assertEquals(AppConfig.mapCoastlineWidthDp, s.coastlineWidthDp, 1e-6f)
         assertEquals(AppConfig.mapCoastlineTransparencyPct, s.coastlineTransparencyPct)
         assertEquals(AppConfig.mapCoastlineMainlandColor, s.coastlineMainlandColor)
         assertEquals(AppConfig.mapCoastlineIslandColor, s.coastlineIslandColor)
@@ -48,25 +51,25 @@ class CoastlineAppearanceSettingsTest {
     fun everyWidthIsClampedIntoTheSliderSpanOnRead() {
         val over = settingsFrom(
             mapOf(
-                "zone300_boundary_width_px" to 999,
-                "regulated_zone_outline_width_px" to 999,
-                "coastline_width_px" to 999
+                "zone300_boundary_width_dp" to 999f,
+                "regulated_zone_outline_width_dp" to 999f,
+                "coastline_width_dp" to 999f
             )
         )
-        assertEquals(20, over.zone300BoundaryWidthPx)
-        assertEquals(20, over.regulatedZoneOutlineWidthPx)
-        assertEquals(20, over.coastlineWidthPx)
+        assertEquals(8f, over.zone300BoundaryWidthDp, 0f)
+        assertEquals(8f, over.regulatedZoneOutlineWidthDp, 0f)
+        assertEquals(8f, over.coastlineWidthDp, 0f)
 
         val under = settingsFrom(
             mapOf(
-                "zone300_boundary_width_px" to -5,
-                "regulated_zone_outline_width_px" to 0,
-                "coastline_width_px" to 0
+                "zone300_boundary_width_dp" to -5f,
+                "regulated_zone_outline_width_dp" to 0f,
+                "coastline_width_dp" to 0f
             )
         )
-        assertEquals(1, under.zone300BoundaryWidthPx)
-        assertEquals(1, under.regulatedZoneOutlineWidthPx)
-        assertEquals(1, under.coastlineWidthPx)
+        assertEquals(0.5f, under.zone300BoundaryWidthDp, 0f)
+        assertEquals(0.5f, under.regulatedZoneOutlineWidthDp, 0f)
+        assertEquals(0.5f, under.coastlineWidthDp, 0f)
     }
 
     @Test
@@ -81,9 +84,9 @@ class CoastlineAppearanceSettingsTest {
 
         SettingsManager(ctx).update {
             it.copy(
-                zone300BoundaryWidthPx = 12,
-                regulatedZoneOutlineWidthPx = 7,
-                coastlineWidthPx = 15,
+                zone300BoundaryWidthDp = 2.5f,
+                regulatedZoneOutlineWidthDp = 1.5f,
+                coastlineWidthDp = 3.5f,
                 coastlineTransparencyPct = 30,
                 coastlineMainlandColor = 0xFF112233.toInt(),
                 coastlineIslandColor = 0xFF445566.toInt()
@@ -91,9 +94,10 @@ class CoastlineAppearanceSettingsTest {
         }
 
         val reloaded = SettingsManager(ctx).settings.value
-        assertEquals(12, reloaded.zone300BoundaryWidthPx)
-        assertEquals(7, reloaded.regulatedZoneOutlineWidthPx)
-        assertEquals(15, reloaded.coastlineWidthPx)
+        // A second decimal is what the dp grid needs, and prefs carry a float through unchanged.
+        assertEquals(2.5f, reloaded.zone300BoundaryWidthDp, 0f)
+        assertEquals(1.5f, reloaded.regulatedZoneOutlineWidthDp, 0f)
+        assertEquals(3.5f, reloaded.coastlineWidthDp, 0f)
         assertEquals(30, reloaded.coastlineTransparencyPct)
         assertEquals(0xFF112233.toInt(), reloaded.coastlineMainlandColor)
         assertEquals(0xFF445566.toInt(), reloaded.coastlineIslandColor)

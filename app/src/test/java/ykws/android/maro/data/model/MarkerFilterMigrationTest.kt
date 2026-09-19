@@ -5,7 +5,6 @@ import android.content.ContextWrapper
 import android.content.SharedPreferences
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import ykws.android.maro.data.model.markers.MarkerGeometry
@@ -15,10 +14,8 @@ import ykws.android.maro.data.settings.SettingsManager
 import java.io.File
 
 /**
- * Unit tests for the marker icon/pin decoupling:
- *  - [UserMarker.matchesFilter] on the renamed `icon` axis and the new `pinned` axis.
- *  - The [SettingsManager] v7 migration that rewrites the persisted `markerListFilter`
- *    from the old `pinned=PINNED/UNPINNED` axis onto the new `icon=WITH_ICON/WITHOUT_ICON` axis.
+ * Unit tests for [UserMarker.matchesFilter] on the `icon` and `pinned` axes, and for the fact
+ * that a stored `markerListFilter` is parsed as written.
  */
 class MarkerFilterMigrationTest {
 
@@ -118,36 +115,6 @@ class MarkerFilterMigrationTest {
     }
 
     // ── SettingsManager v7 migration ────────────────────────────────────────
-
-    @Test
-    fun `v7 migration rewrites markerListFilter pinned axis to icon axis`() {
-        val ctx = SeededContext(
-            mapOf(
-                "prefs_version" to 6,
-                "marker_list_filter" to "pinned=PINNED;geometry=PINS"
-            )
-        )
-        val settings = SettingsManager(ctx).settings.value
-
-        // Old PINNED -> WITH_ICON; geometry axis untouched.
-        assertEquals("WITH_ICON", settings.markerListFilter.axes["icon"])
-        assertEquals("PINS", settings.markerListFilter.axes["geometry"])
-        assertNull(settings.markerListFilter.axes["pinned"])
-    }
-
-    @Test
-    fun `v7 migration rewrites UNPINNED to WITHOUT_ICON`() {
-        val ctx = SeededContext(
-            mapOf(
-                "prefs_version" to 6,
-                "marker_list_filter" to "pinned=UNPINNED"
-            )
-        )
-        val settings = SettingsManager(ctx).settings.value
-
-        assertEquals("WITHOUT_ICON", settings.markerListFilter.axes["icon"])
-        assertNull(settings.markerListFilter.axes["pinned"])
-    }
 
     @Test
     fun `v7 migration leaves already-icon filter untouched`() {

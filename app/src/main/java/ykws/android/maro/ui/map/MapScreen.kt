@@ -258,7 +258,10 @@ private fun chromeTopInset(isLandscape: Boolean): Dp = with(LocalDensity.current
  */
 private fun legendTopOffset(chromeTop: Dp): Dp = chromeTop + TOP_TOGGLE_ROW_HEIGHT + TOP_TOGGLE_GUTTER
 
-/** Computed polyline rendering appearance: ARGB color + stroke width. */
+/**
+ * Computed polyline rendering appearance: ARGB colour plus [strokeWidth], which is dp like every
+ * other stored width — the paint site multiplies it by its own density before osmdroid sees px.
+ */
 data class TrackPolylineAppearance(val argb: Int, val strokeWidth: Float)
 
 /** Uniform on-screen spacing (dp) between direction arrows. */
@@ -428,7 +431,8 @@ internal fun computeTrackPolylineAppearance(
     transparencyOldest: Int,
     colorFrom: Int,
     colorTo: Int,
-    strokeWidth: Float = 6f
+    /** The stroke the appearance carries, in dp — [TrackPolylineAppearance.strokeWidth]. */
+    strokeWidth: Float = 2f
 ): TrackPolylineAppearance {
     val t = if (total <= 1) 0f else index.toFloat() / (total - 1).toFloat()
     val alphaInt = (trackFadeAlpha(index, total, transparencyNewest, transparencyOldest) * 255)
@@ -1018,6 +1022,9 @@ fun MapScreen(
                     // The polyline may not exist yet (Compose hasn't recomposed after state→ON),
                     // so create it directly if needed.
                     val mv = mapView ?: return@collect
+                    // The live line's widths and its GAP dash are dp, like the whole stored table:
+                    // the map's own density is what turns them into the px osmdroid paints with.
+                    val density = mv.paintDensity
                     // Clear any existing live-track polylines (from polyline creation LaunchedEffect)
                     mv.overlays.removeAll {
                         (it as? org.osmdroid.views.overlay.Polyline)?.title == "track_recording"
@@ -1037,7 +1044,7 @@ fun MapScreen(
                                     val solid = org.osmdroid.views.overlay.Polyline().apply {
                                         title = "track_recording"
                                         outlinePaint.color = appSettings.trackingColorActive
-                                        outlinePaint.strokeWidth = AppConfig.trackWidthLive
+                                        outlinePaint.strokeWidth = dpToPx(AppConfig.trackWidthLiveDp, density)
                                         setPoints(solidPts)
                                     }
                                     mv.overlays.add(solid)
@@ -1053,8 +1060,14 @@ fun MapScreen(
                             val gap = org.osmdroid.views.overlay.Polyline().apply {
                                 title = "track_recording"
                                 outlinePaint.color = appSettings.trackingColorActive
-                                outlinePaint.strokeWidth = AppConfig.trackWidthLive
-                                outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(20f, 10f), 0f)
+                                outlinePaint.strokeWidth = dpToPx(AppConfig.trackWidthLiveDp, density)
+                                outlinePaint.pathEffect = android.graphics.DashPathEffect(
+                                    floatArrayOf(
+                                        dpToPx(TRACK_GAP_DASH_ON_DP, density),
+                                        dpToPx(TRACK_GAP_DASH_OFF_DP, density)
+                                    ),
+                                    0f
+                                )
                                 setPoints(gapPts)
                             }
                             mv.overlays.add(gap)
@@ -1070,7 +1083,7 @@ fun MapScreen(
                             val finalSolid = org.osmdroid.views.overlay.Polyline().apply {
                                 title = "track_recording"
                                 outlinePaint.color = appSettings.trackingColorActive
-                                outlinePaint.strokeWidth = AppConfig.trackWidthLive
+                                outlinePaint.strokeWidth = dpToPx(AppConfig.trackWidthLiveDp, density)
                                 setPoints(finalPts)
                             }
                             mv.overlays.add(finalSolid)
@@ -3088,21 +3101,24 @@ private fun MapContent(
         val visibleIsobaths = if (appSettings.depthLayerVisible) isobaths else emptyList()
 
         // ── Layer 0: OSMdroid map (fills entire Box) ───────────────────────
+        // The shoreline, band and outline widths are dp, like every stored width: this layer holds the
+        // density, so it is the one that converts them into the px the renderer's …Px parameters take.
+        val paintDensity = LocalDensity.current.density
         CoastlineMapView(
             segments = segments,
             coastlineMainlandColor = appSettings.coastlineMainlandColor,
             coastlineIslandColor = appSettings.coastlineIslandColor,
-            coastlineWidthPx = appSettings.coastlineWidthPx.toFloat(),
+            coastlineWidthPx = dpToPx(appSettings.coastlineWidthDp, paintDensity),
             coastlineTransparencyPct = appSettings.coastlineTransparencyPct,
             regulatedZones = visibleRegulatedZones,
             regulatedZoneFillTransparencyPct = appSettings.regulatedZoneFillTransparencyPct,
             regulatedZoneBoundaryTransparencyPct = appSettings.regulatedZoneBoundaryTransparencyPct,
-            regulatedZoneOutlineWidthPx = appSettings.regulatedZoneOutlineWidthPx.toFloat(),
+            regulatedZoneOutlineWidthPx = dpToPx(appSettings.regulatedZoneOutlineWidthDp, paintDensity),
             zone300 = visibleZone300,
             zone300Color = appSettings.zone300Color,
             zone300FillTransparencyPct = appSettings.zone300FillTransparencyPct,
             zone300BoundaryTransparencyPct = appSettings.zone300BoundaryTransparencyPct,
-            zone300BoundaryWidthPx = appSettings.zone300BoundaryWidthPx.toFloat(),
+            zone300BoundaryWidthPx = dpToPx(appSettings.zone300BoundaryWidthDp, paintDensity),
             depthBitmap = visibleDepthBitmap,
             lowDepthWarningBitmap = visibleLowDepthWarning,
             depthBox = depthBox,

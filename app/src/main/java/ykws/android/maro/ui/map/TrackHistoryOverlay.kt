@@ -200,10 +200,12 @@ fun TrackHistoryOverlay(
         val greyColor = Color(AppConfig.uiTextMuted).copy(alpha = 0.15f)
         val pinnedTotal = pinnedSummaries.size
         for ((index, summary) in pinnedSummaries.withIndex()) {
+            // Only the appearance's colour is read here; its width is dp like the type's, so the old
+            // 6 px / 8 px pair is written as the 2 dp / 2.667 dp the 3× reference makes them.
             val appearance = computeTrackPolylineAppearance(
                 index, pinnedTotal,
                 trackingTransparencyPinnedNewest, trackingTransparencyPinnedOldest,
-                trackingColorPinnedFrom, trackingColorPinnedTo, 6f
+                trackingColorPinnedFrom, trackingColorPinnedTo, 2f
             )
             val a = appearance.argb
             map[summary.id] = Color(red = (a shr 16) and 0xFF, green = (a shr 8) and 0xFF, blue = a and 0xFF, alpha = (a ushr 24) and 0xFF)
@@ -216,7 +218,7 @@ fun TrackHistoryOverlay(
                     index, effectiveTotal,
                     trackingTransparencyNewest, trackingTransparencyOldest,
                     trackingColorPastFrom, trackingColorPastTo,
-                    if (index == 0) 8f else 6f
+                    if (index == 0) 8f / 3f else 2f
                 )
                 val a = appearance.argb
                 map[summary.id] = Color(red = (a shr 16) and 0xFF, green = (a shr 8) and 0xFF, blue = a and 0xFF, alpha = (a ushr 24) and 0xFF)

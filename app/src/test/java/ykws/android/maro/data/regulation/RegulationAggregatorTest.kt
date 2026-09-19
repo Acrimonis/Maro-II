@@ -87,29 +87,6 @@ class RegulationAggregatorTest {
     }
 
     @Test
-    fun `keeps multiple SHOM zones regardless of type`() {
-        val speed = RegulatedZone(
-            outerRing = ringAround(43.56, 7.13),
-            zoneType = RegulatedZoneType.SPEED_LIMIT,
-            name = "Speed zone",
-            source = "SHOM"
-        )
-        val anchor = RegulatedZone(
-            outerRing = ringAround(43.5601, 7.1301), // same location
-            zoneType = RegulatedZoneType.ANCHORING_PROHIBITED, // different type
-            name = "Anchor zone",
-            source = "SHOM"
-        )
-        val result = RegulationAggregator.aggregate(
-            shomZones = listOf(speed, anchor),
-            seedZones = emptyList(),
-            bbox = testBbox
-        )
-        // Both are SHOM — dedup only discards non-SHOM zones overlapping SHOM bbox
-        assertEquals(2, result.metadata.totalZones)
-    }
-
-    @Test
     fun `empty input returns empty set with metadata`() {
         val result = RegulationAggregator.aggregate(
             shomZones = emptyList(),

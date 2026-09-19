@@ -2,7 +2,7 @@
 name: UI_Map
 status: active
 created: 2026-06-07 00:00
-modified: 2026-09-19 07:35
+modified: 2026-09-19 13:21
 ---
 
 **Description:** Map display layer management — depth layer, color depth layer, orientation-aware rendering, marker highlight.
@@ -171,8 +171,12 @@ explicit values/ViewModels + inline callbacks).
 - **inspect mode** — drag-to-select by proximity from the marker point: the ⊕ square gated on having something inspectable, one radius derivation feeding both the ring and the pick gate, the layer-visible map-filtered candidate set warmed at arming, a candidate line the mode owns, a quiet-clock pick with one pick per gesture, and a frozen distance ladder walked by one inspect cursor that crosses between marker and track cards; the pick, the camera and the look are the canonical selection path, so the mode is an entry point rather than a second renderer → `xTrack/UI_Map/260917_FEAT_PLN_UI_Map_inspect-mode.md`
 - **marker zoom scale configurable** — the growth exponent left the code for `map.marker.size.zoomExponent` (`maro.properties` → `AppConfig.mapMarkerSizeZoomExponent`, clamped 0–1) and moved to 0.35 for the settled 11–20 range, so the centre sprite stops outgrowing the screen offshore at level 20 (388 dp → 223 dp) while the mid levels barely move; the deleted constant's three readers — the sprite, the wizard's crosshair and the cap arrow — now share the one setting. The base pair followed the same day as `map.marker.size.boatBaseDp` (36.8) and `map.marker.size.dotBaseDp` (9.2), clamped 1–128, a 15 % raise on 32 / 8 as a first device test, with `BOAT_BASE_DP` / `DOT_BASE_DP` deleted and the sprite's base read from the pair; the reference zoom, the coast-shrink pair and the arrow's clamps stay code, and the marker-sizing doc carries the real curve with its tunables pointing at the keys → `xTrack/UI_Map/260919_FEAT_PLN_UI_Map_marker-zoom-scale.md`
 
+- **map paint lengths in dp** — the map's strokes, dashes, offsets and paddings left device pixels for dp, so a width tuned on one phone scales with the screen instead of being fixed in pixels: one pure density-explicit `dpToPx` helper beside the alpha sibling, the caller converting while the renderer's `…Px` parameters stayed put, one density accessor replacing two named forms plus five inlines, the three settings widths renamed `…widthDp` atomically with their parse, float fields, prefs keys, both locales, their row grid and every paint site that reads them, the track table and casing converted with the chevron knee moving alongside the widths it compares against, the dashes converted by stroke — the direction line's left a ratio of its width, the isobath's and the GAP bridge's by value because their strokes vary, and the marker circle's dash repaired after the review caught it defaulting to density 1 and painting a third of its intended dash — the isobaths with their floor re-expressed in dp, and the markers with their two adds; the review that followed found that one High, one Medium (the row grid) and several Lows, and the same pass settled the ramp-families, tap-flash-alpha and width-pin reds with `*.properties` as the source of truth and the code's defaults following it → `xTrack/UI_Map/260919_FEAT_PLN_UI_Map_px-to-dp-migration.md`
+
 ## Todos
 - [ ] Device pass against the plan's two tables — the sprite at levels 19 and 20 offshore and inshore, and the 15 % raise on the base pair at each level → `xTrack/UI_Map/260919_FEAT_PLN_UI_Map_marker-zoom-scale.md`
+- [ ] Second-density check for the dp pass — an emulator at 1× or 2× showing the strokes scale, since on the 3× tuning phone this change is invisible by design → `xTrack/UI_Map/260919_FEAT_PLN_UI_Map_px-to-dp-migration.md`
+- [ ] Open Medium from the dp review — the width rows' half-dp grid cannot reach the coastline's shipped 3.333 dp default, so a dragged row loses the 10 px look → `xTrack/UI_Map/260919_FEAT_PLN_UI_Map_px-to-dp-migration.md`
 
 ## Rules
 
@@ -189,6 +193,8 @@ explicit values/ViewModels + inline callbacks).
 - `xTrack/UI_Map/260712_FEAT_PLN_UI_Map_map-offset-phase2-properties-settings.md` — Map offset phase 2
 - `xTrack/UI_Map/260712_FEAT_PLN_UI_Map_map-offset-scroll-fix-clean.md` — Map offset scroll fix
 - `xTrack/UI_Map/260917_FEAT_PLN_UI_Map_inspect-mode.md` — Inspect mode plan (walk source)
+- `xTrack/UI_Map/260919_FEAT_PLN_UI_Map_px-to-dp-migration.md` — px to dp: the paint-length inventory, the risk table and the review's findings
+- `xTrack/UI_Map/260919_FEAT_PLN_UI_Map_marker-zoom-scale.md` — Marker sizing curve and its tunable keys
 
 ## Walk
 **Level 1 — Date:** 2026-09-17 · **Source:** `260917_FEAT_PLN_UI_Map_inspect-mode.md` · **Active:** closed

@@ -36,15 +36,27 @@ internal fun splitTrackSegments(points: List<TrackPoint>): List<TrackSegment> {
 }
 
 /**
+ * The GAP bridge's dash, in dp: two values rather than a ratio of the stroke, because the stroke it
+ * rides varies by track class — a ratio would change the drawing as the class changed. The caller
+ * converts them with the same density it converts the stroke with.
+ */
+internal const val TRACK_GAP_DASH_ON_DP = 20f / 3f
+internal const val TRACK_GAP_DASH_OFF_DP = 10f / 3f
+
+/**
  * Build the osmdroid polylines for one track appearance from its solid/dashed segment plan — solid
  * for runs of real points, dashed for GAP bridges. The shell only decides *which* ids to draw.
+ *
+ * [appearance] carries its width in dp, as the stored table does, so [density] is what turns it — and
+ * the dash above — into the px osmdroid's paint takes.
  */
 internal fun buildSegmentOverlays(
     points: List<TrackPoint>,
     appearance: TrackPolylineAppearance,
-    title: String
+    title: String,
+    density: Float
 ): List<org.osmdroid.views.overlay.Overlay> =
-    segmentOverlays(points, splitTrackSegments(points), appearance, title)
+    segmentOverlays(points, splitTrackSegments(points), appearance, title, density)
 
 /**
  * Build the osmdroid polylines for **one speed band's own geometry** — the banded twin of
@@ -57,10 +69,11 @@ internal fun buildSegmentOverlays(
 internal fun buildBandSegmentOverlays(
     points: List<TrackPoint>,
     band: SpeedBand,
-    title: String
+    title: String,
+    density: Float
 ): List<org.osmdroid.views.overlay.Overlay> {
     val bandPoints = band.pointIndices.map { points[it] }
-    return segmentOverlays(bandPoints, drawableBandSegments(bandPoints), band.appearance, title)
+    return segmentOverlays(bandPoints, drawableBandSegments(bandPoints), band.appearance, title, density)
 }
 
 /**
@@ -74,19 +87,28 @@ internal fun drawableBandSegments(points: List<TrackPoint>): List<TrackSegment> 
     splitTrackSegments(points)
         .filterNot { it.dashed && it.pointIndices.first() == it.pointIndices.last() }
 
-/** Shared polyline construction: one polyline per segment, over [source]. */
+/** Shared polyline construction: one polyline per segment, over [source], at [density]'s px. */
 private fun segmentOverlays(
     source: List<TrackPoint>,
     segments: List<TrackSegment>,
     appearance: TrackPolylineAppearance,
-    title: String
+    title: String,
+    density: Float
 ): List<org.osmdroid.views.overlay.Overlay> = segments.map { segment ->
     org.osmdroid.views.overlay.Polyline().apply {
         this.title = title
         outlinePaint.color = appearance.argb
-        outlinePaint.strokeWidth = appearance.strokeWidth
+        // The appearance's width is dp, like every stored width since 2026-09-19: the conversion is
+        // the caller's density applied here, where the paint is written.
+        outlinePaint.strokeWidth = dpToPx(appearance.strokeWidth, density)
         if (segment.dashed) {
-            outlinePaint.pathEffect = android.graphics.DashPathEffect(floatArrayOf(20f, 10f), 0f)
+            outlinePaint.pathEffect = android.graphics.DashPathEffect(
+                floatArrayOf(
+                    dpToPx(TRACK_GAP_DASH_ON_DP, density),
+                    dpToPx(TRACK_GAP_DASH_OFF_DP, density)
+                ),
+                0f
+            )
         }
         setPoints(segment.pointIndices.map { org.osmdroid.util.GeoPoint(source[it].lat, source[it].lon) })
     }

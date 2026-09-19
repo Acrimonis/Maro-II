@@ -68,22 +68,26 @@ class CoastlineAppearancePropertiesTest {
         val props = shipped("maro.properties")
 
         // A shipped width is the value its setting seeds from: asserted against the setting, since the
-        // property parse carries no clamp and the 1–20 span lives on the read.
+        // property parse carries no clamp and the 0.5–8 dp span lives on the read. The keys carry their
+        // unit and the values are floats, a dp width being under no obligation to be whole.
         assertEquals(
-            props.getProperty("map.coastline.widthPx").trim().toInt(),
-            AppSettings().coastlineWidthPx
+            props.getProperty("map.coastline.widthDp").trim().toFloat(),
+            AppSettings().coastlineWidthDp,
+            1e-6f
         )
         assertEquals(
             AppConfig.mapCoastlineTransparencyPct,
             props.getProperty("map.coastline.transparencyPct").trim().toInt()
         )
         assertEquals(
-            props.getProperty("map.zone300.boundary.widthPx").trim().toInt(),
-            AppSettings().zone300BoundaryWidthPx
+            props.getProperty("map.zone300.boundary.widthDp").trim().toFloat(),
+            AppSettings().zone300BoundaryWidthDp,
+            1e-6f
         )
         assertEquals(
-            props.getProperty("map.regulatedZone.outline.widthPx").trim().toInt(),
-            AppSettings().regulatedZoneOutlineWidthPx
+            props.getProperty("map.regulatedZone.outline.widthDp").trim().toFloat(),
+            AppSettings().regulatedZoneOutlineWidthDp,
+            1e-6f
         )
         assertEquals(
             AppConfig.mapCoastlineMainlandColor,
@@ -148,5 +152,23 @@ class CoastlineAppearancePropertiesTest {
 
         assertNull("map.coastline.mainland.width is retired", maro.getProperty("map.coastline.mainland.width"))
         assertNull("map.coastline.island.width is retired", maro.getProperty("map.coastline.island.width"))
+    }
+
+    /**
+     * The px keys are gone, not merely unused: a name left behind would let a stale file keep stating
+     * a pixel width that nothing reads, which is exactly the silent unit mix this pass removes.
+     */
+    @Test
+    fun theThreeWidthKeysCarryTheirUnitAndThePxNamesAreGone() {
+        val maro = shipped("maro.properties")
+
+        assertNull("map.coastline.widthPx is retired", maro.getProperty("map.coastline.widthPx"))
+        assertNull("map.zone300.boundary.widthPx is retired", maro.getProperty("map.zone300.boundary.widthPx"))
+        assertNull("map.regulatedZone.outline.widthPx is retired", maro.getProperty("map.regulatedZone.outline.widthPx"))
+        assertNull("map.isobar.litto3d.width is retired", maro.getProperty("map.isobar.litto3d.width"))
+        assertNull("map.isobar.emodnet.width is retired", maro.getProperty("map.isobar.emodnet.width"))
+        assertEquals(3.3333333f, maro.getProperty("map.coastline.widthDp").trim().toFloat(), 1e-6f)
+        assertEquals(2f, maro.getProperty("map.zone300.boundary.widthDp").trim().toFloat(), 1e-6f)
+        assertEquals(1f, maro.getProperty("map.regulatedZone.outline.widthDp").trim().toFloat(), 1e-6f)
     }
 }

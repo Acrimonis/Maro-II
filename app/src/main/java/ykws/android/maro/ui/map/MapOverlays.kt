@@ -359,10 +359,10 @@ internal fun CenterMarkerOverlay(
  * arrow at its last length rather than hiding it, and the tint is what stops that frozen arrow from
  * asserting a band the reading can no longer justify.
  *
- * The shaft's polyline stops inside the head at the tangency depth,
- * [capArrowShaftInsetDp] — where the flanks stand one cap radius from the stroke's centreline — so the
- * round cap is inscribed and nothing of the stroke shows beside or beyond the apex, which stays exactly
- * where it was, because the arrow's length is the value it exists to state. That head is itself capped by
+ * The shaft's polyline stops inside the head at [capArrowShaftInsetDp] — the tangency depth grown by
+ * [CAP_ARROW_TANGENCY_MARGIN], so the flanks stand one cap radius clear of the stroke's centreline with a
+ * margin to spare and nothing of the stroke shows beside or beyond the apex. That apex stays exactly
+ * where it was, because the arrow's length is the value it exists to state. The head is itself capped by
  * [capArrowHeadDp] against the drawn length, so a short arrow is never swallowed by the head it carries.
  */
 @Composable

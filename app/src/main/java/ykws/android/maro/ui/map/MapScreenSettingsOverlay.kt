@@ -619,18 +619,18 @@ private fun LayersSettings(
                         }
                     )
                     SectionDivider()
-                    // Outline stroke width (px): integer steps, committed on release like the pair above.
-                    var widthDrag by remember { mutableStateOf(settings.regulatedZoneOutlineWidthPx.toFloat()) }
+                    // Outline stroke width (dp): a 0.5 dp grid, committed on release like the pair above.
+                    var widthDrag by remember { mutableStateOf(settings.regulatedZoneOutlineWidthDp) }
                     SliderRow(
                         label = stringResource(R.string.settings_width_label),
                         description = stringResource(R.string.settings_regulated_zones_outline_width_desc),
-                        valueLabel = stringResource(R.string.settings_value_px, widthDrag.roundToInt()),
+                        valueLabel = stringResource(R.string.settings_value_dp_fmt, widthDrag),
                         value = widthDrag,
-                        valueRange = 1f..20f,
-                        steps = 18,
+                        valueRange = 0.5f..8f,
+                        steps = 14,
                         onValueChange = { v -> widthDrag = v },
                         onValueChangeFinished = {
-                            onUpdateSettings { it.copy(regulatedZoneOutlineWidthPx = widthDrag.roundToInt()) }
+                            onUpdateSettings { it.copy(regulatedZoneOutlineWidthDp = widthDrag) }
                         }
                     )
                 }
@@ -720,18 +720,18 @@ private fun LayersSettings(
                         }
                     )
                     SectionDivider()
-                    // Boundary stroke width (px): integer steps, committed on release like the pair above.
-                    var widthDrag by remember { mutableStateOf(settings.zone300BoundaryWidthPx.toFloat()) }
+                    // Boundary stroke width (dp): a 0.5 dp grid, committed on release like the pair above.
+                    var widthDrag by remember { mutableStateOf(settings.zone300BoundaryWidthDp) }
                     SliderRow(
                         label = stringResource(R.string.settings_width_label),
                         description = stringResource(R.string.settings_zone300_boundary_width_desc),
-                        valueLabel = stringResource(R.string.settings_value_px, widthDrag.roundToInt()),
+                        valueLabel = stringResource(R.string.settings_value_dp_fmt, widthDrag),
                         value = widthDrag,
-                        valueRange = 1f..20f,
-                        steps = 18,
+                        valueRange = 0.5f..8f,
+                        steps = 14,
                         onValueChange = { v -> widthDrag = v },
                         onValueChangeFinished = {
-                            onUpdateSettings { it.copy(zone300BoundaryWidthPx = widthDrag.roundToInt()) }
+                            onUpdateSettings { it.copy(zone300BoundaryWidthDp = widthDrag) }
                         }
                     )
                     SectionDivider()
@@ -770,18 +770,18 @@ private fun LayersSettings(
             ) {
                 Spacer(Modifier.height(8.dp))
                 NestedCard {
-                    // Width (px): integer steps, committed on release.
-                    var widthDrag by remember { mutableStateOf(settings.coastlineWidthPx.toFloat()) }
+                    // Width (dp): a 0.5 dp grid, committed on release.
+                    var widthDrag by remember { mutableStateOf(settings.coastlineWidthDp) }
                     SliderRow(
                         label = stringResource(R.string.settings_width_label),
                         description = stringResource(R.string.settings_coastline_width_desc),
-                        valueLabel = stringResource(R.string.settings_value_px, widthDrag.roundToInt()),
+                        valueLabel = stringResource(R.string.settings_value_dp_fmt, widthDrag),
                         value = widthDrag,
-                        valueRange = 1f..20f,
-                        steps = 18,
+                        valueRange = 0.5f..8f,
+                        steps = 14,
                         onValueChange = { v -> widthDrag = v },
                         onValueChangeFinished = {
-                            onUpdateSettings { it.copy(coastlineWidthPx = widthDrag.roundToInt()) }
+                            onUpdateSettings { it.copy(coastlineWidthDp = widthDrag) }
                         }
                     )
                     SectionDivider()

@@ -33,8 +33,10 @@ top, APK-green.
   `PowerState.keepAlive` is computed but consumed by nobody until phase 3.
 - `PowerKeeper.isExemptFromBatteryOptimizations()` has no caller by design — it is the documented seam
   for the phase-3 service lifecycle, not an oversight.
-- Three **pre-existing** unit-test failures (`MarkerFilterMigrationTest` ×2, `RegulationAggregatorTest` ×1)
-  fail at HEAD and block a green full-suite run; logged as a global todo.
+- The three unit-test failures that used to block a green full-suite run were closed on 2026-09-19: the two
+  `MarkerFilterMigrationTest` v7 cases and the one `RegulationAggregatorTest` case asserted behaviour the
+  shipped code no longer has — a removed prefs migration and a removed type gate — and were dropped, so the
+  suite now completes with zero failures. The aggregator's 50 m same-location collapse is left unpinned.
 - Phases 2–4 stay gated on the Tasker reconciliation.
 
 ## Plans of record

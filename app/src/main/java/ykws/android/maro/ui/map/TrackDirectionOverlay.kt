@@ -147,8 +147,12 @@ internal fun chevronLength(coreWidth: Float, ceilingWidth: Float): Float =
 /** The chevron's half-width: 0.6 × its length. */
 internal fun chevronHalfWidth(chevronLength: Float): Float = chevronLength * 0.6f
 
-/** The coloured chevron's stroke: 0.5 × the core, never thinner than the 2 px floor it always had. */
-internal fun chevronStrokeWidth(coreWidth: Float): Float = (coreWidth * 0.5f).coerceAtLeast(2f)
+/**
+ * The coloured chevron's stroke: 0.5 × the core, never thinner than the 2 px floor it always had —
+ * written in dp now, the unit the cores arrive in ([CHEVRON_STROKE_FLOOR_DP]).
+ */
+internal fun chevronStrokeWidth(coreWidth: Float): Float =
+    (coreWidth * 0.5f).coerceAtLeast(CHEVRON_STROKE_FLOOR_DP)
 
 /**
  * How far the dark casing chevron sits outside the coloured V: half the line's casing over the line's
@@ -179,8 +183,12 @@ internal data class ChevronV(val apex: ScreenPt, val leftTip: ScreenPt, val righ
 /**
  * A hair of the dark arm carried past the coloured tip, so the two round caps overlap rather than
  * meeting on a tangent line that anti-aliasing would show as a seam at the arrow's outer corner.
+ * A length like the chevron's other metrics, so it is dp and the overlay converts it at the draw.
  */
-internal const val CHEVRON_CAP_OVERLAP_PX = 0.5f
+internal const val CHEVRON_CAP_OVERLAP_DP = 0.5f / 3f
+
+/** The coloured chevron's own floor, in dp: the 2 px it was never drawn thinner than. */
+internal const val CHEVRON_STROKE_FLOOR_DP = 2f / 3f
 
 /**
  * The chevron drawn at a direction anchor, in the anchor's own frame: the apex ahead along the bearing
@@ -265,19 +273,26 @@ internal class TrackDirectionOverlay(
      */
     private val casingAppearance: TrackPolylineAppearance? = null,
     /**
+     * The screen density, so the dp the pure metrics functions work in become the px this overlay's
+     * canvas draws in. The caller hands it over, being the layer that holds it.
+     */
+    private val density: Float,
+    /**
      * The widest width the stored table can hand a track ([widestStoredTrackWidth]), the reference
      * the chevron length's ceiling is taken from: 2.5 × it can never bite inside the table, so no
      * class is flattened by its own core while a retuned file cannot invert the chevrons against the
-     * line either. Read from `AppConfig` at construction, where the table is settled.
+     * line either. Dp, like the cores it is read against. Read from `AppConfig` at construction, where
+     * the table is settled.
      */
     private val chevronCeilingWidth: Float = widestStoredTrackWidth(),
     /**
      * The tempering the three multiples read their core through ([temperedCore]): at or below the knee
      * a core is used as it is, above it the excess is scaled by the factor, so the selected track's
-     * chevrons stop reading oversized while the newest, pinned and oldest classes are untouched. Read
-     * from `AppConfig` at construction, where the shipped file is already parsed.
+     * chevrons stop reading oversized while the newest, pinned and oldest classes are untouched. Dp,
+     * read against the same cores. Read from `AppConfig` at construction, where the file is already
+     * parsed.
      */
-    private val chevronScaleKnee: Float = AppConfig.trackArrowScaleKnee,
+    private val chevronScaleKnee: Float = AppConfig.trackArrowScaleKneeDp,
     private val chevronTemper: Float = AppConfig.trackArrowTemper
 ) : Overlay() {
 
@@ -346,10 +361,12 @@ internal class TrackDirectionOverlay(
 
         for (appearance in appearances) {
             val core = chevronCore(appearance.strokeWidth)
-            val chevronLen = chevronLength(core, chevronCeilingWidth)
-            val halfW = chevronHalfWidth(chevronLen)
+            // The metrics are dp, the canvas is px: the conversion happens here, once per draw.
+            val chevronLenDp = chevronLength(core, chevronCeilingWidth)
+            val chevronLen = dpToPx(chevronLenDp, density)
+            val halfW = dpToPx(chevronHalfWidth(chevronLenDp), density)
             paint.color = appearance.argb
-            paint.strokeWidth = chevronStrokeWidth(core)
+            paint.strokeWidth = dpToPx(chevronStrokeWidth(core), density)
             paint.style = Paint.Style.STROKE
             paint.strokeCap = Paint.Cap.ROUND
             paint.strokeJoin = Paint.Join.ROUND
@@ -393,9 +410,11 @@ internal class TrackDirectionOverlay(
     ) {
         val metrics = chevronMetrics ?: appearances.firstOrNull() ?: return
         val core = chevronCore(metrics.strokeWidth)
-        val chevronLen = chevronLength(core, chevronCeilingWidth)
-        val halfW = chevronHalfWidth(chevronLen)
-        val strokeWidth = chevronStrokeWidth(core)
+        // Dp metrics in, px geometry out — the canvas below draws in px.
+        val chevronLenDp = chevronLength(core, chevronCeilingWidth)
+        val chevronLen = dpToPx(chevronLenDp, density)
+        val halfW = dpToPx(chevronHalfWidth(chevronLenDp), density)
+        val strokeWidth = dpToPx(chevronStrokeWidth(core), density)
         val colouredV = chevronV(0f, chevronLen, halfW)
         // The casing, when the caller passed one, is drawn here and only here: one pass over every
         // chevron before the coloured pass, so the dark sits beneath them all rather than under each
@@ -415,8 +434,8 @@ internal class TrackDirectionOverlay(
             // The offset is read from the line's own width, not the tempered core the coloured V's
             // metrics came from: the rim belongs to the selection, so the line and its arrowheads wear
             // one weight.
-            val offset = chevronCasingOffset(casing.strokeWidth, metrics.strokeWidth)
-            val darkV = chevronV(offset, chevronLen, halfW, CHEVRON_CAP_OVERLAP_PX)
+            val offset = dpToPx(chevronCasingOffset(casing.strokeWidth, metrics.strokeWidth), density)
+            val darkV = chevronV(offset, chevronLen, halfW, dpToPx(CHEVRON_CAP_OVERLAP_DP, density))
             forEachVisibleChevron(c, osmv, anchors) { _, x, y, bearing ->
                 drawChevron(c, x, y, bearing, darkV, strokeWidth, casing.argb)
             }
