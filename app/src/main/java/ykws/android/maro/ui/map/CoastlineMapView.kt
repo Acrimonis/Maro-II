@@ -176,13 +176,19 @@ internal fun ErrorOverlay(
 @Composable
 internal fun CoastlineMapView(
     segments: List<CoastlineSegment>,
+    coastlineMainlandColor: Int,
+    coastlineIslandColor: Int,
+    coastlineWidthPx: Float,
+    coastlineTransparencyPct: Int,
     regulatedZones: RegulatedZoneSet?,
     regulatedZoneFillTransparencyPct: Int,
     regulatedZoneBoundaryTransparencyPct: Int,
+    regulatedZoneOutlineWidthPx: Float,
     zone300: Zone300Data?,
     zone300Color: Int,
     zone300FillTransparencyPct: Int,
     zone300BoundaryTransparencyPct: Int,
+    zone300BoundaryWidthPx: Float,
     depthBitmap: Bitmap?,
     lowDepthWarningBitmap: Bitmap?,
     depthBox: BoundingBox?,
@@ -226,9 +232,9 @@ internal fun CoastlineMapView(
                 drawDepthMap(this, depthBitmap, depthBox, zoomLevel, tracker.depth)
                 drawLowDepthWarning(this, lowDepthWarningBitmap, depthBox, zoomLevel, tracker.lowDepth)
                 drawIsobaths(this, isobaths, zoomLevel, tracker.isobaths)
-                drawRegulatedZones(this, regulatedZones, zoomLevel, regulatedZoneFillTransparencyPct, regulatedZoneBoundaryTransparencyPct, tracker.regulatedZones)
-                drawZone300(this, zone300, zoomLevel, zone300Color, zone300FillTransparencyPct, zone300BoundaryTransparencyPct, tracker.zone300)
-                drawCoastline(this, segments, tracker.coastline)
+                drawRegulatedZones(this, regulatedZones, zoomLevel, regulatedZoneFillTransparencyPct, regulatedZoneBoundaryTransparencyPct, regulatedZoneOutlineWidthPx, tracker.regulatedZones)
+                drawZone300(this, zone300, zoomLevel, zone300Color, zone300FillTransparencyPct, zone300BoundaryTransparencyPct, zone300BoundaryWidthPx, tracker.zone300)
+                drawCoastline(this, segments, coastlineMainlandColor, coastlineIslandColor, coastlineWidthPx, coastlineTransparencyPct, tracker.coastline)
 
                 // Seed per-layer last-known state so LaunchedEffects don't fire on first composition.
                 tracker.lastDepthBitmap = depthBitmap
@@ -242,12 +248,18 @@ internal fun CoastlineMapView(
                 tracker.lastRegZoneZoom = zoomLevel
                 tracker.lastRegZoneFillTransparencyPct = regulatedZoneFillTransparencyPct
                 tracker.lastRegZoneBoundaryTransparencyPct = regulatedZoneBoundaryTransparencyPct
+                tracker.lastRegZoneOutlineWidthPx = regulatedZoneOutlineWidthPx
                 tracker.lastZone300 = zone300
                 tracker.lastZone300Zoom = zoomLevel
                 tracker.lastZone300Color = zone300Color
                 tracker.lastZone300FillTransparencyPct = zone300FillTransparencyPct
                 tracker.lastZone300BoundaryTransparencyPct = zone300BoundaryTransparencyPct
+                tracker.lastZone300BoundaryWidthPx = zone300BoundaryWidthPx
                 tracker.lastSegments = segments
+                tracker.lastCoastlineMainlandColor = coastlineMainlandColor
+                tracker.lastCoastlineIslandColor = coastlineIslandColor
+                tracker.lastCoastlineWidthPx = coastlineWidthPx
+                tracker.lastCoastlineTransparencyPct = coastlineTransparencyPct
 
                 // Force-sync the ViewModel zoom level to match the actual MapView
                 // zoom right after construction, so the boat marker immediately
@@ -281,44 +293,48 @@ internal fun CoastlineMapView(
     // comparing against the tracker's per-layer last-known state.
 
     // Zone300 layer
-    LaunchedEffect(zone300, zoomLevel, zone300Color, zone300FillTransparencyPct, zone300BoundaryTransparencyPct) {
+    LaunchedEffect(zone300, zoomLevel, zone300Color, zone300FillTransparencyPct, zone300BoundaryTransparencyPct, zone300BoundaryWidthPx) {
         val mv = localMapView.value ?: return@LaunchedEffect
         if (zone300 === tracker.lastZone300 &&
             zoomLevel == tracker.lastZone300Zoom &&
             zone300Color == tracker.lastZone300Color &&
             zone300FillTransparencyPct == tracker.lastZone300FillTransparencyPct &&
-            zone300BoundaryTransparencyPct == tracker.lastZone300BoundaryTransparencyPct
+            zone300BoundaryTransparencyPct == tracker.lastZone300BoundaryTransparencyPct &&
+            zone300BoundaryWidthPx == tracker.lastZone300BoundaryWidthPx
         ) return@LaunchedEffect
         mv.overlays.removeAll(tracker.zone300)
         tracker.zone300.clear()
-        drawZone300(mv, zone300, zoomLevel, zone300Color, zone300FillTransparencyPct, zone300BoundaryTransparencyPct, tracker.zone300)
+        drawZone300(mv, zone300, zoomLevel, zone300Color, zone300FillTransparencyPct, zone300BoundaryTransparencyPct, zone300BoundaryWidthPx, tracker.zone300)
         tracker.lastZone300 = zone300
         tracker.lastZone300Zoom = zoomLevel
         tracker.lastZone300Color = zone300Color
         tracker.lastZone300FillTransparencyPct = zone300FillTransparencyPct
         tracker.lastZone300BoundaryTransparencyPct = zone300BoundaryTransparencyPct
+        tracker.lastZone300BoundaryWidthPx = zone300BoundaryWidthPx
         OverlayZOrder.reorder(mv)
         mv.invalidate()
     }
 
     // Regulated zones layer
-    LaunchedEffect(regulatedZones, zoomLevel, regulatedZoneFillTransparencyPct, regulatedZoneBoundaryTransparencyPct) {
+    LaunchedEffect(regulatedZones, zoomLevel, regulatedZoneFillTransparencyPct, regulatedZoneBoundaryTransparencyPct, regulatedZoneOutlineWidthPx) {
         val mv = localMapView.value ?: return@LaunchedEffect
-        // The transparency pair belongs in the guard, not only in the keys: a slider commit leaves
-        // the zone set and the zoom untouched, so without these two the effect would return early
+        // The appearance values belong in the guard, not only in the keys: a slider commit leaves
+        // the zone set and the zoom untouched, so without these three the effect would return early
         // and the setting would look dead until the next zoom change.
         if (regulatedZones === tracker.lastRegulatedZones &&
             zoomLevel == tracker.lastRegZoneZoom &&
             regulatedZoneFillTransparencyPct == tracker.lastRegZoneFillTransparencyPct &&
-            regulatedZoneBoundaryTransparencyPct == tracker.lastRegZoneBoundaryTransparencyPct
+            regulatedZoneBoundaryTransparencyPct == tracker.lastRegZoneBoundaryTransparencyPct &&
+            regulatedZoneOutlineWidthPx == tracker.lastRegZoneOutlineWidthPx
         ) return@LaunchedEffect
         mv.overlays.removeAll(tracker.regulatedZones)
         tracker.regulatedZones.clear()
-        drawRegulatedZones(mv, regulatedZones, zoomLevel, regulatedZoneFillTransparencyPct, regulatedZoneBoundaryTransparencyPct, tracker.regulatedZones)
+        drawRegulatedZones(mv, regulatedZones, zoomLevel, regulatedZoneFillTransparencyPct, regulatedZoneBoundaryTransparencyPct, regulatedZoneOutlineWidthPx, tracker.regulatedZones)
         tracker.lastRegulatedZones = regulatedZones
         tracker.lastRegZoneZoom = zoomLevel
         tracker.lastRegZoneFillTransparencyPct = regulatedZoneFillTransparencyPct
         tracker.lastRegZoneBoundaryTransparencyPct = regulatedZoneBoundaryTransparencyPct
+        tracker.lastRegZoneOutlineWidthPx = regulatedZoneOutlineWidthPx
         OverlayZOrder.reorder(mv)
         mv.invalidate()
     }
@@ -369,13 +385,25 @@ internal fun CoastlineMapView(
     }
 
     // Coastline layer
-    LaunchedEffect(segments) {
+    LaunchedEffect(segments, coastlineMainlandColor, coastlineIslandColor, coastlineWidthPx, coastlineTransparencyPct) {
         val mv = localMapView.value ?: return@LaunchedEffect
-        if (segments === tracker.lastSegments) return@LaunchedEffect
+        // All four appearance values are guarded, not only keyed: the segment list is untouched by a
+        // colour or width change, so a guard on `segments` alone would draw the new look once and
+        // then ignore every later edit.
+        if (segments === tracker.lastSegments &&
+            coastlineMainlandColor == tracker.lastCoastlineMainlandColor &&
+            coastlineIslandColor == tracker.lastCoastlineIslandColor &&
+            coastlineWidthPx == tracker.lastCoastlineWidthPx &&
+            coastlineTransparencyPct == tracker.lastCoastlineTransparencyPct
+        ) return@LaunchedEffect
         mv.overlays.removeAll(tracker.coastline)
         tracker.coastline.clear()
-        drawCoastline(mv, segments, tracker.coastline)
+        drawCoastline(mv, segments, coastlineMainlandColor, coastlineIslandColor, coastlineWidthPx, coastlineTransparencyPct, tracker.coastline)
         tracker.lastSegments = segments
+        tracker.lastCoastlineMainlandColor = coastlineMainlandColor
+        tracker.lastCoastlineIslandColor = coastlineIslandColor
+        tracker.lastCoastlineWidthPx = coastlineWidthPx
+        tracker.lastCoastlineTransparencyPct = coastlineTransparencyPct
         OverlayZOrder.reorder(mv)
         mv.invalidate()
     }

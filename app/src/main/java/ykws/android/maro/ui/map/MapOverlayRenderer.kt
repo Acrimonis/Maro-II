@@ -51,9 +51,10 @@ fun regulatedZoneColor(type: RegulatedZoneType): Int = when (type) {
 /**
  * Draws the coastline segments on the OSMdroid [MapView].
  *
- * Mainland: solid blue (#1545C0), 10 px
- * Islands:  green (#08805C), 10 px
- * Hazards:  vivid yellow disc + black outline + outer black ring + black cross — isolated offshore point dangers
+ * Plain segments take [mainlandColor] or [islandColor] by [CoastlineSegment.isMainland], at
+ * [widthPx] and the alpha [transparencyPctToAlpha] derives from [transparencyPct] — the appearance
+ * arrives as parameters rather than being read here, so the map view can key its rebuild on it.
+ * Hazards keep their baked disc, ring and cross strokes.
  *
  * A segment is treated as a hazard primarily via its explicit [CoastlineSegment.isHazard] flag
  * (set by [HazardRings.toSegment], persisted in the proto cache). As a fallback for pre-feature
@@ -65,9 +66,14 @@ fun regulatedZoneColor(type: RegulatedZoneType): Int = when (type) {
 fun drawCoastline(
     mapView: MapView,
     segments: List<CoastlineSegment>,
+    mainlandColor: Int,
+    islandColor: Int,
+    widthPx: Float,
+    transparencyPct: Int,
     sink: MutableList<Any>
 ) {
     sink.clear()
+    val alpha = transparencyPctToAlpha(transparencyPct)
     for (segment in segments) {
         val points = segment.points
         if (points.size < 2) continue
@@ -125,10 +131,9 @@ fun drawCoastline(
         val polyline = Polyline().apply {
             setPoints(osmPoints)
             outlinePaint.apply {
-                color = if (segment.isMainland) AppConfig.mapCoastlineMainlandColor
-                        else AppConfig.mapCoastlineIslandColor
-                strokeWidth = AppConfig.mapCoastlineMainlandWidth.toFloat()
-                alpha = 128
+                color = if (segment.isMainland) mainlandColor else islandColor
+                strokeWidth = widthPx
+                this.alpha = alpha
                 isAntiAlias = true
             }
         }
@@ -139,9 +144,9 @@ fun drawCoastline(
 
 /**
  * Draws the precomputed 300 m band: translucent red fill (water only, island land
- * cut out as holes) plus the red seaward boundary line. Zoom-gated — nothing is
- * drawn below [ZONE_MIN_ZOOM] (the band would be sub-pixel) or before the band has
- * been built ([zone] == null).
+ * cut out as holes) plus the red seaward boundary line, stroked at [boundaryWidthPx].
+ * Zoom-gated — nothing is drawn below [ZONE_MIN_ZOOM] (the band would be sub-pixel)
+ * or before the band has been built ([zone] == null).
  *
  * Must be drawn **before** [drawCoastline] so the coastline reads on top of the fill.
  */
@@ -152,6 +157,7 @@ fun drawZone300(
     zoneColor: Int,
     fillTransparencyPct: Int,
     boundaryTransparencyPct: Int,
+    boundaryWidthPx: Float,
     sink: MutableList<Any>
 ) {
     sink.clear()
@@ -184,7 +190,7 @@ fun drawZone300(
             setPoints(line.map { GeoPoint(it.latitude, it.longitude) })
             outlinePaint.apply {
                 color = Color.argb(boundaryAlpha, Color.red(zoneColor), Color.green(zoneColor), Color.blue(zoneColor))
-                strokeWidth = 6f
+                strokeWidth = boundaryWidthPx
                 isAntiAlias = true
             }
         }
@@ -209,6 +215,7 @@ fun drawRegulatedZones(
     zoomLevel: Double,
     fillTransparencyPct: Int,
     boundaryTransparencyPct: Int,
+    outlineWidthPx: Float,
     sink: MutableList<Polygon>
 ) {
     sink.clear()
@@ -227,7 +234,7 @@ fun drawRegulatedZones(
             }
             fillPaint.color = Color.argb(fillAlpha, Color.red(color), Color.green(color), Color.blue(color))
             outlinePaint.color = color
-            outlinePaint.strokeWidth = 3f
+            outlinePaint.strokeWidth = outlineWidthPx
             outlinePaint.alpha = boundaryAlpha
             outlinePaint.isAntiAlias = true
         }

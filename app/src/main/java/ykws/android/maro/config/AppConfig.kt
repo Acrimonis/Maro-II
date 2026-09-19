@@ -416,23 +416,34 @@ object AppConfig {
     var uiToastText: Int = 0xFFFFFFFF.toInt()
         private set
 
-    /** Coastline mainland colour. Default #1545C0. Set via `map.coastline.mainland.color` in colors.properties. */
+    /** Coastline mainland stroke colour. Default #1545C0. Set via `map.coastline.mainland.color` in maro.properties. */
     var mapCoastlineMainlandColor: Int = 0xFF1545C0.toInt()
         private set
-    /** Coastline mainland stroke width (px). Default 10. Set via `map.coastline.mainland.width` in colors.properties. */
-    var mapCoastlineMainlandWidth: Int = 10
-        private set
-    /** Coastline island colour. Default #08805C. Set via `map.coastline.island.color` in colors.properties. */
+    /** Coastline island stroke colour. Default #08805C. Set via `map.coastline.island.color` in maro.properties. */
     var mapCoastlineIslandColor: Int = 0xFF08805C.toInt()
         private set
-    /** Coastline island stroke width (px). Default 10. Set via `map.coastline.island.width` in colors.properties. */
-    var mapCoastlineIslandWidth: Int = 10
+    /** Coastline stroke width (px) — one width for mainland and island alike. Default 10.
+     *  Set via `map.coastline.widthPx` in maro.properties. */
+    var mapCoastlineWidthPx: Int = 10
+        private set
+    /** Coastline stroke transparency % (0 = opaque, 100 = invisible). Default 50, the shipped
+     *  half-strength stroke (an alpha of 127). Set via `map.coastline.transparencyPct` in maro.properties. */
+    var mapCoastlineTransparencyPct: Int = 50
+        private set
+    /** 300 m band seaward boundary stroke width (px). Default 6.
+     *  Set via `map.zone300.boundary.widthPx` in maro.properties. */
+    var mapZone300BoundaryWidthPx: Int = 6
+        private set
+    /** Regulated zone outline stroke width (px). Default 3.
+     *  Set via `map.regulatedZone.outline.widthPx` in maro.properties. */
+    var mapRegulatedZoneOutlineWidthPx: Int = 3
         private set
 
-    /** Navigation arrow colour. Default #1565C0. Set via `map.navigation.arrow.color` in colors.properties. */
+    /** Navigation arrow colour. Default #1565C0. Set via `map.navigation.arrow.color` in maro.properties. */
     var mapNavigationArrowColor: Int = 0xFF1565C0.toInt()
         private set
-    /** Navigation direction line colour. Default #4D1565C0. Set via `map.navigation.line.color` in colors.properties. */
+    /** Navigation direction line colour. Default #4D1565C0. Set via `map.navigation.line.color` in
+     *  maro.properties — the packed `#4D` alpha is the line's own 30 % and reaches the paint. */
     var mapNavigationLineColor: Int = 0x4D1565C0.toInt()
         private set
 
@@ -595,25 +606,27 @@ object AppConfig {
         private set
 
     // ── Map overlay colours ───────────────────────────────────────────────────
-    /** Hazard disc fill colour. Default #FFFFE800. Set via `map.hazard.disc.fill` in colors.properties. */
+    /** Hazard disc fill colour. Default #FFFFE800. Set via `map.hazard.disc.fill` in maro.properties. */
     var mapHazardDiscFill: Int = 0xFFFFE800.toInt()
         private set
-    /** Hazard disc outline colour. Default #FF000000. Set via `map.hazard.outline` in colors.properties. */
+    /** Hazard disc outline colour. Default #FF000000. Set via `map.hazard.outline` in maro.properties. */
     var mapHazardOutline: Int = 0xFF000000.toInt()
         private set
-    /** Zone-ahead line colour. Default #CC4CAF50 (alias of ${ui.dashboard.status.success}). Set via `map.zoneAhead.line` in colors.properties. */
+    /** Zone-ahead line colour. Default #CC4CAF50 (alias of ${ui.dashboard.status.success}). Set via `map.zoneAhead.line` in maro.properties. */
     var mapZoneAheadLine: Int = 0xCC4CAF50.toInt()
         private set
-    /** Zone-ahead cone fill colour. Default #FFFFEB00. Set via `map.zoneAhead.cone.fill` in colors.properties. */
+    /** Zone-ahead cone fill colour. Default #FFFFEB00. Set via `map.zoneAhead.cone.fill` in maro.properties. */
     var mapZoneAheadConeFill: Int = 0xFFFFEB00.toInt()
         private set
-    /** Zone-ahead cone outline colour. Default #FFFFC800. Set via `map.zoneAhead.cone.outline` in colors.properties. */
+    /** Zone-ahead cone outline colour. Default #FFFFC800. Set via `map.zoneAhead.cone.outline` in maro.properties. */
     var mapZoneAheadConeOutline: Int = 0xFFFFC800.toInt()
         private set
-    /** Zone300 fill colour (~19 % alpha). Default #30E53935. Set via `map.zone300.fill` in colors.properties. */
+    /** Zone300 fill colour (~19 % alpha, vestigial — the fill's alpha comes from the transparency setting).
+     *  Default #30E53935. Set via `map.zone300.fill` in maro.properties. */
     var mapZone300Fill: Int = 0x30E53935.toInt()
         private set
-    /** Zone300 boundary colour. Default #FFE53935. Set via `map.zone300.boundary` in colors.properties. */
+    /** Zone300 boundary colour — the seed of `AppSettings.zone300Color`. Default #FFE53935.
+     *  Set via `map.zone300.boundary` in maro.properties. */
     var mapZone300Boundary: Int = 0xFFE53935.toInt()
         private set
     /** Gold wash over the boat, pulsed by an accepted Where-Am-I tap — the gold the
@@ -1109,9 +1122,11 @@ object AppConfig {
             props.getProperty("ui.toast.text")?.let { parseColorOrNull(it) }?.let { uiToastText = it }
 
             props.getProperty("map.coastline.mainland.color")?.let { parseColorOrNull(it) }?.let { mapCoastlineMainlandColor = it }
-            props.getProperty("map.coastline.mainland.width")?.toIntOrNull()?.let { mapCoastlineMainlandWidth = it.coerceIn(1, 50) }
             props.getProperty("map.coastline.island.color")?.let { parseColorOrNull(it) }?.let { mapCoastlineIslandColor = it }
-            props.getProperty("map.coastline.island.width")?.toIntOrNull()?.let { mapCoastlineIslandWidth = it.coerceIn(1, 50) }
+            props.getProperty("map.coastline.widthPx")?.toIntOrNull()?.let { mapCoastlineWidthPx = it }
+            props.getProperty("map.coastline.transparencyPct")?.toIntOrNull()?.let { mapCoastlineTransparencyPct = it.coerceIn(0, 100) }
+            props.getProperty("map.zone300.boundary.widthPx")?.toIntOrNull()?.let { mapZone300BoundaryWidthPx = it }
+            props.getProperty("map.regulatedZone.outline.widthPx")?.toIntOrNull()?.let { mapRegulatedZoneOutlineWidthPx = it }
 
             props.getProperty("map.navigation.arrow.color")?.let { parseColorOrNull(it) }?.let { mapNavigationArrowColor = it }
             props.getProperty("map.navigation.line.color")?.let { parseColorOrNull(it) }?.let { mapNavigationLineColor = it }

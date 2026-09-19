@@ -73,6 +73,12 @@
     <string name="settings_regen_warning_desc">Rebuild the shallow-water magenta hazard overlay</string>
     <string name="settings_coastline_label">Coastline</string>
     <string name="settings_coastline_desc">Show the coastline on the map</string>
+    <string name="settings_coastline_appearance_label">Coastline Appearance</string>
+    <string name="settings_coastline_width_desc">Width of the coastline stroke (px)</string>
+    <string name="settings_coastline_transparency_desc" formatted="false">Coastline stroke transparency (0% = opaque, 100% = invisible)</string>
+    <string name="settings_coastline_colors_label">Shoreline colours</string>
+    <string name="settings_coastline_colors_desc">Mainland on the left, island on the right</string>
+    <string name="settings_coastline_pair_label">Mainland / island</string>
     <string name="settings_land_water_icon_label">Show Land/Water Icon</string>
     <string name="settings_land_water_icon_desc">The square shows whether the boat is over water or land, and is hidden when off</string>
     <string name="settings_zone300_label">300m Zone</string>
@@ -81,6 +87,9 @@
     <string name="settings_zone300_color_desc">Fill and boundary color of the 300 m band</string>
     <string name="settings_zone300_opacity_desc">Zone content and border transparency (0% = opaque, 100% = invisible)</string>
     <string name="settings_zone300_appearance_label">300m Zone Appearance</string>
+    <string name="settings_zone300_boundary_width_desc">Width of the 300 m band boundary line (px)</string>
+    <string name="settings_regulated_zones_outline_width_desc">Width of the regulated zone outlines (px)</string>
+    <string name="settings_width_label">Stroke width</string>
     <string name="settings_auto_markers_label">Marker Auto Creation management</string>
     <string name="settings_regulated_zones_label">Regulated zones</string>
     <string name="settings_regulated_zones_desc">Show regulated zones (speed limits, anchoring, etc.) on the map</string>
@@ -159,6 +168,7 @@
     <string name="settings_value_meters">%d m</string>
     <string name="settings_value_depth">%.1f m</string>
     <string name="settings_value_percent">%d %%</string>
+    <string name="settings_value_px">%d px</string>
 
     <!-- Dashboard -->
     <string name="dash_distance_title">Distance</string>

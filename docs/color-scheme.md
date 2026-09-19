@@ -72,7 +72,6 @@ semantic.compliant → ui.dashboard.status.success → status.gps.healthy → #C
 | `status.gps.healthy` | `${ui.dashboard.status.success}` → `#CC4CAF50` | GPS healthy |
 | `status.earthWater.land` | `${ui.dashboard.status.success}` → `#CC4CAF50` | On land |
 | `regulatedZone.type.environmental` | `${ui.dashboard.status.success}` → `#CC4CAF50` | Environmental zones |
-| `map.zoneAhead.line` | `${ui.dashboard.status.success}` → `#CC4CAF50` | Zone-ahead direction line |
 | `map.isobar.litto3d.color` | `${ui.dashboard.status.success}` → `#CC4CAF50` | Litto3D isobath lines |
 
 ### Zone / Speed Status Colours
@@ -175,52 +174,60 @@ original 9 sp type and 3×1 dp padding — a reported risk rather than a second 
 ## 3. Navigation Aids
 
 **Property prefix:** `map.navigation.*`
-**Source:** [`colors.properties`](../app/src/main/assets/colors.properties) → `AppConfig.mapNavigation*`
+**Source:** [`maro.properties`](../app/src/main/assets/maro.properties) → `AppConfig.mapNavigation*`
 **Usage:** [`MapScreen.kt`](../app/src/main/java/ykws/android/maro/ui/map/MapScreen.kt)
 
-| Token | Value | Swatch | Usage |
-|---|---|---|---|
-| `map.navigation.arrow.color` | `#1565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Heading/speed cap arrow (boat marker) |
-| `map.navigation.line.color` | `#4D1565C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1565C0;opacity:0.3;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Direction line from boat center (30% alpha blue) |
+| Token | Usage |
+|---|---|
+| `map.navigation.arrow.color` | Heading/speed cap arrow (boat marker) |
+| `map.navigation.line.color` | Direction line from boat center — the value carries its own 30 % alpha |
 
 ---
 
 ## 4. Map Overlay Colours
 
-**Source:** [`colors.properties`](../app/src/main/assets/colors.properties) → `AppConfig.*`
+**Source:** [`colors.properties`](../app/src/main/assets/colors.properties) → `AppConfig.*`, except the
+families re-homed below to [`maro.properties`](../app/src/main/assets/maro.properties)
 
 **Re-homed:** `map.marker.tap.flash.color` and `.alpha` are the flash's functional settings rather than
 palette tokens, and ship in [`maro.properties`](../app/src/main/assets/maro.properties) →
 `AppConfig.mapMarkerTapFlash*`, beside the tap zone and the beat's timing.
 
+**Also in `maro.properties` (2026-09-19):** the coastline, hazard-disc, zone-ahead and 300 m-band colour
+keys below — each one parameterises a rendering behaviour rather than naming a palette role. Their key
+names are unchanged, and their values and the render widths beside them
+(`map.coastline.widthPx`, `map.coastline.transparencyPct`, `map.zone300.boundary.widthPx`,
+`map.regulatedZone.outline.widthPx`) are read in
+[`maro.properties`](../app/src/main/assets/maro.properties), not restated here.
+
 ### Coastlines
 
-| Token | Value | Swatch | Usage |
-|---|---|---|---|
-| `map.coastline.mainland.color` | `#1545C0` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#1545C0;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Mainland coastline stroke |
-| `map.coastline.island.color` | `#08805C` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#08805C;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Island coastline stroke |
+| Token | Usage |
+|---|---|
+| `map.coastline.mainland.color` | Mainland coastline stroke |
+| `map.coastline.island.color` | Island coastline stroke |
 
 ### Hazard Discs
 
-| Token | Value | Swatch | Usage |
-|---|---|---|---|
-| `map.hazard.disc.fill` | `#FFE800` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFE800;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Vivid yellow fill for offshore danger discs |
-| `map.hazard.outline` | `#000000` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#000000;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Black outline ring + cross |
+| Token | Usage |
+|---|---|
+| `map.hazard.disc.fill` | Vivid yellow fill for offshore danger discs |
+| `map.hazard.outline` | Black outline ring + cross |
 
 ### Zone-Ahead Line & Cone
 
-| Token | Value | Swatch | Usage |
-|---|---|---|---|
-| `map.zoneAhead.line` | `${ui.dashboard.status.success}` → `#CC4CAF50` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#4CAF50;opacity:0.8;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Dashed line to zone intersection |
-| `map.zoneAhead.cone.fill` | `#FFEB00` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFEB00;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Translucent yellow cone fill |
-| `map.zoneAhead.cone.outline` | `#FFC800` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#FFC800;vertical-align:middle;border:1px solid rgba(0,0,0,0.15);"></span> | Cone outline |
+| Token | Usage |
+|---|---|
+| `map.zoneAhead.line` | Dashed line to zone intersection — alias of the palette's success role |
+| `map.zoneAhead.cone.fill` | Translucent yellow cone fill |
+| `map.zoneAhead.cone.outline` | Cone outline |
 
 ### 300 m Band
 
-| Token | Value | Swatch | Usage |
-|---|---|---|---|
-| `map.zone300.fill` | `#30E53935` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#E53935;opacity:0.19;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Water-only fill (~19% alpha) |
-| `map.zone300.boundary` | `#E53935` | <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:#E53935;vertical-align:middle;border:1px solid rgba(255,255,255,0.2);"></span> | Seaward boundary line |
+| Token | Usage |
+|---|---|
+| `map.zone300.fill` | Water-only fill — its packed alpha is vestigial; the fill's alpha comes from the transparency setting |
+| `map.zone300.boundary` | Seaward boundary line — also the seed of the `zone300Color` setting |
 
 ### Depth Overlay
 

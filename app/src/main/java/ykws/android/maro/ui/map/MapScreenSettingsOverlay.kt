@@ -620,6 +620,21 @@ private fun LayersSettings(
                             }
                         }
                     )
+                    SectionDivider()
+                    // Outline stroke width (px): integer steps, committed on release like the pair above.
+                    var widthDrag by remember { mutableStateOf(settings.regulatedZoneOutlineWidthPx.toFloat()) }
+                    SliderRow(
+                        label = stringResource(R.string.settings_width_label),
+                        description = stringResource(R.string.settings_regulated_zones_outline_width_desc),
+                        valueLabel = stringResource(R.string.settings_value_px, widthDrag.roundToInt()),
+                        value = widthDrag,
+                        valueRange = 1f..20f,
+                        steps = 18,
+                        onValueChange = { v -> widthDrag = v },
+                        onValueChangeFinished = {
+                            onUpdateSettings { it.copy(regulatedZoneOutlineWidthPx = widthDrag.roundToInt()) }
+                        }
+                    )
                 }
             }
             Spacer(Modifier.height(AppConfig.uiSpacingGroupedRowGap.dp))
@@ -707,6 +722,21 @@ private fun LayersSettings(
                         }
                     )
                     SectionDivider()
+                    // Boundary stroke width (px): integer steps, committed on release like the pair above.
+                    var widthDrag by remember { mutableStateOf(settings.zone300BoundaryWidthPx.toFloat()) }
+                    SliderRow(
+                        label = stringResource(R.string.settings_width_label),
+                        description = stringResource(R.string.settings_zone300_boundary_width_desc),
+                        valueLabel = stringResource(R.string.settings_value_px, widthDrag.roundToInt()),
+                        value = widthDrag,
+                        valueRange = 1f..20f,
+                        steps = 18,
+                        onValueChange = { v -> widthDrag = v },
+                        onValueChangeFinished = {
+                            onUpdateSettings { it.copy(zone300BoundaryWidthPx = widthDrag.roundToInt()) }
+                        }
+                    )
+                    SectionDivider()
                     // Single colour control → SingleColorSubSection: the SubSectionHeader title
                     // row carries the 24dp swatch; description sits below (ui-component-guidelines §2.4).
                     SingleColorSubSection(
@@ -732,6 +762,61 @@ private fun LayersSettings(
                 checked = settings.coastlineVisible,
                 onCheckedChange = { visible -> onUpdateSettings { it.copy(coastlineVisible = visible) } }
             )
+            Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
+            // The shoreline's own look, behind an expander like its two zone neighbours: width,
+            // transparency, then the mainland/island colour pair.
+            Expander(
+                label = stringResource(R.string.settings_coastline_appearance_label),
+                expanded = settingsVm.isExpanded("coastline_appearance"),
+                onToggle = { settingsVm.setExpanded("coastline_appearance", !settingsVm.isExpanded("coastline_appearance")) }
+            ) {
+                Spacer(Modifier.height(8.dp))
+                NestedCard {
+                    // Width (px): integer steps, committed on release.
+                    var widthDrag by remember { mutableStateOf(settings.coastlineWidthPx.toFloat()) }
+                    SliderRow(
+                        label = stringResource(R.string.settings_width_label),
+                        description = stringResource(R.string.settings_coastline_width_desc),
+                        valueLabel = stringResource(R.string.settings_value_px, widthDrag.roundToInt()),
+                        value = widthDrag,
+                        valueRange = 1f..20f,
+                        steps = 18,
+                        onValueChange = { v -> widthDrag = v },
+                        onValueChangeFinished = {
+                            onUpdateSettings { it.copy(coastlineWidthPx = widthDrag.roundToInt()) }
+                        }
+                    )
+                    SectionDivider()
+                    // Transparency: 0 = opaque, 100 = invisible — the app-wide convention.
+                    var transparencyDrag by remember { mutableStateOf(settings.coastlineTransparencyPct.toFloat()) }
+                    SliderRow(
+                        label = stringResource(R.string.settings_transparency_border_fill_label),
+                        description = stringResource(R.string.settings_coastline_transparency_desc),
+                        valueLabel = stringResource(R.string.settings_value_percent, transparencyDrag.roundToInt()),
+                        value = transparencyDrag,
+                        valueRange = 0f..100f,
+                        steps = 19,
+                        onValueChange = { v -> transparencyDrag = v },
+                        onValueChangeFinished = {
+                            onUpdateSettings { it.copy(coastlineTransparencyPct = transparencyDrag.roundToInt()) }
+                        }
+                    )
+                    SectionDivider()
+                    SubSectionHeader(
+                        title = stringResource(R.string.settings_coastline_colors_label),
+                        description = stringResource(R.string.settings_coastline_colors_desc)
+                    )
+                    // Mainland left, island right — the same pair component the track colours use.
+                    ColorPairRow(
+                        label = stringResource(R.string.settings_coastline_pair_label),
+                        fromColor = settings.coastlineMainlandColor,
+                        toColor = settings.coastlineIslandColor,
+                        onFromColorSelected = { c -> onUpdateSettings { it.copy(coastlineMainlandColor = c) } },
+                        onToColorSelected = { c -> onUpdateSettings { it.copy(coastlineIslandColor = c) } }
+                    )
+                }
+            }
+            Spacer(Modifier.height(AppConfig.uiSpacingGroupedAfterExpander.dp))
         }
 
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
