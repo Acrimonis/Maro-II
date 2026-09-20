@@ -42,8 +42,28 @@ data class Track(
     @ProtoNumber(15) val idleDurationSec: Long = 0,
     @ProtoNumber(16) val boatMarkers: List<BoatMarker> = emptyList(),
     @ProtoNumber(17) val updatedAtEpochMs: Long = 0L,
-    @ProtoNumber(18) val lastPointTimeMs: Long = 0L
+    @ProtoNumber(18) val lastPointTimeMs: Long = 0L,
+    /**
+     * True when this track's vertices are a *plan* rather than a recording: the speeds are the
+     * speeds the router intended, taken at search time, and the times are the times it allotted.
+     *
+     * A fresh number with a default, so an old blob reads unchanged and an older build still reads
+     * a new one — which is why the flag lives here rather than as a new `PointType`, where an older
+     * reader would refuse the whole file. It is the only thing that distinguishes a saved route;
+     * every downstream reader treats the track as an ordinary one.
+     */
+    @ProtoNumber(19) val plannedCourse: Boolean = false
 )
+
+/**
+ * The Tracks feature's standard auto-name for a newly saved track — `yyyy-MM-dd HH:mm`, US locale.
+ *
+ * One home for it: the recorder names a new recording with this and `TrackFromCourse` names a saved
+ * route with it, so the two kinds of track sort and read alike in the list.
+ */
+fun trackAutoName(epochMs: Long): String =
+    java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US)
+        .format(java.util.Date(epochMs))
 
 /**
  * Absolute epoch millis of the last real (non-GAP) track point, or null if there are none.

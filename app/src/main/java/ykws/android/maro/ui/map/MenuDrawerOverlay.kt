@@ -93,6 +93,14 @@ fun MenuDrawerOverlay(
     onExportAllTracks: () -> Unit = {},
     onDismiss: () -> Unit,
     onOpenSettings: () -> Unit = {},
+    /**
+     * The destination mode's own state, read from the route bundle: [routeActive] marks the entry
+     * while aiming or following, [routeAvailable] is the mesh being decoded — without it the entry
+     * carries no tap rather than opening a mode that cannot search.
+     */
+    routeActive: Boolean = false,
+    routeAvailable: Boolean = false,
+    onOpenDestination: () -> Unit = {},
     modifier: Modifier = Modifier,
     // ── Filter state ──────────────────────────────────────────────────
     trackFilterState: ykws.android.maro.data.model.ListFilter = ykws.android.maro.data.model.ListFilter(),
@@ -157,6 +165,42 @@ fun MenuDrawerOverlay(
                     label = stringResource(R.string.settings_autoshow_master_label),
                     checked = autoShowMasterOverride,
                     onCheckedChange = onAutoShowMasterChange
+                )
+            }
+
+            // ── The destination entry: the second seam, one row through the existing model ──
+            // It is an action rather than a toggle — the mode's own switch is the map control stack's
+            // square — so it opens the mode and never closes it, and the accent arrow is its state.
+            SectionDivider()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .clickable(enabled = routeAvailable, onClick = onOpenDestination)
+                    .padding(horizontal = 4.dp)
+                    .semantics(mergeDescendants = true) {},
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Column {
+                    Text(
+                        text = stringResource(R.string.menu_route_destination),
+                        color = Color(AppConfig.uiTextPrimary)
+                            .copy(alpha = if (routeAvailable) 1f else 0.35f),
+                        fontSize = AppConfig.uiFontToggleSize.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = stringResource(R.string.menu_route_destination_desc),
+                        color = Color(AppConfig.uiTextMuted),
+                        fontSize = AppConfig.uiFontDescSize.sp
+                    )
+                }
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = if (routeActive) Color(AppConfig.uiAccent) else Color(AppConfig.uiTextMuted),
+                    modifier = Modifier.size(28.dp)
                 )
             }
         }

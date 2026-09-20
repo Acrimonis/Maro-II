@@ -13,6 +13,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import ykws.android.maro.BuildConfig
 import ykws.android.maro.data.model.*
 import ykws.android.maro.spatial.SpatialOperations
+import ykws.android.maro.spatial.Units
 import java.util.concurrent.TimeUnit
 import kotlin.math.cos
 import kotlin.math.PI
@@ -154,7 +155,7 @@ class CoastlineGenerator(
         onProgress("Filtrage îles", 55)
 
         // ── 4. Island filter (55 → 65) ──────────────────────────────────────
-        val islandMaxDistM = islandMaxDistanceNm * 1852.0 // NM → meters
+        val islandMaxDistM = Units.nauticalMilesToMetres(islandMaxDistanceNm)
         val mainCoastline = mainlandPolylines.maxByOrNull { it.points.size }
             ?: throw IllegalStateException("Côte principale introuvable.")
 

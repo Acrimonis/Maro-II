@@ -60,6 +60,7 @@ import ykws.android.maro.data.settings.SettingsManager
 import ykws.android.maro.BuildConfig
 import ykws.android.maro.spatial.SpeedZoneIndex
 import ykws.android.maro.spatial.SpatialOperations
+import ykws.android.maro.spatial.Units
 import kotlin.math.sqrt
 import kotlin.math.sin
 import kotlin.math.cos
@@ -240,6 +241,28 @@ class NavigationViewModel(
 
     /** Repository for prebaked regulated zone data (loaded from APK assets). */
     private val regulatedZonesRepository: RegulatedZonesRepository = RegulatedZonesRepository()
+
+    /**
+     * The two spatial sources the Route feature reads **read-only**, handed out so the route's
+     * `RouteSpatialAdapter` prices its edges from the very instances this ViewModel loaded rather
+     * than from two empty copies of them. Nothing is written through either reference here.
+     */
+    val routeCoastline: CoastlineRepository get() = repository
+    val routeRegulatedZones: RegulatedZonesRepository get() = regulatedZonesRepository
+
+    /**
+     * True while the destination mode is aiming: demo's speed is derived from the map's pan, so
+     * aiming would sail the boat and extend its trace — the mode suspends that derivation and the
+     * dashboard's speed readout reads stationary. Set by `RouteHost` on the mode's two edges.
+     */
+    private var routeAiming = false
+
+    /** @see routeAiming */
+    fun setRouteAiming(active: Boolean) {
+        if (routeAiming == active) return
+        routeAiming = active
+        if (active) _navigationState.update { it.copy(demoSpeedKnots = null) }
+    }
 
     /** Speed zone spatial index — built once when both data sources are ready. */
     private val _speedZoneIndex = MutableStateFlow<SpeedZoneIndex?>(null)
@@ -687,7 +710,7 @@ class NavigationViewModel(
                                 abs(szQuery.distanceToBoundaryM ?: 0.0)  // fallback
                             }
                             val etaS = if (sogKnH != null && sogKnH > 0f) {
-                                (dist / (sogKnH * KNOTS_TO_MPS)).coerceAtLeast(0.0)
+                                (dist / (sogKnH * Units.MPS_PER_KNOT)).coerceAtLeast(0.0)
                             } else null
                             val exitPos = SpatialOperations.pointAlongBearing(
                                 center.latitude, center.longitude, headingDegH, dist
@@ -827,7 +850,7 @@ class NavigationViewModel(
                     val compliantInside = inside && sogKn != null && sogKn <= strictestKn.toFloat()
                     val reveal = !speedVisible && hit != null && (
                         hit.distanceM <= cfg.zoneAutoRevealDistanceM.toDouble() ||
-                        (sogKn != null && sogKn > 0f && hit.distanceM / (sogKn * KNOTS_TO_MPS) <= cfg.zoneAutoRevealTimeS)
+                        (sogKn != null && sogKn > 0f && hit.distanceM / (sogKn * Units.MPS_PER_KNOT) <= cfg.zoneAutoRevealTimeS)
                     )
                     val hide = compliantInside ||
                         (!inside && (hit == null || hit.distanceM > cfg.zoneAutoRevealDistanceM + AppConfig.speedZoneHysteresisM))
@@ -944,7 +967,7 @@ class NavigationViewModel(
                 // Atomic update: bearing + speed written in a single snapshot so
                 // Compose never sees an intermediate frame with mismatched values.
                 _navigationState.update { current ->
-                    val newSpeed = fix.speedMps?.let { it * MPS_TO_KNOTS }
+                    val newSpeed = fix.speedMps?.let { (it.toDouble() * Units.KNOTS_PER_MPS).toFloat() }
                     val newBearing = if (fix.hasCourse && fix.bearingDeg != null) {
                         val delta = kotlin.math.abs(((fix.bearingDeg - current.bearingDeg + 540f) % 360f) - 180f)
                         if (delta >= MIN_BEARING_DELTA_DEG) fix.bearingDeg else current.bearingDeg
@@ -1308,8 +1331,17 @@ class NavigationViewModel(
             settingsManager.update { it.copy(mapCenterLat = latitude, mapCenterLon = longitude) }
         }
         // Demo mode: extrapolate pan velocity → simulated speed in knots (and heading if enabled).
+        // While the destination mode is aiming the derivation is suspended — aiming *is* panning, so
+        // letting it through would sail the boat and extend its trace — and the readout reads
+        // stationary. The observed pace stays a GPS-mode feature, so nothing is sampled here.
         if (!settings.value.gpsMode) {
-            computeDemoSpeed(latitude, longitude)
+            if (routeAiming) {
+                if (_navigationState.value.demoSpeedKnots != null) {
+                    _navigationState.update { it.copy(demoSpeedKnots = null) }
+                }
+            } else {
+                computeDemoSpeed(latitude, longitude)
+            }
         } else {
             _navigationState.update { it.copy(demoSpeedKnots = null) }
         }
@@ -1524,7 +1556,7 @@ class NavigationViewModel(
 
         // Helper to compute ETA for heading-ray results
         fun eta(distM: Double): Double? = if (currentSpeedKnots != null && currentSpeedKnots > 0f)
-            (distM / (currentSpeedKnots * 0.514444)).coerceAtLeast(0.0) else null
+            (distM / (currentSpeedKnots * Units.MPS_PER_KNOT)).coerceAtLeast(0.0) else null
 
         // 1. Direct heading ray-march for 300m band entry
         val bandDist = distanceTo300mAlongHeading(lat, lon, headingDeg, currentDistToCoast, radiusM)
@@ -1533,11 +1565,11 @@ class NavigationViewModel(
             val bearing = SpatialOperations.initialBearing(pos, pt)
             results.add(ZoneBoundaryInfo(
                 distanceM = bandDist, zoneName = "BANDE 300M",
-                speedLimitKn = 5.0, beyondType = BeyondType.ZONE, beyondName = "BANDE 300M",
+                speedLimitKn = AppConfig.zoneRegulatorySpeedKn.toDouble(), beyondType = BeyondType.ZONE, beyondName = "BANDE 300M",
                 directionArrow = computeArrow(bearing, headingDeg),
                 etaSeconds = eta(bandDist),
                 currentSpeedKnots = currentSpeedKnots,
-                isCompliant = currentSpeedKnots == null || currentSpeedKnots < 5f,
+                isCompliant = currentSpeedKnots == null || currentSpeedKnots < AppConfig.zoneRegulatorySpeedKn,
                 boundaryPosition = pt
             ))
         }
@@ -1609,20 +1641,23 @@ class NavigationViewModel(
 
         // SHOM zone exit: directional boundary along heading (laser)
         val szExit = speedZoneIndex?.boundaryInCone(lat, lon, headingDeg, 0.0, maxSearchM)
-            ?.let { hit -> Triple(hit.zone.name, hit.zone.speedLimitKn ?: 5.0, hit.distanceM) }
+            ?.let { hit ->
+                Triple(hit.zone.name, hit.zone.speedLimitKn ?: AppConfig.zoneRegulatorySpeedKn.toDouble(), hit.distanceM)
+            }
 
         // Pick closest exit
+        val bandKn = AppConfig.zoneRegulatorySpeedKn.toDouble()
         val bestExit = when {
             bandExit != null && szExit != null ->
-                if (bandExit <= szExit.third) Triple("BANDE 300M", 5.0, bandExit) else szExit
-            bandExit != null -> Triple("BANDE 300M", 5.0, bandExit)
+                if (bandExit <= szExit.third) Triple("BANDE 300M", bandKn, bandExit) else szExit
+            bandExit != null -> Triple("BANDE 300M", bandKn, bandExit)
             szExit != null -> szExit
             else -> return null
         }
 
         val (zoneName, limitKn, exitDistM) = bestExit
         val etaSeconds = if (currentSpeedKnots != null && currentSpeedKnots > 0f) {
-            (exitDistM / (currentSpeedKnots * 0.514444)).coerceAtLeast(0.0)
+            (exitDistM / (currentSpeedKnots * Units.MPS_PER_KNOT)).coerceAtLeast(0.0)
         } else null
         val compliant = currentSpeedKnots == null || currentSpeedKnots < limitKn.toFloat()
         val boundaryPos = SpatialOperations.pointAlongBearing(lat, lon, headingDeg, exitDistM)
@@ -1757,9 +1792,6 @@ class NavigationViewModel(
         /** Inactivity timeout (ms) before demo pan speed resets to null. */
         private const val PAN_STOP_DELAY_MS = 500L
 
-        /** Metres-per-second → knots. */
-        private const val MPS_TO_KNOTS = 1.943844f
-
         /** Scale factor for sqrt-compressed demo speed: knots = sqrt(rawMps × this). */
         private const val DEMO_SPEED_SCALE = 0.2
         /** Cone half-angle (degrees) — zones within ±this of heading get priority and show as "ahead". */
@@ -1877,13 +1909,12 @@ internal data class ZoneAutoShowConfig(
     /** True = hide when compliant inside (300m band behavior). False = stay visible while inside (speed zone behavior). */
     val hideOnCompliantInside: Boolean = true,
     /** Regulatory speed limit (kn) for compliance check (only when [hideOnCompliantInside]). */
-    val regulatorySpeedKn: Double = 5.0,
+    val regulatorySpeedKn: Double = AppConfig.zoneRegulatorySpeedKn.toDouble(),
     /** Hysteresis deadband (m) for boundary detection (only for speed zone behavior). */
     val hysteresisM: Double = 5.0
 )
 
 
-private const val KNOTS_TO_MPS = 0.514444      // 1 knot = 0.514444 m/s
 private const val CLOSING_EPS_MPS = 0.05       // ignore closing speeds below ~0.1 kn for time-to-band
 
 /**
@@ -1928,7 +1959,7 @@ internal fun zoneAutoShowDecision(
     val entered = zoneEntered || (autoRevealed && dist != null && dist <= 0.0)
 
     if (!autoRevealed) {
-        val sogMps = (sogKn ?: 0f) * KNOTS_TO_MPS
+        val sogMps = (sogKn ?: 0f) * Units.MPS_PER_KNOT
         val timeToZoneS =
             if (approaching && dist != null && dist > 0.0 && sogMps > CLOSING_EPS_MPS) dist / sogMps
             else Double.POSITIVE_INFINITY

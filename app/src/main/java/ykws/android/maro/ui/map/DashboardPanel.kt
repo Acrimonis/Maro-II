@@ -3,6 +3,7 @@ package ykws.android.maro.ui.map
 import ykws.android.maro.config.AppConfig
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,10 +19,13 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -97,6 +101,21 @@ fun DashboardPanel(
     zoneSituation: ZoneSituation? = null,
     autoRevealDistanceM: Float = 100f,
     autoRevealTimeS: Float = 10f,
+    /**
+     * The trip figure while a route is confirmed, or null. It takes the **distance-to-shore cell** —
+     * the zone cell keeps its compliance duty and no separate route panel exists — which is the
+     * epic's placement, not this component's choice.
+     */
+    routeTrip: RouteTripFigure? = null,
+    /**
+     * The route's manual recompute, offered **on the trip card itself**.
+     *
+     * This is a deliberate exception to the panel's own read-only rule, and it is the epic's own
+     * placement — the age and the recompute live where the trip figure lives, and no separate route
+     * panel exists — so the one control that belongs to the trip figure is drawn on it rather than
+     * somewhere the user would have to look for it.
+     */
+    onRecomputeRoute: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -127,6 +146,8 @@ fun DashboardPanel(
                         zoneSituation = zoneSituation,
                         autoRevealDistanceM = autoRevealDistanceM,
                         autoRevealTimeS = autoRevealTimeS,
+                        routeTrip = routeTrip,
+                        onRecomputeRoute = onRecomputeRoute,
                         modifier = Modifier
                             .weight(1f)
                             .fillMaxHeight()
@@ -186,12 +207,15 @@ private fun DashboardCard(
     subtitleColor: Color = DashboardColors.textMutedBright,
     subtitleWeight: FontWeight = FontWeight.Medium,
     isEmpty: Boolean = false,
+    /** An optional tap on the whole card — used by the trip card's recompute, null everywhere else. */
+    onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
             .background(cardColor)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 4.dp, vertical = 2.dp)
     ) {
         Column(
@@ -302,6 +326,66 @@ private fun distanceText(distanceM: Double): String {
     }
 }
 
+/**
+ * The trip card: the distance-to-shore cell's other face, worn while a route is confirmed.
+ *
+ * Distance to go, the ETA at the pace in force, and the plan's age — the age ticking on its own so a
+ * route that is not being recomputed still reads as an old figure rather than as a fresh one. A
+ * stale plan (the boat left the covered water) dulls the value and says so.
+ */
+@Composable
+private fun RouteTripCard(
+    trip: RouteTripFigure,
+    onRecompute: (() -> Unit)? = null,
+    modifier: Modifier = Modifier
+) {
+    var nowMs by remember { mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(trip.computedAtMs) {
+        while (true) {
+            delay(1_000L)
+            nowMs = System.currentTimeMillis()
+        }
+    }
+    val ageSeconds = ((nowMs - trip.computedAtMs) / 1_000L).coerceAtLeast(0L)
+    val subtitle = listOfNotNull(
+        formatEta(trip.etaSeconds),
+        // A forced crossing is said here and not left to the line: the card is the one figure a
+        // following boat reads, and a crossing taken because no way around exists must not read as an
+        // ordinary ETA.
+        if (trip.forcedCrossingZoneNames.isNotEmpty()) {
+            stringResource(
+                R.string.route_trip_forced,
+                trip.forcedCrossingZoneNames.joinToString(", ")
+            )
+        } else {
+            null
+        },
+        if (trip.stale) stringResource(R.string.route_trip_stale) else null,
+        routeAgeText(ageSeconds),
+        if (onRecompute != null) ROUTE_RECOMPUTE_MARK else null
+    ).joinToString(" \u00b7 ")
+
+    DashboardCard(
+        title = stringResource(R.string.route_trip_title),
+        value = stringResource(R.string.route_trip_distance_nm, trip.distanceNm),
+        subtitle = subtitle,
+        valueColor = if (trip.stale) {
+            DashboardColors.textPrimary.copy(alpha = DashboardColors.dullAlpha)
+        } else {
+            DashboardColors.textPrimary
+        },
+        onClick = onRecompute,
+        modifier = modifier
+    )
+}
+
+/**
+ * The recompute affordance's mark: the standard refresh arrow, which every platform draws for
+ * "ask again". It is a glyph rather than a label because the card has one line to spare and a label
+ * would ellipsise the ETA it sits beside.
+ */
+private const val ROUTE_RECOMPUTE_MARK = "\u21bb"
+
 /** Format ETA seconds as a localised string — either "ETA X s" or "ETA X:XX min". */
 @Composable
 private fun formatEta(etaSeconds: Double?): String? {
@@ -321,8 +405,18 @@ private fun DistanceCard(
     zoneSituation: ZoneSituation? = null,
     autoRevealDistanceM: Float = 100f,
     autoRevealTimeS: Float = 10f,
+    routeTrip: RouteTripFigure? = null,
+    onRecomputeRoute: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    // ── The trip figure, while a route is confirmed ────────────────────
+    // It outranks every other reading this cell could show: the cell carries the trip's distance and
+    // time, and reaching the destination is this value reading zero rather than any state changing.
+    if (routeTrip != null) {
+        RouteTripCard(trip = routeTrip, onRecompute = onRecomputeRoute, modifier = modifier)
+        return
+    }
+
     // ── No data / loading ──────────────────────────────────────────────
     if (state !is CoastlineState.Ready || distanceToShore == null) {
         DashboardCard(

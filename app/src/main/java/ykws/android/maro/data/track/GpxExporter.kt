@@ -2,6 +2,7 @@ package ykws.android.maro.data.track
 
 import android.util.Base64
 import kotlinx.serialization.protobuf.ProtoBuf
+import ykws.android.maro.spatial.Units
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -42,7 +43,7 @@ fun Track.toGpx(): String = buildString {
     for (point in trackPoints) {
         append("<trkpt lat=\"${point.lat}\" lon=\"${point.lon}\">")
         if (point.speedMps != null) {
-            val speedKn = point.speedMps * 1.94384
+            val speedKn = point.speedMps.toDouble() * Units.KNOTS_PER_MPS
             append("<speed>${"%.2f".format(speedKn)}</speed>")
         }
         if (point.bearingDeg != null) {

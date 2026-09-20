@@ -27,6 +27,7 @@ import ykws.android.maro.data.model.markers.MarkerOrigin
 import ykws.android.maro.data.model.markers.UserMarker
 import ykws.android.maro.data.track.TrackEvent.*
 import ykws.android.maro.spatial.SpatialOperations
+import ykws.android.maro.spatial.Units
 import ykws.android.maro.spatial.WhereAmIMatch
 import ykws.android.maro.spatial.WhereAmIResult
 import java.text.SimpleDateFormat
@@ -84,7 +85,7 @@ private const val SIDEWAYS_SPEED_THRESHOLD_MPS = 5.0f
 /** Multiplier applied to accuracy threshold when GPS speed indicates movement (>0.5 kn). */
 private const val ACCURACY_MOVING_MULTIPLIER = 1.7f
 /** GPS speed (m/s, ~0.5 kn) below which the stationary accuracy threshold applies. */
-private const val MIN_MOVEMENT_SPEED_FOR_ACCURACY_MPS = (1.0 / 1.94384).toFloat()
+private val MIN_MOVEMENT_SPEED_FOR_ACCURACY_MPS = Units.MPS_PER_KNOT.toFloat()
 
 /** Interval (ms) between title poll ticks. */
 private const val TITLE_POLL_INTERVAL_MS = 180_000L
@@ -370,8 +371,8 @@ class TrackRecorder(
                 isMoving = false,
                 pointCount = points.size,
                 distanceNm = resumedTrack.distanceNm,
-                avgSpeedKn = resumedTrack.averageSpeedMps * 1.94384f,
-                maxSpeedKn = resumedTrack.fastestSpeedMps * 1.94384f,
+                avgSpeedKn = resumedTrack.averageSpeedMps * Units.KNOTS_PER_MPS.toFloat(),
+                maxSpeedKn = resumedTrack.fastestSpeedMps * Units.KNOTS_PER_MPS.toFloat(),
                 elapsedSeconds = (now - resumedTrack.startTimeMs - resumeGapDurationSec) / 1000
             )
         }
@@ -650,7 +651,7 @@ class TrackRecorder(
         val stopped = isStopped.value
         _uiState.update { it.copy(isMoving = !stopped) }
 
-        val speedKn = sample.speedMps?.let { it * 1.94384f }
+        val speedKn = sample.speedMps?.let { it * Units.KNOTS_PER_MPS.toFloat() }
         Log.d(TAG, "addPoint: speed=${speedKn} kn isStopped=$stopped state=$state")
 
         // ── Idle duration accumulation + BoatMarker session lifecycle ──
@@ -722,7 +723,7 @@ class TrackRecorder(
         if (gpsMode) {
             // ── Still-spike gate: contradiction check (speed=0 + position jump) ──
             if (lastGenuineLat != null && lastGenuineLon != null) {
-                val gpsSpeedKn = sample.speedMps?.let { it * 1.94384 } ?: 0.0
+                val gpsSpeedKn = sample.speedMps?.let { it.toDouble() * Units.KNOTS_PER_MPS } ?: 0.0
                 if (gpsSpeedKn < 2.0) {
                     val distFromGenuine = SpatialOperations.haversine(
                         LatLng(lastGenuineLat!!, lastGenuineLon!!), sample.position
@@ -752,14 +753,14 @@ class TrackRecorder(
                 if (lastValidPointLat != null && lastValidPointLon != null && lastValidPointTimeMs > 0L) {
                     val refPos = LatLng(lastValidPointLat!!, lastValidPointLon!!)
                     val distM = SpatialOperations.haversine(refPos, sample.position)
-                    val gpsSpeedKn = sample.speedMps?.let { it * 1.94384 } ?: 0.0
+                    val gpsSpeedKn = sample.speedMps?.let { it.toDouble() * Units.KNOTS_PER_MPS } ?: 0.0
                     if (gpsSpeedKn < 2.0 && distM > MAX_STATIONARY_DRIFT_M) {
                         logRejection("stale drift", distM, MAX_STATIONARY_DRIFT_M.toDouble())
                         return
                     }
                     val dtSec = (sample.timestampEpochMs - lastValidPointTimeMs) / 1000.0
                     if (dtSec > 0.0) {
-                        val impliedKn = (distM / dtSec) * 1.94384
+                        val impliedKn = (distM / dtSec) * Units.KNOTS_PER_MPS
                         val isLowSpeed = (sample.speedMps?.toDouble() ?: 0.0) < LOW_SPEED_MPS
                         val staleCap = boatMaxSpeedKn * if (isLowSpeed) STALE_CAP_LOW_SPEED else STALE_CAP_NORMAL
                         if (impliedKn > staleCap) {
@@ -787,7 +788,7 @@ class TrackRecorder(
 
             // Fix B: Gate 0.5 — GPS-reported speed cap (sea mode only)
             if (!isOnLand) {
-                val gpsSpeedKn = sample.speedMps?.let { it * 1.94384 } ?: 0.0
+                val gpsSpeedKn = sample.speedMps?.let { it.toDouble() * Units.KNOTS_PER_MPS } ?: 0.0
                 val gpsSpeedCap = boatMaxSpeedKn * 1.25  // 40 kn
                 if (gpsSpeedKn > gpsSpeedCap) {
                     logRejection("gps speed", gpsSpeedKn, gpsSpeedCap)
@@ -802,7 +803,7 @@ class TrackRecorder(
                 val lastValidPos = LatLng(lastValidPointLat!!, lastValidPointLon!!)
                 val distM = SpatialOperations.haversine(lastValidPos, sample.position)
                 // Fix C: absolute distance cap when stationary — anchored to last genuine position
-                val gpsSpeedKn = sample.speedMps?.let { it * 1.94384 } ?: 0.0
+                val gpsSpeedKn = sample.speedMps?.let { it.toDouble() * Units.KNOTS_PER_MPS } ?: 0.0
                 if (lastGenuineLat != null && lastGenuineLon != null && gpsSpeedKn < 2.0) {
                     val distFromGenuine = SpatialOperations.haversine(LatLng(lastGenuineLat!!, lastGenuineLon!!), sample.position)
                     if (distFromGenuine > MAX_STATIONARY_DRIFT_M) {
@@ -820,7 +821,7 @@ class TrackRecorder(
                 }
                 val timeDeltaSec = (sample.timestampEpochMs - lastValidPointTimeMs) / 1000.0
                 if (timeDeltaSec > 0.0) {
-                    val impliedSpeedKn = (distM / timeDeltaSec) * 1.94384
+                    val impliedSpeedKn = (distM / timeDeltaSec) * Units.KNOTS_PER_MPS
 
                     // Gate 1: Context speed cap
                     val baseCap = if (isOnLand) landMaxSpeedKn else boatMaxSpeedKn
@@ -847,7 +848,7 @@ class TrackRecorder(
                     }
 
                     // Gate 3: Acceleration
-                    val currentSpeedKn = sample.speedMps?.let { it * 1.94384 } ?: impliedSpeedKn
+                    val currentSpeedKn = sample.speedMps?.let { it.toDouble() * Units.KNOTS_PER_MPS } ?: impliedSpeedKn
                     val accelKnPerSec = abs(currentSpeedKn - lastValidSpeedKn) / timeDeltaSec
                     val accelLimit = if (isOnLand) MAX_ACCEL_KN_PER_SEC_LAND else MAX_ACCEL_KN_PER_SEC_SEA
 
@@ -903,7 +904,7 @@ class TrackRecorder(
         val latestSpeedKn = sample.speedMps?.let { mps ->
             speedSumMps += mps
             speedCount++
-            val speedKn = mps * 1.94384f
+            val speedKn = mps * Units.KNOTS_PER_MPS.toFloat()
             if (speedKn > _uiState.value.maxSpeedKn) {
                 _uiState.update { it.copy(maxSpeedKn = speedKn) }
             }
@@ -915,7 +916,7 @@ class TrackRecorder(
             val distM = TrackGeofenceChecker.distanceM(
                 lastPointLat!!, lastPointLon!!, point.lat, point.lon
             )
-            cumulativeDistanceNm += (distM / 1852.0).toFloat()
+            cumulativeDistanceNm += Units.metresToNauticalMiles(distM).toFloat()
         }
         lastPointLat = point.lat
         lastPointLon = point.lon
@@ -936,7 +937,7 @@ class TrackRecorder(
         _events.tryEmit(PointCaptured(point))
         _newPoint.tryEmit(point)
         val avgKn = if (speedCount > 0) {
-            (speedSumMps / speedCount) * 1.94384f
+            (speedSumMps / speedCount) * Units.KNOTS_PER_MPS.toFloat()
         } else 0f
         _uiState.update {
             it.copy(
@@ -948,12 +949,12 @@ class TrackRecorder(
         }
 
         // Update spike-rejection trackers
-        val acceptedSpeedKn = sample.speedMps?.let { it * 1.94384 } ?: _uiState.value.currentSpeedKn.toDouble()
+        val acceptedSpeedKn = sample.speedMps?.let { it.toDouble() * Units.KNOTS_PER_MPS } ?: _uiState.value.currentSpeedKn.toDouble()
         lastValidSpeedKn = acceptedSpeedKn
 
         // Land-to-sea recovery: count consecutive sea-speed fixes while on land
         if (isOnLand) {
-            val sampleSpeedKn = (sample.speedMps ?: 0f) * 1.94384
+            val sampleSpeedKn = (sample.speedMps ?: 0f).toDouble() * Units.KNOTS_PER_MPS
             if (sampleSpeedKn <= boatMaxSpeedKn) {
                 landModeAcceptCounter++
                 if (landModeAcceptCounter >= SEA_RECOVERY_CONSECUTIVE) {
@@ -1125,10 +1126,8 @@ class TrackRecorder(
         _uiState.update { TrackRecorderUiState() }
     }
 
-    private fun formatTimestamp(epochMs: Long): String {
-        val sdf = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US)
-        return sdf.format(Date(epochMs))
-    }
+    /** The new-recording name, from its one home beside [Track] — see [trackAutoName]. */
+    private fun formatTimestamp(epochMs: Long): String = trackAutoName(epochMs)
 
     // ── Spike rejection v2 helpers ──
 
@@ -1146,7 +1145,7 @@ class TrackRecorder(
     /** Auto-detect land/sea context from rejection patterns. */
     private fun checkLandDetection(sample: TrackSample) {
         if (consecutiveRejections >= LAND_DETECTION_REJECTIONS) {
-            val speedKn = sample.speedMps?.let { it * 1.94384 } ?: 0.0
+            val speedKn = sample.speedMps?.let { it.toDouble() * Units.KNOTS_PER_MPS } ?: 0.0
             if (speedKn > boatMaxSpeedKn) {
                 isOnLand = true
                 consecutiveRejections = 0

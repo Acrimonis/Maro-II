@@ -35,6 +35,110 @@ object AppConfig {
     var zoneRegulatorySpeedKn = 5f
         private set
 
+    /**
+     * Free-water pace (kn) a route's trip figure plans at until the boat's own observed pace has
+     * something to say — `route.freeWaterPaceKn`, default 28.
+     *
+     * The span's bounds live beside it so the properties loader, the settings clamp and the Settings
+     * row all read one definition rather than each spelling 3 and 40 for itself.
+     */
+    var routeFreeWaterPaceKn = 28f
+        private set
+
+    /** Lowest free-water pace (kn) the setting accepts. */
+    const val ROUTE_FREE_WATER_PACE_MIN_KN = 3f
+
+    /** Highest free-water pace (kn) the setting accepts. */
+    const val ROUTE_FREE_WATER_PACE_MAX_KN = 40f
+
+    /**
+     * The route line's colour — `route.line.color`, default a green that reads as "the way to go"
+     * against both the blue water and the amber tracks.
+     *
+     * The line's three drawing values live here and in `maro.properties` alone, following the rule
+     * that every drawing value has one home: the overlay reads these and gains no Settings row until
+     * one is asked for.
+     */
+    var routeLineColor: Int = 0xFF2ECC71.toInt()
+        private set
+
+    /** The route line's transparency (0 = opaque, 100 = invisible) — `route.line.transparencyPct`. */
+    var routeLineTransparencyPct: Int = 15
+        private set
+
+    /** The route line's stroke width (dp) — `route.line.widthDp`. */
+    var routeLineWidthDp: Float = 6f
+        private set
+
+    /** The destination pin's fill colour — `route.pin.color`. */
+    var routePinColor: Int = 0xFF2ECC71.toInt()
+        private set
+
+    /** The ring drawn around the destination pin (dp) — `route.pin.ringWidthDp`. */
+    var routePinRingWidthDp: Float = 3f
+        private set
+
+    /**
+     * The route's comfortable-turn cap: the lateral acceleration (m/s²) a smoothed turn may hold —
+     * `route.turn.lateralAccelMps2`, default 0.5.
+     *
+     * The cap is what fixes a turn's radius at a speed, `R = v² / a` — about 83 m at 15 kn and 415 m
+     * at 28 kn — so a fast route sweeps wider than a slow one by construction rather than by a rule
+     * that has to be told which speed it is at. It is read live, like every other route value, so
+     * changing it changes the next route and never a bake.
+     *
+     * **Shipped at 0.5 on the re-taken sweep of 2026-09-20, the first one on which the fillet drew
+     * anything.** The fillet places an arc at every corner of this mesh at every value the property
+     * accepts — 446 of 446 at 0.5, 1 of 444 sharp at 1.0, never one refused for leg room and none at
+     * all for want of an arc — so the cap now chooses how *wide* the arcs are, and the gentlest drawn
+     * line is at the clamp's own floor: the probe's long pair comes out at 2,138 vertices, 6,368° of
+     * total turn and a 33° worst corner at 0.5, against 1,766 / 6,931° / 42° at 1.0 and 956 / 7,258° /
+     * 55° at 4.0. What that costs is real but small — +0.11 % of length and +0.5 % of ETA against 1.0
+     * — and the vertex count rises because a wider ideal radius is *halved* until the cutback fits
+     * rather than refused, so more corners are drawn as arcs. Every row above 1.0 buys nothing back:
+     * the sharp fraction stays at 1 corner and the turning only rises.
+     */
+    var routeTurnLateralAccelMps2 = 0.5f
+        private set
+
+    /** Tightest comfortable-turn cap (m/s²) the loader accepts — beyond this the turn is a racing one. */
+    const val ROUTE_TURN_LATERAL_ACCEL_MIN_MPS2 = 0.5f
+
+    /** Loosest comfortable-turn cap (m/s²) the loader accepts — beyond this a turn is unusably wide. */
+    const val ROUTE_TURN_LATERAL_ACCEL_MAX_MPS2 = 4f
+
+    /**
+     * How far a route prefers to keep from a regulated zone's edge — `route.zoneBerthM`, shipped at
+     * **25 m**, the distance the berth was asked for.
+     *
+     * It is a **price, not a wall**, and the ceiling on the price is the search's own
+     * (`RouteSearch.BERTH_MAX_PRICE`), fading to nothing at the berth's edge: a zone stays crossable
+     * at its limit, a destination inside one stays reachable and a passage narrower than twice the
+     * berth stays open. The bake's own `Tuning.zoneClearanceM` stays at zero for exactly that
+     * reason — a berth pushed into the mesh deletes water instead of pricing it.
+     *
+     * **Shipped at 25 m on a measurement, 2026-09-20.** Against no berth, the trajectory probe's
+     * four pairs lose 2.5 % of their in-berth exposure on the long pair and 5.2 % / 6.8 % on two zone
+     * pairs, at 0.23 % / 0.61 % / 0.74 % more length — under a percent everywhere, and that is the
+     * ceiling the search prices at ([`RouteSearch.BERTH_MAX_PRICE`], twice a leg's own time) — while
+     * the dearer prices the sweep tried are past the tripwire (three costs 3.09 % of length on the
+     * long pair, five costs 11 % / 14 % on two pairs) for little further exposure. One pair is
+     * untouched at every price, including five times: its water is tight enough that no corridor
+     * outside the berth exists, which is the reading that says a clearance under 25 m is right there.
+     * The line still runs 44 of its 105 km inside the band, because this coast's zone boundaries are
+     * dense enough that keeping clear of all of them means leaving the coastal strip, which a
+     * preference is not allowed to buy. The value is read live, so changing it changes the next route
+     * and never a bake.
+     */
+    var routeZoneBerthM = 25f
+        private set
+
+    /** Lowest zone berth (m) the loader accepts — zero, which is no berth at all. */
+    const val ROUTE_ZONE_BERTH_MIN_M = 0f
+
+    /** Highest zone berth (m) the loader accepts — beyond this it is a detour, not a courtesy. */
+    const val ROUTE_ZONE_BERTH_MAX_M = 200f
+
     /** Hysteresis deadband (meters) for speed zone boundary detection — prevents GPS jitter from flapping inside/outside state. */
     var speedZoneHysteresisM: Double = 5.0
         private set
@@ -910,6 +1014,19 @@ object AppConfig {
             props.getProperty("zoneRegulatorySpeedKn")?.toFloatOrNull()?.let {
                 zoneRegulatorySpeedKn = it.coerceIn(1f, 20f)
             }
+            props.getProperty("route.freeWaterPaceKn")?.toFloatOrNull()?.let {
+                routeFreeWaterPaceKn =
+                    it.coerceIn(ROUTE_FREE_WATER_PACE_MIN_KN, ROUTE_FREE_WATER_PACE_MAX_KN)
+            }
+            props.getProperty("route.turn.lateralAccelMps2")?.toFloatOrNull()?.let {
+                routeTurnLateralAccelMps2 = it.coerceIn(
+                    ROUTE_TURN_LATERAL_ACCEL_MIN_MPS2,
+                    ROUTE_TURN_LATERAL_ACCEL_MAX_MPS2
+                )
+            }
+            props.getProperty("route.zoneBerthM")?.toFloatOrNull()?.let {
+                routeZoneBerthM = it.coerceIn(ROUTE_ZONE_BERTH_MIN_M, ROUTE_ZONE_BERTH_MAX_M)
+            }
             props.getProperty("speedZone.hysteresisM")?.toDoubleOrNull()?.let {
                 speedZoneHysteresisM = it.coerceIn(0.0, 50.0)
             }
@@ -1223,6 +1340,17 @@ object AppConfig {
             props.getProperty("ui.text.muted")?.let { parseColorOrNull(it) }?.let { uiTextMuted = it }
             props.getProperty("ui.text.secondary")?.let { parseColorOrNull(it) }?.let { uiTextSecondary = it }
             props.getProperty("ui.accent")?.let { parseColorOrNull(it) }?.let { uiAccent = it }
+            // ── The route line and pin (maro.properties, not the palette) ───────
+            props.getProperty("route.line.color")?.let { parseColorOrNull(it) }
+                ?.let { routeLineColor = it }
+            props.getProperty("route.line.transparencyPct")?.toIntOrNull()
+                ?.let { routeLineTransparencyPct = it.coerceIn(0, 100) }
+            props.getProperty("route.line.widthDp")?.toFloatOrNull()
+                ?.let { routeLineWidthDp = it.coerceIn(1f / 3f, 24f) }
+            props.getProperty("route.pin.color")?.let { parseColorOrNull(it) }
+                ?.let { routePinColor = it }
+            props.getProperty("route.pin.ringWidthDp")?.toFloatOrNull()
+                ?.let { routePinRingWidthDp = it.coerceIn(0f, 12f) }
             props.getProperty("ui.value.text")?.let { parseColorOrNull(it) }?.let { uiValueText = it }
             props.getProperty("ui.text.scrim")?.let { parseColorOrNull(it) }?.let { uiTextScrim = it }
             props.getProperty("ui.card.background")?.let { parseColorOrNull(it) }?.let { uiCardBackground = it }

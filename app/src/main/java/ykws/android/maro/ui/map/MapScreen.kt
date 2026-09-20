@@ -5,10 +5,13 @@ import ykws.android.maro.data.track.TrackRecordingService
 import ykws.android.maro.data.model.matchesFilter
 import ykws.android.maro.data.track.toGpx
 import ykws.android.maro.data.track.ImportMode
+import ykws.android.maro.spatial.RouteEngine
+import ykws.android.maro.spatial.mesh.MeshRouteEngine
 
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.Activity
+import android.app.Application
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
@@ -196,6 +199,8 @@ import ykws.android.maro.ui.components.ConfirmDialogHostState
 import ykws.android.maro.ui.components.ConfirmRequestHost
 import ykws.android.maro.ui.components.DrawerHeader
 import ykws.android.maro.ui.components.LocalConfirmDialogHost
+import ykws.android.maro.data.model.RoutePoint
+import ykws.android.maro.data.track.TrackFromCourse
 import ykws.android.maro.spatial.SpatialOperations
 import ykws.android.maro.ui.map.MarkersViewModel
 import ykws.android.maro.ui.map.MarkerDrawer
@@ -564,6 +569,41 @@ fun MapScreen(
     // overlay on each bump, because a rebuild can float other tracks above it.
     val trackRebuildGeneration = remember { mutableStateOf(0) }
 
+    // ── Route destination mode (FEAT_DSC_Route, destination-ui) ──────────────
+    // Session-lived like inspect's own state. The ViewModel owns every piece of route runtime state;
+    // what lives here is the mode's *switch* — the one flag the toggle writes — so the two modes can
+    // be mutually exclusive in one place.
+    //
+    // The engine is built **here, once**, from what this screen already holds — the app's own
+    // coastline and regulation instances, which is what makes a route price its edges from the live
+    // layers — and handed to the view model. That makes a second engine this one expression and
+    // nothing else in the feature: a swap is a change at this line alone.
+    val routeEngineApp = LocalContext.current.applicationContext as Application
+    val routeEngine: RouteEngine = remember(
+        routeEngineApp,
+        viewModel.routeCoastline,
+        viewModel.routeRegulatedZones
+    ) {
+        MeshRouteEngine.overBundle(
+            routeEngineApp,
+            viewModel.routeCoastline,
+            viewModel.routeRegulatedZones
+        )
+    }
+    val routeViewModel: RouteViewModel =
+        androidx.lifecycle.viewmodel.compose.viewModel(
+            factory = RouteViewModel.factory(routeEngine)
+        )
+    val routeState by routeViewModel.state.collectAsState()
+    val routeEngineState by routeViewModel.engineState.collectAsState()
+    val routePaceKn by routeViewModel.paceKn.collectAsState()
+    var routeArmed by rememberSaveable { mutableStateOf(false) }
+    // The toggle's gate: the mode exists only where the route engine is ready, exactly as inspect's
+    // square exists only where something is inspectable. Which engine that is — and what makes it
+    // ready — is the engine's own answer; this reads the readiness and nothing else.
+    val routeAvailable = routeEngineState.ready
+    val routeSaveScope = rememberCoroutineScope()
+
     // ── List state ───────────────────────────────────────────────────────
     val trackListState = rememberLazyListState()
     val markerListState = rememberLazyListState()
@@ -761,6 +801,12 @@ fun MapScreen(
     val navigationState by viewModel.navigationState.collectAsState()
     val gpsPosition by viewModel.gpsPosition.collectAsState()
     val gpsStale by viewModel.gpsStale.collectAsState()
+    /**
+     * The position the dashboard reads — the GPS fix in GPS mode, the same seam in demo mode — and
+     * therefore the route's start. It is deliberately not the map centre: that is the aim, and a
+     * route measured from it would have the boat chasing the point it is trying to choose.
+     */
+    val routeStart = dashboardPositionFor(mapCenter, gpsPosition, appSettings.gpsMode)
     val acquisitionMode by viewModel.acquisitionMode.collectAsState()
     val isEstimating by viewModel.isEstimating.collectAsState()
     val boatIsWater by viewModel.boatIsWater.collectAsState()
@@ -1491,6 +1537,8 @@ fun MapScreen(
             /** Arms the mode. Demo's captured centre is the map's own, i.e. the point under the marker. */
             fun armInspectMode() {
                 if (inspectArmed) return
+                // The two modes are mutually exclusive: entering one leaves the other.
+                if (routeArmed) routeArmed = false
                 inspectMapMovedByUser = false
                 inspectCapturedDemoCenter = if (appSettings.gpsMode) null else {
                     mapView?.let { mv ->
@@ -1534,6 +1582,48 @@ fun MapScreen(
                 if (viewModel.disarmInspect(mapMovedByUser = inspectMapMovedByUser)) {
                     applyInspectDemoExit()
                 }
+            }
+
+            /**
+             * The route mode's two edges, beside inspect's own.
+             *
+             * Off is the whole of the exit: ending the route and cancelling an unconfirmed draft are
+             * one act, which is why this only turns the switch off and lets the ViewModel's own
+             * `end` follow from the edge. Entry is refused without a mesh, because a mode that cannot
+             * search has nothing to offer.
+             */
+            fun armRouteMode() {
+                if (routeArmed || !routeAvailable) return
+                if (inspectArmed) disarmInspectMode()
+                routeArmed = true
+            }
+
+            fun endRouteMode() {
+                if (!routeArmed) return
+                routeArmed = false
+            }
+
+            /**
+             * Writes a confirmed route as an ordinary track, through `data/track`'s own repository.
+             * The vertices carry the plan's own pace and cumulative time, so distance, duration and
+             * both speed figures come out right with no second code path.
+             */
+            fun saveRouteTrack(plan: RoutePlan, pin: Boolean) {
+                val points = plan.points
+                if (points.size < 2) return
+                val legs = points.drop(1).mapIndexed { index, point ->
+                    TrackFromCourse.legBetween(
+                        from = points[index],
+                        to = point,
+                        durationSec = plan.legTimesSec.getOrElse(index) { 0.0 }
+                    )
+                }
+                val track = TrackFromCourse.build(
+                    start = points.first(),
+                    legs = legs,
+                    pinned = pin
+                )
+                routeSaveScope.launch { trackViewModel.saveBuiltTrack(track) }
             }
 
             /**
@@ -1813,6 +1903,10 @@ fun MapScreen(
                 if (inspectArmed && !viewModel.inspectModeArmed) viewModel.armInspect()
             }
 
+            // The demo sailing's suspension follows the route mode's own switch: while it is on, the
+            // pan-derived speed is derived no more and the dashboard's readout reads stationary.
+            LaunchedEffect(routeArmed) { viewModel.setRouteAiming(routeArmed) }
+
             // ── F2c: Freeze auto-follow when entering marker creation/editing wizard ──
             // The disarm comes first, because the wizard's freeze is the one that must survive: a
             // disarm from a following map clears the suppression to recentre, and that clear would
@@ -2001,6 +2095,31 @@ fun MapScreen(
                 inspectArmed = inspectArmed,
                 inspectEnabled = inspectAvailable,
                 onToggleInspect = { if (inspectArmed) disarmInspectMode() else armInspectMode() },
+                routeArmed = routeArmed,
+                routeEnabled = routeAvailable,
+                onToggleRoute = { if (routeArmed) endRouteMode() else armRouteMode() },
+                routeHost = {
+                    RouteHost(
+                        mapView = mapView,
+                        boatPosition = routeStart,
+                        state = routeState,
+                        armed = routeArmed,
+                        gpsMode = appSettings.gpsMode,
+                        speedKn = navigationState.speedKnots,
+                        // A reading taken inside a zone or the band measures the limit, not the
+                        // boat, and RoutePace drops it for that reason.
+                        positionRestricted = inZone300 || zoneSituation?.currentZone != null,
+                        setPaceKn = appSettings.routeFreeWaterPaceKn,
+                        mapCenterOffsetPx = with(LocalDensity.current) { mapCenterOffsetDp.roundToPx() },
+                        mapCenterOffsetDp = mapCenterOffsetDp,
+                        viewModel = routeViewModel,
+                        onEndRoute = { endRouteMode() },
+                        // The host fills the map area so its target is centred on it, and raises no
+                        // panel of its own: the route's confirmation is composed in the dashboard
+                        // slot below, from the same state the line and the pin are drawn from.
+                        modifier = Modifier.fillMaxSize()
+                    )
+                },
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(
@@ -2011,37 +2130,109 @@ fun MapScreen(
         )
 
             // ── Dashboard (always rendered, Layer 0) ────────────────────────
+            // While a route is being aimed the slot belongs to the route: the confirmation is the
+            // panel the outcomes are taken from, so it needs no floating surface to be reached —
+            // and it tracks the aim through the very state the line and the pin are drawn from.
+            val routeIsDrafting = routeArmed && routeState is RouteState.Draft
+            val routeTrip = (routeState as? RouteState.Confirmed)?.let { confirmed ->
+                routeTripFigure(
+                    plan = confirmed.plan,
+                    from = RoutePoint(routeStart.latitude, routeStart.longitude),
+                    paceKn = routePaceKn,
+                    nowMs = System.currentTimeMillis(),
+                    stale = confirmed.stale
+                )
+            }
             if (isLandscape) {
-                DashboardPanel(
-                    state = state,
-                    isWater = isWater,
-                    distanceToShore = distanceToShore,
-                    depthSample = depthRaster.depthReadout,
-                    speedKnots = navigationState.speedKnots ?: navigationState.demoSpeedKnots,
-                    zoneSituation = zoneSituation,
-                    autoRevealDistanceM = appSettings.zoneAutoRevealDistanceM,
-                    autoRevealTimeS = appSettings.zoneAutoRevealTimeS.toFloat(),
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .width(landscapeDashboardWidth)
-                        .fillMaxHeight()
-                        .windowInsetsPadding(WindowInsets.statusBars)
-                )
+                if (routeIsDrafting) {
+                    RouteConfirmationPanel(
+                        state = routeState,
+                        onRoute = { routeViewModel.confirm() },
+                        onSaveRoute = { plan, pin ->
+                            saveRouteTrack(plan, pin)
+                            routeViewModel.confirm()
+                        },
+                        onSaveOnly = { plan, pin ->
+                            saveRouteTrack(plan, pin)
+                            // The camera returns to the frozen start, the same frame the mode's own
+                            // exit leaves, so the two endings look alike.
+                            mapView?.controller?.setCenter(
+                                GeoPoint(plan.start.latitude, plan.start.longitude)
+                            )
+                            endRouteMode()
+                        },
+                        onCancel = { endRouteMode() },
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .width(landscapeDashboardWidth)
+                            .fillMaxHeight()
+                            .windowInsetsPadding(WindowInsets.statusBars)
+                    )
+                } else {
+                    DashboardPanel(
+                        state = state,
+                        isWater = isWater,
+                        distanceToShore = distanceToShore,
+                        depthSample = depthRaster.depthReadout,
+                        speedKnots = navigationState.speedKnots ?: navigationState.demoSpeedKnots,
+                        zoneSituation = zoneSituation,
+                        autoRevealDistanceM = appSettings.zoneAutoRevealDistanceM,
+                        autoRevealTimeS = appSettings.zoneAutoRevealTimeS.toFloat(),
+                        routeTrip = routeTrip,
+                        onRecomputeRoute = {
+                            routeViewModel.recompute(RoutePoint(routeStart.latitude, routeStart.longitude))
+                        },
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .width(landscapeDashboardWidth)
+                            .fillMaxHeight()
+                            .windowInsetsPadding(WindowInsets.statusBars)
+                    )
+                }
             } else {
-                DashboardPanel(
-                    state = state,
-                    isWater = isWater,
-                    distanceToShore = distanceToShore,
-                    depthSample = depthRaster.depthReadout,
-                    speedKnots = navigationState.speedKnots ?: navigationState.demoSpeedKnots,
-                    zoneSituation = zoneSituation,
-                    autoRevealDistanceM = appSettings.zoneAutoRevealDistanceM,
-                    autoRevealTimeS = appSettings.zoneAutoRevealTimeS.toFloat(),
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .height(portraitDashboardHeight)
-                )
+                if (routeIsDrafting) {
+                    RouteConfirmationPanel(
+                        state = routeState,
+                        onRoute = { routeViewModel.confirm() },
+                        onSaveRoute = { plan, pin ->
+                            saveRouteTrack(plan, pin)
+                            routeViewModel.confirm()
+                        },
+                        onSaveOnly = { plan, pin ->
+                            saveRouteTrack(plan, pin)
+                            // Save-only is the other ending: the camera returns to the start the
+                            // route was frozen from, and the mode goes with it.
+                            mapView?.controller?.setCenter(
+                                GeoPoint(plan.start.latitude, plan.start.longitude)
+                            )
+                            endRouteMode()
+                        },
+                        onCancel = { endRouteMode() },
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .height(portraitDashboardHeight)
+                    )
+                } else {
+                    DashboardPanel(
+                        state = state,
+                        isWater = isWater,
+                        distanceToShore = distanceToShore,
+                        depthSample = depthRaster.depthReadout,
+                        speedKnots = navigationState.speedKnots ?: navigationState.demoSpeedKnots,
+                        zoneSituation = zoneSituation,
+                        autoRevealDistanceM = appSettings.zoneAutoRevealDistanceM,
+                        autoRevealTimeS = appSettings.zoneAutoRevealTimeS.toFloat(),
+                        routeTrip = routeTrip,
+                        onRecomputeRoute = {
+                            routeViewModel.recompute(RoutePoint(routeStart.latitude, routeStart.longitude))
+                        },
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .height(portraitDashboardHeight)
+                    )
+                }
             }
 
             // ── Speed legend (Compose chrome, the map's top-left) ──
@@ -2363,8 +2554,9 @@ fun MapScreen(
                 wizardStep = wizardStep,
                 drawerState = drawerState,
                 // Suppress the ladder scrim while any ConfirmDialog is up (its own scrim wins), so
-                // the two dim layers never stack. Includes the hoisted merge / batch-delete host.
-                dialogScrimActive = anyConfirmDialogOpen || confirmDialogHost.request != null,
+                // the two dim layers never stack. The route's confirmation is not one of these: it
+                // lives in the dashboard slot, so it paints no scrim and blocks nothing.
+                dialogScrimActive = anyConfirmDialogOpen,
             ),
             isLandscape = isLandscape,
             portraitDashboardHeight = portraitDashboardHeight,
@@ -2520,6 +2712,11 @@ fun MapScreen(
                 depthViewModel.generateRasterLayers(context, steps, appSettings, waterTest)
             },
             boatPosition = gpsPosition ?: mapCenter,
+            route = RouteOverlayData(
+                active = routeArmed,
+                available = routeAvailable,
+                onOpenDestination = { armRouteMode() }
+            ),
             markerList = MarkerListOverlayData(
                 markers = mgmtMarkers,
                 markerSortState = appSettings.markerListSort,
@@ -3048,6 +3245,18 @@ private fun MapContent(
     /** False while the mode is disarmed and nothing is inspectable — the square carries no tap. */
     inspectEnabled: Boolean = true,
     onToggleInspect: () -> Unit = {},
+    /** True while the destination mode is aiming or following: the compass square's active face. */
+    routeArmed: Boolean = false,
+    /** False while no mesh is decoded for the region — the square carries no tap. */
+    routeEnabled: Boolean = true,
+    onToggleRoute: () -> Unit = {},
+    /**
+     * The route mode's own slot, composed by the shell so this file keeps **one** new parameter
+     * rather than a dozen: the single `RouteHost(mapView, boatPosition)` call lives in the shell,
+     * which is the seam the isolation design names, and everything the host needs is already in
+     * scope there.
+     */
+    routeHost: (@Composable () -> Unit)? = null,
 ) {
     Box(modifier = modifier.clipToBounds()) {
         // ── Top inset: one home for the arithmetic, so the toggle row, the lock button and the
@@ -3186,6 +3395,9 @@ private fun MapContent(
             centerOffsetYDp = mapCenterOffsetDp
         )
 
+        // ── The route mode's own chrome and map objects, in the shell's one call ──
+        routeHost?.invoke()
+
         // ── Layer 1: 2-column overlay row (left fills, right content-sized) ──
         Row(modifier = Modifier.fillMaxSize()) {
 
@@ -3220,6 +3432,11 @@ private fun MapContent(
                         armed = inspectArmed,
                         enabled = inspectEnabled,
                         onToggle = onToggleInspect
+                    )
+                    RouteToggleButton(
+                        armed = routeArmed,
+                        enabled = routeEnabled,
+                        onToggle = onToggleRoute
                     )
                     LockScreenButton(
                         locked = screenLocked,

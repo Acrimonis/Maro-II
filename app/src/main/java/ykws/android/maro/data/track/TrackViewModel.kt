@@ -233,6 +233,24 @@ class TrackViewModel(application: Application) : AndroidViewModel(application) {
      * on the policy's `startTimeMs desc` ranking: at an exact render cap the copy is deterministically
      * the one dropped, instead of the outcome falling back to summary list order.
      */
+    /**
+     * Persist a track the Route feature built from a confirmed course.
+     *
+     * This is the fourth shared surface the Route isolation design accepts, after the MapScreen hook,
+     * the menu entry and the Settings row: the write goes through this feature's **own repository**,
+     * so what lands is an ordinary track in every respect — listed, exported, redrawn, replayed —
+     * and `Track.plannedCourse` is the only thing that records its speeds as planned rather than
+     * measured.
+     *
+     * Saving is explicit and one-way: nothing links the saved track back to the live route, and
+     * saving again makes a second track.
+     */
+    suspend fun saveBuiltTrack(track: Track): String {
+        repository.save(track)
+        refreshSummaries()
+        return track.id
+    }
+
     suspend fun duplicateTrack(trackId: String, nameSuffix: String): String? {
         val track = repository.load(trackId) ?: return null
         val copy = track.copy(

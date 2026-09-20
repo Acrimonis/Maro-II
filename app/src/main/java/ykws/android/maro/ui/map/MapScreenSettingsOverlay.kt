@@ -1176,6 +1176,27 @@ private fun NavigationSettings(
 
         Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
 
+    // ── Route ─────────────────────────────────────────────────────────────
+    // The free-water pace: the trip figure's own setting, and the third of the three seams. The
+    // bounds are read from AppConfig, where they live beside the accessor, so the slider, the
+    // properties loader and the settings clamp cannot disagree about 3 and 40.
+    SectionHeader(title = stringResource(R.string.route_trip_title))
+
+    CardArea {
+        SliderRow(
+            label = stringResource(R.string.settings_route_pace_label),
+            description = stringResource(R.string.settings_route_pace_desc),
+            valueLabel = stringResource(R.string.settings_route_pace_value_fmt, settings.routeFreeWaterPaceKn),
+            value = settings.routeFreeWaterPaceKn,
+            valueRange = AppConfig.ROUTE_FREE_WATER_PACE_MIN_KN..AppConfig.ROUTE_FREE_WATER_PACE_MAX_KN,
+            steps = (AppConfig.ROUTE_FREE_WATER_PACE_MAX_KN - AppConfig.ROUTE_FREE_WATER_PACE_MIN_KN)
+                .toInt() - 1,
+            onValueChange = { v -> onUpdateSettings { it.copy(routeFreeWaterPaceKn = v) } }
+        )
+    }
+
+    Spacer(modifier = Modifier.height(AppConfig.uiSpacingSectionGap.dp))
+
     // ── Automatic map offset ──────────────────────────────────────────────
     SectionHeader(title = stringResource(R.string.settings_map_offset_label))
 

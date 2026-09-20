@@ -110,6 +110,12 @@ internal fun OverlayLayer(
 
     // ── Menu drawer data ─────────────────────────────────────────────────
     menu: MenuOverlayData,
+    /**
+     * The route's read-only state, arriving as a bundle rather than as three more parameters on this
+     * already wide signature — the shape `OverlayLayerParams.kt` exists for. Only the menu entry
+     * reads it; the mode's own state lives in `RouteViewModel`.
+     */
+    route: RouteOverlayData = RouteOverlayData(),
     onGpsModeChange: (Boolean) -> Unit,
     onAutoShowMasterChange: (Boolean) -> Unit = {},
     onToggleMarkerZones: () -> Unit = {},
@@ -356,6 +362,9 @@ internal fun OverlayLayer(
         ) {
             MenuDrawerOverlay(
                 isOpen = true,
+                routeActive = route.active,
+                routeAvailable = route.available,
+                onOpenDestination = route.onOpenDestination,
                 gpsMode = gpsMode,
                 onGpsModeChange = onGpsModeChange,
                 autoShowMasterVisible = autoShowMasterVisible,

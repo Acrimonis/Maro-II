@@ -5,6 +5,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import ykws.android.maro.data.regulation.contains
 import ykws.android.maro.data.regulation.displayCategories
+import ykws.android.maro.data.regulation.effectiveSpeedLimitKn
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -89,12 +90,8 @@ fun RegulatedZoneWarningStrip(
             } else {
                 zones
                     .flatMap { zone ->
-                        val speed = when {
-                            zone.description.contains("outside channel", ignoreCase = true) ||
-                                (zone.name == "other" && zone.speedLimitKn == 3.0) -> 5.0
-                            else -> zone.speedLimitKn
-                                ?: parseSpeedFromDescription(zone.description)
-                        }
+                        val speed = zone.effectiveSpeedLimitKn()
+                            ?: parseSpeedFromDescription(zone.description)
                         zone.displayCategories().map { cat -> cat to speed }
                     }
                     .filter { (cat, speed) -> cat != ZoneDisplayCategory.SPEED_LIMIT || speed != null }
@@ -231,12 +228,8 @@ fun RegulatedZoneInfoText(
             } else {
                 zones
                     .flatMap { zone ->
-                        val speed = when {
-                            zone.description.contains("outside channel", ignoreCase = true) ||
-                                (zone.name == "other" && zone.speedLimitKn == 3.0) -> 5.0
-                            else -> zone.speedLimitKn
-                                ?: parseSpeedFromDescription(zone.description)
-                        }
+                        val speed = zone.effectiveSpeedLimitKn()
+                            ?: parseSpeedFromDescription(zone.description)
                         // Pair each display category with the zone it came from
                         zone.displayCategories().map { cat -> Triple(cat, speed, zone) }
                     }

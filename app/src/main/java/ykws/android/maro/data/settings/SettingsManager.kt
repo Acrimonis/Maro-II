@@ -146,6 +146,11 @@ data class AppSettings(
     /** EMODnet shallow cutoff (m): EMODnet point readings shallower than this are coarse
      *  (115 m cell over rocks/coast) and unreliable → presented as no-data. 0 disables the gate. */
     val emodnetShallowCutoffM: Float = 2.0f,
+    /**
+     * Free-water pace (kn, 3–40) a route's trip figure plans at until the boat's own observed pace
+     * replaces it. Seeded from `route.freeWaterPaceKn`, so the property stays the value's one home.
+     */
+    val routeFreeWaterPaceKn: Float = ykws.android.maro.config.AppConfig.routeFreeWaterPaceKn,
     /** Regenerate: reload depth grid from assets. */
     val regenGrid: Boolean = true,
     /** Regenerate: re-derive isobath contours. */
@@ -512,6 +517,14 @@ class SettingsManager(
         boatMarkerAutoMarkerMinDurationSec = prefs.getLong(KEY_BOAT_MARKER_AUTO_MIN_DURATION_S, ykws.android.maro.config.AppConfig.boatMarkerAutoMarkerMinDurationSec),
         boatMarkerAutoMarkerDedupRadiusM = prefs.getFloat(KEY_BOAT_MARKER_AUTO_DEDUP_RADIUS_M, ykws.android.maro.config.AppConfig.boatMarkerAutoMarkerDedupRadiusM.toFloat()).toDouble(),
         emodnetShallowCutoffM = prefs.getFloat(KEY_EMODNET_SHALLOW_CUTOFF_M, 2.0f),
+        // Clamped on read like every other bounded slider: a stored value is never a promise.
+        routeFreeWaterPaceKn = prefs.getFloat(
+            KEY_ROUTE_FREE_WATER_PACE_KN,
+            ykws.android.maro.config.AppConfig.routeFreeWaterPaceKn
+        ).coerceIn(
+            ykws.android.maro.config.AppConfig.ROUTE_FREE_WATER_PACE_MIN_KN,
+            ykws.android.maro.config.AppConfig.ROUTE_FREE_WATER_PACE_MAX_KN
+        ),
         regenGrid    = prefs.getBoolean(KEY_REGEN_GRID, true),
         regenIsobaths = prefs.getBoolean(KEY_REGEN_ISOBATHS, true),
         regenColour  = prefs.getBoolean(KEY_REGEN_COLOUR, true),
@@ -682,6 +695,7 @@ class SettingsManager(
             .putBoolean(KEY_LOW_DEPTH_WARNING_VISIBLE, updated.lowDepthWarningVisible)
             .putFloat(KEY_LOW_DEPTH_CRASH_DEPTH_M, updated.lowDepthCrashDepthM)
             .putFloat(KEY_LOW_DEPTH_START_WARNING_M, updated.lowDepthStartWarningM)
+            .putFloat(KEY_ROUTE_FREE_WATER_PACE_KN, updated.routeFreeWaterPaceKn)
             .putInt(KEY_ZONE300_COLOR, updated.zone300Color)
             .putInt(KEY_ZONE300_FILL_TRANSPARENCY_PCT, updated.zone300FillTransparencyPct)
             .putInt(KEY_ZONE300_BOUNDARY_TRANSPARENCY_PCT, updated.zone300BoundaryTransparencyPct)
@@ -862,6 +876,7 @@ class SettingsManager(
         private const val KEY_BOAT_MARKER_AUTO_MIN_DURATION_S = "boat_marker_auto_min_duration_s"
         private const val KEY_BOAT_MARKER_AUTO_DEDUP_RADIUS_M = "boat_marker_auto_dedup_radius_m"
         private const val KEY_EMODNET_SHALLOW_CUTOFF_M = "emodnet_shallow_cutoff_m"
+        private const val KEY_ROUTE_FREE_WATER_PACE_KN = "route_free_water_pace_kn"
         private const val KEY_REGEN_GRID = "regen_grid"
         private const val KEY_REGEN_ISOBATHS = "regen_isobaths"
         private const val KEY_REGEN_COLOUR = "regen_colour"

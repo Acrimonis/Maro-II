@@ -299,14 +299,21 @@ fun ConfirmDialog(
     }
 }
 
-/** One stacked full-width action button, styled by its [ConfirmActionRole]. */
+/**
+ * One action button, styled by its [ConfirmActionRole] — **the app's only rendering of a
+ * [ConfirmAction]**, shared by the ladder's confirmation panel and by any surface that hosts the
+ * same outcomes in a slot of its own, the route's dashboard panel being that case.
+ *
+ * [modifier] is what lets such a host place it: stacked full width by default, or weighted inside a
+ * [Row] where the slot is short.
+ */
 @Composable
-private fun ConfirmActionButton(action: ConfirmAction) {
+internal fun ConfirmActionButton(action: ConfirmAction, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(12.dp)
     when (action.role) {
         ConfirmActionRole.PRIMARY -> Button(
             onClick = action.onClick,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = Color(AppConfig.uiAccent)),
             shape = shape
         ) {
@@ -314,7 +321,7 @@ private fun ConfirmActionButton(action: ConfirmAction) {
         }
         ConfirmActionRole.DANGER -> Button(
             onClick = action.onClick,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = modifier.fillMaxWidth(),
             colors = ButtonDefaults.buttonColors(containerColor = Color(AppConfig.semanticDanger)),
             shape = shape
         ) {
@@ -322,7 +329,7 @@ private fun ConfirmActionButton(action: ConfirmAction) {
         }
         ConfirmActionRole.SECONDARY -> OutlinedButton(
             onClick = action.onClick,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = modifier.fillMaxWidth(),
             shape = shape
         ) {
             Text(action.label, color = Color(AppConfig.uiAccent))

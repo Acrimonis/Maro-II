@@ -154,3 +154,24 @@ data class MarkerListOverlayData(
     val markerFilterState: ListFilter,
     val markerListState: LazyListState,
 )
+
+/**
+ * `RouteOverlayData` — the read-only route state that crosses into the overlay ladder.
+ *
+ * A bundle rather than a new parameter on `OverlayLayer`, which is the shape this file exists for:
+ * the destination mode's entry lives in the menu drawer, and the drawer is a ladder surface, so what
+ * it needs to draw that entry rides here. Everything the mode state itself is (the draft, the
+ * preview, the confirmed route) stays in `RouteViewModel`, and nothing of it is duplicated into a
+ * composable's parameters.
+ *
+ * Contract: all fields are `val`, like every bundle beside it.
+ */
+@Immutable
+data class RouteOverlayData(
+    /** True while the mode is aiming or following — the menu entry's own active marker. */
+    val active: Boolean = false,
+    /** True once the bundled navigation mesh is decoded; false makes the entry inert. */
+    val available: Boolean = false,
+    /** Opens the destination mode, wired to the very toggle the control stack carries. */
+    val onOpenDestination: () -> Unit = {},
+)

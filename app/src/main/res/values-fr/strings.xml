@@ -84,7 +84,7 @@
     <string name="settings_zone300_desc">Régler la couleur et la transparence de la bande côtière des 300 m</string>
     <string name="settings_zone300_color_label">Couleur de la zone</string>
     <string name="settings_zone300_color_desc">Couleur du remplissage et du contour de la bande des 300 m</string>
-    <string name="settings_zone300_opacity_desc">Transparence du contenu et du contour de la zone (0% = opaque, 100% = invisible)</string>
+    <string name="settings_zone300_opacity_desc" formatted="false">Transparence du contenu et du contour de la zone (0% = opaque, 100% = invisible)</string>
     <string name="settings_zone300_appearance_label">Apparence de la zone des 300 m</string>
     <string name="settings_zone300_boundary_width_desc">Épaisseur du trait de limite de la bande des 300 m (dp)</string>
     <string name="settings_regulated_zones_outline_width_desc">Épaisseur des contours des zones réglementées (dp)</string>
@@ -549,4 +549,35 @@
     <string name="settings_language_english">English</string>
     <string name="snackbar_deleted">« %s » supprimé</string>
     <string name="action_undo">Annuler</string>
+
+    <!-- Route destination mode -->
+    <string name="cd_route_toggle">Mode destination de route</string>
+    <string name="route_dialog_title">Destination</string>
+    <string name="route_label_start">Départ</string>
+    <string name="route_label_destination">Destination</string>
+    <string name="route_label_distance">Distance</string>
+    <string name="route_label_eta">ETA</string>
+    <string name="route_action_route">Router</string>
+    <string name="route_action_save_route">Enregistrer et router</string>
+    <string name="route_action_save_only">Enregistrer seulement</string>
+    <string name="route_pin_label">Épingler la trace</string>
+    <string name="route_aim_hint">Déplacez la carte pour viser la route</string>
+    <string name="route_no_route">Aucune route navigable ici</string>
+    <string name="route_destination_moved">Point d\'eau le plus proche</string>
+    <string name="route_trip_title">Route</string>
+    <string name="route_trip_distance_nm">%1$.1f NM</string>
+    <string name="route_trip_ago">il y a %1$s</string>
+    <string name="route_age_sec">%1$d s</string>
+    <string name="route_age_min">%1$d min</string>
+    <string name="route_trip_stale">périmé</string>
+    <string name="route_trip_forced">forcé : %1$s</string>
+    <string name="route_forced_crossing">Franchissement forcé de %1$s</string>
+    <!-- Why an engine cannot answer — one line per closed-set reason. It names no engine: the
+         surface behind it may not be a mesh. -->
+    <string name="route_unavailable_region_not_baked">Routage indisponible pour cette région</string>
+    <string name="settings_route_pace_label">Allure en eau libre</string>
+    <string name="settings_route_pace_desc">Allure utilisée pour estimer une route tant que celle du bateau n\'est pas connue</string>
+    <string name="settings_route_pace_value_fmt">%1$.0f kn</string>
+    <string name="menu_route_destination">Destination</string>
+    <string name="menu_route_destination_desc">Tracer une route navigable vers un point</string>
 </resources>

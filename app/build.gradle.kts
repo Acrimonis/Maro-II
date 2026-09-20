@@ -203,6 +203,11 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    // Route mesh prebake — test classpath only, approved 2026-09-19. RouteMeshBuilder lives in
+    // src/test, so the main source set cannot import JTS or poly2tri and assembleDebug packages
+    // neither. The bake needs the build machine online once, to fetch them into the Gradle cache.
+    testImplementation(libs.jts.core)
+    testImplementation(libs.poly2tri)
 }
 
 // Forward the opt-in flag for on-demand, network-dependent test "tools" (the
@@ -212,6 +217,9 @@ dependencies {
 tasks.withType<Test>().configureEach {
     systemProperty("maro.bake", System.getProperty("maro.bake", "false"))
     systemProperty("maro.validate", System.getProperty("maro.validate", "false"))
+    // The route probe's fine window: "lat,lon,halfSideM", inert unless the property is given, so a
+    // normal run prints the global reading and no picture.
+    systemProperty("maro.probeWindow", System.getProperty("maro.probeWindow", ""))
     // Repo root, so the baker can resolve <repo>/data/app-assets regardless of the test CWD.
     systemProperty("maro.repoDir", rootProject.projectDir.absolutePath)
     // On-demand GPX repair tool (GpxBBoxCleanToolTest) — inert unless -Dmaro.cleanGpx=true.

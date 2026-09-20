@@ -13,6 +13,9 @@ junit = "4.13.2"
 kotlinx-coroutines-test = "1.8.1"
 protobuf = "3.25.3"
 protobuf-plugin = "0.9.4"
+# Route mesh prebake — test classpath only (see app/build.gradle.kts).
+jts = "1.20.0"
+poly2tri = "0.7.0"
 
 [libraries]
 core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "core-ktx" }
@@ -32,6 +35,9 @@ osmdroid-android = { group = "org.osmdroid", name = "osmdroid-android", version.
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinx-coroutines-test" }
 protobuf-javalite = { group = "com.google.protobuf", name = "protobuf-javalite", version.ref = "protobuf" }
+# Route mesh prebake geometry — never on the app's compile or runtime classpath.
+jts-core = { group = "org.locationtech.jts", name = "jts-core", version.ref = "jts" }
+poly2tri = { group = "org.orbisgis", name = "poly2tri", version.ref = "poly2tri" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

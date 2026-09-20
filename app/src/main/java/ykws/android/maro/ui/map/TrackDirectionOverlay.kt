@@ -9,6 +9,7 @@ import ykws.android.maro.config.AppConfig
 import ykws.android.maro.data.track.PointType
 import ykws.android.maro.data.track.TrackPoint
 import ykws.android.maro.data.track.deriveSpeedMps
+import ykws.android.maro.spatial.Units
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
@@ -24,9 +25,6 @@ internal data class ScreenPt(val x: Float, val y: Float)
 
 /** A direction arrow anchor: position on segment [segmentIndex] at fraction [t], oriented by [bearingDeg]. */
 internal data class ArrowAnchor(val segmentIndex: Int, val t: Float, val bearingDeg: Float)
-
-/** The ui/map package's single metres-per-second → knots factor, shared by this path and the heatmap. */
-internal const val KNOTS_PER_MPS = 1.94384f
 
 /**
  * On-screen spacing (px) between direction arrows for a given speed.
@@ -110,12 +108,13 @@ internal fun sampleArrowAnchors(
     return anchors
 }
 
-private fun speedKn(p: TrackPoint): Float = (p.speedMps ?: 0f) * KNOTS_PER_MPS
+private fun speedKn(p: TrackPoint): Float =
+    Units.mpsToKnots((p.speedMps ?: 0f).toDouble()).toFloat()
 
 private fun interpolatedSpeedKn(a: TrackPoint, b: TrackPoint, t: Float): Float {
-    val sa = a.speedMps ?: 0f
-    val sb = b.speedMps ?: 0f
-    return (sa + (sb - sa) * t) * KNOTS_PER_MPS
+    val sa = (a.speedMps ?: 0f).toDouble()
+    val sb = (b.speedMps ?: 0f).toDouble()
+    return Units.mpsToKnots(sa + (sb - sa) * t).toFloat()
 }
 
 /**

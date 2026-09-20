@@ -85,7 +85,7 @@
     <string name="settings_zone300_desc">Tune the colour and transparency of the 300 m coastal band</string>
     <string name="settings_zone300_color_label">Zone color</string>
     <string name="settings_zone300_color_desc">Fill and boundary color of the 300 m band</string>
-    <string name="settings_zone300_opacity_desc">Zone content and border transparency (0% = opaque, 100% = invisible)</string>
+    <string name="settings_zone300_opacity_desc" formatted="false">Zone content and border transparency (0% = opaque, 100% = invisible)</string>
     <string name="settings_zone300_appearance_label">300m Zone Appearance</string>
     <string name="settings_zone300_boundary_width_desc">Width of the 300 m band boundary line (dp)</string>
     <string name="settings_regulated_zones_outline_width_desc">Width of the regulated zone outlines (dp)</string>
@@ -550,4 +550,35 @@
     <string name="settings_language_english">English</string>
     <string name="snackbar_deleted">\"%s\" deleted</string>
     <string name="action_undo">Undo</string>
+
+    <!-- Route destination mode -->
+    <string name="cd_route_toggle">Route destination mode</string>
+    <string name="route_dialog_title">Destination</string>
+    <string name="route_label_start">Start</string>
+    <string name="route_label_destination">Destination</string>
+    <string name="route_label_distance">Distance</string>
+    <string name="route_label_eta">ETA</string>
+    <string name="route_action_route">Route</string>
+    <string name="route_action_save_route">Save and route</string>
+    <string name="route_action_save_only">Save only</string>
+    <string name="route_pin_label">Pin the track</string>
+    <string name="route_aim_hint">Move the map to aim the route</string>
+    <string name="route_no_route">No water route here</string>
+    <string name="route_destination_moved">Nearest water point</string>
+    <string name="route_trip_title">Route</string>
+    <string name="route_trip_distance_nm">%1$.1f NM</string>
+    <string name="route_trip_ago">%1$s ago</string>
+    <string name="route_age_sec">%1$d s</string>
+    <string name="route_age_min">%1$d min</string>
+    <string name="route_trip_stale">stale</string>
+    <string name="route_trip_forced">forced: %1$s</string>
+    <string name="route_forced_crossing">Forced crossing of %1$s</string>
+    <!-- Why an engine cannot answer — one line per closed-set reason. It names no engine: the
+         surface behind it may not be a mesh. -->
+    <string name="route_unavailable_region_not_baked">Routing unavailable for this region</string>
+    <string name="settings_route_pace_label">Free-water pace</string>
+    <string name="settings_route_pace_desc">The pace a route ETA is planned at until the boat\'s own pace is known</string>
+    <string name="settings_route_pace_value_fmt">%1$.0f kn</string>
+    <string name="menu_route_destination">Destination</string>
+    <string name="menu_route_destination_desc">Plot a water route to a point</string>
 </resources>

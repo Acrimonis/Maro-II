@@ -979,7 +979,7 @@ private fun fmtDuration(totalSeconds: Long): String {
 
 /** Speed from mps in knots with 1 decimal: "5.1 kn" — matches drawer format. */
 private fun fmtKnFromMps(speedMps: Float): String {
-    val kn = speedMps * 1.94384f
+    val kn = speedMps * ykws.android.maro.spatial.Units.KNOTS_PER_MPS.toFloat()
     return java.lang.String.format(java.util.Locale.US, "%.1f kn", kn)
 }
 
