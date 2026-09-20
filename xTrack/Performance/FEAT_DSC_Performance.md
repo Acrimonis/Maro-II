@@ -2,7 +2,7 @@
 name: Performance
 status: active
 created: 2026-06-07 00:00
-modified: 2026-09-20 08:52
+modified: 2026-09-20 13:50
 ---
 
 # Feature: Performance
@@ -75,6 +75,8 @@ Two **independent** channels: the screen flag (window-scoped, front-only by cons
 - **power-management Phase 1 (2026-09-12)** — centralised the screen-hold decision into `data/power/`: `PowerPolicy` (framework-free, **stateless** — speed gate above 1 kn **or** within grace of the last touch; unknown speed holds, stale speed releases; additive master-vs-gate semantics) + `PowerKeeper` (`StateFlow<PowerState>`, pushed settings/speed/touch inputs, 5 s grace ticker, recording floor, exemption query). The window flag is now driven by the keeper from a single mutation point, and `dispatchTouchEvent` feeds the interaction timestamp. Settings → System → Screen gained a renamed toggle ("Don't lock the phone while the app is open", French ambiguity removed) plus an expander holding the movement gate, threshold and grace sliders. Phase 0 corrected the stale power rule and the `keepScreenOn` default contradiction (`false`, no behaviour change). Phase 1c consolidated the battery-optimization prompt: the flag moved into `AppSettings` with a legacy migration, and the trigger moved to recording start with recovery kept as a secondary. 17 unit tests green; `apk-build.bat` SUCCESS → `xTrack/Performance/260912_FEAT_PLN_Performance_power-management-centralization.md`
 
 - **power-management review findings (2026-09-12)** — second pass over the Ask findings: the keeper's KDoc now states it **delegates** the exemption query to `BatteryExemption` and keeps the method as the phase-3 service-lifecycle seam (decided **keep**, since deleting it would strand the keeper's `Context`), `MapScreen` imports the predicate instead of qualifying it twice, and plan §4.1/§4.2 were aligned so the same ownership split is described in the same words in all three places. No behaviour change; APK SUCCESS
+
+- **map-layer-cost: the zoom step removed in three moves (2026-09-20)** — the pass measured the zoom cost on the device and then took it out. Five per-layer effects in `CoastlineMapView` were keyed on the raw zoom, so every step tore down and rebuilt the 300 m band, the regulated zones, both depth rasters and the isobaths on the main thread; they now key on their **gate**, the floors staying with the drawing code (`DepthConstants`, `ZONE_MIN_ZOOM`, `REGULATED_ZONE_MIN_ZOOM`), which took the buttons window's tail from 650–800 ms to nothing and the depth-colour pinch from **14 frames at 750 ms to 205 at 53 ms**. The repaint added to the zoom listener was then measured neutral and removed, and the contour polylines — dropped, re-created and re-stacked at every crossing, seven times in one fifteen-second wide sweep at ~0.7 s each — are now attached once and switched by their own `enabled` flag (`drawIsobaths` + `applyIsobathGates`), taking that sweep from 145 frames to 410 with nothing above 150 ms. The zoom persist joined the pan path's existing 1 Hz throttle. `apk-build.bat` SUCCESSFUL; owed are the warm repeat, the eye check on the 13 and 15 floors, the all-layers pinch and a bare close-in drag → `xTrack/Performance/260920_FEAT_PLN_Performance_map-layer-cost.md`, `xTrack/Performance/260920_FEAT_PLN_Performance_per-frame-cost-levers.md`
 
 ## Rules
 - No new external dependencies — framework `LocationManager`/`SensorManager` + SharedPreferences only.

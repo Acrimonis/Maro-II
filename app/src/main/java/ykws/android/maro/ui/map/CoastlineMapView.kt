@@ -2,6 +2,7 @@ package ykws.android.maro.ui.map
 
 import ykws.android.maro.R
 import ykws.android.maro.config.AppConfig
+import ykws.android.maro.data.depth.DepthConstants
 import ykws.android.maro.data.model.BoundingBox
 import ykws.android.maro.data.model.CoastlineSegment
 import ykws.android.maro.data.model.GenerationProgress
@@ -207,6 +208,16 @@ internal fun CoastlineMapView(
     // Per-layer persistent overlay tracker — survives recompositions so we can
     // selectively rebuild only layers whose input data actually changed.
     val tracker = remember { OverlayTracker() }
+
+    // ── Zoom gates, never the zoom value ─────────────────────────────────────
+    // Every layer below draws the same geometry at each level above its floor, so the effects key on
+    // these gates: a zoom step inside a band rebuilds nothing. The floors live with the drawing code
+    // (`DepthConstants`, [ZONE_MIN_ZOOM], [REGULATED_ZONE_MIN_ZOOM]) and are never restated here.
+    val depthRasterDraws = zoomLevel >= DepthConstants.DEPTH_MAP_MIN_DRAW_ZOOM
+    val isobathDraws = zoomLevel >= DepthConstants.ISOBATH_MIN_DRAW_ZOOM
+    val shallowIsobathDraws = zoomLevel >= DepthConstants.SHALLOW_ISOBATH_MIN_ZOOM
+    val zone300Draws = zoomLevel >= ZONE_MIN_ZOOM
+    val regulatedZoneDraws = zoomLevel >= REGULATED_ZONE_MIN_ZOOM
     AndroidView(
         modifier = modifier,
         factory = { ctx ->
@@ -231,7 +242,10 @@ internal fun CoastlineMapView(
                 // and the corresponding tracker list for later selective rebuild.
                 drawDepthMap(this, depthBitmap, depthBox, zoomLevel, tracker.depth)
                 drawLowDepthWarning(this, lowDepthWarningBitmap, depthBox, zoomLevel, tracker.lowDepth)
-                drawIsobaths(this, isobaths, zoomLevel, tracker.isobaths)
+                // Every contour is attached once here; the two floors then ride on each polyline's
+                // `enabled` flag, so a gate crossing never rebuilds the set.
+                drawIsobaths(this, isobaths, tracker.isobaths, tracker.isobathsShallow)
+                applyIsobathGates(tracker, isobathDraws, shallowIsobathDraws)
                 drawRegulatedZones(this, regulatedZones, zoomLevel, regulatedZoneFillTransparencyPct, regulatedZoneBoundaryTransparencyPct, regulatedZoneOutlineWidthPx, tracker.regulatedZones)
                 drawZone300(this, zone300, zoomLevel, zone300Color, zone300FillTransparencyPct, zone300BoundaryTransparencyPct, zone300BoundaryWidthPx, tracker.zone300)
                 drawCoastline(this, segments, coastlineMainlandColor, coastlineIslandColor, coastlineWidthPx, coastlineTransparencyPct, tracker.coastline)
@@ -239,18 +253,17 @@ internal fun CoastlineMapView(
                 // Seed per-layer last-known state so LaunchedEffects don't fire on first composition.
                 tracker.lastDepthBitmap = depthBitmap
                 tracker.lastDepthBox = depthBox
-                tracker.lastDepthZoom = zoomLevel
+                tracker.lastDepthDraws = depthRasterDraws
                 tracker.lastLowDepthBitmap = lowDepthWarningBitmap
-                tracker.lastLowDepthZoom = zoomLevel
+                tracker.lastLowDepthDraws = depthRasterDraws
                 tracker.lastIsobaths = isobaths
-                tracker.lastIsobathZoom = zoomLevel
                 tracker.lastRegulatedZones = regulatedZones
-                tracker.lastRegZoneZoom = zoomLevel
+                tracker.lastRegZoneDraws = regulatedZoneDraws
                 tracker.lastRegZoneFillTransparencyPct = regulatedZoneFillTransparencyPct
                 tracker.lastRegZoneBoundaryTransparencyPct = regulatedZoneBoundaryTransparencyPct
                 tracker.lastRegZoneOutlineWidthPx = regulatedZoneOutlineWidthPx
                 tracker.lastZone300 = zone300
-                tracker.lastZone300Zoom = zoomLevel
+                tracker.lastZone300Draws = zone300Draws
                 tracker.lastZone300Color = zone300Color
                 tracker.lastZone300FillTransparencyPct = zone300FillTransparencyPct
                 tracker.lastZone300BoundaryTransparencyPct = zone300BoundaryTransparencyPct
@@ -278,6 +291,9 @@ internal fun CoastlineMapView(
                         val geo = this@apply.mapCenter
                         onCenterChanged(geo.latitude, geo.longitude)
                         onZoomChanged(this@apply.zoomLevelDouble)
+                        // No invalidate here: the map already repaints a zoom, and the measured median
+                        // during a continuous gesture is unchanged by asking for a second frame's work.
+                        // A gate crossing rebuilds its own layer and invalidates with it.
                         return false
                     }
                 })
@@ -289,14 +305,15 @@ internal fun CoastlineMapView(
     )
 
     // ── Per-layer LaunchedEffect blocks ──────────────────────────────────────
-    // Each keyed on only its own data + zoomLevel, with an early-return guard
-    // comparing against the tracker's per-layer last-known state.
+    // Each keyed on only its own data + its zoom gate, with an early-return guard comparing against
+    // the tracker's per-layer last-known state. The raw level still reaches the draw call, which gates
+    // on it internally — the gate decides *when* to rebuild, the level decides *what* is drawn.
 
     // Zone300 layer
-    LaunchedEffect(zone300, zoomLevel, zone300Color, zone300FillTransparencyPct, zone300BoundaryTransparencyPct, zone300BoundaryWidthPx) {
+    LaunchedEffect(zone300, zone300Draws, zone300Color, zone300FillTransparencyPct, zone300BoundaryTransparencyPct, zone300BoundaryWidthPx) {
         val mv = localMapView.value ?: return@LaunchedEffect
         if (zone300 === tracker.lastZone300 &&
-            zoomLevel == tracker.lastZone300Zoom &&
+            zone300Draws == tracker.lastZone300Draws &&
             zone300Color == tracker.lastZone300Color &&
             zone300FillTransparencyPct == tracker.lastZone300FillTransparencyPct &&
             zone300BoundaryTransparencyPct == tracker.lastZone300BoundaryTransparencyPct &&
@@ -306,7 +323,7 @@ internal fun CoastlineMapView(
         tracker.zone300.clear()
         drawZone300(mv, zone300, zoomLevel, zone300Color, zone300FillTransparencyPct, zone300BoundaryTransparencyPct, zone300BoundaryWidthPx, tracker.zone300)
         tracker.lastZone300 = zone300
-        tracker.lastZone300Zoom = zoomLevel
+        tracker.lastZone300Draws = zone300Draws
         tracker.lastZone300Color = zone300Color
         tracker.lastZone300FillTransparencyPct = zone300FillTransparencyPct
         tracker.lastZone300BoundaryTransparencyPct = zone300BoundaryTransparencyPct
@@ -316,13 +333,13 @@ internal fun CoastlineMapView(
     }
 
     // Regulated zones layer
-    LaunchedEffect(regulatedZones, zoomLevel, regulatedZoneFillTransparencyPct, regulatedZoneBoundaryTransparencyPct, regulatedZoneOutlineWidthPx) {
+    LaunchedEffect(regulatedZones, regulatedZoneDraws, regulatedZoneFillTransparencyPct, regulatedZoneBoundaryTransparencyPct, regulatedZoneOutlineWidthPx) {
         val mv = localMapView.value ?: return@LaunchedEffect
         // The appearance values belong in the guard, not only in the keys: a slider commit leaves
-        // the zone set and the zoom untouched, so without these three the effect would return early
-        // and the setting would look dead until the next zoom change.
+        // the zone set and the gate untouched, so without these three the effect would return early
+        // and the setting would look dead until the next gate crossing.
         if (regulatedZones === tracker.lastRegulatedZones &&
-            zoomLevel == tracker.lastRegZoneZoom &&
+            regulatedZoneDraws == tracker.lastRegZoneDraws &&
             regulatedZoneFillTransparencyPct == tracker.lastRegZoneFillTransparencyPct &&
             regulatedZoneBoundaryTransparencyPct == tracker.lastRegZoneBoundaryTransparencyPct &&
             regulatedZoneOutlineWidthPx == tracker.lastRegZoneOutlineWidthPx
@@ -331,7 +348,7 @@ internal fun CoastlineMapView(
         tracker.regulatedZones.clear()
         drawRegulatedZones(mv, regulatedZones, zoomLevel, regulatedZoneFillTransparencyPct, regulatedZoneBoundaryTransparencyPct, regulatedZoneOutlineWidthPx, tracker.regulatedZones)
         tracker.lastRegulatedZones = regulatedZones
-        tracker.lastRegZoneZoom = zoomLevel
+        tracker.lastRegZoneDraws = regulatedZoneDraws
         tracker.lastRegZoneFillTransparencyPct = regulatedZoneFillTransparencyPct
         tracker.lastRegZoneBoundaryTransparencyPct = regulatedZoneBoundaryTransparencyPct
         tracker.lastRegZoneOutlineWidthPx = regulatedZoneOutlineWidthPx
@@ -340,47 +357,52 @@ internal fun CoastlineMapView(
     }
 
     // Depth colour raster layer
-    LaunchedEffect(depthBitmap, depthBox, zoomLevel) {
+    LaunchedEffect(depthBitmap, depthBox, depthRasterDraws) {
         val mv = localMapView.value ?: return@LaunchedEffect
         if (depthBitmap === tracker.lastDepthBitmap &&
             depthBox === tracker.lastDepthBox &&
-            zoomLevel == tracker.lastDepthZoom
+            depthRasterDraws == tracker.lastDepthDraws
         ) return@LaunchedEffect
         mv.overlays.removeAll(tracker.depth)
         tracker.depth.clear()
         drawDepthMap(mv, depthBitmap, depthBox, zoomLevel, tracker.depth)
         tracker.lastDepthBitmap = depthBitmap
         tracker.lastDepthBox = depthBox
-        tracker.lastDepthZoom = zoomLevel
+        tracker.lastDepthDraws = depthRasterDraws
         OverlayZOrder.reorder(mv)
         mv.invalidate()
     }
 
     // Low-depth warning layer
-    LaunchedEffect(lowDepthWarningBitmap, depthBox, zoomLevel) {
+    LaunchedEffect(lowDepthWarningBitmap, depthBox, depthRasterDraws) {
         val mv = localMapView.value ?: return@LaunchedEffect
         if (lowDepthWarningBitmap === tracker.lastLowDepthBitmap &&
-            zoomLevel == tracker.lastLowDepthZoom
+            depthRasterDraws == tracker.lastLowDepthDraws
         ) return@LaunchedEffect
         mv.overlays.removeAll(tracker.lowDepth)
         tracker.lowDepth.clear()
         drawLowDepthWarning(mv, lowDepthWarningBitmap, depthBox, zoomLevel, tracker.lowDepth)
         tracker.lastLowDepthBitmap = lowDepthWarningBitmap
-        tracker.lastLowDepthZoom = zoomLevel
+        tracker.lastLowDepthDraws = depthRasterDraws
         OverlayZOrder.reorder(mv)
         mv.invalidate()
     }
 
-    // Isobaths layer
-    LaunchedEffect(isobaths, zoomLevel) {
+    // Isobaths layer — attach once, gate by flag. A crossing used to drop and re-create every
+    // contour polyline and re-stack the overlay list, which measured about 0.7 s a crossing: seven
+    // such frames in one fifteen-second wide sweep, the pause felt mid-stroke. Now the set is built
+    // only when the data changes, and a crossing writes one boolean per polyline.
+    LaunchedEffect(isobaths, isobathDraws, shallowIsobathDraws) {
         val mv = localMapView.value ?: return@LaunchedEffect
-        if (isobaths === tracker.lastIsobaths && zoomLevel == tracker.lastIsobathZoom) return@LaunchedEffect
-        mv.overlays.removeAll(tracker.isobaths)
-        tracker.isobaths.clear()
-        drawIsobaths(mv, isobaths, zoomLevel, tracker.isobaths)
-        tracker.lastIsobaths = isobaths
-        tracker.lastIsobathZoom = zoomLevel
-        OverlayZOrder.reorder(mv)
+        if (isobaths !== tracker.lastIsobaths) {
+            mv.overlays.removeAll(tracker.isobaths)
+            tracker.isobaths.clear()
+            tracker.isobathsShallow.clear()
+            drawIsobaths(mv, isobaths, tracker.isobaths, tracker.isobathsShallow)
+            tracker.lastIsobaths = isobaths
+            OverlayZOrder.reorder(mv)
+        }
+        applyIsobathGates(tracker, isobathDraws, shallowIsobathDraws)
         mv.invalidate()
     }
 
@@ -414,4 +436,18 @@ internal fun CoastlineMapView(
     }
 
     // ── Cone + dashed line: DISABLED — see more-dedebug subfeature ──────────────
+}
+
+/**
+ * Applies the two isobath floors to the already-attached polylines — a flag write, never a rebuild.
+ * The shallow group is written twice on purpose, so the shallower floor wins for the 2 m lines.
+ */
+private fun applyIsobathGates(
+    tracker: OverlayTracker,
+    isobathDraws: Boolean,
+    shallowIsobathDraws: Boolean
+) {
+    val shallow = isobathDraws && shallowIsobathDraws
+    for (poly in tracker.isobaths) poly.isEnabled = isobathDraws
+    for (poly in tracker.isobathsShallow) poly.isEnabled = shallow
 }
