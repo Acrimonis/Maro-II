@@ -1,44 +1,26 @@
-# Performance — Hydration (2026-09-12 10:57 UTC)
+# Context Hydration — Performance — 2026-09-20
 
-## State — power-management Phase 1 COMPLETE, reviewed, cleaned (cleanup uncommitted at bake time)
+**Last Bake:** 2026-09-20 08:52 UTC — written by `#bake`; absence means never baked
 
-Branch **`feature/staying-alive`**. Phase 0 + Phase 1 of
-`260912_FEAT_PLN_Performance_power-management-centralization.md` are implemented and committed as
-`82cee3f` (feature) and `ba4c187` (freshness fix). The cleanup pass and the review-findings pass sit on
-top, APK-green.
+**Directive trace:** the device class was met on the user's own order — adb is driven from here at their word, and the gestures stay theirs — and two wrong statements were corrected in place rather than shipped: a track-file path that did not exist and a zoom cue that cannot be seen with the layers off. No dependency was added, no machine-shaped file was opened, and no work began without an order.
 
-- **`data/power/`** — `PowerPolicy.kt` (framework-free, stateless: hold while moving **or** within the
-  grace of the last touch; unknown speed holds, stale releases; additive master-vs-gate semantics),
-  `PowerKeeper.kt` (screen channel: `StateFlow<PowerState>`, pushed inputs, recording observer, grace
-  ticker gated on a live hold, exemption delegation), `SpeedFreshness.kt` (when a reading is genuinely
-  new) and `BatteryExemption.kt` (the exemption question's single home, shared by all four trigger sites).
-- **Settings** — movement-gate, threshold, grace and `batteryOptimizationPrompted` keys; `keepScreenOn`
-  default `false`; legacy `maro_battery_prefs` migrated in `init`.
-- **UI** — System → Screen: lock-phrased toggle plus an expander with the gate, threshold (0.5–5 kn) and
-  lock-delay (1–15 min) controls. EN + FR complete.
-- **Constants** — `maro.properties` (`power.screen.*`) behind typed `AppConfig` accessors.
-- **Validation** — 23 power unit tests green; `apk-build.bat` SUCCESSFUL.
+## State
 
-## Next step
+Branch **`feature/performancE`**, cut from `origin/develop` (`9756a47`) and level with it; the tree holds one new plan under `xTrack/Performance/` and no app code has changed.
 
-1. **Device verification** (plan §11) — the one thing still unrun: grace release at the 1-minute minimum,
-   one grace period after the last touch in demo mode; the master-off check that isolates an external
-   screen-awake source (Developer options "Stay awake while charging") from our flag; recording floor.
-2. **Confirm** the 5-minute default lock delay, chosen because 15 became the maximum under 1–15.
-3. **Push and open the PR** — `#push` was invoked; the branch is otherwise ready.
+- **Plan in design:** [`260920_FEAT_PLN_Performance_map-layer-cost.md`](260920_FEAT_PLN_Performance_map-layer-cost.md) — a device measurement protocol for map layer cost, run on a Pixel 7 (Android 16, USB) in demo mode: eight switch states, ten-second `dumpsys gfxinfo` windows opened by a frame-counter motion gate, levels set by the ground rather than by a zoom number, and every cell repeated because window-to-window spread proved as large as the effects being hunted.
+- **Floor, dragging at the far level:** 23–28 ms a frame with nothing switched on, GPU 7–12 ms, lateness split evenly between the UI thread and issuing draw commands — the app cannot reach sixty hertz bare.
+- **Floor, pinching at the far level:** 81–85 ms a frame, 93.6% of frames late, GPU idle at 6–8 ms, both the UI thread and draw issuance saturated. The penalty is present with no layer at all, so the zoom path's own cost is separate from the layer question the pass was opened for.
+- The first attempts — a sixty-second idle window and a pinch measured on a restarted process — are recorded as a false start in the plan's session log; the pass restarted under the gated window.
+- `docs/SETUP.md` still names the Wi-Fi device that did not answer; this pass runs on USB.
 
-## Warts / follow-ups
+## Target Files
 
-- Background process management is **untouched by design**: the service stays unconditional, so
-  `PowerState.keepAlive` is computed but consumed by nobody until phase 3.
-- `PowerKeeper.isExemptFromBatteryOptimizations()` has no caller by design — it is the documented seam
-  for the phase-3 service lifecycle, not an oversight.
-- The three unit-test failures that used to block a green full-suite run were closed on 2026-09-19: the two
-  `MarkerFilterMigrationTest` v7 cases and the one `RegulationAggregatorTest` case asserted behaviour the
-  shipped code no longer has — a removed prefs migration and a removed type gate — and were dropped, so the
-  suite now completes with zero failures. The aggregator's 50 m same-location collapse is left unpinned.
-- Phases 2–4 stay gated on the Tasker reconciliation.
+- `xTrack/Performance/260920_FEAT_PLN_Performance_map-layer-cost.md` — the protocol, the reading table and the running session log
+- `app/src/main/java/ykws/android/maro/ui/map/MapOverlayRenderer.kt` — the banded ground-overlay stacks, the isobath draw and their zoom gates
+- `app/src/main/java/ykws/android/maro/ui/map/CoastlineMapView.kt` — the per-frame redraw and the `OverlayZOrder.reorder` call sites
+- `app/src/main/java/ykws/android/maro/ui/map/MapDepthRasterEffects.kt` — the raster builds and their caches
 
-## Plans of record
+## Next Step
 
-- `xTrack/Performance/260912_FEAT_PLN_Performance_power-management-centralization.md`
+Continue the pass at the layer cells — depth colour alone, then the shallow warning, then both together, across dragging and pinching, each read against its own gesture's floor.

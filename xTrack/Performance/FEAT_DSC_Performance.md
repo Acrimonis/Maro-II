@@ -2,7 +2,7 @@
 name: Performance
 status: active
 created: 2026-06-07 00:00
-modified: 2026-09-12 10:57
+modified: 2026-09-20 08:52
 ---
 
 # Feature: Performance
@@ -98,6 +98,7 @@ Two **independent** channels: the screen flag (window-scoped, front-only by cons
 - `app/src/main/java/ykws/android/maro/data/power/PowerKeeper.kt` — power keeper (screen channel, phase 1)
 
 ## Docs
+- `xTrack/Performance/260920_FEAT_PLN_Performance_map-layer-cost.md` — plan of record for the map layer cost measurement: eight switch states, the motion-gated ten-second window, the ground-set levels, the reading table and the running session log.
 - `xTrack/Performance/FEAT_DOC_Performance_battery-design.md` — battery hotspot analysis, presets/defaults, adaptive-policy contract, refresh-cap mechanism.
 - `xTrack/Performance/260912_FEAT_PLN_Performance_power-management-centralization.md` — power management plan of record: two-channel model, order of work, open items.
 - `docs/MARO_ARCHITECTURE.md` — spatial-engine constraints (async render rules).
