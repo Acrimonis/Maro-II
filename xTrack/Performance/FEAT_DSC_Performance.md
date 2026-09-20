@@ -2,7 +2,7 @@
 name: Performance
 status: active
 created: 2026-06-07 00:00
-modified: 2026-09-12 10:57
+modified: 2026-09-20 13:50
 ---
 
 # Feature: Performance
@@ -76,6 +76,8 @@ Two **independent** channels: the screen flag (window-scoped, front-only by cons
 
 - **power-management review findings (2026-09-12)** — second pass over the Ask findings: the keeper's KDoc now states it **delegates** the exemption query to `BatteryExemption` and keeps the method as the phase-3 service-lifecycle seam (decided **keep**, since deleting it would strand the keeper's `Context`), `MapScreen` imports the predicate instead of qualifying it twice, and plan §4.1/§4.2 were aligned so the same ownership split is described in the same words in all three places. No behaviour change; APK SUCCESS
 
+- **map-layer-cost: the zoom step removed in three moves (2026-09-20)** — the pass measured the zoom cost on the device and then took it out. Five per-layer effects in `CoastlineMapView` were keyed on the raw zoom, so every step tore down and rebuilt the 300 m band, the regulated zones, both depth rasters and the isobaths on the main thread; they now key on their **gate**, the floors staying with the drawing code (`DepthConstants`, `ZONE_MIN_ZOOM`, `REGULATED_ZONE_MIN_ZOOM`), which took the buttons window's tail from 650–800 ms to nothing and the depth-colour pinch from **14 frames at 750 ms to 205 at 53 ms**. The repaint added to the zoom listener was then measured neutral and removed, and the contour polylines — dropped, re-created and re-stacked at every crossing, seven times in one fifteen-second wide sweep at ~0.7 s each — are now attached once and switched by their own `enabled` flag (`drawIsobaths` + `applyIsobathGates`), taking that sweep from 145 frames to 410 with nothing above 150 ms. The zoom persist joined the pan path's existing 1 Hz throttle. `apk-build.bat` SUCCESSFUL; owed are the warm repeat, the eye check on the 13 and 15 floors, the all-layers pinch and a bare close-in drag → `xTrack/Performance/260920_FEAT_PLN_Performance_map-layer-cost.md`, `xTrack/Performance/260920_FEAT_PLN_Performance_per-frame-cost-levers.md`
+
 ## Rules
 - No new external dependencies — framework `LocationManager`/`SensorManager` + SharedPreferences only.
 - **Power posture, as shipped today:** one foreground service (`TrackRecordingService`, manifest type
@@ -98,6 +100,7 @@ Two **independent** channels: the screen flag (window-scoped, front-only by cons
 - `app/src/main/java/ykws/android/maro/data/power/PowerKeeper.kt` — power keeper (screen channel, phase 1)
 
 ## Docs
+- `xTrack/Performance/260920_FEAT_PLN_Performance_map-layer-cost.md` — plan of record for the map layer cost measurement: eight switch states, the motion-gated ten-second window, the ground-set levels, the reading table and the running session log.
 - `xTrack/Performance/FEAT_DOC_Performance_battery-design.md` — battery hotspot analysis, presets/defaults, adaptive-policy contract, refresh-cap mechanism.
 - `xTrack/Performance/260912_FEAT_PLN_Performance_power-management-centralization.md` — power management plan of record: two-channel model, order of work, open items.
 - `docs/MARO_ARCHITECTURE.md` — spatial-engine constraints (async render rules).

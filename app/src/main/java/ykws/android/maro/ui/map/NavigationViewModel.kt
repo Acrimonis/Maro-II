@@ -1383,11 +1383,18 @@ class NavigationViewModel(
 
     /**
      * Called whenever the user zooms the map.
-     * Captures the zoom level and persists it.
+     * Captures the zoom level and persists it on the pan path's own 1 Hz throttle: a pinch emits a
+     * zoom event per frame, and an unthrottled write put a settings persist on every one of them.
+     * Only the write is throttled, never the in-memory level, and [savePosition] on ON_PAUSE carries
+     * the final value — exactly as it does for the centre above.
      */
     fun updateZoomLevel(zoom: Double) {
         _zoomLevel.value = zoom
-        settingsManager.update { it.copy(zoomLevel = zoom) }
+        val nowMs = SystemClock.elapsedRealtime()
+        if (nowMs - lastPersistMs >= 1_000L) {
+            lastPersistMs = nowMs
+            settingsManager.update { it.copy(zoomLevel = zoom) }
+        }
     }
 
     /**

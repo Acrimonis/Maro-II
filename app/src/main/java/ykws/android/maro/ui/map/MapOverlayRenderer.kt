@@ -381,22 +381,27 @@ fun drawLowDepthWarning(
 
 /**
  * Draws depth contour [isobaths] as polylines, above the colour map but below the 300 m band
- * and coastline. Zoom-gated: nothing below [DepthConstants.ISOBATH_MIN_DRAW_ZOOM]; the dense
- * 2 m contour appears only at [DepthConstants.SHALLOW_ISOBATH_MIN_ZOOM]+. "Round" contours
- * (10/20/30…m) read slightly bolder than the in-between lines.
+ * and coastline. **Every contour is attached**: the two zoom gates ride on each polyline's own
+ * `enabled` flag, which the caller switches, because rebuilding this set at a gate crossing
+ * measured about 0.7 s a crossing — seven such frames in one fifteen-second wide sweep, the pause
+ * felt mid-stroke — while a flag write costs nothing. "Round" contours (10/20/30…m) read slightly
+ * bolder than the in-between lines.
+ *
+ * @param sink every polyline attached, for the caller's removal pass.
+ * @param shallowSink the 2 m subset again, the group the shallower floor switches on its own.
  */
 fun drawIsobaths(
     mapView: MapView,
     isobaths: List<Isobath>,
-    zoomLevel: Double,
-    sink: MutableList<Polyline>
+    sink: MutableList<Polyline>,
+    shallowSink: MutableList<Polyline>
 ) {
     sink.clear()
-    if (zoomLevel < DepthConstants.ISOBATH_MIN_DRAW_ZOOM) return
+    shallowSink.clear()
     // The isobath's widths, floor and dash are dp; the map view's own density is what the paints take.
     val density = mapView.paintDensity
     for (iso in isobaths) {
-        if (iso.depthM <= 2f && zoomLevel < DepthConstants.SHALLOW_ISOBATH_MIN_ZOOM) continue
+        val shallow = iso.depthM <= 2f
         val isMajor = iso.depthM.toInt() % 10 == 0
         for (line in iso.lines) {
             if (line.points.size < 2) continue
@@ -423,6 +428,7 @@ fun drawIsobaths(
             }
             mapView.overlays.add(poly)
             sink.add(poly)
+            if (shallow) shallowSink.add(poly)
         }
     }
 }
